@@ -1155,11 +1155,11 @@
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
   }
 
-  /** browse 4단(2차) — sentinel+IO 접힘, height 0 즉시 (transition 금지 — 떨림 방지) */
+  /** browse 3단(1차) — sentinel+IO 접힘, height 0 즉시 (transition 금지 — 떨림 방지) */
   [data-stores-browse-subtopic-collapse] {
     overflow: hidden;
     flex-shrink: 0;
-    height: var(--delivery-home-subcategory-reveal-h);
+    height: var(--dibay-secondary-tab-row-h, 44px);
   }
 
   [data-stores-browse-subtopic-collapse][data-collapsed="true"] {

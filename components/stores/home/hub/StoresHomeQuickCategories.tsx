@@ -1,10 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
 import {
   fetchStoresTaxonomyDeduped,
   clearStoresTaxonomyClientCache,
@@ -13,7 +10,6 @@ import {
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
-import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import {
   readStoresHomeTaxonomyFromClientCache,
   resolveStoresHomeTaxonomyFromApi,
@@ -21,11 +17,8 @@ import {
   type StoresHomeTaxonomyState,
 } from "@/lib/stores/stores-home-taxonomy-client";
 import {
-  getStoresHomeCategoryChromeSnapshot,
-  getStoresHomeCategoryChromeServerSnapshot,
   patchStoresHomeCategoryChrome,
   setStoresHomeCategoryChromeHandlers,
-  subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
@@ -61,21 +54,13 @@ function resolveSubsForPrimary(
 
 /**
  * CONTRACT — 홈 카테고리 상태·핸들러.
- * 레이아웃: 헤더 → 2차(`StoresHomeSubCategoryPanel`) → 1차(`StoresHomePrimaryCategoryPanel`).
- * 2차 숨김: 1차 → 헤더 stickyBelow 고정 + 탭은 browse 이동.
+ * 레이아웃: 헤더 → 1차(`StoresHomePrimaryCategoryPanel`) → 2차(`StoresHomeSubCategoryPanel`) — `AppStickyHeader`.
  */
 export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
-  const router = useRouter();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const activePtrDomain = useMainHubPtrDomain();
   const isStoresHubRoot = activePtrDomain === "stores";
-  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const subCategoryInView = useSyncExternalStore(
-    subscribeStoresHomeCategoryChrome,
-    () => getStoresHomeCategoryChromeSnapshot().subCategoryInView,
-    () => getStoresHomeCategoryChromeServerSnapshot().subCategoryInView
-  );
   const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
   const [taxonomyReady, setTaxonomyReady] = useState(false);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
@@ -192,19 +177,11 @@ export function StoresHomeQuickCategories() {
       if (!next) return;
       prewarmBrowsePrimary(next);
 
-      const subVisible = getStoresHomeCategoryChromeSnapshot().subCategoryInView;
-      if (subVisible) {
-        if (next === activeSlug && pickedSlug !== null) return;
-        setPickedSlug(next);
-        if (next !== activeSlug) setActiveSlug(next);
-        return;
-      }
-
+      if (next === activeSlug && pickedSlug !== null) return;
       setPickedSlug(next);
-      setActiveSlug(next);
-      router.push(storesBrowsePrimaryPath(next));
+      if (next !== activeSlug) setActiveSlug(next);
     },
-    [activeSlug, pickedSlug, prewarmBrowsePrimary, router]
+    [activeSlug, pickedSlug, prewarmBrowsePrimary]
   );
 
   useLayoutEffect(() => {
@@ -226,16 +203,6 @@ export function StoresHomeQuickCategories() {
       primaryAriaLabel: t("store_primary_industry_aria"),
     });
   }, [activeSlug, language, pickedSlug, primaries, subs, t, taxonomyReady]);
-
-  useLayoutEffect(() => {
-    if (!setMainTier1Extras || !isStoresHubRoot) return;
-    if (taxonomyReady && !subCategoryInView) {
-      setMainTier1Extras({ stickyBelow: STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW });
-    } else {
-      setMainTier1Extras(null);
-    }
-    return () => setMainTier1Extras(null);
-  }, [isStoresHubRoot, setMainTier1Extras, subCategoryInView, taxonomyReady]);
 
   return null;
 }

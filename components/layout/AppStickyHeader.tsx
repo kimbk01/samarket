@@ -27,6 +27,7 @@ import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
 import { MarketplaceHomeEntryChrome } from "@/components/trade/MarketplaceHomeEntryChrome";
+import { StoresHomeCategoryHeaderStack } from "@/components/stores/home/hub/StoresHomeCategoryHeaderStack";
 import { StoresHomePullRefreshHost } from "@/components/stores/home/hub/StoresHomePullRefreshHost";
 import { StoresBrowsePullRefreshHost } from "@/components/stores/browse/StoresBrowsePullRefreshHost";
 
@@ -118,6 +119,7 @@ export function AppStickyHeader() {
                 {tradeSecondaryTabs}
               </>
             ) : null}
+            {isStoresHubRoot ? <StoresHomeCategoryHeaderStack /> : null}
             {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
             {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}
           </>

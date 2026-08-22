@@ -128,8 +128,7 @@ function bindObserver(): void {
   window.addEventListener("resize", scheduleGeometryRecheck, { passive: true });
 }
 
-/**
- * `/stores/browse/*` — 4단(2차 업종 칩) 접힘 단일 권한.
+/** `/stores/browse/*` — 3단(1차 업종 탭) 접힘 단일 권한.
  * 스크롤 델타 금지 — sentinel + scroll-root 좌표 + IO 트리거 + 히스테리시스.
  */
 export function registerBrowseSubtopicCollapseSentinel(el: HTMLElement | null): void {

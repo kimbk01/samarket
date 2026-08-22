@@ -16,7 +16,6 @@ import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/l
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import {
-  STORES_HOME_CATEGORY_STICKY_STACK,
   STORES_HOME_PRIMARY_CATEGORY_ICON_INNER,
   STORES_HOME_PRIMARY_CATEGORY_ICON_SLOT,
   STORES_HOME_PRIMARY_CATEGORY_LABEL_IDLE,
@@ -120,7 +119,7 @@ function StoresHomePrimaryCategoryRail({
 const StoresHomePrimaryCategoryRailMemo = memo(StoresHomePrimaryCategoryRail);
 
 /**
- * CONTRACT — 맨 위: **2차 아래** 스크롤 본문 1차. 2차 보일 때만 렌더.
+ * CONTRACT — 헤더 고정 1차 업종 행 (`StoresHomeCategoryHeaderStack`).
  */
 export function StoresHomePrimaryCategoryPanel() {
   const snap = useSyncExternalStore(
@@ -137,7 +136,7 @@ export function StoresHomePrimaryCategoryPanel() {
     );
   }
 
-  if (snap.primaries.length === 0 || !snap.subCategoryInView) return null;
+  if (snap.primaries.length === 0) return null;
 
   return (
     <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY}>
@@ -153,33 +152,3 @@ export function StoresHomePrimaryCategoryPanel() {
   );
 }
 
-/**
- * CONTRACT — 2차 숨김 후: **헤더 stickyBelow** 고정 1차(노란). 피드 스크롤과 분리.
- */
-export function StoresHomePrimaryCategoryHeaderSticky() {
-  const snap = useSyncExternalStore(
-    subscribeStoresHomeCategoryChrome,
-    getStoresHomeCategoryChromeSnapshot,
-    getStoresHomeCategoryChromeServerSnapshot
-  );
-
-  if (!snap.taxonomyReady || snap.subCategoryInView || snap.primaries.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className={STORES_HOME_CATEGORY_STICKY_STACK}>
-      <StoresHomePrimaryCategoryRailMemo
-        primaries={snap.primaries}
-        activeSlug={snap.activeSlug}
-        hasPrimarySelection
-        compactSticky
-        language={snap.language}
-        ariaLabel={snap.primaryAriaLabel}
-      />
-    </div>
-  );
-}
-
-/** `MainTier1Extras.stickyBelow` — 2차 숨김 시에만 QuickCategories 가 등록 */
-export const STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW = <StoresHomePrimaryCategoryHeaderSticky />;

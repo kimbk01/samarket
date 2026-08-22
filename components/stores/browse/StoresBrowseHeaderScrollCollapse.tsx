@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useBrowseSubtopicCollapsed } from "@/lib/stores/use-browse-subtopic-collapsed";
 
-/** browse 4단(2차 업종 칩) — sentinel+IO 모듈 store 가 높이 접힘을 제어한다. */
+/** browse 3단(1차 업종 탭) — sentinel+IO 모듈 store 가 높이 접힘을 제어한다. */
 export function StoresBrowseHeaderScrollCollapse({ children }: { children: ReactNode }) {
   const collapsed = useBrowseSubtopicCollapsed();
 

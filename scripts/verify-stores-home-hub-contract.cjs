@@ -234,7 +234,17 @@ assertIncludes(
 
   "StoresHomePrimaryCategoryPanel",
 
-  "primary category panel must live in scroll body with sticky"
+  "primary category panel must live in header stack"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeCategoryHeaderStack.tsx"),
+
+  "StoresHomePrimaryCategoryPanel",
+
+  "header stack must mount primary category before sub category"
 
 );
 
@@ -244,7 +254,7 @@ assertIncludes(
 
   "STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY",
 
-  "primary category must use scroll-body wrapper below sub panel"
+  "primary category must use header row wrapper"
 
 );
 
@@ -398,79 +408,79 @@ assertNotIncludes(
 
 );
 
-assertIncludes(
+assertNotIncludes(
 
   quickCategories,
 
   "STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW",
 
-  "home categories must register primary stickyBelow when sub panel hides"
+  "home categories must not register legacy stickyBelow primary rail"
 
 );
 
-assertIncludes(
+assertNotIncludes(
 
   read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
 
   "StoresHomePrimaryCategoryHeaderSticky",
 
-  "primary header sticky must render when sub category hidden"
+  "home must not use scroll-hide primary header stickyBelow"
 
 );
 
-assertIncludes(
+assertNotIncludes(
 
   read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
 
   "subCategoryInView",
 
-  "scroll-body primary must hide when sub category not in view"
+  "header primary must stay visible regardless of scroll"
 
 );
 
-const categorySeedClient = read("components/stores/home/hub/StoresHomeCategorySeedPanel.client.tsx");
+const categoryHeaderStack = read("components/stores/home/hub/StoresHomeCategoryHeaderStack.tsx");
 
 assertIncludes(
+
+  read("components/layout/AppStickyHeader.tsx"),
+
+  "StoresHomeCategoryHeaderStack",
+
+  "sticky header must mount home category stack on /stores"
+
+);
+
+assertNotIncludes(
 
   hub,
 
   "StoresHomeCategorySeedPanelClient",
 
-  "hub must mount client category hydration bridge"
+  "hub must not mount category panels in scroll body"
 
 );
 
 assertIncludes(
 
-  categorySeedClient,
+  categoryHeaderStack,
 
   "StoresHomeSubCategoryPanel",
 
-  "category client bridge must mount 2nd category panel"
+  "header stack must mount 2nd category panel"
 
 );
 
 assertIncludes(
 
-  categorySeedClient,
+  categoryHeaderStack,
 
   "StoresHomePrimaryCategoryPanel",
 
-  "category client bridge must mount 1st category panel after 2nd"
+  "header stack must mount 1st category panel before 2nd"
 
 );
 
-const categoryBridgeBody = categorySeedClient.slice(categorySeedClient.indexOf("return ("));
-
-assertIncludes(
-
-  categoryBridgeBody,
-
-  "<StoresHomeSubCategoryPanel />",
-
-  "category bridge render order must mount 2nd category first"
-
-);
+const categoryBridgeBody = categoryHeaderStack.slice(categoryHeaderStack.indexOf("return ("));
 
 assertIncludes(
 
@@ -478,17 +488,27 @@ assertIncludes(
 
   "<StoresHomePrimaryCategoryPanel />",
 
-  "category bridge render order must mount 1st category after 2nd"
+  "category header stack must mount 1st category first"
 
 );
 
 assertIncludes(
 
+  categoryBridgeBody,
+
+  "<StoresHomeSubCategoryPanel />",
+
+  "category header stack must mount 2nd category after 1st"
+
+);
+
+assertNotIncludes(
+
   quickCategories,
 
   "subCategoryInView",
 
-  "home categories must branch primary tap on sub panel visibility"
+  "home categories must not branch primary tap on scroll visibility"
 
 );
 
@@ -676,14 +696,14 @@ assertNotIncludes(
 
 assertIncludes(
   hub,
-  "StoresHomeCategorySeedPanelClient",
-  "hub must mount interactive category panels"
+  "StoresHomeQuickCategories",
+  "hub must mount interactive category state bridge"
 );
 
 assertNotIncludes(
-  categorySeedClient,
+  categoryHeaderStack,
   "getElementById",
-  "category client must not remove SSR seed DOM (no SSR seed)"
+  "category header stack must not remove SSR seed DOM (no SSR seed)"
 );
 
 assertNotIncludes(
@@ -1175,6 +1195,23 @@ assertIncludes(
   "browse row featured menu rail must set touchAction pan-x"
 );
 
+const browseHeaderChrome = read("components/stores/browse/StoresBrowseHeaderChrome.tsx");
+assertIncludes(
+  browseHeaderChrome,
+  "StoresBrowseHeaderScrollCollapse",
+  "browse header must use scroll collapse wrapper"
+);
+assertIncludes(
+  browseHeaderChrome,
+  "StoresBrowseHeaderPrimaryTabs",
+  "browse header must collapse primary tabs on scroll"
+);
+assertIncludes(
+  browseHeaderChrome,
+  "StoresBrowseHeaderSubTopicChips",
+  "browse header must keep sub topic chips outside collapse wrapper"
+);
+
 const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");
 assertIncludes(
   browseScrollCollapse,
@@ -1199,6 +1236,11 @@ assertIncludes(
   deliveryComponents,
   '[data-stores-browse-subtopic-collapse][data-collapsed="true"]',
   "browse subtopic collapse must define collapsed wrapper state"
+);
+assertIncludes(
+  deliveryComponents,
+  "height: var(--dibay-secondary-tab-row-h, 44px)",
+  "browse primary collapse must use secondary tab row height"
 );
 assertIncludes(
   deliveryComponents,

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomeCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
@@ -9,14 +9,11 @@ import {
   resolveStoreFoodSubtopicLabel,
   resolveStoreTopicLabel,
 } from "@/lib/i18n/store-browse-label-i18n";
-import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
-import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import {
   getStoresHomeCategoryChromeHandlers,
   getStoresHomeCategoryChromeServerSnapshot,
   getStoresHomeCategoryChromeSnapshot,
-  patchStoresHomeCategoryChrome,
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
@@ -121,7 +118,7 @@ function StoresHomeSubCategoryRail({
 }
 
 /**
- * CONTRACT — 2차 업종 스크롤 본문. 한 행 가로 스와이프. 1차 탭 전환 시 360ms 우→좌 슬라이드.
+ * CONTRACT — 헤더 고정 2차 업종 행. 한 행 가로 스와이프. 1차 탭 전환 시 360ms 우→좌 슬라이드.
  */
 export function StoresHomeSubCategoryPanel() {
   const snap = useSyncExternalStore(
@@ -129,7 +126,6 @@ export function StoresHomeSubCategoryPanel() {
     getStoresHomeCategoryChromeSnapshot,
     getStoresHomeCategoryChromeServerSnapshot
   );
-  const sectionRef = useRef<HTMLElement>(null);
   const prevSlugRef = useRef(snap.activeSlug);
   const prevSubsRef = useRef(snap.subs);
   const [transition, setTransition] = useState<{
@@ -138,39 +134,6 @@ export function StoresHomeSubCategoryPanel() {
     fromSubs: StoreTaxonomyTopic[];
     toSubs: StoreTaxonomyTopic[];
   } | null>(null);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el || !snap.taxonomyReady) return;
-    const root = getMainAppScrollRootCached();
-
-    const syncInView = () => {
-      const rootRect = root.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      if (elRect.height <= 0) return;
-      const visiblePx = Math.min(elRect.bottom, rootRect.bottom) - Math.max(elRect.top, rootRect.top);
-      const ratio = visiblePx / elRect.height;
-      patchStoresHomeCategoryChrome({
-        subCategoryInView: ratio >= 0.45 && elRect.bottom > rootRect.top + 2,
-      });
-    };
-
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        patchStoresHomeCategoryChrome({
-          subCategoryInView: Boolean(entry?.isIntersecting && (entry.intersectionRatio ?? 0) >= 0.45),
-        });
-      },
-      { root, threshold: [0, 0.2, 0.45, 0.7, 1] }
-    );
-    io.observe(el);
-    syncInView();
-    const unsubScroll = subscribeAppShellScroll(syncInView, { passive: true });
-    return () => {
-      io.disconnect();
-      unsubScroll();
-    };
-  }, [snap.taxonomyReady, snap.subs.length]);
 
   useLayoutEffect(() => {
     if (prevSlugRef.current === snap.activeSlug) {
@@ -203,7 +166,6 @@ export function StoresHomeSubCategoryPanel() {
 
   return (
     <section
-      ref={sectionRef}
       className={STORES_HOME_SUB_CATEGORY_SECTION_BODY}
       aria-label="store sub categories"
       data-stores-perf="category"

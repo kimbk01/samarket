@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { StoresBrowseHeaderScrollCollapse } from "@/components/stores/browse/StoresBrowseHeaderScrollCollapse";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,6 +18,7 @@ import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-h
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
+import { useBrowseSubtopicCollapsed } from "@/lib/stores/use-browse-subtopic-collapsed";
 import {
   getBrowsePrimaryTabOptimisticSlugServerSnapshot,
   getBrowsePrimaryTabOptimisticSlugSnapshot,
@@ -62,12 +63,12 @@ function ChevronDownIcon({ className }: { className?: string }) {
  * `/stores/browse/*` — 녹색 3단 헤더
  * 1단: 뒤로 · 제목 · 검색 · 주문 · 카트 · 알림 (CUT-D)
  * 2단: 핀·주소 표시 + ▼ 주소 시트
- * 3단(①): 1차 업종 텍스트 탭 + ▼
+ * 3단(①): 1차 업종 텍스트 탭 + ▼ — 목록 스크롤 시 접힘
  * ▼ 패널: 2단(주소) 하단선·z-20 (4단 2차 칩 위)
- * 4단(②): 2차 업종 (`/stores` 홈 크기 · 1차 전환 360ms 슬라이드 · 목록 기본 `?sub=all`)
+ * 4단(②): 2차 업종 — 항시 상단 고정 (`/stores` 홈 크기 · 1차 전환 360ms 슬라이드 · 목록 기본 `?sub=all`)
  * 5단: 정렬 칩 — `StoresBrowsePrimaryView` `stickyBelow`
- * 목록 스크롤 다운 시 **4단만** `StoresBrowseHeaderScrollCollapse` 로 접음(1·2·3·5단 유지).
- * 4단 숨김: `BrowseSubtopicCollapseSentinel` + `browse-subtopic-collapse-chrome`(IO·geometry sync).
+ * 목록 스크롤 다운 시 **3단(1차)만** `StoresBrowseHeaderScrollCollapse` 로 접음(1·2·4·5단 유지).
+ * 1차 숨김: `BrowseSubtopicCollapseSentinel` + `browse-subtopic-collapse-chrome`(IO·geometry sync).
  * 하단 탭: `browse-scroll-chrome` (분리).
  *
  * CONTRACT — taxonomy: `useBrowsePrimaryIndustries`·`useBrowseSubIndustries` 가
@@ -93,6 +94,7 @@ export function StoresBrowseHeaderChrome() {
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);
   const [primaryMenuOpen, setPrimaryMenuOpen] = useState(false);
+  const primaryCollapsed = useBrowseSubtopicCollapsed();
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
   const primaries = useBrowsePrimaryIndustries();
 
@@ -121,6 +123,10 @@ export function StoresBrowseHeaderChrome() {
     if (fromExtras) return fromExtras;
     return safeT("navigation_delivery");
   }, [extras?.tier1?.titleText, menuActivePrimarySlug, primaries, language, safeT]);
+
+  useEffect(() => {
+    if (primaryCollapsed && primaryMenuOpen) setPrimaryMenuOpen(false);
+  }, [primaryCollapsed, primaryMenuOpen]);
 
   return (
     <>
@@ -191,18 +197,18 @@ export function StoresBrowseHeaderChrome() {
                 </div>
               </>
             : null}
-            <div className={STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS}>
-              <StoresBrowseHeaderPrimaryTabs
-                primaries={primaries}
-                menuOpen={primaryMenuOpen}
-                onMenuOpenChange={setPrimaryMenuOpen}
-              />
-            </div>
             <StoresBrowseHeaderScrollCollapse>
-              <Suspense fallback={null}>
-                <StoresBrowseHeaderSubTopicChips primarySlug={browsePrimarySlug} />
-              </Suspense>
+              <div className={STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS}>
+                <StoresBrowseHeaderPrimaryTabs
+                  primaries={primaries}
+                  menuOpen={primaryMenuOpen}
+                  onMenuOpenChange={setPrimaryMenuOpen}
+                />
+              </div>
             </StoresBrowseHeaderScrollCollapse>
+            <Suspense fallback={null}>
+              <StoresBrowseHeaderSubTopicChips primarySlug={browsePrimarySlug} />
+            </Suspense>
           </div>
         </div>
       : null}
