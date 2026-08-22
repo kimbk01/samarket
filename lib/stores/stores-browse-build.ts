@@ -10,6 +10,10 @@ import {
   sortStoreDiscoveryBrowseRows,
   type StoreBrowseServerSortId,
 } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  applyStoreDiscoveryExposureRotation,
+  buildStoreDiscoveryBrowseExposureScope,
+} from "@/lib/stores/store-discovery-exposure";
 import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
@@ -579,6 +583,21 @@ export function resolveBrowseFilteredSortedStoreRows(
     completedOrderCount30dById: needsOrderCounts ? (completedOrderCount30dById ?? new Map()) : null,
     completedOrderCountStatus: needsOrderCounts ? orderStatus : "ok",
   });
+
+  if (sort === "default") {
+    rows = applyStoreDiscoveryExposureRotation({
+      recommendedSorted: rows,
+      eligibilityRankById,
+      exposureScope: buildStoreDiscoveryBrowseExposureScope({
+        primary: ctx.primary,
+        sub: ctx.sub,
+        regionQ: ctx.regionQ,
+        cityQ: ctx.cityQ,
+        district: ctx.district,
+        geoPart: ctx.origin.cacheGeoPart,
+      }),
+    });
+  }
 
   const page = Math.max(1, Math.floor(ctx.page) || 1);
   const limit = Math.max(1, Math.min(BROWSE_STORE_FETCH_CAP, Math.floor(ctx.limit) || BROWSE_STORE_LIMIT));

@@ -11,6 +11,10 @@ import {
   loadHomeDiscoveryCandidateRows,
   STORE_HOME_FEED_RESPONSE_MAX,
 } from "@/lib/stores/store-discovery-candidate";
+import {
+  applyStoreDiscoveryExposureRotation,
+  buildStoreDiscoveryHomeExposureScope,
+} from "@/lib/stores/store-discovery-exposure";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
@@ -220,6 +224,20 @@ export async function GET(req: Request) {
       hasGeo: userLat != null && userLng != null,
       completedOrderCount30dById: orderLoad.counts,
       completedOrderCountStatus: orderLoad.status,
+    });
+
+    const hasGeo = userLat != null && userLng != null;
+    rows = applyStoreDiscoveryExposureRotation({
+      recommendedSorted: rows,
+      eligibilityRankById,
+      exposureScope: buildStoreDiscoveryHomeExposureScope({
+        region,
+        district,
+        searchQ,
+        originKey: origin.cacheKeyPart,
+        hasGeo,
+        geoKey: hasGeo ? `g:${userLat!.toFixed(5)},${userLng!.toFixed(5)}` : "",
+      }),
     });
 
     rows = rows.slice(0, STORE_HOME_FEED_RESPONSE_MAX);
