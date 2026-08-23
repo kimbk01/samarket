@@ -40,6 +40,16 @@ describe("CUT 4 shadow wave migration contract", () => {
     expect(sql).not.toMatch(/business_hours_json/i);
   });
 
+  it("CUT6 wave parity migration orders out_of_range before distance", () => {
+    const cut6 = readFileSync(
+      join(process.cwd(), "supabase/migrations/20260823186000_stores_discovery_shadow_wave_parity_cut6.sql"),
+      "utf8"
+    );
+    expect(cut6).toContain("out_of_range IS TRUE THEN 1 ELSE 0");
+    expect(cut6).toContain("distance_applies IS TRUE");
+    expect(cut6).not.toMatch(/WHEN v_gi NOT IN \(0, 2\) THEN false/);
+  });
+
   it("pushes Gi schedule predicates and skips coverage for non-geo groups", () => {
     expect(sql).toContain("v_gi NOT IN (0, 2)");
     expect(sql).toContain("discovery_schedule_state = 'ORDERABLE'");

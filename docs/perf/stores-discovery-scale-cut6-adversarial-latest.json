@@ -1,0 +1,218 @@
+{
+  "cut": 6,
+  "generatedAt": "2026-08-23T10:50:54.411Z",
+  "mode": "ADVERSARIAL_PARITY_HARDENING",
+  "userVisibleAuthority": "OLD",
+  "cutover": false,
+  "cases": {
+    "A": {
+      "caseId": "A",
+      "status": "PASS",
+      "fixtureSize": 150,
+      "membershipDiff": 0,
+      "orderDiff": 0,
+      "firstDivergence": null
+    },
+    "B": {
+      "caseId": "B",
+      "status": "PASS",
+      "fixtureSize": 1100,
+      "membershipDiff": 0,
+      "orderDiff": 0,
+      "notes": "G0/G2 assignmentDiff=0"
+    },
+    "C": {
+      "caseId": "C",
+      "status": "PASS",
+      "fixtureSize": 2,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "D": {
+      "caseId": "D",
+      "status": "PASS",
+      "fixtureSize": 2,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "E": {
+      "caseId": "E",
+      "status": "PASS",
+      "fixtureSize": 5,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "F": {
+      "caseId": "F",
+      "status": "PASS",
+      "fixtureSize": 3,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "G": {
+      "caseId": "G",
+      "status": "PASS",
+      "fixtureSize": 6,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "H": {
+      "caseId": "H",
+      "status": "PASS",
+      "fixtureSize": 10,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "I": {
+      "caseId": "I",
+      "status": "PASS",
+      "fixtureSize": 2,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "J": {
+      "caseId": "J",
+      "status": "PASS",
+      "fixtureSize": 3,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "K": {
+      "caseId": "K",
+      "status": "PASS",
+      "fixtureSize": 4,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "L": {
+      "caseId": "L",
+      "status": "PASS",
+      "fixtureSize": 4,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "M": {
+      "caseId": "M",
+      "status": "PASS",
+      "fixtureSize": 4,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "N": {
+      "caseId": "N",
+      "status": "PASS",
+      "fixtureSize": 110,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "O": {
+      "caseId": "O",
+      "status": "PASS",
+      "fixtureSize": 120,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "P": {
+      "caseId": "P",
+      "status": "PASS",
+      "fixtureSize": 200,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "Q": {
+      "caseId": "Q",
+      "status": "PASS",
+      "fixtureSize": 700,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "R": {
+      "caseId": "R",
+      "status": "PASS",
+      "fixtureSize": 45,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "S": {
+      "caseId": "S",
+      "status": "PASS",
+      "fixtureSize": 3,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "T": {
+      "caseId": "T",
+      "status": "PASS",
+      "fixtureSize": 4,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "U": {
+      "caseId": "U",
+      "status": "PASS",
+      "fixtureSize": 3,
+      "membershipDiff": 0,
+      "orderDiff": 0
+    },
+    "V": {
+      "caseId": "V",
+      "status": "PASS",
+      "fixtureSize": 1,
+      "membershipDiff": 0,
+      "orderDiff": 0,
+      "notes": "active V1 only in harness"
+    },
+    "W": {
+      "caseId": "W",
+      "status": "PASS",
+      "fixtureSize": 2,
+      "notes": "stale projection used; no full N fallback"
+    },
+    "X": {
+      "caseId": "X",
+      "status": "PASS",
+      "fixtureSize": 2,
+      "notes": "missing coverage→G2 OOR; no crash"
+    },
+    "50K": {
+      "caseId": "50K",
+      "status": "PASS",
+      "fixtureSize": 50000,
+      "membershipDiff": 0,
+      "orderDiff": 0,
+      "notes": "visible slice only; wave rowsReturned << M"
+    },
+    "RAND": {
+      "caseId": "RAND",
+      "status": "PASS",
+      "fixtureSize": 40,
+      "membershipDiff": 0,
+      "orderDiff": 0,
+      "notes": "runs=40"
+    }
+  },
+  "caseCount": 26,
+  "randomized": {
+    "runs": 40,
+    "failures": 0,
+    "failingSeeds": []
+  },
+  "guards": {
+    "fullCandidateLoad": 0,
+    "fullJsSort": 0,
+    "liveOrderAggregate": 0,
+    "businessHoursLoop": 0,
+    "candidateCap": 0,
+    "allStoreHaversine": 0
+  },
+  "homeMembershipDiff": 0,
+  "homeOrderDiff": 0,
+  "browseDiff": 0,
+  "firstDivergence": null,
+  "newFullCandidateLoad": 0,
+  "newFullJsSort": 0,
+  "newLiveOrderAggregate": 0,
+  "newAllStoreHaversine": 0,
+  "newBusinessHoursLoop": 0,
+  "cut6": "PASS"
+}

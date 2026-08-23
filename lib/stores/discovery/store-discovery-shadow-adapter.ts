@@ -110,6 +110,7 @@ export async function loadStoreDiscoveryHomeShadowViaRpc(
       exposureScope: input.exposureScope,
       nowMs: input.nowMs,
       limit: input.limit,
+      hasGeo: input.distanceAxisEnabled && input.originLat != null && input.originLng != null,
     });
     return { status: "ok", rows: ranked.rows, telemetry: ranked.telemetry };
   } catch (err) {
@@ -172,6 +173,7 @@ export async function loadStoreDiscoveryBrowseShadowViaRpc(
       applyExposure,
       targetCount: pageEnd,
       nowMs: input.nowMs,
+      hasGeo: input.distanceAxisEnabled && input.originLat != null && input.originLng != null,
     });
 
     return {

@@ -88,7 +88,14 @@ function enrichCandidate(
     outOfRange: membership.outOfRange,
   });
   let distanceKm: number | null = null;
-  if (opts.distanceAxisEnabled && hasOrigin && c.lat != null && c.lng != null) {
+  // Parity with evaluateDeliveryServiceability: distanceKm only when distance axis applies.
+  if (
+    opts.distanceAxisEnabled &&
+    hasOrigin &&
+    membership.distanceApplies &&
+    c.lat != null &&
+    c.lng != null
+  ) {
     distanceKm = roundDistanceKm(haversineKm(opts.originLat!, opts.originLng!, c.lat, c.lng));
   }
   return {
@@ -133,6 +140,9 @@ export function compareShadowWaveRows(
 
   if (mode === "distance") {
     if (hasGeo) {
+      const ao = a.outOfRange === true ? 1 : 0;
+      const bo = b.outOfRange === true ? 1 : 0;
+      if (ao !== bo) return ao - bo;
       const da = a.distanceKm;
       const db = b.distanceKm;
       if (da != null && db != null && da !== db) return da - db;
@@ -179,6 +189,16 @@ export function compareShadowWaveRows(
   }
 
   // default / home recommended within Gi×Dj
+  // Parity with compareStoreDiscoveryRecommendedRows:
+  // eligibility (fixed) → outOfRange → district → distance → orders → ...
+  if (hasGeo) {
+    const ao = a.outOfRange === true ? 1 : 0;
+    const bo = b.outOfRange === true ? 1 : 0;
+    if (ao !== bo) return ao - bo;
+  }
+  if (a.districtTier !== b.districtTier) {
+    return a.districtTier - b.districtTier;
+  }
   if (hasGeo) {
     const da = a.distanceKm;
     const db = b.distanceKm;
@@ -221,7 +241,7 @@ export function createInMemoryShadowWaveFetcher(
 ): ShadowWaveFetchFn {
   const hasGeo = opts.distanceAxisEnabled && opts.originLat != null && opts.originLng != null;
   const enriched = pool.map((c) => enrichCandidate(c, opts));
-  const useDj = waveUsesDistrictTier(opts.sort);
+  const useDj = waveUsesDistrictTier(opts.sort, hasGeo, opts.district);
 
   return ({ eligibilityRank, districtTier, limit }) => {
     const wave = enriched.filter((r) => {
@@ -243,16 +263,32 @@ async function resolveWave(
   return Promise.resolve(fetchWave(input));
 }
 
-function districtTiersToScan(district: string | null, sort: StoreBrowseServerSortId | "home"): number[] {
+function districtTiersToScan(
+  district: string | null,
+  sort: StoreBrowseServerSortId | "home",
+  hasGeo: boolean
+): number[] {
   // Dj is only a sort key in recommended/default (HOME + browse default).
   // rating/reviews/popular/distance: eligibility first, then mode keys — no Dj split.
   if (sort !== "home" && sort !== "default") return [0];
   if (!district?.trim()) return [0];
+  // When hasGeo, OLD comparator applies outOfRange BEFORE district.
+  // Dj-first waves would promote D0+OOR over D1+in-range — FAIL parity.
+  // Use one wave per Gi and sort district inside the wave comparator.
+  if (hasGeo) return [0];
   return [0, 1, 2];
 }
 
-function waveUsesDistrictTier(sort: StoreBrowseServerSortId | "home"): boolean {
-  return sort === "home" || sort === "default";
+function waveUsesDistrictTier(
+  sort: StoreBrowseServerSortId | "home",
+  hasGeo: boolean,
+  district: string | null
+): boolean {
+  if (sort !== "home" && sort !== "default") return false;
+  if (!district?.trim()) return false;
+  // See districtTiersToScan — geo path sorts Dj inside comparator.
+  if (hasGeo) return false;
+  return true;
 }
 
 /**
@@ -267,6 +303,8 @@ export async function fillShadowRankedViaWaves(input: {
   applyExposure: boolean;
   targetCount: number;
   nowMs?: number;
+  /** When true, Dj is sorted inside wave (OOR-before-district parity). */
+  hasGeo?: boolean;
 }): Promise<{
   rows: StoreDiscoveryShadowRankedRow[];
   telemetry: ShadowWaveTelemetry;
@@ -289,7 +327,8 @@ export async function fillShadowRankedViaWaves(input: {
   }
 
   let remaining = target;
-  const djList = districtTiersToScan(input.district, input.sort);
+  const hasGeo = input.hasGeo === true;
+  const djList = districtTiersToScan(input.district, input.sort, hasGeo);
 
   for (let gi = 0; gi <= 5; gi += 1) {
     if (remaining <= 0) break;
@@ -346,6 +385,7 @@ export async function rankStoreDiscoveryHomeShadowWaves(input: {
   exposureScope: string;
   nowMs?: number;
   limit?: number;
+  hasGeo?: boolean;
 }): Promise<ShadowHomeRankResult> {
   const limit = Math.max(1, Math.min(input.limit ?? STORE_HOME_FEED_RESPONSE_MAX, STORE_HOME_FEED_RESPONSE_MAX));
   const filled = await fillShadowRankedViaWaves({
@@ -356,6 +396,7 @@ export async function rankStoreDiscoveryHomeShadowWaves(input: {
     applyExposure: true,
     targetCount: limit,
     nowMs: input.nowMs,
+    hasGeo: input.hasGeo === true,
   });
   return {
     rows: filled.rows,
@@ -407,7 +448,8 @@ function rankStoreDiscoveryHomeShadowSync(input: {
     groupCounts: {},
   };
   let remaining = limit;
-  const djList = districtTiersToScan(input.district, "home");
+  const hasGeo = input.distanceAxisEnabled && input.originLat != null && input.originLng != null;
+  const djList = districtTiersToScan(input.district, "home", hasGeo);
 
   for (let gi = 0; gi <= 5; gi += 1) {
     if (remaining <= 0) break;
@@ -492,7 +534,8 @@ export function rankStoreDiscoveryBrowseShadow(input: {
   };
 
   let remaining = pageEnd;
-  const djList = districtTiersToScan(input.district, input.sort);
+  const hasGeo = input.distanceAxisEnabled && input.originLat != null && input.originLng != null;
+  const djList = districtTiersToScan(input.district, input.sort, hasGeo);
 
   for (let gi = 0; gi <= 5; gi += 1) {
     if (remaining <= 0) break;
