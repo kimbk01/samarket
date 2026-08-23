@@ -19,6 +19,11 @@ import {
 } from "@/lib/stores/owner-recommended-menu-limit";
 import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
 import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
+import {
+  collectCanonicalImagePublicUrls,
+  diffRemovedImageUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -462,6 +467,34 @@ export async function PATCH(
   if (upErr) {
     console.error("[PATCH product]", upErr);
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
+  }
+
+  if (touchesImageFields) {
+    const beforeUrls: (string | null | undefined)[] = [
+      typeof productRow.thumbnail_url === "string" ? productRow.thumbnail_url : null,
+      ...(Array.isArray(productRow.images_json)
+        ? (productRow.images_json as string[])
+        : []),
+    ];
+    const afterUrls: (string | null | undefined)[] = [
+      mergedThumb,
+      ...(patch.images_json !== undefined && Array.isArray(patch.images_json)
+        ? (patch.images_json as string[])
+        : Array.isArray(productRow.images_json)
+          ? (productRow.images_json as string[])
+          : []),
+    ];
+    const removed = diffRemovedImageUrls(beforeUrls, afterUrls);
+    if (removed.length > 0) {
+      const removal = await removeCanonicalImagesFromPublicUrls({
+        sb,
+        urls: removed,
+        context: "owner/product/replace-image",
+      });
+      if (removal.failed.length > 0) {
+        console.error("[PATCH product] storage cleanup partial failure", removal.failed);
+      }
+    }
   }
 
   invalidateOwnerProductsListCache(sid);

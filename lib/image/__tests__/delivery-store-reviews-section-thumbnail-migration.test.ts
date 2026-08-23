@@ -32,15 +32,15 @@ describe("delivery store reviews section thumbnail migration (StoreReviewsSectio
     expect(adapter).not.toContain("/render/image/");
   });
 
-  it("summary photo strip — Phase 2A tier 320 transform", () => {
+  it("summary photo strip — thumb derivative", () => {
     const adapter = loadStoreReviewsSummaryReviewPhotoFetchUrl(POST_RAW);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".thumb.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
-  it("per-review photo strip — tier 320", () => {
+  it("per-review photo strip — thumb derivative", () => {
     const adapter = loadStoreReviewsPerReviewPhotoFetchUrl(POST_RAW);
-    expect(adapter).toContain("width=320");
+    expect(adapter).toContain(".thumb.webp");
   });
 
   it("external URL — pass-through", () => {

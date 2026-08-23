@@ -32,13 +32,12 @@ describe("trade detail related image migration (PostDetailRelatedSections SSOT)"
     expect(TRADE_POST_DETAIL_RELATED_DISPLAY_PX).toBe(120);
   });
 
-  it("display URL — post-images → Phase 2A tier 320 transform", () => {
+  it("display URL — post-images → feed derivative", () => {
     const adapter = imageResolveTradePostDetailRelatedDisplayUrl(FULL_OBJECT);
     const feed = loadTradeFeedThumbnailFetchUrl(FULL_OBJECT);
     expect(adapter).toBe(feed);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("height=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".feed.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
   it("display URL — external URL passthrough", () => {

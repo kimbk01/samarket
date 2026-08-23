@@ -6,6 +6,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { applyCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
+import {
+  collectCanonicalImagePublicUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +63,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  const { data: imageRows } = await sb
+    .from("community_post_images")
+    .select("image_url")
+    .in("post_id", ids);
+  const imageUrlsToRemove = collectCanonicalImagePublicUrls(
+    (imageRows ?? []).map((r: { image_url?: string }) => r.image_url)
+  );
+
   const { error, data } = await sb.from("community_posts").delete().in("id", ids).select("id");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -70,6 +82,17 @@ export async function POST(req: NextRequest) {
 
   for (const postId of deleted) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });
+  }
+
+  if (deleted.length > 0 && imageUrlsToRemove.length > 0) {
+    const removal = await removeCanonicalImagesFromPublicUrls({
+      sb,
+      urls: imageUrlsToRemove,
+      context: "admin/community/posts/bulk-delete",
+    });
+    if (removal.failed.length > 0) {
+      console.error("[admin/community/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+    }
   }
 
   return NextResponse.json({

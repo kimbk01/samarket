@@ -2,23 +2,21 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { uploadAvatarWithDerivatives } from "@/lib/media/canonical-image-upload.server";
+import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 3 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_BYTES = 8 * 1024 * 1024;
+const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-/**
- * 프로필 사진 — post-images + upload-time thumb derivative.
- */
+/** 거래 글 이미지 — post-images + upload-time canonical derivatives. */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const upRl = await enforceImageUploadQuota(auth.userId, "profile_avatar");
+  const upRl = await enforceImageUploadQuota(auth.userId, "trade_write");
   if (!upRl.ok) return upRl.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -40,28 +38,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "file 필드 필요" }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "3MB 이하만 가능합니다." }, { status: 413 });
+    return NextResponse.json({ ok: false, error: "8MB 이하만 가능합니다." }, { status: 413 });
   }
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
-    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP만 가능합니다." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "JPEG, PNG, WebP, GIF만 가능합니다." },
+      { status: 400 }
+    );
   }
 
-  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
-  const uid = auth.userId;
-  const path = `${uid}/profile/${randomUUID()}.${ext}`;
+  const ext =
+    mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
+  const uid = auth.userId.replace(/[^a-zA-Z0-9_-]/g, "") || "anon";
+  const path = `${uid}/${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
-    const result = await uploadAvatarWithDerivatives({
+    const result = await uploadPostImageWithDerivatives({
       sb,
       originalPath: path,
       rawBuf: buf,
       mimeType: mime,
     });
-    return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
+    return NextResponse.json({
+      ok: true,
+      url: result.publicUrl,
+      path: result.originalPath,
+      derivatives: result.derivativePaths,
+    });
   } catch (e) {
-    console.error("[profile/avatar]", e);
+    console.error("[posts/upload-image]", e);
     return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
   }
 }

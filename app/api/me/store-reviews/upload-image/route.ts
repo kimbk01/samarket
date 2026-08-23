@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 
-/** 구매자: 완료된 매장 주문 리뷰용 사진 업로드 → post-images 공개 URL */
+/** 구매자: 완료된 매장 주문 리뷰용 사진 — post-images + canonical derivatives. */
 export async function POST(req: NextRequest) {
   const buyerId = await getRouteUserId();
   if (!buyerId) {
@@ -69,22 +70,16 @@ export async function POST(req: NextRequest) {
   const path = `${buyerId}/store-reviews/${orderId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
-  const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
-    contentType: mime,
-    upsert: false,
-  });
-
-  if (upErr) {
-    console.error("[store-reviews upload-image]", upErr);
-    return NextResponse.json(
-      { ok: false, error: upErr.message || "upload_failed" },
-      { status: 500 }
-    );
+  try {
+    const result = await uploadPostImageWithDerivatives({
+      sb,
+      originalPath: path,
+      rawBuf: buf,
+      mimeType: mime,
+    });
+    return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
+  } catch (e) {
+    console.error("[store-reviews upload-image]", e);
+    return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
   }
-
-  const {
-    data: { publicUrl },
-  } = sb.storage.from("post-images").getPublicUrl(path);
-
-  return NextResponse.json({ ok: true, url: publicUrl, path });
 }

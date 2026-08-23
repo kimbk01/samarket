@@ -16,6 +16,10 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  collectPostRowImageUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 
 const MAX_BATCH = 50;
 
@@ -81,6 +85,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  const { data: rowsBefore } = await sb
+    .from(POSTS_TABLE_READ)
+    .select("id, images, thumbnail_url")
+    .in("id", ids);
+
+  const imageUrlsToRemove: string[] = [];
+  for (const row of rowsBefore ?? []) {
+    imageUrlsToRemove.push(...collectPostRowImageUrls(row as { images?: unknown; thumbnail_url?: unknown }));
+  }
+
   const { error, data } = await sb.from(POSTS_TABLE_WRITE).delete().in("id", ids).select("id");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -89,6 +103,17 @@ export async function POST(req: NextRequest) {
   const deleted = (data ?? []).map((r: { id: string }) => r.id);
   const deletedSet = new Set(deleted);
   const missing = ids.filter((id) => !deletedSet.has(id));
+
+  if (deleted.length > 0 && imageUrlsToRemove.length > 0) {
+    const removal = await removeCanonicalImagesFromPublicUrls({
+      sb,
+      urls: imageUrlsToRemove,
+      context: "admin/posts/bulk-delete",
+    });
+    if (removal.failed.length > 0) {
+      console.error("[admin/posts/bulk-delete] storage cleanup partial failure", removal.failed);
+    }
+  }
 
   return NextResponse.json({
     ok: true,

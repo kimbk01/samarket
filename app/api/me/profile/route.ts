@@ -40,6 +40,10 @@ import { jsonError } from "@/lib/http/api-route";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { computeProfileCompleted } from "@/lib/profile/profile-completed";
+import {
+  diffRemovedImageUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 export const dynamic = "force-dynamic";
 
 /**
@@ -1137,6 +1141,22 @@ export async function PATCH(req: NextRequest) {
         { status: 409 }
       );
     }
+    if ("avatar_url" in parsed.patch) {
+      const removed = diffRemovedImageUrls(
+        [existingCompletionRow?.avatar_url ?? null],
+        [parsed.patch.avatar_url as string | null]
+      );
+      if (removed.length > 0) {
+        const removal = await removeCanonicalImagesFromPublicUrls({
+          sb: serviceSb,
+          urls: removed,
+          context: "me/profile/avatar-replace",
+        });
+        if (removal.failed.length > 0) {
+          console.error("[me/profile PATCH] avatar storage cleanup partial failure", removal.failed);
+        }
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -1192,6 +1212,22 @@ export async function PATCH(req: NextRequest) {
       { ok: false, error: "프로필 행을 찾을 수 없습니다. 가입·동기화 후 다시 시도해 주세요." },
       { status: 409 }
     );
+  }
+  if ("avatar_url" in parsed.patch) {
+    const removed = diffRemovedImageUrls(
+      [existingCompletionRow?.avatar_url ?? null],
+      [parsed.patch.avatar_url as string | null]
+    );
+    if (removed.length > 0) {
+      const removal = await removeCanonicalImagesFromPublicUrls({
+        sb: routeSb,
+        urls: removed,
+        context: "me/profile/avatar-replace",
+      });
+      if (removal.failed.length > 0) {
+        console.error("[me/profile PATCH] avatar storage cleanup partial failure", removal.failed);
+      }
+    }
   }
   return NextResponse.json({ ok: true });
 }

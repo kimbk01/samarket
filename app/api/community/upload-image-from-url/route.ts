@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { assertPublicHttpUrlForImageFetch } from "@/lib/security/remote-image-import-url";
@@ -157,20 +158,18 @@ export async function POST(req: NextRequest) {
 
   const ext =
     mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
-  const path = `${auth.userId}/community/${randomUUID()}.${ext}`;
+  const path = `${auth.userId}/community/import/${randomUUID()}.${ext}`;
 
-  const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
-    contentType: mime,
-    upsert: false,
-  });
-
-  if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message ?? "업로드 실패" }, { status: 500 });
+  try {
+    const result = await uploadPostImageWithDerivatives({
+      sb,
+      originalPath: path,
+      rawBuf: buf,
+      mimeType: mime,
+    });
+    return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
+  } catch (e) {
+    console.error("[community/upload-image-from-url]", e);
+    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
   }
-
-  const {
-    data: { publicUrl },
-  } = sb.storage.from("post-images").getPublicUrl(path);
-
-  return NextResponse.json({ ok: true, url: publicUrl, path });
 }

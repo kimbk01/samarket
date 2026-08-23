@@ -6,6 +6,7 @@ import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
 import { resolveOwnerProductImageMimeForUpload } from "@/lib/stores/owner-product-image-mime-sniff.server";
+import { uploadStoreProductWithHeroDerivative } from "@/lib/media/canonical-image-upload.server";
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 
 export const runtime = "nodejs";
@@ -112,17 +113,27 @@ export async function POST(
 
   const path = `${sid}/${randomUUID()}.${processed.ext}`;
 
-  const { error: upErr } = await sb.storage
-    .from("store-product-images")
-    .upload(path, processed.buf, { contentType: processed.contentType, upsert: false });
+  try {
+    const result = await uploadStoreProductWithHeroDerivative({
+      sb,
+      originalPath: path,
+      primaryBuf: processed.buf,
+      primaryContentType: processed.contentType,
+    });
 
-  if (upErr) {
+    return NextResponse.json({
+      ok: true,
+      url: result.publicUrl,
+      path: result.originalPath,
+      width: processed.width,
+      height: processed.height,
+      heroPath: result.derivativePaths.hero ?? null,
+    });
+  } catch (upErr) {
     console.error("[upload-image]", upErr);
-    const raw = String(upErr.message ?? "");
-    const code = (upErr as { statusCode?: string }).statusCode;
+    const raw = String(upErr instanceof Error ? upErr.message : upErr ?? "");
     const bucketMissing =
       /bucket not found/i.test(raw) ||
-      code === "404" ||
       (raw.toLowerCase().includes("not found") && raw.toLowerCase().includes("bucket"));
     if (bucketMissing) {
       return NextResponse.json(
@@ -136,20 +147,8 @@ export async function POST(
       );
     }
     return NextResponse.json(
-      { ok: false, error: upErr.message || "upload_failed" },
+      { ok: false, error: raw || "upload_failed" },
       { status: 500 }
     );
   }
-
-  const {
-    data: { publicUrl },
-  } = sb.storage.from("store-product-images").getPublicUrl(path);
-
-  return NextResponse.json({
-    ok: true,
-    url: publicUrl,
-    path,
-    width: processed.width,
-    height: processed.height,
-  });
 }

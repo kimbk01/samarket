@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
 import {
+  buildPostImageDetailFetchUrl,
   buildPostImageThumbnailFetchUrl,
-  buildPostImageTransformUrl,
   postImageThumbFetchPx,
 } from "@/lib/media/post-image-transform";
 import { isThumbnailUrlLoaded } from "@/lib/media/thumbnail-loaded-url-memory";
 import {
+  buildStoreProductHeroDerivativeUrl,
   buildStoreProductHeroFetchUrl,
-  buildStoreProductImageTransformUrl,
   buildStoreProductThumbnailFetchUrl,
   buildStoreProductThumbnailFetchUrlFromPreset,
   deliveryImageFetchPxFromPreset,
@@ -35,12 +35,12 @@ import {
 } from "@/lib/image/image-size";
 import {
   imageBuildFeedThumbnailFetchUrl,
+  imageBuildPostDetailFetchUrl,
   imageBuildPostThumbnailFetchUrl,
-  imageBuildPostTransformUrl,
   imageBuildStoreProductHeroFetchUrl,
+  imageBuildStoreProductHeroDerivativeUrl,
   imageBuildStoreProductThumbnailFetchUrl,
   imageBuildStoreProductThumbnailFetchUrlFromPreset,
-  imageBuildStoreProductTransformUrl,
   imageIsPreOptimizedStoreProductUrl,
 } from "@/lib/image/image-transform";
 import {
@@ -76,9 +76,9 @@ describe("lib/image adapter parity (Phase 2A)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("policy — phase 2 tier snap", () => {
+  it("policy — phase 2 derivative mode", () => {
     expect(IMAGE_ADAPTER_PHASE).toBe(2);
-    expect(currentImagePolicyMode()).toBe("tier");
+    expect(currentImagePolicyMode()).toBe("derivative");
   });
 
   describe("image-size", () => {
@@ -97,25 +97,23 @@ describe("lib/image adapter parity (Phase 2A)", () => {
   });
 
   describe("image-transform", () => {
-    it("post transform URL — tier snap", () => {
-      const opts = { width: 176, height: 176, quality: 78 };
-      expect(imageBuildPostTransformUrl(POST_RAW, opts)).toBe(buildPostImageTransformUrl(POST_RAW, opts));
-      expect(imageBuildPostTransformUrl(POST_RAW, opts)).toContain("width=320");
+    it("post detail fetch URL — detail derivative", () => {
+      expect(imageBuildPostDetailFetchUrl(POST_RAW)).toBe(buildPostImageDetailFetchUrl(POST_RAW));
+      expect(imageBuildPostDetailFetchUrl(POST_RAW)).toContain(".detail.webp");
     });
 
-    it("post thumbnail fetch URL — tier 320", () => {
+    it("post thumbnail fetch URL — thumb derivative for 88px display", () => {
       expect(imageBuildPostThumbnailFetchUrl(POST_RAW, 88)).toBe(
         buildPostImageThumbnailFetchUrl(POST_RAW, 88)
       );
-      expect(imageBuildPostThumbnailFetchUrl(POST_RAW, 88)).toContain("width=320");
+      expect(imageBuildPostThumbnailFetchUrl(POST_RAW, 88)).toContain(".thumb.webp");
     });
 
-    it("store transform URL — tier snap", () => {
-      const opts = { width: 232, height: 232 };
-      expect(imageBuildStoreProductTransformUrl(STORE_RAW, opts)).toBe(
-        buildStoreProductImageTransformUrl(STORE_RAW, opts)
+    it("store hero derivative URL", () => {
+      expect(imageBuildStoreProductHeroDerivativeUrl(STORE_RAW)).toBe(
+        buildStoreProductHeroDerivativeUrl(STORE_RAW)
       );
-      expect(imageBuildStoreProductTransformUrl(STORE_RAW, opts)).toContain("width=320");
+      expect(imageBuildStoreProductHeroDerivativeUrl(STORE_RAW)).toContain(".hero.webp");
     });
 
     it("store thumbnail fetch URL — object/public", () => {
@@ -132,9 +130,9 @@ describe("lib/image adapter parity (Phase 2A)", () => {
       expect(imageBuildStoreProductThumbnailFetchUrlFromPreset(STORE_RAW, "hubFood")).toBe(STORE_RAW);
     });
 
-    it("store hero fetch URL — 1280 tier", () => {
+    it("store hero fetch URL — hero derivative", () => {
       expect(imageBuildStoreProductHeroFetchUrl(STORE_RAW)).toBe(buildStoreProductHeroFetchUrl(STORE_RAW));
-      expect(imageBuildStoreProductHeroFetchUrl(STORE_RAW)).toContain("width=1280");
+      expect(imageBuildStoreProductHeroFetchUrl(STORE_RAW)).toContain(".hero.webp");
     });
 
     it("feed thumbnail fetch URL", () => {
@@ -147,9 +145,9 @@ describe("lib/image adapter parity (Phase 2A)", () => {
     });
 
     it("pre-optimized store URL detection", () => {
-      const render =
-        "https://abc.supabase.co/storage/v1/render/image/public/store-product-images/s1/p1.webp?width=96";
-      expect(imageIsPreOptimizedStoreProductUrl(render)).toBe(isPreOptimizedStoreProductImageUrl(render));
+      const hero =
+        "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.hero.webp";
+      expect(imageIsPreOptimizedStoreProductUrl(hero)).toBe(isPreOptimizedStoreProductImageUrl(hero));
     });
   });
 
@@ -244,19 +242,17 @@ describe("lib/image adapter parity (Phase 2A)", () => {
       ).toBe(resolveDeliveryMediaFetchSrc(STORE_RAW, "detail-hero"));
     });
 
-    it("post-transform kind matches legacy", () => {
-      const opts = { width: 240, height: 240 };
-      expect(loadImageFetchUrl({ kind: "post-transform", raw: POST_RAW, opts })).toBe(
-        buildPostImageTransformUrl(POST_RAW, opts)
+    it("post-detail kind matches legacy", () => {
+      expect(loadImageFetchUrl({ kind: "post-detail", raw: POST_RAW })).toBe(
+        buildPostImageDetailFetchUrl(POST_RAW)
       );
     });
 
-    it("store-transform kind — tier snap", () => {
-      const opts = { width: 184, height: 184 };
-      expect(loadImageFetchUrl({ kind: "store-transform", raw: STORE_RAW, opts })).toBe(
-        buildStoreProductImageTransformUrl(STORE_RAW, opts)
+    it("store-hero-derivative kind — hero derivative", () => {
+      expect(loadImageFetchUrl({ kind: "store-hero-derivative", raw: STORE_RAW })).toBe(
+        buildStoreProductHeroDerivativeUrl(STORE_RAW)
       );
-      expect(loadImageFetchUrl({ kind: "store-transform", raw: STORE_RAW, opts })).toContain("width=320");
+      expect(loadImageFetchUrl({ kind: "store-hero-derivative", raw: STORE_RAW })).toContain(".hero.webp");
     });
   });
 });

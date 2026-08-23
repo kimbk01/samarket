@@ -5,6 +5,11 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import {
+  collectCanonicalImagePublicUrls,
+  diffRemovedImageUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +52,7 @@ export async function PATCH(
 
   const { data: existing, error: findErr } = await sb
     .from("store_notices")
-    .select("id")
+    .select("id, images_json")
     .eq("id", nid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -92,6 +97,22 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
 
+  if (body.images_json !== undefined) {
+    const before = parseNoticeImages((existing as { images_json?: unknown }).images_json);
+    const after = parseNoticeImages(patch.images_json);
+    const removed = diffRemovedImageUrls(before, after);
+    if (removed.length > 0) {
+      const removal = await removeCanonicalImagesFromPublicUrls({
+        sb,
+        urls: removed,
+        context: "owner/notice/replace-image",
+      });
+      if (removal.failed.length > 0) {
+        console.error("[PATCH store_notices] storage cleanup partial failure", removal.failed);
+      }
+    }
+  }
+
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
 
@@ -118,8 +139,27 @@ export async function DELETE(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const { data: row } = await sb
+    .from("store_notices")
+    .select("images_json")
+    .eq("id", nid)
+    .eq("store_id", sid)
+    .maybeSingle();
+
   const { error: delErr } = await sb.from("store_notices").delete().eq("id", nid).eq("store_id", sid);
   if (delErr) return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
+
+  const urls = collectCanonicalImagePublicUrls(parseNoticeImages((row as { images_json?: unknown } | null)?.images_json));
+  if (urls.length > 0) {
+    const removal = await removeCanonicalImagesFromPublicUrls({
+      sb,
+      urls,
+      context: "owner/notice/hard-delete",
+    });
+    if (removal.failed.length > 0) {
+      console.error("[DELETE store_notices] storage cleanup partial failure", removal.failed);
+    }
+  }
 
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);

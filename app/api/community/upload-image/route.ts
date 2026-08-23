@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-/** 동네생활 글 이미지 — post-images 버킷, 사용자 폴더 하위 community/ */
+/** 동네생활 글 이미지 — post-images + upload-time canonical derivatives. */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
@@ -50,18 +51,16 @@ export async function POST(req: NextRequest) {
   const path = `${uid}/community/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
-  const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
-    contentType: mime,
-    upsert: false,
-  });
-
-  if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message ?? "업로드 실패" }, { status: 500 });
+  try {
+    const result = await uploadPostImageWithDerivatives({
+      sb,
+      originalPath: path,
+      rawBuf: buf,
+      mimeType: mime,
+    });
+    return NextResponse.json({ ok: true, url: result.publicUrl, path: result.originalPath });
+  } catch (e) {
+    console.error("[community/upload-image]", e);
+    return NextResponse.json({ ok: false, error: "업로드 실패" }, { status: 500 });
   }
-
-  const {
-    data: { publicUrl },
-  } = sb.storage.from("post-images").getPublicUrl(path);
-
-  return NextResponse.json({ ok: true, url: publicUrl, path });
 }

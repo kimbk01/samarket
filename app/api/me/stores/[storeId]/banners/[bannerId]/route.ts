@@ -5,6 +5,10 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
 import { coerceStoreBannerLink, STORE_BANNER_LINK_TYPES } from "@/lib/stores/store-banner-link";
+import {
+  diffRemovedImageUrls,
+  removeCanonicalImagesFromPublicUrls,
+} from "@/lib/media/canonical-image-lifecycle.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +49,7 @@ export async function PATCH(
 
   const { data: existing, error: findErr } = await sb
     .from("store_banners")
-    .select("id, link_type, link_target_id")
+    .select("id, link_type, link_target_id, image_url")
     .eq("id", bid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -88,7 +92,7 @@ export async function PATCH(
     patch.end_at = typeof body.end_at === "string" && body.end_at.trim() ? body.end_at.trim() : null;
   }
 
-  type ExistingRow = { id: string; link_type: string; link_target_id: string | null };
+  type ExistingRow = { id: string; link_type: string; link_target_id: string | null; image_url?: string | null };
   const ex = existing as ExistingRow;
   const mergedLt = (patch.link_type as string | undefined) ?? ex.link_type;
   const mergedTargetRaw =
@@ -136,6 +140,20 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
 
+  if (body.image_url !== undefined) {
+    const removed = diffRemovedImageUrls([ex.image_url ?? null], [patch.image_url as string]);
+    if (removed.length > 0) {
+      const removal = await removeCanonicalImagesFromPublicUrls({
+        sb,
+        urls: removed,
+        context: "owner/banner/replace-image",
+      });
+      if (removal.failed.length > 0) {
+        console.error("[PATCH store_banners] storage cleanup partial failure", removal.failed);
+      }
+    }
+  }
+
   const slug = await resolveSlug(sb, sid);
   if (slug) revalidateStoreConsumerPathsBySlug(slug);
 
@@ -162,9 +180,28 @@ export async function DELETE(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const { data: row } = await sb
+    .from("store_banners")
+    .select("image_url")
+    .eq("id", bid)
+    .eq("store_id", sid)
+    .maybeSingle();
+
   const { error: delErr } = await sb.from("store_banners").delete().eq("id", bid).eq("store_id", sid);
   if (delErr) {
     return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
+  }
+
+  const imageUrl = (row as { image_url?: string } | null)?.image_url;
+  if (imageUrl) {
+    const removal = await removeCanonicalImagesFromPublicUrls({
+      sb,
+      urls: [imageUrl],
+      context: "owner/banner/hard-delete",
+    });
+    if (removal.failed.length > 0) {
+      console.error("[DELETE store_banners] storage cleanup partial failure", removal.failed);
+    }
   }
 
   const slug = await resolveSlug(sb, sid);

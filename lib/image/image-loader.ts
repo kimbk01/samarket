@@ -6,13 +6,12 @@
 import { currentImagePolicyMode } from "@/lib/image/image-policy";
 import {
   imageBuildFeedThumbnailFetchUrl,
+  imageBuildPostDetailFetchUrl,
   imageBuildPostThumbnailFetchUrl,
-  imageBuildPostTransformUrl,
+  imageBuildStoreProductHeroDerivativeUrl,
   imageBuildStoreProductHeroFetchUrl,
   imageBuildStoreProductThumbnailFetchUrl,
   imageBuildStoreProductThumbnailFetchUrlFromPreset,
-  imageBuildStoreProductTransformUrl,
-  type ImageTransformOpts,
 } from "@/lib/image/image-transform";
 import { imageResolveDeliveryMediaFetchSrc } from "@/lib/image/image-url";
 import { TRADE_FEED_THUMB_DISPLAY_PX, COMMUNITY_FEED_THUMB_DISPLAY_PX, type DeliveryImageFetchPreset } from "@/lib/image/image-size";
@@ -52,16 +51,14 @@ export type ImageLoaderDeliverySurfaceInput = {
   surface: string;
 };
 
-export type ImageLoaderPostTransformInput = {
-  kind: "post-transform";
+export type ImageLoaderPostDetailInput = {
+  kind: "post-detail";
   raw: string | null | undefined;
-  opts: ImageTransformOpts;
 };
 
-export type ImageLoaderStoreTransformInput = {
-  kind: "store-transform";
+export type ImageLoaderStoreHeroDerivativeInput = {
+  kind: "store-hero-derivative";
   raw: string | null | undefined;
-  opts: ImageTransformOpts;
 };
 
 export type ImageLoaderInput =
@@ -71,8 +68,8 @@ export type ImageLoaderInput =
   | ImageLoaderStorePresetInput
   | ImageLoaderStoreHeroInput
   | ImageLoaderDeliverySurfaceInput
-  | ImageLoaderPostTransformInput
-  | ImageLoaderStoreTransformInput;
+  | ImageLoaderPostDetailInput
+  | ImageLoaderStoreHeroDerivativeInput;
 
 /**
  * Trade feed list thumb (`PostCard`) — SSOT via feed kind (Phase 2A tier 320).
@@ -130,10 +127,10 @@ export function loadImageFetchUrl(input: ImageLoaderInput): string | null {
       return imageBuildStoreProductHeroFetchUrl(input.raw);
     case "delivery-surface":
       return imageResolveDeliveryMediaFetchSrc(input.src, input.surface);
-    case "post-transform":
-      return imageBuildPostTransformUrl(input.raw, input.opts);
-    case "store-transform":
-      return imageBuildStoreProductTransformUrl(input.raw, input.opts);
+    case "post-detail":
+      return imageBuildPostDetailFetchUrl(input.raw);
+    case "store-hero-derivative":
+      return imageBuildStoreProductHeroDerivativeUrl(input.raw);
     default: {
       const _exhaustive: never = input;
       return _exhaustive;

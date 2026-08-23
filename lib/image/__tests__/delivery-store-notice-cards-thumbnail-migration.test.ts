@@ -34,10 +34,10 @@ describe("delivery store notice card thumbnail migration (StoreOwnerNoticeCards 
     expect(adapter).not.toContain("/render/image/");
   });
 
-  it("post-images notice — tier 320 transform", () => {
+  it("post-images notice — detail derivative", () => {
     const adapter = loadStoreNoticeCardImageFetchUrl(POST_RAW);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".detail.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
   it("external URL — pass-through", () => {

@@ -21,10 +21,10 @@ describe("delivery review rail thumbnail migration (StoreMenuReviewFlowLink SSOT
     vi.unstubAllEnvs();
   });
 
-  it("reviewPhoto — post-images tier 320", () => {
+  it("reviewPhoto — post-images thumb derivative", () => {
     const adapter = loadStoreReviewRailReviewPhotoFetchUrl(POST_RAW);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".thumb.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
   it("menuThumb — store-product object/public", () => {
@@ -43,7 +43,7 @@ describe("delivery review rail thumbnail migration (StoreMenuReviewFlowLink SSOT
       [{ id: "r1", rating: 5, content: "good", product_id: "p1", image_urls: [POST_RAW] }],
       [{ id: "p1", title: "T", thumbnail_url: STORE_RAW, is_representative: false }]
     );
-    expect(slides[0]?.thumbUrl).toContain("width=320");
+    expect(slides[0]?.thumbUrl).toContain(".thumb.webp");
   });
 
   it("buildStoreReviewPreviewSlides — menuThumb fallback uses object/public", () => {

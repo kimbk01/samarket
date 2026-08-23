@@ -35,8 +35,5 @@ export function loadStoreNoticeCardImageFetchUrl(
       }) ?? trimmed
     );
   }
-  const tier = snapToProductTier(
-    Math.max(storeNoticeCardFetchWidthPx(), storeNoticeCardFetchHeightPx())
-  );
-  return loadImageFetchUrl({ kind: "post-transform", raw, opts: { width: tier, height: tier } }) ?? trimmed;
+  return loadImageFetchUrl({ kind: "post-detail", raw }) ?? trimmed;
 }

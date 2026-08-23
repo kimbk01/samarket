@@ -34,13 +34,12 @@ describe("trade feed thumbnail migration (PostCard SSOT)", () => {
     expect(imageSanitizeViewerMediaUrl("  ")).toBe(sanitizeViewerMediaUrl("  "));
   });
 
-  it("post-images — Phase 2A tier 320 transform", () => {
+  it("post-images — Phase 2B feed derivative", () => {
     const adapter = loadTradeFeedThumbnailFetchUrl(POST_RAW);
     const feed = buildFeedThumbnailFetchUrl(POST_RAW, TRADE_FEED_THUMB_DISPLAY_PX);
     expect(adapter).toBe(feed);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("height=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".feed.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
   it("store-product-images — Phase 2A object/public", () => {

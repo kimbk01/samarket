@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { MeetingAlbumItemDTO } from "@/lib/neighborhood/types";
+import {
+  removeCanonicalImageAsset,
+  uploadPostImageWithDerivatives,
+} from "@/lib/media/canonical-image-upload.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,15 +133,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const storagePath = `${auth.userId}/meeting-album/${id}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
-  const { error: upErr } = await sb.storage.from("post-images").upload(storagePath, buf, {
-    contentType: mime,
-    upsert: false,
-  });
-  if (upErr) {
-    return NextResponse.json({ ok: false, error: upErr.message ?? "업로드 실패" }, { status: 500 });
+  let uploaded: { originalPath: string; publicUrl: string };
+  try {
+    uploaded = await uploadPostImageWithDerivatives({
+      sb,
+      originalPath: storagePath,
+      rawBuf: buf,
+      mimeType: mime,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "업로드 실패";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 
-  const { data: { publicUrl } } = sb.storage.from("post-images").getPublicUrl(storagePath);
+  const publicUrl = uploaded.publicUrl;
 
   const { data: inserted, error: dbErr } = await sb
     .from("meeting_album_items")
@@ -151,8 +160,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .single();
 
   if (dbErr || !inserted) {
-    // 스토리지 롤백
-    await sb.storage.from("post-images").remove([storagePath]);
+    await removeCanonicalImageAsset({
+      sb,
+      bucket: "post-images",
+      originalPath: uploaded.originalPath,
+    });
     return NextResponse.json({ ok: false, error: dbErr?.message ?? "DB 오류" }, { status: 500 });
   }
 

@@ -20,10 +20,10 @@ export function canUseNextImageOptimizer(src: string): boolean {
   return /^https?:\/\//i.test(src);
 }
 
-/** Supabase render URL — already resized; skip `_next/image` hop for LCP. */
+/** Canonical hero derivative — skip `_next/image` hop for LCP. */
 export function isPreOptimizedDeliveryImageSrc(src: string | null | undefined): boolean {
   const u = typeof src === "string" ? src.trim() : "";
-  return u.includes("/storage/v1/render/image/");
+  return u.includes(".hero.webp") || u.includes("/storage/v1/render/image/");
 }
 
 export function deliveryImageSrcHost(src: string | null): string {

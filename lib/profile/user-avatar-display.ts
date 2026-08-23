@@ -19,7 +19,10 @@ export function hasCustomUserAvatar(avatarUrl: string | null | undefined): boole
   return Boolean(trimmed && !isSamarketDefaultAvatarUrl(trimmed));
 }
 
+import { resolveCanonicalThumbImageUrl } from "@/lib/media/canonical-image-resolver";
+
 /** `<Image>` / `<SamarketThumbnail>` 에 넣을 커스텀 사진 URL — 없으면 null(기본 얼굴 SVG 사용) */
 export function resolveUserAvatarImageSrc(avatarUrl: string | null | undefined): string | null {
-  return hasCustomUserAvatar(avatarUrl) ? avatarUrl!.trim() : null;
+  if (!hasCustomUserAvatar(avatarUrl)) return null;
+  return resolveCanonicalThumbImageUrl(avatarUrl!.trim()) ?? avatarUrl!.trim();
 }

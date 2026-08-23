@@ -43,15 +43,29 @@ export {
 } from "@/lib/image/image-policy";
 
 export {
+  resolveCanonicalImageUrl,
+  resolveCanonicalFeedImageUrl,
+  resolveCanonicalThumbImageUrl,
+  resolveCanonicalDetailImageUrl,
+  resolveCanonicalHeroImageUrl,
+  type CanonicalImageResolveInput,
+} from "@/lib/media/canonical-image-resolver";
+
+export {
+  CANONICAL_DERIVATIVE_SPEC,
+  CANONICAL_DERIVATIVE_SUFFIX,
+  type CanonicalImageSurface,
+} from "@/lib/media/canonical-image-contract";
+
+export {
   imageBuildFeedThumbnailFetchUrl,
   imageBuildPostThumbnailFetchUrl,
-  imageBuildPostTransformUrl,
+  imageBuildPostDetailFetchUrl,
   imageBuildStoreProductHeroFetchUrl,
+  imageBuildStoreProductHeroDerivativeUrl,
   imageBuildStoreProductThumbnailFetchUrl,
   imageBuildStoreProductThumbnailFetchUrlFromPreset,
-  imageBuildStoreProductTransformUrl,
   imageIsPreOptimizedStoreProductUrl,
-  type ImageTransformOpts,
 } from "@/lib/image/image-transform";
 
 export {
@@ -113,11 +127,11 @@ export {
   type ImageLoaderFeedInput,
   type ImageLoaderInput,
   type ImageLoaderPostThumbInput,
-  type ImageLoaderPostTransformInput,
+  type ImageLoaderPostDetailInput,
   type ImageLoaderStoreHeroInput,
+  type ImageLoaderStoreHeroDerivativeInput,
   type ImageLoaderStorePresetInput,
   type ImageLoaderStoreThumbInput,
-  type ImageLoaderStoreTransformInput,
 } from "@/lib/image/image-loader";
 
 export {

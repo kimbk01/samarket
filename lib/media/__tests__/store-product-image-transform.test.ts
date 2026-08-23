@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildStoreProductImageTransformUrl,
+  buildStoreProductHeroDerivativeUrl,
   buildStoreProductThumbnailFetchUrl,
   buildStoreProductHeroFetchUrl,
   deliveryThumbFetchPx,
@@ -23,25 +23,25 @@ describe("store-product-image-transform", () => {
     expect(deliveryThumbFetchPx(300)).toBe(640);
   });
 
-  it("buildStoreProductImageTransformUrl — tier-snapped render/image", () => {
+  it("buildStoreProductHeroDerivativeUrl — canonical hero derivative", () => {
     const raw =
       "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.webp";
-    const out = buildStoreProductImageTransformUrl(raw, { width: 232, height: 232 });
-    expect(out).toContain("/storage/v1/render/image/public/store-product-images/s1/p1.webp");
-    expect(out).toContain("width=320");
-    expect(out).toContain("height=320");
-    expect(out).toContain("resize=cover");
+    const out = buildStoreProductHeroDerivativeUrl(raw);
+    expect(out).toContain("/object/public/store-product-images/s1/p1.hero.webp");
+    expect(out).not.toContain("/render/image/");
   });
 
   it("passes through non-storage URLs", () => {
     const ext = "https://cdn.example.com/thumb.webp";
-    expect(buildStoreProductImageTransformUrl(ext, { width: 96 })).toBe(ext);
+    expect(buildStoreProductHeroDerivativeUrl(ext)).toBe(ext);
   });
 
-  it("does not double-transform render URLs", () => {
+  it("normalizes legacy render URLs to hero derivative", () => {
     const render =
       "https://abc.supabase.co/storage/v1/render/image/public/store-product-images/s1/p1.webp?width=96";
-    expect(buildStoreProductImageTransformUrl(render, { width: 96 })).toBe(render);
+    const out = buildStoreProductHeroDerivativeUrl(render);
+    expect(out).toContain(".hero.webp");
+    expect(out).not.toContain("/render/image/");
   });
 
   it("buildStoreProductThumbnailFetchUrl — object/public for list", () => {
@@ -52,14 +52,12 @@ describe("store-product-image-transform", () => {
     expect(out).not.toContain("/render/image/");
   });
 
-  it("buildStoreProductHeroFetchUrl — LCP preset 1280×720 q80", () => {
+  it("buildStoreProductHeroFetchUrl — upload-time hero derivative", () => {
     const raw =
       "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/hero.webp";
     const out = buildStoreProductHeroFetchUrl(raw);
-    expect(out).toContain("/render/image/public/");
-    expect(out).toContain("width=1280");
-    expect(out).toContain("height=720");
-    expect(out).toContain("quality=80");
+    expect(out).toContain(".hero.webp");
+    expect(out).not.toContain("/render/image/");
   });
 
   it("resolveStoreProductObjectPublicUrl — stable object path", () => {

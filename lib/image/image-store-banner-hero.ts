@@ -1,21 +1,11 @@
 /**
- * Store menu hero banner (`StoreOwnerBannerCarousel` → `HeroSlideCover` CSS background).
- *
- * Measurement basis (`#store-hero-media` = clamp(13rem, 44vh, 18rem) full-bleed width):
- * | profile        | viewport | DPR | displayW | displayH | reqW (×DPR×2.25) | reqH |
- * | mobile_430     | 430×932  | 2   | 430      | 288      | 1935             | 1296 |
- * | Pixel 5        | 393×727  | 2.75| 393      | 288      | ~2430            | ~1782|
- * | iPhone 13      | 390×664  | 3   | 390      | 288      | ~2633            | ~1944|
- * | desktop_1280   | col~430  | 2   | ≤430     | 288      | ≤1935            | ≤1296|
- *
- * Fixed preset (no runtime calc): width 1280 × height 720 × q80 — Phase 2A product tier;
- * same fetch box as `buildStoreProductHeroFetchUrl` / `#store-hero-media` LCP hero.
+ * Store menu hero banner — upload-time .hero.webp derivative (no runtime transform).
  */
 import {
   DELIVERY_DETAIL_HERO_FETCH_HEIGHT_PX,
   DELIVERY_DETAIL_HERO_QUALITY,
 } from "@/lib/image/image-size";
-import { imageBuildStoreProductTransformUrl } from "@/lib/image/image-transform";
+import { resolveCanonicalHeroImageUrl } from "@/lib/media/canonical-image-resolver";
 
 export const STORE_BANNER_HERO_FETCH_WIDTH_PX = 1280;
 
@@ -30,13 +20,8 @@ export const STORE_BANNER_HERO_MEASUREMENT = {
   presetQuality: DELIVERY_DETAIL_HERO_QUALITY,
 } as const;
 
-/** object/public → render/image for store-product-images banner hero background. */
 export function imageBuildStoreBannerHeroFetchUrl(raw: string | null | undefined): string | null {
-  return imageBuildStoreProductTransformUrl(raw, {
-    width: STORE_BANNER_HERO_FETCH_WIDTH_PX,
-    height: DELIVERY_DETAIL_HERO_FETCH_HEIGHT_PX,
-    quality: DELIVERY_DETAIL_HERO_QUALITY,
-  });
+  return resolveCanonicalHeroImageUrl(raw);
 }
 
 export function loadStoreBannerHeroFetchUrl(raw: string | null | undefined): string | null {

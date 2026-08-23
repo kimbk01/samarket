@@ -7,8 +7,12 @@ import {
   markBootMetricsThumbnailLoaded,
   markBootMetricsThumbnailRequested,
 } from "@/lib/startup/startup-metrics";
-import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
-import { buildStoreProductThumbnailFetchUrl } from "@/lib/media/store-product-image-transform";
+import {
+  resolveCanonicalImageUrl,
+} from "@/lib/media/canonical-image-resolver";
+import type { CanonicalImageSurface } from "@/lib/media/canonical-image-contract";
+import { canonicalBucketFromUrl } from "@/lib/media/canonical-image-path";
+import { resolveStoreProductObjectPublicUrl } from "@/lib/media/store-product-image-transform";
 import {
   isThumbnailUrlLoaded,
   markThumbnailUrlLoaded,
@@ -64,11 +68,14 @@ export function SamarketThumbnail({
   const resolvedSrc = useMemo(() => {
     const raw = src?.trim() || "";
     if (!raw || !fetchDisplayPx) return raw || fallbackSrc;
-    return (
-      buildFeedThumbnailFetchUrl(raw, fetchDisplayPx) ??
-      buildStoreProductThumbnailFetchUrl(raw, fetchDisplayPx) ??
-      raw
-    );
+    const bucket = canonicalBucketFromUrl(raw);
+    if (bucket === "store-product-images") {
+      return resolveStoreProductObjectPublicUrl(raw) ?? raw;
+    }
+    let surface: CanonicalImageSurface = "feed";
+    if (fetchDisplayPx <= 96) surface = "thumb";
+    else if (fetchDisplayPx >= 640) surface = "detail";
+    return resolveCanonicalImageUrl({ raw, surface }) ?? raw;
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);

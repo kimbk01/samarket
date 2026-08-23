@@ -25,13 +25,12 @@ describe("community feed thumbnail migration (ListThumb SSOT)", () => {
     expect(ADAPTER_COMMUNITY_FEED_THUMB_DISPLAY_PX).toBe(COMMUNITY_FEED_THUMB_DISPLAY_PX);
   });
 
-  it("post-images — Phase 2A tier 320 transform", () => {
+  it("post-images — Phase 2B thumb derivative (88px display)", () => {
     const adapter = loadCommunityFeedThumbnailFetchUrl(POST_RAW);
     const feed = buildFeedThumbnailFetchUrl(POST_RAW, COMMUNITY_FEED_THUMB_DISPLAY_PX);
     expect(adapter).toBe(feed);
-    expect(adapter).toContain("width=320");
-    expect(adapter).toContain("height=320");
-    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).toContain(".thumb.webp");
+    expect(adapter).not.toContain("/render/image/");
   });
 
   it("external URL — pass-through", () => {

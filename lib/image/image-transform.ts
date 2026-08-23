@@ -1,29 +1,19 @@
 /**
- * DIBAY Image V2 — transform URL builders (Phase 2A adapter).
+ * DIBAY Image V2 — canonical derivative fetch URL builders (Phase 2B).
  */
 import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
 import {
+  buildPostImageDetailFetchUrl,
   buildPostImageThumbnailFetchUrl,
-  buildPostImageTransformUrl,
 } from "@/lib/media/post-image-transform";
 import {
+  buildStoreProductHeroDerivativeUrl,
   buildStoreProductHeroFetchUrl,
-  buildStoreProductImageTransformUrl,
   buildStoreProductThumbnailFetchUrl,
   buildStoreProductThumbnailFetchUrlFromPreset,
   isPreOptimizedStoreProductImageUrl,
   type DeliveryImageFetchPreset,
 } from "@/lib/media/store-product-image-transform";
-
-export type ImageTransformOpts = { width: number; height?: number; quality?: number };
-
-/** @see buildPostImageTransformUrl */
-export function imageBuildPostTransformUrl(
-  raw: string | null | undefined,
-  opts: ImageTransformOpts
-): string | null {
-  return buildPostImageTransformUrl(raw, opts);
-}
 
 /** @see buildPostImageThumbnailFetchUrl */
 export function imageBuildPostThumbnailFetchUrl(
@@ -33,12 +23,16 @@ export function imageBuildPostThumbnailFetchUrl(
   return buildPostImageThumbnailFetchUrl(raw, displayPx);
 }
 
-/** @see buildStoreProductImageTransformUrl */
-export function imageBuildStoreProductTransformUrl(
-  raw: string | null | undefined,
-  opts: ImageTransformOpts
+/** @see buildPostImageDetailFetchUrl */
+export function imageBuildPostDetailFetchUrl(raw: string | null | undefined): string | null {
+  return buildPostImageDetailFetchUrl(raw);
+}
+
+/** @see buildStoreProductHeroDerivativeUrl */
+export function imageBuildStoreProductHeroDerivativeUrl(
+  raw: string | null | undefined
 ): string | null {
-  return buildStoreProductImageTransformUrl(raw, opts);
+  return buildStoreProductHeroDerivativeUrl(raw);
 }
 
 /** @see buildStoreProductThumbnailFetchUrl */

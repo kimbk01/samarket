@@ -14,6 +14,7 @@ import {
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image";
 import { prefetchTradePostDetailHeroImage } from "@/lib/image/prefetch-trade-detail-hero";
 
 interface ProductCardProps {
@@ -26,6 +27,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const isSold = product.status === "sold";
   const detailHref = `/post/${product.id}`;
   const heroRaw = product.thumbnail || product.images?.[0] || null;
+  const thumbnailFetchUrl = heroRaw ? loadTradeFeedThumbnailFetchUrl(heroRaw) ?? heroRaw : null;
 
   return (
     <Link
@@ -54,7 +56,7 @@ export function ProductCard({ product }: ProductCardProps) {
         className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted"
       >
         <SamarketThumbnail
-          src={product.thumbnail}
+          src={thumbnailFetchUrl}
           fill
           roundedClassName="rounded-ui-rect"
           className="bg-sam-surface-muted"

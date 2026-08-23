@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildPostImageTransformUrl } from "@/lib/media/post-image-transform";
 import {
   imageResolveTradePostDetailDisplayUrl,
   imageResolveTradePostDetailImageUrls,
@@ -54,17 +53,11 @@ describe("trade detail image migration (ProductImageGallery SSOT)", () => {
     expect(imageResolveTradePostDetailImageUrls(post)).toEqual([]);
   });
 
-  it("display URL — post-images full object → 1280 transform", () => {
-    const expected = buildPostImageTransformUrl(FULL_OBJECT, {
-      width: TRADE_POST_DETAIL_TIER_FETCH_PX,
-      height: TRADE_POST_DETAIL_TIER_FETCH_PX,
-    });
+  it("display URL — post-images → detail derivative", () => {
     const adapter = imageResolveTradePostDetailDisplayUrl(FULL_OBJECT);
-    expect(adapter).toBe(expected);
-    expect(adapter).toContain("width=1280");
-    expect(adapter).toContain("height=1280");
-    expect(adapter).toContain("/render/image/public/post-images/");
-    expect(adapter).not.toContain("/object/public/post-images/");
+    expect(adapter).toContain(".detail.webp");
+    expect(adapter).not.toContain("/render/image/");
+    expect(adapter).toContain("/object/public/post-images/");
   });
 
   it("display URL — external URL pass-through", () => {

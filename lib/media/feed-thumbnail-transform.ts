@@ -14,10 +14,7 @@ function bucketKind(raw: string): "post" | "store" | "other" {
 }
 
 /**
- * Feed card thumb URL — Phase 2A tier-unified.
- * - store-product-images → object/public (no runtime transform)
- * - post-images → tier transform (320 for list/card display px)
- * - external → pass-through
+ * Feed card thumb URL — Phase 2B canonical derivatives (object/public only).
  */
 export function buildFeedThumbnailFetchUrl(
   raw: string | null | undefined,

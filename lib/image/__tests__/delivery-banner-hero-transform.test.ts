@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildPostImageTransformUrl } from "@/lib/media/post-image-transform";
 import {
   imageBuildStoreBannerHeroFetchUrl,
   loadStoreBannerHeroFetchUrl,
@@ -9,7 +8,7 @@ import {
 const BANNER_RAW =
   "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/banner.webp";
 
-describe("delivery banner hero transform (HeroSlideCover)", () => {
+describe("delivery banner hero (HeroSlideCover)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
@@ -19,13 +18,11 @@ describe("delivery banner hero transform (HeroSlideCover)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("object/public → render/image width=1280 height=720 quality=80", () => {
+  it("object/public → upload-time hero derivative", () => {
     const out = imageBuildStoreBannerHeroFetchUrl(BANNER_RAW);
-    expect(out).toContain("/storage/v1/render/image/public/store-product-images/");
-    expect(out).toContain(`width=${STORE_BANNER_HERO_FETCH_WIDTH_PX}`);
-    expect(out).toContain("height=720");
-    expect(out).toContain("quality=80");
-    expect(out).toContain("resize=cover");
+    expect(out).toContain("/object/public/store-product-images/");
+    expect(out).toContain(".hero.webp");
+    expect(out).not.toContain("/render/image/");
     expect(STORE_BANNER_HERO_FETCH_WIDTH_PX).toBe(1280);
   });
 
