@@ -17,6 +17,7 @@ import {
 } from "@/lib/stores/build-store-location-patch";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -420,6 +421,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH location]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
+    invalidateDiscoveryAfterStoreWrite(sb, id, built.patch);
     let store_orders_checkout_geo_sync: unknown;
     if (storeLocationPatchTouchesCoords(built.patch)) {
       store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
@@ -477,6 +479,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH hours]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
+    invalidateDiscoveryAfterStoreWrite(sb, id, { business_hours_json: nextHours });
     return auditOk(before, { business_hours_json: nextHours });
   }
 
@@ -503,6 +506,7 @@ export async function PATCH(
       console.error("[admin/stores PATCH delivery flags]", upErr);
       return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
+    invalidateDiscoveryAfterStoreWrite(sb, id, patch);
     return auditOk(before, patch);
   }
 

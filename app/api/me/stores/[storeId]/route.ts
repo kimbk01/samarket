@@ -13,6 +13,7 @@ import {
   storeLocationPatchTouchesCoords,
 } from "@/lib/stores/build-store-location-patch";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
+import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -322,6 +323,8 @@ export async function PATCH(
     console.error("[PATCH /api/me/stores/storeId] update returned no row", sid);
     return NextResponse.json({ ok: false, error: "update_no_row" }, { status: 500 });
   }
+
+  invalidateDiscoveryAfterStoreWrite(sb, sid, patch);
 
   clearStoreHomeFeedServerCache();
   invalidateMeStoresListServerCache(userId);

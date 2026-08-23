@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
+import { invalidateDiscoveryStoreProjections } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 
 type StoreRow = Record<string, unknown>;
 
@@ -164,6 +165,7 @@ async function syncApprovedStoreAddressFromAddressPayload(
   if (error) throw new Error("address_update_failed");
   if (latChanged || lngChanged) {
     await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(sb, sid);
+    void invalidateDiscoveryStoreProjections(sb, sid, { reasons: ["store_geo"] });
   }
 }
 

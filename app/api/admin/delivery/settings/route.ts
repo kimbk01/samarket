@@ -17,6 +17,7 @@ import {
   type DeliveryRideTimeSource,
   type DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
+import { invalidateDiscoveryGlobalDistancePolicy } from "@/lib/stores/discovery/invalidate-discovery-store-projections";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -223,6 +224,10 @@ export async function PUT(req: NextRequest) {
   if (hasRide || hasDistancePolicy || hasStoreDistanceOverrides) {
     invalidateDeliveryRideTimeSourceCache();
     invalidateDeliveryDistanceSettingsCache();
+  }
+
+  if (hasDistancePolicy || hasStoreDistanceOverrides) {
+    void invalidateDiscoveryGlobalDistancePolicy(sb);
   }
 
   const actorId = await getRouteUserId();

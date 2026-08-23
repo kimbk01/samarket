@@ -35,6 +35,7 @@ import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
 import { chargeStorePointsOnOrderAccept } from "@/lib/stores/charge-store-order-points";
 import { notifyStoreOwnerPointDeducted, notifyStoreOwnerPointBlocked } from "@/lib/notifications/notify-store-points";
+import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
 export type ApplyOrderStatusResult =
   | { ok: true; order_status: string; previous: string; idempotent?: boolean }
@@ -101,7 +102,7 @@ export async function applyStoreOrderStatusTransition(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, store_id, order_status, fulfillment_type, payment_status, payment_amount, auto_complete_at, buyer_user_id, order_no"
+      "id, store_id, order_status, fulfillment_type, payment_status, payment_amount, auto_complete_at, buyer_user_id, order_no, created_at"
     )
     .eq("id", oid)
     .maybeSingle();
@@ -354,6 +355,14 @@ export async function applyStoreOrderStatusTransition(
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);
+    const createdAt = String(order.created_at ?? "").trim();
+    if (createdAt) {
+      void applyStoreOrderPopularityProjectionOnCompleted(sb, {
+        orderId: oid,
+        storeId: sid,
+        orderCreatedAt: createdAt,
+      });
+    }
   }
 
   /**
