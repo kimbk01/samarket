@@ -6,6 +6,20 @@ import {
 import { STORE_HOME_FEED_RESPONSE_MAX } from "@/lib/stores/store-discovery-candidate";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
+function platformPopular(productId: string, name = "인기메뉴", price = 600) {
+  return [
+    {
+      productId,
+      name,
+      price,
+      imageUrl: null as string | null,
+      totalQty: 50,
+      popularRank: 1,
+      windowDays: 30,
+    },
+  ];
+}
+
 function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFeedItem {
   return {
     id: partial.id,
@@ -30,8 +44,9 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     paymentMethodsLine: "",
     distanceKm: partial.distanceKm ?? null,
     featuredItems: partial.featuredItems ?? [
-      { productId: `p-${partial.id}`, name: "메뉴", price: 500 },
+      { productId: `rep-${partial.id}`, name: "대표", price: 500 },
     ],
+    platformPopularProducts: partial.platformPopularProducts,
     profileImageUrl: null,
     isFeatured: partial.isFeatured ?? false,
     commerce: {
@@ -61,7 +76,8 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
     expect(composition.slot2Food).toEqual([]);
   });
 
-  it("slot2 populated even when stores already in Slot0 — deprioritized not excluded", () => {
+  it("slot2 populated even when stores already in Slot0 — distinct product, not excluded", () => {
+    // Invariant C: same productId cannot reappear after Slot0. Slot2 uses platform popular.
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
@@ -69,6 +85,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryAvailable: true,
         completedOrderCount30d: 100,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular("pop-a"),
       }),
       item({
         id: "b",
@@ -76,6 +93,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryAvailable: true,
         completedOrderCount30d: 80,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular("pop-b"),
       }),
       item({
         id: "c",
@@ -83,11 +101,29 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryAvailable: true,
         completedOrderCount30d: 20,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular("pop-c"),
       }),
     ]);
     expect(composition.slot0Food.map((e) => e.storeId)).toEqual(["a", "b", "c"]);
     expect(composition.slot2Food.length).toBe(3);
     expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "b", "c"]);
+    expect(composition.slot2Food.map((e) => e.productId)).toEqual(["pop-a", "pop-b", "pop-c"]);
+  });
+
+  it("same representative product after Slot0 is not re-filled into Slot2", () => {
+    const composition = composeStoresHomeFeed([
+      item({
+        id: "a",
+        status: "open",
+        deliveryAvailable: true,
+        completedOrderCount30d: 100,
+        discoveryEligibilityRank: 0,
+        featuredItems: [{ productId: "ONLY", name: "단일메뉴", price: 500 }],
+        // no platformPopularProducts → Slot2 would fall back to ONLY (already registered)
+      }),
+    ]);
+    expect(composition.slot0Food.map((e) => e.productId)).toEqual(["ONLY"]);
+    expect(composition.slot2Food).toEqual([]);
   });
 
   it("48-store fixture — popular shelf not starved by Slot0/1", () => {
@@ -101,6 +137,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryFeeStrikePhp: i % 5 === 0 ? 20 : null,
         rating: 4.5,
         reviewCount: 10,
+        platformPopularProducts: platformPopular(`pop-s${i}`),
       })
     );
     const composition = composeStoresHomeFeed(stores);
@@ -116,12 +153,14 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryAvailable: true,
         completedOrderCount30d: 10,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular("pop-open-low"),
       }),
       item({
         id: "closed-high",
         status: "closed",
         completedOrderCount30d: 500,
         discoveryEligibilityRank: 5,
+        platformPopularProducts: platformPopular("pop-closed-high"),
       }),
     ]);
     expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["open-low", "closed-high"]);
@@ -135,12 +174,14 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         deliveryAvailable: true,
         completedOrderCount30d: 30,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular("pop-a"),
       }),
       item({
         id: "closed-only",
         status: "closed",
         completedOrderCount30d: 500,
         discoveryEligibilityRank: 5,
+        platformPopularProducts: platformPopular("pop-closed"),
       }),
     ]);
     expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "closed-only"]);
@@ -152,11 +193,14 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         id: `s${i}`,
         completedOrderCount30d: 100 - i,
         discoveryEligibilityRank: 0,
+        platformPopularProducts: platformPopular(`pop-s${i}`),
       })
     );
     const composition = composeStoresHomeFeed(stores);
     expect(composition.slot2Food.length).toBeLessThanOrEqual(STORES_HOME_POPULAR_SHELF_MAX);
     const ids = composition.slot2Food.map((e) => e.storeId);
     expect(new Set(ids).size).toBe(ids.length);
+    const productIds = composition.slot2Food.map((e) => e.productId);
+    expect(new Set(productIds).size).toBe(productIds.length);
   });
 });
