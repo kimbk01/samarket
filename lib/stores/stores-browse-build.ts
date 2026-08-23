@@ -413,6 +413,8 @@ export type StoresBrowseResponseBody = {
       default_max_km: number | null;
       over_distance_behavior: DeliveryDistancePolicy["overDistanceBehavior"];
     };
+    /** CUT 8 — ranking authority that produced list order */
+    ranking_authority?: "old" | "new";
   };
 };
 

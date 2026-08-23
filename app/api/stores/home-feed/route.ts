@@ -3,14 +3,15 @@ import { haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import {
-  resolveStoreDiscoveryEligibility,
-  resolveStoreDiscoveryHomeDisplayStatus,
-} from "@/lib/stores/store-discovery-eligibility";
-import { sortStoreDiscoveryHomeFeedRows } from "@/lib/stores/store-discovery-browse-sort";
-import {
   loadHomeDiscoveryCandidateRows,
   STORE_HOME_FEED_RESPONSE_MAX,
 } from "@/lib/stores/store-discovery-candidate";
+import { loadHomeDiscoveryRankedForLive } from "@/lib/stores/discovery/load-store-discovery-ranked-live";
+import {
+  isStoreDiscoveryRankingAuthorityNew,
+  logStoreDiscoveryAuthorityRuntime,
+  resolveStoreDiscoveryRankingAuthority,
+} from "@/lib/stores/discovery/store-discovery-ranking-authority";
 import {
   applyStoreDiscoveryExposureRotation,
   buildStoreDiscoveryHomeExposureScope,
@@ -49,6 +50,11 @@ import {
   buildActiveProductCatalogMap,
   resolvePopularMenuStatsSinceIso,
 } from "@/lib/stores/assemble-store-home-platform-popular-products";
+import { sortStoreDiscoveryHomeFeedRows } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  resolveStoreDiscoveryEligibility,
+  resolveStoreDiscoveryHomeDisplayStatus,
+} from "@/lib/stores/store-discovery-eligibility";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -165,91 +171,172 @@ export async function GET(req: Request) {
   }
 
   try {
-    const candidateLoad = await loadHomeDiscoveryCandidateRows(supabase, { searchQ });
-    if (candidateLoad.status === "error") {
-      console.error("[api/stores/home-feed] candidate load error");
-    }
-    let rows: FeedRow[] = candidateLoad.rows as FeedRow[];
+    const hasGeo = userLat != null && userLng != null;
+    const distanceAxisEnabled = serviceabilityCtx.policy.enabled && hasGeo;
+    const exposureScope = buildStoreDiscoveryHomeExposureScope({
+      region,
+      district,
+      searchQ,
+      originKey: origin.cacheKeyPart,
+      hasGeo,
+      geoKey: hasGeo ? `g:${userLat!.toFixed(5)},${userLng!.toFixed(5)}` : "",
+    });
 
-    if (rows.length === 0 && !searchQ) {
-      return NextResponse.json(
-        { ok: true, stores: [] as StoreHomeFeedItem[], meta: { source: "supabase" as const } },
-        { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
-      );
-    }
-    const ownerDefaults = await loadOwnerDefaultAddressByUserId(
-      supabase,
-      rows.map((r) => String(r.owner_user_id ?? "")),
-    );
-    const effectiveById = new Map(
-      rows.map((r) => [
-        r.id,
-        resolveEffectiveStoreRouteAddress(r, ownerDefaults.get(String(r.owner_user_id ?? "").trim())),
-      ]),
-    );
-
+    let rows: FeedRow[] = [];
     const eligibilityRankById = new Map<string, number>();
     const outOfRangeById = new Map<string, boolean>();
     const distById = new Map<string, number | null>();
-    for (const r of rows) {
-      const effective = effectiveById.get(r.id) ?? r;
-      let outOfRange = false;
-      let distanceKm: number | null = null;
-      if (userLat != null && userLng != null) {
-        const svc = evaluateStoreDeliveryServiceability({
-          ctx: serviceabilityCtx,
-          storeId: r.id,
-          customerLat: userLat,
-          customerLng: userLng,
-          storeLat: effective.lat,
-          storeLng: effective.lng,
-        });
-        outOfRange =
-          svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
-        distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
-      }
-      outOfRangeById.set(r.id, outOfRange);
-      distById.set(r.id, distanceKm);
-      eligibilityRankById.set(
-        r.id,
-        resolveStoreDiscoveryEligibility({
-          business_hours_json: r.business_hours_json,
-          is_open: r.is_open,
-          point_commerce_blocked: r.point_commerce_blocked,
-          delivery_available: r.delivery_available,
-          distanceOutOfRange: outOfRange,
-        }).rank
-      );
-    }
+    let orderLoad: { status: "ok" | "error"; counts: Map<string, number> } = {
+      status: "ok",
+      counts: new Map(),
+    };
+    let effectiveById = new Map<string, FeedRow>();
 
-    const allRowIds = rows.map((r) => r.id);
-    const orderLoad = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, allRowIds);
+    const rankingAuthority = resolveStoreDiscoveryRankingAuthority();
 
-    rows = sortStoreDiscoveryHomeFeedRows(rows, {
-      district,
-      eligibilityRankById,
-      distanceKmById: userLat != null && userLng != null ? distById : null,
-      outOfRangeById: userLat != null && userLng != null ? outOfRangeById : null,
-      hasGeo: userLat != null && userLng != null,
-      completedOrderCount30dById: orderLoad.counts,
-      completedOrderCountStatus: orderLoad.status,
-    });
-
-    const hasGeo = userLat != null && userLng != null;
-    rows = applyStoreDiscoveryExposureRotation({
-      recommendedSorted: rows,
-      eligibilityRankById,
-      exposureScope: buildStoreDiscoveryHomeExposureScope({
-        region,
+    if (isStoreDiscoveryRankingAuthorityNew()) {
+      const live = await loadHomeDiscoveryRankedForLive(supabase, {
+        originLat: userLat,
+        originLng: userLng,
         district,
         searchQ,
-        originKey: origin.cacheKeyPart,
-        hasGeo,
-        geoKey: hasGeo ? `g:${userLat!.toFixed(5)},${userLng!.toFixed(5)}` : "",
-      }),
-    });
+        distanceAxisEnabled,
+        exposureScope,
+      });
+      if (!live.ok) {
+        // Fail-closed — never silent-fallback to OLD full-candidate ranking.
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "discovery_ranking_unavailable",
+            stores: [] as StoreHomeFeedItem[],
+            meta: {
+              source: "supabase" as const,
+              ranking_authority: "new" as const,
+              ranking_status: live.status,
+            },
+          },
+          { status: 500, headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+        );
+      }
+      rows = live.rows as FeedRow[];
+      for (const [id, rank] of live.eligibilityRankById) eligibilityRankById.set(id, rank);
+      for (const [id, oor] of live.outOfRangeById) outOfRangeById.set(id, oor);
+      for (const [id, d] of live.distById) distById.set(id, d);
+      orderLoad = { status: "ok", counts: live.completedOrders30dById };
 
-    rows = rows.slice(0, STORE_HOME_FEED_RESPONSE_MAX);
+      if (rows.length === 0 && !searchQ) {
+        return NextResponse.json(
+          {
+            ok: true,
+            stores: [] as StoreHomeFeedItem[],
+            meta: { source: "supabase" as const, ranking_authority: "new" as const },
+          },
+          { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+        );
+      }
+
+      const ownerDefaults = await loadOwnerDefaultAddressByUserId(
+        supabase,
+        rows.map((r) => String(r.owner_user_id ?? ""))
+      );
+      effectiveById = new Map(
+        rows.map((r) => [
+          r.id,
+          resolveEffectiveStoreRouteAddress(
+            r,
+            ownerDefaults.get(String(r.owner_user_id ?? "").trim())
+          ) as FeedRow,
+        ])
+      );
+    } else {
+      logStoreDiscoveryAuthorityRuntime({
+        surface: "home",
+        authority: "old",
+        status: "old_path",
+      });
+      const candidateLoad = await loadHomeDiscoveryCandidateRows(supabase, { searchQ });
+      if (candidateLoad.status === "error") {
+        console.error("[api/stores/home-feed] candidate load error");
+      }
+      rows = candidateLoad.rows as FeedRow[];
+
+      if (rows.length === 0 && !searchQ) {
+        return NextResponse.json(
+          {
+            ok: true,
+            stores: [] as StoreHomeFeedItem[],
+            meta: { source: "supabase" as const, ranking_authority: "old" as const },
+          },
+          { headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL } }
+        );
+      }
+      const ownerDefaults = await loadOwnerDefaultAddressByUserId(
+        supabase,
+        rows.map((r) => String(r.owner_user_id ?? ""))
+      );
+      effectiveById = new Map(
+        rows.map((r) => [
+          r.id,
+          resolveEffectiveStoreRouteAddress(
+            r,
+            ownerDefaults.get(String(r.owner_user_id ?? "").trim())
+          ) as FeedRow,
+        ])
+      );
+
+      for (const r of rows) {
+        const effective = effectiveById.get(r.id) ?? r;
+        let outOfRange = false;
+        let distanceKm: number | null = null;
+        if (userLat != null && userLng != null) {
+          const svc = evaluateStoreDeliveryServiceability({
+            ctx: serviceabilityCtx,
+            storeId: r.id,
+            customerLat: userLat,
+            customerLng: userLng,
+            storeLat: effective.lat,
+            storeLng: effective.lng,
+          });
+          outOfRange =
+            svc.applies && (svc.reason === "out_of_range" || svc.reason === "missing_store_coords");
+          distanceKm = svc.distanceKm ?? haversineKm(userLat, userLng, effective.lat, effective.lng);
+        }
+        outOfRangeById.set(r.id, outOfRange);
+        distById.set(r.id, distanceKm);
+        eligibilityRankById.set(
+          r.id,
+          resolveStoreDiscoveryEligibility({
+            business_hours_json: r.business_hours_json,
+            is_open: r.is_open,
+            point_commerce_blocked: r.point_commerce_blocked,
+            delivery_available: r.delivery_available,
+            distanceOutOfRange: outOfRange,
+          }).rank
+        );
+      }
+
+      const allRowIds = rows.map((r) => r.id);
+      orderLoad = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, allRowIds);
+
+      rows = sortStoreDiscoveryHomeFeedRows(rows, {
+        district,
+        eligibilityRankById,
+        distanceKmById: userLat != null && userLng != null ? distById : null,
+        outOfRangeById: userLat != null && userLng != null ? outOfRangeById : null,
+        hasGeo: userLat != null && userLng != null,
+        completedOrderCount30dById: orderLoad.counts,
+        completedOrderCountStatus: orderLoad.status,
+      });
+
+      rows = applyStoreDiscoveryExposureRotation({
+        recommendedSorted: rows,
+        eligibilityRankById,
+        exposureScope,
+      });
+
+      rows = rows.slice(0, STORE_HOME_FEED_RESPONSE_MAX);
+    }
 
     if (process.env.NODE_ENV === "development" && userLat != null && userLng != null && rows.length > 0) {
       devLogRoutesSkipped("list_screen_disabled", "api/stores/home-feed");
@@ -395,7 +482,22 @@ export async function GET(req: Request) {
       let distanceKm: number | null = distById.get(r.id) ?? null;
       let distancePolicyApplied = false;
       let maxDeliveryDistanceKm: number | null = null;
-      if (userLat != null && userLng != null) {
+      if (rankingAuthority === "new") {
+        distancePolicyApplied = distanceAxisEnabled;
+        if (distanceAxisEnabled) {
+          const effective = effectiveById.get(r.id) ?? r;
+          const svc = evaluateStoreDeliveryServiceability({
+            ctx: serviceabilityCtx,
+            storeId: r.id,
+            customerLat: userLat!,
+            customerLng: userLng!,
+            storeLat: effective.lat,
+            storeLng: effective.lng,
+          });
+          maxDeliveryDistanceKm = svc.applies ? svc.maxKm : null;
+          // Ranking/display OOR + distanceKm already from NEW wave projection maps.
+        }
+      } else if (userLat != null && userLng != null) {
         const effective = effectiveById.get(r.id) ?? r;
         const svc = evaluateStoreDeliveryServiceability({
           ctx: serviceabilityCtx,
@@ -485,6 +587,7 @@ export async function GET(req: Request) {
       meta: {
         source: "supabase" as const,
         sorted_by: "eligibility_district_distance_orders_rating",
+        ranking_authority: rankingAuthority,
         origin_source: origin.source,
         origin_address_id: origin.addressId,
         popularProductStats: { status: popularProductStatsStatus },

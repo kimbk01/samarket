@@ -5,6 +5,11 @@
 
 BEGIN;
 
+-- OUT/return row type may differ from CUT4; REPLACE cannot change OUT params.
+DROP FUNCTION IF EXISTS public.get_store_discovery_shadow_wave(
+  integer, integer, text, integer, double precision, double precision, text, boolean, text, uuid, uuid, boolean, text[]
+);
+
 CREATE OR REPLACE FUNCTION public.get_store_discovery_shadow_wave(
   p_eligibility_rank integer,
   p_district_tier integer,

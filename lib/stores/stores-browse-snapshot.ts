@@ -36,6 +36,13 @@ import {
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
 import { loadBrowseDiscoveryCandidateRows, selectBrowseStoreRowsForRanking } from "@/lib/stores/store-discovery-candidate";
+import { loadBrowseDiscoveryRankedForLive } from "@/lib/stores/discovery/load-store-discovery-ranked-live";
+import {
+  isStoreDiscoveryRankingAuthorityNew,
+  logStoreDiscoveryAuthorityRuntime,
+  resolveStoreDiscoveryRankingAuthority,
+} from "@/lib/stores/discovery/store-discovery-ranking-authority";
+import { buildStoreDiscoveryBrowseExposureScope } from "@/lib/stores/store-discovery-exposure";
 import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -303,41 +310,88 @@ async function finishFromPayload(
     ctx.wantsAllSubs,
     Math.round(input.readMs)
   );
-  const directCandidates = await loadBrowseDiscoveryCandidateRows(sb, ctx, bundle.taxonomySlice);
-  const storeRowsForRank = selectBrowseStoreRowsForRanking(
-    directCandidates,
-    bundle.storeRowsRaw
-  );
-  if (directCandidates.status === "error") {
-    console.error(
-      "[stores-browse-snapshot] browse candidate load error — snapshot store rows not used for ranking"
-    );
-  }
-  const bundleForRank = { ...bundle, storeRowsRaw: storeRowsForRank };
 
-  const prefilteredRows = resolveBrowseFilteredStoreRows(ctx, bundleForRank.taxonomySlice, storeRowsForRank);
-  const needsOrderCounts = ctx.sort === "popular" || ctx.sort === "default";
-  let completedOrderCount30dById: Map<string, number> | null = null;
-  let completedOrderCountStatus: "ok" | "error" = "ok";
-  if (needsOrderCounts) {
-    const loadResult = await loadStoreCompletedOrderCount30dMapWithStatus(
-      sb,
-      prefilteredRows.map((r) => r.id)
+  let prefetchedFilter;
+  if (isStoreDiscoveryRankingAuthorityNew()) {
+    const distanceAxisEnabled =
+      ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
+    const live = await loadBrowseDiscoveryRankedForLive(sb, {
+      sort: ctx.sort,
+      originLat: ctx.origin.lat,
+      originLng: ctx.origin.lng,
+      district: ctx.district,
+      distanceAxisEnabled,
+      storeCategoryId: bundle.taxonomySlice.categoryId
+        ? String(bundle.taxonomySlice.categoryId)
+        : null,
+      storeTopicId: bundle.taxonomySlice.resolvedTopicId
+        ? String(bundle.taxonomySlice.resolvedTopicId)
+        : null,
+      wantsAllSubs: ctx.wantsAllSubs,
+      orphanBusinessTypes: bundle.taxonomySlice.primaryAliases ?? [],
+      page: ctx.page,
+      limit: ctx.limit,
+      exposureScope: buildStoreDiscoveryBrowseExposureScope({
+        primary: ctx.primary,
+        sub: ctx.sub,
+        regionQ: ctx.regionQ,
+        cityQ: ctx.cityQ,
+        district: ctx.district,
+        geoPart: ctx.origin.cacheGeoPart,
+      }),
+    });
+    if (!live.ok) {
+      // Fail-closed — never silent-fallback to OLD full-candidate ranking.
+      throw new Error(`discovery_ranking_${live.status}`);
+    }
+    prefetchedFilter = live.filter;
+  } else {
+    logStoreDiscoveryAuthorityRuntime({
+      surface: "browse",
+      authority: "old",
+      status: "old_path",
+    });
+    const directCandidates = await loadBrowseDiscoveryCandidateRows(sb, ctx, bundle.taxonomySlice);
+    const storeRowsForRank = selectBrowseStoreRowsForRanking(
+      directCandidates,
+      bundle.storeRowsRaw
     );
-    completedOrderCount30dById = loadResult.counts;
-    completedOrderCountStatus = loadResult.status;
+    if (directCandidates.status === "error") {
+      console.error(
+        "[stores-browse-snapshot] browse candidate load error — snapshot store rows not used for ranking"
+      );
+    }
+    const bundleForRank = { ...bundle, storeRowsRaw: storeRowsForRank };
+    const prefilteredRows = resolveBrowseFilteredStoreRows(
+      ctx,
+      bundleForRank.taxonomySlice,
+      storeRowsForRank
+    );
+    const needsOrderCounts = ctx.sort === "popular" || ctx.sort === "default";
+    let completedOrderCount30dById: Map<string, number> | null = null;
+    let completedOrderCountStatus: "ok" | "error" = "ok";
+    if (needsOrderCounts) {
+      const loadResult = await loadStoreCompletedOrderCount30dMapWithStatus(
+        sb,
+        prefilteredRows.map((r) => r.id)
+      );
+      completedOrderCount30dById = loadResult.counts;
+      completedOrderCountStatus = loadResult.status;
+    }
+    const ctxOld = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
+    prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
+      ctxOld,
+      bundleForRank.taxonomySlice,
+      storeRowsForRank,
+      prefilteredRows,
+      completedOrderCount30dById,
+      completedOrderCountStatus
+    );
   }
-  const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
-  const prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
-    ctxWithDistance,
-    bundleForRank.taxonomySlice,
-    storeRowsForRank,
-    prefilteredRows,
-    completedOrderCount30dById,
-    completedOrderCountStatus
-  );
+
+  const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefetchedFilter.rows);
   const assemble0 = devPerfNow();
-  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundleForRank, prefetchedFilter);
+  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundle, prefetchedFilter);
   const enrich = await enrichBrowseStoresWithPlatformPopular(sb, assembled.body.stores);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
@@ -349,8 +403,16 @@ async function finishFromPayload(
   });
   logStoresBrowseMonolithAnalysis(breakdown);
   evaluateStoresBrowseRegressionGuards(breakdown);
+  const rankingAuthority = resolveStoreDiscoveryRankingAuthority();
+  const bodyWithAuthority = {
+    ...assembled.body,
+    meta: {
+      ...assembled.body.meta,
+      ranking_authority: rankingAuthority,
+    },
+  };
   return {
-    body: assembled.body,
+    body: bodyWithAuthority,
     breakdown,
     snapshotVia: input.via,
     rpcWallMs: Math.round(input.readMs),

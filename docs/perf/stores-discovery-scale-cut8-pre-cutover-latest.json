@@ -1,0 +1,102 @@
+{
+  "cut": 8,
+  "phase": "pre_cutover",
+  "generatedAt": "2026-08-23T11:43:33.300Z",
+  "cut6Migration": "PASS",
+  "reconciliation": {
+    "visibleStores": 14,
+    "scheduleRefresh": {
+      "ok": 15,
+      "fail": 0
+    },
+    "coverageRebuild": {
+      "ok": 15,
+      "fail": 0,
+      "policyVersion": 1
+    },
+    "geogMissingUnexpected": 0,
+    "districtMissing": 0,
+    "scheduleUnknown": 0,
+    "coverageMissingUnexpected": 0,
+    "orderProjectionDiff": 0
+  },
+  "homeDiffs": {
+    "no_geo": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 14,
+      "newLength": 14,
+      "equal": true
+    },
+    "geo": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 14,
+      "newLength": 14,
+      "equal": true
+    },
+    "geo_district": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 14,
+      "newLength": 14,
+      "equal": true
+    }
+  },
+  "browseDiffs": {
+    "default": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 6,
+      "newLength": 6,
+      "equal": true
+    },
+    "distance": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 6,
+      "newLength": 6,
+      "equal": true
+    },
+    "rating": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 6,
+      "newLength": 6,
+      "equal": true
+    },
+    "reviews": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 6,
+      "newLength": 6,
+      "equal": true
+    },
+    "popular": {
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null,
+      "lengthMismatch": false,
+      "oldLength": 6,
+      "newLength": 6,
+      "equal": true
+    }
+  },
+  "browseCategoryId": "85bc854d-c282-4fe0-8eb7-bf04f5240280",
+  "firstDivergence": "NONE",
+  "preCutoverPass": true
+}

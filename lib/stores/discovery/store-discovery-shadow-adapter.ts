@@ -1,6 +1,7 @@
 /**
- * CUT 4 — Shadow adapter via Gi×Dj wave RPC (SHADOW ONLY).
- * Never used as live HOME/BROWSE response authority.
+ * CUT 4 / CUT 8 — Gi×Dj wave RPC adapter.
+ * LIVE HOME/BROWSE ranking authority when STORE_DISCOVERY_RANKING_AUTHORITY ≠ old
+ * (via load-store-discovery-ranked-live). Shadow-only when authority=old.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

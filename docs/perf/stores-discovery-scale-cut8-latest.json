@@ -1,0 +1,23 @@
+{
+  "cut": 8,
+  "generatedAt": "2026-08-23T12:00:00.000Z",
+  "mode": "PRODUCTION_AUTHORITY_CUTOVER",
+  "preCutoverArtifact": "docs/perf/stores-discovery-scale-cut8-pre-cutover-latest.json",
+  "preCutoverPass": true,
+  "firstDivergence": "NONE",
+  "cut6Migration": "PASS",
+  "homeAuthorityBefore": "OLD",
+  "homeAuthorityAfter": "NEW",
+  "browseAuthorityBefore": "OLD",
+  "browseAuthorityAfter": "NEW",
+  "cutoverSwitch": "resolveStoreDiscoveryRankingAuthority / STORE_DISCOVERY_RANKING_AUTHORITY env (default new)",
+  "failClosed": true,
+  "silentOldFallback": false,
+  "rollbackPath": "Set Vercel/env STORE_DISCOVERY_RANKING_AUTHORITY=old and redeploy via git push (or env-only redeploy). Do NOT drop projection schema.",
+  "oldCode": "RETAINED-RUNTIME-DEAD when authority=new",
+  "knownScaleOptimization": "HOME GEO / distance KNN follow-up — BLOCKS_CUTOVER=NO",
+  "distanceKnnInCut8": false,
+  "push": "PENDING",
+  "vercel": "PENDING",
+  "cut8": "PENDING_PUSH_PROOF"
+}

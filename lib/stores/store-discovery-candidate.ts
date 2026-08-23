@@ -209,3 +209,76 @@ export async function loadHomeDiscoveryCandidateRows(
 
   return paged;
 }
+
+/**
+ * CUT 8 — hydrate HOME card rows for a bounded ordered id list (post-rank only).
+ * Does not load the full candidate catalog.
+ */
+export async function loadHomeDiscoveryRowsByOrderedIds(
+  sb: SupabaseClient,
+  orderedIds: readonly string[]
+): Promise<StoreDiscoveryCandidateLoadResult<Record<string, unknown>>> {
+  const ids = orderedIds.map((id) => String(id ?? "").trim()).filter(Boolean);
+  if (ids.length === 0) return { status: "ok", rows: [], pagesFetched: 0 };
+
+  const { data, error } = await sb
+    .from("stores")
+    .select(HOME_DISCOVERY_SELECT)
+    .in("id", ids)
+    .eq("approval_status", "approved")
+    .eq("is_visible", true);
+
+  if (error) {
+    console.error("[loadHomeDiscoveryRowsByOrderedIds]", error.message);
+    return { status: "error", rows: [], pagesFetched: 1 };
+  }
+
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const r of data ?? []) {
+    const o = r as Record<string, unknown> & { store_categories?: RelOne | RelOne[] };
+    byId.set(String(o.id), {
+      ...o,
+      store_categories: embedOne(o.store_categories),
+    });
+  }
+
+  const rows: Record<string, unknown>[] = [];
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (row) rows.push(row);
+  }
+  return { status: "ok", rows, pagesFetched: 1 };
+}
+
+/**
+ * CUT 8 — hydrate BROWSE list rows for a bounded ordered id list (post-rank only).
+ */
+export async function loadBrowseDiscoveryRowsByOrderedIds(
+  sb: SupabaseClient,
+  orderedIds: readonly string[]
+): Promise<StoreDiscoveryCandidateLoadResult<StoreBrowseRow>> {
+  const ids = orderedIds.map((id) => String(id ?? "").trim()).filter(Boolean);
+  if (ids.length === 0) return { status: "ok", rows: [], pagesFetched: 0 };
+
+  const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name )`;
+  const { data, error } = await sb
+    .from("stores")
+    .select(selectColumns)
+    .in("id", ids)
+    .eq("approval_status", "approved")
+    .eq("is_visible", true);
+
+  if (error) {
+    console.error("[loadBrowseDiscoveryRowsByOrderedIds]", error.message);
+    return { status: "error", rows: [], pagesFetched: 1 };
+  }
+
+  const mapped = mapBrowseEmbedRows((data ?? []) as unknown[]);
+  const byId = new Map(mapped.map((r) => [r.id, r]));
+  const rows: StoreBrowseRow[] = [];
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (row) rows.push(row);
+  }
+  return { status: "ok", rows, pagesFetched: 1 };
+}
