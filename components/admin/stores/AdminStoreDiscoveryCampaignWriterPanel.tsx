@@ -50,6 +50,25 @@ function fromDatetimeLocal(value: string): string {
   return new Date(ms).toISOString();
 }
 
+function resolveCampaignWriterErrorMessage(
+  code: string | undefined,
+  t: ReturnType<typeof useI18n>["t"]
+): string {
+  if (!code) return t("admin_store_discovery_campaigns_save_fail");
+  const keyMap: Record<string, keyof typeof import("@/lib/i18n/catalog/admin-store-discovery").adminStoreDiscoveryMessages.ko> = {
+    invalid_window: "admin_store_discovery_campaigns_err_invalid_window",
+    empty_title: "admin_store_discovery_campaigns_err_empty_title",
+    invalid_start_at: "admin_store_discovery_campaigns_err_invalid_start_at",
+    invalid_end_at: "admin_store_discovery_campaigns_err_invalid_end_at",
+    store_not_found: "admin_store_discovery_campaigns_err_store_not_found",
+    store_not_eligible: "admin_store_discovery_campaigns_err_store_not_eligible",
+    missing_store_id: "admin_store_discovery_campaigns_err_missing_store_id",
+  };
+  const key = keyMap[code];
+  if (key) return t(key);
+  return t("admin_store_discovery_campaigns_save_fail");
+}
+
 type Props = {
   campaigns: AdminDiscoveryCampaignRow[];
   loading: boolean;
@@ -109,7 +128,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setSaveErr(json.error ?? "save_fail");
+        setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
       setCreateForm(emptyForm());
@@ -144,7 +163,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setSaveErr(json.error ?? "save_fail");
+        setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
       setEditingId(null);
@@ -170,7 +189,7 @@ export function AdminStoreDiscoveryCampaignWriterPanel({
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setSaveErr(json.error ?? "save_fail");
+        setSaveErr(resolveCampaignWriterErrorMessage(json.error, t));
         return;
       }
       if (editingId === id) setEditingId(null);
