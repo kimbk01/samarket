@@ -6,6 +6,10 @@ import {
   sortStoreDiscoveryRecommendedRows,
   toStoreDiscoveryRecommendedContext,
 } from "@/lib/stores/store-discovery-recommended-ranking";
+import {
+  computeBayesianWeightedRating,
+  type StoreRatingConfidencePolicyAuthority,
+} from "@/lib/stores/store-rating-confidence-policy";
 
 export type StoreBrowseServerSortId =
   | "default"
@@ -55,6 +59,11 @@ export type StoreDiscoverySortContext = {
    * null entry / missing key = UNKNOWN (sort after configured).
    */
   explicitPrepMinutesById?: Map<string, number | null> | null;
+  /**
+   * `sort=rating` only — usable singleton policy (C + m).
+   * null / missing → raw rating_avg path (explicit fallback_raw / error).
+   */
+  ratingConfidencePolicy?: StoreRatingConfidencePolicyAuthority | null;
 };
 
 function stableSlug(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -102,8 +111,8 @@ function canonicalReviewCount(row: StoreDiscoverySortRow): number {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
 }
 
-/** Null ratings sort after rated stores. */
-function ratingCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+/** Null ratings sort after rated stores. Raw rating_avg path (fallback). */
+function ratingCmpRaw(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
   const ra = canonicalRatingValue(a);
   const rb = canonicalRatingValue(b);
   if (ra != null && rb != null && ra !== rb) return rb - ra;
@@ -112,6 +121,37 @@ function ratingCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
   const rev = canonicalReviewCount(b) - canonicalReviewCount(a);
   if (rev !== 0) return rev;
   return stableSlug(a, b);
+}
+
+/** Alias kept for popular/default degrade paths. */
+function ratingCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  return ratingCmpRaw(a, b);
+}
+
+/**
+ * Bayesian confidence rating when policy is usable.
+ * eligibility already applied by caller.
+ * Order: weighted DESC → review_count DESC → stable slug/id.
+ */
+function ratingCmpConfidence(
+  policy: StoreRatingConfidencePolicyAuthority,
+  a: StoreDiscoverySortRow,
+  b: StoreDiscoverySortRow
+): number {
+  const wa = computeBayesianWeightedRating(canonicalRatingValue(a), canonicalReviewCount(a), policy);
+  const wb = computeBayesianWeightedRating(canonicalRatingValue(b), canonicalReviewCount(b), policy);
+  if (wa != null && wb != null && wa !== wb) return wb - wa;
+  if (wa != null && wb == null) return -1;
+  if (wa == null && wb != null) return 1;
+  const rev = canonicalReviewCount(b) - canonicalReviewCount(a);
+  if (rev !== 0) return rev;
+  return stableSlug(a, b);
+}
+
+function ratingCmpForSort(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  const policy = ctx.ratingConfidencePolicy ?? null;
+  if (policy) return ratingCmpConfidence(policy, a, b);
+  return ratingCmpRaw(a, b);
 }
 
 function reviewsCmp(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -166,7 +206,7 @@ export function compareStoreDiscoveryBrowseRows(
       return stableSlug(a, b);
     }
     case "rating":
-      return ratingCmp(a, b);
+      return ratingCmpForSort(ctx, a, b);
     case "reviews":
       return reviewsCmp(a, b);
     case "popular":
@@ -213,11 +253,13 @@ export function sortStoreDiscoveryHomeFeedRows<T extends StoreDiscoverySortRow>(
 
 export function resolveStoreBrowseSortedByMeta(
   sort: StoreBrowseServerSortId,
-  hasGeo: boolean
+  hasGeo: boolean,
+  ratingConfidenceActive = false
 ):
   | "eligibility_district_distance_orders_rating"
   | "eligibility_distance"
   | "eligibility_rating"
+  | "eligibility_rating_confidence"
   | "eligibility_reviews"
   | "eligibility_popular"
   | "eligibility_prep" {
@@ -225,7 +267,7 @@ export function resolveStoreBrowseSortedByMeta(
     case "distance":
       return "eligibility_distance";
     case "rating":
-      return "eligibility_rating";
+      return ratingConfidenceActive ? "eligibility_rating_confidence" : "eligibility_rating";
     case "reviews":
       return "eligibility_reviews";
     case "popular":

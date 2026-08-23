@@ -31,6 +31,7 @@ import {
   BROWSE_STORE_ROW_SELECTED_COLUMNS,
   resolveBrowseFilteredSortedStoreRows,
   applyBrowseSubFilterContractToPrefetchedFilter,
+  applyNewAuthorityRatingConfidenceToBrowseFilter,
   resolveBrowseFilteredStoreRows,
   type StoreBrowseRow,
   type StoresBrowseAssembleResult,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/stores/discovery/store-discovery-ranking-authority";
 import { buildStoreDiscoveryBrowseExposureScope } from "@/lib/stores/store-discovery-exposure";
 import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
+import { loadStoreRatingConfidencePolicy } from "@/lib/stores/store-rating-confidence-policy";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -351,6 +353,16 @@ async function finishFromPayload(
       bundle.taxonomySlice,
       live.filter
     );
+    /** NEW authority sort=rating — consume existing C/m policy (OLD path already wired). */
+    if (ctx.sort === "rating") {
+      const conf = await loadStoreRatingConfidencePolicy(sb);
+      prefetchedFilter = applyNewAuthorityRatingConfidenceToBrowseFilter(
+        ctx,
+        prefetchedFilter,
+        conf.policy,
+        conf.status
+      );
+    }
   } else {
     logStoreDiscoveryAuthorityRuntime({
       surface: "browse",
@@ -384,6 +396,17 @@ async function finishFromPayload(
       completedOrderCount30dById = loadResult.counts;
       completedOrderCountStatus = loadResult.status;
     }
+    let ratingConfidencePolicy = null as Awaited<
+      ReturnType<typeof loadStoreRatingConfidencePolicy>
+    >["policy"];
+    let ratingConfidenceStatus: Awaited<
+      ReturnType<typeof loadStoreRatingConfidencePolicy>
+    >["status"] | undefined;
+    if (ctx.sort === "rating") {
+      const conf = await loadStoreRatingConfidencePolicy(sb);
+      ratingConfidencePolicy = conf.policy;
+      ratingConfidenceStatus = conf.status;
+    }
     const ctxOld = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
     prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
       ctxOld,
@@ -391,7 +414,9 @@ async function finishFromPayload(
       storeRowsForRank,
       prefilteredRows,
       completedOrderCount30dById,
-      completedOrderCountStatus
+      completedOrderCountStatus,
+      ratingConfidencePolicy,
+      ratingConfidenceStatus
     );
   }
 

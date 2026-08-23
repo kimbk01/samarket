@@ -15,6 +15,10 @@ import {
   buildStoreDiscoveryBrowseExposureScope,
 } from "@/lib/stores/store-discovery-exposure";
 import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
+import type {
+  StoreRatingConfidenceLoadStatus,
+  StoreRatingConfidencePolicyAuthority,
+} from "@/lib/stores/store-rating-confidence-policy";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -398,6 +402,7 @@ export type StoresBrowseResponseBody = {
       | "eligibility_district_distance_orders_rating"
       | "eligibility_distance"
       | "eligibility_rating"
+      | "eligibility_rating_confidence"
       | "eligibility_reviews"
       | "eligibility_popular"
       | "eligibility_prep";
@@ -415,6 +420,8 @@ export type StoresBrowseResponseBody = {
     };
     /** CUT 8 — ranking authority that produced list order */
     ranking_authority?: "old" | "new";
+    /** sort=rating Bayesian policy status */
+    rating_confidence?: StoreRatingConfidenceLoadStatus;
   };
 };
 
@@ -475,6 +482,8 @@ export type BrowseFilteredStoreRowsResult = {
   distanceSortMs: number;
   /** When set (NEW authority), display OOR uses projection/wave membership — not live recalculation. */
   outOfRangeById?: Map<string, boolean> | null;
+  /** sort=rating Bayesian policy status (omitted for other sorts). */
+  ratingConfidenceStatus?: StoreRatingConfidenceLoadStatus;
 };
 
 function resolveBrowseStoreRowStatus(
@@ -577,6 +586,41 @@ export function applyBrowseSubFilterContractToPrefetchedFilter(
     statusById: trimMap(filter.statusById) ?? new Map(),
     distanceSortMs: filter.distanceSortMs,
     outOfRangeById: trimMap(filter.outOfRangeById),
+    ratingConfidenceStatus: filter.ratingConfidenceStatus,
+  };
+}
+
+/**
+ * NEW ranking authority — sort=rating only.
+ * Reuses existing Bayesian comparator + policy status; does not re-paginate or touch other sorts.
+ */
+export function applyNewAuthorityRatingConfidenceToBrowseFilter(
+  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  filter: BrowseFilteredStoreRowsResult,
+  ratingConfidencePolicy: StoreRatingConfidencePolicyAuthority | null,
+  ratingConfidenceStatus: StoreRatingConfidenceLoadStatus
+): BrowseFilteredStoreRowsResult {
+  if (ctx.sort !== "rating") return filter;
+
+  const outOfRangeById = filter.outOfRangeById ?? new Map<string, boolean>();
+  const eligibilityRankById = buildBrowseEligibilityRankMap(filter.rows, outOfRangeById);
+  const hasGeo =
+    ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
+
+  const rows = sortStoreDiscoveryBrowseRows(filter.rows, {
+    district: ctx.district,
+    sort: "rating",
+    eligibilityRankById,
+    distanceKmById: hasGeo ? filter.distById : null,
+    outOfRangeById: hasGeo ? outOfRangeById : null,
+    hasGeo,
+    ratingConfidencePolicy,
+  });
+
+  return {
+    ...filter,
+    rows,
+    ratingConfidenceStatus,
   };
 }
 
@@ -588,6 +632,8 @@ export function resolveBrowseFilteredSortedStoreRows(
   prefilteredRows?: StoreBrowseRow[],
   completedOrderCount30dById?: Map<string, number> | null,
   completedOrderCountStatus?: StoreCompletedOrderCountLoadStatus,
+  ratingConfidencePolicy?: StoreRatingConfidencePolicyAuthority | null,
+  ratingConfidenceStatus?: StoreRatingConfidenceLoadStatus,
 ): BrowseFilteredStoreRowsResult {
   const { district, origin } = ctx;
   const userLat = origin.lat;
@@ -631,6 +677,7 @@ export function resolveBrowseFilteredSortedStoreRows(
     completedOrderCount30dById: needsOrderCounts ? (completedOrderCount30dById ?? new Map()) : null,
     completedOrderCountStatus: needsOrderCounts ? orderStatus : "ok",
     explicitPrepMinutesById,
+    ratingConfidencePolicy: sort === "rating" ? (ratingConfidencePolicy ?? null) : null,
   });
 
   if (sort === "default") {
@@ -665,7 +712,13 @@ export function resolveBrowseFilteredSortedStoreRows(
     devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
   }
 
-  return { rows, distById: distanceEnabled ? distById : null, statusById, distanceSortMs };
+  return {
+    rows,
+    distById: distanceEnabled ? distById : null,
+    statusById,
+    distanceSortMs,
+    ratingConfidenceStatus: sort === "rating" ? ratingConfidenceStatus : undefined,
+  };
 }
 
 export function assembleStoresBrowseResponse(
@@ -842,8 +895,13 @@ export function assembleStoresBrowseResponse(
       primary,
       sub,
       all_topics: wantsAllSubs,
-      sorted_by: resolveStoreBrowseSortedByMeta(ctx.sort, userLat != null && userLng != null),
+      sorted_by: resolveStoreBrowseSortedByMeta(
+        ctx.sort,
+        userLat != null && userLng != null,
+        prefetchedFilter?.ratingConfidenceStatus === "active"
+      ),
       sort: ctx.sort,
+      rating_confidence: prefetchedFilter?.ratingConfidenceStatus,
       page: ctx.page,
       limit: ctx.limit,
       origin_source: origin.source,
