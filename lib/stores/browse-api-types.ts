@@ -1,4 +1,8 @@
 import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+import type { PlatformPopularProduct } from "@/lib/stores/assemble-platform-popular-products";
+
+/** P1-B — stats-backed platform popular product on browse row (≠ owner representative tiles) */
+export type BrowsePlatformPopularProduct = PlatformPopularProduct;
 
 /** GET /api/stores/browse 응답 — 카드 UI 공용 */
 export type BrowseStoreListItem = {
@@ -19,6 +23,8 @@ export type BrowseStoreListItem = {
   visitAvailable: boolean;
   reservationAvailable?: boolean;
   featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
+  /** Optional — rank1 qualified platform popular; omitted when stats/catalog unavailable */
+  platformPopularProduct?: BrowsePlatformPopularProduct | null;
   profileImageUrl: string | null;
   /** 상세 히어로·진입 시드 — `store_banners` 첫 활성 이미지 */
   heroBannerImageUrl: string | null;

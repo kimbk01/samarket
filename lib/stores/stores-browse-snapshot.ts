@@ -25,6 +25,7 @@ import {
   type StoresBrowseSnapshotBreakdown,
 } from "@/lib/stores/stores-browse-snapshot-regression-guard";
 import { scheduleStoresBrowseSnapshotRefresh } from "@/lib/stores/stores-browse-snapshot-refresh";
+import { enrichBrowseStoresWithPlatformPopular } from "@/lib/stores/enrich-browse-stores-platform-popular";
 import {
   assembleStoresBrowseResponse,
   BROWSE_STORE_ROW_SELECTED_COLUMNS,
@@ -337,6 +338,7 @@ async function finishFromPayload(
   );
   const assemble0 = devPerfNow();
   const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundleForRank, prefetchedFilter);
+  const enrich = await enrichBrowseStoresWithPlatformPopular(sb, assembled.body.stores);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
     totalMs: input.totalMs,
@@ -354,9 +356,9 @@ async function finishFromPayload(
     rpcWallMs: Math.round(input.readMs),
     transformMs: assembled.transformMs,
     dbBaseMs: assembled.dbBaseMs,
-    dbRelatedMs: assembled.dbRelatedMs,
+    dbRelatedMs: assembled.dbRelatedMs + enrich.enrichDbMs,
     resultCount: assembled.resultCount,
-    queryCount: 1,
+    queryCount: 1 + enrich.queryCount,
     v2: {
       base_query_ms: Math.round(input.readMs),
       category_query_ms: 0,

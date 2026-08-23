@@ -3,7 +3,7 @@ import {
   assemblePlatformPopularProductsForStore,
   buildActiveProductCatalogMap,
   resolvePopularMenuStatsSinceIso,
-} from "@/lib/stores/assemble-store-home-platform-popular-products";
+} from "@/lib/stores/assemble-platform-popular-products";
 import type { StorePopularProductStatRow } from "@/lib/stores/load-store-popular-product-stats-batch";
 
 function catalog(
@@ -21,7 +21,7 @@ function catalog(
   );
 }
 
-describe("assemble-store-home-platform-popular-products", () => {
+describe("assemble-platform-popular-products", () => {
   it("rank1 inactive catalog miss → rank2 active eligible", () => {
     const byStore = catalog([
       { id: "p2", store_id: "s1", title: "Active", price: 200 },

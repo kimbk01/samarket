@@ -56,6 +56,16 @@ type StoreFeaturedCardItem = {
   imageUrl?: string | null;
 };
 
+type PlatformPopularRowProduct = {
+  productId: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  totalQty: number;
+  popularRank: number;
+  windowDays: number;
+};
+
 export type StoreRowCardData = {
   storeId?: string;
   slug: string;
@@ -93,6 +103,8 @@ export type StoreRowCardData = {
   /** 상세 히어로·전환 셸 — browse `heroBannerImageUrl` */
   heroBannerImageUrl: string | null;
   featuredItems: StoreFeaturedCardItem[];
+  /** BROWSE — stats-backed platform popular (optional, ≠ representative tiles) */
+  platformPopularProduct?: PlatformPopularRowProduct | null;
   isFeatured: boolean;
   coverEmoji?: string;
   /** browse·home-feed 진입 시 상세 뒤로가기용 1차 업종 slug */
@@ -145,6 +157,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.profileImageUrl === b.profileImageUrl &&
     a.heroBannerImageUrl === b.heroBannerImageUrl &&
     featuredEqual &&
+    platformPopularRowEqual(a.platformPopularProduct, b.platformPopularProduct) &&
     a.isFeatured === b.isFeatured &&
     a.coverEmoji === b.coverEmoji &&
     (a.browsePrimarySlug ?? null) === (b.browsePrimarySlug ?? null) &&
@@ -156,6 +169,23 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
 function reviewLabel(n: number) {
   if (n > 9999) return "9,999+";
   return n.toLocaleString("en-PH");
+}
+
+function platformPopularRowEqual(
+  a: PlatformPopularRowProduct | null | undefined,
+  b: PlatformPopularRowProduct | null | undefined
+): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return (
+    a.productId === b.productId &&
+    a.name === b.name &&
+    a.price === b.price &&
+    a.imageUrl === b.imageUrl &&
+    a.totalQty === b.totalQty &&
+    a.popularRank === b.popularRank &&
+    a.windowDays === b.windowDays
+  );
 }
 
 function distLabel(km: number | null | undefined) {
@@ -282,6 +312,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
       price: x.price,
       imageUrl: x.imageUrl,
     })),
+    platformPopularProduct: s.platformPopularProduct ?? null,
     isFeatured: s.isFeatured,
     browsePrimarySlug: s.primarySlug?.trim() || null,
     commerce: s.commerce ?? null,
@@ -511,6 +542,13 @@ function StoreDeliveryRowCardInner({
       onFocus={onRowPointerWarm}
     >
       <div>
+        {data.platformPopularProduct ?
+          <p
+            className="mb-1.5 line-clamp-1 text-[12.5px] font-semibold leading-snug text-[color:var(--delivery-primary)]"
+          >
+            {t("store_popular_menu_title")}: {data.platformPopularProduct.name}
+          </p>
+        : null}
         <div className="relative min-h-[116px]">
           {showFeaturedMenuSkeleton ? (
             <StoreBrowseFeaturedMenuSkeleton />
