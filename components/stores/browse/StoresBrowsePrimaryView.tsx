@@ -23,6 +23,10 @@ import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-n
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
+import {
+  browseListSortScopeKey,
+  shouldResetBrowseListSortOnScopeChange,
+} from "@/lib/stores/browse-list-sort-scope";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/BrowseSubtopicCollapseSentinel";
@@ -602,7 +606,12 @@ export function StoresBrowsePrimaryView({
     void loadRemoteRef.current({ force: true, silent: false });
   }, [browseActive, listRefreshTick]);
 
+  /** 서브·업종 탭 전환 시 정렬 default — 마운트 직후에는 URL `sort` 유지 (deep link `sort=popular` 등) */
+  const browseListScopeKeyRef = useRef(browseListSortScopeKey(primarySlug, activeSub));
   useEffect(() => {
+    const scopeKey = browseListSortScopeKey(primarySlug, activeSub);
+    if (!shouldResetBrowseListSortOnScopeChange(browseListScopeKeyRef.current, scopeKey)) return;
+    browseListScopeKeyRef.current = scopeKey;
     setListSort("default");
   }, [activeSub, primarySlug]);
 
