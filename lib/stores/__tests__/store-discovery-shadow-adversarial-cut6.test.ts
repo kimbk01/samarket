@@ -886,9 +886,15 @@ describe("CASE X — missing projection", () => {
   });
 });
 
-describe("CASE 50K density — harness parity", () => {
-  it("50k same-taxonomy pool: visible slice parity + bounded wave work", () => {
-    const M = 50_000;
+/**
+ * Dense-pool parity for CI unit vitest.
+ * Keep M small enough that OLD/NEW oracles stay well under Vitest worker RPC
+ * budget (Node 22 + full suite: M=50_000 blocked onTaskUpdate → exit 1).
+ * 50k/100k DB scale remains CUT7 bench authority — not this file.
+ */
+describe("CASE dense pool — harness parity", () => {
+  it("dense same-taxonomy pool: visible slice parity + bounded wave work", () => {
+    const M = 5_000;
     const stores: AdversarialFixtureStore[] = new Array(M);
     for (let i = 0; i < M; i += 1) {
       const pt = offsetPoint(0.5 + (i % 100) * 0.001);
@@ -928,7 +934,7 @@ describe("CASE 50K density — harness parity", () => {
         policy,
         taxonomyCategoryId: "cat-dense",
       });
-      assertParityOrDetail(`50k-${sort}`, old.rows, neu.rows, stores);
+      assertParityOrDetail(`dense-${sort}`, old.rows, neu.rows, stores);
       expect(neu.telemetry.rowsReturned).toBeLessThan(M / 10);
       expect(neu.telemetry.rowsReturned).toBeLessThanOrEqual(60 + 20);
     }
@@ -942,16 +948,16 @@ describe("CASE 50K density — harness parity", () => {
       distanceAxisEnabled: true,
       policy,
     });
-    assertParityOrDetail("50k-home", oldH.rows, neuH.rows, stores);
+    assertParityOrDetail("dense-home", oldH.rows, neuH.rows, stores);
     record({
-      caseId: "50K",
+      caseId: "DENSE",
       status: "PASS",
       fixtureSize: M,
       membershipDiff: 0,
       orderDiff: 0,
-      notes: "visible slice only; wave rowsReturned << M",
+      notes: "visible slice only; wave rowsReturned << M (CI-safe density; CUT7 owns 50k/100k)",
     });
-  }, 180_000);
+  }, 30_000);
 });
 
 describe("CASE randomized parity", () => {
