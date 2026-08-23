@@ -1,5 +1,5 @@
 import {
-  buildRecommendedStripProductIds,
+  buildOwnerRecommendedStripProductIds,
   parseStoreDetailProducts,
   RECOMMENDED_MENU_STRIP_MAX,
   sortStoreDetailProductCardsForDisplay,
@@ -65,10 +65,7 @@ export function buildStoreMenusStripsApply(
       Math.floor(Number(menuParsed.meta?.popular_menu?.recommended_max)) || RECOMMENDED_MENU_STRIP_MAX
     )
   );
-  const recIds =
-    Array.isArray(menuParsed.recommendedProductIds) && menuParsed.recommendedProductIds.length > 0
-      ? menuParsed.recommendedProductIds
-      : buildRecommendedStripProductIds(popIds, products, stripCap);
+  const recIds = buildOwnerRecommendedStripProductIds(products, stripCap, popIds);
 
   const byId = new Map(products.map((c) => [c.id, c]));
   const nextPop = popIds

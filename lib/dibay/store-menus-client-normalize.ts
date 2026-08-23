@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  buildRecommendedStripProductIds,
+  buildOwnerRecommendedStripProductIds,
   groupStoreProductsByMenuSectionModel,
   parseStoreDetailProducts,
   RECOMMENDED_MENU_STRIP_MAX,
@@ -144,10 +144,7 @@ function buildStrips(
   breakdown.popular_build_ms += msSince(popStart);
 
   const recStart = performance.now();
-  const recIds =
-    Array.isArray(menuParsed.recommendedProductIds) && menuParsed.recommendedProductIds.length > 0
-      ? menuParsed.recommendedProductIds
-      : buildRecommendedStripProductIds(popIds, cards, stripCap);
+  const recIds = buildOwnerRecommendedStripProductIds(cards, stripCap, popIds);
   const popularRankById = new Map(popularMenuCards.map((c) => [c.id, c.popular_rank ?? 0]));
   const recommendedMenuCards = recIds
     .map((id) => {
@@ -244,7 +241,9 @@ function normalizeViewportFirst(
   const totalStart = performance.now();
   const raw = menuParsed.products ?? [];
   const popIds = Array.isArray(menuParsed.popularProductIds) ? menuParsed.popularProductIds : [];
-  const recIds = Array.isArray(menuParsed.recommendedProductIds) ? menuParsed.recommendedProductIds : [];
+  const recIds = Array.isArray(menuParsed.recommendedProductIds)
+    ? menuParsed.recommendedProductIds
+    : [];
   const priorityIds = new Set([...popIds, ...recIds].map((id) => String(id ?? "").trim()).filter(Boolean));
   const firstSectionKey = findFirstSectionKey(raw);
 

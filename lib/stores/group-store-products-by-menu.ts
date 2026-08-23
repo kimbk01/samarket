@@ -235,9 +235,33 @@ function sortSectionItemsForSoldOutPolicy(
   return [...inStock, ...sold];
 }
 
-/** 추천메뉴 스트립: 인기 순서 우선 → 부족 시 사장님 추천만 보충, 최대 5, 중복 없음 */
+/** 추천메뉴 스트립: 인기 순서 우선 → 부족 시 사장님 추천만 보충, 최대 5, 중복 없음 (레거시 mixing) */
 export const RECOMMENDED_MENU_STRIP_MAX = 5;
 
+/**
+ * 추천메뉴 스트립(P1-B4): `is_owner_recommended`만 — platform popular 제외.
+ * `excludeProductIds`(보통 popularProductIds)와 겹치면 Recommended 섹션에서 dedupe.
+ */
+export function buildOwnerRecommendedStripProductIds(
+  cards: StoreDetailProductCard[],
+  maxItems = RECOMMENDED_MENU_STRIP_MAX,
+  excludeProductIds: readonly string[] = []
+): string[] {
+  const cap =
+    maxItems <= 0 ? RECOMMENDED_MENU_STRIP_MAX : Math.min(RECOMMENDED_MENU_STRIP_MAX, Math.floor(maxItems));
+  const excluded = new Set(
+    excludeProductIds.map((id) => String(id ?? "").trim()).filter(Boolean)
+  );
+  const pool = cards
+    .filter((p) => p.is_owner_recommended && !excluded.has(p.id))
+    .sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.title.localeCompare(b.title, "ko");
+    });
+  return pool.slice(0, cap).map((p) => p.id);
+}
+
+/** @deprecated Detail strip — use buildOwnerRecommendedStripProductIds. Legacy popular+owner fill. */
 export function buildRecommendedStripProductIds(
   popularOrderedIds: string[],
   cards: StoreDetailProductCard[],
@@ -275,7 +299,7 @@ export function buildRecommendedStripProductIds(
   return out;
 }
 
-/** 사장님 추천·대표 플래그 상단 섹션(레거시) — 신규 스트립은 buildRecommendedStripProductIds */
+/** 사장님 추천·대표 플래그 상단 섹션(레거시) — 신규 스트립은 buildOwnerRecommendedStripProductIds */
 export function sliceRecommendedMenuProducts(
   cards: StoreDetailProductCard[],
   maxItems: number

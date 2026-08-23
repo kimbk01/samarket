@@ -2,7 +2,7 @@
  * Shared store menus catalog CPU assembly — snapshot and legacy paths must match.
  */
 import {
-  buildRecommendedStripProductIds,
+  buildOwnerRecommendedStripProductIds,
   parseStoreDetailProducts,
   RECOMMENDED_MENU_STRIP_MAX,
   slicePopularMenuProducts,
@@ -84,7 +84,7 @@ export function assembleStoreMenusCatalogBodyFromParts(input: {
       RECOMMENDED_MENU_STRIP_MAX,
       Math.max(1, Math.floor(input.popularMenuRecommendedMax) || RECOMMENDED_MENU_STRIP_MAX)
     );
-    recommendedProductIds = buildRecommendedStripProductIds(popularProductIds, cards, stripCap);
+    recommendedProductIds = buildOwnerRecommendedStripProductIds(cards, stripCap, popularProductIds);
   }
 
   return {
