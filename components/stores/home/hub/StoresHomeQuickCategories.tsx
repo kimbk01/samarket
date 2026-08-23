@@ -136,6 +136,8 @@ export function StoresHomeQuickCategories() {
     return sortPrimariesRestaurantFirst(taxonomy.categories);
   }, [taxonomy]);
 
+  const topics = taxonomy?.topics ?? [];
+
   const activePrimary = primaries.find((p) => p.slug === activeSlug);
 
   const subs = useMemo(
@@ -192,11 +194,13 @@ export function StoresHomeQuickCategories() {
     patchStoresHomeCategoryChrome({
       taxonomyReady,
       primaries,
+      topics,
+      /** activeSlug 기준 파생 — selectHomePrimary 원자 pair 와 동일 규칙 */
       subs,
       language,
       primaryAriaLabel: t("store_primary_industry_aria"),
     });
-  }, [language, primaries, subs, t, taxonomyReady]);
+  }, [language, primaries, topics, subs, t, taxonomyReady]);
 
   return null;
 }

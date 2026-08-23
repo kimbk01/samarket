@@ -17,6 +17,7 @@ import {
   getStoresHomeCategoryChromeSnapshot,
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
+import { onBrowseSubTaxonomyCommit } from "@/lib/stores/stores-browse-taxonomy-interaction";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import { STORES_HOME_SUB_CATEGORY_SLIDE_MS } from "@/lib/stores/stores-home-sub-category-slide";
@@ -92,7 +93,11 @@ function StoresHomeSubCategoryRail({
             onPointerUp={(e) => clearPressed(e.currentTarget)}
             onPointerCancel={(e) => clearPressed(e.currentTarget)}
             onPointerLeave={(e) => clearPressed(e.currentTarget)}
-            onClick={(e) => clearPressed(e.currentTarget)}
+            onClick={(e) => {
+              clearPressed(e.currentTarget);
+              /** browse 와 동일 pending — cold 첫 fetch 가 sub=all 로 넓어지지 않게 */
+              onBrowseSubTaxonomyCommit(primarySlug, s.slug);
+            }}
           >
             <span className={`${STORES_HOME_SUB_CATEGORY_ICON_WRAP} ${STORES_HOME_SUB_CATEGORY_IMAGE_FRAME}`}>
               {src ?

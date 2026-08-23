@@ -38,11 +38,13 @@ const primaries = [
   { id: "c1", slug: "restaurant", name: "식당", sort_order: 0 },
   { id: "c2", slug: "cafe", name: "카페", sort_order: 1 },
 ];
+const allTopics = [...restaurantSubs, ...cafeSubs];
 
 function seedHomeTaxonomyReady() {
   patchStoresHomeCategoryChrome({
     taxonomyReady: true,
     primaries,
+    topics: allTopics,
     subs: restaurantSubs,
     language: "ko",
     primaryAriaLabel: "primary",
@@ -86,15 +88,24 @@ describe("stores-category-surface-lifecycle", () => {
   });
 
   describe("H3 — CHANGE PRIMARY", () => {
-    it("cafe shows cafe subs only", () => {
+    it("cafe shows cafe subs only — atomic with selectHomePrimary (no split patch)", () => {
       seedHomeTaxonomyReady();
       selectHomePrimary("restaurant");
-      patchStoresHomeCategoryChrome({ subs: cafeSubs, activeSlug: "cafe", pickedSlug: "cafe" });
+      selectHomePrimary("cafe");
       const snap = getStoresHomeCategoryChromeSnapshot();
       expect(snap.activeSlug).toBe("cafe");
       expect(snap.pickedSlug).toBe("cafe");
-      expect(snap.subs).toEqual(cafeSubs);
+      expect(snap.subs.map((s) => s.slug)).toEqual(["dessert"]);
       expect(deriveHomeSecondaryReveal(snap)).toBe(true);
+    });
+
+    it("never leaves activeSlug with previous primary subs", () => {
+      seedHomeTaxonomyReady();
+      selectHomePrimary("restaurant");
+      selectHomePrimary("cafe");
+      const snap = getStoresHomeCategoryChromeSnapshot();
+      expect(snap.subs.every((s) => s.store_category_id === "c2")).toBe(true);
+      expect(snap.subs.some((s) => s.slug === "korean")).toBe(false);
     });
   });
 

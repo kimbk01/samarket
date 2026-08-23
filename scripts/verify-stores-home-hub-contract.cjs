@@ -439,6 +439,24 @@ assertNotIncludes(
 );
 
 assertIncludes(
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+  "resolveHomeSubsForPrimarySlug",
+  "home primary select must resolve subs from taxonomy in chrome store"
+);
+
+assertIncludes(
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+  "subs,",
+  "selectHomePrimary must patch subs atomically with activeSlug"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
+  "onBrowseSubTaxonomyCommit",
+  "HOME 2차 must begin browse sub pending like browse chips"
+);
+
+assertIncludes(
 
   read("lib/stores/stores-home-category-chrome-store.ts"),
 
