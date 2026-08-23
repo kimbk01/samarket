@@ -1,0 +1,246 @@
+{
+  "cut": 5,
+  "generatedAt": "2026-08-23T10:28:48.509Z",
+  "userVisibleAuthority": "OLD",
+  "cutover": false,
+  "inventoryBefore": {
+    "totalStores": 15,
+    "approvedVisible": 14,
+    "withCoords": 2,
+    "missingSchedule": 0,
+    "missingDistrictNorm": 0,
+    "coverageRows": 15,
+    "ledgerRows": 16
+  },
+  "schemaApply": "PASS",
+  "postgis": "gis schema (bridged)",
+  "pgTrgm": "PASS",
+  "activeCoverageVersion": 1,
+  "buildingCoverageVersion": null,
+  "backfill": {
+    "schedule": {
+      "ok": 15,
+      "fail": 0
+    },
+    "coverage": {
+      "ok": 15,
+      "fail": 0,
+      "failedIds": [],
+      "policyVersion": 1
+    },
+    "popularity": {
+      "since": "2026-07-24T10:28:57.214Z",
+      "completedOrdersInWindow": 16,
+      "ledgerUpsertsAttempted": 16
+    }
+  },
+  "scheduleCounts": {
+    "ORDERABLE": 15
+  },
+  "districtParityDiff": 0,
+  "coverageParityDiff": 0,
+  "coverageFailed": 0,
+  "orderPopularity": {
+    "status": "ok",
+    "storeCount": 15,
+    "oldTotal": 16,
+    "newTotal": 16,
+    "differentStores": 0,
+    "diffs": []
+  },
+  "homeOldVsNew": {
+    "no_geo": {
+      "oldIds": [
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "076bffda-3048-4bfb-80ae-985a69105f4a",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80"
+      ],
+      "newIds": [
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "076bffda-3048-4bfb-80ae-985a69105f4a",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80"
+      ],
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null
+    },
+    "geo_origin": {
+      "oldIds": [
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "076bffda-3048-4bfb-80ae-985a69105f4a"
+      ],
+      "newIds": [
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "076bffda-3048-4bfb-80ae-985a69105f4a"
+      ],
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null
+    },
+    "geo_district": {
+      "oldIds": [
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "076bffda-3048-4bfb-80ae-985a69105f4a"
+      ],
+      "newIds": [
+        "19085860-52d2-4183-b033-e71fcb58bcec",
+        "c4e05226-4168-40d9-9476-b6e75f0b0ea4",
+        "519ef530-7c34-43cc-803d-0f3cc20bc578",
+        "2b9d871e-5ea9-411a-adcc-db7ad1594a80",
+        "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+        "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+        "7284169f-c2bd-4096-84ad-a9314ee5260c",
+        "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+        "71cb4f4e-1bd5-440a-9ceb-b4d6f9c583aa",
+        "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+        "278dc6b7-4de8-4528-83c1-eff7c2b121d4",
+        "aca34066-7964-4a92-a775-f8fab5e0b0ee",
+        "f528df49-b7dd-4f5c-8dad-4b7efc31ef4d",
+        "076bffda-3048-4bfb-80ae-985a69105f4a"
+      ],
+      "membershipDiff": [],
+      "orderDiff": [],
+      "firstDivergence": null
+    }
+  },
+  "browseOldVsNew": {
+    "default": {
+      "page1": {
+        "oldCount": 14,
+        "newCount": 14,
+        "membershipDiff": [],
+        "orderDiff": [],
+        "firstDivergence": null,
+        "telemetryRowsReturned": 14,
+        "wavesExecuted": 6
+      },
+      "page2": "NOT_APPLICABLE",
+      "page3": "NOT_APPLICABLE"
+    },
+    "distance": {
+      "page1": {
+        "oldCount": 14,
+        "newCount": 14,
+        "membershipDiff": [],
+        "orderDiff": [],
+        "firstDivergence": null,
+        "telemetryRowsReturned": 14,
+        "wavesExecuted": 6
+      },
+      "page2": "NOT_APPLICABLE",
+      "page3": "NOT_APPLICABLE"
+    },
+    "rating": {
+      "page1": {
+        "oldCount": 14,
+        "newCount": 14,
+        "membershipDiff": [],
+        "orderDiff": [],
+        "firstDivergence": null,
+        "telemetryRowsReturned": 14,
+        "wavesExecuted": 6
+      },
+      "page2": "NOT_APPLICABLE",
+      "page3": "NOT_APPLICABLE"
+    },
+    "reviews": {
+      "page1": {
+        "oldCount": 14,
+        "newCount": 14,
+        "membershipDiff": [],
+        "orderDiff": [],
+        "firstDivergence": null,
+        "telemetryRowsReturned": 14,
+        "wavesExecuted": 6
+      },
+      "page2": "NOT_APPLICABLE",
+      "page3": "NOT_APPLICABLE"
+    },
+    "popular": {
+      "page1": {
+        "oldCount": 14,
+        "newCount": 14,
+        "membershipDiff": [],
+        "orderDiff": [],
+        "firstDivergence": null,
+        "telemetryRowsReturned": 14,
+        "wavesExecuted": 6
+      },
+      "page2": "NOT_APPLICABLE",
+      "page3": "NOT_APPLICABLE"
+    }
+  },
+  "homeFirstDivergence": null,
+  "browseFirstDivergence": null,
+  "firstDivergence": null,
+  "newFullCandidate": 0,
+  "newLiveOrderAggregate": 0,
+  "newAllStoreHaversine": 0,
+  "unknownSchedule": 0,
+  "cut5": "PASS",
+  "inventoryAfter": {
+    "totalStores": 15,
+    "approvedVisible": 14,
+    "missingSchedule": 0,
+    "coverageRows": 15,
+    "ledgerRows": 16
+  }
+}
