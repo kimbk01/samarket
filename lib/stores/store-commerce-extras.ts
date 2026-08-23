@@ -83,6 +83,16 @@ function readPrepTimeMinutesFromJson(o: Record<string, unknown>): number | null 
   return clampStorePrepMinutes(n);
 }
 
+/**
+ * Browse `sort=fast` SSOT — raw `business_hours_json.prep_time_minutes` only.
+ * Does NOT parse `est_prep_label`, display defaults, or `response.prepMinutes`.
+ * Missing / null / ≤0 → UNKNOWN (null).
+ */
+export function readExplicitStorePrepTimeMinutes(hoursJson: unknown): number | null {
+  if (hoursJson == null || typeof hoursJson !== "object" || Array.isArray(hoursJson)) return null;
+  return readPrepTimeMinutesFromJson(hoursJson as Record<string, unknown>);
+}
+
 function readExplicitDeliveryFeeMode(o: Record<string, unknown>): StoreDeliveryFeeMode | null {
   const raw = String(o.delivery_fee_mode ?? o.deliveryFeeMode ?? "").trim().toLowerCase();
   if (raw === "self") return "self";

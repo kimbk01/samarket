@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampStorePrepMinutes,
+  readExplicitStorePrepTimeMinutes,
   formatStoreBrowseDeliveryFeeLine,
   formatStoreBrowseDeliveryFeeStrikePhp,
   parseCommerceExtrasFromHoursJson,
@@ -136,5 +137,25 @@ describe("buildBrowseStoreListEtaLabel", () => {
       "ko"
     );
     expect(label).toBe("조리 약 20분 · 배달 30분 안팎");
+  });
+});
+
+describe("readExplicitStorePrepTimeMinutes", () => {
+  it("reads raw prep_time_minutes only", () => {
+    expect(readExplicitStorePrepTimeMinutes({ prep_time_minutes: 12, est_prep_label: "99분" })).toBe(12);
+  });
+
+  it("does not parse est_prep_label fallback", () => {
+    expect(readExplicitStorePrepTimeMinutes({ est_prep_label: "20~40분" })).toBeNull();
+  });
+
+  it("missing / invalid is UNKNOWN null", () => {
+    expect(readExplicitStorePrepTimeMinutes({})).toBeNull();
+    expect(readExplicitStorePrepTimeMinutes({ prep_time_minutes: 0 })).toBeNull();
+    expect(readExplicitStorePrepTimeMinutes(null)).toBeNull();
+  });
+
+  it("clamps to 1..180", () => {
+    expect(readExplicitStorePrepTimeMinutes({ prep_time_minutes: 500 })).toBe(180);
   });
 });

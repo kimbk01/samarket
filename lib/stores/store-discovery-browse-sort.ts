@@ -7,7 +7,13 @@ import {
   toStoreDiscoveryRecommendedContext,
 } from "@/lib/stores/store-discovery-recommended-ranking";
 
-export type StoreBrowseServerSortId = "default" | "distance" | "rating" | "reviews" | "popular";
+export type StoreBrowseServerSortId =
+  | "default"
+  | "distance"
+  | "rating"
+  | "reviews"
+  | "popular"
+  | "fast";
 
 const VALID_SORTS = new Set<StoreBrowseServerSortId>([
   "default",
@@ -15,6 +21,7 @@ const VALID_SORTS = new Set<StoreBrowseServerSortId>([
   "rating",
   "reviews",
   "popular",
+  "fast",
 ]);
 
 export function parseStoreBrowseServerSortParam(
@@ -43,6 +50,11 @@ export type StoreDiscoverySortContext = {
   /** P1-A / CUT1 — default + popular */
   completedOrderCount30dById?: Map<string, number> | null;
   completedOrderCountStatus?: StoreCompletedOrderCountLoadStatus;
+  /**
+   * `sort=fast` only — raw explicit prep minutes by store id.
+   * null entry / missing key = UNKNOWN (sort after configured).
+   */
+  explicitPrepMinutesById?: Map<string, number | null> | null;
 };
 
 function stableSlug(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -122,6 +134,19 @@ function popularCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b:
   return ratingCmp(a, b);
 }
 
+/** Owner-configured prep ASC; UNKNOWN (null/missing) after configured. */
+function fastPrepCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  const map = ctx.explicitPrepMinutesById;
+  const pa = map?.get(a.id) ?? null;
+  const pb = map?.get(b.id) ?? null;
+  const aKnown = pa != null && Number.isFinite(pa);
+  const bKnown = pb != null && Number.isFinite(pb);
+  if (aKnown && bKnown && pa !== pb) return pa - pb;
+  if (aKnown && !bKnown) return -1;
+  if (!aKnown && bKnown) return 1;
+  return stableSlug(a, b);
+}
+
 export function compareStoreDiscoveryBrowseRows(
   ctx: StoreDiscoverySortContext,
   a: StoreDiscoverySortRow,
@@ -146,6 +171,8 @@ export function compareStoreDiscoveryBrowseRows(
       return reviewsCmp(a, b);
     case "popular":
       return popularCmp(ctx, a, b);
+    case "fast":
+      return fastPrepCmp(ctx, a, b);
     case "default":
     default:
       return compareStoreDiscoveryRecommendedRows(
@@ -192,7 +219,8 @@ export function resolveStoreBrowseSortedByMeta(
   | "eligibility_distance"
   | "eligibility_rating"
   | "eligibility_reviews"
-  | "eligibility_popular" {
+  | "eligibility_popular"
+  | "eligibility_prep" {
   switch (sort) {
     case "distance":
       return "eligibility_distance";
@@ -202,6 +230,8 @@ export function resolveStoreBrowseSortedByMeta(
       return "eligibility_reviews";
     case "popular":
       return "eligibility_popular";
+    case "fast":
+      return "eligibility_prep";
     case "default":
     default:
       return hasGeo

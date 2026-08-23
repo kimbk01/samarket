@@ -18,7 +18,10 @@ import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-disc
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
-import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import {
+  parseCommerceExtrasFromHoursJson,
+  readExplicitStorePrepTimeMinutes,
+} from "@/lib/stores/store-commerce-extras";
 import type {
   DeliveryDistancePolicy,
   DeliveryStoreDistanceOverrides,
@@ -396,7 +399,8 @@ export type StoresBrowseResponseBody = {
       | "eligibility_distance"
       | "eligibility_rating"
       | "eligibility_reviews"
-      | "eligibility_popular";
+      | "eligibility_popular"
+      | "eligibility_prep";
     sort: StoreBrowseServerSortId;
     page: number;
     limit: number;
@@ -467,6 +471,8 @@ export type BrowseFilteredStoreRowsResult = {
   distById: Map<string, number | null> | null;
   statusById: Map<string, BrowseStoreListItem["status"]>;
   distanceSortMs: number;
+  /** When set (NEW authority), display OOR uses projection/wave membership — not live recalculation. */
+  outOfRangeById?: Map<string, boolean> | null;
 };
 
 function resolveBrowseStoreRowStatus(
@@ -573,6 +579,13 @@ export function resolveBrowseFilteredSortedStoreRows(
   const needsOrderCounts = sort === "popular" || sort === "default";
   const orderStatus = completedOrderCountStatus ?? "ok";
 
+  const explicitPrepMinutesById =
+    sort === "fast"
+      ? new Map(
+          rows.map((r) => [r.id, readExplicitStorePrepTimeMinutes(r.business_hours_json)] as const)
+        )
+      : null;
+
   rows = sortStoreDiscoveryBrowseRows(rows, {
     district,
     sort,
@@ -582,6 +595,7 @@ export function resolveBrowseFilteredSortedStoreRows(
     hasGeo: distanceEnabled,
     completedOrderCount30dById: needsOrderCounts ? (completedOrderCount30dById ?? new Map()) : null,
     completedOrderCountStatus: needsOrderCounts ? orderStatus : "ok",
+    explicitPrepMinutesById,
   });
 
   if (sort === "default") {
@@ -696,7 +710,11 @@ export function assembleStoresBrowseResponse(
       : null;
     const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
     const rowDistance = resolveDistanceForSort(ctx, r);
-    const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, rowDistance.outOfRange);
+    const distanceOutOfRange =
+      prefetchedFilter?.outOfRangeById?.has(r.id) === true
+        ? prefetchedFilter.outOfRangeById.get(r.id) === true
+        : rowDistance.outOfRange;
+    const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r, distanceOutOfRange);
     const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
     const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
@@ -774,7 +792,7 @@ export function assembleStoresBrowseResponse(
       routeDistanceKm:
         deliveryDistancePolicy.source === "google" && rowPolicy.applies ? routeDistanceKm : null,
       distancePolicyApplied: rowPolicy.applies,
-      distanceOutOfRange: rowDistance.outOfRange,
+      distanceOutOfRange,
       distanceSource: rowPolicy.applies ? deliveryDistancePolicy.source : null,
       maxDeliveryDistanceKm: rowPolicy.maxKm,
     };

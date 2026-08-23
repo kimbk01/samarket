@@ -83,54 +83,6 @@ import {
 } from "@/lib/stores/browse-sub-chip-navigation";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
 
-function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
-  const bySlug = a.slug.localeCompare(b.slug);
-  if (bySlug !== 0) return bySlug;
-  return a.id.localeCompare(b.id);
-}
-
-function sortBrowseStores(
-  rows: BrowseStoreListItem[],
-  sort: StoreBrowseSortId,
-  hasGeo: boolean,
-  locale: string
-): BrowseStoreListItem[] {
-  const r = [...rows];
-  switch (sort) {
-    case "rating":
-      return r.sort(
-        (a, b) =>
-          b.rating - a.rating ||
-          b.reviewCount - a.reviewCount ||
-          browseStableTieBreak(a, b)
-      );
-    case "reviews":
-      return r.sort((a, b) => b.reviewCount - a.reviewCount || browseStableTieBreak(a, b));
-    case "distance":
-      if (!hasGeo) return r;
-      return r.sort((a, b) => {
-        const da = a.distanceKm;
-        const db = b.distanceKm;
-        if (da != null && db != null && da !== db) return da - db;
-        if (da != null && db == null) return -1;
-        if (da == null && db != null) return 1;
-        return browseStableTieBreak(a, b);
-      });
-    case "fast":
-      return r.sort((a, b) => {
-        const pa = a.deliveryAvailable ? 0 : 1;
-        const pb = b.deliveryAvailable ? 0 : 1;
-        if (pa !== pb) return pa - pb;
-        const prep = (a.etaLabel ?? a.estPrepLabel).localeCompare(
-          b.etaLabel ?? b.estPrepLabel,
-          locale
-        );
-        return prep !== 0 ? prep : browseStableTieBreak(a, b);
-      });
-    default:
-      return r;
-  }
-}
 
 /** `browseListContextKey` — geo(5번째) 제외 비교용 */
 function browseListContextKeyWithoutGeo(key: string): string {
@@ -649,13 +601,8 @@ export function StoresBrowsePrimaryView({
    */
   useDeliveryListScrollRestore(listScrollRouteKey, listLoaded && browseCanRestoreScroll);
   const useRemoteList = listLoaded && remoteRows.length > 0;
-  const sortedRemoteRows = useMemo(() => {
-    if (!remoteRows?.length) return remoteRows;
-    if (browseRequestSort === "fast") {
-      return sortBrowseStores(remoteRows, browseRequestSort, hasGeo, language);
-    }
-    return remoteRows;
-  }, [remoteRows, browseRequestSort, hasGeo, language]);
+  /** Server SSOT order — no client re-sort (incl. sort=fast prep authority). */
+  const sortedRemoteRows = remoteRows;
 
   const browseRowCardCacheRef = useRef<Map<string, StoreRowCardData>>(new Map());
   const browseRowCardListRef = useRef<StoreRowCardData[] | null>(null);

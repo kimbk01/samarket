@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   compareStoreDiscoveryBrowseRows,
+  parseStoreBrowseServerSortParam,
+  resolveStoreBrowseSortedByMeta,
   sortStoreDiscoveryBrowseRows,
   type StoreDiscoverySortContext,
 } from "@/lib/stores/store-discovery-browse-sort";
@@ -120,5 +122,117 @@ describe("store-discovery-browse-sort", () => {
     expect(new Set(ids).size).toBe(4);
     expect(ids).toEqual(sorted.map((r) => r.id));
     expect(compareStoreDiscoveryBrowseRows(c, page1[0], page1[1])).toBeLessThanOrEqual(0);
+  });
+});
+
+
+describe("store-discovery-browse-sort fast", () => {
+  it("parseStoreBrowseServerSortParam accepts fast", () => {
+    expect(parseStoreBrowseServerSortParam("fast")).toBe("fast");
+    expect(parseStoreBrowseServerSortParam("FAST")).toBe("fast");
+  });
+
+  it("resolveStoreBrowseSortedByMeta for fast", () => {
+    expect(resolveStoreBrowseSortedByMeta("fast", false)).toBe("eligibility_prep");
+  });
+
+  it("prep 10 before 20; missing after configured; label-only is UNKNOWN", () => {
+    const eligibilityRankById = new Map([
+      ["ten", 0],
+      ["twenty", 0],
+      ["missing", 0],
+      ["labelOnly", 0],
+    ]);
+    const explicitPrepMinutesById = new Map<string, number | null>([
+      ["ten", 10],
+      ["twenty", 20],
+      ["missing", null],
+      // label-only stores must not appear as configured — omit or null
+      ["labelOnly", null],
+    ]);
+    const sorted = sortStoreDiscoveryBrowseRows(
+      [
+        row({ id: "missing", slug: "m" }),
+        row({ id: "twenty", slug: "t20" }),
+        row({ id: "labelOnly", slug: "lbl" }),
+        row({ id: "ten", slug: "t10" }),
+      ],
+      ctx({
+        sort: "fast",
+        eligibilityRankById,
+        explicitPrepMinutesById,
+        hasGeo: false,
+        distanceKmById: null,
+        outOfRangeById: null,
+      })
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["ten", "twenty", "labelOnly", "missing"]);
+  });
+
+  it("explicit raw prep ignores est_prep_label contamination in map", () => {
+    // Map must carry raw explicit minutes only (builder uses readExplicitStorePrepTimeMinutes).
+    const eligibilityRankById = new Map([
+      ["a", 0],
+      ["b", 0],
+    ]);
+    const sorted = sortStoreDiscoveryBrowseRows(
+      [row({ id: "b", slug: "b" }), row({ id: "a", slug: "a" })],
+      ctx({
+        sort: "fast",
+        eligibilityRankById,
+        explicitPrepMinutesById: new Map([
+          ["a", 15],
+          ["b", 30],
+        ]),
+        hasGeo: false,
+        distanceKmById: null,
+        outOfRangeById: null,
+      })
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["a", "b"]);
+  });
+
+  it("eligibility still precedes prep", () => {
+    const eligibilityRankById = new Map([
+      ["openSlow", 0],
+      ["closedFast", 2],
+    ]);
+    const sorted = sortStoreDiscoveryBrowseRows(
+      [row({ id: "closedFast", slug: "c" }), row({ id: "openSlow", slug: "o" })],
+      ctx({
+        sort: "fast",
+        eligibilityRankById,
+        explicitPrepMinutesById: new Map([
+          ["openSlow", 40],
+          ["closedFast", 5],
+        ]),
+        hasGeo: false,
+        distanceKmById: null,
+        outOfRangeById: null,
+      })
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["openSlow", "closedFast"]);
+  });
+
+  it("missing vs missing uses stable slug tie-break", () => {
+    const eligibilityRankById = new Map([
+      ["b", 0],
+      ["a", 0],
+    ]);
+    const sorted = sortStoreDiscoveryBrowseRows(
+      [row({ id: "b", slug: "b-store" }), row({ id: "a", slug: "a-store" })],
+      ctx({
+        sort: "fast",
+        eligibilityRankById,
+        explicitPrepMinutesById: new Map([
+          ["a", null],
+          ["b", null],
+        ]),
+        hasGeo: false,
+        distanceKmById: null,
+        outOfRangeById: null,
+      })
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["a", "b"]);
   });
 });
