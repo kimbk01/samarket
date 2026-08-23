@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -44,7 +44,7 @@ function fmt(v: string | number | null | undefined): string {
 
 export function AdminStoreDiscoveryControlPage() {
   const { t } = useI18n();
-  const readOnly = t("admin_store_discovery_read_only_badge");
+  const monitorReadOnly = t("admin_store_discovery_read_only_badge");
 
   const [policyLoading, setPolicyLoading] = useState(true);
   const [policyErr, setPolicyErr] = useState<string | null>(null);
@@ -169,13 +169,10 @@ export function AdminStoreDiscoveryControlPage() {
         <button type="button" className={Sam.btn.secondary} onClick={refreshAll}>
           {t("admin_store_discovery_refresh")}
         </button>
-        <span className="inline-flex items-center rounded-ui-rect border border-sam-border px-2 text-[12px] text-sam-muted">
-          {readOnly}
-        </span>
       </div>
 
       <AdminCard titleKey="admin_store_discovery_policy_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{readOnly}</p>
+        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
         {policyErr ? (
           <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_policy_fail")}</p>
         ) : null}
@@ -215,7 +212,7 @@ export function AdminStoreDiscoveryControlPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_snapshot_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{readOnly}</p>
+        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
         <p className="mb-3 text-[13px] text-sam-muted">{t("admin_store_discovery_snapshot_hint")}</p>
         <div className="mb-3 flex flex-wrap items-end gap-2">
           <label className="block text-[12px] text-sam-muted">
@@ -247,7 +244,7 @@ export function AdminStoreDiscoveryControlPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_diagnostics_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{readOnly}</p>
+        <p className="mb-2 text-[11px] text-sam-muted">{monitorReadOnly}</p>
         <p className="mb-3 text-[13px] text-sam-muted">{t("admin_store_discovery_diagnostics_note")}</p>
         {diagErr ? (
           <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_diagnostics_fail")}</p>
