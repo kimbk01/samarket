@@ -2,10 +2,8 @@
 
 import { memo, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  StoreDeliveryRowCard,
-  homeFeedToRowCard,
-} from "@/components/stores/home/StoreDeliveryRowCard";
+import { homeFeedToRowCard } from "@/components/stores/home/StoreDeliveryRowCard";
+import { StoresHomeStoreTeaserCard } from "@/components/stores/home/hub/StoresHomeStoreTeaserCard";
 import { mergeFeaturedHydrationIntoStoreRowCard } from "@/lib/stores/merge-store-delivery-row-featured-hydration";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
@@ -15,11 +13,11 @@ function StoresHomeStoreCardInner({
   store,
   locale,
   hydrated,
-  hydrationPhase,
+  hydrationPhase: _hydrationPhase,
   registerListItem,
 }: {
   store: StoreHomeFeedItem;
-  locale: Parameters<typeof StoreDeliveryRowCard>[0]["locale"];
+  locale: Parameters<typeof StoresHomeStoreTeaserCard>[0]["locale"];
   hydrated: BrowseFeaturedCardItem[] | undefined;
   hydrationPhase: BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
@@ -29,10 +27,9 @@ function StoresHomeStoreCardInner({
     [store, hydrated]
   );
   return (
-    <StoreDeliveryRowCard
+    <StoresHomeStoreTeaserCard
       data={data}
       locale={locale}
-      featuredMenuHydration={hydrationPhase}
       browseStoreId={store.id}
       registerBrowseListItem={registerListItem}
     />

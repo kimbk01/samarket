@@ -72,33 +72,24 @@ function StoresHomeFoodCardInner({
         )}
       </div>
       <div className="space-y-0.5 p-2">
-        {entry.menuAuthority === "platform_popular" ?
-          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-primary)] ${STORES_HOME_META}`}>
-            {t("store_badge_menu_popular")}
-          </p>
-        : null}
-        {entry.campaignTitle ?
-          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-text)] ${STORES_HOME_META}`}>
-            {entry.campaignTitle}
-          </p>
-        : null}
         <p className={`line-clamp-2 ${STORES_HOME_BODY}`}>{entry.name}</p>
         <p className={`font-semibold text-[color:var(--delivery-primary)] ${STORES_HOME_BODY}`}>
           {formatPrice(entry.price)}
         </p>
         <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.storeName}</p>
-        {entry.etaLabel ?
-          <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.etaLabel}</p>
-        : null}
-        {entry.rating > 0 ?
-          <p className={`line-clamp-1 ${STORES_HOME_META}`}>★ {entry.rating.toFixed(1)}</p>
-        : null}
-        {entry.deliveryFeeLabel ?
-          <p className={`line-clamp-1 ${STORES_HOME_META}`}>{entry.deliveryFeeLabel}</p>
-        : null}
-        {entry.discountEvidence === "delivery_fee_strike" && entry.deliveryFeeStrikePhp != null && entry.deliveryFeeStrikePhp > 0 ?
+        {entry.discountEvidence === "delivery_fee_strike" &&
+        entry.deliveryFeeStrikePhp != null &&
+        entry.deliveryFeeStrikePhp > 0 ?
           <p className={`line-clamp-1 font-medium text-[color:var(--delivery-primary)] ${STORES_HOME_META}`}>
             {t("store_badge_instant_discount")}
+          </p>
+        : entry.campaignTitle ?
+          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-text)] ${STORES_HOME_META}`}>
+            {entry.campaignTitle}
+          </p>
+        : entry.menuAuthority === "platform_popular" ?
+          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-primary)] ${STORES_HOME_META}`}>
+            {t("store_badge_menu_popular")}
           </p>
         : null}
       </div>
