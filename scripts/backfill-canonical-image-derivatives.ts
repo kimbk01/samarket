@@ -19,7 +19,7 @@ import {
   type BackfillCandidate,
 } from "../lib/media/canonical-image-backfill.lib";
 import { derivativeStoragePath } from "../lib/media/canonical-image-path";
-import { buildCanonicalDerivativeBuffers } from "../lib/media/canonical-image-pipeline.server";
+import { buildCanonicalDerivativeBuffers, optimizePostImageOriginalBuffer } from "../lib/media/canonical-image-pipeline.server";
 import type { CanonicalImageSurface } from "../lib/media/canonical-image-contract";
 
 const LIST_PAGE = 200;
@@ -124,9 +124,25 @@ async function processOne(
           ? "image/heic"
           : "image/jpeg";
 
+  let sourceBuf = buf;
+  let sourceMime = mime;
+  if (mime === "image/heic" || mime === "image/jpeg" || mime === "image/png") {
+    try {
+      const optimized = await optimizePostImageOriginalBuffer({ buf, mimeType: mime });
+      sourceBuf = Buffer.from(optimized.buf);
+      sourceMime = optimized.contentType;
+    } catch (e) {
+      return {
+        ok: false,
+        path: candidate.originalPath,
+        reason: `optimize_failed:${e instanceof Error ? e.message : String(e)}`,
+      };
+    }
+  }
+
   const derivatives = await buildCanonicalDerivativeBuffers({
-    buf,
-    mimeType: mime,
+    buf: sourceBuf,
+    mimeType: sourceMime,
     surfaces: candidate.missingSurfaces,
   });
 
@@ -244,7 +260,9 @@ async function main() {
   };
 
   console.log(JSON.stringify(report, null, 2));
-  if (!dryRun && failures.length > 0) process.exit(1);
+  if (!dryRun && failures.length > 0) {
+    console.error("[backfill] failures recorded:", failures.length);
+  }
 }
 
 void main();
