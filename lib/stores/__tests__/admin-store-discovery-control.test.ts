@@ -138,19 +138,32 @@ describe("Admin Discovery Control v1", () => {
     }
   });
 
-  it("T8 no mutation methods exposed on admin discovery routes", () => {
+  it("T8 campaign HTTP writer is scoped to campaigns route only", () => {
     const routes = listRouteFiles(join(ROOT, "app/api/admin/store-discovery"));
+    const writerRoute = join(ROOT, "app/api/admin/store-discovery/campaigns/route.ts");
+
     for (const route of routes) {
       const src = readFileSync(route, "utf8");
       expect(src).toMatch(/export async function GET/);
-      expect(src).not.toMatch(/export async function POST/);
-      expect(src).not.toMatch(/export async function PATCH/);
-      expect(src).not.toMatch(/export async function PUT/);
-      expect(src).not.toMatch(/export async function DELETE/);
+
+      if (route === writerRoute) {
+        expect(src).toMatch(/export async function POST/);
+        expect(src).toMatch(/export async function PATCH/);
+        expect(src).not.toMatch(/export async function PUT/);
+        expect(src).not.toMatch(/export async function DELETE/);
+        expect(src).toContain("createStoreDiscoveryCampaignAdmin");
+        expect(src).toContain("updateStoreDiscoveryCampaignAdmin");
+      } else {
+        expect(src).not.toMatch(/export async function POST/);
+        expect(src).not.toMatch(/export async function PATCH/);
+        expect(src).not.toMatch(/export async function PUT/);
+        expect(src).not.toMatch(/export async function DELETE/);
+      }
     }
-    expect(canWriteStoreDiscoveryCampaign("admin", "create")).toBe(false);
-    expect(STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY.admin.create).toBe(false);
-    expect(STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER).toBe("NOT_IMPLEMENTED");
+
+    expect(canWriteStoreDiscoveryCampaign("admin", "create")).toBe(true);
+    expect(STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY.admin.create).toBe(true);
+    expect(STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER).toBe("ADMIN_HTTP");
   });
 
   it("T9 closed discovery authorities unchanged (no HOME/BROWSE/composer edits in this track)", () => {
