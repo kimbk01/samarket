@@ -25,6 +25,7 @@ import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
 import {
   browseListSortScopeKey,
+  resolveBrowseFetchSort,
   shouldResetBrowseListSortOnScopeChange,
 } from "@/lib/stores/browse-list-sort-scope";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
@@ -202,6 +203,8 @@ export function StoresBrowsePrimaryView({
   const [listSort, setListSort] = useState<StoreBrowseSortId>(() =>
     parseStoreBrowseSortParam(searchParams?.get("sort"))
   );
+  /** deep link `sort` — chip 클릭 전까지 URL이 fetch authority */
+  const browseSortUrlPinnedRef = useRef(true);
   /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
@@ -290,10 +293,21 @@ export function StoresBrowsePrimaryView({
     [trimmedBrowseSubParam, subs],
   );
 
-  useEffect(() => {
-    if (!browseActive) return;
+  useLayoutEffect(() => {
+    browseSortUrlPinnedRef.current = true;
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
-  }, [browseActive, searchParams]);
+  }, [searchParams]);
+
+  const browseRequestSort = useMemo(
+    () =>
+      resolveBrowseFetchSort(searchParams?.get("sort"), listSort, browseSortUrlPinnedRef.current),
+    [searchParams, listSort]
+  );
+
+  const handleBrowseSortChange = useCallback((id: StoreBrowseSortId) => {
+    browseSortUrlPinnedRef.current = false;
+    setListSort(id);
+  }, []);
 
   const activeSub = resolveBrowseListQuerySub(
     trimmedBrowseSubParam,
@@ -375,7 +389,7 @@ export function StoresBrowsePrimaryView({
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
     if (d) q.set("district", d);
-    if (listSort !== "default") q.set("sort", listSort);
+    if (browseRequestSort !== "default") q.set("sort", browseRequestSort);
     if (
       browseDistanceCoordsEnabled &&
       browseUserGeo &&
@@ -395,7 +409,7 @@ export function StoresBrowsePrimaryView({
     browseDistanceCoordsEnabled,
     browseUserGeo?.lat,
     browseUserGeo?.lng,
-    listSort,
+    browseRequestSort,
   ]);
 
   const browseListContextKey = useMemo(
@@ -407,9 +421,9 @@ export function StoresBrowsePrimaryView({
         primaryRegion?.cityId ?? "",
         primaryRegion?.barangay ?? "",
         browseDistanceCoordsEnabled && browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
-        listSort,
+        browseRequestSort,
       ].join("|"),
-    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo, listSort]
+    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo, browseRequestSort]
   );
 
   /** prewarm·pointerdown 은 geo 없는 키 — 마운트 직후 동기 peek 폴백 */
@@ -612,6 +626,7 @@ export function StoresBrowsePrimaryView({
     const scopeKey = browseListSortScopeKey(primarySlug, activeSub);
     if (!shouldResetBrowseListSortOnScopeChange(browseListScopeKeyRef.current, scopeKey)) return;
     browseListScopeKeyRef.current = scopeKey;
+    browseSortUrlPinnedRef.current = true;
     setListSort("default");
   }, [activeSub, primarySlug]);
 
@@ -636,11 +651,11 @@ export function StoresBrowsePrimaryView({
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {
     if (!remoteRows?.length) return remoteRows;
-    if (listSort === "fast") {
-      return sortBrowseStores(remoteRows, listSort, hasGeo, language);
+    if (browseRequestSort === "fast") {
+      return sortBrowseStores(remoteRows, browseRequestSort, hasGeo, language);
     }
     return remoteRows;
-  }, [remoteRows, listSort, hasGeo, language]);
+  }, [remoteRows, browseRequestSort, hasGeo, language]);
 
   const browseRowCardCacheRef = useRef<Map<string, StoreRowCardData>>(new Map());
   const browseRowCardListRef = useRef<StoreRowCardData[] | null>(null);
@@ -724,12 +739,12 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshHint />
         <div className="w-full shrink-0 border-b border-sam-border bg-[#eac784]">
           <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pb-2 pt-2`}>
-            <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
+            <StoreListFilters sort={browseRequestSort} onSortChange={handleBrowseSortChange} hasGeo={hasGeo} />
           </div>
         </div>
       </>
     ),
-    [listSort, hasGeo]
+    [browseRequestSort, hasGeo, handleBrowseSortChange]
   );
 
   const browseHeaderTitle = useMemo(() => {

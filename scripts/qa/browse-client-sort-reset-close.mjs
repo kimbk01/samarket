@@ -224,11 +224,19 @@ async function main() {
   const results = { baseUrl, viewport: "390x844", checks: {} };
 
   // 1) Direct popular deep link
-  const apiPopularDirect = await fetchBrowse(page, "popular");
   await page.goto(`${baseUrl}/stores/browse/restaurant?sub=all&sort=popular&fresh=1`, {
     waitUntil: "domcontentloaded",
     timeout: 120000,
   });
+  await page.evaluate(() => {
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* cross-origin / denied */
+    }
+  });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 120000 });
+  const apiPopularDirect = await fetchBrowse(page, "popular");
   await waitBrowseRows(page);
   const directChip = await activeSortChip(page);
   const directOrder = await auditOrder(page, apiPopularDirect.stores);
