@@ -1749,6 +1749,68 @@ export function StoreDetailPublic({
     </div>
   );
 
+  /** O3 collapse inputs — must run before loading/not-found early returns (Rules of Hooks). */
+  const o3GalleryUrls = storeForPaint
+    ? parseMediaUrlsJson(storeForPaint.gallery_images_json, 8)
+    : [];
+  const heroVisualForHeader =
+    Boolean(String(o3GalleryUrls[0] ?? "").trim()) || publicBanners.length > 0;
+  const liveCollapseTopFulfillmentCard =
+    Boolean(storeForPaint) &&
+    (headerSolid || !heroVisualForHeader) &&
+    heroVisualForHeader;
+
+  /**
+   * O3 — Pin fulfillment-card collapse while chrome host owns header presentation.
+   * Render-phase ref (not useLayoutEffect state): snapshot must exist before chrome
+   * activates in the same commit — no null→live fallback frame.
+   */
+  const pinnedCollapseTopFulfillmentCardRef = useRef<boolean | null>(null);
+  if (!featuredSoftHosted) {
+    pinnedCollapseTopFulfillmentCardRef.current = null;
+  } else if (!storeChromeActive) {
+    pinnedCollapseTopFulfillmentCardRef.current = liveCollapseTopFulfillmentCard;
+  }
+  const pinnedCollapseTopFulfillmentCard = pinnedCollapseTopFulfillmentCardRef.current;
+
+  const collapseTopFulfillmentCard =
+    featuredSoftHosted &&
+    storeChromeActive &&
+    pinnedCollapseTopFulfillmentCard != null
+      ? pinnedCollapseTopFulfillmentCard
+      : liveCollapseTopFulfillmentCard;
+
+  const headerElevatedForO3 = headerSolid || !heroVisualForHeader;
+
+  useLayoutEffect(() => {
+    markFeaturedO3Reservation(
+      storeChromeActive
+        ? "chrome_active_render"
+        : featuredSoftHosted
+          ? "hold_or_soft_hosted"
+          : "not_soft_hosted",
+      {
+        featuredSoftHosted,
+        storeChromeActive,
+        liveCollapse: liveCollapseTopFulfillmentCard,
+        pinnedCollapse: pinnedCollapseTopFulfillmentCard,
+        effectiveCollapse: collapseTopFulfillmentCard,
+        headerSolid,
+        heroVisualForHeader,
+        headerElevated: headerElevatedForO3,
+      }
+    );
+  }, [
+    featuredSoftHosted,
+    storeChromeActive,
+    liveCollapseTopFulfillmentCard,
+    pinnedCollapseTopFulfillmentCard,
+    collapseTopFulfillmentCard,
+    headerSolid,
+    heroVisualForHeader,
+    headerElevatedForO3,
+  ]);
+
   if (summaryLoading && !storeForPaint) {
     return viewportShell(
       <StoreDetailQuickShell
@@ -1813,62 +1875,7 @@ export function StoreDetailPublic({
     "";
   const storeGalleryUrls = parseMediaUrlsJson(detailStore.gallery_images_json, 8);
   const heroImageUrl = storeGalleryUrls[0] || null;
-  const heroVisualForHeader =
-    Boolean(String(heroImageUrl ?? "").trim()) || publicBanners.length > 0;
-  const hasHeroVisualForCollapse = heroVisualForHeader;
-  const liveCollapseTopFulfillmentCard =
-    (headerSolid || !heroVisualForHeader) && hasHeroVisualForCollapse;
 
-  /**
-   * O3 — Pin fulfillment-card collapse while chrome host owns header presentation.
-   * Render-phase ref (not useLayoutEffect state): snapshot must exist before chrome
-   * activates in the same commit — no null→live fallback frame.
-   */
-  const pinnedCollapseTopFulfillmentCardRef = useRef<boolean | null>(null);
-  if (!featuredSoftHosted) {
-    pinnedCollapseTopFulfillmentCardRef.current = null;
-  } else if (!storeChromeActive) {
-    pinnedCollapseTopFulfillmentCardRef.current = liveCollapseTopFulfillmentCard;
-  }
-  const pinnedCollapseTopFulfillmentCard = pinnedCollapseTopFulfillmentCardRef.current;
-
-  const collapseTopFulfillmentCard =
-    featuredSoftHosted &&
-    storeChromeActive &&
-    pinnedCollapseTopFulfillmentCard != null
-      ? pinnedCollapseTopFulfillmentCard
-      : liveCollapseTopFulfillmentCard;
-
-  const headerElevatedForO3 = headerSolid || !heroVisualForHeader;
-
-  useLayoutEffect(() => {
-    markFeaturedO3Reservation(
-      storeChromeActive
-        ? "chrome_active_render"
-        : featuredSoftHosted
-          ? "hold_or_soft_hosted"
-          : "not_soft_hosted",
-      {
-        featuredSoftHosted,
-        storeChromeActive,
-        liveCollapse: liveCollapseTopFulfillmentCard,
-        pinnedCollapse: pinnedCollapseTopFulfillmentCard,
-        effectiveCollapse: collapseTopFulfillmentCard,
-        headerSolid,
-        heroVisualForHeader,
-        headerElevated: headerElevatedForO3,
-      }
-    );
-  }, [
-    featuredSoftHosted,
-    storeChromeActive,
-    liveCollapseTopFulfillmentCard,
-    pinnedCollapseTopFulfillmentCard,
-    collapseTopFulfillmentCard,
-    headerSolid,
-    heroVisualForHeader,
-    headerElevatedForO3,
-  ]);
   const storeAddressLines = formatStorePickupAddressLines({
     region: detailStore.region,
     city: detailStore.city,
