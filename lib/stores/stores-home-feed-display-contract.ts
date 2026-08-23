@@ -1,5 +1,6 @@
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
-import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
+import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
+import { composeLiveHomeFeed } from "@/lib/stores/composition/stores-composition-live";
 import type { StoresHomeFeedSections } from "@/lib/stores/stores-home-feed-sections";
 
 export type StoresHomeFeedSectionKey =
@@ -21,7 +22,7 @@ export type StoresHomeFeedSectionKey =
  * 검증: `npm run verify:stores-home-hub-contract` · `stores-home-feed-display-contract.test.ts`
  */
 export function pickStoresHomePrimaryRowList(stores: StoreHomeFeedItem[]): StoreHomeFeedItem[] {
-  return composeStoresHomeFeed(stores).slot1Stores;
+  return composeLiveHomeFeed(stores).slot1Stores;
 }
 
 /**
@@ -80,7 +81,7 @@ export function detectStoresHomeEmptyRowListRegression(opts: {
 
 /** BelowFold FeedList — composer slot6 only */
 export function buildStoresHomeBelowFoldFeedSectionsFromComposition(
-  composition: ReturnType<typeof composeStoresHomeFeed>
+  composition: StoresHomeFeedComposition
 ): StoresHomeFeedSections {
   return {
     openNow: [],

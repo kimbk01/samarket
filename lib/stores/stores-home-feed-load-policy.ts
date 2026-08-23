@@ -9,11 +9,25 @@ import {
   writeStoresHomeFeedLiveStore,
 } from "@/lib/stores/stores-home-feed-live-store";
 
+import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/stores-composition-live";
+
+export type StoresHomeFeedLoadMeta = {
+  source?: string;
+  compositionPolicy?: StoresHomeCompositionPolicyMeta;
+  compositionEngine?: "live";
+};
+
 export type StoresHomeFeedLoadSnapshot = {
   stores: StoreHomeFeedItem[];
-  meta: { source?: string } | null;
+  meta: StoresHomeFeedLoadMeta | null;
   fromCache: boolean;
   isFresh: boolean;
+};
+
+type HomeFeedJson = {
+  ok?: boolean;
+  stores?: StoreHomeFeedItem[];
+  meta?: StoresHomeFeedLoadMeta;
 };
 
 /** 쿼리 suffix + 기본(`""`) 폴백 — 재진입·지역 로드 직후에도 즉시 표시 */
@@ -78,12 +92,6 @@ export function readStoresHomeFeedExactCacheSnapshot(
   return null;
 }
 
-type HomeFeedJson = {
-  ok?: boolean;
-  stores?: StoreHomeFeedItem[];
-  meta?: { source?: string };
-};
-
 function parseHomeFeedJson(json: unknown): HomeFeedJson | null {
   if (!json || typeof json !== "object") return null;
   return json as HomeFeedJson;
@@ -98,7 +106,7 @@ export function applyStoresHomeFeedNetworkResult(opts: {
   status: number;
   json: unknown;
   previousStores: StoreHomeFeedItem[];
-  previousMeta: { source?: string } | null;
+  previousMeta: StoresHomeFeedLoadMeta | null;
 }): StoresHomeFeedLoadSnapshot {
   const parsed = parseHomeFeedJson(opts.json);
   if (

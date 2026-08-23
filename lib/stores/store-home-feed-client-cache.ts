@@ -2,6 +2,7 @@
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+import { stripCompositionPolicyFromHomeFeedClientMeta } from "@/lib/stores/composition/stores-composition-home-feed-client-meta";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoresHomeClientCallSource } from "@/lib/stores/stores-home-network-guards";
 import { resolveStoresHomePrewarmLanguage } from "@/lib/stores/stores-home-network-guards";
@@ -108,7 +109,7 @@ export function primeStoreHomeFeedClientCache(
   const key = normalizeSuffix(pathAndQuery);
   const entry: StoreHomeFeedCacheEntry = {
     stores: value.stores,
-    meta: value.meta,
+    meta: stripCompositionPolicyFromHomeFeedClientMeta(value.meta),
     expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
   };
   storeHomeFeedCache.set(key, entry);

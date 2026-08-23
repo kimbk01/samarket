@@ -1177,6 +1177,27 @@
     width: 100%;
   }
 
+  /** CATEGORY / PHASE 4 — A-VIS @390 geometry owners (CSS var; Tailwind arbitrary breakout unreliable) */
+  .stores-browse-category-list--full-bleed {
+    margin-inline: calc(-1 * var(--delivery-page-x));
+    width: calc(100% + 2 * var(--delivery-page-x));
+  }
+
+  .stores-category-menu-band {
+    height: 90.7px;
+  }
+
+  .stores-category-menu-tile {
+    height: 79.5px;
+  }
+
+  /** HOME §3.1 timesale vertical thumb — A-VIS 75.1×71.2 */
+  .stores-home-timesale-thumb {
+    width: 75.1px;
+    height: 71.2px;
+    flex-shrink: 0;
+  }
+
   .delivery-category-search {
     display: inline-flex;
     width: var(--delivery-sticky-tab-h);

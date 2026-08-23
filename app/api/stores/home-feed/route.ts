@@ -21,6 +21,10 @@ import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import {
+  attachHomeFeedCompositionPolicyMeta,
+  loadHomeFeedCompositionPolicyMeta,
+} from "@/lib/stores/composition/stores-composition-home-feed-meta";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import {
   evaluateStoreDeliveryServiceability,
@@ -165,7 +169,8 @@ export async function GET(req: Request) {
 
   const cached = getStoreHomeFeedCache(cacheKey);
   if (cached) {
-    return NextResponse.json(cached, {
+    const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
+    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(cached, compositionPolicy), {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   }
@@ -595,7 +600,8 @@ export async function GET(req: Request) {
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);
-    return NextResponse.json(payload, {
+    const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
+    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy), {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   } catch (e) {

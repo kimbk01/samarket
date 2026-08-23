@@ -16,25 +16,27 @@ import {
   readStoresHomeFeedExactCacheSnapshot,
   readStoresHomeFeedInitialSnapshot,
   resolveStoresHomeFeedCacheForLoad,
+  type StoresHomeFeedLoadMeta,
 } from "@/lib/stores/stores-home-feed-load-policy";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { writeStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
-import { composeStoresHomeFeed } from "@/lib/stores/stores-home-composer";
+import { composeLiveHomeFeed, resolveLiveHomeCompositionPolicy } from "@/lib/stores/composition/stores-composition-live";
+import {
+  resolveOrderedVisibleHomeCompositionSlots,
+  splitHomeCompositionSlotsForRender,
+} from "@/lib/stores/composition/stores-composition-home-section-order";
+import { StoresHomeCompositionSlotSection } from "@/components/stores/home/hub/StoresHomeCompositionSlotSection";
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
-import { STORES_HOME_CONTENT_COLUMN_CLASS, STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_CONTENT_COLUMN_CLASS, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
-import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
-import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
-import { StoresHomePrimaryStoreRowListSection } from "@/components/stores/home/hub/StoresHomePrimaryStoreRowListSection";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
-import { StoresHomeHubBelowFold } from "@/components/stores/home/hub/StoresHomeHubBelowFold";
 import { StoresHomePerfBoot } from "@/components/stores/home/hub/StoresHomePerfBoot";
 import type {
   RecentOrderPreview,
@@ -74,7 +76,7 @@ export function StoresHomeHub({
   /** SSR·hydration 동일 초기값 — `window`/`liveStore` 는 layout effect 에서만 주입 */
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [meta, setMeta] = useState<{ source?: string } | null>(null);
+  const [meta, setMeta] = useState<StoresHomeFeedLoadMeta | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const metaRef = useRef(meta);
@@ -184,7 +186,39 @@ export function StoresHomeHub({
           setMeta(cachedEntry.meta);
           setLoading(false);
         });
-        if (hasFreshCache && !opts?.fromBfcacheRestore) return;
+        if (hasFreshCache && !opts?.fromBfcacheRestore) {
+          void fetchStoresHomeFeedDeduped(querySuffix, {
+            signal: controller.signal,
+            language,
+            clientCallSource: "stores_home_mount",
+          })
+            .then(({ status, json }) => {
+              if (requestId !== requestIdRef.current || controller.signal.aborted) return;
+              const applied = applyStoresHomeFeedNetworkResult({
+                querySuffix,
+                status,
+                json,
+                previousStores: storesRef.current,
+                previousMeta: metaRef.current,
+              });
+              if (applied.meta?.compositionPolicy) {
+                startTransition(() => {
+                  setMeta((prev) => ({
+                    ...(prev ?? {}),
+                    ...applied.meta,
+                    compositionPolicy: applied.meta?.compositionPolicy,
+                    compositionEngine: applied.meta?.compositionEngine,
+                  }));
+                  metaRef.current = {
+                    ...(metaRef.current ?? {}),
+                    ...applied.meta,
+                  };
+                });
+              }
+            })
+            .catch(() => {});
+          return;
+        }
       }
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
       const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
@@ -263,34 +297,38 @@ export function StoresHomeHub({
   });
 
   const composition = useMemo(
-    () => (stores.length > 0 ? composeStoresHomeFeed(stores) : null),
-    [stores]
+    () => (stores.length > 0 ? composeLiveHomeFeed(stores, meta?.compositionPolicy) : null),
+    [stores, meta?.compositionPolicy]
   );
-  const slot0Food = composition?.slot0Food ?? [];
-  const primaryRowStores = composition?.slot1Stores ?? [];
+  const policy = useMemo(
+    () => resolveLiveHomeCompositionPolicy(meta?.compositionPolicy),
+    [meta?.compositionPolicy]
+  );
+  const orderedVisibleSlots = useMemo(
+    () => (composition ? resolveOrderedVisibleHomeCompositionSlots(policy, composition) : []),
+    [composition, policy]
+  );
+  const { eagerSlots, deferredSlots } = useMemo(
+    () => splitHomeCompositionSlotsForRender(orderedVisibleSlots),
+    [orderedVisibleSlots]
+  );
+  const firstFoodPerfSlot = orderedVisibleSlots.find((slot) => slot.endsWith("Food")) ?? null;
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
 
   const eagerStoreIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const s of primaryRowStores) ids.add(s.id);
-    for (const entry of slot0Food) ids.add(entry.storeId);
-    if (composition) {
-      for (const slot of [
-        composition.slot2Food,
-        composition.newStoreFood,
-        composition.campaignFood,
-        composition.slot3Food,
-        composition.slot4Food,
-        composition.slot5Food,
-      ]) {
-        for (const entry of slot) ids.add(entry.storeId);
+    if (!composition) return [] as string[];
+    for (const slot of orderedVisibleSlots) {
+      const items = composition[slot];
+      if (slot === "slot1Stores" || slot === "slot6NearbyStores" || slot === "slot6RestStores") {
+        for (const s of items as StoreHomeFeedItem[]) ids.add(s.id);
+      } else {
+        for (const entry of items as { storeId: string }[]) ids.add(entry.storeId);
       }
-      for (const s of composition.slot6NearbyStores) ids.add(s.id);
-      for (const s of composition.slot6RestStores) ids.add(s.id);
     }
     return [...ids];
-  }, [composition, primaryRowStores, slot0Food]);
+  }, [composition, orderedVisibleSlots]);
 
   const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
@@ -315,19 +353,36 @@ export function StoresHomeHub({
     </div>
   );
 
-  const renderBelowFold = useCallback(
+  const renderCompositionSlot = useCallback(
+    (slot: (typeof orderedVisibleSlots)[number], opts?: { markFirstFoodCardPerf?: boolean }) => {
+      if (!composition) return null;
+      return (
+        <StoresHomeCompositionSlotSection
+          key={slot}
+          slot={slot}
+          composition={composition}
+          hydratedByStoreId={hydratedByStoreId}
+          getPhase={getPhase}
+          registerListItem={registerListItem}
+          markFirstFoodCardPerf={opts?.markFirstFoodCardPerf}
+        />
+      );
+    },
+    [composition, getPhase, hydratedByStoreId, registerListItem]
+  );
+
+  const renderDeferredSections = useCallback(
     () => (
-      <StoresHomeHubBelowFold
-        composition={composition}
-        totalStoreCount={stores.length}
-        loading={loading}
-        meta={meta}
-        hydratedByStoreId={hydratedByStoreId}
-        getPhase={getPhase}
-        registerListItem={registerListItem}
-      />
+      <>
+        {deferredSlots.map((slot) => renderCompositionSlot(slot))}
+        {meta?.source === "supabase_unconfigured" ?
+          <p className="rounded-[var(--delivery-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            {t("store_supabase_unconfigured_hint")}
+          </p>
+        : null}
+      </>
     ),
-    [composition, getPhase, hydratedByStoreId, loading, meta, registerListItem, stores.length]
+    [deferredSlots, meta?.source, renderCompositionSlot, t]
   );
 
   return (
@@ -351,44 +406,20 @@ export function StoresHomeHub({
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
         : <>
-            {slot0Food.length > 0 ?
-              <StoresHomeSectionShell
-                title={t("store_order_now_title")}
-                actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
-                actionLabel={t("store_browse_view_all")}
-              >
-                <div className={STORES_HOME_RAIL_SCROLL}>
-                  {slot0Food.map((entry, idx) => {
-                    const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
-                    return (
-                      <StoresHomeFoodCard
-                        key={`${entry.storeId}-${entry.productId}`}
-                        entry={entry}
-                        imageUrl={img.imageUrl}
-                        loadingImage={img.loading}
-                        markStoreCardPerf={idx === 0}
-                      />
-                    );
-                  })}
-                </div>
-              </StoresHomeSectionShell>
-            : null}
+            {eagerSlots.map((slot) =>
+              renderCompositionSlot(slot, {
+                markFirstFoodCardPerf: slot === firstFoodPerfSlot,
+              })
+            )}
 
-            {primaryRowStores.length > 0 ?
-              <StoresHomePrimaryStoreRowListSection
-                stores={primaryRowStores}
-                hydratedByStoreId={hydratedByStoreId}
-                getPhase={getPhase}
-                registerListItem={registerListItem}
+            {stores.length === 0 && orderedVisibleSlots.length === 0 ? emptyFallback : null}
+
+            {deferredSlots.length > 0 ?
+              <StoresHomeDeferredViewport
+                rootMargin={STORES_HOME_BELOW_FOLD_ROOT_MARGIN}
+                renderContent={renderDeferredSections}
               />
-            : stores.length === 0 ?
-              emptyFallback
             : null}
-
-            <StoresHomeDeferredViewport
-              rootMargin={STORES_HOME_BELOW_FOLD_ROOT_MARGIN}
-              renderContent={renderBelowFold}
-            />
           </>
         }
       </div>

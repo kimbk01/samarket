@@ -36,11 +36,11 @@ import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/Stor
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
-  StoreDeliveryRowCard,
+  StoreBrowseCategoryRowCard,
   browseItemToRowCard,
-  storeRowCardDataEqual,
   type StoreRowCardData,
-} from "@/components/stores/home/StoreDeliveryRowCard";
+} from "@/components/stores/browse/StoreBrowseCategoryRowCard";
+import { storeRowCardDataEqual } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
 import {
@@ -741,9 +741,15 @@ export function StoresBrowsePrimaryView({
         {remoteRows === undefined ?
           <StoreDeliveryListLoading />
         : useRemoteList ?
-          <ul className="space-y-2">
+          <ul
+            className="stores-browse-category-list--full-bleed space-y-2"
+            style={{
+              marginInline: "calc(-1 * var(--delivery-page-x))",
+              width: "calc(100% + 2 * var(--delivery-page-x))",
+            }}
+          >
             {storeDeliveryRowDataList.map((data) => (
-              <StoreDeliveryRowCard
+              <StoreBrowseCategoryRowCard
                 key={data.slug}
                 data={data}
                 locale={language}

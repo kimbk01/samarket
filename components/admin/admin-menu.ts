@@ -128,6 +128,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-section-platform": "admin_menu_delivery_section_platform",
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
+  "stores-composition-policy": "admin_menu_stores_composition_policy",
   "store-settings-taxonomy": "admin_menu_store_settings_taxonomy",
   "store-settings-alerts": "admin_menu_store_settings_alerts",
   "delivery-bottom-nav": "admin_menu_delivery_bottom_nav",
@@ -470,6 +471,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "store-discovery-control",
             title: "",
             path: "/admin/store-discovery",
+            status: "done",
+          },
+          {
+            key: "stores-composition-policy",
+            title: "",
+            path: "/admin/stores-composition-policy",
             status: "done",
           },
           {

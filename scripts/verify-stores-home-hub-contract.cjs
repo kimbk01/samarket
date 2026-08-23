@@ -881,17 +881,23 @@ assertIncludes(
 
 assertIncludes(
   hub,
+  "StoresHomeCompositionSlotSection",
+  "hub must render composition slots via policy-ordered sections"
+);
+const slotSection = read("components/stores/home/hub/StoresHomeCompositionSlotSection.tsx");
+assertIncludes(
+  slotSection,
   "StoresHomePrimaryStoreRowListSection",
-  "hub must mount primary store row list section"
+  "slot1 must reuse primary store row list section renderer"
 );
 const hubFeedBlock = hub.slice(
-  hub.indexOf("StoresHomeHeroBanner"),
-  hub.indexOf("StoresHomeDeferredViewport")
+  hub.indexOf("<StoresHomeHeroBanner"),
+  hub.indexOf("<StoresHomeDeferredViewport")
 );
 assertIncludes(
   hubFeedBlock,
-  "StoresHomePrimaryStoreRowListSection",
-  "primary store row list must render before deferred viewport (not scroll-gated)"
+  "eagerSlots.map",
+  "eager composition sections must render before deferred viewport"
 );
 assertNotIncludes(
   hubFeedBlock,
@@ -1440,18 +1446,23 @@ assertNotIncludes(
 // CUT3 — composer authority (HOME organic feed)
 assertIncludes(
   hub,
-  "composeStoresHomeFeed",
-  "hub must invoke composer once"
+  "composeLiveHomeFeed",
+  "hub must invoke live composition once"
 );
 assertIncludes(
   hub,
-  "composition?.slot0Food",
-  "hub must render composer slot0 food rail"
+  "resolveOrderedVisibleHomeCompositionSlots",
+  "hub section order must follow resolved composition policy"
 );
 assertIncludes(
-  hub,
-  "composition?.slot1Stores",
-  "hub must render composer slot1 primary row"
+  slotSection,
+  'case "slot0Food"',
+  "slot0 food section renderer must exist"
+);
+assertIncludes(
+  slotSection,
+  'case "slot1Stores"',
+  "slot1 primary row section renderer must exist"
 );
 assertNotIncludes(
   hub,

@@ -421,7 +421,6 @@ function StoreDeliveryRowCardInner({
     data.deliveryAvailable &&
     (deliveryFeeUi === t("store_delivery_fee_free_line") ||
       deliveryFeeUi === t("store_free_delivery_applied"));
-  const hasDiscountHint = data.isFeatured;
   const statusBadge =
     data.status === "open"
       ? { label: t("store_open_now"), className: "bg-sam-success-soft text-sam-success" }
@@ -457,8 +456,8 @@ function StoreDeliveryRowCardInner({
   if (hasFreeDelivery) {
     badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-sam-success-soft text-sam-success" });
   }
-  if (hasDiscountHint) {
-    badgeLabels.push({ label: t("store_badge_instant_discount"), className: "bg-sam-warning-soft text-sam-warning" });
+  if (data.isFeatured) {
+    badgeLabels.push({ label: t("store_badge_recommended"), className: "bg-sam-warning-soft text-sam-warning" });
   }
   if (data.reservationAvailable) {
     badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });

@@ -70,7 +70,6 @@ export function StoresHomeHubBelowFold({
         title={t("store_badge_menu_discount")}
         entries={composition.slot3Food}
         hydratedByStoreId={hydratedByStoreId}
-        adHint={t("store_badge_instant_discount")}
         actionHref={STORES_HOME_SECTION_BROWSE.discount()}
         actionLabel={t("store_browse_view_all")}
       />
@@ -79,6 +78,7 @@ export function StoresHomeHubBelowFold({
         title={t("store_spot_recommended_subtitle")}
         entries={composition.slot4Food}
         hydratedByStoreId={hydratedByStoreId}
+        presentation="highRating"
         actionHref={STORES_HOME_SECTION_BROWSE.topRated()}
         actionLabel={t("store_browse_view_all")}
       />
@@ -94,6 +94,7 @@ export function StoresHomeHubBelowFold({
                   entry={entry}
                   imageUrl={img.imageUrl}
                   loadingImage={img.loading}
+                  presentation="grid"
                 />
               );
             })}
