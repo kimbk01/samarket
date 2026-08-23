@@ -4,6 +4,7 @@ import {
   compareNewStoreShelfRows,
   isNewStoreSignal,
 } from "@/lib/stores/store-new-store-signal";
+import { compareStoreDiscoveryCampaignsForHome } from "@/lib/stores/store-discovery-campaign-authority";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import {
   StoresHomeExposureRegistry,
@@ -30,6 +31,9 @@ export const STORES_HOME_SLOT5_FOOD_MAX = 8;
 /** P1-C2 — presentation-only new-store shelf cap (not a Slot0–6 renumber) */
 export const STORES_HOME_NEW_STORE_SHELF_MAX = 20;
 
+/** P1-D B2 — presentation-only period campaign shelf cap (not a Slot0–6 renumber) */
+export const STORES_HOME_CAMPAIGN_SHELF_MAX = 20;
+
 /** Existing authoritative threshold — not invented in CUT3 */
 export const STORES_HOME_TOP_RATED_MIN_RATING = 4;
 export const STORES_HOME_TOP_RATED_MIN_REVIEWS = 3;
@@ -46,6 +50,8 @@ export type StoresHomeFeedComposition = {
   slot2Food: StoresHomeFoodEntry[];
   /** P1-C2 presentation shelf — between Slot2 and Slot3; not a slot renumber */
   newStoreFood: StoresHomeFoodEntry[];
+  /** P1-D B2 presentation shelf — between newStore and Slot3; not a slot renumber */
+  campaignFood: StoresHomeFoodEntry[];
   slot3Food: StoresHomeFoodEntry[];
   slot4Food: StoresHomeFoodEntry[];
   slot5Food: StoresHomeFoodEntry[];
@@ -291,6 +297,54 @@ function allocateNewStoreFoodShelf(
   return out;
 }
 
+
+/**
+ * P1-D B2 — Period campaign presentation shelf.
+ * Active campaign on store only. Product: owner representative.
+ * Order: end_at ASC → start_at DESC → campaign id ASC.
+ * No popular/discount/featured copy on campaign cards.
+ */
+function allocateCampaignFoodShelf(
+  _registry: StoresHomeExposureRegistry,
+  stores: readonly StoreHomeFeedItem[],
+  max: number
+): StoresHomeFoodEntry[] {
+  const candidates = stores
+    .filter((s) => s.discoveryCampaign != null && String(s.discoveryCampaign.id ?? "").trim().length > 0)
+    .sort((a, b) =>
+      compareStoreDiscoveryCampaignsForHome(
+        {
+          id: String(a.discoveryCampaign!.id),
+          startAt: String(a.discoveryCampaign!.startAt),
+          endAt: String(a.discoveryCampaign!.endAt),
+        },
+        {
+          id: String(b.discoveryCampaign!.id),
+          startAt: String(b.discoveryCampaign!.startAt),
+          endAt: String(b.discoveryCampaign!.endAt),
+        }
+      )
+    );
+
+  const out: StoresHomeFoodEntry[] = [];
+  for (const store of candidates) {
+    if (out.length >= max) break;
+    const base = buildRepresentativeFoodEntry(store);
+    if (!base) continue;
+    const campaign = store.discoveryCampaign!;
+    // Presentation-only: do not register into exposure registry (Slot0–6 order must stay unchanged).
+    out.push({
+      ...base,
+      menuAuthority: "owner_representative",
+      discountEvidence: null,
+      deliveryFeeStrikePhp: null,
+      campaignTitle: campaign.title,
+      campaignType: campaign.campaignType,
+    });
+  }
+  return out;
+}
+
 function orderStoresByPopularMetric(stores: readonly StoreHomeFeedItem[]): StoreHomeFeedItem[] {
   if (stores.length <= 1) return [...stores];
 
@@ -362,6 +416,7 @@ export function composeStoresHomeFeed(
     nowMs
   );
 
+
   const discountCandidates = pool.filter((s) => hasDeliveryFeeStrikeEvidence(s));
   const slot3Food = allocateHorizontalFoodShelf(
     registry,
@@ -411,11 +466,18 @@ export function composeStoresHomeFeed(
     slot6RestStores.push(store);
   }
 
+  const campaignFood = allocateCampaignFoodShelf(
+    registry,
+    pool,
+    STORES_HOME_CAMPAIGN_SHELF_MAX
+  );
+
   return {
     slot0Food,
     slot1Stores,
     slot2Food,
     newStoreFood,
+    campaignFood,
     slot3Food,
     slot4Food,
     slot5Food,

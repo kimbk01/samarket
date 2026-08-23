@@ -77,6 +77,11 @@ function StoresHomeFoodCardInner({
             {t("store_badge_menu_popular")}
           </p>
         : null}
+        {entry.campaignTitle ?
+          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-text)] ${STORES_HOME_META}`}>
+            {entry.campaignTitle}
+          </p>
+        : null}
         <p className={`line-clamp-2 ${STORES_HOME_BODY}`}>{entry.name}</p>
         <p className={`font-semibold text-[color:var(--delivery-primary)] ${STORES_HOME_BODY}`}>
           {formatPrice(entry.price)}

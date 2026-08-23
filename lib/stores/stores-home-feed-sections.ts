@@ -31,7 +31,11 @@ export type StoresHomeFoodEntry = {
   deliveryFeeStrikePhp?: number | null;
   discountEvidence?: StoresHomeFoodDiscountEvidence | null;
   menuAuthority?: StoresHomeMenuAuthority;
+  /** P1-D B2 — campaign copy only (not popular/discount/featured) */
+  campaignTitle?: string | null;
+  campaignType?: "event" | "promo" | null;
 };
+
 
 /** 가로 음식 레일 — 매장별 첫 featured 메뉴 (composer 외 legacy flatten 전용) */
 export function flattenStoresHomeFoodEntries(

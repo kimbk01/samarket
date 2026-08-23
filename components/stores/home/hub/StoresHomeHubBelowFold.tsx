@@ -61,6 +61,12 @@ export function StoresHomeHubBelowFold({
       />
 
       <StoresHomeFoodDiscoveryRail
+        title={t("store_home_campaigns_title")}
+        entries={composition.campaignFood}
+        hydratedByStoreId={hydratedByStoreId}
+      />
+
+      <StoresHomeFoodDiscoveryRail
         title={t("store_badge_menu_discount")}
         entries={composition.slot3Food}
         hydratedByStoreId={hydratedByStoreId}

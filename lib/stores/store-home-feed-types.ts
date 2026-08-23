@@ -59,4 +59,17 @@ export type StoreHomeFeedItem = {
    * NULL ⇒ never stamped (legacy visible) ⇒ not eligible for new-store shelf.
    */
   firstListedAt?: string | null;
+  /**
+   * P1-D B2 — optional period campaign authority (Cut B).
+   * null/absent ⇒ no campaign shelf entry. Does not overwrite featured/popular/strike.
+   */
+  discoveryCampaign?: {
+    id: string;
+    campaignType: "event" | "promo";
+    title: string;
+    bodyCopy: string | null;
+    startAt: string;
+    endAt: string;
+  } | null;
 };
+

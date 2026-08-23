@@ -43,6 +43,7 @@ import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-
 import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { loadStorePopularProductStatsBatch } from "@/lib/stores/load-store-popular-product-stats-batch";
+import { loadActiveStoreDiscoveryCampaignsForHome } from "@/lib/stores/load-store-discovery-campaigns-for-home";
 import {
   assemblePlatformPopularProductsForStore,
   buildActiveProductCatalogMap,
@@ -342,6 +343,34 @@ export async function GET(req: Request) {
       }
     }
 
+
+    let discoveryCampaignsStatus: "ok" | "error" = "ok";
+    const discoveryCampaignByStore = new Map<
+      string,
+      {
+        id: string;
+        campaignType: "event" | "promo";
+        title: string;
+        bodyCopy: string | null;
+        startAt: string;
+        endAt: string;
+      }
+    >();
+    {
+      const campaignLoad = await loadActiveStoreDiscoveryCampaignsForHome(supabase, ids);
+      discoveryCampaignsStatus = campaignLoad.status;
+      for (const [storeId, row] of campaignLoad.byStoreId) {
+        discoveryCampaignByStore.set(storeId, {
+          id: row.id,
+          campaignType: row.campaignType,
+          title: row.title,
+          bodyCopy: row.bodyCopy,
+          startAt: row.startAt,
+          endAt: row.endAt,
+        });
+      }
+    }
+
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const rowOutOfRange = outOfRangeById.get(r.id) === true;
@@ -446,6 +475,7 @@ export async function GET(req: Request) {
           typeof r.first_listed_at === "string" && r.first_listed_at.trim() ?
             r.first_listed_at
           : null,
+        discoveryCampaign: discoveryCampaignByStore.get(r.id) ?? null,
       };
     });
 
@@ -458,6 +488,7 @@ export async function GET(req: Request) {
         origin_source: origin.source,
         origin_address_id: origin.addressId,
         popularProductStats: { status: popularProductStatsStatus },
+        discoveryCampaigns: { status: discoveryCampaignsStatus },
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);

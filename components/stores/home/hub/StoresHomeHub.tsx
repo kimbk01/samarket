@@ -279,6 +279,7 @@ export function StoresHomeHub({
       for (const slot of [
         composition.slot2Food,
         composition.newStoreFood,
+        composition.campaignFood,
         composition.slot3Food,
         composition.slot4Food,
         composition.slot5Food,

@@ -230,6 +230,8 @@ export const storeCommerceUiMessages = {
 
     store_home_new_stores_title: "새로 오픈한 맛집",
 
+    store_home_campaigns_title: "진행 중인 이벤트",
+
     store_order_now_subtitle: "영업 중 · 배달 또는 포장이 열려 있어요",
 
     store_neighborhood_more_title: "이 동네 더보기",
@@ -1947,6 +1949,8 @@ export const storeCommerceUiMessages = {
     store_home_popular_stores_title: "Most ordered restaurants",
 
     store_home_new_stores_title: "Newly opened",
+
+    store_home_campaigns_title: "Ongoing events",
 
     store_order_now_subtitle: "Open · delivery or pickup available",
 
