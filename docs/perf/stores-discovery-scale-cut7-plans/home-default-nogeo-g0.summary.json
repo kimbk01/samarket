@@ -1,0 +1,29 @@
+{
+  "label": "home-default-nogeo-g0",
+  "gate": "home",
+  "planningMs": 1.014,
+  "executionMs": 0.093,
+  "maxActualRows": 48,
+  "sortNodes": [],
+  "indexNodes": [
+    {
+      "node": "Index Scan",
+      "index": "idx_stores_discovery_wave_popular",
+      "actualRows": 48,
+      "planRows": 76912,
+      "loops": 1
+    }
+  ],
+  "seqNodes": [],
+  "shared": {
+    "hit": 114,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "wave_index_ordered_limit"
+}

@@ -1,0 +1,21 @@
+{
+  "label": "rpc-outer-rating-g0",
+  "gate": "rpc",
+  "planningMs": 0.039,
+  "executionMs": 22.973,
+  "maxActualRows": 60,
+  "sortNodes": [],
+  "indexNodes": [],
+  "seqNodes": [],
+  "shared": {
+    "hit": 8216,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "bounded_or_index_compatible"
+}

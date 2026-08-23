@@ -1,0 +1,29 @@
+{
+  "label": "browse-rating-dense-g0-page3",
+  "gate": "rating",
+  "planningMs": 0.473,
+  "executionMs": 0.125,
+  "maxActualRows": 180,
+  "sortNodes": [],
+  "indexNodes": [
+    {
+      "node": "Index Scan",
+      "index": "idx_stores_discovery_wave_rating",
+      "actualRows": 180,
+      "planRows": 46096,
+      "loops": 1
+    }
+  ],
+  "seqNodes": [],
+  "shared": {
+    "hit": 156,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "wave_index_ordered_limit"
+}

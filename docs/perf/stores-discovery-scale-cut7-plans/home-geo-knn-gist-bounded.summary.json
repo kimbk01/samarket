@@ -1,0 +1,36 @@
+{
+  "label": "home-geo-knn-gist-bounded",
+  "gate": "distance",
+  "planningMs": 10.717,
+  "executionMs": 6.993,
+  "maxActualRows": 53,
+  "sortNodes": [],
+  "indexNodes": [
+    {
+      "node": "Index Scan",
+      "index": "idx_stores_location_geog_gist",
+      "actualRows": 53,
+      "planRows": 74940,
+      "loops": 1
+    },
+    {
+      "node": "Index Scan",
+      "index": "idx_store_delivery_coverage_policy_store",
+      "actualRows": 1,
+      "planRows": 1,
+      "loops": 53
+    }
+  ],
+  "seqNodes": [],
+  "shared": {
+    "hit": 2763,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "spatial_or_bitmap_index_path"
+}

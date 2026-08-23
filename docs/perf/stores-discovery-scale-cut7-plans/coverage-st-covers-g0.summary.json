@@ -1,0 +1,29 @@
+{
+  "label": "coverage-st-covers-g0",
+  "gate": "coverage",
+  "planningMs": 9.363,
+  "executionMs": 15.417,
+  "maxActualRows": 60,
+  "sortNodes": [],
+  "indexNodes": [],
+  "seqNodes": [
+    {
+      "relation": "store_delivery_coverage",
+      "actualRows": 21,
+      "planRows": 1,
+      "filter": "((c.distance_applies IS TRUE) AND (c.covers_all IS FALSE) AND (c.coverage_geog IS NOT NULL) AND (c.coverage_geog && '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography) AND (c.policy_version = 1) AND st_covers(c.coverage_geog, '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography))",
+      "rowsRemoved": 95
+    }
+  ],
+  "shared": {
+    "hit": 84,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "bounded_or_index_compatible"
+}

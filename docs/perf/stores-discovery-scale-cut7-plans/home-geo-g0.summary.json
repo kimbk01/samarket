@@ -1,0 +1,38 @@
+{
+  "label": "home-geo-g0",
+  "gate": "distance",
+  "planningMs": 8.742,
+  "executionMs": 131.121,
+  "maxActualRows": 38503,
+  "sortNodes": [
+    {
+      "node": "Sort",
+      "method": "top-N heapsort",
+      "spaceType": "Memory",
+      "spaceUsed": 37,
+      "actualRows": 42,
+      "planRows": 45242
+    }
+  ],
+  "indexNodes": [],
+  "seqNodes": [
+    {
+      "relation": "stores",
+      "actualRows": 38503,
+      "planRows": 45242,
+      "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text))",
+      "rowsRemoved": 11497
+    }
+  ],
+  "shared": {
+    "hit": 14968,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "distance_or_home_topn_measured_under_50k"
+}

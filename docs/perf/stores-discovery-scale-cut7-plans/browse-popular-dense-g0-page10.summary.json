@@ -1,0 +1,29 @@
+{
+  "label": "browse-popular-dense-g0-page10",
+  "gate": "popular",
+  "planningMs": 0.425,
+  "executionMs": 1.295,
+  "maxActualRows": 600,
+  "sortNodes": [],
+  "indexNodes": [
+    {
+      "node": "Index Scan",
+      "index": "idx_stores_discovery_wave_popular",
+      "actualRows": 600,
+      "planRows": 46096,
+      "loops": 1
+    }
+  ],
+  "seqNodes": [],
+  "shared": {
+    "hit": 1352,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "wave_index_ordered_limit"
+}

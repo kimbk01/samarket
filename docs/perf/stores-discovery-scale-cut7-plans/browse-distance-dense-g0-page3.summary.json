@@ -1,0 +1,38 @@
+{
+  "label": "browse-distance-dense-g0-page3",
+  "gate": "distance",
+  "planningMs": 9.941,
+  "executionMs": 56.386,
+  "maxActualRows": 23101,
+  "sortNodes": [
+    {
+      "node": "Sort",
+      "method": "top-N heapsort",
+      "spaceType": "Memory",
+      "spaceUsed": 67,
+      "actualRows": 152,
+      "planRows": 27115
+    }
+  ],
+  "indexNodes": [],
+  "seqNodes": [
+    {
+      "relation": "stores",
+      "actualRows": 23101,
+      "planRows": 27115,
+      "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text) AND (s.store_category_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))",
+      "rowsRemoved": 26899
+    }
+  ],
+  "shared": {
+    "hit": 14968,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "distance_or_home_topn_measured_under_50k"
+}

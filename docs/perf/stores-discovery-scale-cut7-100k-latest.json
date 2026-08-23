@@ -1,0 +1,1103 @@
+{
+  "cut": 7,
+  "generatedAt": "2026-08-23T11:19:54.893Z",
+  "mode": "100K_SYNTHETIC_PLANNER_PROOF",
+  "userVisibleAuthority": "OLD",
+  "cutover": false,
+  "push": false,
+  "production": "UNCHANGED",
+  "benchmarkEnv": {
+    "postgres": "17.11 (Homebrew)",
+    "postgis": "3.6 USE_GEOS=1 USE_PROJ=1 USE_STATS=1",
+    "pg_trgm": "1.6",
+    "settings": {
+      "shared_buffers": "128MB",
+      "work_mem": "4MB",
+      "random_page_cost": "4",
+      "effective_cache_size": "4GB",
+      "jit": "on",
+      "max_parallel_workers_per_gather": "2"
+    },
+    "cpu": "NOT_PROVEN",
+    "memory": "NOT_PROVEN",
+    "databaseUrlHost": "local:///samarket_cut7_bench",
+    "isolated": true,
+    "production": false
+  },
+  "cut6MigrationApplied": "PASS",
+  "cut6Markers": {
+    "oorOrder": true,
+    "distanceApplies": true
+  },
+  "syntheticStores": 100000,
+  "denseTaxonomy": 60000,
+  "giDistribution": [
+    "CLOSED|false=455",
+    "CLOSED|true=4545",
+    "IN_BREAK|false=508",
+    "IN_BREAK|true=5080",
+    "ORDERABLE|false=7700",
+    "ORDERABLE|true=77006",
+    "PREPARING|false=428",
+    "PREPARING|true=4278"
+  ],
+  "districtDistribution": [
+    "Makati City=33333",
+    "Makati=33334",
+    "Quezon=33333"
+  ],
+  "analyze": "PASS",
+  "indexSizes": [
+    "idx_store_delivery_coverage_geog_gist=5272 kB",
+    "idx_store_delivery_coverage_policy_store=4840 kB",
+    "idx_stores_discovery_schedule_transition=8192 bytes",
+    "idx_stores_discovery_wave_popular=11 MB",
+    "idx_stores_discovery_wave_rating=11 MB",
+    "idx_stores_discovery_wave_reviews=12 MB",
+    "idx_stores_discovery_wave_schedule_delivery=6216 kB",
+    "idx_stores_location_geog_gist=4776 kB"
+  ],
+  "planMaxInputRowsObserved": 38503,
+  "nodeMaxRowsObserved": 500,
+  "rpcPage1RowsReturned": 60,
+  "rpcPage10RowsReturned": 500,
+  "applicationFullSort": 0,
+  "fullCandidateMaterialization": 0,
+  "liveOrderAggregate": 0,
+  "allStoreHaversine": 0,
+  "cases": [
+    {
+      "label": "browse-rating-dense-g0-page1",
+      "gate": "rating",
+      "planningMs": 0.425,
+      "executionMs": 0.063,
+      "maxActualRows": 60,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_rating",
+          "actualRows": 60,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 56,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "rating",
+      "page": 1,
+      "targetLimit": 60,
+      "dense": true
+    },
+    {
+      "label": "browse-rating-dense-g0-page2",
+      "gate": "rating",
+      "planningMs": 0.423,
+      "executionMs": 0.103,
+      "maxActualRows": 120,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_rating",
+          "actualRows": 120,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 106,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "rating",
+      "page": 2,
+      "targetLimit": 120,
+      "dense": true
+    },
+    {
+      "label": "browse-rating-dense-g0-page3",
+      "gate": "rating",
+      "planningMs": 0.473,
+      "executionMs": 0.125,
+      "maxActualRows": 180,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_rating",
+          "actualRows": 180,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 156,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "rating",
+      "page": 3,
+      "targetLimit": 180,
+      "dense": true
+    },
+    {
+      "label": "browse-rating-dense-g0-page10",
+      "gate": "rating",
+      "planningMs": 0.484,
+      "executionMs": 0.405,
+      "maxActualRows": 600,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_rating",
+          "actualRows": 600,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 506,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "rating",
+      "page": 10,
+      "targetLimit": 600,
+      "dense": true
+    },
+    {
+      "label": "browse-reviews-dense-g0-page1",
+      "gate": "reviews",
+      "planningMs": 0.457,
+      "executionMs": 0.069,
+      "maxActualRows": 60,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_reviews",
+          "actualRows": 60,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 56,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "reviews",
+      "page": 1,
+      "targetLimit": 60,
+      "dense": true
+    },
+    {
+      "label": "browse-reviews-dense-g0-page2",
+      "gate": "reviews",
+      "planningMs": 0.537,
+      "executionMs": 0.164,
+      "maxActualRows": 120,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_reviews",
+          "actualRows": 120,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 106,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "reviews",
+      "page": 2,
+      "targetLimit": 120,
+      "dense": true
+    },
+    {
+      "label": "browse-reviews-dense-g0-page3",
+      "gate": "reviews",
+      "planningMs": 0.515,
+      "executionMs": 0.228,
+      "maxActualRows": 180,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_reviews",
+          "actualRows": 180,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 158,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "reviews",
+      "page": 3,
+      "targetLimit": 180,
+      "dense": true
+    },
+    {
+      "label": "browse-reviews-dense-g0-page10",
+      "gate": "reviews",
+      "planningMs": 0.957,
+      "executionMs": 0.511,
+      "maxActualRows": 600,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_reviews",
+          "actualRows": 600,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 508,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "reviews",
+      "page": 10,
+      "targetLimit": 600,
+      "dense": true
+    },
+    {
+      "label": "browse-popular-dense-g0-page1",
+      "gate": "popular",
+      "planningMs": 0.565,
+      "executionMs": 0.119,
+      "maxActualRows": 60,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 60,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 142,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "popular",
+      "page": 1,
+      "targetLimit": 60,
+      "dense": true
+    },
+    {
+      "label": "browse-popular-dense-g0-page2",
+      "gate": "popular",
+      "planningMs": 0.412,
+      "executionMs": 0.154,
+      "maxActualRows": 120,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 120,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 278,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "popular",
+      "page": 2,
+      "targetLimit": 120,
+      "dense": true
+    },
+    {
+      "label": "browse-popular-dense-g0-page3",
+      "gate": "popular",
+      "planningMs": 0.487,
+      "executionMs": 0.222,
+      "maxActualRows": 180,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 180,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 412,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "popular",
+      "page": 3,
+      "targetLimit": 180,
+      "dense": true
+    },
+    {
+      "label": "browse-popular-dense-g0-page10",
+      "gate": "popular",
+      "planningMs": 0.425,
+      "executionMs": 1.295,
+      "maxActualRows": 600,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 600,
+          "planRows": 46096,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 1352,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "popular",
+      "page": 10,
+      "targetLimit": 600,
+      "dense": true
+    },
+    {
+      "label": "browse-distance-dense-g0-page1",
+      "gate": "distance",
+      "planningMs": 8.066,
+      "executionMs": 72.31,
+      "maxActualRows": 23101,
+      "sortNodes": [
+        {
+          "node": "Sort",
+          "method": "top-N heapsort",
+          "spaceType": "Memory",
+          "spaceUsed": 41,
+          "actualRows": 48,
+          "planRows": 27115
+        }
+      ],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "stores",
+          "actualRows": 23101,
+          "planRows": 27115,
+          "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text) AND (s.store_category_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))",
+          "rowsRemoved": 26899
+        }
+      ],
+      "shared": {
+        "hit": 14968,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "distance_or_home_topn_measured_under_50k",
+      "mode": "distance",
+      "page": 1,
+      "targetLimit": 60,
+      "dense": true
+    },
+    {
+      "label": "browse-distance-dense-g0-page2",
+      "gate": "distance",
+      "planningMs": 10.942,
+      "executionMs": 54.094,
+      "maxActualRows": 23101,
+      "sortNodes": [
+        {
+          "node": "Sort",
+          "method": "top-N heapsort",
+          "spaceType": "Memory",
+          "spaceUsed": 49,
+          "actualRows": 100,
+          "planRows": 27115
+        }
+      ],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "stores",
+          "actualRows": 23101,
+          "planRows": 27115,
+          "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text) AND (s.store_category_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))",
+          "rowsRemoved": 26899
+        }
+      ],
+      "shared": {
+        "hit": 14968,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "distance_or_home_topn_measured_under_50k",
+      "mode": "distance",
+      "page": 2,
+      "targetLimit": 120,
+      "dense": true
+    },
+    {
+      "label": "browse-distance-dense-g0-page3",
+      "gate": "distance",
+      "planningMs": 9.941,
+      "executionMs": 56.386,
+      "maxActualRows": 23101,
+      "sortNodes": [
+        {
+          "node": "Sort",
+          "method": "top-N heapsort",
+          "spaceType": "Memory",
+          "spaceUsed": 67,
+          "actualRows": 152,
+          "planRows": 27115
+        }
+      ],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "stores",
+          "actualRows": 23101,
+          "planRows": 27115,
+          "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text) AND (s.store_category_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))",
+          "rowsRemoved": 26899
+        }
+      ],
+      "shared": {
+        "hit": 14968,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "distance_or_home_topn_measured_under_50k",
+      "mode": "distance",
+      "page": 3,
+      "targetLimit": 180,
+      "dense": true
+    },
+    {
+      "label": "browse-distance-dense-g0-page10",
+      "gate": "distance",
+      "planningMs": 7.949,
+      "executionMs": 63.439,
+      "maxActualRows": 23101,
+      "sortNodes": [
+        {
+          "node": "Sort",
+          "method": "top-N heapsort",
+          "spaceType": "Memory",
+          "spaceUsed": 180,
+          "actualRows": 482,
+          "planRows": 27115
+        }
+      ],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "stores",
+          "actualRows": 23101,
+          "planRows": 27115,
+          "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text) AND (s.store_category_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid))",
+          "rowsRemoved": 26899
+        }
+      ],
+      "shared": {
+        "hit": 14968,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "distance_or_home_topn_measured_under_50k",
+      "mode": "distance",
+      "page": 10,
+      "targetLimit": 600,
+      "dense": true
+    },
+    {
+      "label": "home-default-nogeo-g0",
+      "gate": "home",
+      "planningMs": 1.014,
+      "executionMs": 0.093,
+      "maxActualRows": 48,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 48,
+          "planRows": 76912,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 114,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "home-default-nogeo",
+      "page": 1
+    },
+    {
+      "label": "home-default-nogeo-g0-d0",
+      "gate": "home",
+      "planningMs": 0.432,
+      "executionMs": 0.397,
+      "maxActualRows": 48,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 48,
+          "planRows": 1154,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 190,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "home-default-dj",
+      "page": 1
+    },
+    {
+      "label": "home-geo-g0",
+      "gate": "distance",
+      "planningMs": 8.742,
+      "executionMs": 131.121,
+      "maxActualRows": 38503,
+      "sortNodes": [
+        {
+          "node": "Sort",
+          "method": "top-N heapsort",
+          "spaceType": "Memory",
+          "spaceUsed": 37,
+          "actualRows": 42,
+          "planRows": 45242
+        }
+      ],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "stores",
+          "actualRows": 38503,
+          "planRows": 45242,
+          "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text))",
+          "rowsRemoved": 11497
+        }
+      ],
+      "shared": {
+        "hit": 14968,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "distance_or_home_topn_measured_under_50k",
+      "mode": "home-geo",
+      "page": 1
+    },
+    {
+      "label": "home-geo-knn-gist-bounded",
+      "gate": "distance",
+      "planningMs": 10.717,
+      "executionMs": 6.993,
+      "maxActualRows": 53,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_location_geog_gist",
+          "actualRows": 53,
+          "planRows": 74940,
+          "loops": 1
+        },
+        {
+          "node": "Index Scan",
+          "index": "idx_store_delivery_coverage_policy_store",
+          "actualRows": 1,
+          "planRows": 1,
+          "loops": 53
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 2763,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "spatial_or_bitmap_index_path",
+      "mode": "home-geo-knn-proof",
+      "page": 1
+    },
+    {
+      "label": "home-geo-district-makati-g0",
+      "gate": "home",
+      "planningMs": 13.01,
+      "executionMs": 5.064,
+      "maxActualRows": 48,
+      "sortNodes": [],
+      "indexNodes": [
+        {
+          "node": "Index Scan",
+          "index": "idx_stores_discovery_wave_popular",
+          "actualRows": 48,
+          "planRows": 1154,
+          "loops": 1
+        }
+      ],
+      "seqNodes": [],
+      "shared": {
+        "hit": 858,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "wave_index_ordered_limit",
+      "mode": "home-geo-district",
+      "page": 1
+    },
+    {
+      "label": "coverage-st-covers-g0",
+      "gate": "coverage",
+      "planningMs": 9.363,
+      "executionMs": 15.417,
+      "maxActualRows": 60,
+      "sortNodes": [],
+      "indexNodes": [],
+      "seqNodes": [
+        {
+          "relation": "store_delivery_coverage",
+          "actualRows": 21,
+          "planRows": 1,
+          "filter": "((c.distance_applies IS TRUE) AND (c.covers_all IS FALSE) AND (c.coverage_geog IS NOT NULL) AND (c.coverage_geog && '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography) AND (c.policy_version = 1) AND st_covers(c.coverage_geog, '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography))",
+          "rowsRemoved": 95
+        }
+      ],
+      "shared": {
+        "hit": 84,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "bounded_or_index_compatible",
+      "mode": "coverage",
+      "page": 1
+    },
+    {
+      "label": "rpc-outer-rating-g0",
+      "gate": "rpc",
+      "planningMs": 0.039,
+      "executionMs": 22.973,
+      "maxActualRows": 60,
+      "sortNodes": [],
+      "indexNodes": [],
+      "seqNodes": [],
+      "shared": {
+        "hit": 8216,
+        "read": 0
+      },
+      "tempBlocks": {
+        "read": 0,
+        "written": 0
+      },
+      "settings": {},
+      "verdict": "PASS",
+      "reason": "bounded_or_index_compatible",
+      "mode": "rpc-outer-rating",
+      "page": 1,
+      "note": "Function Scan wrapper — internal proof is browse-rating-dense-g0-page1"
+    }
+  ],
+  "failLabels": [],
+  "ratingPlan": {
+    "label": "browse-rating-dense-g0-page1",
+    "gate": "rating",
+    "planningMs": 0.425,
+    "executionMs": 0.063,
+    "maxActualRows": 60,
+    "sortNodes": [],
+    "indexNodes": [
+      {
+        "node": "Index Scan",
+        "index": "idx_stores_discovery_wave_rating",
+        "actualRows": 60,
+        "planRows": 46096,
+        "loops": 1
+      }
+    ],
+    "seqNodes": [],
+    "shared": {
+      "hit": 56,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "wave_index_ordered_limit",
+    "mode": "rating",
+    "page": 1,
+    "targetLimit": 60,
+    "dense": true
+  },
+  "reviewsPlan": {
+    "label": "browse-reviews-dense-g0-page1",
+    "gate": "reviews",
+    "planningMs": 0.457,
+    "executionMs": 0.069,
+    "maxActualRows": 60,
+    "sortNodes": [],
+    "indexNodes": [
+      {
+        "node": "Index Scan",
+        "index": "idx_stores_discovery_wave_reviews",
+        "actualRows": 60,
+        "planRows": 46096,
+        "loops": 1
+      }
+    ],
+    "seqNodes": [],
+    "shared": {
+      "hit": 56,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "wave_index_ordered_limit",
+    "mode": "reviews",
+    "page": 1,
+    "targetLimit": 60,
+    "dense": true
+  },
+  "popularPlan": {
+    "label": "browse-popular-dense-g0-page1",
+    "gate": "popular",
+    "planningMs": 0.565,
+    "executionMs": 0.119,
+    "maxActualRows": 60,
+    "sortNodes": [],
+    "indexNodes": [
+      {
+        "node": "Index Scan",
+        "index": "idx_stores_discovery_wave_popular",
+        "actualRows": 60,
+        "planRows": 46096,
+        "loops": 1
+      }
+    ],
+    "seqNodes": [],
+    "shared": {
+      "hit": 142,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "wave_index_ordered_limit",
+    "mode": "popular",
+    "page": 1,
+    "targetLimit": 60,
+    "dense": true
+  },
+  "homeDefaultPlan": {
+    "label": "home-default-nogeo-g0",
+    "gate": "home",
+    "planningMs": 1.014,
+    "executionMs": 0.093,
+    "maxActualRows": 48,
+    "sortNodes": [],
+    "indexNodes": [
+      {
+        "node": "Index Scan",
+        "index": "idx_stores_discovery_wave_popular",
+        "actualRows": 48,
+        "planRows": 76912,
+        "loops": 1
+      }
+    ],
+    "seqNodes": [],
+    "shared": {
+      "hit": 114,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "wave_index_ordered_limit",
+    "mode": "home-default-nogeo",
+    "page": 1
+  },
+  "homeGeoPlan": {
+    "label": "home-geo-g0",
+    "gate": "distance",
+    "planningMs": 8.742,
+    "executionMs": 131.121,
+    "maxActualRows": 38503,
+    "sortNodes": [
+      {
+        "node": "Sort",
+        "method": "top-N heapsort",
+        "spaceType": "Memory",
+        "spaceUsed": 37,
+        "actualRows": 42,
+        "planRows": 45242
+      }
+    ],
+    "indexNodes": [],
+    "seqNodes": [
+      {
+        "relation": "stores",
+        "actualRows": 38503,
+        "planRows": 45242,
+        "filter": "(s.is_visible AND (s.delivery_available IS TRUE) AND (s.approval_status = 'approved'::text) AND (s.discovery_schedule_state = 'ORDERABLE'::text))",
+        "rowsRemoved": 11497
+      }
+    ],
+    "shared": {
+      "hit": 14968,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "distance_or_home_topn_measured_under_50k",
+    "mode": "home-geo",
+    "page": 1
+  },
+  "homeGeoKnnProof": {
+    "label": "home-geo-knn-gist-bounded",
+    "gate": "distance",
+    "planningMs": 10.717,
+    "executionMs": 6.993,
+    "maxActualRows": 53,
+    "sortNodes": [],
+    "indexNodes": [
+      {
+        "node": "Index Scan",
+        "index": "idx_stores_location_geog_gist",
+        "actualRows": 53,
+        "planRows": 74940,
+        "loops": 1
+      },
+      {
+        "node": "Index Scan",
+        "index": "idx_store_delivery_coverage_policy_store",
+        "actualRows": 1,
+        "planRows": 1,
+        "loops": 53
+      }
+    ],
+    "seqNodes": [],
+    "shared": {
+      "hit": 2763,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "spatial_or_bitmap_index_path",
+    "mode": "home-geo-knn-proof",
+    "page": 1
+  },
+  "coveragePlan": {
+    "label": "coverage-st-covers-g0",
+    "gate": "coverage",
+    "planningMs": 9.363,
+    "executionMs": 15.417,
+    "maxActualRows": 60,
+    "sortNodes": [],
+    "indexNodes": [],
+    "seqNodes": [
+      {
+        "relation": "store_delivery_coverage",
+        "actualRows": 21,
+        "planRows": 1,
+        "filter": "((c.distance_applies IS TRUE) AND (c.covers_all IS FALSE) AND (c.coverage_geog IS NOT NULL) AND (c.coverage_geog && '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography) AND (c.policy_version = 1) AND st_covers(c.coverage_geog, '0101000020E6100000492EFF21FD3E5E406DE7FBA9F1322D40'::geography))",
+        "rowsRemoved": 95
+      }
+    ],
+    "shared": {
+      "hit": 84,
+      "read": 0
+    },
+    "tempBlocks": {
+      "read": 0,
+      "written": 0
+    },
+    "settings": {},
+    "verdict": "PASS",
+    "reason": "bounded_or_index_compatible",
+    "mode": "coverage",
+    "page": 1
+  },
+  "cut7": "PASS",
+  "firstDivergence": "NONE",
+  "cut6Regression": "NOT_REQUIRED"
+}

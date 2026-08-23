@@ -1,0 +1,29 @@
+{
+  "label": "browse-reviews-dense-g0-page10",
+  "gate": "reviews",
+  "planningMs": 0.957,
+  "executionMs": 0.511,
+  "maxActualRows": 600,
+  "sortNodes": [],
+  "indexNodes": [
+    {
+      "node": "Index Scan",
+      "index": "idx_stores_discovery_wave_reviews",
+      "actualRows": 600,
+      "planRows": 46096,
+      "loops": 1
+    }
+  ],
+  "seqNodes": [],
+  "shared": {
+    "hit": 508,
+    "read": 0
+  },
+  "tempBlocks": {
+    "read": 0,
+    "written": 0
+  },
+  "settings": {},
+  "verdict": "PASS",
+  "reason": "wave_index_ordered_limit"
+}
