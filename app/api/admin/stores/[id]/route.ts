@@ -18,6 +18,7 @@ import {
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
+import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,7 +139,7 @@ export async function PATCH(
   const { data: store, error: findErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
+      "id, owner_user_id, approval_status, is_visible, first_listed_at, store_name, slug, store_category_id, store_topic_id, phone, description, email, admin_internal_memo, delivery_available, pickup_available, is_open, business_hours_json, owner_can_edit_store_identity, region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng"
     )
     .eq("id", id)
     .maybeSingle();
@@ -264,13 +265,18 @@ export async function PATCH(
       );
     }
     const visible = Boolean(body.enabled);
-    const before = { is_visible: store.is_visible };
-    const { error: visErr } = await sb.from("stores").update({ is_visible: visible }).eq("id", id);
+    const before = {
+      is_visible: store.is_visible,
+      first_listed_at: (store as { first_listed_at?: string | null }).first_listed_at ?? null,
+    };
+    // Visibility intent only — first_listed_at stamp is DB trigger authority (P1-C1).
+    const visPatch = buildStoreVisibilityWritePatch(visible);
+    const { error: visErr } = await sb.from("stores").update(visPatch).eq("id", id);
     if (visErr) {
       console.error("[admin/stores PATCH is_visible]", visErr);
       return NextResponse.json({ ok: false, error: visErr.message }, { status: 500 });
     }
-    return auditOk(before, { is_visible: visible });
+    return auditOk(before, visPatch);
   }
 
   if (action === "set_admin_memo") {

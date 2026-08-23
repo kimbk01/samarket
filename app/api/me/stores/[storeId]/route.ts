@@ -14,6 +14,7 @@ import {
 } from "@/lib/stores/build-store-location-patch";
 import { invalidateMeStoresListServerCache } from "@/lib/me/load-me-stores-for-user";
 import { invalidateDiscoveryAfterStoreWrite } from "@/lib/stores/discovery/invalidate-discovery-after-store-write";
+import { buildStoreVisibilityWritePatch } from "@/lib/stores/store-first-listed-at";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,7 +118,7 @@ export async function PATCH(
   const { data: currentRow, error: curErr } = await sb
     .from("stores")
     .select(
-      "store_category_id, store_topic_id, region, city, district, address_line1, address_line2, place_id, formatted_address, lat, lng",
+      "store_category_id, store_topic_id, region, city, district, address_line1, address_line2, place_id, formatted_address, lat, lng, is_visible, first_listed_at",
     )
     .eq("id", sid)
     .maybeSingle();
@@ -192,7 +193,8 @@ export async function PATCH(
   }
   if (body.is_visible !== undefined) {
     // 노출 토글은 승인 상태에서만 의미가 있으므로, blocked 상태는 위에서 차단됨.
-    patch.is_visible = Boolean(body.is_visible);
+    // P1-C1: visibility intent only — first_listed_at stamp is DB trigger authority.
+    Object.assign(patch, buildStoreVisibilityWritePatch(Boolean(body.is_visible)));
   }
   if (body.is_open !== undefined) {
     patch.is_open = Boolean(body.is_open);
@@ -307,7 +309,7 @@ export async function PATCH(
         "profile_image_url, business_hours_json, gallery_images_json, is_open",
         "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
         "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
-        "approval_status, is_visible, rejected_reason, revision_note",
+        "approval_status, is_visible, first_listed_at, rejected_reason, revision_note",
         "created_at, updated_at, approved_at",
         "store_categories ( name, slug ), store_topics ( name, slug )",
       ].join(", ")

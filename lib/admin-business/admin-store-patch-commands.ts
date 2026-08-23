@@ -44,7 +44,7 @@ export const ADMIN_STORE_PATCH_COMMANDS = {
     table: "stores",
   },
   set_store_visible: {
-    writes: ["stores.is_visible"],
+    writes: ["stores.is_visible", "stores.first_listed_at"],
     table: "stores",
   },
   set_admin_memo: {
