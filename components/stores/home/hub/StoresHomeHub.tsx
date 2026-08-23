@@ -278,6 +278,7 @@ export function StoresHomeHub({
     if (composition) {
       for (const slot of [
         composition.slot2Food,
+        composition.newStoreFood,
         composition.slot3Food,
         composition.slot4Food,
         composition.slot5Food,

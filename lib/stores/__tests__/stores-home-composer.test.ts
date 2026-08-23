@@ -50,6 +50,7 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     },
     completedOrderCount30d: partial.completedOrderCount30d,
     discoveryEligibilityRank: partial.discoveryEligibilityRank,
+    firstListedAt: partial.firstListedAt ?? null,
   };
 }
 

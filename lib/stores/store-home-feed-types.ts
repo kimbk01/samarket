@@ -54,4 +54,9 @@ export type StoreHomeFeedItem = {
   completedOrderCount30d?: number;
   /** P0 eligibility rank for home popular shelf sort */
   discoveryEligibilityRank?: number;
+  /**
+   * P1-C1/C2 — first customer-list publication time.
+   * NULL ⇒ never stamped (legacy visible) ⇒ not eligible for new-store shelf.
+   */
+  firstListedAt?: string | null;
 };

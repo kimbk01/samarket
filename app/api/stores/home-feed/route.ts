@@ -105,6 +105,7 @@ type FeedRow = {
   point_commerce_blocked?: boolean | null;
   business_hours_json: unknown;
   created_at: string;
+  first_listed_at?: string | null;
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
@@ -441,6 +442,10 @@ export async function GET(req: Request) {
         completedOrderCount30d:
           orderLoad.status === "ok" ? (orderLoad.counts.get(r.id) ?? 0) : 0,
         discoveryEligibilityRank: eligibilityRankById.get(r.id) ?? 99,
+        firstListedAt:
+          typeof r.first_listed_at === "string" && r.first_listed_at.trim() ?
+            r.first_listed_at
+          : null,
       };
     });
 

@@ -1,5 +1,9 @@
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { sortStoreDiscoveryPopularRows } from "@/lib/stores/store-discovery-popular-store";
+import {
+  compareNewStoreShelfRows,
+  isNewStoreSignal,
+} from "@/lib/stores/store-new-store-signal";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import {
   StoresHomeExposureRegistry,
@@ -23,6 +27,9 @@ export const STORES_HOME_NEARBY_MAX = 24;
 /** Slot5 featured grid cap */
 export const STORES_HOME_SLOT5_FOOD_MAX = 8;
 
+/** P1-C2 — presentation-only new-store shelf cap (not a Slot0–6 renumber) */
+export const STORES_HOME_NEW_STORE_SHELF_MAX = 20;
+
 /** Existing authoritative threshold — not invented in CUT3 */
 export const STORES_HOME_TOP_RATED_MIN_RATING = 4;
 export const STORES_HOME_TOP_RATED_MIN_REVIEWS = 3;
@@ -37,6 +44,8 @@ export type StoresHomeFeedComposition = {
   slot0Food: StoresHomeFoodEntry[];
   slot1Stores: StoreHomeFeedItem[];
   slot2Food: StoresHomeFoodEntry[];
+  /** P1-C2 presentation shelf — between Slot2 and Slot3; not a slot renumber */
+  newStoreFood: StoresHomeFoodEntry[];
   slot3Food: StoresHomeFoodEntry[];
   slot4Food: StoresHomeFoodEntry[];
   slot5Food: StoresHomeFoodEntry[];
@@ -246,6 +255,42 @@ function allocateSlot2PopularFoodShelf(
   return out;
 }
 
+/**
+ * P1-C2 — New-store presentation shelf.
+ * Order: first_listed_at DESC only (no adjacent rotate / random).
+ * Product: owner representative only (never P1-B platform popular).
+ */
+function allocateNewStoreFoodShelf(
+  registry: StoresHomeExposureRegistry,
+  stores: readonly StoreHomeFeedItem[],
+  max: number,
+  nowMs: number
+): StoresHomeFoodEntry[] {
+  const candidates = stores
+    .filter(
+      (s) =>
+        isNewStoreSignal({ firstListedAt: s.firstListedAt, nowMs }) &&
+        typeof s.firstListedAt === "string" &&
+        s.firstListedAt.trim().length > 0
+    )
+    .sort((a, b) =>
+      compareNewStoreShelfRows(
+        { id: a.id, firstListedAt: String(a.firstListedAt) },
+        { id: b.id, firstListedAt: String(b.firstListedAt) }
+      )
+    );
+
+  const out: StoresHomeFoodEntry[] = [];
+  for (const store of candidates) {
+    if (out.length >= max) break;
+    const entry = buildRepresentativeFoodEntry(store);
+    if (!entry) continue;
+    registry.registerStore(store.id, "horizontal_discovery");
+    out.push(entry);
+  }
+  return out;
+}
+
 function orderStoresByPopularMetric(stores: readonly StoreHomeFeedItem[]): StoreHomeFeedItem[] {
   if (stores.length <= 1) return [...stores];
 
@@ -281,9 +326,13 @@ function buildAdjacentAvoidIds(
  * HOME feed composer — single invocation per feed render.
  * Input `stores` must preserve API recommended + exposure order.
  */
-export function composeStoresHomeFeed(stores: readonly StoreHomeFeedItem[]): StoresHomeFeedComposition {
+export function composeStoresHomeFeed(
+  stores: readonly StoreHomeFeedItem[],
+  opts?: { nowMs?: number }
+): StoresHomeFeedComposition {
   const registry = new StoresHomeExposureRegistry();
   const pool = [...stores];
+  const nowMs = opts?.nowMs ?? Date.now();
 
   const slot0Candidates = pool.filter(isOpenDeliverable);
   const slot0Food = allocateSlot0Food(registry, slot0Candidates, STORES_HOME_SLOT0_FOOD_MAX);
@@ -304,6 +353,13 @@ export function composeStoresHomeFeed(stores: readonly StoreHomeFeedItem[]): Sto
     popularOrdered,
     STORES_HOME_POPULAR_SHELF_MAX,
     adjacentAvoid
+  );
+
+  const newStoreFood = allocateNewStoreFoodShelf(
+    registry,
+    pool,
+    STORES_HOME_NEW_STORE_SHELF_MAX,
+    nowMs
   );
 
   const discountCandidates = pool.filter((s) => hasDeliveryFeeStrikeEvidence(s));
@@ -359,6 +415,7 @@ export function composeStoresHomeFeed(stores: readonly StoreHomeFeedItem[]): Sto
     slot0Food,
     slot1Stores,
     slot2Food,
+    newStoreFood,
     slot3Food,
     slot4Food,
     slot5Food,

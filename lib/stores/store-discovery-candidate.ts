@@ -159,6 +159,7 @@ const HOME_DISCOVERY_SELECT = `
   point_commerce_blocked,
   business_hours_json,
   created_at,
+  first_listed_at,
   rating_avg,
   review_count,
   delivery_available,
