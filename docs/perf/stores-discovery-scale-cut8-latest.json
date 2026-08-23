@@ -1,6 +1,6 @@
 {
   "cut": 8,
-  "generatedAt": "2026-08-23T12:00:00.000Z",
+  "generatedAt": "2026-08-23T12:20:07.066Z",
   "mode": "PRODUCTION_AUTHORITY_CUTOVER",
   "preCutoverArtifact": "docs/perf/stores-discovery-scale-cut8-pre-cutover-latest.json",
   "preCutoverPass": true,
@@ -17,7 +17,26 @@
   "oldCode": "RETAINED-RUNTIME-DEAD when authority=new",
   "knownScaleOptimization": "HOME GEO / distance KNN follow-up — BLOCKS_CUTOVER=NO",
   "distanceKnnInCut8": false,
-  "push": "PENDING",
-  "vercel": "PENDING",
-  "cut8": "PENDING_PUSH_PROOF"
+  "push": "PASS",
+  "vercel": "READY",
+  "cut8": "PASS",
+  "commit": "fcc804be0",
+  "productionCommit": "fcc804be0",
+  "productionHome": {
+    "http": 200,
+    "ranking_authority": "new",
+    "count": 14,
+    "duplicates": false
+  },
+  "productionBrowse": {
+    "default": "new",
+    "distance": "new",
+    "rating": "new",
+    "reviews": "new",
+    "popular": "new",
+    "page2": "MEASURED_EMPTY_0_ROWS"
+  },
+  "newAuthorityRuntimeProof": "meta.ranking_authority=new on HOME+BROWSE",
+  "oldAuthorityRuntimeCalls": 0,
+  "storesScale": "CLOSED"
 }
