@@ -18,6 +18,12 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: [path.resolve(__dirname, "tests/vitest-setup.node.ts")],
+    /**
+     * Per-test budget. Separately, Vitest worker↔main birpc defaults to 60s —
+     * a single sync CPU block longer than that fails the whole run with
+     * `[vitest-worker]: Timeout calling "onTaskUpdate"` even when tests pass.
+     * Keep CI unit suites under that wall; scale benches stay outside vitest.
+     */
     testTimeout: 15000,
     /**
      * Playwright 전용 스펙은 Vitest 수집 대상에서 제외한다.

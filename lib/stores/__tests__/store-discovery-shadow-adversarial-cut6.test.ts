@@ -888,13 +888,14 @@ describe("CASE X — missing projection", () => {
 
 /**
  * Dense-pool parity for CI unit vitest.
- * Keep M small enough that OLD/NEW oracles stay well under Vitest worker RPC
- * budget (Node 22 + full suite: M=50_000 blocked onTaskUpdate → exit 1).
+ * Vitest birpc worker RPC defaults to 60s — a single sync CPU block longer than
+ * that surfaces as `[vitest-worker]: Timeout calling "onTaskUpdate"` (exit 1)
+ * even when every test assertion passed. Keep M small and yield between sorts.
  * 50k/100k DB scale remains CUT7 bench authority — not this file.
  */
 describe("CASE dense pool — harness parity", () => {
-  it("dense same-taxonomy pool: visible slice parity + bounded wave work", () => {
-    const M = 5_000;
+  it("dense same-taxonomy pool: visible slice parity + bounded wave work", async () => {
+    const M = 2_000;
     const stores: AdversarialFixtureStore[] = new Array(M);
     for (let i = 0; i < M; i += 1) {
       const pt = offsetPoint(0.5 + (i % 100) * 0.001);
@@ -937,6 +938,8 @@ describe("CASE dense pool — harness parity", () => {
       assertParityOrDetail(`dense-${sort}`, old.rows, neu.rows, stores);
       expect(neu.telemetry.rowsReturned).toBeLessThan(M / 10);
       expect(neu.telemetry.rowsReturned).toBeLessThanOrEqual(60 + 20);
+      // Let birpc/timers flush so full-suite workers do not trip onTaskUpdate.
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
     const oldH = oldHomeOracle(stores, {
       district: "Makati",
@@ -961,10 +964,14 @@ describe("CASE dense pool — harness parity", () => {
 });
 
 describe("CASE randomized parity", () => {
-  it("seeded random fixtures — OLD vs NEW", () => {
+  it("seeded random fixtures — OLD vs NEW", async () => {
     const seeds = Array.from({ length: 40 }, (_, i) => 1000 + i * 17);
     const failingSeeds: number[] = [];
-    for (const seed of seeds) {
+    for (let si = 0; si < seeds.length; si += 1) {
+      const seed = seeds[si]!;
+      if (si > 0 && si % 5 === 0) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
       const rnd = mulberry32(seed);
       const n = 20 + Math.floor(rnd() * 180);
       const district = seed % 2 === 0 ? "Makati" : null;
