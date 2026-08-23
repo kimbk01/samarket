@@ -122,11 +122,18 @@ async function processOne(
         ? "image/webp"
         : lower.endsWith(".heic")
           ? "image/heic"
-          : "image/jpeg";
+          : lower.endsWith(".heif")
+            ? "image/heif"
+            : "image/jpeg";
 
   let sourceBuf = buf;
   let sourceMime = mime;
-  if (mime === "image/heic" || mime === "image/jpeg" || mime === "image/png") {
+  if (
+    mime === "image/heic" ||
+    mime === "image/heif" ||
+    mime === "image/jpeg" ||
+    mime === "image/png"
+  ) {
     try {
       const optimized = await optimizePostImageOriginalBuffer({ buf, mimeType: mime });
       sourceBuf = Buffer.from(optimized.buf);
@@ -231,7 +238,7 @@ async function main() {
       processed += 1;
       if (result.ok) {
         created += 1;
-        console.log("created", candidate.originalPath, candidate.missingSurfaces.join(","));
+        console.error("created", candidate.originalPath, candidate.missingSurfaces.join(","));
       } else {
         failures.push({ path: result.path, reason: result.reason });
         console.error("failed", result.path, result.reason);

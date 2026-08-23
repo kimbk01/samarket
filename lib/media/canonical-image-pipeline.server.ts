@@ -3,6 +3,7 @@ import {
   CANONICAL_DERIVATIVE_SPEC,
   type CanonicalImageSurface,
 } from "@/lib/media/canonical-image-contract";
+import { normalizeHeicInputBuffer } from "@/lib/media/heic-decode.server";
 
 export type CanonicalDerivativeBuffer = {
   surface: CanonicalImageSurface;
@@ -24,7 +25,8 @@ export async function buildCanonicalDerivativeBuffers(input: {
   const mime = (input.mimeType || "").toLowerCase().trim();
   if (mime === "image/gif") return [];
 
-  const base = sharp(input.buf, { failOn: "none", limitInputPixels: false }).rotate();
+  const normalized = await normalizeHeicInputBuffer({ buf: input.buf, mimeType: mime });
+  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: false }).rotate();
   const out: CanonicalDerivativeBuffer[] = [];
 
   for (const surface of input.surfaces) {
@@ -90,7 +92,8 @@ export async function optimizePostImageOriginalBuffer(input: {
     return { buf: input.buf, contentType: "image/gif", ext: "gif" };
   }
 
-  const base = sharp(input.buf, { failOn: "none", limitInputPixels: false }).rotate();
+  const normalized = await normalizeHeicInputBuffer({ buf: input.buf, mimeType: mime });
+  const base = sharp(normalized.buf, { failOn: "none", limitInputPixels: false }).rotate();
   const buf = await base
     .clone()
     .resize({ width: maxEdge, height: maxEdge, fit: "inside", withoutEnlargement: true })

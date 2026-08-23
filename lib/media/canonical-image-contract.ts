@@ -44,3 +44,21 @@ export const AVATAR_UPLOAD_SURFACES: CanonicalImageSurface[] = ["thumb"];
 export type CanonicalImageBucket =
   | typeof POST_IMAGES_BUCKET
   | typeof STORE_PRODUCT_IMAGES_BUCKET;
+
+/**
+ * HEIC POLICY (LOCKED):
+ * - Mobile `image/*` pickers may send HEIC/HEIF (especially iOS).
+ * - Canonical post-images ingest accepts HEIC only through server APIs that call
+ *   `uploadPostImageWithDerivatives` (Market, Community, Philife album, reviews).
+ * - Server MUST decode HEIC → JPEG → WebP before Storage; never persist raw `.heic`.
+ * - Owner product / avatar / messenger image APIs explicitly reject HEIC at validation.
+ */
+export const CANONICAL_HEIC_MIME_TYPES = ["image/heic", "image/heif"] as const;
+
+export const CANONICAL_POST_IMAGE_ALLOWED_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  ...CANONICAL_HEIC_MIME_TYPES,
+] as const;

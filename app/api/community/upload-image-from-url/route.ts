@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
+import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
+import { isHeicOrHeifBuffer } from "@/lib/media/heic-decode.server";
 import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 import { assertPublicHttpUrlForImageFetch } from "@/lib/security/remote-image-import-url";
@@ -12,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 /** 기사·외부 이미지 import 전용(일반 ‘파일 선택’ 업로드 5MB와 별도) */
 const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED = new Set<string>(CANONICAL_POST_IMAGE_ALLOWED_MIMES);
 
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -35,6 +37,7 @@ function detectMimeFromBytes(buf: Buffer): string | null {
   ) {
     return "image/webp";
   }
+  if (isHeicOrHeifBuffer(buf)) return "image/heic";
   return null;
 }
 

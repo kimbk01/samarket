@@ -7,12 +7,15 @@ import {
   removeCanonicalImageAsset,
   uploadPostImageWithDerivatives,
 } from "@/lib/media/canonical-image-upload.server";
+import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALBUM_MAX_BYTES = 8 * 1024 * 1024; // 8MB
-const ALBUM_ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
+const ALBUM_ALLOWED = new Set<string>(
+  CANONICAL_POST_IMAGE_ALLOWED_MIMES.filter((m) => m !== "image/gif")
+);
 
 interface Ctx {
   params: Promise<{ meetingId: string }>;
@@ -129,7 +132,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "upload_not_allowed" }, { status: 403 });
   }
 
-  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/heic" ? "heic" : "jpg";
+  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
   const storagePath = `${auth.userId}/meeting-album/${id}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 

@@ -36,7 +36,7 @@ export function isCanonicalDerivativePath(storagePath: string): boolean {
 export function isEligibleCanonicalOriginalStoragePath(storagePath: string): boolean {
   const p = storagePath.trim();
   if (!p || isCanonicalDerivativePath(p)) return false;
-  return /\.(jpe?g|png|webp|gif|heic)$/i.test(p);
+  return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(p);
 }
 
 /** Strip render query → object/public base URL. */

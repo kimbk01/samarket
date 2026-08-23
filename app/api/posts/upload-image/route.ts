@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
+import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const ALLOWED = new Set<string>(CANONICAL_POST_IMAGE_ALLOWED_MIMES);
 
 /** 거래 글 이미지 — post-images + upload-time canonical derivatives. */
 export async function POST(req: NextRequest) {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
     return NextResponse.json(
-      { ok: false, error: "JPEG, PNG, WebP, GIF만 가능합니다." },
+      { ok: false, error: "JPEG, PNG, WebP, GIF, HEIC만 가능합니다." },
       { status: 400 }
     );
   }

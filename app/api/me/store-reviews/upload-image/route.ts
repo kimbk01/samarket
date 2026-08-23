@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { uploadPostImageWithDerivatives } from "@/lib/media/canonical-image-upload.server";
+import { CANONICAL_POST_IMAGE_ALLOWED_MIMES } from "@/lib/media/canonical-image-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
@@ -9,7 +10,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED = new Set<string>(
+  CANONICAL_POST_IMAGE_ALLOWED_MIMES.filter((m) => m !== "image/gif")
+);
 
 /** 구매자: 완료된 매장 주문 리뷰용 사진 — post-images + canonical derivatives. */
 export async function POST(req: NextRequest) {
