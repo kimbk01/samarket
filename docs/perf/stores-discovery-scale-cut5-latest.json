@@ -242,5 +242,53 @@
     "missingSchedule": 0,
     "coverageRows": 15,
     "ledgerRows": 16
-  }
+  },
+  "indexCatalog": {
+    "coverageGiST": "idx_store_delivery_coverage_geog_gist",
+    "locationGiST": "idx_stores_location_geog_gist",
+    "districtBtree": "idx_stores_district_norm_discovery",
+    "districtTrgm": "idx_stores_district_norm_trgm",
+    "scheduleDeliveryPartial": "idx_stores_discovery_wave_schedule_delivery",
+    "rating": "idx_stores_discovery_wave_rating",
+    "reviews": "idx_stores_discovery_wave_reviews",
+    "popular": "idx_stores_discovery_wave_popular",
+    "scheduleTransition": "idx_stores_discovery_schedule_transition",
+    "orderExpiry": "idx_store_order_popularity_ledger_created",
+    "status": "PASS"
+  },
+  "ledger": {
+    "orderIdDuplicates": 0,
+    "eligibleCompletedMissingLedger": 0
+  },
+  "queryPlanSummary": {
+    "note": "n=15 stores; Seq Scan eligible at this size is NOT scale FAIL",
+    "waveRpcOuter": "Function Scan get_store_discovery_shadow_wave",
+    "sqlShape": "Gi×Dj waves + coverage join + ORDER BY + LIMIT",
+    "indexEligibility": "present (CUT4 indexes in catalog)",
+    "coverageJoin": "store_discovery_coverage_origin_covered / LATERAL",
+    "modesChecked": [
+      "HOME G0 (via shadow parity)",
+      "HOME G2 (via shadow parity)",
+      "BROWSE rating/reviews/popular page1"
+    ]
+  },
+  "pageParity": {
+    "browsePage1": "PASS",
+    "browsePage2": "NOT_APPLICABLE",
+    "browsePage3": "NOT_APPLICABLE",
+    "reason": "approvedVisible=14 < page*limit=120"
+  },
+  "ancestry": {
+    "cut1": "161f78f91",
+    "cut2": "0f6d01a60",
+    "cut4": "efb7fd4c2",
+    "cut3Commit": "e21c3c0fb NOT ancestor (files via cut4)"
+  },
+  "locationGeog": {
+    "coordinateStores": 2,
+    "locationGeog": 2,
+    "diff": 0
+  },
+  "productionStatus": "SCHEMA_APPLIED_SHADOW_ONLY",
+  "push": false
 }
