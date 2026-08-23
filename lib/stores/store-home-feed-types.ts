@@ -37,6 +37,16 @@ export type StoreHomeFeedItem = {
   /** @deprecated home-feed 응답에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
   featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
+  /** P1-B — platform popular product metrics joined to active catalog (≠ owner representative) */
+  platformPopularProducts?: Array<{
+    productId: string;
+    name: string;
+    price: number;
+    imageUrl: string | null;
+    totalQty: number;
+    popularRank: number;
+    windowDays: number;
+  }>;
   profileImageUrl: string | null;
   isFeatured: boolean;
   commerce: BrowseStoreCommerceSnapshot;

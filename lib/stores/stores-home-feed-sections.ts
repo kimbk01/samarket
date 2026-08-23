@@ -13,6 +13,9 @@ export type StoresHomeFeedSections = {
 /** CUT3 — 실제 evidence 타입만. 임의 합치기 금지. */
 export type StoresHomeFoodDiscountEvidence = "delivery_fee_strike";
 
+/** P1-B2 — Slot2 menu authority (minimal set for HOME wiring) */
+export type StoresHomeMenuAuthority = "platform_popular" | "owner_representative";
+
 export type StoresHomeFoodEntry = {
   storeId: string;
   storeSlug: string;
@@ -27,6 +30,7 @@ export type StoresHomeFoodEntry = {
   deliveryFeeLabel?: string | null;
   deliveryFeeStrikePhp?: number | null;
   discountEvidence?: StoresHomeFoodDiscountEvidence | null;
+  menuAuthority?: StoresHomeMenuAuthority;
 };
 
 /** 가로 음식 레일 — 매장별 첫 featured 메뉴 (composer 외 legacy flatten 전용) */

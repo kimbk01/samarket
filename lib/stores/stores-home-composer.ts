@@ -57,15 +57,19 @@ function isTopRatedCandidate(store: StoreHomeFeedItem): boolean {
   return store.rating >= STORES_HOME_TOP_RATED_MIN_RATING && store.reviewCount >= STORES_HOME_TOP_RATED_MIN_REVIEWS;
 }
 
+function resolveDeliveryFeeStrikeEvidence(store: StoreHomeFeedItem): StoresHomeFoodEntry["discountEvidence"] {
+  const strike = store.deliveryFeeStrikePhp;
+  return strike != null && Number.isFinite(Number(strike)) && Number(strike) > 0 ?
+      "delivery_fee_strike"
+    : null;
+}
+
 function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEntry | null {
   const item = store.featuredItems[0];
   if (!item?.productId) return null;
 
   const strike = store.deliveryFeeStrikePhp;
-  const discountEvidence =
-    strike != null && Number.isFinite(Number(strike)) && Number(strike) > 0 ?
-      "delivery_fee_strike"
-    : null;
+  const discountEvidence = resolveDeliveryFeeStrikeEvidence(store);
 
   return {
     storeId: store.id,
@@ -80,7 +84,32 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
     deliveryFeeStrikePhp: strike ?? null,
     discountEvidence,
+    menuAuthority: "owner_representative",
   };
+}
+
+/** P1-B2 — Slot2 product from platform stats when qualified; store order unchanged (P1-A) */
+function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEntry | null {
+  const platform = store.platformPopularProducts?.[0];
+  if (platform?.productId) {
+    const strike = store.deliveryFeeStrikePhp;
+    return {
+      storeId: store.id,
+      storeSlug: store.slug,
+      storeName: store.nameKo,
+      productId: platform.productId,
+      name: platform.name,
+      price: platform.price,
+      imageUrl: platform.imageUrl?.trim() || null,
+      etaLabel: store.etaLabel?.trim() || null,
+      rating: store.rating,
+      deliveryFeeLabel: store.deliveryFeeLabel?.trim() || null,
+      deliveryFeeStrikePhp: strike ?? null,
+      discountEvidence: resolveDeliveryFeeStrikeEvidence(store),
+      menuAuthority: "platform_popular",
+    };
+  }
+  return buildRepresentativeFoodEntry(store);
 }
 
 /** Slot0 — strict one store one product */
@@ -175,6 +204,48 @@ function allocateHorizontalFoodShelf(
   return out;
 }
 
+/** Slot2 — platform popular product when qualified; representative fallback */
+function allocateSlot2PopularFoodShelf(
+  registry: StoresHomeExposureRegistry,
+  stores: readonly StoreHomeFeedItem[],
+  max: number,
+  avoidAdjacentIds: readonly string[]
+): StoresHomeFoodEntry[] {
+  const ordered = rotateAvoidAdjacentFirst(
+    deprioritizeByRoles(stores, registry, HORIZONTAL_DEPRIORITIZE_ROLES),
+    avoidAdjacentIds
+  );
+
+  const out: StoresHomeFoodEntry[] = [];
+  for (const store of ordered) {
+    if (out.length >= max) break;
+    const entry = buildSlot2PopularFoodEntry(store);
+    if (!entry) continue;
+
+    if (
+      out.length === 0 &&
+      avoidAdjacentIds.includes(store.id) &&
+      ordered.length > 1
+    ) {
+      continue;
+    }
+
+    registry.registerStore(store.id, "horizontal_discovery");
+    out.push(entry);
+  }
+
+  if (out.length === 0 && ordered.length > 0) {
+    const store = ordered[0]!;
+    const entry = buildSlot2PopularFoodEntry(store);
+    if (entry) {
+      registry.registerStore(store.id, "horizontal_discovery");
+      out.push(entry);
+    }
+  }
+
+  return out;
+}
+
 function orderStoresByPopularMetric(stores: readonly StoreHomeFeedItem[]): StoreHomeFeedItem[] {
   if (stores.length <= 1) return [...stores];
 
@@ -228,7 +299,7 @@ export function composeStoresHomeFeed(stores: readonly StoreHomeFeedItem[]): Sto
 
   const popularCandidates = pool.filter((s) => (s.completedOrderCount30d ?? 0) > 0);
   const popularOrdered = orderStoresByPopularMetric(popularCandidates);
-  const slot2Food = allocateHorizontalFoodShelf(
+  const slot2Food = allocateSlot2PopularFoodShelf(
     registry,
     popularOrdered,
     STORES_HOME_POPULAR_SHELF_MAX,

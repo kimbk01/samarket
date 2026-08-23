@@ -41,6 +41,13 @@ import {
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
+import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
+import { loadStorePopularProductStatsBatch } from "@/lib/stores/load-store-popular-product-stats-batch";
+import {
+  assemblePlatformPopularProductsForStore,
+  buildActiveProductCatalogMap,
+  resolvePopularMenuStatsSinceIso,
+} from "@/lib/stores/assemble-store-home-platform-popular-products";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -251,18 +258,39 @@ export async function GET(req: Request) {
       string,
       { productId: string; name: string; price: number; imageUrl: string | null }[]
     >();
+    let activeCatalogByStore = new Map<
+      string,
+      Map<string, { productId: string; name: string; price: number; imageUrl: string | null }>
+    >();
+    let popularProductStatsStatus: "ok" | "error" = "ok";
+    const platformPopularByStore = new Map<
+      string,
+      Array<{
+        productId: string;
+        name: string;
+        price: number;
+        imageUrl: string | null;
+        totalQty: number;
+        popularRank: number;
+        windowDays: number;
+      }>
+    >();
 
     if (ids.length > 0) {
-      const { data: prods, error: pErr } = await supabase
-        .from("store_products")
-        .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
-        .in("store_id", ids)
-        .eq("product_status", "active");
+      const [commerce, { data: prods, error: pErr }] = await Promise.all([
+        loadCommerceSettings(supabase),
+        supabase
+          .from("store_products")
+          .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
+          .in("store_id", ids)
+          .eq("product_status", "active"),
+      ]);
 
       if (pErr) {
         console.error("[api/stores/home-feed] products", pErr);
       } else {
         const list = (prods ?? []) as ProductMini[];
+        activeCatalogByStore = buildActiveProductCatalogMap(list, resolveBrowseFeaturedMenuImageUrl);
         const grouped = new Map<string, ProductMini[]>();
         for (const p of list) {
           const arr = grouped.get(p.store_id) ?? [];
@@ -285,6 +313,31 @@ export async function GET(req: Request) {
             }))
           );
         }
+      }
+
+      const since = resolvePopularMenuStatsSinceIso(commerce.popularMenuWindowDays);
+      const statsLoad = await loadStorePopularProductStatsBatch(supabase, ids, {
+        since,
+        limitPerStore: commerce.popularMenuTopN,
+      });
+      popularProductStatsStatus = statsLoad.status;
+
+      if (statsLoad.status === "error") {
+        console.error("[api/stores/home-feed] popular product stats batch failed");
+      }
+
+      for (const storeId of ids) {
+        const catalog = activeCatalogByStore.get(storeId);
+        const statRows = statsLoad.status === "ok" ? (statsLoad.byStoreId.get(storeId) ?? []) : [];
+        platformPopularByStore.set(
+          storeId,
+          assemblePlatformPopularProductsForStore(
+            statRows,
+            catalog,
+            commerce.popularMenuMinQty,
+            commerce.popularMenuWindowDays
+          )
+        );
       }
     }
 
@@ -382,6 +435,7 @@ export async function GET(req: Request) {
         distanceOutOfRange: rowOutOfRange,
         maxDeliveryDistanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
+        platformPopularProducts: platformPopularByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
         completedOrderCount30d:
@@ -398,6 +452,7 @@ export async function GET(req: Request) {
         sorted_by: "eligibility_district_distance_orders_rating",
         origin_source: origin.source,
         origin_address_id: origin.addressId,
+        popularProductStats: { status: popularProductStatsStatus },
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);

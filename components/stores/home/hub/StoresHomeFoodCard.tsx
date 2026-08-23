@@ -72,6 +72,11 @@ function StoresHomeFoodCardInner({
         )}
       </div>
       <div className="space-y-0.5 p-2">
+        {entry.menuAuthority === "platform_popular" ?
+          <p className={`line-clamp-1 font-medium text-[color:var(--delivery-primary)] ${STORES_HOME_META}`}>
+            {t("store_badge_menu_popular")}
+          </p>
+        : null}
         <p className={`line-clamp-2 ${STORES_HOME_BODY}`}>{entry.name}</p>
         <p className={`font-semibold text-[color:var(--delivery-primary)] ${STORES_HOME_BODY}`}>
           {formatPrice(entry.price)}
