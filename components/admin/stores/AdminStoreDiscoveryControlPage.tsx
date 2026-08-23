@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/AdminStoreDiscoverySnapshotPanel";
+import {
+  AdminStoreDiscoveryCampaignWriterPanel,
+  type AdminDiscoveryCampaignRow,
+} from "@/components/admin/stores/AdminStoreDiscoveryCampaignWriterPanel";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Policy = {
@@ -15,17 +19,7 @@ type Policy = {
   status: string;
 };
 
-type CampaignRow = {
-  id: string;
-  store_id: string;
-  store_name: string | null;
-  campaign_type: string;
-  title: string;
-  start_at: string;
-  end_at: string;
-  is_active: boolean;
-  computed_state: "active" | "upcoming" | "expired" | "inactive";
-};
+type CampaignRow = AdminDiscoveryCampaignRow;
 
 type Diagnostics = {
   ranking_authority: string;
@@ -211,47 +205,13 @@ export function AdminStoreDiscoveryControlPage() {
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_campaigns_title">
-        <p className="mb-2 text-[11px] text-sam-muted">{readOnly}</p>
-        {campaignsErr ? (
-          <p className="mb-2 text-[13px] text-red-700">{t("admin_store_discovery_campaigns_fail")}</p>
-        ) : null}
-        {campaignsLoading ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_loading")}</p>
-        ) : campaigns.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_store_discovery_campaigns_empty")}</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-[12px]">
-              <thead className="text-sam-muted">
-                <tr>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_store")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_type")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_title")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_start")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_end")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_active")}</th>
-                  <th className="px-2 py-1 font-medium">{t("admin_store_discovery_campaigns_col_state")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.map((c) => (
-                  <tr key={c.id} className="border-t border-sam-border/70 text-sam-fg">
-                    <td className="px-2 py-1.5">
-                      <div className="font-medium">{c.store_name ?? "—"}</div>
-                      <div className="text-[11px] text-sam-muted">{c.store_id}</div>
-                    </td>
-                    <td className="px-2 py-1.5">{c.campaign_type}</td>
-                    <td className="px-2 py-1.5">{c.title}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{c.start_at}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{c.end_at}</td>
-                    <td className="px-2 py-1.5">{c.is_active ? "true" : "false"}</td>
-                    <td className="px-2 py-1.5">{stateLabel(c.computed_state)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <AdminStoreDiscoveryCampaignWriterPanel
+          campaigns={campaigns}
+          loading={campaignsLoading}
+          error={campaignsErr}
+          onRefresh={loadCampaigns}
+          stateLabel={stateLabel}
+        />
       </AdminCard>
 
       <AdminCard titleKey="admin_store_discovery_snapshot_title">

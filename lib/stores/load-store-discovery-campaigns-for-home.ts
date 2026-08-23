@@ -14,6 +14,44 @@ export type StoreDiscoveryCampaignHomeLoadResult = {
   byStoreId: Map<string, StoreDiscoveryCampaignAuthorityRow>;
 };
 
+export type StoreDiscoveryCampaignHomePayload = {
+  id: string;
+  campaignType: StoreDiscoveryCampaignAuthorityRow["campaignType"];
+  title: string;
+  bodyCopy: string | null;
+  startAt: string;
+  endAt: string;
+};
+
+export function mapDiscoveryCampaignHomePayload(
+  row: StoreDiscoveryCampaignAuthorityRow
+): StoreDiscoveryCampaignHomePayload {
+  return {
+    id: row.id,
+    campaignType: row.campaignType,
+    title: row.title,
+    bodyCopy: row.bodyCopy,
+    startAt: row.startAt,
+    endAt: row.endAt,
+  };
+}
+
+/** W — refresh campaign attachment on cached home-feed rows (writer freshness; ranking unchanged). */
+export async function attachDiscoveryCampaignsToHomeFeedStores<
+  T extends { id: string; discoveryCampaign?: StoreDiscoveryCampaignHomePayload | null },
+>(sb: SupabaseClient, stores: readonly T[]): Promise<{ stores: T[]; status: StoreDiscoveryCampaignHomeLoadStatus }> {
+  const ids = stores.map((s) => s.id);
+  const load = await loadActiveStoreDiscoveryCampaignsForHome(sb, ids);
+  const out = stores.map((s) => {
+    const row = load.byStoreId.get(s.id);
+    return {
+      ...s,
+      discoveryCampaign: row ? mapDiscoveryCampaignHomePayload(row) : null,
+    };
+  });
+  return { stores: out, status: load.status };
+}
+
 type DbRow = {
   id?: unknown;
   store_id?: unknown;

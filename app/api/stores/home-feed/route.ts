@@ -48,7 +48,7 @@ import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-
 import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { loadStorePopularProductStatsBatch } from "@/lib/stores/load-store-popular-product-stats-batch";
-import { loadActiveStoreDiscoveryCampaignsForHome } from "@/lib/stores/load-store-discovery-campaigns-for-home";
+import { loadActiveStoreDiscoveryCampaignsForHome, attachDiscoveryCampaignsToHomeFeedStores, mapDiscoveryCampaignHomePayload } from "@/lib/stores/load-store-discovery-campaigns-for-home";
 import {
   assemblePlatformPopularProductsForStore,
   buildActiveProductCatalogMap,
@@ -170,7 +170,16 @@ export async function GET(req: Request) {
   const cached = getStoreHomeFeedCache(cacheKey);
   if (cached) {
     const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
-    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(cached, compositionPolicy), {
+    const campaignRefresh = await attachDiscoveryCampaignsToHomeFeedStores(supabase, cached.stores);
+    const refreshedPayload = {
+      ...cached,
+      stores: campaignRefresh.stores,
+      meta: {
+        ...cached.meta,
+        discoveryCampaigns: { status: campaignRefresh.status },
+      },
+    };
+    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(refreshedPayload, compositionPolicy), {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   }
@@ -452,14 +461,7 @@ export async function GET(req: Request) {
       const campaignLoad = await loadActiveStoreDiscoveryCampaignsForHome(supabase, ids);
       discoveryCampaignsStatus = campaignLoad.status;
       for (const [storeId, row] of campaignLoad.byStoreId) {
-        discoveryCampaignByStore.set(storeId, {
-          id: row.id,
-          campaignType: row.campaignType,
-          title: row.title,
-          bodyCopy: row.bodyCopy,
-          startAt: row.startAt,
-          endAt: row.endAt,
-        });
+        discoveryCampaignByStore.set(storeId, mapDiscoveryCampaignHomePayload(row));
       }
     }
 

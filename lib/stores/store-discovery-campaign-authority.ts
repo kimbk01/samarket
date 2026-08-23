@@ -6,10 +6,10 @@
  * stores.is_featured: PRESERVE — not Cut B.
  * Ads / point_promotion: OUT.
  *
- * Writer policy (evidence-locked):
- * - OWNER WRITER POLICY: OWNER (create/update/deactivate authority)
- * - OWNER HTTP WRITER: NOT_IMPLEMENTED (no campaign CRUD routes yet)
- * - ADMIN WRITER: NONE (no admin banners/campaign content API)
+ * Writer policy:
+ * - OWNER WRITER POLICY: OWNER (create/update/deactivate authority — HTTP not in W)
+ * - ADMIN WRITER: HTTP only (POST/PATCH /api/admin/store-discovery/campaigns)
+ * - Consumer: existing home-feed loader + campaignFood (unchanged in W)
  */
 
 export const STORE_DISCOVERY_CAMPAIGN_TABLE = "store_discovery_campaigns" as const;
@@ -21,19 +21,19 @@ export type StoreDiscoveryCampaignWriterRole = "owner" | "admin";
 export type StoreDiscoveryCampaignWriteAction = "create" | "update" | "deactivate";
 
 /**
- * OWNER WRITER POLICY: OWNER
- * OWNER HTTP WRITER: NOT_IMPLEMENTED (B1/B2 do not ship CRUD routes)
- * ADMIN WRITER: NONE
+ * OWNER WRITER POLICY: OWNER (future owner HTTP — out of W scope)
+ * ADMIN WRITER: canonical HTTP path for W Campaign Writer
  */
 export const STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY = {
   owner: { create: true, update: true, deactivate: true },
-  admin: { create: false, update: false, deactivate: false },
+  admin: { create: true, update: true, deactivate: true },
 } as const satisfies Record<
   StoreDiscoveryCampaignWriterRole,
   Record<StoreDiscoveryCampaignWriteAction, boolean>
 >;
 
-export const STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER = "NOT_IMPLEMENTED" as const;
+/** Implemented Admin HTTP route — no client direct Supabase writes. */
+export const STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER = "ADMIN_HTTP" as const;
 
 export function canWriteStoreDiscoveryCampaign(
   role: StoreDiscoveryCampaignWriterRole,

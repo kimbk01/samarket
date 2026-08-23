@@ -39,12 +39,12 @@ describe("P1-D B1 store discovery campaign authority", () => {
     expect(isStoreDiscoveryCampaignType("ad")).toBe(false);
   });
 
-  it("locks owner writer policy and HTTP writer NOT_IMPLEMENTED", () => {
+  it("locks admin HTTP writer and admin write policy", () => {
     expect(STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY.owner.create).toBe(true);
-    expect(STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY.admin.create).toBe(false);
-    expect(canWriteStoreDiscoveryCampaign("owner", "create")).toBe(true);
-    expect(canWriteStoreDiscoveryCampaign("admin", "create")).toBe(false);
-    expect(STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER).toBe("NOT_IMPLEMENTED");
+    expect(STORE_DISCOVERY_CAMPAIGN_WRITER_POLICY.admin.create).toBe(true);
+    expect(canWriteStoreDiscoveryCampaign("admin", "create")).toBe(true);
+    expect(canWriteStoreDiscoveryCampaign("admin", "deactivate")).toBe(true);
+    expect(STORE_DISCOVERY_CAMPAIGN_HTTP_WRITER).toBe("ADMIN_HTTP");
   });
 
   it("active = is_active AND start_at <= now AND end_at > now", () => {

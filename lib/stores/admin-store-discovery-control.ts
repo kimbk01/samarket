@@ -2,7 +2,7 @@
  * Admin Discovery Control v1 — READ-ONLY projections over closed discovery authorities.
  *
  * IN: rating policy read · campaign monitor read · per-store snapshot read · optional meta diagnostics
- * OUT: ranking writer · sort editor · diversity toggle · pin/boost/ads · first_listed_at override · campaign CRUD
+ * OUT: ranking writer · sort editor · diversity toggle · pin/boost/ads · first_listed_at override
  *
  * Does not invent ranking/explain engines — reuses existing helpers only.
  */
