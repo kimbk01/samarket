@@ -25,6 +25,7 @@ import {
   resolveStoreTaxonomyPrimaryDisplayName,
   resolveStoreTaxonomyTopicDisplayName,
 } from "@/lib/stores/resolve-store-taxonomy-display-name";
+import { AdminStoreDiscoverySnapshotPanel } from "@/components/admin/stores/AdminStoreDiscoverySnapshotPanel";
 
 function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): TaxonomyRelation | null {
   if (v == null) return null;
@@ -302,6 +303,8 @@ export function AdminStoreReviewPanel({
           />
         ) : null}
       </ReviewBlock>
+
+      <AdminStoreDiscoverySnapshotPanel storeId={store.id} />
 
       {onClose ? (
         <div className="flex justify-end border-t border-[#D4C5B9] px-4 py-2">

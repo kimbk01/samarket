@@ -23,6 +23,7 @@ import { adminPointsNotificationsMessages } from "./admin-points-notifications";
 import { adminDevSprintMessages } from "./admin-dev-sprint";
 import { adminOperationsHubMessages } from "./admin-operations-hub";
 import { adminMiscMessages } from "./admin-misc";
+import { adminStoreDiscoveryMessages } from "./admin-store-discovery";
 
 export const adminMessages = {
   ko: {
@@ -2703,6 +2704,7 @@ export const adminMessages = {
     ...adminDevSprintMessages.ko,
     ...adminOperationsHubMessages.ko,
     ...adminMiscMessages.ko,
+    ...adminStoreDiscoveryMessages.ko,
   },
   en: {
     admin_brand: "dibaY Admin",
@@ -5356,6 +5358,7 @@ export const adminMessages = {
     ...adminDevSprintMessages.en,
     ...adminOperationsHubMessages.en,
     ...adminMiscMessages.en,
+    ...adminStoreDiscoveryMessages.en,
   },
   
 } as const;
