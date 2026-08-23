@@ -48,8 +48,6 @@ import {
   DELIVERY_PERF_TAG_ROUTE_TRANSITION,
   deliveryPerfTraceLog,
 } from "@/lib/dibay/delivery-perf-trace";
-import { resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
-import { STORES_LIST_PRESENTATION_SSOT } from "@/lib/stores/presentation/stores-list-presentation-ssot";
 
 type StoreFeaturedCardItem = {
   productId: string;
@@ -419,10 +417,11 @@ function StoreDeliveryRowCardInner({
   const minOrderShort =
     minOrderLine?.includes(":") ? (minOrderLine.split(":").pop()?.trim() ?? null) : null;
 
-  const freeDeliveryProven =
+  const hasFreeDelivery =
     data.deliveryAvailable &&
     (deliveryFeeUi === t("store_delivery_fee_free_line") ||
       deliveryFeeUi === t("store_free_delivery_applied"));
+  const hasDiscountHint = data.isFeatured;
   const statusBadge =
     data.status === "open"
       ? { label: t("store_open_now"), className: "bg-sam-success-soft text-sam-success" }
@@ -434,7 +433,7 @@ function StoreDeliveryRowCardInner({
 
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
-    .slice(0, STORES_LIST_PRESENTATION_SSOT.browseMenuPreviewMaxVisible);
+    .slice(0, BROWSE_FEATURED_ITEMS_PER_STORE_MAX);
 
   /** 메뉴 썸네일만 — 매장 프로필·히어로 배너를 타일로 쓰지 않음 (잘못된 GROCERY/반려동물 노출 방지) */
   const showFeaturedMenuSkeleton =
@@ -445,17 +444,31 @@ function StoreDeliveryRowCardInner({
     featuredMenuImages.length > 0 ?
       featuredMenuImages.map((x) => ({ ...x, kind: "menu" as const }))
     : [];
-
-  /** SSOT: isFeatured → recommended only. decorative delivery/pickup/reservation omitted. */
-  const badgeLabels = resolveStoreListCardBadges({
-    statusLabel: statusBadge.label,
-    statusClassName: statusBadge.className,
-    isFeatured: data.isFeatured,
-    recommendedLabel: t("store_badge_recommended"),
-    freeDeliveryProven,
-    freeDeliveryLabel: t("store_free_delivery_short"),
-    outOfRangeLabel: distanceOutOfRangeLabel,
-  });
+  /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
+  const serviceBadgeClass =
+    "bg-sam-surface-muted text-sam-muted";
+  const badgeLabels: { label: string; className: string }[] = [statusBadge];
+  if (data.deliveryAvailable) {
+    badgeLabels.push({ label: t("store_badge_delivery"), className: serviceBadgeClass });
+  }
+  if (data.pickupAvailable) {
+    badgeLabels.push({ label: t("store_pickup_available"), className: serviceBadgeClass });
+  }
+  if (hasFreeDelivery) {
+    badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-sam-success-soft text-sam-success" });
+  }
+  if (hasDiscountHint) {
+    badgeLabels.push({ label: t("store_badge_instant_discount"), className: "bg-sam-warning-soft text-sam-warning" });
+  }
+  if (data.reservationAvailable) {
+    badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });
+  }
+  if (distanceOutOfRangeLabel) {
+    badgeLabels.push({
+      label: distanceOutOfRangeLabel,
+      className: "bg-sam-warning-soft text-sam-warning",
+    });
+  }
 
   const navigateToStore = useCallback(
     (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
@@ -527,7 +540,6 @@ function StoreDeliveryRowCardInner({
       className="list-none select-none border-b border-[var(--delivery-border-light)] bg-[var(--delivery-bg-card)] px-4 py-[14px]"
       onPointerEnter={onRowPointerWarm}
       onFocus={onRowPointerWarm}
-      data-presentation-owner={STORES_LIST_PRESENTATION_SSOT.owners.browseStore}
     >
       <div>
         {data.platformPopularProduct ?
@@ -537,9 +549,107 @@ function StoreDeliveryRowCardInner({
             {t("store_popular_menu_title")}: {data.platformPopularProduct.name}
           </p>
         : null}
+        <div className="relative min-h-[116px]">
+          {showFeaturedMenuSkeleton ? (
+            <StoreBrowseFeaturedMenuSkeleton />
+          ) : featuredMenuTiles.length > 0 ? (
+            <div
+              className={[
+                "flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain select-none",
+                "touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              ].join(" ")}
+              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+              aria-label={t("store_featured_menu_image_aria")}
+            >
+              {featuredMenuTiles.map((item) => {
+                const price = priceLabel(item.price);
+                return (
+                  <button
+                    key={item.productId}
+                    type="button"
+                    aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
+                    className={[
+                      `relative shrink-0 snap-start overflow-hidden text-left ${STORES_HOME_MENU_TILE}`,
+                      "w-[calc((100%-8px)/3)] h-[116px]",
+                      "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
+                    ].join(" ")}
+                    onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
+                    onPointerDown={() => warmFeaturedMenuNavigation(item.productId, "pointer_down")}
+                    onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
+                    onClick={() => navigateToStore("featured_menu", item.productId)}
+                  >
+                    <StoreProductThumbnail
+                      src={(item.imageUrl as string) || ""}
+                      fill
+                      fetchPreset="rowFeatured"
+                      roundedClassName="rounded-[10px]"
+                      className="h-full w-full"
+                      loading="lazy"
+                    />
+                    {price ?
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
+                        <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">
+                          {item.name}
+                        </p>
+                        <p className="line-clamp-1 text-[12.5px] font-bold leading-snug text-white">{price}</p>
+                      </div>
+                    : null}
+                  </button>
+                );
+              })}
+              {featuredMenuImages.length > 0 ?
+              <button
+                type="button"
+                aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
+                className={[
+                  `flex shrink-0 snap-start items-center justify-center ${STORES_HOME_MENU_TILE_MORE}`,
+                  "w-[calc((100%-8px)/3)] h-[116px]",
+                ].join(" ")}
+                onClick={() => navigateToStore("see_more")}
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <svg className="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="none" aria-hidden>
+                    <path
+                      d="M7.5 4.5L12.5 10L7.5 15.5"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>
+                    {t("store_show_more")}
+                  </span>
+                </div>
+              </button>
+              : null}
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
+              className={`flex h-[116px] w-full items-center justify-center overflow-hidden ${STORES_HOME_MENU_TILE_MORE}`}
+              onClick={() => navigateToStore("see_more")}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <svg className="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <path
+                    d="M7.5 4.5L12.5 10L7.5 15.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>{t("store_show_more")}</span>
+              </div>
+            </button>
+          )}
+        </div>
+
         <button
           type="button"
-          className="flex w-full items-start gap-3 text-left transition-[transform,opacity] duration-120 active:scale-[0.985] active:opacity-95"
+          className="block w-full pt-2.5 text-left transition-[transform,opacity] duration-120 active:scale-[0.985] active:opacity-95"
           onPointerDown={() => {
             deliveryStoreDetailPrewarmAll(data.slug);
             prefetchStoreDetail("pointer_down", { force: true });
@@ -550,23 +660,8 @@ function StoreDeliveryRowCardInner({
           }}
           onClick={() => navigateToStore("card")}
         >
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[8px] bg-[color:var(--delivery-bg-thumb)]">
-            {data.profileImageUrl ?
-              <StoreProductThumbnail
-                src={data.profileImageUrl}
-                fill
-                fetchPreset="rowFeatured"
-                roundedClassName="rounded-[8px]"
-                className="h-full w-full"
-                loading="lazy"
-              />
-            : (
-              <div className="flex h-full w-full items-center justify-center text-[13px] font-bold text-[color:var(--delivery-text-muted)]">
-                {data.nameKo.slice(0, 1)}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
               <h3 className="delivery-store-row__title line-clamp-1 tracking-[-0.01em]">
                 {data.nameKo}
                 <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
@@ -661,94 +756,25 @@ function StoreDeliveryRowCardInner({
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {badgeLabels.map((b) => (
                   <span
-                    key={`${b.kind}-${b.label}`}
+                    key={b.label}
                     className={`inline-flex h-[21px] items-center rounded-[5px] px-1.5 text-[11px] font-semibold leading-none ${b.className}`}
                   >
                     {b.label}
                   </span>
                 ))}
               </div>
-          </div>
-        </button>
-
-        <div className="relative mt-2.5">
-          {showFeaturedMenuSkeleton ? (
-            <StoreBrowseFeaturedMenuSkeleton />
-          ) : featuredMenuTiles.length > 0 ? (
-            <div
-              className={[
-                "flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain select-none",
-                "touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-              ].join(" ")}
-              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
-              aria-label={t("store_featured_menu_image_aria")}
-            >
-              {featuredMenuTiles.map((item) => {
-                const price = priceLabel(item.price);
-                return (
-                  <button
-                    key={item.productId}
-                    type="button"
-                    aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
-                    className={[
-                      `relative shrink-0 snap-start overflow-hidden text-left ${STORES_HOME_MENU_TILE}`,
-                      "h-14 w-14",
-                      "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
-                    ].join(" ")}
-                    onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
-                    onPointerDown={() => warmFeaturedMenuNavigation(item.productId, "pointer_down")}
-                    onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
-                    onClick={() => navigateToStore("featured_menu", item.productId)}
-                  >
-                    <StoreProductThumbnail
-                      src={(item.imageUrl as string) || ""}
-                      fill
-                      fetchPreset="rowFeatured"
-                      roundedClassName="rounded-[10px]"
-                      className="h-full w-full"
-                      loading="lazy"
-                    />
-                    {price ?
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
-                        <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">
-                          {item.name}
-                        </p>
-                        <p className="line-clamp-1 text-[12.5px] font-bold leading-snug text-white">{price}</p>
-                      </div>
-                    : null}
-                  </button>
-                );
-              })}
-              {featuredMenuImages.length > 0 ?
-              <button
-                type="button"
-                aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
-                className={[
-                  `flex shrink-0 snap-start items-center justify-center ${STORES_HOME_MENU_TILE_MORE}`,
-                  "h-14 w-14",
-                ].join(" ")}
-                onClick={() => navigateToStore("see_more")}
-              >
-                <div className="flex flex-col items-center gap-1">
-                  <svg className="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="none" aria-hidden>
-                    <path
-                      d="M7.5 4.5L12.5 10L7.5 15.5"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>
-                    {t("store_show_more")}
-                  </span>
-                </div>
-              </button>
+              {paymentMethodsUi ?
+                <p
+                  className={`mt-1 ${FB.metaPayment}`}
+                  title={paymentMethodsUi}
+                >
+                  <span className={FB.metaPaymentLabel}>{t("store_label_payment")}</span> ·{" "}
+                  {paymentMethodsUi}
+                </p>
               : null}
             </div>
-          ) : null}
-        </div>
-
+          </div>
+        </button>
       </div>
     </li>
   );

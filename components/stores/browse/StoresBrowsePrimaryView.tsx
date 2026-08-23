@@ -36,11 +36,11 @@ import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/Stor
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
-  StoresBrowseStoreComparisonCard,
+  StoreDeliveryRowCard,
   browseItemToRowCard,
   storeRowCardDataEqual,
   type StoreRowCardData,
-} from "@/components/stores/browse/StoresBrowseStoreComparisonCard";
+} from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
 import {
@@ -743,7 +743,7 @@ export function StoresBrowsePrimaryView({
         : useRemoteList ?
           <ul className="space-y-2">
             {storeDeliveryRowDataList.map((data) => (
-              <StoresBrowseStoreComparisonCard
+              <StoreDeliveryRowCard
                 key={data.slug}
                 data={data}
                 locale={language}
