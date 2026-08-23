@@ -30,6 +30,7 @@ import {
   assembleStoresBrowseResponse,
   BROWSE_STORE_ROW_SELECTED_COLUMNS,
   resolveBrowseFilteredSortedStoreRows,
+  applyBrowseSubFilterContractToPrefetchedFilter,
   resolveBrowseFilteredStoreRows,
   type StoreBrowseRow,
   type StoresBrowseAssembleResult,
@@ -344,7 +345,12 @@ async function finishFromPayload(
       // Fail-closed — never silent-fallback to OLD full-candidate ranking.
       throw new Error(`discovery_ranking_${live.status}`);
     }
-    prefetchedFilter = live.filter;
+    /** NEW wave 후보도 Filter CONTRACT 로 재추림 — null-topic 전 2차 누수 금지 */
+    prefetchedFilter = applyBrowseSubFilterContractToPrefetchedFilter(
+      ctx,
+      bundle.taxonomySlice,
+      live.filter
+    );
   } else {
     logStoreDiscoveryAuthorityRuntime({
       surface: "browse",

@@ -547,6 +547,39 @@ export function resolveBrowseFilteredStoreRows(
   return rows;
 }
 
+/**
+ * CONTRACT — NEW discovery live path 도 OLD/SB1 과 동일 sub membership.
+ * Wave RPC 가 null-topic 을 넓게 가져와도 assemble 전 이 함수로 재추림.
+ * DO NOT: ranking_authority=new 에서 이 단계를 건너뛰기.
+ */
+export function applyBrowseSubFilterContractToPrefetchedFilter(
+  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs">,
+  taxonomySlice: BrowseTaxonomySlice,
+  filter: BrowseFilteredStoreRowsResult,
+): BrowseFilteredStoreRowsResult {
+  const rows = resolveBrowseFilteredStoreRows(ctx, taxonomySlice, filter.rows);
+  if (rows.length === filter.rows.length) {
+    const sameOrder = rows.every((r, i) => r.id === filter.rows[i]?.id);
+    if (sameOrder) return filter;
+  }
+  const keep = new Set(rows.map((r) => r.id));
+  const trimMap = <T>(m: Map<string, T> | null | undefined): Map<string, T> | null | undefined => {
+    if (m == null) return m;
+    const next = new Map<string, T>();
+    for (const [id, value] of m) {
+      if (keep.has(id)) next.set(id, value);
+    }
+    return next;
+  };
+  return {
+    rows,
+    distById: trimMap(filter.distById) ?? null,
+    statusById: trimMap(filter.statusById) ?? new Map(),
+    distanceSortMs: filter.distanceSortMs,
+    outOfRangeById: trimMap(filter.outOfRangeById),
+  };
+}
+
 /** orphan·거리 정렬 후 목록 행 — legacy fetch 가 product/banner id 추출에 사용 */
 export function resolveBrowseFilteredSortedStoreRows(
   ctx: StoresBrowseRequestContext,
@@ -705,11 +738,12 @@ export function assembleStoresBrowseResponse(
   const transform0 = devPerfNow();
 
   const stores: BrowseStoreListItem[] = rows.map((r) => {
-    const top = wantsAllSubs ? r.store_topics : selectedTopicMeta;
     const legacy =
       (r.business_type ?? "").trim().length > 0 ?
         parseBizTypePrimarySub(r.business_type, primary, primaryAliases)
       : null;
+    /** 실제 매장 topic 우선 — 선택 칩 stamp 로 누수 소속을 위장하지 않음 */
+    const top = wantsAllSubs ? r.store_topics : (r.store_topics ?? selectedTopicMeta);
     const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
     const rowDistance = resolveDistanceForSort(ctx, r);
     const distanceOutOfRange =

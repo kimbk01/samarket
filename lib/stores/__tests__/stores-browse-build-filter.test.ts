@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyBrowseSubFilterContractToPrefetchedFilter,
   browseOrphanMatchesChosenSub,
   browseStoreRowMatchesSubFilter,
   buildBrowseTopicNameToSlugMap,
   buildBrowseStoresOrFilter,
   resolveBrowseFilteredStoreRows,
+  type BrowseFilteredStoreRowsResult,
 } from "@/lib/stores/stores-browse-build";
 import type { BrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-cache";
 
@@ -108,11 +110,16 @@ describe("browseStoreRowMatchesSubFilter", () => {
       resolvedTopicId: "t-chicken",
     };
     const map = buildBrowseTopicNameToSlugMap(topicList);
-    expect(browseOrphanMatchesChosenSub({ subSlugGuess: "치킨", subLabelGuess: "치킨" }, {
-      wantsAllSubs: false,
-      subRaw: "chicken",
-      topicNameToSlug: map,
-    })).toBe(true);
+    expect(
+      browseOrphanMatchesChosenSub(
+        { subSlugGuess: "치킨", subLabelGuess: "치킨" },
+        {
+          wantsAllSubs: false,
+          subRaw: "chicken",
+          topicNameToSlug: map,
+        },
+      ),
+    ).toBe(true);
     expect(
       browseStoreRowMatchesSubFilter(
         { store_category_id: null, business_type: "음식 · 피자" },
@@ -128,13 +135,95 @@ describe("resolveBrowseFilteredStoreRows", () => {
       { primary: "food", subRaw: "chicken", wantsAllSubs: false },
       slice(),
       [
-        { id: "a", store_category_id: "cat-food", store_topic_id: "t-chicken", store_name: "A", slug: "a" },
-        { id: "b", store_category_id: "cat-food", store_topic_id: undefined, business_type: "음식 · 치킨", store_name: "B", slug: "b" },
-        { id: "c", store_category_id: "cat-food", store_topic_id: "t-pizza", store_name: "C", slug: "c" },
-        { id: "d", store_category_id: null, business_type: "음식 · 치킨", store_name: "D", slug: "d" },
+        {
+          id: "a",
+          store_category_id: "cat-food",
+          store_topic_id: "t-chicken",
+          store_name: "A",
+          slug: "a",
+        },
+        {
+          id: "b",
+          store_category_id: "cat-food",
+          store_topic_id: undefined,
+          business_type: "음식 · 치킨",
+          store_name: "B",
+          slug: "b",
+        },
+        {
+          id: "c",
+          store_category_id: "cat-food",
+          store_topic_id: "t-pizza",
+          store_name: "C",
+          slug: "c",
+        },
+        {
+          id: "d",
+          store_category_id: null,
+          business_type: "음식 · 치킨",
+          store_name: "D",
+          slug: "d",
+        },
       ],
     );
     expect(rows.map((r) => r.id).sort()).toEqual(["a", "b", "d"]);
+  });
+});
+
+describe("applyBrowseSubFilterContractToPrefetchedFilter", () => {
+  it("NEW live over-fetch null-topic 누수를 CONTRACT 로 제거", () => {
+    const liveRows = [
+      {
+        id: "keep-topic",
+        store_category_id: "cat-food",
+        store_topic_id: "t-chicken",
+        store_name: "Keep",
+        slug: "keep",
+      },
+      {
+        id: "leak-null",
+        store_category_id: "cat-food",
+        store_topic_id: null,
+        business_type: null,
+        store_name: "Leak",
+        slug: "leak",
+      },
+      {
+        id: "legacy-ok",
+        store_category_id: "cat-food",
+        store_topic_id: null,
+        business_type: "음식 · 치킨",
+        store_name: "Legacy",
+        slug: "legacy",
+      },
+    ];
+    const prefetched: BrowseFilteredStoreRowsResult = {
+      rows: liveRows as unknown as BrowseFilteredStoreRowsResult["rows"],
+      distById: new Map([
+        ["keep-topic", 1],
+        ["leak-null", 2],
+        ["legacy-ok", 3],
+      ]),
+      statusById: new Map([
+        ["keep-topic", "open"],
+        ["leak-null", "open"],
+        ["legacy-ok", "open"],
+      ]),
+      distanceSortMs: 0,
+      outOfRangeById: new Map([
+        ["keep-topic", false],
+        ["leak-null", false],
+        ["legacy-ok", false],
+      ]),
+    };
+    const next = applyBrowseSubFilterContractToPrefetchedFilter(
+      { primary: "food", subRaw: "chicken", wantsAllSubs: false },
+      slice(),
+      prefetched,
+    );
+    expect(next.rows.map((r) => r.id).sort()).toEqual(["keep-topic", "legacy-ok"]);
+    expect([...next.distById!.keys()].sort()).toEqual(["keep-topic", "legacy-ok"]);
+    expect(next.statusById.has("leak-null")).toBe(false);
   });
 });
 

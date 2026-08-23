@@ -68,11 +68,13 @@ describe("CUT 8 live route fail-closed source guards", () => {
     expect(src).toContain("discovery_ranking_${live.status}");
     expect(src).toContain("ranking_authority");
     expect(src).toContain('status: "old_path"');
+    expect(src).toContain("applyBrowseSubFilterContractToPrefetchedFilter");
     // NEW branch must not call completed-order aggregate; OLD may
     const newBlockMatch = src.match(
       /if\s*\(\s*isStoreDiscoveryRankingAuthorityNew\(\)\s*\)\s*\{([\s\S]*?)\}\s*else\s*\{/
     );
     expect(newBlockMatch?.[1] ?? "").not.toContain("loadStoreCompletedOrderCount30dMapWithStatus");
+    expect(newBlockMatch?.[1] ?? "").toContain("applyBrowseSubFilterContractToPrefetchedFilter");
     expect(src).toContain("loadStoreCompletedOrderCount30dMapWithStatus");
   });
 

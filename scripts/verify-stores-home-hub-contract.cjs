@@ -457,6 +457,12 @@ assertIncludes(
 );
 
 assertIncludes(
+  read("lib/stores/stores-browse-snapshot.ts"),
+  "applyBrowseSubFilterContractToPrefetchedFilter",
+  "NEW browse path must apply Filter CONTRACT after live ranking"
+);
+
+assertIncludes(
 
   read("lib/stores/stores-home-category-chrome-store.ts"),
 
