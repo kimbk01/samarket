@@ -98,6 +98,8 @@ describe("composeStoresHomeFeed — P1-B2 Slot2 platform popular", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
+        status: "closed", // not Slot0 — representative still available for Slot2
+        completedOrderCount30d: 20,
         platformPopularProducts: [],
         featuredItems: [{ productId: "rep-a", name: "대표", price: 100 }],
       }),
@@ -126,7 +128,7 @@ describe("composeStoresHomeFeed — P1-B2 Slot2 platform popular", () => {
     expect(withPlatform.slot2Food[0]?.menuAuthority).toBe("platform_popular");
 
     const fallback = composeStoresHomeFeed([
-      item({ id: "b", platformPopularProducts: [] }),
+      item({ id: "b", status: "closed", completedOrderCount30d: 20, platformPopularProducts: [] }),
     ]);
     expect(fallback.slot2Food[0]?.menuAuthority).toBe("owner_representative");
   });

@@ -14,8 +14,8 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     primaryNameKo: "음식",
     regionLabel: "Manila",
     status: partial.status ?? "open",
-    rating: partial.rating ?? 4.5,
-    reviewCount: partial.reviewCount ?? 10,
+    rating: partial.rating ?? (partial.discoveryCampaign ? 3 : 4.5),
+    reviewCount: partial.reviewCount ?? (partial.discoveryCampaign ? 0 : 10),
     deliveryAvailable: partial.deliveryAvailable ?? true,
     pickupAvailable: true,
     minOrderLabel: null,
@@ -32,7 +32,7 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     ],
     platformPopularProducts: partial.platformPopularProducts,
     profileImageUrl: null,
-    isFeatured: partial.isFeatured ?? false,
+    isFeatured: partial.isFeatured ?? false, // campaign fixtures keep false unless overridden
     commerce: {
       minOrderPhp: null,
       deliveryFeePhp: null,
@@ -59,6 +59,7 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
       [
         item({
           id: "s1",
+          status: "closed",
           featuredItems: [{ productId: "owner-1", name: "오너추천", price: 100 }],
           platformPopularProducts: [
             {
@@ -94,17 +95,32 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
     const composition = composeStoresHomeFeed(
       [
         item({
-          id: "plain",
-          deliveryFeeStrikePhp: 40,
-          completedOrderCount30d: 8,
+          id: "filler",
+          status: "open",
+          deliveryAvailable: true,
+          featuredItems: [{ productId: "filler-p", name: "필러", price: 50 }],
+        }),
+        item({
+          id: "plain-new",
+          status: "closed",
+          completedOrderCount30d: 0, // avoid Slot2 consuming representative before newStore
+          rating: 3,
+          reviewCount: 0,
           firstListedAt: new Date(NOW - 2 * 86400000).toISOString(),
+          featuredItems: [{ productId: "plain-new-p", name: "신규", price: 80 }],
+        }),
+        item({
+          id: "plain-strike",
+          status: "closed",
+          deliveryFeeStrikePhp: 40,
+          featuredItems: [{ productId: "plain-strike-p", name: "할인", price: 70 }],
         }),
       ],
       { nowMs: NOW }
     );
     expect(composition.campaignFood).toEqual([]);
-    expect(composition.slot3Food.map((e) => e.storeId)).toContain("plain");
-    expect(composition.newStoreFood.map((e) => e.storeId)).toContain("plain");
+    expect(composition.slot3Food.map((e) => e.storeId)).toContain("plain-strike");
+    expect(composition.newStoreFood.map((e) => e.storeId)).toContain("plain-new");
   });
 
   it("T9/T10/T11 Slot0–6 and Cut A Slot3 / P1-B Slot2 preserved with campaign present", () => {
@@ -129,6 +145,19 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
         isFeatured: true,
         rating: 4.8,
         reviewCount: 20,
+      }),
+      item({
+        id: "s2",
+        status: "open",
+        deliveryAvailable: true,
+        completedOrderCount30d: 5,
+        deliveryFeeStrikePhp: 20,
+      }),
+      // Invariant C: campaign-only store (closed / low rating) so Slot0–5 do not consume its product
+      item({
+        id: "s-camp",
+        status: "closed",
+        featuredItems: [{ productId: "camp-p", name: "캠페인메뉴", price: 70 }],
         discoveryCampaign: {
           id: "c1",
           campaignType: "promo",
@@ -137,13 +166,6 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
           startAt: "2026-08-20T00:00:00.000Z",
           endAt: "2026-08-26T00:00:00.000Z",
         },
-      }),
-      item({
-        id: "s2",
-        status: "open",
-        deliveryAvailable: true,
-        completedOrderCount30d: 5,
-        deliveryFeeStrikePhp: 20,
       }),
     ];
     const without = composeStoresHomeFeed(
@@ -159,7 +181,7 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
     expect(withCamp.slot3Food.map((e) => e.storeId)).toEqual(without.slot3Food.map((e) => e.storeId));
     expect(withCamp.slot4Food.map((e) => e.storeId)).toEqual(without.slot4Food.map((e) => e.storeId));
     expect(withCamp.slot5Food.map((e) => e.storeId)).toEqual(without.slot5Food.map((e) => e.storeId));
-    expect(withCamp.campaignFood.map((e) => e.storeId)).toEqual(["s-open"]);
+    expect(withCamp.campaignFood.map((e) => e.storeId)).toEqual(["s-camp"]);
   });
 
   it("T12/T13 campaign card is owner representative without fake popular/discount copy", () => {
@@ -167,7 +189,8 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
       [
         item({
           id: "s1",
-          deliveryFeeStrikePhp: 50,
+          status: "closed",
+          deliveryFeeStrikePhp: null,
           featuredItems: [{ productId: "owner-9", name: "대표", price: 1 }],
           platformPopularProducts: [
             {
@@ -205,6 +228,7 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
       [
         item({
           id: "later",
+          status: "closed",
           discoveryCampaign: {
             id: "c-later",
             campaignType: "event",
@@ -216,6 +240,7 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
         }),
         item({
           id: "sooner",
+          status: "closed",
           discoveryCampaign: {
             id: "c-soon",
             campaignType: "promo",

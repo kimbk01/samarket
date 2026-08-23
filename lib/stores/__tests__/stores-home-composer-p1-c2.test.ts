@@ -56,9 +56,10 @@ describe("composeStoresHomeFeed — P1-C2 newStoreFood", () => {
   it("excludes NULL firstListedAt (legacy visible)", () => {
     const composition = composeStoresHomeFeed(
       [
-        item({ id: "legacy", firstListedAt: null, completedOrderCount30d: 5 }),
+        item({ id: "legacy", status: "closed", firstListedAt: null, completedOrderCount30d: 5 }),
         item({
           id: "fresh",
+          status: "closed",
           firstListedAt: new Date(NOW - 2 * 24 * 60 * 60 * 1000).toISOString(),
         }),
       ],
@@ -71,7 +72,7 @@ describe("composeStoresHomeFeed — P1-C2 newStoreFood", () => {
     const older = new Date(NOW - 20 * 24 * 60 * 60 * 1000).toISOString();
     const newer = new Date(NOW - 3 * 24 * 60 * 60 * 1000).toISOString();
     const composition = composeStoresHomeFeed(
-      [item({ id: "old", firstListedAt: older }), item({ id: "new", firstListedAt: newer })],
+      [item({ id: "old", status: "closed", firstListedAt: older }), item({ id: "new", status: "closed", firstListedAt: newer })],
       { nowMs: NOW }
     );
     expect(composition.newStoreFood.map((e) => e.storeId)).toEqual(["new", "old"]);
@@ -92,6 +93,7 @@ describe("composeStoresHomeFeed — P1-C2 newStoreFood", () => {
       [
         item({
           id: "n1",
+          status: "closed",
           firstListedAt: listed,
           featuredItems: [{ productId: "owner-1", name: "오너추천", price: 100 }],
           platformPopularProducts: [

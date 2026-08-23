@@ -33,6 +33,7 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     featuredItems: partial.featuredItems ?? [
       { productId: `p-${partial.id}`, name: "치킨", price: 500 },
     ],
+    platformPopularProducts: partial.platformPopularProducts,
     profileImageUrl: null,
     isFeatured: partial.isFeatured ?? false,
     commerce: {
@@ -61,11 +62,25 @@ function richStore(i: number): StoreHomeFeedItem {
     deliveryAvailable: true,
     completedOrderCount30d: 100 - i,
     discoveryEligibilityRank: 0,
-    deliveryFeeStrikePhp: i % 5 === 0 ? 30 : null,
-    rating: 4.5,
-    reviewCount: 10,
+    deliveryFeeStrikePhp: i % 2 === 0 ? 30 : null, // enough strikes beyond Slot0 for Invariant C
+    // Featured stores skip Slot4 (top-rated) so Slot5 can still show their representative under Invariant C
+    rating: i % 7 === 0 ? 3.5 : 4.5,
+    reviewCount: i % 7 === 0 ? 1 : 10,
     isFeatured: i % 7 === 0,
     distanceKm: 0.5 + i * 0.01,
+    // Invariant C: distinct products so store-level horizontal overlap remains possible
+    featuredItems: [{ productId: `rep-${i}`, name: "대표", price: 500 }],
+    platformPopularProducts: [
+      {
+        productId: `pop-${i}`,
+        name: "인기",
+        price: 600,
+        imageUrl: null,
+        totalQty: 50 - i,
+        popularRank: 1,
+        windowDays: 30,
+      },
+    ],
   });
 }
 
@@ -184,8 +199,20 @@ describe("composeStoresHomeFeed — exposure policy", () => {
 
   it("T10: Slot3 only real delivery fee strike evidence", () => {
     const composition = composeStoresHomeFeed([
-      item({ id: "a", deliveryFeeStrikePhp: 30 }),
-      item({ id: "b", deliveryFeeStrikePhp: 0 }),
+      // Slot0 consumes open store with different product — strike store stays for Slot3
+      item({
+        id: "open0",
+        status: "open",
+        deliveryAvailable: true,
+        featuredItems: [{ productId: "open-p", name: "오픈", price: 100 }],
+      }),
+      item({
+        id: "a",
+        status: "closed",
+        deliveryFeeStrikePhp: 30,
+        featuredItems: [{ productId: "strike-a", name: "할인", price: 100 }],
+      }),
+      item({ id: "b", status: "closed", deliveryFeeStrikePhp: 0 }),
     ]);
     expect(composition.slot3Food.map((e) => e.storeId)).toEqual(["a"]);
     expect(composition.slot3Food[0]?.discountEvidence).toBe("delivery_fee_strike");
@@ -225,11 +252,24 @@ describe("composeStoresHomeFeed — API pool fixtures", () => {
         status: "open",
         deliveryAvailable: true,
         completedOrderCount30d: 10,
+        featuredItems: [{ productId: `rep-${i}`, name: "대표", price: 100 }],
+        platformPopularProducts: [
+          {
+            productId: `pop-${i}`,
+            name: "인기",
+            price: 200,
+            imageUrl: null,
+            totalQty: 10,
+            popularRank: 1,
+            windowDays: 30,
+          },
+        ],
       })
     );
     const composition = composeStoresHomeFeed(stores);
     expect(composition.slot0Food.length).toBe(8);
     expect(composition.slot1Stores.length).toBe(0);
+    // Invariant C: Slot2 uses distinct platform products — store re-entry allowed
     expect(composition.slot2Food.length).toBeGreaterThan(0);
     expect(composition.slot2Food.length).toBeLessThanOrEqual(STORES_HOME_POPULAR_SHELF_MAX);
   });

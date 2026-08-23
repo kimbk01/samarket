@@ -140,6 +140,7 @@ function allocateSlot0Food(
     if (!entry) continue;
 
     registry.registerStore(store.id, "slot0_product");
+    // Invariant C — Slot0 productId seeds feed-wide food-card product registry
     registry.registerProduct(entry.productId);
     out.push(entry);
   }
@@ -176,6 +177,21 @@ function rotateAvoidAdjacentFirst(
  * Horizontal discovery shelf — metric 후보 전체에서 선정.
  * Slot0/1 exposure는 deprioritize만; candidate 부족 시 shelf starvation 금지.
  */
+
+/** Invariant C — skip already-registered productId; register on accept. No fake fill. */
+function tryAcceptFoodCard(
+  registry: StoresHomeExposureRegistry,
+  storeId: string,
+  entry: StoresHomeFoodEntry,
+  opts?: { registerStoreRole?: StoresHomeExposureRole | null }
+): boolean {
+  if (registry.hasProduct(entry.productId)) return false;
+  const role = opts?.registerStoreRole;
+  if (role) registry.registerStore(storeId, role);
+  registry.registerProduct(entry.productId);
+  return true;
+}
+
 function allocateHorizontalFoodShelf(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
@@ -202,16 +218,17 @@ function allocateHorizontalFoodShelf(
       continue;
     }
 
-    registry.registerStore(store.id, "horizontal_discovery");
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+      continue;
+    }
     out.push(entry);
   }
 
-  // adjacent only option이면 첫 후보 허용
+  // adjacent only option이면 첫 후보 허용 (product duplicate면 shrink — fake fill 금지)
   if (out.length === 0 && ordered.length > 0) {
     const store = ordered[0]!;
     const entry = buildRepresentativeFoodEntry(store);
-    if (entry) {
-      registry.registerStore(store.id, "horizontal_discovery");
+    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
       out.push(entry);
     }
   }
@@ -245,15 +262,16 @@ function allocateSlot2PopularFoodShelf(
       continue;
     }
 
-    registry.registerStore(store.id, "horizontal_discovery");
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+      continue;
+    }
     out.push(entry);
   }
 
   if (out.length === 0 && ordered.length > 0) {
     const store = ordered[0]!;
     const entry = buildSlot2PopularFoodEntry(store);
-    if (entry) {
-      registry.registerStore(store.id, "horizontal_discovery");
+    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
       out.push(entry);
     }
   }
@@ -291,7 +309,9 @@ function allocateNewStoreFoodShelf(
     if (out.length >= max) break;
     const entry = buildRepresentativeFoodEntry(store);
     if (!entry) continue;
-    registry.registerStore(store.id, "horizontal_discovery");
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+      continue;
+    }
     out.push(entry);
   }
   return out;
@@ -305,7 +325,7 @@ function allocateNewStoreFoodShelf(
  * No popular/discount/featured copy on campaign cards.
  */
 function allocateCampaignFoodShelf(
-  _registry: StoresHomeExposureRegistry,
+  registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
   max: number
 ): StoresHomeFoodEntry[] {
@@ -331,8 +351,11 @@ function allocateCampaignFoodShelf(
     if (out.length >= max) break;
     const base = buildRepresentativeFoodEntry(store);
     if (!base) continue;
+    // Product dedupe only — do not register store roles (Slot0–6 store order unchanged).
+    if (!tryAcceptFoodCard(registry, store.id, base, { registerStoreRole: null })) {
+      continue;
+    }
     const campaign = store.discoveryCampaign!;
-    // Presentation-only: do not register into exposure registry (Slot0–6 order must stay unchanged).
     out.push({
       ...base,
       menuAuthority: "owner_representative",
