@@ -62,10 +62,6 @@ export function resolveStoresBrowseRankingCriteria(
       out.push(id);
     }
   }
-  for (const id of STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push(id);
-  }
-  return out;
+  if (out.length > 0) return out;
+  return [...STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA];
 }

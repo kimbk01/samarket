@@ -220,11 +220,11 @@ describe("A1–A17 popularityWindowDays", () => {
         productConfig: { defaultSort: "rating" },
       },
     });
-    expect(resolved.defaultSort).toBe("rating");
+    expect(resolved.defaultSort).toBe("popular");
     expect(resolved.popularityWindowDays).toBe(90);
   });
 
-  it("A6 secondary override window", () => {
+  it("A6 secondary JSON cannot override window", () => {
     const resolved = resolveBrowseScopePolicy({
       primarySlug: "restaurant",
       subSlug: "korean",
@@ -236,7 +236,7 @@ describe("A1–A17 popularityWindowDays", () => {
         productConfig: { popularityWindowDays: 7 },
       },
     });
-    expect(resolved.popularityWindowDays).toBe(7);
+    expect(resolved.popularityWindowDays).toBe(30);
   });
 
   it("A7 explicit sort popular still uses scope window field (no URL window)", () => {

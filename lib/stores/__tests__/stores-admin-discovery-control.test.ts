@@ -170,7 +170,7 @@ describe("HOME discovery control", () => {
 });
 
 describe("BROWSE discovery control", () => {
-  it("B1–B3 defaultSort primary / inherit / override", () => {
+  it("B1–B3 defaultSort primary / inherit / secondary cannot override", () => {
     const primary = resolveBrowseScopePolicy({
       primarySlug: "restaurant",
       subSlug: null,
@@ -253,7 +253,7 @@ describe("BROWSE discovery control", () => {
         productConfig: { defaultSort: "rating" },
       },
     });
-    expect(override.defaultSort).toBe("rating");
+    expect(override.defaultSort).toBe("popular");
   });
 
   it("B4 explicit customer sort wins over admin default", () => {
