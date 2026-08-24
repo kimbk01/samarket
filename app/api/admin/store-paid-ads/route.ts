@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
@@ -7,7 +8,24 @@ import {
   type StorePaidAdWriterError,
 } from "@/lib/stores/store-paid-ad-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { isStorePaidAdCampaignActive } from "@/lib/stores/store-paid-ad-campaign-authority";
+import {
+  isStorePaidAdCampaignActive,
+  type StorePaidAdCampaignRow,
+  type StorePaidAdPlacement,
+} from "@/lib/stores/store-paid-ad-campaign-authority";
+import {
+  resolveHomeRestPaidSurfaceAllowed,
+  resolveStorePaidAdCampaignExposure,
+} from "@/lib/stores/store-paid-ad-exposure";
+import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
+import { homePaidAdInsertionPolicyEnabled } from "@/lib/stores/composition/stores-composition-insertion-live";
+import { listHomeShelfProductDbRows } from "@/lib/stores/product/stores-home-shelf-product-db";
+import {
+  listBrowseScopePolicyRows,
+  mapBrowseScopeDbRow,
+} from "@/lib/stores/product/stores-browse-scope-policy-db";
+import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +79,69 @@ function computedState(row: {
   return "inactive";
 }
 
+function toAuthorityRow(row: {
+  id: string;
+  store_id: string;
+  placement: string;
+  title: string;
+  headline: string;
+  body_copy: string | null;
+  image_url: string | null;
+  start_at: string;
+  end_at: string;
+  is_active: boolean;
+}): StorePaidAdCampaignRow {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    placement: row.placement as StorePaidAdPlacement,
+    title: row.title,
+    headline: row.headline,
+    bodyCopy: row.body_copy,
+    imageUrl: row.image_url,
+    startAt: row.start_at,
+    endAt: row.end_at,
+    isActive: row.is_active,
+  };
+}
+
+/** CUT 8 — Admin diagnostic surfaceAllowed from canonical policy (not a new formula). */
+async function loadAdminPaidSurfaceAllowed(
+  sb: SupabaseClient,
+  placement: StorePaidAdPlacement
+): Promise<boolean> {
+  if (placement === "stores_home") {
+    const [policy, shelves] = await Promise.all([
+      loadRuntimeCompositionPolicy(sb, "home"),
+      listHomeShelfProductDbRows(sb),
+    ]);
+    const rest =
+      shelves.find((s) => s.shelf_id === "rest_stores") ??
+      shelves.find((s) => s.slot === "slot6RestStores");
+    return resolveHomeRestPaidSurfaceAllowed({
+      restShelfAdIntegration: rest?.ad_integration,
+      homePaidAdInsertionEnabled: homePaidAdInsertionPolicyEnabled(policy.rows),
+    });
+  }
+  try {
+    const dbRows = await listBrowseScopePolicyRows(sb);
+    const mapped = dbRows.map(mapBrowseScopeDbRow);
+    const primaries = mapped.filter((r) => !r.subSlug);
+    if (primaries.length === 0) return false;
+    return primaries.some((primaryRow) => {
+      const resolved = resolveBrowseScopePolicy({
+        primarySlug: primaryRow.primarySlug,
+        subSlug: null,
+        primaryRow,
+        subRow: null,
+      });
+      return resolved.adEnabled === true;
+    });
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -79,11 +160,54 @@ export async function GET() {
   if (error) {
     return NextResponse.json({ ok: false, error: "db_error", campaigns: [] }, { status: 500 });
   }
-  const campaigns = (data ?? []).map((row) => ({
-    ...row,
-    computed_state: computedState(row as { is_active: boolean; start_at: string; end_at: string }),
-  }));
-  return NextResponse.json({ ok: true, campaigns, writer: "admin_http" });
+  const nowMs = Date.now();
+  const [homeSurfaceAllowed, browseSurfaceAllowed] = await Promise.all([
+    loadAdminPaidSurfaceAllowed(sb, "stores_home"),
+    loadAdminPaidSurfaceAllowed(sb, "stores_browse"),
+  ]);
+  const campaigns = (data ?? []).map((row) => {
+    const r = row as {
+      id: string;
+      store_id: string;
+      placement: string;
+      title: string;
+      headline: string;
+      body_copy: string | null;
+      image_url: string | null;
+      start_at: string;
+      end_at: string;
+      is_active: boolean;
+    };
+    const placement = (r.placement === "stores_browse" ? "stores_browse" : "stores_home") as StorePaidAdPlacement;
+    const surfaceAllowed =
+      placement === "stores_browse" ? browseSurfaceAllowed : homeSurfaceAllowed;
+    const exposure = resolveStorePaidAdCampaignExposure({
+      campaign: toAuthorityRow(r),
+      nowMs,
+      targetPlacement: placement,
+      surfaceAllowed,
+      storeEligible: true,
+      /** Admin list diagnostic — taxonomy match is scope-local at customer runtime. */
+      taxonomyScopeMatched: true,
+    });
+    return {
+      ...r,
+      computed_state: computedState(r),
+      exposure: {
+        actualExposureEligible: exposure.actualExposureEligible,
+        blockingReasons: exposure.blockingReasons,
+        factors: exposure.factors,
+        surfaceAllowed,
+        placement,
+      },
+    };
+  });
+  return NextResponse.json({
+    ok: true,
+    campaigns,
+    writer: "admin_http",
+    surfaces: { home: homeSurfaceAllowed, browse: browseSurfaceAllowed },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -111,6 +235,7 @@ export async function POST(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  invalidateStoresBrowseMemoryCache();
   return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
 }
 
@@ -139,5 +264,6 @@ export async function PATCH(req: NextRequest) {
       { status: writerErrorStatus(result.error) }
     );
   }
+  invalidateStoresBrowseMemoryCache();
   return NextResponse.json({ ok: true, campaign: result.row });
 }

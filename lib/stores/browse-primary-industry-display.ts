@@ -4,7 +4,13 @@ import {
   storeTaxonomyUploadedImageUrl,
 } from "@/lib/stores/store-taxonomy-image-src";
 
-/** browse 헤더·▼ 패널 — 1차 업종 고정 순서 (`/stores` 홈과 동일) */
+/**
+ * CUT 1 — fixed 8-slug order is no longer a runtime taxonomy authority.
+ * Kept only as historical seed reference for Owner/apply fixtures that still
+ * import seed catalog helpers — NOT for HOME/BROWSE industry chrome ordering.
+ *
+ * @deprecated CUT 1 — do not use for consumer order. Use store_categories.sort_order.
+ */
 export const BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER = [
   "restaurant",
   "mart",
@@ -16,6 +22,7 @@ export const BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER = [
   "life",
 ] as const;
 
+/** @deprecated CUT 1 — slug whitelist is not taxonomy SSOT. */
 export type BrowsePrimaryIndustrySlug = (typeof BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER)[number];
 
 export type BrowsePrimaryIndustryWithImage = BrowsePrimaryIndustry & {
@@ -23,18 +30,24 @@ export type BrowsePrimaryIndustryWithImage = BrowsePrimaryIndustry & {
   name_en?: string | null;
 };
 
+/** @deprecated CUT 1 — not a runtime gate. Prefer taxonomy snapshot membership. */
 export function isBrowsePrimaryIndustrySlug(slug: string): slug is BrowsePrimaryIndustrySlug {
   return (BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER as readonly string[]).includes(slug.toLowerCase());
 }
 
-/** mock·taxonomy 병합 목록을 8개 고정 순서로 정렬·필터 */
+/**
+ * @deprecated CUT 1 — fixed-order filter removed from authority.
+ * Sorts by sortOrder ASC then slug (same as canonical) when still called.
+ */
 export function orderBrowsePrimaryIndustries(
-  items: BrowsePrimaryIndustryWithImage[],
+  items: BrowsePrimaryIndustryWithImage[]
 ): BrowsePrimaryIndustryWithImage[] {
-  const bySlug = new Map(items.map((p) => [p.slug.toLowerCase(), p]));
-  return BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER.map((slug) => bySlug.get(slug)).filter(
-    (p): p is BrowsePrimaryIndustryWithImage => !!p,
-  );
+  return [...items].sort((a, b) => {
+    const ao = a.sortOrder ?? 0;
+    const bo = b.sortOrder ?? 0;
+    if (ao !== bo) return ao - bo;
+    return a.slug.toLowerCase().localeCompare(b.slug.toLowerCase());
+  });
 }
 
 /** taxonomy image_url only — 정적 /public/icons 폴백 금지 */

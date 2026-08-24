@@ -10,6 +10,7 @@ import type {
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import {
   STORES_HOME_SHELF_PRODUCT_CATALOG,
+  canonicalizeHomeShelfId,
   shelfIdToComposerSlot,
   storesHomeShelfByComposerSlot,
   storesHomeShelfById,
@@ -101,7 +102,11 @@ function mergeShelf(
 export function resolveHomeShelfProductCatalog(
   overrides: readonly StoresHomeShelfProductOverride[] = []
 ): StoresHomeShelfResolvedConfig[] {
-  const byShelf = new Map(overrides.map((o) => [o.shelfId, o]));
+  const byShelf = new Map<string, StoresHomeShelfProductOverride>();
+  for (const o of overrides) {
+    const shelfId = canonicalizeHomeShelfId(o.shelfId);
+    byShelf.set(shelfId, { ...o, shelfId });
+  }
   return STORES_HOME_SHELF_PRODUCT_CATALOG.map((def) => mergeShelf(def, byShelf.get(def.shelfId))).sort(
     (a, b) => a.order - b.order
   );
@@ -113,7 +118,9 @@ export function resolveHomeShelfForComposerSlot(
 ): StoresHomeShelfResolvedConfig | null {
   const def = storesHomeShelfByComposerSlot(slot);
   if (!def) return null;
-  const override = overrides.find((o) => o.shelfId === def.shelfId);
+  const override = overrides.find(
+    (o) => canonicalizeHomeShelfId(o.shelfId) === def.shelfId
+  );
   return mergeShelf(def, override);
 }
 
@@ -134,13 +141,15 @@ export function mapDbOverrideToShelfProduct(input: {
   schedule_end?: string | null;
   product_config?: unknown;
 }): StoresHomeShelfProductOverride | null {
-  const shelfId =
+  const rawShelfId =
     input.shelf_id?.trim() ||
     (() => {
       const def = storesHomeShelfByComposerSlot(input.slot as StoresHomeCompositionSlotKey);
       return def?.shelfId ?? null;
     })();
-  if (!shelfId) return null;
+  if (!rawShelfId) return null;
+  const shelfId = canonicalizeHomeShelfId(rawShelfId);
+  if (!storesHomeShelfById(shelfId)) return null;
   return {
     shelfId,
     enabled: input.enabled,

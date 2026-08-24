@@ -1,6 +1,6 @@
 import { STORES_BROWSE_SUB_ALL, storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { readStoreDetailBrowseOrigin } from "@/lib/dibay/store-detail-browse-origin";
-import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 
 const DEFAULT_PRIMARY_SLUG = "restaurant";
 
@@ -27,6 +27,11 @@ function normalizeBizTypeSeparators(raw: string): string {
     .replace(/\s*[-–—|]\s*/g, " · ");
 }
 
+/**
+ * Legacy business_type string heuristic only (not HOME/BROWSE chrome).
+ * Seed catalog used as name→slug dictionary for unstructured Owner strings —
+ * not as industry membership whitelist for taxonomy chrome.
+ */
 function resolvePrimarySlugFromBusinessType(businessType: string | null | undefined): string | null {
   const bt = (businessType ?? "").trim();
   if (!bt) return null;
@@ -51,7 +56,8 @@ function resolvePrimarySlugFromBusinessType(businessType: string | null | undefi
 function normalizePrimarySlug(candidate: string | null | undefined): string {
   const raw = (candidate ?? "").trim().toLowerCase();
   if (!raw) return DEFAULT_PRIMARY_SLUG;
-  return getBrowsePrimaryBySlug(raw)?.slug ?? raw;
+  // CUT 1 — accept any slug token; do not gate against fixed 8-seed whitelist.
+  return raw;
 }
 
 /**
@@ -68,8 +74,8 @@ export function resolveStoreBrowseListHref(input: StoreBrowseListHrefInput): str
   const fromBiz = bizPrimary ? normalizePrimarySlug(bizPrimary) : null;
 
   const primary =
-    (fromSession?.primarySlug && getBrowsePrimaryBySlug(fromSession.primarySlug)
-      ? fromSession.primarySlug
+    (fromSession?.primarySlug?.trim()
+      ? normalizePrimarySlug(fromSession.primarySlug)
       : null) ??
     fromCategory ??
     fromBiz ??

@@ -141,11 +141,11 @@ describe("C4 — composition engine", () => {
   it("never reorders survivors (S1,S2 not S2,S1)", () => {
     const current = composeStoresHomeFeed(stores);
     const policy = resolveDefaultCompositionPolicy("home").map((r) =>
-      r.slot === "slot1Stores" ? { ...r, max: 2 } : r
+      r.slot === "slot6RestStores" ? { ...r, max: 2 } : r
     );
     const shadow = applyPolicyToHomeComposition(current, policy);
-    const currentIds = current.slot1Stores.slice(0, 2).map((s) => s.id);
-    const shadowIds = shadow.slot1Stores.map((s) => s.id);
+    const currentIds = current.slot6RestStores.slice(0, 2).map((s) => s.id);
+    const shadowIds = shadow.slot6RestStores.map((s) => s.id);
     expect(shadowIds).toEqual(currentIds);
   });
 

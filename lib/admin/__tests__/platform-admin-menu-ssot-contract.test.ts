@@ -160,8 +160,14 @@ describe("platform admin menu SSOT contract", () => {
       expect(section?.path, key).toBeUndefined();
       expect(section?.children?.length ?? 0).toBeGreaterThan(0);
     }
-    expect(findAdminMenuByKey(adminMenu, "store-settings-taxonomy")?.path).toContain(
-      "/admin/stores/application-settings"
+    expect(findAdminMenuByKey(adminMenu, "stores-industry-primary")?.path).toContain(
+      "/admin/stores/application-settings?menu=stores"
+    );
+    expect(findAdminMenuByKey(adminMenu, "stores-browse-policy")?.path).toBe(
+      "/admin/stores-category-policy"
+    );
+    expect(findAdminMenuByKey(adminMenu, "store-banner-ads-control")?.path).toBe(
+      "/admin/store-banner-ads"
     );
     expect(findAdminMenuByKey(adminMenu, "stores-commerce")?.path).toBe("/admin/stores");
     expect(findAdminMenuByKey(adminMenu, "store-settlements-admin")?.path).toBe(

@@ -22,6 +22,10 @@ export type StoresHomeShelfBenefitLineMode =
   | "coupon"
   | "auto";
 
+/**
+ * WRITE_ONLY (CUT 2) — Admin CMS field; no TARGET customer membership/ranking consumer.
+ * Kept for product_config parse compatibility; do not treat as HOME composition authority.
+ */
 export type StoresHomeShelfReviewSnippetMode = "off" | "rating_only" | "rating_with_count";
 
 export type StoresHomeShelfShowAllRouteKey =
@@ -35,6 +39,10 @@ export type StoresHomeShelfShowAllRouteKey =
   | "none";
 
 export type StoresHomeShelfProductConfig = {
+  /**
+   * WRITE_ONLY (CUT 2) — presentation hint / Admin filter only.
+   * Membership/ranking owners remain composer + shelf contracts.
+   */
   entityType: StoresHomeShelfEntityType;
   showAllEnabled: boolean;
   showAllLabelKo: string | null;
@@ -43,6 +51,7 @@ export type StoresHomeShelfProductConfig = {
   imageSource: StoresHomeShelfImageSource;
   badgeMode: StoresHomeShelfBadgeMode;
   benefitLineMode: StoresHomeShelfBenefitLineMode;
+  /** WRITE_ONLY — no customer card consumer for membership/ranking. */
   reviewSnippetMode: StoresHomeShelfReviewSnippetMode;
   /** Operator-only memo (Admin CMS). Not shown to customers. */
   operatorMemo: string | null;

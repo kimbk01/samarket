@@ -1,5 +1,6 @@
 /**
- * 업종 탐색 UI용 타입 — GET `/api/stores/taxonomy` + 시드 catalog 병합.
+ * 업종 탐색 UI용 타입 — GET `/api/stores/taxonomy` canonical resolver.
+ * CUT 1: seed catalog is not merged into HOME/BROWSE chrome.
  */
 
 /** 1차 업종 (store_categories) */

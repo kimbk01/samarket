@@ -79,7 +79,7 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     patternId: catalogPresentation("slot1Stores"),
     componentOwner: catalogOwner("slot1Stores"),
     notes:
-      "Vertical store rows match; DIBAY lacks Baemin product-discount strings — strike/fee only. No 116px menu band (≠ CATEGORY).",
+      "CUT 2 REMOVED — main_stores / slot1Stores customer authority. Empty composition; remainder = rest_stores.",
   },
   {
     slot: "slot2Food",
@@ -90,7 +90,7 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     decision: "PARTIAL",
     patternId: catalogPresentation("slot2Food"),
     componentOwner: catalogOwner("slot2Food"),
-    notes: "Do not label as Baemin Popular; show platform_popular badge only when menuAuthority proves it.",
+    notes: "popular_menu — Do not label as Baemin Popular; show platform_popular badge only when menuAuthority proves it.",
   },
   {
     slot: "newStoreFood",

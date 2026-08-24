@@ -85,7 +85,7 @@ function richStore(i: number): StoreHomeFeedItem {
 }
 
 describe("composeStoresHomeFeed — exposure policy", () => {
-  it("T1: Slot0 ∩ Slot1 = ∅", () => {
+  it("T1: Slot0 ∩ rest_stores = ∅; slot1Stores empty (CUT2)", () => {
     const stores = [
       item({ id: "a", status: "open", deliveryAvailable: true }),
       item({ id: "b", status: "closed" }),
@@ -93,7 +93,8 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     ];
     const composition = composeStoresHomeFeed(stores);
     const slot0Ids = new Set(composition.slot0Food.map((e) => e.storeId));
-    expect(composition.slot1Stores.every((s) => !slot0Ids.has(s.id))).toBe(true);
+    expect(composition.slot1Stores).toEqual([]);
+    expect(composition.slot6RestStores.every((s) => !slot0Ids.has(s.id))).toBe(true);
   });
 
   it("T2: Slot0 one store → one product", () => {
@@ -111,15 +112,16 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     expect(composition.slot0Food.filter((e) => e.storeId === "a")).toHaveLength(1);
   });
 
-  it("T3: Slot1 relative API order preserved after Slot0 exclusion", () => {
+  it("T3: rest_stores preserves API order for stores outside purpose shelves", () => {
     const stores = [
       item({ id: "a", status: "open", deliveryAvailable: true }),
-      item({ id: "b", status: "closed" }),
-      item({ id: "c", status: "closed" }),
-      item({ id: "d", status: "closed" }),
+      item({ id: "b", status: "closed", rating: 3, reviewCount: 0 }),
+      item({ id: "c", status: "closed", rating: 3, reviewCount: 0 }),
+      item({ id: "d", status: "closed", rating: 3, reviewCount: 0 }),
     ];
     const composition = composeStoresHomeFeed(stores);
-    expect(composition.slot1Stores.map((s) => s.id)).toEqual(["b", "c", "d"]);
+    expect(composition.slot1Stores).toEqual([]);
+    expect(composition.slot6RestStores.map((s) => s.id)).toEqual(["b", "c", "d"]);
   });
 
   it("T4: Slot2 popular metric order preserved", () => {
@@ -142,11 +144,11 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     }
   });
 
-  it("T5: valid metric candidates survive Slot0/1 — shelves not starved", () => {
+  it("T5: valid metric candidates survive Slot0 — shelves not starved", () => {
     const stores = Array.from({ length: STORE_HOME_FEED_RESPONSE_MAX }, (_, i) => richStore(i));
     const composition = composeStoresHomeFeed(stores);
     expect(composition.slot0Food.length).toBe(STORES_HOME_SLOT0_FOOD_MAX);
-    expect(composition.slot1Stores.length).toBe(STORE_HOME_FEED_RESPONSE_MAX - STORES_HOME_SLOT0_FOOD_MAX);
+    expect(composition.slot1Stores).toEqual([]);
     expect(composition.slot2Food.length).toBeGreaterThan(0);
     expect(composition.slot3Food.length).toBeGreaterThan(0);
     expect(composition.slot4Food.length).toBeGreaterThan(0);
@@ -177,16 +179,16 @@ describe("composeStoresHomeFeed — exposure policy", () => {
     expect(composition.slot0Food).toHaveLength(1);
   });
 
-  it("T8: Slot2 first card avoids immediate repeat of Slot1 tail when alternatives exist", () => {
+  it("T8: Slot2 first card avoids immediate repeat of Slot0 tail when alternatives exist", () => {
     const stores = [
       item({ id: "a", status: "open", deliveryAvailable: true, completedOrderCount30d: 50 }),
       item({ id: "b", status: "closed", completedOrderCount30d: 100 }),
       item({ id: "c", status: "closed", completedOrderCount30d: 90 }),
     ];
     const composition = composeStoresHomeFeed(stores);
-    expect(composition.slot1Stores.at(-1)?.id).toBe("c");
+    expect(composition.slot0Food.at(-1)?.storeId).toBe("a");
     expect(composition.slot2Food.length).toBeGreaterThan(0);
-    expect(composition.slot2Food[0]?.storeId).not.toBe("c");
+    expect(composition.slot2Food[0]?.storeId).not.toBe("a");
   });
 
   it("T9: candidate shortage does not fake-fill with duplicate store/product", () => {
@@ -225,7 +227,15 @@ describe("composeStoresHomeFeed — API pool fixtures", () => {
     const composition = composeStoresHomeFeed(stores);
 
     expect(composition.slot0Food.length).toBe(STORES_HOME_SLOT0_FOOD_MAX);
-    expect(composition.slot1Stores.length).toBe(32);
+    expect(composition.slot1Stores).toEqual([]);
+    // Purpose shelves may absorb all post-slot0 stores (deprioritize into rest).
+    expect(
+      composition.slot2Food.length +
+        composition.slot3Food.length +
+        composition.slot4Food.length +
+        composition.slot5Food.length +
+        composition.slot6RestStores.length
+    ).toBeGreaterThan(0);
     expect(composition.slot2Food.length).toBeGreaterThan(0);
     expect(composition.slot3Food.length).toBeGreaterThan(0);
     expect(composition.slot4Food.length).toBeGreaterThan(0);

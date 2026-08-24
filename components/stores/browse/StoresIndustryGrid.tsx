@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
 import { storesBrowsePrimaryPath } from "./stores-browse-paths";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import { I18N_COMPACT_SUB_CARD_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
 export function StoresIndustryGrid({
@@ -38,7 +38,7 @@ export function StoresIndustryGrid({
                   {p.symbol}
                 </span>
                 <span className={`${I18N_COMPACT_SUB_CARD_LABEL} font-semibold text-sam-fg`}>
-                  {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo)}
+                  {resolveTaxonomyIndustryLabel(language, p.nameKo, p.name_en ?? p.nameEn, p.slug)}
                 </span>
               </Link>
             </li>

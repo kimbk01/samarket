@@ -1,15 +1,17 @@
 /**
- * P1-D B1/B2 — Period campaign discovery AUTHORITY.
+ * CUT 7 — Period EDITORIAL_PROMOTION authority (`store_discovery_campaigns`).
  *
- * Cut A (delivery_fee_mode === "self_free_promo" / Slot3): PRESERVE — separate track.
+ * Meaning: EDITORIAL_PROMOTION only (event|promo).
+ * NOT STORE_PAID_AD / BANNER_AD / COUPON / DELIVERY_FEE_BENEFIT.
+ *
+ * Cut A (delivery_fee_mode === "self_free_promo" / Slot3 fee shelf): SEPARATE track.
  * store_banners: detail hero only — do not reuse.
- * stores.is_featured: PRESERVE — not Cut B.
+ * stores.is_featured: PRESERVE — not editorial.
  * Ads / point_promotion: OUT.
  *
- * Writer policy:
- * - OWNER WRITER POLICY: OWNER (create/update/deactivate authority — HTTP not in W)
- * - ADMIN WRITER: HTTP only (POST/PATCH /api/admin/store-discovery/campaigns)
- * - Consumer: existing home-feed loader + campaignFood (unchanged in W)
+ * Writer: Admin HTTP → store_discovery_campaigns
+ * Consumer: home-feed discoveryCampaign → HOME editorial_promo (campaignFood)
+ * BROWSE: no insertion / no rank override (CUT 7).
  */
 
 export const STORE_DISCOVERY_CAMPAIGN_TABLE = "store_discovery_campaigns" as const;

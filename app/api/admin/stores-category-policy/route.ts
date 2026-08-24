@@ -91,8 +91,9 @@ export async function GET(req: NextRequest) {
       taxonomyLoaded != null
         ? { categories: taxonomyLoaded.categories, topics: taxonomyLoaded.topics }
         : null;
+    // CUT 1 — taxonomy SSOT when loaded; seed only if taxonomy unavailable (admin tooling empty path).
     const primaryList =
-      taxonomy != null && taxonomy.categories.length > 0
+      taxonomy != null
         ? mergeBrowsePrimaryIndustries(taxonomy)
         : listBrowsePrimaryIndustries();
 
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
 
     if (primarySlug) {
       const subList =
-        taxonomy != null && taxonomy.categories.length > 0
+        taxonomy != null
           ? listBrowseSubIndustriesForPrimary(taxonomy, primarySlug)
           : listBrowseSubIndustries(primarySlug);
       secondary = subList.map((s) => {

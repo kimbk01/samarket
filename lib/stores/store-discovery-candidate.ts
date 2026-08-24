@@ -97,15 +97,12 @@ export async function loadBrowseDiscoveryCandidateRows(
   const categoryId = String(taxonomySlice.categoryId ?? "").trim();
   if (!categoryId) return { status: "ok", rows: [], pagesFetched: 0 };
 
-  const orphanOrParts = taxonomySlice.primaryAliases
-    .map((a) => `business_type.ilike.%${a.replace(/%/g, "")}%`)
-    .filter(Boolean);
-
+  /** CUT 3 — category membership = store_category_id / store_topic_id only */
   const orFilter = buildBrowseStoresOrFilter(
     categoryId,
     taxonomySlice.resolvedTopicId,
     ctx.wantsAllSubs,
-    orphanOrParts
+    []
   );
 
   const selectColumns = `${BROWSE_STORE_ROW_SELECTED_COLUMNS}, store_topics ( slug, name )`;

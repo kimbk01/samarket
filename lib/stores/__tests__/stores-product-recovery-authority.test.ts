@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   isBrowseScopeSubOverrideRow,
@@ -36,14 +38,27 @@ describe("HOME + CATEGORY product recovery authority", () => {
 
   it("keeps PRODUCT / STORE / BRAND default presentations distinct", () => {
     const product = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "order_now")!;
-    const store = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "main_stores")!;
-    const brand = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "promo_campaign")!;
+    const store = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "rest_stores")!;
+    const brand = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "editorial_promo")!;
     expect(product.defaultProductConfig.entityType).toBe("product");
     expect(product.defaultPresentation).toBe("food_horizontal");
     expect(store.defaultProductConfig.entityType).toBe("store");
     expect(store.defaultPresentation).toBe("timesale_vertical");
     expect(brand.defaultProductConfig.entityType).toBe("brand");
     expect(brand.defaultPresentation).toBe("brand_circular");
+  });
+
+  it("CUT2 canonical shelf ids — no dual legacy+canonical runtime shelves", () => {
+    const ids = STORES_HOME_SHELF_PRODUCT_CATALOG.map((s) => s.shelfId);
+    expect(ids).toContain("popular_menu");
+    expect(ids).toContain("editorial_promo");
+    expect(ids).toContain("delivery_fee_benefit");
+    expect(ids).not.toContain("popular");
+    expect(ids).not.toContain("promo_campaign");
+    expect(ids).not.toContain("delivery_fee_discount");
+    expect(STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "main_stores")?.availability).toBe(
+      "unavailable"
+    );
   });
 
   it("resolves store imageSource authority", () => {
@@ -56,7 +71,7 @@ describe("HOME + CATEGORY product recovery authority", () => {
     expect(resolveHomeShelfStoreImage(store, "representative_product")).toContain("product");
   });
 
-  it("binds coupon/ad onto card benefit (not separate rail)", () => {
+  it("binds coupon onto card benefit; paid ads are not purpose-shelf badge authority (CUT 4)", () => {
     const maps = buildHomeInsertionBenefitMaps({
       paidAds: [
         {
@@ -66,7 +81,7 @@ describe("HOME + CATEGORY product recovery authority", () => {
           headline: "Sponsored deal",
           bodyCopy: null,
           imageUrl: null,
-          placement: "home",
+          placement: "stores_home",
         },
       ],
       coupons: [
@@ -80,7 +95,15 @@ describe("HOME + CATEGORY product recovery authority", () => {
           termsCopy: null,
         },
       ],
+      restInsertion: {
+        organicIds: ["s1"],
+        rows: [{ kind: "organic", storeId: "s1" }],
+        adCount: 0,
+        sponsoredStoreIds: [],
+        surfaceAllowed: false,
+      },
     });
+    expect(maps.adsByStoreId.size).toBe(0);
     const benefit = resolveHomeShelfCardBenefit({
       storeId: "s1",
       couponIntegration: "both",
@@ -98,7 +121,7 @@ describe("HOME + CATEGORY product recovery authority", () => {
     });
     expect(benefit?.imageBadgeLabel).toBe("Coupon");
     expect(benefit?.benefitLine).toContain("10%");
-    expect(benefit?.sponsored).toBe(true);
+    expect(benefit?.sponsored).toBe(false);
   });
 
   it("treats pure inherit stubs as non-overrides", () => {
@@ -243,27 +266,25 @@ describe("HOME + CATEGORY product recovery authority", () => {
   });
 
   it("rejects duplicate HOME writer and deletes inherit stubs in Admin/API source", () => {
-    const fs = require("node:fs") as typeof import("node:fs");
-    const path = require("node:path") as typeof import("node:path");
-    const root = path.join(__dirname, "../../..");
-    const compositionPut = fs.readFileSync(
-      path.join(root, "app/api/admin/stores-composition-policy/route.ts"),
+    const root = join(__dirname, "../../..");
+    const compositionPut = readFileSync(
+      join(root, "app/api/admin/stores-composition-policy/route.ts"),
       "utf8"
     );
-    const categoryApi = fs.readFileSync(
-      path.join(root, "app/api/admin/stores-category-policy/route.ts"),
+    const categoryApi = readFileSync(
+      join(root, "app/api/admin/stores-category-policy/route.ts"),
       "utf8"
     );
-    const categoryAdmin = fs.readFileSync(
-      path.join(root, "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"),
+    const categoryAdmin = readFileSync(
+      join(root, "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"),
       "utf8"
     );
-    const slotSection = fs.readFileSync(
-      path.join(root, "components/stores/home/hub/StoresHomeCompositionSlotSection.tsx"),
+    const slotSection = readFileSync(
+      join(root, "components/stores/home/hub/StoresHomeCompositionSlotSection.tsx"),
       "utf8"
     );
-    const foodCard = fs.readFileSync(
-      path.join(root, "components/stores/home/presentation/StoresHomeFoodRailCard.tsx"),
+    const foodCard = readFileSync(
+      join(root, "components/stores/home/presentation/StoresHomeFoodRailCard.tsx"),
       "utf8"
     );
     expect(compositionPut).toContain("use_stores_home_shelves");
@@ -279,7 +300,7 @@ describe("HOME + CATEGORY product recovery authority", () => {
       "components/stores/browse/StoreBrowseInsertionRowCards.tsx",
       "components/admin/stores/AdminStoresCompositionPolicyPage.tsx",
     ]) {
-      expect(fs.existsSync(path.join(root, rel))).toBe(false);
+      expect(existsSync(join(root, rel))).toBe(false);
     }
   });
 

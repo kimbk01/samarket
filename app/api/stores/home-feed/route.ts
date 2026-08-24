@@ -29,6 +29,7 @@ import {
   attachHomeFeedInsertionMeta,
   loadStoresHomeInsertionMeta,
 } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
+import { composeLiveHomeFeed } from "@/lib/stores/composition/stores-composition-live";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import {
   evaluateStoreDeliveryServiceability,
@@ -136,7 +137,12 @@ async function finalizeHomeFeedJsonPayload(
 ) {
   const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
   const withPolicy = attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy);
-  const insertions = await loadStoresHomeInsertionMeta(supabase).catch(() => null);
+  const restOrganicStoreIds = composeLiveHomeFeed(payload.stores).slot6RestStores.map((s) => s.id);
+  const restShelf = compositionPolicy?.shelfProduct?.shelves?.find((s) => s.shelfId === "rest_stores");
+  const insertions = await loadStoresHomeInsertionMeta(supabase, {
+    restOrganicStoreIds,
+    restShelfAdIntegration: restShelf?.adIntegration ?? null,
+  }).catch(() => null);
   return attachHomeFeedInsertionMeta(withPolicy, insertions);
 }
 

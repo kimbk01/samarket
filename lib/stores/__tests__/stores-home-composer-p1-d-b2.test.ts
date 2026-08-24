@@ -175,7 +175,9 @@ describe("composeStoresHomeFeed — P1-D B2 campaignFood", () => {
     const withCamp = composeStoresHomeFeed(stores, { nowMs: NOW });
 
     expect(withCamp.slot0Food.map((e) => e.storeId)).toEqual(without.slot0Food.map((e) => e.storeId));
-    expect(withCamp.slot1Stores.map((s) => s.id)).toEqual(without.slot1Stores.map((s) => s.id));
+    expect(withCamp.slot1Stores).toEqual([]);
+    expect(without.slot1Stores).toEqual([]);
+    expect(withCamp.slot6RestStores.map((s) => s.id)).toEqual(without.slot6RestStores.map((s) => s.id));
     expect(withCamp.slot2Food.map((e) => e.productId)).toEqual(without.slot2Food.map((e) => e.productId));
     expect(withCamp.slot2Food.some((e) => e.menuAuthority === "platform_popular")).toBe(true);
     expect(withCamp.slot3Food.map((e) => e.storeId)).toEqual(without.slot3Food.map((e) => e.storeId));

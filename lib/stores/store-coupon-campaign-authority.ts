@@ -1,5 +1,6 @@
 /**
- * Stores A — coupon insertion authority (display terms; checkout redemption separate).
+ * Stores A — coupon campaign entity authority (ONE table for discovery + checkout).
+ * Eligibility math: `lib/stores/store-coupon-eligibility.ts` (CUT 6).
  */
 
 export const STORE_COUPON_CAMPAIGN_TABLE = "store_coupon_campaigns" as const;

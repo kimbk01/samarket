@@ -4,7 +4,7 @@ import { memo, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomePrimaryCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import {
   getStoresHomeCategoryChromeHandlers,
   getStoresHomeCategoryChromeServerSnapshot,
@@ -59,11 +59,11 @@ function StoresHomePrimaryCategoryRail({
     const on = p.slug === activeSlug;
     const uploaded = storeTaxonomyUploadedImageUrl(p.image_url);
     const icon = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;
-    const label = resolveStorePrimaryIndustryLabel(
+    const label = resolveTaxonomyIndustryLabel(
       language,
-      p.slug,
       String(p.name ?? "").trim(),
-      p.name_en
+      p.name_en,
+      p.slug
     );
     return (
       <button

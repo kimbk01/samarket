@@ -34,6 +34,7 @@ import {
 import { resolveHomeShelfShowAllHref } from "@/lib/stores/product/stores-home-shelf-product-config";
 import {
   buildHomeInsertionBenefitMaps,
+  orderHomeRestStoresForPaidInsertion,
   resolveHomeShelfCardBenefit,
 } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 import { resolveHomeShelfFoodEntryImage } from "@/lib/stores/product/stores-home-shelf-image-resolve";
@@ -337,35 +338,72 @@ export function StoresHomeCompositionSlotSection({
         slot === "slot6NearbyStores" ? composition.slot6NearbyStores : composition.slot6RestStores;
       const stores = shelf.max != null ? raw.slice(0, shelf.max) : raw;
       if (stores.length === 0) return null;
+      const isRestPaidSurface = slot === "slot6RestStores";
       if (
         shelf.presentation === "store_horizontal" ||
         shelf.presentation === "store_teaser_horizontal"
       ) {
+        const ordered = isRestPaidSurface
+          ? orderHomeRestStoresForPaidInsertion(stores as StoreHomeFeedItem[], homeInsertions)
+          : (stores as StoreHomeFeedItem[]).map((store) => ({
+              store,
+              isSponsored: false as const,
+              campaignId: undefined as string | undefined,
+            }));
         return wrap(
           <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
             <div className={STORES_HOME_RAIL_SCROLL}>
-              {(stores as StoreHomeFeedItem[]).map((store) => {
+              {ordered.map(({ store, isSponsored, campaignId }) => {
                 const entry = storeHomeFeedItemToShelfEntry(store);
                 const imageUrl = resolveHomeShelfStoreImage(store, shelf.productConfig.imageSource);
-                const benefit = resolveHomeShelfCardBenefit({
+                const benefitBase = resolveHomeShelfCardBenefit({
                   storeId: store.id,
                   couponIntegration: shelf.couponIntegration,
-                  adIntegration: shelf.adIntegration,
-                  badgeMode: shelf.productConfig.badgeMode,
+                  adIntegration: isSponsored ? "sponsored_badge" : "off",
+                  badgeMode: isSponsored ? "sponsored" : shelf.productConfig.badgeMode,
                   benefitLineMode: shelf.productConfig.benefitLineMode,
-                  maps: benefitMaps,
+                  maps: isSponsored
+                    ? {
+                        ...benefitMaps,
+                        adsByStoreId: new Map([
+                          [
+                            store.id,
+                            {
+                              id: campaignId ?? `sponsored-${store.id}`,
+                              storeId: store.id,
+                              title: "",
+                              headline: "",
+                              bodyCopy: null,
+                              imageUrl: null,
+                              placement: "stores_home",
+                            },
+                          ],
+                        ]),
+                      }
+                    : benefitMaps,
                   labels: benefitLabels,
                 });
+                const benefit =
+                  isSponsored && benefitBase
+                    ? { ...benefitBase, sponsored: true }
+                    : isSponsored
+                      ? {
+                          imageBadgeLabel: benefitLabels.sponsored,
+                          imageBadgeClassName: "bg-amber-500/90 text-white",
+                          benefitLine: null,
+                          sponsored: true,
+                        }
+                      : benefitBase;
                 return shelf.presentation === "store_teaser_horizontal" ?
                     <StoresHomeStoreTeaserCard
-                      key={store.id}
+                      key={isSponsored && campaignId ? `ad-${campaignId}` : store.id}
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
                       benefit={benefit}
                     />
                   : <StoresHomeStoreHorizontalCard
-                      key={store.id}
+                      key={isSponsored && campaignId ? `ad-${campaignId}` : store.id}
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
@@ -387,9 +425,10 @@ export function StoresHomeCompositionSlotSection({
               benefitMaps={benefitMaps}
               benefitLabels={benefitLabels}
               couponIntegration={shelf.couponIntegration}
-              adIntegration={shelf.adIntegration}
+              adIntegration={isRestPaidSurface ? shelf.adIntegration : "off"}
               badgeMode={shelf.productConfig.badgeMode}
               benefitLineMode={shelf.productConfig.benefitLineMode}
+              homeInsertions={isRestPaidSurface ? homeInsertions : undefined}
             />
           </StoresHomeSectionShell>
         );
@@ -401,6 +440,10 @@ export function StoresHomeCompositionSlotSection({
             hydratedByStoreId={hydratedByStoreId}
             getPhase={getPhase}
             registerListItem={registerListItem}
+            homeInsertions={isRestPaidSurface ? homeInsertions : undefined}
+            benefitMaps={benefitMaps}
+            benefitLabels={benefitLabels}
+            couponIntegration={shelf.couponIntegration}
           />
         </StoresHomeSectionShell>
       );

@@ -29,7 +29,6 @@ import {
   shouldResetBrowseListSortOnScopeChange,
 } from "@/lib/stores/browse-list-sort-scope";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/BrowseSubtopicCollapseSentinel";
 import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
@@ -65,6 +64,7 @@ import {
   resolveBrowseListQuerySub,
   resolveBrowseMatchedSubSlug,
 } from "@/lib/stores/browse-header-sub-selection";
+import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
 import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
 import { useBrowseSubAllCanonicalUrl } from "@/lib/stores/use-browse-sub-all-canonical-url";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
@@ -75,7 +75,10 @@ import {
 import { APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import {
+  resolveCanonicalPrimaryBySlug,
+  resolveTaxonomyIndustryLabel,
+} from "@/lib/stores/store-taxonomy-canonical";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
 import {
   getBrowseSubPendingNavServerSnapshot,
@@ -211,21 +214,12 @@ export function StoresBrowsePrimaryView({
     };
   }, [browseActive, browseDistanceCoordsEnabled]);
 
-  const primary = useMemo(() => {
-    if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
-    const pk = primarySlug.trim().toLowerCase();
-    const c = taxonomy.categories.find((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
-    if (!c) return null;
-    const fb = getBrowsePrimaryBySlug(primarySlug);
-    return {
-      id: c.id,
-      slug: c.slug,
-      nameKo: c.name,
-      sortOrder: c.sort_order,
-      symbol: fb?.symbol ?? "🏷️",
-    };
-  }, [primarySlug, taxonomy]);
+  const primary = useMemo(
+    () => resolveCanonicalPrimaryBySlug(taxonomy, primarySlug),
+    [primarySlug, taxonomy]
+  );
 
+  const primaries = useBrowsePrimaryIndustries();
   const subs = useBrowseSubIndustries(primarySlug);
 
   useBrowseSubAllCanonicalUrl(primarySlug, subs, { enabled: browseActive });
@@ -716,8 +710,8 @@ export function StoresBrowsePrimaryView({
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
   const otherPrimaries = useMemo(
-    () => listBrowsePrimaryIndustries().filter((p) => p.slug.toLowerCase() !== primarySlug.toLowerCase()),
-    [primarySlug]
+    () => primaries.filter((p) => p.slug.toLowerCase() !== primarySlug.toLowerCase()),
+    [primarySlug, primaries]
   );
 
   const browseListReady = !!primary;
@@ -762,13 +756,14 @@ export function StoresBrowsePrimaryView({
 
   const browseHeaderTitle = useMemo(() => {
     if (!primary) return "";
-    const override =
-      language === "ko"
-        ? browseScopePolicy?.displayTitleKo?.trim()
-        : browseScopePolicy?.displayTitleEn?.trim() || browseScopePolicy?.displayTitleKo?.trim();
-    if (override) return override;
-    return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
-  }, [primary, language, browseScopePolicy]);
+    // CUT 1 — taxonomy name only (not browse scope display_title_*)
+    return resolveTaxonomyIndustryLabel(
+      language,
+      primary.nameKo,
+      primary.name_en ?? primary.nameEn,
+      primary.slug
+    );
+  }, [primary, language]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -893,7 +888,12 @@ export function StoresBrowsePrimaryView({
                       className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
                     >
                       <span aria-hidden>{p.symbol}</span>
-                      {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo)}
+                      {resolveTaxonomyIndustryLabel(
+                        language,
+                        p.nameKo,
+                        p.name_en ?? p.nameEn,
+                        p.slug
+                      )}
                     </Link>
                   ))}
                 </div>

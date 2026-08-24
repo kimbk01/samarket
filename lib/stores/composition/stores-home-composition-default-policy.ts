@@ -19,8 +19,9 @@ import {
 const NOT_CONSUMED_INTERVAL = { consumed: false as const, reason: "NOT_CONSUMED" as const };
 
 /**
- * Frozen @ C1 — mirrors `composeStoresHomeFeed` + Hub/BelowFold presentation order.
- * `slot1Stores` max=null: all Discovery pool remainder after Slot0 (API order preserved).
+ * Frozen @ C1 / CUT 2 — mirrors `composeStoresHomeFeed` + Hub presentation order.
+ * `slot1Stores` / `slot6NearbyStores` disabled (main_stores removed; fast_arrival deferred).
+ * Remainder discoverability → `slot6RestStores` (rest_stores).
  */
 export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionSectionContract[] = [
   {
@@ -39,12 +40,12 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     surface: "home",
     slot: "slot1Stores",
     contentType: "store",
-    enabled: true,
+    enabled: false,
     order: 1,
     interval: NOT_CONSUMED_INTERVAL,
     max: null,
     titleAuthority: "none",
-    notes: "Primary vertical row; Discovery API order minus Slot0 stores.",
+    notes: "CUT 2 REMOVED — main_stores; always empty composition; rest_stores owns remainder.",
   },
   {
     surface: "home",
@@ -56,7 +57,7 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     max: STORES_HOME_POPULAR_SHELF_MAX,
     titleAuthority: "presentation_i18n",
     titleRef: "store_home_popular_stores_title",
-    notes: "Popular metric shelf; platform_popular when qualified.",
+    notes: "popular_menu — Popular metric shelf; platform_popular when qualified.",
   },
   {
     surface: "home",
@@ -80,7 +81,7 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     max: STORES_HOME_CAMPAIGN_SHELF_MAX,
     titleAuthority: "presentation_i18n",
     titleRef: "store_home_campaigns_title",
-    notes: "Input: store.discoveryCampaign from home-feed loader; campaign eligibility NOT editable here.",
+    notes: "editorial_promo — store.discoveryCampaign from home-feed; eligibility NOT editable here.",
   },
   {
     surface: "home",
@@ -92,7 +93,7 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     max: STORES_HOME_POPULAR_SHELF_MAX,
     titleAuthority: "presentation_i18n",
     titleRef: "store_badge_menu_discount",
-    notes: "delivery_fee_strike evidence filter.",
+    notes: "delivery_fee_benefit — delivery_fee_strike evidence filter.",
   },
   {
     surface: "home",
@@ -116,19 +117,19 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     max: STORES_HOME_SLOT5_FOOD_MAX,
     titleAuthority: "presentation_i18n",
     titleRef: "store_spot_recommended_title",
-    notes: "Composer max 8; Hub grid renders slice(0,4) — presentation cap, not composition reorder.",
+    notes: "recommended — stores.is_featured; Hub grid slice(0,4) presentation cap.",
   },
   {
     surface: "home",
     slot: "slot6NearbyStores",
     contentType: "store",
-    enabled: true,
+    enabled: false,
     order: 8,
     interval: NOT_CONSUMED_INTERVAL,
     max: STORES_HOME_NEARBY_MAX,
     titleAuthority: "presentation_i18n",
     titleRef: "store_neighborhood_more_title",
-    notes: "distanceKm sort within final-row exclude set — not Discovery home ranking reorder.",
+    notes: "CUT 2 DEFERRED fast_arrival — not TARGET v1 core section.",
   },
   {
     surface: "home",
@@ -140,7 +141,7 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     max: null,
     titleAuthority: "presentation_i18n",
     titleRef: "store_feed_stores_title",
-    notes: "Discovery pool remainder for final row; preserves API order.",
+    notes: "rest_stores — discovery pool remainder after slot0 + horizontal deprioritize.",
   },
   {
     surface: "home",
@@ -151,7 +152,7 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     interval: NOT_CONSUMED_INTERVAL,
     max: 5,
     titleAuthority: "campaign_field_copy",
-    notes: "Stores A — paid ad rail; enable via Admin composition policy.",
+    notes: "Stores A — paid ad rail; enable via Admin composition policy. CUT 4 surface = rest_stores.",
   },
   {
     surface: "home",
@@ -162,6 +163,6 @@ export const STORES_HOME_COMPOSITION_DEFAULT_POLICY: readonly StoresCompositionS
     interval: NOT_CONSUMED_INTERVAL,
     max: 5,
     titleAuthority: "campaign_field_copy",
-    notes: "Stores A — coupon rail; enable via Admin composition policy.",
+    notes: "Stores A — coupon rail; enable via Admin composition policy. CUT 6.",
   },
 ] as const;

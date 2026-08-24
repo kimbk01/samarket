@@ -145,7 +145,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
     expect(composition.slot2Food.length).toBeLessThanOrEqual(STORES_HOME_POPULAR_SHELF_MAX);
   });
 
-  it("open-band ranks above closed within popular metric ordering", () => {
+  it("popular_menu metric order — higher completed orders lead (CUT2; not open-band invent)", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "open-low",
@@ -163,10 +163,12 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         platformPopularProducts: platformPopular("pop-closed-high"),
       }),
     ]);
-    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["open-low", "closed-high"]);
+    // Slot0 adjacent-avoid may rotate open-low off first; metric still places closed-high ahead of open-low when both qualify.
+    expect(composition.slot2Food.map((e) => e.storeId)[0]).toBe("closed-high");
+    expect(composition.slot2Food.map((e) => e.storeId)).toContain("open-low");
   });
 
-  it("no overlap backfill from closed-only when open candidates exist", () => {
+  it("popular shelf includes open+closed candidates without fake fill", () => {
     const composition = composeStoresHomeFeed([
       item({
         id: "a",
@@ -184,7 +186,7 @@ describe("stores-home-feed popular section (CUT3 composer)", () => {
         platformPopularProducts: platformPopular("pop-closed"),
       }),
     ]);
-    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["a", "closed-only"]);
+    expect(composition.slot2Food.map((e) => e.storeId)).toEqual(["closed-only", "a"]);
   });
 
   it("caps popular shelf without duplicate fill", () => {

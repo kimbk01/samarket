@@ -38,14 +38,15 @@ export const STORES_HOME_CAMPAIGN_SHELF_MAX = 20;
 export const STORES_HOME_TOP_RATED_MIN_RATING = 4;
 export const STORES_HOME_TOP_RATED_MIN_REVIEWS = 3;
 
-/** horizontal shelf — Slot0/1 노출 store deprioritize (영구 제외 아님) */
-const HORIZONTAL_DEPRIORITIZE_ROLES: readonly StoresHomeExposureRole[] = [
-  "slot0_product",
-  "slot1_primary",
-];
+/** horizontal shelf — Slot0 노출 store deprioritize (영구 제외 아님). CUT2: slot1_primary retired. */
+const HORIZONTAL_DEPRIORITIZE_ROLES: readonly StoresHomeExposureRole[] = ["slot0_product"];
 
 export type StoresHomeFeedComposition = {
   slot0Food: StoresHomeFoodEntry[];
+  /**
+   * CUT 2 — always empty. Legacy main_stores / slot1Stores runtime authority removed.
+   * Remainder discoverability owns `slot6RestStores` (rest_stores).
+   */
   slot1Stores: StoreHomeFeedItem[];
   slot2Food: StoresHomeFoodEntry[];
   /** P1-C2 presentation shelf — between Slot2 and Slot3; not a slot renumber */
@@ -55,6 +56,7 @@ export type StoresHomeFeedComposition = {
   slot3Food: StoresHomeFoodEntry[];
   slot4Food: StoresHomeFoodEntry[];
   slot5Food: StoresHomeFoodEntry[];
+  /** CUT 2 — DEFERRED fast_arrival; still computed but customer shelf unavailable */
   slot6NearbyStores: StoreHomeFeedItem[];
   slot6RestStores: StoreHomeFeedItem[];
 };
@@ -64,6 +66,7 @@ function isOpenDeliverable(store: StoreHomeFeedItem): boolean {
 }
 
 function hasDeliveryFeeStrikeEvidence(store: StoreHomeFeedItem): boolean {
+  /** CUT 7 — DELIVERY_FEE_BENEFIT: fee evidence only (not editorial/coupon/paid). */
   const strike = store.deliveryFeeStrikePhp;
   return strike != null && Number.isFinite(Number(strike)) && Number(strike) > 0;
 }
@@ -319,10 +322,10 @@ function allocateNewStoreFoodShelf(
 
 
 /**
- * P1-D B2 — Period campaign presentation shelf.
- * Active campaign on store only. Product: owner representative.
+ * CUT 7 — HOME editorial_promo shelf (EDITORIAL_PROMOTION).
+ * Active store_discovery_campaigns on store only. Product: owner representative.
  * Order: end_at ASC → start_at DESC → campaign id ASC.
- * No popular/discount/featured copy on campaign cards.
+ * Strips fee/coupon decoration from editorial cards (domains stay separate).
  */
 function allocateCampaignFoodShelf(
   registry: StoresHomeExposureRegistry,
@@ -359,6 +362,7 @@ function allocateCampaignFoodShelf(
     out.push({
       ...base,
       menuAuthority: "owner_representative",
+      /** CUT 7 — editorial cards must not carry DELIVERY_FEE_BENEFIT evidence. */
       discountEvidence: null,
       deliveryFeeStrikePhp: null,
       campaignTitle: campaign.title,
@@ -387,13 +391,8 @@ function orderStoresByPopularMetric(stores: readonly StoreHomeFeedItem[]): Store
   return [...stores].sort((a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999));
 }
 
-function buildAdjacentAvoidIds(
-  registry: StoresHomeExposureRegistry,
-  slot1Stores: readonly StoreHomeFeedItem[]
-): string[] {
+function buildAdjacentAvoidIds(registry: StoresHomeExposureRegistry): string[] {
   const ids: string[] = [];
-  const lastPrimary = slot1Stores.at(-1)?.id;
-  if (lastPrimary) ids.push(lastPrimary);
   const lastHoriz = registry.lastHorizontalStoreId;
   if (lastHoriz) ids.push(lastHoriz);
   return ids;
@@ -414,14 +413,10 @@ export function composeStoresHomeFeed(
   const slot0Candidates = pool.filter(isOpenDeliverable);
   const slot0Food = allocateSlot0Food(registry, slot0Candidates, STORES_HOME_SLOT0_FOOD_MAX);
 
+  /** CUT 2 — main_stores / slot1Stores removed; do not register slot1_primary. */
   const slot1Stores: StoreHomeFeedItem[] = [];
-  for (const store of pool) {
-    if (registry.isInSlot0(store.id)) continue;
-    registry.registerStore(store.id, "slot1_primary");
-    slot1Stores.push(store);
-  }
 
-  const adjacentAvoid = buildAdjacentAvoidIds(registry, slot1Stores);
+  const adjacentAvoid = buildAdjacentAvoidIds(registry);
 
   const popularCandidates = pool.filter((s) => (s.completedOrderCount30d ?? 0) > 0);
   const popularOrdered = orderStoresByPopularMetric(popularCandidates);
@@ -445,7 +440,7 @@ export function composeStoresHomeFeed(
     registry,
     discountCandidates,
     STORES_HOME_POPULAR_SHELF_MAX,
-    buildAdjacentAvoidIds(registry, slot1Stores)
+    buildAdjacentAvoidIds(registry)
   );
 
   const ratingCandidates = pool.filter((s) => isTopRatedCandidate(s));
@@ -453,7 +448,7 @@ export function composeStoresHomeFeed(
     registry,
     ratingCandidates,
     STORES_HOME_TOP_RATED_SHELF_MAX,
-    buildAdjacentAvoidIds(registry, slot1Stores)
+    buildAdjacentAvoidIds(registry)
   );
 
   const featuredCandidates = pool.filter((s) => s.isFeatured);
@@ -461,26 +456,23 @@ export function composeStoresHomeFeed(
     registry,
     featuredCandidates,
     STORES_HOME_SLOT5_FOOD_MAX,
-    buildAdjacentAvoidIds(registry, slot1Stores)
+    buildAdjacentAvoidIds(registry)
   );
 
+  /**
+   * rest_stores / deferred nearby — deprioritize emphasized surfaces only.
+   * Purpose shelves may still share a store; remainder lowers already-shown stores.
+   */
   const finalRowExcludeRoles: readonly StoresHomeExposureRole[] = [
     "slot0_product",
-    "slot1_primary",
     "horizontal_discovery",
   ];
 
-  const nearbyCandidates = pool
-    .filter(
-      (s) => !registry.wasExposedInRoles(s.id, finalRowExcludeRoles) && s.distanceKm != null
-    )
-    .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999))
-    .slice(0, STORES_HOME_NEARBY_MAX);
+  /**
+   * CUT 2 — fast_arrival DEFERRED: do not allocate a customer nearby shelf that
+   * steals remainder stores from rest_stores. Keep empty for type/engine compat.
+   */
   const slot6NearbyStores: StoreHomeFeedItem[] = [];
-  for (const store of nearbyCandidates) {
-    registry.registerStore(store.id, "final_row");
-    slot6NearbyStores.push(store);
-  }
 
   const slot6RestStores: StoreHomeFeedItem[] = [];
   for (const store of pool) {

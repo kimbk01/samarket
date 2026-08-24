@@ -1,8 +1,11 @@
 /**
- * HOME shelf card — coupon/ad benefit resolution (organic order preserved).
+ * HOME shelf card — coupon benefit resolution (organic order preserved).
+ * CUT 6 — coupon_integration = couponBadgeAllowed (surface permission only).
+ * Campaign eligibility is resolved server-side before coupons enter homeInsertions maps.
  */
 
 import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
+import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type {
   StoresHomeShelfAdIntegration,
   StoresHomeShelfCouponIntegration,
@@ -29,16 +32,53 @@ export type StoresHomeInsertionBenefitMaps = {
 export function buildHomeInsertionBenefitMaps(
   insertions: StoresHomeInsertionMeta | undefined
 ): StoresHomeInsertionBenefitMaps {
+  /**
+   * CUT 4 — STORE_PAID_AD is rest_stores list insertion, not purpose-shelf badge authority.
+   * Purpose shelves may still show coupon badges (CUT 6). Paid sponsored = restInsertion rows.
+   */
   const adsByStoreId = new Map<string, StoresHomeInsertionMeta["paidAds"][number]>();
   const couponsByStoreId = new Map<string, StoresHomeInsertionMeta["coupons"][number]>();
   if (!insertions) return { adsByStoreId, couponsByStoreId };
-  for (const ad of insertions.paidAds) {
-    if (!adsByStoreId.has(ad.storeId)) adsByStoreId.set(ad.storeId, ad);
-  }
   for (const coupon of insertions.coupons) {
     if (!couponsByStoreId.has(coupon.storeId)) couponsByStoreId.set(coupon.storeId, coupon);
   }
   return { adsByStoreId, couponsByStoreId };
+}
+
+/** Rest_stores sponsored lookup from CUT 4 restInsertion (not campaign re-calc). */
+export function buildHomeRestSponsoredStoreIds(
+  insertions: StoresHomeInsertionMeta | undefined
+): ReadonlySet<string> {
+  return new Set(insertions?.restInsertion?.sponsoredStoreIds ?? []);
+}
+
+export function orderHomeRestStoresForPaidInsertion(
+  stores: readonly StoreHomeFeedItem[],
+  insertions: StoresHomeInsertionMeta | undefined
+): Array<{ store: StoreHomeFeedItem; isSponsored: boolean; campaignId?: string }> {
+  const byId = new Map(stores.map((s) => [s.id, s]));
+  const rows = insertions?.restInsertion?.rows;
+  if (!rows?.length) {
+    return stores.map((store) => ({ store, isSponsored: false }));
+  }
+  const out: Array<{ store: StoreHomeFeedItem; isSponsored: boolean; campaignId?: string }> = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const store = byId.get(row.storeId);
+    if (!store || seen.has(row.storeId)) continue;
+    seen.add(row.storeId);
+    if (row.kind === "paid_ad") {
+      out.push({ store, isSponsored: true, campaignId: row.campaignId });
+    } else {
+      out.push({ store, isSponsored: false });
+    }
+  }
+  /** Ads OFF / partial plan — append any organic remainder in original order. */
+  for (const store of stores) {
+    if (seen.has(store.id)) continue;
+    out.push({ store, isSponsored: false });
+  }
+  return out;
 }
 
 function couponDiscountLabel(coupon: StoresHomeInsertionMeta["coupons"][number]): string {

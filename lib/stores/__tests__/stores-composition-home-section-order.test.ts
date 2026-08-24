@@ -57,21 +57,23 @@ describe("stores-composition-home-section-order", () => {
   const stores = Array.from({ length: 24 }, (_, i) => feedItem(`s${i}`));
   const composition = composeStoresHomeFeed(stores);
 
-  it("default policy preserves canonical section sequence among visible slots", () => {
+  it("default policy preserves order_now before popular_menu among visible slots", () => {
     const policy = resolveDefaultCompositionPolicy("home");
     const ordered = resolveOrderedVisibleHomeCompositionSlots(policy, composition);
-    expect(ordered.indexOf("slot0Food")).toBeLessThan(ordered.indexOf("slot1Stores"));
+    expect(ordered.includes("slot1Stores")).toBe(false);
+    expect(ordered.indexOf("slot0Food")).toBeLessThan(ordered.indexOf("slot2Food"));
   });
 
-  it("swapped slot0/slot1 policy order places slot1Stores before slot0Food", () => {
+  it("swapped slot0/slot2 policy order places popular before order_now", () => {
     const policy = resolveDefaultCompositionPolicy("home").map((row) => {
-      if (row.slot === "slot0Food") return { ...row, order: 1 };
-      if (row.slot === "slot1Stores") return { ...row, order: 0 };
+      if (row.slot === "slot0Food") return { ...row, order: 2 };
+      if (row.slot === "slot2Food") return { ...row, order: 0 };
       return row;
     });
     const ordered = resolveOrderedVisibleHomeCompositionSlots(policy, composition);
-    expect(ordered[0]).toBe("slot1Stores");
-    expect(ordered[1]).toBe("slot0Food");
+    expect(ordered[0]).toBe("slot2Food");
+    expect(ordered.includes("slot0Food")).toBe(true);
+    expect(ordered.indexOf("slot2Food")).toBeLessThan(ordered.indexOf("slot0Food"));
   });
 
   it("disabled section is omitted without breaking others", () => {

@@ -83,8 +83,10 @@ describe("STORES_HOME_COMPOSITION_DEFAULT_POLICY — production parity (declarat
     STORES_HOME_COMPOSITION_DEFAULT_POLICY.map((row) => [row.slot, row])
   ) as Record<string, (typeof STORES_HOME_COMPOSITION_DEFAULT_POLICY)[number]>;
 
-  it("all HOME slots enabled with current composer caps", () => {
+  it("HOME purpose slots enabled; main_stores/fast_arrival disabled (CUT2)", () => {
+    expect(bySlot.slot0Food?.enabled).toBe(true);
     expect(bySlot.slot0Food?.max).toBe(STORES_HOME_SLOT0_FOOD_MAX);
+    expect(bySlot.slot1Stores?.enabled).toBe(false);
     expect(bySlot.slot1Stores?.max).toBeNull();
     expect(bySlot.slot2Food?.max).toBe(STORES_HOME_POPULAR_SHELF_MAX);
     expect(bySlot.newStoreFood?.max).toBe(STORES_HOME_NEW_STORE_SHELF_MAX);
@@ -92,7 +94,9 @@ describe("STORES_HOME_COMPOSITION_DEFAULT_POLICY — production parity (declarat
     expect(bySlot.slot3Food?.max).toBe(STORES_HOME_POPULAR_SHELF_MAX);
     expect(bySlot.slot4Food?.max).toBe(STORES_HOME_TOP_RATED_SHELF_MAX);
     expect(bySlot.slot5Food?.max).toBe(STORES_HOME_SLOT5_FOOD_MAX);
+    expect(bySlot.slot6NearbyStores?.enabled).toBe(false);
     expect(bySlot.slot6NearbyStores?.max).toBe(STORES_HOME_NEARBY_MAX);
+    expect(bySlot.slot6RestStores?.enabled).toBe(true);
     expect(bySlot.slot6RestStores?.max).toBeNull();
   });
 

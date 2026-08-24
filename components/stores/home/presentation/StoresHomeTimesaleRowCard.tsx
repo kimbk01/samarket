@@ -27,9 +27,11 @@ import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-f
 
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 import {
+  orderHomeRestStoresForPaidInsertion,
   resolveHomeShelfCardBenefit,
   type StoresHomeInsertionBenefitMaps,
 } from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import { resolveHomeShelfStoreImage } from "@/lib/stores/product/stores-home-shelf-image-resolve";
 import type { StoresHomeShelfImageSource } from "@/lib/stores/product/stores-home-shelf-product-config";
 import type {
@@ -288,6 +290,7 @@ export function StoresHomeTimesaleRowCardList({
   adIntegration = "off",
   badgeMode = "standard",
   benefitLineMode = "auto",
+  homeInsertions,
 }: {
   stores: StoreHomeFeedItem[];
   locale: AppLanguageCode;
@@ -299,6 +302,8 @@ export function StoresHomeTimesaleRowCardList({
   adIntegration?: StoresHomeShelfAdIntegration;
   badgeMode?: StoresHomeShelfBadgeMode;
   benefitLineMode?: StoresHomeShelfBenefitLineMode;
+  /** CUT 4 — rest_stores paid insertion order + sponsored flag */
+  homeInsertions?: StoresHomeInsertionMeta;
 }) {
   const emptyMaps: StoresHomeInsertionBenefitMaps = {
     adsByStoreId: new Map(),
@@ -313,21 +318,53 @@ export function StoresHomeTimesaleRowCardList({
     adHeadline: (h: string) => h,
   };
 
+  const ordered = orderHomeRestStoresForPaidInsertion(stores, homeInsertions);
+
   return (
     <ul className="space-y-0">
-      {stores.map((s) => {
-        const benefit = resolveHomeShelfCardBenefit({
+      {ordered.map(({ store: s, isSponsored, campaignId }) => {
+        const benefitBase = resolveHomeShelfCardBenefit({
           storeId: s.id,
           couponIntegration,
-          adIntegration,
-          badgeMode,
+          /** Surface permission only; sponsored comes from insertion row. */
+          adIntegration: isSponsored ? "sponsored_badge" : "off",
+          badgeMode: isSponsored ? "sponsored" : badgeMode,
           benefitLineMode,
-          maps,
+          maps: isSponsored
+            ? {
+                ...maps,
+                adsByStoreId: new Map([
+                  [
+                    s.id,
+                    {
+                      id: campaignId ?? `sponsored-${s.id}`,
+                      storeId: s.id,
+                      title: "",
+                      headline: "",
+                      bodyCopy: null,
+                      imageUrl: null,
+                      placement: "stores_home",
+                    },
+                  ],
+                ]),
+              }
+            : maps,
           labels,
         });
+        const benefit =
+          isSponsored && benefitBase
+            ? { ...benefitBase, sponsored: true }
+            : isSponsored
+              ? {
+                  imageBadgeLabel: labels.sponsored,
+                  imageBadgeClassName: "bg-amber-500/90 text-white",
+                  benefitLine: null,
+                  sponsored: true,
+                }
+              : benefitBase;
         return (
           <StoresHomeTimesaleRowCard
-            key={s.id}
+            key={isSponsored && campaignId ? `ad-${campaignId}` : s.id}
             store={s}
             locale={locale}
             registerListItem={registerListItem}

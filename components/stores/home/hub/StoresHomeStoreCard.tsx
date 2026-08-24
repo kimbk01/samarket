@@ -5,6 +5,12 @@ import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presenta
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
+import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
+import type {
+  StoresHomeInsertionBenefitMaps,
+} from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import type { StoresHomeShelfCouponIntegration } from "@/lib/stores/product/stores-home-shelf-product-catalog";
+import type { resolveHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 
 /** HOME store rows — A-VIS §3.1 timesale vertical (not CATEGORY card · not legacy menu strip). */
 export function StoresHomeStoreCardList({
@@ -12,11 +18,19 @@ export function StoresHomeStoreCardList({
   hydratedByStoreId: _hydratedByStoreId,
   getPhase: _getPhase,
   registerListItem,
+  homeInsertions,
+  benefitMaps,
+  benefitLabels,
+  couponIntegration = "off",
 }: {
   stores: StoreHomeFeedItem[];
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
+  homeInsertions?: StoresHomeInsertionMeta;
+  benefitMaps?: StoresHomeInsertionBenefitMaps;
+  benefitLabels?: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"];
+  couponIntegration?: StoresHomeShelfCouponIntegration;
 }) {
   const { language } = useI18n();
   return (
@@ -24,6 +38,10 @@ export function StoresHomeStoreCardList({
       stores={stores}
       locale={language}
       registerListItem={registerListItem}
+      homeInsertions={homeInsertions}
+      benefitMaps={benefitMaps}
+      benefitLabels={benefitLabels}
+      couponIntegration={couponIntegration}
     />
   );
 }

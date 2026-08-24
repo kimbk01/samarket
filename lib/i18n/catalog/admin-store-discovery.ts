@@ -1,10 +1,10 @@
 /** Admin store discovery + campaign writer UI copy */
 export const adminStoreDiscoveryMessages = {
   ko: {
-    admin_menu_store_discovery_control: "스토어 캠페인 관리",
-    admin_store_discovery_title: "스토어 캠페인 관리",
+    admin_menu_store_discovery_control: "기획 프로모션",
+    admin_store_discovery_title: "기획 프로모션",
     admin_store_discovery_desc:
-      "스토어 홈 노출 캠페인을 생성·수정·비활성화합니다. 아래 Discovery 정책·스냅샷·진단 영역은 조회 전용입니다.",
+      "플랫폼 기획·이벤트 노출(store_discovery_campaigns)만 관리합니다. 매장 광고·배너·쿠폰·배달비 혜택과 다릅니다.",
     admin_store_discovery_refresh: "새로고침",
     admin_store_discovery_read_only_badge: "조회 전용",
     admin_store_discovery_policy_title: "1. Discovery 정책 (조회 전용)",
@@ -81,10 +81,10 @@ export const adminStoreDiscoveryMessages = {
     admin_store_discovery_panel_review_link: "스토어 캠페인 관리 화면",
   },
   en: {
-    admin_menu_store_discovery_control: "Store campaigns",
-    admin_store_discovery_title: "Store campaign management",
+    admin_menu_store_discovery_control: "Editorial promotions",
+    admin_store_discovery_title: "Editorial promotions",
     admin_store_discovery_desc:
-      "Create, edit, and deactivate store home campaigns. Discovery policy, snapshot, and diagnostics sections below are view-only.",
+      "Manage platform editorial/event exposure (store_discovery_campaigns) only — not store ads, banners, coupons, or delivery-fee benefits.",
     admin_store_discovery_refresh: "Refresh",
     admin_store_discovery_read_only_badge: "View only",
     admin_store_discovery_policy_title: "1. Discovery policy (view only)",

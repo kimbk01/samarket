@@ -23,25 +23,15 @@ import {
   setStoresHomeCategoryChromeHandlers,
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
+import {
+  sortTaxonomyCategories,
+  sortTaxonomyTopicsForCategory,
+} from "@/lib/stores/store-taxonomy-canonical";
 import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const RESTAURANT_SLUG = "restaurant";
-
-function sortPrimariesRestaurantFirst<T extends { slug: string; sort_order?: number; sortOrder?: number }>(
-  rows: T[]
-): T[] {
-  const sorted = [...rows].sort(
-    (a, b) => (a.sort_order ?? a.sortOrder ?? 0) - (b.sort_order ?? b.sortOrder ?? 0)
-  );
-  const ri = sorted.findIndex((p) => p.slug === RESTAURANT_SLUG);
-  if (ri > 0) {
-    const [r] = sorted.splice(ri, 1);
-    sorted.unshift(r);
-  }
-  return sorted;
-}
 
 function resolveSubsForPrimary(
   taxonomy: StoresHomeTaxonomyState | null,
@@ -50,9 +40,7 @@ function resolveSubsForPrimary(
   if (!taxonomy || !primary) return [];
   const catId = String(primary.id ?? "").trim();
   if (!catId) return [];
-  return taxonomy.topics
-    .filter((topic) => topic.store_category_id === catId)
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  return sortTaxonomyTopicsForCategory(taxonomy.topics, catId);
 }
 
 /**
@@ -133,7 +121,7 @@ export function StoresHomeQuickCategories() {
 
   const primaries = useMemo(() => {
     if (!taxonomy) return [];
-    return sortPrimariesRestaurantFirst(taxonomy.categories);
+    return sortTaxonomyCategories(taxonomy.categories);
   }, [taxonomy]);
 
   const topics = taxonomy?.topics ?? [];

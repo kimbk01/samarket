@@ -32,6 +32,7 @@ import {
   BROWSE_STORE_ROW_SELECTED_COLUMNS,
   resolveBrowseFilteredSortedStoreRows,
   applyBrowseSubFilterContractToPrefetchedFilter,
+  applyNewAuthorityFastPrepSortToBrowseFilter,
   applyNewAuthorityRatingConfidenceToBrowseFilter,
   resolveBrowseFilteredStoreRows,
   type StoreBrowseRow,
@@ -332,7 +333,8 @@ async function finishFromPayload(
         ? String(bundle.taxonomySlice.resolvedTopicId)
         : null,
       wantsAllSubs: ctx.wantsAllSubs,
-      orphanBusinessTypes: bundle.taxonomySlice.primaryAliases ?? [],
+      /** CUT 3 — FK membership only; no business_type orphan expansion */
+      orphanBusinessTypes: [],
       page: ctx.page,
       limit: ctx.limit,
       exposureScope: buildStoreDiscoveryBrowseExposureScope({
@@ -363,6 +365,9 @@ async function finishFromPayload(
         conf.policy,
         conf.status
       );
+    }
+    if (ctx.sort === "fast") {
+      prefetchedFilter = applyNewAuthorityFastPrepSortToBrowseFilter(ctx, prefetchedFilter);
     }
   } else {
     logStoreDiscoveryAuthorityRuntime({

@@ -14,9 +14,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
-import { resolveStoreTopicLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import type { UserRegion } from "@/lib/regions/types";
-import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import {
@@ -89,11 +88,11 @@ function BrowseSubCategoryRail({
     >
       {subs.map((s, idx) => {
         const on = !!activeSub && activeSub === s.slug;
-        const label = resolveStoreTopicLabel(
+        const label = resolveTaxonomyIndustryLabel(
           language,
-          s.slug,
           String(s.nameKo ?? "").trim(),
           s.name_en,
+          s.slug
         );
         const uploaded = storeTaxonomyUploadedImageUrl(s.imageUrl);
         const iconSrc = resolveStoreTaxonomyImageSrc(uploaded, null);
@@ -208,7 +207,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   );
 
   const primaryReady = useMemo(() => {
-    if (!taxonomy?.categories.length) return !!getBrowsePrimaryBySlug(primarySlug);
+    if (!taxonomy?.categories.length) return false;
     const pk = primarySlug.trim().toLowerCase();
     return taxonomy.categories.some((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
   }, [primarySlug, taxonomy]);

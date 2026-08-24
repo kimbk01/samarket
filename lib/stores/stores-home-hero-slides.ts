@@ -1,3 +1,10 @@
+/**
+ * @deprecated CUT 5 — REMOVED as runtime Hero authority.
+ * Canonical BANNER_AD = `store_banner_ad_campaigns` via
+ * `lib/stores/store-banner-ad-exposure.ts` + `/api/stores/home-hero-banners`.
+ * Do not import for customer HOME Hero. Kept only so tests can assert removal.
+ */
+
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -10,7 +17,7 @@ export type StoresHomeHeroSlide = {
   bg: string;
 };
 
-/** `StoresHomeHeroBanner` 와 동일 — SSR 첫 슬라이드(index 0) */
+/** @deprecated Static dual authority — not consumed by StoresHomeHeroBanner after CUT 5. */
 export const STORES_HOME_HERO_SLIDES: StoresHomeHeroSlide[] = [
   {
     id: "browse-food",

@@ -1,3 +1,9 @@
+/**
+ * CUT 7 — BROWSE delivery-fee benefit decoration line (NOT editorial promotion).
+ * Authority: commerce fee extras / deliveryFeeStrikePhp evidence only.
+ * Does not read store_discovery_campaigns / paid / coupon / banner.
+ */
+
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -12,10 +18,11 @@ import {
 } from "@/lib/stores/store-commerce-extras";
 
 /**
- * CATEGORY promo bar copy — only when DIBAY commerce/fee authority proves a promotion.
- * Never synthesize Baemin-style instant discount without real data.
+ * CATEGORY fee-benefit bar copy — only when DIBAY fee authority proves a benefit.
+ * Never synthesize discount without real fee evidence.
+ * Never sourced from EDITORIAL_PROMOTION / COUPON / PAID / BANNER.
  */
-export function buildBrowseCategoryPromoLine(
+export function buildBrowseDeliveryFeeBenefitLine(
   lang: AppLanguageCode,
   commerce: BrowseStoreCommerceSnapshot | null,
   rowLabels: BrowseStoreRowLabels | null,
@@ -44,3 +51,8 @@ export function buildBrowseCategoryPromoLine(
 
   return null;
 }
+
+/**
+ * @deprecated CUT 7 — name implied editorial "promo"; use buildBrowseDeliveryFeeBenefitLine.
+ */
+export const buildBrowseCategoryPromoLine = buildBrowseDeliveryFeeBenefitLine;

@@ -71,7 +71,11 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     composerSlot: "slot1Stores",
     defaultTitleKo: "매장",
     defaultTitleEn: "Stores",
-    availability: "available",
+    availability: "unavailable",
+    unavailableReasonKo:
+      "CUT 2 — main_stores 런타임 제거. 나머지는 rest_stores 책임으로 수렴합니다.",
+    unavailableReasonEn:
+      "CUT 2 — main_stores runtime removed. Remainder discoverability owns rest_stores.",
     defaultPresentation: "timesale_vertical",
     defaultMax: null,
     defaultOrder: 1,
@@ -83,10 +87,10 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     }),
     supportsCouponIntegration: true,
     supportsAdIntegration: true,
-    dataAuthorityNote: "Discovery API order minus Slot0 stores",
+    dataAuthorityNote: "REMOVED CUT2 — composer keeps empty slot1Stores; no customer authority",
   },
   {
-    shelfId: "popular",
+    shelfId: "popular_menu",
     composerSlot: "slot2Food",
     defaultTitleKo: "많이 주문하는 맛집",
     defaultTitleEn: "Most ordered restaurants",
@@ -106,7 +110,7 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     dataAuthorityNote: "completedOrderCount30d > 0 · sortStoreDiscoveryPopularRows",
   },
   {
-    shelfId: "delivery_fee_discount",
+    shelfId: "delivery_fee_benefit",
     composerSlot: "slot3Food",
     defaultTitleKo: "배달팁 할인",
     defaultTitleEn: "Delivery fee discount",
@@ -155,7 +159,11 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     defaultTitleEn: "Arrives fast",
     defaultSubtitleKo: "가까운 매장부터 보여 드려요",
     defaultSubtitleEn: "Sorted by distance",
-    availability: "available",
+    availability: "unavailable",
+    unavailableReasonKo:
+      "CUT 2 — TARGET v1 코어 섹션이 아닙니다 (DEFERRED). 후속 복구 가능.",
+    unavailableReasonEn:
+      "CUT 2 — not a TARGET v1 core section (DEFERRED). Recoverable later.",
     defaultPresentation: "timesale_vertical",
     defaultMax: 24,
     defaultOrder: 8,
@@ -167,7 +175,7 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     }),
     supportsCouponIntegration: true,
     supportsAdIntegration: true,
-    dataAuthorityNote: "distanceKm ASC within final-row exclude set",
+    dataAuthorityNote: "DEFERRED CUT2 — composer may still fill nearby; customer authority off",
   },
   {
     shelfId: "new_store",
@@ -190,7 +198,7 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     dataAuthorityNote: "firstListedAt new-store signal · firstListedAt DESC",
   },
   {
-    shelfId: "promo_campaign",
+    shelfId: "editorial_promo",
     composerSlot: "campaignFood",
     defaultTitleKo: "할인/프로모션",
     defaultTitleEn: "Discounts & promos",
@@ -207,7 +215,7 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     }),
     supportsCouponIntegration: true,
     supportsAdIntegration: true,
-    dataAuthorityNote: "store.discoveryCampaign active (W Campaign backend)",
+    dataAuthorityNote: "store.discoveryCampaign active (store_discovery_campaigns event|promo)",
   },
   {
     shelfId: "recommended",
@@ -226,7 +234,7 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     }),
     supportsCouponIntegration: true,
     supportsAdIntegration: true,
-    dataAuthorityNote: "isFeatured filter",
+    dataAuthorityNote: "stores.is_featured = true (HOME membership; not product.is_featured)",
   },
   {
     shelfId: "rest_stores",
@@ -245,7 +253,8 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
     }),
     supportsCouponIntegration: true,
     supportsAdIntegration: true,
-    dataAuthorityNote: "Discovery pool remainder · API order preserved",
+    dataAuthorityNote:
+      "HOME discovery pool remainder — deprioritize slot0 + horizontal_discovery (not permanent exclusion)",
   },
   {
     shelfId: "praise_reviews",
@@ -296,29 +305,60 @@ export const STORES_HOME_SHELF_PRODUCT_CATALOG: readonly StoresHomeShelfProductD
 
 export type StoresHomeShelfId = (typeof STORES_HOME_SHELF_PRODUCT_CATALOG)[number]["shelfId"];
 
+/**
+ * CUT 2 — legacy shelf_id / Admin DB keys → canonical catalog shelfId.
+ * Runtime authority is canonical only; aliases resolve overrides only.
+ */
+export const STORES_HOME_SHELF_ID_LEGACY_ALIASES: Readonly<Record<string, StoresHomeShelfId>> = {
+  popular: "popular_menu",
+  promo_campaign: "editorial_promo",
+  delivery_fee_discount: "delivery_fee_benefit",
+  /** Historical main_stores CMS rows apply to rest_stores remainder surface. */
+  main_stores: "rest_stores",
+};
+
+export function canonicalizeHomeShelfId(shelfId: string): string {
+  const trimmed = shelfId.trim();
+  return STORES_HOME_SHELF_ID_LEGACY_ALIASES[trimmed] ?? trimmed;
+}
+
 const BY_SHELF_ID = new Map(
   STORES_HOME_SHELF_PRODUCT_CATALOG.map((s) => [s.shelfId, s] as const)
 );
 
+/** Customer-visible runtime slot → shelf (excludes unavailable). */
 const BY_COMPOSER_SLOT = new Map(
+  STORES_HOME_SHELF_PRODUCT_CATALOG.filter(
+    (s) => s.composerSlot != null && s.availability !== "unavailable"
+  ).map((s) => [s.composerSlot!, s] as const)
+);
+
+/** Includes unavailable (main_stores / fast_arrival) for presentation notes only. */
+const BY_COMPOSER_SLOT_INCLUDING_UNAVAILABLE = new Map(
   STORES_HOME_SHELF_PRODUCT_CATALOG.filter((s) => s.composerSlot != null).map(
     (s) => [s.composerSlot!, s] as const
   )
 );
 
 export function storesHomeShelfById(shelfId: string): StoresHomeShelfProductDefinition | undefined {
-  return BY_SHELF_ID.get(shelfId as StoresHomeShelfId);
+  const trimmed = shelfId.trim();
+  return (
+    BY_SHELF_ID.get(trimmed as StoresHomeShelfId) ??
+    BY_SHELF_ID.get(canonicalizeHomeShelfId(trimmed) as StoresHomeShelfId)
+  );
 }
 
 export function storesHomeShelfByComposerSlot(
   slot: StoresHomeCompositionSlotKey
 ): StoresHomeShelfProductDefinition | undefined {
-  return BY_COMPOSER_SLOT.get(slot);
+  return BY_COMPOSER_SLOT.get(slot) ?? BY_COMPOSER_SLOT_INCLUDING_UNAVAILABLE.get(slot);
 }
 
 /** Customer HOME — unavailable shelves never render */
 export function storesHomeCustomerVisibleShelves(): readonly StoresHomeShelfProductDefinition[] {
-  return STORES_HOME_SHELF_PRODUCT_CATALOG.filter((s) => s.availability !== "unavailable" && s.composerSlot);
+  return STORES_HOME_SHELF_PRODUCT_CATALOG.filter(
+    (s) => s.availability !== "unavailable" && s.composerSlot != null
+  );
 }
 
 export function composerSlotToShelfId(slot: StoresHomeCompositionSlotKey): string {
@@ -327,5 +367,6 @@ export function composerSlotToShelfId(slot: StoresHomeCompositionSlotKey): strin
 
 export function shelfIdToComposerSlot(shelfId: string): StoresHomeCompositionSlotKey | null {
   const def = storesHomeShelfById(shelfId);
-  return def?.composerSlot ?? null;
+  if (!def || def.availability === "unavailable") return null;
+  return def.composerSlot ?? null;
 }

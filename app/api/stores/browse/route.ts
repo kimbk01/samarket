@@ -19,12 +19,14 @@ import {
   peekStoresBrowseCache,
   setStoresBrowseCache,
 } from "@/lib/stores/stores-browse-response-cache";
+import { attachStoresBrowseInsertionMeta } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import {
   BROWSE_STORE_LIMIT,
   logBrowseRoutePerf,
   type StoresBrowseRequestContext,
+  type StoresBrowseResponseBody,
 } from "@/lib/stores/stores-browse-build";
 import { parseStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
 import {
@@ -166,6 +168,19 @@ export async function GET(req: Request) {
       const cachedCount = Array.isArray((cachedBrowse as { stores?: unknown }).stores)
         ? (cachedBrowse as { stores: unknown[] }).stores.length
         : 0;
+      /**
+       * CUT 9 — memory cache may hold organic snapshot while paid/coupon insertion
+       * changes. Re-attach live insertion + scope surface so Admin→customer stays fresh.
+       */
+      let bodyOut = cachedBrowse as StoresBrowseResponseBody;
+      try {
+        bodyOut = await attachStoresBrowseInsertionMeta(supabase, bodyOut, {
+          primarySlug: primary,
+          subSlug: wantsAllSubs ? null : sub,
+        });
+      } catch (e) {
+        console.error("[stores/browse] cache-hit insertion refresh", e);
+      }
       logBrowseRoutePerf({
         tRoute0,
         cacheKey: browseCacheKey,
@@ -176,7 +191,7 @@ export async function GET(req: Request) {
         transformMs: 0,
         resultCount: cachedCount,
       });
-      return NextResponse.json(cachedBrowse, {
+      return NextResponse.json(bodyOut, {
         headers: browseJsonHeaders({
           tRoute0,
           cache_hit: 1,

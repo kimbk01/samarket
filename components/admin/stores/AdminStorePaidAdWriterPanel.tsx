@@ -16,6 +16,13 @@ export type AdminStorePaidAdRow = {
   end_at: string;
   is_active: boolean;
   computed_state: "active" | "upcoming" | "expired" | "inactive";
+  exposure?: {
+    actualExposureEligible: boolean;
+    blockingReasons: string[];
+    factors: Record<string, boolean>;
+    surfaceAllowed: boolean;
+    placement: string;
+  };
 };
 
 type PaidAdFormState = {
@@ -379,6 +386,12 @@ export function AdminStorePaidAdWriterPanel({
                 <th className="px-2 py-1 font-medium">
                   {t("admin_store_insertions_paid_ads_col_state")}
                 </th>
+                <th className="px-2 py-1 font-medium">
+                  {t("admin_store_paid_ads_exposure")}
+                </th>
+                <th className="px-2 py-1 font-medium">
+                  {t("admin_store_paid_ads_blocking")}
+                </th>
                 <th className="px-2 py-1 font-medium" />
               </tr>
             </thead>
@@ -396,6 +409,14 @@ export function AdminStorePaidAdWriterPanel({
                     <td className="whitespace-nowrap px-2 py-1.5">{c.end_at}</td>
                     <td className="px-2 py-1.5">{c.is_active ? "true" : "false"}</td>
                     <td className="px-2 py-1.5">{stateLabel(c.computed_state)}</td>
+                    <td className="px-2 py-1.5">
+                      {c.exposure?.actualExposureEligible
+                        ? t("admin_store_paid_ads_exposure_eligible")
+                        : t("admin_store_paid_ads_exposure_blocked")}
+                    </td>
+                    <td className="px-2 py-1.5 text-[10px] text-sam-muted">
+                      {(c.exposure?.blockingReasons ?? []).join(", ") || "—"}
+                    </td>
                     <td className="whitespace-nowrap px-2 py-1.5">
                       <div className="flex flex-wrap gap-1">
                         <button

@@ -36,7 +36,7 @@ type SecondaryRow = {
   resolved: StoresBrowseScopePolicyResolved;
 };
 
-type CatTab = "basic" | "card" | "ad" | "coupon" | "exposure" | "hours";
+type CatTab = "basic" | "ad" | "coupon" | "exposure" | "hours";
 type TierFocus = "primary" | "secondary";
 type ScheduleMode = "always" | "scheduled";
 
@@ -83,9 +83,8 @@ type PolicyWriteRow = {
 
 const CAT_TABS: Array<{ id: CatTab; labelKo: string; labelEn: string }> = [
   { id: "basic", labelKo: "기본", labelEn: "Basic" },
-  { id: "card", labelKo: "카드", labelEn: "Card" },
-  { id: "ad", labelKo: "광고", labelEn: "Ads" },
-  { id: "coupon", labelKo: "쿠폰", labelEn: "Coupons" },
+  { id: "ad", labelKo: "매장 광고 허용", labelEn: "Allow store ads" },
+  { id: "coupon", labelKo: "쿠폰 배지 허용", labelEn: "Allow coupon badges" },
   { id: "exposure", labelKo: "노출", labelEn: "Exposure" },
   { id: "hours", labelKo: "시간", labelEn: "Hours" },
 ];
@@ -685,36 +684,17 @@ export function AdminStoresCategoryPolicyPage() {
             </div>
           </Panel>
         );
-      case "card":
-        return (
-          <Panel
-            title={label(ko, "카드 anatomy", "Card anatomy")}
-            desc={label(
-              ko,
-              "고객 browse는 StoreBrowseCategoryRowCard 단일 anatomy(메뉴 밴드 → 혜택 → 신원 → 메타 → 뱃지)를 유지합니다. 별도 cardType 분기는 없습니다.",
-              "Customer browse keeps a single StoreBrowseCategoryRowCard anatomy (menu band → benefit → identity → meta → badges). No separate cardType branch."
-            )}
-          >
-            <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-3 text-[12px] text-sam-fg">
-              {label(
-                ko,
-                "쿠폰/광고는 동일 매장 카드에 badge·benefit line·Sponsored로 결합됩니다. presentationMode는 card_benefit_integrated로 저장됩니다.",
-                "Coupons/ads bind onto the same store card as badge, benefit line, and Sponsored. Saves presentationMode as card_benefit_integrated."
-              )}
-            </p>
-          </Panel>
-        );
       case "ad":
         return (
-          <Panel title={label(ko, "광고 설정", "Ad settings")}>
+          <Panel title={label(ko, "매장 광고 허용", "Allow store ads")}>
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
-                <p className="text-[13px] font-bold">{label(ko, "광고 표시", "Show ads")}</p>
-                <p className="text-[11px] text-sam-muted">{label(ko, "카테고리 카드 사이에 스폰서드 슬롯을 허용합니다.", "Allow sponsored slots between category cards.")}</p>
+                <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 매장 광고 허용", "Allow store ads in this category")}</p>
+                <p className="text-[11px] text-sam-muted">{label(ko, "캠페인 생성은 「매장 광고」메뉴에서 합니다. 여기는 표면 허용만 설정합니다.", "Create campaigns under Store ads. This toggles surface permission only.")}</p>
               </div>
               <Toggle
                 checked={draftPrimary.adEnabled}
-                labelText={label(ko, "광고 표시", "Show ads")}
+                labelText={label(ko, "매장 광고 허용", "Allow store ads")}
                 onChange={(adEnabled) => setDraftPrimary({ ...draftPrimary, adEnabled })}
               />
             </div>
@@ -722,15 +702,15 @@ export function AdminStoresCategoryPolicyPage() {
         );
       case "coupon":
         return (
-          <Panel title={label(ko, "쿠폰 설정", "Coupon settings")}>
+          <Panel title={label(ko, "쿠폰 배지 허용", "Allow coupon badges")}>
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
-                <p className="text-[13px] font-bold">{label(ko, "쿠폰 카드 결합", "Coupon on cards")}</p>
-                <p className="text-[11px] text-sam-muted">{label(ko, "고객 카드에 쿠폰 배지를 함께 노출합니다.", "Show coupon badges on customer cards.")}</p>
+                <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 유효한 쿠폰 배지 표시 허용", "Allow valid coupon badges in this category")}</p>
+                <p className="text-[11px] text-sam-muted">{label(ko, "캠페인 생성은 「쿠폰」메뉴에서 합니다. 여기는 배지 표면 허용만 설정합니다.", "Create campaigns under Coupons. This toggles badge surface permission only.")}</p>
               </div>
               <Toggle
                 checked={draftPrimary.couponEnabled}
-                labelText={label(ko, "쿠폰 카드 결합", "Coupon on cards")}
+                labelText={label(ko, "쿠폰 배지 허용", "Allow coupon badges")}
                 onChange={(couponEnabled) => setDraftPrimary({ ...draftPrimary, couponEnabled })}
               />
             </div>

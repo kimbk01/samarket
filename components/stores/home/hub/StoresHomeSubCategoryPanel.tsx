@@ -5,10 +5,7 @@ import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomeCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
-import {
-  resolveStoreFoodSubtopicLabel,
-  resolveStoreTopicLabel,
-} from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import {
   deriveHomeSecondaryReveal,
@@ -35,8 +32,6 @@ import {
   STORES_HOME_SUB_CATEGORY_SLIDE_STAGE,
 } from "@/lib/stores/stores-home-ui";
 
-const RESTAURANT_SLUG = "restaurant";
-
 function StoresHomeSubCategoryRail({
   primarySlug,
   subs,
@@ -61,19 +56,12 @@ function StoresHomeSubCategoryRail({
         const subSlug = String(s.slug ?? "").trim().toLowerCase();
         const uploaded = storeTaxonomyUploadedImageUrl(s.image_url);
         const src = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;
-        const label =
-          primarySlug === RESTAURANT_SLUG ?
-            resolveStoreFoodSubtopicLabel(
-              language,
-              subSlug,
-              String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim()
-            )
-          : resolveStoreTopicLabel(
-              language,
-              s.slug,
-              String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
-              (s as { name_en?: string | null }).name_en
-            );
+        const label = resolveTaxonomyIndustryLabel(
+          language,
+          String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
+          (s as { name_en?: string | null }).name_en,
+          subSlug
+        );
         const pressed = pressedSlug === s.slug;
         return (
           <Link

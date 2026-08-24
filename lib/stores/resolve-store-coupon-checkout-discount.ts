@@ -1,8 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  isStoreCouponCampaignActive,
   type StoreCouponCampaignRow,
 } from "@/lib/stores/store-coupon-campaign-authority";
+import {
+  computeStoreCouponDiscountPhp,
+  resolveStoreCouponEligibility,
+} from "@/lib/stores/store-coupon-eligibility";
 
 export type ResolveStoreCouponCheckoutInput = {
   sb: SupabaseClient;
@@ -62,16 +65,42 @@ function mapCouponRow(raw: Record<string, unknown>): StoreCouponCampaignRow | nu
   };
 }
 
-function computeDiscountPhp(campaign: StoreCouponCampaignRow, itemGrossPhp: number): number {
-  const gross = Math.max(0, Math.floor(itemGrossPhp));
-  if (gross <= 0) return 0;
-  if (campaign.discountType === "percent") {
-    const pct = Math.min(100, Math.max(0, campaign.discountValue));
-    return Math.min(gross, Math.floor((gross * pct) / 100));
+function mapEligibilityError(
+  campaign: StoreCouponCampaignRow,
+  state: ReturnType<typeof resolveStoreCouponEligibility>,
+  nowMs: number
+): ResolveStoreCouponCheckoutErr {
+  const reasons = new Set(state.blockingReasons);
+  if (reasons.has("storeMatched")) {
+    return { ok: false, error: "coupon_wrong_store", status: 400 };
   }
-  return Math.min(gross, Math.floor(campaign.discountValue));
+  if (reasons.has("campaignActive") && !campaign.isActive) {
+    return { ok: false, error: "coupon_inactive", status: 400 };
+  }
+  if (reasons.has("windowActive")) {
+    const endMs = Date.parse(campaign.endAt);
+    if (Number.isFinite(endMs) && endMs <= nowMs) {
+      return { ok: false, error: "coupon_expired", status: 400 };
+    }
+    return { ok: false, error: "coupon_inactive", status: 400 };
+  }
+  if (reasons.has("minOrderMet")) {
+    const minOrder =
+      campaign.minOrderAmount != null && Number.isFinite(campaign.minOrderAmount)
+        ? Math.floor(campaign.minOrderAmount)
+        : undefined;
+    return { ok: false, error: "coupon_min_order", status: 400, min_order_amount: minOrder };
+  }
+  if (reasons.has("notAlreadyRedeemed")) {
+    return { ok: false, error: "coupon_already_redeemed", status: 409 };
+  }
+  return { ok: false, error: "invalid_discount", status: 400 };
 }
 
+/**
+ * CUT 6 — checkout consumer of ONE eligibility authority + server discount.
+ * Session coupon id is not final authority — this revalidates against DB.
+ */
 export async function resolveStoreCouponCheckoutDiscount(
   input: ResolveStoreCouponCheckoutInput
 ): Promise<ResolveStoreCouponCheckoutResult> {
@@ -102,30 +131,6 @@ export async function resolveStoreCouponCheckoutDiscount(
     return { ok: false, error: "invalid_discount", status: 400 };
   }
 
-  if (campaign.storeId !== storeId) {
-    return { ok: false, error: "coupon_wrong_store", status: 400 };
-  }
-
-  if (!campaign.isActive) {
-    return { ok: false, error: "coupon_inactive", status: 400 };
-  }
-
-  const endMs = Date.parse(campaign.endAt);
-  if (!isStoreCouponCampaignActive(campaign, nowMs)) {
-    if (Number.isFinite(endMs) && endMs <= nowMs) {
-      return { ok: false, error: "coupon_expired", status: 400 };
-    }
-    return { ok: false, error: "coupon_inactive", status: 400 };
-  }
-
-  const minOrder =
-    campaign.minOrderAmount != null && Number.isFinite(campaign.minOrderAmount)
-      ? Math.floor(campaign.minOrderAmount)
-      : null;
-  if (minOrder != null && minOrder > 0 && itemGrossPhp < minOrder) {
-    return { ok: false, error: "coupon_min_order", status: 400, min_order_amount: minOrder };
-  }
-
   const { data: prior } = await input.sb
     .from("store_coupon_redemptions")
     .select("id")
@@ -133,11 +138,19 @@ export async function resolveStoreCouponCheckoutDiscount(
     .eq("campaign_id", campaignId)
     .maybeSingle();
 
-  if (prior?.id) {
-    return { ok: false, error: "coupon_already_redeemed", status: 409 };
+  const eligibility = resolveStoreCouponEligibility({
+    campaign,
+    nowMs,
+    expectedStoreId: storeId,
+    itemGrossPhp,
+    alreadyRedeemed: Boolean(prior?.id),
+  });
+
+  if (!eligibility.eligible) {
+    return mapEligibilityError(campaign, eligibility, nowMs);
   }
 
-  const discountAmount = computeDiscountPhp(campaign, itemGrossPhp);
+  const discountAmount = computeStoreCouponDiscountPhp(campaign, itemGrossPhp);
   if (discountAmount <= 0) {
     return { ok: false, error: "invalid_discount", status: 400 };
   }

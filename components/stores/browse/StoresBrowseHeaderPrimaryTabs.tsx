@@ -14,7 +14,7 @@ import {
   subscribeBrowsePrimaryTabPendingNav,
 } from "@/lib/stores/browse-primary-tab-navigation";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import {
   onBrowsePrimaryTaxonomyCommit,
   onBrowsePrimaryTaxonomyPointerDown,
@@ -113,11 +113,11 @@ export function StoresBrowseHeaderPrimaryTabs({
                   onMenuOpenChange(false);
                 }}
               >
-                {resolveStorePrimaryIndustryLabel(
+                {resolveTaxonomyIndustryLabel(
                   language,
-                  p.slug,
                   p.nameKo,
                   p.name_en ?? p.nameEn,
+                  p.slug
                 )}
               </Link>
             );

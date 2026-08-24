@@ -1,5 +1,6 @@
 /**
  * Stores A — attach browse insertion plan to API meta (organic order preserved).
+ * CUT 4 — exposure authority → then insertion (after organic).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -7,7 +8,6 @@ import type { StoresBrowseResponseBody } from "@/lib/stores/stores-browse-build"
 import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import { planStoresBrowseInsertions } from "@/lib/stores/composition/stores-composition-insertion-live";
 import {
-  loadActiveStoreCouponCampaigns,
   loadActiveStorePaidAdCampaigns,
 } from "@/lib/stores/load-store-insertion-campaigns";
 import {
@@ -20,6 +20,7 @@ import {
   resolveStoresBrowseScopeCustomerMeta,
   type StoresBrowseScopeCustomerMeta,
 } from "@/lib/stores/product/stores-browse-scope-customer-meta";
+import { selectExposureEligibleStorePaidAds } from "@/lib/stores/store-paid-ad-exposure";
 
 export type { StoresBrowseScopeCustomerMeta };
 
@@ -34,6 +35,7 @@ export type StoresBrowseInsertionMetaRow =
       bodyCopy: string | null;
       imageUrl: string | null;
       placement: string;
+      isSponsored: true;
     }
   | {
       kind: "coupon";
@@ -68,6 +70,7 @@ function scopePolicyToCompositionRows(
       surface: "browse",
       slot: "future_ad_insertion",
       contentType: "ad",
+      /** surfaceAllowsPaidAd only — campaign eligibility is exposure authority. */
       enabled: resolved.adEnabled && resolved.presentationMode !== "hidden",
       order: 1,
       interval,
@@ -78,7 +81,8 @@ function scopePolicyToCompositionRows(
       surface: "browse",
       slot: "future_coupon_insertion",
       contentType: "coupon",
-      enabled: resolved.couponEnabled && resolved.presentationMode !== "hidden",
+      /** CUT 8 — paid-style coupon rows removed; couponEnabled remains badge surface only. */
+      enabled: false,
       order: 2,
       interval,
       max: resolved.maxInsertion,
@@ -132,15 +136,28 @@ export async function attachStoresBrowseInsertionMeta(
   const policy = scope
     ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
     : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
-  const [paidAds, coupons] = await Promise.all([
+  const [paidAdsRaw] = await Promise.all([
     loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
-    loadActiveStoreCouponCampaigns(sb),
   ]);
+
+  const adPolicy = policy.find((r) => r.surface === "browse" && r.slot === "future_ad_insertion");
+  const surfaceAllowed = adPolicy?.enabled === true;
+  const taxonomyMatchedStoreIds = new Set(organicIds);
+  const exposure = selectExposureEligibleStorePaidAds({
+    campaigns: paidAdsRaw,
+    targetPlacement: "stores_browse",
+    surfaceAllowed,
+    taxonomyMatchedStoreIds,
+    storeEligibleById: null,
+  });
+
+  /** CUT 8 — no paid-style coupon insertion; badge uses browseScopePolicy.couponEnabled. */
   const plan = planStoresBrowseInsertions({
     organicStoreIds: organicIds,
-    paidAds,
-    coupons,
+    paidAds: exposure.eligible,
+    coupons: [],
     policy,
+    paidAdsEnabled: surfaceAllowed,
   });
 
   const rows: StoresBrowseInsertionMetaRow[] = plan.rows.map((row) => {
@@ -158,19 +175,11 @@ export async function attachStoresBrowseInsertionMeta(
         bodyCopy: p.bodyCopy,
         imageUrl: p.imageUrl,
         placement: p.placement,
+        isSponsored: true as const,
       };
     }
-    const c = row.payload;
-    return {
-      kind: "coupon",
-      campaignId: c.id,
-      storeId: c.storeId,
-      title: c.title,
-      discountType: c.discountType,
-      discountValue: c.discountValue,
-      minOrderAmount: c.minOrderAmount,
-      termsCopy: c.termsCopy,
-    };
+    /** Coupon insertion rows no longer produced. */
+    return { kind: "organic", storeId: row.storeId };
   });
 
   return {
@@ -183,6 +192,8 @@ export async function attachStoresBrowseInsertionMeta(
         rows,
         adCount: plan.adCount,
         couponCount: plan.couponCount,
+        sponsoredStoreIds: plan.sponsoredStoreIds,
+        surfaceAllowed,
       },
       ...(scopeMeta
         ? {

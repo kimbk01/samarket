@@ -16,8 +16,7 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
-import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import { useBrowseSubtopicCollapsed } from "@/lib/stores/use-browse-subtopic-collapsed";
 import {
   getBrowsePrimaryPendingNavServerSnapshot,
@@ -108,15 +107,13 @@ export function StoresBrowseHeaderChrome() {
     if (primarySlug) {
       const primaryFromSnapshot = primaries.find((p) => p.slug.toLowerCase() === primarySlug);
       if (primaryFromSnapshot) {
-        return resolveStorePrimaryIndustryLabel(
+        return resolveTaxonomyIndustryLabel(
           language,
-          primaryFromSnapshot.slug,
           primaryFromSnapshot.nameKo,
           primaryFromSnapshot.name_en ?? primaryFromSnapshot.nameEn,
+          primaryFromSnapshot.slug
         );
       }
-      const primary = getBrowsePrimaryBySlug(primarySlug);
-      if (primary) return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
       return primarySlug;
     }
     const fromExtras = extras?.tier1?.titleText?.trim();

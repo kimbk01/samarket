@@ -37,6 +37,7 @@ import {
 } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
+import { BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX } from "@/lib/stores/browse-organic-contract";
 import {
   logBrowsePerfSteps,
   logBrowsePerfStepsV2,
@@ -98,8 +99,12 @@ export type BannerMini = {
   end_at: string | null;
 };
 
-/** browse 목록 행 메뉴 미리보기 — `StoreDeliveryRowCard` slice(0,6) 와 맞춤 (2e668b9 계약, 상한 6) */
-export const BROWSE_FEATURED_ITEMS_MAX = 6;
+/**
+ * CUT 3 — BROWSE representative-product data contract max (=4).
+ * Selection owner: assembleStoresBrowseResponse (is_featured DESC → sort_order ASC).
+ * Presentation may show fewer; do not invent a second client selector.
+ */
+export const BROWSE_FEATURED_ITEMS_MAX = BROWSE_ORGANIC_REPRESENTATIVE_PRODUCTS_MAX;
 
 /** PostgREST 임베드가 객체 또는 단일행 배열로 올 수 있음 */
 export function embedOne(v: RelOne | RelOne[] | null | undefined): RelOne | null {
@@ -227,6 +232,8 @@ export type BrowseSubFilterContext = {
   primary: string;
   subRaw: string;
   wantsAllSubs: boolean;
+  /** CUT 3 — required for FK membership (store_categories.id). */
+  categoryId: string | null;
   primaryAliases: string[];
   topicList: { slug: string; name: string }[];
   resolvedTopicId: string | null;
@@ -258,43 +265,26 @@ export function browseOrphanMatchesChosenSub(
 }
 
 /**
- * CONTRACT: browse 2차 sub 필터 — RPC 후보와 TS assemble 이 동일 규칙.
- * - `wantsAllSubs`: 1차(category) 연결 매장 전부 + business_type 1차 일치 orphan
- * - 특정 sub: store_topic_id 일치, 또는 topic_id 비어 있을 때만 business_type legacy
- * - store_topic_id 가 다른 topic 을 가리키면 legacy 로 우회하지 않음 (undefined ≠ 전체 1차)
+ * CUT 3 CONTRACT — BROWSE category membership = taxonomy FKs only.
+ * - primary (`wantsAllSubs`): `store_category_id === categoryId`
+ * - secondary: `store_category_id === categoryId` AND `store_topic_id === resolvedTopicId`
+ * DO NOT: business_type / name / slug inference (legacy helpers kept but not membership authority).
  */
 export function browseStoreRowMatchesSubFilter(
   row: BrowseSubFilterRow,
   ctx: BrowseSubFilterContext,
-  topicNameToSlug?: Map<string, string>,
+  _topicNameToSlug?: Map<string, string>,
 ): boolean {
-  const nameToSlug = topicNameToSlug ?? buildBrowseTopicNameToSlugMap(ctx.topicList);
-  const orphanOpts = {
-    wantsAllSubs: ctx.wantsAllSubs,
-    subRaw: ctx.subRaw,
-    topicNameToSlug: nameToSlug,
-  };
+  const categoryId = String(ctx.categoryId ?? "").trim();
+  if (!categoryId) return false;
+  const rowCat = String(row.store_category_id ?? "").trim();
+  if (!rowCat || rowCat !== categoryId) return false;
 
-  if (ctx.wantsAllSubs) {
-    if (row.store_category_id) return true;
-    return parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases) != null;
-  }
+  if (ctx.wantsAllSubs) return true;
 
-  if (row.store_category_id) {
-    if (
-      row.store_topic_id &&
-      ctx.resolvedTopicId &&
-      row.store_topic_id === ctx.resolvedTopicId
-    ) {
-      return true;
-    }
-    if (row.store_topic_id) return false;
-    const legacy = parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases);
-    return browseOrphanMatchesChosenSub(legacy, orphanOpts);
-  }
-
-  const legacy = parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases);
-  return browseOrphanMatchesChosenSub(legacy, orphanOpts);
+  const topicId = String(ctx.resolvedTopicId ?? "").trim();
+  if (!topicId) return false;
+  return String(row.store_topic_id ?? "").trim() === topicId;
 }
 
 export function parseBizTypePrimarySub(
@@ -428,6 +418,8 @@ export type StoresBrowseResponseBody = {
       rows: unknown[];
       adCount: number;
       couponCount: number;
+      sponsoredStoreIds: string[];
+      surfaceAllowed: boolean;
     };
     /** CATEGORY operator CMS — primary/secondary scope (menu-centric, not HOME shelves). */
     browseScopePolicy?: {
@@ -546,7 +538,7 @@ function buildBrowseEligibilityRankMap(
   return rankById;
 }
 
-/** RPC/legacy 후보에서 sub·orphan 규칙으로 행만 추림 (정렬·거리 전) */
+/** RPC/legacy 후보에서 FK membership 으로 행만 추림 (정렬·거리 전) */
 export function resolveBrowseFilteredStoreRows(
   ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs">,
   taxonomySlice: BrowseTaxonomySlice,
@@ -556,6 +548,7 @@ export function resolveBrowseFilteredStoreRows(
     primary: ctx.primary,
     subRaw: ctx.subRaw,
     wantsAllSubs: ctx.wantsAllSubs,
+    categoryId: taxonomySlice.categoryId ? String(taxonomySlice.categoryId) : null,
     primaryAliases: taxonomySlice.primaryAliases,
     topicList: taxonomySlice.topicList,
     resolvedTopicId: taxonomySlice.resolvedTopicId,
@@ -639,6 +632,41 @@ export function applyNewAuthorityRatingConfidenceToBrowseFilter(
     ...filter,
     rows,
     ratingConfidenceStatus,
+  };
+}
+
+/**
+ * CUT 3 — NEW wave path sort=fast.
+ * Wave SQL has no prep minutes; after hydrate apply the same explicit-prep SSOT as OLD
+ * (`readExplicitStorePrepTimeMinutes` / fastPrepCmp). No new metric.
+ */
+export function applyNewAuthorityFastPrepSortToBrowseFilter(
+  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  filter: BrowseFilteredStoreRowsResult
+): BrowseFilteredStoreRowsResult {
+  if (ctx.sort !== "fast") return filter;
+
+  const outOfRangeById = filter.outOfRangeById ?? new Map<string, boolean>();
+  const eligibilityRankById = buildBrowseEligibilityRankMap(filter.rows, outOfRangeById);
+  const hasGeo =
+    ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
+  const explicitPrepMinutesById = new Map(
+    filter.rows.map((r) => [r.id, readExplicitStorePrepTimeMinutes(r.business_hours_json)] as const)
+  );
+
+  const rows = sortStoreDiscoveryBrowseRows(filter.rows, {
+    district: ctx.district,
+    sort: "fast",
+    eligibilityRankById,
+    distanceKmById: hasGeo ? filter.distById : null,
+    outOfRangeById: hasGeo ? outOfRangeById : null,
+    hasGeo,
+    explicitPrepMinutesById,
+  });
+
+  return {
+    ...filter,
+    rows,
   };
 }
 

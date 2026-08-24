@@ -179,14 +179,16 @@ describe("C6-C CAP — order preserved", () => {
     expect(preservesDiscoveryInputOrder(input, capped, (x) => x)).toBe(true);
   });
 
-  it("engine cap on slot1Stores preserves survivor order", () => {
+  it("engine cap on slot6RestStores preserves survivor order", () => {
     const stores = Array.from({ length: 8 }, (_, i) => feedItem(`s${i}`));
     const live = composeStoresHomeFeed(stores);
     const policy = resolveDefaultCompositionPolicy("home").map((r) =>
-      r.slot === "slot1Stores" ? { ...r, max: 2 } : r
+      r.slot === "slot6RestStores" ? { ...r, max: 2 } : r
     );
     const shadow = applyPolicyToHomeComposition(live, policy);
-    expect(shadow.slot1Stores.map((s) => s.id)).toEqual(live.slot1Stores.slice(0, 2).map((s) => s.id));
+    expect(shadow.slot6RestStores.map((s) => s.id)).toEqual(
+      live.slot6RestStores.slice(0, 2).map((s) => s.id)
+    );
   });
 });
 

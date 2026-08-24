@@ -8,7 +8,7 @@ import {
   STORE_BROWSE_SUB_CARD_LABEL,
 } from "@/components/stores/store-browse-category-ui";
 import { useRegionOptional } from "@/contexts/RegionContext";
-import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { resolveTaxonomyIndustryLabel } from "@/lib/stores/store-taxonomy-canonical";
 import {
   resolveBrowsePrimaryIndustryIcon,
   type BrowsePrimaryIndustryWithImage,
@@ -33,11 +33,11 @@ export function BrowsePrimaryIndustryMenuCard({
   const { language } = useI18n();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const icon = resolveBrowsePrimaryIndustryIcon(p);
-  const labelText = resolveStorePrimaryIndustryLabel(
+  const labelText = resolveTaxonomyIndustryLabel(
     language,
-    p.slug,
     p.nameKo,
     p.name_en ?? p.nameEn,
+    p.slug
   );
   const slug = p.slug.toLowerCase();
 

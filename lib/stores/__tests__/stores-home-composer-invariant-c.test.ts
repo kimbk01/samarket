@@ -253,14 +253,15 @@ describe("composeStoresHomeFeed — Invariant C product dedupe", () => {
     expect(storeOverlap.length).toBeGreaterThan(0);
   });
 
-  it("T7: Slot0 ∩ Slot1 store dedupe preserved", () => {
+  it("T7: Slot0 ∩ rest_stores store dedupe; slot1Stores empty (CUT2)", () => {
     const composition = composeStoresHomeFeed([
       item({ id: "a", status: "open", deliveryAvailable: true }),
       item({ id: "b", status: "closed" }),
       item({ id: "c", status: "closed" }),
     ]);
     const slot0Ids = new Set(composition.slot0Food.map((e) => e.storeId));
-    expect(composition.slot1Stores.every((s) => !slot0Ids.has(s.id))).toBe(true);
+    expect(composition.slot1Stores).toEqual([]);
+    expect(composition.slot6RestStores.every((s) => !slot0Ids.has(s.id))).toBe(true);
   });
 
   it("T8: food-card product uniqueness across HOME food shelves (dense smoke)", () => {
