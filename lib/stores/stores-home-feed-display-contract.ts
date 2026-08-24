@@ -17,8 +17,9 @@ export type StoresHomeFeedSectionKey =
  *
  * CUT 2 — `rest_stores` (`slot6RestStores`). Legacy `slot1Stores` / main_stores removed.
  *
+ * DO NOT: `open` exclude 만 두고 primary row 마운트를 빼거나 `StoresHomeDeferredViewport` 뒤로만 둔다.
  * DO NOT: treat empty remainder as feed failure when purpose shelves still show stores.
- * 검증: `stores-home-feed-display-contract.test.ts`
+ * 검증: `npm run verify:stores-home-hub-contract` · `stores-home-feed-display-contract.test.ts`
  */
 export function pickStoresHomePrimaryRowList(stores: StoreHomeFeedItem[]): StoreHomeFeedItem[] {
   return composeLiveHomeFeed(stores).slot6RestStores;
