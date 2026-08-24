@@ -171,9 +171,7 @@ async function loginAdmin(browser: Browser) {
   }
 
   const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    isMobile: true,
-    hasTouch: true,
+    viewport: { width: 1280, height: 900 },
   });
   await context.addCookies(cookies);
   const page = await context.newPage();
@@ -182,6 +180,7 @@ async function loginAdmin(browser: Browser) {
 
 type ShelfRow = {
   shelfId: string;
+  availability?: string;
   enabled: boolean;
   order: number;
   max: number | null;
@@ -194,6 +193,10 @@ type ShelfRow = {
   adIntegration: string;
   productConfig: Record<string, unknown>;
 };
+
+function editableShelves(rows: ShelfRow[]): ShelfRow[] {
+  return rows.filter((s) => s.availability !== "unavailable");
+}
 
 async function fetchHomeShelves(page: Page) {
   const res = await page.request.get(`${BASE}/api/admin/stores-home-shelves`);
@@ -259,12 +262,22 @@ async function organicBrowseIds(page: Page, primary: string, sub: string) {
   return (json.stores ?? []).map((s) => s.id);
 }
 
-async function clickAdminMenuPath(page: Page, label: RegExp, hrefContains: string) {
-  await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForTimeout(800);
-  const delivery = page.getByText(/배달|Delivery/i).first();
+async function clickAdminMenuPath(page: Page, parentLabel: RegExp, childLabel: RegExp, hrefContains: string) {
+  await page.goto(`${BASE}/admin/store-discovery`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForTimeout(1500);
+  const opsToggle = page.getByText(/^OPERATIONS$|^운영$/).first();
+  if (await opsToggle.isVisible().catch(() => false)) {
+    await opsToggle.click().catch(() => undefined);
+    await page.waitForTimeout(400);
+  }
+  const delivery = page.getByText(/^배달$|^Delivery$/).first();
   if (await delivery.isVisible().catch(() => false)) {
     await delivery.click({ timeout: 5000 }).catch(() => undefined);
+    await page.waitForTimeout(400);
+  }
+  const parent = page.getByText(parentLabel).first();
+  if (await parent.isVisible().catch(() => false)) {
+    await parent.click({ timeout: 5000 }).catch(() => undefined);
     await page.waitForTimeout(400);
   }
   const link = page.locator(`a[href*="${hrefContains}"]`).first();
@@ -273,7 +286,7 @@ async function clickAdminMenuPath(page: Page, label: RegExp, hrefContains: strin
     await page.waitForURL(new RegExp(hrefContains), { timeout: 20000 });
     return true;
   }
-  const byLabel = page.getByRole("link", { name: label }).first();
+  const byLabel = page.getByRole("link", { name: childLabel }).first();
   if (await byLabel.count()) {
     await byLabel.click();
     await page.waitForURL(new RegExp(hrefContains), { timeout: 20000 });
@@ -283,6 +296,7 @@ async function clickAdminMenuPath(page: Page, label: RegExp, hrefContains: strin
 }
 
 async function captureHomeDom(page: Page) {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${BASE}${STORES_PRODUCT_RECOVERY_QA.homePath}`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
@@ -351,8 +365,18 @@ async function main() {
     baselineRevision = Number(shelvesProbe.json.revision ?? 0);
     mark("HOME_BASELINE", "PASS", { revision: baselineRevision, count: baselineShelves.length });
 
-    const menuHome = await clickAdminMenuPath(page, /HOME/, "stores-home-shelves");
-    const menuCat = await clickAdminMenuPath(page, /카테고리|Category/, "stores-category-policy");
+    const menuHome = await clickAdminMenuPath(
+      page,
+      /HOME 관리|HOME management/,
+      /HOME 선반|HOME shelves/,
+      "stores-home-shelves"
+    );
+    const menuCat = await clickAdminMenuPath(
+      page,
+      /카테고리 관리|Category management/,
+      /1차 업종|Primary industries/,
+      "stores-category-policy"
+    );
     mark("ADMIN_MENU", menuHome && menuCat ? "PASS" : "FAIL", { menuHome, menuCat });
     if (!(menuHome && menuCat)) throw new Error("ADMIN_MENU");
 
@@ -362,7 +386,7 @@ async function main() {
     const promo = baselineShelves.find((s) => s.shelfId === "promo_campaign");
     if (!orderNow || !popular) throw new Error("missing_core_shelves");
 
-    const mutated = baselineShelves.map((s) => {
+    const mutated = editableShelves(baselineShelves).map((s) => {
       if (s.shelfId === "order_now") {
         return {
           ...s,
@@ -564,12 +588,13 @@ async function main() {
       after: organicAfter.slice(0, 8),
     });
 
-    // RESTORE HOME
+    // RESTORE HOME — editable shelves only (same as Admin SAVE)
     const cur = await fetchHomeShelves(page);
+    const restoreEditable = editableShelves(baselineShelves);
     const restoreHome = await putHomeShelves(
       page,
       Number(cur.json.revision ?? 0),
-      baselineShelves
+      restoreEditable
     );
     const restored = await fetchHomeShelves(page);
     const titleRestored =

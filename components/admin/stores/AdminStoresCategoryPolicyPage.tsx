@@ -1,19 +1,26 @@
 "use client";
 
-import Link from "next/link";
+/**
+ * 카테고리 관리 — 1차 선택 → 운영 설정 + 2차 inherit/override.
+ * 전 업종 정책 테이블 UX 금지.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { AdminCard } from "@/components/admin/AdminCard";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import type { StoresBrowseScopePolicyResolved, StoresBrowseScopePolicyRow } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import type {
+  StoresBrowseScopePolicyResolved,
+  StoresBrowseScopePolicyRow,
+} from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 
 type PrimaryRow = {
   primarySlug: string;
   nameKo: string;
   nameEn: string;
   scopeKey: string;
+  row: StoresBrowseScopePolicyRow | null;
   resolved: StoresBrowseScopePolicyResolved;
 };
 
@@ -26,25 +33,75 @@ type SecondaryRow = {
   resolved: StoresBrowseScopePolicyResolved;
 };
 
-type DraftPrimary = PrimaryRow & {
+type DraftPrimary = {
+  enabled: boolean;
   draftTitleKo: string;
   draftTitleEn: string;
-  draftMax: string;
-  draftInterval: string;
   adEnabled: boolean;
   couponEnabled: boolean;
-};
-
-type DraftSecondary = SecondaryRow & {
-  draftTitleKo: string;
-  adMode: "inherit" | "true" | "false";
-  couponMode: "inherit" | "true" | "false";
   draftMax: string;
   draftInterval: string;
 };
+
+type DraftSecondary = {
+  mode: "inherit" | "override";
+  enabled: boolean;
+  draftTitleKo: string;
+  adEnabled: boolean;
+  couponEnabled: boolean;
+  draftMax: string;
+  draftInterval: string;
+};
+
+function CategoryCardPreview({
+  title,
+  ad,
+  coupon,
+}: {
+  title: string;
+  ad: boolean;
+  coupon: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="rounded-ui-rect border border-sam-border bg-sam-app p-3"
+      data-admin-category-card-preview="true"
+    >
+      <div className="mb-2 grid grid-cols-4 gap-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="aspect-square rounded-[2.9px] bg-sam-surface-muted" />
+        ))}
+      </div>
+      {(ad || coupon) ?
+        <div
+          className={`mb-2 flex h-[31px] items-center gap-2 rounded px-2 text-[11px] font-semibold ${
+            ad ? "bg-signature/15 text-signature" : "bg-purple-100 text-purple-800"
+          }`}
+        >
+          {ad ? t("store_insertion_sponsored") : t("store_badge_coupon")}
+          <span className="font-normal text-sam-muted">· {t("admin_stores_category_preview_benefit")}</span>
+        </div>
+      : null}
+      <p className="text-[14px] font-semibold text-sam-fg">{title}</p>
+      <p className="mt-1 text-[12px] text-sam-muted">★ 4.8 (128) · 25–35분 · 배달비 ₱40</p>
+      <div className="mt-2 flex gap-1">
+        <span className="rounded bg-sam-success-soft px-1.5 py-0.5 text-[10px] font-semibold text-sam-success">
+          {t("store_open_now")}
+        </span>
+        {coupon ?
+          <span className="rounded bg-signature/15 px-1.5 py-0.5 text-[10px] font-semibold text-signature">
+            {t("store_badge_coupon")}
+          </span>
+        : null}
+      </div>
+    </div>
+  );
+}
 
 export function AdminStoresCategoryPolicyPage() {
   const { t, language } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const selectedPrimary = searchParams.get("primary")?.trim().toLowerCase() ?? "";
 
@@ -54,8 +111,11 @@ export function AdminStoresCategoryPolicyPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
-  const [primaries, setPrimaries] = useState<DraftPrimary[]>([]);
-  const [secondaries, setSecondaries] = useState<DraftSecondary[]>([]);
+  const [primaries, setPrimaries] = useState<PrimaryRow[]>([]);
+  const [secondaries, setSecondaries] = useState<SecondaryRow[]>([]);
+  const [draftPrimary, setDraftPrimary] = useState<DraftPrimary | null>(null);
+  const [draftSubs, setDraftSubs] = useState<Record<string, DraftSecondary>>({});
+  const [selectedSub, setSelectedSub] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,49 +142,40 @@ export function AdminStoresCategoryPolicyPage() {
         return;
       }
       setRevision(typeof json.revision === "number" ? json.revision : 0);
-      setPrimaries(
-        json.primaries.map((p) => ({
-          ...p,
-          draftTitleKo: p.resolved.displayTitleKo ?? p.nameKo,
-          draftTitleEn: p.resolved.displayTitleEn ?? p.nameEn,
-          draftMax: p.resolved.maxInsertion == null ? "" : String(p.resolved.maxInsertion),
-          draftInterval: String(p.resolved.intervalEveryN),
-          adEnabled: p.resolved.adEnabled,
-          couponEnabled: p.resolved.couponEnabled,
-        }))
-      );
-      setSecondaries(
-        (json.secondary ?? []).map((s) => {
-          const adRaw = s.row?.adEnabled;
-          const couponRaw = s.row?.couponEnabled;
-          const maxRaw = s.row?.maxInsertion;
-          const intervalRaw = s.row?.intervalEveryN;
-          return {
-            ...s,
-            draftTitleKo: s.resolved.displayTitleKo ?? s.nameKo,
-            adMode:
-              adRaw === "inherit" || adRaw == null ? "inherit" : adRaw === true ? "true" : "false",
-            couponMode:
-              couponRaw === "inherit" || couponRaw == null
-                ? "inherit"
-                : couponRaw === true
-                  ? "true"
-                  : "false",
-            draftMax:
-              maxRaw === "inherit" || maxRaw == null
-                ? ""
-                : maxRaw == null
-                  ? ""
-                  : String(maxRaw),
-            draftInterval:
-              intervalRaw === "inherit" || intervalRaw == null
-                ? ""
-                : intervalRaw == null
-                  ? ""
-                  : String(intervalRaw),
-          };
-        })
-      );
+      setPrimaries(json.primaries);
+      const secs = json.secondary ?? [];
+      setSecondaries(secs);
+
+      const primary = json.primaries.find((p) => p.primarySlug === selectedPrimary);
+      if (primary) {
+        setDraftPrimary({
+          enabled: primary.resolved.enabled,
+          draftTitleKo: primary.resolved.displayTitleKo ?? primary.nameKo,
+          draftTitleEn: primary.resolved.displayTitleEn ?? primary.nameEn,
+          adEnabled: primary.resolved.adEnabled,
+          couponEnabled: primary.resolved.couponEnabled,
+          draftMax: primary.resolved.maxInsertion == null ? "" : String(primary.resolved.maxInsertion),
+          draftInterval: String(primary.resolved.intervalEveryN),
+        });
+      } else {
+        setDraftPrimary(null);
+      }
+
+      const nextSubs: Record<string, DraftSecondary> = {};
+      for (const s of secs) {
+        const hasOverride = s.row != null;
+        nextSubs[s.subSlug] = {
+          mode: hasOverride ? "override" : "inherit",
+          enabled: s.resolved.enabled,
+          draftTitleKo: s.resolved.displayTitleKo ?? s.nameKo,
+          adEnabled: s.resolved.adEnabled,
+          couponEnabled: s.resolved.couponEnabled,
+          draftMax: s.resolved.maxInsertion == null ? "" : String(s.resolved.maxInsertion),
+          draftInterval: String(s.resolved.intervalEveryN),
+        };
+      }
+      setDraftSubs(nextSubs);
+      setSelectedSub((prev) => prev && nextSubs[prev] ? prev : secs[0]?.subSlug ?? null);
     } catch {
       setErr("load_fail");
     } finally {
@@ -136,28 +187,20 @@ export function AdminStoresCategoryPolicyPage() {
     void load();
   }, [load]);
 
-  const selectedPrimaryRow = useMemo(
-    () => primaries.find((p) => p.primarySlug === selectedPrimary),
+  const primaryMeta = useMemo(
+    () => primaries.find((p) => p.primarySlug === selectedPrimary) ?? null,
     [primaries, selectedPrimary]
   );
 
-  const updatePrimary = (slug: string, patch: Partial<DraftPrimary>) => {
-    setPrimaries((prev) => prev.map((p) => (p.primarySlug === slug ? { ...p, ...patch } : p)));
+  const selectPrimary = (slug: string) => {
+    router.replace(`/admin/stores-category-policy?primary=${encodeURIComponent(slug)}`);
   };
 
-  const updateSecondary = (subSlug: string, patch: Partial<DraftSecondary>) => {
-    setSecondaries((prev) => prev.map((s) => (s.subSlug === subSlug ? { ...s, ...patch } : s)));
-  };
-
-  const onSavePrimary = async (row: DraftPrimary) => {
+  const onSavePrimary = async () => {
+    if (!primaryMeta || !draftPrimary || revision == null) return;
     setSaving(true);
     setSaveMsg(null);
     setSaveErr(null);
-    if (revision == null) {
-      setSaveErr("save_fail");
-      setSaving(false);
-      return;
-    }
     try {
       const res = await fetch("/api/admin/stores-category-policy", {
         method: "PUT",
@@ -167,16 +210,16 @@ export function AdminStoresCategoryPolicyPage() {
           expectedRevision: revision,
           rows: [
             {
-              scopeKey: row.scopeKey,
-              primarySlug: row.primarySlug,
+              scopeKey: primaryMeta.scopeKey,
+              primarySlug: primaryMeta.primarySlug,
               subSlug: null,
-              enabled: true,
-              displayTitleKo: row.draftTitleKo,
-              displayTitleEn: row.draftTitleEn,
-              adEnabled: row.adEnabled ? "true" : "false",
-              couponEnabled: row.couponEnabled ? "true" : "false",
-              maxInsertion: row.draftMax.trim() === "" ? null : Number(row.draftMax),
-              intervalEveryN: Number(row.draftInterval) || 8,
+              enabled: draftPrimary.enabled,
+              displayTitleKo: draftPrimary.draftTitleKo,
+              displayTitleEn: draftPrimary.draftTitleEn,
+              adEnabled: draftPrimary.adEnabled ? "true" : "false",
+              couponEnabled: draftPrimary.couponEnabled ? "true" : "false",
+              maxInsertion: draftPrimary.draftMax.trim() === "" ? null : Number(draftPrimary.draftMax),
+              intervalEveryN: Number(draftPrimary.draftInterval) || 8,
               presentationMode: "card_benefit_integrated",
             },
           ],
@@ -197,38 +240,48 @@ export function AdminStoresCategoryPolicyPage() {
     }
   };
 
-  const onSaveSecondary = async (row: DraftSecondary) => {
-    if (!selectedPrimary) return;
+  const onSaveSecondary = async (subSlug: string) => {
+    const meta = secondaries.find((s) => s.subSlug === subSlug);
+    const draft = draftSubs[subSlug];
+    if (!meta || !draft || !primaryMeta || revision == null) return;
     setSaving(true);
     setSaveMsg(null);
     setSaveErr(null);
-    if (revision == null) {
-      setSaveErr("save_fail");
-      setSaving(false);
-      return;
-    }
     try {
+      const row =
+        draft.mode === "inherit"
+          ? {
+              scopeKey: meta.scopeKey,
+              primarySlug: primaryMeta.primarySlug,
+              subSlug: meta.subSlug,
+              enabled: true,
+              displayTitleKo: null,
+              displayTitleEn: null,
+              adEnabled: "inherit" as const,
+              couponEnabled: "inherit" as const,
+              maxInsertion: null,
+              intervalEveryN: null,
+              presentationMode: "inherit" as const,
+            }
+          : {
+              scopeKey: meta.scopeKey,
+              primarySlug: primaryMeta.primarySlug,
+              subSlug: meta.subSlug,
+              enabled: draft.enabled,
+              displayTitleKo: draft.draftTitleKo,
+              displayTitleEn: null,
+              adEnabled: draft.adEnabled ? ("true" as const) : ("false" as const),
+              couponEnabled: draft.couponEnabled ? ("true" as const) : ("false" as const),
+              maxInsertion: draft.draftMax.trim() === "" ? null : Number(draft.draftMax),
+              intervalEveryN: Number(draft.draftInterval) || 8,
+              presentationMode: "card_benefit_integrated" as const,
+            };
+
       const res = await fetch("/api/admin/stores-category-policy", {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedRevision: revision,
-          rows: [
-            {
-              scopeKey: row.scopeKey,
-              primarySlug: selectedPrimary,
-              subSlug: row.subSlug,
-              enabled: true,
-              displayTitleKo: row.draftTitleKo,
-              adEnabled: row.adMode,
-              couponEnabled: row.couponMode,
-              maxInsertion: row.draftMax.trim() === "" ? null : Number(row.draftMax),
-              intervalEveryN: row.draftInterval.trim() === "" ? null : Number(row.draftInterval),
-              presentationMode: "inherit",
-            },
-          ],
-        }),
+        body: JSON.stringify({ expectedRevision: revision, rows: [row] }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; revision?: number };
       if (!res.ok || !json.ok) {
@@ -245,240 +298,343 @@ export function AdminStoresCategoryPolicyPage() {
     }
   };
 
+  const selectedSubDraft = selectedSub ? draftSubs[selectedSub] : null;
+  const selectedSubMeta = secondaries.find((s) => s.subSlug === selectedSub) ?? null;
+
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_stores_category_primary_title" backHref="/admin/stores" />
-      <p className="text-[13px] text-sam-muted">{t("admin_stores_category_primary_desc")}</p>
+      <p className="text-[13px] text-sam-muted">{t("admin_stores_category_ops_desc")}</p>
 
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
           {t("admin_stores_category_reload")}
         </button>
       </div>
+      {saveMsg ? <p className="text-[13px] text-sam-success">{saveMsg}</p> : null}
+      {saveErr ?
+        <p className="text-[13px] text-red-700">
+          {saveErr === "stale_revision"
+            ? t("admin_stores_category_stale_revision")
+            : t("admin_stores_category_save_fail")}
+        </p>
+      : null}
+      {err ? <p className="text-[13px] text-red-700">{t("admin_stores_category_save_fail")} ({err})</p> : null}
 
-      <AdminCard titleKey="admin_stores_category_primary_title">
-        {loading ?
-          <p className="text-[13px] text-sam-muted">{t("admin_stores_home_shelves_loading")}</p>
-        : err ?
-          <p className="text-[13px] text-red-700">{t("admin_stores_category_save_fail")} ({err})</p>
-        : <>
-            {saveMsg ? <p className="mb-2 text-[13px] text-sam-success">{saveMsg}</p> : null}
-            {saveErr ?
-              <p className="mb-2 text-[13px] text-red-700">
-                {saveErr === "stale_revision"
-                  ? t("admin_stores_category_stale_revision")
-                  : t("admin_stores_category_save_fail")}
-              </p>
-            : null}
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-left text-[12px]">
-                <thead>
-                  <tr className="border-b border-sam-border text-sam-muted">
-                    <th className="px-2 py-2">{t("admin_stores_category_col_primary")}</th>
-                    <th className="px-2 py-2">{t("admin_stores_category_col_title")}</th>
-                    <th className="px-2 py-2">{t("admin_stores_category_col_ad")}</th>
-                    <th className="px-2 py-2">{t("admin_stores_category_col_coupon")}</th>
-                    <th className="px-2 py-2">{t("admin_stores_category_col_max")}</th>
-                    <th className="px-2 py-2">{t("admin_stores_category_col_interval")}</th>
-                    <th className="px-2 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {primaries.map((row) => (
-                    <tr key={row.primarySlug} className="border-b border-sam-border/60">
-                      <td className="px-2 py-2 font-medium">
-                        {language === "ko" ? row.nameKo : row.nameEn}
-                        <div className="text-[10px] text-sam-muted">{row.primarySlug}</div>
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          className="min-w-[8rem] rounded border border-sam-border px-1 py-0.5"
-                          value={row.draftTitleKo}
-                          onChange={(e) => updatePrimary(row.primarySlug, { draftTitleKo: e.target.value })}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="checkbox"
-                          checked={row.adEnabled}
-                          onChange={(e) => updatePrimary(row.primarySlug, { adEnabled: e.target.checked })}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="checkbox"
-                          checked={row.couponEnabled}
-                          onChange={(e) =>
-                            updatePrimary(row.primarySlug, { couponEnabled: e.target.checked })
-                          }
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={0}
-                          className="w-16 rounded border border-sam-border px-1 py-0.5"
-                          value={row.draftMax}
-                          onChange={(e) => updatePrimary(row.primarySlug, { draftMax: e.target.value })}
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <input
-                          type="number"
-                          min={2}
-                          className="w-16 rounded border border-sam-border px-1 py-0.5"
-                          value={row.draftInterval}
-                          onChange={(e) =>
-                            updatePrimary(row.primarySlug, { draftInterval: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td className="px-2 py-2">
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            className={Sam.btn.secondary}
-                            disabled={saving}
-                            onClick={() => void onSavePrimary(row)}
-                          >
-                            {t("admin_stores_category_save")}
-                          </button>
-                          <Link
-                            href={`/admin/stores-category-policy?primary=${encodeURIComponent(row.primarySlug)}`}
-                            className={`${Sam.btn.secondary} text-center`}
-                          >
-                            {t("admin_stores_category_manage_sub")}
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        }
-      </AdminCard>
+      {loading ?
+        <p className="text-[13px] text-sam-muted">{t("admin_stores_home_shelves_loading")}</p>
+      : (
+        <div className="grid gap-4 lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)]">
+          <aside className="rounded-ui-rect border border-sam-border bg-sam-surface p-2">
+            <p className="px-2 py-1.5 text-[11px] font-semibold text-sam-muted">
+              {t("admin_stores_category_col_primary")}
+            </p>
+            <ul className="space-y-1">
+              {primaries.map((p) => {
+                const active = p.primarySlug === selectedPrimary;
+                return (
+                  <li key={p.primarySlug}>
+                    <button
+                      type="button"
+                      onClick={() => selectPrimary(p.primarySlug)}
+                      className={`w-full rounded-ui-rect px-2 py-2 text-left text-[13px] font-medium ${
+                        active ? "bg-signature/10 text-signature" : "hover:bg-sam-surface-muted"
+                      }`}
+                    >
+                      {language === "ko" ? p.nameKo : p.nameEn}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
 
-      {selectedPrimary && selectedPrimaryRow ?
-        <AdminCard titleKey="admin_stores_category_secondary_title">
-          <p className="mb-3 text-[13px] text-sam-muted">
-            {t("admin_stores_category_secondary_desc")} — {selectedPrimaryRow.nameKo}
-          </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-left text-[12px]">
-              <thead>
-                <tr className="border-b border-sam-border text-sam-muted">
-                  <th className="px-2 py-2">{t("admin_stores_category_col_sub")}</th>
-                  <th className="px-2 py-2">{t("admin_stores_category_col_title")}</th>
-                  <th className="px-2 py-2">{t("admin_stores_category_col_ad")}</th>
-                  <th className="px-2 py-2">{t("admin_stores_category_col_coupon")}</th>
-                  <th className="px-2 py-2">{t("admin_stores_category_col_max")}</th>
-                  <th className="px-2 py-2">{t("admin_stores_category_col_interval")}</th>
-                  <th className="px-2 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {secondaries.map((row) => (
-                  <tr key={row.subSlug} className="border-b border-sam-border/60">
-                    <td className="px-2 py-2 font-medium">
-                      {language === "ko" ? row.nameKo : row.nameEn}
-                      <div className="text-[10px] text-sam-muted">{row.subSlug}</div>
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        className="min-w-[8rem] rounded border border-sam-border px-1 py-0.5"
-                        value={row.draftTitleKo}
-                        onChange={(e) => updateSecondary(row.subSlug, { draftTitleKo: e.target.value })}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <select
-                        className="rounded border border-sam-border px-1 py-0.5"
-                        value={row.adMode}
-                        onChange={(e) =>
-                          updateSecondary(row.subSlug, {
-                            adMode: e.target.value as DraftSecondary["adMode"],
-                          })
-                        }
-                      >
-                        <option value="inherit">{t("admin_stores_category_inherit")}</option>
-                        <option value="true">{t("admin_stores_category_override_on")}</option>
-                        <option value="false">{t("admin_stores_category_override_off")}</option>
-                      </select>
-                      {row.adMode === "inherit" ?
-                        <p className="mt-0.5 text-[10px] text-sam-muted">
-                          {t("admin_stores_category_scope_inherited")} → {row.resolved.adEnabled ? "ON" : "OFF"}
-                        </p>
-                      : (
-                        <p className="mt-0.5 text-[10px] font-medium text-signature">
-                          {t("admin_stores_category_scope_overridden")}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-2 py-2">
-                      <select
-                        className="rounded border border-sam-border px-1 py-0.5"
-                        value={row.couponMode}
-                        onChange={(e) =>
-                          updateSecondary(row.subSlug, {
-                            couponMode: e.target.value as DraftSecondary["couponMode"],
-                          })
-                        }
-                      >
-                        <option value="inherit">{t("admin_stores_category_inherit")}</option>
-                        <option value="true">{t("admin_stores_category_override_on")}</option>
-                        <option value="false">{t("admin_stores_category_override_off")}</option>
-                      </select>
-                      {row.couponMode === "inherit" ?
-                        <p className="mt-0.5 text-[10px] text-sam-muted">
-                          {t("admin_stores_category_scope_inherited")} → {row.resolved.couponEnabled ? "ON" : "OFF"}
-                        </p>
-                      : (
-                        <p className="mt-0.5 text-[10px] font-medium text-signature">
-                          {t("admin_stores_category_scope_overridden")}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder={t("admin_stores_category_inherit")}
-                        className="w-16 rounded border border-sam-border px-1 py-0.5"
-                        value={row.draftMax}
-                        onChange={(e) => updateSecondary(row.subSlug, { draftMax: e.target.value })}
-                      />
-                    </td>
-                    <td className="px-2 py-2">
-                      <input
-                        type="number"
-                        min={2}
-                        placeholder={t("admin_stores_category_inherit")}
-                        className="w-16 rounded border border-sam-border px-1 py-0.5"
-                        value={row.draftInterval}
-                        onChange={(e) =>
-                          updateSecondary(row.subSlug, { draftInterval: e.target.value })
-                        }
-                      />
-                    </td>
-                    <td className="px-2 py-2">
+          <section className="space-y-4">
+            {!selectedPrimary || !primaryMeta || !draftPrimary ?
+              <p className="text-[13px] text-sam-muted">{t("admin_stores_category_select_primary_hint")}</p>
+            : <>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-[15px] font-semibold text-sam-fg">
+                      {`${language === "ko" ? primaryMeta.nameKo : primaryMeta.nameEn} ${t("admin_stores_category_ops_primary_suffix")}`}
+                    </h2>
+                    <div className="flex gap-2">
                       <button
                         type="button"
                         className={Sam.btn.secondary}
                         disabled={saving}
-                        onClick={() => void onSaveSecondary(row)}
+                        onClick={() => void load()}
+                      >
+                        {t("admin_stores_category_cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        className={Sam.btn.primary}
+                        disabled={saving}
+                        onClick={() => void onSavePrimary()}
                       >
                         {t("admin_stores_category_save")}
                       </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </AdminCard>
-      : null}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="inline-flex items-center gap-2 text-[13px] sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        checked={draftPrimary.enabled}
+                        onChange={(e) => setDraftPrimary({ ...draftPrimary, enabled: e.target.checked })}
+                      />
+                      {t("admin_stores_category_col_enabled")}
+                    </label>
+                    <label className="block text-[12px] text-sam-muted sm:col-span-2">
+                      {t("admin_stores_category_col_title")}
+                      <input
+                        className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px] text-sam-fg"
+                        value={draftPrimary.draftTitleKo}
+                        onChange={(e) =>
+                          setDraftPrimary({ ...draftPrimary, draftTitleKo: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={draftPrimary.adEnabled}
+                        onChange={(e) => setDraftPrimary({ ...draftPrimary, adEnabled: e.target.checked })}
+                      />
+                      {t("admin_stores_category_col_ad")}
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={draftPrimary.couponEnabled}
+                        onChange={(e) =>
+                          setDraftPrimary({ ...draftPrimary, couponEnabled: e.target.checked })
+                        }
+                      />
+                      {t("admin_stores_category_col_coupon")}
+                    </label>
+                    <label className="block text-[12px] text-sam-muted">
+                      {t("admin_stores_category_col_max")}
+                      <input
+                        type="number"
+                        min={0}
+                        className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px] text-sam-fg"
+                        value={draftPrimary.draftMax}
+                        onChange={(e) => setDraftPrimary({ ...draftPrimary, draftMax: e.target.value })}
+                      />
+                    </label>
+                    <label className="block text-[12px] text-sam-muted">
+                      {t("admin_stores_category_col_interval")}
+                      <input
+                        type="number"
+                        min={2}
+                        className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px] text-sam-fg"
+                        value={draftPrimary.draftInterval}
+                        onChange={(e) =>
+                          setDraftPrimary({ ...draftPrimary, draftInterval: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+                  <h3 className="mb-3 text-[13px] font-semibold">{t("admin_stores_category_preview_title")}</h3>
+                  <CategoryCardPreview
+                    title={draftPrimary.draftTitleKo || primaryMeta.nameKo}
+                    ad={draftPrimary.adEnabled}
+                    coupon={draftPrimary.couponEnabled}
+                  />
+                </div>
+
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+                  <h3 className="mb-3 text-[14px] font-semibold">{t("admin_stores_category_secondary_title")}</h3>
+                  <p className="mb-3 text-[12px] text-sam-muted">{t("admin_stores_category_secondary_ops_desc")}</p>
+
+                  <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                    <ul className="space-y-1">
+                      {secondaries.map((s) => {
+                        const draft = draftSubs[s.subSlug];
+                        const active = s.subSlug === selectedSub;
+                        return (
+                          <li key={s.subSlug}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSub(s.subSlug)}
+                              className={`w-full rounded-ui-rect px-2 py-2 text-left text-[12px] ${
+                                active ? "bg-signature/10 text-signature" : "hover:bg-sam-surface-muted"
+                              }`}
+                            >
+                              <span className="font-medium">
+                                {language === "ko" ? s.nameKo : s.nameEn}
+                              </span>
+                              <span className="mt-0.5 block text-[10px] text-sam-muted">
+                                {draft?.mode === "override"
+                                  ? t("admin_stores_category_scope_overridden")
+                                  : t("admin_stores_category_scope_inherited")}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+
+                    {selectedSubMeta && selectedSubDraft ?
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className={`${Sam.btn.secondary} ${selectedSubDraft.mode === "inherit" ? "ring-2 ring-signature" : ""}`}
+                            onClick={() =>
+                              setDraftSubs((prev) => ({
+                                ...prev,
+                                [selectedSubMeta.subSlug]: { ...selectedSubDraft, mode: "inherit" },
+                              }))
+                            }
+                          >
+                            {t("admin_stores_category_inherit")}
+                          </button>
+                          <button
+                            type="button"
+                            className={`${Sam.btn.secondary} ${selectedSubDraft.mode === "override" ? "ring-2 ring-signature" : ""}`}
+                            onClick={() =>
+                              setDraftSubs((prev) => ({
+                                ...prev,
+                                [selectedSubMeta.subSlug]: { ...selectedSubDraft, mode: "override" },
+                              }))
+                            }
+                          >
+                            {t("admin_stores_category_override_use")}
+                          </button>
+                        </div>
+
+                        {selectedSubDraft.mode === "inherit" ?
+                          <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-[12px] text-sam-muted">
+                            {`${t("admin_stores_category_inherit_hint_prefix")} ${draftPrimary.adEnabled ? "ON" : "OFF"} ${t("admin_stores_category_inherit_hint_mid")} ${draftPrimary.couponEnabled ? "ON" : "OFF"}`}
+                          </p>
+                        : (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="inline-flex items-center gap-2 text-[13px] sm:col-span-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedSubDraft.enabled}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      enabled: e.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              {t("admin_stores_category_col_enabled")}
+                            </label>
+                            <label className="block text-[12px] text-sam-muted sm:col-span-2">
+                              {t("admin_stores_category_col_title")}
+                              <input
+                                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                                value={selectedSubDraft.draftTitleKo}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      draftTitleKo: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-[13px]">
+                              <input
+                                type="checkbox"
+                                checked={selectedSubDraft.adEnabled}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      adEnabled: e.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              {t("admin_stores_category_col_ad")}
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-[13px]">
+                              <input
+                                type="checkbox"
+                                checked={selectedSubDraft.couponEnabled}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      couponEnabled: e.target.checked,
+                                    },
+                                  }))
+                                }
+                              />
+                              {t("admin_stores_category_col_coupon")}
+                            </label>
+                            <label className="block text-[12px] text-sam-muted">
+                              {t("admin_stores_category_col_max")}
+                              <input
+                                type="number"
+                                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                                value={selectedSubDraft.draftMax}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      draftMax: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="block text-[12px] text-sam-muted">
+                              {t("admin_stores_category_col_interval")}
+                              <input
+                                type="number"
+                                min={2}
+                                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                                value={selectedSubDraft.draftInterval}
+                                onChange={(e) =>
+                                  setDraftSubs((prev) => ({
+                                    ...prev,
+                                    [selectedSubMeta.subSlug]: {
+                                      ...selectedSubDraft,
+                                      draftInterval: e.target.value,
+                                    },
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          className={Sam.btn.primary}
+                          disabled={saving}
+                          onClick={() => void onSaveSecondary(selectedSubMeta.subSlug)}
+                        >
+                          {t("admin_stores_category_save")}
+                        </button>
+                      </div>
+                    : null}
+                  </div>
+                </div>
+              </>
+            }
+          </section>
+        </div>
+      )}
     </div>
   );
 }

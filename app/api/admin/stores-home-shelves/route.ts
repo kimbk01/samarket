@@ -149,7 +149,7 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  const compositionRows = shelves
+  const compositionRowsFromShelves = shelves
     .map((shelf) => {
       const slot = shelfIdToComposerSlot(shelf.shelfId);
       if (!slot) return null;
@@ -165,6 +165,22 @@ export async function PUT(req: NextRequest) {
       };
     })
     .filter((r): r is NonNullable<typeof r> => r != null);
+
+  // Preserve non-shelf HOME slots (paid-ad / coupon insertion) so surface batch stays complete.
+  const currentPolicy = await loadResolvedCompositionPolicy(sb, "home");
+  const shelfSlots = new Set<string>(compositionRowsFromShelves.map((r) => r.slot));
+  const preservedRows = currentPolicy.rows
+    .filter((r) => !shelfSlots.has(r.slot))
+    .map((r) => ({
+      surface: "home" as const,
+      slot: r.slot,
+      contentType: r.contentType,
+      enabled: r.enabled,
+      order: r.order,
+      max: r.max,
+      interval: { consumed: false as const, reason: "NOT_CONSUMED" as const },
+    }));
+  const compositionRows = [...compositionRowsFromShelves, ...preservedRows];
 
   const validationError = validateCompositionPolicyBatch("home", compositionRows);
   if (validationError) {
