@@ -18,6 +18,7 @@ import {
   buildBrowseDiscoveryShelfItems,
   composeBrowseDiscoveryShelfPayload,
   insertDiscoveryShelfIntoOrganicIds,
+  parseStoresBrowseDiscoveryShelfConfig,
 } from "@/lib/stores/stores-browse-discovery-shelf";
 import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 
@@ -163,7 +164,7 @@ describe("stores browse redesign Q1-Q20", () => {
     expect(byRating.map((r) => r.id)).toEqual(["far-rated", "near"]);
   });
 
-  it("Q9-Q10 primary inherit vs secondary rankingCriteria override", () => {
+  it("Q9-Q10 secondary rankingCriteria in product_config does not override primary", () => {
     const primary = resolveBrowseScopePolicy({
       primarySlug: "restaurant",
       subSlug: null,
@@ -185,7 +186,7 @@ describe("stores browse redesign Q1-Q20", () => {
       },
       subRow: null,
     });
-    expect(primary.rankingCriteria).toEqual(["popular", "distance"]);
+    expect(primary.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
 
     const primaryRow = {
       scopeKey: "restaurant",
@@ -210,7 +211,7 @@ describe("stores browse redesign Q1-Q20", () => {
       primaryRow,
       subRow: null,
     });
-    expect(inherited.rankingCriteria).toEqual(["popular", "distance"]);
+    expect(inherited.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
     expect(inherited.popularityWindowDays).toBe(90);
 
     const overridden = resolveBrowseScopePolicy({
@@ -234,7 +235,7 @@ describe("stores browse redesign Q1-Q20", () => {
         productConfig: { rankingCriteria: ["rating", "distance"] },
       },
     });
-    expect(overridden.rankingCriteria).toEqual(["rating", "distance"]);
+    expect(overridden.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
     expect(overridden.popularityWindowDays).toBe(90);
   });
 
@@ -300,7 +301,7 @@ describe("stores browse redesign Q1-Q20", () => {
       "distance",
       "popular",
     ]);
-    expect(STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA[0]).toBe("district");
+    expect(STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA[0]).toBe("popular");
   });
 
   it("Q15-Q19 sibling topic shelf uses canonical href and excludes current topic", () => {
@@ -341,17 +342,14 @@ describe("stores browse redesign Q1-Q20", () => {
     ]);
   });
 
-  it("Q17 TOP shelf does not reorder organic ids", () => {
-    const tokens = insertDiscoveryShelfIntoOrganicIds(["a", "b"], {
+  it("Q17 stored TOP position is coerced to inline_after_n", () => {
+    const parsed = parseStoresBrowseDiscoveryShelfConfig({
       enabled: true,
       position: "top",
       afterN: 6,
-      items: [{ topicSlug: "chinese", nameKo: "중식", nameEn: "Chinese", href: "/stores/browse/restaurant?sub=chinese" }],
+      maxItems: 6,
     });
-    expect(tokens[0]).toEqual({ kind: "discovery_shelf" });
-    expect(tokens.slice(1)).toEqual([
-      { kind: "organic", storeId: "a" },
-      { kind: "organic", storeId: "b" },
-    ]);
+    expect(parsed?.position).toBe("inline_after_n");
+    expect(parsed?.afterN).toBe(6);
   });
 });

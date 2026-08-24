@@ -33,6 +33,7 @@ import {
   resolveBrowseFilteredSortedStoreRows,
   applyBrowseSubFilterContractToPrefetchedFilter,
   applyNewAuthorityFastPrepSortToBrowseFilter,
+  applyNewAuthorityDistanceSortToBrowseFilter,
   applyNewAuthorityRatingConfidenceToBrowseFilter,
   applyPopularityWindowOverlayToBrowseFilter,
   resolveBrowseFilteredStoreRows,
@@ -369,6 +370,9 @@ async function finishFromPayload(
     }
     if (ctx.sort === "fast") {
       prefetchedFilter = applyNewAuthorityFastPrepSortToBrowseFilter(ctx, prefetchedFilter);
+    }
+    if (ctx.sort === "distance") {
+      prefetchedFilter = applyNewAuthorityDistanceSortToBrowseFilter(ctx, prefetchedFilter);
     }
   } else {
     logStoreDiscoveryAuthorityRuntime({

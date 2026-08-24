@@ -5,8 +5,11 @@
  */
 
 import { haversineKm } from "@/lib/geo/haversine-km";
-import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
-import type { StoreDiscoverySortRow } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  compareStoreDiscoveryBrowseRows,
+  type StoreBrowseServerSortId,
+  type StoreDiscoverySortRow,
+} from "@/lib/stores/store-discovery-browse-sort";
 import {
   applyStoreDiscoveryExposureRotation,
   buildStoreDiscoveryBrowseExposureScope,
@@ -129,66 +132,48 @@ function stableSlugCmp(a: StoreDiscoveryShadowRankedRow, b: StoreDiscoveryShadow
   return String(a.id).localeCompare(String(b.id));
 }
 
-/** Within-wave comparator — Gi and Dj already fixed. */
+/** Within-wave comparator. Browse sorts use the same function as production list sort. HOME keeps recommended. */
 export function compareShadowWaveRows(
   sort: StoreBrowseServerSortId | "home",
   hasGeo: boolean,
   a: StoreDiscoveryShadowRankedRow,
-  b: StoreDiscoveryShadowRankedRow
+  b: StoreDiscoveryShadowRankedRow,
+  district: string | null = null
 ): number {
-  const mode = sort === "home" ? "default" : sort;
-
-  if (mode === "distance") {
-    if (hasGeo) {
-      const ao = a.outOfRange === true ? 1 : 0;
-      const bo = b.outOfRange === true ? 1 : 0;
-      if (ao !== bo) return ao - bo;
-      const da = a.distanceKm;
-      const db = b.distanceKm;
-      if (da != null && db != null && da !== db) return da - db;
-      if (da != null && db == null) return -1;
-      if (da == null && db != null) return 1;
-    }
-    return stableSlugCmp(a, b);
+  if (sort !== "home") {
+    const eligibilityRankById = new Map<string, number>([
+      [a.id, a.eligibilityRank],
+      [b.id, b.eligibilityRank],
+    ]);
+    const distanceKmById = new Map<string, number | null>([
+      [a.id, a.distanceKm],
+      [b.id, b.distanceKm],
+    ]);
+    const outOfRangeById = new Map<string, boolean>([
+      [a.id, a.outOfRange],
+      [b.id, b.outOfRange],
+    ]);
+    const completedOrderCount30dById = new Map<string, number>([
+      [a.id, a.completedOrders30d],
+      [b.id, b.completedOrders30d],
+    ]);
+    return compareStoreDiscoveryBrowseRows(
+      {
+        district,
+        sort,
+        eligibilityRankById,
+        distanceKmById: hasGeo ? distanceKmById : null,
+        outOfRangeById: hasGeo ? outOfRangeById : null,
+        hasGeo,
+        completedOrderCount30dById,
+        completedOrderCountStatus: "ok",
+      },
+      a,
+      b
+    );
   }
 
-  if (mode === "rating") {
-    const ra = canonicalRating(a);
-    const rb = canonicalRating(b);
-    if (ra != null && rb != null && ra !== rb) return rb - ra;
-    if (ra != null && rb == null) return -1;
-    if (ra == null && rb != null) return 1;
-    const rev = canonicalReviews(b) - canonicalReviews(a);
-    if (rev !== 0) return rev;
-    return stableSlugCmp(a, b);
-  }
-
-  if (mode === "reviews") {
-    const rev = canonicalReviews(b) - canonicalReviews(a);
-    if (rev !== 0) return rev;
-    const ra = canonicalRating(a);
-    const rb = canonicalRating(b);
-    if (ra != null && rb != null && ra !== rb) return rb - ra;
-    if (ra != null && rb == null) return -1;
-    if (ra == null && rb != null) return 1;
-    return stableSlugCmp(a, b);
-  }
-
-  if (mode === "popular") {
-    if (a.completedOrders30d !== b.completedOrders30d) {
-      return b.completedOrders30d - a.completedOrders30d;
-    }
-    const ra = canonicalRating(a);
-    const rb = canonicalRating(b);
-    if (ra != null && rb != null && ra !== rb) return rb - ra;
-    if (ra != null && rb == null) return -1;
-    if (ra == null && rb != null) return 1;
-    const rev = canonicalReviews(b) - canonicalReviews(a);
-    if (rev !== 0) return rev;
-    return stableSlugCmp(a, b);
-  }
-
-  // default / home recommended within Gi×Dj
+  // HOME recommended within Gi×Dj — not browse default.
   // Parity with compareStoreDiscoveryRecommendedRows:
   // eligibility (fixed) → outOfRange → district → distance → orders → ...
   if (hasGeo) {
@@ -250,7 +235,7 @@ export function createInMemoryShadowWaveFetcher(
       return true;
     });
     // Sort ONLY this Gi (×Dj) subset — never the full pool.
-    wave.sort((a, b) => compareShadowWaveRows(opts.sort, hasGeo, a, b));
+    wave.sort((a, b) => compareShadowWaveRows(opts.sort, hasGeo, a, b, opts.district));
     return wave.slice(0, Math.max(0, limit));
   };
 }
@@ -261,6 +246,19 @@ async function resolveWave(
 ): Promise<StoreDiscoveryShadowRankedRow[]> {
   if (input.limit <= 0) return [];
   return Promise.resolve(fetchWave(input));
+}
+
+/**
+ * HOME + browse default keep 6-stage Gi waves (internal ranking).
+ * Customer sorts use the customer 2-group: rank0 = GROUP_A, ranks 1–5 = one GROUP_B pool.
+ */
+export function browseEligibilityGiBatches(
+  sort: StoreBrowseServerSortId | "home"
+): readonly (readonly number[])[] {
+  if (sort === "home" || sort === "default") {
+    return [[0], [1], [2], [3], [4], [5]];
+  }
+  return [[0], [1, 2, 3, 4, 5]];
 }
 
 function districtTiersToScan(
@@ -329,30 +327,38 @@ export async function fillShadowRankedViaWaves(input: {
   let remaining = target;
   const hasGeo = input.hasGeo === true;
   const djList = districtTiersToScan(input.district, input.sort, hasGeo);
+  const giBatches = browseEligibilityGiBatches(input.sort);
 
-  for (let gi = 0; gi <= 5; gi += 1) {
+  for (const giBatch of giBatches) {
     if (remaining <= 0) break;
 
     const groupNeed = remaining + (input.applyExposure ? bandSlack : 0);
     const groupBuf: StoreDiscoveryShadowRankedRow[] = [];
+    const mergeCustomerGroup = giBatch.length > 1;
 
-    for (const dj of djList) {
-      if (groupBuf.length >= groupNeed) break;
-      const limit = groupNeed - groupBuf.length;
-      const wave = await resolveWave(input.fetchWave, {
-        eligibilityRank: gi,
-        districtTier: dj,
-        limit,
-      });
-      telemetry.wavesExecuted += 1;
-      telemetry.rowsReturned += wave.length;
-      for (const row of wave) {
-        groupBuf.push(row);
-        eligibilityRankById.set(row.id, row.eligibilityRank);
+    for (const gi of giBatch) {
+      for (const dj of djList) {
+        if (!mergeCustomerGroup && groupBuf.length >= groupNeed) break;
+        const limit = mergeCustomerGroup ? groupNeed : groupNeed - groupBuf.length;
+        const wave = await resolveWave(input.fetchWave, {
+          eligibilityRank: gi,
+          districtTier: dj,
+          limit,
+        });
+        telemetry.wavesExecuted += 1;
+        telemetry.rowsReturned += wave.length;
+        for (const row of wave) {
+          groupBuf.push(row);
+          eligibilityRankById.set(row.id, row.eligibilityRank);
+        }
       }
     }
 
-    telemetry.groupCounts[gi] = groupBuf.length;
+    if (mergeCustomerGroup) {
+      groupBuf.sort((a, b) => compareShadowWaveRows(input.sort, hasGeo, a, b, input.district));
+    }
+
+    telemetry.groupCounts[giBatch[0] ?? 0] = groupBuf.length;
     if (groupBuf.length === 0) continue;
 
     let exposed = groupBuf;
@@ -536,26 +542,34 @@ export function rankStoreDiscoveryBrowseShadow(input: {
   let remaining = pageEnd;
   const hasGeo = input.distanceAxisEnabled && input.originLat != null && input.originLng != null;
   const djList = districtTiersToScan(input.district, input.sort, hasGeo);
+  const giBatches = browseEligibilityGiBatches(input.sort);
 
-  for (let gi = 0; gi <= 5; gi += 1) {
+  for (const giBatch of giBatches) {
     if (remaining <= 0) break;
     const groupNeed = remaining + bandSlack;
     const groupBuf: StoreDiscoveryShadowRankedRow[] = [];
-    for (const dj of djList) {
-      if (groupBuf.length >= groupNeed) break;
-      const wave = fetchWave({
-        eligibilityRank: gi,
-        districtTier: dj,
-        limit: groupNeed - groupBuf.length,
-      }) as StoreDiscoveryShadowRankedRow[];
-      telemetry.wavesExecuted += 1;
-      telemetry.rowsReturned += wave.length;
-      for (const row of wave) {
-        groupBuf.push(row);
-        eligibilityRankById.set(row.id, row.eligibilityRank);
+    const mergeCustomerGroup = giBatch.length > 1;
+    for (const gi of giBatch) {
+      for (const dj of djList) {
+        if (!mergeCustomerGroup && groupBuf.length >= groupNeed) break;
+        const limit = mergeCustomerGroup ? groupNeed : groupNeed - groupBuf.length;
+        const wave = fetchWave({
+          eligibilityRank: gi,
+          districtTier: dj,
+          limit,
+        }) as StoreDiscoveryShadowRankedRow[];
+        telemetry.wavesExecuted += 1;
+        telemetry.rowsReturned += wave.length;
+        for (const row of wave) {
+          groupBuf.push(row);
+          eligibilityRankById.set(row.id, row.eligibilityRank);
+        }
       }
     }
-    telemetry.groupCounts[gi] = (telemetry.groupCounts[gi] ?? 0) + groupBuf.length;
+    if (mergeCustomerGroup) {
+      groupBuf.sort((a, b) => compareShadowWaveRows(input.sort, hasGeo, a, b, input.district));
+    }
+    telemetry.groupCounts[giBatch[0] ?? 0] = (telemetry.groupCounts[giBatch[0] ?? 0] ?? 0) + groupBuf.length;
     if (groupBuf.length === 0) continue;
 
     let exposed = groupBuf;

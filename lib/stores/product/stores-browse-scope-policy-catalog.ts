@@ -6,7 +6,7 @@ import {
 import {
   rankingCriteriaFromProductConfig,
   resolveStoresBrowseRankingCriteria,
-  type StoresBrowseRankingCriterionId,
+  type StoresBrowseAdminRankingCriterionId,
 } from "@/lib/stores/stores-browse-ranking-criteria";
 import {
   discoveryShelfFromProductConfig,
@@ -72,7 +72,7 @@ export type StoresBrowseScopePolicyResolved = {
   scheduleEnd: string | null;
   defaultSort: StoreBrowseServerSortId;
   popularityWindowDays: StoresPopularityWindowDays;
-  rankingCriteria: StoresBrowseRankingCriterionId[];
+  rankingCriteria: StoresBrowseAdminRankingCriterionId[];
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -238,15 +238,10 @@ export function resolveBrowseScopePolicy(input: {
     presentationMode: resolvePresentation(effectiveSub.presentationMode, primaryResolved.presentationMode),
     scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
     scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
-    defaultSort: defaultSortFromProductConfig(effectiveSub.productConfig ?? null) ?? primaryResolved.defaultSort,
-    popularityWindowDays:
-      popularityWindowDaysFromProductConfig(effectiveSub.productConfig ?? null) ??
-      primaryResolved.popularityWindowDays,
-    rankingCriteria: rankingCriteriaFromProductConfig(effectiveSub.productConfig ?? null)
-      ? resolveStoresBrowseRankingCriteria(rankingCriteriaFromProductConfig(effectiveSub.productConfig ?? null))
-      : primaryResolved.rankingCriteria,
-    discoveryShelf: discoveryShelfFromProductConfig(effectiveSub.productConfig ?? null)
-      ? resolveStoresBrowseDiscoveryShelfConfig(discoveryShelfFromProductConfig(effectiveSub.productConfig ?? null))
-      : primaryResolved.discoveryShelf,
+    /** Ranking, shelf, window, defaultSort are always primary-owned. Secondary JSON cannot override them. */
+    defaultSort: primaryResolved.defaultSort,
+    popularityWindowDays: primaryResolved.popularityWindowDays,
+    rankingCriteria: primaryResolved.rankingCriteria,
+    discoveryShelf: primaryResolved.discoveryShelf,
   };
 }

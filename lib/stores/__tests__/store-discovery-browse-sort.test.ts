@@ -59,6 +59,23 @@ describe("store-discovery-browse-sort", () => {
     expect(sorted.map((r) => r.id)).toEqual(["a", "c"]);
   });
 
+  it("distance no-geo: missing distance cannot lift closed into GROUP_A", () => {
+    const sorted = sortStoreDiscoveryBrowseRows(
+      [row({ id: "asas33", slug: "asas33" }), row({ id: "zxzx11", slug: "zxzx11" })],
+      ctx({
+        sort: "distance",
+        hasGeo: false,
+        distanceKmById: null,
+        outOfRangeById: null,
+        eligibilityRankById: new Map([
+          ["zxzx11", 0],
+          ["asas33", 5],
+        ]),
+      })
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["zxzx11", "asas33"]);
+  });
+
   it("distance sort uses server distance after eligibility", () => {
     const rows = [row({ id: "b" }), row({ id: "a" })];
     const sorted = sortStoreDiscoveryBrowseRows(rows, ctx({ sort: "distance" }));

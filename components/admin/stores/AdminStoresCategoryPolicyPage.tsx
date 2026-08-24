@@ -13,11 +13,11 @@ import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
-  STORES_BROWSE_DEFAULT_SORT_IDS,
   type StoresBrowseScopePolicyResolved,
   type StoresBrowseScopePolicyRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
-import type { StoresBrowseRankingCriterionId } from "@/lib/stores/stores-browse-ranking-criteria";
+import type { StoresBrowseAdminRankingCriterionId } from "@/lib/stores/stores-browse-ranking-criteria";
+import { resolveStoresBrowseRankingCriteria } from "@/lib/stores/stores-browse-ranking-criteria";
 import type { StoresBrowseDiscoveryShelfConfig } from "@/lib/stores/stores-browse-discovery-shelf";
 import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
 import {
@@ -62,7 +62,7 @@ type DraftPrimary = {
   draftScheduleEnd: string;
   defaultSort: StoreBrowseServerSortId;
   popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
-  rankingCriteria: StoresBrowseRankingCriterionId[];
+  rankingCriteria: StoresBrowseAdminRankingCriterionId[];
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -75,10 +75,6 @@ type DraftSecondary = {
   couponEnabled: boolean;
   draftMax: string;
   draftInterval: string;
-  defaultSort: StoreBrowseServerSortId | "inherit";
-  popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays | "inherit";
-  rankingCriteria: StoresBrowseRankingCriterionId[] | "inherit";
-  discoveryShelf: StoresBrowseDiscoveryShelfConfig | "inherit";
 };
 
 type PolicyWriteRow = {
@@ -164,7 +160,7 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     draftScheduleEnd: toInputDateTime(scheduleEnd),
     defaultSort: row.resolved.defaultSort,
     popularityWindowDays: row.resolved.popularityWindowDays,
-    rankingCriteria: [...row.resolved.rankingCriteria],
+    rankingCriteria: resolveStoresBrowseRankingCriteria(row.resolved.rankingCriteria),
     discoveryShelf: { ...row.resolved.discoveryShelf },
   };
 }
@@ -180,30 +176,6 @@ function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
     draftInterval: String(row.resolved.intervalEveryN),
-    defaultSort:
-      row.row?.productConfig &&
-      typeof row.row.productConfig === "object" &&
-      "defaultSort" in row.row.productConfig
-        ? row.resolved.defaultSort
-        : "inherit",
-    popularityWindowDays:
-      row.row?.productConfig &&
-      typeof row.row.productConfig === "object" &&
-      "popularityWindowDays" in row.row.productConfig
-        ? row.resolved.popularityWindowDays
-        : "inherit",
-    rankingCriteria:
-      row.row?.productConfig &&
-      typeof row.row.productConfig === "object" &&
-      "rankingCriteria" in row.row.productConfig
-        ? [...row.resolved.rankingCriteria]
-        : "inherit",
-    discoveryShelf:
-      row.row?.productConfig &&
-      typeof row.row.productConfig === "object" &&
-      "discoveryShelf" in row.row.productConfig
-        ? { ...row.resolved.discoveryShelf }
-        : "inherit",
   };
 }
 
@@ -548,8 +520,12 @@ export function AdminStoresCategoryPolicyPage() {
           scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
           productConfig: {
             popularityWindowDays: draftPrimary.popularityWindowDays,
-            rankingCriteria: draftPrimary.rankingCriteria,
-            discoveryShelf: draftPrimary.discoveryShelf,
+            rankingCriteria: resolveStoresBrowseRankingCriteria(draftPrimary.rankingCriteria),
+            discoveryShelf: {
+              ...draftPrimary.discoveryShelf,
+              scope: "sibling_topics",
+              position: "inline_after_n",
+            },
           },
         },
       ];
@@ -576,16 +552,7 @@ export function AdminStoresCategoryPolicyPage() {
             presentationMode: "card_benefit_integrated",
             scheduleStart: null,
             scheduleEnd: null,
-            productConfig: (() => {
-              const cfg: Record<string, unknown> = {};
-              if (draft.defaultSort !== "inherit") cfg.defaultSort = draft.defaultSort;
-              if (draft.popularityWindowDays !== "inherit") {
-                cfg.popularityWindowDays = draft.popularityWindowDays;
-              }
-              if (draft.rankingCriteria !== "inherit") cfg.rankingCriteria = draft.rankingCriteria;
-              if (draft.discoveryShelf !== "inherit") cfg.discoveryShelf = draft.discoveryShelf;
-              return cfg;
-            })(),
+            productConfig: {},
           });
         }
       }
@@ -785,24 +752,7 @@ export function AdminStoresCategoryPolicyPage() {
                   }
                 />
               </div>
-              <FieldLabel labelText={t("admin_stores_browse_discovery_position")}>
-                <select
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                  value={draftPrimary.discoveryShelf.position}
-                  onChange={(e) =>
-                    setDraftPrimary({
-                      ...draftPrimary,
-                      discoveryShelf: {
-                        ...draftPrimary.discoveryShelf,
-                        position: e.target.value === "inline_after_n" ? "inline_after_n" : "top",
-                      },
-                    })
-                  }
-                >
-                  <option value="top">{t("admin_stores_browse_discovery_position_top")}</option>
-                  <option value="inline_after_n">{t("admin_stores_browse_discovery_position_inline")}</option>
-                </select>
-              </FieldLabel>
+              <p className="py-1 text-[12px] text-sam-muted">{t("admin_stores_browse_discovery_position_fixed")}</p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <FieldLabel labelText={t("admin_stores_browse_discovery_after_n")}>
                   <NumberInput
@@ -1194,11 +1144,7 @@ export function AdminStoresCategoryPolicyPage() {
                             draftEnabled={previewDraftEnabled}
                             adEnabled={previewAdEnabled}
                             couponEnabled={previewCouponEnabled}
-                            defaultSort={
-                              tier === "secondary" && selectedSubDraft?.mode === "override" && selectedSubDraft.defaultSort !== "inherit"
-                                ? selectedSubDraft.defaultSort
-                                : draftPrimary.defaultSort
-                            }
+                            defaultSort={draftPrimary.defaultSort}
                             ko={ko}
                             reloadToken={previewReloadToken}
                           />
@@ -1265,7 +1211,13 @@ export function AdminStoresCategoryPolicyPage() {
                                       inherit ? "bg-slate-100 text-slate-600" : "bg-amber-100 text-amber-800"
                                     }`}
                                   >
-                                    {inherit ? label(ko, "상속", "Inherit") : label(ko, "개별", "Custom")}
+                                    {inherit
+                                      ? label(
+                                          ko,
+                                          `${primaryMeta?.nameKo ?? "1차"} 기본값 사용`,
+                                          `Uses ${primaryMeta?.nameEn ?? "primary"} defaults`
+                                        )
+                                      : label(ko, "별도 설정 있음", "Custom settings")}
                                   </span>
                                   {statusBadge(draft?.enabled ?? secondary.resolved.enabled, ko)}
                                 </div>
@@ -1352,45 +1304,7 @@ export function AdminStoresCategoryPolicyPage() {
                               />
                             </FieldLabel>
                           </div>
-                          <FieldLabel labelText={t("admin_stores_browse_default_sort")}>
-                            <select
-                              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                              value={selectedSubDraft.defaultSort}
-                              onChange={(e) =>
-                                updateSubDraft(selectedSubMeta.subSlug, {
-                                  defaultSort: e.target.value as StoreBrowseServerSortId | "inherit",
-                                })
-                              }
-                            >
-                              <option value="inherit">{ko ? "1차 상속" : "Inherit primary"}</option>
-                              {STORES_BROWSE_DEFAULT_SORT_IDS.map((id) => (
-                                <option key={id} value={id}>
-                                  {id === "default" ? (ko ? "추천순" : "Recommended") : id}
-                                </option>
-                              ))}
-                            </select>
-                          </FieldLabel>
-                          <FieldLabel labelText={t("admin_stores_browse_order_axis_window")}>
-                            <select
-                              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-                              value={selectedSubDraft.popularityWindowDays}
-                              onChange={(e) =>
-                                updateSubDraft(selectedSubMeta.subSlug, {
-                                  popularityWindowDays:
-                                    e.target.value === "inherit"
-                                      ? "inherit"
-                                      : resolvePopularityWindowDays(Number(e.target.value)),
-                                })
-                              }
-                            >
-                              <option value="inherit">{t("admin_stores_popularity_window_inherit")}</option>
-                              {STORES_POPULARITY_WINDOW_DAYS_IDS.map((id) => (
-                                <option key={id} value={id}>
-                                  {t(`admin_stores_popularity_window_${id}`)}
-                                </option>
-                              ))}
-                            </select>
-                          </FieldLabel>
+                          <p className="text-[11px] text-sam-muted">{t("admin_stores_browse_secondary_inherits_list_policy")}</p>
                         </div>
                       ) : (
                         <div className="rounded-ui-rect bg-sam-surface-muted p-3 text-[12px] text-sam-muted">

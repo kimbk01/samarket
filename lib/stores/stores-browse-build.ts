@@ -734,6 +734,41 @@ export function applyNewAuthorityFastPrepSortToBrowseFilter(
   };
 }
 
+/**
+ * NEW wave path sort=distance.
+ * Wave SQL orders by slug when geo is absent and uses schedule projection for Gi.
+ * Hydrated hours/is_open (customer 2-group) must re-apply after hydrate — same owner as fast overlay.
+ */
+export function applyNewAuthorityDistanceSortToBrowseFilter(
+  ctx: Pick<
+    StoresBrowseRequestContext,
+    "district" | "sort" | "deliveryDistancePolicy" | "origin" | "rankingCriteria"
+  >,
+  filter: BrowseFilteredStoreRowsResult
+): BrowseFilteredStoreRowsResult {
+  if (ctx.sort !== "distance") return filter;
+
+  const outOfRangeById = filter.outOfRangeById ?? new Map<string, boolean>();
+  const eligibilityRankById = buildBrowseEligibilityRankMap(filter.rows, outOfRangeById);
+  const hasGeo =
+    ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
+
+  const rows = sortStoreDiscoveryBrowseRows(filter.rows, {
+    district: ctx.district,
+    sort: "distance",
+    eligibilityRankById,
+    distanceKmById: hasGeo ? filter.distById : null,
+    outOfRangeById: hasGeo ? outOfRangeById : null,
+    hasGeo,
+    rankingCriteria: ctx.rankingCriteria ?? null,
+  });
+
+  return {
+    ...filter,
+    rows,
+  };
+}
+
 /** orphan·거리 정렬 후 목록 행 — legacy fetch 가 product/banner id 추출에 사용 */
 export function resolveBrowseFilteredSortedStoreRows(
   ctx: StoresBrowseRequestContext,

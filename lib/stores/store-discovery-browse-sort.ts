@@ -271,6 +271,8 @@ export function compareStoreDiscoveryBrowseRows(
         const cmp = applyRankingCriterion(criterion, ctx, a, b);
         if (cmp !== 0) return cmp;
       }
+      const districtTie = districtCmp(ctx, a, b);
+      if (districtTie !== 0) return districtTie;
       return stableSlug(a, b);
     }
   }

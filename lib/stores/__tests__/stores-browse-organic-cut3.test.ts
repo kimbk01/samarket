@@ -13,6 +13,7 @@ import {
 import {
   BROWSE_FEATURED_ITEMS_MAX,
   applyNewAuthorityFastPrepSortToBrowseFilter,
+  applyNewAuthorityDistanceSortToBrowseFilter,
   browseStoreRowMatchesSubFilter,
   type BrowseFilteredStoreRowsResult,
 } from "@/lib/stores/stores-browse-build";
@@ -114,6 +115,59 @@ describe("CUT 3 BROWSE organic contract", () => {
       filter
     );
     expect(sorted.rows.map((r) => r.id)).toEqual(["fast", "slow"]);
+  });
+
+  it("sort=distance no-geo re-applies hours eligibility after NEW hydrate", () => {
+    const snap = readFileSync(
+      join(process.cwd(), "lib/stores/stores-browse-snapshot.ts"),
+      "utf8"
+    );
+    expect(snap).toContain("applyNewAuthorityDistanceSortToBrowseFilter");
+
+    const filter: BrowseFilteredStoreRowsResult = {
+      rows: [
+        {
+          id: "asas33",
+          slug: "asas33",
+          store_name: "Closed first by slug",
+          is_open: false,
+          delivery_available: true,
+          rating_avg: 5,
+          review_count: 10,
+          business_hours_json: null,
+        },
+        {
+          id: "zxzx11",
+          slug: "zxzx11",
+          store_name: "Open later slug",
+          is_open: true,
+          delivery_available: true,
+          rating_avg: 3,
+          review_count: 1,
+          business_hours_json: { always_open: true },
+        },
+      ] as BrowseFilteredStoreRowsResult["rows"],
+      distById: null,
+      statusById: new Map([
+        ["asas33", "closed"],
+        ["zxzx11", "open"],
+      ]),
+      distanceSortMs: 0,
+      outOfRangeById: new Map([
+        ["asas33", false],
+        ["zxzx11", false],
+      ]),
+    };
+    const sorted = applyNewAuthorityDistanceSortToBrowseFilter(
+      {
+        district: null,
+        sort: "distance",
+        deliveryDistancePolicy: { enabled: false } as never,
+        origin: { lat: null, lng: null } as never,
+      },
+      filter
+    );
+    expect(sorted.rows.map((r) => r.id)).toEqual(["zxzx11", "asas33"]);
   });
 
   it("T8 deterministic tie-break for equal prep", () => {

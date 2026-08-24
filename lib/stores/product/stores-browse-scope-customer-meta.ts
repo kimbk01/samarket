@@ -25,7 +25,7 @@ export type StoresBrowseScopeCustomerMeta = {
   cardType: "store" | "product" | "mixed";
   defaultSort: import("@/lib/stores/store-discovery-browse-sort").StoreBrowseServerSortId;
   popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
-  rankingCriteria: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
+  rankingCriteria: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseAdminRankingCriterionId[];
   discoveryShelf: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
 };
 

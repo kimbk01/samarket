@@ -75,6 +75,7 @@ describe("CUT 8 live route fail-closed source guards", () => {
     );
     expect(newBlockMatch?.[1] ?? "").not.toContain("loadStoreCompletedOrderCount30dMapWithStatus");
     expect(newBlockMatch?.[1] ?? "").toContain("applyBrowseSubFilterContractToPrefetchedFilter");
+    expect(newBlockMatch?.[1] ?? "").toContain("applyNewAuthorityDistanceSortToBrowseFilter");
     expect(src).toContain("loadStoreCompletedOrderCount30dMapWithStatus");
   });
 

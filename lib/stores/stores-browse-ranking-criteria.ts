@@ -1,54 +1,71 @@
 /**
- * Admin ordered lexicographic ranking criteria for BROWSE default list.
- * No weighted scoring. REPEAT_ORDER / FAVORITE are not implementable (no list authority).
+ * Admin-facing BROWSE default ranking keys — order only, no weights.
+ * DISTRICT / FAST stay internal tie-breaks and are not operator controls.
  */
 
-export const STORES_BROWSE_RANKING_CRITERION_IDS = [
-  "distance",
+export const STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS = [
   "popular",
+  "distance",
   "rating",
   "reviews",
-  "district",
-  "fast",
 ] as const;
 
-export type StoresBrowseRankingCriterionId = (typeof STORES_BROWSE_RANKING_CRITERION_IDS)[number];
+export type StoresBrowseAdminRankingCriterionId =
+  (typeof STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS)[number];
 
-/** Lossless encoding of post-eligibility recommended comparator keys. */
-export const STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA: readonly StoresBrowseRankingCriterionId[] = [
-  "district",
-  "distance",
-  "popular",
-  "rating",
-  "reviews",
-];
+/** Internal comparators still used after the admin stack. Not Admin UI. */
+export const STORES_BROWSE_INTERNAL_RANKING_CRITERION_IDS = ["district", "fast"] as const;
 
-const CRITERION_SET = new Set<string>(STORES_BROWSE_RANKING_CRITERION_IDS);
+export type StoresBrowseRankingCriterionId =
+  | StoresBrowseAdminRankingCriterionId
+  | (typeof STORES_BROWSE_INTERNAL_RANKING_CRITERION_IDS)[number];
 
-export function parseStoresBrowseRankingCriteria(raw: unknown): StoresBrowseRankingCriterionId[] | null {
+/** Operator default order: 주문량 → 거리 → 평점 → 리뷰 */
+export const STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA: readonly StoresBrowseAdminRankingCriterionId[] =
+  STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS;
+
+const ADMIN_SET = new Set<string>(STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS);
+
+export function parseStoresBrowseRankingCriteria(
+  raw: unknown
+): StoresBrowseAdminRankingCriterionId[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
-  const out: StoresBrowseRankingCriterionId[] = [];
+  const out: StoresBrowseAdminRankingCriterionId[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
     if (typeof item !== "string") continue;
     const id = item.trim().toLowerCase();
-    if (!CRITERION_SET.has(id) || seen.has(id)) continue;
+    if (!ADMIN_SET.has(id) || seen.has(id)) continue;
     seen.add(id);
-    out.push(id as StoresBrowseRankingCriterionId);
+    out.push(id as StoresBrowseAdminRankingCriterionId);
   }
   return out.length > 0 ? out : null;
 }
 
 export function rankingCriteriaFromProductConfig(
   cfg: Record<string, unknown> | null | undefined
-): StoresBrowseRankingCriterionId[] | null {
+): StoresBrowseAdminRankingCriterionId[] | null {
   if (!cfg || typeof cfg !== "object") return null;
   if (!("rankingCriteria" in cfg)) return null;
   return parseStoresBrowseRankingCriteria(cfg.rankingCriteria);
 }
 
 export function resolveStoresBrowseRankingCriteria(
-  parsed: StoresBrowseRankingCriterionId[] | null | undefined
-): StoresBrowseRankingCriterionId[] {
-  return parsed && parsed.length > 0 ? [...parsed] : [...STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA];
+  parsed: StoresBrowseAdminRankingCriterionId[] | null | undefined
+): StoresBrowseAdminRankingCriterionId[] {
+  const out: StoresBrowseAdminRankingCriterionId[] = [];
+  const seen = new Set<string>();
+  if (parsed) {
+    for (const id of parsed) {
+      if (!ADMIN_SET.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  for (const id of STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }

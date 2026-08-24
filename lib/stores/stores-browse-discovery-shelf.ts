@@ -13,9 +13,9 @@ export type StoresBrowseDiscoveryShelfConfig = {
 export const STORES_BROWSE_DISCOVERY_SHELF_PLATFORM_DEFAULT: StoresBrowseDiscoveryShelfConfig = {
   enabled: false,
   scope: "sibling_topics",
-  position: "top",
+  position: "inline_after_n",
   afterN: 6,
-  maxItems: 8,
+  maxItems: 6,
 };
 
 export type StoresBrowseDiscoveryShelfItem = {
@@ -48,11 +48,10 @@ export function parseStoresBrowseDiscoveryShelfConfig(
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
   const enabled = o.enabled === true;
-  const position: StoresBrowseDiscoveryShelfPosition = o.position === "inline_after_n" ? "inline_after_n" : "top";
   return {
     enabled,
     scope: "sibling_topics",
-    position,
+    position: "inline_after_n",
     afterN: clampAfterN(Number(o.afterN)),
     maxItems: clampMaxItems(Number(o.maxItems)),
   };
