@@ -47,13 +47,18 @@ export function resolveOrderedVisibleHomeCompositionSlots(
 ): StoresHomeCompositionSlotKey[] {
   const ordered = sortSectionsByPresentationOrder(filterEnabledCompositionSections(policy));
   const slots: StoresHomeCompositionSlotKey[] = [];
+  const rest: StoresHomeCompositionSlotKey[] = [];
   for (const row of ordered) {
     if (!isHomeCompositionSlotKey(row.slot)) continue;
     if (!isHomeCompositionSlotVisible(row.slot, composition)) continue;
     if (!isShelfProductVisible(row.slot, shelfProduct)) continue;
+    if (row.slot === "slot6RestStores") {
+      rest.push(row.slot);
+      continue;
+    }
     slots.push(row.slot);
   }
-  return slots;
+  return [...slots, ...rest];
 }
 
 /** First N visible sections render eagerly (LCP); remainder deferred. */

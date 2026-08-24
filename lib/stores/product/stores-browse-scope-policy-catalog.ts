@@ -1,7 +1,26 @@
-/**
- * Product recovery — CATEGORY browse scope policy catalog + inherit/override resolve.
- * Taxonomy authority: GET /api/stores/taxonomy (DB).
- */
+import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
+
+export const STORES_BROWSE_DEFAULT_SORT_IDS: readonly StoreBrowseServerSortId[] = [
+  "default",
+  "popular",
+  "rating",
+  "reviews",
+  "fast",
+  "distance",
+];
+
+export function parseBrowseDefaultSort(raw: unknown): StoreBrowseServerSortId {
+  if (typeof raw === "string" && (STORES_BROWSE_DEFAULT_SORT_IDS as readonly string[]).includes(raw)) {
+    return raw as StoreBrowseServerSortId;
+  }
+  return "default";
+}
+
+function defaultSortFromProductConfig(cfg: Record<string, unknown> | null | undefined): StoreBrowseServerSortId | null {
+  if (!cfg || typeof cfg !== "object") return null;
+  if (!("defaultSort" in cfg)) return null;
+  return parseBrowseDefaultSort(cfg.defaultSort);
+}
 
 export type StoresBrowseScopePresentationMode = "card_benefit_integrated" | "hidden";
 
@@ -37,6 +56,7 @@ export type StoresBrowseScopePolicyResolved = {
   presentationMode: StoresBrowseScopePresentationMode;
   scheduleStart: string | null;
   scheduleEnd: string | null;
+  defaultSort: StoreBrowseServerSortId;
 };
 
 export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
@@ -53,6 +73,7 @@ export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
   presentationMode: "card_benefit_integrated",
   scheduleStart: null,
   scheduleEnd: null,
+  defaultSort: "default",
 };
 
 export function buildBrowsePrimaryScopeKey(primarySlug: string): string {
@@ -162,6 +183,7 @@ export function resolveBrowseScopePolicy(input: {
       input.primaryRow?.scheduleEnd === "inherit" || input.primaryRow?.scheduleEnd == null
         ? platform.scheduleEnd
         : input.primaryRow.scheduleEnd,
+    defaultSort: defaultSortFromProductConfig(input.primaryRow?.productConfig ?? null) ?? platform.defaultSort,
   };
 
   const sub = input.subSlug?.trim().toLowerCase();
@@ -187,5 +209,6 @@ export function resolveBrowseScopePolicy(input: {
     presentationMode: resolvePresentation(effectiveSub.presentationMode, primaryResolved.presentationMode),
     scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
     scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
+    defaultSort: defaultSortFromProductConfig(effectiveSub.productConfig ?? null) ?? primaryResolved.defaultSort,
   };
 }

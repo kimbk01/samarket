@@ -8,8 +8,10 @@ import type { StoresBrowseResponseBody } from "@/lib/stores/stores-browse-build"
 import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import { planStoresBrowseInsertions } from "@/lib/stores/composition/stores-composition-insertion-live";
 import {
+  loadActiveStoreCouponCampaigns,
   loadActiveStorePaidAdCampaigns,
 } from "@/lib/stores/load-store-insertion-campaigns";
+import { selectDiscoveryEligibleStoreCoupons } from "@/lib/stores/store-coupon-eligibility";
 import {
   listBrowseScopePolicyRows,
   mapBrowseScopeDbRow,
@@ -133,12 +135,25 @@ export async function attachStoresBrowseInsertionMeta(
       : body;
 
   const organicIds = gatedBody.stores.map((s) => s.id);
+  const organicSet = new Set(organicIds);
   const policy = scope
     ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
     : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
-  const [paidAdsRaw] = await Promise.all([
+  const [paidAdsRaw, couponsRaw] = await Promise.all([
     loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
+    loadActiveStoreCouponCampaigns(sb),
   ]);
+
+  const couponBadgeByStoreId: Record<string, { title: string }> = {};
+  if (scopeMeta?.couponEnabled) {
+    const eligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
+    for (const c of eligible) {
+      if (!organicSet.has(c.storeId)) continue;
+      if (!couponBadgeByStoreId[c.storeId]) {
+        couponBadgeByStoreId[c.storeId] = { title: c.title };
+      }
+    }
+  }
 
   const adPolicy = policy.find((r) => r.surface === "browse" && r.slot === "future_ad_insertion");
   const surfaceAllowed = adPolicy?.enabled === true;
@@ -194,6 +209,7 @@ export async function attachStoresBrowseInsertionMeta(
         couponCount: plan.couponCount,
         sponsoredStoreIds: plan.sponsoredStoreIds,
         surfaceAllowed,
+        couponBadgeByStoreId,
       },
       ...(scopeMeta
         ? {
@@ -206,6 +222,7 @@ export async function attachStoresBrowseInsertionMeta(
               adEnabled: scopeMeta.adEnabled,
               couponEnabled: scopeMeta.couponEnabled,
               cardType: scopeMeta.cardType,
+              defaultSort: scopeMeta.defaultSort,
             },
           }
         : {}),

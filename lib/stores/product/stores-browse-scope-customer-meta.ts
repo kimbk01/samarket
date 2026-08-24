@@ -23,6 +23,7 @@ export type StoresBrowseScopeCustomerMeta = {
   intervalEveryN: number;
   presentationMode: string;
   cardType: "store" | "product" | "mixed";
+  defaultSort: import("@/lib/stores/store-discovery-browse-sort").StoreBrowseServerSortId;
 };
 
 export async function resolveStoresBrowseScopeCustomerMeta(
@@ -67,5 +68,6 @@ export async function resolveStoresBrowseScopeCustomerMeta(
     intervalEveryN: resolved.intervalEveryN,
     presentationMode: resolved.presentationMode,
     cardType,
+    defaultSort: resolved.defaultSort,
   };
 }

@@ -10,6 +10,12 @@ import {
   StoresHomeExposureRegistry,
   type StoresHomeExposureRole,
 } from "@/lib/stores/stores-home-exposure-registry";
+import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stores-composition-home-slots";
+import {
+  defaultDataSourceForSlot,
+  storeMatchesHomeDataSource,
+  type StoresHomeDataSourceId,
+} from "@/lib/stores/product/stores-home-data-source";
 
 /**
  * Slot0 「지금 주문 가능」 가로 레일 cap — 기존 Hub `flattenStoresHomeFoodEntries(..., 16)` 계약.
@@ -40,6 +46,48 @@ export const STORES_HOME_TOP_RATED_MIN_REVIEWS = 3;
 
 /** horizontal shelf — Slot0 노출 store deprioritize (영구 제외 아님). CUT2: slot1_primary retired. */
 const HORIZONTAL_DEPRIORITIZE_ROLES: readonly StoresHomeExposureRole[] = ["slot0_product"];
+
+type ProductGate = {
+  hasProduct: (productId: string) => boolean;
+  registerProduct: (productId: string) => void;
+};
+
+function registryProductGate(registry: StoresHomeExposureRegistry): ProductGate {
+  return {
+    hasProduct: (id) => registry.hasProduct(id),
+    registerProduct: (id) => registry.registerProduct(id),
+  };
+}
+
+class SourceInstanceProductGate implements ProductGate {
+  private currentSource: StoresHomeDataSourceId = "order_now";
+  private instanceIds = new Set<string>();
+  private bySource = new Map<StoresHomeDataSourceId, Set<string>>();
+
+  begin(source: StoresHomeDataSourceId): void {
+    this.currentSource = source;
+    this.instanceIds = new Set();
+  }
+
+  hasProduct(productId: string): boolean {
+    const id = String(productId ?? "").trim();
+    if (!id) return false;
+    if (this.instanceIds.has(id)) return true;
+    for (const [source, set] of this.bySource) {
+      if (source !== this.currentSource && set.has(id)) return true;
+    }
+    return false;
+  }
+
+  registerProduct(productId: string): void {
+    const id = String(productId ?? "").trim();
+    if (!id) return;
+    this.instanceIds.add(id);
+    const set = this.bySource.get(this.currentSource) ?? new Set<string>();
+    set.add(id);
+    this.bySource.set(this.currentSource, set);
+  }
+}
 
 export type StoresHomeFeedComposition = {
   slot0Food: StoresHomeFoodEntry[];
@@ -134,7 +182,8 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
 function allocateSlot0Food(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
-  max: number
+  max: number,
+  gate: ProductGate = registryProductGate(registry)
 ): StoresHomeFoodEntry[] {
   const out: StoresHomeFoodEntry[] = [];
   for (const store of stores) {
@@ -142,9 +191,10 @@ function allocateSlot0Food(
     const entry = buildRepresentativeFoodEntry(store);
     if (!entry) continue;
 
-    registry.registerStore(store.id, "slot0_product");
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "slot0_product" }, gate)) {
+      continue;
+    }
     // Invariant C — Slot0 productId seeds feed-wide food-card product registry
-    registry.registerProduct(entry.productId);
     out.push(entry);
   }
   return out;
@@ -186,12 +236,13 @@ function tryAcceptFoodCard(
   registry: StoresHomeExposureRegistry,
   storeId: string,
   entry: StoresHomeFoodEntry,
-  opts?: { registerStoreRole?: StoresHomeExposureRole | null }
+  opts?: { registerStoreRole?: StoresHomeExposureRole | null },
+  gate: ProductGate = registryProductGate(registry)
 ): boolean {
-  if (registry.hasProduct(entry.productId)) return false;
+  if (gate.hasProduct(entry.productId)) return false;
   const role = opts?.registerStoreRole;
   if (role) registry.registerStore(storeId, role);
-  registry.registerProduct(entry.productId);
+  gate.registerProduct(entry.productId);
   return true;
 }
 
@@ -199,7 +250,8 @@ function allocateHorizontalFoodShelf(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
   max: number,
-  avoidAdjacentIds: readonly string[]
+  avoidAdjacentIds: readonly string[],
+  gate: ProductGate = registryProductGate(registry)
 ): StoresHomeFoodEntry[] {
   const ordered = rotateAvoidAdjacentFirst(
     deprioritizeByRoles(stores, registry, HORIZONTAL_DEPRIORITIZE_ROLES),
@@ -221,7 +273,7 @@ function allocateHorizontalFoodShelf(
       continue;
     }
 
-    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" }, gate)) {
       continue;
     }
     out.push(entry);
@@ -231,7 +283,7 @@ function allocateHorizontalFoodShelf(
   if (out.length === 0 && ordered.length > 0) {
     const store = ordered[0]!;
     const entry = buildRepresentativeFoodEntry(store);
-    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" }, gate)) {
       out.push(entry);
     }
   }
@@ -244,7 +296,8 @@ function allocateSlot2PopularFoodShelf(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
   max: number,
-  avoidAdjacentIds: readonly string[]
+  avoidAdjacentIds: readonly string[],
+  gate: ProductGate = registryProductGate(registry)
 ): StoresHomeFoodEntry[] {
   const ordered = rotateAvoidAdjacentFirst(
     deprioritizeByRoles(stores, registry, HORIZONTAL_DEPRIORITIZE_ROLES),
@@ -265,7 +318,7 @@ function allocateSlot2PopularFoodShelf(
       continue;
     }
 
-    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" }, gate)) {
       continue;
     }
     out.push(entry);
@@ -274,7 +327,7 @@ function allocateSlot2PopularFoodShelf(
   if (out.length === 0 && ordered.length > 0) {
     const store = ordered[0]!;
     const entry = buildSlot2PopularFoodEntry(store);
-    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+    if (entry && tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" }, gate)) {
       out.push(entry);
     }
   }
@@ -291,7 +344,8 @@ function allocateNewStoreFoodShelf(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
   max: number,
-  nowMs: number
+  nowMs: number,
+  gate: ProductGate = registryProductGate(registry)
 ): StoresHomeFoodEntry[] {
   const candidates = stores
     .filter(
@@ -312,7 +366,7 @@ function allocateNewStoreFoodShelf(
     if (out.length >= max) break;
     const entry = buildRepresentativeFoodEntry(store);
     if (!entry) continue;
-    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" })) {
+    if (!tryAcceptFoodCard(registry, store.id, entry, { registerStoreRole: "horizontal_discovery" }, gate)) {
       continue;
     }
     out.push(entry);
@@ -330,7 +384,8 @@ function allocateNewStoreFoodShelf(
 function allocateCampaignFoodShelf(
   registry: StoresHomeExposureRegistry,
   stores: readonly StoreHomeFeedItem[],
-  max: number
+  max: number,
+  gate: ProductGate = registryProductGate(registry)
 ): StoresHomeFoodEntry[] {
   const candidates = stores
     .filter((s) => s.discoveryCampaign != null && String(s.discoveryCampaign.id ?? "").trim().length > 0)
@@ -355,7 +410,7 @@ function allocateCampaignFoodShelf(
     const base = buildRepresentativeFoodEntry(store);
     if (!base) continue;
     // Product dedupe only — do not register store roles (Slot0–6 store order unchanged).
-    if (!tryAcceptFoodCard(registry, store.id, base, { registerStoreRole: null })) {
+    if (!tryAcceptFoodCard(registry, store.id, base, { registerStoreRole: null }, gate)) {
       continue;
     }
     const campaign = store.discoveryCampaign!;
@@ -398,17 +453,183 @@ function buildAdjacentAvoidIds(registry: StoresHomeExposureRegistry): string[] {
   return ids;
 }
 
+function defaultMaxForSlot(slot: StoresHomeCompositionSlotKey): number {
+  switch (slot) {
+    case "slot0Food":
+      return STORES_HOME_SLOT0_FOOD_MAX;
+    case "slot2Food":
+      return STORES_HOME_POPULAR_SHELF_MAX;
+    case "newStoreFood":
+      return STORES_HOME_NEW_STORE_SHELF_MAX;
+    case "campaignFood":
+      return STORES_HOME_CAMPAIGN_SHELF_MAX;
+    case "slot3Food":
+      return STORES_HOME_POPULAR_SHELF_MAX;
+    case "slot4Food":
+      return STORES_HOME_TOP_RATED_SHELF_MAX;
+    case "slot5Food":
+      return STORES_HOME_SLOT5_FOOD_MAX;
+    default:
+      return STORES_HOME_POPULAR_SHELF_MAX;
+  }
+}
+
+function resolveSlotMax(
+  slot: StoresHomeCompositionSlotKey,
+  slotMax: Partial<Record<StoresHomeCompositionSlotKey, number | null>> | undefined
+): number {
+  const raw = slotMax?.[slot];
+  if (raw == null) return defaultMaxForSlot(slot);
+  return Math.max(0, raw);
+}
+
+function allocatePurposeByDataSource(
+  registry: StoresHomeExposureRegistry,
+  pool: readonly StoreHomeFeedItem[],
+  source: StoresHomeDataSourceId,
+  max: number,
+  nowMs: number,
+  gate: ProductGate
+): StoresHomeFoodEntry[] {
+  const adjacent = buildAdjacentAvoidIds(registry);
+  switch (source) {
+    case "order_now":
+      return allocateSlot0Food(registry, pool.filter(isOpenDeliverable), max, gate);
+    case "popular_menu": {
+      const popularOrdered = orderStoresByPopularMetric(
+        pool.filter((s) => (s.completedOrderCount30d ?? 0) > 0)
+      );
+      return allocateSlot2PopularFoodShelf(registry, popularOrdered, max, adjacent, gate);
+    }
+    case "new_store":
+      return allocateNewStoreFoodShelf(registry, pool, max, nowMs, gate);
+    case "editorial_promo":
+      return allocateCampaignFoodShelf(registry, pool, max, gate);
+    case "delivery_fee_benefit":
+      return allocateHorizontalFoodShelf(
+        registry,
+        pool.filter((s) => hasDeliveryFeeStrikeEvidence(s)),
+        max,
+        adjacent,
+        gate
+      );
+    case "high_rating":
+      return allocateHorizontalFoodShelf(
+        registry,
+        pool.filter((s) => isTopRatedCandidate(s)),
+        max,
+        adjacent,
+        gate
+      );
+    case "recommended":
+      return allocateHorizontalFoodShelf(
+        registry,
+        pool.filter((s) => s.isFeatured),
+        max,
+        adjacent,
+        gate
+      );
+    case "rest_stores":
+      return [];
+  }
+}
+
+export type ComposeStoresHomeFeedOpts = {
+  nowMs?: number;
+  purposeAllocationOrder?: StoresHomeCompositionSlotKey[];
+  slotDataSources?: Partial<Record<StoresHomeCompositionSlotKey, StoresHomeDataSourceId>>;
+  slotMax?: Partial<Record<StoresHomeCompositionSlotKey, number | null>>;
+};
+
 /**
  * HOME feed composer — single invocation per feed render.
  * Input `stores` must preserve API recommended + exposure order.
+ * No purposeAllocationOrder → legacy hardcoded sequence + global product registry.
  */
 export function composeStoresHomeFeed(
   stores: readonly StoreHomeFeedItem[],
-  opts?: { nowMs?: number }
+  opts?: ComposeStoresHomeFeedOpts
+): StoresHomeFeedComposition {
+  if (opts?.purposeAllocationOrder && opts.purposeAllocationOrder.length > 0) {
+    return composeStoresHomeFeedBySectionOrder(stores, opts);
+  }
+  return composeStoresHomeFeedLegacy(stores, opts?.nowMs);
+}
+
+function emptyComposition(): StoresHomeFeedComposition {
+  return {
+    slot0Food: [],
+    slot1Stores: [],
+    slot2Food: [],
+    newStoreFood: [],
+    campaignFood: [],
+    slot3Food: [],
+    slot4Food: [],
+    slot5Food: [],
+    slot6NearbyStores: [],
+    slot6RestStores: [],
+  };
+}
+
+function composeStoresHomeFeedBySectionOrder(
+  stores: readonly StoreHomeFeedItem[],
+  opts: ComposeStoresHomeFeedOpts
+): StoresHomeFeedComposition {
+  const registry = new StoresHomeExposureRegistry();
+  const gate = new SourceInstanceProductGate();
+  const pool = [...stores];
+  const nowMs = opts.nowMs ?? Date.now();
+  const composition = emptyComposition();
+  const foodSlots: StoresHomeCompositionSlotKey[] = [
+    "slot0Food",
+    "slot2Food",
+    "newStoreFood",
+    "campaignFood",
+    "slot3Food",
+    "slot4Food",
+    "slot5Food",
+  ];
+
+  for (const slot of opts.purposeAllocationOrder ?? []) {
+    if (!foodSlots.includes(slot)) continue;
+    const source =
+      opts.slotDataSources?.[slot] ?? defaultDataSourceForSlot(slot);
+    gate.begin(source);
+    const max = resolveSlotMax(slot, opts.slotMax);
+    const entries = allocatePurposeByDataSource(registry, pool, source, max, nowMs, gate);
+    (composition[slot] as StoresHomeFoodEntry[]) = entries;
+  }
+
+  composition.slot1Stores = [];
+  composition.slot6NearbyStores = [];
+
+  const restSource =
+    opts.slotDataSources?.slot6RestStores ?? defaultDataSourceForSlot("slot6RestStores");
+  const finalRowExcludeRoles: readonly StoresHomeExposureRole[] = [
+    "slot0_product",
+    "horizontal_discovery",
+  ];
+  const restMax = opts.slotMax?.slot6RestStores;
+  for (const store of pool) {
+    if (registry.wasExposedInRoles(store.id, finalRowExcludeRoles)) continue;
+    if (restSource !== "rest_stores") {
+      if (!storeMatchesHomeDataSource(store, restSource, nowMs)) continue;
+    }
+    registry.registerStore(store.id, "final_row");
+    composition.slot6RestStores.push(store);
+    if (restMax != null && composition.slot6RestStores.length >= restMax) break;
+  }
+
+  return composition;
+}
+
+function composeStoresHomeFeedLegacy(
+  stores: readonly StoreHomeFeedItem[],
+  nowMsInput?: number
 ): StoresHomeFeedComposition {
   const registry = new StoresHomeExposureRegistry();
   const pool = [...stores];
-  const nowMs = opts?.nowMs ?? Date.now();
+  const nowMs = nowMsInput ?? Date.now();
 
   const slot0Candidates = pool.filter(isOpenDeliverable);
   const slot0Food = allocateSlot0Food(registry, slot0Candidates, STORES_HOME_SLOT0_FOOD_MAX);

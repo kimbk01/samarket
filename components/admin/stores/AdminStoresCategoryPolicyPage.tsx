@@ -12,10 +12,12 @@ import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCm
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import type {
-  StoresBrowseScopePolicyResolved,
-  StoresBrowseScopePolicyRow,
+import {
+  STORES_BROWSE_DEFAULT_SORT_IDS,
+  type StoresBrowseScopePolicyResolved,
+  type StoresBrowseScopePolicyRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
 import { AdminStoresCategoryBrowseLivePreview } from "@/components/admin/stores/AdminStoresCategoryBrowseLivePreview";
 
 type PrimaryRow = {
@@ -51,6 +53,7 @@ type DraftPrimary = {
   scheduleMode: ScheduleMode;
   draftScheduleStart: string;
   draftScheduleEnd: string;
+  defaultSort: StoreBrowseServerSortId;
 };
 
 type DraftSecondary = {
@@ -62,6 +65,7 @@ type DraftSecondary = {
   couponEnabled: boolean;
   draftMax: string;
   draftInterval: string;
+  defaultSort: StoreBrowseServerSortId | "inherit";
 };
 
 type PolicyWriteRow = {
@@ -145,6 +149,7 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     scheduleMode: scheduleStart || scheduleEnd ? "scheduled" : "always",
     draftScheduleStart: toInputDateTime(scheduleStart),
     draftScheduleEnd: toInputDateTime(scheduleEnd),
+    defaultSort: row.resolved.defaultSort,
   };
 }
 
@@ -159,6 +164,12 @@ function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
     draftInterval: String(row.resolved.intervalEveryN),
+    defaultSort:
+      row.row?.productConfig &&
+      typeof row.row.productConfig === "object" &&
+      "defaultSort" in row.row.productConfig
+        ? row.resolved.defaultSort
+        : "inherit",
   };
 }
 
@@ -501,7 +512,7 @@ export function AdminStoresCategoryPolicyPage() {
           presentationMode: "card_benefit_integrated",
           scheduleStart: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleStart || null : null,
           scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
-          productConfig: {},
+          productConfig: { defaultSort: draftPrimary.defaultSort },
         },
       ];
       const deleteScopeKeys: string[] = [];
@@ -527,6 +538,8 @@ export function AdminStoresCategoryPolicyPage() {
             presentationMode: "card_benefit_integrated",
             scheduleStart: null,
             scheduleEnd: null,
+            productConfig:
+              draft.defaultSort === "inherit" ? {} : { defaultSort: draft.defaultSort },
           });
         }
       }
@@ -668,6 +681,26 @@ export function AdminStoresCategoryPolicyPage() {
                 labelText={label(ko, "1차 업종 활성 상태", "Primary enabled")}
                 onChange={(enabled) => setDraftPrimary({ ...draftPrimary, enabled })}
               />
+            </div>
+            <div className="mt-3">
+              <FieldLabel labelText={t("admin_stores_browse_default_sort")}>
+                <select
+                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                  value={draftPrimary.defaultSort}
+                  onChange={(e) =>
+                    setDraftPrimary({
+                      ...draftPrimary,
+                      defaultSort: e.target.value as StoreBrowseServerSortId,
+                    })
+                  }
+                >
+                  {STORES_BROWSE_DEFAULT_SORT_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {id === "default" ? (ko ? "추천순" : "Recommended") : id}
+                    </option>
+                  ))}
+                </select>
+              </FieldLabel>
             </div>
             <div className="mt-3 rounded-ui-rect bg-sam-surface-muted p-3">
               <p className="text-[12px] font-bold text-sam-fg">{label(ko, "정책 요약", "Policy summary")}</p>
@@ -992,6 +1025,11 @@ export function AdminStoresCategoryPolicyPage() {
                             draftEnabled={previewDraftEnabled}
                             adEnabled={previewAdEnabled}
                             couponEnabled={previewCouponEnabled}
+                            defaultSort={
+                              tier === "secondary" && selectedSubDraft?.mode === "override" && selectedSubDraft.defaultSort !== "inherit"
+                                ? selectedSubDraft.defaultSort
+                                : draftPrimary.defaultSort
+                            }
                             ko={ko}
                             reloadToken={previewReloadToken}
                           />
@@ -1145,6 +1183,24 @@ export function AdminStoresCategoryPolicyPage() {
                               />
                             </FieldLabel>
                           </div>
+                          <FieldLabel labelText={t("admin_stores_browse_default_sort")}>
+                            <select
+                              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                              value={selectedSubDraft.defaultSort}
+                              onChange={(e) =>
+                                updateSubDraft(selectedSubMeta.subSlug, {
+                                  defaultSort: e.target.value as StoreBrowseServerSortId | "inherit",
+                                })
+                              }
+                            >
+                              <option value="inherit">{ko ? "1차 상속" : "Inherit primary"}</option>
+                              {STORES_BROWSE_DEFAULT_SORT_IDS.map((id) => (
+                                <option key={id} value={id}>
+                                  {id === "default" ? (ko ? "추천순" : "Recommended") : id}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldLabel>
                         </div>
                       ) : (
                         <div className="rounded-ui-rect bg-sam-surface-muted p-3 text-[12px] text-sam-muted">

@@ -3,6 +3,10 @@
  */
 
 import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
+import {
+  parseStoresHomeDataSource,
+  type StoresHomeDataSourceId,
+} from "@/lib/stores/product/stores-home-data-source";
 
 export type StoresHomeShelfEntityType = "product" | "store" | "brand";
 
@@ -40,10 +44,12 @@ export type StoresHomeShelfShowAllRouteKey =
 
 export type StoresHomeShelfProductConfig = {
   /**
-   * WRITE_ONLY (CUT 2) — presentation hint / Admin filter only.
-   * Membership/ranking owners remain composer + shelf contracts.
+   * Presentation compatibility leftover only — not membership/ranking.
+   * Admin must not expose this as a data-kind selector.
    */
   entityType: StoresHomeShelfEntityType;
+  /** Canonical HOME membership source (composer authority). */
+  dataSource?: StoresHomeDataSourceId;
   showAllEnabled: boolean;
   showAllLabelKo: string | null;
   showAllLabelEn: string | null;
@@ -151,5 +157,9 @@ export function parseHomeShelfProductConfig(raw: unknown): Partial<StoresHomeShe
   }
   if (typeof o.operatorMemo === "string") out.operatorMemo = o.operatorMemo;
   if (o.operatorMemo === null) out.operatorMemo = null;
+  if (typeof o.dataSource === "string") {
+    const ds = parseStoresHomeDataSource(o.dataSource, "order_now");
+    if (o.dataSource === ds) out.dataSource = ds;
+  }
   return out;
 }

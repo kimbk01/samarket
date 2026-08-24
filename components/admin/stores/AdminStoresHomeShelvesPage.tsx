@@ -17,10 +17,18 @@ import type {
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import {
   resolveHomeShelfShowAllHref,
-  type StoresHomeShelfEntityType,
   type StoresHomeShelfImageSource,
   type StoresHomeShelfShowAllRouteKey,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
+import {
+  coercePresentationForDataSource,
+  countHomeDataSourceCandidates,
+  diagnoseHomeShelfCustomerHidden,
+  presentationsAllowedForDataSource,
+  STORES_HOME_DATA_SOURCE_IDS,
+  type StoresHomeDataSourceId,
+} from "@/lib/stores/product/stores-home-data-source";
+import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { AdminStoresHomeShelfLivePreview } from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
@@ -31,7 +39,6 @@ type DraftShelf = StoresHomeShelfResolvedConfig & { draftMax: string; draftOrder
 type HomeTab = "basic" | "presentation" | "data" | "coupon_ad" | "exposure" | "advanced";
 type ModalMode = "add" | "duplicate" | "delete" | null;
 
-const ENTITY_OPTIONS: StoresHomeShelfEntityType[] = ["product", "store", "brand"];
 const IMAGE_OPTIONS: StoresHomeShelfImageSource[] = [
   "auto",
   "store_profile",
@@ -49,11 +56,6 @@ const ROUTE_OPTIONS: StoresHomeShelfShowAllRouteKey[] = [
   "recommended",
   "allStores",
 ];
-const PRESENTATION_BY_ENTITY: Record<StoresHomeShelfEntityType, StoresHomePresentationPatternId[]> = {
-  product: ["food_horizontal", "editorial_grid", "high_rating_horizontal"],
-  store: ["store_horizontal", "timesale_vertical", "store_teaser_horizontal", "high_rating_horizontal"],
-  brand: ["brand_circular"],
-};
 const COUPON_OPTIONS: StoresHomeShelfCouponIntegration[] = ["off", "badge_on_image", "benefit_line", "both"];
 const AD_OPTIONS: StoresHomeShelfAdIntegration[] = ["off", "sponsored_badge", "benefit_line", "both"];
 
@@ -65,12 +67,6 @@ const HOME_TABS: { id: HomeTab; labelKo: string; labelEn: string }[] = [
   { id: "exposure", labelKo: "노출 설정", labelEn: "Exposure" },
   { id: "advanced", labelKo: "고급 설정", labelEn: "Advanced" },
 ];
-
-function entityLabel(entity: StoresHomeShelfEntityType, ko: boolean) {
-  if (entity === "product") return ko ? "상품형" : "Product";
-  if (entity === "brand") return ko ? "브랜드형" : "Brand";
-  return ko ? "매장형" : "Store";
-}
 
 function presentationShort(pres: string, ko: boolean) {
   const map: Record<string, [string, string]> = {
@@ -181,6 +177,7 @@ export function AdminStoresHomeShelvesPage() {
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null);
   const [duplicateTargetId, setDuplicateTargetId] = useState<string>("");
   const [addTargetId, setAddTargetId] = useState<string>("");
+  const [homeFeedStores, setHomeFeedStores] = useState<StoreHomeFeedItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,6 +222,23 @@ export function AdminStoresHomeShelvesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/stores/home-feed?fresh=1", { credentials: "include", cache: "no-store" });
+        const json = (await res.json()) as { ok?: boolean; stores?: StoreHomeFeedItem[] };
+        if (cancelled || !json.ok || !Array.isArray(json.stores)) return;
+        setHomeFeedStores(json.stores);
+      } catch {
+        /* preview still loads independently */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const editableRows = useMemo(
     () =>
@@ -281,7 +295,11 @@ export function AdminStoresHomeShelvesPage() {
     const next = [...editableRows];
     const [moved] = next.splice(fromIdx, 1);
     if (!moved) return;
-    next.splice(toIdx, 0, moved);
+    const restIdx = next.findIndex((row) => row.composerSlot === "slot6RestStores");
+    if (restIdx >= 0 && restIdx !== next.length - 1) {
+      const [rest] = next.splice(restIdx, 1);
+      if (rest) next.push(rest);
+    }
     renumberEditableRows(next);
   };
 
@@ -332,7 +350,9 @@ export function AdminStoresHomeShelvesPage() {
                 showAllRouteKey: source.productConfig.showAllRouteKey,
                 imageSource: source.productConfig.imageSource,
                 operatorMemo: source.productConfig.operatorMemo,
+                dataSource: source.productConfig.dataSource ?? source.dataSource,
               },
+              dataSource: source.dataSource,
             }
           : row
       )
@@ -406,50 +426,50 @@ export function AdminStoresHomeShelvesPage() {
     }
   };
 
-  const renderPresentationSelect = (shelf: DraftShelf) => (
+  const renderPresentationSelect = (shelf: DraftShelf) => {
+    const allowed = presentationsAllowedForDataSource(shelf.dataSource);
+    const value = allowed.includes(shelf.presentation) ? shelf.presentation : allowed[0]!;
+    return (
     <label className="block text-[12px] font-medium text-sam-muted">
       {ko ? "카드 표현 방식" : "Card presentation"}
       <select
         className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
-        value={shelf.presentation}
+        value={value}
         onChange={(e) => update(shelf.shelfId, { presentation: e.target.value as StoresHomePresentationPatternId })}
       >
-        {PRESENTATION_BY_ENTITY[shelf.productConfig.entityType].map((option) => (
+        {allowed.map((option) => (
           <option key={option} value={option}>
             {t(`admin_stores_home_shelves_pres_${option}`)}
           </option>
         ))}
       </select>
     </label>
-  );
+    );
+  };
 
-  const renderEntitySegmented = (shelf: DraftShelf) => (
-    <div>
-      <p className="mb-1.5 text-[12px] font-medium text-sam-muted">{ko ? "선반 유형" : "Shelf type"}</p>
-      <div className="flex flex-wrap gap-2">
-        {ENTITY_OPTIONS.map((entity) => (
-          <button
-            key={entity}
-            type="button"
-            onClick={() => {
-              const nextPresentation = PRESENTATION_BY_ENTITY[entity][0];
-              if (!nextPresentation) return;
-              update(shelf.shelfId, {
-                productConfig: { ...shelf.productConfig, entityType: entity },
-                presentation: nextPresentation,
-              });
-            }}
-            className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${
-              shelf.productConfig.entityType === entity
-                ? "bg-emerald-600 text-white"
-                : "border border-sam-border bg-white text-sam-fg"
-            }`}
-          >
-            {t(`admin_stores_home_shelves_entity_${entity}`)}
-          </button>
+  const renderDataSourceSelect = (shelf: DraftShelf) => (
+    <label className="block text-[12px] font-medium text-sam-muted">
+      {ko ? "데이터 소스" : "Data source"}
+      <select
+        className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+        value={shelf.dataSource}
+        onChange={(e) => {
+          const dataSource = e.target.value as StoresHomeDataSourceId;
+          const presentation = coercePresentationForDataSource(dataSource, shelf.presentation);
+          update(shelf.shelfId, {
+            dataSource,
+            presentation,
+            productConfig: { ...shelf.productConfig, dataSource },
+          });
+        }}
+      >
+        {STORES_HOME_DATA_SOURCE_IDS.map((option) => (
+          <option key={option} value={option}>
+            {t(`admin_stores_home_ds_${option}`)}
+          </option>
         ))}
-      </div>
-    </div>
+      </select>
+    </label>
   );
 
   const renderImageSource = (shelf: DraftShelf) => (
@@ -561,7 +581,7 @@ export function AdminStoresHomeShelvesPage() {
             />
             <span className="mt-0.5 block text-right text-[10px]">{(shelf.subtitleKo ?? "").length}/40</span>
           </label>
-          {renderEntitySegmented(shelf)}
+          {renderDataSourceSelect(shelf)}
           {renderPresentationSelect(shelf)}
           {renderMaxInput(shelf)}
           {renderEnabledToggle(shelf)}
@@ -574,7 +594,7 @@ export function AdminStoresHomeShelvesPage() {
       return (
         <div className="space-y-3">
           {renderPresentationSelect(shelf)}
-          {renderEntitySegmented(shelf)}
+          {renderDataSourceSelect(shelf)}
           {renderImageSource(shelf)}
         </div>
       );
@@ -746,7 +766,20 @@ export function AdminStoresHomeShelvesPage() {
                 {editableRows.map((row, index) => {
                   const active = row.shelfId === selectedId;
                   const name = ko ? row.titleKo : row.titleEn;
-                  const typeLine = `${entityLabel(row.productConfig.entityType, ko)} · ${presentationShort(row.presentation, ko)}`;
+                  const typeLine = `${t(`admin_stores_home_ds_${row.dataSource}`)} · ${presentationShort(row.presentation, ko)}`;
+                  const candidateCount = countHomeDataSourceCandidates(homeFeedStores, row.dataSource);
+                  const diag = diagnoseHomeShelfCustomerHidden({
+                    unavailable: row.availability === "unavailable",
+                    enabled: row.enabled,
+                    scheduleOk: !row.enabled || row.customerVisible,
+                    candidateCount,
+                    allocatedCount: candidateCount,
+                  });
+                  const statusLine = diag.customerVisible
+                    ? `${ko ? "후보" : "cand"} ${candidateCount} · ${ko ? "고객 노출" : "visible"} YES`
+                    : `${ko ? "후보" : "cand"} ${candidateCount} · ${
+                        diag.hiddenReason ? t(`admin_stores_home_hidden_${diag.hiddenReason}`) : ""
+                      }`;
                   return (
                     <li key={row.shelfId} className="relative">
                       <div
@@ -770,6 +803,7 @@ export function AdminStoresHomeShelvesPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-semibold text-sam-fg">{name}</p>
                           <p className="truncate text-[11px] text-sam-muted">{typeLine}</p>
+                          <p className="truncate text-[10px] text-sam-muted">{statusLine}</p>
                         </div>
                         <Toggle checked={row.enabled} onChange={(value) => update(row.shelfId, { enabled: value })} />
                         <button
@@ -989,7 +1023,7 @@ export function AdminStoresHomeShelvesPage() {
                     <span className="min-w-0">
                       <span className="block font-semibold text-sam-fg">{ko ? row.titleKo : row.titleEn}</span>
                       <span className="block text-sam-muted">
-                        {entityLabel(row.productConfig.entityType, ko)} · {presentationShort(row.presentation, ko)}
+                        {t(`admin_stores_home_ds_${row.dataSource}`)} · {presentationShort(row.presentation, ko)}
                       </span>
                     </span>
                   </label>

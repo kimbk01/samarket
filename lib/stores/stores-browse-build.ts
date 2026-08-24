@@ -420,6 +420,7 @@ export type StoresBrowseResponseBody = {
       couponCount: number;
       sponsoredStoreIds: string[];
       surfaceAllowed: boolean;
+      couponBadgeByStoreId?: Record<string, { title: string }>;
     };
     /** CATEGORY operator CMS — primary/secondary scope (menu-centric, not HOME shelves). */
     browseScopePolicy?: {
@@ -431,6 +432,7 @@ export type StoresBrowseResponseBody = {
       adEnabled: boolean;
       couponEnabled: boolean;
       cardType: "store" | "product" | "mixed";
+      defaultSort?: import("@/lib/stores/store-discovery-browse-sort").StoreBrowseServerSortId;
     };
   };
 };

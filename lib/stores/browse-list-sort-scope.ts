@@ -15,13 +15,25 @@ export function shouldResetBrowseListSortOnScopeChange(prevKey: string, nextKey:
  * browse fetch/query authority — URL `sort`는 navigation pin 동안 우선.
  * chip 클릭으로 pin 해제 후에는 `listSort` state가 fetch authority.
  */
+export function parseExplicitBrowseSortParam(
+  raw: string | null | undefined
+): StoreBrowseSortId | null {
+  if (raw == null || String(raw).trim() === "") return null;
+  const parsed = parseStoreBrowseSortParam(raw);
+  const s = raw.trim().toLowerCase();
+  if (s === "default" || s === "distance" || s === "rating" || s === "reviews" || s === "fast" || s === "popular") {
+    return parsed;
+  }
+  return null;
+}
+
 export function resolveBrowseFetchSort(
   urlSortRaw: string | null | undefined,
   listSort: StoreBrowseSortId,
   urlSortPinned: boolean
 ): StoreBrowseSortId {
   if (!urlSortPinned) return listSort;
-  const urlSort = parseStoreBrowseSortParam(urlSortRaw);
-  if (urlSort !== "default") return urlSort;
+  const explicit = parseExplicitBrowseSortParam(urlSortRaw);
+  if (explicit) return explicit;
   return listSort;
 }

@@ -31,9 +31,16 @@ const VALID_SORTS = new Set<StoreBrowseServerSortId>([
 export function parseStoreBrowseServerSortParam(
   raw: string | null | undefined
 ): StoreBrowseServerSortId {
-  const s = raw?.trim().toLowerCase();
-  if (s && VALID_SORTS.has(s as StoreBrowseServerSortId)) return s as StoreBrowseServerSortId;
-  return "default";
+  return parseExplicitStoreBrowseServerSortParam(raw) ?? "default";
+}
+
+export function parseExplicitStoreBrowseServerSortParam(
+  raw: string | null | undefined
+): StoreBrowseServerSortId | null {
+  if (raw == null || String(raw).trim() === "") return null;
+  const s = raw.trim().toLowerCase();
+  if (VALID_SORTS.has(s as StoreBrowseServerSortId)) return s as StoreBrowseServerSortId;
+  return null;
 }
 
 export type StoreDiscoverySortRow = {

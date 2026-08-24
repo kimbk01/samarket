@@ -101,6 +101,7 @@ function StoreBrowseCategoryRowCardInner({
   browseStoreId,
   registerBrowseListItem,
   campaignBenefit,
+  couponBadgeTitle,
 }: {
   data: StoreRowCardData;
   locale: AppLanguageCode;
@@ -109,6 +110,7 @@ function StoreBrowseCategoryRowCardInner({
   browseStoreId?: string;
   registerBrowseListItem?: (storeId: string, node: HTMLElement | null) => void;
   campaignBenefit?: StoreBrowseCampaignBenefit;
+  couponBadgeTitle?: string | null;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -411,6 +413,11 @@ function StoreBrowseCategoryRowCardInner({
             className={`mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[12.5px] leading-[1.02] ${FB.metaRow}`}
             data-stores-category-metadata="true"
           >
+            {couponBadgeTitle ?
+              <span className="shrink-0 rounded-full bg-signature/15 px-1.5 py-0.5 text-[10px] font-semibold text-signature">
+                {couponBadgeTitle}
+              </span>
+            : null}
             {campaignBenefit?.sponsored ?
               <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
                 {t("store_insertion_sponsored")}
@@ -526,6 +533,8 @@ export const StoreBrowseCategoryRowCard = memo(
     prev.featuredMenuHydration === next.featuredMenuHydration &&
     prev.browseStoreId === next.browseStoreId &&
     prev.registerBrowseListItem === next.registerBrowseListItem &&
+    prev.campaignBenefit === next.campaignBenefit &&
+    prev.couponBadgeTitle === next.couponBadgeTitle &&
     storeRowCardDataEqual(prev.data, next.data)
 );
 

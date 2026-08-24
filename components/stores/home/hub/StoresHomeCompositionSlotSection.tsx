@@ -62,8 +62,6 @@ function renderFoodEntryCard(
   const key = `${entry.storeId}-${entry.productId}`;
   switch (presentation) {
     case "store_horizontal":
-    case "timesale_vertical":
-      /** Food-slot timesale_vertical → store horizontal anatomy (vertical list needs StoreHomeFeedItem). */
       return (
         <StoresHomeStoreHorizontalCard
           key={key}

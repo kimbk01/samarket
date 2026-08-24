@@ -3,6 +3,7 @@
  */
 
 import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stores-composition-home-slots";
+import type { StoresHomePresentationPatternId } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import type {
   StoresHomeShelfAdIntegration,
   StoresHomeShelfCouponIntegration,
@@ -15,7 +16,12 @@ import {
   storesHomeShelfByComposerSlot,
   storesHomeShelfById,
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
-import type { StoresHomePresentationPatternId } from "@/lib/stores/presentation/stores-home-presentation-spec";
+import {
+  coercePresentationForDataSource,
+  defaultDataSourceForSlot,
+  parseStoresHomeDataSource,
+  type StoresHomeDataSourceId,
+} from "@/lib/stores/product/stores-home-data-source";
 import type { StoresHomeShelfProductConfig } from "@/lib/stores/product/stores-home-shelf-product-config";
 import {
   mergeHomeShelfProductConfig,
@@ -54,6 +60,7 @@ export type StoresHomeShelfResolvedConfig = {
   subtitleKo: string | null;
   subtitleEn: string | null;
   presentation: StoresHomePresentationPatternId;
+  dataSource: StoresHomeDataSourceId;
   couponIntegration: StoresHomeShelfCouponIntegration;
   adIntegration: StoresHomeShelfAdIntegration;
   scheduleStart: string | null;
@@ -70,6 +77,12 @@ function mergeShelf(
 ): StoresHomeShelfResolvedConfig {
   const unavailable = def.availability === "unavailable";
   const enabled = unavailable ? false : (override?.enabled ?? true);
+  const productConfig = mergeHomeShelfProductConfig(def.defaultProductConfig, override?.productConfig);
+  const dataSource = parseStoresHomeDataSource(
+    productConfig.dataSource,
+    defaultDataSourceForSlot(def.composerSlot ?? null)
+  );
+  const rawPresentation = override?.presentation ?? def.defaultPresentation;
   return {
     shelfId: def.shelfId,
     composerSlot: def.composerSlot ?? null,
@@ -83,7 +96,8 @@ function mergeShelf(
     titleEn: override?.titleEn?.trim() || def.defaultTitleEn,
     subtitleKo: override?.subtitleKo?.trim() || def.defaultSubtitleKo || null,
     subtitleEn: override?.subtitleEn?.trim() || def.defaultSubtitleEn || null,
-    presentation: override?.presentation ?? def.defaultPresentation,
+    presentation: coercePresentationForDataSource(dataSource, rawPresentation),
+    dataSource,
     couponIntegration: override?.couponIntegration ?? "off",
     adIntegration: override?.adIntegration ?? "off",
     scheduleStart: override?.scheduleStart ?? null,
@@ -95,7 +109,7 @@ function mergeShelf(
       isWithinProductScheduleWindow(override?.scheduleStart ?? null, override?.scheduleEnd ?? null),
     supportsCouponIntegration: def.supportsCouponIntegration,
     supportsAdIntegration: def.supportsAdIntegration,
-    productConfig: mergeHomeShelfProductConfig(def.defaultProductConfig, override?.productConfig),
+    productConfig: { ...productConfig, dataSource },
   };
 }
 

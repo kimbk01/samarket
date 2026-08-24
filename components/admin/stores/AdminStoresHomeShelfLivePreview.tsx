@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * Admin HOME shelf preview — live `/api/stores/home-feed` data shaped by
- * the **draft** shelf presentation/entity (same patterns as customer HOME).
+ * Admin HOME shelf preview — live home-feed + draft overlay + customer card components.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -17,6 +16,14 @@ import type {
   StoresHomeShelfAdIntegration,
   StoresHomeShelfCouponIntegration,
 } from "@/lib/stores/product/stores-home-shelf-product-catalog";
+import { StoresHomeFoodCard } from "@/components/stores/home/hub/StoresHomeFoodCard";
+import { StoresHomeHighRatingFoodCard } from "@/components/stores/home/presentation/StoresHomeHighRatingFoodCard";
+import { StoresHomeBrandCircularCard } from "@/components/stores/home/presentation/StoresHomeBrandCircularCard";
+import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presentation/StoresHomeStoreHorizontalCard";
+import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
+import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
+import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
+import { defaultDataSourceForSlot } from "@/lib/stores/product/stores-home-data-source";
 import { storeHomeFeedItemToShelfEntry } from "@/lib/stores/product/stores-home-store-to-shelf-entry";
 
 export type AdminHomeShelfPreviewInput = {
@@ -72,41 +79,6 @@ function cap<T>(items: readonly T[], max: number | null): T[] {
   return items.slice(0, max);
 }
 
-function toPreviewEntries(
-  bucket: { kind: "food"; items: StoresHomeFoodEntry[] } | { kind: "store"; items: StoreHomeFeedItem[] },
-  max: number | null
-): StoresHomeFoodEntry[] {
-  if (bucket.kind === "food") return cap(bucket.items, max);
-  return cap(bucket.items, max).map(storeHomeFeedItemToShelfEntry);
-}
-
-function BadgeOverlays({
-  coupon,
-  ad,
-  couponLabel,
-  adLabel,
-}: {
-  coupon: boolean;
-  ad: boolean;
-  couponLabel: string;
-  adLabel: string;
-}) {
-  return (
-    <>
-      {coupon ? (
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[9px] font-semibold text-white">
-          {couponLabel}
-        </span>
-      ) : null}
-      {ad ? (
-        <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-semibold text-white">
-          {adLabel}
-        </span>
-      ) : null}
-    </>
-  );
-}
-
 export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShelfPreviewInput }) {
   const { t, language } = useI18n();
   const ko = language === "ko";
@@ -156,14 +128,28 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
 
   const composed = useMemo(() => {
     if (feed.status !== "ready") return null;
-    return composeLiveHomeFeed(feed.stores, feed.policyMeta);
-  }, [feed]);
+    const saved =
+      (feed.policyMeta as { shelfProduct?: { shelves?: StoresHomeShelfResolvedConfig[] } } | null | undefined)
+        ?.shelfProduct?.shelves;
+    const dataSource =
+      shelf.productConfig.dataSource ?? defaultDataSourceForSlot(shelf.composerSlot);
+    const overlaid = saved?.map((row) =>
+      row.shelfId === shelf.shelfId
+        ? {
+            ...row,
+            enabled: shelf.enabled,
+            presentation: shelf.presentation,
+            max: shelf.max,
+            dataSource,
+            productConfig: { ...row.productConfig, ...shelf.productConfig, dataSource },
+          }
+        : row
+    );
+    return composeLiveHomeFeed(feed.stores, feed.policyMeta, overlaid);
+  }, [feed, shelf]);
 
-  const entity = shelf.productConfig.entityType;
   const presentation = shelf.presentation;
   const showAll = shelf.productConfig.showAllEnabled;
-  const showCoupon = shelf.couponIntegration !== "off";
-  const showAd = shelf.adIntegration !== "off";
 
   const body = useMemo(() => {
     if (!shelf.enabled) {
@@ -189,7 +175,28 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
     if (!composed) return null;
 
     const bucket = slotEntries(shelf.composerSlot, composed);
-    const entries = toPreviewEntries(bucket, shelf.max);
+    if (presentation === "timesale_vertical" && bucket.kind === "store") {
+      const stores = cap(bucket.items, shelf.max);
+      if (stores.length === 0) {
+        return (
+          <p className="px-2 py-6 text-center text-[12px] text-sam-muted">
+            {ko ? "이 선반 슬롯에 노출할 항목이 없습니다." : "No items in this shelf slot."}
+          </p>
+        );
+      }
+      return (
+        <div data-preview-presentation="timesale_vertical">
+          <StoresHomeTimesaleRowCardList
+            stores={stores}
+            locale={ko ? "ko" : "en"}
+            registerListItem={() => {}}
+          />
+        </div>
+      );
+    }
+
+    const entries =
+      bucket.kind === "food" ? cap(bucket.items, shelf.max) : cap(bucket.items, shelf.max).map(storeHomeFeedItemToShelfEntry);
     if (entries.length === 0) {
       return (
         <p className="px-2 py-6 text-center text-[12px] text-sam-muted">
@@ -198,145 +205,31 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
       );
     }
 
-    if (presentation === "brand_circular" || entity === "brand") {
-      return (
-        <div className="flex gap-3 overflow-x-auto pb-1" data-preview-presentation="brand_circular">
-          {entries.map((item) => (
-            <div key={`${item.storeId}-${item.productId}`} className="flex w-16 shrink-0 flex-col items-center gap-1">
-              <div
-                className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-emerald-50 text-[9px] font-semibold text-emerald-700 ring-1 ring-sam-border bg-cover bg-center"
-                style={item.imageUrl ? { backgroundImage: `url(${item.imageUrl})` } : undefined}
-                title={item.storeName}
-              >
-                {!item.imageUrl ? item.storeName.slice(0, 2) : null}
-              </div>
-              <p className="w-full truncate text-center text-[10px] font-medium">{item.storeName}</p>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (presentation === "timesale_vertical") {
-      return (
-        <div className="space-y-2" data-preview-presentation="timesale_vertical">
-          {entries.map((item) => (
-            <div
-              key={`${item.storeId}-${item.productId}`}
-              className="flex gap-2.5 border-b border-sam-border/60 pb-2 last:border-0"
-            >
-              <div
-                className="relative h-[71px] w-[75px] shrink-0 rounded-[6px] bg-sam-surface-muted bg-cover bg-center"
-                style={item.imageUrl ? { backgroundImage: `url(${item.imageUrl})` } : undefined}
-              >
-                <BadgeOverlays
-                  coupon={showCoupon}
-                  ad={showAd}
-                  couponLabel={t("store_badge_coupon")}
-                  adLabel={t("store_insertion_sponsored")}
-                />
-              </div>
-              <div className="min-w-0 flex-1 space-y-1 pt-0.5">
-                <p className="truncate text-[13px] font-semibold">{item.storeName}</p>
-                <p className="text-[12px] text-sam-muted">
-                  ★ {item.rating.toFixed(1)}
-                  {item.etaLabel ? ` · ${item.etaLabel}` : ""}
-                </p>
-                <p className="truncate text-[11px] text-sam-muted">{item.name}</p>
-                <p className="text-[12px] font-semibold text-emerald-700">
-                  {item.deliveryFeeLabel ?? `₱${item.price}`}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (presentation === "editorial_grid") {
-      return (
-        <div className="grid grid-cols-2 gap-2" data-preview-presentation="editorial_grid">
-          {entries.slice(0, 4).map((item) => (
-            <div
-              key={`${item.storeId}-${item.productId}`}
-              className="overflow-hidden rounded-ui-rect border border-sam-border"
-            >
-              <div
-                className="aspect-square bg-sam-surface-muted bg-cover bg-center"
-                style={item.imageUrl ? { backgroundImage: `url(${item.imageUrl})` } : undefined}
-              />
-              <div className="space-y-0.5 p-2">
-                <p className="truncate text-[11px] font-semibold">{item.name}</p>
-                <p className="text-[10px] text-sam-muted">{item.storeName}</p>
-                <p className="text-[11px] font-bold text-emerald-700">₱{item.price}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    const cardWidth =
-      presentation === "store_teaser_horizontal" || presentation === "store_horizontal"
-        ? "w-[9.5rem]"
-        : "w-[7.5rem]";
-    const showProductName =
-      presentation === "food_horizontal" ||
-      presentation === "high_rating_horizontal" ||
-      entity === "product";
+    const Card =
+      presentation === "high_rating_horizontal"
+        ? StoresHomeHighRatingFoodCard
+        : presentation === "brand_circular"
+          ? StoresHomeBrandCircularCard
+          : presentation === "store_teaser_horizontal"
+            ? StoresHomeStoreTeaserCard
+            : presentation === "store_horizontal"
+              ? StoresHomeStoreHorizontalCard
+              : StoresHomeFoodCard;
 
     return (
       <div className="flex gap-2 overflow-x-auto pb-1" data-preview-presentation={presentation}>
         {entries.map((item) => (
-          <div
-            key={`${item.storeId}-${item.productId}`}
-            className={`${cardWidth} shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`}
-          >
-            <div
-              className={`relative bg-sam-surface-muted bg-cover bg-center ${
-                showProductName && presentation === "food_horizontal" ? "aspect-square" : "aspect-[4/3]"
-              }`}
-              style={item.imageUrl ? { backgroundImage: `url(${item.imageUrl})` } : undefined}
-            >
-              <BadgeOverlays
-                coupon={showCoupon}
-                ad={showAd}
-                couponLabel={t("store_badge_coupon")}
-                adLabel={t("store_insertion_sponsored")}
-              />
-            </div>
-            <div className="space-y-0.5 p-2">
-              {showProductName ? (
-                <>
-                  <p className="truncate text-[12px] font-semibold">{item.name}</p>
-                  <p className="truncate text-[10px] text-sam-muted">{item.storeName}</p>
-                  <p className="text-[11px] font-bold text-emerald-700">₱{item.price}</p>
-                </>
-              ) : (
-                <>
-                  <p className="line-clamp-2 text-[12px] font-semibold leading-tight">{item.storeName}</p>
-                  <p className="text-[11px] text-sam-muted">
-                    ★ {item.rating.toFixed(1)}
-                    {item.etaLabel ? ` · ${item.etaLabel}` : ""}
-                  </p>
-                  <p className="text-[11px] font-medium text-emerald-700">
-                    {item.deliveryFeeLabel ?? "—"}
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
+          <Card key={`${item.storeId}-${item.productId}`} entry={item} imageUrl={item.imageUrl} loadingImage={false} />
         ))}
       </div>
     );
-  }, [shelf, feed, composed, entity, presentation, showCoupon, showAd, ko, t]);
+  }, [shelf, feed, composed, presentation, ko]);
 
   return (
     <div
       className="rounded-ui-rect border border-sam-border bg-white p-3 shadow-sm"
       data-admin-home-shelf-preview={shelf.shelfId}
       data-preview-live="true"
-      data-preview-entity={entity}
       data-preview-presentation={presentation}
       data-preview-slot={shelf.composerSlot ?? ""}
     >
@@ -354,8 +247,8 @@ export function AdminStoresHomeShelfLivePreview({ shelf }: { shelf: AdminHomeShe
       </div>
       <p className="mb-2 text-[10px] text-sam-muted">
         {ko
-          ? `표현: ${presentation} · 유형: ${entity} (초안 즉시 반영 · 저장 후 고객 HOME 동기화)`
-          : `Presentation: ${presentation} · entity: ${entity} (draft live · save syncs customer HOME)`}
+          ? `표현: ${presentation} · 데이터: ${shelf.productConfig.dataSource ?? ""} (초안 overlay · 고객 카드)`
+          : `Presentation: ${presentation} · data: ${shelf.productConfig.dataSource ?? ""} (draft overlay · customer cards)`}
       </p>
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="min-w-0">

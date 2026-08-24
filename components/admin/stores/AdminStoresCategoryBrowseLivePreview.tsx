@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
+import { StoreBrowseCategoryRowCard, browseItemToRowCard } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
 import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 
 export type AdminCategoryBrowsePreviewProps = {
@@ -19,6 +20,7 @@ export type AdminCategoryBrowsePreviewProps = {
   draftEnabled: boolean;
   adEnabled: boolean;
   couponEnabled: boolean;
+  defaultSort?: string;
   ko: boolean;
   /** Bump after save to re-fetch customer browse */
   reloadToken?: number;
@@ -43,6 +45,7 @@ export function AdminStoresCategoryBrowseLivePreview({
   draftEnabled,
   adEnabled,
   couponEnabled,
+  defaultSort,
   ko,
   reloadToken = 0,
 }: AdminCategoryBrowsePreviewProps) {
@@ -60,6 +63,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     void (async () => {
       try {
         const qs = new URLSearchParams({ primary: pk, sub: sk, limit: "8", fresh: "1" });
+        if (defaultSort) qs.set("sort", defaultSort);
         const res = await fetch(`/api/stores/browse?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",
@@ -108,7 +112,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     return () => {
       cancelled = true;
     };
-  }, [primarySlug, subSlug, ko, reloadToken]);
+  }, [primarySlug, subSlug, ko, reloadToken, defaultSort]);
 
   const headerTitle = scopeLabel.trim() || (state.status === "ready" ? state.serverTitle : null) || primarySlug;
   const readyState = state.status === "ready" ? state : null;
@@ -201,42 +205,12 @@ export function AdminStoresCategoryBrowseLivePreview({
               </p>
             ) : (
               readyState.stores.map((store) => (
-                <div key={store.id} className="mb-2 rounded-ui-rect border border-sam-border bg-white p-2">
-                  <div className="mb-1.5 grid grid-cols-4 gap-1">
-                    {(store.featuredItems.length > 0
-                      ? store.featuredItems.slice(0, 4)
-                      : ([null, null, null, null] as const)
-                    ).map((item, i) => (
-                      <div
-                        key={item?.productId ?? i}
-                        className="aspect-square rounded-[4px] bg-sam-surface-muted bg-cover bg-center"
-                        style={
-                          item?.imageUrl || store.profileImageUrl
-                            ? { backgroundImage: `url(${item?.imageUrl || store.profileImageUrl})` }
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                  <p className="truncate text-[12px] font-bold text-sam-fg">{store.nameKo}</p>
-                  <p className="text-[10px] text-sam-muted">
-                    {store.primaryNameKo}
-                    {store.subNameKo ? ` · ${store.subNameKo}` : ""}
-                    {" · "}★ {store.rating.toFixed(1)}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    <span className="rounded bg-emerald-50 px-1 py-0.5 text-[9px] font-semibold text-emerald-700">
-                      {store.status === "open" ? (ko ? "영업중" : "Open") : store.status}
-                    </span>
-                    <span className="rounded bg-sam-surface-muted px-1 py-0.5 text-[9px] font-medium text-sam-muted">
-                      {store.primarySlug}/{store.subSlug || "—"}
-                    </span>
-                    {couponEnabled ? (
-                      <span className="rounded bg-signature/15 px-1 py-0.5 text-[9px] font-semibold text-signature">
-                        {ko ? "쿠폰" : "Coupon"}
-                      </span>
-                    ) : null}
-                  </div>
+                <div key={store.id} className="mb-2">
+                  <StoreBrowseCategoryRowCard
+                    data={browseItemToRowCard(store)}
+                    locale={ko ? "ko" : "en"}
+                    couponBadgeTitle={couponEnabled ? (ko ? "쿠폰" : "Coupon") : null}
+                  />
                 </div>
               ))
             )}

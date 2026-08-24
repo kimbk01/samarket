@@ -28,7 +28,8 @@ import {
   type StoresBrowseRequestContext,
   type StoresBrowseResponseBody,
 } from "@/lib/stores/stores-browse-build";
-import { parseStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
+import { parseExplicitStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
+import { resolveStoresBrowseScopeCustomerMeta } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import {
   tryLoadStoresBrowseFromSnapshot,
 } from "@/lib/stores/stores-browse-snapshot";
@@ -105,7 +106,7 @@ export async function GET(req: Request) {
   const cityQ = (searchParams.get("city") ?? "").trim();
   const pageQ = (searchParams.get("page") ?? "1").trim() || "1";
   const limitQ = (searchParams.get("limit") ?? String(BROWSE_STORE_LIMIT)).trim() || String(BROWSE_STORE_LIMIT);
-  const sortQ = parseStoreBrowseServerSortParam(searchParams.get("sort"));
+  const explicitSort = parseExplicitStoreBrowseServerSortParam(searchParams.get("sort"));
   const page = Math.max(1, Math.floor(Number(pageQ)) || 1);
   const limit = Math.max(1, Math.min(120, Math.floor(Number(limitQ)) || BROWSE_STORE_LIMIT));
   const origin = resolveBrowseRouteOrigin(searchParams);
@@ -130,6 +131,16 @@ export async function GET(req: Request) {
   }
 
   try {
+    let sortQ = explicitSort ?? "default";
+    if (!explicitSort) {
+      const scopeSort = await resolveStoresBrowseScopeCustomerMeta(
+        supabase,
+        primary,
+        wantsAllSubs ? null : sub
+      ).catch(() => null);
+      if (scopeSort) sortQ = scopeSort.defaultSort;
+    }
+
     const ridePeek = peekDeliveryRideTimeSource();
     const deliveryRideTimeSource: DeliveryRideTimeSource = ridePeek ?? "store";
     if (ridePeek == null) {

@@ -25,6 +25,7 @@ import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
 import {
   browseListSortScopeKey,
+  parseExplicitBrowseSortParam,
   resolveBrowseFetchSort,
   shouldResetBrowseListSortOnScopeChange,
 } from "@/lib/stores/browse-list-sort-scope";
@@ -160,7 +161,10 @@ export function StoresBrowsePrimaryView({
     displayTitleKo: string | null;
     displayTitleEn: string | null;
     cardType: "store" | "product" | "mixed";
+    defaultSort?: StoreBrowseSortId;
   } | null>(null);
+  const [browseCouponBadges, setBrowseCouponBadges] = useState<Record<string, { title: string }>>({});
+  const adminDefaultSortRef = useRef<StoreBrowseSortId>("default");
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -446,12 +450,16 @@ export function StoresBrowsePrimaryView({
           meta?: {
             source?: string;
             delivery_ride_time_source?: string;
-            browseInsertion?: { rows?: StoresBrowseInsertionMetaRow[] };
+            browseInsertion?: {
+              rows?: StoresBrowseInsertionMetaRow[];
+              couponBadgeByStoreId?: Record<string, { title: string }>;
+            };
             browseScopePolicy?: {
               enabled?: boolean;
               displayTitleKo?: string | null;
               displayTitleEn?: string | null;
               cardType?: "store" | "product" | "mixed";
+              defaultSort?: StoreBrowseSortId;
             };
           };
         };
@@ -460,7 +468,15 @@ export function StoresBrowsePrimaryView({
         if (rideSrc) setDeliveryRideTimeSource(rideSrc);
         const insertionRows = j?.meta?.browseInsertion?.rows;
         setBrowseInsertionRows(Array.isArray(insertionRows) ? insertionRows : null);
+        setBrowseCouponBadges(
+          j?.meta?.browseInsertion?.couponBadgeByStoreId &&
+            typeof j.meta.browseInsertion.couponBadgeByStoreId === "object"
+            ? j.meta.browseInsertion.couponBadgeByStoreId
+            : {}
+        );
         const scopePol = j?.meta?.browseScopePolicy;
+        const adminSort = (scopePol?.defaultSort ?? "default") as StoreBrowseSortId;
+        adminDefaultSortRef.current = adminSort;
         setBrowseScopePolicy(
           scopePol
             ? {
@@ -468,9 +484,13 @@ export function StoresBrowsePrimaryView({
                 displayTitleKo: scopePol.displayTitleKo ?? null,
                 displayTitleEn: scopePol.displayTitleEn ?? null,
                 cardType: scopePol.cardType ?? "store",
+                defaultSort: adminSort,
               }
             : null
         );
+        if (!parseExplicitBrowseSortParam(searchParams?.get("sort"))) {
+          setListSort(adminSort);
+        }
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
@@ -609,7 +629,7 @@ export function StoresBrowsePrimaryView({
     if (!shouldResetBrowseListSortOnScopeChange(browseListScopeKeyRef.current, scopeKey)) return;
     browseListScopeKeyRef.current = scopeKey;
     browseSortUrlPinnedRef.current = true;
-    setListSort("default");
+    setListSort(adminDefaultSortRef.current);
   }, [activeSub, primarySlug]);
 
   useRefetchOnPageShowRestore(
@@ -824,6 +844,9 @@ export function StoresBrowsePrimaryView({
                     data={item.data}
                     locale={language}
                     deliveryRideTimeSource={deliveryRideTimeSource}
+                    couponBadgeTitle={
+                      item.data.storeId ? browseCouponBadges[item.data.storeId]?.title ?? null : null
+                    }
                   />
                 );
               }
