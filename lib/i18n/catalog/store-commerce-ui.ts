@@ -11,7 +11,7 @@ export const storeCommerceUiMessages = {
     store_verifying_live_link: "실매장 연동 확인 중…",
 
     store_empty_store_list: "표시할 매장이 없습니다.",
-    store_browse_discovery_shelf_title: "다른 음식도 둘러보세요",
+    store_browse_discovery_shelf_title: "다른 가게도 둘러보세요",
 
     store_browse_other_industries: "다른 업종 둘러보기",
 
@@ -1750,7 +1750,7 @@ export const storeCommerceUiMessages = {
     store_verifying_live_link: "Checking live store link…",
 
     store_empty_store_list: "No stores to show.",
-    store_browse_discovery_shelf_title: "Browse other foods too",
+    store_browse_discovery_shelf_title: "Browse other stores too",
 
     store_browse_other_industries: "Browse other categories",
 

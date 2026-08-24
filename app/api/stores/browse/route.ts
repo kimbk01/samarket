@@ -29,12 +29,77 @@ import {
   type StoresBrowseResponseBody,
 } from "@/lib/stores/stores-browse-build";
 import { parseExplicitStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  coerceBrowseSortToCustomerAvailability,
+  resolveStoresBrowseCustomerSortAvailability,
+} from "@/lib/stores/stores-browse-customer-sort-availability";
 import { resolveStoresBrowseScopeCustomerMeta } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import { resolvePopularityWindowDays } from "@/lib/stores/store-discovery-popular-store";
-import {
-  tryLoadStoresBrowseFromSnapshot,
-} from "@/lib/stores/stores-browse-snapshot";
+import { tryLoadStoresBrowseFromSnapshot } from "@/lib/stores/stores-browse-snapshot";
+import { loadBrowseDiscoveryShelfPayload } from "@/lib/stores/compose-browse-discovery-shelf-stores";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
+function browseShelfCacheToken(
+  shelf: {
+    enabled?: boolean;
+    position?: string;
+    afterN?: number;
+    everyN?: number;
+    maxShelvesPerPage?: number;
+    maxItems?: number;
+    sourceMode?: string;
+    dataType?: string;
+    exposurePrimarySlugs?: string[];
+    sourcePrimarySlugs?: string[];
+  } | null | undefined
+): string {
+  if (!shelf?.enabled) return "off";
+  return [
+    shelf.position,
+    shelf.afterN,
+    shelf.everyN,
+    shelf.maxShelvesPerPage,
+    shelf.maxItems,
+    shelf.sourceMode,
+    shelf.dataType,
+    (shelf.exposurePrimarySlugs ?? []).join(","),
+    (shelf.sourcePrimarySlugs ?? []).join(","),
+  ].join(":");
+}
+
+async function attachBrowseDiscoveryShelf(
+  sb: SupabaseClient,
+  ctx: StoresBrowseRequestContext,
+  body: StoresBrowseResponseBody
+): Promise<StoresBrowseResponseBody> {
+  const config = ctx.discoveryShelf;
+  if (!config?.enabled) {
+    return {
+      ...body,
+      meta: {
+        ...body.meta,
+        discoveryShelf: null,
+        customerSortAvailability: ctx.customerSortAvailability ?? body.meta.customerSortAvailability,
+      },
+    };
+  }
+  const payload = await loadBrowseDiscoveryShelfPayload({
+    sb,
+    ctx,
+    config,
+    organicStoreIds: body.stores.map((s) => s.id),
+    allPrimarySlugs: listBrowsePrimaryIndustries().map((p) => p.slug),
+  });
+  return {
+    ...body,
+    meta: {
+      ...body.meta,
+      discoveryShelf: payload,
+      customerSortAvailability: ctx.customerSortAvailability ?? body.meta.customerSortAvailability,
+    },
+  };
+}
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -137,7 +202,10 @@ export async function GET(req: Request) {
       primary,
       wantsAllSubs ? null : sub
     ).catch(() => null);
-    const sortQ = explicitSort ?? "default";
+    const customerSortAvailability = resolveStoresBrowseCustomerSortAvailability(
+      scopeMeta?.customerSortAvailability
+    );
+    const sortQ = coerceBrowseSortToCustomerAvailability(explicitSort ?? "default", customerSortAvailability);
     const popularityWindowDays = resolvePopularityWindowDays(scopeMeta?.popularityWindowDays);
     const rankingCriteria = scopeMeta?.rankingCriteria;
     const discoveryShelf = scopeMeta?.discoveryShelf;
@@ -162,6 +230,28 @@ export async function GET(req: Request) {
         .sort()
         .join(","),
     ].join("|");
+    const ctx: StoresBrowseRequestContext = {
+      primary,
+      subRaw,
+      wantsAllSubs,
+      sub,
+      district,
+      regionQ,
+      cityQ,
+      uiLang,
+      origin,
+      deliveryRideTimeSource,
+      deliveryDistancePolicy,
+      storeDistanceOverrides: distanceSettings.overrides,
+      sort: sortQ,
+      page,
+      limit,
+      popularityWindowDays,
+      rankingCriteria,
+      customerSortAvailability,
+      discoveryShelf,
+    };
+
     const browseCacheKey = `${browseListCacheKey({
       primary,
       sub,
@@ -174,7 +264,7 @@ export async function GET(req: Request) {
       sort: sortQ,
       uiLang,
       popularityWindowDays,
-    })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:shelf=${discoveryShelf?.enabled ? `${discoveryShelf.position}:${discoveryShelf.afterN}:${discoveryShelf.maxItems}` : "off"}`;
+    })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:csort=${customerSortAvailability.popular ? 1 : 0}${customerSortAvailability.rating ? 1 : 0}${customerSortAvailability.distance ? 1 : 0}:shelf=${browseShelfCacheToken(discoveryShelf)}`;
 
     const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
     if (cachedBrowse != null) {
@@ -191,6 +281,7 @@ export async function GET(req: Request) {
           primarySlug: primary,
           subSlug: wantsAllSubs ? null : sub,
         });
+        bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut);
       } catch (e) {
         console.error("[stores/browse] cache-hit insertion refresh", e);
       }
@@ -219,32 +310,19 @@ export async function GET(req: Request) {
       });
     }
 
-    const ctx: StoresBrowseRequestContext = {
-      primary,
-      subRaw,
-      wantsAllSubs,
-      sub,
-      district,
-      regionQ,
-      cityQ,
-      uiLang,
-      origin,
-      deliveryRideTimeSource,
-      deliveryDistancePolicy,
-      storeDistanceOverrides: distanceSettings.overrides,
-      sort: sortQ,
-      page,
-      limit,
-      popularityWindowDays,
-      rankingCriteria,
-      discoveryShelf,
-    };
-
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {
       bypassCounter: storesBrowseBypass,
     });
 
     if (snap) {
+      let bodyOut = snap.body as StoresBrowseResponseBody;
+      if ("stores" in bodyOut) {
+        try {
+          bodyOut = await attachBrowseDiscoveryShelf(supabase, ctx, bodyOut);
+        } catch (e) {
+          console.error("[stores/browse] shelf attach", e);
+        }
+      }
       if (!effectiveCacheBypass && !snap.early) {
         setStoresBrowseCache(browseCacheKey, snap.body);
       }
@@ -260,7 +338,7 @@ export async function GET(req: Request) {
         resultCount: snap.resultCount,
         v2: snap.v2,
       });
-      return NextResponse.json(snap.body, {
+      return NextResponse.json(bodyOut, {
         headers: browseJsonHeaders({
           tRoute0,
           cache_hit: 0,

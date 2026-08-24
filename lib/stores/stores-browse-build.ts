@@ -24,7 +24,6 @@ import type {
   StoreRatingConfidenceLoadStatus,
   StoreRatingConfidencePolicyAuthority,
 } from "@/lib/stores/store-rating-confidence-policy";
-import { composeBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -80,6 +79,8 @@ export type StoreBrowseRow = {
   business_hours_json: unknown;
   /** taxonomy 미연결 시 `/api/me/stores` 가 `${primary} · ${sub}` 형태로 채움 */
   business_type: string | null;
+  /** Shelf new_store only — organic ranking must not use this. */
+  first_listed_at?: string | null;
   store_topics: { slug: string; name: string } | null;
 };
 
@@ -338,10 +339,11 @@ export const STORE_ROW_BROWSE_FIELDS = `
         lat,
         lng,
         business_hours_json,
-        business_type`;
+        business_type,
+        first_listed_at`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type,first_listed_at";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -349,6 +351,10 @@ export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
     return {
       ...o,
       business_type: o.business_type ?? null,
+      first_listed_at:
+        typeof (o as { first_listed_at?: unknown }).first_listed_at === "string"
+          ? (o as { first_listed_at: string }).first_listed_at
+          : (o as { first_listed_at?: string | null }).first_listed_at ?? null,
       store_topics: embedOne(o.store_topics),
     };
   });
@@ -373,6 +379,7 @@ export type StoresBrowseRequestContext = {
   limit: number;
   popularityWindowDays?: StoresPopularityWindowDays;
   rankingCriteria?: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
+  customerSortAvailability?: import("@/lib/stores/stores-browse-customer-sort-availability").StoresBrowseCustomerSortAvailability;
   discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -436,6 +443,7 @@ export type StoresBrowseResponseBody = {
     };
     /** CATEGORY operator CMS — primary/secondary scope (menu-centric, not HOME shelves). */
     rankingCriteria?: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
+    customerSortAvailability?: import("@/lib/stores/stores-browse-customer-sort-availability").StoresBrowseCustomerSortAvailability;
     discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfPayload | null;
     browseScopePolicy?: {
       primarySlug: string;
@@ -1010,6 +1018,7 @@ export function assembleStoresBrowseResponse(
       profileImageUrl: r.profile_image_url,
       heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
       isFeatured: !!r.is_featured,
+      firstListedAt: r.first_listed_at ?? null,
       estPrepLabel: extras.estPrepLabel,
       prepMinutes: extras.prepMinutes,
       rideMinutes,
@@ -1048,18 +1057,8 @@ export function assembleStoresBrowseResponse(
       ),
       sort: ctx.sort,
       rankingCriteria: ctx.rankingCriteria,
-      discoveryShelf: composeBrowseDiscoveryShelfPayload({
-        config: ctx.discoveryShelf ?? {
-          enabled: false,
-          scope: "sibling_topics",
-          position: "top",
-          afterN: 6,
-          maxItems: 8,
-        },
-        primarySlug: primary,
-        currentSubSlug: wantsAllSubs ? null : sub,
-        topics: taxonomySlice.topicList,
-      }),
+      customerSortAvailability: ctx.customerSortAvailability,
+      discoveryShelf: null,
       ...((ctx.sort === "popular" || ctx.sort === "default")
         ? buildStorePopularityWindowMeta(resolvePopularityWindowDays(ctx.popularityWindowDays))
         : {}),

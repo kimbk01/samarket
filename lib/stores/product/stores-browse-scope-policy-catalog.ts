@@ -9,6 +9,11 @@ import {
   type StoresBrowseAdminRankingCriterionId,
 } from "@/lib/stores/stores-browse-ranking-criteria";
 import {
+  customerSortAvailabilityFromProductConfig,
+  resolveStoresBrowseCustomerSortAvailability,
+  type StoresBrowseCustomerSortAvailability,
+} from "@/lib/stores/stores-browse-customer-sort-availability";
+import {
   discoveryShelfFromProductConfig,
   resolveStoresBrowseDiscoveryShelfConfig,
   type StoresBrowseDiscoveryShelfConfig,
@@ -73,6 +78,7 @@ export type StoresBrowseScopePolicyResolved = {
   defaultSort: StoreBrowseServerSortId;
   popularityWindowDays: StoresPopularityWindowDays;
   rankingCriteria: StoresBrowseAdminRankingCriterionId[];
+  customerSortAvailability: StoresBrowseCustomerSortAvailability;
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -93,6 +99,7 @@ export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
   defaultSort: "default",
   popularityWindowDays: 30,
   rankingCriteria: resolveStoresBrowseRankingCriteria(null),
+  customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(null),
   discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(null),
 };
 
@@ -210,6 +217,9 @@ export function resolveBrowseScopePolicy(input: {
     rankingCriteria: resolveStoresBrowseRankingCriteria(
       rankingCriteriaFromProductConfig(input.primaryRow?.productConfig ?? null)
     ),
+    customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(
+      customerSortAvailabilityFromProductConfig(input.primaryRow?.productConfig ?? null)
+    ),
     discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(
       discoveryShelfFromProductConfig(input.primaryRow?.productConfig ?? null)
     ),
@@ -242,6 +252,7 @@ export function resolveBrowseScopePolicy(input: {
     defaultSort: primaryResolved.defaultSort,
     popularityWindowDays: primaryResolved.popularityWindowDays,
     rankingCriteria: primaryResolved.rankingCriteria,
+    customerSortAvailability: primaryResolved.customerSortAvailability,
     discoveryShelf: primaryResolved.discoveryShelf,
   };
 }

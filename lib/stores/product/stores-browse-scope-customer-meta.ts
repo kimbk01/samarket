@@ -26,6 +26,7 @@ export type StoresBrowseScopeCustomerMeta = {
   defaultSort: import("@/lib/stores/store-discovery-browse-sort").StoreBrowseServerSortId;
   popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
   rankingCriteria: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseAdminRankingCriterionId[];
+  customerSortAvailability: import("@/lib/stores/stores-browse-customer-sort-availability").StoresBrowseCustomerSortAvailability;
   discoveryShelf: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -74,6 +75,7 @@ export async function resolveStoresBrowseScopeCustomerMeta(
     defaultSort: resolved.defaultSort,
     popularityWindowDays: resolved.popularityWindowDays,
     rankingCriteria: resolved.rankingCriteria,
+    customerSortAvailability: resolved.customerSortAvailability,
     discoveryShelf: resolved.discoveryShelf,
   };
 }

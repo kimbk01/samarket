@@ -15,12 +15,11 @@ import {
   parseStoresBrowseRankingCriteria,
 } from "@/lib/stores/stores-browse-ranking-criteria";
 import {
-  buildBrowseDiscoveryShelfItems,
   composeBrowseDiscoveryShelfPayload,
+  discoveryShelfFromProductConfig,
   insertDiscoveryShelfIntoOrganicIds,
   parseStoresBrowseDiscoveryShelfConfig,
 } from "@/lib/stores/stores-browse-discovery-shelf";
-import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 
 type Row = {
   id: string;
@@ -186,7 +185,7 @@ describe("stores browse redesign Q1-Q20", () => {
       },
       subRow: null,
     });
-    expect(primary.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
+    expect(primary.rankingCriteria).toEqual(["popular", "distance"]);
 
     const primaryRow = {
       scopeKey: "restaurant",
@@ -211,7 +210,7 @@ describe("stores browse redesign Q1-Q20", () => {
       primaryRow,
       subRow: null,
     });
-    expect(inherited.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
+    expect(inherited.rankingCriteria).toEqual(["popular", "distance"]);
     expect(inherited.popularityWindowDays).toBe(90);
 
     const overridden = resolveBrowseScopePolicy({
@@ -235,7 +234,7 @@ describe("stores browse redesign Q1-Q20", () => {
         productConfig: { rankingCriteria: ["rating", "distance"] },
       },
     });
-    expect(overridden.rankingCriteria).toEqual(["popular", "distance", "rating", "reviews"]);
+    expect(overridden.rankingCriteria).toEqual(["popular", "distance"]);
     expect(overridden.popularityWindowDays).toBe(90);
   });
 
@@ -304,35 +303,27 @@ describe("stores browse redesign Q1-Q20", () => {
     expect(STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA[0]).toBe("popular");
   });
 
-  it("Q15-Q19 sibling topic shelf uses canonical href and excludes current topic", () => {
-    const items = buildBrowseDiscoveryShelfItems({
-      primarySlug: "restaurant",
-      currentSubSlug: "korean",
-      topics: [
-        { slug: "korean", name: "한식" },
-        { slug: "chinese", name: "중식" },
-        { slug: "snack", name: "분식" },
-      ],
-      maxItems: 8,
+  it("Q15-Q19 store shelf insert preserves organic ids and splits exposure vs source", () => {
+    const cfg = parseStoresBrowseDiscoveryShelfConfig({
+      enabled: true,
+      exposurePrimarySlugs: ["restaurant"],
+      sourceMode: "selected",
+      sourcePrimarySlugs: ["mart"],
+      dataType: "popular",
+      position: "inline_after_n",
+      afterN: 2,
+      maxItems: 6,
     });
-    expect(items.map((i) => i.topicSlug)).toEqual(["chinese", "snack"]);
-    expect(items[0]?.href).toBe(storesBrowsePath("restaurant", "chinese"));
+    expect(cfg?.sourceMode).toBe("selected");
+    expect(cfg?.sourcePrimarySlugs).toEqual(["mart"]);
     const payload = composeBrowseDiscoveryShelfPayload({
-      config: {
-        enabled: true,
-        scope: "sibling_topics",
-        position: "inline_after_n",
-        afterN: 2,
-        maxItems: 8,
-      },
-      primarySlug: "restaurant",
-      currentSubSlug: "korean",
-      topics: [
-        { slug: "korean", name: "한식" },
-        { slug: "chinese", name: "중식" },
+      config: cfg!,
+      pagePrimarySlug: "restaurant",
+      stores: [
+        { storeId: "m1", slug: "m1", name: "Mart", imageUrl: null, etaLabel: null, rating: 4 },
       ],
     });
-    expect(payload?.position).toBe("inline_after_n");
+    expect(payload?.stores.map((s) => s.storeId)).toEqual(["m1"]);
     const tokens = insertDiscoveryShelfIntoOrganicIds(["s1", "s2", "s3"], payload);
     expect(tokens.map((t) => t.kind)).toEqual(["organic", "organic", "discovery_shelf", "organic"]);
     expect(tokens.filter((t) => t.kind === "organic").map((t) => (t.kind === "organic" ? t.storeId : ""))).toEqual([
@@ -340,16 +331,30 @@ describe("stores browse redesign Q1-Q20", () => {
       "s2",
       "s3",
     ]);
+    expect(insertDiscoveryShelfIntoOrganicIds(["s1"], {
+      enabled: true,
+      position: "page_end",
+      afterN: 1,
+      everyN: 6,
+      maxShelvesPerPage: 1,
+      dataType: "recommended",
+      stores: [{ storeId: "m1", slug: "m1", name: "M", imageUrl: null, etaLabel: null, rating: 4 }],
+    }).map((t) => t.kind)).toEqual(["organic", "discovery_shelf"]);
   });
 
-  it("Q17 stored TOP position is coerced to inline_after_n", () => {
+  it("Q17 page_top is stored; legacy sibling config migrates without CTA", () => {
     const parsed = parseStoresBrowseDiscoveryShelfConfig({
       enabled: true,
       position: "top",
       afterN: 6,
       maxItems: 6,
     });
-    expect(parsed?.position).toBe("inline_after_n");
-    expect(parsed?.afterN).toBe(6);
+    expect(parsed?.position).toBe("page_top");
+    const migrated = discoveryShelfFromProductConfig({
+      discoveryShelf: { enabled: true, afterN: 4, maxItems: 3, position: "top" },
+    });
+    expect(migrated?.enabled).toBe(true);
+    expect(migrated?.position).toBe("inline_after_n");
+    expect(migrated?.sourceMode).toBe("current_primary");
   });
 });

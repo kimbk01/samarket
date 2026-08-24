@@ -17,8 +17,16 @@ import {
   type StoresBrowseScopePolicyRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import type { StoresBrowseAdminRankingCriterionId } from "@/lib/stores/stores-browse-ranking-criteria";
-import { resolveStoresBrowseRankingCriteria } from "@/lib/stores/stores-browse-ranking-criteria";
+import {
+  resolveStoresBrowseRankingCriteria,
+  STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS,
+} from "@/lib/stores/stores-browse-ranking-criteria";
 import type { StoresBrowseDiscoveryShelfConfig } from "@/lib/stores/stores-browse-discovery-shelf";
+import { isBrowseShelfSelectedSourceValid } from "@/lib/stores/stores-browse-discovery-shelf";
+import type { StoresBrowseCustomerSortAvailability } from "@/lib/stores/stores-browse-customer-sort-availability";
+import {
+  resolveStoresBrowseCustomerSortAvailability,
+} from "@/lib/stores/stores-browse-customer-sort-availability";
 import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
 import {
   STORES_POPULARITY_WINDOW_DAYS_IDS,
@@ -45,7 +53,7 @@ type SecondaryRow = {
   resolved: StoresBrowseScopePolicyResolved;
 };
 
-type CatTab = "basic" | "ad" | "coupon" | "exposure" | "hours";
+type CatTab = "basic" | "shelf" | "ad" | "coupon" | "exposure" | "hours";
 type TierFocus = "primary" | "secondary";
 type ScheduleMode = "always" | "scheduled";
 
@@ -63,6 +71,7 @@ type DraftPrimary = {
   defaultSort: StoreBrowseServerSortId;
   popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
   rankingCriteria: StoresBrowseAdminRankingCriterionId[];
+  customerSortAvailability: StoresBrowseCustomerSortAvailability;
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
@@ -96,6 +105,7 @@ type PolicyWriteRow = {
 
 const CAT_TABS: Array<{ id: CatTab; labelKo: string; labelEn: string }> = [
   { id: "basic", labelKo: "기본", labelEn: "Basic" },
+  { id: "shelf", labelKo: "탐색 선반", labelEn: "Discovery shelf" },
   { id: "ad", labelKo: "매장 광고 허용", labelEn: "Allow store ads" },
   { id: "coupon", labelKo: "쿠폰 배지 허용", labelEn: "Allow coupon badges" },
   { id: "exposure", labelKo: "노출", labelEn: "Exposure" },
@@ -161,7 +171,14 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     defaultSort: row.resolved.defaultSort,
     popularityWindowDays: row.resolved.popularityWindowDays,
     rankingCriteria: resolveStoresBrowseRankingCriteria(row.resolved.rankingCriteria),
-    discoveryShelf: { ...row.resolved.discoveryShelf },
+    customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(row.resolved.customerSortAvailability),
+    discoveryShelf: {
+      ...row.resolved.discoveryShelf,
+      exposurePrimarySlugs:
+        row.resolved.discoveryShelf.exposurePrimarySlugs.length > 0
+          ? row.resolved.discoveryShelf.exposurePrimarySlugs
+          : [row.primarySlug],
+    },
   };
 }
 
@@ -499,6 +516,10 @@ export function AdminStoresCategoryPolicyPage() {
 
   const onSaveAll = async () => {
     if (!primaryMeta || !draftPrimary || revision == null) return;
+    if (!isBrowseShelfSelectedSourceValid(draftPrimary.discoveryShelf)) {
+      setSaveErr("selected_source_empty");
+      return;
+    }
     setSaving(true);
     setSaveMsg(null);
     setSaveErr(null);
@@ -521,11 +542,10 @@ export function AdminStoresCategoryPolicyPage() {
           productConfig: {
             popularityWindowDays: draftPrimary.popularityWindowDays,
             rankingCriteria: resolveStoresBrowseRankingCriteria(draftPrimary.rankingCriteria),
-            discoveryShelf: {
-              ...draftPrimary.discoveryShelf,
-              scope: "sibling_topics",
-              position: "inline_after_n",
-            },
+            customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(
+              draftPrimary.customerSortAvailability
+            ),
+            browseShelf: { ...draftPrimary.discoveryShelf },
           },
         },
       ];
@@ -698,94 +718,94 @@ export function AdminStoresCategoryPolicyPage() {
             <div className="mt-3">
               <FieldLabel labelText={t("admin_stores_browse_ranking_criteria")}>
                 <p className="mb-2 text-[11px] text-sam-muted">{t("admin_stores_browse_ranking_criteria_hint")}</p>
-                <ol className="space-y-1">
-                  {draftPrimary.rankingCriteria.map((id, index) => (
-                    <li key={`${id}-${index}`} className="flex items-center gap-2">
-                      <span className="w-5 text-[12px] text-sam-muted">{index + 1}.</span>
-                      <span className="flex-1 text-[13px]">{t(`admin_stores_browse_criterion_${id}`)}</span>
-                      <button
-                        type="button"
-                        className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
-                        disabled={index === 0}
-                        onClick={() => {
-                          const next = [...draftPrimary.rankingCriteria];
-                          const swap = next[index - 1];
-                          next[index - 1] = next[index];
-                          next[index] = swap;
-                          setDraftPrimary({ ...draftPrimary, rankingCriteria: next });
-                        }}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
-                        disabled={index === draftPrimary.rankingCriteria.length - 1}
-                        onClick={() => {
-                          const next = [...draftPrimary.rankingCriteria];
-                          const swap = next[index + 1];
-                          next[index + 1] = next[index];
-                          next[index] = swap;
-                          setDraftPrimary({ ...draftPrimary, rankingCriteria: next });
-                        }}
-                      >
-                        ↓
-                      </button>
-                    </li>
-                  ))}
-                </ol>
+                <ul className="space-y-1">
+                  {STORES_BROWSE_ADMIN_RANKING_CRITERION_IDS.map((id) => {
+                    const selected = draftPrimary.rankingCriteria.includes(id);
+                    const index = draftPrimary.rankingCriteria.indexOf(id);
+                    return (
+                      <li key={id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={selected}
+                          aria-label={t(`admin_stores_browse_criterion_${id}`)}
+                          onChange={() => {
+                            if (selected) {
+                              if (draftPrimary.rankingCriteria.length <= 1) return;
+                              setDraftPrimary({
+                                ...draftPrimary,
+                                rankingCriteria: draftPrimary.rankingCriteria.filter((x) => x !== id),
+                              });
+                              return;
+                            }
+                            setDraftPrimary({
+                              ...draftPrimary,
+                              rankingCriteria: [...draftPrimary.rankingCriteria, id],
+                            });
+                          }}
+                        />
+                        <span className="w-5 text-[12px] text-sam-muted">{selected ? `${index + 1}.` : ""}</span>
+                        <span className="flex-1 text-[13px]">{t(`admin_stores_browse_criterion_${id}`)}</span>
+                        <button
+                          type="button"
+                          className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
+                          disabled={!selected || index <= 0}
+                          onClick={() => {
+                            const next = [...draftPrimary.rankingCriteria];
+                            const swap = next[index - 1];
+                            next[index - 1] = next[index];
+                            next[index] = swap;
+                            setDraftPrimary({ ...draftPrimary, rankingCriteria: next });
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-ui-rect border border-sam-border px-2 py-0.5 text-[11px]"
+                          disabled={!selected || index < 0 || index >= draftPrimary.rankingCriteria.length - 1}
+                          onClick={() => {
+                            const next = [...draftPrimary.rankingCriteria];
+                            const swap = next[index + 1];
+                            next[index + 1] = next[index];
+                            next[index] = swap;
+                            setDraftPrimary({ ...draftPrimary, rankingCriteria: next });
+                          }}
+                        >
+                          ↓
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </FieldLabel>
             </div>
-            <div className="mt-3 rounded-ui-rect border border-sam-border p-3">
-              <p className="text-[13px] font-bold text-sam-fg">{t("admin_stores_browse_discovery_shelf")}</p>
-              <p className="mb-2 text-[11px] text-sam-muted">{t("admin_stores_browse_discovery_shelf_hint")}</p>
-              <div className="flex items-center justify-between py-1">
-                <span className="text-[12px]">{t("admin_stores_browse_discovery_enabled")}</span>
-                <Toggle
-                  checked={draftPrimary.discoveryShelf.enabled}
-                  labelText={t("admin_stores_browse_discovery_enabled")}
-                  onChange={(enabled) =>
-                    setDraftPrimary({
-                      ...draftPrimary,
-                      discoveryShelf: { ...draftPrimary.discoveryShelf, enabled },
-                    })
-                  }
-                />
-              </div>
-              <p className="py-1 text-[12px] text-sam-muted">{t("admin_stores_browse_discovery_position_fixed")}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <FieldLabel labelText={t("admin_stores_browse_discovery_after_n")}>
-                  <NumberInput
-                    min={1}
-                    value={String(draftPrimary.discoveryShelf.afterN)}
-                    onChange={(v) =>
+            <div className="mt-3">
+              <p className="text-[12px] font-bold text-sam-fg">{t("admin_stores_browse_customer_sort")}</p>
+              <p className="mb-2 text-[11px] text-sam-muted">{t("admin_stores_browse_customer_sort_hint")}</p>
+              {(["popular", "rating", "distance"] as const).map((id) => (
+                <div key={id} className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
+                  <span className="text-[12px] font-bold">{t(`admin_stores_browse_customer_sort_${id}`)}</span>
+                  <Toggle
+                    checked={draftPrimary.customerSortAvailability[id]}
+                    labelText={t(`admin_stores_browse_customer_sort_${id}`)}
+                    onChange={(on) =>
                       setDraftPrimary({
                         ...draftPrimary,
-                        discoveryShelf: {
-                          ...draftPrimary.discoveryShelf,
-                          afterN: Math.max(1, Math.floor(Number(v) || 1)),
-                        },
+                        customerSortAvailability: { ...draftPrimary.customerSortAvailability, [id]: on },
                       })
                     }
                   />
-                </FieldLabel>
-                <FieldLabel labelText={t("admin_stores_browse_discovery_max")}>
-                  <NumberInput
-                    min={1}
-                    value={String(draftPrimary.discoveryShelf.maxItems)}
-                    onChange={(v) =>
-                      setDraftPrimary({
-                        ...draftPrimary,
-                        discoveryShelf: {
-                          ...draftPrimary.discoveryShelf,
-                          maxItems: Math.max(1, Math.floor(Number(v) || 1)),
-                        },
-                      })
-                    }
-                  />
-                </FieldLabel>
-              </div>
+                </div>
+              ))}
             </div>
+            <button
+              type="button"
+              className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-left text-[12px] text-sam-fg"
+              onClick={() => setTab("shelf")}
+            >
+              {t("admin_stores_browse_discovery_basic_pointer")}
+            </button>
             <div className="mt-3">
               <FieldLabel labelText={t("admin_stores_browse_order_axis_window")}>
                 <select
@@ -833,6 +853,217 @@ export function AdminStoresCategoryPolicyPage() {
                 <dt className="text-sam-muted">{label(ko, "노출 간격", "Interval")}</dt>
                 <dd className="font-semibold text-sam-fg">{draftPrimary.draftInterval || "8"}</dd>
               </dl>
+            </div>
+          </Panel>
+        );
+      case "shelf":
+        return (
+          <Panel
+            title={t("admin_stores_browse_discovery_shelf")}
+            desc={t("admin_stores_browse_discovery_shelf_hint")}
+          >
+            <p className="mb-3 text-[12px] leading-5 text-sam-fg">{t("admin_stores_browse_discovery_how")}</p>
+            <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-2">
+              <span className="text-[12px] font-bold">{t("admin_stores_browse_discovery_enabled")}</span>
+              <Toggle
+                checked={draftPrimary.discoveryShelf.enabled}
+                labelText={t("admin_stores_browse_discovery_enabled")}
+                onChange={(enabled) =>
+                  setDraftPrimary({
+                    ...draftPrimary,
+                    discoveryShelf: { ...draftPrimary.discoveryShelf, enabled },
+                  })
+                }
+              />
+            </div>
+            <p className="mt-3 text-[12px] font-bold text-sam-fg">{t("admin_stores_browse_discovery_exposure")}</p>
+            <div className="mt-1 space-y-1">
+              {primaries.map((p) => {
+                const on = draftPrimary.discoveryShelf.exposurePrimarySlugs.includes(p.primarySlug);
+                return (
+                  <label key={p.primarySlug} className="flex items-center gap-2 text-[12px]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={on}
+                      onChange={() => {
+                        const cur = draftPrimary.discoveryShelf.exposurePrimarySlugs;
+                        const next = on
+                          ? cur.filter((s) => s !== p.primarySlug)
+                          : [...cur, p.primarySlug];
+                        setDraftPrimary({
+                          ...draftPrimary,
+                          discoveryShelf: { ...draftPrimary.discoveryShelf, exposurePrimarySlugs: next },
+                        });
+                      }}
+                    />
+                    {ko ? p.nameKo : p.nameEn}
+                  </label>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-[12px] font-bold text-sam-fg">{t("admin_stores_browse_discovery_source")}</p>
+            <div className="mt-1 space-y-1 text-[12px]">
+              {(["current_primary", "selected", "all"] as const).map((mode) => (
+                <label key={mode} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="browse-shelf-source-mode"
+                    checked={draftPrimary.discoveryShelf.sourceMode === mode}
+                    onChange={() =>
+                      setDraftPrimary({
+                        ...draftPrimary,
+                        discoveryShelf: { ...draftPrimary.discoveryShelf, sourceMode: mode },
+                      })
+                    }
+                  />
+                  {t(`admin_stores_browse_discovery_source_${mode === "current_primary" ? "current" : mode}`)}
+                </label>
+              ))}
+            </div>
+            {draftPrimary.discoveryShelf.sourceMode === "selected" ? (
+              <div className="mt-2 space-y-1">
+                {primaries.map((p) => {
+                  const on = draftPrimary.discoveryShelf.sourcePrimarySlugs.includes(p.primarySlug);
+                  return (
+                    <label key={`src-${p.primarySlug}`} className="flex items-center gap-2 text-[12px]">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={on}
+                        onChange={() => {
+                          const cur = draftPrimary.discoveryShelf.sourcePrimarySlugs;
+                          const next = on
+                            ? cur.filter((s) => s !== p.primarySlug)
+                            : [...cur, p.primarySlug];
+                          setDraftPrimary({
+                            ...draftPrimary,
+                            discoveryShelf: { ...draftPrimary.discoveryShelf, sourcePrimarySlugs: next },
+                          });
+                        }}
+                      />
+                      {ko ? p.nameKo : p.nameEn}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+            <FieldLabel labelText={t("admin_stores_browse_discovery_data")}>
+              <select
+                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                value={draftPrimary.discoveryShelf.dataType}
+                onChange={(e) =>
+                  setDraftPrimary({
+                    ...draftPrimary,
+                    discoveryShelf: {
+                      ...draftPrimary.discoveryShelf,
+                      dataType: e.target.value as typeof draftPrimary.discoveryShelf.dataType,
+                    },
+                  })
+                }
+              >
+                <option value="recommended">{t("admin_stores_browse_discovery_data_recommended")}</option>
+                <option value="popular">{t("admin_stores_browse_discovery_data_popular")}</option>
+                <option value="rating">{t("admin_stores_browse_discovery_data_rating")}</option>
+                <option value="new_store">{t("admin_stores_browse_discovery_data_new_store")}</option>
+              </select>
+            </FieldLabel>
+            <p className="mt-2 text-[12px] text-sam-muted">{t("admin_stores_browse_discovery_card_fixed")}</p>
+            <FieldLabel labelText={t("admin_stores_browse_discovery_position")}>
+              <select
+                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                value={draftPrimary.discoveryShelf.position}
+                onChange={(e) =>
+                  setDraftPrimary({
+                    ...draftPrimary,
+                    discoveryShelf: {
+                      ...draftPrimary.discoveryShelf,
+                      position: e.target.value as typeof draftPrimary.discoveryShelf.position,
+                    },
+                  })
+                }
+              >
+                <option value="inline_after_n">{t("admin_stores_browse_discovery_position_inline")}</option>
+                <option value="page_end">{t("admin_stores_browse_discovery_position_end")}</option>
+                <option value="page_top">{t("admin_stores_browse_discovery_position_top")}</option>
+                <option value="repeat_every_n">{t("admin_stores_browse_discovery_position_repeat")}</option>
+              </select>
+            </FieldLabel>
+            {draftPrimary.discoveryShelf.position === "inline_after_n" ? (
+              <div className="mt-2">
+                <FieldLabel labelText={t("admin_stores_browse_discovery_after_n")}>
+                  <NumberInput
+                    min={1}
+                    value={String(draftPrimary.discoveryShelf.afterN)}
+                    onChange={(v) =>
+                      setDraftPrimary({
+                        ...draftPrimary,
+                        discoveryShelf: {
+                          ...draftPrimary.discoveryShelf,
+                          afterN: Math.max(1, Math.floor(Number(v) || 1)),
+                        },
+                      })
+                    }
+                  />
+                </FieldLabel>
+              </div>
+            ) : null}
+            {draftPrimary.discoveryShelf.position === "repeat_every_n" ? (
+              <div className="mt-2 space-y-2">
+                <FieldLabel labelText={t("admin_stores_browse_discovery_every_n")}>
+                  <NumberInput
+                    min={1}
+                    value={String(draftPrimary.discoveryShelf.everyN)}
+                    onChange={(v) =>
+                      setDraftPrimary({
+                        ...draftPrimary,
+                        discoveryShelf: {
+                          ...draftPrimary.discoveryShelf,
+                          everyN: Math.max(1, Math.floor(Number(v) || 1)),
+                        },
+                      })
+                    }
+                  />
+                </FieldLabel>
+                <FieldLabel labelText={t("admin_stores_browse_discovery_max_shelves")}>
+                  <NumberInput
+                    min={1}
+                    value={String(draftPrimary.discoveryShelf.maxShelvesPerPage)}
+                    onChange={(v) =>
+                      setDraftPrimary({
+                        ...draftPrimary,
+                        discoveryShelf: {
+                          ...draftPrimary.discoveryShelf,
+                          maxShelvesPerPage: Math.max(1, Math.floor(Number(v) || 1)),
+                        },
+                      })
+                    }
+                  />
+                </FieldLabel>
+              </div>
+            ) : null}
+            {draftPrimary.discoveryShelf.sourceMode === "selected" &&
+            draftPrimary.discoveryShelf.sourcePrimarySlugs.length === 0 ? (
+              <p className="mt-2 text-[12px] font-semibold text-red-700">
+                {t("admin_stores_browse_discovery_selected_empty")}
+              </p>
+            ) : null}
+            <div className="mt-2">
+              <FieldLabel labelText={t("admin_stores_browse_discovery_max")}>
+                <NumberInput
+                  min={1}
+                  value={String(draftPrimary.discoveryShelf.maxItems)}
+                  onChange={(v) =>
+                    setDraftPrimary({
+                      ...draftPrimary,
+                      discoveryShelf: {
+                        ...draftPrimary.discoveryShelf,
+                        maxItems: Math.max(1, Math.floor(Number(v) || 1)),
+                      },
+                    })
+                  }
+                />
+              </FieldLabel>
             </div>
           </Panel>
         );
@@ -964,6 +1195,8 @@ export function AdminStoresCategoryPolicyPage() {
           <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">
             {saveErr === "stale_revision"
               ? label(ko, "다른 변경이 먼저 저장되었습니다. 새로고침 후 다시 저장하세요.", "Another change was saved first. Reload and save again.")
+              : saveErr === "selected_source_empty"
+                ? t("admin_stores_browse_discovery_selected_empty")
               : label(ko, "저장에 실패했습니다.", "Failed to save.")}
           </p>
         ) : null}
@@ -1027,6 +1260,21 @@ export function AdminStoresCategoryPolicyPage() {
             </aside>
 
             <section className={tier === "secondary" ? "space-y-3 opacity-90" : "space-y-3"}>
+              {tier === "secondary" && selectedPrimary ? (
+                <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2">
+                  <p className="text-[12px] leading-5 text-amber-950">{t("admin_stores_browse_discovery_not_ads")}</p>
+                  <button
+                    type="button"
+                    className="mt-2 rounded-ui-rect bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white"
+                    onClick={() => {
+                      replaceUrl({ primary: selectedPrimary, tier: "primary" });
+                      setTab("shelf");
+                    }}
+                  >
+                    {t("admin_stores_browse_discovery_open_tab")}
+                  </button>
+                </div>
+              ) : null}
               {!primaryMeta || !draftPrimary ? (
                 <div className="rounded-ui-rect border border-sam-border bg-white p-8 text-center text-[13px] text-sam-muted">
                   {t("admin_stores_category_select_primary_hint")}

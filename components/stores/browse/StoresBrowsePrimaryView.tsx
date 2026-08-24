@@ -36,6 +36,11 @@ import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/Stor
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
 import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
+import {
+  coerceBrowseSortToCustomerAvailability,
+  resolveStoresBrowseCustomerSortAvailability,
+  type StoresBrowseCustomerSortAvailability,
+} from "@/lib/stores/stores-browse-customer-sort-availability";
 import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
   StoreBrowseCategoryRowCard,
@@ -168,6 +173,9 @@ export function StoresBrowsePrimaryView({
   const [browseCouponBadges, setBrowseCouponBadges] = useState<Record<string, { title: string }>>({});
   const adminDefaultSortRef = useRef<StoreBrowseSortId>("default");
   const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(null);
+  const [customerSortAvailability, setCustomerSortAvailability] = useState<StoresBrowseCustomerSortAvailability>(
+    () => resolveStoresBrowseCustomerSortAvailability(null)
+  );
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -264,11 +272,10 @@ export function StoresBrowsePrimaryView({
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
   }, [searchParams]);
 
-  const browseRequestSort = useMemo(
-    () =>
-      resolveBrowseFetchSort(searchParams?.get("sort"), listSort, browseSortUrlPinnedRef.current),
-    [searchParams, listSort]
-  );
+  const browseRequestSort = useMemo(() => {
+    const raw = resolveBrowseFetchSort(searchParams?.get("sort"), listSort, browseSortUrlPinnedRef.current);
+    return coerceBrowseSortToCustomerAvailability(raw, customerSortAvailability);
+  }, [searchParams, listSort, customerSortAvailability]);
 
   const handleBrowseSortChange = useCallback((id: StoreBrowseSortId) => {
     browseSortUrlPinnedRef.current = false;
@@ -465,6 +472,7 @@ export function StoresBrowsePrimaryView({
               defaultSort?: StoreBrowseSortId;
             };
             discoveryShelf?: StoresBrowseDiscoveryShelfPayload | null;
+            customerSortAvailability?: StoresBrowseCustomerSortAvailability;
           };
         };
         const src = j?.meta?.source;
@@ -481,7 +489,12 @@ export function StoresBrowsePrimaryView({
         const scopePol = j?.meta?.browseScopePolicy;
         adminDefaultSortRef.current = "default";
         const shelfRaw = j?.meta?.discoveryShelf;
-        setDiscoveryShelf(shelfRaw && shelfRaw.enabled && Array.isArray(shelfRaw.items) ? shelfRaw : null);
+        setDiscoveryShelf(
+          shelfRaw && shelfRaw.enabled === true && Array.isArray(shelfRaw.stores) && shelfRaw.stores.length > 0
+            ? shelfRaw
+            : null
+        );
+        setCustomerSortAvailability(resolveStoresBrowseCustomerSortAvailability(j?.meta?.customerSortAvailability));
         setBrowseScopePolicy(
           scopePol
             ? {
@@ -736,9 +749,31 @@ export function StoresBrowsePrimaryView({
       | (typeof base)[number]
       | { key: string; kind: "discovery_shelf" };
     const withShelf: WithShelf[] = [];
-    if (discoveryShelf.position === "top") {
+    if (discoveryShelf.position === "page_top") {
       withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
       withShelf.push(...base);
+      return withShelf;
+    }
+    if (discoveryShelf.position === "page_end") {
+      withShelf.push(...base);
+      withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
+      return withShelf;
+    }
+    if (discoveryShelf.position === "repeat_every_n") {
+      const everyN = Math.max(1, discoveryShelf.everyN);
+      const maxS = Math.max(1, discoveryShelf.maxShelvesPerPage);
+      let organicSeen = 0;
+      let shelves = 0;
+      for (const item of base) {
+        withShelf.push(item);
+        if (item.kind === "organic") {
+          organicSeen += 1;
+          if (organicSeen % everyN === 0 && shelves < maxS) {
+            withShelf.push({ key: `discovery-shelf-${shelves}`, kind: "discovery_shelf" });
+            shelves += 1;
+          }
+        }
+      }
       return withShelf;
     }
     let organicSeen = 0;
@@ -798,12 +833,17 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshHint />
         <div className="w-full shrink-0 border-b border-sam-border bg-[#eac784]">
           <div className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} pb-2 pt-2`}>
-            <StoreListFilters sort={browseRequestSort} onSortChange={handleBrowseSortChange} hasGeo={hasGeo} />
+            <StoreListFilters
+              sort={browseRequestSort}
+              onSortChange={handleBrowseSortChange}
+              hasGeo={hasGeo}
+              availability={customerSortAvailability}
+            />
           </div>
         </div>
       </>
     ),
-    [browseRequestSort, hasGeo, handleBrowseSortChange]
+    [browseRequestSort, hasGeo, handleBrowseSortChange, customerSortAvailability]
   );
 
   const browseHeaderTitle = useMemo(() => {

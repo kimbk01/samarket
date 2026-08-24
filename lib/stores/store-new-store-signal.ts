@@ -5,7 +5,8 @@
  * NULL first_listed_at ⇒ not new (legacy visible stores stay out).
  * created_at / approved_at must never substitute.
  *
- * OUT: sort=new · BROWSE · Admin boost · P1-B product authority
+ * OUT: sort=new · BROWSE list ranking · Admin boost · P1-B product authority
+ * IN: BROWSE discovery shelf `new_store` reads this same signal (no second formula).
  */
 
 /** Product lock — P1-C2 */

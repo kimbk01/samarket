@@ -1,6 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { StoresBrowseCustomerSortAvailability } from "@/lib/stores/stores-browse-customer-sort-availability";
+import { STORES_BROWSE_CUSTOMER_SORT_AVAILABILITY_DEFAULT } from "@/lib/stores/stores-browse-customer-sort-availability";
 
 export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "popular" | "fast";
 
@@ -29,16 +31,24 @@ export function StoreListFilters({
   sort,
   onSortChange,
   hasGeo,
+  availability = STORES_BROWSE_CUSTOMER_SORT_AVAILABILITY_DEFAULT,
 }: {
   sort: StoreBrowseSortId;
   onSortChange: (id: StoreBrowseSortId) => void;
   /** 위치 꺼져 있으면 가까운순 비활성 안내 */
   hasGeo: boolean;
+  availability?: StoresBrowseCustomerSortAvailability;
 }) {
   const { t } = useI18n();
+  const visible = SORTS.filter((s) => {
+    if (s.id === "popular") return availability.popular;
+    if (s.id === "rating") return availability.rating;
+    if (s.id === "distance") return availability.distance;
+    return true;
+  });
   return (
     <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {SORTS.map(({ id, labelKey }) => {
+      {visible.map(({ id, labelKey }) => {
         const on = sort === id;
         const disabled = id === "distance" && !hasGeo;
         return (

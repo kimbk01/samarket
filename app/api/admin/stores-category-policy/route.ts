@@ -23,6 +23,10 @@ import {
   isBrowseScopeSubOverrideRow,
   resolveBrowseScopePolicy,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import {
+  parseStoresBrowseDiscoveryShelfConfig,
+  isBrowseShelfSelectedSourceValid,
+} from "@/lib/stores/stores-browse-discovery-shelf";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -223,6 +227,14 @@ export async function PUT(req: NextRequest) {
   const expectedRevision = parseRevision(body.expectedRevision);
   if (expectedRevision === "invalid") {
     return NextResponse.json({ ok: false, error: "invalid_expected_revision" }, { status: 400 });
+  }
+
+  for (const row of rows) {
+    if (row.subSlug != null) continue;
+    const shelf = parseStoresBrowseDiscoveryShelfConfig(row.productConfig?.browseShelf);
+    if (shelf && !isBrowseShelfSelectedSourceValid(shelf)) {
+      return NextResponse.json({ ok: false, error: "selected_source_empty" }, { status: 400 });
+    }
   }
 
   const sb = tryGetSupabaseForStores();
