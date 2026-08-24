@@ -29,7 +29,7 @@ import {
   attachHomeFeedInsertionMeta,
   loadStoresHomeInsertionMeta,
 } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
-import { composeLiveHomeFeed } from "@/lib/stores/composition/stores-composition-live";
+import { composeLiveHomeFeed, collectHomePopularMenuWindowDays } from "@/lib/stores/composition/stores-composition-live";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import {
   evaluateStoreDeliveryServiceability,
@@ -50,7 +50,7 @@ import {
 } from "@/lib/stores/store-list-delivery-origin";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
-import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
+import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { loadStorePopularProductStatsBatch } from "@/lib/stores/load-store-popular-product-stats-batch";
 import { loadActiveStoreDiscoveryCampaignsForHome, attachDiscoveryCampaignsToHomeFeedStores, mapDiscoveryCampaignHomePayload } from "@/lib/stores/load-store-discovery-campaigns-for-home";
@@ -167,13 +167,17 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
-  const [origin, deliveryRideTimeSource, serviceabilityCtx] = await Promise.all([
+  const [origin, deliveryRideTimeSource, serviceabilityCtx, compositionPolicyEarly] = await Promise.all([
     resolveStoreListDeliveryOrigin(supabase, searchParams),
     loadDeliveryRideTimeSource(supabase),
     loadDeliveryServiceabilityRuntimeContext(supabase),
+    loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null),
   ]);
   const userLat = origin.lat;
   const userLng = origin.lng;
+  const popularityWindows = collectHomePopularMenuWindowDays(
+    compositionPolicyEarly?.shelfProduct?.shelves
+  );
   const cacheKey = buildStoreHomeFeedCacheKey({
     region,
     district,
@@ -185,6 +189,7 @@ export async function GET(req: Request) {
     distancePolicyKey: serviceabilityCtx.policy.enabled
       ? `on:${serviceabilityCtx.policy.defaultMaxKm ?? "none"}`
       : "off",
+    popularityWindowDaysKey: popularityWindows.join(","),
   });
 
   const cached = getStoreHomeFeedCache(cacheKey);
@@ -485,6 +490,27 @@ export async function GET(req: Request) {
       }
     }
 
+    const popularityNow = new Date();
+    const popularityCountsByDays: Record<string, Record<string, number>> = {};
+    if (ids.length > 0) {
+      const overlayLoads = await Promise.all(
+        popularityWindows.map(async (days) => {
+          const load = await loadStoreCompletedOrderCount30dMapWithStatus(supabase, ids, {
+            sinceIso: resolveStorePopularitySinceIso(popularityNow, days),
+          });
+          return { days, load };
+        })
+      );
+      for (const { days, load } of overlayLoads) {
+        const rec: Record<string, number> = {};
+        for (const [id, n] of load.counts) rec[id] = n;
+        popularityCountsByDays[String(days)] = rec;
+        if (days === 30 && load.status === "ok") {
+          orderLoad = load;
+        }
+      }
+    }
+
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const rowOutOfRange = outOfRangeById.get(r.id) === true;
@@ -619,6 +645,10 @@ export async function GET(req: Request) {
         origin_address_id: origin.addressId,
         popularProductStats: { status: popularProductStatsStatus },
         discoveryCampaigns: { status: discoveryCampaignsStatus },
+        popularityOverlay: {
+          untilIso: popularityNow.toISOString(),
+          countsByDays: popularityCountsByDays,
+        },
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);

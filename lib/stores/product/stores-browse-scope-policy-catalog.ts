@@ -1,4 +1,8 @@
 import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  popularityWindowDaysFromProductConfig,
+  type StoresPopularityWindowDays,
+} from "@/lib/stores/store-discovery-popular-store";
 
 export const STORES_BROWSE_DEFAULT_SORT_IDS: readonly StoreBrowseServerSortId[] = [
   "default",
@@ -57,6 +61,7 @@ export type StoresBrowseScopePolicyResolved = {
   scheduleStart: string | null;
   scheduleEnd: string | null;
   defaultSort: StoreBrowseServerSortId;
+  popularityWindowDays: StoresPopularityWindowDays;
 };
 
 export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
@@ -74,6 +79,7 @@ export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
   scheduleStart: null,
   scheduleEnd: null,
   defaultSort: "default",
+  popularityWindowDays: 30,
 };
 
 export function buildBrowsePrimaryScopeKey(primarySlug: string): string {
@@ -184,6 +190,9 @@ export function resolveBrowseScopePolicy(input: {
         ? platform.scheduleEnd
         : input.primaryRow.scheduleEnd,
     defaultSort: defaultSortFromProductConfig(input.primaryRow?.productConfig ?? null) ?? platform.defaultSort,
+    popularityWindowDays:
+      popularityWindowDaysFromProductConfig(input.primaryRow?.productConfig ?? null) ??
+      platform.popularityWindowDays,
   };
 
   const sub = input.subSlug?.trim().toLowerCase();
@@ -210,5 +219,8 @@ export function resolveBrowseScopePolicy(input: {
     scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
     scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
     defaultSort: defaultSortFromProductConfig(effectiveSub.productConfig ?? null) ?? primaryResolved.defaultSort,
+    popularityWindowDays:
+      popularityWindowDaysFromProductConfig(effectiveSub.productConfig ?? null) ??
+      primaryResolved.popularityWindowDays,
   };
 }

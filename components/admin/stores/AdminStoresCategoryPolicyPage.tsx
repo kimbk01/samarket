@@ -18,6 +18,11 @@ import {
   type StoresBrowseScopePolicyRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import type { StoreBrowseServerSortId } from "@/lib/stores/store-discovery-browse-sort";
+import {
+  STORES_POPULARITY_WINDOW_DAYS_IDS,
+  buildStorePopularityWindowMeta,
+  resolvePopularityWindowDays,
+} from "@/lib/stores/store-discovery-popular-store";
 import { AdminStoresCategoryBrowseLivePreview } from "@/components/admin/stores/AdminStoresCategoryBrowseLivePreview";
 
 type PrimaryRow = {
@@ -54,6 +59,7 @@ type DraftPrimary = {
   draftScheduleStart: string;
   draftScheduleEnd: string;
   defaultSort: StoreBrowseServerSortId;
+  popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
 };
 
 type DraftSecondary = {
@@ -66,6 +72,7 @@ type DraftSecondary = {
   draftMax: string;
   draftInterval: string;
   defaultSort: StoreBrowseServerSortId | "inherit";
+  popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays | "inherit";
 };
 
 type PolicyWriteRow = {
@@ -150,6 +157,7 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     draftScheduleStart: toInputDateTime(scheduleStart),
     draftScheduleEnd: toInputDateTime(scheduleEnd),
     defaultSort: row.resolved.defaultSort,
+    popularityWindowDays: row.resolved.popularityWindowDays,
   };
 }
 
@@ -169,6 +177,12 @@ function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
       typeof row.row.productConfig === "object" &&
       "defaultSort" in row.row.productConfig
         ? row.resolved.defaultSort
+        : "inherit",
+    popularityWindowDays:
+      row.row?.productConfig &&
+      typeof row.row.productConfig === "object" &&
+      "popularityWindowDays" in row.row.productConfig
+        ? row.resolved.popularityWindowDays
         : "inherit",
   };
 }
@@ -512,7 +526,10 @@ export function AdminStoresCategoryPolicyPage() {
           presentationMode: "card_benefit_integrated",
           scheduleStart: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleStart || null : null,
           scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
-          productConfig: { defaultSort: draftPrimary.defaultSort },
+          productConfig: {
+            defaultSort: draftPrimary.defaultSort,
+            popularityWindowDays: draftPrimary.popularityWindowDays,
+          },
         },
       ];
       const deleteScopeKeys: string[] = [];
@@ -538,8 +555,14 @@ export function AdminStoresCategoryPolicyPage() {
             presentationMode: "card_benefit_integrated",
             scheduleStart: null,
             scheduleEnd: null,
-            productConfig:
-              draft.defaultSort === "inherit" ? {} : { defaultSort: draft.defaultSort },
+            productConfig: (() => {
+              const cfg: Record<string, unknown> = {};
+              if (draft.defaultSort !== "inherit") cfg.defaultSort = draft.defaultSort;
+              if (draft.popularityWindowDays !== "inherit") {
+                cfg.popularityWindowDays = draft.popularityWindowDays;
+              }
+              return cfg;
+            })(),
           });
         }
       }
@@ -701,6 +724,41 @@ export function AdminStoresCategoryPolicyPage() {
                   ))}
                 </select>
               </FieldLabel>
+            </div>
+            <div className="mt-3">
+              <FieldLabel labelText={t("admin_stores_browse_order_axis_window")}>
+                <select
+                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                  value={draftPrimary.popularityWindowDays}
+                  onChange={(e) =>
+                    setDraftPrimary({
+                      ...draftPrimary,
+                      popularityWindowDays: resolvePopularityWindowDays(Number(e.target.value)),
+                    })
+                  }
+                >
+                  {STORES_POPULARITY_WINDOW_DAYS_IDS.map((id) => (
+                    <option key={id} value={id}>
+                      {t(`admin_stores_popularity_window_${id}`)}
+                    </option>
+                  ))}
+                </select>
+              </FieldLabel>
+              {(() => {
+                const meta = buildStorePopularityWindowMeta(draftPrimary.popularityWindowDays);
+                return (
+                  <div className="mt-2 space-y-1 text-[11px] text-sam-muted">
+                    <p>
+                      {t("admin_stores_popularity_rolling")} · {t("admin_stores_popularity_tz")} ·{" "}
+                      {t("admin_stores_popularity_metric")} · {t("admin_stores_popularity_column")}
+                    </p>
+                    <p>
+                      {t("admin_stores_popularity_range")}: {meta.popularitySinceIso} ~ {meta.popularityUntilIso}
+                    </p>
+                    <p>{t("admin_stores_popularity_window_limitation")}</p>
+                  </div>
+                );
+              })()}
             </div>
             <div className="mt-3 rounded-ui-rect bg-sam-surface-muted p-3">
               <p className="text-[12px] font-bold text-sam-fg">{label(ko, "정책 요약", "Policy summary")}</p>
@@ -1197,6 +1255,27 @@ export function AdminStoresCategoryPolicyPage() {
                               {STORES_BROWSE_DEFAULT_SORT_IDS.map((id) => (
                                 <option key={id} value={id}>
                                   {id === "default" ? (ko ? "추천순" : "Recommended") : id}
+                                </option>
+                              ))}
+                            </select>
+                          </FieldLabel>
+                          <FieldLabel labelText={t("admin_stores_browse_order_axis_window")}>
+                            <select
+                              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+                              value={selectedSubDraft.popularityWindowDays}
+                              onChange={(e) =>
+                                updateSubDraft(selectedSubMeta.subSlug, {
+                                  popularityWindowDays:
+                                    e.target.value === "inherit"
+                                      ? "inherit"
+                                      : resolvePopularityWindowDays(Number(e.target.value)),
+                                })
+                              }
+                            >
+                              <option value="inherit">{t("admin_stores_popularity_window_inherit")}</option>
+                              {STORES_POPULARITY_WINDOW_DAYS_IDS.map((id) => (
+                                <option key={id} value={id}>
+                                  {t(`admin_stores_popularity_window_${id}`)}
                                 </option>
                               ))}
                             </select>

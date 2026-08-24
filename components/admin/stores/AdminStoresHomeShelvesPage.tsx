@@ -28,6 +28,11 @@ import {
   STORES_HOME_DATA_SOURCE_IDS,
   type StoresHomeDataSourceId,
 } from "@/lib/stores/product/stores-home-data-source";
+import {
+  STORES_POPULARITY_WINDOW_DAYS_IDS,
+  buildStorePopularityWindowMeta,
+  resolvePopularityWindowDays,
+} from "@/lib/stores/store-discovery-popular-store";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { AdminStoresHomeShelfLivePreview } from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
@@ -178,6 +183,10 @@ export function AdminStoresHomeShelvesPage() {
   const [duplicateTargetId, setDuplicateTargetId] = useState<string>("");
   const [addTargetId, setAddTargetId] = useState<string>("");
   const [homeFeedStores, setHomeFeedStores] = useState<StoreHomeFeedItem[]>([]);
+  const [popularityOverlayCounts, setPopularityOverlayCounts] = useState<
+    Record<string, Record<string, number>>
+  >({});
+  const [popularityUntilIso, setPopularityUntilIso] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -228,9 +237,20 @@ export function AdminStoresHomeShelvesPage() {
     void (async () => {
       try {
         const res = await fetch("/api/stores/home-feed?fresh=1", { credentials: "include", cache: "no-store" });
-        const json = (await res.json()) as { ok?: boolean; stores?: StoreHomeFeedItem[] };
+        const json = (await res.json()) as {
+          ok?: boolean;
+          stores?: StoreHomeFeedItem[];
+          meta?: {
+            popularityOverlay?: { untilIso?: string; countsByDays?: Record<string, Record<string, number>> };
+            compositionPolicy?: { popularityOverlay?: { untilIso?: string; countsByDays?: Record<string, Record<string, number>> } };
+          };
+        };
         if (cancelled || !json.ok || !Array.isArray(json.stores)) return;
         setHomeFeedStores(json.stores);
+        const overlay =
+          json.meta?.popularityOverlay ?? json.meta?.compositionPolicy?.popularityOverlay;
+        setPopularityOverlayCounts(overlay?.countsByDays ?? {});
+        setPopularityUntilIso(overlay?.untilIso ?? null);
       } catch {
         /* preview still loads independently */
       }
@@ -447,6 +467,56 @@ export function AdminStoresHomeShelvesPage() {
     );
   };
 
+  const renderPopularityWindowSelect = (shelf: DraftShelf) => {
+    if (shelf.dataSource !== "popular_menu") {
+      return (
+        <p className="text-[12px] text-sam-muted">{t("admin_stores_popularity_window_na")}</p>
+      );
+    }
+    const days = resolvePopularityWindowDays(shelf.productConfig.popularityWindowDays);
+    const now = popularityUntilIso ? new Date(popularityUntilIso) : new Date();
+    const meta = buildStorePopularityWindowMeta(days, now);
+    return (
+      <div className="space-y-2 rounded-ui-rect border border-sam-border p-3">
+        <label className="block text-[12px] font-medium text-sam-muted">
+          {t("admin_stores_popularity_window")}
+          <select
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+            value={days}
+            onChange={(e) =>
+              updateProductConfig(shelf, {
+                popularityWindowDays: resolvePopularityWindowDays(Number(e.target.value)),
+              })
+            }
+          >
+            {STORES_POPULARITY_WINDOW_DAYS_IDS.map((option) => (
+              <option key={option} value={option}>
+                {t(`admin_stores_popularity_window_${option}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          <dt className="text-sam-muted">{ko ? "집계 기준" : "Window"}</dt>
+          <dd>{t(`admin_stores_popularity_window_${days}`)}</dd>
+          <dt className="text-sam-muted">{ko ? "방식" : "Mode"}</dt>
+          <dd>{t("admin_stores_popularity_rolling")}</dd>
+          <dt className="text-sam-muted">Timezone</dt>
+          <dd>{t("admin_stores_popularity_tz")}</dd>
+          <dt className="text-sam-muted">{ko ? "지표" : "Metric"}</dt>
+          <dd>{t("admin_stores_popularity_metric")}</dd>
+          <dt className="text-sam-muted">{ko ? "기준 컬럼" : "Column"}</dt>
+          <dd className="font-mono">{t("admin_stores_popularity_column")}</dd>
+          <dt className="text-sam-muted">{t("admin_stores_popularity_range")}</dt>
+          <dd className="col-span-1 break-all">
+            {meta.popularitySinceIso} ~ {meta.popularityUntilIso}
+          </dd>
+        </dl>
+        <p className="text-[11px] leading-snug text-sam-muted">{t("admin_stores_popularity_window_limitation")}</p>
+      </div>
+    );
+  };
+
   const renderDataSourceSelect = (shelf: DraftShelf) => (
     <label className="block text-[12px] font-medium text-sam-muted">
       {ko ? "데이터 소스" : "Data source"}
@@ -582,6 +652,7 @@ export function AdminStoresHomeShelvesPage() {
             <span className="mt-0.5 block text-right text-[10px]">{(shelf.subtitleKo ?? "").length}/40</span>
           </label>
           {renderDataSourceSelect(shelf)}
+          {renderPopularityWindowSelect(shelf)}
           {renderPresentationSelect(shelf)}
           {renderMaxInput(shelf)}
           {renderEnabledToggle(shelf)}
@@ -595,6 +666,7 @@ export function AdminStoresHomeShelvesPage() {
         <div className="space-y-3">
           {renderPresentationSelect(shelf)}
           {renderDataSourceSelect(shelf)}
+          {renderPopularityWindowSelect(shelf)}
           {renderImageSource(shelf)}
         </div>
       );
@@ -767,7 +839,16 @@ export function AdminStoresHomeShelvesPage() {
                   const active = row.shelfId === selectedId;
                   const name = ko ? row.titleKo : row.titleEn;
                   const typeLine = `${t(`admin_stores_home_ds_${row.dataSource}`)} · ${presentationShort(row.presentation, ko)}`;
-                  const candidateCount = countHomeDataSourceCandidates(homeFeedStores, row.dataSource);
+                  const windowDays = resolvePopularityWindowDays(row.productConfig.popularityWindowDays);
+                  const overlayRec = popularityOverlayCounts[String(windowDays)];
+                  const overlayStores =
+                    row.dataSource === "popular_menu" && overlayRec
+                      ? homeFeedStores.map((store) => ({
+                          ...store,
+                          completedOrderCount30d: overlayRec[store.id] ?? 0,
+                        }))
+                      : homeFeedStores;
+                  const candidateCount = countHomeDataSourceCandidates(overlayStores, row.dataSource);
                   const diag = diagnoseHomeShelfCustomerHidden({
                     unavailable: row.availability === "unavailable",
                     enabled: row.enabled,

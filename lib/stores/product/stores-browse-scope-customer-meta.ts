@@ -24,6 +24,7 @@ export type StoresBrowseScopeCustomerMeta = {
   presentationMode: string;
   cardType: "store" | "product" | "mixed";
   defaultSort: import("@/lib/stores/store-discovery-browse-sort").StoreBrowseServerSortId;
+  popularityWindowDays: import("@/lib/stores/store-discovery-popular-store").StoresPopularityWindowDays;
 };
 
 export async function resolveStoresBrowseScopeCustomerMeta(
@@ -69,5 +70,6 @@ export async function resolveStoresBrowseScopeCustomerMeta(
     presentationMode: resolved.presentationMode,
     cardType,
     defaultSort: resolved.defaultSort,
+    popularityWindowDays: resolved.popularityWindowDays,
   };
 }

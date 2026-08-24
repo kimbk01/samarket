@@ -35,6 +35,7 @@ type LoadState =
       insertionRows: StoresBrowseInsertionMetaRow[];
       scopeEnabled: boolean;
       serverTitle: string | null;
+      popularityRange: string | null;
     };
 
 export function AdminStoresCategoryBrowseLivePreview({
@@ -79,6 +80,9 @@ export function AdminStoresCategoryBrowseLivePreview({
               displayTitleEn?: string | null;
             };
             browseInsertion?: { rows?: StoresBrowseInsertionMetaRow[] };
+            popularityWindowDays?: number;
+            popularitySinceIso?: string;
+            popularityUntilIso?: string;
           };
         };
         if (cancelled) return;
@@ -100,6 +104,10 @@ export function AdminStoresCategoryBrowseLivePreview({
             : [],
           scopeEnabled: pol?.enabled !== false,
           serverTitle,
+          popularityRange:
+            json.meta?.popularitySinceIso && json.meta?.popularityUntilIso
+              ? `${json.meta.popularitySinceIso} ~ ${json.meta.popularityUntilIso}`
+              : null,
         });
       } catch (e) {
         if (cancelled) return;
@@ -148,6 +156,9 @@ export function AdminStoresCategoryBrowseLivePreview({
         <p className="mb-1 truncate text-[10px] font-semibold text-sam-muted" title={scopeBreadcrumb}>
           {scopeBreadcrumb}
         </p>
+        {readyState?.popularityRange ? (
+          <p className="mb-1 break-all text-[9px] text-sam-muted">{readyState.popularityRange}</p>
+        ) : null}
         <div className="mb-2 flex gap-1 overflow-x-auto">
           <span className="shrink-0 rounded-full bg-sam-fg px-2 py-1 text-[10px] font-bold text-white">
             {headerTitle}

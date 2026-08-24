@@ -32,6 +32,8 @@ export function buildStoreHomeFeedCacheKey(input: {
   uiLang?: string;
   /** serviceability policy segment — must bust cache when Admin toggles range */
   distancePolicyKey?: string;
+  /** Distinct popular_menu overlay windows that affect HOME composition */
+  popularityWindowDaysKey?: string;
 }): string {
   return [
     input.region ?? "",
@@ -43,6 +45,7 @@ export function buildStoreHomeFeedCacheKey(input: {
     input.deliveryRideTimeSource ?? "store",
     input.uiLang ?? "",
     input.distancePolicyKey ?? "off",
+    input.popularityWindowDaysKey ?? "30",
   ].join("|");
 }
 

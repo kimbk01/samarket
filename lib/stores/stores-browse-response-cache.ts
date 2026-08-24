@@ -17,6 +17,7 @@ export function browseListCacheKey(parts: {
   sort: string;
   /** Accept-Language 기반 UI 언어 — 사전 번역 필드 혼선 방지 */
   uiLang: string;
+  popularityWindowDays?: number;
 }): string {
   return [
     parts.primary,
@@ -29,6 +30,7 @@ export function browseListCacheKey(parts: {
     parts.limit,
     parts.sort,
     parts.uiLang,
+    String(parts.popularityWindowDays ?? 30),
   ].join("\0");
 }
 

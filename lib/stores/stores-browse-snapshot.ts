@@ -34,6 +34,7 @@ import {
   applyBrowseSubFilterContractToPrefetchedFilter,
   applyNewAuthorityFastPrepSortToBrowseFilter,
   applyNewAuthorityRatingConfidenceToBrowseFilter,
+  applyPopularityWindowOverlayToBrowseFilter,
   resolveBrowseFilteredStoreRows,
   type StoreBrowseRow,
   type StoresBrowseAssembleResult,
@@ -47,7 +48,7 @@ import {
   resolveStoreDiscoveryRankingAuthority,
 } from "@/lib/stores/discovery/store-discovery-ranking-authority";
 import { buildStoreDiscoveryBrowseExposureScope } from "@/lib/stores/store-discovery-exposure";
-import { loadStoreCompletedOrderCount30dMapWithStatus } from "@/lib/stores/store-discovery-popular-store";
+import { loadStoreCompletedOrderCount30dMapWithStatus, resolveStorePopularitySinceIso } from "@/lib/stores/store-discovery-popular-store";
 import { loadStoreRatingConfidencePolicy } from "@/lib/stores/store-rating-confidence-policy";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -397,7 +398,10 @@ async function finishFromPayload(
     if (needsOrderCounts) {
       const loadResult = await loadStoreCompletedOrderCount30dMapWithStatus(
         sb,
-        prefilteredRows.map((r) => r.id)
+        prefilteredRows.map((r) => r.id),
+        {
+          sinceIso: resolveStorePopularitySinceIso(new Date(), ctx.popularityWindowDays ?? 30),
+        }
       );
       completedOrderCount30dById = loadResult.counts;
       completedOrderCountStatus = loadResult.status;
@@ -423,6 +427,23 @@ async function finishFromPayload(
       completedOrderCountStatus,
       ratingConfidencePolicy,
       ratingConfidenceStatus
+    );
+  }
+
+  if (
+    isStoreDiscoveryRankingAuthorityNew() &&
+    (ctx.sort === "popular" || ctx.sort === "default")
+  ) {
+    const overlay = await loadStoreCompletedOrderCount30dMapWithStatus(
+      sb,
+      prefetchedFilter.rows.map((r) => r.id),
+      { sinceIso: resolveStorePopularitySinceIso(new Date(), ctx.popularityWindowDays ?? 30) }
+    );
+    prefetchedFilter = applyPopularityWindowOverlayToBrowseFilter(
+      ctx,
+      prefetchedFilter,
+      overlay.counts,
+      overlay.status
     );
   }
 

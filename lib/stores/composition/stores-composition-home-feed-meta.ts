@@ -3,7 +3,10 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/stores-composition-live";
+import type {
+  StoresHomeCompositionPolicyMeta,
+  StoresHomePopularityOverlayMeta,
+} from "@/lib/stores/composition/stores-composition-live";
 import { loadRuntimeCompositionPolicy } from "@/lib/stores/composition/stores-composition-policy-runtime";
 import {
   homeShelfDbRowsToOverrides,
@@ -39,11 +42,15 @@ export function attachHomeFeedCompositionPolicyMeta<T extends { meta?: Record<st
   compositionPolicy: StoresHomeCompositionPolicyMeta | null
 ): T {
   if (!compositionPolicy) return payload;
+  const overlay = (payload.meta as { popularityOverlay?: StoresHomePopularityOverlayMeta } | undefined)
+    ?.popularityOverlay;
   return {
     ...payload,
     meta: {
       ...(payload.meta ?? {}),
-      compositionPolicy,
+      compositionPolicy: overlay
+        ? { ...compositionPolicy, popularityOverlay: overlay }
+        : compositionPolicy,
       compositionEngine: "live" as const,
     },
   };

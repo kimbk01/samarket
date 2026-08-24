@@ -11,6 +11,44 @@ import type { StoreDiscoverySortRow } from "@/lib/stores/store-discovery-browse-
  */
 export const STORE_POPULARITY_WINDOW_DAYS = 30;
 
+export const STORES_POPULARITY_WINDOW_DAYS_IDS = [7, 30, 90] as const;
+export type StoresPopularityWindowDays = (typeof STORES_POPULARITY_WINDOW_DAYS_IDS)[number];
+
+export function parsePopularityWindowDays(raw: unknown): StoresPopularityWindowDays | null {
+  const n = typeof raw === "string" && raw.trim() !== "" ? Number(raw) : raw;
+  if (n === 7 || n === 30 || n === 90) return n;
+  return null;
+}
+
+/** Missing or invalid → 30 (backward compatible). */
+export function resolvePopularityWindowDays(raw: unknown): StoresPopularityWindowDays {
+  return parsePopularityWindowDays(raw) ?? STORE_POPULARITY_WINDOW_DAYS;
+}
+
+/** Key present → parsed (invalid still 30). Key absent → null (inherit). */
+export function popularityWindowDaysFromProductConfig(
+  cfg: Record<string, unknown> | null | undefined
+): StoresPopularityWindowDays | null {
+  if (!cfg || typeof cfg !== "object") return null;
+  if (!("popularityWindowDays" in cfg)) return null;
+  return resolvePopularityWindowDays(cfg.popularityWindowDays);
+}
+
+export function buildStorePopularityWindowMeta(
+  days: StoresPopularityWindowDays,
+  now: Date = new Date()
+): {
+  popularityWindowDays: StoresPopularityWindowDays;
+  popularitySinceIso: string;
+  popularityUntilIso: string;
+} {
+  return {
+    popularityWindowDays: days,
+    popularitySinceIso: resolveStorePopularitySinceIso(now, days),
+    popularityUntilIso: now.toISOString(),
+  };
+}
+
 /**
  * TIME AUTHORITY (PARTIAL):
  * `store_orders` has no `completed_at` / terminal completion timestamp.
@@ -35,9 +73,12 @@ export type StorePopularitySortRow = StoreDiscoverySortRow & {
   completedOrderCount30d?: number;
 };
 
-export function resolveStorePopularitySinceIso(now = new Date()): string {
-  const ms = STORE_POPULARITY_WINDOW_DAYS * 86_400_000;
-  return new Date(now.getTime() - ms).toISOString();
+export function resolveStorePopularitySinceIso(
+  now = new Date(),
+  days: number = STORE_POPULARITY_WINDOW_DAYS
+): string {
+  const windowDays = resolvePopularityWindowDays(days);
+  return new Date(now.getTime() - windowDays * 86_400_000).toISOString();
 }
 
 export function normalizeStoreCompletedOrderCountMap(

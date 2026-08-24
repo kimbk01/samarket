@@ -14,7 +14,12 @@ import {
   applyStoreDiscoveryExposureRotation,
   buildStoreDiscoveryBrowseExposureScope,
 } from "@/lib/stores/store-discovery-exposure";
-import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
+import {
+  buildStorePopularityWindowMeta,
+  resolvePopularityWindowDays,
+  type StoreCompletedOrderCountLoadStatus,
+  type StoresPopularityWindowDays,
+} from "@/lib/stores/store-discovery-popular-store";
 import type {
   StoreRatingConfidenceLoadStatus,
   StoreRatingConfidencePolicyAuthority,
@@ -365,6 +370,7 @@ export type StoresBrowseRequestContext = {
   sort: StoreBrowseServerSortId;
   page: number;
   limit: number;
+  popularityWindowDays?: StoresPopularityWindowDays;
 };
 
 export type StoresBrowseDbBundle = {
@@ -399,6 +405,9 @@ export type StoresBrowseResponseBody = {
     sort: StoreBrowseServerSortId;
     page: number;
     limit: number;
+    popularityWindowDays?: StoresPopularityWindowDays;
+    popularitySinceIso?: string;
+    popularityUntilIso?: string;
     origin_source: BrowseRouteOrigin["source"];
     origin_address_id: null;
     delivery_ride_time_source: DeliveryRideTimeSource;
@@ -496,6 +505,7 @@ export type BrowseFilteredStoreRowsResult = {
   outOfRangeById?: Map<string, boolean> | null;
   /** sort=rating Bayesian policy status (omitted for other sorts). */
   ratingConfidenceStatus?: StoreRatingConfidenceLoadStatus;
+  completedOrderCount30dById?: Map<string, number> | null;
 };
 
 function resolveBrowseStoreRowStatus(
@@ -634,6 +644,42 @@ export function applyNewAuthorityRatingConfidenceToBrowseFilter(
     ...filter,
     rows,
     ratingConfidenceStatus,
+  };
+}
+
+/**
+ * Overlay selected-window completed-order counts onto already loaded browse candidates.
+ * Does not regenerate the discovery wave.
+ */
+export function applyPopularityWindowOverlayToBrowseFilter(
+  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  filter: BrowseFilteredStoreRowsResult,
+  overlayCounts: Map<string, number>,
+  overlayStatus: StoreCompletedOrderCountLoadStatus = "ok"
+): BrowseFilteredStoreRowsResult {
+  if (ctx.sort !== "popular" && ctx.sort !== "default") return filter;
+
+  const completedOrderCount30dById = new Map(overlayCounts);
+  const outOfRangeById = filter.outOfRangeById ?? new Map<string, boolean>();
+  const eligibilityRankById = buildBrowseEligibilityRankMap(filter.rows, outOfRangeById);
+  const hasGeo =
+    ctx.deliveryDistancePolicy.enabled && ctx.origin.lat != null && ctx.origin.lng != null;
+
+  const rows = sortStoreDiscoveryBrowseRows(filter.rows, {
+    district: ctx.district,
+    sort: ctx.sort,
+    eligibilityRankById,
+    completedOrderCount30dById,
+    completedOrderCountStatus: overlayStatus,
+    distanceKmById: hasGeo ? filter.distById : null,
+    outOfRangeById: hasGeo ? outOfRangeById : null,
+    hasGeo,
+  });
+
+  return {
+    ...filter,
+    rows,
+    completedOrderCount30dById,
   };
 }
 
@@ -949,6 +995,9 @@ export function assembleStoresBrowseResponse(
         prefetchedFilter?.ratingConfidenceStatus === "active"
       ),
       sort: ctx.sort,
+      ...((ctx.sort === "popular" || ctx.sort === "default")
+        ? buildStorePopularityWindowMeta(resolvePopularityWindowDays(ctx.popularityWindowDays))
+        : {}),
       rating_confidence: prefetchedFilter?.ratingConfidenceStatus,
       page: ctx.page,
       limit: ctx.limit,

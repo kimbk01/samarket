@@ -489,15 +489,22 @@ function allocatePurposeByDataSource(
   source: StoresHomeDataSourceId,
   max: number,
   nowMs: number,
-  gate: ProductGate
+  gate: ProductGate,
+  overlayCounts?: ReadonlyMap<string, number>
 ): StoresHomeFoodEntry[] {
   const adjacent = buildAdjacentAvoidIds(registry);
   switch (source) {
     case "order_now":
       return allocateSlot0Food(registry, pool.filter(isOpenDeliverable), max, gate);
     case "popular_menu": {
+      const counted = overlayCounts
+        ? pool.map((s) => ({
+            ...s,
+            completedOrderCount30d: overlayCounts.get(s.id) ?? 0,
+          }))
+        : pool;
       const popularOrdered = orderStoresByPopularMetric(
-        pool.filter((s) => (s.completedOrderCount30d ?? 0) > 0)
+        counted.filter((s) => (s.completedOrderCount30d ?? 0) > 0)
       );
       return allocateSlot2PopularFoodShelf(registry, popularOrdered, max, adjacent, gate);
     }
@@ -539,6 +546,8 @@ export type ComposeStoresHomeFeedOpts = {
   purposeAllocationOrder?: StoresHomeCompositionSlotKey[];
   slotDataSources?: Partial<Record<StoresHomeCompositionSlotKey, StoresHomeDataSourceId>>;
   slotMax?: Partial<Record<StoresHomeCompositionSlotKey, number | null>>;
+  slotPopularityWindowDays?: Partial<Record<StoresHomeCompositionSlotKey, 7 | 30 | 90>>;
+  popularityCountsByDays?: Partial<Record<7 | 30 | 90, ReadonlyMap<string, number>>>;
 };
 
 /**
@@ -596,7 +605,17 @@ function composeStoresHomeFeedBySectionOrder(
       opts.slotDataSources?.[slot] ?? defaultDataSourceForSlot(slot);
     gate.begin(source);
     const max = resolveSlotMax(slot, opts.slotMax);
-    const entries = allocatePurposeByDataSource(registry, pool, source, max, nowMs, gate);
+    const days = opts.slotPopularityWindowDays?.[slot] ?? 30;
+    const overlay = opts.popularityCountsByDays?.[days];
+    const entries = allocatePurposeByDataSource(
+      registry,
+      pool,
+      source,
+      max,
+      nowMs,
+      gate,
+      source === "popular_menu" ? overlay : undefined
+    );
     (composition[slot] as StoresHomeFoodEntry[]) = entries;
   }
 

@@ -7,6 +7,10 @@ import {
   parseStoresHomeDataSource,
   type StoresHomeDataSourceId,
 } from "@/lib/stores/product/stores-home-data-source";
+import {
+  parsePopularityWindowDays,
+  type StoresPopularityWindowDays,
+} from "@/lib/stores/store-discovery-popular-store";
 
 export type StoresHomeShelfEntityType = "product" | "store" | "brand";
 
@@ -50,6 +54,8 @@ export type StoresHomeShelfProductConfig = {
   entityType: StoresHomeShelfEntityType;
   /** Canonical HOME membership source (composer authority). */
   dataSource?: StoresHomeDataSourceId;
+  /** popular_menu overlay window only. Missing → 30. Does not regenerate discovery candidates. */
+  popularityWindowDays?: StoresPopularityWindowDays;
   showAllEnabled: boolean;
   showAllLabelKo: string | null;
   showAllLabelEn: string | null;
@@ -161,5 +167,7 @@ export function parseHomeShelfProductConfig(raw: unknown): Partial<StoresHomeShe
     const ds = parseStoresHomeDataSource(o.dataSource, "order_now");
     if (o.dataSource === ds) out.dataSource = ds;
   }
+  const windowDays = parsePopularityWindowDays(o.popularityWindowDays);
+  if (windowDays != null) out.popularityWindowDays = windowDays;
   return out;
 }

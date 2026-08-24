@@ -30,6 +30,7 @@ import {
 } from "@/lib/stores/stores-browse-build";
 import { parseExplicitStoreBrowseServerSortParam } from "@/lib/stores/store-discovery-browse-sort";
 import { resolveStoresBrowseScopeCustomerMeta } from "@/lib/stores/product/stores-browse-scope-customer-meta";
+import { resolvePopularityWindowDays } from "@/lib/stores/store-discovery-popular-store";
 import {
   tryLoadStoresBrowseFromSnapshot,
 } from "@/lib/stores/stores-browse-snapshot";
@@ -131,15 +132,14 @@ export async function GET(req: Request) {
   }
 
   try {
+    const scopeMeta = await resolveStoresBrowseScopeCustomerMeta(
+      supabase,
+      primary,
+      wantsAllSubs ? null : sub
+    ).catch(() => null);
     let sortQ = explicitSort ?? "default";
-    if (!explicitSort) {
-      const scopeSort = await resolveStoresBrowseScopeCustomerMeta(
-        supabase,
-        primary,
-        wantsAllSubs ? null : sub
-      ).catch(() => null);
-      if (scopeSort) sortQ = scopeSort.defaultSort;
-    }
+    if (!explicitSort && scopeMeta) sortQ = scopeMeta.defaultSort;
+    const popularityWindowDays = resolvePopularityWindowDays(scopeMeta?.popularityWindowDays);
 
     const ridePeek = peekDeliveryRideTimeSource();
     const deliveryRideTimeSource: DeliveryRideTimeSource = ridePeek ?? "store";
@@ -172,6 +172,7 @@ export async function GET(req: Request) {
       limit: limitQ,
       sort: sortQ,
       uiLang,
+      popularityWindowDays,
     })}:distance=${distancePolicyKey}`;
 
     const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
@@ -233,6 +234,7 @@ export async function GET(req: Request) {
       sort: sortQ,
       page,
       limit,
+      popularityWindowDays,
     };
 
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {
