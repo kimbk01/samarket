@@ -23,6 +23,8 @@ import {
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { AdminStoresHomeShelfLivePreview } from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
+import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
+import { clearStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 
 type DraftShelf = StoresHomeShelfResolvedConfig & { draftMax: string; draftOrder: string };
 
@@ -394,6 +396,8 @@ export function AdminStoresHomeShelvesPage() {
       }
       if (typeof json.revision === "number") setRevision(json.revision);
       setToast(t("admin_stores_home_shelves_save_ok"));
+      invalidateStoreHomeFeedClientCache("");
+      clearStoresHomeFeedLiveStore();
       await load();
     } catch {
       setSaveErr("save_fail");

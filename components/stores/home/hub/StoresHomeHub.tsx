@@ -304,9 +304,18 @@ export function StoresHomeHub({
     () => resolveLiveHomeCompositionPolicy(meta?.compositionPolicy),
     [meta?.compositionPolicy]
   );
+  const shelfProduct = useMemo(
+    () =>
+      (meta?.compositionPolicy as { shelfProduct?: { shelves?: unknown[] } } | undefined)?.shelfProduct
+        ?.shelves as import("@/lib/stores/product/stores-home-shelf-product-resolve").StoresHomeShelfResolvedConfig[] | undefined,
+    [meta?.compositionPolicy]
+  );
   const orderedVisibleSlots = useMemo(
-    () => (composition ? resolveOrderedVisibleHomeCompositionSlots(policy, composition) : []),
-    [composition, policy]
+    () =>
+      composition
+        ? resolveOrderedVisibleHomeCompositionSlots(policy, composition, shelfProduct)
+        : [],
+    [composition, policy, shelfProduct]
   );
   const { eagerSlots, deferredSlots } = useMemo(
     () => splitHomeCompositionSlotsForRender(orderedVisibleSlots),
@@ -351,13 +360,6 @@ export function StoresHomeHub({
         </Link>
       </div>
     </div>
-  );
-
-  const shelfProduct = useMemo(
-    () =>
-      (meta?.compositionPolicy as { shelfProduct?: { shelves?: unknown[] } } | undefined)?.shelfProduct
-        ?.shelves as import("@/lib/stores/product/stores-home-shelf-product-resolve").StoresHomeShelfResolvedConfig[] | undefined,
-    [meta?.compositionPolicy]
   );
 
   const renderCompositionSlot = useCallback(

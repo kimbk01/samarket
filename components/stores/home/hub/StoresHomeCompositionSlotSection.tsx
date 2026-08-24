@@ -221,6 +221,7 @@ export function StoresHomeCompositionSlotSection({
   );
 
   if (!shelf) return null;
+  if (!shelf.customerVisible) return null;
 
   switch (slot) {
     case "slot0Food": {
@@ -277,29 +278,35 @@ export function StoresHomeCompositionSlotSection({
         </StoresHomeSectionShell>
       );
     }
-    case "slot5Food":
+    case "slot5Food": {
+      const entries =
+        shelf.max != null ? composition.slot5Food.slice(0, shelf.max) : composition.slot5Food;
+      if (entries.length === 0) return null;
       return wrap(
         <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {composition.slot5Food.slice(0, shelf.max ?? 4).map((entry) => {
-              const img = resolveHomeShelfFoodEntryImage(
-                entry,
-                hydratedByStoreId.get(entry.storeId),
-                shelf.productConfig.imageSource
-              );
-              return (
-                <StoresHomeFoodCard
-                  key={`featured-${entry.storeId}-${entry.productId}`}
-                  entry={entry}
-                  imageUrl={img.imageUrl}
-                  loadingImage={img.loading}
-                  presentation="grid"
-                />
-              );
-            })}
-          </div>
+          {shelf.presentation === "editorial_grid" ?
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {entries.map((entry) => {
+                const img = resolveHomeShelfFoodEntryImage(
+                  entry,
+                  hydratedByStoreId.get(entry.storeId),
+                  shelf.productConfig.imageSource
+                );
+                return (
+                  <StoresHomeFoodCard
+                    key={`featured-${entry.storeId}-${entry.productId}`}
+                    entry={entry}
+                    imageUrl={img.imageUrl}
+                    loadingImage={img.loading}
+                    presentation="grid"
+                  />
+                );
+              })}
+            </div>
+          : renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
         </StoresHomeSectionShell>
       );
+    }
     case "slot6NearbyStores":
     case "slot6RestStores": {
       const raw =

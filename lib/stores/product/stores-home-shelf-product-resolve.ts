@@ -20,6 +20,7 @@ import {
   mergeHomeShelfProductConfig,
   parseHomeShelfProductConfig,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
+import { isWithinProductScheduleWindow } from "@/lib/stores/product/stores-product-schedule-window";
 
 export type StoresHomeShelfProductOverride = {
   shelfId: string;
@@ -86,7 +87,11 @@ function mergeShelf(
     adIntegration: override?.adIntegration ?? "off",
     scheduleStart: override?.scheduleStart ?? null,
     scheduleEnd: override?.scheduleEnd ?? null,
-    customerVisible: !unavailable && enabled && def.composerSlot != null,
+    customerVisible:
+      !unavailable &&
+      enabled &&
+      def.composerSlot != null &&
+      isWithinProductScheduleWindow(override?.scheduleStart ?? null, override?.scheduleEnd ?? null),
     supportsCouponIntegration: def.supportsCouponIntegration,
     supportsAdIntegration: def.supportsAdIntegration,
     productConfig: mergeHomeShelfProductConfig(def.defaultProductConfig, override?.productConfig),

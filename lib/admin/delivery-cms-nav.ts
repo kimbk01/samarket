@@ -1,6 +1,6 @@
 /**
  * Delivery product CMS — mockup IA (HOME / Category / Ads / Coupons / Promo).
- * Existing platform workspace tabs stay; this drives Delivery sidebar + CMS subnav.
+ * Left IA: AdminWorkspaceSidebar (운영). Right rail: AdminDeliveryCmsRightMenu.
  */
 
 export type DeliveryCmsNavItem = {

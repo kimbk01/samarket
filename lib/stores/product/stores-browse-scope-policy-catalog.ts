@@ -155,7 +155,8 @@ export function resolveBrowseScopePolicy(input: {
 
   return {
     scopeKey: buildBrowseSubScopeKey(input.primarySlug, sub),
-    enabled: input.subRow.enabled,
+    /** Primary OFF always wins — secondary cannot surface when parent industry is off. */
+    enabled: primaryResolved.enabled && input.subRow.enabled,
     displayTitleKo: input.subRow.displayTitleKo ?? primaryResolved.displayTitleKo,
     displayTitleEn: input.subRow.displayTitleEn ?? primaryResolved.displayTitleEn,
     adEnabled: resolveTriState(input.subRow.adEnabled, primaryResolved.adEnabled),

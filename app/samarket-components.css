@@ -1257,6 +1257,11 @@
   min-width: 5rem;
 }
 
+[data-admin] .admin-platform-shell__right-menu {
+  width: 13.5rem;
+  min-width: 13.5rem;
+}
+
 [data-admin] .admin-workspace-sidebar--compact .admin-sidebar__nav {
   padding-inline: 0.25rem;
 }

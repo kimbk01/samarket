@@ -20,11 +20,13 @@ import { AdminShellProvider, useAdminShell } from "@/components/admin/AdminShell
 import { AdminWorkspaceNav } from "@/components/admin/shell/AdminWorkspaceNav";
 import { AdminWorkspaceSidebar } from "@/components/admin/shell/AdminWorkspaceSidebar";
 import { AdminShellBreadcrumb } from "@/components/admin/shell/AdminShellBreadcrumb";
+import { AdminDeliveryCmsRightMenu } from "@/components/admin/shell/AdminDeliveryCmsRightMenu";
 import {
   listAdminWorkspaces,
   resolveActiveWorkspace,
   resolveAdminBreadcrumb,
 } from "@/lib/admin/admin-workspace-routing";
+import { isDeliveryCmsSurface } from "@/lib/admin/delivery-cms-nav";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { getAdminRole } from "@/lib/admin-permission";
 import type { AdminRole } from "@/lib/admin-menu-config";
@@ -114,6 +116,10 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
     () => resolveAdminBreadcrumb(effectiveNavPath, activeWorkspace),
     [effectiveNavPath, activeWorkspace]
   );
+  const showDeliveryCmsRightMenu = useMemo(() => {
+    const pathOnly = effectiveNavPath.split("?")[0] ?? "";
+    return isDeliveryCmsSurface(pathOnly);
+  }, [effectiveNavPath]);
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   const handleSidebarExpandedChange = useCallback((expanded: boolean) => {
@@ -235,9 +241,16 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
             <div className="admin-platform-shell__page-chrome shrink-0 border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-4 py-2">
               <AdminShellBreadcrumb crumbs={crumbs} />
             </div>
-            <main className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-auto overflow-y-auto px-4 py-4">
-              {children}
-            </main>
+            <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+              <main className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-auto overflow-y-auto px-4 py-4">
+                {children}
+              </main>
+              {showDeliveryCmsRightMenu ? (
+                <Suspense fallback={null}>
+                  <AdminDeliveryCmsRightMenu />
+                </Suspense>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

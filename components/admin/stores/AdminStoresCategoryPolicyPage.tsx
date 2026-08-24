@@ -337,6 +337,7 @@ export function AdminStoresCategoryPolicyPage() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
+  const [previewReloadToken, setPreviewReloadToken] = useState(0);
   const [loadedAt, setLoadedAt] = useState<string | null>(null);
   const [primaries, setPrimaries] = useState<PrimaryRow[]>([]);
   const [secondaries, setSecondaries] = useState<SecondaryRow[]>([]);
@@ -549,7 +550,7 @@ export function AdminStoresCategoryPolicyPage() {
             scopeKey: secondary.scopeKey,
             primarySlug: primaryMeta.primarySlug,
             subSlug: secondary.subSlug,
-            enabled: true,
+            enabled: draftPrimary.enabled,
             displayTitleKo: null,
             displayTitleEn: null,
             adEnabled: "inherit",
@@ -592,6 +593,7 @@ export function AdminStoresCategoryPolicyPage() {
       }
       if (typeof json.revision === "number") setRevision(json.revision);
       setSaveMsg(label(ko, "저장되었습니다.", "Saved."));
+      setPreviewReloadToken((n) => n + 1);
       await load();
     } catch {
       setSaveErr("save_fail");
@@ -735,7 +737,11 @@ export function AdminStoresCategoryPolicyPage() {
         return (
           <Panel
             title={label(ko, "카드 타입", "Card type")}
-            desc={label(ko, "현재 저장 계약은 매장형 표현으로 반영됩니다. 상품형/혼합형은 이 화면에서 미리보기용으로 선택할 수 있습니다.", "The current save contract persists the store presentation. Product and mixed are selectable for this editor preview.")}
+            desc={label(
+              ko,
+              "고객 browse 목록은 매장형 Baemin 카드 anatomy를 유지합니다. 선택한 cardType은 meta.browseScopePolicy.cardType으로 저장·반영됩니다.",
+              "Customer browse keeps store Baemin card anatomy. Selected cardType is saved and applied via meta.browseScopePolicy.cardType."
+            )}
           >
             <div className="grid gap-2 sm:grid-cols-3">
               {CARD_TYPES.map((item) => {
@@ -1069,6 +1075,7 @@ export function AdminStoresCategoryPolicyPage() {
                             adEnabled={previewAdEnabled}
                             couponEnabled={previewCouponEnabled}
                             ko={ko}
+                            reloadToken={previewReloadToken}
                           />
                         ) : null}
                       </aside>

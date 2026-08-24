@@ -20,6 +20,8 @@ export type AdminCategoryBrowsePreviewProps = {
   adEnabled: boolean;
   couponEnabled: boolean;
   ko: boolean;
+  /** Bump after save to re-fetch customer browse */
+  reloadToken?: number;
 };
 
 type LoadState =
@@ -42,6 +44,7 @@ export function AdminStoresCategoryBrowseLivePreview({
   adEnabled,
   couponEnabled,
   ko,
+  reloadToken = 0,
 }: AdminCategoryBrowsePreviewProps) {
   const [state, setState] = useState<LoadState>({ status: "idle" });
 
@@ -56,7 +59,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     setState({ status: "loading" });
     void (async () => {
       try {
-        const qs = new URLSearchParams({ primary: pk, sub: sk, limit: "8" });
+        const qs = new URLSearchParams({ primary: pk, sub: sk, limit: "8", fresh: "1" });
         const res = await fetch(`/api/stores/browse?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",
@@ -105,7 +108,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     return () => {
       cancelled = true;
     };
-  }, [primarySlug, subSlug, ko]);
+  }, [primarySlug, subSlug, ko, reloadToken]);
 
   const headerTitle = scopeLabel.trim() || (state.status === "ready" ? state.serverTitle : null) || primarySlug;
   const readyState = state.status === "ready" ? state : null;

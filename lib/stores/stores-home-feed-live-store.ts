@@ -34,6 +34,11 @@ export function writeStoresHomeFeedLiveStore(
   liveEntry = { stores, meta, querySuffix, updatedAt: Date.now() };
 }
 
+/** Admin shelf save / PTR — drop live snapshot so next HOME mount revalidates policy */
+export function clearStoresHomeFeedLiveStore(): void {
+  liveEntry = null;
+}
+
 /** 테스트/HMR */
 export function resetStoresHomeFeedLiveStoreForTests(): void {
   liveEntry = null;

@@ -2,7 +2,7 @@
 
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
-import { stripCompositionPolicyFromHomeFeedClientMeta } from "@/lib/stores/composition/stores-composition-home-feed-client-meta";
+import { normalizeHomeFeedClientMeta } from "@/lib/stores/composition/stores-composition-home-feed-client-meta";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoresHomeClientCallSource } from "@/lib/stores/stores-home-network-guards";
 import { resolveStoresHomePrewarmLanguage } from "@/lib/stores/stores-home-network-guards";
@@ -10,7 +10,7 @@ import { resolveStoresHomePrewarmLanguage } from "@/lib/stores/stores-home-netwo
 const STORE_HOME_FEED_TTL_MS = 10 * 60 * 1000;
 /** 탭 왕복·remount 직후 즉시 표시 — trade home-posts session 패턴과 동일 수준 */
 const STORE_HOME_FEED_SESSION_TTL_MS = 45_000;
-const STORE_HOME_FEED_SESSION_KEY_PREFIX = "samarket:stores-home-feed:v1:";
+const STORE_HOME_FEED_SESSION_KEY_PREFIX = "samarket:stores-home-feed:v2:";
 
 export type StoreHomeFeedCacheEntry = {
   stores: StoreHomeFeedItem[];
@@ -109,7 +109,7 @@ export function primeStoreHomeFeedClientCache(
   const key = normalizeSuffix(pathAndQuery);
   const entry: StoreHomeFeedCacheEntry = {
     stores: value.stores,
-    meta: stripCompositionPolicyFromHomeFeedClientMeta(value.meta),
+    meta: normalizeHomeFeedClientMeta(value.meta),
     expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
   };
   storeHomeFeedCache.set(key, entry);

@@ -814,6 +814,8 @@ export function StoresBrowsePrimaryView({
         : useRemoteList ?
           <ul
             className="stores-browse-category-list--full-bleed space-y-2"
+            data-browse-card-type={browseScopePolicy?.cardType ?? "store"}
+            data-browse-scope-enabled={browseScopePolicy?.enabled === false ? "0" : "1"}
             style={{
               marginInline: "calc(-1 * var(--delivery-page-x))",
               width: "calc(100% + 2 * var(--delivery-page-x))",

@@ -8,6 +8,7 @@ import {
   mapBrowseScopeDbRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-db";
 import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import { isWithinProductScheduleWindow } from "@/lib/stores/product/stores-product-schedule-window";
 
 export type StoresBrowseScopeCustomerMeta = {
   primarySlug: string;
@@ -50,10 +51,16 @@ export async function resolveStoresBrowseScopeCustomerMeta(
   const cardType: "store" | "product" | "mixed" =
     rawCard === "product" || rawCard === "mixed" || rawCard === "store" ? rawCard : "store";
 
+  const scheduleOk = isWithinProductScheduleWindow(resolved.scheduleStart, resolved.scheduleEnd);
+  const enabled =
+    resolved.enabled &&
+    resolved.presentationMode !== "hidden" &&
+    scheduleOk;
+
   return {
     primarySlug: pk,
     subSlug: sk,
-    enabled: resolved.enabled,
+    enabled,
     displayTitleKo: resolved.displayTitleKo,
     displayTitleEn: resolved.displayTitleEn,
     adEnabled: resolved.adEnabled,

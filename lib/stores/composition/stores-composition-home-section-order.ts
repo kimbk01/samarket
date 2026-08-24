@@ -12,6 +12,7 @@ import {
   type StoresHomeCompositionSlotKey,
 } from "@/lib/stores/composition/stores-composition-home-slots";
 import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
+import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 
 function isHomeCompositionSlotKey(slot: string): slot is StoresHomeCompositionSlotKey {
   return (STORES_HOME_COMPOSITION_SLOT_KEYS as readonly string[]).includes(slot);
@@ -25,19 +26,31 @@ export function isHomeCompositionSlotVisible(
   return Array.isArray(items) && items.length > 0;
 }
 
+function isShelfProductVisible(
+  slot: StoresHomeCompositionSlotKey,
+  shelfProduct: readonly StoresHomeShelfResolvedConfig[] | undefined
+): boolean {
+  if (!shelfProduct?.length) return true;
+  const shelf = shelfProduct.find((s) => s.composerSlot === slot);
+  if (!shelf) return true;
+  return shelf.customerVisible;
+}
+
 /**
- * Enabled policy rows sorted by `order`, excluding empty composition slots.
- * Single HOME section-order authority for live rendering.
+ * Enabled policy rows sorted by `order`, excluding empty composition slots
+ * and Admin-disabled shelf product rows.
  */
 export function resolveOrderedVisibleHomeCompositionSlots(
   policy: readonly StoresCompositionSectionContract[],
-  composition: StoresHomeFeedComposition
+  composition: StoresHomeFeedComposition,
+  shelfProduct?: readonly StoresHomeShelfResolvedConfig[]
 ): StoresHomeCompositionSlotKey[] {
   const ordered = sortSectionsByPresentationOrder(filterEnabledCompositionSections(policy));
   const slots: StoresHomeCompositionSlotKey[] = [];
   for (const row of ordered) {
     if (!isHomeCompositionSlotKey(row.slot)) continue;
     if (!isHomeCompositionSlotVisible(row.slot, composition)) continue;
+    if (!isShelfProductVisible(row.slot, shelfProduct)) continue;
     slots.push(row.slot);
   }
   return slots;

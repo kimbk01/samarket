@@ -522,12 +522,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
           { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
           {
-            key: "store-discovery-control",
-            title: "",
-            path: "/admin/store-discovery",
-            status: "done",
-          },
-          {
             key: "store-insertions-control",
             title: "",
             path: "/admin/store-insertions",
