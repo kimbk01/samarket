@@ -1,18 +1,160 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { StoresHomeFoodDiscoveryRail } from "@/components/stores/home/hub/StoresHomeFoodDiscoveryRail";
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
 import { StoresHomePrimaryStoreRowListSection } from "@/components/stores/home/hub/StoresHomePrimaryStoreRowListSection";
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeStoreCardList } from "@/components/stores/home/hub/StoresHomeStoreCard";
+import { StoresHomeHighRatingFoodCard } from "@/components/stores/home/presentation/StoresHomeHighRatingFoodCard";
+import { StoresHomeBrandCircularCard } from "@/components/stores/home/presentation/StoresHomeBrandCircularCard";
+import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presentation/StoresHomeStoreHorizontalCard";
+import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
+import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
 import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stores-composition-home-slots";
+import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
 import { STORES_HOME_RAIL_SCROLL } from "@/lib/stores/stores-home-ui";
-import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
+import { storesHomeShelfByComposerSlot } from "@/lib/stores/product/stores-home-shelf-product-catalog";
+import {
+  resolveHomeShelfForComposerSlot,
+  resolveHomeShelfSubtitle,
+  resolveHomeShelfTitle,
+  type StoresHomeShelfResolvedConfig,
+} from "@/lib/stores/product/stores-home-shelf-product-resolve";
+import { resolveHomeShelfShowAllHref } from "@/lib/stores/product/stores-home-shelf-product-config";
+import {
+  buildHomeInsertionBenefitMaps,
+  resolveHomeShelfCardBenefit,
+} from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import { resolveHomeShelfFoodEntryImage } from "@/lib/stores/product/stores-home-shelf-image-resolve";
+import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
+import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+
+function resolveShelfConfig(
+  slot: StoresHomeCompositionSlotKey,
+  shelves: readonly StoresHomeShelfResolvedConfig[] | undefined
+): StoresHomeShelfResolvedConfig | null {
+  const fromMeta = shelves?.find((s) => s.composerSlot === slot);
+  if (fromMeta) return fromMeta;
+  const def = storesHomeShelfByComposerSlot(slot);
+  if (!def) return null;
+  return resolveHomeShelfForComposerSlot(slot, [])!;
+}
+
+function renderFoodEntryCard(
+  presentation: StoresHomeShelfResolvedConfig["presentation"],
+  entry: StoresHomeFoodEntry,
+  img: { imageUrl: string | null; loading: boolean },
+  benefit: ReturnType<typeof resolveHomeShelfCardBenefit> | undefined,
+  markStoreCardPerf?: boolean
+) {
+  const key = `${entry.storeId}-${entry.productId}`;
+  switch (presentation) {
+    case "store_horizontal":
+      return (
+        <StoresHomeStoreHorizontalCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+          benefit={benefit}
+        />
+      );
+    case "high_rating_horizontal":
+      return (
+        <StoresHomeHighRatingFoodCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+        />
+      );
+    case "brand_circular":
+      return (
+        <StoresHomeBrandCircularCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+          benefit={benefit}
+        />
+      );
+    case "store_teaser_horizontal":
+      return (
+        <StoresHomeStoreTeaserCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+          benefit={benefit}
+        />
+      );
+    case "editorial_grid":
+      return (
+        <StoresHomeFoodCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+          presentation="grid"
+        />
+      );
+    case "food_horizontal":
+    default:
+      return (
+        <StoresHomeFoodCard
+          key={key}
+          entry={entry}
+          imageUrl={img.imageUrl}
+          loadingImage={img.loading}
+          markStoreCardPerf={markStoreCardPerf}
+        />
+      );
+  }
+}
+
+function renderFoodRail(
+  entries: readonly StoresHomeFoodEntry[],
+  shelf: StoresHomeShelfResolvedConfig,
+  hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>,
+  benefitMaps: ReturnType<typeof buildHomeInsertionBenefitMaps>,
+  benefitLabels: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"],
+  markFirst?: boolean
+) {
+  return (
+    <div className={STORES_HOME_RAIL_SCROLL}>
+      {entries.map((entry, idx) => {
+        const ad = benefitMaps.adsByStoreId.get(entry.storeId);
+        const img = resolveHomeShelfFoodEntryImage(
+          entry,
+          hydratedByStoreId.get(entry.storeId),
+          shelf.productConfig.imageSource,
+          ad?.imageUrl ?? null
+        );
+        const benefit = resolveHomeShelfCardBenefit({
+          storeId: entry.storeId,
+          couponIntegration: shelf.couponIntegration,
+          adIntegration: shelf.adIntegration,
+          badgeMode: shelf.productConfig.badgeMode,
+          benefitLineMode: shelf.productConfig.benefitLineMode,
+          maps: benefitMaps,
+          labels: benefitLabels,
+        });
+        return renderFoodEntryCard(
+          shelf.presentation,
+          entry,
+          img,
+          benefit,
+          markFirst && idx === 0
+        );
+      })}
+    </div>
+  );
+}
 
 export function StoresHomeCompositionSlotSection({
   slot,
@@ -21,6 +163,8 @@ export function StoresHomeCompositionSlotSection({
   getPhase,
   registerListItem,
   markFirstFoodCardPerf,
+  shelfProduct,
+  homeInsertions,
 }: {
   slot: StoresHomeCompositionSlotKey;
   composition: StoresHomeFeedComposition;
@@ -28,101 +172,117 @@ export function StoresHomeCompositionSlotSection({
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
   markFirstFoodCardPerf?: boolean;
+  shelfProduct?: readonly StoresHomeShelfResolvedConfig[];
+  homeInsertions?: StoresHomeInsertionMeta;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const shelf = resolveShelfConfig(slot, shelfProduct);
+  const benefitMaps = useMemo(
+    () => buildHomeInsertionBenefitMaps(homeInsertions),
+    [homeInsertions]
+  );
+  const benefitLabels = useMemo(
+    () => ({
+      sponsored: t("store_insertion_sponsored"),
+      coupon: t("store_badge_coupon"),
+      couponDiscount: (discount: string) => t("store_insertion_coupon_discount", { discount }),
+      couponMinOrder: (amount: string) => t("store_insertion_coupon_min_order", { amount }),
+      adHeadline: (headline: string) => headline,
+    }),
+    [t]
+  );
+
+  const title =
+    shelf ? resolveHomeShelfTitle(shelf, language === "ko" ? "ko" : "en") : t("store_feed_stores_title");
+  const subtitle = shelf ? resolveHomeShelfSubtitle(shelf, language === "ko" ? "ko" : "en") : null;
+  const showAllHref =
+    shelf?.productConfig.showAllEnabled && shelf.productConfig.showAllRouteKey !== "none"
+      ? resolveHomeShelfShowAllHref(shelf.productConfig.showAllRouteKey)
+      : null;
+  const showAllLabel =
+    language === "ko"
+      ? shelf?.productConfig.showAllLabelKo?.trim() || t("store_browse_view_all")
+      : shelf?.productConfig.showAllLabelEn?.trim() || t("store_browse_view_all");
 
   const wrap = (node: ReactNode) => (
-    <div data-composition-slot={slot} data-stores-home-composition-slot={slot}>
+    <div
+      data-composition-slot={slot}
+      data-stores-home-composition-slot={slot}
+      data-stores-home-shelf-id={shelf?.shelfId}
+      data-stores-home-presentation={shelf?.presentation}
+      data-stores-home-entity-type={shelf?.productConfig.entityType}
+    >
       {node}
     </div>
   );
 
+  if (!shelf) return null;
+
   switch (slot) {
-    case "slot0Food":
+    case "slot0Food": {
+      const entries =
+        shelf.max != null ? composition.slot0Food.slice(0, shelf.max) : composition.slot0Food;
       return wrap(
-        <StoresHomeSectionShell
-          title={t("store_order_now_title")}
-          actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
-          actionLabel={t("store_browse_view_all")}
-        >
-          <div className={STORES_HOME_RAIL_SCROLL}>
-            {composition.slot0Food.map((entry, idx) => {
-              const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
-              return (
-                <StoresHomeFoodCard
-                  key={`${entry.storeId}-${entry.productId}`}
-                  entry={entry}
-                  imageUrl={img.imageUrl}
-                  loadingImage={img.loading}
-                  markStoreCardPerf={markFirstFoodCardPerf && idx === 0}
-                />
-              );
-            })}
-          </div>
+        <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
+          {renderFoodRail(
+            entries,
+            shelf,
+            hydratedByStoreId,
+            benefitMaps,
+            benefitLabels,
+            markFirstFoodCardPerf
+          )}
         </StoresHomeSectionShell>
       );
-    case "slot1Stores":
+    }
+    case "slot1Stores": {
+      const stores =
+        shelf.max != null ? composition.slot1Stores.slice(0, shelf.max) : composition.slot1Stores;
+      if (stores.length === 0) return null;
       return wrap(
         <StoresHomePrimaryStoreRowListSection
-          stores={composition.slot1Stores}
+          stores={stores}
           hydratedByStoreId={hydratedByStoreId}
           getPhase={getPhase}
           registerListItem={registerListItem}
+          title={title}
+          subtitle={subtitle}
+          actionHref={showAllHref}
+          actionLabel={showAllLabel}
+          presentation={shelf.presentation}
+          locale={language === "ko" ? "ko" : "en"}
         />
       );
+    }
     case "slot2Food":
-      return wrap(
-        <StoresHomeFoodDiscoveryRail
-          title={t("store_home_popular_stores_title")}
-          entries={composition.slot2Food}
-          hydratedByStoreId={hydratedByStoreId}
-          actionHref={STORES_HOME_SECTION_BROWSE.popular()}
-          actionLabel={t("store_browse_view_all")}
-        />
-      );
     case "newStoreFood":
-      return wrap(
-        <StoresHomeFoodDiscoveryRail
-          title={t("store_home_new_stores_title")}
-          entries={composition.newStoreFood}
-          hydratedByStoreId={hydratedByStoreId}
-        />
-      );
     case "campaignFood":
-      return wrap(
-        <StoresHomeFoodDiscoveryRail
-          title={t("store_home_campaigns_title")}
-          entries={composition.campaignFood}
-          hydratedByStoreId={hydratedByStoreId}
-        />
-      );
     case "slot3Food":
+    case "slot4Food": {
+      const raw =
+        slot === "slot2Food" ? composition.slot2Food
+        : slot === "newStoreFood" ? composition.newStoreFood
+        : slot === "campaignFood" ? composition.campaignFood
+        : slot === "slot3Food" ? composition.slot3Food
+        : composition.slot4Food;
+      const entries = shelf.max != null ? raw.slice(0, shelf.max) : raw;
+      if (entries.length === 0) return null;
       return wrap(
-        <StoresHomeFoodDiscoveryRail
-          title={t("store_badge_menu_discount")}
-          entries={composition.slot3Food}
-          hydratedByStoreId={hydratedByStoreId}
-          actionHref={STORES_HOME_SECTION_BROWSE.discount()}
-          actionLabel={t("store_browse_view_all")}
-        />
+        <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
+          {renderFoodRail(entries, shelf, hydratedByStoreId, benefitMaps, benefitLabels, markFirstFoodCardPerf)}
+        </StoresHomeSectionShell>
       );
-    case "slot4Food":
-      return wrap(
-        <StoresHomeFoodDiscoveryRail
-          title={t("store_spot_recommended_subtitle")}
-          entries={composition.slot4Food}
-          hydratedByStoreId={hydratedByStoreId}
-          presentation="highRating"
-          actionHref={STORES_HOME_SECTION_BROWSE.topRated()}
-          actionLabel={t("store_browse_view_all")}
-        />
-      );
+    }
     case "slot5Food":
       return wrap(
-        <StoresHomeSectionShell title={t("store_spot_recommended_title")}>
+        <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {composition.slot5Food.slice(0, 4).map((entry) => {
-              const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
+            {composition.slot5Food.slice(0, shelf.max ?? 4).map((entry) => {
+              const img = resolveHomeShelfFoodEntryImage(
+                entry,
+                hydratedByStoreId.get(entry.storeId),
+                shelf.productConfig.imageSource
+              );
               return (
                 <StoresHomeFoodCard
                   key={`featured-${entry.storeId}-${entry.productId}`}
@@ -137,35 +297,33 @@ export function StoresHomeCompositionSlotSection({
         </StoresHomeSectionShell>
       );
     case "slot6NearbyStores":
+    case "slot6RestStores": {
+      const raw =
+        slot === "slot6NearbyStores" ? composition.slot6NearbyStores : composition.slot6RestStores;
+      const stores = shelf.max != null ? raw.slice(0, shelf.max) : raw;
+      if (stores.length === 0) return null;
+      if (shelf.presentation === "timesale_vertical") {
+        return wrap(
+          <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
+            <StoresHomeTimesaleRowCardList
+              stores={stores as StoreHomeFeedItem[]}
+              locale={language === "ko" ? "ko" : "en"}
+              registerListItem={registerListItem}
+            />
+          </StoresHomeSectionShell>
+        );
+      }
       return wrap(
-        <StoresHomeSectionShell
-          title={t("store_neighborhood_more_title")}
-          actionHref={STORES_HOME_SECTION_BROWSE.nearby()}
-          actionLabel={t("store_browse_view_all")}
-        >
+        <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
           <StoresHomeStoreCardList
-            stores={composition.slot6NearbyStores}
+            stores={stores}
             hydratedByStoreId={hydratedByStoreId}
             getPhase={getPhase}
             registerListItem={registerListItem}
           />
         </StoresHomeSectionShell>
       );
-    case "slot6RestStores":
-      return wrap(
-        <StoresHomeSectionShell
-          title={t("store_feed_stores_title")}
-          actionHref={STORES_HOME_SECTION_BROWSE.allStores()}
-          actionLabel={t("store_browse_view_all")}
-        >
-          <StoresHomeStoreCardList
-            stores={composition.slot6RestStores}
-            hydratedByStoreId={hydratedByStoreId}
-            getPhase={getPhase}
-            registerListItem={registerListItem}
-          />
-        </StoresHomeSectionShell>
-      );
+    }
     default:
       return null;
   }

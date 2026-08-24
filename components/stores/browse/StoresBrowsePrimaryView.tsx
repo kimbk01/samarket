@@ -39,11 +39,10 @@ import {
   StoreBrowseCategoryRowCard,
   browseItemToRowCard,
   type StoreRowCardData,
+  type StoreBrowseCampaignBenefit,
 } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
-import {
-  StoreBrowseInsertionCouponCard,
-  StoreBrowseInsertionPaidAdCard,
-} from "@/components/stores/browse/StoreBrowseInsertionRowCards";
+import { writeStoreCheckoutCouponSession } from "@/lib/stores/store-checkout-coupon-session";
+import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { storeRowCardDataEqual } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
@@ -659,14 +658,6 @@ export function StoresBrowsePrimaryView({
     return reconciled;
   }, [sortedRemoteRows]);
 
-  const storeSlugById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const row of sortedRemoteRows ?? []) {
-      map.set(row.id, row.slug);
-    }
-    return map;
-  }, [sortedRemoteRows]);
-
   const browseListRenderItems = useMemo(() => {
     if (!browseInsertionRows?.length) {
       return storeDeliveryRowDataList.map((data) => ({
@@ -811,20 +802,39 @@ export function StoresBrowsePrimaryView({
                   />
                 );
               }
+              const store = sortedRemoteRows?.find((s) => s.id === item.row.storeId);
+              if (!store) return null;
+              const cardData = browseItemToRowCard(store);
+              let campaignBenefit: StoreBrowseCampaignBenefit | undefined;
               if (item.kind === "paid_ad") {
-                return (
-                  <StoreBrowseInsertionPaidAdCard
-                    key={item.key}
-                    row={item.row}
-                    storeSlug={storeSlugById.get(item.row.storeId)}
-                  />
-                );
+                campaignBenefit = {
+                  kind: "paid_ad",
+                  promoLine: item.row.headline.trim() || item.row.title.trim(),
+                  sponsored: true,
+                };
+              } else {
+                const discountLabel =
+                  item.row.discountType === "percent"
+                    ? `${item.row.discountValue}%`
+                    : formatMoneyPhp(item.row.discountValue);
+                campaignBenefit = {
+                  kind: "coupon",
+                  promoLine: `${item.row.title} · ${discountLabel}`,
+                  onActivate: () => {
+                    writeStoreCheckoutCouponSession({
+                      storeId: item.row.storeId,
+                      campaignId: item.row.campaignId,
+                    });
+                  },
+                };
               }
               return (
-                <StoreBrowseInsertionCouponCard
+                <StoreBrowseCategoryRowCard
                   key={item.key}
-                  row={item.row}
-                  storeSlug={storeSlugById.get(item.row.storeId)}
+                  data={cardData}
+                  locale={language}
+                  deliveryRideTimeSource={deliveryRideTimeSource}
+                  campaignBenefit={campaignBenefit}
                 />
               );
             })}

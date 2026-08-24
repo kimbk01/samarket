@@ -129,6 +129,10 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
   "store-insertions-control": "admin_menu_store_insertions_control",
+  "stores-home-management": "admin_menu_stores_home_management",
+  "stores-home-shelves": "admin_menu_stores_home_shelves",
+  "stores-category-management": "admin_menu_stores_category_management",
+  "stores-category-primary": "admin_menu_stores_category_primary",
   "stores-composition-policy": "admin_menu_stores_composition_policy",
   "store-settings-taxonomy": "admin_menu_store_settings_taxonomy",
   "store-settings-alerts": "admin_menu_store_settings_alerts",
@@ -481,10 +485,30 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           {
-            key: "stores-composition-policy",
+            key: "stores-home-management",
             title: "",
-            path: "/admin/stores-composition-policy",
             status: "done",
+            children: [
+              {
+                key: "stores-home-shelves",
+                title: "",
+                path: "/admin/stores-home-shelves",
+                status: "done",
+              },
+            ],
+          },
+          {
+            key: "stores-category-management",
+            title: "",
+            status: "done",
+            children: [
+              {
+                key: "stores-category-primary",
+                title: "",
+                path: "/admin/stores-category-policy",
+                status: "done",
+              },
+            ],
           },
           {
             key: "store-products-admin",

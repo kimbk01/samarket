@@ -37,7 +37,6 @@ import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHo
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
-import { StoresHomeInsertionRails } from "@/components/stores/home/hub/StoresHomeInsertionRails";
 import { StoresHomePerfBoot } from "@/components/stores/home/hub/StoresHomePerfBoot";
 import type {
   RecentOrderPreview,
@@ -354,6 +353,13 @@ export function StoresHomeHub({
     </div>
   );
 
+  const shelfProduct = useMemo(
+    () =>
+      (meta?.compositionPolicy as { shelfProduct?: { shelves?: unknown[] } } | undefined)?.shelfProduct
+        ?.shelves as import("@/lib/stores/product/stores-home-shelf-product-resolve").StoresHomeShelfResolvedConfig[] | undefined,
+    [meta?.compositionPolicy]
+  );
+
   const renderCompositionSlot = useCallback(
     (slot: (typeof orderedVisibleSlots)[number], opts?: { markFirstFoodCardPerf?: boolean }) => {
       if (!composition) return null;
@@ -366,19 +372,18 @@ export function StoresHomeHub({
           getPhase={getPhase}
           registerListItem={registerListItem}
           markFirstFoodCardPerf={opts?.markFirstFoodCardPerf}
+          shelfProduct={shelfProduct}
+          homeInsertions={meta?.homeInsertions}
         />
       );
     },
-    [composition, getPhase, hydratedByStoreId, registerListItem]
+    [composition, getPhase, hydratedByStoreId, meta?.homeInsertions, registerListItem, shelfProduct]
   );
 
   const renderDeferredSections = useCallback(
     () => (
       <>
         {deferredSlots.map((slot) => renderCompositionSlot(slot))}
-        {meta?.homeInsertions ?
-          <StoresHomeInsertionRails insertions={meta.homeInsertions} />
-        : null}
         {meta?.source === "supabase_unconfigured" ?
           <p className="rounded-[var(--delivery-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             {t("store_supabase_unconfigured_hint")}
@@ -386,7 +391,7 @@ export function StoresHomeHub({
         : null}
       </>
     ),
-    [deferredSlots, meta?.homeInsertions, meta?.source, renderCompositionSlot, t]
+    [deferredSlots, meta?.source, renderCompositionSlot, t]
   );
 
   return (

@@ -10,6 +10,12 @@ import {
   loadActiveStoreCouponCampaigns,
   loadActiveStorePaidAdCampaigns,
 } from "@/lib/stores/load-store-insertion-campaigns";
+import {
+  listBrowseScopePolicyRows,
+  mapBrowseScopeDbRow,
+} from "@/lib/stores/product/stores-browse-scope-policy-db";
+import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
+import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";
 
 export type StoresBrowseInsertionMetaRow =
   | { kind: "organic"; storeId: string }
@@ -34,12 +40,80 @@ export type StoresBrowseInsertionMetaRow =
       termsCopy: string | null;
     };
 
+function scopePolicyToCompositionRows(
+  resolved: ReturnType<typeof resolveBrowseScopePolicy>
+): StoresCompositionSectionContract[] {
+  const interval =
+    resolved.intervalEveryN > 0
+      ? ({ consumed: true as const, everyN: resolved.intervalEveryN })
+      : ({ consumed: false as const, reason: "NOT_CONSUMED" as const });
+  return [
+    {
+      surface: "browse",
+      slot: "organic_discovery_list",
+      contentType: "store",
+      enabled: true,
+      order: 0,
+      interval: { consumed: false, reason: "NOT_CONSUMED" },
+      max: null,
+      titleAuthority: "none",
+    },
+    {
+      surface: "browse",
+      slot: "future_ad_insertion",
+      contentType: "ad",
+      enabled: resolved.adEnabled && resolved.presentationMode !== "hidden",
+      order: 1,
+      interval,
+      max: resolved.maxInsertion,
+      titleAuthority: "none",
+    },
+    {
+      surface: "browse",
+      slot: "future_coupon_insertion",
+      contentType: "coupon",
+      enabled: resolved.couponEnabled && resolved.presentationMode !== "hidden",
+      order: 2,
+      interval,
+      max: resolved.maxInsertion,
+      titleAuthority: "none",
+    },
+  ];
+}
+
+async function resolveBrowseInsertionPolicy(
+  sb: SupabaseClient,
+  primarySlug: string,
+  subSlug: string | null
+): Promise<readonly StoresCompositionSectionContract[]> {
+  try {
+    const dbRows = await listBrowseScopePolicyRows(sb);
+    const mapped = dbRows.map(mapBrowseScopeDbRow);
+    const byScope = new Map(mapped.map((r) => [r.scopeKey, r]));
+    const pk = primarySlug.trim().toLowerCase();
+    const sk = subSlug?.trim().toLowerCase() ?? null;
+    const resolved = resolveBrowseScopePolicy({
+      primarySlug: pk,
+      subSlug: sk && sk !== "all" ? sk : null,
+      primaryRow: byScope.get(pk) ?? null,
+      subRow: sk && sk !== "all" ? byScope.get(`${pk}/${sk}`) ?? null : null,
+    });
+    return scopePolicyToCompositionRows(resolved);
+  } catch {
+    const policyBundle = await loadRuntimeCompositionPolicy(sb, "browse");
+    return policyBundle.rows;
+  }
+}
+
 export async function attachStoresBrowseInsertionMeta(
   sb: SupabaseClient,
-  body: StoresBrowseResponseBody
+  body: StoresBrowseResponseBody,
+  scope?: { primarySlug: string; subSlug: string | null }
 ): Promise<StoresBrowseResponseBody> {
   const organicIds = body.stores.map((s) => s.id);
-  const policyBundle = await loadRuntimeCompositionPolicy(sb, "browse");
+  const policy = scope
+    ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
+    : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
   const [paidAds, coupons] = await Promise.all([
     loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
     loadActiveStoreCouponCampaigns(sb),
@@ -48,10 +122,9 @@ export async function attachStoresBrowseInsertionMeta(
     organicStoreIds: organicIds,
     paidAds,
     coupons,
-    policy: policyBundle.rows,
+    policy,
   });
 
-  const storeById = new Map(body.stores.map((s) => [s.id, s]));
   const rows: StoresBrowseInsertionMetaRow[] = plan.rows.map((row) => {
     if (row.kind === "organic") {
       return { kind: "organic", storeId: row.storeId };

@@ -52,6 +52,13 @@ import {
 
 export type { StoreRowCardData };
 
+export type StoreBrowseCampaignBenefit = {
+  kind: "paid_ad" | "coupon";
+  promoLine: string;
+  sponsored?: boolean;
+  onActivate?: () => void;
+};
+
 function reviewLabel(n: number) {
   if (n > 9999) return "9,999+";
   return n.toLocaleString("en-PH");
@@ -93,6 +100,7 @@ function StoreBrowseCategoryRowCardInner({
   featuredMenuHydration = "idle",
   browseStoreId,
   registerBrowseListItem,
+  campaignBenefit,
 }: {
   data: StoreRowCardData;
   locale: AppLanguageCode;
@@ -100,6 +108,7 @@ function StoreBrowseCategoryRowCardInner({
   featuredMenuHydration?: BrowseFeaturedMenuHydrationPhase;
   browseStoreId?: string;
   registerBrowseListItem?: (storeId: string, node: HTMLElement | null) => void;
+  campaignBenefit?: StoreBrowseCampaignBenefit;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -182,13 +191,12 @@ function StoreBrowseCategoryRowCardInner({
     commerceExtras != null &&
     storeBrowseDeliveryFeeShowsFreeBadge(commerceExtras);
 
-  const promoLine = useMemo(
-    () =>
-      buildBrowseCategoryPromoLine(locale, data.commerce, rowLabels, {
-        deliveryAvailable: data.deliveryAvailable,
-      }),
-    [locale, data.commerce, rowLabels, data.deliveryAvailable]
-  );
+  const promoLine = useMemo(() => {
+    if (campaignBenefit?.promoLine?.trim()) return campaignBenefit.promoLine.trim();
+    return buildBrowseCategoryPromoLine(locale, data.commerce, rowLabels, {
+      deliveryAvailable: data.deliveryAvailable,
+    });
+  }, [campaignBenefit?.promoLine, locale, data.commerce, rowLabels, data.deliveryAvailable]);
 
   const statusBadge =
     data.status === "open"
@@ -363,7 +371,9 @@ function StoreBrowseCategoryRowCardInner({
 
         {promoLine ?
           <div
-            className={`flex w-full ${PROMO_BAR_H} items-center px-[10px] text-[12.5px] font-semibold leading-tight text-sam-fg bg-sam-warning-soft`}
+            className={`flex w-full ${PROMO_BAR_H} items-center px-[10px] text-[12.5px] font-semibold leading-tight text-white ${
+              campaignBenefit ? "bg-signature" : "text-sam-fg bg-sam-warning-soft"
+            }`}
             data-stores-category-promo-bar="true"
           >
             <span className="line-clamp-2">{promoLine}</span>
@@ -401,6 +411,14 @@ function StoreBrowseCategoryRowCardInner({
             className={`mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 overflow-hidden text-[12.5px] leading-[1.02] ${FB.metaRow}`}
             data-stores-category-metadata="true"
           >
+            {campaignBenefit?.sponsored ?
+              <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                {t("store_insertion_sponsored")}
+              </span>
+            : null}
+            {campaignBenefit?.sponsored && timeLabel ?
+              <span className={FB.metaDot}>·</span>
+            : null}
             {timeLabel ?
               <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
                 <svg className="h-3.5 w-3.5 opacity-75" viewBox="0 0 24 24" fill="none" aria-hidden>

@@ -1,5 +1,5 @@
-import { AdminStoresCompositionPolicyPage } from "@/components/admin/stores/AdminStoresCompositionPolicyPage";
+import { permanentRedirect } from "next/navigation";
 
-export default function AdminStoresCompositionPolicyRoutePage() {
-  return <AdminStoresCompositionPolicyPage />;
+export default function AdminStoresCompositionPolicyLegacyRedirectPage() {
+  permanentRedirect("/admin/stores-home-shelves");
 }

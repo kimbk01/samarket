@@ -432,6 +432,7 @@ export const storeCommerceUiMessages = {
 
     store_badge_reservation: "예약가능",
     store_badge_recommended: "추천",
+    store_badge_new_store: "신규",
 
     store_directions_google_aria: "구글 지도에서 내 위치에서 이 매장까지 길찾기",
 
@@ -983,6 +984,8 @@ export const storeCommerceUiMessages = {
     store_badge_owner_recommended: "사장님 추천",
     store_badge_menu_representative: "대표",
     store_badge_menu_discount: "할인",
+    store_home_delivery_fee_discount_title: "배달팁 할인",
+    store_home_delivery_fee_discount_subtitle: "배달비 할인 혜택이 있는 매장",
     store_menu_sales_paused:
       "이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.",
     store_menu_search_no_results: "검색 결과가 없습니다.",
@@ -2165,6 +2168,7 @@ export const storeCommerceUiMessages = {
 
     store_badge_reservation: "Reservation",
     store_badge_recommended: "Recommended",
+    store_badge_new_store: "New",
 
     store_directions_google_aria: "Directions from my location on Google Maps",
 
@@ -2715,6 +2719,8 @@ export const storeCommerceUiMessages = {
     store_badge_owner_recommended: "Owner's pick",
     store_badge_menu_representative: "Featured",
     store_badge_menu_discount: "Sale",
+    store_home_delivery_fee_discount_title: "Delivery fee discount",
+    store_home_delivery_fee_discount_subtitle: "Stores with delivery fee discount evidence",
     store_menu_sales_paused:
       "This store is not approved for sales yet or sales are temporarily paused.",
     store_menu_search_no_results: "No search results.",

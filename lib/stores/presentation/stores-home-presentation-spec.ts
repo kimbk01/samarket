@@ -42,7 +42,11 @@ export const STORES_HOME_PRESENTATION_SPEC = {
 export type StoresHomePresentationPatternId =
   | "timesale_vertical"
   | "food_horizontal"
+  | "store_horizontal"
   | "high_rating_horizontal"
+  | "brand_circular"
+  | "store_teaser_horizontal"
+  | "editorial_grid"
   | "preserved_legacy";
 
 export type StoresHomePresentationDecision = "MATCH" | "PARTIAL" | "NO_MATCH";
