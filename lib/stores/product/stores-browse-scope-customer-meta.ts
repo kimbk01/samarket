@@ -46,10 +46,8 @@ export async function resolveStoresBrowseScopeCustomerMeta(
     subRow,
   });
 
-  const cfg = (sk ? subRow?.productConfig : primaryRow?.productConfig) ?? primaryRow?.productConfig ?? null;
-  const rawCard = cfg && typeof cfg === "object" ? (cfg as { cardType?: unknown }).cardType : null;
-  const cardType: "store" | "product" | "mixed" =
-    rawCard === "product" || rawCard === "mixed" || rawCard === "store" ? rawCard : "store";
+  /** CATEGORY card anatomy is fixed — StoreBrowseCategoryRowCard only. */
+  const cardType = "store" as const;
 
   const scheduleOk = isWithinProductScheduleWindow(resolved.scheduleStart, resolved.scheduleEnd);
   const enabled =

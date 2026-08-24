@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { listBrowsePrimaryIndustries, listBrowseSubIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
+import {
+  listBrowsePrimaryIndustries,
+  listBrowseSubIndustries,
+} from "@/lib/stores/browse-taxonomy-seed-queries";
+import {
+  listBrowseSubIndustriesForPrimary,
+  mergeBrowsePrimaryIndustries,
+} from "@/lib/stores/browse-taxonomy-resolvers";
+import { loadStoreTaxonomyRows } from "@/lib/stores/load-store-taxonomy-rows";
 import {
   getBrowseScopePolicyRevision,
   listBrowseScopePolicyRows,
@@ -12,6 +20,7 @@ import {
 import {
   buildBrowsePrimaryScopeKey,
   buildBrowseSubScopeKey,
+  isBrowseScopeSubOverrideRow,
   resolveBrowseScopePolicy,
 } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -70,14 +79,24 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [dbRows, revision] = await Promise.all([
+    const [dbRows, revision, taxonomyLoaded] = await Promise.all([
       listBrowseScopePolicyRows(sb),
       getBrowseScopePolicyRevision(sb),
+      loadStoreTaxonomyRows(sb, { activeOnly: true }).catch(() => null),
     ]);
     const mapped = dbRows.map(mapBrowseScopeDbRow);
     const byScope = new Map(mapped.map((r) => [r.scopeKey, r]));
 
-    const primaries = listBrowsePrimaryIndustries().map((p) => {
+    const taxonomy =
+      taxonomyLoaded != null
+        ? { categories: taxonomyLoaded.categories, topics: taxonomyLoaded.topics }
+        : null;
+    const primaryList =
+      taxonomy != null && taxonomy.categories.length > 0
+        ? mergeBrowsePrimaryIndustries(taxonomy)
+        : listBrowsePrimaryIndustries();
+
+    const primaries = primaryList.map((p) => {
       const scopeKey = buildBrowsePrimaryScopeKey(p.slug);
       const row = byScope.get(scopeKey) ?? null;
       const resolved = resolveBrowseScopePolicy({
@@ -86,10 +105,12 @@ export async function GET(req: NextRequest) {
         primaryRow: row,
         subRow: null,
       });
+      const extended = p as { nameEn?: string | null; name_en?: string | null };
+      const nameEn = extended.nameEn?.trim() || extended.name_en?.trim() || p.slug;
       return {
         primarySlug: p.slug,
         nameKo: p.nameKo,
-        nameEn: p.nameEn,
+        nameEn,
         scopeKey,
         row,
         resolved,
@@ -106,21 +127,32 @@ export async function GET(req: NextRequest) {
     }> = [];
 
     if (primarySlug) {
-      secondary = listBrowseSubIndustries(primarySlug).map((s) => {
+      const subList =
+        taxonomy != null && taxonomy.categories.length > 0
+          ? listBrowseSubIndustriesForPrimary(taxonomy, primarySlug)
+          : listBrowseSubIndustries(primarySlug);
+      secondary = subList.map((s) => {
         const pRow = byScope.get(buildBrowsePrimaryScopeKey(primarySlug)) ?? null;
         const scopeKey = buildBrowseSubScopeKey(primarySlug, s.slug);
-        const sRow = byScope.get(scopeKey) ?? null;
+        const sRowRaw = byScope.get(scopeKey) ?? null;
+        const sRow = isBrowseScopeSubOverrideRow(sRowRaw) ? sRowRaw : null;
+        const nameEn =
+          typeof s.nameEn === "string" && s.nameEn.trim()
+            ? s.nameEn
+            : typeof s.name_en === "string" && s.name_en.trim()
+              ? s.name_en
+              : s.slug;
         return {
           subSlug: s.slug,
           nameKo: s.nameKo,
-          nameEn: s.nameEn ?? s.slug,
+          nameEn,
           scopeKey,
           row: sRow,
           resolved: resolveBrowseScopePolicy({
             primarySlug,
             subSlug: s.slug,
             primaryRow: pRow,
-            subRow: sRow,
+            subRow: sRowRaw,
           }),
         };
       });
@@ -152,6 +184,7 @@ export async function GET(req: NextRequest) {
       primarySlug,
       subSlug,
       rankingEditable: false,
+      taxonomySource: taxonomy != null && taxonomy.categories.length > 0 ? "db" : "seed_fallback",
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "load_failed";
@@ -182,6 +215,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_rows" }, { status: 400 });
   }
 
+  const deleteScopeKeys = Array.isArray(body.deleteScopeKeys)
+    ? body.deleteScopeKeys.map((k) => String(k).trim().toLowerCase()).filter(Boolean)
+    : [];
+
   const expectedRevision = parseRevision(body.expectedRevision);
   if (expectedRevision === "invalid") {
     return NextResponse.json({ ok: false, error: "invalid_expected_revision" }, { status: 400 });
@@ -193,7 +230,13 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const result = await saveBrowseScopePolicyWithCas(sb, rows, userId, expectedRevision);
+    const result = await saveBrowseScopePolicyWithCas(
+      sb,
+      rows,
+      userId,
+      expectedRevision,
+      deleteScopeKeys
+    );
     if (!result.ok) {
       if (result.error === "stale_revision") {
         return NextResponse.json(

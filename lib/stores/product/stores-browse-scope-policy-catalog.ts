@@ -100,6 +100,26 @@ function resolvePresentation(
 }
 
 /**
+ * Secondary override authority: row exists AND at least one field is non-inherit.
+ * Pure inherit stubs (legacy UPSERT) are NOT overrides — treat as no row.
+ */
+export function isBrowseScopeSubOverrideRow(row: StoresBrowseScopePolicyRow | null | undefined): boolean {
+  if (!row || row.subSlug == null) return false;
+  if (row.adEnabled !== "inherit") return true;
+  if (row.couponEnabled !== "inherit") return true;
+  if (row.presentationMode !== "inherit") return true;
+  if (row.maxInsertion != null) return true;
+  if (row.intervalEveryN != null) return true;
+  if (row.displayTitleKo != null && row.displayTitleKo.trim() !== "") return true;
+  if (row.displayTitleEn != null && row.displayTitleEn.trim() !== "") return true;
+  if (row.scheduleStart != null) return true;
+  if (row.scheduleEnd != null) return true;
+  const cfg = row.productConfig;
+  if (cfg && typeof cfg === "object" && Object.keys(cfg).length > 0) return true;
+  return false;
+}
+
+/**
  * Resolve: sub override → primary → platform default.
  * `sub=all` uses primary scope only.
  */
@@ -149,22 +169,23 @@ export function resolveBrowseScopePolicy(input: {
     return primaryResolved;
   }
 
-  if (!input.subRow) {
+  const effectiveSub = isBrowseScopeSubOverrideRow(input.subRow) ? input.subRow : null;
+  if (!effectiveSub) {
     return { ...primaryResolved, scopeKey: buildBrowseSubScopeKey(input.primarySlug, sub) };
   }
 
   return {
     scopeKey: buildBrowseSubScopeKey(input.primarySlug, sub),
     /** Primary OFF always wins — secondary cannot surface when parent industry is off. */
-    enabled: primaryResolved.enabled && input.subRow.enabled,
-    displayTitleKo: input.subRow.displayTitleKo ?? primaryResolved.displayTitleKo,
-    displayTitleEn: input.subRow.displayTitleEn ?? primaryResolved.displayTitleEn,
-    adEnabled: resolveTriState(input.subRow.adEnabled, primaryResolved.adEnabled),
-    couponEnabled: resolveTriState(input.subRow.couponEnabled, primaryResolved.couponEnabled),
-    maxInsertion: resolveTriStateNullable(input.subRow.maxInsertion, primaryResolved.maxInsertion),
-    intervalEveryN: resolveIntervalEveryN(input.subRow.intervalEveryN, primaryResolved.intervalEveryN),
-    presentationMode: resolvePresentation(input.subRow.presentationMode, primaryResolved.presentationMode),
-    scheduleStart: resolveTriState(input.subRow.scheduleStart, primaryResolved.scheduleStart),
-    scheduleEnd: resolveTriState(input.subRow.scheduleEnd, primaryResolved.scheduleEnd),
+    enabled: primaryResolved.enabled && effectiveSub.enabled,
+    displayTitleKo: effectiveSub.displayTitleKo ?? primaryResolved.displayTitleKo,
+    displayTitleEn: effectiveSub.displayTitleEn ?? primaryResolved.displayTitleEn,
+    adEnabled: resolveTriState(effectiveSub.adEnabled, primaryResolved.adEnabled),
+    couponEnabled: resolveTriState(effectiveSub.couponEnabled, primaryResolved.couponEnabled),
+    maxInsertion: resolveTriStateNullable(effectiveSub.maxInsertion, primaryResolved.maxInsertion),
+    intervalEveryN: resolveIntervalEveryN(effectiveSub.intervalEveryN, primaryResolved.intervalEveryN),
+    presentationMode: resolvePresentation(effectiveSub.presentationMode, primaryResolved.presentationMode),
+    scheduleStart: resolveTriState(effectiveSub.scheduleStart, primaryResolved.scheduleStart),
+    scheduleEnd: resolveTriState(effectiveSub.scheduleEnd, primaryResolved.scheduleEnd),
   };
 }

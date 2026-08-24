@@ -106,7 +106,8 @@ export async function saveBrowseScopePolicyWithCas(
   sb: SupabaseClient,
   rows: readonly BrowseScopePolicyWriteInput[],
   actorUserId: string,
-  expectedRevision: number
+  expectedRevision: number,
+  deleteScopeKeys: readonly string[] = []
 ): Promise<
   | { ok: true; revision: number }
   | { ok: false; error: string; currentRevision?: number }
@@ -132,6 +133,7 @@ export async function saveBrowseScopePolicyWithCas(
     p_expected_revision: expectedRevision,
     p_rows: payload,
     p_actor_id: actorUserId,
+    p_delete_scope_keys: deleteScopeKeys.length > 0 ? [...deleteScopeKeys] : null,
   });
 
   if (error) {

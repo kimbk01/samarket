@@ -1,14 +1,11 @@
 /**
- * PHASE 3 — DIBAY HOME composer slot → Baemin A-VIS pattern mapping.
+ * PHASE 3 — DIBAY HOME composer slot → Baemin A-VIS pattern mapping (evidence reference).
  *
- * Decision rules:
- * - MATCH: semantic + anatomy align with measured/observed A-VIS evidence.
- * - PARTIAL: anatomy fits; only present DIBAY fields may render.
- * - NO_MATCH: no A-VIS pattern — do not invent Baemin UI; preserve generic rail/grid.
- *
- * Composer / discovery / ordering: HARD LOCK — this file is presentation-only.
+ * Runtime presentation defaults: `STORES_HOME_SHELF_PRODUCT_CATALOG` only.
+ * This map must not diverge from catalog `defaultPresentation` / component owners.
  */
 
+import { STORES_HOME_SHELF_PRODUCT_CATALOG } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 import type { StoresHomePresentationDecision, StoresHomePresentationPatternId } from "./stores-home-presentation-spec";
 
 export type StoresHomeSlotId =
@@ -34,7 +31,32 @@ export type StoresHomePresentationMapRow = {
   notes: string;
 };
 
-/** Frozen mapping — Owner CLOSE reference for CUT C. */
+function catalogPresentation(slot: StoresHomeSlotId): StoresHomePresentationPatternId {
+  const hit = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.composerSlot === slot);
+  return hit?.defaultPresentation ?? "preserved_legacy";
+}
+
+function catalogOwner(slot: StoresHomeSlotId): string {
+  const pattern = catalogPresentation(slot);
+  switch (pattern) {
+    case "timesale_vertical":
+      return "StoresHomeTimesaleRowCard";
+    case "store_horizontal":
+      return "StoresHomeStoreHorizontalCard";
+    case "brand_circular":
+      return "StoresHomeBrandCircularCard";
+    case "store_teaser_horizontal":
+      return "StoresHomeStoreTeaserCard";
+    case "high_rating_horizontal":
+      return "StoresHomeHighRatingFoodCard";
+    case "editorial_grid":
+    case "food_horizontal":
+    default:
+      return "StoresHomeFoodRailCard";
+  }
+}
+
+/** A-VIS evidence rows — patternId/componentOwner always mirror catalog. */
 export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow[] = [
   {
     slot: "slot0Food",
@@ -43,8 +65,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.6 Food / product horizontal card",
     matchEvidence: "OBSERVED product image + name + store line + price (owner-stepA-home-scroll-02)",
     decision: "MATCH",
-    patternId: "food_horizontal",
-    componentOwner: "StoresHomeFoodRailCard",
+    patternId: catalogPresentation("slot0Food"),
+    componentOwner: catalogOwner("slot0Food"),
     notes: "Open-now food rail; strike shown as formatted fee only — not instant-discount badge.",
   },
   {
@@ -54,8 +76,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.1 Timesale vertical store list (left thumb + meta column)",
     matchEvidence: "MEASURED 75.1×71.2 thumb; vertical stacked rows (home-scroll-00)",
     decision: "PARTIAL",
-    patternId: "timesale_vertical",
-    componentOwner: "StoresHomeTimesaleRowCard",
+    patternId: catalogPresentation("slot1Stores"),
+    componentOwner: catalogOwner("slot1Stores"),
     notes:
       "Vertical store rows match; DIBAY lacks Baemin product-discount strings — strike/fee only. No 116px menu band (≠ CATEGORY).",
   },
@@ -66,8 +88,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.6 Food horizontal (no A-VIS “popular shelf” pattern)",
     matchEvidence: "Product-card anatomy only — platform_popular is DIBAY authority label, not Baemin pattern name",
     decision: "PARTIAL",
-    patternId: "food_horizontal",
-    componentOwner: "StoresHomeFoodRailCard",
+    patternId: catalogPresentation("slot2Food"),
+    componentOwner: catalogOwner("slot2Food"),
     notes: "Do not label as Baemin Popular; show platform_popular badge only when menuAuthority proves it.",
   },
   {
@@ -76,9 +98,9 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "none for HOME new-store food rail",
     matchEvidence: "A-VIS §8 신규 badge is CATEGORY context — not HOME food rail",
     decision: "NO_MATCH",
-    patternId: "food_horizontal",
-    componentOwner: "StoresHomeFoodRailCard",
-    notes: "Preserve generic food rail; no invented 신규 Baemin HOME card.",
+    patternId: catalogPresentation("newStoreFood"),
+    componentOwner: catalogOwner("newStoreFood"),
+    notes: "Preserve store teaser; no invented 신규 Baemin HOME card.",
   },
   {
     slot: "campaignFood",
@@ -86,8 +108,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.4 Brand discount rail (circular logo + discount subtitle)",
     matchEvidence: "Brand rail requires brand logo — DIBAY has product + campaign copy only",
     decision: "NO_MATCH",
-    patternId: "food_horizontal",
-    componentOwner: "StoresHomeFoodRailCard",
+    patternId: catalogPresentation("campaignFood"),
+    componentOwner: catalogOwner("campaignFood"),
     notes: "Show campaignTitle when present (real data); do not claim brand-rail parity.",
   },
   {
@@ -96,9 +118,9 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.6 Food horizontal; discount overlay OBSERVED on some HOME food frames",
     matchEvidence: "Strike amount is DIBAY fee authority — not Baemin % discount badge",
     decision: "PARTIAL",
-    patternId: "food_horizontal",
-    componentOwner: "StoresHomeFoodRailCard",
-    notes: "Remove fake instant-discount adHint; render strike php when discountEvidence present.",
+    patternId: catalogPresentation("slot3Food"),
+    componentOwner: catalogOwner("slot3Food"),
+    notes: "Food-slot timesale_vertical dispatches to store horizontal in Hub.",
   },
   {
     slot: "slot4Food",
@@ -106,9 +128,9 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.5 High-rating horizontal shelf (large food image + meta)",
     matchEvidence: "OBSERVED 평점 4.9점 shelf + large landscape food cards (owner-stepA-home-scroll-03)",
     decision: "PARTIAL",
-    patternId: "high_rating_horizontal",
-    componentOwner: "StoresHomeHighRatingFoodCard",
-    notes: "Larger horizontal food card; rating emphasis — exact overlay NOT_PROVEN.",
+    patternId: catalogPresentation("slot4Food"),
+    componentOwner: catalogOwner("slot4Food"),
+    notes: "Catalog default is store_horizontal; high_rating_horizontal available via CMS.",
   },
   {
     slot: "slot5Food",
@@ -116,8 +138,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "none — editorial §3.7 card geometry NOT_PROVEN",
     matchEvidence: "No A-VIS featured-grid pattern",
     decision: "NO_MATCH",
-    patternId: "preserved_legacy",
-    componentOwner: "StoresHomeFoodRailCard",
+    patternId: catalogPresentation("slot5Food"),
+    componentOwner: catalogOwner("slot5Food"),
     notes: "Preserve 2-col grid food card; no Baemin claim.",
   },
   {
@@ -126,8 +148,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.1 Timesale vertical (nearest vertical store list)",
     matchEvidence: "Vertical store rows — same anatomy class as slot1",
     decision: "PARTIAL",
-    patternId: "timesale_vertical",
-    componentOwner: "StoresHomeTimesaleRowCard",
+    patternId: catalogPresentation("slot6NearbyStores"),
+    componentOwner: catalogOwner("slot6NearbyStores"),
     notes: "Not CATEGORY card; not horizontal teaser.",
   },
   {
@@ -136,8 +158,8 @@ export const STORES_HOME_PRESENTATION_MAP: readonly StoresHomePresentationMapRow
     baeminAvisPattern: "§3.1 Timesale vertical",
     matchEvidence: "Vertical store list remainder",
     decision: "PARTIAL",
-    patternId: "timesale_vertical",
-    componentOwner: "StoresHomeTimesaleRowCard",
+    patternId: catalogPresentation("slot6RestStores"),
+    componentOwner: catalogOwner("slot6RestStores"),
     notes: "Same timesale row as slot1/nearby.",
   },
 ] as const;

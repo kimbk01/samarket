@@ -3,6 +3,7 @@ import {
   STORES_HOME_PRESENTATION_MAP,
   storesHomePresentationRow,
 } from "@/lib/stores/presentation/stores-home-presentation-map";
+import { STORES_HOME_SHELF_PRODUCT_CATALOG } from "@/lib/stores/product/stores-home-shelf-product-catalog";
 
 describe("stores-home-presentation-map", () => {
   it("covers all composer slots in Owner order", () => {
@@ -19,6 +20,14 @@ describe("stores-home-presentation-map", () => {
       "slot6NearbyStores",
       "slot6RestStores",
     ]);
+  });
+
+  it("mirrors catalog defaultPresentation for every composer slot", () => {
+    for (const row of STORES_HOME_PRESENTATION_MAP) {
+      const catalog = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.composerSlot === row.slot);
+      expect(catalog).toBeTruthy();
+      expect(row.patternId).toBe(catalog!.defaultPresentation);
+    }
   });
 
   it("never maps store slots to category presentation", () => {

@@ -2,6 +2,7 @@
 
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
+import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 import {
   StoresHomeFoodRailCard,
   type StoresHomeFoodRailPresentation,
@@ -17,6 +18,7 @@ export type StoresHomeFoodCardProps = {
   loadingImage: boolean;
   markStoreCardPerf?: boolean;
   presentation?: StoresHomeFoodRailPresentation;
+  benefit?: StoresHomeShelfCardBenefit;
 };
 
 /** Hub food card — delegates to `StoresHomeFoodRailCard` (§3.6). */

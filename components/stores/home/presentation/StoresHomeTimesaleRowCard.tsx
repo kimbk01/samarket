@@ -25,6 +25,22 @@ import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 
+import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import {
+  resolveHomeShelfCardBenefit,
+  type StoresHomeInsertionBenefitMaps,
+} from "@/lib/stores/product/stores-home-shelf-card-benefit";
+import { resolveHomeShelfStoreImage } from "@/lib/stores/product/stores-home-shelf-image-resolve";
+import type { StoresHomeShelfImageSource } from "@/lib/stores/product/stores-home-shelf-product-config";
+import type {
+  StoresHomeShelfAdIntegration,
+  StoresHomeShelfCouponIntegration,
+} from "@/lib/stores/product/stores-home-shelf-product-catalog";
+import type {
+  StoresHomeShelfBadgeMode,
+  StoresHomeShelfBenefitLineMode,
+} from "@/lib/stores/product/stores-home-shelf-product-config";
+
 const TIMESALE_SPEC = STORES_HOME_PRESENTATION_SPEC.patterns.timesaleVertical;
 
 function reviewLabel(n: number) {
@@ -41,11 +57,15 @@ function StoresHomeTimesaleRowCardInner({
   store,
   locale,
   registerListItem,
+  imageUrl: imageUrlOverride,
+  benefit,
 }: {
   store: StoreHomeFeedItem;
   locale: AppLanguageCode;
   registerListItem?: (storeId: string, node: HTMLElement | null) => void;
   featuredMenuHydration?: BrowseFeaturedMenuHydrationPhase;
+  imageUrl?: string | null;
+  benefit?: StoresHomeShelfCardBenefit;
 }) {
   const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(store.slug)}`;
@@ -105,6 +125,7 @@ function StoresHomeTimesaleRowCardInner({
   });
 
   const thumbUrl =
+    imageUrlOverride?.trim() ||
     store.profileImageUrl?.trim() ||
     store.featuredItems.find((x) => x.imageUrl?.trim())?.imageUrl?.trim() ||
     null;
@@ -169,6 +190,13 @@ function StoresHomeTimesaleRowCardInner({
               {store.nameKo.slice(0, 1)}
             </div>
           )}
+          {benefit?.imageBadgeLabel ?
+            <span
+              className={`pointer-events-none absolute left-1 top-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${benefit.imageBadgeClassName ?? "bg-black/55 text-white"}`}
+            >
+              {benefit.imageBadgeLabel}
+            </span>
+          : null}
         </div>
 
         <div className="min-w-0 flex-1" data-stores-home-timesale-meta="true">
@@ -182,6 +210,12 @@ function StoresHomeTimesaleRowCardInner({
               <span className={`font-normal ${FB.ratingCount}`}>({reviewLabel(store.reviewCount)})</span>
             </span>
           </h3>
+
+          {benefit?.benefitLine ?
+            <p className="mt-1 line-clamp-1 text-[12.5px] font-medium leading-[1.02] text-signature">
+              {benefit.benefitLine}
+            </p>
+          : null}
 
           <p className={`mt-1 line-clamp-1 text-[12.5px] leading-[1.02] ${FB.metaRow}`}>
             {!store.deliveryAvailable ?
@@ -211,6 +245,11 @@ function StoresHomeTimesaleRowCardInner({
           </div>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {benefit?.sponsored ?
+              <span className="inline-flex h-[19px] items-center rounded-[5px] bg-amber-100 px-1.5 text-[10px] font-semibold leading-none text-amber-800">
+                {t("store_insertion_sponsored")}
+              </span>
+            : null}
             {badgeLabels.map((b) => (
               <span
                 key={`${b.kind}-${b.label}`}
@@ -228,7 +267,12 @@ function StoresHomeTimesaleRowCardInner({
 
 export const StoresHomeTimesaleRowCard = memo(
   StoresHomeTimesaleRowCardInner,
-  (a, b) => a.store.id === b.store.id && a.locale === b.locale && a.store === b.store
+  (a, b) =>
+    a.store.id === b.store.id &&
+    a.locale === b.locale &&
+    a.store === b.store &&
+    a.imageUrl === b.imageUrl &&
+    a.benefit === b.benefit
 );
 
 StoresHomeTimesaleRowCard.displayName = "StoresHomeTimesaleRowCard";
@@ -237,21 +281,61 @@ export function StoresHomeTimesaleRowCardList({
   stores,
   locale,
   registerListItem,
+  imageSource = "auto",
+  benefitMaps,
+  benefitLabels,
+  couponIntegration = "off",
+  adIntegration = "off",
+  badgeMode = "standard",
+  benefitLineMode = "auto",
 }: {
   stores: StoreHomeFeedItem[];
   locale: AppLanguageCode;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
+  imageSource?: StoresHomeShelfImageSource;
+  benefitMaps?: StoresHomeInsertionBenefitMaps;
+  benefitLabels?: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"];
+  couponIntegration?: StoresHomeShelfCouponIntegration;
+  adIntegration?: StoresHomeShelfAdIntegration;
+  badgeMode?: StoresHomeShelfBadgeMode;
+  benefitLineMode?: StoresHomeShelfBenefitLineMode;
 }) {
+  const emptyMaps: StoresHomeInsertionBenefitMaps = {
+    adsByStoreId: new Map(),
+    couponsByStoreId: new Map(),
+  };
+  const maps = benefitMaps ?? emptyMaps;
+  const labels = benefitLabels ?? {
+    sponsored: "Sponsored",
+    coupon: "Coupon",
+    couponDiscount: (d: string) => d,
+    couponMinOrder: (a: string) => a,
+    adHeadline: (h: string) => h,
+  };
+
   return (
     <ul className="space-y-0">
-      {stores.map((s) => (
-        <StoresHomeTimesaleRowCard
-          key={s.id}
-          store={s}
-          locale={locale}
-          registerListItem={registerListItem}
-        />
-      ))}
+      {stores.map((s) => {
+        const benefit = resolveHomeShelfCardBenefit({
+          storeId: s.id,
+          couponIntegration,
+          adIntegration,
+          badgeMode,
+          benefitLineMode,
+          maps,
+          labels,
+        });
+        return (
+          <StoresHomeTimesaleRowCard
+            key={s.id}
+            store={s}
+            locale={locale}
+            registerListItem={registerListItem}
+            imageUrl={resolveHomeShelfStoreImage(s, imageSource)}
+            benefit={benefit}
+          />
+        );
+      })}
     </ul>
   );
 }

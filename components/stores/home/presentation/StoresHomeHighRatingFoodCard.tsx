@@ -7,11 +7,13 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
+import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 
 function formatPrice(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
@@ -21,11 +23,14 @@ function StoresHomeHighRatingFoodCardInner({
   entry,
   imageUrl,
   loadingImage,
+  benefit,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
+  benefit?: StoresHomeShelfCardBenefit;
 }) {
+  const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
   const warmMenus = () => {
     deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
@@ -66,6 +71,13 @@ function StoresHomeHighRatingFoodCardInner({
             ★ {entry.rating.toFixed(1)}
           </div>
         : null}
+        {benefit?.imageBadgeLabel ?
+          <span
+            className={`pointer-events-none absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${benefit.imageBadgeClassName ?? "bg-black/55 text-white"}`}
+          >
+            {benefit.imageBadgeLabel}
+          </span>
+        : null}
       </div>
       <div className="space-y-0.5 p-2">
         <p className="line-clamp-2 text-[13px] font-medium leading-[1.05] text-[color:var(--delivery-text-main)]">
@@ -73,8 +85,13 @@ function StoresHomeHighRatingFoodCardInner({
         </p>
         <p className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">{formatPrice(entry.price)}</p>
         <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.storeName}</p>
-        {entry.etaLabel ?
+        {benefit?.benefitLine ?
+          <p className="line-clamp-2 text-[11.5px] font-medium text-signature">{benefit.benefitLine}</p>
+        : entry.etaLabel ?
           <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.etaLabel}</p>
+        : null}
+        {benefit?.sponsored ?
+          <p className="text-[10px] font-medium text-amber-700">{t("store_insertion_sponsored")}</p>
         : null}
       </div>
     </Link>

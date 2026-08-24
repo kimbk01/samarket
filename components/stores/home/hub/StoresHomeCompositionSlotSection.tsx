@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
+import { StoresHomeFoodCard } from "@/components/stores/home/hub/StoresHomeFoodCard";
 import { StoresHomePrimaryStoreRowListSection } from "@/components/stores/home/hub/StoresHomePrimaryStoreRowListSection";
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeStoreCardList } from "@/components/stores/home/hub/StoresHomeStoreCard";
@@ -13,7 +13,9 @@ import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presenta
 import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
 import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
 import {
-  resolveStoreShelfCardImageUrl,
+  resolveHomeShelfStoreImage,
+} from "@/lib/stores/product/stores-home-shelf-image-resolve";
+import {
   storeHomeFeedItemToShelfEntry,
 } from "@/lib/stores/product/stores-home-store-to-shelf-entry";
 import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stores-composition-home-slots";
@@ -59,6 +61,8 @@ function renderFoodEntryCard(
   const key = `${entry.storeId}-${entry.productId}`;
   switch (presentation) {
     case "store_horizontal":
+    case "timesale_vertical":
+      /** Food-slot timesale_vertical → store horizontal anatomy (vertical list needs StoreHomeFeedItem). */
       return (
         <StoresHomeStoreHorizontalCard
           key={key}
@@ -75,6 +79,7 @@ function renderFoodEntryCard(
           entry={entry}
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
+          benefit={benefit}
         />
       );
     case "brand_circular":
@@ -105,6 +110,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           presentation="grid"
+          benefit={benefit}
         />
       );
     case "food_horizontal":
@@ -116,6 +122,7 @@ function renderFoodEntryCard(
           imageUrl={img.imageUrl}
           loadingImage={img.loading}
           markStoreCardPerf={markStoreCardPerf}
+          benefit={benefit}
         />
       );
   }
@@ -256,6 +263,13 @@ export function StoresHomeCompositionSlotSection({
           actionLabel={showAllLabel}
           presentation={shelf.presentation}
           locale={language === "ko" ? "ko" : "en"}
+          imageSource={shelf.productConfig.imageSource}
+          benefitMaps={benefitMaps}
+          benefitLabels={benefitLabels}
+          couponIntegration={shelf.couponIntegration}
+          adIntegration={shelf.adIntegration}
+          badgeMode={shelf.productConfig.badgeMode}
+          benefitLineMode={shelf.productConfig.benefitLineMode}
         />
       );
     }
@@ -292,6 +306,15 @@ export function StoresHomeCompositionSlotSection({
                   hydratedByStoreId.get(entry.storeId),
                   shelf.productConfig.imageSource
                 );
+                const benefit = resolveHomeShelfCardBenefit({
+                  storeId: entry.storeId,
+                  couponIntegration: shelf.couponIntegration,
+                  adIntegration: shelf.adIntegration,
+                  badgeMode: shelf.productConfig.badgeMode,
+                  benefitLineMode: shelf.productConfig.benefitLineMode,
+                  maps: benefitMaps,
+                  labels: benefitLabels,
+                });
                 return (
                   <StoresHomeFoodCard
                     key={`featured-${entry.storeId}-${entry.productId}`}
@@ -299,6 +322,7 @@ export function StoresHomeCompositionSlotSection({
                     imageUrl={img.imageUrl}
                     loadingImage={img.loading}
                     presentation="grid"
+                    benefit={benefit}
                   />
                 );
               })}
@@ -322,19 +346,30 @@ export function StoresHomeCompositionSlotSection({
             <div className={STORES_HOME_RAIL_SCROLL}>
               {(stores as StoreHomeFeedItem[]).map((store) => {
                 const entry = storeHomeFeedItemToShelfEntry(store);
-                const imageUrl = resolveStoreShelfCardImageUrl(store);
+                const imageUrl = resolveHomeShelfStoreImage(store, shelf.productConfig.imageSource);
+                const benefit = resolveHomeShelfCardBenefit({
+                  storeId: store.id,
+                  couponIntegration: shelf.couponIntegration,
+                  adIntegration: shelf.adIntegration,
+                  badgeMode: shelf.productConfig.badgeMode,
+                  benefitLineMode: shelf.productConfig.benefitLineMode,
+                  maps: benefitMaps,
+                  labels: benefitLabels,
+                });
                 return shelf.presentation === "store_teaser_horizontal" ?
                     <StoresHomeStoreTeaserCard
                       key={store.id}
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
+                      benefit={benefit}
                     />
                   : <StoresHomeStoreHorizontalCard
                       key={store.id}
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
+                      benefit={benefit}
                     />;
               })}
             </div>
@@ -348,6 +383,13 @@ export function StoresHomeCompositionSlotSection({
               stores={stores as StoreHomeFeedItem[]}
               locale={language === "ko" ? "ko" : "en"}
               registerListItem={registerListItem}
+              imageSource={shelf.productConfig.imageSource}
+              benefitMaps={benefitMaps}
+              benefitLabels={benefitLabels}
+              couponIntegration={shelf.couponIntegration}
+              adIntegration={shelf.adIntegration}
+              badgeMode={shelf.productConfig.badgeMode}
+              benefitLineMode={shelf.productConfig.benefitLineMode}
             />
           </StoresHomeSectionShell>
         );

@@ -36,7 +36,6 @@ type SecondaryRow = {
   resolved: StoresBrowseScopePolicyResolved;
 };
 
-type CardType = "store" | "product" | "mixed";
 type CatTab = "basic" | "card" | "ad" | "coupon" | "exposure" | "hours";
 type TierFocus = "primary" | "secondary";
 type ScheduleMode = "always" | "scheduled";
@@ -49,7 +48,6 @@ type DraftPrimary = {
   couponEnabled: boolean;
   draftMax: string;
   draftInterval: string;
-  cardType: CardType;
   scheduleMode: ScheduleMode;
   draftScheduleStart: string;
   draftScheduleEnd: string;
@@ -90,36 +88,6 @@ const CAT_TABS: Array<{ id: CatTab; labelKo: string; labelEn: string }> = [
   { id: "coupon", labelKo: "쿠폰", labelEn: "Coupons" },
   { id: "exposure", labelKo: "노출", labelEn: "Exposure" },
   { id: "hours", labelKo: "시간", labelEn: "Hours" },
-];
-
-const CARD_TYPES: Array<{
-  id: CardType;
-  labelKo: string;
-  labelEn: string;
-  descKo: string;
-  descEn: string;
-}> = [
-  {
-    id: "store",
-    labelKo: "매장형",
-    labelEn: "Store",
-    descKo: "매장 카드와 혜택 바를 함께 노출",
-    descEn: "Store cards with benefit bar",
-  },
-  {
-    id: "product",
-    labelKo: "상품형",
-    labelEn: "Product",
-    descKo: "상품 중심 카드 미리보기",
-    descEn: "Product-led card preview",
-  },
-  {
-    id: "mixed",
-    labelKo: "혼합형",
-    labelEn: "Mixed",
-    descKo: "매장과 상품을 혼합 노출",
-    descEn: "Mixed store and product preview",
-  },
 ];
 
 function label(ko: boolean, koText: string, enText: string) {
@@ -167,9 +135,6 @@ function intervalNumber(value: string): number {
 function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
   const scheduleStart = row.resolved.scheduleStart;
   const scheduleEnd = row.resolved.scheduleEnd;
-  const rawCard = row.row?.productConfig?.cardType;
-  const cardType: CardType =
-    rawCard === "product" || rawCard === "mixed" || rawCard === "store" ? rawCard : "store";
   return {
     enabled: row.resolved.enabled,
     draftTitleKo: row.resolved.displayTitleKo ?? row.nameKo,
@@ -178,7 +143,6 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
     draftInterval: String(row.resolved.intervalEveryN),
-    cardType,
     scheduleMode: scheduleStart || scheduleEnd ? "scheduled" : "always",
     draftScheduleStart: toInputDateTime(scheduleStart),
     draftScheduleEnd: toInputDateTime(scheduleEnd),
@@ -538,29 +502,17 @@ export function AdminStoresCategoryPolicyPage() {
           presentationMode: "card_benefit_integrated",
           scheduleStart: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleStart || null : null,
           scheduleEnd: draftPrimary.scheduleMode === "scheduled" ? draftPrimary.draftScheduleEnd || null : null,
-          productConfig: { cardType: draftPrimary.cardType },
+          productConfig: {},
         },
       ];
+      const deleteScopeKeys: string[] = [];
 
       for (const secondary of secondaries) {
         const draft = draftSubs[secondary.subSlug];
         if (!draft) continue;
         if (draft.mode === "inherit") {
-          rows.push({
-            scopeKey: secondary.scopeKey,
-            primarySlug: primaryMeta.primarySlug,
-            subSlug: secondary.subSlug,
-            enabled: draftPrimary.enabled,
-            displayTitleKo: null,
-            displayTitleEn: null,
-            adEnabled: "inherit",
-            couponEnabled: "inherit",
-            maxInsertion: null,
-            intervalEveryN: null,
-            presentationMode: "inherit",
-            scheduleStart: null,
-            scheduleEnd: null,
-          });
+          /** Canonical inherit = no secondary row (delete stub if present). */
+          deleteScopeKeys.push(secondary.scopeKey);
         } else {
           rows.push({
             scopeKey: secondary.scopeKey,
@@ -584,7 +536,7 @@ export function AdminStoresCategoryPolicyPage() {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedRevision: revision, rows }),
+        body: JSON.stringify({ expectedRevision: revision, rows, deleteScopeKeys }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; revision?: number };
       if (!res.ok || !json.ok) {
@@ -736,33 +688,19 @@ export function AdminStoresCategoryPolicyPage() {
       case "card":
         return (
           <Panel
-            title={label(ko, "카드 타입", "Card type")}
+            title={label(ko, "카드 anatomy", "Card anatomy")}
             desc={label(
               ko,
-              "고객 browse 목록은 매장형 Baemin 카드 anatomy를 유지합니다. 선택한 cardType은 meta.browseScopePolicy.cardType으로 저장·반영됩니다.",
-              "Customer browse keeps store Baemin card anatomy. Selected cardType is saved and applied via meta.browseScopePolicy.cardType."
+              "고객 browse는 StoreBrowseCategoryRowCard 단일 anatomy(메뉴 밴드 → 혜택 → 신원 → 메타 → 뱃지)를 유지합니다. 별도 cardType 분기는 없습니다.",
+              "Customer browse keeps a single StoreBrowseCategoryRowCard anatomy (menu band → benefit → identity → meta → badges). No separate cardType branch."
             )}
           >
-            <div className="grid gap-2 sm:grid-cols-3">
-              {CARD_TYPES.map((item) => {
-                const active = draftPrimary.cardType === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setDraftPrimary({ ...draftPrimary, cardType: item.id })}
-                    className={`rounded-ui-rect border p-3 text-left transition ${
-                      active ? "border-emerald-500 bg-emerald-50 text-emerald-900" : "border-sam-border bg-white text-sam-fg hover:bg-sam-surface-muted"
-                    }`}
-                  >
-                    <p className="text-[13px] font-bold">{ko ? item.labelKo : item.labelEn}</p>
-                    <p className="mt-1 text-[11px] text-sam-muted">{ko ? item.descKo : item.descEn}</p>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 rounded-ui-rect bg-amber-50 px-3 py-2 text-[12px] font-medium text-amber-800">
-              {label(ko, "저장 시 presentationMode는 card_benefit_integrated로 전송됩니다.", "Save sends presentationMode as card_benefit_integrated.")}
+            <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-3 text-[12px] text-sam-fg">
+              {label(
+                ko,
+                "쿠폰/광고는 동일 매장 카드에 badge·benefit line·Sponsored로 결합됩니다. presentationMode는 card_benefit_integrated로 저장됩니다.",
+                "Coupons/ads bind onto the same store card as badge, benefit line, and Sponsored. Saves presentationMode as card_benefit_integrated."
+              )}
             </p>
           </Panel>
         );

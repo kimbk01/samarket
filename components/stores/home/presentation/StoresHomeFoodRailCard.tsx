@@ -14,6 +14,7 @@ import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
 
 function formatPrice(n: number): string {
   return `₱${Math.round(n).toLocaleString()}`;
@@ -27,12 +28,14 @@ function StoresHomeFoodRailCardInner({
   loadingImage,
   markStoreCardPerf = false,
   presentation = "rail",
+  benefit,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
   markStoreCardPerf?: boolean;
   presentation?: StoresHomeFoodRailPresentation;
+  benefit?: StoresHomeShelfCardBenefit;
 }) {
   const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
@@ -82,6 +85,13 @@ function StoresHomeFoodRailCardInner({
             {entry.name.slice(0, 1)}
           </div>
         )}
+        {benefit?.imageBadgeLabel ?
+          <span
+            className={`pointer-events-none absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${benefit.imageBadgeClassName ?? "bg-black/55 text-white"}`}
+          >
+            {benefit.imageBadgeLabel}
+          </span>
+        : null}
       </div>
       <div className="space-y-0.5 p-2">
         {entry.menuAuthority === "platform_popular" ?
@@ -99,6 +109,9 @@ function StoresHomeFoodRailCardInner({
           {formatPrice(entry.price)}
         </p>
         <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        {benefit?.benefitLine ?
+          <p className="line-clamp-2 text-[11.5px] font-medium leading-[1.02] text-signature">{benefit.benefitLine}</p>
+        : null}
         {entry.etaLabel ?
           <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.etaLabel}</p>
         : null}
@@ -116,6 +129,9 @@ function StoresHomeFoodRailCardInner({
           <p className={`line-clamp-1 text-[12.5px] font-medium leading-[1.02] text-[color:var(--delivery-text-sub)]`}>
             {formatMoneyPhp(entry.deliveryFeeStrikePhp)}
           </p>
+        : null}
+        {benefit?.sponsored ?
+          <p className="text-[10px] font-medium text-amber-700">{t("store_insertion_sponsored")}</p>
         : null}
       </div>
     </Link>

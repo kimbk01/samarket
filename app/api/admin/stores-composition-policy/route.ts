@@ -94,16 +94,28 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const surface = parseSurface(body.surface);
+  if (surface === "home") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "use_stores_home_shelves",
+        message: "HOME composition writes go through /api/admin/stores-home-shelves only.",
+      },
+      { status: 409 }
+    );
+  }
+
+  const userId = await getRouteUserId();
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
   const forbiddenField = detectForbiddenCompositionWriteFields(body);
@@ -114,7 +126,6 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const surface = parseSurface(body.surface);
   if (!surface) {
     return NextResponse.json({ ok: false, error: "invalid_surface" }, { status: 400 });
   }
