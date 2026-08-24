@@ -12,6 +12,10 @@ import { StoresHomeBrandCircularCard } from "@/components/stores/home/presentati
 import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presentation/StoresHomeStoreHorizontalCard";
 import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
 import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
+import {
+  resolveStoreShelfCardImageUrl,
+  storeHomeFeedItemToShelfEntry,
+} from "@/lib/stores/product/stores-home-store-to-shelf-entry";
 import type { StoresHomeCompositionSlotKey } from "@/lib/stores/composition/stores-composition-home-slots";
 import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import type { StoresHomeFeedComposition } from "@/lib/stores/stores-home-composer";
@@ -302,6 +306,34 @@ export function StoresHomeCompositionSlotSection({
         slot === "slot6NearbyStores" ? composition.slot6NearbyStores : composition.slot6RestStores;
       const stores = shelf.max != null ? raw.slice(0, shelf.max) : raw;
       if (stores.length === 0) return null;
+      if (
+        shelf.presentation === "store_horizontal" ||
+        shelf.presentation === "store_teaser_horizontal"
+      ) {
+        return wrap(
+          <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
+            <div className={STORES_HOME_RAIL_SCROLL}>
+              {(stores as StoreHomeFeedItem[]).map((store) => {
+                const entry = storeHomeFeedItemToShelfEntry(store);
+                const imageUrl = resolveStoreShelfCardImageUrl(store);
+                return shelf.presentation === "store_teaser_horizontal" ?
+                    <StoresHomeStoreTeaserCard
+                      key={store.id}
+                      entry={entry}
+                      imageUrl={imageUrl}
+                      loadingImage={false}
+                    />
+                  : <StoresHomeStoreHorizontalCard
+                      key={store.id}
+                      entry={entry}
+                      imageUrl={imageUrl}
+                      loadingImage={false}
+                    />;
+              })}
+            </div>
+          </StoresHomeSectionShell>
+        );
+      }
       if (shelf.presentation === "timesale_vertical") {
         return wrap(
           <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>

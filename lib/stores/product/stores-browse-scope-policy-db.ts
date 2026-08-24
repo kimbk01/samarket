@@ -24,6 +24,7 @@ export type StoresBrowseScopePolicyDbRow = {
   presentation_mode: string;
   schedule_start: string | null;
   schedule_end: string | null;
+  product_config?: Record<string, unknown> | null;
 };
 
 function isMissingTable(err: { message?: string; code?: string }): boolean {
@@ -55,6 +56,7 @@ export function mapBrowseScopeDbRow(row: StoresBrowseScopePolicyDbRow): StoresBr
         : (row.presentation_mode as "card_benefit_integrated" | "hidden"),
     scheduleStart: row.schedule_start,
     scheduleEnd: row.schedule_end,
+    productConfig: (row.product_config ?? null) as StoresBrowseScopePolicyRow["productConfig"],
   };
 }
 
@@ -64,7 +66,7 @@ export async function listBrowseScopePolicyRows(
   const { data, error } = await sb
     .from("store_browse_scope_policy")
     .select(
-      "scope_key, primary_slug, sub_slug, enabled, display_title_ko, display_title_en, ad_enabled, coupon_enabled, max_insertion, interval_every_n, presentation_mode, schedule_start, schedule_end"
+      "scope_key, primary_slug, sub_slug, enabled, display_title_ko, display_title_en, ad_enabled, coupon_enabled, max_insertion, interval_every_n, presentation_mode, schedule_start, schedule_end, product_config"
     );
   if (error) {
     if (isMissingTable(error)) return [];
@@ -97,6 +99,7 @@ export type BrowseScopePolicyWriteInput = {
   presentationMode: "inherit" | "card_benefit_integrated" | "hidden";
   scheduleStart?: string | null;
   scheduleEnd?: string | null;
+  productConfig?: Record<string, unknown> | null;
 };
 
 export async function saveBrowseScopePolicyWithCas(
@@ -122,6 +125,7 @@ export async function saveBrowseScopePolicyWithCas(
     presentationMode: r.presentationMode,
     scheduleStart: r.scheduleStart ?? null,
     scheduleEnd: r.scheduleEnd ?? null,
+    productConfig: r.productConfig ?? {},
   }));
 
   const { data, error } = await sb.rpc("save_store_browse_scope_policy_cas", {

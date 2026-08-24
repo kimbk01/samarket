@@ -16,6 +16,12 @@ import {
 } from "@/lib/stores/product/stores-browse-scope-policy-db";
 import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";
+import {
+  resolveStoresBrowseScopeCustomerMeta,
+  type StoresBrowseScopeCustomerMeta,
+} from "@/lib/stores/product/stores-browse-scope-customer-meta";
+
+export type { StoresBrowseScopeCustomerMeta };
 
 export type StoresBrowseInsertionMetaRow =
   | { kind: "organic"; storeId: string }
@@ -110,7 +116,19 @@ export async function attachStoresBrowseInsertionMeta(
   body: StoresBrowseResponseBody,
   scope?: { primarySlug: string; subSlug: string | null }
 ): Promise<StoresBrowseResponseBody> {
-  const organicIds = body.stores.map((s) => s.id);
+  const scopeMeta = scope
+    ? await resolveStoresBrowseScopeCustomerMeta(sb, scope.primarySlug, scope.subSlug).catch(
+        () => null
+      )
+    : null;
+
+  /** Operator disabled this primary/secondary — empty organic list (HOME shelves untouched). */
+  const gatedBody =
+    scopeMeta && scopeMeta.enabled === false
+      ? { ...body, stores: [] as typeof body.stores }
+      : body;
+
+  const organicIds = gatedBody.stores.map((s) => s.id);
   const policy = scope
     ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
     : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
@@ -156,9 +174,9 @@ export async function attachStoresBrowseInsertionMeta(
   });
 
   return {
-    ...body,
+    ...gatedBody,
     meta: {
-      ...body.meta,
+      ...gatedBody.meta,
       compositionEngine: "live",
       browseInsertion: {
         organicIds: plan.organicIds,
@@ -166,6 +184,20 @@ export async function attachStoresBrowseInsertionMeta(
         adCount: plan.adCount,
         couponCount: plan.couponCount,
       },
+      ...(scopeMeta
+        ? {
+            browseScopePolicy: {
+              primarySlug: scopeMeta.primarySlug,
+              subSlug: scopeMeta.subSlug,
+              enabled: scopeMeta.enabled,
+              displayTitleKo: scopeMeta.displayTitleKo,
+              displayTitleEn: scopeMeta.displayTitleEn,
+              adEnabled: scopeMeta.adEnabled,
+              couponEnabled: scopeMeta.couponEnabled,
+              cardType: scopeMeta.cardType,
+            },
+          }
+        : {}),
     },
   };
 }

@@ -47,12 +47,14 @@ describe("planStoresBrowseInsertions", () => {
 
   it("inserts ads without reordering organic ids when browse ad slot enabled", () => {
     const policy = STORES_BROWSE_COMPOSITION_DEFAULT_POLICY.map((r) =>
-      r.slot === "future_ad_insertion" ? { ...r, enabled: true, max: 2 } : r
+      r.slot === "future_ad_insertion"
+        ? { ...r, enabled: true, max: 2, interval: { consumed: true as const, everyN: 4 } }
+        : r
     );
     const organic = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"];
     const plan = planStoresBrowseInsertions({
       organicStoreIds: organic,
-      paidAds: [baseAd("a1", "sx"), baseAd("a2", "sy")],
+      paidAds: [baseAd("a1", "s1"), baseAd("a2", "s4")],
       coupons: [],
       policy,
     });
@@ -60,5 +62,29 @@ describe("planStoresBrowseInsertions", () => {
     expect(plan.adCount).toBeGreaterThan(0);
     const organicOnly = plan.rows.filter((r) => r.kind === "organic").map((r) => r.storeId);
     expect(organicOnly).toEqual(organic);
+    for (const row of plan.rows) {
+      if (row.kind === "paid_ad") expect(organic).toContain(row.storeId);
+    }
+  });
+
+  it("hard-filters ads/coupons to organic browse-scope store ids only", () => {
+    const policy = STORES_BROWSE_COMPOSITION_DEFAULT_POLICY.map((r) =>
+      r.slot === "future_ad_insertion" || r.slot === "future_coupon_insertion"
+        ? { ...r, enabled: true, max: 5, interval: { consumed: true as const, everyN: 2 } }
+        : r
+    );
+    const organic = ["restaurant-korean-1", "restaurant-korean-2"];
+    const plan = planStoresBrowseInsertions({
+      organicStoreIds: organic,
+      paidAds: [baseAd("a-mart", "mart-1"), baseAd("a-ok", "restaurant-korean-1")],
+      coupons: [baseCoupon("c-mart", "mart-2"), baseCoupon("c-ok", "restaurant-korean-2")],
+      policy,
+    });
+    expect(plan.adCount).toBe(1);
+    expect(plan.couponCount).toBe(1);
+    expect(plan.rows.some((r) => r.kind === "paid_ad" && r.storeId === "mart-1")).toBe(false);
+    expect(plan.rows.some((r) => r.kind === "coupon" && r.storeId === "mart-2")).toBe(false);
+    expect(plan.rows.some((r) => r.kind === "paid_ad" && r.storeId === "restaurant-korean-1")).toBe(true);
+    expect(plan.rows.some((r) => r.kind === "coupon" && r.storeId === "restaurant-korean-2")).toBe(true);
   });
 });

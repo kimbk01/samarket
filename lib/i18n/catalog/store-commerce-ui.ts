@@ -154,6 +154,8 @@ export const storeCommerceUiMessages = {
     store_browse_empty_hint:
       "다른 세부 업종을 선택하거나, 매장의 업종·세부 주제·승인·노출 상태를 확인해 주세요.",
 
+    store_browse_scope_disabled_hint: "이 업종(1·2차)은 현재 운영에서 비활성입니다.",
+
     store_browse_industry_map_link: "매장 홈 업종 지도로",
 
     store_order_dash_chip_receiving: "접수",
@@ -1889,6 +1891,8 @@ export const storeCommerceUiMessages = {
 
     store_browse_empty_hint:
       "Try another subtopic, or check the store’s category, subtopic, approval, and visibility.",
+
+    store_browse_scope_disabled_hint: "This category scope is currently disabled by operations.",
 
     store_browse_industry_map_link: "Category map on store home",
 

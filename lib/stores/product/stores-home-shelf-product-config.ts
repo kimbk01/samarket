@@ -44,6 +44,8 @@ export type StoresHomeShelfProductConfig = {
   badgeMode: StoresHomeShelfBadgeMode;
   benefitLineMode: StoresHomeShelfBenefitLineMode;
   reviewSnippetMode: StoresHomeShelfReviewSnippetMode;
+  /** Operator-only memo (Admin CMS). Not shown to customers. */
+  operatorMemo: string | null;
 };
 
 export const STORES_HOME_SHELF_DEFAULT_PRODUCT_CONFIG: StoresHomeShelfProductConfig = {
@@ -56,6 +58,7 @@ export const STORES_HOME_SHELF_DEFAULT_PRODUCT_CONFIG: StoresHomeShelfProductCon
   badgeMode: "standard",
   benefitLineMode: "auto",
   reviewSnippetMode: "rating_with_count",
+  operatorMemo: null,
 };
 
 export function resolveHomeShelfShowAllHref(routeKey: StoresHomeShelfShowAllRouteKey): string | null {
@@ -137,5 +140,7 @@ export function parseHomeShelfProductConfig(raw: unknown): Partial<StoresHomeShe
   ) {
     out.reviewSnippetMode = o.reviewSnippetMode;
   }
+  if (typeof o.operatorMemo === "string") out.operatorMemo = o.operatorMemo;
+  if (o.operatorMemo === null) out.operatorMemo = null;
   return out;
 }

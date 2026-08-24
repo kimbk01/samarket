@@ -152,6 +152,12 @@ export function StoresBrowsePrimaryView({
   const [browseInsertionRows, setBrowseInsertionRows] = useState<StoresBrowseInsertionMetaRow[] | null>(
     null
   );
+  const [browseScopePolicy, setBrowseScopePolicy] = useState<{
+    enabled: boolean;
+    displayTitleKo: string | null;
+    displayTitleEn: string | null;
+    cardType: "store" | "product" | "mixed";
+  } | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -447,6 +453,12 @@ export function StoresBrowsePrimaryView({
             source?: string;
             delivery_ride_time_source?: string;
             browseInsertion?: { rows?: StoresBrowseInsertionMetaRow[] };
+            browseScopePolicy?: {
+              enabled?: boolean;
+              displayTitleKo?: string | null;
+              displayTitleEn?: string | null;
+              cardType?: "store" | "product" | "mixed";
+            };
           };
         };
         const src = j?.meta?.source;
@@ -454,6 +466,17 @@ export function StoresBrowsePrimaryView({
         if (rideSrc) setDeliveryRideTimeSource(rideSrc);
         const insertionRows = j?.meta?.browseInsertion?.rows;
         setBrowseInsertionRows(Array.isArray(insertionRows) ? insertionRows : null);
+        const scopePol = j?.meta?.browseScopePolicy;
+        setBrowseScopePolicy(
+          scopePol
+            ? {
+                enabled: scopePol.enabled !== false,
+                displayTitleKo: scopePol.displayTitleKo ?? null,
+                displayTitleEn: scopePol.displayTitleEn ?? null,
+                cardType: scopePol.cardType ?? "store",
+              }
+            : null
+        );
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
@@ -739,8 +762,13 @@ export function StoresBrowsePrimaryView({
 
   const browseHeaderTitle = useMemo(() => {
     if (!primary) return "";
+    const override =
+      language === "ko"
+        ? browseScopePolicy?.displayTitleKo?.trim()
+        : browseScopePolicy?.displayTitleEn?.trim() || browseScopePolicy?.displayTitleKo?.trim();
+    if (override) return override;
     return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
-  }, [primary, language]);
+  }, [primary, language, browseScopePolicy]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -843,9 +871,14 @@ export function StoresBrowsePrimaryView({
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">
             <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
             <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
-              {feedSource === "supabase_unconfigured" ?
-                t("store_browse_empty_preparing")
-              : t("store_browse_empty_hint")}
+              {browseScopePolicy?.enabled === false
+                ? safeT("store_browse_scope_disabled_hint", {
+                    fallbackKo: "이 업종(1·2차)은 현재 운영에서 비활성입니다.",
+                    fallbackEn: "This category scope is currently disabled by operations.",
+                  })
+                : feedSource === "supabase_unconfigured"
+                  ? t("store_browse_empty_preparing")
+                  : t("store_browse_empty_hint")}
             </p>
             {otherPrimaries.length > 0 ?
               <div className="mt-5">

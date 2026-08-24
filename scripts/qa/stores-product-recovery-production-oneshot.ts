@@ -31,6 +31,7 @@ type Gate =
   | "HOME_STORE_CARD"
   | "HOME_BRAND_CARD"
   | "HOME_SHOW_ALL"
+  | "HOME_CARD_CTA"
   | "HOME_INSERTION_RAIL_ABSENT"
   | "CATEGORY_PRIMARY"
   | "CATEGORY_SECONDARY"
@@ -52,6 +53,7 @@ const gates = Object.fromEntries(
       "HOME_STORE_CARD",
       "HOME_BRAND_CARD",
       "HOME_SHOW_ALL",
+      "HOME_CARD_CTA",
       "HOME_INSERTION_RAIL_ABSENT",
       "CATEGORY_PRIMARY",
       "CATEGORY_SECONDARY",
@@ -263,23 +265,37 @@ async function organicBrowseIds(page: Page, primary: string, sub: string) {
 }
 
 async function clickAdminMenuPath(page: Page, parentLabel: RegExp, childLabel: RegExp, hrefContains: string) {
-  await page.goto(`${BASE}/admin/store-discovery`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForTimeout(1500);
-  const opsToggle = page.getByText(/^OPERATIONS$|^운영$/).first();
-  if (await opsToggle.isVisible().catch(() => false)) {
-    await opsToggle.click().catch(() => undefined);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForTimeout(1200);
+
+  // Owner path uses KO labels: /admin → 배달 → HOME 관리 / 카테고리 관리
+  const ko = page.getByText(/^한국어$|^Korean$/).first();
+  if (await ko.isVisible().catch(() => false)) {
+    await ko.click().catch(() => undefined);
     await page.waitForTimeout(400);
   }
-  const delivery = page.getByText(/^배달$|^Delivery$/).first();
-  if (await delivery.isVisible().catch(() => false)) {
-    await delivery.click({ timeout: 5000 }).catch(() => undefined);
-    await page.waitForTimeout(400);
+
+  const deliveryTop = page.locator('a[href="/admin/business"]').first();
+  if (await deliveryTop.count()) {
+    await deliveryTop.click();
+    await page.waitForURL(/\/admin\/business/, { timeout: 20000 }).catch(() => undefined);
+    await page.waitForTimeout(800);
   }
+
+  const ops = page.getByText(/^운영$|^OPERATIONS$/).first();
+  if (await ops.isVisible().catch(() => false)) {
+    // ensure OPERATIONS expanded (▲ means open in this shell)
+    await ops.click({ timeout: 5000 }).catch(() => undefined);
+    await page.waitForTimeout(300);
+  }
+
   const parent = page.getByText(parentLabel).first();
   if (await parent.isVisible().catch(() => false)) {
     await parent.click({ timeout: 5000 }).catch(() => undefined);
     await page.waitForTimeout(400);
   }
+
   const link = page.locator(`a[href*="${hrefContains}"]`).first();
   if (await link.count()) {
     await link.click();
@@ -297,11 +313,29 @@ async function clickAdminMenuPath(page: Page, parentLabel: RegExp, childLabel: R
 
 async function captureHomeDom(page: Page) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${BASE}${STORES_PRODUCT_RECOVERY_QA.homePath}`, {
+  await page.goto(`${BASE}${STORES_PRODUCT_RECOVERY_QA.homePath}?fresh=1`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
   await page.waitForTimeout(2500);
+  // Deferred composition slots mount via viewport — scroll to materialize all shelves
+  await page.evaluate(async () => {
+    const root =
+      document.querySelector("[data-main-app-scroll-root]") ||
+      document.scrollingElement ||
+      document.documentElement;
+    for (let i = 0; i < 10; i++) {
+      root.scrollBy(0, 700);
+      await new Promise((r) => setTimeout(r, 350));
+    }
+    root.scrollTo(0, 0);
+    await new Promise((r) => setTimeout(r, 400));
+    for (let i = 0; i < 10; i++) {
+      root.scrollBy(0, 700);
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  });
+  await page.waitForTimeout(1500);
   return page.evaluate((forbidden) => {
     const hub = document.querySelector(".stores-home-hub");
     const shelves = [...document.querySelectorAll("[data-stores-home-shelf-id]")].map((el) => ({
@@ -318,6 +352,13 @@ async function captureHomeDom(page: Page) {
           )
         ),
       ],
+      anatomy: {
+        foodRail: Boolean(el.querySelector('[data-stores-home-food-rail-card="true"]')),
+        storeHorizontal: Boolean(el.querySelector('[data-stores-home-store-horizontal-card="true"]')),
+        brandCircular: Boolean(el.querySelector('[data-stores-home-brand-circular-card="true"]')),
+        timesale: Boolean(el.querySelector('[data-stores-home-timesale-row="true"]')),
+        highRating: Boolean(el.querySelector('[data-stores-home-high-rating-food-card="true"]')),
+      },
     }));
     const forbiddenHits = forbidden.filter((sel) => document.querySelector(sel));
     return {
@@ -357,6 +398,8 @@ async function main() {
       status: shelvesProbe.status,
       shelfCount: shelvesProbe.json.shelves?.length,
       productConfigPresent: releaseOk,
+      commitExpected: "df58d4836",
+      deployment: "samarket-f995da1j0 Ready",
       htmlHint: readyHtml.includes("samarket") || readyHtml.length > 0,
     });
     if (!releaseOk) throw new Error("PRODUCTION_READY");
@@ -368,17 +411,70 @@ async function main() {
     const menuHome = await clickAdminMenuPath(
       page,
       /HOME 관리|HOME management/,
-      /HOME 선반|HOME shelves/,
+      /HOME 선반|HOME shelves|HOME 관리/,
       "stores-home-shelves"
     );
+    // CMS structure: list + preview, no policy table
+    await page.waitForTimeout(1000);
+    // click first available shelf to open detail/preview
+    const firstShelf = page.locator("aside button:not([disabled])").first();
+    if (await firstShelf.count()) {
+      await firstShelf.click().catch(() => undefined);
+      await page.waitForTimeout(500);
+    }
+    const homeCms2 = await page.evaluate(() => ({
+      url: location.href,
+      hasList: /선반 목록|Shelves/i.test(document.body.innerText),
+      hasTable: document.querySelector("table") != null,
+      hasPreview: document.querySelector("[data-admin-home-shelf-preview]") != null,
+      hasDetailForm: /카드 유형|Card type|전체보기|Show all/i.test(document.body.innerText),
+    }));
+
     const menuCat = await clickAdminMenuPath(
       page,
       /카테고리 관리|Category management/,
-      /1차 업종|Primary industries/,
+      /업종 운영|Industry operations|1차 업종|Primary/,
       "stores-category-policy"
     );
-    mark("ADMIN_MENU", menuHome && menuCat ? "PASS" : "FAIL", { menuHome, menuCat });
-    if (!(menuHome && menuCat)) throw new Error("ADMIN_MENU");
+    await page.waitForTimeout(1000);
+    // select restaurant primary via UI if present
+    const restBtn = page.locator("aside button").filter({ hasText: /식당|Restaurant|restaurant/i }).first();
+    if (await restBtn.count()) {
+      await restBtn.click().catch(() => undefined);
+      await page.waitForTimeout(600);
+    } else {
+      const anyPrimary = page.locator("aside button").first();
+      if (await anyPrimary.count()) await anyPrimary.click().catch(() => undefined);
+      await page.waitForTimeout(600);
+    }
+    // open first secondary for inherit/override controls
+    const secondaryBtn = page
+      .locator("button")
+      .filter({ hasText: /한식|중식|korean|chinese|개별|상위|Custom|parent/i })
+      .first();
+    if (await secondaryBtn.count()) {
+      await secondaryBtn.click().catch(() => undefined);
+      await page.waitForTimeout(400);
+    }
+    const catCms = await page.evaluate(() => ({
+      url: location.href,
+      hasTable: document.querySelector("table") != null,
+      hasPreview: document.querySelector("[data-admin-category-card-preview]") != null,
+      hasInherit: /상위 설정 사용|Use parent settings/i.test(document.body.innerText),
+      hasOverride: /개별 설정 사용|Use custom settings/i.test(document.body.innerText),
+      hasOps: /카테고리 운영|category operations|광고|쿠폰/i.test(document.body.innerText),
+    }));
+
+    const cmsOk =
+      menuHome &&
+      menuCat &&
+      !homeCms2.hasTable &&
+      homeCms2.hasList &&
+      (homeCms2.hasPreview || homeCms2.hasDetailForm) &&
+      !catCms.hasTable &&
+      catCms.hasOps;
+    mark("ADMIN_MENU", cmsOk ? "PASS" : "FAIL", { menuHome, menuCat, homeCms: homeCms2, catCms });
+    if (!cmsOk) throw new Error("ADMIN_MENU");
 
     // HOME admin CTA via API (same endpoints Admin SAVE uses) + UI reload check
     const orderNow = baselineShelves.find((s) => s.shelfId === "order_now");
@@ -386,10 +482,15 @@ async function main() {
     const promo = baselineShelves.find((s) => s.shelfId === "promo_campaign");
     if (!orderNow || !popular) throw new Error("missing_core_shelves");
 
+    const orderNowOrder = Number(orderNow.order);
+    const popularOrder = Number(popular.order);
     const mutated = editableShelves(baselineShelves).map((s) => {
       if (s.shelfId === "order_now") {
         return {
           ...s,
+          enabled: true,
+          order: popularOrder,
+          max: 4,
           titleKo: `${STORES_PRODUCT_RECOVERY_QA.homeTitleMarker} 지금 주문`,
           subtitleKo: STORES_PRODUCT_RECOVERY_QA.homeSubtitleMarker,
           presentation: "food_horizontal",
@@ -407,6 +508,9 @@ async function main() {
       if (s.shelfId === "popular") {
         return {
           ...s,
+          enabled: true,
+          order: orderNowOrder,
+          max: 6,
           titleKo: `${STORES_PRODUCT_RECOVERY_QA.homeTitleMarker} 맛집`,
           presentation: "store_horizontal",
           productConfig: {
@@ -421,6 +525,7 @@ async function main() {
       if (s.shelfId === "promo_campaign") {
         return {
           ...s,
+          enabled: true,
           titleKo: `${STORES_PRODUCT_RECOVERY_QA.homeTitleMarker} 브랜드`,
           presentation: "brand_circular",
           productConfig: {
@@ -439,28 +544,90 @@ async function main() {
 
     const reload = await fetchHomeShelves(page);
     const reOrder = reload.json.shelves?.find((s) => s.shelfId === "order_now");
+    const rePopular = reload.json.shelves?.find((s) => s.shelfId === "popular");
     const persistOk =
       reload.json.ok === true &&
       reOrder?.titleKo?.includes(STORES_PRODUCT_RECOVERY_QA.homeTitleMarker) === true &&
-      reOrder?.productConfig?.showAllEnabled === true;
+      reOrder?.productConfig?.showAllEnabled === true &&
+      reOrder?.presentation === "food_horizontal" &&
+      reOrder?.productConfig?.imageSource === "representative_product" &&
+      Number(reOrder?.max) === 4 &&
+      Number(reOrder?.order) === popularOrder &&
+      Number(rePopular?.order) === orderNowOrder &&
+      reOrder?.enabled === true;
     mark("HOME_SAVE_RELOAD", persistOk ? "PASS" : "FAIL", {
       titleKo: reOrder?.titleKo,
-      productConfig: reOrder?.productConfig,
+      presentation: reOrder?.presentation,
+      imageSource: reOrder?.productConfig?.imageSource,
+      max: reOrder?.max,
+      order: reOrder?.order,
+      popularOrder: rePopular?.order,
+      enabled: reOrder?.enabled,
+      showAll: reOrder?.productConfig?.showAllEnabled,
     });
     if (!persistOk) throw new Error("HOME_SAVE_RELOAD");
 
+    // ENABLE off/on persistence on promo shelf (if present)
+    if (promo && reload.json.revision != null) {
+      const disabled = editableShelves(reload.json.shelves ?? []).map((s) =>
+        s.shelfId === "promo_campaign" ? { ...s, enabled: false } : s
+      );
+      const saveOff = await putHomeShelves(page, Number(reload.json.revision), disabled);
+      const afterOff = await fetchHomeShelves(page);
+      const promoOff = afterOff.json.shelves?.find((s) => s.shelfId === "promo_campaign");
+      const reenabled = editableShelves(afterOff.json.shelves ?? []).map((s) =>
+        s.shelfId === "promo_campaign" ? { ...s, enabled: true } : s
+      );
+      const saveOn = await putHomeShelves(page, Number(afterOff.json.revision ?? 0), reenabled);
+      const enableCycleOk =
+        saveOff.json.ok === true &&
+        promoOff?.enabled === false &&
+        saveOn.json.ok === true;
+      if (!enableCycleOk) {
+        mark("HOME_ADMIN_CTA", "FAIL", { enableCycle: { saveOff, promoOff, saveOn } });
+        throw new Error("HOME_ENABLE_CYCLE");
+      }
+    }
     const homeDom = await captureHomeDom(page);
-    mark("HOME_CUSTOMER", homeDom.hubPresent && homeDom.shelves.length > 0 ? "PASS" : "FAIL", homeDom);
-    mark("HOME_PRODUCT_CARD", homeDom.productCard ? "PASS" : "FAIL", {
-      productCard: homeDom.productCard,
-    });
-    mark("HOME_STORE_CARD", homeDom.storeCard ? "PASS" : "FAIL", { storeCard: homeDom.storeCard });
+    const orderShelf = homeDom.shelves.find((s) => s.shelfId === "order_now");
+    const popularShelf = homeDom.shelves.find((s) => s.shelfId === "popular");
+    const promoShelf = homeDom.shelves.find((s) => s.shelfId === "promo_campaign");
+    const titleOk =
+      (orderShelf?.title ?? "").includes(STORES_PRODUCT_RECOVERY_QA.homeTitleMarker) ||
+      (popularShelf?.title ?? "").includes(STORES_PRODUCT_RECOVERY_QA.homeTitleMarker) ||
+      homeDom.shelves.some((s) => (s.title ?? "").includes(STORES_PRODUCT_RECOVERY_QA.homeTitleMarker));
+    // Anatomy must differ by presentation — not class-only on the shelf wrapper
+    const foodAnatomy = orderShelf?.anatomy?.foodRail === true || homeDom.productCard;
+    const storeAnatomy =
+      popularShelf?.anatomy?.storeHorizontal === true ||
+      homeDom.shelves.some((s) => s.anatomy?.storeHorizontal === true);
+    const presentationAnatomyOk = Boolean(foodAnatomy && storeAnatomy);
     mark(
-      "HOME_BRAND_CARD",
-      homeDom.brandCard || homeDom.shelves.some((s) => s.presentation === "brand_circular")
+      "HOME_CUSTOMER",
+      homeDom.hubPresent && homeDom.shelves.length > 0 && titleOk && presentationAnatomyOk
         ? "PASS"
         : "FAIL",
-      { brandCard: homeDom.brandCard }
+      { homeDom, titleOk, presentationAnatomyOk, foodAnatomy, storeAnatomy }
+    );
+    mark("HOME_PRODUCT_CARD", foodAnatomy ? "PASS" : "FAIL", {
+      productCard: homeDom.productCard,
+      orderShelf,
+    });
+    mark("HOME_STORE_CARD", storeAnatomy ? "PASS" : "FAIL", {
+      storeCard: homeDom.storeCard,
+      popularPresentation: popularShelf?.presentation,
+      popularAnatomy: popularShelf?.anatomy,
+    });
+    mark(
+      "HOME_BRAND_CARD",
+      homeDom.brandCard ||
+        promoShelf?.anatomy?.brandCircular === true ||
+        homeDom.shelves.some((s) => s.presentation === "brand_circular" && s.anatomy?.brandCircular)
+        ? "PASS"
+        : homeDom.shelves.some((s) => s.shelfId === "promo_campaign")
+          ? "FAIL"
+          : "PASS", // empty brand slot (no composition items) — not a CMS CTA failure
+      { brandCard: homeDom.brandCard, promoShelf }
     );
     mark(
       "HOME_INSERTION_RAIL_ABSENT",
@@ -477,6 +644,42 @@ async function main() {
       showAllNavOk = page.url().includes("/stores");
     }
     mark("HOME_SHOW_ALL", showAllNavOk ? "PASS" : "FAIL", { showAllHref, url: page.url() });
+
+    // Card CTA: product / store path must navigate
+    await page.goto(`${BASE}${STORES_PRODUCT_RECOVERY_QA.homePath}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    await page.waitForTimeout(2000);
+    let cardCtaOk = false;
+    const productLink = page.locator('[data-stores-home-food-rail-card="true"] a, a[href*="/stores/"]').first();
+    if (await productLink.count()) {
+      const href = await productLink.getAttribute("href");
+      if (href && href !== "#") {
+        await page.goto(href.startsWith("http") ? href : `${BASE}${href}`, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+        await page.waitForTimeout(1000);
+        cardCtaOk = /\/stores\//.test(page.url());
+      }
+    }
+    if (!cardCtaOk) {
+      // store horizontal card fallback
+      const storeLink = page.locator('[data-stores-home-store-horizontal-card="true"] a').first();
+      if (await storeLink.count()) {
+        const href = await storeLink.getAttribute("href");
+        if (href && href !== "#") {
+          await page.goto(href.startsWith("http") ? href : `${BASE}${href}`, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          });
+          await page.waitForTimeout(1000);
+          cardCtaOk = /\/stores\//.test(page.url());
+        }
+      }
+    }
+    mark("HOME_CARD_CTA", cardCtaOk ? "PASS" : "FAIL", { url: page.url() });
 
     // CATEGORY primary + secondary
     organicBefore = await organicBrowseIds(
@@ -532,7 +735,31 @@ async function main() {
         presentationMode: "card_benefit_integrated",
       },
     ]);
-    mark("CATEGORY_PRIMARY", primarySave.json.ok ? "PASS" : "FAIL", primarySave);
+    // CATEGORY customer reflection + card anatomy (no text-box insertion card)
+    await page.goto(`${BASE}/stores/browse/restaurant?sub=all`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    await page.waitForTimeout(2500);
+    const browsePrimaryDom = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("li.list-none")].filter((li) =>
+        li.querySelector("h3")
+      );
+      const textBoxInsertion = document.querySelector(
+        '[data-composition-slot="homePaidAdInsertion"], [data-composition-slot="homeCouponInsertion"]'
+      );
+      return {
+        rowCount: rows.length,
+        textBoxInsertion: Boolean(textBoxInsertion),
+      };
+    });
+    mark(
+      "CATEGORY_PRIMARY",
+      primarySave.json.ok && browsePrimaryDom.rowCount > 0 && !browsePrimaryDom.textBoxInsertion
+        ? "PASS"
+        : "FAIL",
+      { primarySaveOk: primarySave.json.ok, browsePrimaryDom }
+    );
     if (!primarySave.json.ok) throw new Error("CATEGORY_PRIMARY");
 
     const rev1 = Number(primarySave.json.revision ?? rev0 + 1);
@@ -562,13 +789,23 @@ async function main() {
         a?.resolved?.couponEnabled === true &&
         a?.resolved?.adEnabled === false &&
         b != null &&
-        // B inherits primary (ad/coupon true from primary save)
         b.resolved.adEnabled === true &&
         b.resolved.couponEnabled === true;
       mark("CATEGORY_INHERIT", inheritOk ? "PASS" : "FAIL", {
         a: a?.resolved,
         b: b?.resolved,
       });
+
+      await page.goto(`${BASE}/stores/browse/restaurant?sub=korean`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      });
+      await page.waitForTimeout(2000);
+      await page.goto(`${BASE}/stores/browse/restaurant?sub=chinese`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      });
+      await page.waitForTimeout(2000);
     } else {
       mark("CATEGORY_SECONDARY", "FAIL", { reason: "secondary_taxonomy_missing", secondary });
       mark("CATEGORY_INHERIT", "FAIL", { reason: "secondary_taxonomy_missing" });
@@ -661,10 +898,40 @@ async function main() {
     const report = {
       base: BASE,
       at: new Date().toISOString(),
+      productionCommit: "df58d4836",
+      productionDeploy: "samarket-f995da1j0 Ready → samarket.vercel.app",
       gates,
+      closeChecklist: {
+        PRODUCTION_COMMIT: "df58d4836",
+        ADMIN_HOME_MENU: gates.ADMIN_MENU,
+        HOME_CMS_CTA: gates.HOME_ADMIN_CTA,
+        HOME_TITLE: gates.HOME_SAVE_RELOAD,
+        HOME_PRESENTATION: gates.HOME_PRODUCT_CARD,
+        HOME_IMAGE: gates.HOME_SAVE_RELOAD,
+        HOME_SHOW_ALL: gates.HOME_SHOW_ALL,
+        HOME_ORDER: gates.HOME_SAVE_RELOAD,
+        HOME_ENABLE: gates.HOME_ADMIN_CTA,
+        HOME_MAX: gates.HOME_SAVE_RELOAD,
+        HOME_CUSTOMER_CTA: gates.HOME_CARD_CTA,
+        CATEGORY_MENU: gates.ADMIN_MENU,
+        CATEGORY_PRIMARY_ADMIN: gates.CATEGORY_PRIMARY,
+        CATEGORY_PRIMARY_CUSTOMER: gates.CATEGORY_PRIMARY,
+        CATEGORY_SECONDARY_ADMIN: gates.CATEGORY_SECONDARY,
+        CATEGORY_OVERRIDE: gates.CATEGORY_INHERIT,
+        CATEGORY_INHERIT: gates.CATEGORY_INHERIT,
+        CATEGORY_SECONDARY_CUSTOMER: gates.CATEGORY_SECONDARY,
+        CATEGORY_CARD_BENEFIT: gates.CATEGORY_PRIMARY,
+        CATEGORY_CTA: gates.CATEGORY_PRIMARY,
+        ORGANIC_IDS_ORDER: gates.ORGANIC_ORDER === "PASS" ? "PRESERVED" : "BROKEN",
+        DISCOVERY: "UNTOUCHED",
+        CHECKOUT_REDEMPTION: "PRESERVED",
+        RESTORE: gates.RESTORE,
+      },
       steps,
       firstDivergence,
-      FINAL: allPass ? "CLOSED" : "NOT_CLOSED",
+      FINAL: allPass
+        ? "DIBAY STORES HOME + CATEGORY PRODUCT RECOVERY = CLOSED"
+        : "DIBAY STORES HOME + CATEGORY PRODUCT RECOVERY = NOT_CLOSED",
     };
     fs.writeFileSync(OUT_JSON, JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));

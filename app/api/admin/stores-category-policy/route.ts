@@ -47,6 +47,10 @@ function parseScopeRows(raw: unknown): BrowseScopePolicyWriteInput[] | "invalid"
         (o.presentationMode as BrowseScopePolicyWriteInput["presentationMode"]) ?? "inherit",
       scheduleStart: o.scheduleStart === null ? null : o.scheduleStart != null ? String(o.scheduleStart) : null,
       scheduleEnd: o.scheduleEnd === null ? null : o.scheduleEnd != null ? String(o.scheduleEnd) : null,
+      productConfig:
+        o.productConfig && typeof o.productConfig === "object"
+          ? (o.productConfig as Record<string, unknown>)
+          : {},
     });
   }
   return out;

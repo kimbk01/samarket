@@ -129,10 +129,14 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "stores-commerce": "admin_menu_store_review_queue",
   "store-discovery-control": "admin_menu_store_discovery_control",
   "store-insertions-control": "admin_menu_store_insertions_control",
+  "store-ads-control": "admin_menu_store_ads_control",
+  "store-coupons-control": "admin_menu_store_coupons_control",
+  "store-promo-control": "admin_menu_store_promo_control",
   "stores-home-management": "admin_menu_stores_home_management",
   "stores-home-shelves": "admin_menu_stores_home_shelves",
   "stores-category-management": "admin_menu_stores_category_management",
   "stores-category-primary": "admin_menu_stores_category_primary",
+  "stores-category-secondary": "admin_menu_stores_category_secondary",
   "stores-composition-policy": "admin_menu_stores_composition_policy",
   "store-settings-taxonomy": "admin_menu_store_settings_taxonomy",
   "store-settings-alerts": "admin_menu_store_settings_alerts",
@@ -471,6 +475,51 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         status: "done",
         children: [
+          {
+            key: "stores-home-shelves",
+            title: "",
+            path: "/admin/stores-home-shelves",
+            status: "done",
+          },
+          {
+            key: "stores-category-management",
+            title: "",
+            status: "done",
+            children: [
+              {
+                key: "stores-category-primary",
+                title: "",
+                path: "/admin/stores-category-policy?tier=primary",
+                matchPaths: ["/admin/stores-category-policy"],
+                status: "done",
+              },
+              {
+                key: "stores-category-secondary",
+                title: "",
+                path: "/admin/stores-category-policy?tier=secondary",
+                status: "done",
+              },
+            ],
+          },
+          {
+            key: "store-ads-control",
+            title: "",
+            path: "/admin/store-insertions?focus=ads",
+            matchPaths: ["/admin/store-insertions"],
+            status: "done",
+          },
+          {
+            key: "store-coupons-control",
+            title: "",
+            path: "/admin/store-insertions?focus=coupons",
+            status: "done",
+          },
+          {
+            key: "store-promo-control",
+            title: "",
+            path: "/admin/store-discovery",
+            status: "done",
+          },
           { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
           {
             key: "store-discovery-control",
@@ -483,32 +532,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/store-insertions",
             status: "done",
-          },
-          {
-            key: "stores-home-management",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "stores-home-shelves",
-                title: "",
-                path: "/admin/stores-home-shelves",
-                status: "done",
-              },
-            ],
-          },
-          {
-            key: "stores-category-management",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "stores-category-primary",
-                title: "",
-                path: "/admin/stores-category-policy",
-                status: "done",
-              },
-            ],
           },
           {
             key: "store-products-admin",

@@ -48,12 +48,16 @@ export function planStoresBrowseInsertions(input: {
   policy: readonly StoresCompositionSectionContract[];
 }): StoresBrowseInsertionPlan {
   const organicIds = [...input.organicStoreIds];
+  const organicSet = new Set(organicIds);
   const adPolicy = policyRow(input.policy, "future_ad_insertion");
   const couponPolicy = policyRow(input.policy, "future_coupon_insertion");
   const adInterval = insertionInterval(adPolicy);
   const couponInterval = insertionInterval(couponPolicy);
-  const ads = capItems(input.paidAds, adPolicy?.max);
-  const coupons = capItems(input.coupons, couponPolicy?.max);
+  /** Campaigns must belong to this browse scope's organic stores (primary/secondary). */
+  const scopedAds = input.paidAds.filter((a) => organicSet.has(a.storeId));
+  const scopedCoupons = input.coupons.filter((c) => organicSet.has(c.storeId));
+  const ads = capItems(scopedAds, adPolicy?.max);
+  const coupons = capItems(scopedCoupons, couponPolicy?.max);
 
   if (!adPolicy?.enabled && !couponPolicy?.enabled) {
     return {

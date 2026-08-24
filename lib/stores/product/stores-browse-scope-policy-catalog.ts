@@ -22,6 +22,7 @@ export type StoresBrowseScopePolicyRow = {
   presentationMode: StoresBrowseScopePresentationMode | "inherit";
   scheduleStart: string | null | "inherit";
   scheduleEnd: string | null | "inherit";
+  productConfig?: Record<string, unknown> | null;
 };
 
 export type StoresBrowseScopePolicyResolved = {

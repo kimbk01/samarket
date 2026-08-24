@@ -429,6 +429,17 @@ export type StoresBrowseResponseBody = {
       adCount: number;
       couponCount: number;
     };
+    /** CATEGORY operator CMS — primary/secondary scope (menu-centric, not HOME shelves). */
+    browseScopePolicy?: {
+      primarySlug: string;
+      subSlug: string | null;
+      enabled: boolean;
+      displayTitleKo: string | null;
+      displayTitleEn: string | null;
+      adEnabled: boolean;
+      couponEnabled: boolean;
+      cardType: "store" | "product" | "mixed";
+    };
   };
 };
 
