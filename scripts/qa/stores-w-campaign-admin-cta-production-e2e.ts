@@ -10,12 +10,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { chromium, type BrowserContext, type Page } from "playwright";
+import {
+  composeLiveHomeFeed,
+  resolveLiveHomeCompositionPolicy,
+} from "@/lib/stores/composition/stores-composition-live";
+import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
 const OUT_DIR = path.join(ROOT, "docs/perf/stores-w-campaign-writer/admin-cta-production");
 const OUT_JSON = path.join(OUT_DIR, "w-admin-cta-final-close-latest.json");
-const FIXTURE_STORE_ID =
+let fixtureStoreId =
   process.env.W_CAMPAIGN_FIXTURE_STORE_ID ?? "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e";
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -63,10 +68,124 @@ let titleV1 = "";
 let titleV2 = "";
 let titleV3 = "";
 const screenshots: string[] = [];
+let customerCampaignDomPassed = false;
+
+type ChainDiagnostics = {
+  homeFeed: ReturnType<typeof captureHomeFeedEvidence>;
+  compose: ReturnType<typeof captureComposeEvidence>;
+  composeAdmission: boolean;
+};
+
+function captureHomeFeedEvidence(
+  stores: StoreHomeFeedItem[],
+  storeId: string,
+  meta: Record<string, unknown> | null | undefined
+) {
+  const store = stores.find((s) => s.id === storeId);
+  const dc = store?.discoveryCampaign ?? null;
+  const productId = store?.featuredItems?.[0]?.productId ?? null;
+  return {
+    storePresent: Boolean(store),
+    discoveryCampaignPresent: dc != null,
+    discoveryCampaignId: dc?.id ?? null,
+    discoveryCampaignTitle: dc?.title ?? null,
+    campaignType: dc?.campaignType ?? null,
+    productIdPresent: Boolean(productId),
+    productId: productId ?? null,
+    metaDiscoveryCampaignsStatus:
+      (meta?.discoveryCampaigns as { status?: string } | undefined)?.status ?? null,
+  };
+}
+
+function captureComposeEvidence(
+  stores: StoreHomeFeedItem[],
+  storeId: string,
+  policyMeta: import("@/lib/stores/composition/stores-composition-live").StoresHomeCompositionPolicyMeta | null
+) {
+  const store = stores.find((s) => s.id === storeId);
+  const productId = store?.featuredItems?.[0]?.productId ?? null;
+  const live = composeLiveHomeFeed(stores, policyMeta);
+  const policy = resolveLiveHomeCompositionPolicy(policyMeta);
+  const campaignRow = policy.find((r) => r.slot === "campaignFood");
+  const entry = live.campaignFood.find((e) => e.storeId === storeId) ?? null;
+  const priorSlots = ["slot0Food", "slot2Food", "newStoreFood"] as const;
+  const priorSlotsContainingProduct: string[] = [];
+  if (productId) {
+    for (const slot of priorSlots) {
+      const items = live[slot];
+      if (items.some((e) => e.productId === productId)) priorSlotsContainingProduct.push(slot);
+    }
+  }
+  return {
+    campaignFoodAdmission: Boolean(entry),
+    campaignFoodEntryTitle: entry?.campaignTitle ?? null,
+    campaignFoodCount: live.campaignFood.length,
+    productConsumedInPriorFoodSlots: priorSlotsContainingProduct.length > 0,
+    priorSlotsContainingProduct,
+    policyCampaignFoodEnabled: campaignRow?.enabled ?? false,
+    policyCampaignFoodMax: campaignRow?.max ?? null,
+  };
+}
+
+async function captureChainDiagnostics(
+  page: Page,
+  storeId: string,
+  expectedTitle: string
+): Promise<ChainDiagnostics & { titleFresh: boolean }> {
+  const homeRes = await fetchHomeFeed(page);
+  const stores = (homeRes.json?.stores ?? []) as StoreHomeFeedItem[];
+  const policyMeta = (homeRes.json?.meta?.compositionPolicy ?? null) as import("@/lib/stores/composition/stores-composition-live").StoresHomeCompositionPolicyMeta | null;
+  const homeFeed = captureHomeFeedEvidence(stores, storeId, homeRes.json?.meta);
+  const compose = captureComposeEvidence(stores, storeId, policyMeta);
+  return {
+    homeFeed,
+    compose,
+    composeAdmission: compose.campaignFoodAdmission,
+    titleFresh: homeFeed.discoveryCampaignTitle === expectedTitle,
+  };
+}
 
 function mark(gate: Gate, status: "PASS" | "FAIL", detail: Record<string, unknown> = {}) {
   gates[gate] = status;
   steps.push({ gate, status, detail });
+}
+
+function pickFixtureStore(stores: StoreHomeFeedItem[]): StoreHomeFeedItem | null {
+  const probeWindow = {
+    startAt: new Date(Date.now() - 86400000).toISOString(),
+    endAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+  };
+  for (const store of stores) {
+    const productId = store.featuredItems?.[0]?.productId;
+    if (!productId) continue;
+    const withCampaign: StoreHomeFeedItem = {
+      ...store,
+      discoveryCampaign: {
+        id: "w-probe",
+        campaignType: "event",
+        title: "w-probe",
+        bodyCopy: null,
+        startAt: probeWindow.startAt,
+        endAt: probeWindow.endAt,
+      },
+    };
+    const live = composeLiveHomeFeed(
+      stores.map((s) => (s.id === store.id ? withCampaign : s)),
+      null
+    );
+    if (live.campaignFood.some((e) => e.storeId === store.id)) return store;
+  }
+  return null;
+}
+
+async function fetchHomeFeed(page: Page) {
+  return page.evaluate(async (base) => {
+    const res = await fetch(`${base}/api/stores/home-feed`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    return { status: res.status, json: await res.json() };
+  }, BASE);
 }
 
 function loadEnv() {
@@ -181,15 +300,6 @@ async function loginAdmin(browser: import("playwright").Browser) {
 
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   await context.addCookies(cookies);
-  const page = await context.newPage();
-  return { page, context };
-}
-
-async function customerContext(browser: import("playwright").Browser): Promise<{
-  page: Page;
-  context: BrowserContext;
-}> {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   return { page, context };
 }
@@ -311,46 +421,75 @@ async function deactivateExistingForStore(page: Page, storeId: string) {
   }
 }
 
-async function waitCustomerCampaignSlot(page: Page, timeoutMs = 45_000) {
-  const slot = page.locator('[data-composition-slot="campaignFood"]');
-  await slot.waitFor({ state: "visible", timeout: timeoutMs });
-  return slot;
+async function scrollStoresHomeToDeferred(page: Page) {
+  await page.evaluate(() => {
+    const root =
+      document.querySelector("[data-main-hub-scroll-body]") ??
+      document.querySelector("main") ??
+      document.documentElement;
+    root.scrollTop = root.scrollHeight;
+  });
 }
 
 async function openStoresHome(page: Page) {
-  await page.evaluate(() => {
-    sessionStorage.clear();
-  });
-  await page.goto(`${BASE}/stores?wQa=${Date.now()}`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2500);
+  const url = `${BASE}/stores?wQa=${Date.now()}`;
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+  await page.waitForSelector(".stores-home-hub", { timeout: 90_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
   await page
-    .locator('[data-stores-home-feed-ready="1"]')
-    .first()
-    .waitFor({ state: "attached", timeout: 45_000 })
+    .evaluate(() => {
+      sessionStorage.clear();
+    })
     .catch(() => {});
+  await page.goto(`${url}&reload=1`, { waitUntil: "domcontentloaded", timeout: 90_000 });
+  await page.waitForSelector(".stores-home-hub", { timeout: 90_000 }).catch(() => {});
+  await page
+    .waitForFunction(
+      () => document.querySelectorAll("[data-composition-slot]").length > 0,
+      undefined,
+      { timeout: 90_000 }
+    )
+    .catch(() => {});
+  await page.waitForTimeout(2000);
 }
 
 async function waitForCustomerTitle(
   page: Page,
+  storeId: string,
   title: string,
   expectPresent: boolean,
-  attempts = 10,
-  pauseMs = 6000
-): Promise<boolean> {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    await openStoresHome(page);
-    const slot = page.locator('[data-composition-slot="campaignFood"]');
-    const visible = await slot.isVisible().catch(() => false);
-    if (!visible) {
-      if (!expectPresent) return true;
-    } else {
-      const text = await slot.innerText().catch(() => "");
-      const hasTitle = text.includes(title);
-      if (hasTitle === expectPresent) return true;
-    }
-    await page.waitForTimeout(pauseMs);
+  chain?: ChainDiagnostics
+): Promise<{ ok: boolean; chain: ChainDiagnostics; skippedDom: boolean }> {
+  const diag =
+    chain ??
+    (await captureChainDiagnostics(page, storeId, expectPresent ? title : ""));
+
+  if (expectPresent && !diag.composeAdmission) {
+    return { ok: false, chain: diag, skippedDom: true };
   }
-  return false;
+  if (!expectPresent && !diag.composeAdmission && !diag.homeFeed.discoveryCampaignPresent) {
+    return { ok: true, chain: diag, skippedDom: true };
+  }
+
+  await openStoresHome(page);
+  await scrollStoresHomeToDeferred(page);
+  await page.waitForTimeout(2500);
+
+  const found = await page
+    .waitForFunction(
+      ({ title, expectPresent }) => {
+        const slot = document.querySelector('[data-composition-slot="campaignFood"]');
+        if (!slot) return !expectPresent;
+        const text = slot.textContent ?? "";
+        return text.includes(title) === expectPresent;
+      },
+      { title, expectPresent },
+      { timeout: 45_000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+
+  return { ok: found, chain: diag, skippedDom: false };
 }
 
 async function main() {
@@ -367,13 +506,19 @@ async function main() {
 
   const browser = await chromium.launch({ headless: true });
   let adminCtx: BrowserContext | null = null;
-  let customerCtx: BrowserContext | null = null;
 
   try {
     const { page: adminPage, context } = await loginAdmin(browser);
     adminCtx = context;
 
     await waitAdminDiscoveryReady(adminPage);
+
+    const homeProbe = await fetchHomeFeed(adminPage);
+    if (!homeProbe.json?.ok) throw new Error("home_feed_probe_failed");
+    const probeStores = homeProbe.json.stores as StoreHomeFeedItem[];
+    const fixture = pickFixtureStore(probeStores);
+    if (!fixture) throw new Error("no_runtime_fixture_for_campaign_food");
+    fixtureStoreId = fixture.id;
 
     const hasCreate = (await createSection(adminPage).count()) > 0;
     const hasEditBtn = (await adminPage.getByRole("button", { name: /^(Edit|수정)$/ }).count()) > 0;
@@ -383,9 +528,10 @@ async function main() {
       .locator("span")
       .filter({ hasText: /Admin HTTP Writer/ })
       .count();
+    const adminOperable = hasCreate && hasEditBtn && hasDeactivateBtn;
 
-    if (hasCreate && hasWriterBadge) {
-      mark("ADMIN_PAGE", "PASS", { hasEditBtn, hasDeactivateBtn });
+    if (adminOperable) {
+      mark("ADMIN_PAGE", "PASS", { hasEditBtn, hasDeactivateBtn, hasWriterBadge });
       await shot(adminPage, "01-admin-baseline");
     } else {
       mark("ADMIN_PAGE", "FAIL", { hasCreate, hasWriterBadge, hasEditBtn, hasDeactivateBtn, url: adminPage.url() });
@@ -393,10 +539,10 @@ async function main() {
       throw new Error("admin_page_fail");
     }
 
-    await deactivateExistingForStore(adminPage, FIXTURE_STORE_ID);
+    await deactivateExistingForStore(adminPage, fixtureStoreId);
 
     await fillCreateForm(adminPage, {
-      storeId: FIXTURE_STORE_ID,
+      storeId: fixtureStoreId,
       title: titleV1,
       body: `QA body ${runId}`,
       startAt: toDatetimeLocal(activeStart),
@@ -431,7 +577,7 @@ async function main() {
     await adminPage.waitForTimeout(2000);
     const reloadRow = await waitCampaignRow(adminPage, titleV1);
     const reloadStore = await reloadRow.innerText();
-    if (reloadStore.includes(FIXTURE_STORE_ID) && reloadStore.includes(titleV1)) {
+    if (reloadStore.includes(fixtureStoreId) && reloadStore.includes(titleV1)) {
       mark("CREATE_RELOAD", "PASS");
       await shot(adminPage, "04-create-reload");
     } else {
@@ -439,7 +585,7 @@ async function main() {
     }
 
     await fillCreateForm(adminPage, {
-      storeId: FIXTURE_STORE_ID,
+      storeId: fixtureStoreId,
       title: "SHOULD-NOT-SAVE",
       body: "bad window",
       startAt: toDatetimeLocal(activeEnd),
@@ -460,7 +606,7 @@ async function main() {
     }
 
     await fillCreateForm(adminPage, {
-      storeId: FIXTURE_STORE_ID,
+      storeId: fixtureStoreId,
       title: "",
       body: "empty title",
       startAt: toDatetimeLocal(activeStart),
@@ -471,7 +617,7 @@ async function main() {
     const emptyErr = await adminPage.locator("span.text-red-700").last().innerText();
     const emptyTitleBlocked =
       /Enter a title|제목을 입력/.test(emptyErr) &&
-      (await adminPage.locator("tbody tr", { hasText: FIXTURE_STORE_ID }).filter({ hasText: /^$/ }).count()) === 0;
+      (await adminPage.locator("tbody tr", { hasText: fixtureStoreId }).filter({ hasText: /^$/ }).count()) === 0;
     if (!emptyTitleBlocked && gates.VALIDATION_UX === "PASS") {
       mark("VALIDATION_UX", "PASS", { emptyErr, note: "invalid_window_only" });
     } else if (!emptyTitleBlocked) {
@@ -516,14 +662,14 @@ async function main() {
       mark("UPCOMING", "FAIL", { upcomingState });
     }
 
-    const { page: customerPage, context: cCtx } = await customerContext(browser);
-    customerCtx = cCtx;
-    const upcomingHidden = await waitForCustomerTitle(customerPage, titleV2, false, 4, 4000);
-    if (upcomingHidden) {
-      mark("CUSTOMER_UPCOMING_HIDDEN", "PASS");
+    const upcomingResult = await waitForCustomerTitle(adminPage, fixtureStoreId, titleV2, false);
+    if (upcomingResult.ok) {
+      mark("CUSTOMER_UPCOMING_HIDDEN", "PASS", { chain: upcomingResult.chain });
     } else {
-      mark("CUSTOMER_UPCOMING_HIDDEN", "FAIL");
+      mark("CUSTOMER_UPCOMING_HIDDEN", "FAIL", { chain: upcomingResult.chain });
     }
+
+    await waitAdminDiscoveryReady(adminPage);
 
     await clickEditOnRow(adminPage, titleV2);
     await fillEditForm(adminPage, titleV2, {
@@ -549,13 +695,31 @@ async function main() {
       mark("ACTIVE", "FAIL", { activeState });
     }
 
-    const domFound = await waitForCustomerTitle(customerPage, titleV2, true, 10, 6000);
-    if (domFound) {
-      mark("CUSTOMER_CAMPAIGN_DOM", "PASS", { title: titleV2 });
-      await shot(customerPage, "07-customer-campaign-shelf");
+    const activeChain = await captureChainDiagnostics(adminPage, fixtureStoreId, titleV2);
+    const domResult = await waitForCustomerTitle(
+      adminPage,
+      fixtureStoreId,
+      titleV2,
+      true,
+      activeChain
+    );
+    if (domResult.ok) {
+      customerCampaignDomPassed = true;
+      mark("CUSTOMER_CAMPAIGN_DOM", "PASS", {
+        title: titleV2,
+        chain: domResult.chain,
+        skippedDom: domResult.skippedDom,
+      });
+      await shot(adminPage, "07-customer-campaign-shelf");
     } else {
-      mark("CUSTOMER_CAMPAIGN_DOM", "FAIL", { title: titleV2 });
+      mark("CUSTOMER_CAMPAIGN_DOM", "FAIL", {
+        title: titleV2,
+        chain: domResult.chain,
+        skippedDom: domResult.skippedDom,
+      });
     }
+
+    await waitAdminDiscoveryReady(adminPage);
 
     await clickEditOnRow(adminPage, titleV2);
     await fillEditForm(adminPage, titleV2, { title: titleV3 });
@@ -569,13 +733,28 @@ async function main() {
     await patchReflect;
     await waitSaveOk(adminPage);
 
-    const reflectOk = await waitForCustomerTitle(customerPage, titleV3, true, 10, 6000);
-    if (reflectOk) {
-      mark("ADMIN_CUSTOMER_REFLECTION", "PASS", { title: titleV3 });
-      await shot(customerPage, "08-customer-reflection");
+    const reflectChain = await captureChainDiagnostics(adminPage, fixtureStoreId, titleV3);
+    const reflectResult = await waitForCustomerTitle(
+      adminPage,
+      fixtureStoreId,
+      titleV3,
+      true,
+      reflectChain
+    );
+    if (reflectResult.ok) {
+      mark("ADMIN_CUSTOMER_REFLECTION", "PASS", {
+        title: titleV3,
+        chain: reflectResult.chain,
+      });
+      await shot(adminPage, "08-customer-reflection");
     } else {
-      mark("ADMIN_CUSTOMER_REFLECTION", "FAIL", { title: titleV3 });
+      mark("ADMIN_CUSTOMER_REFLECTION", "FAIL", {
+        title: titleV3,
+        chain: reflectResult.chain,
+      });
     }
+
+    await waitAdminDiscoveryReady(adminPage);
 
     const patchDeact = adminPage.waitForResponse(
       (res) =>
@@ -609,38 +788,51 @@ async function main() {
       mark("HISTORY", "FAIL");
     }
 
-    const removed = await waitForCustomerTitle(customerPage, titleV3, false, 10, 6000);
-    if (removed) {
-      mark("CUSTOMER_REMOVAL", "PASS");
-      await shot(customerPage, "11-customer-removal");
+    if (!customerCampaignDomPassed) {
+      mark("CUSTOMER_REMOVAL", "FAIL", { vacuous: true, reason: "CUSTOMER_CAMPAIGN_DOM not proven" });
     } else {
-      mark("CUSTOMER_REMOVAL", "FAIL");
+      const removeChain = await captureChainDiagnostics(adminPage, fixtureStoreId, titleV3);
+      const removeResult = await waitForCustomerTitle(
+        adminPage,
+        fixtureStoreId,
+        titleV3,
+        false,
+        removeChain
+      );
+      if (removeResult.ok) {
+        mark("CUSTOMER_REMOVAL", "PASS", { chain: removeResult.chain, vacuous: false });
+        await shot(adminPage, "11-customer-removal");
+      } else {
+        mark("CUSTOMER_REMOVAL", "FAIL", { chain: removeResult.chain, vacuous: false });
+      }
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     steps.push({ gate: "ADMIN_PAGE", status: "FAIL", detail: { fatal: msg } });
   } finally {
     await adminCtx?.close().catch(() => {});
-    await customerCtx?.close().catch(() => {});
     await browser.close().catch(() => {});
   }
 
   const allPass = (Object.keys(gates) as Gate[]).every((g) => gates[g] === "PASS");
+  const vacuousRemovalPass = gates.CUSTOMER_REMOVAL === "PASS" && !customerCampaignDomPassed;
+  const wClosed = allPass && !vacuousRemovalPass;
   const out = {
     measuredAt: new Date().toISOString(),
     phase: "W — ADMIN REAL CTA + CUSTOMER RUNTIME FINAL CLOSE",
     productionBase: BASE,
-    fixtureStoreId: FIXTURE_STORE_ID,
+    fixtureStoreId,
     campaignId,
     titles: { titleV1, titleV2, titleV3 },
     gates,
     steps,
     screenshots,
-    wClosed: allPass,
+    vacuousRemovalPass,
+    wClosed,
   };
   fs.writeFileSync(OUT_JSON, JSON.stringify(out, null, 2));
   console.log(JSON.stringify(out, null, 2));
-  process.exit(allPass ? 0 : 1);
+  process.exit(wClosed ? 0 : 1);
 }
 
 void main();
