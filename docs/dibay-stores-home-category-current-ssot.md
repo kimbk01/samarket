@@ -10,15 +10,14 @@
 
 | Field | Value |
 |-------|--------|
-| Commit | `47cb149a83339fef518511769e2c48ee8059b0fa` |
-| Message | `docs(stores): lock HOME+CATEGORY SSOT to HEAD 2e96de414` |
-| Parent (recovery code) | `2e96de414` — `fix(stores): close HOME+CATEGORY recovery authority gaps` |
-| Branch | `main` ahead of `origin/main` (push pending at SSOT write time) |
+| Recovery code lock | `2e96de414` — `fix(stores): close HOME+CATEGORY recovery authority gaps` |
+| Tip requirement | After push: `HEAD == origin/main` and `2e96de414` is an ancestor of tip |
+| Supersedes | `f12b3c6ec` audit and any HEAD/WT-mixed statuses |
 
-**Product Recovery working-tree diff vs this tip:** none (0 lines of recovery paths).  
-Unrelated dirty files (`OwnerProductsHubClient.tsx`, `docs/perf/**`, tmp SQL, etc.) are **EXCLUDE** — not part of this SSOT.
+**Verify:** `git merge-base --is-ancestor 2e96de414 HEAD`  
+**Product Recovery WT vs tip:** recovery paths must have **0** uncommitted lines (EXCLUDE unrelated dirty).
 
-Previous audit of `f12b3c6ec` + WT notes is **superseded**. Do not mix those statuses into CURRENT PASS.
+Do not promote historical CLOSED / prior PASS language to CURRENT PASS.
 
 ---
 
