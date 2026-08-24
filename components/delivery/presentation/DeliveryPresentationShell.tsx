@@ -113,6 +113,7 @@ type SlidePhase = "idle" | "hold_browse" | "sliding_forward" | "idle_store" | "s
 /**
  * ARCH B2 — Delivery owns browse↔store surface lifetime + local slide.
  * ONE browse instance + ONE store instance (soft). Hard store = Next children only.
+ * Category surface transitions: `applyStoresCategorySurfaceTransition` (also app-wide via StoresCategoryLifecycleBridge).
  */
 export function DeliveryPresentationShell({ children }: { children: ReactNode }) {
   const nested = useContext(DeliveryPresentationNestContext);

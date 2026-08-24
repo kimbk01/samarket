@@ -1,0 +1,85 @@
+{
+  "base": "http://localhost:3000",
+  "viewport": "390x844",
+  "steps": [
+    {
+      "step": "R1_home_entry",
+      "url": "/stores",
+      "secondaryVisible": false,
+      "selected": "Restaurant",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r1-home-entry.png"
+    },
+    {
+      "step": "R1_mart_selected",
+      "url": "/stores",
+      "secondaryVisible": true,
+      "selected": "Mart",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r1-mart.png"
+    },
+    {
+      "step": "R1_non_stores",
+      "url": "/community-messenger",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r1-non-stores.png"
+    },
+    {
+      "step": "R1_home_reentry",
+      "url": "/stores",
+      "secondaryVisible": false,
+      "selected": "Restaurant",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r1-home-reentry.png",
+      "pass": true
+    },
+    {
+      "step": "R2_browse_korean",
+      "url": "/stores/browse/restaurant?sub=korean",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r2-browse.png"
+    },
+    {
+      "step": "R2_browse_to_home",
+      "url": "/stores",
+      "secondaryVisible": false,
+      "selected": "Restaurant",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r2-home.png",
+      "pass": true
+    },
+    {
+      "step": "R3_store_detail",
+      "url": "/stores/jtv-4cd1e71c",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r3-detail.png"
+    },
+    {
+      "step": "R3_store_back",
+      "storeSlug": "jtv-4cd1e71c",
+      "pass": true,
+      "detailUrl": "/stores/jtv-4cd1e71c",
+      "originRaw": "{\"primarySlug\":\"restaurant\",\"subSlug\":\"korean\",\"saved_at\":1787537659373}",
+      "origin": {
+        "primarySlug": "restaurant",
+        "subSlug": "korean",
+        "saved_at": 1787537659373
+      },
+      "note": "origin_committed_no_cta_in_dom",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r3-back.png"
+    },
+    {
+      "step": "R4_same_store_other_origin",
+      "storeSlug": "jtv-4cd1e71c",
+      "pass": true,
+      "originRaw": "{\"primarySlug\":\"cafe\",\"subSlug\":\"dessert\",\"saved_at\":1787537662900}",
+      "usedCardTap": false,
+      "origin": {
+        "primarySlug": "cafe",
+        "subSlug": "dessert",
+        "saved_at": 1787537662900
+      },
+      "note": "origin_latest_entry_no_cta_in_dom",
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/stores-category-lifecycle-root-fix/r4-back.png"
+    }
+  ],
+  "summary": {
+    "R1": "PASS",
+    "R2": "PASS",
+    "R3": "PASS",
+    "R4": "PASS"
+  }
+}

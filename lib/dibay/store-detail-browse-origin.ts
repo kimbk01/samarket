@@ -1,8 +1,13 @@
 import { STORES_BROWSE_SUB_ALL } from "@/components/stores/browse/stores-browse-paths";
 
 /**
- * browse → 매장 상세 진입 시 1·2차 업종을 기억해
- * 상세 뒤로가기가 동일 browse 목록(`?sub=`)으로 복귀하게 한다.
+ * browse → 매장 상세 진입 시 **이번 entry** 의 1·2차 업종을 기록해
+ * 상세 「목록으로」가 직전 browse 목록으로 복귀하게 한다.
+ *
+ * CONTRACT:
+ * - LATEST ENTRY WINS — store card 탭마다 current browse origin 으로 ALWAYS overwrite
+ * - TTL(45s) = stale navigation fallback 폐기만 (overwrite 금지 근거 아님)
+ * - browse URL 이 아닌 진입(홈 피드 등)은 origin clear → DB/businessType fallback
  */
 
 const KEY_PREFIX = "dibay:store-detail-browse-origin:";
@@ -43,6 +48,34 @@ export function writeStoreDetailBrowseOrigin(
   } catch {
     /* quota */
   }
+}
+
+export function clearStoreDetailBrowseOrigin(storeSlug: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  const slug = storeSlug.trim();
+  if (!slug) return;
+  try {
+    sessionStorage.removeItem(ssKey(slug));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Detail entry commit — pathname browse primary 가 있으면 overwrite, 없으면 stale clear.
+ * DO NOT: existing origin 유지 / write skip.
+ */
+export function commitStoreDetailBrowseOriginForEntry(
+  storeSlug: string,
+  pathname: string,
+  search: string,
+): void {
+  const primary = parseBrowsePrimarySlugFromPathname(pathname);
+  if (primary) {
+    writeStoreDetailBrowseOrigin(storeSlug, primary, parseBrowseSubSlugFromSearch(search));
+    return;
+  }
+  clearStoreDetailBrowseOrigin(storeSlug);
 }
 
 export function readStoreDetailBrowseOrigin(storeSlug: string): StoreDetailBrowseOrigin | null {

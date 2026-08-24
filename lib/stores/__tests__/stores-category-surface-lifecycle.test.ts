@@ -3,9 +3,11 @@ import {
   beginBrowsePrimaryPendingNav,
   resetBrowsePrimaryPendingNavForTests,
   resolveBrowsePrimaryTabActiveSlug,
+  getBrowsePrimaryPendingNavSnapshot,
 } from "@/lib/stores/browse-primary-tab-navigation";
 import {
   beginBrowseSubPendingNav,
+  getBrowseSubPendingNavSnapshot,
   resetBrowseSubPendingNavForTests,
 } from "@/lib/stores/browse-sub-chip-navigation";
 import {
@@ -13,9 +15,10 @@ import {
   resetBrowseSubtopicCollapseChromeForSessionExit,
   resetBrowseSubtopicCollapseChromeStateForTests,
 } from "@/lib/stores/browse-subtopic-collapse-chrome";
+import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
 import {
   applyStoresCategorySurfaceTransition,
-  clearBrowseCategorySession,
+  isNonStoresSurfacePath,
   isStoresBrowseSurfacePath,
   isStoresHomeSurfacePath,
 } from "@/lib/stores/stores-category-surface-lifecycle";
@@ -34,11 +37,13 @@ const restaurantSubs = [
   { id: "t2", slug: "chinese", name: "중식", store_category_id: "c1", sort_order: 1 },
 ];
 const cafeSubs = [{ id: "t3", slug: "dessert", name: "디저트", store_category_id: "c2", sort_order: 0 }];
+const martSubs = [{ id: "t4", slug: "korean-mart", name: "한인마트", store_category_id: "c3", sort_order: 0 }];
 const primaries = [
   { id: "c1", slug: "restaurant", name: "식당", sort_order: 0 },
   { id: "c2", slug: "cafe", name: "카페", sort_order: 1 },
+  { id: "c3", slug: "mart", name: "마트", sort_order: 2 },
 ];
-const allTopics = [...restaurantSubs, ...cafeSubs];
+const allTopics = [...restaurantSubs, ...cafeSubs, ...martSubs];
 
 function seedHomeTaxonomyReady() {
   patchStoresHomeCategoryChrome({
@@ -49,6 +54,13 @@ function seedHomeTaxonomyReady() {
     language: "ko",
     primaryAriaLabel: "primary",
   });
+}
+
+function expectHomeBaseline() {
+  const snap = getStoresHomeCategoryChromeSnapshot();
+  expect(snap.pickedSlug).toBeNull();
+  expect(snap.activeSlug).toBe(STORES_HOME_BASELINE_PRIMARY);
+  expect(deriveHomeSecondaryReveal(snap)).toBe(false);
 }
 
 describe("stores-category-surface-lifecycle", () => {
@@ -64,15 +76,18 @@ describe("stores-category-surface-lifecycle", () => {
     expect(isStoresHomeSurfacePath("/stores/")).toBe(true);
     expect(isStoresBrowseSurfacePath("/stores/browse/restaurant")).toBe(true);
     expect(isStoresHomeSurfacePath("/stores/browse/restaurant")).toBe(false);
+    expect(isNonStoresSurfacePath("/community-messenger")).toBe(true);
+    expect(isNonStoresSurfacePath("/mypage")).toBe(true);
+    expect(isNonStoresSurfacePath("/market")).toBe(true);
+    expect(isNonStoresSurfacePath("/stores")).toBe(false);
+    expect(isNonStoresSurfacePath("/stores/browse/cafe")).toBe(false);
+    expect(isNonStoresSurfacePath("/stores/aa11")).toBe(false);
   });
 
   describe("H1 — HOME INITIAL", () => {
     it("baseline active restaurant, picked null, secondary hidden", () => {
       seedHomeTaxonomyReady();
-      const snap = getStoresHomeCategoryChromeSnapshot();
-      expect(snap.activeSlug).toBe(STORES_HOME_BASELINE_PRIMARY);
-      expect(snap.pickedSlug).toBeNull();
-      expect(deriveHomeSecondaryReveal(snap)).toBe(false);
+      expectHomeBaseline();
     });
   });
 
@@ -109,20 +124,51 @@ describe("stores-category-surface-lifecycle", () => {
     });
   });
 
-  describe("H5 — BROWSE → HOME", () => {
-    it("HOME→BROWSE resets home session; browse exit clears pending", () => {
+  describe("T1 — HOME LEAVE (HOME → NON-STORES → HOME)", () => {
+    it("mart selection does not survive non-stores round-trip", () => {
       seedHomeTaxonomyReady();
-      selectHomePrimary("restaurant");
+      selectHomePrimary("mart");
+      expect(getStoresHomeCategoryChromeSnapshot().pickedSlug).toBe("mart");
+
+      applyStoresCategorySurfaceTransition("/stores", "/community-messenger");
+      expectHomeBaseline();
+      expect(getBrowsePrimaryPendingNavSnapshot()).toBeNull();
+
+      applyStoresCategorySurfaceTransition("/community-messenger", "/stores");
+      expectHomeBaseline();
+    });
+  });
+
+  describe("T2 — BROWSE → HOME", () => {
+    it("resets HOME baseline and clears browse pending; does not promote browse category", () => {
+      seedHomeTaxonomyReady();
       applyStoresCategorySurfaceTransition("/stores", "/stores/browse/restaurant");
-      const homeAfterLeave = getStoresHomeCategoryChromeSnapshot();
-      expect(homeAfterLeave.pickedSlug).toBeNull();
-      expect(homeAfterLeave.activeSlug).toBe(STORES_HOME_BASELINE_PRIMARY);
-      expect(deriveHomeSecondaryReveal(homeAfterLeave)).toBe(false);
+      expectHomeBaseline();
 
       beginBrowsePrimaryPendingNav("restaurant");
       beginBrowseSubPendingNav("restaurant", "korean");
-      applyStoresCategorySurfaceTransition("/stores/browse/restaurant", "/stores");
-      expect(getStoresHomeCategoryChromeSnapshot().pickedSlug).toBeNull();
+      selectHomePrimary("mart");
+
+      applyStoresCategorySurfaceTransition("/stores/browse/restaurant?sub=korean", "/stores");
+      expectHomeBaseline();
+      expect(getBrowsePrimaryPendingNavSnapshot()).toBeNull();
+      expect(getBrowseSubPendingNavSnapshot()).toBeNull();
+    });
+  });
+
+  describe("T3 — BROWSE PRIMARY CHANGE", () => {
+    it("primary tab destination is always sub=all", () => {
+      expect(storesBrowseAllPath("cafe")).toBe("/stores/browse/cafe?sub=all");
+      expect(storesBrowseAllPath("restaurant")).toBe("/stores/browse/restaurant?sub=all");
+    });
+  });
+
+  describe("H5 — HOME → BROWSE", () => {
+    it("resets home session on leave to browse", () => {
+      seedHomeTaxonomyReady();
+      selectHomePrimary("restaurant");
+      applyStoresCategorySurfaceTransition("/stores", "/stores/browse/restaurant");
+      expectHomeBaseline();
     });
   });
 

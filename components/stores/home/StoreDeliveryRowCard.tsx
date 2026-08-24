@@ -36,11 +36,7 @@ import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
-import {
-  parseBrowsePrimarySlugFromPathname,
-  writeStoreDetailBrowseOrigin,
-  parseBrowseSubSlugFromSearch,
-} from "@/lib/dibay/store-detail-browse-origin";
+import { commitStoreDetailBrowseOriginForEntry } from "@/lib/dibay/store-detail-browse-origin";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
 import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
 import { useDeliverySurfaceLifecycle } from "@/components/delivery/presentation/DeliverySurfaceLifecycle";
@@ -474,17 +470,12 @@ function StoreDeliveryRowCardInner({
       const href = buildStoreDetailHref(data.slug, focusProductId);
       if (focusProductId) armStoreMenuFocusEntryIntent(focusProductId);
       saveDeliveryListScrollBeforeStoreNavigation();
-      const browsePrimary =
-        data.browsePrimarySlug?.trim() ||
-        (typeof window !== "undefined"
-          ? parseBrowsePrimarySlugFromPathname(window.location.pathname)
-          : null);
-      if (browsePrimary) {
-        const browseSub =
-          typeof window !== "undefined"
-            ? parseBrowseSubSlugFromSearch(window.location.search)
-            : "all";
-        writeStoreDetailBrowseOrigin(data.slug, browsePrimary, browseSub);
+      if (typeof window !== "undefined") {
+        commitStoreDetailBrowseOriginForEntry(
+          data.slug,
+          window.location.pathname,
+          window.location.search,
+        );
       }
       writeStoreDetailListSeed({
         slug: data.slug,

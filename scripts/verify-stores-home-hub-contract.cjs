@@ -1263,9 +1263,34 @@ assertIncludes(
   "category surface lifecycle must clear browse session on BROWSE exit"
 );
 assertIncludes(
+  surfaceLifecycle,
+  "isNonStoresSurfacePath",
+  "category surface lifecycle must classify NON-STORES paths"
+);
+assertIncludes(
+  surfaceLifecycle,
+  "wasHome && isNonStores",
+  "category surface lifecycle must reset HOME on HOME→NON-STORES"
+);
+assertIncludes(
+  surfaceLifecycle,
+  "wasBrowse && isHome",
+  "category surface lifecycle must reset HOME on BROWSE→HOME"
+);
+assertIncludes(
   deliveryShell,
   "applyStoresCategorySurfaceTransition",
   "delivery shell must wire category surface lifecycle"
+);
+assertIncludes(
+  read("components/layout/MainAppProviders.tsx"),
+  "StoresCategoryLifecycleBridge",
+  "main app providers must mount category lifecycle bridge for NON-STORES"
+);
+assertIncludes(
+  read("components/stores/StoresCategoryLifecycleBridge.tsx"),
+  "applyStoresCategorySurfaceTransition",
+  "category lifecycle bridge must call surface transition authority"
 );
 assertIncludes(
   deliveryShell,

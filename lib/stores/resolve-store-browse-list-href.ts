@@ -55,7 +55,8 @@ function normalizePrimarySlug(candidate: string | null | undefined): string {
 }
 
 /**
- * 매장 상세 뒤로가기 — browse 진입 시 저장한 1·2차 업종 목록으로 복귀.
+ * 매장 상세 뒤로가기 — **이번 detail entry** 에서 기록한 1·2차 browse 목록으로 복귀.
+ * session 은 LATEST ENTRY WINS (stale past visit 이 아님).
  */
 export function resolveStoreBrowseListHref(input: StoreBrowseListHrefInput): string {
   const slug = input.storeSlug?.trim();
