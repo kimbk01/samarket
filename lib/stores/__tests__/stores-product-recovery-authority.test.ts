@@ -34,6 +34,18 @@ describe("HOME + CATEGORY product recovery authority", () => {
     }
   });
 
+  it("keeps PRODUCT / STORE / BRAND default presentations distinct", () => {
+    const product = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "order_now")!;
+    const store = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "main_stores")!;
+    const brand = STORES_HOME_SHELF_PRODUCT_CATALOG.find((s) => s.shelfId === "promo_campaign")!;
+    expect(product.defaultProductConfig.entityType).toBe("product");
+    expect(product.defaultPresentation).toBe("food_horizontal");
+    expect(store.defaultProductConfig.entityType).toBe("store");
+    expect(store.defaultPresentation).toBe("timesale_vertical");
+    expect(brand.defaultProductConfig.entityType).toBe("brand");
+    expect(brand.defaultPresentation).toBe("brand_circular");
+  });
+
   it("resolves store imageSource authority", () => {
     const store = {
       id: "s1",
@@ -228,5 +240,70 @@ describe("HOME + CATEGORY product recovery authority", () => {
     });
     expect(plan.organicIds).toEqual(organic);
     expect(plan.rows.filter((r) => r.kind === "organic").map((r) => r.storeId)).toEqual(organic);
+  });
+
+  it("rejects duplicate HOME writer and deletes inherit stubs in Admin/API source", () => {
+    const fs = require("node:fs") as typeof import("node:fs");
+    const path = require("node:path") as typeof import("node:path");
+    const root = path.join(__dirname, "../../..");
+    const compositionPut = fs.readFileSync(
+      path.join(root, "app/api/admin/stores-composition-policy/route.ts"),
+      "utf8"
+    );
+    const categoryApi = fs.readFileSync(
+      path.join(root, "app/api/admin/stores-category-policy/route.ts"),
+      "utf8"
+    );
+    const categoryAdmin = fs.readFileSync(
+      path.join(root, "components/admin/stores/AdminStoresCategoryPolicyPage.tsx"),
+      "utf8"
+    );
+    const slotSection = fs.readFileSync(
+      path.join(root, "components/stores/home/hub/StoresHomeCompositionSlotSection.tsx"),
+      "utf8"
+    );
+    const foodCard = fs.readFileSync(
+      path.join(root, "components/stores/home/presentation/StoresHomeFoodRailCard.tsx"),
+      "utf8"
+    );
+    expect(compositionPut).toContain("use_stores_home_shelves");
+    expect(categoryApi).toContain("isBrowseScopeSubOverrideRow");
+    expect(categoryApi).toContain("deleteScopeKeys");
+    expect(categoryAdmin).toContain("deleteScopeKeys");
+    expect(categoryAdmin).toMatch(/mode === ["']inherit["']/);
+    expect(slotSection).toContain("benefit={benefit}");
+    expect(foodCard).toContain("benefit?.imageBadgeLabel");
+    expect(foodCard).toContain("benefit?.benefitLine");
+    for (const rel of [
+      "components/stores/home/hub/StoresHomeInsertionRails.tsx",
+      "components/stores/browse/StoreBrowseInsertionRowCards.tsx",
+      "components/admin/stores/AdminStoresCompositionPolicyPage.tsx",
+    ]) {
+      expect(fs.existsSync(path.join(root, rel))).toBe(false);
+    }
+  });
+
+  it("Admin reload mode matches override detector (stub row → null → inherit)", () => {
+    const stub: StoresBrowseScopePolicyRow = {
+      scopeKey: "restaurant/chinese",
+      primarySlug: "restaurant",
+      subSlug: "chinese",
+      enabled: true,
+      displayTitleKo: null,
+      displayTitleEn: null,
+      adEnabled: "inherit",
+      couponEnabled: "inherit",
+      maxInsertion: null,
+      intervalEveryN: null,
+      presentationMode: "inherit",
+      scheduleStart: null,
+      scheduleEnd: null,
+      productConfig: {},
+    };
+    /** Same rule as category-policy GET: expose row only when override. */
+    const apiRow = isBrowseScopeSubOverrideRow(stub) ? stub : null;
+    expect(apiRow).toBeNull();
+    const adminMode = apiRow != null ? "override" : "inherit";
+    expect(adminMode).toBe("inherit");
   });
 });
