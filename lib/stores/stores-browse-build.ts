@@ -422,6 +422,13 @@ export type StoresBrowseResponseBody = {
     ranking_authority?: "old" | "new";
     /** sort=rating Bayesian policy status */
     rating_confidence?: StoreRatingConfidenceLoadStatus;
+    compositionEngine?: "live";
+    browseInsertion?: {
+      organicIds: string[];
+      rows: unknown[];
+      adCount: number;
+      couponCount: number;
+    };
   };
 };
 

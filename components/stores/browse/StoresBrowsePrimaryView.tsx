@@ -40,6 +40,11 @@ import {
   browseItemToRowCard,
   type StoreRowCardData,
 } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
+import {
+  StoreBrowseInsertionCouponCard,
+  StoreBrowseInsertionPaidAdCard,
+} from "@/components/stores/browse/StoreBrowseInsertionRowCards";
+import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { storeRowCardDataEqual } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
@@ -145,6 +150,9 @@ export function StoresBrowsePrimaryView({
     if (typeof window === "undefined") return null;
     return readInitialBrowseListSessionSnapshot()?.source ?? null;
   });
+  const [browseInsertionRows, setBrowseInsertionRows] = useState<StoresBrowseInsertionMetaRow[] | null>(
+    null
+  );
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -436,11 +444,17 @@ export function StoresBrowsePrimaryView({
         const j = json as {
           ok?: boolean;
           stores?: unknown;
-          meta?: { source?: string; delivery_ride_time_source?: string };
+          meta?: {
+            source?: string;
+            delivery_ride_time_source?: string;
+            browseInsertion?: { rows?: StoresBrowseInsertionMetaRow[] };
+          };
         };
         const src = j?.meta?.source;
         const rideSrc = j?.meta?.delivery_ride_time_source?.trim();
         if (rideSrc) setDeliveryRideTimeSource(rideSrc);
+        const insertionRows = j?.meta?.browseInsertion?.rows;
+        setBrowseInsertionRows(Array.isArray(insertionRows) ? insertionRows : null);
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
@@ -645,6 +659,44 @@ export function StoresBrowsePrimaryView({
     return reconciled;
   }, [sortedRemoteRows]);
 
+  const storeSlugById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of sortedRemoteRows ?? []) {
+      map.set(row.id, row.slug);
+    }
+    return map;
+  }, [sortedRemoteRows]);
+
+  const browseListRenderItems = useMemo(() => {
+    if (!browseInsertionRows?.length) {
+      return storeDeliveryRowDataList.map((data) => ({
+        key: data.slug,
+        kind: "organic" as const,
+        data,
+      }));
+    }
+    const storeById = new Map((sortedRemoteRows ?? []).map((s) => [s.id, s]));
+    const items: Array<
+      | { key: string; kind: "organic"; data: StoreRowCardData }
+      | { key: string; kind: "paid_ad"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "paid_ad" }> }
+      | { key: string; kind: "coupon"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "coupon" }> }
+    > = [];
+    for (const row of browseInsertionRows) {
+      if (row.kind === "organic") {
+        const store = storeById.get(row.storeId);
+        if (!store) continue;
+        items.push({ key: row.storeId, kind: "organic", data: browseItemToRowCard(store) });
+        continue;
+      }
+      if (row.kind === "paid_ad") {
+        items.push({ key: `ad-${row.campaignId}`, kind: "paid_ad", row });
+        continue;
+      }
+      items.push({ key: `coupon-${row.campaignId}`, kind: "coupon", row });
+    }
+    return items;
+  }, [browseInsertionRows, sortedRemoteRows, storeDeliveryRowDataList]);
+
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -748,14 +800,34 @@ export function StoresBrowsePrimaryView({
               width: "calc(100% + 2 * var(--delivery-page-x))",
             }}
           >
-            {storeDeliveryRowDataList.map((data) => (
-              <StoreBrowseCategoryRowCard
-                key={data.slug}
-                data={data}
-                locale={language}
-                deliveryRideTimeSource={deliveryRideTimeSource}
-              />
-            ))}
+            {browseListRenderItems.map((item) => {
+              if (item.kind === "organic") {
+                return (
+                  <StoreBrowseCategoryRowCard
+                    key={item.key}
+                    data={item.data}
+                    locale={language}
+                    deliveryRideTimeSource={deliveryRideTimeSource}
+                  />
+                );
+              }
+              if (item.kind === "paid_ad") {
+                return (
+                  <StoreBrowseInsertionPaidAdCard
+                    key={item.key}
+                    row={item.row}
+                    storeSlug={storeSlugById.get(item.row.storeId)}
+                  />
+                );
+              }
+              return (
+                <StoreBrowseInsertionCouponCard
+                  key={item.key}
+                  row={item.row}
+                  storeSlug={storeSlugById.get(item.row.storeId)}
+                />
+              );
+            })}
           </ul>
         : showEmptyBlock ?
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">

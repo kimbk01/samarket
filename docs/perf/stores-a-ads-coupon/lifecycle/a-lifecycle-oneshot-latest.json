@@ -1,0 +1,225 @@
+{
+  "measuredAt": "2026-08-24T01:00:37.108Z",
+  "base": "http://127.0.0.1:3000",
+  "fixtureStoreId": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+  "migration": "PASS",
+  "gates": {
+    "ADMIN_MENU": "PASS",
+    "COMPOSITION_ENABLE": "PASS",
+    "ADS_CREATE": "PASS",
+    "ADS_ACTIVE": "PASS",
+    "ADS_CUSTOMER_DOM": "PASS",
+    "ADS_EDIT_REFLECTION": "PASS",
+    "ADS_DEACTIVATE": "PASS",
+    "ADS_REMOVAL": "PASS",
+    "COUPON_CREATE": "PASS",
+    "COUPON_ACTIVE": "PASS",
+    "COUPON_CUSTOMER_DOM": "PASS",
+    "COUPON_CHECKOUT": "FAIL",
+    "COUPON_SERVER_FINANCIAL": "NOT_RUN",
+    "COUPON_ORDER_SNAPSHOT": "NOT_RUN",
+    "COUPON_REDEMPTION": "NOT_RUN",
+    "COUPON_INVALID_REJECT": "NOT_RUN",
+    "COUPON_EXPIRED_REJECT": "NOT_RUN",
+    "COUPON_DEACTIVATE": "NOT_RUN",
+    "COUPON_REMOVAL": "NOT_RUN",
+    "ORGANIC_ORDER": "NOT_RUN",
+    "RESTORE": "NOT_RUN"
+  },
+  "steps": [
+    {
+      "gate": "ADMIN_MENU",
+      "status": "PASS",
+      "detail": {
+        "owner": "Admin",
+        "menuClicked": true,
+        "headingOk": true,
+        "url": "http://127.0.0.1:3000/admin/store-insertions",
+        "bodySnippet": "dibaY Admin\nHOME\nCommon\nCommunity\nTrade\nDelivery\nChat\nSystem\nKorean\nEnglish\nTest: env default\n▼\nMASTER\nHomepage\n10\nDelivery\nBusinesses\nPOLICIES\n▼\nSTORE SETTINGS\n▼\nOPERATIONS\n▲\nOnboarding review\nStore campaigns\nAds & coupons\nComposition policy\nMenu & product review\nOrder operations\n▼\nOps console\nOps stats\nRiders\nOps alerts\nAction queue\nAuto actions\nPayment events\nMANAGEMENT\n▼\nPLATFORM\n▼\nMASTER\nDelivery\n/\nOperations\n/\nAds & coupons\n‹\nAds & coupon management\n\nCreate, edit, and deactivate store paid ads and coupon campaigns.\n\nRefresh\n1. Paid ads\nRefresh paid ads\nCreate, edit, deactivate\nCreate pai",
+        "note": "sidebar_click_from_delivery_ops"
+      }
+    },
+    {
+      "gate": "COMPOSITION_ENABLE",
+      "status": "PASS",
+      "detail": {
+        "owner": "composition_policy",
+        "pol": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "gate": "ADS_CREATE",
+      "status": "PASS",
+      "detail": {
+        "owner": "API",
+        "status": 201,
+        "json": {
+          "ok": true,
+          "campaign": {
+            "id": "4c1315c4-a1c3-4246-95f1-d881fe2f6dfd",
+            "store_id": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+            "placement": "stores_home",
+            "title": "A-LIFE-1787533215529-AD",
+            "headline": "A-LIFE-1787533215529-HL",
+            "body_copy": "A lifecycle ad",
+            "image_url": null,
+            "start_at": "2026-08-24T00:59:15.529+00:00",
+            "end_at": "2026-08-24T03:00:15.529+00:00",
+            "is_active": true,
+            "created_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "updated_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "created_at": "2026-08-24T01:00:29.627+00:00",
+            "updated_at": "2026-08-24T01:00:29.627+00:00"
+          }
+        }
+      }
+    },
+    {
+      "gate": "ADS_ACTIVE",
+      "status": "PASS",
+      "detail": {
+        "owner": "API",
+        "computed_state": "active"
+      }
+    },
+    {
+      "gate": "ADS_CUSTOMER_DOM",
+      "status": "PASS",
+      "detail": {
+        "owner": "customer DOM/meta",
+        "paidAdIds": [
+          "4c1315c4-a1c3-4246-95f1-d881fe2f6dfd"
+        ],
+        "status": 200
+      }
+    },
+    {
+      "gate": "ADS_EDIT_REFLECTION",
+      "status": "PASS",
+      "detail": {
+        "owner": "loader",
+        "reflected": true,
+        "patch": {
+          "ok": true,
+          "campaign": {
+            "id": "4c1315c4-a1c3-4246-95f1-d881fe2f6dfd",
+            "store_id": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+            "placement": "stores_home",
+            "title": "A-LIFE-1787533215529-AD-EDIT",
+            "headline": "A-LIFE-1787533215529-HL-EDIT",
+            "body_copy": "A lifecycle ad",
+            "image_url": null,
+            "start_at": "2026-08-24T00:59:15.529+00:00",
+            "end_at": "2026-08-24T03:00:15.529+00:00",
+            "is_active": true,
+            "created_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "updated_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "created_at": "2026-08-24T01:00:29.627+00:00",
+            "updated_at": "2026-08-24T01:00:33.494+00:00"
+          }
+        }
+      }
+    },
+    {
+      "gate": "ADS_DEACTIVATE",
+      "status": "PASS",
+      "detail": {
+        "owner": "API",
+        "json": {
+          "ok": true,
+          "campaign": {
+            "id": "4c1315c4-a1c3-4246-95f1-d881fe2f6dfd",
+            "store_id": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+            "placement": "stores_home",
+            "title": "A-LIFE-1787533215529-AD-EDIT",
+            "headline": "A-LIFE-1787533215529-HL-EDIT",
+            "body_copy": "A lifecycle ad",
+            "image_url": null,
+            "start_at": "2026-08-24T00:59:15.529+00:00",
+            "end_at": "2026-08-24T03:00:15.529+00:00",
+            "is_active": false,
+            "created_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "updated_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "created_at": "2026-08-24T01:00:29.627+00:00",
+            "updated_at": "2026-08-24T01:00:34.591+00:00"
+          }
+        }
+      }
+    },
+    {
+      "gate": "ADS_REMOVAL",
+      "status": "PASS",
+      "detail": {
+        "owner": "loader",
+        "adGone": true
+      }
+    },
+    {
+      "gate": "COUPON_CREATE",
+      "status": "PASS",
+      "detail": {
+        "owner": "API",
+        "status": 201,
+        "json": {
+          "ok": true,
+          "campaign": {
+            "id": "5a271cdf-7020-4e39-8172-a93ebf796a67",
+            "store_id": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+            "title": "A-LIFE-1787533215529-CPN",
+            "discount_type": "fixed_amount",
+            "discount_value": 50,
+            "min_order_amount": 100,
+            "terms_copy": "A lifecycle coupon",
+            "start_at": "2026-08-24T00:59:15.529+00:00",
+            "end_at": "2026-08-24T03:00:15.529+00:00",
+            "is_active": true,
+            "created_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "updated_by_user_id": "11111111-1111-1111-1111-111111111111",
+            "created_at": "2026-08-24T01:00:35.774+00:00",
+            "updated_at": "2026-08-24T01:00:35.774+00:00"
+          }
+        }
+      }
+    },
+    {
+      "gate": "COUPON_ACTIVE",
+      "status": "PASS",
+      "detail": {
+        "owner": "API",
+        "computed_state": "active"
+      }
+    },
+    {
+      "gate": "COUPON_CUSTOMER_DOM",
+      "status": "PASS",
+      "detail": {
+        "owner": "loader",
+        "couponIds": [
+          "5a271cdf-7020-4e39-8172-a93ebf796a67"
+        ]
+      }
+    },
+    {
+      "gate": "COUPON_CHECKOUT",
+      "status": "FAIL",
+      "detail": {
+        "owner": "DB",
+        "error": "no_product"
+      }
+    }
+  ],
+  "firstDivergence": {
+    "gate": "COUPON_CHECKOUT",
+    "owner": "DB",
+    "detail": {
+      "owner": "DB",
+      "error": "no_product"
+    }
+  },
+  "organicBeforeLen": 0,
+  "organicAfterLen": 0,
+  "ok": false,
+  "A": "NOT_CLOSED"
+}

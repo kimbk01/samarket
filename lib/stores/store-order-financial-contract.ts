@@ -4,10 +4,10 @@
  * Checkout (`validateStoreOrderCheckout` → `createStoreOrderAtomic`):
  *   item_gross     = Σ store_order_items.subtotal
  *   delivery_fee   = store_orders.delivery_fee_amount
- *   discount       = NOT_SUPPORTED (create always writes discount_amount=0)
- *   coupon         = NOT_SUPPORTED on store checkout
+ *   discount       = store_orders.discount_amount (Stores A coupon at checkout)
+ *   coupon         = store_coupon_campaigns + store_coupon_redemptions (server authority)
  *   customer_dpoint= NOT_SUPPORTED on store checkout
- *   payment_amount = item_gross + delivery_fee
+ *   payment_amount = item_gross + delivery_fee - discount_amount
  *
  * Commission recognition (order_status → completed):
  *   commission_base = store_orders.payment_amount (includes delivery_fee)
@@ -36,10 +36,10 @@
 export const STORE_ORDER_FINANCIAL_CONTRACT = {
   commissionBaseField: "store_orders.payment_amount",
   commissionBaseIncludesDeliveryFee: true,
-  customerCouponSupported: false as const,
+  customerCouponSupported: true as const,
   customerDPointSupported: false as const,
-  storeCheckoutDiscountSupported: false as const,
-  discountAtCreateAlwaysZero: true,
+  storeCheckoutDiscountSupported: true as const,
+  discountAtCreateAlwaysZero: false,
   roundingRule: "floor_percent_of_integer_php" as const,
   recognitionStatus: "completed" as const,
   /** Settlement list / Owner·Admin settlement filters default axis */

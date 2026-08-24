@@ -39,6 +39,10 @@ import {
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
+import {
+  recordStoreCouponRedemption,
+  resolveStoreCouponCheckoutDiscount,
+} from "@/lib/stores/resolve-store-coupon-checkout-discount";
 import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
 import { evaluateDeliveryServiceability } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
@@ -176,6 +180,7 @@ type PostBody = {
   delivery_user_address_id?: string;
   delivery_note?: string;
   client_order_key?: string;
+  coupon_campaign_id?: string;
 };
 
 type DeliveryAddressOrderSnapshot = {
@@ -297,7 +302,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { lines, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
+  const { lines, deliveryFeeAmount, paymentGrandTotal, paymentTotal, productsById } = validated;
+
+  const couponCampaignId = String(body.coupon_campaign_id ?? "").trim();
+  let discountAmount = 0;
+  if (couponCampaignId) {
+    const couponResult = await resolveStoreCouponCheckoutDiscount({
+      sb,
+      buyerUserId: buyerId,
+      storeId,
+      couponCampaignId,
+      itemGrossPhp: Math.round(paymentTotal),
+    });
+    if (!couponResult.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: couponResult.error,
+          ...(couponResult.min_order_amount != null
+            ? { min_order_amount: couponResult.min_order_amount }
+            : {}),
+        },
+        { status: couponResult.status }
+      );
+    }
+    discountAmount = couponResult.discountAmount;
+  }
+  const paymentAfterDiscount = Math.max(0, Math.round(paymentGrandTotal - discountAmount));
 
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =
@@ -478,8 +509,8 @@ export async function POST(req: NextRequest) {
     order: {
       order_no: orderNo,
       total_amount: Math.round(paymentGrandTotal),
-      discount_amount: 0,
-      payment_amount: Math.round(paymentGrandTotal),
+      discount_amount: Math.round(discountAmount),
+      payment_amount: Math.round(paymentAfterDiscount),
       delivery_fee_amount: Math.round(deliveryFeeAmount),
       delivery_courier_label: deliveryCourierLabel,
       payment_status: "paid",
@@ -541,6 +572,20 @@ export async function POST(req: NextRequest) {
   const orderId = atomic.order.id;
   const resolvedOrderNo = atomic.order.order_no || orderNo;
   const paymentAmount = atomic.order.payment_amount;
+
+  if (!atomic.idempotent && couponCampaignId && discountAmount > 0) {
+    const redemption = await recordStoreCouponRedemption({
+      sb,
+      campaignId: couponCampaignId,
+      storeId,
+      buyerUserId: buyerId,
+      orderId,
+      discountAmount,
+    });
+    if (!redemption.ok) {
+      console.error("[POST /api/me/store-orders] coupon redemption", redemption.error);
+    }
+  }
 
   if (atomic.idempotent) {
     return NextResponse.json({

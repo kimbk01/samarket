@@ -24,6 +24,7 @@ import { adminDevSprintMessages } from "./admin-dev-sprint";
 import { adminOperationsHubMessages } from "./admin-operations-hub";
 import { adminMiscMessages } from "./admin-misc";
 import { adminStoreDiscoveryMessages } from "./admin-store-discovery";
+import { adminStoreInsertionsMessages } from "./admin-store-insertions";
 import { adminStoresCompositionMessages } from "./admin-stores-composition";
 
 export const adminMessages = {
@@ -2706,6 +2707,7 @@ export const adminMessages = {
     ...adminOperationsHubMessages.ko,
     ...adminMiscMessages.ko,
     ...adminStoreDiscoveryMessages.ko,
+    ...adminStoreInsertionsMessages.ko,
     ...adminStoresCompositionMessages.ko,
   },
   en: {
@@ -5361,6 +5363,7 @@ export const adminMessages = {
     ...adminOperationsHubMessages.en,
     ...adminMiscMessages.en,
     ...adminStoreDiscoveryMessages.en,
+    ...adminStoreInsertionsMessages.en,
     ...adminStoresCompositionMessages.en,
   },
   

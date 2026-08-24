@@ -41,7 +41,7 @@ export type StoresCompositionTitleAuthority =
  */
 export type StoresCompositionSectionContract = {
   surface: StoresCompositionSurface;
-  slot: StoresHomeSlotId | StoresBrowseCompositionSlotId;
+  slot: StoresHomeSlotId | StoresBrowseCompositionSlotId | StoresHomeAInsertionSlotId;
   contentType: StoresCompositionContentType;
   enabled: boolean;
   /** Presentation section order on the surface (not Discovery ranking order). */
@@ -63,6 +63,10 @@ export const STORES_BROWSE_COMPOSITION_SLOTS = [
   "future_promoted_placement",
 ] as const;
 export type StoresBrowseCompositionSlotId = (typeof STORES_BROWSE_COMPOSITION_SLOTS)[number];
+
+/** Stores A — HOME paid insertion rails (composition policy gated). */
+export const STORES_HOME_A_INSERTION_SLOTS = ["homePaidAdInsertion", "homeCouponInsertion"] as const;
+export type StoresHomeAInsertionSlotId = (typeof STORES_HOME_A_INSERTION_SLOTS)[number];
 
 /**
  * C1 invariant — Composition MUST preserve Discovery input order within each source stream.

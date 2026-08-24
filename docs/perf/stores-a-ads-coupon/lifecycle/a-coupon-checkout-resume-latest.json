@@ -1,0 +1,122 @@
+{
+  "measuredAt": "2026-08-24T01:22:47.327Z",
+  "base": "http://127.0.0.1:3000",
+  "resumeCouponId": "5a271cdf-7020-4e39-8172-a93ebf796a67",
+  "migration": "PASS",
+  "priorAdsGates": "PASS_FROM_PREVIOUS_RUN",
+  "gates": {
+    "COUPON_CHECKOUT": "PASS",
+    "COUPON_SERVER_FINANCIAL": "PASS",
+    "COUPON_ORDER_SNAPSHOT": "PASS",
+    "COUPON_REDEMPTION": "PASS",
+    "COUPON_INVALID_REJECT": "PASS",
+    "COUPON_EXPIRED_REJECT": "PASS",
+    "COUPON_DEACTIVATE": "PASS",
+    "COUPON_REMOVAL": "PASS",
+    "ORGANIC_ORDER": "PASS",
+    "RESTORE": "PASS"
+  },
+  "steps": [
+    {
+      "gate": "COUPON_CHECKOUT",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_SERVER_FINANCIAL",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_ORDER_SNAPSHOT",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_REDEMPTION",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_INVALID_REJECT",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_EXPIRED_REJECT",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_DEACTIVATE",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "COUPON_REMOVAL",
+      "status": "PASS",
+      "detail": {
+        "owner": "prior_run"
+      }
+    },
+    {
+      "gate": "ORGANIC_ORDER",
+      "status": "PASS",
+      "detail": {
+        "owner": "Discovery",
+        "beforeLen": 6,
+        "duringLen": 6,
+        "afterLen": 6,
+        "before": [
+          "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+          "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+          "7284169f-c2bd-4096-84ad-a9314ee5260c",
+          "19085860-52d2-4183-b033-e71fcb58bcec",
+          "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+          "2b9d871e-5ea9-411a-adcc-db7ad1594a80"
+        ],
+        "during": [
+          "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+          "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+          "7284169f-c2bd-4096-84ad-a9314ee5260c",
+          "19085860-52d2-4183-b033-e71fcb58bcec",
+          "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+          "2b9d871e-5ea9-411a-adcc-db7ad1594a80"
+        ],
+        "after": [
+          "c3ad4a21-ebb4-49af-b571-a51d5833fede",
+          "cfefbb3b-3bad-4e80-83c4-aa1ae9c0400c",
+          "7284169f-c2bd-4096-84ad-a9314ee5260c",
+          "19085860-52d2-4183-b033-e71fcb58bcec",
+          "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+          "2b9d871e-5ea9-411a-adcc-db7ad1594a80"
+        ]
+      }
+    },
+    {
+      "gate": "RESTORE",
+      "status": "PASS",
+      "detail": {
+        "owner": "lifecycle",
+        "couponId": "cb42711d-a563-4368-8e07-090800f44f66"
+      }
+    }
+  ],
+  "firstDivergence": null,
+  "ok": true,
+  "A": "LOCAL_LIFECYCLE_PASS"
+}

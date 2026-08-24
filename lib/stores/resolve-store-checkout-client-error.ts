@@ -24,6 +24,13 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   delivery_customer_coords_required: "store_err_delivery_customer_coords_required",
   payment_method_required: "store_err_payment_method",
   payment_method_invalid: "store_err_payment_method",
+  coupon_not_found: "store_err_coupon_not_found",
+  coupon_inactive: "store_err_coupon_inactive",
+  coupon_expired: "store_err_coupon_expired",
+  coupon_wrong_store: "store_err_coupon_wrong_store",
+  coupon_min_order: "store_err_coupon_min_order",
+  coupon_already_redeemed: "store_err_coupon_already_redeemed",
+  invalid_discount: "store_err_coupon_invalid",
 };
 
 /** POST checkout API `error` code → localized message (client). */

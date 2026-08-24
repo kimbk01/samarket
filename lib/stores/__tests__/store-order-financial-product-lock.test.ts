@@ -7,10 +7,10 @@ import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlem
  * HELPER ONLY states are forbidden for Discount / D-Point / Partial Refund.
  */
 describe("STORE_ORDER_FINANCIAL_CONTRACT product lock", () => {
-  it("locks discount / coupon / customer D-Point / partial refund as NOT_SUPPORTED", () => {
-    expect(STORE_ORDER_FINANCIAL_CONTRACT.storeCheckoutDiscountSupported).toBe(false);
-    expect(STORE_ORDER_FINANCIAL_CONTRACT.discountAtCreateAlwaysZero).toBe(true);
-    expect(STORE_ORDER_FINANCIAL_CONTRACT.customerCouponSupported).toBe(false);
+  it("locks coupon checkout authority and forbids D-Point / partial refund", () => {
+    expect(STORE_ORDER_FINANCIAL_CONTRACT.storeCheckoutDiscountSupported).toBe(true);
+    expect(STORE_ORDER_FINANCIAL_CONTRACT.discountAtCreateAlwaysZero).toBe(false);
+    expect(STORE_ORDER_FINANCIAL_CONTRACT.customerCouponSupported).toBe(true);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.customerDPointSupported).toBe(false);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.partialRefundSupported).toBe(false);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.partialRefundProductPath).toBe(false);

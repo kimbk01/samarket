@@ -24,6 +24,7 @@ import {
   evaluateStoresBrowseRegressionGuards,
   type StoresBrowseSnapshotBreakdown,
 } from "@/lib/stores/stores-browse-snapshot-regression-guard";
+import { attachStoresBrowseInsertionMeta } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { scheduleStoresBrowseSnapshotRefresh } from "@/lib/stores/stores-browse-snapshot-refresh";
 import { enrichBrowseStoresWithPlatformPopular } from "@/lib/stores/enrich-browse-stores-platform-popular";
 import {
@@ -442,8 +443,21 @@ async function finishFromPayload(
       ranking_authority: rankingAuthority,
     },
   };
+  let bodyFinal = bodyWithAuthority;
+  try {
+    const withInsertion = await attachStoresBrowseInsertionMeta(sb, bodyWithAuthority);
+    bodyFinal = {
+      ...withInsertion,
+      meta: {
+        ...withInsertion.meta,
+        ranking_authority: rankingAuthority,
+      },
+    };
+  } catch (e) {
+    console.error("[stores-browse-snapshot] insertion meta", e);
+  }
   return {
-    body: bodyWithAuthority,
+    body: bodyFinal,
     breakdown,
     snapshotVia: input.via,
     rpcWallMs: Math.round(input.readMs),

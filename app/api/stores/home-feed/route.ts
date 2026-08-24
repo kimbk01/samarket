@@ -25,6 +25,10 @@ import {
   attachHomeFeedCompositionPolicyMeta,
   loadHomeFeedCompositionPolicyMeta,
 } from "@/lib/stores/composition/stores-composition-home-feed-meta";
+import {
+  attachHomeFeedInsertionMeta,
+  loadStoresHomeInsertionMeta,
+} from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import {
   evaluateStoreDeliveryServiceability,
@@ -126,6 +130,16 @@ type FeedRow = {
   store_categories?: RelOne | RelOne[] | null;
 };
 
+async function finalizeHomeFeedJsonPayload(
+  supabase: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  payload: { ok: true; stores: StoreHomeFeedItem[]; meta?: Record<string, unknown> }
+) {
+  const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
+  const withPolicy = attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy);
+  const insertions = await loadStoresHomeInsertionMeta(supabase).catch(() => null);
+  return attachHomeFeedInsertionMeta(withPolicy, insertions);
+}
+
 /**
  * 매장 탭 홈 피드 — 지역·거리 정렬 + 카드용 부가 필드
  */
@@ -169,7 +183,6 @@ export async function GET(req: Request) {
 
   const cached = getStoreHomeFeedCache(cacheKey);
   if (cached) {
-    const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
     const campaignRefresh = await attachDiscoveryCampaignsToHomeFeedStores(supabase, cached.stores);
     const refreshedPayload = {
       ...cached,
@@ -179,7 +192,8 @@ export async function GET(req: Request) {
         discoveryCampaigns: { status: campaignRefresh.status },
       },
     };
-    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(refreshedPayload, compositionPolicy), {
+    const finalized = await finalizeHomeFeedJsonPayload(supabase, refreshedPayload);
+    return NextResponse.json(finalized, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   }
@@ -602,8 +616,8 @@ export async function GET(req: Request) {
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);
-    const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
-    return NextResponse.json(attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy), {
+    const finalized = await finalizeHomeFeedJsonPayload(supabase, payload);
+    return NextResponse.json(finalized, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   } catch (e) {

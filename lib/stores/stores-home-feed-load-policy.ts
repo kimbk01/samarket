@@ -10,11 +10,14 @@ import {
 } from "@/lib/stores/stores-home-feed-live-store";
 
 import type { StoresHomeCompositionPolicyMeta } from "@/lib/stores/composition/stores-composition-live";
+import type { StoresHomeInsertionMeta } from "@/lib/stores/composition/stores-composition-home-insertion-meta";
 
 export type StoresHomeFeedLoadMeta = {
   source?: string;
   compositionPolicy?: StoresHomeCompositionPolicyMeta;
   compositionEngine?: "live";
+  homeInsertions?: StoresHomeInsertionMeta;
+  discoveryCampaigns?: { status?: string };
 };
 
 export type StoresHomeFeedLoadSnapshot = {

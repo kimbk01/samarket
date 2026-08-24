@@ -120,6 +120,10 @@ import {
   STORE_ADDRESS_STREET_LABEL,
 } from "@/lib/stores/store-address-form-ui";
 import { resolveStoreCheckoutClientError } from "@/lib/stores/resolve-store-checkout-client-error";
+import {
+  clearStoreCheckoutCouponSession,
+  readStoreCheckoutCouponSession,
+} from "@/lib/stores/store-checkout-coupon-session";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -290,6 +294,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     orderSummaryLabel: string;
     requestLabel: string;
   } | null>(null);
+  const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     if (!cartHydrationFirstRenderRef.current) {
@@ -409,6 +414,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       void loadStore();
     }
   }, [loadStore, storeSlug]);
+
+  useEffect(() => {
+    if (!store?.id) {
+      setAppliedCouponCampaignId(null);
+      return;
+    }
+    const session = readStoreCheckoutCouponSession(store.id);
+    setAppliedCouponCampaignId(session?.campaignId ?? null);
+  }, [store?.id]);
 
   const reloadStoreAfterOwnerMutation = useCallback(() => {
     void loadStore({ silent: true });
@@ -1415,6 +1429,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ...(fulfillment === "local_delivery" && deliveryUserAddressIdForSubmit ?
           { delivery_user_address_id: deliveryUserAddressIdForSubmit }
         : {}),
+        ...(appliedCouponCampaignId ? { coupon_campaign_id: appliedCouponCampaignId } : {}),
         client_order_key,
       });
       if (status === 401) {
@@ -1458,6 +1473,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         });
       }
       clientOrderKeyRef.current = null;
+      clearStoreCheckoutCouponSession();
+      setAppliedCouponCampaignId(null);
       const placed = orderJson.order;
       if (
         oid &&
