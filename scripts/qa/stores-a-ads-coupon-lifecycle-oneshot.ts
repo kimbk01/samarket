@@ -9,6 +9,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { chromium, type Browser, type Page } from "playwright";
+import { parseProductOptionsJson } from "@/lib/stores/modifiers/parse-json";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+
+function productNeedsRequiredOptions(optionsJson: unknown): boolean {
+  return parseProductOptionsJson(optionsJson).some((g) => {
+    const min = Number(g.minSelect ?? 0);
+    const required = g.isRequired === true;
+    return (Number.isFinite(min) && min > 0) || required;
+  });
+}
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = (process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
@@ -450,9 +460,28 @@ async function main() {
     mark("ADS_REMOVAL", adGone ? "PASS" : "FAIL", { owner: "loader", adGone });
     if (!adGone) throw new Error("ADS_REMOVAL");
 
-    // COUPON CREATE
+    // COUPON CREATE — mint on storeId that has option-free checkout SKU when possible
+    {
+      const { data: sameStore } = await sb
+        .from("store_products")
+        .select("id, price, discount_price, product_status, store_id, options_json")
+        .eq("store_id", storeId)
+        .eq("product_status", "active")
+        .limit(20);
+      const sameFree = (sameStore ?? []).find((p) => !productNeedsRequiredOptions(p.options_json));
+      if (!sameFree) {
+        const { data: anyProd } = await sb
+          .from("store_products")
+          .select("id, price, discount_price, product_status, store_id, options_json")
+          .eq("product_status", "active")
+          .gt("price", 100)
+          .limit(40);
+        const free = (anyProd ?? []).find((p) => !productNeedsRequiredOptions(p.options_json));
+        if (free?.store_id) storeId = String(free.store_id);
+      }
+    }
     const couponCreate = await apiJson(page, "POST", "/api/admin/store-coupons", {
-      storeId: FIXTURE_STORE_ID,
+      storeId,
       title: `${tag}-CPN`,
       discountType: "fixed_amount",
       discountValue: 50,
@@ -487,29 +516,50 @@ async function main() {
     if (!cpnLive) throw new Error("COUPON_CUSTOMER_DOM");
 
     // CHECKOUT
-    const { data: products } = await sb
+    const { data: checkoutCandidates } = await sb
       .from("store_products")
-      .select("id, price, product_status, store_id")
-      .eq("store_id", FIXTURE_STORE_ID)
+      .select("id, price, discount_price, product_status, store_id, options_json")
+      .eq("store_id", storeId)
       .eq("product_status", "active")
-      .limit(1);
-    const product = products?.[0];
+      .limit(20);
+    const product =
+      (checkoutCandidates ?? []).find((p) => !productNeedsRequiredOptions(p.options_json)) ?? null;
     if (!product) {
       mark("COUPON_CHECKOUT", "FAIL", {
         owner: "DB",
-        error: "no_active_product_for_fixture_store",
-        storeId: FIXTURE_STORE_ID,
+        error: "no_option_free_active_product",
+        storeId,
       });
       throw new Error("COUPON_CHECKOUT");
     }
-    const unit = Math.max(200, Math.floor(Number(product.price) || 200));
+    const basePrice = Number(product.price) || 0;
+    const disc =
+      product.discount_price != null && Number.isFinite(Number(product.discount_price))
+        ? Number(product.discount_price)
+        : null;
+    const unit =
+      disc != null && disc >= 0 && disc < basePrice ? disc : basePrice;
+    if (!(unit > 0)) {
+      mark("COUPON_CHECKOUT", "FAIL", { owner: "DB", error: "invalid_product_unit", product });
+      throw new Error("COUPON_CHECKOUT");
+    }
+    const { data: storeRow } = await sb
+      .from("stores")
+      .select("id, business_hours_json")
+      .eq("id", storeId)
+      .maybeSingle();
+    const storeMin = Math.max(
+      0,
+      Number(parseCommerceExtrasFromHoursJson(storeRow?.business_hours_json).minOrderPhp ?? 0) || 0
+    );
+    const qty = Math.max(1, Math.ceil((storeMin + 1) / unit));
     const orderRes = await apiJson(page, "POST", "/api/me/store-orders", {
-      store_id: FIXTURE_STORE_ID,
+      store_id: storeId,
       fulfillment_type: "pickup",
       payment_method: "cod",
       client_order_key: `a-life-${Date.now()}`,
       coupon_campaign_id: couponId,
-      items: [{ product_id: product.id, qty: 1, client_unit_php: unit }],
+      items: [{ product_id: product.id, qty, client_unit_php: unit }],
     });
     const orderId = orderRes.json?.order?.id ? String(orderRes.json.order.id) : null;
     mark("COUPON_CHECKOUT", orderRes.json?.ok && orderId ? "PASS" : "FAIL", {
@@ -549,12 +599,12 @@ async function main() {
     if (!redemption?.id) throw new Error("COUPON_REDEMPTION");
 
     const reuse = await apiJson(page, "POST", "/api/me/store-orders", {
-      store_id: FIXTURE_STORE_ID,
+      store_id: storeId,
       fulfillment_type: "pickup",
       payment_method: "cod",
       client_order_key: `a-life-reuse-${Date.now()}`,
       coupon_campaign_id: couponId,
-      items: [{ product_id: product.id, qty: 1, client_unit_php: unit }],
+      items: [{ product_id: product.id, qty, client_unit_php: unit }],
     });
     const invalidRejected =
       reuse.json?.ok !== true && /coupon/i.test(String(reuse.json?.error ?? ""));
@@ -565,7 +615,7 @@ async function main() {
     if (!invalidRejected) throw new Error("COUPON_INVALID_REJECT");
 
     const expiredCreate = await apiJson(page, "POST", "/api/admin/store-coupons", {
-      storeId: FIXTURE_STORE_ID,
+      storeId,
       title: `${tag}-EXP`,
       discountType: "fixed_amount",
       discountValue: 10,
@@ -577,12 +627,12 @@ async function main() {
     let expiredRejected = false;
     if (expiredId) {
       const rejectExp = await apiJson(page, "POST", "/api/me/store-orders", {
-        store_id: FIXTURE_STORE_ID,
+        store_id: storeId,
         fulfillment_type: "pickup",
         payment_method: "cod",
         client_order_key: `a-life-exp-${Date.now()}`,
         coupon_campaign_id: expiredId,
-        items: [{ product_id: product.id, qty: 1, client_unit_php: unit }],
+        items: [{ product_id: product.id, qty, client_unit_php: unit }],
       });
       expiredRejected =
         rejectExp.json?.ok !== true && /coupon/i.test(String(rejectExp.json?.error ?? ""));

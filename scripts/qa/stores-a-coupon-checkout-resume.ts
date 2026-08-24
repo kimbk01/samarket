@@ -347,7 +347,7 @@ async function main() {
       return (anyProd ?? []).find((p) => !productNeedsRequiredOptions(p.options_json)) ?? null;
     };
 
-    let product = await pickCheckoutProduct(storeId);
+    const product = await pickCheckoutProduct(storeId);
     if (!product) {
       mark("COUPON_CHECKOUT", "FAIL", {
         owner: "DB",
