@@ -8,8 +8,10 @@ import {
   composeBrowseDiscoveryShelfPayload,
   insertDiscoveryShelfIntoOrganicIds,
   parseStoresBrowseDiscoveryShelfConfig,
+  parseStoresBrowseDiscoveryShelfPayload,
   resolveBrowseShelfSourcePrimarySlugs,
   isBrowseShelfSelectedSourceValid,
+  stripDiscoveryShelfOrganicIds,
 } from "@/lib/stores/stores-browse-discovery-shelf";
 import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
 import {
@@ -302,5 +304,93 @@ describe("stores browse final gap correction G1-G16", () => {
     expect(inherited.discoveryShelf.dataType).toBe("new_store");
     expect(inherited.discoveryShelf.sourcePrimarySlugs).toEqual(["mart"]);
     expect(inherited.discoveryShelf.position).toBe("repeat_every_n");
+  });
+
+  function payload(position: "page_top" | "inline_after_n" | "page_end" | "repeat_every_n", extra: Partial<{ afterN: number; everyN: number; maxShelvesPerPage: number }> = {}) {
+    return {
+      enabled: true as const,
+      position,
+      afterN: extra.afterN ?? 2,
+      everyN: extra.everyN ?? 2,
+      maxShelvesPerPage: extra.maxShelvesPerPage ?? 2,
+      dataType: "recommended" as const,
+      stores: shelfStores(),
+    };
+  }
+
+  it("S1-S7 canonical sequences preserve organic ids and keep shelf ids out of organic", () => {
+    const organics = ["A", "B", "C", "D", "E", "F"];
+    const top = insertDiscoveryShelfIntoOrganicIds(organics, payload("page_top"));
+    expect(top.map((t) => (t.kind === "organic" ? t.storeId : "S"))).toEqual(["S", "A", "B", "C", "D", "E", "F"]);
+    const inline = insertDiscoveryShelfIntoOrganicIds(organics, payload("inline_after_n", { afterN: 2 }));
+    expect(inline.map((t) => (t.kind === "organic" ? t.storeId : "S"))).toEqual(["A", "B", "S", "C", "D", "E", "F"]);
+    const end = insertDiscoveryShelfIntoOrganicIds(organics, payload("page_end"));
+    expect(end.map((t) => (t.kind === "organic" ? t.storeId : "S"))).toEqual(["A", "B", "C", "D", "E", "F", "S"]);
+    const repeat = insertDiscoveryShelfIntoOrganicIds(organics, payload("repeat_every_n", { everyN: 2, maxShelvesPerPage: 2 }));
+    expect(repeat.map((t) => (t.kind === "organic" ? t.storeId : "S"))).toEqual(["A", "B", "S", "C", "D", "S", "E", "F"]);
+    const capped = insertDiscoveryShelfIntoOrganicIds(organics, payload("repeat_every_n", { everyN: 2, maxShelvesPerPage: 1 }));
+    expect(capped.filter((t) => t.kind === "discovery_shelf")).toHaveLength(1);
+    for (const tokens of [top, inline, end, repeat, capped]) {
+      expect(stripDiscoveryShelfOrganicIds(tokens)).toEqual(organics);
+      expect(stripDiscoveryShelfOrganicIds(tokens)).not.toContain("x1");
+    }
+  });
+
+  it("S8-S11 exposure mismatch / empty selected / empty new_store hide shelf; source mart does not rewrite restaurant organics", () => {
+    const restaurantCfg = parseStoresBrowseDiscoveryShelfConfig({
+      enabled: true,
+      exposurePrimarySlugs: ["restaurant"],
+      sourceMode: "selected",
+      sourcePrimarySlugs: ["mart"],
+      dataType: "recommended",
+      position: "page_top",
+      maxItems: 6,
+    })!;
+    expect(
+      composeBrowseDiscoveryShelfPayload({
+        config: restaurantCfg,
+        pagePrimarySlug: "cafe",
+        stores: shelfStores(),
+      })
+    ).toBeNull();
+    expect(
+      resolveBrowseShelfSourcePrimarySlugs({
+        config: restaurantCfg,
+        pagePrimarySlug: "restaurant",
+        allPrimarySlugs: ["restaurant", "mart"],
+      })
+    ).toEqual(["mart"]);
+    expect(
+      composeBrowseDiscoveryShelfPayload({
+        config: restaurantCfg,
+        pagePrimarySlug: "restaurant",
+        stores: [],
+      })
+    ).toBeNull();
+    expect(parseStoresBrowseDiscoveryShelfPayload({ enabled: true, position: "page_top", stores: [] })).toBeNull();
+  });
+
+  it("S12-S15 sort/pagination/refresh recompose without duplicating shelf tokens", () => {
+    const organics = ["A", "B", "C", "D"];
+    const shelf = payload("page_top");
+    const first = insertDiscoveryShelfIntoOrganicIds(organics, shelf);
+    const afterSort = insertDiscoveryShelfIntoOrganicIds(["A", "B", "C", "D"], shelf);
+    expect(afterSort).toEqual(first);
+    const pageAppend = insertDiscoveryShelfIntoOrganicIds(["A", "B", "C", "D", "E", "F"], payload("repeat_every_n", { everyN: 3, maxShelvesPerPage: 2 }));
+    expect(pageAppend.filter((t) => t.kind === "discovery_shelf")).toHaveLength(2);
+    expect(stripDiscoveryShelfOrganicIds(pageAppend)).toEqual(["A", "B", "C", "D", "E", "F"]);
+    const refreshAgain = insertDiscoveryShelfIntoOrganicIds(organics, shelf);
+    expect(refreshAgain.filter((t) => t.kind === "discovery_shelf")).toHaveLength(1);
+    expect(refreshAgain).toEqual(first);
+  });
+
+  it("S16 parse payload without storeId is hidden (no fake rows)", () => {
+    expect(
+      parseStoresBrowseDiscoveryShelfPayload({
+        enabled: true,
+        position: "page_top",
+        stores: [{ slug: "ghost" }],
+      })
+    ).toBeNull();
   });
 });

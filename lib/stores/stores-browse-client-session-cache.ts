@@ -3,6 +3,7 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { APP_LANGUAGE_STORAGE_KEY } from "@/lib/i18n/config";
 import type { StoresBrowseClientCacheSnapshot } from "@/lib/stores/store-delivery-api-client";
+import { parseStoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 
 /** remount·HMR reload·탭 복귀 직후 browse 목록 즉시 표시 — `/stores` 홈 피드 session 패턴과 동급 */
 const STORES_BROWSE_SESSION_TTL_MS = 45_000;
@@ -12,6 +13,7 @@ const STORES_BROWSE_SESSION_ROUTE_PREFIX = "samarket:stores-browse:v1:route:";
 export type StoresBrowseSessionEntry = {
   rows: StoresBrowseClientCacheSnapshot["rows"];
   source: StoresBrowseClientCacheSnapshot["source"];
+  discoveryShelf?: StoresBrowseClientCacheSnapshot["discoveryShelf"];
   expiresAt: number;
 };
 
@@ -35,12 +37,14 @@ function readSessionEntry(raw: string | null): StoresBrowseSessionEntry | null {
       expiresAt?: number;
       rows?: StoresBrowseSessionEntry["rows"];
       source?: StoresBrowseSessionEntry["source"];
+      discoveryShelf?: StoresBrowseSessionEntry["discoveryShelf"];
     };
     if (!parsed || typeof parsed.expiresAt !== "number" || !Array.isArray(parsed.rows)) return null;
     if (parsed.expiresAt <= Date.now()) return null;
     return {
       rows: parsed.rows,
       source: parsed.source ?? null,
+      discoveryShelf: parseStoresBrowseDiscoveryShelfPayload(parsed.discoveryShelf),
       expiresAt: parsed.expiresAt,
     };
   } catch {
@@ -57,6 +61,7 @@ function writeSessionEntry(storageKey: string, entry: StoresBrowseSessionEntry):
         expiresAt: Date.now() + STORES_BROWSE_SESSION_TTL_MS,
         rows: entry.rows,
         source: entry.source,
+        discoveryShelf: entry.discoveryShelf ?? null,
       })
     );
   } catch {
@@ -75,7 +80,7 @@ export function peekStoresBrowseSessionByLocation(
   if (!key) return null;
   const hit = readSessionEntry(sessionStorage.getItem(key));
   if (!hit || hit.rows.length === 0) return null;
-  return { rows: hit.rows, source: hit.source };
+  return { rows: hit.rows, source: hit.source, discoveryShelf: hit.discoveryShelf ?? null };
 }
 
 export function peekStoresBrowseSessionCache(
@@ -87,7 +92,7 @@ export function peekStoresBrowseSessionCache(
   if (!qs) return peekStoresBrowseSessionByLocation(language);
   const hit = readSessionEntry(sessionStorage.getItem(sessionQsKey(language, qs)));
   if (!hit || hit.rows.length === 0) return peekStoresBrowseSessionByLocation(language);
-  return { rows: hit.rows, source: hit.source };
+  return { rows: hit.rows, source: hit.source, discoveryShelf: hit.discoveryShelf ?? null };
 }
 
 export function writeStoresBrowseSessionCache(
@@ -100,6 +105,7 @@ export function writeStoresBrowseSessionCache(
   const entry: StoresBrowseSessionEntry = {
     rows: snapshot.rows,
     source: snapshot.source,
+    discoveryShelf: snapshot.discoveryShelf ?? null,
     expiresAt: Date.now() + STORES_BROWSE_SESSION_TTL_MS,
   };
   const qs = normalizeQs(queryString);

@@ -37,6 +37,10 @@ import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
 import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import {
+  insertDiscoveryShelfIntoMixedItems,
+  parseStoresBrowseDiscoveryShelfPayload,
+} from "@/lib/stores/stores-browse-discovery-shelf";
+import {
   coerceBrowseSortToCustomerAvailability,
   resolveStoresBrowseCustomerSortAvailability,
   type StoresBrowseCustomerSortAvailability,
@@ -172,7 +176,10 @@ export function StoresBrowsePrimaryView({
   } | null>(null);
   const [browseCouponBadges, setBrowseCouponBadges] = useState<Record<string, { title: string }>>({});
   const adminDefaultSortRef = useRef<StoreBrowseSortId>("default");
-  const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(null);
+  const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(() => {
+    if (typeof window === "undefined") return null;
+    return parseStoresBrowseDiscoveryShelfPayload(readInitialBrowseListSessionSnapshot()?.discoveryShelf ?? null);
+  });
   const [customerSortAvailability, setCustomerSortAvailability] = useState<StoresBrowseCustomerSortAvailability>(
     () => resolveStoresBrowseCustomerSortAvailability(null)
   );
@@ -409,7 +416,14 @@ export function StoresBrowsePrimaryView({
   const prevBrowseListContextKeyRef = useRef<string | null>(browseListContextKey);
   const browseHadListForContextRef = useRef(browseEverPaintedListRef.current);
   const remoteCacheRef = useRef<
-    Map<string, { rows: BrowseStoreListItem[]; source: BrowseFeedMetaSource }>
+    Map<
+      string,
+      {
+        rows: BrowseStoreListItem[];
+        source: BrowseFeedMetaSource;
+        discoveryShelf?: StoresBrowseDiscoveryShelfPayload | null;
+      }
+    >
   >(new Map());
   const loadRemoteRequestIdRef = useRef(0);
   const browseListContextKeyRef = useRef(browseListContextKey);
@@ -489,11 +503,8 @@ export function StoresBrowsePrimaryView({
         const scopePol = j?.meta?.browseScopePolicy;
         adminDefaultSortRef.current = "default";
         const shelfRaw = j?.meta?.discoveryShelf;
-        setDiscoveryShelf(
-          shelfRaw && shelfRaw.enabled === true && Array.isArray(shelfRaw.stores) && shelfRaw.stores.length > 0
-            ? shelfRaw
-            : null
-        );
+        const nextShelf = parseStoresBrowseDiscoveryShelfPayload(shelfRaw);
+        setDiscoveryShelf(nextShelf);
         setCustomerSortAvailability(resolveStoresBrowseCustomerSortAvailability(j?.meta?.customerSortAvailability));
         setBrowseScopePolicy(
           scopePol
@@ -513,13 +524,21 @@ export function StoresBrowsePrimaryView({
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
           const source = src as BrowseFeedMetaSource;
-          remoteCacheRef.current.set(browseListContextKeyRef.current, { rows, source });
+          remoteCacheRef.current.set(browseListContextKeyRef.current, {
+            rows,
+            source,
+            discoveryShelf: nextShelf,
+          });
           setRemoteRows(rows);
           setFeedSource(source);
           browseHadListForContextRef.current = true;
           if (rows.length > 0) {
             browseEverPaintedListRef.current = true;
-            writeStoresBrowseSessionCache(qsAtStart, language, { rows, source });
+            writeStoresBrowseSessionCache(qsAtStart, language, {
+              rows,
+              source,
+              discoveryShelf: nextShelf,
+            });
           }
         } else {
           setRemoteRows([]);
@@ -565,6 +584,9 @@ export function StoresBrowsePrimaryView({
     if (!cached) return;
     setRemoteRows(cached.rows);
     setFeedSource(cached.source);
+    if ("discoveryShelf" in cached) {
+      setDiscoveryShelf(cached.discoveryShelf ?? null);
+    }
     setRemoteLoading(false);
     browseHadListForContextRef.current = true;
     if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
@@ -605,6 +627,9 @@ export function StoresBrowsePrimaryView({
     if (cached) {
       setRemoteRows(cached.rows);
       setFeedSource(cached.source);
+      if ("discoveryShelf" in cached) {
+        setDiscoveryShelf(cached.discoveryShelf ?? null);
+      }
       setRemoteLoading(false);
       browseHadListForContextRef.current = true;
       if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
@@ -615,12 +640,14 @@ export function StoresBrowsePrimaryView({
       if (sessionPaint?.rows?.length) {
         setRemoteRows(sessionPaint.rows);
         setFeedSource(sessionPaint.source);
+        setDiscoveryShelf(sessionPaint.discoveryShelf ?? null);
         setRemoteLoading(false);
         browseHadListForContextRef.current = true;
         browseEverPaintedListRef.current = true;
         remoteCacheRef.current.set(browseListContextKey, sessionPaint);
       } else {
         setRemoteRows(undefined);
+        setDiscoveryShelf(null);
         setRemoteLoading(true);
       }
     }
@@ -744,52 +771,7 @@ export function StoresBrowsePrimaryView({
       return items;
     })();
 
-    if (!discoveryShelf) return base;
-    type WithShelf =
-      | (typeof base)[number]
-      | { key: string; kind: "discovery_shelf" };
-    const withShelf: WithShelf[] = [];
-    if (discoveryShelf.position === "page_top") {
-      withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
-      withShelf.push(...base);
-      return withShelf;
-    }
-    if (discoveryShelf.position === "page_end") {
-      withShelf.push(...base);
-      withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
-      return withShelf;
-    }
-    if (discoveryShelf.position === "repeat_every_n") {
-      const everyN = Math.max(1, discoveryShelf.everyN);
-      const maxS = Math.max(1, discoveryShelf.maxShelvesPerPage);
-      let organicSeen = 0;
-      let shelves = 0;
-      for (const item of base) {
-        withShelf.push(item);
-        if (item.kind === "organic") {
-          organicSeen += 1;
-          if (organicSeen % everyN === 0 && shelves < maxS) {
-            withShelf.push({ key: `discovery-shelf-${shelves}`, kind: "discovery_shelf" });
-            shelves += 1;
-          }
-        }
-      }
-      return withShelf;
-    }
-    let organicSeen = 0;
-    let inserted = false;
-    for (const item of base) {
-      withShelf.push(item);
-      if (item.kind === "organic") {
-        organicSeen += 1;
-        if (!inserted && organicSeen === discoveryShelf.afterN) {
-          withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
-          inserted = true;
-        }
-      }
-    }
-    if (!inserted) withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
-    return withShelf;
+    return insertDiscoveryShelfIntoMixedItems(base, discoveryShelf);
   }, [browseInsertionRows, sortedRemoteRows, storeDeliveryRowDataList, discoveryShelf]);
 
   const showEmptyBlock = listLoaded && remoteRows.length === 0;

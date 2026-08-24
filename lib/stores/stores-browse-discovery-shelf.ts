@@ -201,42 +201,123 @@ export function composeBrowseDiscoveryShelfPayload(input: {
   };
 }
 
+/** Consume API `meta.discoveryShelf` — do not recompute ranking/membership. */
+export function parseStoresBrowseDiscoveryShelfPayload(
+  raw: unknown
+): StoresBrowseDiscoveryShelfPayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (o.enabled !== true) return null;
+  if (!Array.isArray(o.stores) || o.stores.length === 0) return null;
+  const stores: StoresBrowseDiscoveryShelfStoreItem[] = [];
+  for (const item of o.stores) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const storeId = typeof row.storeId === "string" ? row.storeId.trim() : "";
+    const slug = typeof row.slug === "string" ? row.slug.trim() : "";
+    if (!storeId || !slug) continue;
+    stores.push({
+      storeId,
+      slug,
+      name: typeof row.name === "string" && row.name.trim() ? row.name : slug,
+      imageUrl: typeof row.imageUrl === "string" ? row.imageUrl : null,
+      etaLabel: typeof row.etaLabel === "string" ? row.etaLabel : null,
+      rating: typeof row.rating === "number" && Number.isFinite(row.rating) ? row.rating : 0,
+    });
+  }
+  if (stores.length === 0) return null;
+  return {
+    enabled: true,
+    position: parsePosition(o.position),
+    afterN: clampAfterN(Number(o.afterN)),
+    everyN: clampEveryN(Number(o.everyN ?? o.afterN)),
+    maxShelvesPerPage: clampMaxShelves(Number(o.maxShelvesPerPage)),
+    dataType: parseDataType(o.dataType),
+    stores,
+  };
+}
+
 export type BrowseDiscoveryShelfRenderToken =
   | { kind: "organic"; storeId: string }
   | { kind: "discovery_shelf" };
+
+export type BrowseDiscoveryShelfMixedToken<T extends { kind: string }> =
+  | T
+  | { kind: "discovery_shelf"; key: string };
+
+/**
+ * Canonical insertion for page_top / inline_after_n / page_end / repeat_every_n.
+ * N counts `kind === "organic"` only — paid/coupon tokens are not N.
+ */
+export function insertDiscoveryShelfIntoMixedItems<T extends { kind: string }>(
+  items: readonly T[],
+  shelf: StoresBrowseDiscoveryShelfPayload | null
+): BrowseDiscoveryShelfMixedToken<T>[] {
+  if (!shelf) return [...items];
+  const shelfTok = (key: string): { kind: "discovery_shelf"; key: string } => ({
+    kind: "discovery_shelf",
+    key,
+  });
+  if (shelf.position === "page_top") {
+    return [shelfTok("discovery-shelf"), ...items];
+  }
+  if (shelf.position === "page_end") {
+    return [...items, shelfTok("discovery-shelf")];
+  }
+  if (shelf.position === "repeat_every_n") {
+    const everyN = Math.max(1, shelf.everyN);
+    const maxS = Math.max(1, shelf.maxShelvesPerPage);
+    const out: BrowseDiscoveryShelfMixedToken<T>[] = [];
+    let organicSeen = 0;
+    let shelves = 0;
+    for (const item of items) {
+      out.push(item);
+      if (item.kind === "organic") {
+        organicSeen += 1;
+        if (organicSeen % everyN === 0 && shelves < maxS) {
+          out.push(shelfTok(`discovery-shelf-${shelves}`));
+          shelves += 1;
+        }
+      }
+    }
+    return out;
+  }
+  const out: BrowseDiscoveryShelfMixedToken<T>[] = [];
+  let organicSeen = 0;
+  let inserted = false;
+  for (const item of items) {
+    out.push(item);
+    if (item.kind === "organic") {
+      organicSeen += 1;
+      if (!inserted && organicSeen === shelf.afterN) {
+        out.push(shelfTok("discovery-shelf"));
+        inserted = true;
+      }
+    }
+  }
+  if (!inserted) out.push(shelfTok("discovery-shelf"));
+  return out;
+}
+
+export function stripDiscoveryShelfOrganicIds(
+  tokens: readonly BrowseDiscoveryShelfRenderToken[]
+): string[] {
+  return tokens
+    .filter((t): t is { kind: "organic"; storeId: string } => t.kind === "organic")
+    .map((t) => t.storeId);
+}
 
 /** Insert shelf without changing organic id order. */
 export function insertDiscoveryShelfIntoOrganicIds(
   organicIds: readonly string[],
   shelf: StoresBrowseDiscoveryShelfPayload | null
 ): BrowseDiscoveryShelfRenderToken[] {
-  const organics: BrowseDiscoveryShelfRenderToken[] = organicIds.map((storeId) => ({
-    kind: "organic",
-    storeId,
-  }));
-  if (!shelf) return organics;
-  if (shelf.position === "page_top") {
-    return [{ kind: "discovery_shelf" }, ...organics];
-  }
-  if (shelf.position === "page_end") {
-    return [...organics, { kind: "discovery_shelf" }];
-  }
-  if (shelf.position === "repeat_every_n") {
-    const everyN = Math.max(1, shelf.everyN);
-    const maxS = Math.max(1, shelf.maxShelvesPerPage);
-    const out: BrowseDiscoveryShelfRenderToken[] = [];
-    let shelves = 0;
-    for (let i = 0; i < organics.length; i += 1) {
-      out.push(organics[i]!);
-      if ((i + 1) % everyN === 0 && shelves < maxS) {
-        out.push({ kind: "discovery_shelf" });
-        shelves += 1;
-      }
-    }
-    return out;
-  }
-  const n = Math.min(shelf.afterN, organics.length);
-  return [...organics.slice(0, n), { kind: "discovery_shelf" }, ...organics.slice(n)];
+  const organics = organicIds.map((storeId) => ({ kind: "organic" as const, storeId }));
+  return insertDiscoveryShelfIntoMixedItems(organics, shelf).map((token) =>
+    token.kind === "discovery_shelf"
+      ? { kind: "discovery_shelf" as const }
+      : { kind: "organic" as const, storeId: token.storeId }
+  );
 }
 
 export function browseShelfSortForDataType(

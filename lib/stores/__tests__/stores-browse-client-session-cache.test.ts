@@ -49,14 +49,24 @@ describe("stores-browse-client-session-cache", () => {
     vi.useRealTimers();
   });
 
-  it("write then peek returns rows within TTL", () => {
+  it("write then peek returns rows and discovery shelf within TTL", () => {
     writeStoresBrowseSessionCache("primary=pet&sub=all", "en", {
       rows: [sampleRow],
       source: "supabase",
+      discoveryShelf: {
+        enabled: true,
+        position: "page_top",
+        afterN: 2,
+        everyN: 2,
+        maxShelvesPerPage: 1,
+        dataType: "recommended",
+        stores: [{ storeId: "shelf-1", slug: "shelf-1", name: "Shelf", imageUrl: null, etaLabel: null, rating: 5 }],
+      },
     });
     const hit = peekStoresBrowseSessionCache("primary=pet&sub=all", "en");
     expect(hit?.rows).toHaveLength(1);
     expect(hit?.source).toBe("supabase");
+    expect(hit?.discoveryShelf?.stores[0]?.storeId).toBe("shelf-1");
   });
 
   it("invalidate clears qs cache", () => {

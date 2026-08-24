@@ -20,6 +20,7 @@ import {
   markMenusColdFillResponseDownload,
 } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
+import { parseStoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
 const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -565,13 +566,14 @@ function browseQueryBypassesCache(qs: string): boolean {
 export type StoresBrowseClientCacheSnapshot = {
   rows: import("@/lib/stores/browse-api-types").BrowseStoreListItem[];
   source: "supabase" | "supabase_unconfigured" | null;
+  discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfPayload | null;
 };
 
 function parseStoresBrowseClientCacheJson(json: unknown): StoresBrowseClientCacheSnapshot | null {
   const j = json as {
     ok?: boolean;
     stores?: unknown;
-    meta?: { source?: string };
+    meta?: { source?: string; discoveryShelf?: unknown };
   };
   const src = j?.meta?.source;
   const okSources = src === "supabase" || src === "supabase_unconfigured";
@@ -579,6 +581,7 @@ function parseStoresBrowseClientCacheJson(json: unknown): StoresBrowseClientCach
   return {
     rows: j.stores as StoresBrowseClientCacheSnapshot["rows"],
     source: src as StoresBrowseClientCacheSnapshot["source"],
+    discoveryShelf: parseStoresBrowseDiscoveryShelfPayload(j.meta?.discoveryShelf),
   };
 }
 
