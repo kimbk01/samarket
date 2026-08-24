@@ -46,7 +46,7 @@ export function AdminStoresCategoryBrowseLivePreview({
   draftEnabled,
   adEnabled,
   couponEnabled,
-  defaultSort,
+  defaultSort: _defaultSort,
   ko,
   reloadToken = 0,
 }: AdminCategoryBrowsePreviewProps) {
@@ -64,7 +64,6 @@ export function AdminStoresCategoryBrowseLivePreview({
     void (async () => {
       try {
         const qs = new URLSearchParams({ primary: pk, sub: sk, limit: "8", fresh: "1" });
-        if (defaultSort) qs.set("sort", defaultSort);
         const res = await fetch(`/api/stores/browse?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",
@@ -120,7 +119,7 @@ export function AdminStoresCategoryBrowseLivePreview({
     return () => {
       cancelled = true;
     };
-  }, [primarySlug, subSlug, ko, reloadToken, defaultSort]);
+  }, [primarySlug, subSlug, ko, reloadToken]);
 
   const headerTitle = scopeLabel.trim() || (state.status === "ready" ? state.serverTitle : null) || primarySlug;
   const readyState = state.status === "ready" ? state : null;

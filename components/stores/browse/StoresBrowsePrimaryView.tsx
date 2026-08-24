@@ -34,6 +34,8 @@ import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/Brows
 import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
+import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
+import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
   StoreBrowseCategoryRowCard,
@@ -165,6 +167,7 @@ export function StoresBrowsePrimaryView({
   } | null>(null);
   const [browseCouponBadges, setBrowseCouponBadges] = useState<Record<string, { title: string }>>({});
   const adminDefaultSortRef = useRef<StoreBrowseSortId>("default");
+  const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(() => {
     if (typeof window === "undefined") return true;
     return !readInitialBrowseListSessionSnapshot();
@@ -461,6 +464,7 @@ export function StoresBrowsePrimaryView({
               cardType?: "store" | "product" | "mixed";
               defaultSort?: StoreBrowseSortId;
             };
+            discoveryShelf?: StoresBrowseDiscoveryShelfPayload | null;
           };
         };
         const src = j?.meta?.source;
@@ -475,8 +479,9 @@ export function StoresBrowsePrimaryView({
             : {}
         );
         const scopePol = j?.meta?.browseScopePolicy;
-        const adminSort = (scopePol?.defaultSort ?? "default") as StoreBrowseSortId;
-        adminDefaultSortRef.current = adminSort;
+        adminDefaultSortRef.current = "default";
+        const shelfRaw = j?.meta?.discoveryShelf;
+        setDiscoveryShelf(shelfRaw && shelfRaw.enabled && Array.isArray(shelfRaw.items) ? shelfRaw : null);
         setBrowseScopePolicy(
           scopePol
             ? {
@@ -484,12 +489,12 @@ export function StoresBrowsePrimaryView({
                 displayTitleKo: scopePol.displayTitleKo ?? null,
                 displayTitleEn: scopePol.displayTitleEn ?? null,
                 cardType: scopePol.cardType ?? "store",
-                defaultSort: adminSort,
+                defaultSort: "default",
               }
             : null
         );
         if (!parseExplicitBrowseSortParam(searchParams?.get("sort"))) {
-          setListSort(adminSort);
+          setListSort("default");
         }
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
@@ -696,34 +701,61 @@ export function StoresBrowsePrimaryView({
   }, [sortedRemoteRows]);
 
   const browseListRenderItems = useMemo(() => {
-    if (!browseInsertionRows?.length) {
-      return storeDeliveryRowDataList.map((data) => ({
-        key: data.slug,
-        kind: "organic" as const,
-        data,
-      }));
-    }
-    const storeById = new Map((sortedRemoteRows ?? []).map((s) => [s.id, s]));
-    const items: Array<
-      | { key: string; kind: "organic"; data: StoreRowCardData }
-      | { key: string; kind: "paid_ad"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "paid_ad" }> }
-      | { key: string; kind: "coupon"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "coupon" }> }
-    > = [];
-    for (const row of browseInsertionRows) {
-      if (row.kind === "organic") {
-        const store = storeById.get(row.storeId);
-        if (!store) continue;
-        items.push({ key: row.storeId, kind: "organic", data: browseItemToRowCard(store) });
-        continue;
+    const base = (() => {
+      if (!browseInsertionRows?.length) {
+        return storeDeliveryRowDataList.map((data) => ({
+          key: data.slug,
+          kind: "organic" as const,
+          data,
+        }));
       }
-      if (row.kind === "paid_ad") {
-        items.push({ key: `ad-${row.campaignId}`, kind: "paid_ad", row });
-        continue;
+      const storeById = new Map((sortedRemoteRows ?? []).map((s) => [s.id, s]));
+      const items: Array<
+        | { key: string; kind: "organic"; data: StoreRowCardData }
+        | { key: string; kind: "paid_ad"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "paid_ad" }> }
+        | { key: string; kind: "coupon"; row: Extract<StoresBrowseInsertionMetaRow, { kind: "coupon" }> }
+      > = [];
+      for (const row of browseInsertionRows) {
+        if (row.kind === "organic") {
+          const store = storeById.get(row.storeId);
+          if (!store) continue;
+          items.push({ key: row.storeId, kind: "organic", data: browseItemToRowCard(store) });
+          continue;
+        }
+        if (row.kind === "paid_ad") {
+          items.push({ key: `ad-${row.campaignId}`, kind: "paid_ad", row });
+          continue;
+        }
+        items.push({ key: `coupon-${row.campaignId}`, kind: "coupon", row });
       }
-      items.push({ key: `coupon-${row.campaignId}`, kind: "coupon", row });
+      return items;
+    })();
+
+    if (!discoveryShelf) return base;
+    type WithShelf =
+      | (typeof base)[number]
+      | { key: string; kind: "discovery_shelf" };
+    const withShelf: WithShelf[] = [];
+    if (discoveryShelf.position === "top") {
+      withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
+      withShelf.push(...base);
+      return withShelf;
     }
-    return items;
-  }, [browseInsertionRows, sortedRemoteRows, storeDeliveryRowDataList]);
+    let organicSeen = 0;
+    let inserted = false;
+    for (const item of base) {
+      withShelf.push(item);
+      if (item.kind === "organic") {
+        organicSeen += 1;
+        if (!inserted && organicSeen === discoveryShelf.afterN) {
+          withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
+          inserted = true;
+        }
+      }
+    }
+    if (!inserted) withShelf.push({ key: "discovery-shelf", kind: "discovery_shelf" });
+    return withShelf;
+  }, [browseInsertionRows, sortedRemoteRows, storeDeliveryRowDataList, discoveryShelf]);
 
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
@@ -837,6 +869,11 @@ export function StoresBrowsePrimaryView({
             }}
           >
             {browseListRenderItems.map((item) => {
+              if (item.kind === "discovery_shelf") {
+                return discoveryShelf ? (
+                  <StoresBrowseDiscoveryShelf key={item.key} shelf={discoveryShelf} />
+                ) : null;
+              }
               if (item.kind === "organic") {
                 return (
                   <StoreBrowseCategoryRowCard

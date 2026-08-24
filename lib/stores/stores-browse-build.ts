@@ -24,6 +24,7 @@ import type {
   StoreRatingConfidenceLoadStatus,
   StoreRatingConfidencePolicyAuthority,
 } from "@/lib/stores/store-rating-confidence-policy";
+import { composeBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -371,6 +372,8 @@ export type StoresBrowseRequestContext = {
   page: number;
   limit: number;
   popularityWindowDays?: StoresPopularityWindowDays;
+  rankingCriteria?: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
+  discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
 };
 
 export type StoresBrowseDbBundle = {
@@ -432,6 +435,8 @@ export type StoresBrowseResponseBody = {
       couponBadgeByStoreId?: Record<string, { title: string }>;
     };
     /** CATEGORY operator CMS — primary/secondary scope (menu-centric, not HOME shelves). */
+    rankingCriteria?: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
+    discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfPayload | null;
     browseScopePolicy?: {
       primarySlug: string;
       subSlug: string | null;
@@ -618,7 +623,10 @@ export function applyBrowseSubFilterContractToPrefetchedFilter(
  * Reuses existing Bayesian comparator + policy status; does not re-paginate or touch other sorts.
  */
 export function applyNewAuthorityRatingConfidenceToBrowseFilter(
-  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  ctx: Pick<
+    StoresBrowseRequestContext,
+    "district" | "sort" | "deliveryDistancePolicy" | "origin" | "rankingCriteria"
+  >,
   filter: BrowseFilteredStoreRowsResult,
   ratingConfidencePolicy: StoreRatingConfidencePolicyAuthority | null,
   ratingConfidenceStatus: StoreRatingConfidenceLoadStatus
@@ -652,7 +660,10 @@ export function applyNewAuthorityRatingConfidenceToBrowseFilter(
  * Does not regenerate the discovery wave.
  */
 export function applyPopularityWindowOverlayToBrowseFilter(
-  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  ctx: Pick<
+    StoresBrowseRequestContext,
+    "district" | "sort" | "deliveryDistancePolicy" | "origin" | "rankingCriteria"
+  >,
   filter: BrowseFilteredStoreRowsResult,
   overlayCounts: Map<string, number>,
   overlayStatus: StoreCompletedOrderCountLoadStatus = "ok"
@@ -674,6 +685,7 @@ export function applyPopularityWindowOverlayToBrowseFilter(
     distanceKmById: hasGeo ? filter.distById : null,
     outOfRangeById: hasGeo ? outOfRangeById : null,
     hasGeo,
+    rankingCriteria: ctx.rankingCriteria ?? null,
   });
 
   return {
@@ -689,7 +701,10 @@ export function applyPopularityWindowOverlayToBrowseFilter(
  * (`readExplicitStorePrepTimeMinutes` / fastPrepCmp). No new metric.
  */
 export function applyNewAuthorityFastPrepSortToBrowseFilter(
-  ctx: Pick<StoresBrowseRequestContext, "district" | "sort" | "deliveryDistancePolicy" | "origin">,
+  ctx: Pick<
+    StoresBrowseRequestContext,
+    "district" | "sort" | "deliveryDistancePolicy" | "origin" | "rankingCriteria"
+  >,
   filter: BrowseFilteredStoreRowsResult
 ): BrowseFilteredStoreRowsResult {
   if (ctx.sort !== "fast") return filter;
@@ -710,6 +725,7 @@ export function applyNewAuthorityFastPrepSortToBrowseFilter(
     outOfRangeById: hasGeo ? outOfRangeById : null,
     hasGeo,
     explicitPrepMinutesById,
+    rankingCriteria: ctx.rankingCriteria ?? null,
   });
 
   return {
@@ -772,6 +788,7 @@ export function resolveBrowseFilteredSortedStoreRows(
     completedOrderCountStatus: needsOrderCounts ? orderStatus : "ok",
     explicitPrepMinutesById,
     ratingConfidencePolicy: sort === "rating" ? (ratingConfidencePolicy ?? null) : null,
+    rankingCriteria: ctx.rankingCriteria ?? null,
   });
 
   if (sort === "default") {
@@ -995,6 +1012,19 @@ export function assembleStoresBrowseResponse(
         prefetchedFilter?.ratingConfidenceStatus === "active"
       ),
       sort: ctx.sort,
+      rankingCriteria: ctx.rankingCriteria,
+      discoveryShelf: composeBrowseDiscoveryShelfPayload({
+        config: ctx.discoveryShelf ?? {
+          enabled: false,
+          scope: "sibling_topics",
+          position: "top",
+          afterN: 6,
+          maxItems: 8,
+        },
+        primarySlug: primary,
+        currentSubSlug: wantsAllSubs ? null : sub,
+        topics: taxonomySlice.topicList,
+      }),
       ...((ctx.sort === "popular" || ctx.sort === "default")
         ? buildStorePopularityWindowMeta(resolvePopularityWindowDays(ctx.popularityWindowDays))
         : {}),

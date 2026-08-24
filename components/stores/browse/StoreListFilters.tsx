@@ -15,11 +15,9 @@ const SORTS: {
     | "nav_store_sort_fast";
 }[] = [
   { id: "default", labelKey: "nav_store_sort_default" },
-  { id: "distance", labelKey: "nav_store_sort_distance" },
-  { id: "rating", labelKey: "nav_store_sort_rating" },
-  { id: "reviews", labelKey: "nav_store_sort_reviews" },
   { id: "popular", labelKey: "nav_store_sort_popular" },
-  { id: "fast", labelKey: "nav_store_sort_fast" },
+  { id: "rating", labelKey: "nav_store_sort_rating" },
+  { id: "distance", labelKey: "nav_store_sort_distance" },
 ];
 
 const CHIP_BASE =

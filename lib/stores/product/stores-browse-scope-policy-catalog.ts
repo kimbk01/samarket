@@ -3,6 +3,16 @@ import {
   popularityWindowDaysFromProductConfig,
   type StoresPopularityWindowDays,
 } from "@/lib/stores/store-discovery-popular-store";
+import {
+  rankingCriteriaFromProductConfig,
+  resolveStoresBrowseRankingCriteria,
+  type StoresBrowseRankingCriterionId,
+} from "@/lib/stores/stores-browse-ranking-criteria";
+import {
+  discoveryShelfFromProductConfig,
+  resolveStoresBrowseDiscoveryShelfConfig,
+  type StoresBrowseDiscoveryShelfConfig,
+} from "@/lib/stores/stores-browse-discovery-shelf";
 
 export const STORES_BROWSE_DEFAULT_SORT_IDS: readonly StoreBrowseServerSortId[] = [
   "default",
@@ -62,6 +72,8 @@ export type StoresBrowseScopePolicyResolved = {
   scheduleEnd: string | null;
   defaultSort: StoreBrowseServerSortId;
   popularityWindowDays: StoresPopularityWindowDays;
+  rankingCriteria: StoresBrowseRankingCriterionId[];
+  discoveryShelf: StoresBrowseDiscoveryShelfConfig;
 };
 
 export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
@@ -80,6 +92,8 @@ export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
   scheduleEnd: null,
   defaultSort: "default",
   popularityWindowDays: 30,
+  rankingCriteria: resolveStoresBrowseRankingCriteria(null),
+  discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(null),
 };
 
 export function buildBrowsePrimaryScopeKey(primarySlug: string): string {
@@ -193,6 +207,12 @@ export function resolveBrowseScopePolicy(input: {
     popularityWindowDays:
       popularityWindowDaysFromProductConfig(input.primaryRow?.productConfig ?? null) ??
       platform.popularityWindowDays,
+    rankingCriteria: resolveStoresBrowseRankingCriteria(
+      rankingCriteriaFromProductConfig(input.primaryRow?.productConfig ?? null)
+    ),
+    discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(
+      discoveryShelfFromProductConfig(input.primaryRow?.productConfig ?? null)
+    ),
   };
 
   const sub = input.subSlug?.trim().toLowerCase();
@@ -222,5 +242,11 @@ export function resolveBrowseScopePolicy(input: {
     popularityWindowDays:
       popularityWindowDaysFromProductConfig(effectiveSub.productConfig ?? null) ??
       primaryResolved.popularityWindowDays,
+    rankingCriteria: rankingCriteriaFromProductConfig(effectiveSub.productConfig ?? null)
+      ? resolveStoresBrowseRankingCriteria(rankingCriteriaFromProductConfig(effectiveSub.productConfig ?? null))
+      : primaryResolved.rankingCriteria,
+    discoveryShelf: discoveryShelfFromProductConfig(effectiveSub.productConfig ?? null)
+      ? resolveStoresBrowseDiscoveryShelfConfig(discoveryShelfFromProductConfig(effectiveSub.productConfig ?? null))
+      : primaryResolved.discoveryShelf,
   };
 }

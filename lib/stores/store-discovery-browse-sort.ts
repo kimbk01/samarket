@@ -1,8 +1,10 @@
 import { districtRank } from "@/lib/geo/haversine-km";
+import { compareStoreDiscoveryCustomerGroup } from "@/lib/stores/store-discovery-customer-group";
 import { compareStoreDiscoveryEligibilityRank } from "@/lib/stores/store-discovery-eligibility";
+import type { StoresBrowseRankingCriterionId } from "@/lib/stores/stores-browse-ranking-criteria";
+import { STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA } from "@/lib/stores/stores-browse-ranking-criteria";
 import type { StoreCompletedOrderCountLoadStatus } from "@/lib/stores/store-discovery-popular-store";
 import {
-  compareStoreDiscoveryRecommendedRows,
   sortStoreDiscoveryRecommendedRows,
   toStoreDiscoveryRecommendedContext,
 } from "@/lib/stores/store-discovery-recommended-ranking";
@@ -71,6 +73,11 @@ export type StoreDiscoverySortContext = {
    * null / missing → raw rating_avg path (explicit fallback_raw / error).
    */
   ratingConfidencePolicy?: StoreRatingConfidencePolicyAuthority | null;
+  /**
+   * `sort=default` lexicographic stack after customer 2-group + 6-stage (lossless prefix).
+   * Missing → canonical DIBAY recommended keys.
+   */
+  rankingCriteria?: readonly StoresBrowseRankingCriterionId[] | null;
 };
 
 function stableSlug(a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -85,6 +92,36 @@ function eligibilityCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow
   const er = compareStoreDiscoveryEligibilityRank(ar, br);
   if (er !== 0) return er;
   return 0;
+}
+
+function customerGroupCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
+  const ar = ctx.eligibilityRankById.get(a.id) ?? 99;
+  const br = ctx.eligibilityRankById.get(b.id) ?? 99;
+  return compareStoreDiscoveryCustomerGroup(ar, br);
+}
+
+function applyRankingCriterion(
+  criterion: StoresBrowseRankingCriterionId,
+  ctx: StoreDiscoverySortContext,
+  a: StoreDiscoverySortRow,
+  b: StoreDiscoverySortRow
+): number {
+  switch (criterion) {
+    case "district":
+      return districtCmp(ctx, a, b);
+    case "distance":
+      return distanceCmp(ctx, a, b);
+    case "popular":
+      return popularCmp(ctx, a, b);
+    case "rating":
+      return ratingCmpForSort(ctx, a, b);
+    case "reviews":
+      return reviewsCmp(a, b);
+    case "fast":
+      return fastPrepCmp(ctx, a, b);
+    default:
+      return 0;
+  }
 }
 
 function outOfRangeCmp(ctx: StoreDiscoverySortContext, a: StoreDiscoverySortRow, b: StoreDiscoverySortRow): number {
@@ -199,14 +236,12 @@ export function compareStoreDiscoveryBrowseRows(
   a: StoreDiscoverySortRow,
   b: StoreDiscoverySortRow
 ): number {
-  const el = eligibilityCmp(ctx, a, b);
-  if (el !== 0) return el;
+  const group = customerGroupCmp(ctx, a, b);
+  if (group !== 0) return group;
 
   switch (ctx.sort) {
     case "distance": {
       if (ctx.hasGeo) {
-        const oor = outOfRangeCmp(ctx, a, b);
-        if (oor !== 0) return oor;
         const dist = distanceCmp(ctx, a, b);
         if (dist !== 0) return dist;
       }
@@ -221,20 +256,23 @@ export function compareStoreDiscoveryBrowseRows(
     case "fast":
       return fastPrepCmp(ctx, a, b);
     case "default":
-    default:
-      return compareStoreDiscoveryRecommendedRows(
-        toStoreDiscoveryRecommendedContext({
-          district: ctx.district,
-          eligibilityRankById: ctx.eligibilityRankById,
-          distanceKmById: ctx.distanceKmById,
-          outOfRangeById: ctx.outOfRangeById,
-          hasGeo: ctx.hasGeo,
-          completedOrderCount30dById: ctx.completedOrderCount30dById,
-          completedOrderCountStatus: ctx.completedOrderCountStatus ?? "ok",
-        }),
-        a,
-        b
-      );
+    default: {
+      const fine = eligibilityCmp(ctx, a, b);
+      if (fine !== 0) return fine;
+      if (ctx.hasGeo) {
+        const oor = outOfRangeCmp(ctx, a, b);
+        if (oor !== 0) return oor;
+      }
+      const criteria =
+        ctx.rankingCriteria && ctx.rankingCriteria.length > 0
+          ? ctx.rankingCriteria
+          : STORES_BROWSE_CANONICAL_DEFAULT_CRITERIA;
+      for (const criterion of criteria) {
+        const cmp = applyRankingCriterion(criterion, ctx, a, b);
+        if (cmp !== 0) return cmp;
+      }
+      return stableSlug(a, b);
+    }
   }
 }
 

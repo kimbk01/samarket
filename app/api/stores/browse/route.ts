@@ -137,9 +137,10 @@ export async function GET(req: Request) {
       primary,
       wantsAllSubs ? null : sub
     ).catch(() => null);
-    let sortQ = explicitSort ?? "default";
-    if (!explicitSort && scopeMeta) sortQ = scopeMeta.defaultSort;
+    const sortQ = explicitSort ?? "default";
     const popularityWindowDays = resolvePopularityWindowDays(scopeMeta?.popularityWindowDays);
+    const rankingCriteria = scopeMeta?.rankingCriteria;
+    const discoveryShelf = scopeMeta?.discoveryShelf;
 
     const ridePeek = peekDeliveryRideTimeSource();
     const deliveryRideTimeSource: DeliveryRideTimeSource = ridePeek ?? "store";
@@ -173,7 +174,7 @@ export async function GET(req: Request) {
       sort: sortQ,
       uiLang,
       popularityWindowDays,
-    })}:distance=${distancePolicyKey}`;
+    })}:distance=${distancePolicyKey}:rank=${(rankingCriteria ?? []).join(",")}:shelf=${discoveryShelf?.enabled ? `${discoveryShelf.position}:${discoveryShelf.afterN}:${discoveryShelf.maxItems}` : "off"}`;
 
     const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
     if (cachedBrowse != null) {
@@ -235,6 +236,8 @@ export async function GET(req: Request) {
       page,
       limit,
       popularityWindowDays,
+      rankingCriteria,
+      discoveryShelf,
     };
 
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {
