@@ -36,6 +36,8 @@ export type CreateStoreOrderAtomicOrderPayload = {
   checkout_eta_computed_at?: string | null;
   checkout_route_distance_meters?: number | null;
   checkout_straight_distance_meters?: number | null;
+  /** Stores A — optional coupon FK; redemption inserted in same RPC TX when set */
+  coupon_campaign_id?: string | null;
 };
 
 export type CreateStoreOrderAtomicOk = {
@@ -64,7 +66,8 @@ function isMissingRpc(message: string): boolean {
 }
 
 /**
- * Phase 5 — stock + order + items + options + order_created 를 단일 DB TX(RPC)로 생성.
+ * Phase 5 + Stores A — stock + order + items + options + order_created
+ * (+ optional coupon redemption) 를 단일 DB TX(RPC)로 생성.
  */
 export async function createStoreOrderAtomic(
   sb: SupabaseClient,

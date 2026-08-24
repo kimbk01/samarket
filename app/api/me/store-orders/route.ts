@@ -40,7 +40,6 @@ import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-ke
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 import {
-  recordStoreCouponRedemption,
   resolveStoreCouponCheckoutDiscount,
 } from "@/lib/stores/resolve-store-coupon-checkout-discount";
 import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
@@ -534,6 +533,9 @@ export async function POST(req: NextRequest) {
       delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
+      ...(couponCampaignId && discountAmount > 0
+        ? { coupon_campaign_id: couponCampaignId }
+        : {}),
     },
     lines: lines.map((line) => ({
       ...line,
@@ -572,20 +574,6 @@ export async function POST(req: NextRequest) {
   const orderId = atomic.order.id;
   const resolvedOrderNo = atomic.order.order_no || orderNo;
   const paymentAmount = atomic.order.payment_amount;
-
-  if (!atomic.idempotent && couponCampaignId && discountAmount > 0) {
-    const redemption = await recordStoreCouponRedemption({
-      sb,
-      campaignId: couponCampaignId,
-      storeId,
-      buyerUserId: buyerId,
-      orderId,
-      discountAmount,
-    });
-    if (!redemption.ok) {
-      console.error("[POST /api/me/store-orders] coupon redemption", redemption.error);
-    }
-  }
 
   if (atomic.idempotent) {
     return NextResponse.json({

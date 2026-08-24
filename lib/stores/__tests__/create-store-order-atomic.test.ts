@@ -177,4 +177,15 @@ describe("POST store-orders atomic path contract", () => {
     // Business FAIL before mutate: pass-1 stock check without UPDATE
     expect(mig).toMatch(/Pass 1:[\s\S]*insufficient_stock[\s\S]*Pass 2/);
   });
+
+  it("coupon redemption lives inside atomic RPC migration (Stores A)", async () => {
+    const fs = await import("node:fs");
+    const mig = fs.readFileSync(
+      "supabase/migrations/20261024170000_create_store_order_atomic_coupon_redemption.sql",
+      "utf8"
+    );
+    expect(mig).toContain("store_coupon_redemptions");
+    expect(mig).toContain("coupon_campaign_id");
+    expect(mig).toContain("coupon_already_redeemed");
+  });
 });

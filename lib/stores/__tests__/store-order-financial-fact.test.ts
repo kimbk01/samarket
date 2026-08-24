@@ -15,7 +15,7 @@ describe("commission base contract", () => {
   it("documents payment_amount as base including delivery", () => {
     expect(STORE_ORDER_FINANCIAL_CONTRACT.commissionBaseField).toBe("store_orders.payment_amount");
     expect(STORE_ORDER_FINANCIAL_CONTRACT.commissionBaseIncludesDeliveryFee).toBe(true);
-    expect(STORE_ORDER_FINANCIAL_CONTRACT.customerCouponSupported).toBe(false);
+    expect(STORE_ORDER_FINANCIAL_CONTRACT.customerCouponSupported).toBe(true);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.customerDPointSupported).toBe(false);
   });
 
