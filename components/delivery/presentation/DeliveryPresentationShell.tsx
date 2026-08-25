@@ -22,6 +22,7 @@ import {
   isDeliveryConsumerStackPath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
+import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
 import {
   deliveryPresentationMarkEvent,
@@ -127,6 +128,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const pathKey = pathname.split("?")[0] ?? "";
+  const onCartCheckoutHardRoute = isStoreCommerceCartCheckoutPath(pathKey);
   const onBrowse = isBrowsePath(pathKey);
   const onStore = isStoreConsumerDetailPath(pathKey);
   const storeSlug = onStore ? parseStoreSlug(pathKey) : null;
@@ -333,8 +335,11 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       slidePhase === "hold_browse" ||
       slidePhase === "idle_store");
   const browseSubFromUrl = browseSpec?.initialSubSlug ?? null;
+  /** cart/checkout — hard Next route; never hide children under soft store surface (Aug 22 regression). */
+  const paintSoftStoreSurface = showShellStore && !onCartCheckoutHardRoute;
   /** Soft: shell paints UI; Next children stay mounted (hidden) so router does not roll back. */
-  const suppressNextChildrenPaint = (showBrowseSurface && onBrowse) || showShellStore;
+  const suppressNextChildrenPaint =
+    !onCartCheckoutHardRoute && ((showBrowseSurface && onBrowse) || showShellStore);
   const browseLifecycle: DeliverySurfaceLifecycleState =
     slidePhase === "sliding_back" ? "entering" : onBrowse ? "active" : "parked";
   const storeLifecycle: DeliverySurfaceLifecycleState =
@@ -405,7 +410,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
   const occupancyAuditMode =
     typeof document !== "undefined" ? readDeliveryOccupancyAuditMode() : null;
   const storeChromeActive =
-    showShellStore &&
+    paintSoftStoreSurface &&
     !occupancyAuditSuppressChromeHost(occupancyAuditMode) &&
     (slidePhase === "sliding_forward" ||
       slidePhase === "idle_store" ||
@@ -420,13 +425,17 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
       <DeliveryPresentationApiContext.Provider value={api}>
         <DeliveryStoreChromeHostProvider hostEl={chromeHostEl} active={storeChromeActive}>
           <div
-            className="delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-x-hidden"
+            className={
+              onCartCheckoutHardRoute
+                ? "delivery-presentation-shell relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+                : "delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-x-hidden"
+            }
             data-delivery-presentation-shell="1"
             data-delivery-slide-phase={slidePhase}
-            data-delivery-host-store={showShellStore ? "1" : "0"}
-            data-delivery-store-chrome-active={storeChromeActive ? "1" : "0"}
+            data-delivery-host-store={paintSoftStoreSurface ? "1" : "0"}
+            data-delivery-store-chrome-active={storeChromeActive && paintSoftStoreSurface ? "1" : "0"}
           >
-            {showShellStore ? (
+            {paintSoftStoreSurface ? (
               <div
                 ref={chromeHostRef}
                 className="pointer-events-none relative col-start-1 row-start-1 min-h-0 w-full [&_*]:pointer-events-auto"
@@ -458,7 +467,7 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
             </div>
           ) : null}
 
-          {showShellStore && activeStoreSlug ? (
+          {paintSoftStoreSurface && activeStoreSlug ? (
             <div
               className="relative col-start-1 row-start-1 min-h-[100dvh] w-full bg-white"
               data-delivery-surface="store"
@@ -476,9 +485,12 @@ function DeliveryPresentationShellInner({ children }: { children: ReactNode }) {
             className={
               suppressNextChildrenPaint
                 ? "hidden"
-                : "relative col-start-1 row-start-1 min-h-[100dvh]"
+                : onCartCheckoutHardRoute
+                  ? "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+                  : "relative col-start-1 row-start-1 min-h-[100dvh]"
             }
             data-delivery-next-children={suppressNextChildrenPaint ? "suppressed" : "visible"}
+            data-delivery-cart-hard-route={onCartCheckoutHardRoute ? "1" : undefined}
             aria-hidden={suppressNextChildrenPaint}
           >
             {children}

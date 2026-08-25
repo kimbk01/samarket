@@ -27,6 +27,12 @@ describe("store cart layout contract", () => {
     expect(routeTransition).toContain("isStoreCommerceCartCheckoutPath");
     expect(routeTransition).toContain("data-main-shell-child-scroll");
 
+    const deliveryPresentation = readRepo("components/delivery/presentation/DeliveryPresentationShell.tsx");
+    expect(deliveryPresentation).toContain("onCartCheckoutHardRoute");
+    expect(deliveryPresentation).toContain("isStoreCommerceCartCheckoutPath");
+    expect(deliveryPresentation).toContain("data-delivery-cart-hard-route");
+    expect(deliveryPresentation).toMatch(/suppressNextChildrenPaint[\s\S]*!onCartCheckoutHardRoute/);
+
     const shell = readRepo("components/stores/cart/StoreCommerceCartPageShell.tsx");
     expect(shell).toContain("header");
     expect(shell).toContain("data-store-cart-scroll");
