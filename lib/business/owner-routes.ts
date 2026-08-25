@@ -51,6 +51,12 @@ export const OwnerRoutes = {
     const base = withStoreId(`${OWNER_ROUTES_BASE}/coupons`, storeId);
     return `${base}${base.includes("?") ? "&" : "?"}create=1`;
   },
+  couponsDetail: (campaignId: string, storeId?: string | null) => {
+    const id = campaignId.trim();
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/coupons`, storeId);
+    if (!id) return base;
+    return `${base}${base.includes("?") ? "&" : "?"}campaign=${encodeURIComponent(id)}`;
+  },
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
   points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),

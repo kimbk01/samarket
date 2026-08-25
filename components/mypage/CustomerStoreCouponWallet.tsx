@@ -55,6 +55,11 @@ function benefitText(c: CampaignSnippet | null | undefined): string {
   return formatMoneyPhp(c.discount_value);
 }
 
+const CTA_CLASS =
+  "mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect bg-signature px-3 text-sm font-medium text-white";
+const CTA_OUTLINE_CLASS =
+  "mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm font-medium text-sam-fg";
+
 export function CustomerStoreCouponWallet() {
   const { t, safeT } = useI18n();
   const [tab, setTab] = useState<CustomerCouponWalletTab>("available");
@@ -101,7 +106,7 @@ export function CustomerStoreCouponWallet() {
       data-wallet-ready={ready ? "1" : "0"}
     >
       <MySubpageHeader titleKey="store_coupon_wallet_title" backHref="/mypage" />
-      <div className="grid min-w-0 grid-cols-4 gap-1" data-customer-coupon-wallet-tabs="1">
+      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-customer-coupon-wallet-tabs="1">
         {CUSTOMER_COUPON_WALLET_TABS.map((id) => {
           const selected = tab === id;
           const count = counts[id];
@@ -114,13 +119,13 @@ export function CustomerStoreCouponWallet() {
               data-wallet-tab-count={count}
               aria-selected={selected}
               aria-label={count > 0 ? `${label} ${count}` : label}
-              className={`flex min-w-0 flex-col items-center justify-center rounded-ui-rect px-0.5 py-2 ${
-                selected ? "bg-signature/15 text-sam-fg" : "bg-sam-app text-sam-muted"
+              className={`flex min-h-[48px] min-w-0 items-center justify-center gap-1 rounded-ui-rect px-2 text-sm font-medium ${
+                selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
               }`}
               onClick={() => setTab(id)}
             >
-              <span className="w-full text-center text-[10px] font-bold leading-[1.2]">{label}</span>
-              <span className="min-h-[14px] text-[12px] font-bold leading-none tabular-nums">{count}</span>
+              <span className="min-w-0 truncate">{label}</span>
+              {count > 0 ? <span className="tabular-nums">{count}</span> : null}
             </button>
           );
         })}
@@ -158,65 +163,70 @@ export function CustomerStoreCouponWallet() {
             const orderNo = String(row.order_no ?? "").trim();
             const orderId = String(row.redeemed_order_id ?? "").trim();
             const usedDay = formatCouponWalletDay(row.order_created_at) || day;
-            const isRedeemed = String(row.bucket ?? "") === "redeemed";
+            const bucket = String(row.bucket ?? "");
+            const isRedeemed = bucket === "redeemed";
+            const canUseAtStore = (bucket === "available" || bucket === "expiring") && Boolean(slug);
+            const storeHref = slug ? `/stores/${encodeURIComponent(slug)}` : "";
+            const orderHref =
+              orderNo && !isOpaqueId(orderNo) && orderId
+                ? `/mypage/store-orders/${encodeURIComponent(orderId)}`
+                : "";
             return (
               <li
                 key={String(row.id)}
-                className="min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+                className="min-w-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
                 data-wallet-card="1"
-                data-wallet-bucket={String(row.bucket ?? "")}
+                data-wallet-bucket={bucket}
               >
-                <div className="flex min-w-0 items-start justify-between gap-2">
-                  <p className="min-w-0 break-words font-medium text-sam-fg" data-wallet-benefit="">
-                    {benefitText(campaign)}
-                  </p>
-                  <span className="shrink-0 text-xs text-sam-muted" data-wallet-status="">
-                    {t(statusKey)}
-                  </span>
+                <div className="flex min-w-0">
+                  <div className="w-1 shrink-0 bg-signature" aria-hidden data-wallet-benefit-accent="1" />
+                  <div className="min-w-0 flex-1 p-3">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <p className="min-w-0 break-words text-lg font-bold text-sam-fg" data-wallet-benefit="">
+                        {benefitText(campaign)}
+                      </p>
+                      <span
+                        className="shrink-0 rounded-ui-rect bg-sam-app px-2 py-1 text-xs font-medium text-sam-fg"
+                        data-wallet-status=""
+                      >
+                        {t(statusKey)}
+                      </span>
+                    </div>
+                    {title ? (
+                      <p className="mt-1 min-w-0 break-words text-sm text-sam-fg" data-wallet-title="">
+                        {title}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 min-w-0 break-words text-xs text-sam-muted">
+                      <span data-wallet-store="">{storeLabel}</span>
+                      {campaign?.min_order_amount != null ? (
+                        <span data-wallet-min-order="">
+                          {` · ${t("store_coupon_min_order")} ${formatMoneyPhp(campaign.min_order_amount)}`}
+                        </span>
+                      ) : null}
+                    </p>
+                    {isRedeemed && usedDay ? (
+                      <p className="mt-1 text-xs text-sam-muted" data-wallet-day="">
+                        {t("store_coupon_wallet_used_on", { date: usedDay })}
+                      </p>
+                    ) : null}
+                    {!isRedeemed && day ? (
+                      <p className="mt-1 text-xs text-sam-muted" data-wallet-day="">
+                        {t("store_coupon_wallet_valid_until", { date: day })}
+                      </p>
+                    ) : null}
+                    {canUseAtStore ? (
+                      <Link className={CTA_CLASS} href={storeHref} data-wallet-cta="store">
+                        {t("store_coupon_wallet_go_store")}
+                      </Link>
+                    ) : null}
+                    {isRedeemed && orderHref ? (
+                      <Link className={CTA_OUTLINE_CLASS} href={orderHref} data-wallet-cta="order" data-wallet-order="">
+                        {orderNo ? t("store_coupon_wallet_order", { orderNo }) : t("store_coupon_wallet_view_order")}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
-                {title ? (
-                  <p className="mt-0.5 min-w-0 break-words text-sm text-sam-fg" data-wallet-title="">
-                    {title}
-                  </p>
-                ) : null}
-                <p className="mt-1 min-w-0 break-words text-xs text-sam-muted">
-                  {slug ? (
-                    <Link
-                      className="underline-offset-2 hover:underline"
-                      href={`/stores/${encodeURIComponent(slug)}`}
-                      data-wallet-store=""
-                    >
-                      {storeLabel}
-                    </Link>
-                  ) : (
-                    <span data-wallet-store="">{storeLabel}</span>
-                  )}
-                  {campaign?.min_order_amount != null ? (
-                    <span data-wallet-min-order="">
-                      {` · ${t("store_coupon_min_order")} ${formatMoneyPhp(campaign.min_order_amount)}`}
-                    </span>
-                  ) : null}
-                </p>
-                {isRedeemed && usedDay ? (
-                  <p className="mt-1 text-xs text-sam-muted" data-wallet-day="">
-                    {t("store_coupon_wallet_used_on", { date: usedDay })}
-                  </p>
-                ) : null}
-                {!isRedeemed && day ? (
-                  <p className="mt-1 text-xs text-sam-muted" data-wallet-day="">
-                    {t("store_coupon_wallet_valid_until", { date: day })}
-                  </p>
-                ) : null}
-                {orderNo && !isOpaqueId(orderNo) && orderId ? (
-                  <p className="mt-1 min-w-0 break-words text-xs text-sam-muted" data-wallet-order="">
-                    <Link
-                      className="underline-offset-2 hover:underline"
-                      href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
-                    >
-                      {t("store_coupon_wallet_order", { orderNo })}
-                    </Link>
-                  </p>
-                ) : null}
               </li>
             );
           })}

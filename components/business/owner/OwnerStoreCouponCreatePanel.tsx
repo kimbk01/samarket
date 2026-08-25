@@ -2,14 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { BodyPortal } from "@/components/layout/BodyPortal";
 import {
   OWNER_ADMIN_FIELD_INPUT_CLASS,
   OWNER_ADMIN_FIELD_LABEL_CLASS,
-  OWNER_ADMIN_OUTLINE_BTN_CLASS,
-  OWNER_ADMIN_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
+import {
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+} from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { OWNER_STORE_PROFILE_INNER_PANEL_CLASS } from "@/lib/business/owner-store-stack";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { looksLikeRawOperatorToken } from "@/lib/stores/admin-coupon-control-view";
 
 type StepId = "benefit" | "condition" | "issue" | "use" | "cost" | "preview";
 const STEPS: StepId[] = ["benefit", "condition", "issue", "use", "cost", "preview"];
@@ -32,7 +39,7 @@ export function OwnerStoreCouponCreatePanel({
   storeId: string;
   onCreated: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const now = useMemo(() => new Date(), []);
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
@@ -49,6 +56,9 @@ export function OwnerStoreCouponCreatePanel({
   const [usageEnd, setUsageEnd] = useState(() => toLocalInput(new Date(now.getTime() + 7 * 86400000)));
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { formPadStyle, footerPadStyle, footerFixedClassName, keyboardOpen } = useOwnerAdminFormKeyboard({
+    aboveBottomNav: true,
+  });
 
   const stepId = STEPS[step];
   const stepLabel: Record<StepId, string> = {
@@ -68,6 +78,12 @@ export function OwnerStoreCouponCreatePanel({
     return n * d;
   }, [kind, issueLimit, discountValue]);
 
+  const failCopy = () =>
+    safeT("store_coupon_admin_act_fail", {
+      fallbackKo: "처리할 수 없습니다.",
+      fallbackEn: "Could not complete that action.",
+    });
+
   const publish = () => {
     void (async () => {
       setBusy(true);
@@ -77,7 +93,7 @@ export function OwnerStoreCouponCreatePanel({
         const endAt = fromLocalInput(issueEnd);
         const usageEndAt = fromLocalInput(usageEnd);
         if (!startAt || !endAt) {
-          setErr("invalid_window");
+          setErr(failCopy());
           return;
         }
         const res = await fetch("/api/me/store-coupons/campaigns", {
@@ -104,7 +120,8 @@ export function OwnerStoreCouponCreatePanel({
         });
         const json = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          setErr(json.error ?? "db_error");
+          const raw = String(json.error ?? "");
+          setErr(raw && !looksLikeRawOperatorToken(raw) ? raw : failCopy());
           return;
         }
         onCreated();
@@ -115,20 +132,26 @@ export function OwnerStoreCouponCreatePanel({
   };
 
   return (
-    <div className="min-w-0 space-y-3" data-store-coupon-create-flow="1">
-      <div className="grid min-w-0 grid-cols-6 gap-1" data-store-coupon-create-steps="1">
-        {STEPS.map((id, i) => (
-          <button
-            key={id}
-            type="button"
-            className={`min-w-0 truncate rounded-ui-rect px-0.5 py-1 text-center text-[10px] leading-tight ${
-              i === step ? "bg-signature text-white" : "bg-sam-app text-sam-muted"
-            }`}
-            onClick={() => setStep(i)}
-          >
-            {stepLabel[id]}
-          </button>
-        ))}
+    <div className="min-w-0 space-y-3" data-store-coupon-create-flow="1" style={formPadStyle}>
+      <div className="min-w-0" data-store-coupon-create-steps="1">
+        <p className="text-base font-semibold text-sam-fg" data-store-coupon-create-step-title="">
+          {stepLabel[stepId]}
+        </p>
+        <p className="mt-0.5 text-sm text-sam-muted">
+          {step + 1} / {STEPS.length}
+        </p>
+        <div className="mt-2 flex min-h-[28px] items-center justify-center gap-2">
+          {STEPS.map((id, i) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={stepLabel[id]}
+              aria-current={i === step ? "step" : undefined}
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${i === step ? "bg-signature" : "bg-sam-border"}`}
+              onClick={() => setStep(i)}
+            />
+          ))}
+        </div>
       </div>
       {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
 
@@ -239,31 +262,50 @@ export function OwnerStoreCouponCreatePanel({
         </div>
       ) : null}
 
-      <div className="flex min-w-0 gap-2">
-        {step > 0 ? (
-          <button type="button" className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} min-h-[44px] flex-1`} onClick={() => setStep((s) => s - 1)}>
-            {t("store_coupon_owner_create_back")}
-          </button>
-        ) : null}
-        {step < STEPS.length - 1 ? (
-          <button
-            type="button"
-            className={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} min-h-[44px] flex-1`}
-            onClick={() => setStep((s) => s + 1)}
-          >
-            {t("store_coupon_owner_create_next")}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={busy || !storeId}
-            className={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} min-h-[44px] flex-1`}
-            onClick={publish}
-          >
-            {t("store_coupon_owner_create_publish")}
-          </button>
-        )}
-      </div>
+      <BodyPortal>
+        <div
+          role="toolbar"
+          data-store-coupon-create-footer="1"
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+          className={footerFixedClassName}
+          style={footerPadStyle}
+        >
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+              <button
+                type="button"
+                disabled={step === 0 || busy}
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                data-store-coupon-create-back="1"
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
+              >
+                {t("store_coupon_owner_create_back")}
+              </button>
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                  data-store-coupon-create-next="1"
+                  onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+                >
+                  {t("store_coupon_owner_create_next")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy || !storeId}
+                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                  data-store-coupon-create-publish="1"
+                  onClick={publish}
+                >
+                  {t("store_coupon_owner_create_publish")}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </BodyPortal>
     </div>
   );
 }

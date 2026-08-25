@@ -66,6 +66,16 @@ export function ownerCouponListStatusMessageKey(
   }
 }
 
+export type OwnerCouponDetailAction = "pause" | "resume" | "end" | "reissue";
+
+/** B3 detail CTAs — same pause/resume/end/reissue writers as the existing owner PATCH. */
+export function ownerCouponDetailActions(status: OwnerCouponListStatus): OwnerCouponDetailAction[] {
+  if (status === "requested") return [];
+  if (status === "ended") return ["reissue"];
+  if (status === "paused") return ["resume", "end", "reissue"];
+  return ["pause", "end", "reissue"];
+}
+
 export function isOwnerCouponLifecycleKnown(state: string): boolean {
   return isStoreCouponLifecycleState(state);
 }

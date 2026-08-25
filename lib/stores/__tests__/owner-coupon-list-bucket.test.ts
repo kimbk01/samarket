@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ownerCouponDetailActions,
   ownerCouponListStatus,
   ownerCouponListTab,
 } from "@/lib/stores/owner-coupon-list-bucket";
@@ -62,5 +63,20 @@ describe("CUT UI-1 Owner coupon list buckets", () => {
     const row = { lifecycle_state: "requested", start_at: "2026-08-01T00:00:00.000Z", end_at: "2026-09-01T00:00:00.000Z" };
     expect(ownerCouponListTab(row, NOW)).toBe("upcoming");
     expect(ownerCouponListStatus(row, NOW)).toBe("requested");
+  });
+});
+
+describe("B3 owner coupon detail actions", () => {
+  it("active: pause / end / reissue", () => {
+    expect(ownerCouponDetailActions("active")).toEqual(["pause", "end", "reissue"]);
+  });
+  it("paused: resume / end / reissue", () => {
+    expect(ownerCouponDetailActions("paused")).toEqual(["resume", "end", "reissue"]);
+  });
+  it("ended: reissue only", () => {
+    expect(ownerCouponDetailActions("ended")).toEqual(["reissue"]);
+  });
+  it("requested: no owner ops CTAs", () => {
+    expect(ownerCouponDetailActions("requested")).toEqual([]);
   });
 });

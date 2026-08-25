@@ -63,6 +63,8 @@ export async function GET(req: NextRequest) {
       discountType: c.discountType,
       discountValue: c.discountValue,
       minOrderAmount: c.minOrderAmount,
+      startAt: c.startAt,
+      endAt: c.endAt,
       claimed: false,
     }));
   const claimed = forStore
@@ -74,6 +76,8 @@ export async function GET(req: NextRequest) {
       discountType: c.discountType,
       discountValue: c.discountValue,
       minOrderAmount: c.minOrderAmount,
+      startAt: c.startAt,
+      endAt: c.endAt,
       claimed: true,
     }));
   const shown = claimed.length ? claimed : claimable;
