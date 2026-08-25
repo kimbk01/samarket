@@ -17,6 +17,15 @@ describe("store cart layout contract", () => {
     expect(layout).toContain("STORE_CART_FOOTER_CHROME_CLASS");
     expect(layout).toMatch(/flex-1/);
     expect(layout).toMatch(/overflow-y-auto/);
+    expect(layout).toMatch(/-webkit-overflow-scrolling:touch/);
+    expect(layout).toMatch(/\bh-0\b/);
+
+    const globals = readRepo("app/globals.css");
+    expect(globals).toContain("main-shell-push-surface--child-scroll");
+
+    const routeTransition = readRepo("components/route-transition/AppRouteTransition.tsx");
+    expect(routeTransition).toContain("isStoreCommerceCartCheckoutPath");
+    expect(routeTransition).toContain("data-main-shell-child-scroll");
 
     const shell = readRepo("components/stores/cart/StoreCommerceCartPageShell.tsx");
     expect(shell).toContain("header");

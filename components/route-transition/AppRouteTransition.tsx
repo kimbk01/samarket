@@ -23,6 +23,7 @@ import {
   consumeNotificationDestinationEnterSession,
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
 import {
@@ -313,6 +314,7 @@ export function AppRouteTransition({
   hubChromeHeader = null,
 }: Props) {
   const pathname = usePathname();
+  const mainShellChildScrollLocked = isStoreCommerceCartCheckoutPath(pathname);
   const kindRef = useRouteTransitionKindRef(pathname);
   const { pendingMenuIntent } = useLatestMenuNavigation();
   const subtleEnterRef = useRef<HTMLDivElement>(null);
@@ -871,10 +873,11 @@ export function AppRouteTransition({
         <div
           ref={bindPushSurfaceRef}
           data-main-shell-push-surface
+          data-main-shell-child-scroll={mainShellChildScrollLocked ? "1" : undefined}
           data-main-hub-transition-surface={hubChromeHeader ? "1" : undefined}
           className={`main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col${
             hubChromeHeader ? " main-hub-transition-surface" : ""
-          }`}
+          }${mainShellChildScrollLocked ? " main-shell-push-surface--child-scroll" : ""}`}
           onAnimationEnd={(e) => {
             if (e.target !== e.currentTarget) return;
             stripTransitionClasses(subtleEnterRef.current, ROUTE_TRANSITION_ENTER_CLASSES);

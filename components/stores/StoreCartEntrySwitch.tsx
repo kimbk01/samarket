@@ -98,7 +98,11 @@ export function StoreCartEntrySwitch({
   useRefetchOnPageShowRestore(() => void detect({ silent: true }));
 
   if (state.kind === "real") {
-    return <StoreCommerceCartPageClient storeSlug={normalizedSlug} />;
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <StoreCommerceCartPageClient storeSlug={normalizedSlug} />
+      </div>
+    );
   }
   return (
     <StoreCommerceCartEntryFallback

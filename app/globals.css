@@ -701,6 +701,16 @@ a,
   transform: translate3d(0, 0, 0);
 }
 
+/**
+ * Cart/checkout — nested `[data-store-cart-scroll]` touch scroll breaks under any ancestor transform (iOS/WebKit).
+ * Path flag from `AppRouteTransition` — do not rely on `:has()` (older WebViews).
+ */
+[data-main-shell-push-surface].main-shell-push-surface--child-scroll:not(.main-shell-push-surface-from-ltr):not(.main-shell-push-surface-from-rtl):not(.main-shell-push-surface-enter-ltr):not(.main-shell-push-surface-enter-rtl):not(.main-shell-push-surface-exit-ltr):not(.main-shell-push-surface-exit-rtl) {
+  transform: none;
+  will-change: auto;
+  backface-visibility: visible;
+}
+
 [data-main-shell-push-surface].main-shell-push-surface-from-ltr {
   transform: translate3d(-100%, 0, 0);
   transition: none;
