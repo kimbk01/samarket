@@ -41,6 +41,15 @@ describe("owner orders deeplink contract", () => {
     expect(hub).not.toContain("store_orders_realtime_change");
   });
 
+  it("mobile tab chips select destination tab via replaceOwnerOrdersUrlQuery, not Link+collapse current tab", () => {
+    const body = readRepo("components/business/owner/OwnerStoreOrdersMobileBody.tsx");
+    const view = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
+    expect(body).toContain("onSelectTab");
+    expect(body).toContain("e.preventDefault()");
+    expect(body).not.toMatch(/<Link[\s\S]{0,200}onCollapseTransient/);
+    expect(view).toContain("replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab: tabId })");
+  });
+
   it("dashboard urgent card uses entry href with fresh_list", () => {
     const card = readRepo("components/stores/owner/dashboard/OwnerUrgentOrdersCard.tsx");
     expect(card).toContain("buildOwnerOrdersEntryHref");

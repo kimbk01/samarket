@@ -24,6 +24,7 @@ export function pickNewerOwnerStoreOrderListRow(
     items: newer.items.length > 0 ? newer.items : older.items,
     buyer_public_label: newer.buyer_public_label ?? older.buyer_public_label,
     delivery: newer.delivery ?? older.delivery,
+    discount_amount: newer.discount_amount ?? older.discount_amount,
   };
 }
 

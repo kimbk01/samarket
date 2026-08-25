@@ -17,6 +17,8 @@ export type OwnerStoreOrderListRow = {
   buyer_public_label?: string | null;
   buyer_phone?: string | null;
   total_amount: number;
+  /** store_orders.discount_amount — checkout coupon snapshot, not recomputed */
+  discount_amount?: number;
   payment_amount: number;
   payment_status: string;
   order_status: string;
@@ -119,10 +121,16 @@ export function parseOwnerStoreOrderListRowFromApi(raw: unknown): OwnerStoreOrde
   const items = (Array.isArray(r.items) ? r.items : [])
     .map(coerceOwnerStoreOrderListItem)
     .filter((x): x is OwnerStoreOrderListRow["items"][number] => x != null);
+  const discountRaw = r.discount_amount;
+  const discount_amount =
+    discountRaw == null || discountRaw === ""
+      ? undefined
+      : Math.max(0, Math.round(Number(discountRaw) || 0));
   return normalizeOwnerStoreOrderListRow({
     ...(raw as OwnerStoreOrderListRow),
     id,
     items,
+    ...(discount_amount != null ? { discount_amount } : {}),
   });
 }
 
@@ -197,6 +205,7 @@ export function ownerOrderToListRow(
       estimated_ready_at: prev.estimated_ready_at,
       accepted_at: prev.accepted_at,
       review_status: prev.review_status,
+      discount_amount: prev.discount_amount,
     };
   }
 

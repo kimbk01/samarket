@@ -463,11 +463,28 @@ export function OwnerStoreOrderMockCard({
             </OwnerOpsSection>
 
             <OwnerOpsSection title={t("store_owner_payment_review_section")}>
-              <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">
-                <InfoPill label={t("store_owner_payment_method_label")} value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
-                <InfoPill label={t("store_owner_payment_amount_label")} value={formatMoneyPhp(order.payment_amount)} />
-                <InfoPill label={t("store_owner_label_review_short")} value={reviewStatusLabel(order.review_status, language)} />
-                <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} />
+              <div className="space-y-2">
+                <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-2 text-[13px] leading-[1.35] text-[var(--biz-text)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#6B7280]">{t("store_product_amount")}</span>
+                    <span className="tabular-nums">{formatMoneyPhp(order.total_amount)}</span>
+                  </div>
+                  {(order.discount_amount ?? 0) > 0 ? (
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <span className="text-[#6B7280]">{t("store_owner_order_coupon_discount")}</span>
+                      <span className="tabular-nums">-{formatMoneyPhp(order.discount_amount ?? 0)}</span>
+                    </div>
+                  ) : null}
+                  <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-[var(--biz-card-border)] pt-1.5 font-bold">
+                    <span>{t("store_owner_payment_amount_label")}</span>
+                    <span className="tabular-nums">{formatMoneyPhp(order.payment_amount)}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">
+                  <InfoPill label={t("store_owner_payment_method_label")} value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
+                  <InfoPill label={t("store_owner_label_review_short")} value={reviewStatusLabel(order.review_status, language)} />
+                  <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} />
+                </div>
               </div>
             </OwnerOpsSection>
 

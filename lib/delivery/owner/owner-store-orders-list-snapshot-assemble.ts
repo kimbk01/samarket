@@ -2,7 +2,10 @@
  * Parse unified owner store orders list snapshot RPC payload.
  */
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
-import { normalizeOwnerStoreOrderListRows } from "@/lib/business/owner-store-order-list-row-bridge";
+import {
+  normalizeOwnerStoreOrderListRows,
+  parseOwnerStoreOrderListRowFromApi,
+} from "@/lib/business/owner-store-order-list-row-bridge";
 
 export type OwnerStoreOrdersListSnapshotPayloadJson = {
   ok?: boolean;
@@ -36,7 +39,9 @@ export function ownerStoreOrdersListFromPayload(
 ): OwnerStoreOrderListRow[] {
   if (!Array.isArray(payload.orders)) return [];
   return normalizeOwnerStoreOrderListRows(
-    payload.orders.filter((o) => o && typeof o === "object") as OwnerStoreOrderListRow[]
+    payload.orders
+      .map((o) => parseOwnerStoreOrderListRowFromApi(o))
+      .filter((row): row is OwnerStoreOrderListRow => row != null)
   );
 }
 

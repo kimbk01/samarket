@@ -51,6 +51,25 @@ describe("pickNewerOwnerStoreOrderListRow", () => {
     });
     expect(pickNewerOwnerStoreOrderListRow(existing, incoming).order_status).toBe("preparing");
   });
+
+  it("keeps enrich discount_amount when newer list snapshot omits it", () => {
+    const existing = row({
+      id: "o1",
+      order_status: "completed",
+      updated_at: "2026-06-01T11:00:00.000Z",
+      discount_amount: 100,
+      total_amount: 1950,
+      payment_amount: 1850,
+    });
+    const incoming = row({
+      id: "o1",
+      order_status: "completed",
+      updated_at: "2026-06-01T12:00:00.000Z",
+      total_amount: 1950,
+      payment_amount: 1850,
+    });
+    expect(pickNewerOwnerStoreOrderListRow(existing, incoming).discount_amount).toBe(100);
+  });
 });
 
 describe("mergeOwnerStoreOrderListRows", () => {

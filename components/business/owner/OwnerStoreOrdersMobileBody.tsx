@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Filter, Search } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -43,6 +42,7 @@ export function OwnerStoreOrdersMobileBody({
   chatOrderId,
   summaryCounts,
   onTabHref,
+  onSelectTab,
   onUpdated,
   onPatchOrderRow,
   onReconcileOrder,
@@ -66,6 +66,7 @@ export function OwnerStoreOrdersMobileBody({
   /** 알림·대시보드 딥링크 — 목록 스크롤 영역에서 카드로 이동 */
   scrollToHighlightOrderId?: string;
   onTabHref: (tabId: StoreOrderTabId) => string;
+  onSelectTab: (tabId: StoreOrderTabId) => void;
   onUpdated: () => void | Promise<void>;
   onPatchOrderRow: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
   onReconcileOrder?: (orderId: string) => void | Promise<void>;
@@ -211,12 +212,15 @@ export function OwnerStoreOrdersMobileBody({
               const active = effectiveTab === tabDef.id;
               const count = tabCounts.get(tabDef.id) ?? 0;
               return (
-                <Link
+                <a
                   key={tabDef.id}
                   href={onTabHref(tabDef.id)}
-                  scroll={false}
-                  onClick={onCollapseTransient}
+                  aria-current={active ? "page" : undefined}
                   aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(tabDef.labelKey), count)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onSelectTab(tabDef.id);
+                  }}
                   className={`relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-[4px] px-0.5 py-1.5 ${
                     active ? "bg-[var(--biz-primary)] text-white" : "text-[var(--biz-text)]"
                   }`}
@@ -227,7 +231,7 @@ export function OwnerStoreOrdersMobileBody({
                     count={count}
                     active={active}
                   />
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -238,28 +242,28 @@ export function OwnerStoreOrdersMobileBody({
               value={summaryCounts.pending}
               tone="text-[#B42318]"
               href={onTabHref("new")}
-              onClick={onCollapseTransient}
+              onSelect={() => onSelectTab("new")}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_preparing")}
               value={summaryCounts.preparing}
               tone="text-[#B45309]"
               href={onTabHref("preparing")}
-              onClick={onCollapseTransient}
+              onSelect={() => onSelectTab("preparing")}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_delivering")}
               value={summaryCounts.delivering}
               tone="text-[var(--biz-primary)]"
               href={onTabHref("shipping")}
-              onClick={onCollapseTransient}
+              onSelect={() => onSelectTab("shipping")}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_done_today")}
               value={summaryCounts.doneToday}
               tone="text-[var(--biz-text)]"
               href={onTabHref("done")}
-              onClick={onCollapseTransient}
+              onSelect={() => onSelectTab("done")}
             />
           </div>
 
@@ -348,20 +352,22 @@ function KpiCard({
   value,
   tone,
   href,
-  onClick,
+  onSelect,
 }: {
   label: string;
   value: number;
   tone: string;
   href: string;
-  onClick?: () => void;
+  onSelect: () => void;
 }) {
   return (
-    <Link
+    <a
       href={href}
-      scroll={false}
-      onClick={onClick}
       aria-label={buildOwnerMobileStackedLabelCountAriaLabel(label, value)}
+      onClick={(e) => {
+        e.preventDefault();
+        onSelect();
+      }}
       className="rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
     >
       <OwnerMobileStackedLabelCount
@@ -370,6 +376,6 @@ function KpiCard({
         count={value}
         countClassName={tone}
       />
-    </Link>
+    </a>
   );
 }

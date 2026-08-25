@@ -132,6 +132,7 @@ export function OwnerStoreOrdersView() {
   const deepLinkEnrichAttemptsRef = useRef(0);
   const deepLinkChatEnrichAttemptedRef = useRef(false);
   const tabSyncForOrderRef = useRef<string | null>(null);
+  const paymentSnapshotEnrichRef = useRef<string | null>(null);
   /** mount URL 의 highlight — 별도 effect 중복 fetch 방지 */
   const prevHighlightOrderIdRef = useRef(highlightOrderId);
   const freshListStrippedRef = useRef(false);
@@ -725,6 +726,10 @@ export function OwnerStoreOrdersView() {
       }
       return;
     }
+    if (order.discount_amount == null && paymentSnapshotEnrichRef.current !== activeExpandOrderId) {
+      paymentSnapshotEnrichRef.current = activeExpandOrderId;
+      enrichOrder(activeExpandOrderId);
+    }
     const effectiveTab = effectiveOwnerMobileOrdersTab(tab);
     if (!orderMatchesOwnerMobileOrdersTab(order, tab)) {
       const wantTab = ownerMobileOrdersTabForStatus(order.order_status);
@@ -907,6 +912,19 @@ export function OwnerStoreOrdersView() {
     [state]
   );
 
+  /** Tab chips must write destination `tab` through replaceOwnerOrdersUrlQuery.
+   * Next `<Link>` pushState does not notify `useOwnerAdminUrlSearchParams`,
+   * and onCollapseTransient would rewrite the *current* tab and keep 신규. */
+  const onSelectTab = useCallback(
+    (tabId: StoreOrderTabId) => {
+      if (state.kind !== "ok") return;
+      setExpandedOrderId("");
+      setChatOrderId("");
+      replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab: tabId });
+    },
+    [state]
+  );
+
   const onOpenDetail = useCallback(
     (orderId: string) => {
       if (state.kind !== "ok") return;
@@ -1052,6 +1070,7 @@ export function OwnerStoreOrdersView() {
         }
         scrollToHighlightOrderId={scrollToHighlightOrderId}
         onTabHref={onTabHref}
+        onSelectTab={onSelectTab}
         onUpdated={() => load({ silent: true, reason: "order_status_patch", forceNetwork: true })}
         onPatchOrderRow={patchOrderInList}
         onReconcileOrder={enrichOrder}

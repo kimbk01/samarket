@@ -49,6 +49,7 @@ export const storeCouponSsotMessages = {
     store_coupon_usage_window: "사용 기간",
     store_coupon_best_eligible: "최적 쿠폰",
     store_coupon_unusable: "사용 불가",
+    store_owner_order_coupon_discount: "쿠폰 할인",
   },
   en: {
     store_coupon_wallet_title: "Coupons",
@@ -101,5 +102,6 @@ export const storeCouponSsotMessages = {
     store_coupon_usage_window: "Usage window",
     store_coupon_best_eligible: "Best coupon",
     store_coupon_unusable: "Not usable",
+    store_owner_order_coupon_discount: "Coupon discount",
   },
 };

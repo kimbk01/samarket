@@ -32,4 +32,11 @@ describe("parseOwnerStoreOrdersListFromApiJson", () => {
     expect(rows).toHaveLength(1);
     expect(Array.isArray(rows[0]!.items)).toBe(true);
   });
+
+  it("passes through store_orders.discount_amount snapshot without recomputing", () => {
+    const rows = parseOwnerStoreOrdersListFromApiJson({
+      orders: [{ id: "x", discount_amount: 100, total_amount: 1950, payment_amount: 1850 }],
+    });
+    expect(rows[0]!.discount_amount).toBe(100);
+  });
 });
