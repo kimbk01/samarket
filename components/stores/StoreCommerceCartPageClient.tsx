@@ -131,7 +131,6 @@ import {
   isUsableStoreCouponQuote,
   type StoreCouponQuote,
 } from "@/lib/stores/store-coupon-best-eligible";
-import { buildCheckoutQuoteView } from "@/lib/stores/store-coupon-product-view";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -300,7 +299,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     addressLabel: string;
     paymentLabel: string;
     orderSummaryLabel: string;
-    paymentBreakdownLines: import("@/lib/stores/store-coupon-product-view").CheckoutPaymentBreakdownLine[];
     requestLabel: string;
   } | null>(null);
   const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
@@ -1192,8 +1190,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             sessionUserCouponId: session?.userCouponId ?? null,
             lockedUserCouponId: locked ? appliedUserCouponIdRef.current : null,
             userChoseNone: locked && !appliedUserCouponIdRef.current,
-            /** Cart: never auto-apply best — claim on store detail; apply only via session or explicit pick. */
-            bestUserCouponId: null,
+            bestUserCouponId: json.best?.userCouponId ?? null,
           });
           setAppliedUserCouponId(resolved.userCouponId);
           setAppliedCouponCampaignId(resolved.campaignId);
@@ -1430,28 +1427,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }) || t("store_checkout_not_entered");
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
-    const confirmCouponQuote = couponQuotes.find((q) => q.userCouponId === appliedUserCouponId);
-    const confirmCouponDiscountPhp =
-      confirmCouponQuote && isUsableStoreCouponQuote(confirmCouponQuote)
-        ? confirmCouponQuote.discountAmount
-        : 0;
-    const baseGrandPhp =
+    const grandForConfirm =
       fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
-    const grandForConfirm = baseGrandPhp - confirmCouponDiscountPhp;
-    const checkoutQuote = buildCheckoutQuoteView({
-      subtotalPhp,
-      menuDiscountPhp: discountAmountPhp,
-      couponTitle: confirmCouponQuote?.title ?? null,
-      couponNumber: confirmCouponQuote?.couponNumber ?? null,
-      couponDiscountPhp: confirmCouponDiscountPhp,
-      deliveryFeePhp: fulfillment === "local_delivery" ? deliveryFeeForCheckout : 0,
-    });
     setCheckoutConfirmPayload({
       phoneLabel: phoneDisp,
       addressLabel: addrDisp,
       paymentLabel: payLabel,
       orderSummaryLabel: buildStoreCheckoutOrderSummaryLabel(lines, grandForConfirm),
-      paymentBreakdownLines: checkoutQuote.lines,
       requestLabel: buildStoreCheckoutRequestLabel(buyerNote),
     });
     setCheckoutConfirmOpen(true);
@@ -1735,6 +1717,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     selectedCouponQuote && isUsableStoreCouponQuote(selectedCouponQuote)
       ? selectedCouponQuote.discountAmount
       : 0;
+  const usableCouponQuotes = couponQuotes.filter(isUsableStoreCouponQuote);
   const minOrderBlockedCoupons = couponQuotes.filter((q) => q.ineligibleReason === "coupon_min_order");
   const blockedMinOrderHint =
     minOrderBlockedCoupons.length > 0
@@ -1811,34 +1794,36 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
 
-      <StoreCartCouponApplyBlock
-        quotes={couponQuotes}
-        appliedUserCouponId={appliedUserCouponId}
-        noneLabel={t("store_coupon_none")}
-        applyLabel={t("store_coupon_cart_section")}
-        titleFallback={t("store_coupon_cart_section")}
-        blockedMinOrderHint={blockedMinOrderHint}
-        onChooseNone={() => {
-          couponChoiceLockedRef.current = true;
-          appliedUserCouponIdRef.current = null;
-          setAppliedUserCouponId(null);
-          setAppliedCouponCampaignId(null);
-          clearStoreCheckoutCouponSession();
-        }}
-        onChoose={(quote) => {
-          couponChoiceLockedRef.current = true;
-          appliedUserCouponIdRef.current = quote.userCouponId;
-          setAppliedUserCouponId(quote.userCouponId);
-          setAppliedCouponCampaignId(quote.campaignId);
-          if (store?.id) {
-            writeStoreCheckoutCouponSession({
-              storeId: store.id,
-              campaignId: quote.campaignId,
-              userCouponId: quote.userCouponId,
-            });
-          }
-        }}
-      />
+      {usableCouponQuotes.length > 0 || minOrderBlockedCoupons.length > 0 ? (
+        <StoreCartCouponApplyBlock
+          quotes={couponQuotes}
+          appliedUserCouponId={appliedUserCouponId}
+          noneLabel={t("store_coupon_none")}
+          applyLabel={t("store_coupon_apply")}
+          titleFallback={t("store_coupon_wallet_title")}
+          blockedMinOrderHint={blockedMinOrderHint}
+          onChooseNone={() => {
+            couponChoiceLockedRef.current = true;
+            appliedUserCouponIdRef.current = null;
+            setAppliedUserCouponId(null);
+            setAppliedCouponCampaignId(null);
+            clearStoreCheckoutCouponSession();
+          }}
+          onChoose={(row) => {
+            couponChoiceLockedRef.current = true;
+            appliedUserCouponIdRef.current = row.userCouponId;
+            setAppliedUserCouponId(row.userCouponId);
+            setAppliedCouponCampaignId(row.campaignId);
+            if (store?.id) {
+              writeStoreCheckoutCouponSession({
+                storeId: store.id,
+                campaignId: row.campaignId,
+                userCouponId: row.userCouponId,
+              });
+            }
+          }}
+        />
+      ) : null}
 
       <StoreBaeminCartOrderSummaryCard
         subtotalPhp={subtotalPhp}
@@ -1883,7 +1868,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           addressLabel={checkoutConfirmPayload.addressLabel}
           paymentLabel={checkoutConfirmPayload.paymentLabel}
           orderSummaryLabel={checkoutConfirmPayload.orderSummaryLabel}
-          paymentBreakdownLines={checkoutConfirmPayload.paymentBreakdownLines}
           requestLabel={checkoutConfirmPayload.requestLabel}
           busy={busy}
           onCancel={() => {

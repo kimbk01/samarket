@@ -17,8 +17,8 @@ import {
 /** 페이지 루트 — 스타벅스 배경(#f6f6f6) */
 export const STORE_CART_PAGE_ROOT_CLASS = `flex min-h-0 flex-1 flex-col overflow-hidden w-full min-w-0 ${BAEMIN_CART_PAGE_BG}`;
 
-/** 가운데 스크롤 영역 — 페이지 배경과 동일 (`h-0` = flex 자식 높이 잠금, iOS touch scroll) */
-export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] ${BAEMIN_CART_PAGE_BG}`;
+/** 가운데 스크롤 영역 — 페이지 배경과 동일 */
+export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y ${BAEMIN_CART_PAGE_BG}`;
 
 /** 본문 — 좌우 16px 통일, 헤더~첫 카드 간격 최소 */
 /** 하단 고정 CTA에 가리지 않도록 스크롤 하단 여백 */

@@ -701,16 +701,6 @@ a,
   transform: translate3d(0, 0, 0);
 }
 
-/**
- * Store cart — nested `[data-store-cart-scroll]` must receive touch scroll.
- * Idle `translate3d(0,0,0)` on push surface breaks overflow-y on iOS/WebKit (identity transform still creates a containing block).
- */
-[data-main-shell-push-surface].main-shell-push-surface:has([data-store-cart-scroll="store-cart-scroll"]) {
-  transform: none;
-  will-change: auto;
-  backface-visibility: visible;
-}
-
 [data-main-shell-push-surface].main-shell-push-surface-from-ltr {
   transform: translate3d(-100%, 0, 0);
   transition: none;
