@@ -478,6 +478,7 @@ async function finishFromPayload(
     const withInsertion = await attachStoresBrowseInsertionMeta(sb, bodyWithAuthority, {
       primarySlug: ctx.primary,
       subSlug: ctx.sub,
+      viewerUserId: ctx.viewerUserId ?? null,
     });
     bodyFinal = {
       ...withInsertion,

@@ -381,6 +381,8 @@ export type StoresBrowseRequestContext = {
   rankingCriteria?: import("@/lib/stores/stores-browse-ranking-criteria").StoresBrowseRankingCriterionId[];
   customerSortAvailability?: import("@/lib/stores/stores-browse-customer-sort-availability").StoresBrowseCustomerSortAvailability;
   discoveryShelf?: import("@/lib/stores/stores-browse-discovery-shelf").StoresBrowseDiscoveryShelfConfig;
+  /** Coupon badge eligibility — same source as live browse attach. */
+  viewerUserId?: string | null;
 };
 
 export type StoresBrowseDbBundle = {

@@ -13,6 +13,10 @@ import {
 } from "@/lib/stores/load-store-insertion-campaigns";
 import { selectDiscoveryEligibleStoreCoupons } from "@/lib/stores/store-coupon-eligibility";
 import {
+  filterDiscoveryCouponsForViewer,
+  loadViewerCouponDiscoveryContext,
+} from "@/lib/stores/store-coupon-discovery-viewer";
+import {
   listBrowseScopePolicyRows,
   mapBrowseScopeDbRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-db";
@@ -120,7 +124,7 @@ async function resolveBrowseInsertionPolicy(
 export async function attachStoresBrowseInsertionMeta(
   sb: SupabaseClient,
   body: StoresBrowseResponseBody,
-  scope?: { primarySlug: string; subSlug: string | null }
+  scope?: { primarySlug: string; subSlug: string | null; viewerUserId?: string | null }
 ): Promise<StoresBrowseResponseBody> {
   const scopeMeta = scope
     ? await resolveStoresBrowseScopeCustomerMeta(sb, scope.primarySlug, scope.subSlug).catch(
@@ -146,11 +150,17 @@ export async function attachStoresBrowseInsertionMeta(
 
   const couponBadgeByStoreId: Record<string, { title: string }> = {};
   if (scopeMeta?.couponEnabled) {
-    const eligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
+    let eligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
+    const viewerId = scope?.viewerUserId?.trim() || "";
+    if (viewerId) {
+      const ctx = await loadViewerCouponDiscoveryContext(sb, viewerId);
+      eligible = filterDiscoveryCouponsForViewer(eligible, ctx);
+    }
     for (const c of eligible) {
       if (!organicSet.has(c.storeId)) continue;
       if (!couponBadgeByStoreId[c.storeId]) {
-        couponBadgeByStoreId[c.storeId] = { title: c.title };
+        /** CUT 6 — list badge is generic; never campaign title/amount. */
+        couponBadgeByStoreId[c.storeId] = { title: "" };
       }
     }
   }

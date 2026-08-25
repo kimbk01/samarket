@@ -93,7 +93,7 @@ describe("FREE COUPON QA gap fixes", () => {
     const fs = await import("node:fs");
     const snap = fs.readFileSync("lib/stores/stores-browse-snapshot.ts", "utf8");
     const live = fs.readFileSync("lib/stores/composition/stores-composition-browse-insertion-meta.ts", "utf8");
-    expect(snap).toContain("viewerUserId: ctx.viewerUserId");
+    expect(snap).toMatch(/viewerUserId:\s*ctx\.viewerUserId/);
     expect(live).toContain("loadViewerCouponDiscoveryContext");
     expect(live).toContain("filterDiscoveryCouponsForViewer");
   });
