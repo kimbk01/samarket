@@ -1,15 +1,24 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreCouponCreatePanel } from "@/components/business/owner/OwnerStoreCouponCreatePanel";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
+import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import {
-  OWNER_ADMIN_FIELD_INPUT_CLASS,
-  OWNER_ADMIN_FIELD_LABEL_CLASS,
+  ownerCouponListStatus,
+  ownerCouponListStatusMessageKey,
+  ownerCouponListTab,
+  type OwnerCouponListTab,
+} from "@/lib/stores/owner-coupon-list-bucket";
+import {
   OWNER_ADMIN_LIST_CARD_CLASS,
   OWNER_ADMIN_OUTLINE_BTN_CLASS,
   OWNER_ADMIN_PRIMARY_BTN_CLASS,
@@ -27,35 +36,40 @@ type CampaignRow = {
   issue_limit?: number | null;
   spend_budget_php?: number | null;
   reserved_spend_php?: number | null;
-  claimed_count?: number;
   redeemed_count?: number;
-  first_order_scope?: string | null;
   start_at?: string;
   end_at?: string;
   usage_end_at?: string | null;
-  store_funded_amount?: number | null;
   max_discount?: number | null;
 };
 
+function dayLabel(iso?: string | null): string {
+  const s = String(iso ?? "").slice(0, 10);
+  return s ? s.replaceAll("-", ".") : "—";
+}
+
+function benefitLabel(row: CampaignRow): string {
+  if (row.discount_type === "percent") return `${row.discount_value}%`;
+  return formatMoneyPhp(row.discount_value);
+}
+
+const TABS: Array<{ id: OwnerCouponListTab; labelKey: "store_coupon_owner_tab_active" | "store_coupon_owner_tab_upcoming" | "store_coupon_owner_tab_ended" }> = [
+  { id: "active", labelKey: "store_coupon_owner_tab_active" },
+  { id: "upcoming", labelKey: "store_coupon_owner_tab_upcoming" },
+  { id: "ended", labelKey: "store_coupon_owner_tab_ended" },
+];
+
 export function OwnerStoreCouponsView() {
   const { t } = useI18n();
+  const router = useRouter();
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
+  const createMode = sp.get("create") === "1";
   const [resolvedStoreId, setResolvedStoreId] = useState(storeId);
   const [rows, setRows] = useState<CampaignRow[]>([]);
-  const [title, setTitle] = useState("");
-  const [kind, setKind] = useState<"percent" | "fixed_amount">("percent");
-  const [discountValue, setDiscountValue] = useState("10");
-  const [minOrder, setMinOrder] = useState("");
-  const [maxDiscount, setMaxDiscount] = useState("");
-  const [issueLimit, setIssueLimit] = useState("");
-  const [spendBudget, setSpendBudget] = useState("");
-  const [claimDays, setClaimDays] = useState("7");
-  const [target, setTarget] = useState<"ALL" | "STORE" | "PLATFORM">("ALL");
-  const [funding, setFunding] = useState<"STORE_FUNDED" | "PLATFORM_FUNDED" | "SHARED_FUNDED">("STORE_FUNDED");
-  const [storeShare, setStoreShare] = useState("60");
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<OwnerCouponListTab>("active");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [endId, setEndId] = useState<string | null>(null);
 
   useEffect(() => {
     if (storeId) {
@@ -85,6 +99,18 @@ export function OwnerStoreCouponsView() {
     void load();
   }, [load]);
 
+  const nowMs = Date.now();
+  const counts = useMemo(() => {
+    const c = { active: 0, upcoming: 0, ended: 0 };
+    for (const row of rows) c[ownerCouponListTab(row, nowMs)] += 1;
+    return c;
+  }, [rows, nowMs]);
+
+  const visible = useMemo(
+    () => rows.filter((row) => ownerCouponListTab(row, nowMs) === tab),
+    [rows, nowMs, tab]
+  );
+
   const act = (id: string, action: string) => {
     void fetch("/api/me/store-coupons/campaigns", {
       method: "PATCH",
@@ -94,192 +120,162 @@ export function OwnerStoreCouponsView() {
     }).then(() => load());
   };
 
+  const goList = () => router.push(OwnerRoutes.coupons(resolvedStoreId));
+  const goCreate = () => router.push(OwnerRoutes.couponsCreate(resolvedStoreId));
+
+  if (createMode) {
+    return (
+      <div className={OWNER_STORE_STACK_Y_CLASS}>
+        <OwnerStoreAdminDashSection title={t("store_coupon_owner_create")}>
+          <button type="button" className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mb-3`} onClick={goList}>
+            {t("store_coupon_owner_back_list")}
+          </button>
+          <OwnerStoreCouponCreatePanel
+            storeId={resolvedStoreId}
+            onCreated={() => {
+              void load();
+              goList();
+            }}
+          />
+        </OwnerStoreAdminDashSection>
+      </div>
+    );
+  }
+
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <OwnerStoreAdminDashSection title={t("store_coupon_owner_title")}>
-        {rows.length === 0 ? (
+        <div className="mb-3 grid grid-cols-3 gap-1">
+          {TABS.map((def) => {
+            const count = counts[def.id];
+            const selected = tab === def.id;
+            return (
+              <button
+                key={def.id}
+                type="button"
+                className={`min-w-0 rounded-ui-rect px-1 py-2 ${selected ? "bg-signature/15" : "bg-sam-app"}`}
+                aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(def.labelKey), count)}
+                onClick={() => setTab(def.id)}
+              >
+                <OwnerMobileStackedLabelCount label={t(def.labelKey)} count={count} variant="tab" />
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          disabled={!resolvedStoreId}
+          className={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} mb-3 w-full`}
+          onClick={goCreate}
+        >
+          {t("store_coupon_owner_create")}
+        </button>
+        {visible.length === 0 ? (
           <p className="text-sm text-sam-muted">{t("store_coupon_owner_empty")}</p>
         ) : (
           <ul className="space-y-2">
-            {rows.map((row) => (
-              <li key={row.id} className={OWNER_ADMIN_LIST_CARD_CLASS}>
-                <p className="font-medium">{row.title}</p>
-                <p className="text-xs text-sam-muted">
-                  {row.discount_type === "percent"
-                    ? `${row.discount_value}%`
-                    : `₱${row.discount_value}`}{" "}
-                  {row.max_discount != null ? `(max ₱${row.max_discount})` : ""} ·{" "}
-                  {t("store_coupon_min_order")} {row.min_order_amount ?? 0} · {row.lifecycle_state} ·{" "}
-                  {row.funding_mode}
-                  {row.store_funded_amount != null ? ` ₱${row.store_funded_amount}` : ""}
-                </p>
-                <p className="text-xs text-sam-muted">
-                  {t("store_coupon_owner_issued", { count: row.issued_count ?? 0 })}
-                  {row.issue_limit != null ? `/${row.issue_limit}` : ""}
-                  {" · "}
-                  {t("store_coupon_owner_used", { count: row.redeemed_count ?? 0 })}
-                  {" · "}
-                  {t("store_coupon_owner_usage_rate", {
-                    rate:
-                      Number(row.issued_count ?? 0) > 0
-                        ? `${Math.round(
-                            ((Number(row.redeemed_count ?? 0) || 0) / Number(row.issued_count)) * 100
-                          )}%`
-                        : "—",
-                  })}
-                </p>
-                <p className="text-xs text-sam-muted">
-                  {row.funding_mode === "STORE_FUNDED"
-                    ? t("store_coupon_owner_store_reserved", {
-                        amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
-                      })
-                    : row.funding_mode === "PLATFORM_FUNDED"
-                      ? t("store_coupon_owner_platform_reserved", {
-                          amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
-                        })
-                      : t("store_coupon_owner_reserved_total", {
-                          amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
-                        })}
-                  {row.funding_mode === "STORE_FUNDED"
-                    ? ` · ${t("store_coupon_owner_platform_reserved", {
-                        amount: formatMoneyPhp(0),
-                      })}`
-                    : row.funding_mode === "PLATFORM_FUNDED"
-                      ? ` · ${t("store_coupon_owner_store_reserved", {
-                          amount: formatMoneyPhp(0),
-                        })}`
-                      : ""}
-                  {row.spend_budget_php != null
-                    ? ` · ${row.reserved_spend_php ?? 0}/${row.spend_budget_php}`
-                    : ""}
-                </p>
-                <p className="text-xs text-sam-muted">
-                  {t("store_coupon_issue_window")} {String(row.start_at ?? "").slice(0, 10)}–{String(row.end_at ?? "").slice(0, 10)}
-                  {row.usage_end_at ? ` · ${t("store_coupon_usage_window")} ${String(row.usage_end_at).slice(0, 10)}` : ""}
-                  {row.first_order_scope ? ` · ${row.first_order_scope}` : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {row.lifecycle_state === "paused" ? (
-                    <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "resume")}>
-                      {t("store_coupon_owner_resume")}
+            {visible.map((row) => {
+              const status = ownerCouponListStatus(row, nowMs);
+              const issued = Number(row.issued_count ?? 0);
+              const used = Number(row.redeemed_count ?? 0);
+              const rate = issued > 0 ? `${Math.round((used / issued) * 100)}%` : "—";
+              const open = openId === row.id;
+              return (
+                <li key={row.id} className={OWNER_ADMIN_LIST_CARD_CLASS}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium text-sam-fg">{benefitLabel(row)}</p>
+                    <span className="shrink-0 text-xs text-sam-muted">{t(ownerCouponListStatusMessageKey(status))}</span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-sam-fg">{row.title}</p>
+                  <p className="mt-1 text-xs text-sam-muted">
+                    {dayLabel(row.start_at)} – {dayLabel(row.end_at)}
+                    {row.usage_end_at ? ` · ${t("store_coupon_usage_window")} ${dayLabel(row.usage_end_at)}` : ""}
+                  </p>
+                  <p className="mt-1 text-xs text-sam-muted">
+                    {t("store_coupon_owner_issued", { count: issued })}
+                    {row.issue_limit != null ? `/${row.issue_limit}` : ""}
+                    {" · "}
+                    {t("store_coupon_owner_used", { count: used })}
+                    {" · "}
+                    {t("store_coupon_owner_usage_rate", { rate })}
+                  </p>
+                  <p className="mt-1 text-xs text-sam-muted">
+                    {t("store_coupon_admin_budget_label")}{" "}
+                    {row.spend_budget_php != null ? formatMoneyPhp(row.spend_budget_php) : "—"}
+                    {" · "}
+                    {t("store_coupon_admin_reserved_label")} {formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0)}
+                  </p>
+                  <p className="mt-1 text-xs text-sam-muted">
+                    {t("store_coupon_funding")}:{" "}
+                    {row.funding_mode === "PLATFORM_FUNDED"
+                      ? t("store_coupon_funding_platform")
+                      : row.funding_mode === "SHARED_FUNDED"
+                        ? t("store_coupon_funding_shared")
+                        : t("store_coupon_funding_store")}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
+                      onClick={() => setOpenId(open ? null : row.id)}
+                    >
+                      {open ? t("store_coupon_admin_close") : t("store_coupon_admin_open")}
                     </button>
-                  ) : (
-                    <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "pause")}>
-                      {t("store_coupon_owner_pause")}
-                    </button>
-                  )}
-                  <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "end")}>
-                    {t("store_coupon_owner_end")}
-                  </button>
-                  <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "reissue")}>
-                    {t("store_coupon_owner_reissue")}
-                  </button>
-                </div>
-              </li>
-            ))}
+                    {status === "paused" ? (
+                      <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "resume")}>
+                        {t("store_coupon_owner_resume")}
+                      </button>
+                    ) : status === "ended" || status === "requested" ? null : (
+                      <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => act(row.id, "pause")}>
+                        {t("store_coupon_owner_pause")}
+                      </button>
+                    )}
+                    {status !== "ended" ? (
+                      <button
+                        type="button"
+                        className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-sam-danger`}
+                        onClick={() => setEndId(row.id)}
+                      >
+                        {t("store_coupon_owner_end")}
+                      </button>
+                    ) : null}
+                  </div>
+                  {open ? (
+                    <div className="mt-2 border-t border-sam-border-soft pt-2">
+                      <p className="text-xs text-sam-muted">
+                        {t("store_coupon_min_order")}{" "}
+                        {row.min_order_amount != null ? formatMoneyPhp(row.min_order_amount) : "—"}
+                        {row.max_discount != null ? ` · ${t("store_coupon_max_discount")} ${formatMoneyPhp(row.max_discount)}` : ""}
+                      </p>
+                      <button
+                        type="button"
+                        className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mt-2`}
+                        onClick={() => act(row.id, "reissue")}
+                      >
+                        {t("store_coupon_owner_reissue")}
+                      </button>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
-        <div className="mt-4 space-y-2">
-          {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_field_title")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={title} onChange={(e) => setTitle(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_field_discount")}</label>
-          <select
-            className={OWNER_ADMIN_FIELD_INPUT_CLASS}
-            value={kind}
-            onChange={(e) => setKind(e.target.value as "percent" | "fixed_amount")}
-          >
-            <option value="percent">{t("store_coupon_kind_percent")}</option>
-            <option value="fixed_amount">{t("store_coupon_kind_fixed")}</option>
-          </select>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_min_order")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={minOrder} onChange={(e) => setMinOrder(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_max_discount")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={maxDiscount} onChange={(e) => setMaxDiscount(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_issue_limit")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={issueLimit} onChange={(e) => setIssueLimit(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_spend_budget")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={spendBudget} onChange={(e) => setSpendBudget(e.target.value)} />
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_usage_days")}</label>
-          <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={claimDays} onChange={(e) => setClaimDays(e.target.value)} />
-          <select
-            className={OWNER_ADMIN_FIELD_INPUT_CLASS}
-            value={target}
-            onChange={(e) => setTarget(e.target.value as "ALL" | "STORE" | "PLATFORM")}
-          >
-            <option value="ALL">{t("store_coupon_target_all")}</option>
-            <option value="STORE">{t("store_coupon_target_store_first")}</option>
-            <option value="PLATFORM">{t("store_coupon_target_platform_first")}</option>
-          </select>
-          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_funding")}</label>
-          <select
-            className={OWNER_ADMIN_FIELD_INPUT_CLASS}
-            value={funding}
-            onChange={(e) => setFunding(e.target.value as typeof funding)}
-          >
-            <option value="STORE_FUNDED">{t("store_coupon_funding_store")}</option>
-            <option value="PLATFORM_FUNDED">{t("store_coupon_funding_platform")}</option>
-            <option value="SHARED_FUNDED">{t("store_coupon_funding_shared")}</option>
-          </select>
-          {funding === "SHARED_FUNDED" ? (
-            <>
-              <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_store_share")}</label>
-              <input className={OWNER_ADMIN_FIELD_INPUT_CLASS} value={storeShare} onChange={(e) => setStoreShare(e.target.value)} />
-            </>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy || !resolvedStoreId}
-            className={OWNER_ADMIN_PRIMARY_BTN_CLASS}
-            onClick={() => {
-              void (async () => {
-                setBusy(true);
-                setErr(null);
-                try {
-                  const start = new Date();
-                  const end = new Date(start.getTime() + 30 * 24 * 60 * 60 * 1000);
-                  const res = await fetch("/api/me/store-coupons/campaigns", {
-                    method: "POST",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      storeId: resolvedStoreId,
-                      title: title.trim(),
-                      discountType: kind,
-                      discountValue: Number(discountValue),
-                      minOrderAmount: minOrder.trim() ? Number(minOrder) : null,
-                      maxDiscount: maxDiscount.trim() ? Number(maxDiscount) : null,
-                      issueLimit: issueLimit.trim() ? Number(issueLimit) : null,
-                      spendBudgetPhp: spendBudget.trim() ? Number(spendBudget) : null,
-                      claimValidDays: claimDays.trim() ? Number(claimDays) : null,
-                      firstOrderScope: target === "ALL" ? null : target,
-                      termsCopy: null,
-                      startAt: start.toISOString(),
-                      endAt: end.toISOString(),
-                      usageEndAt: new Date(start.getTime() + Number(claimDays || 7) * 24 * 60 * 60 * 1000).toISOString(),
-                      isActive: true,
-                      fundingMode: funding,
-                      storeFundedAmount: funding === "SHARED_FUNDED" && storeShare.trim() ? Number(storeShare) : null,
-                    }),
-                  });
-                  const json = (await res.json()) as { ok?: boolean; error?: string };
-                  if (!res.ok || !json.ok) {
-                    setErr(json.error ?? "db_error");
-                    return;
-                  }
-                  setTitle("");
-                  await load();
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }}
-          >
-            {t("store_coupon_owner_create")}
-          </button>
-        </div>
       </OwnerStoreAdminDashSection>
+      <OwnerStoreAdminConfirmModal
+        open={Boolean(endId)}
+        titleId="owner-coupon-end"
+        title={t("store_coupon_owner_end")}
+        description={t("store_coupon_owner_end_confirm")}
+        confirmTone="danger"
+        confirmLabel={t("store_coupon_owner_end")}
+        onCancel={() => setEndId(null)}
+        onConfirm={async () => {
+          if (!endId) return;
+          act(endId, "end");
+          setEndId(null);
+        }}
+      />
     </div>
   );
 }

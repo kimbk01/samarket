@@ -8,6 +8,7 @@ export type CouponControlOrderFact = {
   order_id: string;
   order_no: string;
   order_status: string | null;
+  fulfillment_type: string;
   discount_amount: number;
   store_funded_amount: number;
   platform_funded_amount: number;
@@ -30,6 +31,7 @@ export function projectCouponControlOrderFact(input: {
   order_id: string;
   order_no?: string | null;
   order_status?: string | null;
+  fulfillment_type?: string | null;
   discount_amount?: unknown;
   store_funded_amount?: unknown;
   platform_funded_amount?: unknown;
@@ -40,6 +42,7 @@ export function projectCouponControlOrderFact(input: {
     order_id: String(input.order_id),
     order_no: String(input.order_no ?? "").trim(),
     order_status: input.order_status ? String(input.order_status) : null,
+    fulfillment_type: String(input.fulfillment_type ?? "").trim() || "local_delivery",
     discount_amount: money(input.discount_amount),
     store_funded_amount: money(input.store_funded_amount),
     platform_funded_amount: money(input.platform_funded_amount),

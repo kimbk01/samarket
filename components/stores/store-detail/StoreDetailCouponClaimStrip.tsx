@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/css-vars";
-import Link from "next/link";
+import { resolveStoreCouponDetailUxState } from "@/lib/stores/store-coupon-detail-ux";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Claimable = {
   id: string;
@@ -15,11 +18,20 @@ type Claimable = {
   claimed?: boolean;
 };
 
+function benefitLabel(row: Claimable): string {
+  if (row.discountValue == null) return "";
+  if (row.discountType === "percent") return `${row.discountValue}%`;
+  return formatMoneyPhp(row.discountValue);
+}
+
 export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
   const { safeT, t } = useI18n();
+  const pathname = usePathname();
   const [row, setRow] = useState<Claimable | null>(null);
   const [reason, setReason] = useState<string | null>(null);
+  const [authed, setAuthed] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const sid = storeId.trim();
@@ -29,18 +41,16 @@ export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
         credentials: "include",
         cache: "no-store",
       });
-      if (res.status === 401) {
-        setRow(null);
-        setReason(null);
-        return;
-      }
       const json = (await res.json()) as {
         ok?: boolean;
+        authed?: boolean;
         campaigns?: Claimable[];
         ineligibleReason?: string | null;
       };
+      setAuthed(json.authed === true);
       setRow(json.ok && json.campaigns?.[0] ? json.campaigns[0] : null);
       setReason(json.ineligibleReason ?? null);
+      setErr(null);
     } catch {
       setRow(null);
     }
@@ -50,54 +60,83 @@ export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
     void load();
   }, [load]);
 
-  if (!row && !reason) return null;
+  const state = resolveStoreCouponDetailUxState({
+    authed,
+    hasCampaign: Boolean(row),
+    claimed: Boolean(row?.claimed),
+    ineligibleReason: reason,
+  });
+  if (state === "hidden") return null;
 
-  const label =
-    row?.discountType === "percent"
-      ? `${row.discountValue ?? ""}%`
-      : row?.discountValue != null
-        ? String(row.discountValue)
-        : "";
+  const loginHref = `/login?next=${encodeURIComponent(pathname || "/")}`;
+  const title = String(row?.title ?? "").trim();
+  const benefit = row ? benefitLabel(row) : "";
 
   return (
-    <div className="px-[var(--delivery-page-x)] py-2">
-      {row?.claimed ? (
-        <div className="flex items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-          <p className="text-sm">
-            {label} {t("store_coupon_claimed")}
+    <div
+      className="min-w-0 px-[var(--delivery-page-x)] py-2"
+      data-store-coupon-detail-strip="1"
+      data-coupon-detail-state={state}
+    >
+      <div className="min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+        {benefit ? <p className="min-w-0 break-words font-medium text-sam-fg">{benefit}</p> : null}
+        {title ? <p className="mt-0.5 min-w-0 break-words text-sm text-sam-fg">{title}</p> : null}
+        {row?.minOrderAmount != null ? (
+          <p className="mt-1 text-xs text-sam-muted">
+            {t("store_coupon_min_order")} {formatMoneyPhp(row.minOrderAmount)}
           </p>
-          <Link href="#store-menus" className={Sam.btn.primary}>
-            {t("store_coupon_order_cta")}
+        ) : null}
+        {err ? <p className="mt-1 text-xs text-sam-danger">{t("store_coupon_unusable")}</p> : null}
+        {state === "unusable" ? (
+          <p className="mt-2 text-sm text-sam-muted">
+            {reason === "first_order_ineligible" ? t("store_coupon_reason_first_order") : t("store_coupon_unusable")}
+          </p>
+        ) : null}
+        {state === "login" ? (
+          <Link href={loginHref} className={`${Sam.btn.primary} mt-3 inline-flex`}>
+            {safeT("store_coupon_detail_login", { fallbackKo: "로그인하고 받기", fallbackEn: "Sign in to get it" })}
           </Link>
-        </div>
-      ) : row ? (
-        <button
-          type="button"
-          disabled={busy}
-          className={Sam.btn.primary}
-          onClick={() => {
-            void (async () => {
-              setBusy(true);
-              try {
-                await fetch("/api/me/store-coupons/claim", {
-                  method: "POST",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ campaign_id: row.id }),
-                });
-                await load();
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        >
-          {safeT("store_coupon_claim", { fallbackKo: "쿠폰 받기", fallbackEn: "Get coupon" })}
-          {label ? ` · ${label}` : ""}
-        </button>
-      ) : reason === "first_order_ineligible" ? (
-        <p className="text-sm text-sam-muted">{t("store_coupon_reason_first_order")}</p>
-      ) : null}
+        ) : null}
+        {state === "claim" ? (
+          <button
+            type="button"
+            disabled={busy}
+            className={`${Sam.btn.primary} mt-3`}
+            onClick={() => {
+              void (async () => {
+                setBusy(true);
+                setErr(null);
+                try {
+                  const res = await fetch("/api/me/store-coupons/claim", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ campaign_id: row?.id }),
+                  });
+                  const json = (await res.json()) as { ok?: boolean };
+                  if (!res.ok || !json.ok) {
+                    setErr("unusable");
+                    return;
+                  }
+                  await load();
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }}
+          >
+            {safeT("store_coupon_claim", { fallbackKo: "쿠폰 받기", fallbackEn: "Get coupon" })}
+          </button>
+        ) : null}
+        {state === "held" ? (
+          <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-sam-muted">{t("store_coupon_claimed")}</p>
+            <a href="#store-menu-panel" className={Sam.btn.primary}>
+              {t("store_coupon_order_cta")}
+            </a>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

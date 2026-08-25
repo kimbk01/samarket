@@ -47,6 +47,10 @@ export const OwnerRoutes = {
   menuCategories: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/menu-categories`, storeId),
   banners: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/banners`, storeId),
   coupons: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/coupons`, storeId),
+  couponsCreate: (storeId?: string | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/coupons`, storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}create=1`;
+  },
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
   points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { isPaidCouponTypeForbidden } from "@/lib/stores/store-coupon-ssot";
+import {
+  isPaidCouponTypeForbidden,
+  resolveOwnerSelfIssuedCreateFunding,
+} from "@/lib/stores/store-coupon-ssot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   parseStoreCouponCampaignCreateBody,
@@ -78,15 +81,17 @@ export async function POST(req: NextRequest) {
   if (isPaidCouponTypeForbidden(body.discountType ?? body.discount_type)) {
     return NextResponse.json({ ok: false, error: "paid_coupon_forbidden" }, { status: 400 });
   }
-  const fundingMode = String(body.fundingMode ?? body.funding_mode ?? "STORE_FUNDED");
   const parsed = parseStoreCouponCampaignCreateBody(body);
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
+  const funding = resolveOwnerSelfIssuedCreateFunding(body);
+  if (!funding.ok) {
+    return NextResponse.json({ ok: false, error: funding.error }, { status: 400 });
+  }
   if (!(await assertOwnedStore(sb, userId, parsed.value.storeId))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
   }
-  const needsApproval = fundingMode !== "STORE_FUNDED";
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
@@ -99,17 +104,17 @@ export async function POST(req: NextRequest) {
       terms_copy: parsed.value.termsCopy,
       start_at: parsed.value.startAt,
       end_at: parsed.value.endAt,
-      is_active: !needsApproval && parsed.value.isActive,
-      lifecycle_state: needsApproval ? "requested" : parsed.value.isActive ? "active" : "draft",
-      funding_mode: fundingMode,
-      requires_admin_approval: needsApproval,
+      is_active: parsed.value.isActive,
+      lifecycle_state: parsed.value.isActive ? "active" : "draft",
+      funding_mode: funding.write.funding_mode,
+      requires_admin_approval: funding.write.requires_admin_approval,
       max_discount: parsed.value.maxDiscount,
       issue_limit: parsed.value.issueLimit,
       spend_budget_php: parsed.value.spendBudgetPhp,
       first_order_scope: parsed.value.firstOrderScope,
       usage_end_at: parsed.value.usageEndAt,
       claim_valid_days: parsed.value.claimValidDays,
-      store_funded_amount: parsed.value.storeFundedAmount,
+      store_funded_amount: funding.write.store_funded_amount,
       created_by_user_id: userId,
       updated_by_user_id: userId,
       created_at: now,

@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { STORE_COUPON_CAMPAIGN_TABLE } from "@/lib/stores/store-coupon-campaign-authority";
 import { assertStoreEligibleForDiscoveryCampaignWrite } from "@/lib/stores/store-discovery-campaign-writer";
 import {
+  resolveAdminSupportedCreateFunding,
+  type AdminSupportedFundingWrite,
+} from "@/lib/stores/store-coupon-ssot";
+import {
   parseStoreCouponCampaignCreateBody,
   parseStoreCouponCampaignUpdateBody,
   resolveStoreCouponCampaignUpdateWindow,
@@ -39,7 +43,9 @@ export type StoreCouponWriterError =
   | "store_not_found"
   | "store_not_eligible"
   | "campaign_not_found"
-  | "db_error";
+  | "db_error"
+  | "admin_funding_forbidden"
+  | "admin_shared_share_required";
 
 export type StoreCouponWriterResult<T> =
   | { ok: true; row: T }
@@ -88,6 +94,13 @@ export async function createStoreCouponCampaignAdmin(
   if (!parsed.ok) {
     return { ok: false, error: parsed.error as StoreCouponWriterError, forbidden: parsed.forbidden };
   }
+  if (!rawBody || typeof rawBody !== "object") {
+    return { ok: false, error: "forbidden_fields" };
+  }
+  const funding = resolveAdminSupportedCreateFunding(rawBody as Record<string, unknown>);
+  if (!funding.ok) {
+    return { ok: false, error: funding.error };
+  }
 
   const storeCheck = await assertStoreEligibleForDiscoveryCampaignWrite(sb, parsed.value.storeId);
   if (!storeCheck.ok) return { ok: false, error: storeCheck.error };
@@ -95,7 +108,7 @@ export async function createStoreCouponCampaignAdmin(
   const now = new Date().toISOString();
   const { data, error } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
-    .insert(buildInsert(parsed.value, adminUserId, now))
+    .insert(buildInsert(parsed.value, funding.write, adminUserId, now))
     .select(SELECT_COLS)
     .single();
 
@@ -168,7 +181,12 @@ async function loadRow(
   return { ok: true, row: mapped };
 }
 
-function buildInsert(input: StoreCouponCampaignCreateInput, adminUserId: string, now: string) {
+function buildInsert(
+  input: StoreCouponCampaignCreateInput,
+  funding: AdminSupportedFundingWrite,
+  adminUserId: string,
+  now: string
+) {
   return {
     store_id: input.storeId,
     title: input.title,
@@ -179,6 +197,16 @@ function buildInsert(input: StoreCouponCampaignCreateInput, adminUserId: string,
     start_at: input.startAt,
     end_at: input.endAt,
     is_active: input.isActive,
+    lifecycle_state: input.isActive ? "active" : "draft",
+    funding_mode: funding.funding_mode,
+    requires_admin_approval: funding.requires_admin_approval,
+    max_discount: input.maxDiscount,
+    issue_limit: input.issueLimit,
+    spend_budget_php: input.spendBudgetPhp,
+    first_order_scope: input.firstOrderScope,
+    usage_end_at: input.usageEndAt,
+    claim_valid_days: input.claimValidDays,
+    store_funded_amount: funding.store_funded_amount,
     created_by_user_id: adminUserId,
     updated_by_user_id: adminUserId,
     created_at: now,

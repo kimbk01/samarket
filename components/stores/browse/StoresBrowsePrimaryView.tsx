@@ -51,6 +51,7 @@ import {
   type StoreRowCardData,
   type StoreBrowseCampaignBenefit,
 } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
+import { browseShowsGenericCouponBadge } from "@/lib/stores/store-coupon-detail-ux";
 import { writeStoreCheckoutCouponSession } from "@/lib/stores/store-checkout-coupon-session";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
@@ -889,7 +890,9 @@ export function StoresBrowsePrimaryView({
                     locale={language}
                     deliveryRideTimeSource={deliveryRideTimeSource}
                     couponBadgeTitle={
-                      item.data.storeId ? browseCouponBadges[item.data.storeId]?.title ?? null : null
+                      browseShowsGenericCouponBadge(browseCouponBadges, item.data.storeId)
+                        ? t("store_badge_coupon")
+                        : null
                     }
                   />
                 );

@@ -32,7 +32,7 @@ export async function loadAdminCouponControlCenter(
       const id = String((s as { id?: string }).id ?? "");
       const name = String((s as { store_name?: string }).store_name ?? "").trim();
       const slug = String((s as { slug?: string }).slug ?? "").trim();
-      nameByStore[id] = name || slug || id.slice(0, 8);
+      nameByStore[id] = name || slug || "";
     }
   }
 
@@ -66,7 +66,7 @@ export async function loadAdminCouponControlCenter(
       const { data: orders } = await sb
         .from("store_orders")
         .select(
-          "id, order_no, order_status, discount_amount, store_funded_amount, platform_funded_amount"
+          "id, order_no, order_status, fulfillment_type, discount_amount, store_funded_amount, platform_funded_amount"
         )
         .in("id", orderIds);
       for (const o of orders ?? []) {
@@ -94,6 +94,7 @@ export async function loadAdminCouponControlCenter(
         order_id: oid,
         order_no: o.order_no as string,
         order_status: o.order_status as string,
+        fulfillment_type: o.fulfillment_type as string,
         discount_amount: o.discount_amount,
         store_funded_amount: o.store_funded_amount,
         platform_funded_amount: o.platform_funded_amount,
@@ -161,7 +162,7 @@ export async function loadAdminCouponControlCenter(
     const storeId = String((row as { store_id?: string }).store_id ?? "");
     return assembleCouponControlCampaignView({
       campaign: row as Record<string, unknown>,
-      storeName: nameByStore[storeId] ?? storeId.slice(0, 8),
+      storeName: nameByStore[storeId] ?? "",
       claimedCount: claimedBy.get(id) ?? 0,
       redeemedCount: redeemedBy.get(id) ?? 0,
       orders: ordersByCampaign.get(id) ?? [],

@@ -62,3 +62,98 @@ export function couponLifecycleAllowsRedeemHeld(state: StoreCouponLifecycleState
 export function isPaidCouponTypeForbidden(type: unknown): boolean {
   return type === "paid" || type === "voucher";
 }
+
+export const OWNER_SELF_ISSUED_FUNDING_FORBIDDEN = "owner_funding_forbidden" as const;
+export const ADMIN_SUPPORTED_FUNDING_FORBIDDEN = "admin_funding_forbidden" as const;
+export const ADMIN_SHARED_SHARE_REQUIRED = "admin_shared_share_required" as const;
+
+export type OwnerSelfIssuedFundingWrite = {
+  funding_mode: "STORE_FUNDED";
+  requires_admin_approval: false;
+  store_funded_amount: null;
+};
+
+/** Owner create only. Tampered PLATFORM/SHARED/arbitrary must not write. */
+export function resolveOwnerSelfIssuedCreateFunding(
+  body: Record<string, unknown>
+):
+  | { ok: true; write: OwnerSelfIssuedFundingWrite }
+  | { ok: false; error: typeof OWNER_SELF_ISSUED_FUNDING_FORBIDDEN } {
+  const raw = body.fundingMode ?? body.funding_mode;
+  if (raw == null || raw === "") {
+    return {
+      ok: true,
+      write: {
+        funding_mode: "STORE_FUNDED",
+        requires_admin_approval: false,
+        store_funded_amount: null,
+      },
+    };
+  }
+  if (String(raw) === "STORE_FUNDED") {
+    return {
+      ok: true,
+      write: {
+        funding_mode: "STORE_FUNDED",
+        requires_admin_approval: false,
+        store_funded_amount: null,
+      },
+    };
+  }
+  return { ok: false, error: OWNER_SELF_ISSUED_FUNDING_FORBIDDEN };
+}
+
+export type AdminSupportedFundingWrite =
+  | {
+      funding_mode: "PLATFORM_FUNDED";
+      requires_admin_approval: false;
+      store_funded_amount: null;
+    }
+  | {
+      funding_mode: "SHARED_FUNDED";
+      requires_admin_approval: false;
+      store_funded_amount: number;
+    };
+
+/** Admin create only. STORE / omit / tamper must not write. Owner resolver stays untouched. */
+export function resolveAdminSupportedCreateFunding(
+  body: Record<string, unknown>
+):
+  | { ok: true; write: AdminSupportedFundingWrite }
+  | {
+      ok: false;
+      error: typeof ADMIN_SUPPORTED_FUNDING_FORBIDDEN | typeof ADMIN_SHARED_SHARE_REQUIRED;
+    } {
+  const raw = body.fundingMode ?? body.funding_mode;
+  if (String(raw) === "PLATFORM_FUNDED") {
+    return {
+      ok: true,
+      write: {
+        funding_mode: "PLATFORM_FUNDED",
+        requires_admin_approval: false,
+        store_funded_amount: null,
+      },
+    };
+  }
+  if (String(raw) === "SHARED_FUNDED") {
+    const shareRaw = body.storeFundedAmount ?? body.store_funded_amount;
+    const share =
+      typeof shareRaw === "number"
+        ? shareRaw
+        : typeof shareRaw === "string" && shareRaw.trim()
+          ? Number(shareRaw)
+          : NaN;
+    if (!Number.isFinite(share) || share < 0) {
+      return { ok: false, error: ADMIN_SHARED_SHARE_REQUIRED };
+    }
+    return {
+      ok: true,
+      write: {
+        funding_mode: "SHARED_FUNDED",
+        requires_admin_approval: false,
+        store_funded_amount: Math.floor(share),
+      },
+    };
+  }
+  return { ok: false, error: ADMIN_SUPPORTED_FUNDING_FORBIDDEN };
+}

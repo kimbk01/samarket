@@ -12,9 +12,6 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized", campaigns: [] }, { status: 401 });
-  }
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured", campaigns: [] }, { status: 503 });
@@ -27,14 +24,19 @@ export async function GET(req: NextRequest) {
     campaigns: await loadActiveStoreCouponCampaigns(sb),
     storeIds: new Set([storeId]),
   });
-  const ctx = await loadViewerCouponDiscoveryContext(sb, userId);
-  const { data: held } = await sb
-    .from(COUPON_USER_ENTITLEMENTS_TABLE)
-    .select("campaign_id")
-    .eq("buyer_user_id", userId)
-    .eq("store_id", storeId)
-    .in("status", ["available", "restored"]);
-  const heldIds = new Set((held ?? []).map((r) => String((r as { campaign_id?: string }).campaign_id ?? "")));
+  const ctx = userId
+    ? await loadViewerCouponDiscoveryContext(sb, userId)
+    : { completedStoreIds: new Set<string>(), hasCompletedOrderOnPlatform: false, blockedCampaignIds: new Set<string>() };
+  let heldIds = new Set<string>();
+  if (userId) {
+    const { data: held } = await sb
+      .from(COUPON_USER_ENTITLEMENTS_TABLE)
+      .select("campaign_id")
+      .eq("buyer_user_id", userId)
+      .eq("store_id", storeId)
+      .in("status", ["available", "restored"]);
+    heldIds = new Set((held ?? []).map((r) => String((r as { campaign_id?: string }).campaign_id ?? "")));
+  }
 
   const forStore = campaigns.filter((c) => c.storeId === storeId);
   const firstBlocked = forStore.find(
@@ -77,8 +79,8 @@ export async function GET(req: NextRequest) {
   const shown = claimed.length ? claimed : claimable;
   return NextResponse.json({
     ok: true,
+    authed: Boolean(userId),
     campaigns: shown,
-    ineligibleReason:
-      shown.length === 0 && firstBlocked ? "first_order_ineligible" : null,
+    ineligibleReason: shown.length === 0 && firstBlocked ? "first_order_ineligible" : null,
   });
 }

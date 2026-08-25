@@ -29,6 +29,9 @@ function writerErrorStatus(error: StoreCouponWriterError): number {
       return 404;
     case "store_not_eligible":
       return 422;
+    case "admin_funding_forbidden":
+    case "admin_shared_share_required":
+      return 400;
     default:
       return 500;
   }

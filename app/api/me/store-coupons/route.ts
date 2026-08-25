@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { attachCustomerCouponWalletLabels } from "@/lib/stores/customer-coupon-wallet-view";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -41,9 +42,22 @@ export async function GET(req: NextRequest) {
     } else {
       bucket = "expired";
     }
-    return { ...r, bucket };
+    return { ...r, bucket } as Record<string, unknown> & { bucket: string };
   });
+  const storeIds = [...new Set(rows.map((r) => String(r.store_id ?? "").trim()).filter(Boolean))];
+  const orderIds = [...new Set(rows.map((r) => String(r.redeemed_order_id ?? "").trim()).filter(Boolean))];
+  const [{ data: stores }, { data: orders }] = await Promise.all([
+    storeIds.length
+      ? sb.from("stores").select("id, store_name, slug").in("id", storeIds)
+      : Promise.resolve({ data: [] as { id: string; store_name: string | null; slug: string | null }[] }),
+    orderIds.length
+      ? sb.from("store_orders").select("id, order_no, created_at").in("id", orderIds)
+      : Promise.resolve({ data: [] as { id: string; order_no: string | null; created_at: string | null }[] }),
+  ]);
+  const labeled = attachCustomerCouponWalletLabels(rows, stores ?? [], orders ?? []);
   const filtered =
-    tab === "all" ? rows : rows.filter((r) => (tab === "expiring" ? r.bucket === "expiring" : r.bucket === tab));
+    tab === "all"
+      ? labeled
+      : labeled.filter((r) => (tab === "expiring" ? r.bucket === "expiring" : r.bucket === tab));
   return NextResponse.json({ ok: true, coupons: filtered });
 }

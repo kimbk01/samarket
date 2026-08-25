@@ -414,7 +414,10 @@ function StoreBrowseCategoryRowCardInner({
             data-stores-category-metadata="true"
           >
             {couponBadgeTitle ?
-              <span className="shrink-0 rounded-full bg-signature/15 px-1.5 py-0.5 text-[10px] font-semibold text-signature">
+              <span
+                className="shrink-0 rounded-full bg-signature/15 px-1.5 py-0.5 text-[10px] font-semibold text-signature"
+                data-store-coupon-badge="1"
+              >
                 {couponBadgeTitle}
               </span>
             : null}
