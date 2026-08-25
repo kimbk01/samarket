@@ -125,6 +125,8 @@ import {
   readStoreCheckoutCouponSession,
   writeStoreCheckoutCouponSession,
 } from "@/lib/stores/store-checkout-coupon-session";
+import { StoreCartCouponApplyBlock } from "@/components/stores/cart/StoreCartCouponApplyBlock";
+import { resolveCartAppliedCoupon, type StoreCouponQuote } from "@/lib/stores/store-coupon-best-eligible";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -297,16 +299,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   } | null>(null);
   const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
   const [appliedUserCouponId, setAppliedUserCouponId] = useState<string | null>(null);
-  const [couponQuotes, setCouponQuotes] = useState<
-    {
-      userCouponId: string;
-      campaignId: string;
-      title?: string;
-      discountAmount: number;
-      ineligibleReason: string | null;
-    }[]
-  >([]);
+  const [couponQuotes, setCouponQuotes] = useState<StoreCouponQuote[]>([]);
   const couponChoiceLockedRef = useRef(false);
+  const appliedUserCouponIdRef = useRef<string | null>(null);
+  appliedUserCouponIdRef.current = appliedUserCouponId;
 
   useLayoutEffect(() => {
     if (!cartHydrationFirstRenderRef.current) {
@@ -1177,26 +1173,34 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       .then(
         (json: {
           ok?: boolean;
-          quotes?: typeof couponQuotes;
+          quotes?: StoreCouponQuote[];
           best?: { userCouponId: string; campaignId: string } | null;
         } | null) => {
           if (cancelled || !json?.ok) return;
-          setCouponQuotes(json.quotes ?? []);
-          if (couponChoiceLockedRef.current) return;
+          const quotes = json.quotes ?? [];
+          setCouponQuotes(quotes);
           const session = readStoreCheckoutCouponSession(sid);
-          if (session?.userCouponId) {
-            setAppliedUserCouponId(session.userCouponId);
-            setAppliedCouponCampaignId(session.campaignId);
-            return;
-          }
-          if (json.best?.userCouponId) {
-            setAppliedUserCouponId(json.best.userCouponId);
-            setAppliedCouponCampaignId(json.best.campaignId);
+          const locked = couponChoiceLockedRef.current;
+          const resolved = resolveCartAppliedCoupon({
+            quotes,
+            sessionUserCouponId: session?.userCouponId ?? null,
+            lockedUserCouponId: locked ? appliedUserCouponIdRef.current : null,
+            userChoseNone: locked && !appliedUserCouponIdRef.current,
+            bestUserCouponId: json.best?.userCouponId ?? null,
+          });
+          setAppliedUserCouponId(resolved.userCouponId);
+          setAppliedCouponCampaignId(resolved.campaignId);
+          if (resolved.userCouponId && resolved.campaignId) {
             writeStoreCheckoutCouponSession({
               storeId: sid,
-              campaignId: json.best.campaignId,
-              userCouponId: json.best.userCouponId,
+              campaignId: resolved.campaignId,
+              userCouponId: resolved.userCouponId,
             });
+          } else {
+            clearStoreCheckoutCouponSession();
+            if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
+              couponChoiceLockedRef.current = false;
+            }
           }
         }
       )
@@ -1772,46 +1776,38 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
 
-      {couponQuotes.length > 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-          <label className="mb-1 block text-sm font-medium">{t("store_coupon_apply")}</label>
-          <select
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2 text-sm"
-            value={appliedUserCouponId ?? ""}
-            onChange={(e) => {
-              couponChoiceLockedRef.current = true;
-              const id = e.target.value;
-              if (!id) {
-                setAppliedUserCouponId(null);
-                setAppliedCouponCampaignId(null);
-                clearStoreCheckoutCouponSession();
-                return;
-              }
-              const row = couponQuotes.find((c) => c.userCouponId === id);
-              setAppliedUserCouponId(id);
-              setAppliedCouponCampaignId(row?.campaignId ?? null);
-              if (store?.id && row?.campaignId) {
-                writeStoreCheckoutCouponSession({
-                  storeId: store.id,
-                  campaignId: row.campaignId,
-                  userCouponId: id,
-                });
-              }
-            }}
-          >
-            <option value="">{t("store_coupon_none")}</option>
-            {couponQuotes.map((q) => {
-              const reason = q.ineligibleReason;
-              return (
-                <option key={q.userCouponId} value={q.userCouponId} disabled={Boolean(reason)}>
-                  {q.title?.trim() || t("store_coupon_wallet_title")}
-                  {q.discountAmount > 0 ? ` · ₱${q.discountAmount}` : ""}
-                  {reason ? ` · ${t("store_coupon_unusable")}` : ""}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+      {couponQuotes.some((q) => !q.ineligibleReason || q.ineligibleReason === "coupon_min_order") ? (
+        <StoreCartCouponApplyBlock
+          quotes={couponQuotes}
+          appliedUserCouponId={appliedUserCouponId}
+          noneLabel={t("store_coupon_none")}
+          applyLabel={t("store_coupon_apply")}
+          titleFallback={t("store_coupon_wallet_title")}
+          unusableMinLabel={() => t("store_err_coupon_min_order")}
+          formatShortage={(q) =>
+            q.ineligibleReason === "coupon_min_order" && q.shortagePhp && q.shortagePhp > 0
+              ? t("store_min_order_add_more", { amount: formatMoneyPhp(q.shortagePhp) })
+              : null
+          }
+          onChooseNone={() => {
+            couponChoiceLockedRef.current = true;
+            setAppliedUserCouponId(null);
+            setAppliedCouponCampaignId(null);
+            clearStoreCheckoutCouponSession();
+          }}
+          onChoose={(row) => {
+            couponChoiceLockedRef.current = true;
+            setAppliedUserCouponId(row.userCouponId);
+            setAppliedCouponCampaignId(row.campaignId);
+            if (store?.id) {
+              writeStoreCheckoutCouponSession({
+                storeId: store.id,
+                campaignId: row.campaignId,
+                userCouponId: row.userCouponId,
+              });
+            }
+          }}
+        />
       ) : null}
 
       <StoreBaeminCartOrderSummaryCard
@@ -1911,7 +1907,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {t("store_payment_method_required")} <span className="text-red-600">*</span>
             </p>
             <div
-              className="mt-2 flex flex-nowrap gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="mt-2 flex flex-wrap gap-2"
               role="radiogroup"
               aria-label={t("store_payment_method_aria")}
             >

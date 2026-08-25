@@ -7,10 +7,42 @@ export type StoreCouponQuote = {
   title: string;
   discountAmount: number;
   ineligibleReason: string | null;
+  /** Present when `ineligibleReason` is `coupon_min_order`. */
+  minOrderPhp?: number | null;
+  shortagePhp?: number | null;
 };
 
+export function isUsableStoreCouponQuote(q: StoreCouponQuote): boolean {
+  return q.discountAmount > 0 && !q.ineligibleReason;
+}
+
+/** Cart apply: never keep a selected coupon that cannot discount this basket. */
+export function resolveCartAppliedCoupon(input: {
+  quotes: readonly StoreCouponQuote[];
+  sessionUserCouponId: string | null;
+  lockedUserCouponId: string | null;
+  userChoseNone: boolean;
+  bestUserCouponId: string | null;
+}): { userCouponId: string | null; campaignId: string | null } {
+  const usable = input.quotes.filter(isUsableStoreCouponQuote);
+  const pick = (id: string | null) =>
+    id ? usable.find((q) => q.userCouponId === id) ?? null : null;
+  if (input.userChoseNone) return { userCouponId: null, campaignId: null };
+  if (input.lockedUserCouponId) {
+    const row = pick(input.lockedUserCouponId);
+    return row
+      ? { userCouponId: row.userCouponId, campaignId: row.campaignId }
+      : { userCouponId: null, campaignId: null };
+  }
+  const session = pick(input.sessionUserCouponId);
+  if (session) return { userCouponId: session.userCouponId, campaignId: session.campaignId };
+  const best = pick(input.bestUserCouponId);
+  if (best) return { userCouponId: best.userCouponId, campaignId: best.campaignId };
+  return { userCouponId: null, campaignId: null };
+}
+
 export function pickBestEligibleCouponQuote(quotes: readonly StoreCouponQuote[]): StoreCouponQuote | null {
-  const usable = quotes.filter((q) => q.discountAmount > 0 && !q.ineligibleReason);
+  const usable = quotes.filter(isUsableStoreCouponQuote);
   if (usable.length === 0) return null;
   return [...usable].sort((a, b) => {
     if (b.discountAmount !== a.discountAmount) return b.discountAmount - a.discountAmount;
@@ -59,7 +91,15 @@ export async function quoteStoreCouponsForCheckout(input: {
     }
     const minOrder = camp.min_order_amount == null ? null : Number(camp.min_order_amount);
     if (minOrder != null && Number.isFinite(minOrder) && minOrder > 0 && itemGross < minOrder) {
-      out.push({ userCouponId, campaignId, title, discountAmount: 0, ineligibleReason: "coupon_min_order" });
+      out.push({
+        userCouponId,
+        campaignId,
+        title,
+        discountAmount: 0,
+        ineligibleReason: "coupon_min_order",
+        minOrderPhp: minOrder,
+        shortagePhp: Math.max(0, minOrder - itemGross),
+      });
       continue;
     }
     const dtype = camp.discount_type === "percent" || camp.discount_type === "fixed_amount" ? camp.discount_type : null;
