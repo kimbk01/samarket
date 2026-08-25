@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Coins, Megaphone, Wallet } from "lucide-react";
+import { ChevronRight, Coins, Megaphone, Ticket, Wallet } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import {
@@ -48,6 +48,18 @@ export function MypagePointsAssetSummary() {
           })}
         </span>
         <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{value}</span>
+        <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
+      </Link>
+      <Link href="/mypage/coupons" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>
+        <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
+          <Ticket className="h-5 w-5" aria-hidden />
+        </span>
+        <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
+          {safeT("store_coupon_wallet_title", {
+            fallbackKo: "쿠폰",
+            fallbackEn: "Coupons",
+          })}
+        </span>
         <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
       </Link>
       <Link

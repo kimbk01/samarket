@@ -14,6 +14,13 @@ export type StoreCouponCampaignCreateInput = {
   startAt: string;
   endAt: string;
   isActive: boolean;
+  maxDiscount: number | null;
+  issueLimit: number | null;
+  spendBudgetPhp: number | null;
+  firstOrderScope: "STORE" | "PLATFORM" | null;
+  usageEndAt: string | null;
+  claimValidDays: number | null;
+  storeFundedAmount: number | null;
 };
 
 export type StoreCouponCampaignUpdateInput = {
@@ -71,6 +78,22 @@ export function parseStoreCouponCampaignCreateBody(
         "end_at",
         "isActive",
         "is_active",
+        "fundingMode",
+        "funding_mode",
+        "maxDiscount",
+        "max_discount",
+        "issueLimit",
+        "issue_limit",
+        "spendBudgetPhp",
+        "spend_budget_php",
+        "firstOrderScope",
+        "first_order_scope",
+        "usageEndAt",
+        "usage_end_at",
+        "claimValidDays",
+        "claim_valid_days",
+        "storeFundedAmount",
+        "store_funded_amount",
       ].includes(k)
   );
   if (forbidden.length) return { ok: false, error: "forbidden_fields", forbidden };
@@ -106,6 +129,21 @@ export function parseStoreCouponCampaignCreateBody(
     return { ok: false, error: "invalid_window" };
   }
 
+  const maxDiscount = readNumber(body, "maxDiscount") ?? readNumber(body, "max_discount");
+  const issueLimit = readNumber(body, "issueLimit") ?? readNumber(body, "issue_limit");
+  const spendBudgetPhp = readNumber(body, "spendBudgetPhp") ?? readNumber(body, "spend_budget_php");
+  const firstRaw = readString(body, "firstOrderScope") || readString(body, "first_order_scope");
+  const firstOrderScope =
+    firstRaw === "STORE" || firstRaw === "PLATFORM" ? firstRaw : firstRaw === "" ? null : null;
+  const usageEndAt = readString(body, "usageEndAt") || readString(body, "usage_end_at") || null;
+  const claimValidDays = readNumber(body, "claimValidDays") ?? readNumber(body, "claim_valid_days");
+  const storeFundedAmount =
+    readNumber(body, "storeFundedAmount") ?? readNumber(body, "store_funded_amount");
+
+  if (discountType === "percent" && spendBudgetPhp != null && spendBudgetPhp > 0 && (maxDiscount == null || maxDiscount <= 0)) {
+    return { ok: false, error: "max_discount_required" };
+  }
+
   return {
     ok: true,
     value: {
@@ -118,6 +156,13 @@ export function parseStoreCouponCampaignCreateBody(
       startAt,
       endAt,
       isActive,
+      maxDiscount: maxDiscount != null && maxDiscount > 0 ? maxDiscount : null,
+      issueLimit: issueLimit != null && issueLimit > 0 ? Math.floor(issueLimit) : null,
+      spendBudgetPhp: spendBudgetPhp != null && spendBudgetPhp > 0 ? spendBudgetPhp : null,
+      firstOrderScope,
+      usageEndAt,
+      claimValidDays: claimValidDays != null && claimValidDays > 0 ? Math.floor(claimValidDays) : null,
+      storeFundedAmount: storeFundedAmount != null && storeFundedAmount >= 0 ? storeFundedAmount : null,
     },
   };
 }

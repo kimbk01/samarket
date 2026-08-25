@@ -42,6 +42,7 @@ import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store
 import {
   resolveStoreCouponCheckoutDiscount,
 } from "@/lib/stores/resolve-store-coupon-checkout-discount";
+import { splitCouponFunding } from "@/lib/stores/store-coupon-funding-math";
 import { loadDeliveryDistanceSettings, DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED } from "@/lib/delivery/delivery-ops-settings";
 import { evaluateDeliveryServiceability } from "@/lib/delivery/evaluate-delivery-serviceability";
 import { STORE_ORDER_SERVICEABILITY_SNAPSHOT_READY } from "@/lib/delivery/store-order-serviceability-snapshot-ready";
@@ -180,6 +181,7 @@ type PostBody = {
   delivery_note?: string;
   client_order_key?: string;
   coupon_campaign_id?: string;
+  user_coupon_id?: string;
 };
 
 type DeliveryAddressOrderSnapshot = {
@@ -304,14 +306,40 @@ export async function POST(req: NextRequest) {
   const { lines, deliveryFeeAmount, paymentGrandTotal, paymentTotal, productsById } = validated;
 
   const couponCampaignId = String(body.coupon_campaign_id ?? "").trim();
+  const userCouponId = String(body.user_coupon_id ?? "").trim();
   let discountAmount = 0;
+  let storeFundedAmount = 0;
+  let platformFundedAmount = 0;
+  const commissionBaseAmount = Math.round(paymentGrandTotal);
   if (couponCampaignId) {
+    if (buyerId === String(store.owner_user_id ?? "")) {
+      return NextResponse.json({ ok: false, error: "owner_self_order_denied" }, { status: 403 });
+    }
+    let heldExpiresAtMs: number | null = null;
+    if (userCouponId) {
+      const { data: ent } = await sb
+        .from("coupon_user_entitlements")
+        .select("id, status, campaign_id, buyer_user_id, expires_at")
+        .eq("id", userCouponId)
+        .maybeSingle();
+      if (
+        !ent ||
+        String(ent.buyer_user_id) !== buyerId ||
+        String(ent.campaign_id) !== couponCampaignId ||
+        !["available", "restored"].includes(String(ent.status))
+      ) {
+        return NextResponse.json({ ok: false, error: "coupon_not_found" }, { status: 400 });
+      }
+      heldExpiresAtMs = Date.parse(String(ent.expires_at ?? ""));
+    }
     const couponResult = await resolveStoreCouponCheckoutDiscount({
       sb,
       buyerUserId: buyerId,
       storeId,
       couponCampaignId,
       itemGrossPhp: Math.round(paymentTotal),
+      heldUsableEntitlement: Boolean(userCouponId),
+      usageWindowEndMs: Number.isFinite(heldExpiresAtMs) ? heldExpiresAtMs : null,
     });
     if (!couponResult.ok) {
       return NextResponse.json(
@@ -326,6 +354,21 @@ export async function POST(req: NextRequest) {
       );
     }
     discountAmount = couponResult.discountAmount;
+    const { data: campFund } = await sb
+      .from("store_coupon_campaigns")
+      .select("funding_mode, store_funded_amount")
+      .eq("id", couponCampaignId)
+      .maybeSingle();
+    const mode = String(campFund?.funding_mode ?? "STORE_FUNDED");
+    const split = splitCouponFunding({
+      discountPhp: discountAmount,
+      fundingMode:
+        mode === "PLATFORM_FUNDED" || mode === "SHARED_FUNDED" ? mode : "STORE_FUNDED",
+      storeFundedPhp:
+        campFund?.store_funded_amount == null ? null : Number(campFund.store_funded_amount),
+    });
+    storeFundedAmount = split.storeFundedAmount;
+    platformFundedAmount = split.platformFundedAmount;
   }
   const paymentAfterDiscount = Math.max(0, Math.round(paymentGrandTotal - discountAmount));
 
@@ -534,7 +577,13 @@ export async function POST(req: NextRequest) {
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
       ...(couponCampaignId && discountAmount > 0
-        ? { coupon_campaign_id: couponCampaignId }
+        ? {
+            coupon_campaign_id: couponCampaignId,
+            ...(userCouponId ? { user_coupon_id: userCouponId } : {}),
+            store_funded_amount: storeFundedAmount,
+            platform_funded_amount: platformFundedAmount,
+            commission_base_amount: commissionBaseAmount,
+          }
         : {}),
     },
     lines: lines.map((line) => ({

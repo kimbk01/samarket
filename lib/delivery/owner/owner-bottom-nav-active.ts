@@ -47,6 +47,7 @@ export function resolveOwnerBottomNavActiveTabId(
     p.includes("/stores/owner/profile") ||
     p.includes("/stores/owner/basic-info") ||
     p.includes("/stores/owner/banners") ||
+    p.includes("/stores/owner/coupons") ||
     p.includes("/stores/owner/notices") ||
     p.includes("/stores/owner/reviews") ||
     p.includes("/stores/owner/ops-status") ||

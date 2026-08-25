@@ -14,6 +14,9 @@ export type ResolveStoreCouponCheckoutInput = {
   couponCampaignId: string;
   itemGrossPhp: number;
   nowMs?: number;
+  /** Held wallet coupon: PAUSED campaign must not block checkout. */
+  heldUsableEntitlement?: boolean;
+  usageWindowEndMs?: number | null;
 };
 
 export type ResolveStoreCouponCheckoutOk = {
@@ -117,7 +120,7 @@ export async function resolveStoreCouponCheckoutDiscount(
   const { data, error } = await input.sb
     .from("store_coupon_campaigns")
     .select(
-      "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, is_active"
+      "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, is_active, max_discount"
     )
     .eq("id", campaignId)
     .maybeSingle();
@@ -139,18 +142,28 @@ export async function resolveStoreCouponCheckoutDiscount(
     .maybeSingle();
 
   const eligibility = resolveStoreCouponEligibility({
-    campaign,
+    campaign: input.heldUsableEntitlement ? { ...campaign, isActive: true } : campaign,
     nowMs,
     expectedStoreId: storeId,
     itemGrossPhp,
     alreadyRedeemed: Boolean(prior?.id),
+    usageWindowEndMs: input.heldUsableEntitlement ? input.usageWindowEndMs : null,
   });
 
   if (!eligibility.eligible) {
     return mapEligibilityError(campaign, eligibility, nowMs);
   }
 
-  const discountAmount = computeStoreCouponDiscountPhp(campaign, itemGrossPhp);
+  const discountAmount = computeStoreCouponDiscountPhp(
+    {
+      ...campaign,
+      maxDiscount:
+        (data as { max_discount?: unknown }).max_discount == null
+          ? null
+          : Number((data as { max_discount?: unknown }).max_discount),
+    },
+    itemGrossPhp
+  );
   if (discountAmount <= 0) {
     return { ok: false, error: "invalid_discount", status: 400 };
   }

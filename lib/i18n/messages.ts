@@ -20,6 +20,7 @@ import { exchangeWriteFormMessages } from "./catalog/exchange-write-form";
 import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
+import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
 import { pointsLabelsMessages } from "./catalog/points-labels";
 import { postListPreviewMessages } from "./catalog/post-list-preview";
 import { categoryLabelsMessages } from "./catalog/category-labels";
@@ -78,6 +79,7 @@ export const MESSAGES = {
     ...cmHomeListMessages.ko,
     ...personalizedFeedMessages.ko,
     ...businessAdminNavMessages.ko,
+    ...storeCouponSsotMessages.ko,
     ...pointsLabelsMessages.ko,
     ...postListPreviewMessages.ko,
     ...categoryLabelsMessages.ko,
@@ -135,6 +137,7 @@ export const MESSAGES = {
     ...cmHomeListMessages.en,
     ...personalizedFeedMessages.en,
     ...businessAdminNavMessages.en,
+    ...storeCouponSsotMessages.en,
     ...pointsLabelsMessages.en,
     ...postListPreviewMessages.en,
     ...categoryLabelsMessages.en,

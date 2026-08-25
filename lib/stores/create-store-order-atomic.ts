@@ -38,6 +38,10 @@ export type CreateStoreOrderAtomicOrderPayload = {
   checkout_straight_distance_meters?: number | null;
   /** Stores A — optional coupon FK; redemption inserted in same RPC TX when set */
   coupon_campaign_id?: string | null;
+  user_coupon_id?: string | null;
+  store_funded_amount?: number;
+  platform_funded_amount?: number;
+  commission_base_amount?: number;
 };
 
 export type CreateStoreOrderAtomicOk = {

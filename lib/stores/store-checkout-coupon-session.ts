@@ -3,6 +3,7 @@ const STORE_CHECKOUT_COUPON_SESSION_KEY = "store_checkout_coupon_campaign_v1";
 export type StoreCheckoutCouponSession = {
   storeId: string;
   campaignId: string;
+  userCouponId?: string;
 };
 
 export function writeStoreCheckoutCouponSession(input: StoreCheckoutCouponSession): void {
@@ -21,7 +22,11 @@ export function readStoreCheckoutCouponSession(storeId: string): StoreCheckoutCo
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoreCheckoutCouponSession;
     if (parsed?.storeId !== storeId || !parsed?.campaignId?.trim()) return null;
-    return { storeId: parsed.storeId, campaignId: parsed.campaignId.trim() };
+    return {
+      storeId: parsed.storeId,
+      campaignId: parsed.campaignId.trim(),
+      userCouponId: parsed.userCouponId?.trim() || undefined,
+    };
   } catch {
     return null;
   }

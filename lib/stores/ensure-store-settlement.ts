@@ -34,14 +34,20 @@ export async function ensureStoreSettlementForCompletedOrder(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, order_status, payment_amount, delivery_fee_amount")
+    .select(
+      "id, store_id, order_status, payment_amount, delivery_fee_amount, commission_base_amount, store_funded_amount, platform_funded_amount"
+    )
     .eq("id", oid)
     .maybeSingle();
 
   if (oErr || !order) return;
   if ((order.order_status as string) !== "completed") return;
 
-  const gross = Math.round(Number(order.payment_amount) || 0);
+  const paymentAmount = Math.round(Number(order.payment_amount) || 0);
+  const commissionBaseRaw = (order as { commission_base_amount?: unknown }).commission_base_amount;
+  const hasNewBase =
+    commissionBaseRaw != null && Number.isFinite(Number(commissionBaseRaw)) && Number(commissionBaseRaw) > 0;
+  const gross = hasNewBase ? Math.round(Number(commissionBaseRaw)) : paymentAmount;
   if (!Number.isFinite(gross) || gross <= 0) return;
 
   const sid = String(order.store_id ?? "").trim();
@@ -82,9 +88,16 @@ export async function ensureStoreSettlementForCompletedOrder(
     deliveryFeePercent: policy.deliveryFeePercent,
   });
 
-  const discountBurden = 0;
+  const storeFunded = Math.max(
+    0,
+    Math.round(Number((order as { store_funded_amount?: unknown }).store_funded_amount) || 0)
+  );
+  const discountBurden = Math.max(
+    0,
+    Math.round(Number((order as { platform_funded_amount?: unknown }).platform_funded_amount) || 0)
+  );
   const refundAmount = 0;
-  const net = Math.max(0, fee.netBeforeRefund - discountBurden - refundAmount);
+  const net = Math.max(0, fee.netBeforeRefund - storeFunded - refundAmount);
 
   const commerce = await loadCommerceSettings(sb);
   const delay = commerce.settlementDelayDays;

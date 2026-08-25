@@ -348,10 +348,18 @@ export async function applyStoreOrderStatusTransition(
       refundAmount: undefined,
       note: "admin_refund_completed",
     });
+    await sb.rpc("restore_store_coupon_entitlement", {
+      p_order_id: oid,
+      p_allow_after_completed: true,
+    });
   }
 
   if (nextStatus === "cancelled") {
     await cancelScheduledSettlementForOrder(sb, oid);
+    await sb.rpc("restore_store_coupon_entitlement", {
+      p_order_id: oid,
+      p_allow_after_completed: false,
+    });
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);

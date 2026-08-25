@@ -12,6 +12,7 @@ export type BusinessAdminNavItemId =
   | "products"
   | "categories"
   | "banners"
+  | "coupons"
   | "notices"
   | "ops_review"
   | "public_store"
@@ -176,6 +177,12 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
           labelKey: "biz_nav_banners",
           href: OwnerRoutes.banners(storeId),
           descriptionKey: "biz_nav_banners_desc",
+        },
+        {
+          id: "coupons",
+          labelKey: "biz_nav_coupons",
+          href: OwnerRoutes.coupons(storeId),
+          descriptionKey: "biz_nav_coupons_desc",
         },
         {
           id: "notices",

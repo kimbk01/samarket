@@ -19,6 +19,7 @@ export type StoreCouponCampaignRow = {
   startAt: string;
   endAt: string;
   isActive: boolean;
+  firstOrderScope?: "STORE" | "PLATFORM" | null;
 };
 
 export function isStoreCouponDiscountType(value: unknown): value is StoreCouponDiscountType {

@@ -8,6 +8,7 @@ import {
   isStoreCouponDiscountType,
   type StoreCouponCampaignRow,
 } from "@/lib/stores/store-coupon-campaign-authority";
+import { computeCouponDiscountPhp } from "@/lib/stores/store-coupon-funding-math";
 
 export type StoreCouponEligibilityFactors = {
   campaignActive: boolean;
@@ -52,6 +53,8 @@ export type ResolveStoreCouponEligibilityInput = {
    * When null/undefined: discovery mode — notAlreadyRedeemed = true (not evaluated).
    */
   alreadyRedeemed?: boolean | null;
+  /** Held coupon usage end (ms). Issue window must not be reused. */
+  usageWindowEndMs?: number | null;
 };
 
 function windowActive(row: StoreCouponCampaignRow, nowMs: number): boolean {
@@ -77,18 +80,17 @@ export function deriveStoreCouponEligibilityState(
 
 /** Server-authoritative discount (PHP integer). */
 export function computeStoreCouponDiscountPhp(
-  campaign: Pick<StoreCouponCampaignRow, "discountType" | "discountValue">,
+  campaign: Pick<StoreCouponCampaignRow, "discountType" | "discountValue"> & {
+    maxDiscount?: number | null;
+  },
   itemGrossPhp: number
 ): number {
-  const gross = Math.max(0, Math.floor(itemGrossPhp));
-  if (gross <= 0) return 0;
-  if (!isStoreCouponDiscountType(campaign.discountType)) return 0;
-  if (!(campaign.discountValue > 0) || !Number.isFinite(campaign.discountValue)) return 0;
-  if (campaign.discountType === "percent") {
-    const pct = Math.min(100, Math.max(0, campaign.discountValue));
-    return Math.min(gross, Math.floor((gross * pct) / 100));
-  }
-  return Math.min(gross, Math.floor(campaign.discountValue));
+  return computeCouponDiscountPhp({
+    discountType: campaign.discountType,
+    discountValue: campaign.discountValue,
+    itemSubtotalPhp: itemGrossPhp,
+    maxDiscountPhp: campaign.maxDiscount ?? null,
+  });
 }
 
 export function resolveStoreCouponEligibility(
@@ -120,7 +122,10 @@ export function resolveStoreCouponEligibility(
 
   return deriveStoreCouponEligibilityState({
     campaignActive: campaign.isActive === true,
-    windowActive: windowActive(campaign, nowMs),
+    windowActive:
+      input.usageWindowEndMs != null && Number.isFinite(input.usageWindowEndMs)
+        ? nowMs < input.usageWindowEndMs
+        : windowActive(campaign, nowMs),
     storeMatched,
     minOrderMet,
     notAlreadyRedeemed,

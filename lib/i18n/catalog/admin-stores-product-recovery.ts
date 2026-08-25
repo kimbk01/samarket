@@ -14,6 +14,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_menu_store_ads_control: "매장 광고",
     admin_menu_store_banner_ads_control: "배너 광고",
     admin_menu_store_coupons_control: "쿠폰",
+    admin_menu_store_coupon_control_center: "쿠폰 운영 센터",
     admin_menu_store_promo_control: "기획 프로모션",
     admin_stores_home_shelves_title: "HOME 구성",
     admin_stores_home_shelves_desc:
@@ -240,6 +241,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_menu_store_ads_control: "Store ads",
     admin_menu_store_banner_ads_control: "Banner ads",
     admin_menu_store_coupons_control: "Coupons",
+    admin_menu_store_coupon_control_center: "Coupon control center",
     admin_menu_store_promo_control: "Editorial promotions",
     admin_stores_home_shelves_title: "HOME composition",
     admin_stores_home_shelves_desc:

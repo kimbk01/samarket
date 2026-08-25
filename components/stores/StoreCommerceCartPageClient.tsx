@@ -123,6 +123,7 @@ import { resolveStoreCheckoutClientError } from "@/lib/stores/resolve-store-chec
 import {
   clearStoreCheckoutCouponSession,
   readStoreCheckoutCouponSession,
+  writeStoreCheckoutCouponSession,
 } from "@/lib/stores/store-checkout-coupon-session";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
@@ -295,6 +296,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     requestLabel: string;
   } | null>(null);
   const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
+  const [appliedUserCouponId, setAppliedUserCouponId] = useState<string | null>(null);
+  const [couponQuotes, setCouponQuotes] = useState<
+    {
+      userCouponId: string;
+      campaignId: string;
+      title?: string;
+      discountAmount: number;
+      ineligibleReason: string | null;
+    }[]
+  >([]);
+  const couponChoiceLockedRef = useRef(false);
 
   useLayoutEffect(() => {
     if (!cartHydrationFirstRenderRef.current) {
@@ -418,10 +430,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   useEffect(() => {
     if (!store?.id) {
       setAppliedCouponCampaignId(null);
+      setAppliedUserCouponId(null);
       return;
     }
     const session = readStoreCheckoutCouponSession(store.id);
     setAppliedCouponCampaignId(session?.campaignId ?? null);
+    setAppliedUserCouponId(session?.userCouponId ?? null);
   }, [store?.id]);
 
   const reloadStoreAfterOwnerMutation = useCallback(() => {
@@ -1147,6 +1161,52 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const meetsMin = minOrderPhp <= 0 || subtotalPhp >= minOrderPhp;
   const minShortage = Math.max(0, minOrderPhp - subtotalPhp);
   const deliveryFeeForCheckout = resolveChargedDeliveryFeePhp(commerce, subtotalPhp, fulfillment);
+
+  useEffect(() => {
+    const sid = store?.id?.trim() ?? "";
+    if (!sid) {
+      setCouponQuotes([]);
+      return;
+    }
+    let cancelled = false;
+    void fetch(
+      `/api/me/store-coupons/best-eligible?storeId=${encodeURIComponent(sid)}&itemGrossPhp=${encodeURIComponent(String(subtotalPhp))}`,
+      { credentials: "include", cache: "no-store" }
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (json: {
+          ok?: boolean;
+          quotes?: typeof couponQuotes;
+          best?: { userCouponId: string; campaignId: string } | null;
+        } | null) => {
+          if (cancelled || !json?.ok) return;
+          setCouponQuotes(json.quotes ?? []);
+          if (couponChoiceLockedRef.current) return;
+          const session = readStoreCheckoutCouponSession(sid);
+          if (session?.userCouponId) {
+            setAppliedUserCouponId(session.userCouponId);
+            setAppliedCouponCampaignId(session.campaignId);
+            return;
+          }
+          if (json.best?.userCouponId) {
+            setAppliedUserCouponId(json.best.userCouponId);
+            setAppliedCouponCampaignId(json.best.campaignId);
+            writeStoreCheckoutCouponSession({
+              storeId: sid,
+              campaignId: json.best.campaignId,
+              userCouponId: json.best.userCouponId,
+            });
+          }
+        }
+      )
+      .catch(() => {
+        if (!cancelled) setCouponQuotes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store?.id, subtotalPhp]);
   const paymentGrandTotalPhp = subtotalPhp + deliveryFeeForCheckout;
   const pickupGrandTotalPhp = subtotalPhp;
 
@@ -1430,6 +1490,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           { delivery_user_address_id: deliveryUserAddressIdForSubmit }
         : {}),
         ...(appliedCouponCampaignId ? { coupon_campaign_id: appliedCouponCampaignId } : {}),
+        ...(appliedUserCouponId ? { user_coupon_id: appliedUserCouponId } : {}),
         client_order_key,
       });
       if (status === 401) {
@@ -1475,6 +1536,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       clientOrderKeyRef.current = null;
       clearStoreCheckoutCouponSession();
       setAppliedCouponCampaignId(null);
+      setAppliedUserCouponId(null);
       const placed = orderJson.order;
       if (
         oid &&
@@ -1528,17 +1590,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     );
   }
 
-  if ((storeLoadFailed || !displayStore) && lines.length === 0) {
-    return (
-      <StoreCommerceCartPageShell storeSlug={storeSlug} hydrationMeasured={cartShellHydrationReady}>
-        <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
-        <div className="px-4 text-center">
-          <Link href="/stores" className="text-sm font-medium text-signature">
-            {t("common_store")}
-          </Link>
-        </div>
-      </StoreCommerceCartPageShell>
-    );
+  if (lines.length === 0 && !displayStore) {
+    if (!storeLoadFailed && storeLoading) {
+      return (
+        <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
+      );
+    }
+    if (storeLoadFailed) {
+      return (
+        <StoreCommerceCartPageShell storeSlug={storeSlug} hydrationMeasured={cartShellHydrationReady}>
+          <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
+          <div className="px-4 text-center">
+            <Link href="/stores" className="text-sm font-medium text-signature">
+              {t("common_store")}
+            </Link>
+          </div>
+        </StoreCommerceCartPageShell>
+      );
+    }
   }
 
   if (lines.length === 0) {
@@ -1635,8 +1704,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
   if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
 
+  const selectedCouponQuote = couponQuotes.find((q) => q.userCouponId === appliedUserCouponId);
+  const couponDiscountPhp =
+    selectedCouponQuote && !selectedCouponQuote.ineligibleReason ? selectedCouponQuote.discountAmount : 0;
   const displayGrand =
-    fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
+    (fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp) - couponDiscountPhp;
 
   const checkoutStrikeGrand =
     discountAmountPhp > 0
@@ -1699,6 +1771,48 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onDecreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty - 1)}
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
+
+      {couponQuotes.length > 0 ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+          <label className="mb-1 block text-sm font-medium">{t("store_coupon_apply")}</label>
+          <select
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-2 text-sm"
+            value={appliedUserCouponId ?? ""}
+            onChange={(e) => {
+              couponChoiceLockedRef.current = true;
+              const id = e.target.value;
+              if (!id) {
+                setAppliedUserCouponId(null);
+                setAppliedCouponCampaignId(null);
+                clearStoreCheckoutCouponSession();
+                return;
+              }
+              const row = couponQuotes.find((c) => c.userCouponId === id);
+              setAppliedUserCouponId(id);
+              setAppliedCouponCampaignId(row?.campaignId ?? null);
+              if (store?.id && row?.campaignId) {
+                writeStoreCheckoutCouponSession({
+                  storeId: store.id,
+                  campaignId: row.campaignId,
+                  userCouponId: id,
+                });
+              }
+            }}
+          >
+            <option value="">{t("store_coupon_none")}</option>
+            {couponQuotes.map((q) => {
+              const reason = q.ineligibleReason;
+              return (
+                <option key={q.userCouponId} value={q.userCouponId} disabled={Boolean(reason)}>
+                  {q.title?.trim() || t("store_coupon_wallet_title")}
+                  {q.discountAmount > 0 ? ` · ₱${q.discountAmount}` : ""}
+                  {reason ? ` · ${t("store_coupon_unusable")}` : ""}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      ) : null}
 
       <StoreBaeminCartOrderSummaryCard
         subtotalPhp={subtotalPhp}

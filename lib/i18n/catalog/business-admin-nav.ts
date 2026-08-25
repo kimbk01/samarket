@@ -52,6 +52,10 @@ export const businessAdminNavMessages = {
 
     biz_nav_banners_desc: "매장 상단 배너",
 
+    biz_nav_coupons: "쿠폰",
+
+    biz_nav_coupons_desc: "매장 쿠폰 발행·중지",
+
     biz_nav_notices: "공지 관리",
 
     biz_nav_notices_desc: "위치별 공지",
@@ -160,6 +164,10 @@ export const businessAdminNavMessages = {
     biz_nav_banners: "Banners",
 
     biz_nav_banners_desc: "Store header banners",
+
+    biz_nav_coupons: "Coupons",
+
+    biz_nav_coupons_desc: "Issue and pause store coupons",
 
     biz_nav_notices: "Notices",
 
