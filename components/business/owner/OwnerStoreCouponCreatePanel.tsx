@@ -51,6 +51,9 @@ export function OwnerStoreCouponCreatePanel({
   const [spendBudget, setSpendBudget] = useState("20000");
   const [claimDays, setClaimDays] = useState("7");
   const [target, setTarget] = useState<"ALL" | "STORE" | "PLATFORM">("ALL");
+  const [purpose, setPurpose] = useState<
+    "new_customer_acquisition" | "repeat_purchase" | "new_menu_promotion" | "store_promotion"
+  >("store_promotion");
   const [issueStart, setIssueStart] = useState(() => toLocalInput(now));
   const [issueEnd, setIssueEnd] = useState(() => toLocalInput(new Date(now.getTime() + 30 * 86400000)));
   const [usageEnd, setUsageEnd] = useState(() => toLocalInput(new Date(now.getTime() + 7 * 86400000)));
@@ -111,6 +114,7 @@ export function OwnerStoreCouponCreatePanel({
             spendBudgetPhp: spendBudget.trim() ? Number(spendBudget) : null,
             claimValidDays: claimDays.trim() ? Number(claimDays) : null,
             firstOrderScope: target === "ALL" ? null : target,
+            campaignPurpose: purpose,
             termsCopy: null,
             startAt,
             endAt,
@@ -188,6 +192,25 @@ export function OwnerStoreCouponCreatePanel({
             <option value="ALL">{t("store_coupon_target_all")}</option>
             <option value="STORE">{t("store_coupon_target_store_first")}</option>
             <option value="PLATFORM">{t("store_coupon_target_platform_first")}</option>
+          </select>
+          <label className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_field_purpose")}</label>
+          <select
+            className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+            value={purpose}
+            onChange={(e) =>
+              setPurpose(
+                e.target.value as
+                  | "new_customer_acquisition"
+                  | "repeat_purchase"
+                  | "new_menu_promotion"
+                  | "store_promotion"
+              )
+            }
+          >
+            <option value="store_promotion">{t("store_coupon_purpose_store_promo")}</option>
+            <option value="new_customer_acquisition">{t("store_coupon_purpose_new_customer")}</option>
+            <option value="repeat_purchase">{t("store_coupon_purpose_repeat_purchase")}</option>
+            <option value="new_menu_promotion">{t("store_coupon_purpose_new_menu")}</option>
           </select>
         </div>
       ) : null}

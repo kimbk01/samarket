@@ -37,7 +37,7 @@ function writerErrorStatus(error: StoreCouponWriterError): number {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
@@ -45,7 +45,9 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const loaded = await loadAdminCouponControlCenter(sb);
+  const couponNumber = new URL(req.url).searchParams.get("couponNumber")?.trim() ?? "";
+  const { loadCouponCampaignOpsBundle } = await import("@/lib/stores/load-coupon-campaign-ops-bundle");
+  const loaded = await loadCouponCampaignOpsBundle(sb, couponNumber ? { couponNumber } : undefined);
   if (!loaded.ok) {
     return NextResponse.json({ ok: false, error: loaded.error, campaigns: [] }, { status: 500 });
   }
@@ -167,18 +169,25 @@ export async function PATCH(req: NextRequest) {
         .from("store_coupon_campaigns")
         .update({ lifecycle_state: "revoked", is_active: false, updated_by_user_id: userId })
         .eq("id", campaignId);
-      await sb
-        .from("coupon_user_entitlements")
-        .update({ status: "revoked", updated_at: new Date().toISOString() })
-        .eq("campaign_id", campaignId)
-        .in("status", ["available", "restored"]);
+      const { data: revokeResult, error: revokeErr } = await sb.rpc(
+        "revoke_campaign_active_entitlements",
+        {
+          p_campaign_id: campaignId,
+          p_actor_user_id: userId,
+          p_reason: reason,
+        }
+      );
+      if (revokeErr) {
+        console.error("[admin coupon revoke entitlements]", revokeErr.message);
+        return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
+      }
       await sb.from("coupon_audit_events").insert({
         campaign_id: campaignId,
         actor_user_id: userId,
         action: "admin_force_revoke",
-        payload: { reason },
+        payload: { reason, revoke_result: revokeResult ?? null },
       });
-      return NextResponse.json({ ok: true, lifecycle_state: "revoked" });
+      return NextResponse.json({ ok: true, lifecycle_state: "revoked", revoke: revokeResult });
     }
   }
   const result = await updateStoreCouponCampaignAdmin(sb, body, userId);

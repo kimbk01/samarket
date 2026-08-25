@@ -35,6 +35,26 @@ export type StoreCouponEntitlementState = (typeof STORE_COUPON_ENTITLEMENT_STATE
 export const STORE_COUPON_FIRST_ORDER_SCOPES = ["STORE", "PLATFORM"] as const;
 export type StoreCouponFirstOrderScope = (typeof STORE_COUPON_FIRST_ORDER_SCOPES)[number];
 
+export const STORE_COUPON_ISSUER_ROLES = ["owner", "admin", "system"] as const;
+export type StoreCouponIssuerRole = (typeof STORE_COUPON_ISSUER_ROLES)[number];
+
+export const STORE_COUPON_CAMPAIGN_PURPOSES = [
+  "new_customer_acquisition",
+  "repeat_purchase",
+  "new_menu_promotion",
+  "store_promotion",
+  "platform_event",
+] as const;
+export type StoreCouponCampaignPurpose = (typeof STORE_COUPON_CAMPAIGN_PURPOSES)[number];
+
+export function isStoreCouponIssuerRole(v: unknown): v is StoreCouponIssuerRole {
+  return (STORE_COUPON_ISSUER_ROLES as readonly string[]).includes(String(v));
+}
+
+export function isStoreCouponCampaignPurpose(v: unknown): v is StoreCouponCampaignPurpose {
+  return (STORE_COUPON_CAMPAIGN_PURPOSES as readonly string[]).includes(String(v));
+}
+
 export const COUPON_USER_ENTITLEMENTS_TABLE = "coupon_user_entitlements" as const;
 export const COUPON_AUDIT_EVENTS_TABLE = "coupon_audit_events" as const;
 

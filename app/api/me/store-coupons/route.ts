@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { attachCustomerCouponWalletLabels } from "@/lib/stores/customer-coupon-wallet-view";
+import { loadCustomerCouponWalletCards } from "@/lib/stores/load-customer-coupon-wallet-cards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -17,47 +17,13 @@ export async function GET(req: NextRequest) {
   }
   const tab = new URL(req.url).searchParams.get("tab")?.trim() || "available";
   const storeId = new URL(req.url).searchParams.get("storeId")?.trim() || "";
-  let q = sb
-    .from("coupon_user_entitlements")
-    .select(
-      "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount)"
-    )
-    .eq("buyer_user_id", userId);
-  if (storeId) q = q.eq("store_id", storeId);
-  const { data, error } = await q.order("expires_at", { ascending: true }).limit(200);
-  if (error) {
-    return NextResponse.json({ ok: false, error: "db_error", coupons: [] }, { status: 500 });
-  }
-  const now = Date.now();
-  const rows = (data ?? []).map((raw) => {
-    const r = raw as Record<string, unknown>;
-    const expires = Date.parse(String(r.expires_at ?? ""));
-    const status = String(r.status ?? "");
-    let bucket = "available";
-    if (status === "revoked") bucket = "expired";
-    else if (status === "redeemed") bucket = "redeemed";
-    else if (Number.isFinite(expires) && expires <= now) bucket = "expired";
-    else if (status === "available" || status === "restored") {
-      bucket = Number.isFinite(expires) && expires - now < 3 * 24 * 60 * 60 * 1000 ? "expiring" : "available";
-    } else {
-      bucket = "expired";
-    }
-    return { ...r, bucket } as Record<string, unknown> & { bucket: string };
+  const loaded = await loadCustomerCouponWalletCards(sb, {
+    buyerUserId: userId,
+    tab: tab === "all" ? "all" : tab,
+    storeId: storeId || undefined,
   });
-  const storeIds = [...new Set(rows.map((r) => String(r.store_id ?? "").trim()).filter(Boolean))];
-  const orderIds = [...new Set(rows.map((r) => String(r.redeemed_order_id ?? "").trim()).filter(Boolean))];
-  const [{ data: stores }, { data: orders }] = await Promise.all([
-    storeIds.length
-      ? sb.from("stores").select("id, store_name, slug").in("id", storeIds)
-      : Promise.resolve({ data: [] as { id: string; store_name: string | null; slug: string | null }[] }),
-    orderIds.length
-      ? sb.from("store_orders").select("id, order_no, created_at").in("id", orderIds)
-      : Promise.resolve({ data: [] as { id: string; order_no: string | null; created_at: string | null }[] }),
-  ]);
-  const labeled = attachCustomerCouponWalletLabels(rows, stores ?? [], orders ?? []);
-  const filtered =
-    tab === "all"
-      ? labeled
-      : labeled.filter((r) => (tab === "expiring" ? r.bucket === "expiring" : r.bucket === tab));
-  return NextResponse.json({ ok: true, coupons: filtered });
+  if (!loaded.ok) {
+    return NextResponse.json({ ok: false, error: loaded.error, cards: [] }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, cards: loaded.cards, coupons: loaded.cards });
 }

@@ -209,6 +209,8 @@ function buildInsert(
     store_funded_amount: funding.store_funded_amount,
     created_by_user_id: adminUserId,
     updated_by_user_id: adminUserId,
+    issuer_role: "admin",
+    campaign_purpose: input.campaignPurpose,
     created_at: now,
     updated_at: now,
   };

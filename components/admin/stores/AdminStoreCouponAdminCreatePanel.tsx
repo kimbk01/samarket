@@ -46,6 +46,7 @@ export function AdminStoreCouponAdminCreatePanel({
   const [spendBudget, setSpendBudget] = useState("20000");
   const [claimDays, setClaimDays] = useState("7");
   const [target, setTarget] = useState<"ALL" | "STORE" | "PLATFORM">("ALL");
+  const [purpose, setPurpose] = useState<"platform_event" | "store_promotion">("platform_event");
   const [funding, setFunding] = useState<"PLATFORM_FUNDED" | "SHARED_FUNDED">("PLATFORM_FUNDED");
   const [storeShare, setStoreShare] = useState("60");
   const [issueStart, setIssueStart] = useState(() => toLocalInput(now));
@@ -87,6 +88,7 @@ export function AdminStoreCouponAdminCreatePanel({
           spendBudgetPhp: spendBudget.trim() ? Number(spendBudget) : null,
           claimValidDays: claimDays.trim() ? Number(claimDays) : null,
           firstOrderScope: target === "ALL" ? null : target,
+          campaignPurpose: purpose,
           termsCopy: null,
           startAt,
           endAt,
@@ -154,6 +156,17 @@ export function AdminStoreCouponAdminCreatePanel({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
+            </label>
+            <label className={FIELD}>
+              <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_field_purpose")}</span>
+              <select
+                className={OWNER_ADMIN_FIELD_INPUT_CLASS}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value as "platform_event" | "store_promotion")}
+              >
+                <option value="platform_event">{t("store_coupon_purpose_platform_event")}</option>
+                <option value="store_promotion">{t("store_coupon_purpose_store_promo")}</option>
+              </select>
             </label>
             <label className={FIELD}>
               <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("store_coupon_funding")}</span>

@@ -5,7 +5,7 @@ export async function claimStoreCoupon(input: {
   buyerUserId: string;
   campaignId: string;
 }): Promise<
-  | { ok: true; entitlement: { id: string; campaign_id: string; reserved_php: number; expires_at: string } }
+  | { ok: true; entitlement: { id: string; campaign_id: string; reserved_php: number; expires_at: string; coupon_number: string | null } }
   | { ok: false; error: string; httpStatus: number }
 > {
   const { data, error } = await input.sb.rpc("claim_store_coupon", {
@@ -34,6 +34,7 @@ export async function claimStoreCoupon(input: {
       campaign_id: String(ent.campaign_id ?? ""),
       reserved_php: Number(ent.reserved_php ?? 0),
       expires_at: String(ent.expires_at ?? ""),
+      coupon_number: ent.coupon_number == null ? null : String(ent.coupon_number),
     },
   };
 }

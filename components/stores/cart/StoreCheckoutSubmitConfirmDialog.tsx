@@ -3,6 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
+import { formatStoreCheckoutPaymentBreakdownLine } from "@/lib/stores/store-checkout-confirm-labels";
+import type { CheckoutPaymentBreakdownLine } from "@/lib/stores/store-coupon-product-view";
 
 /** 주문 접수 전 확인 — 가운데 팝업 */
 export function StoreCheckoutSubmitConfirmDialog({
@@ -11,6 +13,7 @@ export function StoreCheckoutSubmitConfirmDialog({
   addressLabel,
   paymentLabel,
   orderSummaryLabel,
+  paymentBreakdownLines,
   requestLabel,
   busy = false,
   onCancel,
@@ -21,6 +24,7 @@ export function StoreCheckoutSubmitConfirmDialog({
   addressLabel: string;
   paymentLabel: string;
   orderSummaryLabel?: string;
+  paymentBreakdownLines?: CheckoutPaymentBreakdownLine[];
   requestLabel?: string;
   busy?: boolean;
   onCancel: () => void;
@@ -74,6 +78,16 @@ export function StoreCheckoutSubmitConfirmDialog({
             <dt className="font-semibold">{t("store_checkout_confirm_order_summary")}</dt>
             <dd className="mt-0.5 whitespace-pre-wrap font-medium text-[var(--overlay-text-primary)]">
               {orderSummaryLabel}
+            </dd>
+          </div>
+        ) : null}
+        {paymentBreakdownLines && paymentBreakdownLines.length > 0 ? (
+          <div>
+            <dt className="font-semibold">{t("store_coupon_checkout_confirm_breakdown")}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap font-medium text-[var(--overlay-text-primary)]">
+              {paymentBreakdownLines
+                .map((line) => formatStoreCheckoutPaymentBreakdownLine(line, t(line.labelKey)))
+                .join("\n")}
             </dd>
           </div>
         ) : null}

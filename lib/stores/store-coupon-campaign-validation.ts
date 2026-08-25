@@ -3,6 +3,10 @@ import {
   type StoreCouponDiscountType,
 } from "@/lib/stores/store-coupon-campaign-authority";
 import { isValidStoreDiscoveryCampaignWindow } from "@/lib/stores/store-discovery-campaign-authority";
+import {
+  isStoreCouponCampaignPurpose,
+  type StoreCouponCampaignPurpose,
+} from "@/lib/stores/store-coupon-ssot";
 
 export type StoreCouponCampaignCreateInput = {
   storeId: string;
@@ -21,6 +25,7 @@ export type StoreCouponCampaignCreateInput = {
   usageEndAt: string | null;
   claimValidDays: number | null;
   storeFundedAmount: number | null;
+  campaignPurpose: StoreCouponCampaignPurpose;
 };
 
 export type StoreCouponCampaignUpdateInput = {
@@ -94,6 +99,8 @@ export function parseStoreCouponCampaignCreateBody(
         "claim_valid_days",
         "storeFundedAmount",
         "store_funded_amount",
+        "campaignPurpose",
+        "campaign_purpose",
       ].includes(k)
   );
   if (forbidden.length) return { ok: false, error: "forbidden_fields", forbidden };
@@ -139,6 +146,9 @@ export function parseStoreCouponCampaignCreateBody(
   const claimValidDays = readNumber(body, "claimValidDays") ?? readNumber(body, "claim_valid_days");
   const storeFundedAmount =
     readNumber(body, "storeFundedAmount") ?? readNumber(body, "store_funded_amount");
+  const purposeRaw =
+    readString(body, "campaignPurpose") || readString(body, "campaign_purpose") || "store_promotion";
+  const campaignPurpose = isStoreCouponCampaignPurpose(purposeRaw) ? purposeRaw : "store_promotion";
 
   if (discountType === "percent" && spendBudgetPhp != null && spendBudgetPhp > 0 && (maxDiscount == null || maxDiscount <= 0)) {
     return { ok: false, error: "max_discount_required" };
@@ -163,6 +173,7 @@ export function parseStoreCouponCampaignCreateBody(
       usageEndAt,
       claimValidDays: claimValidDays != null && claimValidDays > 0 ? Math.floor(claimValidDays) : null,
       storeFundedAmount: storeFundedAmount != null && storeFundedAmount >= 0 ? storeFundedAmount : null,
+      campaignPurpose,
     },
   };
 }

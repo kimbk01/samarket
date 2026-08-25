@@ -12,8 +12,8 @@ import { OwnerStoreCouponListDashboard } from "@/components/business/owner/Owner
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OWNER_ADMIN_OUTLINE_BTN_CLASS } from "@/lib/business/owner-admin-list-ui";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import type { OwnerCouponDetailAction } from "@/lib/stores/owner-coupon-list-bucket";
-import type { OwnerCouponListTab } from "@/lib/stores/owner-coupon-list-bucket";
+import type { OwnerCouponDetailAction, OwnerCouponListTab } from "@/lib/stores/owner-coupon-list-bucket";
+import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
 
 type CampaignRow = {
   id: string;
@@ -47,6 +47,7 @@ export function OwnerStoreCouponsView() {
   const [loaded, setLoaded] = useState(false);
   const [endId, setEndId] = useState<string | null>(null);
   const [pendingAct, setPendingAct] = useState<{ id: string; action: OwnerCouponDetailAction } | null>(null);
+  const [opsDetail, setOpsDetail] = useState<CouponCampaignOpsView | null>(null);
 
   useEffect(() => {
     if (storeId) {
@@ -76,6 +77,29 @@ export function OwnerStoreCouponsView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const cid = campaignId.trim();
+    if (!cid) {
+      setOpsDetail(null);
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/api/me/store-coupons/campaigns?ops=1&campaignId=${encodeURIComponent(cid)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { ok?: boolean; campaign?: CouponCampaignOpsView } | null) => {
+        if (!cancelled) setOpsDetail(json?.ok ? json.campaign ?? null : null);
+      })
+      .catch(() => {
+        if (!cancelled) setOpsDetail(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId]);
 
   const act = async (id: string, action: string) => {
     const res = await fetch("/api/me/store-coupons/campaigns", {
@@ -135,7 +159,8 @@ export function OwnerStoreCouponsView() {
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <OwnerStoreCouponDetailPanel
           row={row}
-          loading={!loaded}
+          ops={opsDetail}
+          loading={!loaded && !opsDetail}
           onBack={goList}
           onAct={(action) => setPendingAct({ id: campaignId, action })}
         />

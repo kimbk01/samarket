@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
+import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
 import { couponControlActionsForLifecycle, type CouponControlCampaignView } from "@/lib/stores/admin-coupon-control-realized";
 import {
   adminCouponAuditActionMessageKey,
@@ -33,7 +34,7 @@ export function AdminStoreCouponControlDetail({
   onAct,
   actError,
 }: {
-  campaign: CouponControlCampaignView | null;
+  campaign: (CouponControlCampaignView & Partial<CouponCampaignOpsView>) | null;
   onAct: (id: string, action: string, revokeReason?: string) => Promise<void>;
   actError: string | null;
 }) {
@@ -94,6 +95,12 @@ export function AdminStoreCouponControlDetail({
           </p>
         ) : null}
         {targetKey ? <p className="mt-1 text-sm text-sam-muted">{t(targetKey)}</p> : null}
+        {"issuer" in campaign && campaign.issuer ? (
+          <p className="mt-1 text-sm text-sam-muted">{t(campaign.issuer.roleKey)}</p>
+        ) : null}
+        {"purpose" in campaign && campaign.purpose ? (
+          <p className="mt-1 text-sm text-sam-muted">{t(campaign.purpose.purposeKey)}</p>
+        ) : null}
       </AdminCard>
 
       <AdminCard titleKey="store_coupon_admin_section_issue_use">
@@ -106,6 +113,14 @@ export function AdminStoreCouponControlDetail({
           {t("store_coupon_owner_used", { count: campaign.redeemed_count })} ·{" "}
           {t("store_coupon_owner_usage_rate", { rate: usageRate })}
         </p>
+        {"active_held_count" in campaign && campaign.active_held_count != null ? (
+          <p className="mt-1 text-sm text-sam-muted">
+            {t("store_coupon_owner_held_active")}: {campaign.active_held_count}
+          </p>
+        ) : null}
+        {"issued_reconciliation" in campaign && campaign.issued_reconciliation && !campaign.issued_reconciliation.consistent ? (
+          <p className="mt-1 text-sm text-sam-danger">{t("store_coupon_data_inconsistency")}</p>
+        ) : null}
       </AdminCard>
 
       <AdminCard titleKey="store_coupon_admin_section_cost">
@@ -136,6 +151,25 @@ export function AdminStoreCouponControlDetail({
           })}
         </p>
       </AdminCard>
+
+      {"instances" in campaign && campaign.instances && campaign.instances.length > 0 ? (
+        <AdminCard titleKey="store_coupon_admin_section_instances">
+          <ul className="space-y-2">
+            {campaign.instances.slice(0, 30).map((inst) => (
+              <li key={inst.entitlement_id} className="rounded-ui-rect bg-sam-app px-3 py-2 text-sm">
+                <p className="font-medium text-sam-fg">
+                  {t("store_coupon_number_label")}: {inst.coupon_number ?? t("store_coupon_number_legacy")}
+                </p>
+                <p className="mt-1 text-xs text-sam-muted">
+                  {t("store_coupon_instance_status")}: {inst.status}
+                  {inst.buyer_label ? ` · ${t("store_coupon_instance_buyer")}: ${inst.buyer_label}` : ""}
+                  {inst.order_no ? ` · ${inst.order_no}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </AdminCard>
+      ) : null}
 
       <AdminCard titleKey="store_coupon_admin_section_orders">
         {campaign.orders.length === 0 ? (

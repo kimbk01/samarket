@@ -31,7 +31,22 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  const storeId = new URL(req.url).searchParams.get("storeId")?.trim() ?? "";
+  const url = new URL(req.url);
+  const storeId = url.searchParams.get("storeId")?.trim() ?? "";
+  const ops = url.searchParams.get("ops") === "1";
+  const campaignId = url.searchParams.get("campaignId")?.trim() ?? "";
+
+  if (ops && campaignId) {
+    const { loadCouponCampaignOpsBundle } = await import("@/lib/stores/load-coupon-campaign-ops-bundle");
+    const loaded = await loadCouponCampaignOpsBundle(sb, { campaignId });
+    if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
+    const campaign = loaded.campaigns[0] ?? null;
+    if (campaign && !(await assertOwnedStore(sb, userId, String(campaign.store_id)))) {
+      return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
+    }
+    return NextResponse.json({ ok: true, campaign });
+  }
+
   if (!storeId || !(await assertOwnedStore(sb, userId, storeId))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
   }
@@ -117,6 +132,8 @@ export async function POST(req: NextRequest) {
       store_funded_amount: funding.write.store_funded_amount,
       created_by_user_id: userId,
       updated_by_user_id: userId,
+      issuer_role: "owner",
+      campaign_purpose: parsed.value.campaignPurpose,
       created_at: now,
       updated_at: now,
     })
@@ -203,6 +220,11 @@ export async function PATCH(req: NextRequest) {
         store_funded_amount: copy.store_funded_amount ?? null,
         created_by_user_id: userId,
         updated_by_user_id: userId,
+        issuer_role: "owner",
+        campaign_purpose:
+          copy.campaign_purpose != null && String(copy.campaign_purpose).trim()
+            ? String(copy.campaign_purpose)
+            : "store_promotion",
       })
       .select("id, lifecycle_state")
       .single();

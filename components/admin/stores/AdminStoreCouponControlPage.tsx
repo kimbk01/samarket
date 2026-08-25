@@ -50,9 +50,14 @@ export function AdminStoreCouponControlPage() {
   const [campaigns, setCampaigns] = useState<CouponControlCampaignView[]>([]);
   const [storeOptions, setStoreOptions] = useState<{ id: string; name: string }[]>([]);
   const [actError, setActError] = useState<string | null>(null);
+  const [couponNumberQuery, setCouponNumberQuery] = useState("");
 
-  const load = useCallback(async () => {
-    const res = await fetch("/api/admin/store-coupons", { credentials: "include", cache: "no-store" });
+  const load = useCallback(async (couponNumber?: string) => {
+    const q = couponNumber?.trim() ?? "";
+    const url = q
+      ? `/api/admin/store-coupons?couponNumber=${encodeURIComponent(q)}`
+      : "/api/admin/store-coupons";
+    const res = await fetch(url, { credentials: "include", cache: "no-store" });
     const json = (await res.json()) as { ok?: boolean; campaigns?: CouponControlCampaignView[] };
     setCampaigns(json.ok ? json.campaigns ?? [] : []);
     try {
@@ -215,7 +220,27 @@ export function AdminStoreCouponControlPage() {
         ) : null}
 
         {role === "list" ? (
-          <AdminStoreCouponControlList campaigns={campaigns} onOpenDetail={goDetail} />
+          <div className="flex min-w-0 flex-col gap-3">
+            <label className="block text-sm text-sam-muted">
+              {t("store_coupon_admin_search_coupon_number")}
+              <div className="mt-1 flex gap-2">
+                <input
+                  className="min-w-0 flex-1 rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg"
+                  value={couponNumberQuery}
+                  onChange={(e) => setCouponNumberQuery(e.target.value)}
+                  data-admin-coupon-number-search="1"
+                />
+                <button
+                  type="button"
+                  className="shrink-0 rounded-ui-rect bg-signature px-4 text-sm font-medium text-white"
+                  onClick={() => void load(couponNumberQuery)}
+                >
+                  {t("store_coupon_admin_filter_all")}
+                </button>
+              </div>
+            </label>
+            <AdminStoreCouponControlList campaigns={campaigns} onOpenDetail={goDetail} />
+          </div>
         ) : null}
 
         {role === "detail" ? (

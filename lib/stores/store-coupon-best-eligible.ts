@@ -5,7 +5,9 @@ export type StoreCouponQuote = {
   userCouponId: string;
   campaignId: string;
   title: string;
+  couponNumber: string | null;
   discountAmount: number;
+  fundingMode: string;
   ineligibleReason: string | null;
   /** Present when `ineligibleReason` is `coupon_min_order`. */
   minOrderPhp?: number | null;
@@ -62,7 +64,7 @@ export async function quoteStoreCouponsForCheckout(input: {
   const { data: ents } = await input.sb
     .from("coupon_user_entitlements")
     .select(
-      "id, campaign_id, status, expires_at, store_coupon_campaigns(id, store_id, title, discount_type, discount_value, min_order_amount, max_discount, lifecycle_state, is_active)"
+      "id, campaign_id, status, expires_at, coupon_number, store_coupon_campaigns(id, store_id, title, discount_type, discount_value, min_order_amount, max_discount, lifecycle_state, is_active, funding_mode)"
     )
     .eq("buyer_user_id", input.buyerUserId)
     .eq("store_id", input.storeId)
@@ -77,16 +79,18 @@ export async function quoteStoreCouponsForCheckout(input: {
     const title = String(camp?.title ?? "");
     if (!userCouponId || !campaignId || !camp) continue;
     const expires = Date.parse(String(r.expires_at ?? ""));
+    const couponNumber = r.coupon_number == null ? null : String(r.coupon_number).trim() || null;
+    const fundingMode = String(camp.funding_mode ?? "STORE_FUNDED");
     if (String(camp.store_id) !== input.storeId) {
-      out.push({ userCouponId, campaignId, title, discountAmount: 0, ineligibleReason: "coupon_wrong_store" });
+      out.push({ userCouponId, campaignId, title, couponNumber, discountAmount: 0, fundingMode, ineligibleReason: "coupon_wrong_store" });
       continue;
     }
     if (String(camp.lifecycle_state) === "revoked") {
-      out.push({ userCouponId, campaignId, title, discountAmount: 0, ineligibleReason: "COUPON_REVOKED" });
+      out.push({ userCouponId, campaignId, title, couponNumber, discountAmount: 0, fundingMode, ineligibleReason: "COUPON_REVOKED" });
       continue;
     }
     if (Number.isFinite(expires) && expires <= nowMs) {
-      out.push({ userCouponId, campaignId, title, discountAmount: 0, ineligibleReason: "coupon_expired" });
+      out.push({ userCouponId, campaignId, title, couponNumber, discountAmount: 0, fundingMode, ineligibleReason: "coupon_expired" });
       continue;
     }
     const minOrder = camp.min_order_amount == null ? null : Number(camp.min_order_amount);
@@ -95,7 +99,9 @@ export async function quoteStoreCouponsForCheckout(input: {
         userCouponId,
         campaignId,
         title,
+        couponNumber,
         discountAmount: 0,
+        fundingMode,
         ineligibleReason: "coupon_min_order",
         minOrderPhp: minOrder,
         shortagePhp: Math.max(0, minOrder - itemGross),
@@ -104,7 +110,7 @@ export async function quoteStoreCouponsForCheckout(input: {
     }
     const dtype = camp.discount_type === "percent" || camp.discount_type === "fixed_amount" ? camp.discount_type : null;
     if (!dtype) {
-      out.push({ userCouponId, campaignId, title, discountAmount: 0, ineligibleReason: "invalid_discount" });
+      out.push({ userCouponId, campaignId, title, couponNumber, discountAmount: 0, fundingMode, ineligibleReason: "invalid_discount" });
       continue;
     }
     const discountAmount = computeCouponDiscountPhp({
@@ -117,7 +123,9 @@ export async function quoteStoreCouponsForCheckout(input: {
       userCouponId,
       campaignId,
       title,
+      couponNumber,
       discountAmount,
+      fundingMode,
       ineligibleReason: discountAmount > 0 ? null : "invalid_discount",
     });
   }
