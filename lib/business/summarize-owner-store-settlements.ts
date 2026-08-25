@@ -42,6 +42,8 @@ export function summarizeOwnerStoreSettlements(
     paid_at: r.paid_at,
     gross_amount: Number(r.gross_amount) || 0,
     discount_amount: Number(r.discount_amount ?? 0) || 0,
+    store_funded_amount: Number(r.store_funded_amount ?? 0) || 0,
+    platform_funded_amount: Number(r.platform_funded_amount ?? 0) || 0,
     point_amount: Number(r.point_amount ?? 0) || 0,
     delivery_fee_amount: Number(r.delivery_fee_amount ?? 0) || 0,
     payment_amount: Number(r.payment_amount ?? r.gross_amount) || 0,

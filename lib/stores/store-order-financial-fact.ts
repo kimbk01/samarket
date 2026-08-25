@@ -27,6 +27,10 @@ export type StoreOrderFinancialFact = {
   point_amount: number;
   delivery_fee_amount: number;
   payment_amount: number;
+  /** Order snapshot — store share of coupon. Not `discount_burden_amount`. */
+  store_funded_amount: number;
+  /** Order snapshot — DIBAY share of coupon. Ledger `discount_burden_amount` copies this at insert. */
+  platform_funded_amount: number;
 
   commission_base_amount: number;
   commission_rate: number;
@@ -179,6 +183,8 @@ export type OrderJoinLike = {
   payment_status?: string | null;
   payment_amount?: number | null;
   discount_amount?: number | null;
+  store_funded_amount?: number | null;
+  platform_funded_amount?: number | null;
   delivery_fee_amount?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -234,6 +240,8 @@ export function projectStoreOrderFinancialFact(opts: {
   const paymentAmount = o?.payment_amount != null ? money(o.payment_amount) : gross;
   const deliveryFee = o?.delivery_fee_amount != null ? money(o.delivery_fee_amount) : 0;
   const discount = o?.discount_amount != null ? money(o.discount_amount) : 0;
+  const storeFunded = o?.store_funded_amount != null ? money(o.store_funded_amount) : 0;
+  const platformFunded = o?.platform_funded_amount != null ? money(o.platform_funded_amount) : 0;
 
   const completedAt =
     (typeof o?.completed_at === "string" && o.completed_at) ||
@@ -263,6 +271,8 @@ export function projectStoreOrderFinancialFact(opts: {
     point_amount: 0,
     delivery_fee_amount: deliveryFee,
     payment_amount: paymentAmount,
+    store_funded_amount: storeFunded,
+    platform_funded_amount: platformFunded,
 
     commission_base_amount: gross,
     commission_rate: Number(s.platform_fee_percent ?? 0) || 0,

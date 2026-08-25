@@ -6,6 +6,7 @@ import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   OWNER_ADMIN_FIELD_INPUT_CLASS,
   OWNER_ADMIN_FIELD_LABEL_CLASS,
@@ -26,6 +27,8 @@ type CampaignRow = {
   issue_limit?: number | null;
   spend_budget_php?: number | null;
   reserved_spend_php?: number | null;
+  claimed_count?: number;
+  redeemed_count?: number;
   first_order_scope?: string | null;
   start_at?: string;
   end_at?: string;
@@ -108,9 +111,44 @@ export function OwnerStoreCouponsView() {
                   {row.max_discount != null ? `(max ₱${row.max_discount})` : ""} ·{" "}
                   {t("store_coupon_min_order")} {row.min_order_amount ?? 0} · {row.lifecycle_state} ·{" "}
                   {row.funding_mode}
-                  {row.store_funded_amount != null ? ` ₱${row.store_funded_amount}` : ""} ·{" "}
-                  {row.issued_count ?? 0}
+                  {row.store_funded_amount != null ? ` ₱${row.store_funded_amount}` : ""}
+                </p>
+                <p className="text-xs text-sam-muted">
+                  {t("store_coupon_owner_issued", { count: row.issued_count ?? 0 })}
                   {row.issue_limit != null ? `/${row.issue_limit}` : ""}
+                  {" · "}
+                  {t("store_coupon_owner_used", { count: row.redeemed_count ?? 0 })}
+                  {" · "}
+                  {t("store_coupon_owner_usage_rate", {
+                    rate:
+                      Number(row.issued_count ?? 0) > 0
+                        ? `${Math.round(
+                            ((Number(row.redeemed_count ?? 0) || 0) / Number(row.issued_count)) * 100
+                          )}%`
+                        : "—",
+                  })}
+                </p>
+                <p className="text-xs text-sam-muted">
+                  {row.funding_mode === "STORE_FUNDED"
+                    ? t("store_coupon_owner_store_reserved", {
+                        amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
+                      })
+                    : row.funding_mode === "PLATFORM_FUNDED"
+                      ? t("store_coupon_owner_platform_reserved", {
+                          amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
+                        })
+                      : t("store_coupon_owner_reserved_total", {
+                          amount: formatMoneyPhp(Number(row.reserved_spend_php ?? 0) || 0),
+                        })}
+                  {row.funding_mode === "STORE_FUNDED"
+                    ? ` · ${t("store_coupon_owner_platform_reserved", {
+                        amount: formatMoneyPhp(0),
+                      })}`
+                    : row.funding_mode === "PLATFORM_FUNDED"
+                      ? ` · ${t("store_coupon_owner_store_reserved", {
+                          amount: formatMoneyPhp(0),
+                        })}`
+                      : ""}
                   {row.spend_budget_php != null
                     ? ` · ${row.reserved_spend_php ?? 0}/${row.spend_budget_php}`
                     : ""}

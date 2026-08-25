@@ -130,6 +130,41 @@ describe("Owner/Admin order-level equality (projection)", () => {
     expect(ownerView.order_no).toBe("ORDER-2026-000123");
     expect(adminView.buyer_display).toBe("Buyer");
   });
+
+  it("passes order coupon funding snapshot without using discount_burden as store cost", () => {
+    const view = projectStoreOrderFinancialFact({
+      settlement: {
+        id: "1148973c-7812-44f5-b207-dda92c151142",
+        store_id: "store-aa11",
+        order_id: "ff15dfa6-36d2-4577-a60e-a6f5312ddb9c",
+        gross_amount: 1950,
+        settlement_status: "scheduled",
+        created_at: "2026-08-25T00:00:00.000Z",
+        platform_fee_percent: 7,
+        platform_fee_amount: 136,
+        fixed_fee_amount: 0,
+        delivery_income_amount: 0,
+        discount_burden_amount: 0,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        net_settlement_amount: 1714,
+      },
+      order: {
+        id: "ff15dfa6-36d2-4577-a60e-a6f5312ddb9c",
+        order_no: "SO1787662467219f980",
+        payment_amount: 1850,
+        discount_amount: 100,
+        store_funded_amount: 100,
+        platform_funded_amount: 0,
+        delivery_fee_amount: 0,
+      },
+    });
+    expect(view.discount_amount).toBe(100);
+    expect(view.store_funded_amount).toBe(100);
+    expect(view.platform_funded_amount).toBe(0);
+    expect(view.discount_burden_amount).toBe(0);
+    expect(view.net_settlement_amount).toBe(1714);
+  });
 });
 
 describe("period summary Owner commission = Platform revenue", () => {

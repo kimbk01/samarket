@@ -19,7 +19,7 @@ const SETTLEMENT_SELECT_LEGACY =
   "id, store_id, order_id, gross_amount, fee_amount, settlement_amount, settlement_status, settlement_due_date, paid_at, hold_reason, created_at, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_income_amount, discount_burden_amount, refund_amount, net_settlement_amount, applied_fee_policy_id, applied_fee_policy_snapshot, payout_method, payout_reference, payout_confirmed_at, payout_note";
 
 const ORDER_SELECT =
-  "id, order_no, buyer_user_id, order_status, payment_status, payment_amount, discount_amount, delivery_fee_amount, created_at, updated_at, refunded_at";
+  "id, order_no, buyer_user_id, order_status, payment_status, payment_amount, discount_amount, store_funded_amount, platform_funded_amount, delivery_fee_amount, created_at, updated_at, refunded_at";
 
 export type LoadStoreSettlementFinancialFilters = {
   storeIds: string[];

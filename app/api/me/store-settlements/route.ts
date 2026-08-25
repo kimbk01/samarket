@@ -132,6 +132,8 @@ export async function GET(req: Request) {
       completed_at: f.completed_at,
       gross_amount: f.gross_amount,
       discount_amount: f.discount_amount,
+      store_funded_amount: f.store_funded_amount,
+      platform_funded_amount: f.platform_funded_amount,
       point_amount: f.point_amount,
       payment_amount: f.payment_amount,
       delivery_fee_amount: f.delivery_fee_amount,

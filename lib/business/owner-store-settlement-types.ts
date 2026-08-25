@@ -11,6 +11,10 @@ export type OwnerStoreSettlementRow = {
   completed_at?: string | null;
   gross_amount: number;
   discount_amount?: number;
+  store_funded_amount?: number;
+  platform_funded_amount?: number;
+  /** Ledger copy of platform-funded coupon at settlement insert — not store cost. */
+  discount_burden_amount?: number;
   point_amount?: number;
   payment_amount?: number;
   delivery_fee_amount?: number;

@@ -1701,6 +1701,11 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_fee_source_commerce_settings: "커머스 설정(레거시)",
     store_owner_settlement_rate_line:
       "적용 요율 {rate} · 기준 {base} · 플랫폼 인식 {revenue} · 환입 {reversal}",
+    store_owner_settlement_coupon_discount: "쿠폰 할인 {amount}",
+    store_owner_settlement_store_funded: "매장 부담 {amount}",
+    store_owner_settlement_platform_funded: "DIBAY 부담 {amount}",
+    store_owner_settlement_coupon_reflected_done: "정산 반영 완료",
+    store_owner_settlement_coupon_reflected_pending: "정산 반영 예정",
     store_owner_settlement_order_status_line: "주문상태 {status} · 결제액 {paid}",
     store_owner_settlement_filter_from: "시작일",
     store_owner_settlement_filter_to: "종료일",
@@ -3441,6 +3446,11 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_fee_source_commerce_settings: "Commerce settings (legacy)",
     store_owner_settlement_rate_line:
       "Applied rate {rate} · base {base} · platform recognized {revenue} · reversal {reversal}",
+    store_owner_settlement_coupon_discount: "Coupon discount {amount}",
+    store_owner_settlement_store_funded: "Store funded {amount}",
+    store_owner_settlement_platform_funded: "DIBAY funded {amount}",
+    store_owner_settlement_coupon_reflected_done: "Reflected in settlement",
+    store_owner_settlement_coupon_reflected_pending: "Pending settlement reflection",
     store_owner_settlement_order_status_line: "Order {status} · paid {paid}",
     store_owner_settlement_filter_from: "From",
     store_owner_settlement_filter_to: "To",

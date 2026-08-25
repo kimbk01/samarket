@@ -72,6 +72,32 @@ function SettlementRowCard({
         </span>
       </div>
       <p className="mt-2 text-lg font-bold tabular-nums text-sam-fg">{formatMoneyPhp(net)}</p>
+      {(Number(row.discount_amount ?? 0) > 0 ||
+        Number(row.store_funded_amount ?? 0) > 0 ||
+        Number(row.platform_funded_amount ?? 0) > 0) ? (
+        <div className="mt-2 space-y-0.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-2 py-1.5">
+          <p className="sam-text-xxs text-sam-fg">
+            {t("store_owner_settlement_coupon_discount", {
+              amount: formatMoneyPhp(Number(row.discount_amount ?? 0) || 0),
+            })}
+          </p>
+          <p className="sam-text-xxs text-sam-fg">
+            {t("store_owner_settlement_store_funded", {
+              amount: formatMoneyPhp(Number(row.store_funded_amount ?? 0) || 0),
+            })}
+          </p>
+          <p className="sam-text-xxs text-sam-fg">
+            {t("store_owner_settlement_platform_funded", {
+              amount: formatMoneyPhp(Number(row.platform_funded_amount ?? 0) || 0),
+            })}
+          </p>
+          <p className="sam-text-xxs font-medium text-sam-fg">
+            {status === "paid"
+              ? t("store_owner_settlement_coupon_reflected_done")
+              : t("store_owner_settlement_coupon_reflected_pending")}
+          </p>
+        </div>
+      ) : null}
       <p className="mt-1 sam-text-xxs text-sam-muted">
         {t("store_owner_settlement_amount_line", {
           gross: formatMoneyPhp(Number(row.gross_amount) || 0),

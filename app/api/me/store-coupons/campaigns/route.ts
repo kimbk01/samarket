@@ -35,13 +35,37 @@ export async function GET(req: NextRequest) {
   const { data, error } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
     .select(
-      "id, store_id, title, discount_type, discount_value, min_order_amount, start_at, end_at, usage_end_at, claim_valid_days, is_active, lifecycle_state, funding_mode, issued_count, issue_limit, spend_budget_php, reserved_spend_php, max_discount, first_order_scope"
+      "id, store_id, title, discount_type, discount_value, min_order_amount, start_at, end_at, usage_end_at, claim_valid_days, is_active, lifecycle_state, funding_mode, issued_count, issue_limit, spend_budget_php, reserved_spend_php, store_funded_amount, max_discount, first_order_scope"
     )
     .eq("store_id", storeId)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) return NextResponse.json({ ok: false, error: "db_error", campaigns: [] }, { status: 500 });
-  return NextResponse.json({ ok: true, campaigns: data ?? [] });
+  const rows = data ?? [];
+  const ids = rows.map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
+  const claimedBy = new Map<string, number>();
+  const redeemedBy = new Map<string, number>();
+  if (ids.length) {
+    const { data: ents } = await sb
+      .from("coupon_user_entitlements")
+      .select("campaign_id, status")
+      .in("campaign_id", ids);
+    for (const e of ents ?? []) {
+      const cid = String((e as { campaign_id?: string }).campaign_id ?? "");
+      const st = String((e as { status?: string }).status ?? "");
+      claimedBy.set(cid, (claimedBy.get(cid) ?? 0) + 1);
+      if (st === "redeemed") redeemedBy.set(cid, (redeemedBy.get(cid) ?? 0) + 1);
+    }
+  }
+  const campaigns = rows.map((row) => {
+    const id = String((row as { id?: string }).id ?? "");
+    return {
+      ...row,
+      claimed_count: claimedBy.get(id) ?? 0,
+      redeemed_count: redeemedBy.get(id) ?? 0,
+    };
+  });
+  return NextResponse.json({ ok: true, campaigns });
 }
 
 export async function POST(req: NextRequest) {
