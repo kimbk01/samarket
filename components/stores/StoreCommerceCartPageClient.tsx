@@ -126,7 +126,11 @@ import {
   writeStoreCheckoutCouponSession,
 } from "@/lib/stores/store-checkout-coupon-session";
 import { StoreCartCouponApplyBlock } from "@/components/stores/cart/StoreCartCouponApplyBlock";
-import { resolveCartAppliedCoupon, type StoreCouponQuote } from "@/lib/stores/store-coupon-best-eligible";
+import {
+  resolveCartAppliedCoupon,
+  isUsableStoreCouponQuote,
+  type StoreCouponQuote,
+} from "@/lib/stores/store-coupon-best-eligible";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -1710,7 +1714,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const selectedCouponQuote = couponQuotes.find((q) => q.userCouponId === appliedUserCouponId);
   const couponDiscountPhp =
-    selectedCouponQuote && !selectedCouponQuote.ineligibleReason ? selectedCouponQuote.discountAmount : 0;
+    selectedCouponQuote && isUsableStoreCouponQuote(selectedCouponQuote)
+      ? selectedCouponQuote.discountAmount
+      : 0;
+  const usableCouponQuotes = couponQuotes.filter(isUsableStoreCouponQuote);
+  const minOrderBlockedCoupons = couponQuotes.filter((q) => q.ineligibleReason === "coupon_min_order");
+  const blockedMinOrderHint =
+    minOrderBlockedCoupons.length > 0
+      ? (() => {
+          const first = minOrderBlockedCoupons[0];
+          if (first?.shortagePhp && first.shortagePhp > 0) {
+            return t("store_min_order_add_more", { amount: formatMoneyPhp(first.shortagePhp) });
+          }
+          return t("store_err_coupon_min_order");
+        })()
+      : null;
   const displayGrand =
     (fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp) - couponDiscountPhp;
 
@@ -1776,27 +1794,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
 
-      {couponQuotes.some((q) => !q.ineligibleReason || q.ineligibleReason === "coupon_min_order") ? (
+      {usableCouponQuotes.length > 0 || minOrderBlockedCoupons.length > 0 ? (
         <StoreCartCouponApplyBlock
           quotes={couponQuotes}
           appliedUserCouponId={appliedUserCouponId}
           noneLabel={t("store_coupon_none")}
           applyLabel={t("store_coupon_apply")}
           titleFallback={t("store_coupon_wallet_title")}
-          unusableMinLabel={() => t("store_err_coupon_min_order")}
-          formatShortage={(q) =>
-            q.ineligibleReason === "coupon_min_order" && q.shortagePhp && q.shortagePhp > 0
-              ? t("store_min_order_add_more", { amount: formatMoneyPhp(q.shortagePhp) })
-              : null
-          }
+          blockedMinOrderHint={blockedMinOrderHint}
           onChooseNone={() => {
             couponChoiceLockedRef.current = true;
+            appliedUserCouponIdRef.current = null;
             setAppliedUserCouponId(null);
             setAppliedCouponCampaignId(null);
             clearStoreCheckoutCouponSession();
           }}
           onChoose={(row) => {
             couponChoiceLockedRef.current = true;
+            appliedUserCouponIdRef.current = row.userCouponId;
             setAppliedUserCouponId(row.userCouponId);
             setAppliedCouponCampaignId(row.campaignId);
             if (store?.id) {
@@ -1817,6 +1832,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         fulfillmentIsDelivery={fulfillment === "local_delivery"}
         deliveryFeeLabel={deliveryFeeSummaryLabel}
         displayGrand={displayGrand}
+        couponDiscountPhp={couponDiscountPhp}
         minOrderPhp={minOrderPhp}
         meetsMin={meetsMin}
         minShortage={minShortage}
