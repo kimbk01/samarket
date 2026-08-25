@@ -547,7 +547,6 @@ export async function fetchStoresTaxonomyDeduped(
 }
 
 const STORES_BROWSE_CLIENT_CACHE_TTL_MS = 30_000;
-const STORES_BROWSE_MIN_REFETCH_GAP_MS = 10_000;
 const storesBrowseClientCache = new Map<
   string,
   { expiresAt: number; value: StoreApiJsonResponse }
@@ -661,29 +660,12 @@ export async function fetchStoresBrowseDeduped(
   const lang = opts?.language ?? "en";
   const flightKey = storesBrowseFlightKey(lang, qs);
   const bypass = browseQueryBypassesCache(qs);
-  const now = Date.now();
-  if (!bypass) {
-    const hit = storesBrowseClientCache.get(flightKey);
-    if (hit && hit.expiresAt > now) {
-      return hit.value;
-    }
-    const lastNet = storesBrowseLastNetworkAt.get(flightKey) ?? 0;
-    if (now - lastNet < STORES_BROWSE_MIN_REFETCH_GAP_MS && hit) {
-      return hit.value;
-    }
-  }
+  /**
+   * Live GET always networks (single-flight). TTL/min-gap reuse would keep a stale
+   * discoveryShelf after Admin policy change on the same browse query.
+   * Paint still peeks `storesBrowseClientCache` for organic rows only.
+   */
   return runSingleFlight(flightKey, async () => {
-    if (!bypass) {
-      const again = storesBrowseClientCache.get(flightKey);
-      const againNow = Date.now();
-      if (again && again.expiresAt > againNow) {
-        return again.value;
-      }
-      const lastNet = storesBrowseLastNetworkAt.get(flightKey) ?? 0;
-      if (againNow - lastNet < STORES_BROWSE_MIN_REFETCH_GAP_MS && again) {
-        return again.value;
-      }
-    }
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
     const res = await fetch(`/api/stores/browse?${qs}`, {
       cache: "no-store",

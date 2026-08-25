@@ -28,6 +28,7 @@ import {
   isBrowseShelfSelectedSourceValid,
 } from "@/lib/stores/stores-browse-discovery-shelf";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -259,6 +260,7 @@ export async function PUT(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
+    invalidateStoresBrowseMemoryCache();
     return NextResponse.json({ ok: true, revision: result.revision, saved: rows.length });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "save_failed";

@@ -38,8 +38,8 @@ import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
 import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import {
   insertDiscoveryShelfIntoMixedItems,
-  parseStoresBrowseDiscoveryShelfPayload,
 } from "@/lib/stores/stores-browse-discovery-shelf";
+import { networkDiscoveryShelfWins } from "@/lib/stores/stores-browse-shelf-snapshot-authority";
 import {
   coerceBrowseSortToCustomerAvailability,
   resolveStoresBrowseCustomerSortAvailability,
@@ -176,10 +176,7 @@ export function StoresBrowsePrimaryView({
   } | null>(null);
   const [browseCouponBadges, setBrowseCouponBadges] = useState<Record<string, { title: string }>>({});
   const adminDefaultSortRef = useRef<StoreBrowseSortId>("default");
-  const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(() => {
-    if (typeof window === "undefined") return null;
-    return parseStoresBrowseDiscoveryShelfPayload(readInitialBrowseListSessionSnapshot()?.discoveryShelf ?? null);
-  });
+  const [discoveryShelf, setDiscoveryShelf] = useState<StoresBrowseDiscoveryShelfPayload | null>(null);
   const [customerSortAvailability, setCustomerSortAvailability] = useState<StoresBrowseCustomerSortAvailability>(
     () => resolveStoresBrowseCustomerSortAvailability(null)
   );
@@ -502,8 +499,7 @@ export function StoresBrowsePrimaryView({
         );
         const scopePol = j?.meta?.browseScopePolicy;
         adminDefaultSortRef.current = "default";
-        const shelfRaw = j?.meta?.discoveryShelf;
-        const nextShelf = parseStoresBrowseDiscoveryShelfPayload(shelfRaw);
+        const nextShelf = networkDiscoveryShelfWins(undefined, j?.meta?.discoveryShelf);
         setDiscoveryShelf(nextShelf);
         setCustomerSortAvailability(resolveStoresBrowseCustomerSortAvailability(j?.meta?.customerSortAvailability));
         setBrowseScopePolicy(
@@ -584,9 +580,6 @@ export function StoresBrowsePrimaryView({
     if (!cached) return;
     setRemoteRows(cached.rows);
     setFeedSource(cached.source);
-    if ("discoveryShelf" in cached) {
-      setDiscoveryShelf(cached.discoveryShelf ?? null);
-    }
     setRemoteLoading(false);
     browseHadListForContextRef.current = true;
     if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
@@ -627,9 +620,6 @@ export function StoresBrowsePrimaryView({
     if (cached) {
       setRemoteRows(cached.rows);
       setFeedSource(cached.source);
-      if ("discoveryShelf" in cached) {
-        setDiscoveryShelf(cached.discoveryShelf ?? null);
-      }
       setRemoteLoading(false);
       browseHadListForContextRef.current = true;
       if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
@@ -640,7 +630,6 @@ export function StoresBrowsePrimaryView({
       if (sessionPaint?.rows?.length) {
         setRemoteRows(sessionPaint.rows);
         setFeedSource(sessionPaint.source);
-        setDiscoveryShelf(sessionPaint.discoveryShelf ?? null);
         setRemoteLoading(false);
         browseHadListForContextRef.current = true;
         browseEverPaintedListRef.current = true;
