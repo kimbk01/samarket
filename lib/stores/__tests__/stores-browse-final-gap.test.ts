@@ -393,4 +393,13 @@ describe("stores browse final gap correction G1-G16", () => {
       })
     ).toBeNull();
   });
+
+  it("customer active sort is not reset by browse response when URL has no sort", () => {
+    const src = readFileSync(join(process.cwd(), "components/stores/browse/StoresBrowsePrimaryView.tsx"), "utf8");
+    expect(src).not.toMatch(
+      /if \(!parseExplicitBrowseSortParam\(searchParams\?\.get\("sort"\)\)\) \{\s*setListSort\("default"\)/
+    );
+    expect(src).toContain("handleBrowseSortChange");
+    expect(src).toContain("shouldResetBrowseListSortOnScopeChange");
+  });
 });

@@ -25,7 +25,6 @@ import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
 import {
   browseListSortScopeKey,
-  parseExplicitBrowseSortParam,
   resolveBrowseFetchSort,
   shouldResetBrowseListSortOnScopeChange,
 } from "@/lib/stores/browse-list-sort-scope";
@@ -513,9 +512,6 @@ export function StoresBrowsePrimaryView({
               }
             : null
         );
-        if (!parseExplicitBrowseSortParam(searchParams?.get("sort"))) {
-          setListSort("default");
-        }
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
