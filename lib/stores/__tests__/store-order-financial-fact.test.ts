@@ -43,7 +43,7 @@ describe("settlement equation + reversal", () => {
         gross_amount: 30000,
         platform_fee_amount: 1800,
         fixed_fee_amount: 0,
-        discount_burden_amount: 0,
+        store_funded_amount: 0,
         refund_amount: 0,
         delivery_income_amount: 0,
       })
@@ -249,42 +249,246 @@ describe("period summary Owner commission = Platform revenue", () => {
   });
 });
 
+describe("canonical settlement formula (FIN-11 SSOT)", () => {
+  const gross = 1950;
+  const platformFee = 136;
+  const fixedFee = 0;
+  const deliveryIncome = 0;
+  const refund = 0;
+
+  function insertNet(storeFunded: number) {
+    return Math.max(0, gross - platformFee - fixedFee - deliveryIncome - storeFunded - refund);
+  }
+
+  function fallbackNet(storeFunded: number) {
+    return computeNetSettlementAmount({
+      gross_amount: gross,
+      platform_fee_amount: platformFee,
+      fixed_fee_amount: fixedFee,
+      store_funded_amount: storeFunded,
+      refund_amount: refund,
+      delivery_income_amount: deliveryIncome,
+    });
+  }
+
+  function projectFallbackNet(input: {
+    storeFunded: number;
+    platformFunded: number;
+    discountBurdenLedger: number;
+  }) {
+    return projectStoreOrderFinancialFact({
+      settlement: {
+        id: "set-ssot",
+        store_id: "store-1",
+        order_id: "ord-ssot",
+        gross_amount: gross,
+        settlement_status: "scheduled",
+        created_at: "2026-08-25T00:00:00.000Z",
+        platform_fee_percent: 7,
+        platform_fee_amount: platformFee,
+        fixed_fee_amount: fixedFee,
+        delivery_income_amount: deliveryIncome,
+        discount_burden_amount: input.discountBurdenLedger,
+        refund_amount: refund,
+        net_settlement_amount: null,
+      },
+      order: {
+        id: "ord-ssot",
+        discount_amount: input.storeFunded + input.platformFunded,
+        store_funded_amount: input.storeFunded,
+        platform_funded_amount: input.platformFunded,
+      },
+    }).net_settlement_amount;
+  }
+
+  it("NO COUPON: insert = fallback = 1814", () => {
+    expect(insertNet(0)).toBe(1814);
+    expect(fallbackNet(0)).toBe(1814);
+    expect(projectFallbackNet({ storeFunded: 0, platformFunded: 0, discountBurdenLedger: 0 })).toBe(1814);
+  });
+
+  it("STORE: insert = fallback = 1714; platform burden ledger does not reduce Owner net", () => {
+    expect(insertNet(100)).toBe(1714);
+    expect(fallbackNet(100)).toBe(1714);
+    expect(projectFallbackNet({ storeFunded: 100, platformFunded: 0, discountBurdenLedger: 0 })).toBe(1714);
+  });
+
+  it("PLATFORM: insert = fallback = 1814; ledger discount_burden must not double-deduct Owner", () => {
+    expect(insertNet(0)).toBe(1814);
+    expect(fallbackNet(0)).toBe(1814);
+    expect(projectFallbackNet({ storeFunded: 0, platformFunded: 100, discountBurdenLedger: 100 })).toBe(1814);
+  });
+
+  it("SHARED 60/40: insert = fallback = 1754", () => {
+    expect(insertNet(60)).toBe(1754);
+    expect(fallbackNet(60)).toBe(1754);
+    expect(projectFallbackNet({ storeFunded: 60, platformFunded: 40, discountBurdenLedger: 40 })).toBe(1754);
+  });
+
+  it("invariant: store_funded + platform_funded = discount_amount", () => {
+    const cases = [
+      { store: 0, platform: 0 },
+      { store: 100, platform: 0 },
+      { store: 0, platform: 100 },
+      { store: 60, platform: 40 },
+    ];
+    for (const c of cases) {
+      expect(c.store + c.platform).toBe(c.store + c.platform);
+      const view = projectStoreOrderFinancialFact({
+        settlement: {
+          id: "inv",
+          store_id: "s",
+          order_id: "o",
+          gross_amount: gross,
+          settlement_status: "scheduled",
+          created_at: "2026-08-25T00:00:00.000Z",
+          platform_fee_amount: platformFee,
+          fixed_fee_amount: 0,
+          delivery_income_amount: 0,
+          discount_burden_amount: c.platform,
+          refund_amount: 0,
+          net_settlement_amount: insertNet(c.store),
+        },
+        order: {
+          id: "o",
+          discount_amount: c.store + c.platform,
+          store_funded_amount: c.store,
+          platform_funded_amount: c.platform,
+        },
+      });
+      expect(view.store_funded_amount + view.platform_funded_amount).toBe(view.discount_amount);
+    }
+  });
+
+  it("full refund: all modes net to 0 via order store_funded authority", () => {
+    const modes = [
+      { store: 0, platform: 0 },
+      { store: 100, platform: 0 },
+      { store: 0, platform: 100 },
+      { store: 60, platform: 40 },
+    ];
+    for (const m of modes) {
+      expect(
+        computeNetSettlementAmount({
+          gross_amount: gross,
+          platform_fee_amount: platformFee,
+          fixed_fee_amount: fixedFee,
+          store_funded_amount: m.store,
+          refund_amount: gross,
+          delivery_income_amount: deliveryIncome,
+        })
+      ).toBe(0);
+    }
+  });
+});
+
 describe("adjustStoreSettlementOnRefund writes reversal", () => {
-  it("full refund sets commission_reversal_amount to fee total", async () => {
+  function mockRefundSb(settlement: Record<string, unknown>, storeFunded = 0) {
     const update = vi.fn().mockReturnValue({
       eq: async () => ({ error: null }),
     });
     const sb = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                id: "set-1",
-                settlement_status: "scheduled",
-                gross_amount: 1000,
-                platform_fee_amount: 65,
-                fixed_fee_amount: 10,
-                discount_burden_amount: 0,
-                delivery_income_amount: 5,
-                refund_amount: 0,
-                commission_reversal_amount: 0,
-                hold_reason: null,
-                payout_note: null,
-                paid_at: null,
-              },
-              error: null,
+      from: (table: string) => {
+        if (table === "store_settlements") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: settlement, error: null }),
+              }),
             }),
-          }),
-        }),
-        update,
-      }),
+            update,
+          };
+        }
+        if (table === "store_orders") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { store_funded_amount: storeFunded },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
     };
+    return { sb, update };
+  }
+
+  it("full refund sets commission_reversal_amount to fee total", async () => {
+    const { sb, update } = mockRefundSb(
+      {
+        id: "set-1",
+        settlement_status: "scheduled",
+        gross_amount: 1000,
+        platform_fee_amount: 65,
+        fixed_fee_amount: 10,
+        discount_burden_amount: 0,
+        delivery_income_amount: 5,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        hold_reason: null,
+        payout_note: null,
+        paid_at: null,
+      },
+      0
+    );
     await adjustStoreSettlementOnRefund(sb as any, { orderId: "ord-1", note: "full" });
     const payload = update.mock.calls[0][0] as Record<string, unknown>;
     expect(payload.refund_amount).toBe(1000);
     expect(payload.commission_reversal_amount).toBe(80);
     expect(payload.net_settlement_amount).toBe(0);
     expect(payload.settlement_status).toBe("cancelled");
+  });
+
+  it("full refund STORE coupon uses order store_funded not ledger discount_burden", async () => {
+    const { sb, update } = mockRefundSb(
+      {
+        id: "set-store",
+        settlement_status: "scheduled",
+        gross_amount: 1950,
+        platform_fee_amount: 136,
+        fixed_fee_amount: 0,
+        discount_burden_amount: 0,
+        delivery_income_amount: 0,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        hold_reason: null,
+        payout_note: null,
+        paid_at: null,
+      },
+      100
+    );
+    const result = await adjustStoreSettlementOnRefund(sb as any, { orderId: "ord-store", note: "full" });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.net_settlement_amount).toBe(0);
+    const payload = update.mock.calls[0][0] as Record<string, unknown>;
+    expect(payload.net_settlement_amount).toBe(0);
+  });
+
+  it("full refund PLATFORM coupon does not treat discount_burden as Owner cost", async () => {
+    const { sb, update } = mockRefundSb(
+      {
+        id: "set-platform",
+        settlement_status: "scheduled",
+        gross_amount: 1950,
+        platform_fee_amount: 136,
+        fixed_fee_amount: 0,
+        discount_burden_amount: 100,
+        delivery_income_amount: 0,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        hold_reason: null,
+        payout_note: null,
+        paid_at: null,
+      },
+      0
+    );
+    const result = await adjustStoreSettlementOnRefund(sb as any, { orderId: "ord-platform", note: "full" });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.net_settlement_amount).toBe(0);
+    expect(update).toHaveBeenCalled();
   });
 });

@@ -87,13 +87,16 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 
 /**
  * Reproducible settlement equation (FIN-11).
- * Matches adjustStoreSettlementOnRefund + ensureStoreSettlementForCompletedOrder.
+ * Owner net coupon deduction = order snapshot `store_funded_amount` ONLY.
+ * `platform_funded_amount` / ledger `discount_burden_amount` MUST NOT reduce Owner net.
+ * Matches ensureStoreSettlementForCompletedOrder insert + adjustStoreSettlementOnRefund.
  */
 export function computeNetSettlementAmount(input: {
   gross_amount: number;
   platform_fee_amount: number;
   fixed_fee_amount: number;
-  discount_burden_amount: number;
+  /** Order-time store coupon burden — NOT ledger discount_burden (platform funded). */
+  store_funded_amount: number;
   refund_amount: number;
   delivery_income_amount: number;
 }): number {
@@ -102,7 +105,7 @@ export function computeNetSettlementAmount(input: {
     money(input.gross_amount) -
       money(input.platform_fee_amount) -
       money(input.fixed_fee_amount) -
-      money(input.discount_burden_amount) -
+      money(input.store_funded_amount) -
       money(input.refund_amount) -
       money(input.delivery_income_amount)
   );
@@ -225,6 +228,12 @@ export function projectStoreOrderFinancialFact(opts: {
           delivery_income_amount: deliveryIncome,
         });
 
+  const paymentAmount = o?.payment_amount != null ? money(o.payment_amount) : gross;
+  const deliveryFee = o?.delivery_fee_amount != null ? money(o.delivery_fee_amount) : 0;
+  const discount = o?.discount_amount != null ? money(o.discount_amount) : 0;
+  const storeFunded = o?.store_funded_amount != null ? money(o.store_funded_amount) : 0;
+  const platformFunded = o?.platform_funded_amount != null ? money(o.platform_funded_amount) : 0;
+
   const netStored = s.net_settlement_amount != null ? money(s.net_settlement_amount) : null;
   const net =
     netStored ??
@@ -232,16 +241,10 @@ export function projectStoreOrderFinancialFact(opts: {
       gross_amount: gross,
       platform_fee_amount: platformFee,
       fixed_fee_amount: fixedFee,
-      discount_burden_amount: discountBurden,
+      store_funded_amount: storeFunded,
       refund_amount: refund,
       delivery_income_amount: deliveryIncome,
     });
-
-  const paymentAmount = o?.payment_amount != null ? money(o.payment_amount) : gross;
-  const deliveryFee = o?.delivery_fee_amount != null ? money(o.delivery_fee_amount) : 0;
-  const discount = o?.discount_amount != null ? money(o.discount_amount) : 0;
-  const storeFunded = o?.store_funded_amount != null ? money(o.store_funded_amount) : 0;
-  const platformFunded = o?.platform_funded_amount != null ? money(o.platform_funded_amount) : 0;
 
   const completedAt =
     (typeof o?.completed_at === "string" && o.completed_at) ||

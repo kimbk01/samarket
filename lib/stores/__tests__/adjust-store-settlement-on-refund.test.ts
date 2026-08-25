@@ -1,35 +1,59 @@
 import { describe, expect, it, vi } from "vitest";
 import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
 
-describe("adjustStoreSettlementOnRefund", () => {
-  it("rejects partial refundAmount (PRODUCT LOCK NOT_SUPPORTED)", async () => {
-    const update = vi.fn();
-    const sb = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                id: "set-1",
-                settlement_status: "scheduled",
-                gross_amount: 1000,
-                platform_fee_amount: 65,
-                fixed_fee_amount: 0,
-                discount_burden_amount: 0,
-                delivery_income_amount: 0,
-                refund_amount: 0,
-                commission_reversal_amount: 0,
-                hold_reason: null,
-                payout_note: null,
-                paid_at: null,
-              },
-              error: null,
+function mockRefundSb(settlement: Record<string, unknown>, storeFunded = 0) {
+  const update = vi.fn().mockReturnValue({
+    eq: async () => ({ error: null }),
+  });
+  const sb = {
+    from: (table: string) => {
+      if (table === "store_settlements") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: settlement, error: null }),
             }),
           }),
-        }),
-        update,
-      }),
-    };
+          update,
+        };
+      }
+      if (table === "store_orders") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { store_funded_amount: storeFunded },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    },
+  };
+  return { sb, update };
+}
+
+describe("adjustStoreSettlementOnRefund", () => {
+  it("rejects partial refundAmount (PRODUCT LOCK NOT_SUPPORTED)", async () => {
+    const { sb, update } = mockRefundSb(
+      {
+        id: "set-1",
+        settlement_status: "scheduled",
+        gross_amount: 1000,
+        platform_fee_amount: 65,
+        fixed_fee_amount: 0,
+        discount_burden_amount: 0,
+        delivery_income_amount: 0,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        hold_reason: null,
+        payout_note: null,
+        paid_at: null,
+      },
+      0
+    );
 
     const result = await adjustStoreSettlementOnRefund(sb as any, {
       orderId: "ord-1",
@@ -41,39 +65,23 @@ describe("adjustStoreSettlementOnRefund", () => {
   });
 
   it("full refund consumes snapshotted platform fees and does not re-resolve policy", async () => {
-    const update = vi.fn().mockReturnValue({
-      eq: async () => ({ error: null }),
-    });
-
-    const sb = {
-      from: (table: string) => {
-        expect(table).toBe("store_settlements");
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: {
-                  id: "set-1",
-                  settlement_status: "scheduled",
-                  gross_amount: 1000,
-                  platform_fee_amount: 65,
-                  fixed_fee_amount: 0,
-                  discount_burden_amount: 0,
-                  delivery_income_amount: 0,
-                  refund_amount: 0,
-                  commission_reversal_amount: 0,
-                  hold_reason: null,
-                  payout_note: null,
-                  paid_at: null,
-                },
-                error: null,
-              }),
-            }),
-          }),
-          update,
-        };
+    const { sb, update } = mockRefundSb(
+      {
+        id: "set-1",
+        settlement_status: "scheduled",
+        gross_amount: 1000,
+        platform_fee_amount: 65,
+        fixed_fee_amount: 0,
+        discount_burden_amount: 0,
+        delivery_income_amount: 0,
+        refund_amount: 0,
+        commission_reversal_amount: 0,
+        hold_reason: null,
+        payout_note: null,
+        paid_at: null,
       },
-    };
+      0
+    );
 
     const result = await adjustStoreSettlementOnRefund(sb as any, {
       orderId: "ord-1",

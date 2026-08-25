@@ -27,30 +27,44 @@ describe("STORE_ORDER_FINANCIAL_CONTRACT product lock", () => {
 describe("partial refund product path unreachable", () => {
   it("adjust rejects 0 < refund < gross", async () => {
     const sb = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                id: "set-1",
-                settlement_status: "scheduled",
-                gross_amount: 30000,
-                platform_fee_amount: 1800,
-                fixed_fee_amount: 0,
-                discount_burden_amount: 0,
-                delivery_income_amount: 0,
-                refund_amount: 0,
-                commission_reversal_amount: 0,
-                hold_reason: null,
-                payout_note: null,
-                paid_at: null,
-              },
-              error: null,
+      from: (table: string) => {
+        if (table === "store_settlements") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: "set-1",
+                    settlement_status: "scheduled",
+                    gross_amount: 30000,
+                    platform_fee_amount: 1800,
+                    fixed_fee_amount: 0,
+                    discount_burden_amount: 0,
+                    delivery_income_amount: 0,
+                    refund_amount: 0,
+                    commission_reversal_amount: 0,
+                    hold_reason: null,
+                    payout_note: null,
+                    paid_at: null,
+                  },
+                  error: null,
+                }),
+              }),
             }),
-          }),
-        }),
-        update: () => ({ eq: async () => ({ error: null }) }),
-      }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          };
+        }
+        if (table === "store_orders") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: { store_funded_amount: 0 }, error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
     };
     const r = await adjustStoreSettlementOnRefund(sb as any, {
       orderId: "ord-partial",

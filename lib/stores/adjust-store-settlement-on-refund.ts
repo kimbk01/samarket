@@ -49,6 +49,19 @@ export async function adjustStoreSettlementOnRefund(
   }
   if (!row) return { ok: false, error: "settlement_not_found" };
 
+  const { data: orderRow, error: orderErr } = await sb
+    .from("store_orders")
+    .select("store_funded_amount")
+    .eq("id", oid)
+    .maybeSingle();
+  if (orderErr) {
+    console.error("[adjustStoreSettlementOnRefund] order_load", orderErr);
+    return { ok: false, error: orderErr.message };
+  }
+  if (!orderRow) return { ok: false, error: "order_not_found" };
+
+  const storeFunded = clampMoneyInt((orderRow as { store_funded_amount?: unknown }).store_funded_amount);
+
   const gross = clampMoneyInt((row as { gross_amount?: unknown }).gross_amount);
 
   // PRODUCT LOCK — Delivery partial refund is NOT_SUPPORTED.
@@ -71,7 +84,6 @@ export async function adjustStoreSettlementOnRefund(
   const nextRefund = gross; // full only
   const platformFee = clampMoneyInt((row as { platform_fee_amount?: unknown }).platform_fee_amount);
   const fixedFee = clampMoneyInt((row as { fixed_fee_amount?: unknown }).fixed_fee_amount);
-  const discountBurden = clampMoneyInt((row as { discount_burden_amount?: unknown }).discount_burden_amount);
   const deliveryIncome = clampMoneyInt((row as { delivery_income_amount?: unknown }).delivery_income_amount);
 
   const reversal = computeCommissionReversalAmount({
@@ -86,7 +98,7 @@ export async function adjustStoreSettlementOnRefund(
     gross_amount: gross,
     platform_fee_amount: platformFee,
     fixed_fee_amount: fixedFee,
-    discount_burden_amount: discountBurden,
+    store_funded_amount: storeFunded,
     refund_amount: nextRefund,
     delivery_income_amount: deliveryIncome,
   });
@@ -155,6 +167,16 @@ async function adjustLegacyWithoutReversalColumn(
     .maybeSingle();
   if (error || !row) return { ok: false, error: error?.message ?? "settlement_not_found" };
 
+  const { data: orderRow, error: orderErr } = await sb
+    .from("store_orders")
+    .select("store_funded_amount")
+    .eq("id", oid)
+    .maybeSingle();
+  if (orderErr) return { ok: false, error: orderErr.message };
+  if (!orderRow) return { ok: false, error: "order_not_found" };
+
+  const storeFunded = clampMoneyInt((orderRow as { store_funded_amount?: unknown }).store_funded_amount);
+
   const gross = clampMoneyInt((row as { gross_amount?: unknown }).gross_amount);
   if (
     !STORE_ORDER_FINANCIAL_CONTRACT.partialRefundSupported &&
@@ -168,7 +190,6 @@ async function adjustLegacyWithoutReversalColumn(
   const nextRefund = gross;
   const platformFee = clampMoneyInt((row as { platform_fee_amount?: unknown }).platform_fee_amount);
   const fixedFee = clampMoneyInt((row as { fixed_fee_amount?: unknown }).fixed_fee_amount);
-  const discountBurden = clampMoneyInt((row as { discount_burden_amount?: unknown }).discount_burden_amount);
   const deliveryIncome = clampMoneyInt((row as { delivery_income_amount?: unknown }).delivery_income_amount);
   const reversal = computeCommissionReversalAmount({
     gross_amount: gross,
@@ -181,7 +202,7 @@ async function adjustLegacyWithoutReversalColumn(
     gross_amount: gross,
     platform_fee_amount: platformFee,
     fixed_fee_amount: fixedFee,
-    discount_burden_amount: discountBurden,
+    store_funded_amount: storeFunded,
     refund_amount: nextRefund,
     delivery_income_amount: deliveryIncome,
   });
