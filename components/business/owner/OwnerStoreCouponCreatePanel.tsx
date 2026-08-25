@@ -232,33 +232,53 @@ export function OwnerStoreCouponCreatePanel({
 
       {stepId === "preview" ? (
         <div className={OWNER_STORE_PROFILE_INNER_PANEL_CLASS} data-store-coupon-create-step="preview">
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="text-lg font-bold text-sam-fg">
-              {kind === "percent" ? `${discountValue}%` : formatMoneyPhp(Number(discountValue) || 0)}
-            </p>
-            <p className="mt-1 text-sm text-sam-fg">{title.trim() || t("store_coupon_field_title")}</p>
-            <p className="mt-2 text-xs text-sam-muted">
-              {t("store_coupon_min_order")} {minOrder.trim() ? formatMoneyPhp(Number(minOrder) || 0) : "—"}
-            </p>
-            <p className="text-xs text-sam-muted">
-              {t("store_coupon_issue_window")} {issueStart.slice(0, 10).replaceAll("-", ".")} – {issueEnd.slice(0, 10).replaceAll("-", ".")}
-            </p>
-            <p className="text-xs text-sam-muted">
-              {t("store_coupon_issue_limit")} {issueLimit || "—"} · {t("store_coupon_spend_budget")}{" "}
-              {spendBudget.trim() ? formatMoneyPhp(Number(spendBudget) || 0) : "—"}
-            </p>
-            <p className="text-xs text-sam-muted">
-              {target === "STORE"
-                ? t("store_coupon_target_store_first")
-                : target === "PLATFORM"
-                  ? t("store_coupon_target_platform_first")
-                  : t("store_coupon_target_all")}
-            </p>
-            <p className="mt-2 text-xs text-sam-fg">
-              {t("store_coupon_funding")}: {t("store_coupon_funding_store")}
-            </p>
+          <h3 className="mb-2 text-sm font-semibold text-sam-fg">{t("store_coupon_wallet_title")}</h3>
+          <div
+            className="min-w-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
+            data-store-coupon-create-preview-card="1"
+          >
+            <div className="flex min-w-0">
+              <div className="w-1 shrink-0 bg-signature" aria-hidden data-store-coupon-create-preview-accent="1" />
+              <div className="min-w-0 flex-1 p-3">
+                <div className="flex min-w-0 items-start justify-between gap-2">
+                  <p className="min-w-0 break-words text-lg font-bold text-sam-fg">
+                    {kind === "percent" ? `${discountValue}%` : formatMoneyPhp(Number(discountValue) || 0)}
+                  </p>
+                  <span className="shrink-0 rounded-ui-rect bg-sam-app px-2 py-1 text-xs font-medium text-sam-fg">
+                    {t("store_coupon_wallet_status_available")}
+                  </span>
+                </div>
+                <p className="mt-1 min-w-0 break-words text-sm text-sam-fg">
+                  {title.trim() || t("store_coupon_field_title")}
+                </p>
+                <p className="mt-1 text-xs text-sam-muted">
+                  {t("store_coupon_min_order")} {minOrder.trim() ? formatMoneyPhp(Number(minOrder) || 0) : "—"}
+                </p>
+                <p className="mt-1 text-xs text-sam-muted">
+                  {t("store_coupon_issue_window")} {issueStart.slice(0, 10).replaceAll("-", ".")} –{" "}
+                  {issueEnd.slice(0, 10).replaceAll("-", ".")}
+                </p>
+                <p className="mt-1 text-xs text-sam-muted">{t("store_coupon_owner_create_lock")}</p>
+                <span
+                  className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect bg-signature px-3 text-sm font-medium text-white"
+                  data-store-coupon-create-preview-cta="1"
+                >
+                  {t("store_coupon_claim")}
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-sam-muted">{t("store_coupon_owner_create_no_edit")}</p>
+          <p className="mt-3 text-xs text-sam-muted">
+            {t("store_coupon_issue_limit")} {issueLimit || "—"} · {t("store_coupon_spend_budget")}{" "}
+            {spendBudget.trim() ? formatMoneyPhp(Number(spendBudget) || 0) : "—"}
+            {" · "}
+            {target === "STORE"
+              ? t("store_coupon_target_store_first")
+              : target === "PLATFORM"
+                ? t("store_coupon_target_platform_first")
+                : t("store_coupon_target_all")}
+          </p>
+          <p className="mt-1 text-xs text-sam-muted">{t("store_coupon_owner_create_no_edit")}</p>
         </div>
       ) : null}
 

@@ -135,8 +135,9 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(vis.blockingReasons).toContain("windowActive");
   });
 
-  it("T10 Coupons → coupon campaign writer", () => {
-    expect(findByKey("store-coupons-control")?.path).toContain("focus=coupons");
+  it("T10 Coupons → coupon control center, not insertions writer", () => {
+    expect(findByKey("store-coupon-control-center")?.path).toBe("/admin/store-coupon-control");
+    expect(findByKey("store-coupons-control")).toBeNull();
     expect(STORE_COUPON_CAMPAIGN_TABLE).toBe("store_coupon_campaigns");
   });
 
@@ -147,7 +148,7 @@ describe("CUT 8 Admin Control Plane", () => {
     );
     expect(page).toMatch(/쿠폰 배지 허용|Allow coupon badges/);
     expect(page).toMatch(/캠페인 생성은/);
-    expect(findByKey("store-coupons-control")?.path).not.toBe(
+    expect(findByKey("store-coupon-control-center")?.path).not.toBe(
       findByKey("stores-browse-policy")?.path
     );
   });

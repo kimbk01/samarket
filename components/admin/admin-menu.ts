@@ -531,12 +531,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             ],
           },
           {
-            key: "store-coupons-control",
-            title: "",
-            path: "/admin/store-insertions?focus=coupons",
-            status: "done",
-          },
-          {
             key: "store-coupon-control-center",
             title: "",
             path: "/admin/store-coupon-control",
