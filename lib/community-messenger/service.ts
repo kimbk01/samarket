@@ -58,6 +58,7 @@ import {
   cmLastPreviewImage,
   cmLastPreviewFile,
   cmLastPreviewSticker,
+  cmLastPreviewGiftCertificate,
   cmLastPreviewCall,
   cmLastPreviewNotification,
   cmLastPreviewPhotoAlbum,
@@ -462,7 +463,16 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
+  message_type:
+    | "text"
+    | "image"
+    | "file"
+    | "system"
+    | "call_stub"
+    | "voice"
+    | "sticker"
+    | "community_post_share"
+    | "gift_certificate";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -598,7 +608,16 @@ type DevRoom = {
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
-  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
+  lastMessageType:
+    | "text"
+    | "image"
+    | "file"
+    | "system"
+    | "call_stub"
+    | "voice"
+    | "sticker"
+    | "community_post_share"
+    | "gift_certificate";
 };
 
 type DevParticipant = {
@@ -630,7 +649,16 @@ type DevMessage = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
+  messageType:
+    | "text"
+    | "image"
+    | "file"
+    | "system"
+    | "call_stub"
+    | "voice"
+    | "sticker"
+    | "community_post_share"
+    | "gift_certificate";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -1295,7 +1323,8 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     mt === "call_stub" ||
     mt === "voice" ||
     mt === "sticker" ||
-    mt === "community_post_share"
+    mt === "community_post_share" ||
+    mt === "gift_certificate"
       ? mt
       : "text";
   const dfeAt = trimText(message.deleted_for_everyone_at);
@@ -2358,7 +2387,8 @@ function buildRoomSummaryFromHydratedMembers(
     roomLastMessageTypeRaw === "call_stub" ||
     roomLastMessageTypeRaw === "voice" ||
     roomLastMessageTypeRaw === "sticker" ||
-    roomLastMessageTypeRaw === "community_post_share"
+    roomLastMessageTypeRaw === "community_post_share" ||
+    roomLastMessageTypeRaw === "gift_certificate"
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
@@ -15327,7 +15357,14 @@ export async function getCommunityMessengerRoomMessageById(input: {
     const isMine = senderId === input.userId;
     const mt = trimText(row.messageType) as CommunityMessengerMessage["messageType"];
     const safeMt: CommunityMessengerMessage["messageType"] =
-      mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker" || mt === "community_post_share"
+      mt === "image" ||
+      mt === "file" ||
+      mt === "system" ||
+      mt === "call_stub" ||
+      mt === "voice" ||
+      mt === "sticker" ||
+      mt === "community_post_share" ||
+      mt === "gift_certificate"
         ? mt
         : "text";
     const clientRaw = metadata.client_message_id;
@@ -16684,6 +16721,9 @@ function messengerLastPreviewFromRow(row: {
   if (mt === "sticker") return { preview: cmLastPreviewSticker(), messageType: "sticker" };
   if (mt === "community_post_share") {
     return { preview: cmLastPreviewNotification(trimText(row.content)), messageType: "community_post_share" };
+  }
+  if (mt === "gift_certificate") {
+    return { preview: cmLastPreviewGiftCertificate(), messageType: "gift_certificate" };
   }
   if (mt === "file") {
     return {

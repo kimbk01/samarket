@@ -33,7 +33,8 @@ describe("G2 gift certificate schema migration", () => {
   });
 
   it("defines money RPCs as service_role only and separates coupon/credit/settlement", () => {
-    for (const rpc of Object.values(GIFT_RPCS)) {
+    const g2Rpcs = Object.values(GIFT_RPCS).filter((fn) => fn !== "gift_certificate_refund_order_atomic");
+    for (const rpc of g2Rpcs) {
       expect(MIG).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
       expect(MIG).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
     }

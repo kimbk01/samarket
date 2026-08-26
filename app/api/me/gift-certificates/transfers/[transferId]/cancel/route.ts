@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { giftCertificateCancel } from "@/lib/gift-certificate/gift-certificate-rpc";
+import { projectGiftTransferMessengerStatus } from "@/lib/gift-certificate/project-gift-transfer-messenger-status";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -35,5 +36,9 @@ export async function POST(
       { status: 400 }
     );
   }
+  await projectGiftTransferMessengerStatus(sb, {
+    transferId: tid,
+    transferStatus: "CANCELLED",
+  }).catch(() => {});
   return NextResponse.json({ ok: true, ...result.data });
 }

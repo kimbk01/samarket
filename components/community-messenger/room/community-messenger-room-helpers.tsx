@@ -66,6 +66,9 @@ export function communityMessengerMessageSearchText(m: CommunityMessengerMessage
   }
   if (m.messageType === "voice") return translateCmUi("cm_ui_voice_message");
   if (m.messageType === "sticker") return translateCmUi("cm_ui_sticker");
+  if (m.messageType === "gift_certificate") {
+    return translateCmUi("cm_ui_gift_certificate") || "Gift certificate";
+  }
   if (m.messageType === "file") return m.fileName?.trim() || translateCmUi("cm_ui_file");
   if (m.messageType === "image") {
     const n = m.imageAlbumUrls?.length ?? 0;

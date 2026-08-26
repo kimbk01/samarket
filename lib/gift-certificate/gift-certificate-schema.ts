@@ -26,9 +26,12 @@ export const GIFT_RPCS = {
   cancel: "gift_certificate_cancel",
   redeem: "gift_certificate_redeem",
   redemptionReverse: "gift_certificate_redemption_reverse",
+  refundOrderAtomic: "gift_certificate_refund_order_atomic",
   conversionRequest: "gift_certificate_conversion_request",
   conversionApprove: "gift_certificate_conversion_approve",
   recoveryClear: "store_cash_recovery_clear",
 } as const;
 
 export const GIFT_MIGRATION_ID = "20261127120000_gift_certificate_domain_g2" as const;
+export const GIFT_CHECKOUT_REFUND_MIGRATION_ID =
+  "20261127140000_gift_certificate_checkout_refund_atomic" as const;

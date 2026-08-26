@@ -44,6 +44,7 @@ import {
   CommunityPostShareMessageCard,
   parseCommunityPostShareMetadata,
 } from "@/components/community-messenger/room/phase2/CommunityPostShareMessageCard";
+import { MessengerGiftCertificateCard } from "@/components/community-messenger/MessengerGiftCertificateCard";
 import {
   resolveStoreOrderOpsBodyText,
   resolveStoreOrderOpsTitleText,
@@ -465,6 +466,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       />
     ) : item.messageType === "community_post_share" && communityPostShareCard ? (
       <CommunityPostShareMessageCard card={communityPostShareCard} />
+    ) : item.messageType === "gift_certificate" ? (
+      <MessengerGiftCertificateCard metadata={metadata} isRecipient={!item.isMine} />
     ) : (
       <TimelineViberInnerTextDefault
         item={item}

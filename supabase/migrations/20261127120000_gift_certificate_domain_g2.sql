@@ -322,11 +322,12 @@ CREATE INDEX IF NOT EXISTS gift_certificate_conversion_requests_store_idx
 CREATE TABLE IF NOT EXISTS public.store_cash_accounts (
   store_id uuid PRIMARY KEY REFERENCES public.stores (id) ON DELETE CASCADE,
   balance integer NOT NULL DEFAULT 0,
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT store_cash_accounts_balance_nonneg_chk CHECK (balance >= 0)
 );
 
 COMMENT ON TABLE public.store_cash_accounts IS
-  'G2 Store Cash balance per store. Separate from store points and settlements.';
+  'G2 Store Cash balance per store. Separate from store points and settlements. balance >= 0 invariant.';
 
 DROP TRIGGER IF EXISTS trg_store_cash_accounts_updated_at ON public.store_cash_accounts;
 CREATE TRIGGER trg_store_cash_accounts_updated_at
@@ -768,13 +769,13 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'invalid_args');
   END IF;
 
-  UPDATE public.gift_certificate_transfers
-     SET status = 'ACCEPTED',
-         resolved_at = now()
+  -- Lock transfer while PENDING; do NOT terminal ACCEPTED until ownership moves.
+  SELECT * INTO v_tr
+    FROM public.gift_certificate_transfers
    WHERE id = p_transfer_id
      AND status = 'PENDING'
      AND recipient_user_id = p_recipient_user_id
-  RETURNING * INTO v_tr;
+   FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'error', 'transfer_not_pending');
   END IF;
@@ -835,6 +836,16 @@ BEGIN
     'Gift accepted',
     'user'
   );
+
+  -- Terminal transfer status LAST (after ownership + ledgers).
+  UPDATE public.gift_certificate_transfers
+     SET status = 'ACCEPTED',
+         resolved_at = now()
+   WHERE id = v_tr.id
+     AND status = 'PENDING';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'gift_accept_race: transfer % no longer PENDING', v_tr.id;
+  END IF;
 
   RETURN jsonb_build_object(
     'ok', true,
@@ -1083,6 +1094,7 @@ BEGIN
     );
   END IF;
 
+  -- Pass 1: validate + lock all instances BEFORE any money write.
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_redemptions)
   LOOP
     v_idx := v_idx + 1;
@@ -1110,6 +1122,29 @@ BEGIN
     END IF;
     IF v_inst.remaining_balance < v_amount THEN
       RETURN jsonb_build_object('ok', false, 'error', 'insufficient_remaining', 'instance_id', v_instance_id);
+    END IF;
+  END LOOP;
+
+  IF v_idx = 0 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'empty_redemptions');
+  END IF;
+
+  -- Pass 2: mutate (any failure must RAISE → full TX rollback).
+  v_idx := 0;
+  FOR v_item IN SELECT * FROM jsonb_array_elements(p_redemptions)
+  LOOP
+    v_idx := v_idx + 1;
+    v_instance_id := nullif(btrim(coalesce(v_item->>'instance_id', '')), '')::uuid;
+    v_amount := coalesce((v_item->>'amount')::integer, 0);
+
+    SELECT * INTO v_inst
+      FROM public.gift_certificate_instances
+     WHERE id = v_instance_id
+     FOR UPDATE;
+    IF NOT FOUND OR v_inst.remaining_balance < v_amount
+       OR v_inst.current_owner_user_id IS DISTINCT FROM p_buyer_user_id
+       OR v_inst.status NOT IN ('ACTIVE', 'PARTIALLY_REDEEMED') THEN
+      RAISE EXCEPTION 'gift_redeem_invariant_failed instance=%', v_instance_id;
     END IF;
 
     SELECT platform_fee_rate INTO v_fee_rate
@@ -1178,10 +1213,6 @@ BEGIN
       'status', v_new_status
     ));
   END LOOP;
-
-  IF v_idx = 0 THEN
-    RETURN jsonb_build_object('ok', false, 'error', 'empty_redemptions');
-  END IF;
 
   -- Parent idempotency marker (amount 0) so whole-call key is reserved
   INSERT INTO public.gift_certificate_ledger (
@@ -1253,12 +1284,12 @@ BEGIN
      WHERE id = v_red.instance_id
      FOR UPDATE;
     IF NOT FOUND THEN
-      RETURN jsonb_build_object('ok', false, 'error', 'instance_not_found', 'redemption_id', v_red.id);
+      RAISE EXCEPTION 'gift_reverse_instance_not_found redemption=%', v_red.id;
     END IF;
 
     v_restored := v_inst.remaining_balance + v_red.redeemed_amount;
     IF v_restored > v_inst.face_value THEN
-      RETURN jsonb_build_object('ok', false, 'error', 'restore_overflow', 'redemption_id', v_red.id);
+      RAISE EXCEPTION 'gift_reverse_restore_overflow redemption=%', v_red.id;
     END IF;
     IF v_restored = v_inst.face_value THEN
       v_new_status := 'ACTIVE';
@@ -1487,13 +1518,12 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'not_admin');
   END IF;
 
-  UPDATE public.gift_certificate_conversion_requests
-     SET status = 'APPROVED',
-         approved_by = p_admin_user_id,
-         approved_at = now()
+  -- Lock request while REQUESTED; do NOT terminal APPROVED until cash+ledger succeed.
+  SELECT * INTO v_req
+    FROM public.gift_certificate_conversion_requests
    WHERE id = p_request_id
      AND status = 'REQUESTED'
-  RETURNING * INTO v_req;
+   FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('ok', false, 'error', 'request_not_pending');
   END IF;
@@ -1506,6 +1536,9 @@ BEGIN
   ) THEN
     RETURN jsonb_build_object('ok', false, 'error', 'open_recovery_obligation');
   END IF;
+
+  -- Serialize available revenue for this store (blocks concurrent overdraw).
+  PERFORM pg_advisory_xact_lock(hashtext('gift_rev:' || v_req.store_id::text));
 
   v_available := public.gift_certificate_store_revenue_available(v_req.store_id);
   IF v_available < v_req.amount THEN
@@ -1541,12 +1574,27 @@ BEGIN
     'GIFT_REVENUE_CONVERSION', 'conversion_request', v_req.id::text
   );
 
+  -- Terminal status LAST.
+  UPDATE public.gift_certificate_conversion_requests
+     SET status = 'APPROVED',
+         approved_by = p_admin_user_id,
+         approved_at = now()
+   WHERE id = v_req.id
+     AND status = 'REQUESTED';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'gift_conversion_approve_race: request % no longer REQUESTED', v_req.id;
+  END IF;
+
   RETURN jsonb_build_object(
     'ok', true,
     'request_id', v_req.id,
     'amount', v_req.amount,
     'store_cash_balance', v_new_cash
   );
+EXCEPTION
+  WHEN unique_violation THEN
+    -- Double approve / double cash ledger for same related_id
+    RETURN jsonb_build_object('ok', true, 'idempotent', true, 'request_id', p_request_id);
 END;
 $$;
 

@@ -182,8 +182,10 @@ type PostBody = {
   client_order_key?: string;
   coupon_campaign_id?: string;
   user_coupon_id?: string;
-  /** Paid gift — [{ instance_id, amount }] — not a coupon discount */
+  /** Paid gift — [{ instance_id, amount }] — not a coupon discount (legacy shape) */
   gift_redemptions?: unknown;
+  /** Paid gift instance ids (max 1); amounts computed in create_store_order_atomic */
+  gift_instance_ids?: unknown;
 };
 
 type DeliveryAddressOrderSnapshot = {
@@ -375,61 +377,62 @@ export async function POST(req: NextRequest) {
   }
   const paymentAfterDiscount = Math.max(0, Math.round(paymentGrandTotal - discountAmount));
 
-  // G7 — validate gift redemptions before atomic create (gift ≠ coupon discount)
-  type GiftRedemptionItem = { instance_id: string; amount: number };
-  const giftRedemptions: GiftRedemptionItem[] = [];
-  if (Array.isArray(body.gift_redemptions)) {
+  // G7 — gift instance ids only (amounts computed inside create_store_order_atomic).
+  // Accept legacy gift_redemptions[].instance_id shape for clients; ignore client amounts.
+  const giftInstanceIds: string[] = [];
+  if (Array.isArray(body.gift_instance_ids)) {
+    for (const raw of body.gift_instance_ids) {
+      const id = String(raw ?? "").trim();
+      if (id) giftInstanceIds.push(id);
+    }
+  } else if (Array.isArray(body.gift_redemptions)) {
     for (const raw of body.gift_redemptions) {
       if (!raw || typeof raw !== "object") {
         return NextResponse.json({ ok: false, error: "invalid_gift_redemption" }, { status: 400 });
       }
       const rec = raw as Record<string, unknown>;
       const instanceId = String(rec.instance_id ?? rec.instanceId ?? "").trim();
-      const amount = Math.trunc(Number(rec.amount));
-      if (!instanceId || !Number.isFinite(amount) || amount <= 0) {
+      if (!instanceId) {
         return NextResponse.json({ ok: false, error: "invalid_gift_redemption" }, { status: 400 });
       }
-      giftRedemptions.push({ instance_id: instanceId, amount });
+      giftInstanceIds.push(instanceId);
     }
   }
-  let giftRedemptionTotal = 0;
-  if (giftRedemptions.length > 0) {
-    const instanceIds = giftRedemptions.map((g) => g.instance_id);
-    const { data: giftRows, error: giftErr } = await sb
+  if (giftInstanceIds.length > 1) {
+    return NextResponse.json({ ok: false, error: "gift_max_one_per_order" }, { status: 400 });
+  }
+  // Read-only UX precheck (authoritative lock+debit is inside atomic RPC).
+  if (giftInstanceIds.length === 1) {
+    const gid = giftInstanceIds[0]!;
+    const { data: giftRow, error: giftErr } = await sb
       .from("gift_certificate_instances")
       .select("id, store_id, current_owner_user_id, remaining_balance, status")
-      .in("id", instanceIds);
+      .eq("id", gid)
+      .maybeSingle();
     if (giftErr) {
       return NextResponse.json({ ok: false, error: giftErr.message }, { status: 500 });
     }
-    const byId = new Map(
-      (giftRows ?? []).map((r) => [String((r as { id: string }).id), r as Record<string, unknown>])
-    );
-    for (const g of giftRedemptions) {
-      const row = byId.get(g.instance_id);
-      if (!row) {
-        return NextResponse.json({ ok: false, error: "gift_instance_not_found" }, { status: 400 });
-      }
-      if (String(row.current_owner_user_id) !== buyerId) {
-        return NextResponse.json({ ok: false, error: "gift_not_owner" }, { status: 403 });
-      }
-      if (String(row.store_id) !== storeId) {
-        return NextResponse.json({ ok: false, error: "gift_store_mismatch" }, { status: 400 });
-      }
-      const status = String(row.status ?? "");
-      if (status !== "ACTIVE" && status !== "PARTIALLY_REDEEMED") {
-        return NextResponse.json({ ok: false, error: "gift_invalid_status" }, { status: 400 });
-      }
-      if (Math.trunc(Number(row.remaining_balance) || 0) < g.amount) {
-        return NextResponse.json({ ok: false, error: "gift_insufficient_remaining" }, { status: 400 });
-      }
-      giftRedemptionTotal += g.amount;
+    if (!giftRow) {
+      return NextResponse.json({ ok: false, error: "gift_instance_not_found" }, { status: 400 });
     }
-    if (giftRedemptionTotal > paymentAfterDiscount) {
-      return NextResponse.json({ ok: false, error: "gift_exceeds_payment" }, { status: 400 });
+    const row = giftRow as Record<string, unknown>;
+    if (String(row.current_owner_user_id) !== buyerId) {
+      return NextResponse.json({ ok: false, error: "gift_not_owner" }, { status: 403 });
+    }
+    if (String(row.store_id) !== storeId) {
+      return NextResponse.json({ ok: false, error: "gift_store_mismatch" }, { status: 400 });
+    }
+    const status = String(row.status ?? "");
+    if (status !== "ACTIVE" && status !== "PARTIALLY_REDEEMED") {
+      return NextResponse.json({ ok: false, error: "gift_invalid_status" }, { status: 400 });
+    }
+    if (Math.trunc(Number(row.remaining_balance) || 0) <= 0) {
+      return NextResponse.json({ ok: false, error: "gift_insufficient_remaining" }, { status: 400 });
     }
   }
-  const paymentAfterGift = Math.max(0, paymentAfterDiscount - giftRedemptionTotal);
+  const amountBeforeGift = paymentAfterDiscount;
+  // Provisional payment; create_store_order_atomic recomputes when gift_instance_ids present.
+  const paymentAfterGift = amountBeforeGift;
 
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =
@@ -635,7 +638,8 @@ export async function POST(req: NextRequest) {
       delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
-      ...(giftRedemptionTotal > 0 ? { gift_redemption_amount: giftRedemptionTotal } : {}),
+      amount_before_gift: amountBeforeGift,
+      ...(giftInstanceIds.length > 0 ? { gift_instance_ids: giftInstanceIds } : {}),
       ...(couponCampaignId && discountAmount > 0 && userCouponId
         ? {
             coupon_campaign_id: couponCampaignId,
@@ -684,44 +688,7 @@ export async function POST(req: NextRequest) {
   const resolvedOrderNo = atomic.order.order_no || orderNo;
   const paymentAmount = atomic.order.payment_amount;
 
-  /**
-   * G7_PARTIAL_ATOMICITY — gift redeem runs AFTER create_store_order_atomic.
-   * Order is not rolled back if redeem fails; response may include gift_redeem_error.
-   * TODO: full atomic order+gift redeem TX (or compensate) in a later cut.
-   */
-  let giftRedeemError: string | null = null;
-  if (giftRedemptions.length > 0 && !atomic.idempotent) {
-    const { giftCertificateRedeem } = await import("@/lib/gift-certificate/gift-certificate-rpc");
-    const redeemKey = `order:${orderId}:gift`;
-    const redeemResult = await giftCertificateRedeem(sb, {
-      buyerUserId: buyerId,
-      orderId,
-      storeId,
-      redemptions: giftRedemptions,
-      idempotencyKey: redeemKey,
-    });
-    if (!redeemResult.ok) {
-      giftRedeemError = redeemResult.error;
-      console.error("[POST /api/me/store-orders] G7_PARTIAL_ATOMICITY gift redeem failed", {
-        orderId,
-        error: redeemResult.error,
-      });
-      // Atomic SQL may ignore gift_redemption_amount — ensure column reflects intent when redeem fails
-      const { error: giftColErr } = await sb
-        .from("store_orders")
-        .update({ gift_redemption_amount: 0 })
-        .eq("id", orderId);
-      if (giftColErr && !/gift_redemption_amount/i.test(giftColErr.message)) {
-        console.error("[POST /api/me/store-orders] gift_redemption_amount reset", giftColErr.message);
-      }
-    }
-  } else if (giftRedemptionTotal > 0 && atomic.idempotent) {
-    // Ensure column if atomic RPC ignored gift_redemption_amount on first create path
-    void sb
-      .from("store_orders")
-      .update({ gift_redemption_amount: giftRedemptionTotal })
-      .eq("id", orderId);
-  }
+  // G7: gift redemption is inside create_store_order_atomic (same TX). No post-order redeem.
 
   if (userCouponId && discountAmount > 0) {
     try {
@@ -772,7 +739,6 @@ export async function POST(req: NextRequest) {
         payment_amount: paymentAmount,
       },
       idempotent: true,
-      ...(giftRedeemError ? { gift_redeem_error: giftRedeemError } : {}),
     });
   }
 
@@ -895,6 +861,5 @@ export async function POST(req: NextRequest) {
     ok: true,
     order: { id: orderId, order_no: resolvedOrderNo, payment_amount: paymentAmount },
     idempotent: false,
-    ...(giftRedeemError ? { gift_redeem_error: giftRedeemError } : {}),
   });
 }

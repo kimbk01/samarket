@@ -43,10 +43,12 @@ export type CreateStoreOrderAtomicOrderPayload = {
   platform_funded_amount?: number;
   commission_base_amount?: number;
   /**
-   * Paid gift redemption total (integer). Passed through JSON when RPC supports it;
-   * G2 column exists — if atomic SQL ignores it, callers update store_orders after create.
+   * Paid gift instance ids (max 1). Amounts computed inside create_store_order_atomic.
+   * Do not pass client-trusted redeemed amounts as money authority.
    */
-  gift_redemption_amount?: number;
+  gift_instance_ids?: string[];
+  /** Optional explicit amount due after coupon, before gift (integer). */
+  amount_before_gift?: number;
 };
 
 export type CreateStoreOrderAtomicOk = {

@@ -11,7 +11,16 @@ export type CommunityMessengerRoomVisibility = "private" | "public";
 export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password" | "free";
 export type CommunityMessengerIdentityMode = "real_name" | "alias";
 export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
-export type CommunityMessengerMessageType = "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
+export type CommunityMessengerMessageType =
+  | "text"
+  | "image"
+  | "file"
+  | "system"
+  | "call_stub"
+  | "voice"
+  | "sticker"
+  | "community_post_share"
+  | "gift_certificate";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerPresenceState = "online" | "away" | "offline";
 export type CommunityMessengerCallStatus =

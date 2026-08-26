@@ -113,6 +113,10 @@ export function cmLastPreviewSticker(): string {
   return cmServiceT("cm_svc_sticker_preview");
 }
 
+export function cmLastPreviewGiftCertificate(): string {
+  return cmServiceT("cm_svc_gift_certificate_preview");
+}
+
 export function cmLastPreviewCall(content?: string): string {
   const detail = (content ?? "").trim();
   return detail

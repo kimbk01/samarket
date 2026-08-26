@@ -10,6 +10,7 @@ function messengerMessageToPreviewSnippet(
   if (type === "image") return t("cm_ui_photo");
   if (type === "voice") return t("cm_ui_voice_message");
   if (type === "sticker") return t("cm_ui_sticker");
+  if (type === "gift_certificate") return t("cm_ui_gift_certificate");
   if (type === "file") return content || t("chats_trade_list_file");
   if (type === "call_stub") {
     if (!content) return t("chats_trade_list_call");

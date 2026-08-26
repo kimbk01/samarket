@@ -128,6 +128,16 @@ export function giftCertificateRedemptionReverse(
   });
 }
 
+export function giftCertificateRefundOrderAtomic(
+  sb: SupabaseClient,
+  args: { orderId: string; actorUserId?: string | null }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.refundOrderAtomic, {
+    p_order_id: args.orderId,
+    p_actor_user_id: args.actorUserId ?? null,
+  });
+}
+
 export function giftCertificateConversionRequest(
   sb: SupabaseClient,
   args: {

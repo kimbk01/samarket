@@ -253,7 +253,42 @@ export async function applyStoreOrderStatusTransition(
     return { updated, error };
   };
 
-  let { updated, error: uErr } = await runCasUpdate(updatePayload);
+  let { updated, error: uErr } =
+    nextStatus === "refunded"
+      ? { updated: null as { id?: string } | null, error: null as { message?: string } | null }
+      : await runCasUpdate(updatePayload);
+
+  /** G10: refund terminal + gift reverse in one DB TX (never after-the-fact reverse). */
+  if (nextStatus === "refunded") {
+    const { data: refundRpcRaw, error: refundRpcErr } = await sb.rpc(
+      "gift_certificate_refund_order_atomic",
+      {
+        p_order_id: oid,
+        p_actor_user_id: opts.audit.actor_id ?? null,
+      }
+    );
+    if (refundRpcErr) {
+      if (/gift_certificate_refund_order_atomic|schema cache|does not exist/i.test(refundRpcErr.message)) {
+        return {
+          ok: false,
+          error: "gift_certificate_refund_order_atomic_missing",
+          httpStatus: 503,
+        };
+      }
+      console.error("[applyStoreOrderStatusTransition] gift_certificate_refund_order_atomic", refundRpcErr);
+      return { ok: false, error: refundRpcErr.message, httpStatus: 500 };
+    }
+    const refundRow = (refundRpcRaw ?? {}) as Record<string, unknown>;
+    if (refundRow.ok === false) {
+      return {
+        ok: false,
+        error: String(refundRow.error ?? "gift_refund_failed"),
+        httpStatus: 400,
+      };
+    }
+    updated = { id: oid };
+    uErr = null;
+  }
 
   if (uErr) {
     const missingEtaCol =
@@ -283,17 +318,18 @@ export async function applyStoreOrderStatusTransition(
   }
 
   if (uErr) {
-    if (uErr.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
+    const uMsg = String(uErr.message ?? "");
+    if (uMsg.includes("auto_complete_at") && uMsg.includes("does not exist")) {
       const slim: Record<string, unknown> = { order_status: nextStatus };
       if (updatePayload.payment_status) slim.payment_status = updatePayload.payment_status;
       ({ updated, error: uErr } = await runCasUpdate(slim));
       if (uErr) {
         console.error("[applyStoreOrderStatusTransition]", uErr);
-        return { ok: false, error: uErr.message, httpStatus: 500 };
+        return { ok: false, error: String(uErr.message ?? "update_failed"), httpStatus: 500 };
       }
     } else {
       console.error("[applyStoreOrderStatusTransition]", uErr);
-      return { ok: false, error: uErr.message, httpStatus: 500 };
+      return { ok: false, error: uMsg || "update_failed", httpStatus: 500 };
     }
   }
 
@@ -352,20 +388,7 @@ export async function applyStoreOrderStatusTransition(
       p_order_id: oid,
       p_allow_after_completed: true,
     });
-    // Paid gift reverse — best-effort; do not break refund if RPC missing / fails
-    try {
-      const { error: giftRevErr } = await sb.rpc("gift_certificate_redemption_reverse", {
-        p_order_id: oid,
-      });
-      if (giftRevErr) {
-        console.error(
-          "[applyStoreOrderStatusTransition] gift_certificate_redemption_reverse",
-          giftRevErr.message
-        );
-      }
-    } catch (e) {
-      console.error("[applyStoreOrderStatusTransition] gift_certificate_redemption_reverse", e);
-    }
+    // Gift reverse already committed inside gift_certificate_refund_order_atomic.
   }
 
   if (nextStatus === "cancelled") {
