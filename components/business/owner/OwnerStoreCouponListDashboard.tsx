@@ -29,10 +29,17 @@ export type OwnerCouponDashRow = {
   spend_budget_php?: number | null;
   reserved_spend_php?: number | null;
   redeemed_count?: number;
-  start_at?: string;
-  end_at?: string;
+  start_at?: string | null;
+  end_at?: string | null;
   usage_end_at?: string | null;
   max_discount?: number | null;
+  created_at?: string | null;
+  active_held_count?: number;
+  remaining_claim_slots?: number | null;
+  order_sales_php?: number;
+  realized_discount_php?: number;
+  realized_store_php?: number;
+  realized_platform_php?: number;
 };
 
 const TABS: Array<{
@@ -142,10 +149,30 @@ export function OwnerStoreCouponListDashboard({
               const status = ownerCouponListStatus(row, nowMs);
               const issued = Number(row.issued_count ?? 0);
               const used = Number(row.redeemed_count ?? 0);
-              const rate = issued > 0 ? `${Math.round((used / issued) * 100)}%` : "—";
+              const held = Number(row.active_held_count ?? 0);
+              const remaining =
+                row.remaining_claim_slots != null
+                  ? row.remaining_claim_slots
+                  : row.issue_limit != null
+                    ? Math.max(0, Number(row.issue_limit) - issued)
+                    : null;
               const open = openId === row.id;
               const titleRaw = String(row.title ?? "").trim();
               const title = titleRaw && !looksLikeRawOperatorToken(titleRaw) ? titleRaw : t("store_coupon_field_title");
+              const meta: Array<[string, string]> = [
+                [t("store_coupon_ops_issued_at"), dayLabel(row.created_at)],
+                [t("store_coupon_ops_claim_window"), `${dayLabel(row.start_at)} – ${dayLabel(row.end_at)}`],
+                [t("store_coupon_ops_usage_window"), dayLabel(row.usage_end_at ?? row.end_at)],
+                [t("store_coupon_owner_issued_limit"), row.issue_limit == null ? "—" : String(row.issue_limit)],
+                [t("store_coupon_owner_issued_actual"), String(issued)],
+                [t("store_coupon_owner_held_active"), String(held)],
+                [t("store_coupon_owner_used", { count: used }), String(used)],
+                [t("store_coupon_ops_remaining"), remaining == null ? "—" : String(remaining)],
+                [t("store_coupon_ops_gmv"), formatMoneyPhp(Number(row.order_sales_php ?? 0))],
+                [t("store_coupon_ops_discount_total"), formatMoneyPhp(Number(row.realized_discount_php ?? 0))],
+                [t("store_coupon_ops_store_burden"), formatMoneyPhp(Number(row.realized_store_php ?? 0))],
+                [t("store_coupon_ops_platform_burden"), formatMoneyPhp(Number(row.realized_platform_php ?? 0))],
+              ];
               return (
                 <li key={row.id} className={OWNER_ADMIN_LIST_CARD_CLASS} data-owner-coupon-card="1">
                   <div className="flex items-start justify-between gap-2">
@@ -154,19 +181,16 @@ export function OwnerStoreCouponListDashboard({
                       {t(ownerCouponListStatusMessageKey(status))}
                     </span>
                   </div>
-                  <p className="mt-1 min-w-0 break-words text-sm text-sam-fg">{title}</p>
-                  <p className="mt-1 text-xs text-sam-muted">
-                    {dayLabel(row.start_at)} – {dayLabel(row.end_at)}
-                  </p>
-                  <p className="mt-1 text-xs text-sam-muted">
-                    {t("store_coupon_owner_issued", { count: issued })}
-                    {row.issue_limit != null ? `/${row.issue_limit}` : ""}
-                    {" · "}
-                    {t("store_coupon_owner_used", { count: used })}
-                    {" · "}
-                    {t("store_coupon_owner_usage_rate", { rate })}
-                  </p>
-                  <p className="mt-1 text-xs text-sam-muted">{t(fundingLabelKey(row.funding_mode))}</p>
+                  <p className="mt-1 min-w-0 break-words text-sm font-semibold text-sam-fg">{title}</p>
+                  <p className="mt-0.5 text-xs text-sam-muted">{t(fundingLabelKey(row.funding_mode))}</p>
+                  <dl className="mt-2 grid min-w-0 grid-cols-2 gap-x-2 gap-y-1" data-owner-coupon-ops-grid="1">
+                    {meta.map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="truncate text-[11px] text-sam-muted">{label}</dt>
+                        <dd className="truncate text-xs tabular-nums text-sam-fg">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -201,7 +225,9 @@ export function OwnerStoreCouponListDashboard({
                       <p className="text-xs text-sam-muted">
                         {t("store_coupon_min_order")}{" "}
                         {row.min_order_amount != null ? formatMoneyPhp(row.min_order_amount) : "—"}
-                        {row.max_discount != null ? ` · ${t("store_coupon_max_discount")} ${formatMoneyPhp(row.max_discount)}` : ""}
+                        {row.max_discount != null
+                          ? ` · ${t("store_coupon_max_discount")} ${formatMoneyPhp(row.max_discount)}`
+                          : ""}
                       </p>
                       {row.funding_mode === "STORE_FUNDED" ? (
                         <button

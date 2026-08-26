@@ -134,12 +134,36 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     };
   }
 
-  if (p === "/orders" || starts(p, "/orders/")) {
+  if (p === "/orders/activity") {
+    return {
+      ...DEFAULT,
+      backHref: "/stores",
+      preferHistoryBack: true,
+      ariaLabel: "tier1_back",
+      titleText: "store_coupon_delivery_activity_title",
+      showHubQuickActions: false,
+      hideBack: false,
+      showBack: true,
+    };
+  }
+
+  if (p === "/orders") {
     return {
       ...DEFAULT,
       showBack: false,
       hideBack: true,
-      backHref: "/philife",
+      backHref: "/orders/activity",
+      titleText: "tier1_order",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (starts(p, "/orders/")) {
+    return {
+      ...DEFAULT,
+      showBack: false,
+      hideBack: true,
+      backHref: "/orders/activity",
       titleText: "tier1_order",
       showHubQuickActions: false,
     };

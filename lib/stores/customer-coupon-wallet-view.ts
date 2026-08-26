@@ -1,10 +1,8 @@
-export type CustomerCouponWalletTab = "available" | "expiring" | "redeemed" | "expired";
+export type CustomerCouponWalletTab = "held" | "redeemed";
 
 export const CUSTOMER_COUPON_WALLET_TABS: readonly CustomerCouponWalletTab[] = [
-  "available",
-  "expiring",
+  "held",
   "redeemed",
-  "expired",
 ] as const;
 
 const UUID_RE =
@@ -40,6 +38,16 @@ export function couponWalletStatusKey(row: {
   if (bucket === "expired") return "store_coupon_wallet_status_expired";
   if (bucket === "expiring") return "store_coupon_wallet_status_expiring";
   return "store_coupon_wallet_status_available";
+}
+
+/** Customer presentation: held = usable instances; redeemed only. Hide expired/revoked. */
+export function customerWalletPresentationTab(
+  bucket: string | null | undefined
+): CustomerCouponWalletTab | null {
+  const b = String(bucket ?? "");
+  if (b === "available" || b === "expiring") return "held";
+  if (b === "redeemed") return "redeemed";
+  return null;
 }
 
 export function attachCustomerCouponWalletLabels<T extends Record<string, unknown>>(

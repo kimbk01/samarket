@@ -80,7 +80,12 @@ export function AuthSessionBoundary({ children }: Props) {
     (typeof window !== "undefined" ? window.location.pathname : "");
   const isOwnerAdminRoute =
     pathForOwnerGate === "/stores/owner" || pathForOwnerGate.startsWith("/stores/owner/");
-  if (isOwnerAdminRoute && !isAuthExitNavigateStarted()) {
+  /**
+   * Delivery Activity Hub — thin Link shell only. Middleware already requires auth.
+   * Do not replace with standalone `Loading…` while membership is checking (APK/cold paint).
+   */
+  const isDeliveryActivityHub = pathForOwnerGate === "/orders/activity";
+  if ((isOwnerAdminRoute || isDeliveryActivityHub) && !isAuthExitNavigateStarted()) {
     return <>{children}</>;
   }
 

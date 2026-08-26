@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { StoreCouponCustomerCard } from "@/components/stores/coupon/StoreCouponCustomerCard";
 import {
   CUSTOMER_COUPON_WALLET_TABS,
+  customerWalletPresentationTab,
   type CustomerCouponWalletTab,
 } from "@/lib/stores/customer-coupon-wallet-view";
 import type { CustomerCouponCardView } from "@/lib/stores/store-coupon-product-view";
@@ -15,20 +16,18 @@ import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 const TAB_LABEL: Record<
   CustomerCouponWalletTab,
-  | "store_coupon_wallet_tab_available"
-  | "store_coupon_wallet_tab_expiring"
-  | "store_coupon_wallet_tab_redeemed"
-  | "store_coupon_wallet_tab_expired"
+  "store_coupon_wallet_tab_held" | "store_coupon_wallet_tab_redeemed"
 > = {
-  available: "store_coupon_wallet_tab_available",
-  expiring: "store_coupon_wallet_tab_expiring",
+  held: "store_coupon_wallet_tab_held",
   redeemed: "store_coupon_wallet_tab_redeemed",
-  expired: "store_coupon_wallet_tab_expired",
 };
 
 export function CustomerStoreCouponWallet() {
   const { t, safeT } = useI18n();
-  const [tab, setTab] = useState<CustomerCouponWalletTab>("available");
+  const searchParams = useSearchParams();
+  const fromDelivery = searchParams.get("from") === "delivery-activity";
+  const backHref = fromDelivery ? "/orders/activity" : "/mypage";
+  const [tab, setTab] = useState<CustomerCouponWalletTab>("held");
   const [cards, setCards] = useState<CustomerCouponCardView[]>([]);
   const [authed, setAuthed] = useState(true);
   const [ready, setReady] = useState(false);
@@ -55,24 +54,28 @@ export function CustomerStoreCouponWallet() {
   }, [load]);
 
   const counts = useMemo(() => {
-    const c = { available: 0, expiring: 0, redeemed: 0, expired: 0 };
+    const c = { held: 0, redeemed: 0 };
     for (const card of cards) {
-      const b = card.bucket;
-      if (b === "available" || b === "expiring" || b === "redeemed" || b === "expired") c[b] += 1;
+      const present = customerWalletPresentationTab(card.bucket);
+      if (present) c[present] += 1;
     }
     return c;
   }, [cards]);
 
-  const visible = useMemo(() => cards.filter((c) => c.bucket === tab), [cards, tab]);
+  const visible = useMemo(
+    () => cards.filter((c) => customerWalletPresentationTab(c.bucket) === tab),
+    [cards, tab]
+  );
 
   return (
     <div
       className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
       data-customer-coupon-wallet="1"
       data-wallet-ready={ready ? "1" : "0"}
+      data-wallet-from-delivery={fromDelivery ? "1" : "0"}
     >
-      <MySubpageHeader titleKey="store_coupon_wallet_title" backHref="/mypage" />
-      <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4" data-customer-coupon-wallet-tabs="1">
+      <MySubpageHeader titleKey="store_coupon_wallet_title" backHref={backHref} />
+      <div className="grid min-w-0 grid-cols-2 gap-2" data-customer-coupon-wallet-tabs="1">
         {CUSTOMER_COUPON_WALLET_TABS.map((id) => {
           const selected = tab === id;
           const count = counts[id];

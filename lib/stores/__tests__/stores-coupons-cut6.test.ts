@@ -198,12 +198,19 @@ describe("CUT 6 store coupons SSOT", () => {
   it("T13 Checkout revalidates server-side", () => {
     const orders = readFileSync(join(process.cwd(), "app/api/me/store-orders/route.ts"), "utf8");
     expect(orders).toMatch(/resolveStoreCouponCheckoutDiscount/);
-    const session = readFileSync(
+    expect(orders).toMatch(/user_coupon_id/);
+    expect(orders).not.toMatch(/readStoreCheckoutCouponSession/);
+    expect(orders).not.toMatch(/readStoreCouponHandoff/);
+    /** Client handoff may use sessionStorage; checkout authority is server revalidation + userCouponId. */
+    const handoff = readFileSync(join(process.cwd(), "lib/stores/store-coupon-handoff.ts"), "utf8");
+    expect(handoff).toMatch(/sessionStorage/);
+    expect(handoff).toMatch(/userCouponId/);
+    const sessionBridge = readFileSync(
       join(process.cwd(), "lib/stores/store-checkout-coupon-session.ts"),
       "utf8"
     );
-    expect(session).toMatch(/sessionStorage/);
-    expect(orders).not.toMatch(/readStoreCheckoutCouponSession/);
+    expect(sessionBridge).toMatch(/writeStoreCouponHandoff/);
+    expect(sessionBridge).toMatch(/if \(!userCouponId\) return/);
   });
 
   it("T14 discount server-authoritative", () => {

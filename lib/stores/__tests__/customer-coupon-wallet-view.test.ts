@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   attachCustomerCouponWalletLabels,
   couponWalletStatusKey,
+  CUSTOMER_COUPON_WALLET_TABS,
+  customerWalletPresentationTab,
   formatCouponWalletDay,
   isOpaqueId,
 } from "@/lib/stores/customer-coupon-wallet-view";
+import { isCustomerOpaqueCouponTitle } from "@/lib/stores/store-coupon-product-view";
 
 describe("CUT UI-3 customer coupon wallet view", () => {
   it("formats expiry as a calendar day, not raw ISO", () => {
@@ -28,6 +31,19 @@ describe("CUT UI-3 customer coupon wallet view", () => {
     expect(couponWalletStatusKey({ bucket: "expired", status: "revoked" })).toBe(
       "store_coupon_wallet_status_revoked"
     );
+  });
+
+  it("presentation tabs are held + redeemed only; expired/revoked hidden", () => {
+    expect(CUSTOMER_COUPON_WALLET_TABS).toEqual(["held", "redeemed"]);
+    expect(customerWalletPresentationTab("available")).toBe("held");
+    expect(customerWalletPresentationTab("expiring")).toBe("held");
+    expect(customerWalletPresentationTab("redeemed")).toBe("redeemed");
+    expect(customerWalletPresentationTab("expired")).toBeNull();
+  });
+
+  it("rejects QA/internal titles on customer face", () => {
+    expect(isCustomerOpaqueCouponTitle("DIBAY_QA_COUPON_E1_1787622130804")).toBe(true);
+    expect(isCustomerOpaqueCouponTitle("나의 오른손딸방 할인")).toBe(false);
   });
 
   it("attaches store name and order_no without exposing ids as labels", () => {

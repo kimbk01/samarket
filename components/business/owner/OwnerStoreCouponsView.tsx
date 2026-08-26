@@ -28,10 +28,17 @@ type CampaignRow = {
   spend_budget_php?: number | null;
   reserved_spend_php?: number | null;
   redeemed_count?: number;
-  start_at?: string;
-  end_at?: string;
+  start_at?: string | null;
+  end_at?: string | null;
   usage_end_at?: string | null;
   max_discount?: number | null;
+  created_at?: string | null;
+  active_held_count?: number;
+  remaining_claim_slots?: number | null;
+  order_sales_php?: number;
+  realized_discount_php?: number;
+  realized_store_php?: number;
+  realized_platform_php?: number;
 };
 
 export function OwnerStoreCouponsView() {

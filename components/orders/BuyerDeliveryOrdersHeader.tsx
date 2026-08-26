@@ -6,7 +6,6 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { OWNER_MOBILE_EXIT_HREF } from "@/lib/stores/owner-mobile-ui-tokens";
 
 const HEADER_ICON_BTN_CLASS =
   "flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]";
@@ -20,8 +19,8 @@ function HeaderActionsFallback() {
 }
 
 /**
- * 구매자 `/orders` — 오너 주문 페이지(`OwnerMobileAdminHeader` page variant)와 동일 톤.
- * 뒤로: 배달 홈(`/stores`), 우측: 알림함 + 장바구니.
+ * 구매자 `/orders` — 오너 주문 페이지와 동일 톤.
+ * 뒤로: Delivery Activity Hub (`/orders/activity`).
  */
 export function BuyerDeliveryOrdersHeader() {
   const { t } = useI18n();
@@ -34,10 +33,10 @@ export function BuyerDeliveryOrdersHeader() {
       >
         <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))] sm:pl-[max(1rem,var(--safe-left))] sm:pr-[max(1rem,var(--safe-right))]">
           <AppBackButton
-            backHref={OWNER_MOBILE_EXIT_HREF}
+            backHref="/orders/activity"
             preferHistoryBack
             className={`${HEADER_ICON_BTN_CLASS} text-[var(--biz-primary)] hover:bg-[var(--biz-tan-soft)] active:bg-[var(--biz-header-bg)]`}
-            ariaLabel={t("store_owner_aria_exit_delivery_home")}
+            ariaLabel={t("tier1_back")}
           />
           <div className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1">
             <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">

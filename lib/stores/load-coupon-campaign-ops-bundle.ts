@@ -31,6 +31,7 @@ export type CouponInstanceOpsRow = {
 };
 
 export type CouponCampaignOpsView = CouponControlCampaignView & {
+  created_at?: string | null;
   issuer: ReturnType<typeof resolveStoreCouponIssuerView>;
   purpose: ReturnType<typeof resolveStoreCouponPurposeView>;
   customer_description: string | null;
@@ -72,7 +73,7 @@ async function loadActorLabels(
 
 export async function loadCouponCampaignOpsBundle(
   sb: SupabaseClient,
-  opts?: { campaignId?: string; couponNumber?: string }
+  opts?: { campaignId?: string; couponNumber?: string; storeId?: string }
 ): Promise<
   | { ok: true; campaigns: CouponCampaignOpsView[] }
   | { ok: false; error: string }
@@ -82,14 +83,9 @@ export async function loadCouponCampaignOpsBundle(
   });
   if (opts?.campaignId) {
     campaignQuery = campaignQuery.eq("id", opts.campaignId);
-  } else {
-    campaignQuery = campaignQuery.limit(200);
-  }
-  const { data: campaigns, error } = await campaignQuery;
-  if (error) return { ok: false, error: "db_error" };
-
-  let campaignRows = campaigns ?? [];
-  if (opts?.couponNumber) {
+  } else if (opts?.storeId) {
+    campaignQuery = campaignQuery.eq("store_id", opts.storeId).limit(100);
+  } else if (opts?.couponNumber) {
     const num = opts.couponNumber.trim();
     const { data: entHit } = await sb
       .from("coupon_user_entitlements")
@@ -98,8 +94,15 @@ export async function loadCouponCampaignOpsBundle(
       .maybeSingle();
     const cid = String((entHit as { campaign_id?: string } | null)?.campaign_id ?? "");
     if (!cid) return { ok: true, campaigns: [] };
-    campaignRows = campaignRows.filter((r) => String((r as { id?: string }).id) === cid);
+    campaignQuery = campaignQuery.eq("id", cid);
+  } else {
+    campaignQuery = campaignQuery.limit(200);
   }
+  const { data: campaigns, error } = await campaignQuery;
+  if (error) return { ok: false, error: "db_error" };
+
+  let campaignRows = campaigns ?? [];
+  // couponNumber already resolved to campaign id above when searching by number.
 
   const ids = campaignRows.map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
   const storeIds = [
@@ -330,6 +333,9 @@ export async function loadCouponCampaignOpsBundle(
 
     views.push({
       ...base,
+      created_at: (row as { created_at?: string | null }).created_at
+        ? String((row as { created_at?: string }).created_at)
+        : null,
       issuer: resolveStoreCouponIssuerView({
         issuerRole: (row as { issuer_role?: unknown }).issuer_role,
         createdByUserId: (row as { created_by_user_id?: unknown }).created_by_user_id,

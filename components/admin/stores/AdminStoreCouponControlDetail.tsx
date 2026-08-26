@@ -152,6 +152,20 @@ export function AdminStoreCouponControlDetail({
             amount: formatMoneyPhp(campaign.realized.platform_funded),
           })}
         </p>
+        {"order_sales_php" in campaign && campaign.order_sales_php != null ? (
+          <p className="mt-2 text-sm text-sam-fg" data-admin-coupon-gmv="1">
+            {t("store_coupon_ops_gmv")}: {formatMoneyPhp(campaign.order_sales_php)}
+          </p>
+        ) : null}
+        {"cost_ratio" in campaign ? (
+          campaign.cost_ratio != null ? (
+            <p className="text-sm text-sam-fg" data-admin-coupon-roi="1">
+              {t("store_coupon_owner_roi_ratio")}: {campaign.cost_ratio.toFixed(2)}
+            </p>
+          ) : (
+            <p className="text-sm text-sam-muted">{t("store_coupon_owner_roi_no_store_cost")}</p>
+          )
+        ) : null}
       </AdminCard>
 
       {"instances" in campaign && campaign.instances && campaign.instances.length > 0 ? (

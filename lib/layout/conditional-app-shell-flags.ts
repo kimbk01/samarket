@@ -207,7 +207,10 @@ export function resolveConditionalAppShellFlags(
     (pathname?.startsWith("/philife/") ?? false);
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
-  const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
+  const isOrdersHub =
+    pathname === "/orders" ||
+    ((pathname?.startsWith("/orders/") ?? false) && pathname !== "/orders/activity");
+
   /** 거래 희망 장소 풀페이지 — 하단 탭·거래 허브 FAB 가 지도·확인 버튼을 가리지 않게 숨김 */
   const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
   /** 구매자 위치·거리 페이지 스택 — 셸 pb-0, 본문 sticky CTA 가 nav clearance 소유 */

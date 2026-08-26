@@ -1,4 +1,7 @@
-import { formatCouponWalletDay } from "@/lib/stores/customer-coupon-wallet-view";
+import {
+  formatCouponWalletDay,
+  isOpaqueId,
+} from "@/lib/stores/customer-coupon-wallet-view";
 import {
   resolveStoreCouponIssuerView,
   resolveStoreCouponPurposeView,
@@ -13,6 +16,18 @@ import { computeCouponDiscountPhp } from "@/lib/stores/store-coupon-funding-math
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoreCouponVisualContext } from "@/lib/stores/load-store-coupon-visual-context";
 
+/** QA / internal titles must not surface as customer coupon names. */
+export function isCustomerOpaqueCouponTitle(title: string): boolean {
+  const raw = title.trim();
+  if (!raw) return true;
+  if (isOpaqueId(raw)) return true;
+  if (/^DIBAY[_-]?QA/i.test(raw)) return true;
+  if (/^QA[-_]/i.test(raw)) return true;
+  if (/COUPON_E\d+/i.test(raw)) return true;
+  if (/^[A-Z0-9_]{16,}$/.test(raw) && /_/.test(raw)) return true;
+  return false;
+}
+
 export type CustomerCouponCardView = {
   entitlementId: string;
   campaignId: string;
@@ -25,6 +40,8 @@ export type CustomerCouponCardView = {
   menuPreviewTitles: string[];
   menuPreviewIsPromotional: true;
   title: string;
+  /** When true, Customer Face uses store-based fallback — never show raw QA title. */
+  titleIsCustomerOpaque: boolean;
   purposeKey: StoreCouponPurposeKey;
   customerDescription: string | null;
   benefitLabel: string;
@@ -189,6 +206,8 @@ export function buildCustomerCouponCardView(input: {
   const dtype = String(faceCampaign.discount_type ?? "");
   const periodEnd =
     snap?.period_end != null ? String(snap.period_end) : String(e.expires_at ?? "");
+  const rawTitle = String(faceCampaign.title ?? "").trim();
+  const titleOpaque = isCustomerOpaqueCouponTitle(rawTitle);
 
   return {
     entitlementId: String(e.id ?? ""),
@@ -201,7 +220,8 @@ export function buildCustomerCouponCardView(input: {
     logoUrl: visual?.logoUrl ?? null,
     menuPreviewTitles: visual?.menuPreviewTitles ?? [],
     menuPreviewIsPromotional: true,
-    title: String(faceCampaign.title ?? "").trim() || benefitLabelFromCampaign(faceCampaign),
+    title: titleOpaque ? "" : rawTitle || benefitLabelFromCampaign(faceCampaign),
+    titleIsCustomerOpaque: titleOpaque,
     purposeKey: purpose.purposeKey,
     customerDescription: c.terms_copy == null ? null : String(c.terms_copy),
     benefitLabel: benefitLabelFromCampaign(faceCampaign),

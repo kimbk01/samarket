@@ -50,39 +50,39 @@ export async function GET(req: NextRequest) {
   if (!storeId || !(await assertOwnedStore(sb, userId, storeId))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
   }
-  const { data, error } = await sb
-    .from(STORE_COUPON_CAMPAIGN_TABLE)
-    .select(
-      "id, store_id, title, discount_type, discount_value, min_order_amount, start_at, end_at, usage_end_at, claim_valid_days, is_active, lifecycle_state, funding_mode, issued_count, issue_limit, spend_budget_php, reserved_spend_php, store_funded_amount, max_discount, first_order_scope"
-    )
-    .eq("store_id", storeId)
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (error) return NextResponse.json({ ok: false, error: "db_error", campaigns: [] }, { status: 500 });
-  const rows = data ?? [];
-  const ids = rows.map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
-  const claimedBy = new Map<string, number>();
-  const redeemedBy = new Map<string, number>();
-  if (ids.length) {
-    const { data: ents } = await sb
-      .from("coupon_user_entitlements")
-      .select("campaign_id, status")
-      .in("campaign_id", ids);
-    for (const e of ents ?? []) {
-      const cid = String((e as { campaign_id?: string }).campaign_id ?? "");
-      const st = String((e as { status?: string }).status ?? "");
-      claimedBy.set(cid, (claimedBy.get(cid) ?? 0) + 1);
-      if (st === "redeemed") redeemedBy.set(cid, (redeemedBy.get(cid) ?? 0) + 1);
-    }
-  }
-  const campaigns = rows.map((row) => {
-    const id = String((row as { id?: string }).id ?? "");
-    return {
-      ...row,
-      claimed_count: claimedBy.get(id) ?? 0,
-      redeemed_count: redeemedBy.get(id) ?? 0,
-    };
-  });
+  const { loadCouponCampaignOpsBundle } = await import("@/lib/stores/load-coupon-campaign-ops-bundle");
+  const loaded = await loadCouponCampaignOpsBundle(sb, { storeId });
+  if (!loaded.ok) return NextResponse.json({ ok: false, error: loaded.error, campaigns: [] }, { status: 500 });
+  const campaigns = loaded.campaigns.map((c) => ({
+    id: c.id,
+    store_id: c.store_id,
+    title: c.title,
+    discount_type: c.discount_type,
+    discount_value: c.discount_value,
+    min_order_amount: c.min_order_amount,
+    start_at: c.start_at,
+    end_at: c.end_at,
+    usage_end_at: c.usage_end_at,
+    is_active: c.is_active,
+    lifecycle_state: c.lifecycle_state,
+    funding_mode: c.funding_mode,
+    issued_count: c.issued_count,
+    issue_limit: c.issue_limit,
+    spend_budget_php: c.spend_budget_php,
+    reserved_spend_php: c.reserved_spend_php,
+    max_discount: null as number | null,
+    first_order_scope: c.first_order_scope,
+    created_at: c.created_at ?? c.start_at,
+    claimed_count: c.claimed_count,
+    redeemed_count: c.redeemed_count,
+    active_held_count: c.active_held_count,
+    remaining_claim_slots: c.remaining_claim_slots,
+    order_sales_php: c.order_sales_php,
+    realized_discount_php: c.realized.customer_discount,
+    realized_store_php: c.realized.store_funded,
+    realized_platform_php: c.realized.platform_funded,
+    cost_ratio: c.cost_ratio,
+  }));
   return NextResponse.json({ ok: true, campaigns });
 }
 
