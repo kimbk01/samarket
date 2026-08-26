@@ -9,6 +9,12 @@ type Revenue = {
   redeemedGross: number;
   platformFee: number;
   merchantNet: number;
+  pendingGross: number;
+  pendingPlatformFee: number;
+  pendingMerchantNet: number;
+  recognizedGross: number;
+  recognizedPlatformFee: number;
+  recognizedMerchantNet: number;
   outstandingGiftValue: number;
   storeCashTotal: number;
 };
@@ -30,6 +36,12 @@ export function AdminGiftRevenuePage() {
         redeemedGross: Math.trunc(Number(json.redeemedGross) || 0),
         platformFee: Math.trunc(Number(json.platformFee) || 0),
         merchantNet: Math.trunc(Number(json.merchantNet) || 0),
+        pendingGross: Math.trunc(Number(json.pendingGross) || 0),
+        pendingPlatformFee: Math.trunc(Number(json.pendingPlatformFee) || 0),
+        pendingMerchantNet: Math.trunc(Number(json.pendingMerchantNet) || 0),
+        recognizedGross: Math.trunc(Number(json.recognizedGross) || 0),
+        recognizedPlatformFee: Math.trunc(Number(json.recognizedPlatformFee) || 0),
+        recognizedMerchantNet: Math.trunc(Number(json.recognizedMerchantNet) || 0),
         outstandingGiftValue: Math.trunc(Number(json.outstandingGiftValue) || 0),
         storeCashTotal: Math.trunc(Number(json.storeCashTotal) || 0),
       });
@@ -70,21 +82,59 @@ export function AdminGiftRevenuePage() {
         <p className="text-sm text-sam-muted">…</p>
       ) : (
         <>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sam-muted">Pending</p>
+          <div className="grid grid-cols-2 gap-2" data-admin-gift-pending="1">
+            {card(
+              safeT("gift_u6_kpi_pending_gross", { fallbackKo: "Pending Gross", fallbackEn: "Pending Gross" }),
+              data.pendingGross,
+              "pending-gross"
+            )}
+            {card(
+              safeT("gift_u6_kpi_pending_fee", {
+                fallbackKo: "Pending Platform Fee",
+                fallbackEn: "Pending Platform Fee",
+              }),
+              data.pendingPlatformFee,
+              "pending-fee"
+            )}
+            {card(
+              safeT("gift_u6_kpi_pending_merchant", {
+                fallbackKo: "Pending Merchant Net",
+                fallbackEn: "Pending Merchant Net",
+              }),
+              data.pendingMerchantNet,
+              "pending-merchant"
+            )}
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-sam-muted">Recognized</p>
+          <div className="grid grid-cols-2 gap-2" data-admin-gift-recognized="1">
+            {card(
+              safeT("gift_u6_kpi_recognized_gross", {
+                fallbackKo: "Recognized Gross",
+                fallbackEn: "Recognized Gross",
+              }),
+              data.recognizedGross,
+              "recognized-gross"
+            )}
+            {card(
+              safeT("gift_u6_kpi_fee", { fallbackKo: "Platform Fee (recognized)", fallbackEn: "Platform Fee (recognized)" }),
+              data.platformFee,
+              "fee"
+            )}
+            {card(
+              safeT("gift_u6_kpi_merchant", {
+                fallbackKo: "Merchant Net (recognized)",
+                fallbackEn: "Merchant Net (recognized)",
+              }),
+              data.merchantNet,
+              "merchant"
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {card(
               safeT("gift_u6_kpi_gross", { fallbackKo: "Redeemed Gross", fallbackEn: "Redeemed Gross" }),
               data.redeemedGross,
               "gross"
-            )}
-            {card(
-              safeT("gift_u6_kpi_fee", { fallbackKo: "Platform Fee", fallbackEn: "Platform Fee" }),
-              data.platformFee,
-              "fee"
-            )}
-            {card(
-              safeT("gift_u6_kpi_merchant", { fallbackKo: "Merchant Net", fallbackEn: "Merchant Net" }),
-              data.merchantNet,
-              "merchant"
             )}
             {card(
               safeT("gift_u6_kpi_outstanding", {
@@ -106,9 +156,9 @@ export function AdminGiftRevenuePage() {
           <p className="text-xs text-sam-muted">
             {safeT("gift_u6_revenue_hint", {
               fallbackKo:
-                "Platform Fee는 DIBAY 수익, Merchant Net은 Owner 상품권 수익, Store Cash는 전환 완료 금액입니다.",
+                "확정 Platform Fee만 DIBAY 수익입니다. Pending은 주문 완료 전까지 확정 수익에 포함되지 않습니다.",
               fallbackEn:
-                "Platform Fee is DIBAY revenue, Merchant Net is owner gift revenue, Store Cash is converted cash.",
+                "Only recognized Platform Fee counts as DIBAY revenue. Pending amounts are excluded until the order completes.",
             })}
           </p>
         </>

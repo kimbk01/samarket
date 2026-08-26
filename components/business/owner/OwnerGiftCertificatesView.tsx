@@ -402,12 +402,23 @@ function OwnerGiftCertificatesInner() {
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="merchant-net">
                   <p className="text-xs text-sam-muted">
                     {safeT("gift_u5_kpi_merchant_net", {
-                      fallbackKo: "상품권 수익",
-                      fallbackEn: "Gift revenue",
+                      fallbackKo: "확정 상품권 수익",
+                      fallbackEn: "Recognized gift revenue",
                     })}
                   </p>
                   <p className="mt-1 text-base font-semibold tabular-nums break-words">
-                    {formatMoneyPhp(redeemKpis.merchantNetTotal)}
+                    {formatMoneyPhp(redeemKpis.recognizedMerchantNet)}
+                  </p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="pending-merchant">
+                  <p className="text-xs text-sam-muted">
+                    {safeT("gift_u5_kpi_pending_merchant", {
+                      fallbackKo: "수익 확정 대기",
+                      fallbackEn: "Revenue pending recognition",
+                    })}
+                  </p>
+                  <p className="mt-1 text-base font-semibold tabular-nums break-words">
+                    {formatMoneyPhp(redeemKpis.pendingMerchantNet)}
                   </p>
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="available">

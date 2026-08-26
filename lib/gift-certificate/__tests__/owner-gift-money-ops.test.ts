@@ -15,11 +15,13 @@ const sample: OwnerGiftRedemptionRow = {
   id: "r1",
   orderId: "00000000-0000-4000-8000-0000000000aa",
   orderNo: "AA-1",
+  orderStatus: "pending",
   instanceId: "i1",
   giftTitle: "Gift",
   redeemedAmount: 1000,
   platformFeeAmount: 100,
   merchantNetAmount: 900,
+  recognized: false,
   reversed: false,
   createdAt: "2026-01-01T00:00:00Z",
 };
@@ -91,10 +93,26 @@ describe("owner-gift-money-ops U5", () => {
   });
 
   it("T11 refunded/reversed line presentation code path", () => {
-    expect(ownerRedemptionStatusLabelKey({ reversed: true })).toBe("gift_u5_redemption_status_reversed");
-    expect(ownerRedemptionStatusLabelKey({ reversed: false })).toBe("gift_u5_redemption_status_ok");
+    expect(ownerRedemptionStatusLabelKey({ reversed: true, recognized: false })).toBe(
+      "gift_u5_redemption_status_reversed"
+    );
+    expect(ownerRedemptionStatusLabelKey({ reversed: false, recognized: false })).toBe(
+      "gift_u7_recognition_status_pending"
+    );
+    expect(ownerRedemptionStatusLabelKey({ reversed: false, recognized: true })).toBe(
+      "gift_u7_recognition_status_recognized"
+    );
     const k = aggregateOwnerRedemptionKpis([{ ...sample, reversed: true }]);
     expect(k.redeemedGross).toBe(0);
+  });
+
+  it("T11b pending vs recognized merchant net KPI split", () => {
+    const k = aggregateOwnerRedemptionKpis([
+      sample,
+      { ...sample, id: "r2", recognized: true, merchantNetAmount: 450, redeemedAmount: 500, platformFeeAmount: 50 },
+    ]);
+    expect(k.pendingMerchantNet).toBe(900);
+    expect(k.recognizedMerchantNet).toBe(450);
   });
 
   it("T12 mobile presentation data contract (card fields present)", () => {

@@ -7,11 +7,13 @@ export type OwnerGiftRedemptionRow = {
   id: string;
   orderId: string;
   orderNo: string | null;
+  orderStatus: string | null;
   instanceId: string;
   giftTitle: string;
   redeemedAmount: number;
   platformFeeAmount: number;
   merchantNetAmount: number;
+  recognized: boolean;
   reversed: boolean;
   createdAt: string;
 };
@@ -28,6 +30,8 @@ export type OwnerGiftMoneyKpis = {
   redeemedGross: number;
   platformFeeTotal: number;
   merchantNetTotal: number;
+  pendingMerchantNet: number;
+  recognizedMerchantNet: number;
   outstandingBalance: number;
   availableRevenue: number;
   storeCashBalance: number;
@@ -35,9 +39,18 @@ export type OwnerGiftMoneyKpis = {
   openRecoveryAmount: number;
 };
 
+import {
+  aggregateGiftRevenuePendingRecognized,
+  ownerRedemptionRecognitionLabelKey,
+  resolveGiftRedemptionRecognitionState,
+} from "@/lib/gift-certificate/gift-revenue-recognition";
+
 export function aggregateOwnerRedemptionKpis(
   rows: OwnerGiftRedemptionRow[]
-): Pick<OwnerGiftMoneyKpis, "redeemedGross" | "platformFeeTotal" | "merchantNetTotal"> {
+): Pick<
+  OwnerGiftMoneyKpis,
+  "redeemedGross" | "platformFeeTotal" | "merchantNetTotal" | "pendingMerchantNet" | "recognizedMerchantNet"
+> {
   let redeemedGross = 0;
   let platformFeeTotal = 0;
   let merchantNetTotal = 0;
@@ -47,7 +60,22 @@ export function aggregateOwnerRedemptionKpis(
     platformFeeTotal += Math.max(0, Math.trunc(r.platformFeeAmount));
     merchantNetTotal += Math.max(0, Math.trunc(r.merchantNetAmount));
   }
-  return { redeemedGross, platformFeeTotal, merchantNetTotal };
+  const split = aggregateGiftRevenuePendingRecognized(
+    rows.map((r) => ({
+      reversed: r.reversed,
+      recognized: r.recognized,
+      redeemedAmount: r.redeemedAmount,
+      platformFeeAmount: r.platformFeeAmount,
+      merchantNetAmount: r.merchantNetAmount,
+    }))
+  );
+  return {
+    redeemedGross,
+    platformFeeTotal,
+    merchantNetTotal,
+    pendingMerchantNet: split.pendingMerchantNet,
+    recognizedMerchantNet: split.recognizedMerchantNet,
+  };
 }
 
 export function conversionPendingAmount(rows: OwnerGiftConversionRow[]): number {
@@ -106,6 +134,13 @@ export function ownerConversionRequestStatusLabelKey(status: string): string {
   }
 }
 
-export function ownerRedemptionStatusLabelKey(row: Pick<OwnerGiftRedemptionRow, "reversed">): string {
-  return row.reversed ? "gift_u5_redemption_status_reversed" : "gift_u5_redemption_status_ok";
+export function ownerRedemptionStatusLabelKey(
+  row: Pick<OwnerGiftRedemptionRow, "reversed" | "recognized">
+): string {
+  return ownerRedemptionRecognitionLabelKey(
+    resolveGiftRedemptionRecognitionState({
+      reversed: row.reversed,
+      recognized: row.recognized,
+    })
+  );
 }

@@ -52,6 +52,7 @@ export async function GET(
 
   const titleByInstance = new Map<string, string>();
   const orderNoById = new Map<string, string | null>();
+  const orderStatusById = new Map<string, string>();
 
   if (instanceIds.length > 0) {
     const { data: instRows } = await sb
@@ -83,7 +84,7 @@ export async function GET(
   if (orderIds.length > 0) {
     const { data: orders } = await sb
       .from("store_orders")
-      .select("id, order_no")
+      .select("id, order_no, order_status")
       .eq("store_id", sid)
       .in("id", orderIds)
       .limit(200);
@@ -94,6 +95,24 @@ export async function GET(
           ? String((o as { order_no: string }).order_no)
           : null
       );
+      orderStatusById.set(
+        String((o as { id: string }).id),
+        String((o as { order_status?: string | null }).order_status ?? "")
+      );
+    }
+  }
+
+  const redemptionIds = rows.map((r) => String((r as { id: string }).id));
+  const recognizedIds = new Set<string>();
+  if (redemptionIds.length > 0) {
+    const { data: ledgerRows } = await sb
+      .from(GIFT_TABLES.revenueLedger)
+      .select("redemption_id")
+      .in("redemption_id", redemptionIds)
+      .eq("entry_type", "REVENUE_AVAILABLE")
+      .limit(500);
+    for (const lr of ledgerRows ?? []) {
+      recognizedIds.add(String((lr as { redemption_id: string }).redemption_id));
     }
   }
 
@@ -105,12 +124,14 @@ export async function GET(
       id: String(r.id),
       orderId,
       orderNo: orderNoById.get(orderId) ?? null,
+      orderStatus: orderStatusById.get(orderId) || null,
       instanceId,
       giftTitle: titleByInstance.get(instanceId) ?? "",
       redeemedAmount: Math.trunc(Number(r.redeemed_amount) || 0),
       platformFeeAmount: Math.trunc(Number(r.platform_fee_amount) || 0),
       merchantNetAmount: Math.trunc(Number(r.merchant_net_amount) || 0),
       platformFeeRateSnapshot: Math.trunc(Number(r.platform_fee_rate_snapshot) || 0),
+      recognized: recognizedIds.has(String(r.id)),
       reversed: r.reversed === true,
       createdAt: String(r.created_at ?? ""),
       reversedAt: r.reversed_at == null ? null : String(r.reversed_at),

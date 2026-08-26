@@ -71,8 +71,10 @@ export const GIFT_DELIVERY_CHECKOUT_DPOINT_REMAINS =
 
 // ─── Revenue recognition ────────────────────────────────────────────────────
 
-export const GIFT_OWNER_REVENUE_RECOGNITION = "redemption_only" as const;
-export const GIFT_PLATFORM_FEE_RECOGNITION = "redemption_only" as const;
+/** Owner + platform fee recognized when linked store order reaches terminal `completed`. */
+export const GIFT_OWNER_REVENUE_RECOGNITION = "order_completion" as const;
+export const GIFT_PLATFORM_FEE_RECOGNITION = "order_completion" as const;
+export const GIFT_REDEEM_TIME_OWNER_AVAILABLE_FORBIDDEN = true as const;
 export const GIFT_SALE_TIME_OWNER_REVENUE_FORBIDDEN = true as const;
 
 /** Foreign authorities Gift must never treat as Gift Revenue / Store Cash. */

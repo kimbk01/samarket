@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 import {
   GIFT_MIGRATION_ID,
+  GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
   GIFT_RPCS,
   GIFT_TABLES,
 } from "@/lib/gift-certificate/gift-certificate-schema";
@@ -14,6 +15,10 @@ import {
 
 const MIG = readFileSync(
   resolve(process.cwd(), `supabase/migrations/${GIFT_MIGRATION_ID}.sql`),
+  "utf8"
+);
+const MIG_ORDER_COMPLETION = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID}.sql`),
   "utf8"
 );
 
@@ -33,10 +38,20 @@ describe("G2 gift certificate schema migration", () => {
   });
 
   it("defines money RPCs as service_role only and separates coupon/credit/settlement", () => {
-    const g2Rpcs = Object.values(GIFT_RPCS).filter((fn) => fn !== "gift_certificate_refund_order_atomic");
+    const orderCompletionRpcs = new Set<string>([
+      GIFT_RPCS.recognizeRevenueForCompletedOrder,
+      GIFT_RPCS.redemptionIsRecognized,
+    ]);
+    const g2Rpcs = Object.values(GIFT_RPCS).filter(
+      (fn) => fn !== "gift_certificate_refund_order_atomic" && !orderCompletionRpcs.has(fn)
+    );
     for (const rpc of g2Rpcs) {
       expect(MIG).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
       expect(MIG).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
+    }
+    for (const rpc of orderCompletionRpcs) {
+      expect(MIG_ORDER_COMPLETION).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
+      expect(MIG_ORDER_COMPLETION).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
     }
     expect(MIG).toMatch(/service_role/);
     expect(MIG).not.toMatch(/store_coupon_campaigns/);

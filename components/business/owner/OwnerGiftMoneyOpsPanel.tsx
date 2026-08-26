@@ -266,6 +266,9 @@ export function OwnerGiftMoneyOpsPanel(props: {
             {redemptions.map((row) => {
               const open = expandedId === row.id;
               const statusKey = ownerRedemptionStatusLabelKey(row);
+              const pending = !row.reversed && !row.recognized;
+              const feeLabelKey = pending ? "gift_u7_fee_pending" : "gift_u5_fee";
+              const netLabelKey = pending ? "gift_u7_net_pending" : "gift_u5_net";
               return (
                 <li key={row.id} className={OWNER_ADMIN_LIST_CARD_CLASS} data-redemption-id={row.id} data-order-id={row.orderId}>
                   <button
@@ -283,11 +286,19 @@ export function OwnerGiftMoneyOpsPanel(props: {
                         <strong className="tabular-nums">{formatMoneyPhp(row.redeemedAmount)}</strong>
                       </span>
                       <span>
-                        {safeT("gift_u5_fee", { fallbackKo: "DIBAY 수수료", fallbackEn: "DIBAY fee" })}:{" "}
+                        {safeT(feeLabelKey as MessageKey, {
+                          fallbackKo: pending ? "DIBAY 수수료 예정" : "DIBAY 수수료",
+                          fallbackEn: pending ? "DIBAY fee (expected)" : "DIBAY fee",
+                        })}
+                        :{" "}
                         <strong className="tabular-nums">{formatMoneyPhp(row.platformFeeAmount)}</strong>
                       </span>
                       <span>
-                        {safeT("gift_u5_net", { fallbackKo: "내 수익", fallbackEn: "Your net" })}:{" "}
+                        {safeT(netLabelKey as MessageKey, {
+                          fallbackKo: pending ? "내 예상 수익" : "내 수익",
+                          fallbackEn: pending ? "Your expected net" : "Your net",
+                        })}
+                        :{" "}
                         <strong className="tabular-nums">{formatMoneyPhp(row.merchantNetAmount)}</strong>
                       </span>
                     </div>
@@ -521,17 +532,34 @@ export function OwnerGiftMoneyOpsPanel(props: {
                 "redeemed"
               )}
               {kpiCard(
-                safeT("gift_u5_kpi_fee", { fallbackKo: "DIBAY 수수료", fallbackEn: "DIBAY fee" }),
-                formatMoneyPhp(redeemKpis.platformFeeTotal),
+                safeT("gift_u5_kpi_fee", {
+                  fallbackKo: "DIBAY 수수료 (확정)",
+                  fallbackEn: "DIBAY fee (recognized)",
+                }),
+                formatMoneyPhp(
+                  redemptions.reduce(
+                    (s, r) =>
+                      s + (!r.reversed && r.recognized ? Math.max(0, Math.trunc(r.platformFeeAmount)) : 0),
+                    0
+                  )
+                ),
                 "fee"
               )}
               {kpiCard(
                 safeT("gift_u5_kpi_merchant_net", {
-                  fallbackKo: "내 상품권 수익",
-                  fallbackEn: "Your gift revenue",
+                  fallbackKo: "확정 상품권 수익",
+                  fallbackEn: "Recognized gift revenue",
                 }),
-                formatMoneyPhp(redeemKpis.merchantNetTotal),
+                formatMoneyPhp(redeemKpis.recognizedMerchantNet),
                 "merchant-net"
+              )}
+              {kpiCard(
+                safeT("gift_u5_kpi_pending_merchant", {
+                  fallbackKo: "수익 확정 대기",
+                  fallbackEn: "Revenue pending recognition",
+                }),
+                formatMoneyPhp(redeemKpis.pendingMerchantNet),
+                "pending-merchant"
               )}
               {kpiCard(
                 safeT("gift_u5_kpi_available", {

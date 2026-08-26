@@ -171,12 +171,12 @@ describe("G1 Paid Gift domain contract", () => {
     });
     expect(fee).toEqual({ platformFeeAmount: 30, merchantNetAmount: 270 });
     expect(CONTRACT_SRC).not.toMatch(/platformFeeRate\s*=\s*10[^0-9]/);
-    expect(GIFT_PLATFORM_FEE_RECOGNITION).toBe("redemption_only");
+    expect(GIFT_PLATFORM_FEE_RECOGNITION).toBe("order_completion");
   });
 
   // T6
-  it("T6 Owner revenue only on redemption", () => {
-    expect(GIFT_OWNER_REVENUE_RECOGNITION).toBe("redemption_only");
+  it("T6 Owner revenue only on order completion", () => {
+    expect(GIFT_OWNER_REVENUE_RECOGNITION).toBe("order_completion");
     expect(GIFT_SALE_TIME_OWNER_REVENUE_FORBIDDEN).toBe(true);
     expect(ownerRevenueAtSaleTime()).toBe(0);
     expect(GIFT_REVENUE_STATUS_IS_LEDGER_PROJECTION).toBe(true);
