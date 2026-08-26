@@ -10,6 +10,7 @@ type ProductRow = {
   title: string;
   face_value: number;
   purchase_price: number;
+  platform_fee_rate?: number;
   active: boolean;
   image_url: string | null;
   issued_count?: number;
@@ -80,7 +81,12 @@ export function AdminGiftProductsPage() {
                 <p className="truncate font-semibold">{p.title}</p>
                 <p className="text-xs text-sam-muted">
                   {p.purchase_price.toLocaleString()} → {p.face_value.toLocaleString()} ·{" "}
-                  {p.active ? "active" : "inactive"} · issued {p.issued_count ?? 0}
+                  {safeT("gift_u6_products_fee", {
+                    fallbackKo: "플랫폼 수수료",
+                    fallbackEn: "Platform fee",
+                  })}{" "}
+                  {Math.trunc(Number(p.platform_fee_rate) || 0)}% · {p.active ? "active" : "inactive"} · issued{" "}
+                  {p.issued_count ?? 0}
                 </p>
               </div>
             </li>

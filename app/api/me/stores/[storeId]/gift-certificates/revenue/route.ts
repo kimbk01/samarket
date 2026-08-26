@@ -30,7 +30,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const [availRes, ledgerRes, cashRes] = await Promise.all([
+  const [availRes, ledgerRes, cashRes, recoveryRes, outstandingRes] = await Promise.all([
     sb.rpc("gift_certificate_store_revenue_available", { p_store_id: sid }),
     sb
       .from(GIFT_TABLES.revenueLedger)
@@ -39,6 +39,18 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(50),
     sb.from(GIFT_TABLES.storeCashAccounts).select("store_id, balance, updated_at").eq("store_id", sid).maybeSingle(),
+    sb
+      .from(GIFT_TABLES.storeCashRecoveryObligations)
+      .select("id, amount_remaining, status")
+      .eq("store_id", sid)
+      .in("status", ["OPEN", "PARTIALLY_CLEARED"])
+      .limit(50),
+    sb
+      .from(GIFT_TABLES.instances)
+      .select("remaining_balance, status")
+      .eq("store_id", sid)
+      .in("status", ["ACTIVE", "PARTIALLY_REDEEMED", "GIFT_LOCKED"])
+      .limit(500),
   ]);
 
   if (ledgerRes.error) {
@@ -50,10 +62,21 @@ export async function GET(
       ? Math.trunc(availRes.data)
       : Math.trunc(Number(availRes.data) || 0);
 
+  const openRecoveryAmount = (recoveryRes.data ?? []).reduce(
+    (s, r) => s + Math.max(0, Math.trunc(Number((r as { amount_remaining?: number }).amount_remaining) || 0)),
+    0
+  );
+  const outstandingBalance = (outstandingRes.data ?? []).reduce(
+    (s, r) => s + Math.max(0, Math.trunc(Number((r as { remaining_balance?: number }).remaining_balance) || 0)),
+    0
+  );
+
   return NextResponse.json({
     ok: true,
     availableRevenue: available,
     storeCashBalance: cashRes.data ? Math.trunc(Number(cashRes.data.balance) || 0) : 0,
+    openRecoveryAmount,
+    outstandingBalance,
     ledger: ledgerRes.data ?? [],
   });
 }
