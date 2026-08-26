@@ -352,6 +352,20 @@ export async function applyStoreOrderStatusTransition(
       p_order_id: oid,
       p_allow_after_completed: true,
     });
+    // Paid gift reverse — best-effort; do not break refund if RPC missing / fails
+    try {
+      const { error: giftRevErr } = await sb.rpc("gift_certificate_redemption_reverse", {
+        p_order_id: oid,
+      });
+      if (giftRevErr) {
+        console.error(
+          "[applyStoreOrderStatusTransition] gift_certificate_redemption_reverse",
+          giftRevErr.message
+        );
+      }
+    } catch (e) {
+      console.error("[applyStoreOrderStatusTransition] gift_certificate_redemption_reverse", e);
+    }
   }
 
   if (nextStatus === "cancelled") {

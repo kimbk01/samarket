@@ -42,6 +42,17 @@ export function DeliveryActivityHub() {
             fallbackEn: "Coupons",
           })}
         </Link>
+        <Link
+          href="/mypage/gift-certificates?from=delivery-activity"
+          prefetch={false}
+          className={TAB_CLASS}
+          data-delivery-activity-tab="gift-certificates"
+        >
+          {safeT("store_coupon_delivery_activity_gifts", {
+            fallbackKo: "상품권",
+            fallbackEn: "Gift certificates",
+          })}
+        </Link>
       </nav>
     </div>
   );

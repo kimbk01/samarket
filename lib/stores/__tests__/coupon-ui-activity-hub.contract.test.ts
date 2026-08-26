@@ -22,6 +22,7 @@ describe("Coupon UI / Activity Hub presentation contracts", () => {
     const hub = readFileSync(join(process.cwd(), "components/orders/DeliveryActivityHub.tsx"), "utf8");
     expect(hub).toMatch(/href=\"\/orders\"/);
     expect(hub).toMatch(/mypage\/coupons\?from=delivery-activity/);
+    expect(hub).toMatch(/mypage\/gift-certificates\?from=delivery-activity/);
     expect(hub).toMatch(/data-delivery-activity-hub/);
   });
 
