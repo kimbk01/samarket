@@ -101,8 +101,7 @@ export async function loadCouponCampaignOpsBundle(
   const { data: campaigns, error } = await campaignQuery;
   if (error) return { ok: false, error: "db_error" };
 
-  let campaignRows = campaigns ?? [];
-  // couponNumber already resolved to campaign id above when searching by number.
+  const campaignRows = campaigns ?? [];
 
   const ids = campaignRows.map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
   const storeIds = [
