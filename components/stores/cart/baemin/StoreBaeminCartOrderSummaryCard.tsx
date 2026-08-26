@@ -18,6 +18,9 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   couponDiscountPhp?: number;
   couponTitle?: string | null;
   couponNumber?: string | null;
+  /** Gift redemption — never merged into coupon/discount lines. */
+  giftRedemptionPhp?: number;
+  giftTitle?: string | null;
   minOrderPhp: number;
   meetsMin: boolean;
   minShortage: number;
@@ -26,7 +29,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   freeDeliveryProgressPct: number;
   freeDeliveryMet: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const {
     subtotalPhp,
     discountAmountPhp,
@@ -37,6 +40,8 @@ export function StoreBaeminCartOrderSummaryCard(props: {
     couponDiscountPhp = 0,
     couponTitle = null,
     couponNumber = null,
+    giftRedemptionPhp = 0,
+    giftTitle = null,
     minOrderPhp,
     meetsMin,
     minShortage,
@@ -81,6 +86,26 @@ export function StoreBaeminCartOrderSummaryCard(props: {
             }
             value={`- ${formatMoneyPhp(couponDiscountPhp)}`}
             valueClassName="text-[color:var(--delivery-danger)]"
+          />
+        ) : null}
+        {giftRedemptionPhp > 0 ? (
+          <Row
+            label={
+              <>
+                {safeT("gift_u4_summary_gift_line", {
+                  fallbackKo: "상품권 사용",
+                  fallbackEn: "Gift certificate",
+                })}
+                {giftTitle ? (
+                  <span className="mt-0.5 block max-w-[200px] truncate text-[12px] font-normal text-[color:var(--delivery-text-muted)]">
+                    {giftTitle}
+                  </span>
+                ) : null}
+              </>
+            }
+            value={`- ${formatMoneyPhp(giftRedemptionPhp)}`}
+            valueClassName="text-[color:var(--delivery-danger)]"
+            dataAttr="data-cart-gift-summary-line"
           />
         ) : null}
         <Row
@@ -147,15 +172,17 @@ function Row({
   value,
   valueClassName = "text-[color:var(--delivery-text-main)]",
   valueAlign,
+  dataAttr,
 }: {
   label: ReactNode;
   value: ReactNode;
   valueClassName?: string;
   valueAlign?: "right";
+  dataAttr?: string;
 }) {
   return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-[color:var(--delivery-text-sub)]">{label}</dt>
+    <div className="flex justify-between gap-3" {...(dataAttr ? { [dataAttr]: "1" } : {})}>
+      <dt className="min-w-0 text-[color:var(--delivery-text-sub)]">{label}</dt>
       <dd
         className={`shrink-0 font-semibold tabular-nums ${valueClassName} ${valueAlign === "right" ? "text-right" : ""}`}
       >

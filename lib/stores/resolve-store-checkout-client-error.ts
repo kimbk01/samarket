@@ -31,6 +31,15 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   coupon_min_order: "store_err_coupon_min_order",
   coupon_already_redeemed: "store_err_coupon_already_redeemed",
   invalid_discount: "store_err_coupon_invalid",
+  gift_store_mismatch: "gift_u4_err_wrong_store",
+  gift_not_owner: "gift_u4_err_not_owner",
+  gift_insufficient_remaining: "gift_u4_err_insufficient",
+  gift_invalid_status: "gift_u4_err_invalid_status",
+  gift_instance_not_found: "gift_u4_err_generic",
+  gift_max_one_per_order: "gift_u4_err_generic",
+  invalid_gift_instance_ids: "gift_u4_err_generic",
+  invalid_gift_instance_id: "gift_u4_err_generic",
+  invalid_gift_redemption: "gift_u4_err_generic",
 };
 
 /** POST checkout API `error` code → localized message (client). */
@@ -41,6 +50,10 @@ export function resolveStoreCheckoutClientError(
 ): string {
   const api = opts?.apiMessage?.trim();
   if (api) return api;
+  // GIFT_LOCKED is returned as gift_invalid_status from API — prefer locked copy when code matches
+  if (code === "gift_locked") {
+    return t("gift_u4_err_gift_locked");
+  }
   const key = CHECKOUT_ERROR_KEY[code];
   if (key) return t(key);
   return t("store_err_order_failed", { code });

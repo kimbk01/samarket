@@ -126,6 +126,12 @@ import {
   writeStoreCheckoutCouponSession,
 } from "@/lib/stores/store-checkout-coupon-session";
 import { StoreCartCouponApplyPanel } from "@/components/stores/cart/StoreCartCouponApplyPanel";
+import { StoreCartGiftApplyPanel } from "@/components/stores/cart/StoreCartGiftApplyPanel";
+import {
+  checkoutGiftInstanceIdsPayload,
+  computeCheckoutGiftApplyPreview,
+  type CheckoutEligibleGift,
+} from "@/lib/gift-certificate/checkout-eligible-gifts";
 import { buildCartCouponLineViews } from "@/lib/stores/store-coupon-product-view";
 import { storeCouponCustomerProviderKey } from "@/lib/stores/store-coupon-issuer-resolve";
 import {
@@ -310,6 +316,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const couponChoiceLockedRef = useRef(false);
   const appliedUserCouponIdRef = useRef<string | null>(null);
   appliedUserCouponIdRef.current = appliedUserCouponId;
+  const [eligibleGifts, setEligibleGifts] = useState<CheckoutEligibleGift[]>([]);
+  const [appliedGiftInstanceId, setAppliedGiftInstanceId] = useState<string | null>(null);
+  const appliedGiftInstanceIdRef = useRef<string | null>(null);
+  appliedGiftInstanceIdRef.current = appliedGiftInstanceId;
 
   useLayoutEffect(() => {
     if (!cartHydrationFirstRenderRef.current) {
@@ -1228,6 +1238,38 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       cancelled = true;
     };
   }, [store?.id, subtotalPhp]);
+
+  useEffect(() => {
+    const sid = store?.id?.trim() ?? "";
+    if (!sid) {
+      setEligibleGifts([]);
+      setAppliedGiftInstanceId(null);
+      return;
+    }
+    let cancelled = false;
+    void fetch(`/api/me/gift-certificates/checkout-eligible?storeId=${encodeURIComponent(sid)}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { ok?: boolean; gifts?: CheckoutEligibleGift[] } | null) => {
+        if (cancelled || !json?.ok) return;
+        const gifts = Array.isArray(json.gifts) ? json.gifts : [];
+        setEligibleGifts(gifts);
+        const still = gifts.some((g) => g.instanceId === appliedGiftInstanceIdRef.current);
+        if (!still) setAppliedGiftInstanceId(null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEligibleGifts([]);
+          setAppliedGiftInstanceId(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store?.id]);
+
   const paymentGrandTotalPhp = subtotalPhp + deliveryFeeForCheckout;
   const pickupGrandTotalPhp = subtotalPhp;
 
@@ -1512,6 +1554,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         : {}),
         ...(appliedCouponCampaignId ? { coupon_campaign_id: appliedCouponCampaignId } : {}),
         ...(appliedUserCouponId ? { user_coupon_id: appliedUserCouponId } : {}),
+        ...(checkoutGiftInstanceIdsPayload(appliedGiftInstanceId)
+          ? { gift_instance_ids: checkoutGiftInstanceIdsPayload(appliedGiftInstanceId) }
+          : {}),
         client_order_key,
       });
       if (status === 401) {
@@ -1534,9 +1579,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (orderJson?.ok === true && orderJson.idempotent === true) {
         dibayPerfRecordOrderIdempotencyExistingHit(store.id);
       }
-      if (!orderJson?.ok) {
+        if (!orderJson?.ok) {
         clientOrderKeyRef.current = null;
         const code = typeof orderJson.error === "string" ? orderJson.error : "order_failed";
+        if (
+          code.startsWith("gift_") ||
+          code === "invalid_gift_instance_ids" ||
+          code === "invalid_gift_instance_id" ||
+          code === "invalid_gift_redemption"
+        ) {
+          setAppliedGiftInstanceId(null);
+        }
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
@@ -1558,6 +1611,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       clearStoreCheckoutCouponSession();
       setAppliedCouponCampaignId(null);
       setAppliedUserCouponId(null);
+      setAppliedGiftInstanceId(null);
       const placed = orderJson.order;
       if (
         oid &&
@@ -1750,8 +1804,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ])
     ),
   });
-  const displayGrand =
+  const displayGrandBeforeGift =
     (fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp) - couponDiscountPhp;
+  const selectedGift = eligibleGifts.find((g) => g.instanceId === appliedGiftInstanceId) ?? null;
+  const giftPreview = selectedGift
+    ? computeCheckoutGiftApplyPreview({
+        amountBeforeGift: displayGrandBeforeGift,
+        giftRemaining: selectedGift.remainingBalance,
+      })
+    : null;
+  const giftRedemptionPhp = giftPreview?.giftUsed ?? 0;
+  const displayGrand = Math.max(0, displayGrandBeforeGift - giftRedemptionPhp);
 
   const checkoutStrikeGrand =
     discountAmountPhp > 0
@@ -1846,6 +1909,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         />
       ) : null}
 
+      <StoreCartGiftApplyPanel
+        gifts={eligibleGifts}
+        appliedInstanceId={appliedGiftInstanceId}
+        amountBeforeGift={displayGrandBeforeGift}
+        onChooseNone={() => setAppliedGiftInstanceId(null)}
+        onChoose={(gift) => setAppliedGiftInstanceId(gift.instanceId)}
+      />
+
       <StoreBaeminCartOrderSummaryCard
         subtotalPhp={subtotalPhp}
         discountAmountPhp={discountAmountPhp}
@@ -1856,6 +1927,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         couponDiscountPhp={couponDiscountPhp}
         couponTitle={couponTitleForSummary}
         couponNumber={couponNumberForSummary}
+        giftRedemptionPhp={giftRedemptionPhp}
+        giftTitle={selectedGift?.title ?? null}
         minOrderPhp={minOrderPhp}
         meetsMin={meetsMin}
         minShortage={minShortage}

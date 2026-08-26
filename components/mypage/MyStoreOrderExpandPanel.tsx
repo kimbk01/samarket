@@ -283,7 +283,7 @@ export function MyStoreOrderExpandPanel({
   listSeed?: BuyerStoreOrderExpandListSeed | null;
   onOrderMutated?: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const dateLocale = language === "ko" ? "ko-KR" : "en-PH";
 
   const [state, setState] = useState<PanelState>(() => buildInitialPanelState(orderId, listSeed));
@@ -581,6 +581,45 @@ export function MyStoreOrderExpandPanel({
               <span>−{formatMoneyPhp(Math.round(Number(order.discount_amount) || 0))}</span>
             </div>
           ) : null}
+          {Math.round(Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0) >
+          0 ? (
+            <div className="mt-1 flex justify-between gap-2 text-red-600" data-order-gift-redemption="1">
+              <span>
+                {safeT("gift_u4_order_gift_line", {
+                  fallbackKo: "상품권 사용",
+                  fallbackEn: "Gift certificate",
+                })}
+              </span>
+              <span>
+                −
+                {formatMoneyPhp(
+                  Math.round(
+                    Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0
+                  )
+                )}
+              </span>
+            </div>
+          ) : null}
+          {(() => {
+            const giftUsed = Math.round(
+              Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0
+            );
+            const st = String(order.order_status ?? "").toLowerCase();
+            const refunded =
+              st === "refunded" || st === "cancelled" || String(order.payment_status ?? "") === "refunded";
+            if (!giftUsed || !refunded) return null;
+            return (
+              <div className="mt-1 flex justify-between gap-2 text-emerald-700" data-order-gift-restored="1">
+                <span>
+                  {safeT("gift_u4_order_gift_restored", {
+                    fallbackKo: "상품권 복구",
+                    fallbackEn: "Gift restored",
+                  })}
+                </span>
+                <span>+{formatMoneyPhp(giftUsed)}</span>
+              </div>
+            );
+          })()}
           <div className="mt-1 flex justify-between gap-2 text-[#6B7280]">
             <span>{t("mypage_comp_delivery_fee")}</span>
             <span>

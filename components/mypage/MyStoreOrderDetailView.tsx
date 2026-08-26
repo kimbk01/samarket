@@ -94,6 +94,8 @@ type OrderDetail = {
   total_amount: number;
   discount_amount: number;
   payment_amount: number;
+  gift_redemption_amount?: number;
+  amount_before_gift?: number;
   coupon_offer_title?: string | null;
   coupon_number?: string | null;
   user_coupon_id?: string | null;
@@ -153,7 +155,7 @@ function formatPrepClock(iso: string | null | undefined, locale: string): string
 }
 
 export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: boolean }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const dateLocale = language === "ko" ? "ko-KR" : "en-PH";
   const params = useParams();
   const router = useRouter();
@@ -903,6 +905,42 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 </span>
               </div>
             ) : null}
+            {Math.round(Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0) >
+            0 ? (
+              <div className="flex justify-between gap-3 text-sam-fg" data-order-gift-redemption="1">
+                <span>
+                  {safeT("gift_u4_order_gift_line", {
+                    fallbackKo: "상품권 사용",
+                    fallbackEn: "Gift certificate",
+                  })}
+                </span>
+                <span className="font-medium text-red-600">
+                  −
+                  {formatMoneyPhp(
+                    Math.round(Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0)
+                  )}
+                </span>
+              </div>
+            ) : null}
+            {(() => {
+              const giftUsed = Math.round(
+                Number((order as { gift_redemption_amount?: number }).gift_redemption_amount) || 0
+              );
+              const st = String(order.order_status ?? "").toLowerCase();
+              const refunded = st === "refunded" || st === "cancelled" || order.payment_status === "refunded";
+              if (!giftUsed || !refunded) return null;
+              return (
+                <div className="flex justify-between gap-3 text-sam-fg" data-order-gift-restored="1">
+                  <span>
+                    {safeT("gift_u4_order_gift_restored", {
+                      fallbackKo: "상품권 복구",
+                      fallbackEn: "Gift restored",
+                    })}
+                  </span>
+                  <span className="font-medium text-emerald-700">+{formatMoneyPhp(giftUsed)}</span>
+                </div>
+              );
+            })()}
             <div className="flex justify-between gap-3 text-sam-fg">
               <span>{t("mypage_comp_delivery_fee")}</span>
               <span className="font-medium text-sam-fg">
