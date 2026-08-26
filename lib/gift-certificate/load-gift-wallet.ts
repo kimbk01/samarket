@@ -12,6 +12,7 @@ export type GiftWalletInstance = {
   storeName: string;
   title: string;
   imageUrl: string | null;
+  transferable: boolean;
   faceValue: number;
   purchasePrice: number;
   remainingBalance: number;
@@ -59,6 +60,7 @@ function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
     storeName,
     title: product?.title != null ? String(product.title) : "",
     imageUrl: product?.image_url == null ? null : String(product.image_url),
+    transferable: product?.transferable !== false,
     faceValue: Math.trunc(Number(row.face_value) || 0),
     purchasePrice: Math.trunc(Number(row.purchase_price) || 0),
     remainingBalance: Math.trunc(Number(row.remaining_balance) || 0),
@@ -92,7 +94,7 @@ export async function loadGiftWallet(
     sb
       .from(GIFT_TABLES.instances)
       .select(
-        "id, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, stores(store_name))"
+        "id, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, transferable, stores(store_name))"
       )
       .eq("current_owner_user_id", uid)
       .order("created_at", { ascending: false })
@@ -112,7 +114,7 @@ export async function loadGiftWallet(
         "id, instance_id, sender_user_id, recipient_user_id, room_id, status, created_at, resolved_at"
       )
       .eq("sender_user_id", uid)
-      .in("status", ["PENDING", "ACCEPTED", "REJECTED"])
+      .in("status", ["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"])
       .order("created_at", { ascending: false })
       .limit(100),
   ]);

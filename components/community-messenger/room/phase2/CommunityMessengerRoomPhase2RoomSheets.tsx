@@ -4,6 +4,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useEffect,
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -48,13 +49,15 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
-import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
+import { Crown, Gift, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
+import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerGiftOfferFlow";
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
@@ -64,10 +67,33 @@ import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
+  const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
+  const [giftOfferOpen, setGiftOfferOpen] = useState(false);
+  const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   const isAttachMenuSheet = vm.activeSheet === "attach";
+  const roomChatDomain = String(vm.snapshot?.room?.chatDomain ?? "").trim();
+  const peerUserId = String(vm.snapshot?.room?.peerUserId ?? "").trim();
+  const peerMember = (vm.snapshot?.members ?? []).find(
+    (m: { id?: string }) => String(m.id ?? "") === peerUserId
+  ) as { isFriend?: boolean } | undefined;
+  const peerIsFriend =
+    vm.snapshot?.peerFriendshipState === "accepted" || Boolean(peerMember?.isFriend);
+  const showGiftAttach = !vm.isGroupRoom && roomChatDomain === "general_direct" && Boolean(peerUserId);
+  const giftEligible = showGiftAttach && peerIsFriend && !vm.roomUnavailable;
+
+  useEffect(() => {
+    if (!giftEligible) return;
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("openGift") !== "1") return;
+    const iid = sp.get("giftInstanceId")?.trim() || "";
+    setGiftPreselectInstanceId(iid || null);
+    setGiftOfferOpen(true);
+  }, [giftEligible]);
+
   const dismissSheet = () => {
     if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
     else vm.dismissRoomSheet();
@@ -181,6 +207,42 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.t("common_location")}
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
+                  {showGiftAttach ? (
+                    <button
+                      type="button"
+                      data-messenger-gift-attach-cta="1"
+                      onClick={() => {
+                        if (!giftEligible) {
+                          showMessengerSnackbar(
+                            safeT("gift_u3_friend_only", {
+                              fallbackKo: "친구로 추가한 회원에게만 상품권을 선물할 수 있습니다.",
+                              fallbackEn:
+                                "You can only send gift certificates to members you’ve added as friends.",
+                            }),
+                            { variant: "error" }
+                          );
+                          return;
+                        }
+                        vm.dismissRoomSheet();
+                        setGiftOfferOpen(true);
+                      }}
+                      disabled={vm.roomUnavailable || composerOutboundBusy}
+                      className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <Gift
+                          className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                        {safeT("gift_u3_attach_cta", {
+                          fallbackKo: "상품권 선물",
+                          fallbackEn: "Send gift certificate",
+                        })}
+                      </span>
+                      <span className="text-[color:var(--cm-room-text-muted)]">›</span>
+                    </button>
+                  ) : null}
                 </nav>
                 <div className="px-4 py-2">
                   <button
@@ -1785,6 +1847,34 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             const kind = groupOutgoingConfirmKind;
             setGroupOutgoingConfirmKind(null);
             void vm.startGroupCall(kind);
+          }}
+        />
+      ) : null}
+      {giftOfferOpen && peerUserId && vm.snapshot?.room?.id ? (
+        <MessengerGiftOfferFlow
+          open={giftOfferOpen}
+          onClose={() => {
+            setGiftOfferOpen(false);
+            setGiftPreselectInstanceId(null);
+          }}
+          roomId={String(vm.snapshot.room.id)}
+          recipientUserId={peerUserId}
+          recipientLabel={vm.snapshot.room.title?.trim() || undefined}
+          preselectedInstanceId={giftPreselectInstanceId}
+          onOffered={() => {
+            void (async () => {
+              try {
+                await vm.refresh?.(true);
+              } catch {
+                /* ignore */
+              }
+              // Ensure gift card projection appears even if soft refresh races insert.
+              if (typeof window !== "undefined") {
+                window.setTimeout(() => {
+                  void vm.refresh?.(true);
+                }, 400);
+              }
+            })();
           }}
         />
       ) : null}

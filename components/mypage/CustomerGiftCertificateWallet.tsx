@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftArtwork } from "@/components/gift-certificate/GiftArtwork";
+import { WalletGiftFriendPicker } from "@/components/gift-certificate/WalletGiftFriendPicker";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import type { GiftWalletPayload } from "@/lib/gift-certificate/load-gift-wallet";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
@@ -40,6 +41,7 @@ export function CustomerGiftCertificateWallet() {
   const [wallet, setWallet] = useState<GiftWalletPayload | null>(null);
   const [authed, setAuthed] = useState(true);
   const [ready, setReady] = useState(false);
+  const [sendInstanceId, setSendInstanceId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/me/gift-certificates/wallet", {
@@ -168,11 +170,15 @@ export function CustomerGiftCertificateWallet() {
           </div>
         ) : (
           <ul className="min-w-0 space-y-3 pb-8">
-            {availableRows.map((row) => (
+            {availableRows.map((row) => {
+              const locked = row.status === "GIFT_LOCKED";
+              const canSend = row.transferable && !locked && row.remainingBalance > 0;
+              return (
               <li
                 key={row.id}
                 className="flex min-w-0 gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
                 data-gift-instance={row.id}
+                data-gift-instance-status={row.status}
               >
                 <GiftArtwork src={row.imageUrl} alt={row.title} size={64} className="shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -192,20 +198,44 @@ export function CustomerGiftCertificateWallet() {
                     })}{" "}
                     {row.remainingBalance.toLocaleString()} / {row.faceValue.toLocaleString()}
                   </p>
-                  <Link
-                    href={`/stores/gift-mall/${encodeURIComponent(row.productId)}`}
-                    prefetch={false}
-                    className="mt-2 inline-flex text-sm font-medium text-signature"
-                    data-gift-wallet-detail-cta={row.id}
-                  >
-                    {safeT("gift_u2_wallet_detail_cta", {
-                      fallbackKo: "상품권 상세",
-                      fallbackEn: "Gift details",
-                    })}
-                  </Link>
+                  {locked ? (
+                    <p className="mt-1 text-xs font-medium text-sam-danger">
+                      {safeT("gift_u3_wallet_pending_lock", {
+                        fallbackKo: "수령 대기 중",
+                        fallbackEn: "Awaiting accept",
+                      })}
+                    </p>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    <Link
+                      href={`/stores/gift-mall/${encodeURIComponent(row.productId)}`}
+                      prefetch={false}
+                      className="inline-flex text-sm font-medium text-signature"
+                      data-gift-wallet-detail-cta={row.id}
+                    >
+                      {safeT("gift_u2_wallet_detail_cta", {
+                        fallbackKo: "상품권 상세",
+                        fallbackEn: "Gift details",
+                      })}
+                    </Link>
+                    {canSend ? (
+                      <button
+                        type="button"
+                        className="inline-flex text-sm font-medium text-signature"
+                        data-gift-wallet-send-cta={row.id}
+                        onClick={() => setSendInstanceId(row.id)}
+                      >
+                        {safeT("gift_u3_wallet_send", {
+                          fallbackKo: "선물하기",
+                          fallbackEn: "Send as gift",
+                        })}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )
       ) : tab === "pending" ? (
@@ -245,9 +275,41 @@ export function CustomerGiftCertificateWallet() {
                 key={t.id}
                 className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
                 data-gift-transfer={t.id}
+                data-gift-transfer-status={t.status}
               >
                 <p className="text-sm font-semibold text-sam-fg">{t.status}</p>
                 <p className="text-xs text-sam-muted">{t.createdAt}</p>
+                {String(t.status).toUpperCase() === "PENDING" ? (
+                  <button
+                    type="button"
+                    className="mt-2 text-sm font-medium text-signature"
+                    data-gift-wallet-cancel-cta={t.id}
+                    onClick={() => {
+                      void (async () => {
+                        if (
+                          !window.confirm(
+                            safeT("gift_u3_card_cancel_confirm", {
+                              fallbackKo: "상품권 선물을 취소할까요?",
+                              fallbackEn: "Cancel this gift offer?",
+                            })
+                          )
+                        ) {
+                          return;
+                        }
+                        await fetch(
+                          `/api/me/gift-certificates/transfers/${encodeURIComponent(t.id)}/cancel`,
+                          { method: "POST", credentials: "include" }
+                        );
+                        await load();
+                      })();
+                    }}
+                  >
+                    {safeT("gift_u3_wallet_cancel_gift", {
+                      fallbackKo: "선물 취소",
+                      fallbackEn: "Cancel gift",
+                    })}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -278,6 +340,13 @@ export function CustomerGiftCertificateWallet() {
           ))}
         </ul>
       )}
+      {sendInstanceId ? (
+        <WalletGiftFriendPicker
+          open
+          instanceId={sendInstanceId}
+          onClose={() => setSendInstanceId(null)}
+        />
+      ) : null}
     </div>
   );
 }

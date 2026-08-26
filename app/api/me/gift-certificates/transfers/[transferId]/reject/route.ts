@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { giftCertificateReject } from "@/lib/gift-certificate/gift-certificate-rpc";
+import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { notifyGiftTransferRejected } from "@/lib/gift-certificate/notify-gift-transfer";
 import { projectGiftTransferMessengerStatus } from "@/lib/gift-certificate/project-gift-transfer-messenger-status";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -40,5 +42,21 @@ export async function POST(
     transferId: tid,
     transferStatus: "REJECTED",
   }).catch(() => {});
+
+  const { data: transferRow } = await sb
+    .from(GIFT_TABLES.transfers)
+    .select("sender_user_id, recipient_user_id, room_id, instance_id")
+    .eq("id", tid)
+    .maybeSingle();
+  if (transferRow) {
+    await notifyGiftTransferRejected(sb, {
+      senderUserId: String((transferRow as { sender_user_id?: string }).sender_user_id ?? ""),
+      recipientUserId: userId,
+      transferId: tid,
+      roomId: (transferRow as { room_id?: string | null }).room_id ?? null,
+      instanceId: String((transferRow as { instance_id?: string }).instance_id ?? ""),
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, ...result.data });
 }

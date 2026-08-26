@@ -202,6 +202,12 @@ export const notificationMessages = {
     notify_community_reply_title: "새 답글",
     notify_community_like_title: "좋아요",
     notify_community_like_body: "{name}님이 게시글을 좋아합니다.",
+    notify_gift_transfer_offered_title: "상품권 선물",
+    notify_gift_transfer_offered_body: "{name}님이 상품권을 보냈습니다.",
+    notify_gift_transfer_accepted_title: "상품권 수령",
+    notify_gift_transfer_accepted_body: "{name}님이 상품권을 수령했습니다.",
+    notify_gift_transfer_rejected_title: "상품권 거절",
+    notify_gift_transfer_rejected_body: "{name}님이 상품권을 거절했습니다.",
   },
   en: {
     notify_chat_new_message_title: "New message",
@@ -406,6 +412,11 @@ export const notificationMessages = {
     notify_community_reply_title: "New reply",
     notify_community_like_title: "Like",
     notify_community_like_body: "{name} liked your post.",
+    notify_gift_transfer_offered_title: "Gift certificate",
+    notify_gift_transfer_offered_body: "{name} sent you a gift certificate.",
+    notify_gift_transfer_accepted_title: "Gift accepted",
+    notify_gift_transfer_accepted_body: "{name} accepted your gift certificate.",
+    notify_gift_transfer_rejected_title: "Gift declined",
+    notify_gift_transfer_rejected_body: "{name} declined your gift certificate.",
   },
-  
 } as const;

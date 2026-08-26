@@ -23,6 +23,7 @@ import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
 import { giftCertificateU1Messages } from "./catalog/gift-certificate-u1";
 import { giftCertificateU2Messages } from "./catalog/gift-certificate-u2";
+import { giftCertificateU3Messages } from "./catalog/gift-certificate-u3";
 import { pointsLabelsMessages } from "./catalog/points-labels";
 import { postListPreviewMessages } from "./catalog/post-list-preview";
 import { categoryLabelsMessages } from "./catalog/category-labels";
@@ -84,6 +85,7 @@ export const MESSAGES = {
     ...storeCouponSsotMessages.ko,
     ...giftCertificateU1Messages.ko,
     ...giftCertificateU2Messages.ko,
+    ...giftCertificateU3Messages.ko,
     ...pointsLabelsMessages.ko,
     ...postListPreviewMessages.ko,
     ...categoryLabelsMessages.ko,
@@ -144,6 +146,7 @@ export const MESSAGES = {
     ...storeCouponSsotMessages.en,
     ...giftCertificateU1Messages.en,
     ...giftCertificateU2Messages.en,
+    ...giftCertificateU3Messages.en,
     ...pointsLabelsMessages.en,
     ...postListPreviewMessages.en,
     ...categoryLabelsMessages.en,
