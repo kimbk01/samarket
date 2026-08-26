@@ -14,6 +14,7 @@ import {
   Settings,
   Settings2,
   TicketPercent,
+  Gift,
   Truck,
   Wallet,
 } from "lucide-react";
@@ -36,6 +37,7 @@ const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
   store_points: Wallet,
   ads: Sparkles,
   coupons: TicketPercent,
+  gift_certificates: Gift,
   notifications: Bell,
 };
 

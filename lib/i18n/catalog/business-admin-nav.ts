@@ -56,6 +56,10 @@ export const businessAdminNavMessages = {
 
     biz_nav_coupons_desc: "매장 쿠폰 발행·중지",
 
+    biz_nav_gift_certificates: "상품권",
+
+    biz_nav_gift_certificates_desc: "유료 상품권 판매 신청·현황",
+
     biz_nav_notices: "공지 관리",
 
     biz_nav_notices_desc: "위치별 공지",
@@ -168,6 +172,10 @@ export const businessAdminNavMessages = {
     biz_nav_coupons: "Coupons",
 
     biz_nav_coupons_desc: "Issue and pause store coupons",
+
+    biz_nav_gift_certificates: "Gift certificates",
+
+    biz_nav_gift_certificates_desc: "Apply to sell paid gift certificates",
 
     biz_nav_notices: "Notices",
 

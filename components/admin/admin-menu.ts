@@ -134,6 +134,9 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-ads-section": "admin_menu_store_ads_section",
   "store-coupons-control": "admin_menu_store_coupons_control",
   "store-coupon-control-center": "admin_menu_store_coupon_control_center",
+  "gift-certificates": "admin_menu_gift_certificates",
+  "gift-applications": "admin_menu_gift_applications",
+  "gift-products": "admin_menu_gift_products",
   "store-promo-control": "admin_menu_store_promo_control",
   "stores-home-management": "admin_menu_stores_home_management",
   "stores-home-shelves": "admin_menu_stores_home_shelves",
@@ -535,6 +538,25 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/store-coupon-control",
             status: "done",
+          },
+          {
+            key: "gift-certificates",
+            title: "",
+            status: "done",
+            children: [
+              {
+                key: "gift-applications",
+                title: "",
+                path: "/admin/gift-certificates/applications",
+                status: "done",
+              },
+              {
+                key: "gift-products",
+                title: "",
+                path: "/admin/gift-certificates/products",
+                status: "done",
+              },
+            ],
           },
           {
             key: "store-promo-control",

@@ -57,6 +57,17 @@ export const OwnerRoutes = {
     if (!id) return base;
     return `${base}${base.includes("?") ? "&" : "?"}campaign=${encodeURIComponent(id)}`;
   },
+  /** Paid Gift Certificate — separate from free coupons / business credit */
+  giftCertificates: (storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId),
+  giftCertificatesApply: (storeId?: string | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}view=apply`;
+  },
+  giftCertificatesHistory: (storeId?: string | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}view=history`;
+  },
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
   points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),

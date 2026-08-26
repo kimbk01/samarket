@@ -5,7 +5,68 @@ import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** PATCH /api/admin/gift-certificates/applications/[id] — approve/reject */
+const APP_SELECT =
+  "id, store_id, owner_user_id, title, requested_face_value, requested_purchase_price, image_url, status, design_notes, rejection_reason, created_at, updated_at";
+
+/** GET /api/admin/gift-certificates/applications/[id] */
+export async function GET(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+
+  const { id } = await context.params;
+  const appId = typeof id === "string" ? id.trim() : "";
+  if (!appId) {
+    return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+  }
+
+  const { data, error } = await gate.sb
+    .from(GIFT_TABLES.applications)
+    .select(`${APP_SELECT}, stores(store_name, slug)`)
+    .eq("id", appId)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ ok: false, error: "application_not_found" }, { status: 404 });
+  }
+
+  const row = data as Record<string, unknown>;
+  const storesRaw = row.stores;
+  const storeObj = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
+  const storeName =
+    storeObj && typeof storeObj === "object" && (storeObj as { store_name?: unknown }).store_name != null
+      ? String((storeObj as { store_name: unknown }).store_name)
+      : "";
+
+  return NextResponse.json({
+    ok: true,
+    application: {
+      id: String(row.id),
+      store_id: String(row.store_id),
+      store_name: storeName,
+      owner_user_id: String(row.owner_user_id),
+      title: String(row.title ?? ""),
+      requested_face_value: Math.trunc(Number(row.requested_face_value) || 0),
+      requested_purchase_price:
+        row.requested_purchase_price == null
+          ? null
+          : Math.trunc(Number(row.requested_purchase_price) || 0),
+      image_url: row.image_url == null ? null : String(row.image_url),
+      status: String(row.status ?? ""),
+      design_notes: row.design_notes == null ? null : String(row.design_notes),
+      rejection_reason: row.rejection_reason == null ? null : String(row.rejection_reason),
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? ""),
+    },
+  });
+}
+
+/** PATCH /api/admin/gift-certificates/applications/[id] — approve/reject/under_review */
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -35,13 +96,22 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
   }
 
+  const rejectionReason = String(body.rejectionReason ?? body.rejection_reason ?? "").trim();
+  if (status === "rejected" && !rejectionReason) {
+    return NextResponse.json({ ok: false, error: "rejection_reason_required" }, { status: 400 });
+  }
+
+  const patch: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+    rejection_reason: status === "rejected" ? rejectionReason : null,
+  };
+
   const { data, error } = await gate.sb
     .from(GIFT_TABLES.applications)
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq("id", appId)
-    .select(
-      "id, store_id, owner_user_id, title, requested_face_value, status, design_notes, created_at, updated_at"
-    )
+    .select(APP_SELECT)
     .maybeSingle();
 
   if (error) {
