@@ -12,11 +12,17 @@ import {
   giftTransferErrorFallbacks,
   mapGiftTransferErrorKey,
 } from "@/lib/gift-certificate/map-gift-transfer-error";
+import {
+  rememberGiftTransferUiStatus,
+  resolveGiftTransferUiStatus,
+  type GiftTransferUiStatus,
+} from "@/lib/gift-certificate/gift-transfer-ui-status";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
  * Chat presentation for gift_certificate messages.
  * Accept/reject/cancel call Gift Transfer APIs — never mutate balance client-side.
+ * After mutation success, session-local transfer status outranks stale message metadata.
  */
 export function MessengerGiftCertificateCard(props: {
   metadata: unknown;
@@ -25,8 +31,11 @@ export function MessengerGiftCertificateCard(props: {
 }) {
   const { safeT } = useI18n();
   const meta = parseGiftCertificateMessageMetadata(props.metadata);
+  const initialStatus: GiftTransferUiStatus = meta
+    ? resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status)
+    : "PENDING";
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState(meta?.transfer_status ?? "PENDING");
+  const [status, setStatus] = useState<GiftTransferUiStatus>(initialStatus);
   const [confirmKind, setConfirmKind] = useState<null | "reject" | "cancel">(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -41,6 +50,9 @@ export function MessengerGiftCertificateCard(props: {
     );
   }
 
+  // Remount-safe: prefer remembered success over stale PENDING snapshot on this render.
+  const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, status);
+
   const face = meta.face_value != null ? formatMoneyPhp(meta.face_value) : "—";
   const remaining =
     meta.remaining_balance != null ? meta.remaining_balance.toLocaleString() : null;
@@ -48,7 +60,7 @@ export function MessengerGiftCertificateCard(props: {
   const storeName = meta.store_name?.trim() || null;
 
   async function act(kind: "accept" | "reject" | "cancel") {
-    if (busy || status !== "PENDING") return;
+    if (busy || displayStatus !== "PENDING") return;
     setBusy(true);
     setErrorMsg(null);
     try {
@@ -58,8 +70,9 @@ export function MessengerGiftCertificateCard(props: {
       );
       const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (res.ok && json?.ok) {
-        const next =
+        const next: GiftTransferUiStatus =
           kind === "accept" ? "ACCEPTED" : kind === "reject" ? "REJECTED" : "CANCELLED";
+        rememberGiftTransferUiStatus(meta!.gift_transfer_id, next);
         setStatus(next);
         props.onStatusChange?.(next);
         setConfirmKind(null);
@@ -77,7 +90,7 @@ export function MessengerGiftCertificateCard(props: {
       className="min-w-[220px] max-w-[280px] rounded-ui-rect border border-sam-border bg-sam-surface p-3"
       data-messenger-gift-certificate-card="1"
       data-gift-transfer-id={meta.gift_transfer_id}
-      data-transfer-status={status}
+      data-transfer-status={displayStatus}
     >
       <div className="flex gap-2">
         <GiftArtwork src={meta.image_url} alt={title ?? ""} size={56} className="shrink-0" />
@@ -97,17 +110,17 @@ export function MessengerGiftCertificateCard(props: {
         </div>
       </div>
       <p className="mt-2 text-xs text-sam-muted">
-        {status === "PENDING"
+        {displayStatus === "PENDING"
           ? safeT("gift_cert_chat_status_pending", {
               fallbackKo: "수령 대기",
               fallbackEn: "Awaiting accept",
             })
-          : status === "ACCEPTED"
+          : displayStatus === "ACCEPTED"
             ? safeT("gift_cert_chat_status_accepted", {
                 fallbackKo: "수령 완료",
                 fallbackEn: "Accepted",
               })
-            : status === "REJECTED"
+            : displayStatus === "REJECTED"
               ? safeT("gift_cert_chat_status_rejected", {
                   fallbackKo: "거절됨",
                   fallbackEn: "Rejected",
@@ -118,14 +131,21 @@ export function MessengerGiftCertificateCard(props: {
                 })}
       </p>
       {errorMsg ? <p className="mt-1 text-xs text-sam-danger">{errorMsg}</p> : null}
-      {props.isRecipient && status === "PENDING" ? (
-        <div className="mt-3 flex gap-2">
+      {props.isRecipient && displayStatus === "PENDING" ? (
+        <div
+          className="mt-3 flex gap-2"
+          // Timeline bubble long-press uses setPointerCapture on the parent; stop here so CTA taps work.
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             disabled={busy}
             data-gift-card-accept="1"
             className="flex-1 rounded-ui-rect bg-signature px-2 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            onClick={() => void act("accept")}
+            onClick={(e) => {
+              e.stopPropagation();
+              void act("accept");
+            }}
           >
             {safeT("gift_cert_chat_accept", {
               fallbackKo: "상품권 수령하기",
@@ -137,7 +157,10 @@ export function MessengerGiftCertificateCard(props: {
             disabled={busy}
             data-gift-card-reject="1"
             className="flex-1 rounded-ui-rect border border-sam-border px-2 py-2 text-sm font-semibold text-sam-fg disabled:opacity-60"
-            onClick={() => setConfirmKind("reject")}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmKind("reject");
+            }}
           >
             {safeT("gift_cert_chat_reject", {
               fallbackKo: "거절",
@@ -146,13 +169,17 @@ export function MessengerGiftCertificateCard(props: {
           </button>
         </div>
       ) : null}
-      {!props.isRecipient && status === "PENDING" ? (
+      {!props.isRecipient && displayStatus === "PENDING" ? (
         <button
           type="button"
           disabled={busy}
           data-gift-card-cancel="1"
           className="mt-3 w-full rounded-ui-rect border border-sam-border px-2 py-2 text-sm font-semibold text-sam-fg disabled:opacity-60"
-          onClick={() => setConfirmKind("cancel")}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmKind("cancel");
+          }}
         >
           {safeT("gift_u3_card_cancel", {
             fallbackKo: "선물 취소",
@@ -160,7 +187,7 @@ export function MessengerGiftCertificateCard(props: {
           })}
         </button>
       ) : null}
-      {props.isRecipient && status === "ACCEPTED" ? (
+      {props.isRecipient && displayStatus === "ACCEPTED" ? (
         <a
           href="/mypage/gift-certificates"
           className="mt-3 block text-center text-sm font-semibold text-signature underline"

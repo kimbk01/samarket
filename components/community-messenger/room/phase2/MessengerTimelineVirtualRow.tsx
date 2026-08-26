@@ -252,7 +252,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   };
 
   const bindMessageInteraction =
-    item.messageType === "system"
+    item.messageType === "system" || item.messageType === "gift_certificate"
       ? {}
       : item.messageType === "call_stub"
         ? {
