@@ -315,30 +315,31 @@ export async function POST(req: NextRequest) {
     if (buyerId === String(store.owner_user_id ?? "")) {
       return NextResponse.json({ ok: false, error: "owner_self_order_denied" }, { status: 403 });
     }
-    let heldExpiresAtMs: number | null = null;
-    if (userCouponId) {
-      const { data: ent } = await sb
-        .from("coupon_user_entitlements")
-        .select("id, status, campaign_id, buyer_user_id, expires_at")
-        .eq("id", userCouponId)
-        .maybeSingle();
-      if (
-        !ent ||
-        String(ent.buyer_user_id) !== buyerId ||
-        String(ent.campaign_id) !== couponCampaignId ||
-        !["available", "restored"].includes(String(ent.status))
-      ) {
-        return NextResponse.json({ ok: false, error: "coupon_not_found" }, { status: 400 });
-      }
-      heldExpiresAtMs = Date.parse(String(ent.expires_at ?? ""));
+    // Canonical: Coupon Instance required — campaign-only checkout DELETED
+    if (!userCouponId) {
+      return NextResponse.json({ ok: false, error: "coupon_entitlement_required" }, { status: 400 });
     }
+    const { data: ent } = await sb
+      .from("coupon_user_entitlements")
+      .select("id, status, campaign_id, buyer_user_id, expires_at")
+      .eq("id", userCouponId)
+      .maybeSingle();
+    if (
+      !ent ||
+      String(ent.buyer_user_id) !== buyerId ||
+      String(ent.campaign_id) !== couponCampaignId ||
+      !["available", "restored"].includes(String(ent.status))
+    ) {
+      return NextResponse.json({ ok: false, error: "coupon_not_found" }, { status: 400 });
+    }
+    const heldExpiresAtMs = Date.parse(String(ent.expires_at ?? ""));
     const couponResult = await resolveStoreCouponCheckoutDiscount({
       sb,
       buyerUserId: buyerId,
       storeId,
       couponCampaignId,
       itemGrossPhp: Math.round(paymentTotal),
-      heldUsableEntitlement: Boolean(userCouponId),
+      heldUsableEntitlement: true,
       usageWindowEndMs: Number.isFinite(heldExpiresAtMs) ? heldExpiresAtMs : null,
     });
     if (!couponResult.ok) {
@@ -576,10 +577,10 @@ export async function POST(req: NextRequest) {
       delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
       delivery_user_address_id: deliveryUserAddressId,
       ...etaSnapshot,
-      ...(couponCampaignId && discountAmount > 0
+      ...(couponCampaignId && discountAmount > 0 && userCouponId
         ? {
             coupon_campaign_id: couponCampaignId,
-            ...(userCouponId ? { user_coupon_id: userCouponId } : {}),
+            user_coupon_id: userCouponId,
             store_funded_amount: storeFundedAmount,
             platform_funded_amount: platformFundedAmount,
             commission_base_amount: commissionBaseAmount,
@@ -623,6 +624,46 @@ export async function POST(req: NextRequest) {
   const orderId = atomic.order.id;
   const resolvedOrderNo = atomic.order.order_no || orderNo;
   const paymentAmount = atomic.order.payment_amount;
+
+  if (userCouponId && discountAmount > 0) {
+    try {
+      const { data: entSnap } = await sb
+        .from("coupon_user_entitlements")
+        .select("coupon_number, offer_snapshot, store_coupon_campaigns(title)")
+        .eq("id", userCouponId)
+        .maybeSingle();
+      const snap = (entSnap as { offer_snapshot?: unknown } | null)?.offer_snapshot;
+      let couponOfferTitle = "";
+      if (snap && typeof snap === "object" && !Array.isArray(snap) && (snap as { title?: unknown }).title != null) {
+        couponOfferTitle = String((snap as { title?: unknown }).title).trim();
+      }
+      if (!couponOfferTitle) {
+        const campRaw = (entSnap as { store_coupon_campaigns?: unknown } | null)?.store_coupon_campaigns;
+        const camp = Array.isArray(campRaw) ? campRaw[0] : campRaw;
+        if (camp && typeof camp === "object" && (camp as { title?: unknown }).title != null) {
+          couponOfferTitle = String((camp as { title?: unknown }).title).trim();
+        }
+      }
+      const couponNumber =
+        (entSnap as { coupon_number?: string | null } | null)?.coupon_number == null
+          ? ""
+          : String((entSnap as { coupon_number?: string }).coupon_number).trim();
+      if (couponOfferTitle || couponNumber) {
+        const { error: couponSnapErr } = await sb
+          .from("store_orders")
+          .update({
+            ...(couponOfferTitle ? { coupon_offer_title: couponOfferTitle } : {}),
+            ...(couponNumber ? { coupon_number: couponNumber } : {}),
+          })
+          .eq("id", orderId);
+        if (couponSnapErr) {
+          console.error("[POST /api/me/store-orders] coupon display snapshot", couponSnapErr.message);
+        }
+      }
+    } catch (e) {
+      console.error("[POST /api/me/store-orders] coupon display snapshot", e);
+    }
+  }
 
   if (atomic.idempotent) {
     return NextResponse.json({

@@ -28,6 +28,7 @@ import {
   peekStoreOrderDetailSnapshotInvalidated,
 } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { scheduleStoreOrderDetailSnapshotRefresh } from "@/lib/stores/store-order-detail-snapshot-refresh";
+import { enrichOrderCouponDisplayFields } from "@/lib/stores/enrich-order-coupon-display";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -207,6 +208,28 @@ function finishFromPayload(
   };
 }
 
+async function finishFromPayloadWithCoupon(
+  sbAny: SupabaseClient<any>,
+  orderId: string,
+  payload: StoreOrderDetailSnapshotPayloadJson,
+  input: { totalMs: number; readMs: number; via: SnapshotReadVia; payloadBuildMs?: number }
+): Promise<StoreOrderDetailSnapshotReadResult | { ok: false; status: number; error: string }> {
+  const done = finishFromPayload(orderId, payload, input);
+  if (!("body" in done)) return done;
+  try {
+    const enrichedOrder = await enrichOrderCouponDisplayFields(
+      sbAny,
+      done.body.order as Record<string, unknown>
+    );
+    return {
+      ...done,
+      body: { ...done.body, order: enrichedOrder },
+    };
+  } catch {
+    return done;
+  }
+}
+
 export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
   sbAny: SupabaseClient<any>,
   buyerUserId: string,
@@ -241,7 +264,7 @@ export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
       const readMs = devPerfNow() - read0;
 
       if (counter.hit && !counter.stale) {
-        const done = finishFromPayload(oid, counter.row.payload_json, {
+        const done = await finishFromPayloadWithCoupon(sbAny, oid, counter.row.payload_json, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
@@ -251,7 +274,7 @@ export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
       }
       if (counter.hit && counter.stale) {
         scheduleStoreOrderDetailSnapshotRefresh(oid, uid);
-        const done = finishFromPayload(oid, counter.row.payload_json, {
+        const done = await finishFromPayloadWithCoupon(sbAny, oid, counter.row.payload_json, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
@@ -270,7 +293,7 @@ export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
     if (payload.ok !== true) return null;
 
     await upsertSnapshotCounter(sbAny, keys, payload);
-    const done = finishFromPayload(oid, payload, {
+    const done = await finishFromPayloadWithCoupon(sbAny, oid, payload, {
       totalMs: devPerfNow() - build0,
       readMs: rpcMs || devPerfNow() - build0,
       via: "unified_rpc",

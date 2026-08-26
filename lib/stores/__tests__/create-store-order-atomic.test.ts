@@ -181,11 +181,12 @@ describe("POST store-orders atomic path contract", () => {
   it("coupon redemption lives inside atomic RPC migration (Stores A)", async () => {
     const fs = await import("node:fs");
     const mig = fs.readFileSync(
-      "supabase/migrations/20260825121000_create_store_order_atomic_user_coupon.sql",
+      "supabase/migrations/20261124120000_free_coupon_entitlement_checkout_canonical.sql",
       "utf8"
     );
     expect(mig).toContain("user_coupon_id");
     expect(mig).toContain("coupon_user_entitlements");
     expect(mig).toContain("store_coupon_redemptions");
+    expect(mig).toContain("coupon_entitlement_required");
   });
 });

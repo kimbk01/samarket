@@ -52,7 +52,6 @@ import {
   type StoreBrowseCampaignBenefit,
 } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
 import { browseShowsGenericCouponBadge } from "@/lib/stores/store-coupon-detail-ux";
-import { writeStoreCheckoutCouponSession } from "@/lib/stores/store-checkout-coupon-session";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoresBrowseInsertionMetaRow } from "@/lib/stores/composition/stores-composition-browse-insertion-meta";
 import { storeRowCardDataEqual } from "@/components/stores/home/StoreDeliveryRowCard";
@@ -915,12 +914,7 @@ export function StoresBrowsePrimaryView({
                 campaignBenefit = {
                   kind: "coupon",
                   promoLine: `${item.row.title} · ${discountLabel}`,
-                  onActivate: () => {
-                    writeStoreCheckoutCouponSession({
-                      storeId: item.row.storeId,
-                      campaignId: item.row.campaignId,
-                    });
-                  },
+                  // Browse badge = discovery only — never write Coupon Instance handoff
                 };
               }
               return (

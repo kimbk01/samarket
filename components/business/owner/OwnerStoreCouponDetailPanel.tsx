@@ -76,7 +76,8 @@ export function OwnerStoreCouponDetailPanel({
 
   const nowMs = Date.now();
   const status = ownerCouponListStatus(source as OwnerCouponDashRow, nowMs);
-  const actions = ownerCouponDetailActions(status);
+  const fundingMode = String(detail?.funding_mode ?? row?.funding_mode ?? "STORE_FUNDED");
+  const actions = ownerCouponDetailActions(status, { fundingMode });
   const issued = Number(detail?.issued_count ?? row?.issued_count ?? 0);
   const used = Number(detail?.redeemed_count ?? row?.redeemed_count ?? 0);
   const rate = issued > 0 ? `${Math.round((used / issued) * 100)}%` : "—";
@@ -87,7 +88,6 @@ export function OwnerStoreCouponDetailPanel({
     detail?.spend_budget_php != null || row?.spend_budget_php != null
       ? formatMoneyPhp(Number(detail?.spend_budget_php ?? row?.spend_budget_php ?? 0))
       : "—";
-  const fundingMode = String(detail?.funding_mode ?? row?.funding_mode ?? "STORE_FUNDED");
 
   return (
     <div className="flex min-w-0 flex-col gap-3" data-owner-coupon-detail="1">
@@ -175,6 +175,15 @@ export function OwnerStoreCouponDetailPanel({
             <p className="text-sm text-sam-fg">
               {t("store_coupon_owner_realized_platform")}: {formatMoneyPhp(detail.realized.platform_funded)}
             </p>
+            {detail.cost_ratio != null ? (
+              <p className="mt-1 text-sm text-sam-fg" data-owner-coupon-roi-ratio="1">
+                {t("store_coupon_owner_roi_ratio")}: {detail.cost_ratio.toFixed(2)}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-sam-muted" data-owner-coupon-roi-no-store-cost="1">
+                {t("store_coupon_owner_roi_no_store_cost")}
+              </p>
+            )}
           </>
         ) : null}
       </OwnerStoreAdminDashSection>

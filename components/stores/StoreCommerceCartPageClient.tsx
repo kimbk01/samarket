@@ -125,10 +125,13 @@ import {
   readStoreCheckoutCouponSession,
   writeStoreCheckoutCouponSession,
 } from "@/lib/stores/store-checkout-coupon-session";
-import { StoreCartCouponApplyBlock } from "@/components/stores/cart/StoreCartCouponApplyBlock";
+import { StoreCartCouponApplyPanel } from "@/components/stores/cart/StoreCartCouponApplyPanel";
+import { buildCartCouponLineViews } from "@/lib/stores/store-coupon-product-view";
+import { storeCouponCustomerProviderKey } from "@/lib/stores/store-coupon-issuer-resolve";
 import {
   resolveCartAppliedCoupon,
   isUsableStoreCouponQuote,
+  pickBestEligibleCouponQuote,
   type StoreCouponQuote,
 } from "@/lib/stores/store-coupon-best-eligible";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
@@ -1185,26 +1188,36 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           setCouponQuotes(quotes);
           const session = readStoreCheckoutCouponSession(sid);
           const locked = couponChoiceLockedRef.current;
+          const best = pickBestEligibleCouponQuote(quotes);
           const resolved = resolveCartAppliedCoupon({
             quotes,
             sessionUserCouponId: session?.userCouponId ?? null,
             lockedUserCouponId: locked ? appliedUserCouponIdRef.current : null,
             userChoseNone: locked && !appliedUserCouponIdRef.current,
-            bestUserCouponId: json.best?.userCouponId ?? null,
+            /** C/D: auto-apply best when no handoff/lock */
+            bestUserCouponId: best?.userCouponId ?? null,
           });
           setAppliedUserCouponId(resolved.userCouponId);
           setAppliedCouponCampaignId(resolved.campaignId);
           if (resolved.userCouponId && resolved.campaignId) {
-            writeStoreCheckoutCouponSession({
-              storeId: sid,
-              campaignId: resolved.campaignId,
-              userCouponId: resolved.userCouponId,
-            });
-          } else {
+            const q = quotes.find((row) => row.userCouponId === resolved.userCouponId);
+            const couponNumber = q?.couponNumber?.trim() || session?.couponNumber?.trim() || "";
+            if (couponNumber) {
+              writeStoreCheckoutCouponSession({
+                storeId: sid,
+                campaignId: resolved.campaignId,
+                userCouponId: resolved.userCouponId,
+                couponNumber,
+              });
+            }
+          } else if (!locked) {
             clearStoreCheckoutCouponSession();
             if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
               couponChoiceLockedRef.current = false;
             }
+          } else if (locked && appliedUserCouponIdRef.current && !resolved.userCouponId) {
+            couponChoiceLockedRef.current = false;
+            clearStoreCheckoutCouponSession();
           }
         }
       )
@@ -1717,18 +1730,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     selectedCouponQuote && isUsableStoreCouponQuote(selectedCouponQuote)
       ? selectedCouponQuote.discountAmount
       : 0;
-  const usableCouponQuotes = couponQuotes.filter(isUsableStoreCouponQuote);
-  const minOrderBlockedCoupons = couponQuotes.filter((q) => q.ineligibleReason === "coupon_min_order");
-  const blockedMinOrderHint =
-    minOrderBlockedCoupons.length > 0
-      ? (() => {
-          const first = minOrderBlockedCoupons[0];
-          if (first?.shortagePhp && first.shortagePhp > 0) {
-            return t("store_min_order_add_more", { amount: formatMoneyPhp(first.shortagePhp) });
-          }
-          return t("store_err_coupon_min_order");
-        })()
-      : null;
+  const couponTitleForSummary =
+    selectedCouponQuote && couponDiscountPhp > 0 ? selectedCouponQuote.title || null : null;
+  const couponNumberForSummary =
+    selectedCouponQuote && couponDiscountPhp > 0 ? selectedCouponQuote.couponNumber ?? null : null;
+  const bestQuote = pickBestEligibleCouponQuote(couponQuotes);
+  const cartCouponLines = buildCartCouponLineViews({
+    quotes: couponQuotes,
+    appliedUserCouponId,
+    bestUserCouponId: bestQuote?.userCouponId ?? null,
+    storeName: store?.store_name?.trim() || "",
+    campaignMetaById: Object.fromEntries(
+      couponQuotes.map((q) => [
+        q.campaignId,
+        {
+          providerKey: storeCouponCustomerProviderKey(q.fundingMode),
+          benefitLabel: q.title,
+        },
+      ])
+    ),
+  });
   const displayGrand =
     (fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp) - couponDiscountPhp;
 
@@ -1794,14 +1815,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
 
-      {usableCouponQuotes.length > 0 || minOrderBlockedCoupons.length > 0 ? (
-        <StoreCartCouponApplyBlock
-          quotes={couponQuotes}
+      {cartCouponLines.applicable.length > 0 || cartCouponLines.ineligible.length > 0 ? (
+        <StoreCartCouponApplyPanel
+          applicable={cartCouponLines.applicable}
+          ineligible={cartCouponLines.ineligible}
           appliedUserCouponId={appliedUserCouponId}
+          sectionTitle={t("store_coupon_cart_section")}
           noneLabel={t("store_coupon_none")}
-          applyLabel={t("store_coupon_apply")}
-          titleFallback={t("store_coupon_wallet_title")}
-          blockedMinOrderHint={blockedMinOrderHint}
           onChooseNone={() => {
             couponChoiceLockedRef.current = true;
             appliedUserCouponIdRef.current = null;
@@ -1809,16 +1829,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             setAppliedCouponCampaignId(null);
             clearStoreCheckoutCouponSession();
           }}
-          onChoose={(row) => {
+          onChoose={(line) => {
             couponChoiceLockedRef.current = true;
-            appliedUserCouponIdRef.current = row.userCouponId;
-            setAppliedUserCouponId(row.userCouponId);
-            setAppliedCouponCampaignId(row.campaignId);
-            if (store?.id) {
+            appliedUserCouponIdRef.current = line.userCouponId;
+            setAppliedUserCouponId(line.userCouponId);
+            setAppliedCouponCampaignId(line.campaignId);
+            if (store?.id && line.userCouponId) {
               writeStoreCheckoutCouponSession({
                 storeId: store.id,
-                campaignId: row.campaignId,
-                userCouponId: row.userCouponId,
+                campaignId: line.campaignId,
+                userCouponId: line.userCouponId,
+                couponNumber: line.couponNumber ?? "",
               });
             }
           }}
@@ -1833,6 +1854,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         deliveryFeeLabel={deliveryFeeSummaryLabel}
         displayGrand={displayGrand}
         couponDiscountPhp={couponDiscountPhp}
+        couponTitle={couponTitleForSummary}
+        couponNumber={couponNumberForSummary}
         minOrderPhp={minOrderPhp}
         meetsMin={meetsMin}
         minShortage={minShortage}

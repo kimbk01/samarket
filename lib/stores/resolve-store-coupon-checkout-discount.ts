@@ -170,33 +170,3 @@ export async function resolveStoreCouponCheckoutDiscount(
 
   return { ok: true, campaign, discountAmount };
 }
-
-export async function recordStoreCouponRedemption(input: {
-  sb: SupabaseClient;
-  campaignId: string;
-  storeId: string;
-  buyerUserId: string;
-  orderId: string;
-  discountAmount: number;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await input.sb.from("store_coupon_redemptions").insert({
-    campaign_id: input.campaignId,
-    store_id: input.storeId,
-    buyer_user_id: input.buyerUserId,
-    order_id: input.orderId,
-    discount_amount_applied: Math.floor(input.discountAmount),
-  });
-  if (error) {
-    if (error.code === "23505") return { ok: false, error: "coupon_already_redeemed" };
-    console.error("[recordStoreCouponRedemption]", error.message);
-    return { ok: false, error: "redemption_write_failed" };
-  }
-  const { error: orderPatchErr } = await input.sb
-    .from("store_orders")
-    .update({ coupon_campaign_id: input.campaignId })
-    .eq("id", input.orderId);
-  if (orderPatchErr) {
-    console.error("[recordStoreCouponRedemption] order patch", orderPatchErr.message);
-  }
-  return { ok: true };
-}

@@ -10,6 +10,7 @@ import {
   type CustomerCouponWalletTab,
 } from "@/lib/stores/customer-coupon-wallet-view";
 import type { CustomerCouponCardView } from "@/lib/stores/store-coupon-product-view";
+import { writeStoreCouponHandoff } from "@/lib/stores/store-coupon-handoff";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 const TAB_LABEL: Record<
@@ -111,7 +112,21 @@ export function CustomerStoreCouponWallet() {
         <ul className="min-w-0 space-y-3 pb-8">
           {visible.map((card) => (
             <li key={card.entitlementId}>
-              <StoreCouponCustomerCard card={card} />
+              <StoreCouponCustomerCard
+                card={card}
+                onUse={
+                  card.cta === "use" && card.entitlementId
+                    ? () => {
+                        writeStoreCouponHandoff({
+                          storeId: card.storeId,
+                          userCouponId: card.entitlementId,
+                          couponNumber: card.couponNumber ?? "",
+                          offerId: card.campaignId,
+                        });
+                      }
+                    : undefined
+                }
+              />
             </li>
           ))}
         </ul>

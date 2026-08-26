@@ -10,6 +10,9 @@ import {
 } from "@/lib/stores/store-coupon-product-view";
 
 const ENT_SELECT =
+  "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, offer_snapshot, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id)";
+
+const ENT_SELECT_NO_SNAPSHOT =
   "id, campaign_id, store_id, status, reserved_php, expires_at, redeemed_order_id, created_at, coupon_number, store_coupon_campaigns(title, discount_type, discount_value, min_order_amount, max_discount, terms_copy, funding_mode, first_order_scope, end_at, issuer_role, campaign_purpose, created_by_user_id)";
 
 export async function loadCustomerCouponWalletCards(
@@ -18,7 +21,17 @@ export async function loadCustomerCouponWalletCards(
 ): Promise<{ ok: true; cards: CustomerCouponCardView[] } | { ok: false; error: string }> {
   let q = sb.from("coupon_user_entitlements").select(ENT_SELECT).eq("buyer_user_id", input.buyerUserId);
   if (input.storeId) q = q.eq("store_id", input.storeId.trim());
-  const { data, error } = await q.order("expires_at", { ascending: true }).limit(200);
+  let { data, error } = await q.order("expires_at", { ascending: true }).limit(200);
+  if (error && /offer_snapshot/i.test(error.message)) {
+    let q2 = sb
+      .from("coupon_user_entitlements")
+      .select(ENT_SELECT_NO_SNAPSHOT)
+      .eq("buyer_user_id", input.buyerUserId);
+    if (input.storeId) q2 = q2.eq("store_id", input.storeId.trim());
+    const retry = await q2.order("expires_at", { ascending: true }).limit(200);
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
   if (error) return { ok: false, error: "db_error" };
 
   const now = Date.now();

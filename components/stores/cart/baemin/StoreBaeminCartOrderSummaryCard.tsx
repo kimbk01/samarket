@@ -16,6 +16,8 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   deliveryFeeLabel: ReactNode;
   displayGrand: number;
   couponDiscountPhp?: number;
+  couponTitle?: string | null;
+  couponNumber?: string | null;
   minOrderPhp: number;
   meetsMin: boolean;
   minShortage: number;
@@ -33,6 +35,8 @@ export function StoreBaeminCartOrderSummaryCard(props: {
     deliveryFeeLabel,
     displayGrand,
     couponDiscountPhp = 0,
+    couponTitle = null,
+    couponNumber = null,
     minOrderPhp,
     meetsMin,
     minShortage,
@@ -41,6 +45,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
     freeDeliveryProgressPct,
     freeDeliveryMet,
   } = props;
+  const couponDetail = [couponTitle, couponNumber].filter(Boolean).join(" · ");
 
   const showMinOrder = minOrderPhp > 0;
 
@@ -64,7 +69,16 @@ export function StoreBaeminCartOrderSummaryCard(props: {
         ) : null}
         {couponDiscountPhp > 0 ? (
           <Row
-            label={t("store_owner_order_coupon_discount")}
+            label={
+              <>
+                {t("store_owner_order_coupon_discount")}
+                {couponDetail ? (
+                  <span className="mt-0.5 block text-[12px] font-normal text-[color:var(--delivery-text-muted)]">
+                    {couponDetail}
+                  </span>
+                ) : null}
+              </>
+            }
             value={`- ${formatMoneyPhp(couponDiscountPhp)}`}
             valueClassName="text-[color:var(--delivery-danger)]"
           />

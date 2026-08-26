@@ -10,6 +10,7 @@ import {
   resolveStoreCouponIssuerView,
   resolveStoreCouponPurposeView,
 } from "@/lib/stores/store-coupon-issuer-resolve";
+import { projectCouponOfferCostRatio } from "@/lib/stores/coupon-offer-roi";
 
 const CAMPAIGN_SELECT =
   "id, store_id, title, discount_type, discount_value, min_order_amount, terms_copy, start_at, end_at, usage_end_at, is_active, lifecycle_state, funding_mode, issue_limit, issued_count, spend_budget_php, reserved_spend_php, store_funded_amount, first_order_scope, created_by_user_id, issuer_role, campaign_purpose, created_at, updated_at";
@@ -44,6 +45,8 @@ export type CouponCampaignOpsView = CouponControlCampaignView & {
   };
   instances: CouponInstanceOpsRow[];
   order_sales_php: number;
+  /** SSOT ROI: GMV / store_funded when store_funded > 0; else null */
+  cost_ratio: number | null;
 };
 
 async function loadActorLabels(
@@ -141,7 +144,30 @@ export async function loadCouponCampaignOpsBundle(
         counts.expired += 1;
       else if (st === "available" || st === "restored") counts.active += 1;
       statusCounts.set(cid, counts);
-      buyerIds.add(String((e as { buyer_user_id?: string }).buyer_user_id ?? ""));
+      const buyerId = String((e as { buyer_user_id?: string }).buyer_user_id ?? "");
+      buyerIds.add(buyerId);
+      // ALL-status Coupon Instance ledger (not redeemed-only)
+      const il = instancesByCampaign.get(cid) ?? [];
+      if (il.length < 100) {
+        il.push({
+          entitlement_id: String((e as { id?: string }).id ?? ""),
+          coupon_number:
+            (e as { coupon_number?: string | null }).coupon_number == null
+              ? null
+              : String((e as { coupon_number?: string }).coupon_number),
+          buyer_user_id: buyerId,
+          buyer_label: null,
+          status: st || "available",
+          issued_at: String((e as { created_at?: string }).created_at ?? ""),
+          used_at: st === "redeemed" ? String((e as { created_at?: string }).created_at ?? "") : "",
+          order_id: String((e as { redeemed_order_id?: string | null }).redeemed_order_id ?? "") || "",
+          order_no: "",
+          discount_amount: 0,
+          store_funded_amount: 0,
+          settlement_status: null,
+        });
+        instancesByCampaign.set(cid, il);
+      }
     }
   }
 
@@ -218,8 +244,11 @@ export async function loadCouponCampaignOpsBundle(
 
       const ent = entByOrder.get(oid);
       if (ent) {
-        const inst: CouponInstanceOpsRow = {
-          entitlement_id: String(ent.id ?? ""),
+        const eid = String(ent.id ?? "");
+        const il = instancesByCampaign.get(cid) ?? [];
+        const idx = il.findIndex((x) => x.entitlement_id === eid);
+        const enriched: CouponInstanceOpsRow = {
+          entitlement_id: eid,
           coupon_number: ent.coupon_number == null ? null : String(ent.coupon_number),
           buyer_user_id: String(ent.buyer_user_id ?? o.buyer_user_id ?? ""),
           buyer_label: buyerLabels[String(ent.buyer_user_id ?? "")] || null,
@@ -232,8 +261,8 @@ export async function loadCouponCampaignOpsBundle(
           store_funded_amount: fact.store_funded_amount,
           settlement_status: fact.settlement_status,
         };
-        const il = instancesByCampaign.get(cid) ?? [];
-        il.push(inst);
+        if (idx >= 0) il[idx] = enriched;
+        else il.push(enriched);
         instancesByCampaign.set(cid, il);
       }
     }
@@ -321,8 +350,15 @@ export async function loadCouponCampaignOpsBundle(
         entitlement_count: counts.all,
         consistent: issuedCount === counts.all,
       },
-      instances: instancesByCampaign.get(id) ?? [],
+      instances: (instancesByCampaign.get(id) ?? []).map((inst) => ({
+        ...inst,
+        buyer_label: inst.buyer_label || buyerLabels[inst.buyer_user_id] || null,
+      })),
       order_sales_php: orderSalesPhp,
+      cost_ratio: projectCouponOfferCostRatio({
+        orderSalesPhp,
+        storeFundedPhp: base.realized.store_funded,
+      }),
     });
   }
 

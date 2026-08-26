@@ -559,8 +559,25 @@ export function MyStoreOrderExpandPanel({
             <span>{formatMoneyPhp(itemsSumPhp)}</span>
           </div>
           {Math.round(Number(order.discount_amount) || 0) > 0 ? (
-            <div className="mt-1 flex justify-between gap-2 text-red-600">
-              <span>{t("mypage_comp_order_discount")}</span>
+            <div className="mt-1 flex justify-between gap-2 text-red-600" data-order-coupon-discount="1">
+              <span>
+                {t("store_owner_order_coupon_discount")}
+                {[
+                  (order as { coupon_offer_title?: string | null }).coupon_offer_title,
+                  (order as { coupon_number?: string | null }).coupon_number,
+                ]
+                  .filter(Boolean)
+                  .length > 0 ? (
+                  <span className="mt-0.5 block text-xs font-normal text-sam-muted">
+                    {[
+                      (order as { coupon_offer_title?: string | null }).coupon_offer_title,
+                      (order as { coupon_number?: string | null }).coupon_number,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null}
+              </span>
               <span>−{formatMoneyPhp(Math.round(Number(order.discount_amount) || 0))}</span>
             </div>
           ) : null}

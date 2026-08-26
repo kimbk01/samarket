@@ -94,6 +94,10 @@ type OrderDetail = {
   total_amount: number;
   discount_amount: number;
   payment_amount: number;
+  coupon_offer_title?: string | null;
+  coupon_number?: string | null;
+  user_coupon_id?: string | null;
+  coupon_campaign_id?: string | null;
   delivery_fee_amount?: number | null;
   delivery_courier_label?: string | null;
   payment_status: string;
@@ -885,8 +889,15 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               <span className="font-medium text-sam-fg">{formatMoneyPhp(itemsSumPhp)}</span>
             </div>
             {Math.round(Number(order.discount_amount) || 0) > 0 ? (
-              <div className="flex justify-between gap-3 text-sam-fg">
-                <span>{t("mypage_comp_order_discount")}</span>
+              <div className="flex justify-between gap-3 text-sam-fg" data-order-coupon-discount="1">
+                <span>
+                  {t("store_owner_order_coupon_discount")}
+                  {[order.coupon_offer_title, order.coupon_number].filter(Boolean).length > 0 ? (
+                    <span className="mt-0.5 block text-xs font-normal text-sam-muted">
+                      {[order.coupon_offer_title, order.coupon_number].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="font-medium text-red-600">
                   −{formatMoneyPhp(Math.round(Number(order.discount_amount) || 0))}
                 </span>

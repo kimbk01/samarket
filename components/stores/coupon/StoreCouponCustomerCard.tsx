@@ -14,6 +14,7 @@ const CTA_OUTLINE =
 export function StoreCouponCustomerCard({
   card,
   onClaim,
+  onUse,
   claimBusy,
   claimLabel,
   heldLabel,
@@ -24,6 +25,8 @@ export function StoreCouponCustomerCard({
 }: {
   card: CustomerCouponCardView;
   onClaim?: () => void;
+  /** Wallet / held: write Coupon Instance handoff before navigating to store */
+  onUse?: () => void;
   claimBusy?: boolean;
   claimLabel?: string;
   heldLabel?: string;
@@ -43,18 +46,19 @@ export function StoreCouponCustomerCard({
     <article
       className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
       data-coupon-card="1"
+      data-coupon-face="1"
       data-coupon-bucket={card.bucket}
       data-coupon-number={card.couponNumber ?? ""}
     >
       <div className="flex gap-3 p-3">
-        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect bg-sam-app">
+        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect bg-sam-app" data-coupon-face-store-visual="1">
           {card.logoUrl ? (
             <SamarketThumbnail src={card.logoUrl} alt="" className="h-full w-full object-cover" size={56} />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs text-sam-muted">Store</div>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1" data-coupon-face-contract="1">
           <p className="truncate text-sm font-semibold text-sam-fg">{card.storeName || t("store_coupon_wallet_store_fallback")}</p>
           {card.menuPreviewTitles.length > 0 ? (
             <p className="mt-0.5 text-xs text-sam-muted">
@@ -98,7 +102,12 @@ export function StoreCouponCustomerCard({
           </button>
         ) : detailState === "held" ? (
           orderMenuHref ? (
-            <a href={orderMenuHref} className={CTA_PRIMARY} data-store-coupon-detail-cta="order">
+            <a
+              href={orderMenuHref}
+              className={CTA_PRIMARY}
+              data-store-coupon-detail-cta="order"
+              onClick={() => onUse?.()}
+            >
               {heldLabel ?? t("store_coupon_claimed")} · {t("store_coupon_order_cta")}
             </a>
           ) : (
@@ -107,7 +116,12 @@ export function StoreCouponCustomerCard({
         ) : detailState === "unusable" ? (
           <p className="mt-2 text-center text-sm text-sam-muted">{unusableLabel ?? t("store_coupon_unusable")}</p>
         ) : card.cta === "use" && storeHref ? (
-          <Link className={CTA_PRIMARY} href={storeHref}>
+          <Link
+            className={CTA_PRIMARY}
+            href={storeHref}
+            onClick={() => onUse?.()}
+            data-store-coupon-wallet-cta="use"
+          >
             {t("store_coupon_use_this")}
           </Link>
         ) : card.cta === "view_order" && orderHref ? (

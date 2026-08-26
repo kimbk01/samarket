@@ -59,7 +59,15 @@ export function AdminStoreCouponControlPage() {
       : "/api/admin/store-coupons";
     const res = await fetch(url, { credentials: "include", cache: "no-store" });
     const json = (await res.json()) as { ok?: boolean; campaigns?: CouponControlCampaignView[] };
-    setCampaigns(json.ok ? json.campaigns ?? [] : []);
+    const next = json.ok ? json.campaigns ?? [] : [];
+    setCampaigns(next);
+    // coupon_number search → open matching campaign detail (master trace entry)
+    if (q && next.length === 1 && next[0]?.id) {
+      const params = new URLSearchParams(sp.toString());
+      params.set(ADMIN_COUPON_CONTROL_VIEW_PARAM, "detail");
+      params.set(ADMIN_COUPON_CONTROL_CAMPAIGN_PARAM, String(next[0].id));
+      router.replace(`${pathname}?${params.toString()}`);
+    }
     try {
       const storesRes = await fetch("/api/admin/stores?status=approved", { credentials: "include", cache: "no-store" });
       const storesJson = (await storesRes.json()) as {
@@ -82,7 +90,7 @@ export function AdminStoreCouponControlPage() {
     } catch {
       /* keep campaign list */
     }
-  }, []);
+  }, [pathname, router, sp]);
 
   useEffect(() => {
     void load();

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CouponCampaignOpsView } from "@/lib/stores/load-coupon-campaign-ops-bundle";
 import { couponControlActionsForLifecycle, type CouponControlCampaignView } from "@/lib/stores/admin-coupon-control-realized";
+import { buildAdminPromotionCreateHref } from "@/lib/stores/coupon-offer-promotion-deeplink";
 import {
   adminCouponAuditActionMessageKey,
   adminCouponFundingMessageKey,
@@ -262,7 +264,19 @@ export function AdminStoreCouponControlDetail({
               {t("store_coupon_owner_resume")}
             </button>
           ) : null}
+          <Link
+            className={`${CTA_OUTLINE} inline-flex items-center justify-center`}
+            href={buildAdminPromotionCreateHref({
+              storeId: campaign.store_id,
+              offerId: campaign.id,
+              offerTitle: title,
+            })}
+            data-admin-coupon-promo-cta="1"
+          >
+            {t("store_coupon_admin_promo_cta")}
+          </Link>
         </div>
+        <p className="mt-2 text-xs text-sam-muted">{t("store_coupon_admin_promo_hint")}</p>
         {actions.revoke ? (
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
             <label className="block text-sm text-sam-muted">

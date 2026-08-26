@@ -160,11 +160,15 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
   const { data: row } = await sb
     .from(STORE_COUPON_CAMPAIGN_TABLE)
-    .select("id, store_id, lifecycle_state")
+    .select("id, store_id, lifecycle_state, funding_mode, issuer_role")
     .eq("id", id)
     .maybeSingle();
   if (!row || !(await assertOwnedStore(sb, userId, String(row.store_id)))) {
     return NextResponse.json({ ok: false, error: "forbidden_store" }, { status: 403 });
+  }
+  // SSOT: Owner may mutate STORE_FUNDED offers only (platform offers = read/KPI).
+  if (String((row as { funding_mode?: string }).funding_mode ?? "STORE_FUNDED") !== "STORE_FUNDED") {
+    return NextResponse.json({ ok: false, error: "owner_platform_offer_readonly" }, { status: 403 });
   }
   if (action === "pause") {
     await sb

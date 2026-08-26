@@ -130,13 +130,53 @@ export function buildCustomerCouponCardView(input: {
   const e = input.entitlement;
   const c = input.campaign;
   const visual = input.visual;
-  const purpose = resolveStoreCouponPurposeView(c.campaign_purpose);
+  const snapRaw = e.offer_snapshot;
+  const snap =
+    snapRaw && typeof snapRaw === "object" && !Array.isArray(snapRaw)
+      ? (snapRaw as Record<string, unknown>)
+      : null;
+  // SSOT Face: claim-time snapshot wins; historical NULL → live campaign JOIN.
+  const faceCampaign: {
+    title?: unknown;
+    discount_type?: string;
+    discount_value?: number;
+    max_discount?: number | null;
+    min_order_amount?: number | null;
+    funding_mode?: string;
+    campaign_purpose?: unknown;
+  } = {
+    ...c,
+    title: snap?.title != null ? String(snap.title) : c.title,
+    discount_type:
+      snap?.discount_type != null ? String(snap.discount_type) : String(c.discount_type ?? ""),
+    discount_value:
+      snap?.discount_value != null ? Number(snap.discount_value) : Number(c.discount_value ?? 0),
+    max_discount:
+      snap?.max_discount !== undefined
+        ? snap.max_discount == null
+          ? null
+          : Number(snap.max_discount)
+        : c.max_discount == null
+          ? null
+          : Number(c.max_discount),
+    min_order_amount:
+      snap?.min_order_amount !== undefined
+        ? snap.min_order_amount == null
+          ? null
+          : Number(snap.min_order_amount)
+        : c.min_order_amount == null
+          ? null
+          : Number(c.min_order_amount),
+    funding_mode: snap?.funding_mode != null ? String(snap.funding_mode) : String(c.funding_mode ?? ""),
+    campaign_purpose: snap?.purpose != null ? String(snap.purpose) : c.campaign_purpose,
+  };
+  const purpose = resolveStoreCouponPurposeView(faceCampaign.campaign_purpose);
   const issuer = resolveStoreCouponIssuerView({
     issuerRole: c.issuer_role,
     createdByUserId: c.created_by_user_id,
     actorLabel: input.issuerLabel,
   });
-  const provider = resolveStoreCouponProviderView(c.funding_mode);
+  const provider = resolveStoreCouponProviderView(faceCampaign.funding_mode);
   const couponNumberRaw = e.coupon_number == null ? null : String(e.coupon_number).trim() || null;
   const status = String(e.status ?? "");
   const bucket = input.bucket;
@@ -145,8 +185,10 @@ export function buildCustomerCouponCardView(input: {
   else if (bucket === "available" || bucket === "expiring") cta = "use";
 
   const maxDisc =
-    c.max_discount == null ? null : Number(c.max_discount);
-  const dtype = String(c.discount_type ?? "");
+    faceCampaign.max_discount == null ? null : Number(faceCampaign.max_discount);
+  const dtype = String(faceCampaign.discount_type ?? "");
+  const periodEnd =
+    snap?.period_end != null ? String(snap.period_end) : String(e.expires_at ?? "");
 
   return {
     entitlementId: String(e.id ?? ""),
@@ -159,15 +201,16 @@ export function buildCustomerCouponCardView(input: {
     logoUrl: visual?.logoUrl ?? null,
     menuPreviewTitles: visual?.menuPreviewTitles ?? [],
     menuPreviewIsPromotional: true,
-    title: String(c.title ?? "").trim() || benefitLabelFromCampaign(c),
+    title: String(faceCampaign.title ?? "").trim() || benefitLabelFromCampaign(faceCampaign),
     purposeKey: purpose.purposeKey,
     customerDescription: c.terms_copy == null ? null : String(c.terms_copy),
-    benefitLabel: benefitLabelFromCampaign(c),
+    benefitLabel: benefitLabelFromCampaign(faceCampaign),
     maxDiscountLabel:
       dtype === "percent" && maxDisc != null && maxDisc > 0 ? formatMoneyPhp(maxDisc) : null,
-    minOrderPhp: c.min_order_amount == null ? null : Number(c.min_order_amount),
+    minOrderPhp:
+      faceCampaign.min_order_amount == null ? null : Number(faceCampaign.min_order_amount),
     targetKey: storeCouponTargetKey(c.first_order_scope),
-    validUntilLabel: formatCouponWalletDay(String(e.expires_at ?? "")),
+    validUntilLabel: formatCouponWalletDay(periodEnd),
     providerKey: provider.providerKey,
     issuerRoleKey: issuer.roleKey,
     walletStatusKey: input.walletStatusKey,

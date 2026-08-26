@@ -175,16 +175,18 @@ export function OwnerStoreCouponListDashboard({
                     >
                       {open ? t("store_coupon_admin_close") : t("store_coupon_admin_open")}
                     </button>
-                    {status === "paused" ? (
+                    {row.funding_mode === "STORE_FUNDED" && status === "paused" ? (
                       <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => onResume(row.id)}>
                         {t("store_coupon_owner_resume")}
                       </button>
-                    ) : status === "ended" || status === "requested" ? null : (
+                    ) : row.funding_mode === "STORE_FUNDED" &&
+                      status !== "ended" &&
+                      status !== "requested" ? (
                       <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => onPause(row.id)}>
                         {t("store_coupon_owner_pause")}
                       </button>
-                    )}
-                    {status !== "ended" ? (
+                    ) : null}
+                    {row.funding_mode === "STORE_FUNDED" && status !== "ended" ? (
                       <button
                         type="button"
                         className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-sam-danger`}
@@ -201,13 +203,15 @@ export function OwnerStoreCouponListDashboard({
                         {row.min_order_amount != null ? formatMoneyPhp(row.min_order_amount) : "—"}
                         {row.max_discount != null ? ` · ${t("store_coupon_max_discount")} ${formatMoneyPhp(row.max_discount)}` : ""}
                       </p>
-                      <button
-                        type="button"
-                        className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mt-2`}
-                        onClick={() => onReissue(row.id)}
-                      >
-                        {t("store_coupon_owner_reissue")}
-                      </button>
+                      {row.funding_mode === "STORE_FUNDED" ? (
+                        <button
+                          type="button"
+                          className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} mt-2`}
+                          onClick={() => onReissue(row.id)}
+                        >
+                          {t("store_coupon_owner_reissue")}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </li>

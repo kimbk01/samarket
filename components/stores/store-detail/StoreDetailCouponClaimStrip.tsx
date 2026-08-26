@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCouponCustomerCard } from "@/components/stores/coupon/StoreCouponCustomerCard";
 import type { CustomerCouponCardView } from "@/lib/stores/store-coupon-product-view";
+import { writeStoreCouponHandoff } from "@/lib/stores/store-coupon-handoff";
 
 type DetailCard = CustomerCouponCardView & {
   detailState: "login" | "claim" | "held" | "unusable" | "hidden";
@@ -68,8 +69,11 @@ export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
       className="min-w-0 px-[var(--delivery-page-x)] py-2"
       data-store-coupon-detail-strip="1"
       data-store-coupon-detail-block="1"
+      data-store-coupon-offer-surface="1"
     >
-      <h2 className="mb-2 text-sm font-semibold text-sam-fg">{t("store_coupon_wallet_title")}</h2>
+      <h2 className="mb-2 text-sm font-semibold text-sam-fg">
+        {safeT("store_coupon_offer_surface_title", { fallbackKo: "쿠폰 받기", fallbackEn: "Get coupons" })}
+      </h2>
       <ul className="space-y-3">
         {visible.map((card) => {
           const state = !authed ? "login" : card.detailState;
@@ -84,6 +88,18 @@ export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
                 claimLabel={safeT("store_coupon_claim", { fallbackKo: "쿠폰 받기", fallbackEn: "Get coupon" })}
                 heldLabel={t("store_coupon_claimed")}
                 unusableLabel={t("store_coupon_unusable")}
+                onUse={
+                  state === "held" && card.entitlementId
+                    ? () => {
+                        writeStoreCouponHandoff({
+                          storeId,
+                          userCouponId: card.entitlementId,
+                          couponNumber: card.couponNumber ?? "",
+                          offerId: card.campaignId,
+                        });
+                      }
+                    : undefined
+                }
                 onClaim={
                   state === "claim"
                     ? () => {
@@ -97,10 +113,26 @@ export function StoreDetailCouponClaimStrip({ storeId }: { storeId: string }) {
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ campaign_id: card.campaignId }),
                             });
-                            const json = (await res.json()) as { ok?: boolean };
+                            const json = (await res.json()) as {
+                              ok?: boolean;
+                              entitlement?: {
+                                id?: string;
+                                coupon_number?: string | null;
+                                campaign_id?: string;
+                              };
+                            };
                             if (!res.ok || !json.ok) {
                               setErr("unusable");
                               return;
+                            }
+                            const entId = String(json.entitlement?.id ?? "").trim();
+                            if (entId) {
+                              writeStoreCouponHandoff({
+                                storeId,
+                                userCouponId: entId,
+                                couponNumber: String(json.entitlement?.coupon_number ?? "").trim(),
+                                offerId: card.campaignId,
+                              });
                             }
                             await load();
                           } finally {

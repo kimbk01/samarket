@@ -1,42 +1,42 @@
-const STORE_CHECKOUT_COUPON_SESSION_KEY = "store_checkout_coupon_campaign_v1";
+/**
+ * @deprecated Use store-coupon-handoff (v2). Thin bridge for existing imports.
+ * Offer-id-only writes are rejected. Authority = storeId + userCouponId.
+ */
+import {
+  clearStoreCouponHandoff,
+  readStoreCouponHandoff,
+  writeStoreCouponHandoff,
+} from "@/lib/stores/store-coupon-handoff";
 
 export type StoreCheckoutCouponSession = {
   storeId: string;
   campaignId: string;
   userCouponId?: string;
+  couponNumber?: string;
 };
 
 export function writeStoreCheckoutCouponSession(input: StoreCheckoutCouponSession): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(STORE_CHECKOUT_COUPON_SESSION_KEY, JSON.stringify(input));
-  } catch {
-    /* ignore quota */
-  }
+  const userCouponId = input.userCouponId?.trim() ?? "";
+  if (!userCouponId) return;
+  writeStoreCouponHandoff({
+    storeId: input.storeId,
+    userCouponId,
+    couponNumber: input.couponNumber ?? "",
+    offerId: input.campaignId,
+  });
 }
 
 export function readStoreCheckoutCouponSession(storeId: string): StoreCheckoutCouponSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(STORE_CHECKOUT_COUPON_SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoreCheckoutCouponSession;
-    if (parsed?.storeId !== storeId || !parsed?.campaignId?.trim()) return null;
-    return {
-      storeId: parsed.storeId,
-      campaignId: parsed.campaignId.trim(),
-      userCouponId: parsed.userCouponId?.trim() || undefined,
-    };
-  } catch {
-    return null;
-  }
+  const h = readStoreCouponHandoff(storeId);
+  if (!h) return null;
+  return {
+    storeId: h.storeId,
+    campaignId: h.offerId,
+    userCouponId: h.userCouponId,
+    couponNumber: h.couponNumber || undefined,
+  };
 }
 
 export function clearStoreCheckoutCouponSession(): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.removeItem(STORE_CHECKOUT_COUPON_SESSION_KEY);
-  } catch {
-    /* ignore */
-  }
+  clearStoreCouponHandoff();
 }
