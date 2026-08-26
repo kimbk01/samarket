@@ -1,0 +1,116 @@
+/** Buyer Gift U2 — mall discovery, detail, point purchase, wallet next CTA */
+export const giftCertificateU2Messages = {
+  ko: {
+    gift_u2_activity_section_title: "상품권",
+    gift_u2_activity_my_gifts: "내 상품권",
+    gift_u2_activity_buy: "상품권 구매하기",
+
+    gift_u2_store_section_title: "이 매장 상품권",
+    gift_u2_store_view_cta: "상품권 보기",
+
+    gift_u2_mall_title: "상품권 몰",
+    gift_u2_mall_desc: "D-Point로 매장 상품권을 구매할 수 있습니다. 상품권 잔액은 만료되지 않습니다.",
+    gift_u2_mall_wallet_cta: "내 상품권",
+    gift_u2_mall_empty: "판매 중인 상품권이 없습니다.",
+    gift_u2_mall_card_view: "상품권 보기",
+    gift_u2_mall_face: "액면",
+    gift_u2_mall_price: "구매가",
+    gift_u2_mall_transferable: "선물 가능",
+    gift_u2_mall_non_transferable: "선물 불가",
+
+    gift_u2_detail_title: "상품권 상세",
+    gift_u2_detail_unit: "구매 단위 1장",
+    gift_u2_detail_usable_store: "사용 가능 매장",
+    gift_u2_detail_no_expiry: "상품권 잔액은 만료되지 않습니다.",
+    gift_u2_detail_sales_ends: "판매 종료",
+    gift_u2_detail_terms:
+      "상품권은 D-Point로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
+    gift_u2_detail_balance_label: "보유 D-Point",
+    gift_u2_detail_need_label: "구매 필요",
+    gift_u2_detail_buy_with_points: "{price} Point로 구매",
+    gift_u2_detail_insufficient_title: "Point가 부족합니다",
+    gift_u2_detail_shortfall: "{shortfall} Point가 부족합니다.",
+    gift_u2_detail_charge_cta: "Point 충전하기",
+    gift_u2_detail_browse_other: "다른 상품권 보기",
+    gift_u2_detail_login_cta: "로그인하고 구매",
+
+    gift_u2_confirm_title: "구매 확인",
+    gift_u2_confirm_after_balance: "구매 후 예상 Point",
+    gift_u2_confirm_submit: "구매 확정",
+    gift_u2_confirm_cancel: "취소",
+    gift_u2_confirm_pending: "구매 중…",
+
+    gift_u2_success_title: "상품권 구매가 완료되었습니다.",
+    gift_u2_success_wallet_cta: "내 상품권 보기",
+    gift_u2_success_browse_cta: "상품권 더 둘러보기",
+    gift_u2_success_spent: "결제 Point",
+
+    gift_u2_err_insufficient: "Point가 부족합니다.",
+    gift_u2_err_unavailable: "현재 구매할 수 없는 상품권입니다.",
+    gift_u2_err_not_found: "상품권을 찾을 수 없습니다.",
+    gift_u2_err_generic: "구매에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    gift_u2_err_unauthorized: "로그인이 필요합니다.",
+
+    gift_u2_wallet_empty: "보유한 상품권이 없습니다.",
+    gift_u2_wallet_browse_cta: "상품권 둘러보기",
+    gift_u2_wallet_detail_cta: "상품권 상세",
+    gift_u2_wallet_remaining: "잔액",
+  },
+  en: {
+    gift_u2_activity_section_title: "Gift certificates",
+    gift_u2_activity_my_gifts: "My gift certificates",
+    gift_u2_activity_buy: "Buy gift certificates",
+
+    gift_u2_store_section_title: "Store gift certificates",
+    gift_u2_store_view_cta: "View gift certificates",
+
+    gift_u2_mall_title: "Gift mall",
+    gift_u2_mall_desc:
+      "Buy store gift certificates with D-Point. Gift balances never expire.",
+    gift_u2_mall_wallet_cta: "My gifts",
+    gift_u2_mall_empty: "No gift certificates on sale.",
+    gift_u2_mall_card_view: "View gift",
+    gift_u2_mall_face: "Face value",
+    gift_u2_mall_price: "Price",
+    gift_u2_mall_transferable: "Transferable",
+    gift_u2_mall_non_transferable: "Non-transferable",
+
+    gift_u2_detail_title: "Gift details",
+    gift_u2_detail_unit: "Sold per certificate",
+    gift_u2_detail_usable_store: "Usable at",
+    gift_u2_detail_no_expiry: "Gift certificate balances never expire.",
+    gift_u2_detail_sales_ends: "Sales end",
+    gift_u2_detail_terms:
+      "Gift certificates can only be purchased with D-Point. Remaining balance can be used at this store’s orders.",
+    gift_u2_detail_balance_label: "Your D-Point",
+    gift_u2_detail_need_label: "Required",
+    gift_u2_detail_buy_with_points: "Buy for {price} Point",
+    gift_u2_detail_insufficient_title: "Not enough Point",
+    gift_u2_detail_shortfall: "You need {shortfall} more Point.",
+    gift_u2_detail_charge_cta: "Top up Point",
+    gift_u2_detail_browse_other: "Browse other gifts",
+    gift_u2_detail_login_cta: "Sign in to buy",
+
+    gift_u2_confirm_title: "Confirm purchase",
+    gift_u2_confirm_after_balance: "Point after purchase",
+    gift_u2_confirm_submit: "Confirm purchase",
+    gift_u2_confirm_cancel: "Cancel",
+    gift_u2_confirm_pending: "Purchasing…",
+
+    gift_u2_success_title: "Gift certificate purchased.",
+    gift_u2_success_wallet_cta: "View my gifts",
+    gift_u2_success_browse_cta: "Browse more gifts",
+    gift_u2_success_spent: "Point spent",
+
+    gift_u2_err_insufficient: "Not enough Point.",
+    gift_u2_err_unavailable: "This gift certificate is not available for purchase.",
+    gift_u2_err_not_found: "Gift certificate not found.",
+    gift_u2_err_generic: "Purchase failed. Please try again.",
+    gift_u2_err_unauthorized: "Sign in required.",
+
+    gift_u2_wallet_empty: "You don’t have any gift certificates yet.",
+    gift_u2_wallet_browse_cta: "Browse gift certificates",
+    gift_u2_wallet_detail_cta: "Gift details",
+    gift_u2_wallet_remaining: "Balance",
+  },
+} as const;

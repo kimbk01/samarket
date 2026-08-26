@@ -9,6 +9,7 @@ export type GiftMallProduct = {
   id: string;
   storeId: string;
   storeName: string;
+  storeLogoUrl: string | null;
   title: string;
   faceValue: number;
   purchasePrice: number;
@@ -28,7 +29,7 @@ export async function loadGiftMallProducts(
   let q = sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, stores(store_name)"
+      "id, store_id, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, stores(store_name, profile_image_url)"
     )
     .eq("active", true)
     .lte("sales_starts_at", nowIso)
@@ -51,10 +52,19 @@ export async function loadGiftMallProducts(
       storeObj && typeof storeObj === "object" && (storeObj as { store_name?: unknown }).store_name != null
         ? String((storeObj as { store_name: unknown }).store_name)
         : "";
+    const storeLogoRaw =
+      storeObj && typeof storeObj === "object"
+        ? (storeObj as { profile_image_url?: unknown }).profile_image_url
+        : null;
+    const storeLogoUrl =
+      storeLogoRaw == null || String(storeLogoRaw).trim() === ""
+        ? null
+        : String(storeLogoRaw).trim();
     products.push({
       id: String(row.id),
       storeId: String(row.store_id),
       storeName,
+      storeLogoUrl,
       title: String(row.title ?? ""),
       faceValue: Math.trunc(Number(row.face_value) || 0),
       purchasePrice: Math.trunc(Number(row.purchase_price) || 0),

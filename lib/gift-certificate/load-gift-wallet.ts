@@ -9,6 +9,9 @@ export type GiftWalletInstance = {
   id: string;
   productId: string;
   storeId: string;
+  storeName: string;
+  title: string;
+  imageUrl: string | null;
   faceValue: number;
   purchasePrice: number;
   remainingBalance: number;
@@ -37,10 +40,25 @@ export type GiftWalletPayload = {
 };
 
 function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
+  const productRaw = row.gift_certificate_products;
+  const productObj = Array.isArray(productRaw) ? productRaw[0] : productRaw;
+  const product =
+    productObj && typeof productObj === "object"
+      ? (productObj as Record<string, unknown>)
+      : null;
+  const storesRaw = product?.stores;
+  const storeObj = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
+  const storeName =
+    storeObj && typeof storeObj === "object" && (storeObj as { store_name?: unknown }).store_name != null
+      ? String((storeObj as { store_name: unknown }).store_name)
+      : "";
   return {
     id: String(row.id),
     productId: String(row.product_id),
     storeId: String(row.store_id),
+    storeName,
+    title: product?.title != null ? String(product.title) : "",
+    imageUrl: product?.image_url == null ? null : String(product.image_url),
     faceValue: Math.trunc(Number(row.face_value) || 0),
     purchasePrice: Math.trunc(Number(row.purchase_price) || 0),
     remainingBalance: Math.trunc(Number(row.remaining_balance) || 0),
@@ -74,7 +92,7 @@ export async function loadGiftWallet(
     sb
       .from(GIFT_TABLES.instances)
       .select(
-        "id, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at"
+        "id, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, stores(store_name))"
       )
       .eq("current_owner_user_id", uid)
       .order("created_at", { ascending: false })

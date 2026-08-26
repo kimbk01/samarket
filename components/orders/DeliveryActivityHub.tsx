@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 const TAB_CLASS =
   "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm font-semibold text-sam-fg";
@@ -9,6 +10,7 @@ const TAB_CLASS =
 /**
  * Delivery Activity Hub — document icon entry.
  * Tier1 owns title/back → `/stores`. Tabs use existing AppRouteTransition (Link only).
+ * Gift section: Wallet ↔ Mall bidirectional (U2).
  */
 export function DeliveryActivityHub() {
   const { safeT } = useI18n();
@@ -42,17 +44,43 @@ export function DeliveryActivityHub() {
             fallbackEn: "Coupons",
           })}
         </Link>
-        <Link
-          href="/mypage/gift-certificates?from=delivery-activity"
-          prefetch={false}
-          className={TAB_CLASS}
-          data-delivery-activity-tab="gift-certificates"
+
+        <section
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+          data-delivery-activity-gift-section="1"
         >
-          {safeT("store_coupon_delivery_activity_gifts", {
-            fallbackKo: "상품권",
-            fallbackEn: "Gift certificates",
-          })}
-        </Link>
+          <h2 className="mb-2 text-sm font-semibold text-sam-fg">
+            {safeT("gift_u2_activity_section_title", {
+              fallbackKo: "상품권",
+              fallbackEn: "Gift certificates",
+            })}
+          </h2>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Link
+              href="/mypage/gift-certificates?from=delivery-activity"
+              prefetch={false}
+              className={`${Sam.btn.primary} flex min-h-[48px] items-center justify-center px-3 text-sm`}
+              data-delivery-activity-tab="gift-certificates"
+              data-delivery-activity-gift-wallet="1"
+            >
+              {safeT("gift_u2_activity_my_gifts", {
+                fallbackKo: "내 상품권",
+                fallbackEn: "My gift certificates",
+              })}
+            </Link>
+            <Link
+              href="/stores/gift-mall?from=delivery-activity"
+              prefetch={false}
+              className={`${Sam.btn.secondary} flex min-h-[48px] items-center justify-center px-3 text-sm`}
+              data-delivery-activity-gift-mall="1"
+            >
+              {safeT("gift_u2_activity_buy", {
+                fallbackKo: "상품권 구매하기",
+                fallbackEn: "Buy gift certificates",
+              })}
+            </Link>
+          </div>
+        </section>
       </nav>
     </div>
   );
