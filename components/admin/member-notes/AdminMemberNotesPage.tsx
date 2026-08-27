@@ -57,14 +57,14 @@ function AdminMemberNotesPageInner() {
   const pageTitle = useMemo(() => {
     if (kind === "inquiry") {
       return safeT("admin_menu_cp_member_inquiry", {
-        fallbackKo: "회원 문의",
-        fallbackEn: "Member inquiry",
+        fallbackKo: "Owner/회원 1:1 문의",
+        fallbackEn: "Owner/Member 1:1 inquiry",
       });
     }
     if (kind === "inbox") {
       return safeT("admin_menu_cp_member_inbox", {
-        fallbackKo: "회원 쪽지",
-        fallbackEn: "Member inbox",
+        fallbackKo: "Owner/회원 쪽지 발송",
+        fallbackEn: "Owner/Member inbox notes",
       });
     }
     return t("notif_admin_notes_title");

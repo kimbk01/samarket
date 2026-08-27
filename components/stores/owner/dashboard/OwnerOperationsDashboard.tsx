@@ -92,7 +92,6 @@ export function OwnerOperationsDashboard({
               <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
               <OwnerCustomerCareCard
                 storeId={row.id}
-                snapshot={data}
                 orderChatUnread={orderChatUnread}
               />
               <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
