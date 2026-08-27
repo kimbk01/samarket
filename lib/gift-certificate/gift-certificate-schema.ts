@@ -32,6 +32,8 @@ export const GIFT_RPCS = {
   recoveryClear: "store_cash_recovery_clear",
   recognizeRevenueForCompletedOrder: "gift_certificate_recognize_revenue_for_completed_order",
   redemptionIsRecognized: "gift_certificate_redemption_is_recognized",
+  redemptionRecognizedNet: "gift_certificate_redemption_recognized_net",
+  correctLegacyRecognition: "gift_certificate_correct_legacy_recognition",
 } as const;
 
 export const GIFT_MIGRATION_ID = "20261127120000_gift_certificate_domain_g2" as const;
@@ -39,3 +41,5 @@ export const GIFT_CHECKOUT_REFUND_MIGRATION_ID =
   "20261127140000_gift_certificate_checkout_refund_atomic" as const;
 export const GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID =
   "20261128140000_gift_certificate_order_completion_revenue" as const;
+export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =
+  "20261128150000_gift_certificate_recognition_correction" as const;

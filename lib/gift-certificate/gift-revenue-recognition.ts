@@ -109,3 +109,36 @@ export function redeemCreatesAvailableRevenue(): false {
 export function platformFeeRecognizedAtRedeem(): false {
   return false;
 }
+
+/** Ledger entry types that net into merchant recognition / available pool. */
+export const GIFT_REVENUE_RECOGNITION_NET_ENTRY_TYPES = [
+  "REVENUE_AVAILABLE",
+  "RECOGNITION_CORRECTION",
+  "REVERSED",
+] as const;
+
+/**
+ * Net merchant recognition from ledger rows for one redemption.
+ * RECOGNITION_CORRECTION / REVERSED offset REVENUE_AVAILABLE without deleting history.
+ */
+export function netMerchantRecognitionFromLedger(
+  entries: ReadonlyArray<{ entry_type: string; amount: number }>
+): number {
+  let net = 0;
+  for (const e of entries) {
+    if (
+      e.entry_type === "REVENUE_AVAILABLE" ||
+      e.entry_type === "RECOGNITION_CORRECTION" ||
+      e.entry_type === "REVERSED"
+    ) {
+      net += Math.trunc(Number(e.amount) || 0);
+    }
+  }
+  return net;
+}
+
+export function isRedemptionRecognizedFromLedger(
+  entries: ReadonlyArray<{ entry_type: string; amount: number }>
+): boolean {
+  return netMerchantRecognitionFromLedger(entries) > 0;
+}

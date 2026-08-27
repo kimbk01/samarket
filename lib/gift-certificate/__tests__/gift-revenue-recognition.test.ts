@@ -10,10 +10,13 @@ import {
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import {
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
+  GIFT_RECOGNITION_CORRECTION_MIGRATION_ID,
   GIFT_RPCS,
 } from "@/lib/gift-certificate/gift-certificate-schema";
 import {
   aggregateGiftRevenuePendingRecognized,
+  isRedemptionRecognizedFromLedger,
+  netMerchantRecognitionFromLedger,
   platformFeeRecognizedAtRedeem,
   redeemCreatesAvailableRevenue,
   resolveGiftRedemptionRecognitionState,
@@ -128,5 +131,48 @@ describe("Gift order-completion revenue recognition T1–T16", () => {
 
   it("Pending-only reversal skips REVERSED ledger", () => {
     expect(mig).toMatch(/pending REVENUE_CREATE-only claims need no REVERSED/);
+  });
+});
+
+describe("CUT2 historical RECOGNITION_CORRECTION", () => {
+  const corrMig = readMig(GIFT_RECOGNITION_CORRECTION_MIGRATION_ID);
+
+  it("uses RECOGNITION_CORRECTION not REVERSED for historical pending correction", () => {
+    expect(corrMig).toMatch(/RECOGNITION_CORRECTION/);
+    expect(corrMig).toMatch(/gift_certificate_correct_legacy_recognition/);
+    expect(corrMig).toMatch(/historical_recognition_correction/);
+    expect(corrMig).not.toMatch(/'REVERSED',\s*-v_red\.merchant_net_amount/);
+    expect(GIFT_RPCS.correctLegacyRecognition).toBe("gift_certificate_correct_legacy_recognition");
+  });
+
+  it("available pool and is_recognized use net including correction", () => {
+    expect(corrMig).toMatch(/gift_certificate_redemption_recognized_net/);
+    expect(corrMig).toMatch(/available:after_correction/);
+  });
+
+  it("net recognition: AVAILABLE + CORRECTION = not recognized; future AVAILABLE restores", () => {
+    expect(
+      netMerchantRecognitionFromLedger([
+        { entry_type: "REVENUE_AVAILABLE", amount: 1000 },
+        { entry_type: "RECOGNITION_CORRECTION", amount: -1000 },
+      ])
+    ).toBe(0);
+    expect(
+      isRedemptionRecognizedFromLedger([
+        { entry_type: "REVENUE_AVAILABLE", amount: 1000 },
+        { entry_type: "RECOGNITION_CORRECTION", amount: -1000 },
+      ])
+    ).toBe(false);
+    expect(
+      isRedemptionRecognizedFromLedger([
+        { entry_type: "REVENUE_AVAILABLE", amount: 1000 },
+        { entry_type: "RECOGNITION_CORRECTION", amount: -1000 },
+        { entry_type: "REVENUE_AVAILABLE", amount: 1000 },
+      ])
+    ).toBe(true);
+  });
+
+  it("does not touch Business Credit", () => {
+    expect(corrMig).not.toMatch(/stores\.point_balance/);
   });
 });

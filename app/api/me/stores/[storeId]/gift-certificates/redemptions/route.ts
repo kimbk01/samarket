@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { isRedemptionRecognizedFromLedger } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -107,12 +108,22 @@ export async function GET(
   if (redemptionIds.length > 0) {
     const { data: ledgerRows } = await sb
       .from(GIFT_TABLES.revenueLedger)
-      .select("redemption_id")
+      .select("redemption_id, entry_type, amount")
       .in("redemption_id", redemptionIds)
-      .eq("entry_type", "REVENUE_AVAILABLE")
-      .limit(500);
+      .in("entry_type", ["REVENUE_AVAILABLE", "RECOGNITION_CORRECTION", "REVERSED"])
+      .limit(2000);
+    const byRed = new Map<string, Array<{ entry_type: string; amount: number }>>();
     for (const lr of ledgerRows ?? []) {
-      recognizedIds.add(String((lr as { redemption_id: string }).redemption_id));
+      const rid = String((lr as { redemption_id: string }).redemption_id);
+      const list = byRed.get(rid) ?? [];
+      list.push({
+        entry_type: String((lr as { entry_type: string }).entry_type),
+        amount: Math.trunc(Number((lr as { amount?: number }).amount) || 0),
+      });
+      byRed.set(rid, list);
+    }
+    for (const [rid, entries] of byRed) {
+      if (isRedemptionRecognizedFromLedger(entries)) recognizedIds.add(rid);
     }
   }
 
