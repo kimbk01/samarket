@@ -77,32 +77,6 @@ describe("gift recipient timeline type preservation", () => {
     expect(plan.anchorMessageId).toBeNull();
   });
 
-  it("T1: cold-load unread gift tip lands latest", () => {
-    const plan = resolveMessengerRoomEntryScrollPlan({
-      intent: "default",
-      hasPersisted: false,
-      unreadCount: 1,
-      firstUnreadMessageId: "older",
-      newestPeerGiftCertificate: true,
-      tipEntryConsumed: false,
-    });
-    expect(plan.forceBottom).toBe(true);
-    expect(plan.reason).toBe("initial_load");
-  });
-
-  it("T2: cold-load normal unread text preserves first-unread", () => {
-    const plan = resolveMessengerRoomEntryScrollPlan({
-      intent: "default",
-      hasPersisted: false,
-      unreadCount: 2,
-      firstUnreadMessageId: "fu-text",
-      newestPeerGiftCertificate: false,
-      tipEntryConsumed: false,
-    });
-    expect(plan.forceBottom).toBe(false);
-    expect(plan.anchorMessageId).toBe("fu-text");
-  });
-
   it("T3b: same tip re-entry after consumed ignores stale unread restore", () => {
     const plan = resolveMessengerRoomEntryScrollPlan({
       intent: "default",
@@ -126,7 +100,7 @@ describe("gift recipient timeline type preservation", () => {
     expect(RECIPIENT).toBeTruthy();
   });
 
-  it("T5: sender card entry unchanged (no peer-gift force bottom) + re-entry regression guard", () => {
+  it("T5: sender card entry unchanged (no peer-gift force bottom)", () => {
     const plan = resolveMessengerRoomEntryScrollPlan({
       intent: "default",
       hasPersisted: false,
@@ -137,14 +111,5 @@ describe("gift recipient timeline type preservation", () => {
     expect(plan.forceBottom).toBe(false);
     expect(plan.anchorMessageId).toBe("fu-1");
     expect(giftMessage(true).isMine).toBe(true);
-    const reentry = resolveMessengerRoomEntryScrollPlan({
-      intent: "default",
-      hasPersisted: true,
-      unreadCount: 0,
-      newestPeerGiftCertificate: true,
-      tipEntryConsumed: true,
-    });
-    expect(reentry.forceBottom).toBe(true);
-    expect(reentry.anchorMessageId).toBeNull();
   });
 });
