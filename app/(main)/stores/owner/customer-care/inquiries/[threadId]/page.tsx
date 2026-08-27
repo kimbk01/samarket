@@ -3,17 +3,7 @@
 import { Suspense } from "react";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
-import { MemberCsNoteThreadClient } from "@/components/mypage/cs/MemberCsNoteThreadClient";
-
-function Inner() {
-  return (
-    <MemberCsNoteThreadClient
-      kind="inquiry"
-      listBasePath="/stores/owner/customer-care/inquiries"
-      hideChrome
-    />
-  );
-}
+import { OwnerCareAdminNotesThread } from "@/components/business/owner/OwnerCareAdminNotesThread";
 
 export default function OwnerCustomerCareCsInquiryThreadPage() {
   return (
@@ -25,7 +15,7 @@ export default function OwnerCustomerCareCsInquiryThreadPage() {
       }
     >
       <OwnerAdminPageScrollShell padForOwnerBottomNav={false} className="pt-1">
-        <Inner />
+        <OwnerCareAdminNotesThread kind="inquiry" />
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

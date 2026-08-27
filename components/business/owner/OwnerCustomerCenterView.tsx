@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MemberCsNoteListClient } from "@/components/mypage/cs/MemberCsNoteListClient";
+import { OwnerCareAdminNotesList } from "@/components/business/owner/OwnerCareAdminNotesList";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 
@@ -56,6 +56,12 @@ export function OwnerCustomerCenterView({
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-center="1">
+      <p className="mb-2 text-xs text-sam-muted">
+        {safeT("biz_care_center_intro", {
+          fallbackKo: "DIBAY 관리자와 쪽지·1:1 문의로 직접 연락합니다.",
+          fallbackEn: "Message DIBAY admin via notes and 1:1 inquiry.",
+        })}
+      </p>
       <div className="mb-3 grid min-w-0 grid-cols-2 gap-2" data-owner-customer-center-tabs="1">
         {tabs.map((t) => {
           const selected = tab === t.id;
@@ -83,9 +89,9 @@ export function OwnerCustomerCenterView({
         })}
       </div>
       {tab === "messages" ? (
-        <MemberCsNoteListClient kind="inbox" listBasePath={messagesBase} hideChrome />
+        <OwnerCareAdminNotesList kind="inbox" threadBasePath={messagesBase} />
       ) : (
-        <MemberCsNoteListClient kind="inquiry" listBasePath={inquiriesBase} hideChrome />
+        <OwnerCareAdminNotesList kind="inquiry" threadBasePath={inquiriesBase} />
       )}
     </div>
   );

@@ -390,14 +390,16 @@ function AdminMemberNotesPageInner() {
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
           <h2 className="text-[14px] font-semibold text-sam-fg">
             {safeT("admin_member_notes_inbox_create_title", {
-              fallbackKo: "받은 쪽지 발송 (회원 1명)",
-              fallbackEn: "Send Inbox (1 member)",
+              fallbackKo: "Owner/회원에게 쪽지 발송",
+              fallbackEn: "Send note to Owner/member",
             })}
           </h2>
           <p className="mt-1 text-[12px] text-sam-muted">
             {safeT("admin_member_notes_inbox_create_hint", {
-              fallbackKo: "세그먼트·대량 발송은 지원하지 않습니다. 회원 UUID 1명만 입력하세요.",
-              fallbackEn: "Segment/bulk send is not supported. Enter exactly one member UUID.",
+              fallbackKo:
+                "Store Owner user id 1명을 입력하세요. Owner 고객센터 → 관리자 쪽지에 바로 표시됩니다.",
+              fallbackEn:
+                "Enter one Store Owner user id. It appears in Owner Customer Center → Admin messages.",
             })}
           </p>
           <input

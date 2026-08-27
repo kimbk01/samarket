@@ -67,6 +67,12 @@ export function getBusinessAdminPageTitleI18n(
   if (matchPattern(/^\/stores\/owner\/customer-care\/customer-center$/)) {
     return ownerAdminTitle("biz_title_customer_center");
   }
+  if (matchPattern(/^\/stores\/owner\/customer-care\/messages\/[^/]+$/)) {
+    return ownerAdminTitle("biz_title_care_messages");
+  }
+  if (matchPattern(/^\/stores\/owner\/customer-care\/inquiries\/[^/]+$/)) {
+    return ownerAdminTitle("biz_title_care_cs_inquiries");
+  }
   if (matchPattern(/^\/stores\/owner\/customer-care\/messages(\/[^/]+)?$/)) {
     return ownerAdminTitle("biz_title_care_messages");
   }
