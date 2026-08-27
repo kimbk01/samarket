@@ -208,6 +208,8 @@ export const notificationMessages = {
     notify_gift_transfer_accepted_body: "{name}님이 상품권을 수령했습니다.",
     notify_gift_transfer_rejected_title: "상품권 거절",
     notify_gift_transfer_rejected_body: "{name}님이 상품권을 거절했습니다.",
+    notify_gift_transfer_cancelled_title: "상품권 선물 취소",
+    notify_gift_transfer_cancelled_body: "{name}님이 상품권 선물을 취소했습니다.",
   },
   en: {
     notify_chat_new_message_title: "New message",
@@ -418,5 +420,7 @@ export const notificationMessages = {
     notify_gift_transfer_accepted_body: "{name} accepted your gift certificate.",
     notify_gift_transfer_rejected_title: "Gift declined",
     notify_gift_transfer_rejected_body: "{name} declined your gift certificate.",
+    notify_gift_transfer_cancelled_title: "Gift cancelled",
+    notify_gift_transfer_cancelled_body: "{name} cancelled the gift certificate.",
   },
 } as const;

@@ -161,3 +161,49 @@ export async function notifyGiftTransferRejected(
     },
   });
 }
+
+export async function notifyGiftTransferCancelled(
+  sb: SupabaseClient,
+  args: {
+    senderUserId: string;
+    recipientUserId: string;
+    transferId: string;
+    roomId: string | null;
+    instanceId: string;
+  }
+): Promise<void> {
+  const senderId = trim(args.senderUserId);
+  const recipientId = trim(args.recipientUserId);
+  const transferId = trim(args.transferId);
+  const roomId = trim(args.roomId);
+  if (!senderId || !recipientId || !transferId || senderId === recipientId) return;
+
+  const relation = await getBlockedRelation(recipientId, senderId);
+  if (isNotificationSuppressedForActor(relation)) return;
+
+  const language = await loadNotificationUserLanguage(sb, recipientId);
+  const name = await peerLabel(sb, senderId);
+  const link =
+    roomId.length > 0
+      ? roomHref(roomId, transferId)
+      : "/mypage/gift-certificates?tab=pending";
+
+  await appendUserNotification(sb, {
+    user_id: recipientId,
+    notification_type: "chat",
+    title: notifySafeT(language, "notify_gift_transfer_cancelled_title"),
+    body: notifySafeT(language, "notify_gift_transfer_cancelled_body", { vars: { name } }),
+    link_url: link,
+    domain: "community_chat",
+    ref_id: transferId,
+    dedupe_key: `gift_transfer_cancelled:${transferId}`,
+    push_kind: "community",
+    meta: {
+      kind: "gift_transfer_cancelled",
+      gift_transfer_id: transferId,
+      room_id: roomId || undefined,
+      instance_id: trim(args.instanceId) || undefined,
+      sender_user_id: senderId,
+    },
+  });
+}
