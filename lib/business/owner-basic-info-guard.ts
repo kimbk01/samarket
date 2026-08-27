@@ -56,6 +56,16 @@ export function isOwnerInquiriesPath(pathname: string): boolean {
   );
 }
 
+/** Owner ↔ Admin notes / 고객센터 — 하단 5탭 숨김 (답장 CTA 가림 방지) */
+export function isOwnerCustomerCarePath(pathname: string): boolean {
+  const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+  return (
+    p.includes("/stores/owner/customer-care") ||
+    p.includes("/my/business/customer-care") ||
+    p.includes("/mypage/business/customer-care")
+  );
+}
+
 /** 사이드바·뒤로가기 가드: 기본 정보 또는 매장 설정(프로필) */
 export function isOwnerStoreAdminDirtyGuardPath(pathname: string): boolean {
   return isOwnerBasicInfoPath(pathname) || isOwnerStoreProfilePath(pathname);
@@ -67,12 +77,13 @@ export function isOwnerStoreOrdersPath(pathname: string): boolean {
   return p === "/stores/owner/orders";
 }
 
-/** 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼·문의·주문 관리 등 전체 화면 서브라우트 */
+/** 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼·문의·주문 관리·고객센터 등 전체 화면 서브라우트 */
 export function isOwnerStoreFormBottomNavHiddenPath(pathname: string): boolean {
   return (
     isOwnerBasicInfoPath(pathname) ||
     isOwnerStoreProfilePath(pathname) ||
     isOwnerInquiriesPath(pathname) ||
-    isOwnerStoreOrdersPath(pathname)
+    isOwnerStoreOrdersPath(pathname) ||
+    isOwnerCustomerCarePath(pathname)
   );
 }

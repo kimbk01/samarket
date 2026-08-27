@@ -71,6 +71,17 @@ describe("owner admin scroll shell contract", () => {
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/inquiries")).toBe(true);
   });
 
+  it("customer-care hides owner mobile bottom nav", () => {
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care")).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/customer-center")).toBe(true);
+    expect(
+      isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/messages/tid-1")
+    ).toBe(true);
+    expect(
+      isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/inquiries/tid-1")
+    ).toBe(true);
+  });
+
   it("orders management hides owner mobile bottom nav", () => {
     expect(isOwnerStoreOrdersPath("/stores/owner/orders")).toBe(true);
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/orders")).toBe(true);

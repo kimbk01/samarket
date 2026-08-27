@@ -528,8 +528,19 @@ export function BusinessAdminShell({
   const adminHeaderBackHref = useMemo(() => {
     if (isHub || !selectedRow) return undefined;
     const sid = selectedRow.id;
+    const p = ownerPathNorm;
+    if (p.startsWith("/stores/owner/customer-care/messages/") || p.startsWith("/stores/owner/customer-care/inquiries/")) {
+      const tab = p.includes("/messages/") ? "messages" : "inquiries";
+      return OwnerRoutes.customerCareCenter(sid, tab);
+    }
+    if (p === "/stores/owner/customer-care/customer-center" || p.startsWith("/stores/owner/customer-care/messages") || p.startsWith("/stores/owner/customer-care/inquiries")) {
+      return OwnerRoutes.customerCare(sid);
+    }
+    if (p === "/stores/owner/customer-care") {
+      return OwnerRoutes.hub(sid);
+    }
     return `/stores/owner?storeId=${encodeURIComponent(sid)}`;
-  }, [isHub, selectedRow]);
+  }, [isHub, selectedRow, ownerPathNorm]);
 
   const storeOpsForMobileHeader = useMemo(() => {
     if (!selectedRow) {
