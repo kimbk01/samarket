@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import type { GiftCertificateMessageMetadata } from "@/lib/gift-certificate/gift-certificate-message-metadata";
 
@@ -18,7 +19,7 @@ export async function projectGiftTransferMessengerStatus(
 
   const { data: transfer } = await sb
     .from(GIFT_TABLES.transfers)
-    .select("messenger_message_id")
+    .select("messenger_message_id, room_id, sender_user_id, recipient_user_id")
     .eq("id", transferId)
     .maybeSingle();
   const messageId = String(
@@ -47,4 +48,20 @@ export async function projectGiftTransferMessengerStatus(
       },
     })
     .eq("id", messageId);
+
+  const roomId = String(
+    (transfer as { room_id?: string | null } | null)?.room_id ?? ""
+  ).trim();
+  const senderUserId = String(
+    (transfer as { sender_user_id?: string | null } | null)?.sender_user_id ?? ""
+  ).trim();
+  const recipientUserId = String(
+    (transfer as { recipient_user_id?: string | null } | null)?.recipient_user_id ?? ""
+  ).trim();
+  if (roomId) {
+    invalidateRoomBootstrapSnapshotCache(
+      roomId,
+      [senderUserId, recipientUserId].filter(Boolean)
+    );
+  }
 }

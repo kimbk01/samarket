@@ -2,9 +2,22 @@ import type { CommunityMessengerMessage } from "@/lib/community-messenger/types"
 import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { serializeCommunityMessengerMessageForBump } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
+import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { bumpMessengerRoomTargetsForRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
+
+function dedupeParticipantUserIds(fromUserId: string, recipientUserIds: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [fromUserId, ...recipientUserIds]) {
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
 
 /** 메시지·미디어 변경 후 부트스트랩 캐시 무효화 + 원장 방 기준 Broadcast bump(거래 URL id 와 CM uuid 가 다를 때 둘 다 무효화). */
 export async function publishMessengerRoomBumpAfterMutation(args: {
@@ -70,6 +83,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
           : ""
       )
       .filter(Boolean);
+    invalidateRoomBootstrapSnapshotCache(canon, dedupeParticipantUserIds(fromUserId, recipientUserIds));
   } catch {
     /* domain/badge meta best-effort */
   }

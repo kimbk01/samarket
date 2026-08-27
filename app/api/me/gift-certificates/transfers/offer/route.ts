@@ -95,6 +95,17 @@ export async function POST(req: NextRequest) {
     const imageUrl = product?.image_url == null ? null : String(product.image_url);
     const createdAt = new Date().toISOString();
     const preview = "Gift certificate";
+    const giftMetadata = {
+      gift_transfer_id: transferId,
+      instance_id: instanceId,
+      store_id: storeId || undefined,
+      store_name: storeName || undefined,
+      title: title || undefined,
+      image_url: imageUrl,
+      face_value: face,
+      remaining_balance: remaining,
+      transfer_status: "PENDING" as const,
+    };
     const { data: msg, error: msgErr } = await sb
       .from("community_messenger_messages")
       .insert({
@@ -102,17 +113,7 @@ export async function POST(req: NextRequest) {
         sender_id: userId,
         message_type: "gift_certificate",
         content: preview,
-        metadata: {
-          gift_transfer_id: transferId,
-          instance_id: instanceId,
-          store_id: storeId || undefined,
-          store_name: storeName || undefined,
-          title: title || undefined,
-          image_url: imageUrl,
-          face_value: face,
-          remaining_balance: remaining,
-          transfer_status: "PENDING",
-        },
+        metadata: giftMetadata,
         created_at: createdAt,
       })
       .select("id")
@@ -154,6 +155,18 @@ export async function POST(req: NextRequest) {
           fromUserId: userId,
           messageId: mid,
           messageCreatedAt: createdAt,
+          messageForBump: {
+            id: mid,
+            roomId,
+            senderId: userId,
+            senderLabel: "",
+            messageType: "gift_certificate",
+            content: preview,
+            createdAt,
+            metadata: giftMetadata,
+            clientMessageId: null,
+            isMine: false,
+          },
         });
       } catch {
         /* best-effort projection bump */
