@@ -14,7 +14,7 @@ const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app"
 const OUT = resolve(process.cwd(), ".tmp-gift-friend-ux-coldload-proof.json");
 const SHOT = resolve(process.cwd(), ".tmp-gift-friend-ux-coldload-shots");
 const VP = { width: 390, height: 844 };
-const COMMIT = process.env.GIFT_PROOF_COMMIT?.trim() || "d1abd5f48";
+const COMMIT = process.env.GIFT_PROOF_COMMIT?.trim() || "d353a2b50";
 
 const SENDER = {
   email: process.env.GIFT_UX_SENDER_EMAIL?.trim() || "qqqq@manual.local",
@@ -288,19 +288,46 @@ async function waitCard(page, transferId, label) {
   return card.first();
 }
 
+async function uiLogin(page, email) {
+  await page.goto(`${ORIGIN}/login`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForTimeout(800);
+  const entry = page.getByTestId("auth-internal-login-entry");
+  if ((await entry.count()) > 0) {
+    await entry.click();
+    await page.waitForTimeout(400);
+  }
+  const panel = page.getByTestId("auth-internal-login-panel");
+  await panel.waitFor({ state: "visible", timeout: 20000 });
+  const inputs = panel.locator("input");
+  await inputs.nth(0).fill(email);
+  let lastErr = "ui_login_failed";
+  for (const password of passwords()) {
+    await inputs.nth(1).fill(password);
+    await panel.locator('button[type="submit"]').click();
+    for (let i = 0; i < 40; i++) {
+      await page.waitForTimeout(500);
+      if (!/\/login(?:\?|$)/.test(page.url())) return;
+      const alert = await page.locator('[role="alert"]').textContent().catch(() => "");
+      if (alert && /wrong|실패|invalid|비밀번호/i.test(alert)) {
+        lastErr = `ui_login_alert:${alert.slice(0, 80)}`;
+        break;
+      }
+    }
+  }
+  throw new Error(lastErr);
+}
+
 async function gotoRoom(page, roomId) {
   await page.goto(`${ORIGIN}/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
+  await page
+    .waitForSelector('.chat-timeline-scroll, [data-cm-timeline-message-row], [data-auth-session-boundary="blocked"]', {
+      timeout: 45000,
+    })
+    .catch(() => null);
   await page.waitForTimeout(1500);
-}
-
-async function attachAuth(ctx, email, userId) {
-  const sess = await loginSession(email);
-  const sb = sbService();
-  const { data: pr } = await sb.from("profiles").select("active_session_id").eq("id", userId).maybeSingle();
-  await ctx.addCookies(playwrightCookies(sess, pr?.active_session_id ? String(pr.active_session_id) : ""));
 }
 
 loadEnv();
@@ -316,15 +343,11 @@ const pageB = await ctxB.newPage();
 try {
   await ensureContact(SENDER.userId, RECIPIENT.userId);
   await ensureContact(RECIPIENT.userId, SENDER.userId);
-  await attachAuth(ctxA, SENDER.email, SENDER.userId);
-  await attachAuth(ctxB, RECIPIENT.email, RECIPIENT.userId);
 
   let owner = SENDER;
   let peer = RECIPIENT;
   let ownerPage = pageA;
   let peerPage = pageB;
-  let ownerCtx = ctxA;
-  let peerCtx = ctxB;
   let owned = await pickOwnedInstance(SENDER.userId);
   if (!owned) {
     owned = await pickOwnedInstance(RECIPIENT.userId);
@@ -333,9 +356,10 @@ try {
     peer = SENDER;
     ownerPage = pageB;
     peerPage = pageA;
-    ownerCtx = ctxB;
-    peerCtx = ctxA;
   }
+
+  await uiLogin(ownerPage, owner.email);
+  await uiLogin(peerPage, peer.email);
 
   const instanceId = String(owned.id);
   const remainingBefore = Number(owned.remaining_balance);
@@ -366,19 +390,16 @@ try {
   if (!transferRow?.messenger_message_id) fail("OFFER_DB", "messenger_message_id_missing");
   report.messengerMessageId = transferRow.messenger_message_id;
 
-  // A chat card (sender)
   await gotoRoom(ownerPage, roomId);
   await waitCard(ownerPage, transferAB, "A_CHAT_CARD");
   report.aChatCard = "PASS";
   await shot(ownerPage, "a-pending");
 
-  // B chat card (recipient)
   await gotoRoom(peerPage, roomId);
   await waitCard(peerPage, transferAB, "B_CHAT_CARD");
   report.bChatCard = "PASS";
   await shot(peerPage, "b-pending");
 
-  // Room re-entry (leave list → room)
   await peerPage.goto(`${ORIGIN}/community-messenger`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
@@ -389,30 +410,26 @@ try {
   report.roomReEntry = "PASS";
   await shot(peerPage, "b-reentry");
 
-  // Cold load — brand new browser context (no in-memory timeline)
   const coldCtx = await browser.newContext({ viewport: VP });
   const coldPage = await coldCtx.newPage();
-  await attachAuth(coldCtx, peer.email, peer.userId);
+  await uiLogin(coldPage, peer.email);
   await gotoRoom(coldPage, roomId);
   await waitCard(coldPage, transferAB, "COLD_LOAD");
   report.coldLoad = "PASS";
   await shot(coldPage, "b-cold");
   await coldCtx.close();
 
-  // Refresh
   await peerPage.reload({ waitUntil: "domcontentloaded", timeout: 60000 });
   await peerPage.waitForTimeout(1500);
   await waitCard(peerPage, transferAB, "REFRESH");
   report.refresh = "PASS";
   await shot(peerPage, "b-refresh");
 
-  // 390px already set — verify viewport + card still present
   const vp = peerPage.viewportSize();
   if (!vp || vp.width !== 390) fail("390PX", `viewport_${vp?.width}`);
   await waitCard(peerPage, transferAB, "390PX");
   report.px390 = "PASS";
 
-  // RE-GIFT 1× — accept then peer offers back to original owner
   const acceptRes = await apiJson(peerPage, `/api/me/gift-certificates/transfers/${transferAB}/accept`, {
     method: "POST",
   });
@@ -463,7 +480,7 @@ try {
   write();
   console.log(JSON.stringify(report, null, 2));
 } catch (e) {
-  report.friendGiftUx = report.friendGiftUx.startsWith("BLOCKED")
+  report.friendGiftUx = String(report.friendGiftUx || "").startsWith("BLOCKED")
     ? report.friendGiftUx
     : `BLOCKED — ${e instanceof Error ? e.message : String(e)}`;
   write();

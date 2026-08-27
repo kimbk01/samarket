@@ -92,6 +92,16 @@ export function AuthSessionBoundary({ children }: Props) {
         .catch(() => {
           /* ignore — keep holding */
         });
+      // Registry/cookie race: session API may 401 while Supabase cookie session is still valid.
+      void import("@/lib/supabase/client")
+        .then(({ getSupabaseClient }) => getSupabaseClient()?.auth.getSession())
+        .then((result) => {
+          const uid = result?.data?.session?.user?.id?.trim();
+          if (!cancelled && uid) setSessionApiAuthenticated(true);
+        })
+        .catch(() => {
+          /* ignore */
+        });
     };
     probe();
     const id = window.setInterval(probe, 1000);
