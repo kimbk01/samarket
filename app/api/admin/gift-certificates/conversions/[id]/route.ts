@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  adminGiftProfileLabel,
+  loadAdminGiftProfileMap,
+} from "@/lib/gift-certificate/admin-gift-ops-profile";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export const runtime = "nodejs";
@@ -34,7 +38,8 @@ export async function GET(
   }
 
   const storeId = String(raw.store_id);
-  const [{ data: store }, { data: cash }, availRes, { data: recoveryRows }, { data: ledger }] =
+  const ownerUserId = String(raw.owner_user_id);
+  const [{ data: store }, { data: cash }, availRes, { data: recoveryRows }, { data: ledger }, profiles] =
     await Promise.all([
       sb.from("stores").select("id, store_name, point_balance, owner_user_id").eq("id", storeId).maybeSingle(),
       sb.from(GIFT_TABLES.storeCashAccounts).select("store_id, balance").eq("store_id", storeId).maybeSingle(),
@@ -51,6 +56,7 @@ export async function GET(
         .eq("store_id", storeId)
         .order("created_at", { ascending: false })
         .limit(20),
+      loadAdminGiftProfileMap(sb, [ownerUserId]),
     ]);
 
   const available =
@@ -68,7 +74,8 @@ export async function GET(
       id: String(raw.id),
       storeId,
       storeName: store?.store_name != null ? String(store.store_name) : "",
-      ownerUserId: String(raw.owner_user_id),
+      ownerUserId,
+      ownerLabel: adminGiftProfileLabel(profiles.get(ownerUserId)),
       amount: Math.trunc(Number(raw.amount) || 0),
       status: String(raw.status ?? ""),
       createdAt: String(raw.created_at ?? ""),

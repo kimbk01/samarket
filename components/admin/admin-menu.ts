@@ -547,52 +547,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "gift-certificates",
             title: "",
+            path: "/admin/gift-certificates",
             status: "done",
-            children: [
-              {
-                key: "gift-applications",
-                title: "",
-                path: "/admin/gift-certificates/applications",
-                status: "done",
-              },
-              {
-                key: "gift-products",
-                title: "",
-                path: "/admin/gift-certificates/products",
-                status: "done",
-              },
-              {
-                key: "gift-conversions",
-                title: "",
-                path: "/admin/gift-certificates/conversions",
-                status: "done",
-              },
-              {
-                key: "gift-cash-outs",
-                title: "",
-                path: "/admin/gift-certificates/cash-outs",
-                status: "done",
-              },
-              {
-                key: "gift-revenue",
-                title: "",
-                path: "/admin/gift-certificates/revenue",
-                status: "done",
-              },
-              {
-                key: "gift-recovery",
-                title: "",
-                path: "/admin/gift-certificates/recovery",
-                status: "done",
-              },
-              {
-                key: "gift-tracking",
-                title: "",
-                path: "/admin/gift-certificates/tracking",
-                roles: ["admin", "master"],
-                status: "done",
-              },
-            ],
           },
           {
             key: "store-promo-control",

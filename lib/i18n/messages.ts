@@ -27,6 +27,7 @@ import { giftCertificateU3Messages } from "./catalog/gift-certificate-u3";
 import { giftCertificateU4Messages } from "./catalog/gift-certificate-u4";
 import { giftCertificateU5Messages } from "./catalog/gift-certificate-u5";
 import { giftCertificateU6Messages } from "./catalog/gift-certificate-u6";
+import { giftOpsCenterMessages } from "./catalog/gift-ops-center";
 import { giftCertificateOwnerO16Messages } from "./catalog/gift-certificate-owner-o16";
 import { pointsLabelsMessages } from "./catalog/points-labels";
 import { postListPreviewMessages } from "./catalog/post-list-preview";
@@ -93,6 +94,7 @@ const KO_MESSAGES = {
   ...giftCertificateU4Messages.ko,
   ...giftCertificateU5Messages.ko,
   ...giftCertificateU6Messages.ko,
+  ...giftOpsCenterMessages.ko,
   ...giftCertificateOwnerO16Messages.ko,
   ...pointsLabelsMessages.ko,
   ...postListPreviewMessages.ko,
@@ -159,6 +161,7 @@ const EN_MESSAGES = {
   ...giftCertificateU4Messages.en,
   ...giftCertificateU5Messages.en,
   ...giftCertificateU6Messages.en,
+  ...giftOpsCenterMessages.en,
   ...giftCertificateOwnerO16Messages.en,
   ...pointsLabelsMessages.en,
   ...postListPreviewMessages.en,

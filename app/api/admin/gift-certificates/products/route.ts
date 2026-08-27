@@ -9,6 +9,14 @@ import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function s(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function n(v: unknown): number {
+  return Math.trunc(Number(v) || 0);
+}
+
 /** GET+POST /api/admin/gift-certificates/products — admin creates product from application */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
@@ -18,7 +26,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, image_url, issued_count, max_issuance, created_at"
+      "id, store_id, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, image_url, issued_count, max_issuance, created_at, stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(100);
@@ -28,7 +36,84 @@ export async function GET(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, products: data ?? [] });
+
+  const productsRaw = (data ?? []) as Record<string, unknown>[];
+  const productIds = productsRaw.map((r) => s(r.id)).filter(Boolean);
+  const outstandingByProduct = new Map<string, number>();
+  const redeemedByProduct = new Map<string, number>();
+
+  if (productIds.length) {
+    const { data: instances } = await gate.sb
+      .from(GIFT_TABLES.instances)
+      .select("id, product_id, remaining_balance, status")
+      .in("product_id", productIds)
+      .limit(5000);
+    const instanceIds: string[] = [];
+    for (const raw of instances ?? []) {
+      const r = raw as Record<string, unknown>;
+      const pid = s(r.product_id);
+      const st = s(r.status);
+      if (st === "ACTIVE" || st === "PARTIALLY_REDEEMED" || st === "GIFT_LOCKED") {
+        outstandingByProduct.set(
+          pid,
+          (outstandingByProduct.get(pid) ?? 0) + Math.max(0, n(r.remaining_balance))
+        );
+      }
+      instanceIds.push(s(r.id));
+    }
+    if (instanceIds.length) {
+      const { data: redemptions } = await gate.sb
+        .from(GIFT_TABLES.redemptions)
+        .select("instance_id, redeemed_amount, reversed")
+        .in("instance_id", instanceIds.slice(0, 2000))
+        .limit(5000);
+      const productByInstance = new Map(
+        ((instances ?? []) as Record<string, unknown>[]).map((r) => [s(r.id), s(r.product_id)])
+      );
+      for (const raw of redemptions ?? []) {
+        const r = raw as Record<string, unknown>;
+        if (r.reversed === true) continue;
+        const pid = productByInstance.get(s(r.instance_id));
+        if (!pid) continue;
+        redeemedByProduct.set(pid, (redeemedByProduct.get(pid) ?? 0) + Math.max(0, n(r.redeemed_amount)));
+      }
+    }
+  }
+
+  const products = productsRaw.map((row) => {
+    const storesRaw = row.stores;
+    const storeObj = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
+    const storeName =
+      storeObj && typeof storeObj === "object"
+        ? s((storeObj as { store_name?: unknown }).store_name)
+        : "";
+    const id = s(row.id);
+    return {
+      id,
+      store_id: s(row.store_id),
+      store_name: storeName,
+      application_id: row.application_id == null ? null : s(row.application_id),
+      title: s(row.title),
+      face_value: n(row.face_value),
+      purchase_price: n(row.purchase_price),
+      platform_fee_rate: n(row.platform_fee_rate),
+      discount_funding_party: s(row.discount_funding_party) || "NONE",
+      platform_funded_units: n(row.platform_funded_units),
+      merchant_funded_units: n(row.merchant_funded_units),
+      transferable: row.transferable !== false,
+      sales_starts_at: row.sales_starts_at == null ? null : s(row.sales_starts_at),
+      sales_ends_at: row.sales_ends_at == null ? null : s(row.sales_ends_at),
+      active: row.active === true,
+      image_url: row.image_url == null ? null : s(row.image_url),
+      issued_count: n(row.issued_count),
+      max_issuance: row.max_issuance == null ? null : n(row.max_issuance),
+      created_at: s(row.created_at),
+      outstanding_balance: outstandingByProduct.get(id) ?? 0,
+      redeemed_gross: redeemedByProduct.get(id) ?? 0,
+    };
+  });
+
+  return NextResponse.json({ ok: true, products });
 }
 
 export async function POST(req: NextRequest) {

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  adminGiftProfileLabel,
+  loadAdminGiftProfileMap,
+} from "@/lib/gift-certificate/admin-gift-ops-profile";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export const runtime = "nodejs";
@@ -42,6 +46,8 @@ export async function GET(
     storeObj && typeof storeObj === "object" && (storeObj as { store_name?: unknown }).store_name != null
       ? String((storeObj as { store_name: unknown }).store_name)
       : "";
+  const ownerUserId = String(row.owner_user_id);
+  const profiles = await loadAdminGiftProfileMap(gate.sb, [ownerUserId]);
 
   return NextResponse.json({
     ok: true,
@@ -49,8 +55,10 @@ export async function GET(
       id: String(row.id),
       store_id: String(row.store_id),
       store_name: storeName,
-      owner_user_id: String(row.owner_user_id),
+      owner_user_id: ownerUserId,
+      owner_label: adminGiftProfileLabel(profiles.get(ownerUserId)),
       title: String(row.title ?? ""),
+
       requested_face_value: Math.trunc(Number(row.requested_face_value) || 0),
       requested_purchase_price:
         row.requested_purchase_price == null

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import {
+  adminGiftProfileLabel,
+  loadAdminGiftProfileMap,
+} from "@/lib/gift-certificate/admin-gift-ops-profile";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export const runtime = "nodejs";
@@ -24,8 +28,10 @@ export async function GET() {
 
   const rows = data ?? [];
   const storeIds = [...new Set(rows.map((r) => String((r as { store_id: string }).store_id)))];
+  const ownerIds = rows.map((r) => String((r as { owner_user_id?: string }).owner_user_id ?? ""));
   const storeNameById = new Map<string, string>();
   const availByStore = new Map<string, number>();
+  const profiles = await loadAdminGiftProfileMap(sb, ownerIds);
 
   if (storeIds.length > 0) {
     const { data: stores } = await sb.from("stores").select("id, store_name").in("id", storeIds).limit(200);
@@ -48,11 +54,13 @@ export async function GET() {
   const cashOuts = rows.map((raw) => {
     const r = raw as Record<string, unknown>;
     const storeId = String(r.store_id);
+    const ownerUserId = String(r.owner_user_id);
     return {
       id: String(r.id),
       storeId,
       storeName: storeNameById.get(storeId) ?? "",
-      ownerUserId: String(r.owner_user_id),
+      ownerUserId,
+      ownerLabel: adminGiftProfileLabel(profiles.get(ownerUserId)),
       amount: Math.trunc(Number(r.amount) || 0),
       status: String(r.status ?? ""),
       destinationType: String(r.destination_type ?? ""),

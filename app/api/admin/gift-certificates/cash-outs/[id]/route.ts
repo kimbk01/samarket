@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
+  adminGiftProfileLabel,
+  loadAdminGiftProfileMap,
+} from "@/lib/gift-certificate/admin-gift-ops-profile";
+import {
   giftCertificateCashOutApprove,
   giftCertificateCashOutMarkPaid,
   giftCertificateCashOutReject,
@@ -39,9 +43,11 @@ export async function GET(
   }
   const r = data as Record<string, unknown>;
   const storeId = String(r.store_id);
-  const [{ data: store }, { data: avail }] = await Promise.all([
+  const ownerUserId = String(r.owner_user_id);
+  const [{ data: store }, { data: avail }, profiles] = await Promise.all([
     gate.sb.from("stores").select("id, store_name").eq("id", storeId).maybeSingle(),
     gate.sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId }),
+    loadAdminGiftProfileMap(gate.sb, [ownerUserId]),
   ]);
   return NextResponse.json({
     ok: true,
@@ -49,7 +55,8 @@ export async function GET(
       id: String(r.id),
       storeId,
       storeName: String((store as { store_name?: string } | null)?.store_name ?? ""),
-      ownerUserId: String(r.owner_user_id),
+      ownerUserId,
+      ownerLabel: adminGiftProfileLabel(profiles.get(ownerUserId)),
       amount: Math.trunc(Number(r.amount) || 0),
       status: String(r.status ?? ""),
       destinationType: String(r.destination_type ?? ""),

@@ -160,6 +160,49 @@ export async function GET(req: NextRequest) {
       .flatMap((row) => [s(row.from_user_id), s(row.to_user_id), s(row.actor_user_id), s(row.sender_user_id), s(row.recipient_user_id)])
   );
 
+  const storeId = selectedRow.storeId;
+  const [
+    { data: avail },
+    { data: cashOutRows },
+    { data: conversionRows },
+    { data: recoveryRows },
+  ] = await Promise.all([
+    sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId }),
+    sb
+      .from(GIFT_TABLES.cashOutRequests)
+      .select("id, amount, status, created_at, paid_at")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    sb
+      .from(GIFT_TABLES.conversionRequests)
+      .select("id, amount, status, created_at, approved_at")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    sb
+      .from(GIFT_TABLES.storeCashRecoveryObligations)
+      .select("id, redemption_id, amount_original, amount_remaining, status, created_at")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  const redemptionIdSet = new Set(redemptions.map((row) => s(row.id)));
+  const recoveryMapped = ((recoveryRows ?? []) as Record<string, unknown>[]).map((row) => {
+    const redemptionId = s(row.redemption_id) || null;
+    const exact = redemptionId != null && redemptionIdSet.has(redemptionId);
+    return {
+      id: s(row.id),
+      redemptionId,
+      amountOriginal: n(row.amount_original),
+      amountRemaining: n(row.amount_remaining),
+      status: s(row.status),
+      createdAt: s(row.created_at),
+      linkage: exact ? ("REDEMPTION" as const) : ("POOL_LEVEL" as const),
+    };
+  });
+
   return NextResponse.json({
     ok: true,
     instances,
@@ -210,6 +253,26 @@ export async function GET(req: NextRequest) {
           })),
         };
       }),
+      settlement: {
+        availableRevenue:
+          typeof avail === "number" ? Math.trunc(avail) : Math.trunc(Number(avail) || 0),
+        note: "Store-scoped Gift Revenue available (same RPC as Owner).",
+        cashOuts: ((cashOutRows ?? []) as Record<string, unknown>[]).map((row) => ({
+          id: s(row.id),
+          amount: n(row.amount),
+          status: s(row.status),
+          createdAt: s(row.created_at),
+          paidAt: s(row.paid_at) || null,
+        })),
+        conversions: ((conversionRows ?? []) as Record<string, unknown>[]).map((row) => ({
+          id: s(row.id),
+          amount: n(row.amount),
+          status: s(row.status),
+          createdAt: s(row.created_at),
+          approvedAt: s(row.approved_at) || null,
+        })),
+      },
+      recovery: recoveryMapped,
     },
   });
 }
