@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { isMessengerGeneralFriendDirectKey } from "@/lib/community-messenger/messenger-room-domain";
 import { giftCertificateOffer } from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { notifyGiftTransferOffered } from "@/lib/gift-certificate/notify-gift-transfer";
@@ -35,6 +36,22 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "instanceId_recipientUserId_idempotencyKey_required" },
       { status: 400 }
     );
+  }
+  if (roomIdRaw) {
+    const { data: room } = await sb
+      .from("community_messenger_rooms")
+      .select("room_type, chat_domain, direct_key")
+      .eq("id", roomIdRaw)
+      .maybeSingle();
+    const roomType = String((room as { room_type?: unknown } | null)?.room_type ?? "").trim();
+    const chatDomain = String((room as { chat_domain?: unknown } | null)?.chat_domain ?? "").trim();
+    const directKey = String((room as { direct_key?: unknown } | null)?.direct_key ?? "").trim();
+    const isGeneralDirect =
+      roomType === "direct" &&
+      (chatDomain === "general_direct" || (!chatDomain && isMessengerGeneralFriendDirectKey(directKey)));
+    if (!isGeneralDirect) {
+      return NextResponse.json({ ok: false, error: "not_general_direct" }, { status: 400 });
+    }
   }
 
   const result = await giftCertificateOffer(sb, {
