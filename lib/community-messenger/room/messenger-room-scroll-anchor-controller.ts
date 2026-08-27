@@ -194,6 +194,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   /** seeded/silent backfill 감지용 — pagination(loadOlderMessages)과는 별개 신호 */
   const prevHeadMessageIdRef = useRef<string | null>(null);
   const pendingAnchorMessageIdRef = useRef<string | null>(null);
+  /** Cold / late tip: one correction after settle when unconsumed peer gift tip is not at bottom. */
+  const giftTipLandCorrectedRef = useRef<string | null>(null);
 
   const toVirtualizer = useCallback((): ChatThreadVirtualizer | null => {
     if (!virtualizer) return null;
@@ -462,6 +464,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     entryScrollScheduledRef.current = false;
     hasAppliedInitialAnchorRef.current = false;
     pendingAnchorMessageIdRef.current = null;
+    giftTipLandCorrectedRef.current = null;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
     prevHeadMessageIdRef.current = null;
@@ -488,7 +491,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (!timelineInitialLoadComplete) return;
     /** heavy 없이도 direct rows paint 가능 — heavy는 virtualizer 보조만 */
     if (!timelineHeavyReady && messageCount <= 0) return;
-    if (entryScrollScheduledRef.current || hasAppliedInitialAnchorRef.current) return;
+    if (hasAppliedInitialAnchorRef.current) return;
 
     const rid = roomId.trim();
     const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
@@ -527,6 +530,23 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       newestPeerGiftCertificate,
       tipEntryConsumed,
     });
+
+    /**
+     * Cold race: entry already scheduled with first-unread, then tip resolves as peer gift.
+     * Upgrade pending entry to latest once — do not leave gift below the fold.
+     */
+    if (entryScrollScheduledRef.current) {
+      if (!(plan.forceBottom && newestPeerGiftCertificate && !tipEntryConsumed)) return;
+      if (engine.getPhase() !== "entryPendingLayout") return;
+      if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
+      stickToBottomRef.current = true;
+      notifyEntryFromPlan(plan.reason, true, null);
+      engine.notifyMessagesReady(true);
+      engine.notifyLayoutCommitted();
+      tryCompleteEntry(plan.reason, "initial_latest");
+      return;
+    }
+
     if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
     if (plan.forceBottom) stickToBottomRef.current = true;
 
@@ -551,13 +571,56 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     messageCount,
     notifyEntryFromPlan,
     roomId,
-    roomMessages.length,
+    roomMessages,
     stickToBottomRef,
     timelineHeavyReady,
     timelineInitialLoadComplete,
     timelineViewportMounted,
     tryCompleteEntry,
     unreadCount,
+  ]);
+
+  /**
+   * Cold load / late virtualizer: after entry settled, if tip is still an unconsumed peer gift
+   * and we are not stuck to bottom, land latest once. Tip-consumed sessions (re-entry) skip.
+   */
+  useLayoutEffect(() => {
+    if (!timelineInitialLoadComplete || !timelineViewportMounted) return;
+    if (!hasAppliedInitialAnchorRef.current || !engine.isSettled()) return;
+    const rid = roomId.trim();
+    const newest = roomMessages.length > 0 ? roomMessages[roomMessages.length - 1] : null;
+    if (!newest || newest.messageType !== "gift_certificate" || newest.isMine === true) return;
+    const tip = newest.id?.trim() || "";
+    if (!rid || !tip) return;
+    if (isMessengerRoomTimelineTipEntryConsumed(rid, tip)) return;
+    if (giftTipLandCorrectedRef.current === tip) return;
+
+    if (engine.readStickToBottom() && stickToBottomRef.current) {
+      engine.notifyLayoutResize(buildCtx());
+      markMessengerRoomTimelineTipEntryConsumed(rid, tip);
+      giftTipLandCorrectedRef.current = tip;
+      return;
+    }
+
+    giftTipLandCorrectedRef.current = tip;
+    const ok = engine.scrollToBottomExplicit(buildCtx());
+    if (!ok) {
+      giftTipLandCorrectedRef.current = null;
+      return;
+    }
+    stickToBottomRef.current = true;
+    markMessengerRoomTimelineTipEntryConsumed(rid, tip);
+    clearMessengerRoomScrollPosition(rid);
+    markCmScrollRun("initial_load", "cold_gift_tip_land");
+  }, [
+    buildCtx,
+    engine,
+    markCmScrollRun,
+    roomId,
+    roomMessages,
+    stickToBottomRef,
+    timelineInitialLoadComplete,
+    timelineViewportMounted,
   ]);
 
   useEffect(() => {

@@ -107,15 +107,14 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
-  it("tip already consumed + stale unread → latest (no stale first-unread restore)", () => {
+  it("T1 cold: unconsumed peer gift tip lands latest even when unread already 0", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
-        hasPersisted: true,
-        unreadCount: 4,
-        firstUnreadMessageId: "fu-old",
+        hasPersisted: false,
+        unreadCount: 0,
         newestPeerGiftCertificate: true,
-        tipEntryConsumed: true,
+        tipEntryConsumed: false,
       })
     ).toEqual({
       reason: "initial_load",
@@ -125,13 +124,33 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
-  it("newest peer gift with unread 0 does not use gift-only path (latest anyway)", () => {
+  it("T2 cold: normal unread text keeps first-unread policy", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
         hasPersisted: false,
-        unreadCount: 0,
+        unreadCount: 2,
+        firstUnreadMessageId: "fu-text",
+        newestPeerGiftCertificate: false,
+        tipEntryConsumed: false,
+      })
+    ).toEqual({
+      reason: "room_entry_restore",
+      clearPersist: true,
+      forceBottom: false,
+      anchorMessageId: "fu-text",
+    });
+  });
+
+  it("tip already consumed + stale unread → latest (no stale first-unread restore)", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: true,
+        unreadCount: 4,
+        firstUnreadMessageId: "fu-old",
         newestPeerGiftCertificate: true,
+        tipEntryConsumed: true,
       })
     ).toEqual({
       reason: "initial_load",

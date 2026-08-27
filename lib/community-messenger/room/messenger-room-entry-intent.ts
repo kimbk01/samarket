@@ -251,9 +251,10 @@ export type MessengerRoomEntryScrollPlanInput = {
   /** Resolved first unread id (message after lastRead). Prefer over lastRead. */
   firstUnreadMessageId?: string | null;
   /**
-   * Newest timeline row is a peer `gift_certificate` **and** this entry still has
-   * unconsumed unread — land latest so the gift tip is in viewport (not an older first-unread).
-   * Not a permanent gift-only forceBottom: ignored when tip was already consumed / unread is 0.
+   * Newest timeline row is a peer `gift_certificate` tip.
+   * When that tip is not yet consumed this tab session, land latest so the gift card is
+   * in viewport (cold load has no tip-consumed; first-unread must not win over the tip).
+   * Not a permanent gift-only hack: tipEntryConsumed clears this path.
    */
   newestPeerGiftCertificate?: boolean;
   /**
@@ -267,7 +268,7 @@ export type MessengerRoomEntryScrollPlanInput = {
  * Enter = sole scroll policy decision (Telegram benchmark contract):
  * - push → latest above composer
  * - tip already consumed → latest (ignore stale unread/first-unread)
- * - unconsumed unread + newest peer gift_certificate → latest (gift delivery land)
+ * - unconsumed newest peer gift_certificate tip → latest (cold / gift delivery land)
  * - unread + firstUnread → first-unread boundary (not force bottom, not lastRead itself)
  * - else → latest above composer
  */
@@ -286,10 +287,10 @@ export function resolveMessengerRoomEntryScrollPlan(
   /** Same tip already seen this session — do not revive stale first-unread restore. */
   const unread = input.tipEntryConsumed ? 0 : unreadRaw;
   /**
-   * Unconsumed gift delivery only: older first-unread must not leave the newest gift below the fold.
-   * Re-entry after tip consumption uses the unread=0 latest path above — not a permanent gift hack.
+   * Unconsumed peer gift tip (cold session has no tip-consumed): land latest.
+   * Consumed tip falls through — normal unread / latest policy applies.
    */
-  if (unread > 0 && input.newestPeerGiftCertificate) {
+  if (!input.tipEntryConsumed && input.newestPeerGiftCertificate) {
     return {
       reason: "initial_load",
       clearPersist: true,
