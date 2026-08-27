@@ -14,6 +14,7 @@ import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type Props = {
   children: ReactNode;
@@ -92,9 +93,9 @@ export function AuthSessionBoundary({ children }: Props) {
         .catch(() => {
           /* ignore — keep holding */
         });
-      // Registry/cookie race: session API may 401 while Supabase cookie session is still valid.
-      void import("@/lib/supabase/client")
-        .then(({ getSupabaseClient }) => getSupabaseClient()?.auth.getSession())
+      // Registry/cookie race: session API may 401 while the browser still has a Supabase session.
+      void getSupabaseClient()
+        ?.auth.getSession()
         .then((result) => {
           const uid = result?.data?.session?.user?.id?.trim();
           if (!cancelled && uid) setSessionApiAuthenticated(true);

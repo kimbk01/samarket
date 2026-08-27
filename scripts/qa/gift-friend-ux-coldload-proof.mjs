@@ -306,7 +306,17 @@ async function uiLogin(page, email) {
     await panel.locator('button[type="submit"]').click();
     for (let i = 0; i < 40; i++) {
       await page.waitForTimeout(500);
-      if (!/\/login(?:\?|$)/.test(page.url())) return;
+      if (!/\/login(?:\?|$)/.test(page.url())) {
+        // Settle membership / AuthSessionBoundary before room hard-nav.
+        await page.goto(ORIGIN, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => null);
+        await page.waitForTimeout(2000);
+        for (let j = 0; j < 20; j++) {
+          const blocked = await page.locator('[data-auth-session-boundary="blocked"]').count();
+          if (blocked === 0) return;
+          await page.waitForTimeout(500);
+        }
+        return;
+      }
       const alert = await page.locator('[role="alert"]').textContent().catch(() => "");
       if (alert && /wrong|실패|invalid|비밀번호/i.test(alert)) {
         lastErr = `ui_login_alert:${alert.slice(0, 80)}`;
