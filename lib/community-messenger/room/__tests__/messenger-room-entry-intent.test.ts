@@ -5,8 +5,10 @@ import {
   clearRoomEntryIntent,
   consumeMessengerRoomEntryIntent,
   getRoomEntryIntent,
+  isMessengerRoomTimelineTipEntryConsumed,
   isRoomEntryInFlight,
   markMessengerPushEntryIntent,
+  markMessengerRoomTimelineTipEntryConsumed,
   markRoomEntryIntent,
   parseMessengerRoomIdFromAppPath,
   resolveMessengerRoomEntryScrollPlan,
@@ -105,6 +107,40 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
+  it("tip already consumed + stale unread → latest (no stale first-unread restore)", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: true,
+        unreadCount: 4,
+        firstUnreadMessageId: "fu-old",
+        newestPeerGiftCertificate: true,
+        tipEntryConsumed: true,
+      })
+    ).toEqual({
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
+    });
+  });
+
+  it("newest peer gift with unread 0 does not use gift-only path (latest anyway)", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 0,
+        newestPeerGiftCertificate: true,
+      })
+    ).toEqual({
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
+    });
+  });
+
   it("sender newest gift (flag false) keeps firstUnread restore", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
@@ -163,5 +199,48 @@ describe("messenger-room-entry-intent", () => {
     clearRoomEntryIntent(ROOM);
     expect(isRoomEntryInFlight()).toBe(false);
     expect(getRoomEntryIntent(ROOM)).toBeNull();
+  });
+
+  it("T3: consumed tip survives and blocks stale first-unread on same tip", () => {
+    markMessengerRoomTimelineTipEntryConsumed(ROOM, "gift-tip-1");
+    expect(isMessengerRoomTimelineTipEntryConsumed(ROOM, "gift-tip-1")).toBe(true);
+    expect(isMessengerRoomTimelineTipEntryConsumed(ROOM, "other-tip")).toBe(false);
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 3,
+        firstUnreadMessageId: "fu-stale",
+        newestPeerGiftCertificate: true,
+        tipEntryConsumed: isMessengerRoomTimelineTipEntryConsumed(ROOM, "gift-tip-1"),
+      }).forceBottom
+    ).toBe(true);
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 3,
+        firstUnreadMessageId: "fu-stale",
+        tipEntryConsumed: isMessengerRoomTimelineTipEntryConsumed(ROOM, "gift-tip-1"),
+      }).anchorMessageId
+    ).toBeNull();
+  });
+
+  it("T4: legitimate unread restore preserved when tip not consumed", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: true,
+        unreadCount: 2,
+        firstUnreadMessageId: "fu-history",
+        newestPeerGiftCertificate: false,
+        tipEntryConsumed: false,
+      })
+    ).toEqual({
+      reason: "room_entry_restore",
+      clearPersist: true,
+      forceBottom: false,
+      anchorMessageId: "fu-history",
+    });
   });
 });

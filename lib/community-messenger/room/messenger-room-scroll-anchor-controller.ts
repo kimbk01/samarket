@@ -8,6 +8,9 @@ import type { ChatThreadScrollRestoreSnapshot, ChatThreadVirtualizer } from "@/l
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
   consumeMessengerRoomEntryIntent,
+  isMessengerEntryBottomLoadReason,
+  isMessengerRoomTimelineTipEntryConsumed,
+  markMessengerRoomTimelineTipEntryConsumed,
   resolveMessengerRoomEntryScrollPlan,
   type MessengerRoomEntryIntent,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
@@ -257,8 +260,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (messengerRoomTracksScrollPosition() && stickToBottomRef.current) {
         useMessengerRoomReaderStateStore.getState().setScrollPosition(rid, "at-bottom");
       }
+      /** Latest land → tip consumed so same-tip re-entry cannot revive stale first-unread. */
+      if (stickToBottomRef.current || isMessengerEntryBottomLoadReason(reason)) {
+        const tip = roomMessages[roomMessages.length - 1]?.id?.trim();
+        if (tip) {
+          markMessengerRoomTimelineTipEntryConsumed(rid, tip);
+          clearMessengerRoomScrollPosition(rid);
+        }
+      }
     },
-    [engine, markCmScrollRun, messagesViewportRef, roomId, stickToBottomRef]
+    [engine, markCmScrollRun, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
   );
 
   const tryCompleteEntry = useCallback(
@@ -501,6 +512,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     const effectiveUnread =
       unreadCount > 0 && !firstUnreadMessageId && lastReadIdx >= 0 ? 0 : unreadCount;
     const newest = roomMessages.length > 0 ? roomMessages[roomMessages.length - 1] : null;
+    const tipMessageId = newest?.id?.trim() || null;
+    const tipEntryConsumed = Boolean(
+      rid && tipMessageId && isMessengerRoomTimelineTipEntryConsumed(rid, tipMessageId)
+    );
     const newestPeerGiftCertificate =
       newest?.messageType === "gift_certificate" && newest.isMine !== true;
     const plan = resolveMessengerRoomEntryScrollPlan({
@@ -510,6 +525,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       lastReadMessageId,
       firstUnreadMessageId,
       newestPeerGiftCertificate,
+      tipEntryConsumed,
     });
     if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
     if (plan.forceBottom) stickToBottomRef.current = true;
@@ -646,9 +662,21 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   useEffect(() => {
     return () => {
+      const rid = roomId.trim();
+      if (!rid) return;
+      /**
+       * Leave-at-latest: consume tip + drop mid-unread persist so same-room re-entry
+       * lands on latest (gift tip visible). History reading (stick false) keeps persist.
+       */
+      if (stickToBottomRef.current) {
+        const tip = roomMessages[roomMessages.length - 1]?.id?.trim();
+        if (tip) markMessengerRoomTimelineTipEntryConsumed(rid, tip);
+        clearMessengerRoomScrollPosition(rid);
+        return;
+      }
       persistScrollPosition();
     };
-  }, [persistScrollPosition]);
+  }, [persistScrollPosition, roomId, roomMessages, stickToBottomRef]);
 
   return {
     scrollMessengerToBottom,

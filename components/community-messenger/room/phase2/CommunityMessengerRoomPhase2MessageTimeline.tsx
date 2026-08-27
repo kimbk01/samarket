@@ -89,6 +89,8 @@ import {
   clearMessengerRoomEntryUnread,
   clearMessengerRoomEntryUnreadSession,
 } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
+import { markMessengerRoomTimelineTipEntryConsumed } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import { clearMessengerRoomScrollPosition } from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
   noteCmRoomSubtreeAttach,
@@ -1036,7 +1038,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const rid = vm.streamRoomId.trim();
     if (!rid || !atLatest || remainingUnreadCount > 0) return;
     clearMessengerRoomEntryUnread(rid, "reached_latest");
-  }, [atLatest, remainingUnreadCount, vm.streamRoomId]);
+    const tip = vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id?.trim();
+    if (tip) {
+      markMessengerRoomTimelineTipEntryConsumed(rid, tip);
+      clearMessengerRoomScrollPosition(rid);
+    }
+  }, [atLatest, remainingUnreadCount, vm.displayRoomMessages, vm.streamRoomId]);
 
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;

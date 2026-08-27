@@ -77,6 +77,20 @@ describe("gift recipient timeline type preservation", () => {
     expect(plan.anchorMessageId).toBeNull();
   });
 
+  it("T3b: same tip re-entry after consumed ignores stale unread restore", () => {
+    const plan = resolveMessengerRoomEntryScrollPlan({
+      intent: "default",
+      hasPersisted: true,
+      unreadCount: 3,
+      firstUnreadMessageId: "older-unread",
+      newestPeerGiftCertificate: true,
+      tipEntryConsumed: true,
+    });
+    expect(plan.forceBottom).toBe(true);
+    expect(plan.reason).toBe("initial_load");
+    expect(plan.anchorMessageId).toBeNull();
+  });
+
   it("T4: recipient PENDING card metadata shows accept/reject CTAs", () => {
     const meta = parseGiftCertificateMessageMetadata(giftMeta);
     expect(meta?.gift_transfer_id).toBe(TRANSFER_ID);

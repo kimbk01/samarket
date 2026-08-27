@@ -20,6 +20,12 @@ const PUSH_INTENT_TTL_MS = 30_000;
 const ROOM_ENTRY_INTENT_STORAGE_KEY = "samarket:cm:room_entry_intent.v1";
 const ROOM_ENTRY_INTENT_TTL_MS = 20_000;
 
+/** Tip already landed (latest entry / leave-at-bottom) — survives hard re-entry via sessionStorage */
+const ROOM_TIP_ENTRY_CONSUMED_KEY = "samarket:cm:room_tip_entry_consumed.v1";
+const ROOM_TIP_ENTRY_CONSUMED_TTL_MS = 10 * 60_000;
+
+type TipEntryConsumedRow = { roomId: string; tipMessageId: string; at: number };
+
 type PushIntentRow = { roomId: string; at: number };
 type RoomEntryIntentRow = {
   roomId: string;
@@ -167,6 +173,72 @@ export function clearMessengerPushEntryIntentStorage(): void {
   }
 }
 
+function readTipEntryConsumedRow(): TipEntryConsumedRow | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ROOM_TIP_ENTRY_CONSUMED_KEY);
+    if (!raw) return null;
+    const row = JSON.parse(raw) as TipEntryConsumedRow;
+    const roomId = typeof row?.roomId === "string" ? row.roomId.trim() : "";
+    const tipMessageId = typeof row?.tipMessageId === "string" ? row.tipMessageId.trim() : "";
+    const at = Number(row?.at);
+    if (!roomId || !tipMessageId || !Number.isFinite(at)) return null;
+    if (nowMs() - at > ROOM_TIP_ENTRY_CONSUMED_TTL_MS) {
+      sessionStorage.removeItem(ROOM_TIP_ENTRY_CONSUMED_KEY);
+      return null;
+    }
+    return { roomId, tipMessageId, at };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mark timeline tip as already consumed by an entry/leave-at-latest session.
+ * Survives hard navigation (sessionStorage) so re-entry does not revive stale first-unread.
+ */
+export function markMessengerRoomTimelineTipEntryConsumed(
+  roomId: string,
+  tipMessageId: string
+): void {
+  if (typeof window === "undefined") return;
+  const rid = String(roomId ?? "").trim();
+  const tip = String(tipMessageId ?? "").trim();
+  if (!rid || !tip) return;
+  const row: TipEntryConsumedRow = { roomId: rid, tipMessageId: tip, at: nowMs() };
+  try {
+    sessionStorage.setItem(ROOM_TIP_ENTRY_CONSUMED_KEY, JSON.stringify(row));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True when this room's current tip was already landed in a prior visit this tab session. */
+export function isMessengerRoomTimelineTipEntryConsumed(
+  roomId: string,
+  tipMessageId: string | null | undefined
+): boolean {
+  const rid = String(roomId ?? "").trim();
+  const tip = typeof tipMessageId === "string" ? tipMessageId.trim() : "";
+  if (!rid || !tip) return false;
+  const row = readTipEntryConsumedRow();
+  return Boolean(row && row.roomId === rid && row.tipMessageId === tip);
+}
+
+export function clearMessengerRoomTimelineTipEntryConsumed(roomId?: string): void {
+  if (typeof window === "undefined") return;
+  const id = roomId?.trim();
+  if (id) {
+    const row = readTipEntryConsumedRow();
+    if (!row || row.roomId !== id) return;
+  }
+  try {
+    sessionStorage.removeItem(ROOM_TIP_ENTRY_CONSUMED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export type MessengerRoomEntryScrollPlanInput = {
   intent: MessengerRoomEntryIntent;
   /**
@@ -179,17 +251,23 @@ export type MessengerRoomEntryScrollPlanInput = {
   /** Resolved first unread id (message after lastRead). Prefer over lastRead. */
   firstUnreadMessageId?: string | null;
   /**
-   * Newest timeline row is a peer `gift_certificate` (recipient delivery).
-   * Force latest bottom so the gift card is in viewport — first-unread restore can leave
-   * newer gift cards below the fold when older unreads exist in the same room.
+   * Newest timeline row is a peer `gift_certificate` **and** this entry still has
+   * unconsumed unread — land latest so the gift tip is in viewport (not an older first-unread).
+   * Not a permanent gift-only forceBottom: ignored when tip was already consumed / unread is 0.
    */
   newestPeerGiftCertificate?: boolean;
+  /**
+   * Timeline tip was already consumed (prior latest entry / leave-at-bottom).
+   * Stale unread/first-unread must not win over latest on same-tip re-entry.
+   */
+  tipEntryConsumed?: boolean;
 };
 
 /**
  * Enter = sole scroll policy decision (Telegram benchmark contract):
  * - push → latest above composer
- * - newest peer gift_certificate → latest above composer (gift delivery land)
+ * - tip already consumed → latest (ignore stale unread/first-unread)
+ * - unconsumed unread + newest peer gift_certificate → latest (gift delivery land)
  * - unread + firstUnread → first-unread boundary (not force bottom, not lastRead itself)
  * - else → latest above composer
  */
@@ -204,8 +282,14 @@ export function resolveMessengerRoomEntryScrollPlan(
       forceBottom: true,
     };
   }
-  /** Friend gift delivery: recipient must land on the newest gift card, not an older unread. */
-  if (input.newestPeerGiftCertificate) {
+  const unreadRaw = Math.max(0, Number(input.unreadCount) || 0);
+  /** Same tip already seen this session — do not revive stale first-unread restore. */
+  const unread = input.tipEntryConsumed ? 0 : unreadRaw;
+  /**
+   * Unconsumed gift delivery only: older first-unread must not leave the newest gift below the fold.
+   * Re-entry after tip consumption uses the unread=0 latest path above — not a permanent gift hack.
+   */
+  if (unread > 0 && input.newestPeerGiftCertificate) {
     return {
       reason: "initial_load",
       clearPersist: true,
@@ -213,7 +297,6 @@ export function resolveMessengerRoomEntryScrollPlan(
       anchorMessageId: null,
     };
   }
-  const unread = Math.max(0, Number(input.unreadCount) || 0);
   const firstUnread =
     typeof input.firstUnreadMessageId === "string" ? input.firstUnreadMessageId.trim() : "";
   if (unread > 0 && firstUnread) {
@@ -266,4 +349,5 @@ export function isMessengerEntryTailSettleReason(reason: CmScrollOwnerReason): b
 
 export function __resetMessengerPushEntryIntentForTest(): void {
   clearMessengerPushEntryIntentStorage();
+  clearMessengerRoomTimelineTipEntryConsumed();
 }
