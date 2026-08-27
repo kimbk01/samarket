@@ -14,7 +14,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  v_bytes bytea := gen_random_bytes(10);
+  v_bytes bytea := extensions.gen_random_bytes(10);
   v_out text := 'GFT-';
   i integer;
 BEGIN
