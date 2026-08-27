@@ -183,9 +183,13 @@ export function mergeRoomMessages(
       item.metadata && Object.keys(item.metadata).length > 0
         ? item.metadata
         : existing?.metadata;
+    /** Realtime postgres mapper historically demoted gift_certificate → text; never let that erase a hydrated gift card. */
+    const preserveGiftCertificateType =
+      existing?.messageType === "gift_certificate" && item.messageType === "text";
     mergedConfirmed.set(item.id, {
       ...existing,
       ...item,
+      ...(preserveGiftCertificateType ? { messageType: "gift_certificate" as const } : {}),
       ...(itemMetadata ? { metadata: itemMetadata } : {}),
       deletedForEveryoneAt: retainDeletedForEveryoneAt(
         existing?.deletedForEveryoneAt,

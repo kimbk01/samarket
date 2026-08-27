@@ -29,7 +29,9 @@ function normalizeMessageType(raw: string): CommunityMessengerMessageType {
     raw === "system" ||
     raw === "call_stub" ||
     raw === "voice" ||
-    raw === "sticker"
+    raw === "sticker" ||
+    raw === "community_post_share" ||
+    raw === "gift_certificate"
   ) {
     return raw;
   }
