@@ -8,6 +8,7 @@ export type OwnerGiftRedemptionRow = {
   orderId: string;
   orderNo: string | null;
   orderStatus: string | null;
+  customerLabel?: string;
   instanceId: string;
   publicGiftNumber?: string;
   giftTitle: string;

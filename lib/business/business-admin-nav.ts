@@ -6,6 +6,7 @@ export type BusinessAdminNavItemId =
   | "dashboard"
   | "basic_info"
   | "store_settings"
+  | "customer_care"
   | "inquiries"
   | "delivery_orders"
   | "delivery_ops"
@@ -130,8 +131,14 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   ];
   if (showOps) {
     opsItems.push({
+      id: "customer_care",
+      labelKey: "biz_nav_customer_care",
+      href: OwnerRoutes.customerCare(storeId),
+      descriptionKey: "biz_nav_customer_care_desc",
+    });
+    opsItems.push({
       id: "inquiries",
-      labelKey: "biz_nav_inquiries",
+      labelKey: "biz_nav_store_inquiries",
       href: OwnerRoutes.inquiries(storeId),
       descriptionKey: "biz_nav_inquiries_desc",
     });

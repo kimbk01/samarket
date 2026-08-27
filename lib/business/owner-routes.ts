@@ -34,6 +34,23 @@ export const OwnerRoutes = {
   orderChats: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/order-chats`, storeId),
   orderChat: (orderId: string) => `${OWNER_ROUTES_BASE}/order-chat/${encodeURIComponent(orderId)}`,
   inquiries: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/inquiries`, storeId),
+  /** Owner Care Hub — order chat / store inquiry / customer center */
+  customerCare: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/customer-care`, storeId),
+  customerCareMessages: (storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/customer-care/messages`, storeId),
+  customerCareInquiries: (storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/customer-care/inquiries`, storeId),
+  /** Platform 1:1 CS under Owner Care (distinct from store inquiries) */
+  customerCareCsInquiries: (storeId?: string | null) =>
+    withStoreId(`${OWNER_ROUTES_BASE}/customer-care/inquiries`, storeId),
+  giftCertificatesMoney: (storeId?: string | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}view=money`;
+  },
+  giftCertificatesRedemptions: (storeId?: string | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}view=redemptions`;
+  },
   settlements: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/settlements`, storeId),
   products: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products`, storeId),
   productNew: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/products/new`, storeId),

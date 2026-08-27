@@ -446,7 +446,7 @@ export function BusinessAdminShell({
 
   const sectionDefs = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
-  const pageTitle = getBusinessAdminPageTitle(pathname);
+  const pageTitle = getBusinessAdminPageTitle(pathname, searchParams.toString());
   const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
   const publicStoreHref =
     selectedRow &&

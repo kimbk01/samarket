@@ -47,8 +47,8 @@ export function AdminGiftRecoveryPage() {
         </h1>
         <Link href="/admin/gift-certificates/conversions" className="text-sm font-semibold text-signature underline">
           {safeT("gift_u6_nav_conversions", {
-            fallbackKo: "환전/전환 요청",
-            fallbackEn: "Cash conversion requests",
+            fallbackKo: "Store Cash 전환 요청",
+            fallbackEn: "Store Cash conversion requests",
           })}
         </Link>
       </div>

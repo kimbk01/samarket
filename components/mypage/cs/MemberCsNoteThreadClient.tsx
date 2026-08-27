@@ -29,18 +29,24 @@ type Thread = {
   subject: string;
 };
 
-export function MemberCsNoteThreadClient({ kind }: { kind: MemberAdminNoteKind }) {
+export function MemberCsNoteThreadClient({
+  kind,
+  listBasePath,
+  hideChrome = false,
+}: {
+  kind: MemberAdminNoteKind;
+  listBasePath?: string;
+  hideChrome?: boolean;
+}) {
   const { t, language, safeT } = useI18n();
   const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
   useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const params = useParams();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from");
+  const from = searchParams.get("from") ?? (listBasePath ? "owner-care" : null);
   const threadId = String(params?.threadId ?? "").trim();
-  const listHref = withCustomerCenterFrom(
-    kind === "inbox" ? "/mypage/inbox" : "/mypage/inquiries",
-    from,
-  );
+  const defaultList = kind === "inbox" ? "/mypage/inbox" : "/mypage/inquiries";
+  const listHref = withCustomerCenterFrom(listBasePath?.trim() || defaultList, from);
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
@@ -100,21 +106,23 @@ export function MemberCsNoteThreadClient({ kind }: { kind: MemberAdminNoteKind }
 
   return (
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
-      <MySubpageHeader
-        title={
-          thread?.subject ??
-          safeT(
-            (kind === "inbox" ? "mypage_cs_inbox_title" : "mypage_cs_inquiries_title") as MessageKey,
-            {
-              fallbackKo: kind === "inbox" ? "받은 쪽지" : "1:1 문의",
-              fallbackEn: kind === "inbox" ? "Inbox" : "1:1 Inquiry",
-            },
-          )
-        }
-        backHref={listHref}
-        preferHistoryBack={false}
-        hideCtaStrip
-      />
+      {hideChrome ? null : (
+        <MySubpageHeader
+          title={
+            thread?.subject ??
+            safeT(
+              (kind === "inbox" ? "mypage_cs_inbox_title" : "mypage_cs_inquiries_title") as MessageKey,
+              {
+                fallbackKo: kind === "inbox" ? "받은 쪽지" : "1:1 문의",
+                fallbackEn: kind === "inbox" ? "Inbox" : "1:1 Inquiry",
+              },
+            )
+          }
+          backHref={listHref}
+          preferHistoryBack={false}
+          hideCtaStrip
+        />
+      )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} flex flex-col gap-3 py-3`}>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}

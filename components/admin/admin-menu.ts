@@ -138,6 +138,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "gift-applications": "admin_menu_gift_applications",
   "gift-products": "admin_menu_gift_products",
   "gift-conversions": "admin_menu_gift_conversions",
+  "gift-cash-outs": "admin_menu_gift_cash_outs",
   "gift-revenue": "admin_menu_gift_revenue",
   "gift-recovery": "admin_menu_gift_recovery",
   "gift-tracking": "admin_menu_gift_tracking",
@@ -564,6 +565,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
                 key: "gift-conversions",
                 title: "",
                 path: "/admin/gift-certificates/conversions",
+                status: "done",
+              },
+              {
+                key: "gift-cash-outs",
+                title: "",
+                path: "/admin/gift-certificates/cash-outs",
                 status: "done",
               },
               {

@@ -13,6 +13,7 @@ export const GIFT_TABLES = {
   redemptions: "gift_certificate_redemptions",
   revenueLedger: "gift_certificate_revenue_ledger",
   conversionRequests: "gift_certificate_conversion_requests",
+  cashOutRequests: "gift_certificate_cash_out_requests",
   storeCashAccounts: "store_cash_accounts",
   storeCashLedger: "store_cash_ledger",
   storeCashRecoveryObligations: "store_cash_recovery_obligations",
@@ -29,6 +30,11 @@ export const GIFT_RPCS = {
   refundOrderAtomic: "gift_certificate_refund_order_atomic",
   conversionRequest: "gift_certificate_conversion_request",
   conversionApprove: "gift_certificate_conversion_approve",
+  cashOutRequest: "gift_certificate_cash_out_request",
+  cashOutCancel: "gift_certificate_cash_out_cancel",
+  cashOutReject: "gift_certificate_cash_out_reject",
+  cashOutApprove: "gift_certificate_cash_out_approve",
+  cashOutMarkPaid: "gift_certificate_cash_out_mark_paid",
   recoveryClear: "store_cash_recovery_clear",
   recognizeRevenueForCompletedOrder: "gift_certificate_recognize_revenue_for_completed_order",
   redemptionIsRecognized: "gift_certificate_redemption_is_recognized",
@@ -45,3 +51,5 @@ export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =
   "20261128150000_gift_certificate_recognition_correction" as const;
 export const GIFT_PUBLIC_NUMBER_MIGRATION_ID =
   "20261128160000_gift_certificate_public_number" as const;
+export const GIFT_CASH_OUT_MIGRATION_ID =
+  "20261128170000_gift_certificate_cash_out" as const;

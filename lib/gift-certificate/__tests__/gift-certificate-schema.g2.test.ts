@@ -35,6 +35,7 @@ const MIG_PUBLIC_NUMBER = readFileSync(
 describe("G2 gift certificate schema migration", () => {
   it("creates all domain tables and forbids instance expires_at", () => {
     for (const t of Object.values(GIFT_TABLES)) {
+      if (t === GIFT_TABLES.cashOutRequests) continue;
       expect(MIG).toContain(`CREATE TABLE IF NOT EXISTS public.${t}`);
     }
     expect(MIG).toMatch(/gift_redemption_amount/);
@@ -56,11 +57,19 @@ describe("G2 gift certificate schema migration", () => {
       GIFT_RPCS.redemptionRecognizedNet,
       GIFT_RPCS.correctLegacyRecognition,
     ]);
+    const cashOutRpcs = new Set<string>([
+      GIFT_RPCS.cashOutRequest,
+      GIFT_RPCS.cashOutCancel,
+      GIFT_RPCS.cashOutReject,
+      GIFT_RPCS.cashOutApprove,
+      GIFT_RPCS.cashOutMarkPaid,
+    ]);
     const g2Rpcs = Object.values(GIFT_RPCS).filter(
       (fn) =>
         fn !== "gift_certificate_refund_order_atomic" &&
         !orderCompletionRpcs.has(fn) &&
-        !recognitionCorrectionRpcs.has(fn)
+        !recognitionCorrectionRpcs.has(fn) &&
+        !cashOutRpcs.has(fn)
     );
     for (const rpc of g2Rpcs) {
       expect(MIG).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);

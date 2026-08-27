@@ -165,6 +165,81 @@ export function giftCertificateConversionApprove(
   });
 }
 
+export function giftCertificateCashOutRequest(
+  sb: SupabaseClient,
+  args: {
+    ownerUserId: string;
+    storeId: string;
+    amount: number;
+    destinationType: string;
+    accountNumber: string;
+    accountName: string;
+    bankName?: string | null;
+    idempotencyKey: string;
+  }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.cashOutRequest, {
+    p_owner_user_id: args.ownerUserId,
+    p_store_id: args.storeId,
+    p_amount: args.amount,
+    p_destination_type: args.destinationType,
+    p_account_number: args.accountNumber,
+    p_account_name: args.accountName,
+    p_bank_name: args.bankName ?? null,
+    p_idempotency_key: args.idempotencyKey,
+  });
+}
+
+export function giftCertificateCashOutCancel(
+  sb: SupabaseClient,
+  args: { ownerUserId: string; requestId: string }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.cashOutCancel, {
+    p_owner_user_id: args.ownerUserId,
+    p_request_id: args.requestId,
+  });
+}
+
+export function giftCertificateCashOutReject(
+  sb: SupabaseClient,
+  args: { adminUserId: string; requestId: string; reason?: string | null }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.cashOutReject, {
+    p_admin_user_id: args.adminUserId,
+    p_request_id: args.requestId,
+    p_reason: args.reason ?? null,
+  });
+}
+
+export function giftCertificateCashOutApprove(
+  sb: SupabaseClient,
+  args: { adminUserId: string; requestId: string }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.cashOutApprove, {
+    p_admin_user_id: args.adminUserId,
+    p_request_id: args.requestId,
+  });
+}
+
+export function giftCertificateCashOutMarkPaid(
+  sb: SupabaseClient,
+  args: {
+    adminUserId: string;
+    requestId: string;
+    payoutMethod: string;
+    payoutReference: string;
+    payoutNote?: string | null;
+  }
+): Promise<GiftRpcResult> {
+  return callGiftRpc(sb, GIFT_RPCS.cashOutMarkPaid, {
+    p_admin_user_id: args.adminUserId,
+    p_request_id: args.requestId,
+    p_payout_method: args.payoutMethod,
+    p_payout_reference: args.payoutReference,
+    p_payout_note: args.payoutNote ?? null,
+  });
+}
+
 export function storeCashRecoveryClear(
   sb: SupabaseClient,
   args: { adminUserId: string; obligationId: string; amount: number }

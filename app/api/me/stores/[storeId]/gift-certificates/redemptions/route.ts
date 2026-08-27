@@ -55,6 +55,7 @@ export async function GET(
   const publicNumberByInstance = new Map<string, string>();
   const orderNoById = new Map<string, string | null>();
   const orderStatusById = new Map<string, string>();
+  const customerLabelByOrder = new Map<string, string>();
 
   if (instanceIds.length > 0) {
     const { data: instRows } = await sb
@@ -90,20 +91,51 @@ export async function GET(
   if (orderIds.length > 0) {
     const { data: orders } = await sb
       .from("store_orders")
-      .select("id, order_no, order_status")
+      .select("id, order_no, order_status, user_id")
       .eq("store_id", sid)
       .in("id", orderIds)
       .limit(200);
+    const buyerIds = [
+      ...new Set(
+        (orders ?? [])
+          .map((o) => String((o as { user_id?: string | null }).user_id ?? "").trim())
+          .filter(Boolean)
+      ),
+    ];
+    const labelByBuyer = new Map<string, string>();
+    if (buyerIds.length > 0) {
+      const { data: profiles } = await sb
+        .from("profiles")
+        .select("id, display_name, nickname, username")
+        .in("id", buyerIds)
+        .limit(200);
+      for (const p of profiles ?? []) {
+        const id = String((p as { id: string }).id);
+        const display = String((p as { display_name?: string }).display_name ?? "").trim();
+        const nick = String((p as { nickname?: string }).nickname ?? "").trim();
+        const user = String((p as { username?: string }).username ?? "").trim();
+        const raw = display || nick || user || id.slice(0, 8);
+        // Mask: keep first char + *** + last digit/char if long enough
+        const masked =
+          raw.length <= 2
+            ? `${raw[0] ?? "?"}***`
+            : `${raw.slice(0, 1)}***${raw.slice(-1)}`;
+        labelByBuyer.set(id, masked);
+      }
+    }
     for (const o of orders ?? []) {
+      const oid = String((o as { id: string }).id);
       orderNoById.set(
-        String((o as { id: string }).id),
+        oid,
         (o as { order_no?: string | null }).order_no != null
           ? String((o as { order_no: string }).order_no)
           : null
       );
-      orderStatusById.set(
-        String((o as { id: string }).id),
-        String((o as { order_status?: string | null }).order_status ?? "")
+      orderStatusById.set(oid, String((o as { order_status?: string | null }).order_status ?? ""));
+      const uid = String((o as { user_id?: string | null }).user_id ?? "").trim();
+      customerLabelByOrder.set(
+        oid,
+        uid ? labelByBuyer.get(uid) || `${uid.slice(0, 1)}***${uid.slice(-1)}` : "—"
       );
     }
   }
@@ -141,6 +173,7 @@ export async function GET(
       orderId,
       orderNo: orderNoById.get(orderId) ?? null,
       orderStatus: orderStatusById.get(orderId) || null,
+      customerLabel: customerLabelByOrder.get(orderId) || "—",
       instanceId,
       publicGiftNumber: publicNumberByInstance.get(instanceId) ?? "",
       giftTitle: titleByInstance.get(instanceId) ?? "",

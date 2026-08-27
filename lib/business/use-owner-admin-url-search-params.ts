@@ -50,7 +50,10 @@ export function useOwnerAdminUrlSearchParams(): URLSearchParams {
   );
   return useMemo(() => {
     void pathname;
-    const raw = search.startsWith("?") ? search.slice(1) : search;
+    // Next soft navigations update location.search without popstate — re-read on pathname tick.
+    const live =
+      typeof window !== "undefined" ? window.location.search : search;
+    const raw = live.startsWith("?") ? live.slice(1) : live;
     return new URLSearchParams(raw);
   }, [pathname, search]);
 }

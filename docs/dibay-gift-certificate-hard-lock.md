@@ -31,6 +31,7 @@ Paid Gift Certificate is a **store-scoped stored-value payment asset**. It is **
 6. **G7 ATOMIC** — Gift redemption is inside `create_store_order_atomic` (same TX as order). Post-order redeem is **FORBIDDEN**.
 7. **G10 ATOMIC** — Refund terminal state requires `gift_certificate_refund_order_atomic` (gift reverse + refunded in one TX). Best-effort reverse after refund is **FORBIDDEN**.
 8. **Store Cash** — `store_cash_accounts.balance >= 0` DB CHECK.
+9. **External cash-out (O3-B)** — from **recognized available Gift Revenue** only (`gift_certificate_cash_out_*`). Not Business Credit / Point / pending revenue / Store Cash. Admin **mark-paid** after real transfer (`payout_method` + `payout_reference`). Do not use `store_settlements` as gift balance authority. Recognition rules unchanged.
 
 ---
 

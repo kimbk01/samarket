@@ -56,12 +56,23 @@ const KIND_META: Record<
   },
 };
 
-export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) {
+export function MemberCsNoteListClient({
+  kind,
+  listBasePath,
+  hideChrome = false,
+}: {
+  kind: MemberAdminNoteKind;
+  /** Owner Care embed — e.g. `/stores/owner/customer-care/messages` */
+  listBasePath?: string;
+  hideChrome?: boolean;
+}) {
   const { t, language, safeT } = useI18n();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from");
-  const backHref = resolveCustomerCenterBackHref(from);
+  const from = searchParams.get("from") ?? (listBasePath ? "owner-care" : null);
+  const storeId = searchParams.get("storeId");
+  const backHref = resolveCustomerCenterBackHref(from, "/mypage", storeId);
   const meta = KIND_META[kind];
+  const listHref = listBasePath?.trim() || meta.listHref;
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +151,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
       setBody("");
       if (createdId) {
         window.location.assign(
-          withCustomerCenterFrom(`${meta.listHref}/${encodeURIComponent(createdId)}`, from),
+          withCustomerCenterFrom(`${listHref}/${encodeURIComponent(createdId)}`, from),
         );
         return;
       }
@@ -204,7 +215,9 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
 
   return (
     <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
-      <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
+      {hideChrome ? null : (
+        <MySubpageHeader title={title} subtitle={subtitle} backHref={backHref} preferHistoryBack={false} hideCtaStrip />
+      )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
           {meta.allowCreate ? (
@@ -281,7 +294,7 @@ export function MemberCsNoteListClient({ kind }: { kind: MemberAdminNoteKind }) 
                 >
                   <Link
                     href={withCustomerCenterFrom(
-                      `${meta.listHref}/${encodeURIComponent(th.id)}`,
+                      `${listHref}/${encodeURIComponent(th.id)}`,
                       from,
                     )}
                     className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-2"

@@ -30,9 +30,15 @@ export const businessAdminNavMessages = {
 
     biz_nav_store_settings_desc: "영업시간·배달·갤러리·서비스 형태",
 
-    biz_nav_inquiries: "채팅 · 문의",
+    biz_nav_inquiries: "매장 문의",
 
     biz_nav_inquiries_desc: "매장 문의 답변",
+
+    biz_nav_store_inquiries: "매장 문의",
+
+    biz_nav_customer_care: "고객 응대",
+
+    biz_nav_customer_care_desc: "주문 채팅 · 매장 문의 · 고객센터",
 
     biz_nav_delivery_orders: "배달 주문",
 
@@ -97,7 +103,7 @@ export const businessAdminNavMessages = {
     my_biz_ads_hint: "노출·신청",
     my_biz_notif_hint: "배달 알림음(전역)",
     biz_title_orders: "주문 관리",
-    biz_title_inquiries: "채팅 · 문의",
+    biz_title_inquiries: "매장 문의",
     biz_title_settlements: "정산",
     biz_title_points: "Business Credit",
     biz_title_menu_categories: "메뉴 카테고리",
@@ -115,6 +121,14 @@ export const businessAdminNavMessages = {
     biz_title_apply: "매장 신청",
     biz_title_order_chat: "주문 채팅",
     biz_title_order_chats: "주문 채팅함",
+    biz_title_customer_care: "고객 응대",
+    biz_title_care_messages: "받은 쪽지",
+    biz_title_care_cs_inquiries: "1:1 문의",
+    biz_title_gift_certificates: "상품권 사용 · 수익",
+    biz_title_gift_money: "상품권 수익",
+    biz_title_gift_redemptions: "상품권 사용 내역",
+    biz_title_gift_convert: "Store Cash 전환",
+    biz_title_gift_products: "상품권 상품 관리",
     biz_title_default: "매장 어드민",
 
   },
@@ -147,9 +161,15 @@ export const businessAdminNavMessages = {
 
     biz_nav_store_settings_desc: "Hours, delivery, gallery & service type",
 
-    biz_nav_inquiries: "Chat & inquiries",
+    biz_nav_inquiries: "Store inquiries",
 
     biz_nav_inquiries_desc: "Reply to store inquiries",
+
+    biz_nav_store_inquiries: "Store inquiries",
+
+    biz_nav_customer_care: "Customer care",
+
+    biz_nav_customer_care_desc: "Order chat, store inquiry & customer center",
 
     biz_nav_delivery_orders: "Delivery orders",
 
@@ -214,7 +234,7 @@ export const businessAdminNavMessages = {
     my_biz_ads_hint: "Exposure & apply",
     my_biz_notif_hint: "Delivery sounds (global)",
     biz_title_orders: "Orders",
-    biz_title_inquiries: "Chat & inquiries",
+    biz_title_inquiries: "Store inquiries",
     biz_title_settlements: "Settlements",
     biz_title_points: "Business Credit",
     biz_title_menu_categories: "Menu categories",
@@ -232,6 +252,14 @@ export const businessAdminNavMessages = {
     biz_title_apply: "Apply for store",
     biz_title_order_chat: "Order chat",
     biz_title_order_chats: "Order chats",
+    biz_title_customer_care: "Customer care",
+    biz_title_care_messages: "Inbox",
+    biz_title_care_cs_inquiries: "1:1 Inquiry",
+    biz_title_gift_certificates: "Gift usage & revenue",
+    biz_title_gift_money: "Gift revenue",
+    biz_title_gift_redemptions: "Gift usage history",
+    biz_title_gift_convert: "Store Cash conversion",
+    biz_title_gift_products: "Gift product management",
     biz_title_default: "Store admin",
 
   },

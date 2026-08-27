@@ -330,11 +330,17 @@ export function AdminGiftConversionsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold">
           {safeT("gift_u6_conversions_title", {
-            fallbackKo: "상품권 Cash 전환 요청",
-            fallbackEn: "Gift cash conversion requests",
+            fallbackKo: "Store Cash 전환 요청",
+            fallbackEn: "Store Cash conversion requests",
           })}
         </h1>
         <div className="flex flex-wrap gap-2 text-sm">
+          <Link href="/admin/gift-certificates/cash-outs" className="font-semibold text-signature underline">
+            {safeT("gift_admin_cash_out_title", {
+              fallbackKo: "상품권 환전 요청",
+              fallbackEn: "Gift cash-out requests",
+            })}
+          </Link>
           <Link href="/admin/gift-certificates/revenue" className="font-semibold text-signature underline">
             {safeT("gift_u6_nav_revenue", {
               fallbackKo: "Platform Revenue",

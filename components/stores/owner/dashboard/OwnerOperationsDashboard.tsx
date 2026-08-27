@@ -13,6 +13,7 @@ import {
 } from "@/lib/stores/owner-mobile-ui-tokens";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
 import { OwnerStorePointWarningCard } from "@/components/business/owner/OwnerStorePointWarningCard";
+import { OwnerGiftRevenueHomeCard } from "./OwnerGiftRevenueHomeCard";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
 import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
 import { OwnerCustomerCareCard } from "./OwnerCustomerCareCard";
@@ -78,6 +79,7 @@ export function OwnerOperationsDashboard({
                   pointCommerceBlocked={pointSummary.pointCommerceBlocked}
                 />
               ) : null}
+              <OwnerGiftRevenueHomeCard storeId={row.id} />
               <OwnerUrgentOrdersCard
                 storeId={row.id}
                 snapshot={data}

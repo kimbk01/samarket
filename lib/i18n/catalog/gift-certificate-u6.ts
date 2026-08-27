@@ -1,11 +1,11 @@
 /** Admin Gift U6 — conversion / platform revenue / recovery */
 export const giftCertificateU6Messages = {
   ko: {
-    gift_u6_nav_conversions: "환전/전환 요청",
+    gift_u6_nav_conversions: "Store Cash 전환 요청",
     gift_u6_nav_revenue: "Platform Revenue",
     gift_u6_nav_recovery: "Recovery Obligation",
     gift_u6_nav_store_cash: "Store Cash",
-    gift_u6_conversions_title: "상품권 Cash 전환 요청",
+    gift_u6_conversions_title: "Store Cash 전환 요청",
     gift_u6_conversions_empty: "대기 중인 전환 요청이 없습니다.",
     gift_u6_cta_review: "검토",
     gift_u6_detail_title: "전환 요청 검토",
@@ -57,11 +57,11 @@ export const giftCertificateU6Messages = {
     gift_u6_tracking_select_hint: "상품권을 선택하면 상세 추적 내역이 표시됩니다.",
   },
   en: {
-    gift_u6_nav_conversions: "Cash conversion requests",
+    gift_u6_nav_conversions: "Store Cash conversion requests",
     gift_u6_nav_revenue: "Platform Revenue",
     gift_u6_nav_recovery: "Recovery obligations",
     gift_u6_nav_store_cash: "Store Cash",
-    gift_u6_conversions_title: "Gift cash conversion requests",
+    gift_u6_conversions_title: "Store Cash conversion requests",
     gift_u6_conversions_empty: "No conversion requests.",
     gift_u6_cta_review: "Review",
     gift_u6_detail_title: "Review conversion request",

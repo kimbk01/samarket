@@ -19,7 +19,9 @@ export function OwnerCustomerCareCard({
   orderChatUnread: number;
 }) {
   const { t } = useI18n();
+  const orderChatsHref = OwnerRoutes.orderChats(storeId);
   const inquiriesHref = OwnerRoutes.inquiries(storeId);
+  const careHubHref = OwnerRoutes.customerCare(storeId);
   const cells = [
     {
       id: "chat",
@@ -27,7 +29,7 @@ export function OwnerCustomerCareCard({
       count: orderChatUnread,
       sub: orderChatUnread > 0 ? t("store_owner_dash_reply_needed") : t("store_owner_dash_no_new_10m"),
       danger: orderChatUnread > 0,
-      href: inquiriesHref,
+      href: orderChatsHref,
     },
     {
       id: "reviews",
@@ -66,7 +68,7 @@ export function OwnerCustomerCareCard({
 
   return (
     <section className={ownerDashCardClass("space-y-3")} aria-labelledby="owner-care-title">
-      <OwnerDashSectionHeader id="owner-care-title" title={t("store_owner_dash_customer_care")} href={inquiriesHref} />
+      <OwnerDashSectionHeader id="owner-care-title" title={t("store_owner_dash_customer_care")} href={careHubHref} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map((c) => (
           <Link
@@ -91,7 +93,7 @@ export function OwnerCustomerCareCard({
       </div>
       {orderChatUnread > 0 ? (
         <Link
-          href={inquiriesHref}
+          href={orderChatsHref}
           prefetch={false}
           className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] text-[13px] font-semibold text-[var(--biz-primary)]"
         >

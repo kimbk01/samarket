@@ -9,9 +9,19 @@ function ownerAdminTitle(key: MessageKey): string {
   return titleT(key).toLocaleUpperCase();
 }
 
-export function getBusinessAdminPageTitleI18n(pathname: string): string | null {
+export function getBusinessAdminPageTitleI18n(
+  pathname: string,
+  search?: string | null
+): string | null {
   const raw = pathname.split("?")[0] ?? pathname;
   const p = raw.replace(/\/+$/, "") || "/";
+  const qs =
+    search != null && String(search).length > 0
+      ? String(search).replace(/^\?/, "")
+      : pathname.includes("?")
+        ? (pathname.split("?")[1] ?? "")
+        : "";
+  const view = new URLSearchParams(qs).get("view")?.trim() ?? "";
 
   const matchAny = (suffix: string): boolean =>
     p === `/stores/owner${suffix}` ||
@@ -53,6 +63,28 @@ export function getBusinessAdminPageTitleI18n(pathname: string): string | null {
   if (matchAny("/apply")) return ownerAdminTitle("biz_title_apply");
 
   if (matchAny("/order-chats")) return ownerAdminTitle("biz_title_order_chats");
+
+  if (matchPattern(/^\/stores\/owner\/customer-care\/messages(\/[^/]+)?$/)) {
+    return ownerAdminTitle("biz_title_care_messages");
+  }
+  if (matchPattern(/^\/stores\/owner\/customer-care\/inquiries(\/[^/]+)?$/)) {
+    return ownerAdminTitle("biz_title_care_cs_inquiries");
+  }
+  if (matchAny("/customer-care")) return ownerAdminTitle("biz_title_customer_care");
+
+  if (matchAny("/gift-certificates")) {
+    if (view === "money" || view === "cash-out" || view === "cash-out-success" || view === "cash-out-history") {
+      return ownerAdminTitle("biz_title_gift_money");
+    }
+    if (view === "redemptions") return ownerAdminTitle("biz_title_gift_redemptions");
+    if (view === "convert" || view === "convert-success" || view === "convert-history") {
+      return ownerAdminTitle("biz_title_gift_convert");
+    }
+    if (view === "apply" || view === "history" || view === "products") {
+      return ownerAdminTitle("biz_title_gift_products");
+    }
+    return ownerAdminTitle("biz_title_gift_certificates");
+  }
 
   if (
     matchPattern(/^\/stores\/owner\/order-chat\/[^/]+$/) ||
