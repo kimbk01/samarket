@@ -4,10 +4,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import type { GiftScope } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 
 export type GiftMallProduct = {
   id: string;
-  storeId: string;
+  giftScope: GiftScope;
+  storeId: string | null;
   storeName: string;
   storeLogoUrl: string | null;
   title: string;
@@ -29,16 +31,20 @@ export async function loadGiftMallProducts(
   let q = sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, stores(store_name, profile_image_url)"
+      "id, store_id, gift_scope, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, archived_at, stores(store_name, profile_image_url)"
     )
     .eq("active", true)
+    .is("archived_at", null)
     .lte("sales_starts_at", nowIso)
     .or(`sales_ends_at.is.null,sales_ends_at.gte.${nowIso}`)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   const storeId = opts?.storeId?.trim();
-  if (storeId) q = q.eq("store_id", storeId);
+  if (storeId) {
+    // Store mall: that store's STORE gifts + all PLATFORM gifts
+    q = q.or(`and(gift_scope.eq.STORE,store_id.eq.${storeId}),gift_scope.eq.PLATFORM`);
+  }
 
   const { data, error } = await q;
   if (error) return { ok: false, error: error.message };
@@ -46,6 +52,8 @@ export async function loadGiftMallProducts(
   const products: GiftMallProduct[] = [];
   for (const raw of data ?? []) {
     const row = raw as Record<string, unknown>;
+    const scopeRaw = String(row.gift_scope ?? "STORE").trim();
+    const giftScope: GiftScope = scopeRaw === "PLATFORM" ? "PLATFORM" : "STORE";
     const storesRaw = row.stores;
     const storeObj = Array.isArray(storesRaw) ? storesRaw[0] : storesRaw;
     const storeName =
@@ -60,11 +68,13 @@ export async function loadGiftMallProducts(
       storeLogoRaw == null || String(storeLogoRaw).trim() === ""
         ? null
         : String(storeLogoRaw).trim();
+    const sid = row.store_id == null ? "" : String(row.store_id).trim();
     products.push({
       id: String(row.id),
-      storeId: String(row.store_id),
-      storeName,
-      storeLogoUrl,
+      giftScope,
+      storeId: giftScope === "PLATFORM" ? null : sid || null,
+      storeName: giftScope === "PLATFORM" ? "DIBAY" : storeName,
+      storeLogoUrl: giftScope === "PLATFORM" ? null : storeLogoUrl,
       title: String(row.title ?? ""),
       faceValue: Math.trunc(Number(row.face_value) || 0),
       purchasePrice: Math.trunc(Number(row.purchase_price) || 0),

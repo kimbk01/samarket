@@ -90,7 +90,7 @@ export function legacyGiftPathToOpsHref(
   const map = ADMIN_GIFT_OPS_LEGACY_REDIRECT[segment];
   if (!map) return ADMIN_GIFT_OPS_BASE;
   const extra: Record<string, string | null | undefined> = {};
-  for (const key of ["id", "number", "q", "status", "create", "storeId"]) {
+  for (const key of ["id", "number", "q", "status", "create", "storeId", "scope", "type"]) {
     const v = searchParams.get(key);
     if (v) extra[key] = v;
   }

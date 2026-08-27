@@ -18,6 +18,7 @@ type RevenueSummary = {
   details?: Array<{
     storeName: string;
     publicGiftNumber: string;
+    giftScope?: "STORE" | "PLATFORM";
     instanceId: string;
     orderNo: string | null;
     orderId: string;
@@ -177,6 +178,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                 <table className="w-full min-w-[960px] border-collapse text-left text-sm">
                   <thead>
                     <tr className="border-b border-sam-border text-xs text-sam-muted">
+                      <th className="px-2 py-2">Type</th>
                       <th className="px-2 py-2">Store</th>
                       <th className="px-2 py-2">Gift #</th>
                       <th className="px-2 py-2">Order</th>
@@ -190,6 +192,9 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                   <tbody>
                     {(summary.details ?? []).slice(0, 200).map((r, i) => (
                       <tr key={`${r.orderId}-${i}`} className="border-b border-sam-border/60">
+                        <td className="px-2 py-2 text-xs">
+                          {r.giftScope === "PLATFORM" ? "DIBAY" : "STORE"}
+                        </td>
                         <td className="px-2 py-2">{r.storeName}</td>
                         <td className="px-2 py-2 font-mono text-xs">{r.publicGiftNumber || "—"}</td>
                         <td className="px-2 py-2">{r.orderNo || r.orderId.slice(0, 8)}</td>

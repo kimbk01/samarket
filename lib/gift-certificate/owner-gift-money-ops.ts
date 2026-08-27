@@ -11,6 +11,7 @@ export type OwnerGiftRedemptionRow = {
   customerLabel?: string;
   instanceId: string;
   publicGiftNumber?: string;
+  giftScope?: "STORE" | "PLATFORM";
   giftTitle: string;
   redeemedAmount: number;
   platformFeeAmount: number;

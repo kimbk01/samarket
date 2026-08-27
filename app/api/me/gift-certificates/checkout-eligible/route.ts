@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/me/gift-certificates/checkout-eligible?storeId=
- * Same-store redeemable gifts for the current buyer (server authority).
+ * STORE: same-store only. PLATFORM: when checkout store is order-eligible.
  */
 export async function GET(req: Request) {
   const userId = await getRouteUserId();
@@ -28,7 +28,21 @@ export async function GET(req: Request) {
   if (!loaded.ok) {
     return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
   }
-  // available already excludes GIFT_LOCKED / FULLY_REDEEMED / SUSPENDED
-  const gifts = filterCheckoutEligibleGifts(loaded.wallet.available, storeId);
+
+  const { data: storeRow } = await sb
+    .from("stores")
+    .select("id, approval_status, is_visible, is_open, point_commerce_blocked")
+    .eq("id", storeId)
+    .maybeSingle();
+  const checkoutStoreEligible =
+    !!storeRow &&
+    String((storeRow as { approval_status?: unknown }).approval_status) === "approved" &&
+    (storeRow as { is_visible?: unknown }).is_visible === true &&
+    (storeRow as { is_open?: unknown }).is_open !== false &&
+    (storeRow as { point_commerce_blocked?: unknown }).point_commerce_blocked !== true;
+
+  const gifts = filterCheckoutEligibleGifts(loaded.wallet.available, storeId, {
+    checkoutStoreEligible,
+  });
   return NextResponse.json({ ok: true, storeId, gifts });
 }

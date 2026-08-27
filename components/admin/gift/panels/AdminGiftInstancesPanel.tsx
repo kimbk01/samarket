@@ -11,7 +11,8 @@ import { Sam } from "@/lib/ui/css-vars";
 type InstanceRow = {
   id: string;
   publicGiftNumber: string;
-  storeId: string;
+  giftScope?: "STORE" | "PLATFORM";
+  storeId: string | null;
   storeName: string;
   productId: string;
   productTitle: string;
@@ -52,6 +53,8 @@ type TrackingDetail = {
     orderId: string;
     orderNo: string | null;
     orderStatus: string | null;
+    redeemedStoreId?: string | null;
+    redeemedStoreName?: string;
     usedAmount: number;
     platformFee: number;
     merchantNet: number;
@@ -271,7 +274,11 @@ export function AdminGiftInstancesPanel({
                 {rows.map((row) => (
                   <tr key={row.id} className="border-b border-sam-border/60" data-gift-number={row.publicGiftNumber}>
                     <td className="px-2 py-2 font-mono text-xs">{row.publicGiftNumber || "—"}</td>
-                    <td className="px-2 py-2">{row.storeName || "—"}</td>
+                    <td className="px-2 py-2">
+                      {row.giftScope === "PLATFORM"
+                        ? "DIBAY"
+                        : row.storeName || "—"}
+                    </td>
                     <td className="px-2 py-2">{row.productTitle || "—"}</td>
                     <td className="px-2 py-2">{row.originalBuyerLabel || "—"}</td>
                     <td className="px-2 py-2">{row.currentOwnerLabel || "—"}</td>
@@ -312,7 +319,23 @@ export function AdminGiftInstancesPanel({
             <div>
               <h2 className="text-lg font-semibold font-mono">{selected.publicGiftNumber}</h2>
               <p className="text-sm">
-                {selected.storeName} · {selected.productTitle} · {selected.status}
+                {selected.giftScope === "PLATFORM"
+                  ? safeT("gift_ops_type_platform", {
+                      fallbackKo: "DIBAY 상품권",
+                      fallbackEn: "DIBAY Gift",
+                    })
+                  : safeT("gift_ops_type_store", {
+                      fallbackKo: "매장 상품권",
+                      fallbackEn: "Store Gift",
+                    })}{" "}
+                ·{" "}
+                {selected.giftScope === "PLATFORM"
+                  ? safeT("gift_ops_usable_platform", {
+                      fallbackKo: "DIBAY eligible stores",
+                      fallbackEn: "DIBAY eligible stores",
+                    })
+                  : selected.storeName}{" "}
+                · {selected.productTitle} · {selected.status}
               </p>
               <p className="text-sm tabular-nums">
                 Remaining {formatMoneyPhp(selected.remainingBalance)} / Face {formatMoneyPhp(selected.faceValue)}
@@ -394,6 +417,15 @@ export function AdminGiftInstancesPanel({
                       Order {r.orderNo || r.orderId} · {r.orderStatus || "—"} ·{" "}
                       {recognitionLabel(r.revenue, r.reversed)}
                     </p>
+                    {r.redeemedStoreName || r.redeemedStoreId ? (
+                      <p className="text-xs text-sam-muted">
+                        {safeT("gift_ops_redeemed_store", {
+                          fallbackKo: "사용 매장",
+                          fallbackEn: "Redeemed store",
+                        })}
+                        : {r.redeemedStoreName || r.redeemedStoreId}
+                      </p>
+                    ) : null}
                     <p className="tabular-nums">
                       Used {formatMoneyPhp(r.usedAmount)} · Fee {r.feeRate}% {formatMoneyPhp(r.platformFee)} · Net{" "}
                       {formatMoneyPhp(r.merchantNet)}

@@ -173,16 +173,30 @@ async function main() {
   const session = await loginSession(ADMIN_EMAIL);
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-
-  await page.goto(`${ORIGIN}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.evaluate(
-    ({ access_token, refresh_token }) => {
-      document.cookie = `sb-access-token=${access_token}; path=/`;
-      document.cookie = `sb-refresh-token=${refresh_token}; path=/`;
+  const origin = new URL(ORIGIN);
+  const ref = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
+  await context.addCookies([
+    {
+      name: `sb-${ref}-auth-token`,
+      value: encodeURIComponent(
+        JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          expires_in: session.expires_in,
+          token_type: session.token_type,
+          user: session.user,
+        })
+      ),
+      domain: origin.hostname,
+      path: "/",
+      expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+      httpOnly: false,
+      secure: origin.protocol === "https:",
+      sameSite: "Lax",
     },
-    { access_token: session.access_token, refresh_token: session.refresh_token }
-  );
+  ]);
+  const page = await context.newPage();
 
   await page.goto(`${ORIGIN}/admin/gift-certificates?tab=summary`, {
     waitUntil: "domcontentloaded",

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   let query = sb
     .from(GIFT_TABLES.instances)
     .select(
-      "id, public_gift_number, product_id, store_id, purchaser_user_id, current_owner_user_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)"
+      "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -84,8 +84,12 @@ export async function GET(req: NextRequest) {
     return {
       id: s(row.id),
       publicGiftNumber: s(row.public_gift_number),
-      storeId: s(row.store_id),
-      storeName: s(store?.store_name),
+      giftScope: s(row.gift_scope) === "PLATFORM" ? "PLATFORM" : "STORE",
+      storeId: s(row.store_id) || null,
+      storeName:
+        s(row.gift_scope) === "PLATFORM"
+          ? ""
+          : s(store?.store_name),
       productId: s(row.product_id),
       productTitle: s(product?.title),
       originalBuyerUserId: purchaserId,
@@ -127,7 +131,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: true }),
     sb
       .from(GIFT_TABLES.redemptions)
-      .select("id, order_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at")
+      .select("id, order_id, store_id, redeemed_amount, platform_fee_amount, merchant_net_amount, platform_fee_rate_snapshot, reversed, created_at, reversed_at")
       .eq("instance_id", instanceId)
       .order("created_at", { ascending: true }),
   ]);
@@ -135,7 +139,8 @@ export async function GET(req: NextRequest) {
   const redemptions = (redemptionRows ?? []) as Record<string, unknown>[];
   const redemptionIds = redemptions.map((row) => s(row.id)).filter(Boolean);
   const orderIds = redemptions.map((row) => s(row.order_id)).filter(Boolean);
-  const [{ data: orders }, { data: revenueRows }] = await Promise.all([
+  const redeemStoreIds = [...new Set(redemptions.map((row) => s(row.store_id)).filter(Boolean))];
+  const [{ data: orders }, { data: revenueRows }, { data: redeemStores }] = await Promise.all([
     orderIds.length
       ? sb.from("store_orders").select("id, order_no, order_status").in("id", orderIds)
       : Promise.resolve({ data: [] }),
@@ -146,7 +151,13 @@ export async function GET(req: NextRequest) {
           .in("redemption_id", redemptionIds)
           .order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
+    redeemStoreIds.length
+      ? sb.from("stores").select("id, store_name").in("id", redeemStoreIds)
+      : Promise.resolve({ data: [] }),
   ]);
+  const redeemStoreNameById = new Map(
+    ((redeemStores ?? []) as Record<string, unknown>[]).map((row) => [s(row.id), s(row.store_name)])
+  );
   const orderById = new Map(((orders ?? []) as Record<string, unknown>[]).map((row) => [s(row.id), row]));
   const revenueByRedemption = new Map<string, Record<string, unknown>[]>();
   for (const row of (revenueRows ?? []) as Record<string, unknown>[]) {
@@ -160,32 +171,43 @@ export async function GET(req: NextRequest) {
       .flatMap((row) => [s(row.from_user_id), s(row.to_user_id), s(row.actor_user_id), s(row.sender_user_id), s(row.recipient_user_id)])
   );
 
-  const storeId = selectedRow.storeId;
+  const storeId =
+    selectedRow.storeId ||
+    s(((redemptionRows ?? []) as Record<string, unknown>[])[0]?.store_id) ||
+    "";
   const [
     { data: avail },
     { data: cashOutRows },
     { data: conversionRows },
     { data: recoveryRows },
   ] = await Promise.all([
-    sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId }),
-    sb
-      .from(GIFT_TABLES.cashOutRequests)
-      .select("id, amount, status, created_at, paid_at")
-      .eq("store_id", storeId)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    sb
-      .from(GIFT_TABLES.conversionRequests)
-      .select("id, amount, status, created_at, approved_at")
-      .eq("store_id", storeId)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    sb
-      .from(GIFT_TABLES.storeCashRecoveryObligations)
-      .select("id, redemption_id, amount_original, amount_remaining, status, created_at")
-      .eq("store_id", storeId)
-      .order("created_at", { ascending: false })
-      .limit(20),
+    storeId
+      ? sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId })
+      : Promise.resolve({ data: null }),
+    storeId
+      ? sb
+          .from(GIFT_TABLES.cashOutRequests)
+          .select("id, amount, status, created_at, paid_at")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+    storeId
+      ? sb
+          .from(GIFT_TABLES.conversionRequests)
+          .select("id, amount, status, created_at, approved_at")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
+    storeId
+      ? sb
+          .from(GIFT_TABLES.storeCashRecoveryObligations)
+          .select("id, redemption_id, amount_original, amount_remaining, status, created_at")
+          .eq("store_id", storeId)
+          .order("created_at", { ascending: false })
+          .limit(20)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const redemptionIdSet = new Set(redemptions.map((row) => s(row.id)));
@@ -238,6 +260,8 @@ export async function GET(req: NextRequest) {
           orderId: s(row.order_id),
           orderNo: s(order?.order_no) || null,
           orderStatus: s(order?.order_status) || null,
+          redeemedStoreId: s(row.store_id) || null,
+          redeemedStoreName: redeemStoreNameById.get(s(row.store_id)) ?? "",
           usedAmount: n(row.redeemed_amount),
           platformFee: n(row.platform_fee_amount),
           merchantNet: n(row.merchant_net_amount),

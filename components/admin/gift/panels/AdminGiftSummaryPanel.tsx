@@ -7,6 +7,13 @@ import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tab
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
+type ScopeKpis = {
+  activeProducts: number;
+  issuedInstances: number;
+  outstanding: number;
+  redeemedGross: number;
+};
+
 type Summary = {
   range: string;
   activeProducts: number;
@@ -21,6 +28,8 @@ type Summary = {
   cashOutPendingCount: number;
   storeCashConversionPendingCount: number;
   openRecoveryCount: number;
+  storeGift?: ScopeKpis;
+  platformGift?: ScopeKpis;
 };
 
 const RANGES = ["all", "today", "7d", "30d"] as const;
@@ -64,6 +73,8 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
           Number(json.storeCashConversionPendingCount) || 0
         ),
         openRecoveryCount: Math.trunc(Number(json.openRecoveryCount) || 0),
+        storeGift: (json as { storeGift?: ScopeKpis }).storeGift,
+        platformGift: (json as { platformGift?: ScopeKpis }).platformGift,
       };
       setData(next);
       setState(
@@ -152,6 +163,51 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
                 "Face / outstanding is customer liability, not DIBAY revenue. Platform revenue is pending/recognized fee.",
             })}
           </p>
+          {data.storeGift || data.platformGift ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2">
+                <p className="text-sm font-semibold">
+                  {safeT("gift_ops_type_store", { fallbackKo: "매장 상품권", fallbackEn: "Store Gift" })}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {kpi("Active", fmtCount(data.storeGift?.activeProducts ?? 0), "storeActive")}
+                  {kpi("Issued", fmtCount(data.storeGift?.issuedInstances ?? 0), "storeIssued")}
+                  {kpi(
+                    "Outstanding",
+                    formatMoneyPhp(data.storeGift?.outstanding ?? 0),
+                    "storeOutstanding"
+                  )}
+                  {kpi(
+                    "Redeemed",
+                    formatMoneyPhp(data.storeGift?.redeemedGross ?? 0),
+                    "storeRedeemed"
+                  )}
+                </div>
+              </div>
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2">
+                <p className="text-sm font-semibold">
+                  {safeT("gift_ops_type_platform", {
+                    fallbackKo: "DIBAY 상품권",
+                    fallbackEn: "DIBAY Gift",
+                  })}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {kpi("Active", fmtCount(data.platformGift?.activeProducts ?? 0), "platActive")}
+                  {kpi("Issued", fmtCount(data.platformGift?.issuedInstances ?? 0), "platIssued")}
+                  {kpi(
+                    "Outstanding",
+                    formatMoneyPhp(data.platformGift?.outstanding ?? 0),
+                    "platOutstanding"
+                  )}
+                  {kpi(
+                    "Redeemed",
+                    formatMoneyPhp(data.platformGift?.redeemedGross ?? 0),
+                    "platRedeemed"
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {kpi(
               safeT("gift_ops_kpi_active_products", {

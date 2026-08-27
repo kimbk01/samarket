@@ -45,6 +45,8 @@ export function AdminGiftOpsCenter() {
   const status = sp.get("status")?.trim() ?? "";
   const storeId = sp.get("storeId")?.trim() ?? "";
   const create = sp.get("create") === "1";
+  const createType = (sp.get("type")?.trim() ?? "").toUpperCase();
+  const scopeFilter = (sp.get("scope")?.trim() ?? "ALL").toUpperCase();
   const range = sp.get("range")?.trim() ?? "all";
   const filter = sp.get("filter")?.trim() ?? "all";
   const event = sp.get("event")?.trim() ?? "";
@@ -111,6 +113,8 @@ export function AdminGiftOpsCenter() {
           id={id}
           create={create}
           storeId={storeId}
+          scopeFilter={scopeFilter}
+          createType={createType}
         />
       ) : null}
       {tab === "instances" ? (

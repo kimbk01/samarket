@@ -33,7 +33,7 @@ describe("gift final buyer/admin control surfaces", () => {
     const eligible = source("lib/gift-certificate/checkout-eligible-gifts.ts");
     const cart = source("components/stores/cart/StoreCartGiftApplyPanel.tsx");
 
-    expect(eligible).toContain("inst.storeId.trim() !== storeId");
+    expect(eligible).toContain("giftInstanceAllowsCheckoutStore");
     expect(eligible).toContain("publicGiftNumber");
     expect(cart).toContain("data-cart-gift-public-number");
   });

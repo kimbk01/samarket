@@ -11,6 +11,7 @@ import { computeCheckoutLayersBeforeAndAfterGift } from "@/lib/gift-certificate/
 function inst(partial: Partial<GiftWalletInstance> & Pick<GiftWalletInstance, "id" | "storeId">): GiftWalletInstance {
   return {
     productId: "p1",
+    giftScope: "STORE",
     storeName: "Store",
     title: "Gift",
     imageUrl: null,

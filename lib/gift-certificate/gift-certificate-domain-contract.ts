@@ -6,7 +6,7 @@
  *
  * HARD BOUNDARIES:
  * - Free Coupon = discount entitlement (store-coupon-ssot) — never merge.
- * - Paid Gift = store-scoped stored-value payment asset.
+ * - Paid Gift = scope-aware stored-value payment asset (STORE | PLATFORM).
  * - Member D-Point = Gift Mall purchase rail only (not delivery checkout).
  * - Business Credit (stores.point_balance) ≠ Gift Revenue ≠ Store Cash.
  * - store_settlements = order accounting ≠ Gift Revenue.
@@ -39,8 +39,68 @@ export const GIFT_ADMIN_ISSUED_ONLY = true as const;
 /** Default product.transferable when Admin does not override. */
 export const GIFT_TRANSFERABLE_DEFAULT = true as const;
 
-/** Gift is always store-scoped for redemption. */
+/** @deprecated Prefer GiftScope — STORE gifts remain same-store; PLATFORM is multi-store. */
 export const GIFT_STORE_SCOPED = true as const;
+
+export const GIFT_SCOPES = ["STORE", "PLATFORM"] as const;
+export type GiftScope = (typeof GIFT_SCOPES)[number];
+
+export const GIFT_CREATION_SOURCES = [
+  "OWNER_APPLICATION",
+  "ADMIN_DIRECT_STORE",
+  "ADMIN_DIRECT_PLATFORM",
+] as const;
+export type GiftCreationSource = (typeof GIFT_CREATION_SOURCES)[number];
+
+export function isGiftScope(v: unknown): v is GiftScope {
+  return v === "STORE" || v === "PLATFORM";
+}
+
+export function isGiftCreationSource(v: unknown): v is GiftCreationSource {
+  return (
+    v === "OWNER_APPLICATION" ||
+    v === "ADMIN_DIRECT_STORE" ||
+    v === "ADMIN_DIRECT_PLATFORM"
+  );
+}
+
+/** STORE requires store_id; PLATFORM forbids store_id as redeem scope. */
+export function assertGiftScopeStoreId(
+  scope: GiftScope,
+  storeId: string | null | undefined
+): { ok: true } | { ok: false; error: "store_id_required" | "store_id_forbidden" } {
+  const id = typeof storeId === "string" ? storeId.trim() : "";
+  if (scope === "STORE") {
+    if (!id) return { ok: false, error: "store_id_required" };
+    return { ok: true };
+  }
+  if (id) return { ok: false, error: "store_id_forbidden" };
+  return { ok: true };
+}
+
+/** Checkout redeem gate by explicit gift_scope (never infer from null alone). */
+export function giftInstanceAllowsCheckoutStore(args: {
+  giftScope: GiftScope | string | null | undefined;
+  instanceStoreId: string | null | undefined;
+  checkoutStoreId: string;
+}): boolean {
+  const checkout = args.checkoutStoreId.trim();
+  if (!checkout) return false;
+  const scope = isGiftScope(args.giftScope) ? args.giftScope : "STORE";
+  if (scope === "PLATFORM") return true;
+  const issuer = typeof args.instanceStoreId === "string" ? args.instanceStoreId.trim() : "";
+  return Boolean(issuer) && issuer === checkout;
+}
+
+export function resolveGiftCreationSource(args: {
+  giftScope: GiftScope;
+  applicationId?: string | null;
+}): GiftCreationSource {
+  if (args.giftScope === "PLATFORM") return "ADMIN_DIRECT_PLATFORM";
+  const appId = typeof args.applicationId === "string" ? args.applicationId.trim() : "";
+  if (appId) return "OWNER_APPLICATION";
+  return "ADMIN_DIRECT_STORE";
+}
 
 export const GIFT_PARTIAL_REDEMPTION_SUPPORTED = true as const;
 

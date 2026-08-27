@@ -30,17 +30,22 @@ describe("gift public number surfaces", () => {
     expect(ui).toContain("data-owner-gift-public-number");
   });
 
-  it("admin tracking is read-only, admin-gated, and does not copy messenger message bodies", () => {
+  it("admin instance tracking is read-only, admin-gated via Ops Center single entry", () => {
     const route = source("app/api/admin/gift-certificates/tracking/route.ts");
-    const page = source("components/admin/gift/AdminGiftTrackingPage.tsx");
+    const instancesPanel = source("components/admin/gift/panels/AdminGiftInstancesPanel.tsx");
     const menu = source("components/admin/admin-menu.ts");
+    const opsTabs = source("lib/gift-certificate/admin-gift-ops-tabs.ts");
 
     expect(route).toContain('requireAdminPermission("business")');
     expect(route).toContain("public_gift_number");
     expect(route).toContain("messenger_message_id");
     expect(route).not.toContain("message_body");
     expect(route).not.toMatch(/\b(insert|update|delete|upsert)\s*\(/i);
-    expect(page).toContain("data-admin-gift-tracking");
-    expect(menu).toContain("/admin/gift-certificates/tracking");
+    // UI authority: Ops Center instances tab (legacy /tracking redirects here)
+    expect(instancesPanel).toContain("/api/admin/gift-certificates/tracking");
+    expect(instancesPanel).toContain("publicGiftNumber");
+    expect(menu).toContain('path: "/admin/gift-certificates"');
+    expect(menu).not.toContain('path: "/admin/gift-certificates/tracking"');
+    expect(opsTabs).toContain('tracking: { tab: "instances" }');
   });
 });

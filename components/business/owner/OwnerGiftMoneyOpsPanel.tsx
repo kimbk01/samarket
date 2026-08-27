@@ -751,6 +751,17 @@ export function OwnerGiftMoneyOpsPanel(props: {
                         onClick={() => setExpandedId(open ? null : row.id)}
                       >
                         <p className="truncate text-sm font-semibold">{row.giftTitle || "Gift"}</p>
+                        <p className="text-xs text-sam-muted">
+                          {row.giftScope === "PLATFORM"
+                            ? safeT("gift_ops_type_platform", {
+                                fallbackKo: "DIBAY 상품권",
+                                fallbackEn: "DIBAY Gift",
+                              })
+                            : safeT("gift_ops_type_store", {
+                                fallbackKo: "매장 상품권",
+                                fallbackEn: "Store Gift",
+                              })}
+                        </p>
                         <p className="mt-1 text-xs text-sam-muted" data-owner-gift-customer="1">
                           {safeT("gift_owner_redemption_customer", {
                             fallbackKo: "고객",

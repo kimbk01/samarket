@@ -27,7 +27,7 @@ describe("public gift number security boundary", () => {
     expect(route).toContain('error: "gift_not_owner"');
     expect(route).toContain('error: "gift_store_mismatch"');
     expect(eligible).toContain("giftInstanceAllowsRedeem(inst.status)");
-    expect(eligible).toContain("inst.storeId.trim() !== storeId");
+    expect(eligible).toContain("giftInstanceAllowsCheckoutStore");
   });
 
   it("S3: gift transfer accepts internal instance id only", () => {

@@ -9,7 +9,9 @@ export type GiftWalletInstance = {
   id: string;
   publicGiftNumber?: string;
   productId: string;
-  storeId: string;
+  giftScope: "STORE" | "PLATFORM";
+  /** Issuer store for STORE gifts; null for PLATFORM (redeem scope is checkout store). */
+  storeId: string | null;
   storeName: string;
   title: string;
   imageUrl: string | null;
@@ -54,12 +56,16 @@ function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
     storeObj && typeof storeObj === "object" && (storeObj as { store_name?: unknown }).store_name != null
       ? String((storeObj as { store_name: unknown }).store_name)
       : "";
+  const scopeRaw = String(row.gift_scope ?? product?.gift_scope ?? "STORE").trim();
+  const giftScope = scopeRaw === "PLATFORM" ? "PLATFORM" : "STORE";
+  const storeIdRaw = row.store_id == null ? "" : String(row.store_id).trim();
   return {
     id: String(row.id),
     publicGiftNumber: String(row.public_gift_number ?? ""),
     productId: String(row.product_id),
-    storeId: String(row.store_id),
-    storeName,
+    giftScope,
+    storeId: giftScope === "PLATFORM" ? null : storeIdRaw || null,
+    storeName: giftScope === "PLATFORM" ? "DIBAY" : storeName,
     title: product?.title != null ? String(product.title) : "",
     imageUrl: product?.image_url == null ? null : String(product.image_url),
     transferable: product?.transferable !== false,
@@ -96,7 +102,7 @@ export async function loadGiftWallet(
     sb
       .from(GIFT_TABLES.instances)
       .select(
-        "id, public_gift_number, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, transferable, stores(store_name))"
+        "id, public_gift_number, product_id, store_id, gift_scope, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, transferable, gift_scope, stores(store_name))"
       )
       .eq("current_owner_user_id", uid)
       .order("created_at", { ascending: false })

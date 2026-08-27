@@ -53,3 +53,5 @@ export const GIFT_PUBLIC_NUMBER_MIGRATION_ID =
   "20261128160000_gift_certificate_public_number" as const;
 export const GIFT_CASH_OUT_MIGRATION_ID =
   "20261128170000_gift_certificate_cash_out" as const;
+export const GIFT_SCOPE_PLATFORM_MIGRATION_ID =
+  "20261128180000_gift_certificate_scope_platform" as const;

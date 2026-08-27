@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       .limit(5000),
     sb
       .from(GIFT_TABLES.instances)
-      .select("id, public_gift_number, remaining_balance, status")
+      .select("id, public_gift_number, remaining_balance, status, gift_scope")
       .in("status", ["ACTIVE", "PARTIALLY_REDEEMED", "GIFT_LOCKED"])
       .limit(5000),
     sb.from(GIFT_TABLES.storeCashAccounts).select("balance").limit(5000),
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
   if (missingInst.length) {
     const { data: more } = await sb
       .from(GIFT_TABLES.instances)
-      .select("id, public_gift_number")
+      .select("id, public_gift_number, gift_scope")
       .in("id", missingInst);
     for (const r of (more ?? []) as Record<string, unknown>[]) {
       instanceById.set(s(r.id), r);
@@ -169,6 +169,7 @@ export async function GET(req: NextRequest) {
       storeId: s(r.store_id),
       storeName: storeNameById.get(s(r.store_id)) ?? "",
       publicGiftNumber: s(inst?.public_gift_number),
+      giftScope: s(inst?.gift_scope) === "PLATFORM" ? "PLATFORM" : "STORE",
       instanceId: s(r.instance_id),
       orderId: s(r.order_id),
       orderNo: s(order?.order_no) || null,

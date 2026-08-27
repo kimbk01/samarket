@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
     instanceIds.length
       ? sb
           .from(GIFT_TABLES.instances)
-          .select("id, public_gift_number, product_id, current_owner_user_id")
+          .select("id, public_gift_number, product_id, current_owner_user_id, gift_scope")
           .in("id", instanceIds)
       : Promise.resolve({ data: [] }),
     orderIds.length
@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
       storeId,
       storeName: storeNameById.get(storeId) ?? "",
       publicGiftNumber: s(inst?.public_gift_number),
+      giftScope: s(inst?.gift_scope) === "PLATFORM" ? "PLATFORM" : "STORE",
       instanceId,
       productTitle: titleByProduct.get(s(inst?.product_id)) ?? "",
       orderId,

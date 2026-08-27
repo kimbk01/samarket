@@ -14,6 +14,7 @@ type Row = {
   customerLabel: string;
   storeName: string;
   publicGiftNumber: string;
+  giftScope?: "STORE" | "PLATFORM";
   instanceId: string;
   productTitle: string;
   orderId: string;
@@ -151,6 +152,7 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
               <thead>
                 <tr className="border-b border-sam-border text-xs text-sam-muted">
                   <th className="px-2 py-2">Used</th>
+                  <th className="px-2 py-2">Type</th>
                   <th className="px-2 py-2">Customer</th>
                   <th className="px-2 py-2">Store</th>
                   <th className="px-2 py-2">Gift #</th>
@@ -168,6 +170,9 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border/60">
                     <td className="px-2 py-2 text-xs">{dt(r.usedAt)}</td>
+                    <td className="px-2 py-2 text-xs">
+                      {r.giftScope === "PLATFORM" ? "DIBAY" : "STORE"}
+                    </td>
                     <td className="px-2 py-2">{r.customerLabel || "—"}</td>
                     <td className="px-2 py-2">{r.storeName || "—"}</td>
                     <td className="px-2 py-2 font-mono text-xs">{r.publicGiftNumber || "—"}</td>
