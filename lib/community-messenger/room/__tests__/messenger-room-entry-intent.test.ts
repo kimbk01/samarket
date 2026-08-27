@@ -87,6 +87,41 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
+  it("unread + firstUnread + newest peer gift → force bottom (gift delivery land)", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: true,
+        unreadCount: 4,
+        lastReadMessageId: "lr-1",
+        firstUnreadMessageId: "fu-old",
+        newestPeerGiftCertificate: true,
+      })
+    ).toEqual({
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
+    });
+  });
+
+  it("sender newest gift (flag false) keeps firstUnread restore", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 2,
+        firstUnreadMessageId: "fu-1",
+        newestPeerGiftCertificate: false,
+      })
+    ).toEqual({
+      reason: "room_entry_restore",
+      clearPersist: true,
+      forceBottom: false,
+      anchorMessageId: "fu-1",
+    });
+  });
+
   it("unread without firstUnread → not force bottom (no fake lastRead)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({

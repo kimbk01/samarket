@@ -61,7 +61,13 @@ type ScrollAnchorControllerOpts = {
   stickToBottomRef: MutableRefObject<boolean>;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;
-  roomMessages: Array<{ id?: string; isMine?: boolean; clientMessageId?: string | null; pending?: boolean }>;
+  roomMessages: Array<{
+    id?: string;
+    isMine?: boolean;
+    clientMessageId?: string | null;
+    pending?: boolean;
+    messageType?: string | null;
+  }>;
   virtualizer?: VirtualizerLike;
   messageCount: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
@@ -494,12 +500,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     /** lastRead in window but no unread after → treat as caught up (latest bottom) */
     const effectiveUnread =
       unreadCount > 0 && !firstUnreadMessageId && lastReadIdx >= 0 ? 0 : unreadCount;
+    const newest = roomMessages.length > 0 ? roomMessages[roomMessages.length - 1] : null;
+    const newestPeerGiftCertificate =
+      newest?.messageType === "gift_certificate" && newest.isMine !== true;
     const plan = resolveMessengerRoomEntryScrollPlan({
       intent: entryIntentRef.current,
       hasPersisted,
       unreadCount: effectiveUnread,
       lastReadMessageId,
       firstUnreadMessageId,
+      newestPeerGiftCertificate,
     });
     if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
     if (plan.forceBottom) stickToBottomRef.current = true;

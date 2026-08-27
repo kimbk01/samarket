@@ -178,11 +178,18 @@ export type MessengerRoomEntryScrollPlanInput = {
   lastReadMessageId?: string | null;
   /** Resolved first unread id (message after lastRead). Prefer over lastRead. */
   firstUnreadMessageId?: string | null;
+  /**
+   * Newest timeline row is a peer `gift_certificate` (recipient delivery).
+   * Force latest bottom so the gift card is in viewport — first-unread restore can leave
+   * newer gift cards below the fold when older unreads exist in the same room.
+   */
+  newestPeerGiftCertificate?: boolean;
 };
 
 /**
  * Enter = sole scroll policy decision (Telegram benchmark contract):
  * - push → latest above composer
+ * - newest peer gift_certificate → latest above composer (gift delivery land)
  * - unread + firstUnread → first-unread boundary (not force bottom, not lastRead itself)
  * - else → latest above composer
  */
@@ -195,6 +202,15 @@ export function resolveMessengerRoomEntryScrollPlan(
       reason: "push_entry_initial_load",
       clearPersist: true,
       forceBottom: true,
+    };
+  }
+  /** Friend gift delivery: recipient must land on the newest gift card, not an older unread. */
+  if (input.newestPeerGiftCertificate) {
+    return {
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
     };
   }
   const unread = Math.max(0, Number(input.unreadCount) || 0);
