@@ -52,6 +52,13 @@ describe("allowedOrderTransitionsForActor OWNER", () => {
 });
 
 describe("allowedOrderTransitionsForActor ADMIN", () => {
+  it("pending → cancelled + refund_requested (pre-completion gift refund)", () => {
+    expect(allowedOrderTransitionsForActor("ADMIN", "pending", "pickup")).toEqual([
+      "cancelled",
+      "refund_requested",
+    ]);
+  });
+
   it("cancel_requested → cancelled PASS", () => {
     expect(
       allowedOrderTransitionsForActor("ADMIN", "cancel_requested", "pickup", {
@@ -68,8 +75,12 @@ describe("allowedOrderTransitionsForActor ADMIN", () => {
     ).toContain("preparing");
   });
 
-  it("completed → force cancelled FAIL", () => {
-    expect(allowedOrderTransitionsForActor("ADMIN", "completed", "pickup")).toEqual([]);
+  it("completed → cancelled FAIL", () => {
+    expect(allowedOrderTransitionsForActor("ADMIN", "completed", "pickup")).not.toContain("cancelled");
+  });
+
+  it("completed → refund_requested PASS (post-completion gift refund)", () => {
+    expect(allowedOrderTransitionsForActor("ADMIN", "completed", "pickup")).toEqual(["refund_requested"]);
   });
 
   it("refund_requested → refunded PASS", () => {

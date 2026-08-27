@@ -112,6 +112,8 @@ export function allowedOrderTransitionsForActor(
     }
     case "ADMIN": {
       if (current === "refund_requested") return ["refunded"];
+      /** Gift checkout orders may need admin refund while still pending (pre-completion). */
+      if (current === "pending") return ["cancelled", "refund_requested"];
       if (current === "cancel_requested") {
         const out = ["cancelled"];
         const restore = String(opts?.restoreToStatus ?? "").trim();
@@ -120,8 +122,12 @@ export function allowedOrderTransitionsForActor(
         }
         return out;
       }
-      if (current === "completed" || current === "refunded" || current === "cancelled") {
+      if (current === "refunded" || current === "cancelled") {
         return [];
+      }
+      /** Post-completion gift refund — admin refund authority after revenue recognition. */
+      if (current === "completed") {
+        return ["refund_requested"];
       }
       const out: string[] = ["cancelled"];
       if (canBuyerRequestStoreRefund(current, opts?.paymentStatus ?? "paid")) {
