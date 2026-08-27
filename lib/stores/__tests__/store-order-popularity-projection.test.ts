@@ -35,11 +35,11 @@ describe("store order popularity rolling 30d parity contract", () => {
 });
 
 describe("order completed transition idempotency and reversal contract", () => {
-  it("completed is terminal — no owner/admin reversal transitions", () => {
+  it("completed blocks owner transitions; admin may request refund only", () => {
     const ownerFromCompleted = allowedOrderTransitionsForActor("OWNER", "completed", "delivery");
     const adminFromCompleted = allowedOrderTransitionsForActor("ADMIN", "completed", "delivery");
     expect(ownerFromCompleted).toEqual([]);
-    expect(adminFromCompleted).toEqual([]);
+    expect(adminFromCompleted).toEqual(["refund_requested"]);
   });
 });
 
