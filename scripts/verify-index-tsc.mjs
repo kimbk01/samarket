@@ -2,12 +2,13 @@
 /**
  * Typecheck the git index (what the next commit will contain), not the dirty working tree.
  *
- * Default project is tsconfig.build.json (production source). `--test` uses tsconfig.test.json.
+ * Default project is tsconfig.build.json (production source, --noEmit).
+ * `--test` uses tsconfig.test.json via `tsc -b` (project references → app then tests).
  * Local working-tree tsc is not this gate. GitHub Actions and Vercel clone the commit only.
  *
  * Usage:
  *   node scripts/verify-index-tsc.mjs           # source graph, git write-tree
- *   node scripts/verify-index-tsc.mjs --test    # test graph
+ *   node scripts/verify-index-tsc.mjs --test    # test graph (solution-style -b)
  *   node scripts/verify-index-tsc.mjs --head    # HEAD only
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -55,7 +56,10 @@ function runTsc(cwd) {
   if (!existsSync(bin)) {
     throw new Error(`tsc not found: ${bin}`);
   }
-  const r = spawnSync(bin, ["--noEmit", "--pretty", "false", "-p", tsconfigName], {
+  const args = testGraph
+    ? ["-b", tsconfigName, "--pretty", "false"]
+    : ["--noEmit", "--pretty", "false", "-p", tsconfigName];
+  const r = spawnSync(bin, args, {
     cwd,
     stdio: "inherit",
     env: process.env,

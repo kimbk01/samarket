@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": false,
+    "outDir": ".tsbuild/scripts",
+    "tsBuildInfoFile": ".tsbuild/scripts.tsbuildinfo"
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "scripts/**/*.mts",
+    "scripts/**/*.tsx",
+    "scripts/qa/lib/red-team-viewer-lock.mjs",
+    "scripts/qa/lib/apk-webview-cdp.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    ".tsbuild",
+    "scripts/delivery-financial-ssot-runtime-close.ts"
+  ],
+  "references": [{ "path": "./tsconfig.app.json" }]
+}

@@ -1,25 +1,31 @@
 {
-  "extends": "./tsconfig.build.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "tsconfig.test.tsbuildinfo"
+    "plugins": [{ "name": "next" }],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": false,
+    "outDir": ".tsbuild/test",
+    "tsBuildInfoFile": ".tsbuild/test.tsbuildinfo"
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.mts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx",
-    "scripts/**/*.ts",
-    "scripts/**/*.mts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/__tests__/**/*.ts",
+    "**/__tests__/**/*.tsx",
     "playwright.config.ts",
     "vitest.config.ts"
   ],
   "exclude": [
     "node_modules",
     ".tsbuild",
-    "scripts/delivery-financial-ssot-runtime-close.ts"
-  ]
+    "scripts"
+  ],
+  "references": [{ "path": "./tsconfig.app.json" }]
 }

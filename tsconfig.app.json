@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationMap": false,
+    "outDir": ".tsbuild/app",
+    "tsBuildInfoFile": ".tsbuild/app.tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "messages/ko.json",
+    "messages/en.json",
+    "lib/community-messenger/bootstrap-lite-performance-lock.baseline.json",
+    "lib/community-messenger/cm-client-first-paint-baseline.json",
+    "lib/community-messenger/mark-read-performance-lock.baseline.json",
+    "data/trade-national-lgu/lgu-display-by-id.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "scripts",
+    "tests",
+    "tmp",
+    "tmp-addr-video-frames",
+    "tmp-addr-video2",
+    ".tsbuild",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/__tests__/**",
+    "playwright.config.ts",
+    "vitest.config.ts",
+    "scripts/delivery-financial-ssot-runtime-close.ts"
+  ]
+}

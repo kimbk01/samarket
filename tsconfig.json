@@ -1,32 +1,8 @@
 {
-  "extends": "./tsconfig.base.json",
-  "compilerOptions": {
-    "plugins": [{ "name": "next" }],
-    "tsBuildInfoFile": "tsconfig.app.tsbuildinfo"
-  },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.mts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "scripts",
-    "tests",
-    "tmp",
-    "tmp-addr-video-frames",
-    "tmp-addr-video2",
-    ".tsbuild",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx",
-    "**/__tests__/**",
-    "playwright.config.ts",
-    "vitest.config.ts",
-    "scripts/delivery-financial-ssot-runtime-close.ts"
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.test.json" },
+    { "path": "./tsconfig.scripts.json" }
   ]
 }

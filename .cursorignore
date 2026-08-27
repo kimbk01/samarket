@@ -9,6 +9,8 @@ build/
 coverage/
 .turbo/
 .vercel/
+.tsbuild/
+*.tsbuildinfo
 
 android/app/build/
 android/.gradle/
