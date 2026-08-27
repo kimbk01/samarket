@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import {
   isAuthExitNavigateStarted,
@@ -30,6 +30,12 @@ export function AuthSessionBoundary({ children }: Props) {
   const membership = useClientMembershipState("auth-session-boundary");
   const lastUserIdRef = useRef<string | null>(null);
   const dependent = isAccountDependentPath(pathname);
+  /**
+   * Hard-nav cookie/membership race can leave status=checking while
+   * `/api/auth/session` already reports authenticated — without this fail-open,
+   * messenger room re-entry stays on standalone Loading… and gift cards never mount.
+   */
+  const [sessionApiAuthenticated, setSessionApiAuthenticated] = useState(false);
 
   useEffect(() => {
     exposeResetAuthStateForDev();
@@ -65,6 +71,36 @@ export function AuthSessionBoundary({ children }: Props) {
     lastUserIdRef.current = userId;
   }, [dependent, membership]);
 
+  useEffect(() => {
+    if (!dependent) {
+      setSessionApiAuthenticated(false);
+      return;
+    }
+    if (membership.status === "member") {
+      setSessionApiAuthenticated(true);
+      return;
+    }
+    let cancelled = false;
+    const probe = () => {
+      void fetch("/api/auth/session", { credentials: "include" })
+        .then(async (res) => {
+          const json = (await res.json().catch(() => null)) as { authenticated?: boolean } | null;
+          if (!cancelled && res.ok && json?.authenticated === true) {
+            setSessionApiAuthenticated(true);
+          }
+        })
+        .catch(() => {
+          /* ignore — keep holding */
+        });
+    };
+    probe();
+    const id = window.setInterval(probe, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [dependent, membership.status, pathname]);
+
   if (!dependent) {
     return <>{children}</>;
   }
@@ -94,7 +130,17 @@ export function AuthSessionBoundary({ children }: Props) {
     isRecoveringPhase(phase) ||
     (membership.status === "guest" && phase !== "terminal_guest" && phase !== "corrupt");
 
-  if (holdForRecovery || membership.status === "guest" || isAuthExitNavigateStarted()) {
+  /** Session cookie already valid — do not pin messenger/private trees on Loading… during membership race. */
+  const failOpenAuthenticatedWhileResolving =
+    sessionApiAuthenticated &&
+    (membership.status === "checking" ||
+      (membership.status === "guest" && isRecoveringPhase(phase)));
+
+  const blockPrivateTree =
+    !failOpenAuthenticatedWhileResolving &&
+    (holdForRecovery || membership.status === "guest" || isAuthExitNavigateStarted());
+
+  if (blockPrivateTree) {
     return (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
