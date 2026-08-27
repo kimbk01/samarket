@@ -3,6 +3,7 @@
 
 node_modules/
 .next/
+.next-*/
 dist/
 build/
 coverage/
@@ -13,6 +14,12 @@ android/app/build/
 android/.gradle/
 ios/build/
 ios/DerivedData/
+
+# Accidental nested path dumps + ephemeral QA outputs (root-anchored .tmp)
+Users/
+/.tmp-*/
+/.tmp-*
+docs/perf/**/*.apk
 
 # Agent needs git access (do not ignore .git/)
 .qa-logs/

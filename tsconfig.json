@@ -1,88 +1,32 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@domain/trade/*": [
-        "./lib/trade/*"
-      ],
-      "@domain/trade-posts/*": [
-        "./lib/posts/*"
-      ],
-      "@domain/stores/*": [
-        "./lib/stores/*"
-      ],
-      "@domain/store-commerce/*": [
-        "./lib/store-commerce/*"
-      ],
-      "@domain/orders/*": [
-        "./lib/shared-orders/*"
-      ],
-      "@domain/member-orders/*": [
-        "./lib/member-orders/*"
-      ],
-      "@domain/chat/*": [
-        "./lib/chats/*"
-      ],
-      "@domain/chat-server/*": [
-        "./lib/chat/*"
-      ],
-      "@domain/order-chat/*": [
-        "./lib/shared-order-chat/*"
-      ],
-      "@domain/ph-regions/*": [
-        "./lib/regions/*"
-      ],
-      "@domain/ph-locations": [
-        "./lib/products/zip-to-location.ts"
-      ],
-      "@domain/ph-form-options": [
-        "./lib/products/form-options.ts"
-      ],
-      "@domain/ph-contact-constants": [
-        "./lib/constants/philippines-contact.ts"
-      ],
-      "@domain/philife": [
-        "./lib/philife/index.ts"
-      ],
-      "@domain/philife/*": [
-        "./lib/philife/*"
-      ]
-    }
+    "plugins": [{ "name": "next" }],
+    "tsBuildInfoFile": "tsconfig.app.tsbuildinfo"
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
+    "scripts",
+    "tests",
+    "tmp",
+    "tmp-addr-video-frames",
+    "tmp-addr-video2",
+    ".tsbuild",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/__tests__/**",
+    "playwright.config.ts",
+    "vitest.config.ts",
     "scripts/delivery-financial-ssot-runtime-close.ts"
   ]
 }

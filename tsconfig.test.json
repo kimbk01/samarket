@@ -19,6 +19,7 @@
   ],
   "exclude": [
     "node_modules",
+    ".tsbuild",
     "scripts/delivery-financial-ssot-runtime-close.ts"
   ]
 }

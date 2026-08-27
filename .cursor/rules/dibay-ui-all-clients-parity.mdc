@@ -1,6 +1,14 @@
 ---
 description: 공통 UI 수정은 iOS·APK·Windows·태블릿에 같이 적용. 한 기기만 고치고 끝내면 FAIL.
-alwaysApply: true
+alwaysApply: false
+globs:
+  - app/**
+  - components/**
+  - contexts/**
+  - hooks/**
+  - lib/ui/**
+  - app/design-tokens.css
+  - app/samarket-components.css
 ---
 
 # DIBAY 공통 UI — iOS / APK / Windows / 태블릿

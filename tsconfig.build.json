@@ -1,6 +1,7 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "plugins": [{ "name": "next" }],
     "tsBuildInfoFile": "tsconfig.build.tsbuildinfo"
   },
   "include": [
@@ -18,6 +19,7 @@
     "tmp",
     "tmp-addr-video-frames",
     "tmp-addr-video2",
+    ".tsbuild",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",
