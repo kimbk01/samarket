@@ -161,6 +161,8 @@ async function main() {
     const moneyUrl = `${ORIGIN}/stores/owner/gift-certificates?storeId=${STORE.storeId}&view=money`;
     await owner.page.goto(moneyUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
     await owner.page.waitForSelector("[data-owner-gift-money-tabs]", { timeout: 20000 });
+    await owner.page.waitForSelector("[data-owner-gift-kpi]", { timeout: 30000 });
+    await owner.page.waitForSelector("[data-owner-gift-action]", { timeout: 10000 });
 
     const bodyBack = await owner.page.locator("button").filter({ hasText: /^←$/ }).count();
     const tabCount = await owner.page.locator("[data-owner-gift-tab]").count();
