@@ -8,6 +8,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 
 type FriendRow = {
   id: string;
+  label?: string | null;
   displayName?: string | null;
   nickname?: string | null;
 };
@@ -34,7 +35,7 @@ export function WalletGiftFriendPicker({
   const load = useCallback(async () => {
     setReady(false);
     try {
-      const res = await fetch("/api/community-messenger/friends", {
+      const res = await fetch("/api/me/gift-certificates/friends/eligible", {
         credentials: "include",
         cache: "no-store",
       });
@@ -106,7 +107,7 @@ export function WalletGiftFriendPicker({
         {!ready ? (
           <p className="text-sm text-sam-muted">…</p>
         ) : friends.length === 0 ? (
-          <p className="text-sm text-sam-muted">
+          <p className="text-sm text-sam-muted" data-wallet-gift-friend-empty="1">
             {safeT("gift_u3_friend_pick_empty", {
               fallbackKo: "선물할 수 있는 친구가 없습니다.",
               fallbackEn: "No friends available to gift.",
@@ -115,7 +116,7 @@ export function WalletGiftFriendPicker({
         ) : (
           <ul className="space-y-2">
             {friends.map((f) => {
-              const label = String(f.displayName || f.nickname || f.id).trim();
+              const label = String(f.displayName || f.nickname || f.label || f.id).trim();
               return (
                 <li key={f.id}>
                   <button
