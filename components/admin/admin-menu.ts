@@ -541,7 +541,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "gift-certificates",
             title: "",
             path: "/admin/gift-certificates",
-            roles: ["admin", "master"],
             status: "done",
           },
           {
