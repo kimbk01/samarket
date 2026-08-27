@@ -1,7 +1,7 @@
 "use client";
 
-import { MemberCsNoteThreadClient } from "@/components/mypage/cs/MemberCsNoteThreadClient";
+import { MypageCsOwnerCareBridgeSuspense } from "@/components/mypage/cs/MypageCsOwnerCareBridge";
 
 export default function MypageInboxThreadPage() {
-  return <MemberCsNoteThreadClient kind="inbox" />;
+  return <MypageCsOwnerCareBridgeSuspense kind="inbox" mode="thread" />;
 }

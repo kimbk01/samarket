@@ -1,7 +1,7 @@
 "use client";
 
-import { MemberCsNoteThreadClient } from "@/components/mypage/cs/MemberCsNoteThreadClient";
+import { MypageCsOwnerCareBridgeSuspense } from "@/components/mypage/cs/MypageCsOwnerCareBridge";
 
 export default function MypageInquiryThreadPage() {
-  return <MemberCsNoteThreadClient kind="inquiry" />;
+  return <MypageCsOwnerCareBridgeSuspense kind="inquiry" mode="thread" />;
 }

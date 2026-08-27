@@ -7,6 +7,7 @@ import {
   listAdminNoteThreads,
   listMemberNoteThreads,
 } from "@/lib/notifications/member-admin-notes-service";
+import { enrichAdminNoteThreadsForDisplay } from "@/lib/notifications/admin-member-notes-display";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
     ? await listMemberNoteThreads(sb, memberUserId, kind ? { kind } : undefined)
     : await listAdminNoteThreads(sb, kind ? { kind } : undefined);
   if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 500 });
-  return NextResponse.json({ ok: true, threads: res.threads });
+  const threads = await enrichAdminNoteThreadsForDisplay(sb, res.threads);
+  return NextResponse.json({ ok: true, threads });
 }
 
 /** Create Inbox thread: Admin → exactly one member. */

@@ -108,12 +108,17 @@ function OwnerGiftCertificatesInner() {
     | "apply"
     | "confirm"
     | "success"
+    | "applications"
     | "history"
     | "money"
     | "redemptions"
     | "convert"
     | "convert-success"
-    | "convert-history";
+    | "convert-history"
+    | "cash-out"
+    | "cash-out-success"
+    | "cash-out-history"
+    | "products";
   const [resolvedStoreId, setResolvedStoreId] = useState(storeIdQ);
   const [apps, setApps] = useState<GiftApp[]>([]);
   const [products, setProducts] = useState<GiftProduct[]>([]);
@@ -242,6 +247,7 @@ function OwnerGiftCertificatesInner() {
 
   const moneyViews = new Set([
     "money",
+    "history",
     "redemptions",
     "convert",
     "convert-success",
@@ -258,6 +264,7 @@ function OwnerGiftCertificatesInner() {
           view={
             view as
               | "money"
+              | "history"
               | "redemptions"
               | "convert"
               | "convert-success"
@@ -490,13 +497,13 @@ function OwnerGiftCertificatesInner() {
                 })}
               </button>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("history")}>
+                <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("applications")}>
                   {safeT("gift_owner_cta_history", {
                     fallbackKo: "신청 내역",
                     fallbackEn: "Applications",
                   })}
                 </button>
-                <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("history")}>
+                <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("home")}>
                   {safeT("gift_owner_cta_products", {
                     fallbackKo: "판매 상품권 보기",
                     fallbackEn: "View products",
@@ -721,7 +728,7 @@ function OwnerGiftCertificatesInner() {
             </p>
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <button type="button" className={`${Sam.btn.primary} min-h-[48px]`} onClick={() => go("history")}>
+            <button type="button" className={`${Sam.btn.primary} min-h-[48px]`} onClick={() => go("applications")}>
               {safeT("gift_owner_cta_history", {
                 fallbackKo: "신청 내역 보기",
                 fallbackEn: "View applications",
@@ -737,7 +744,7 @@ function OwnerGiftCertificatesInner() {
         </OwnerStoreAdminDashSection>
       ) : null}
 
-      {view === "history" ? (
+      {view === "applications" ? (
         <OwnerStoreAdminDashSection
           title={safeT("gift_owner_history_title", {
             fallbackKo: "신청 내역",

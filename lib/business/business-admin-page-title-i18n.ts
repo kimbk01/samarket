@@ -64,6 +64,9 @@ export function getBusinessAdminPageTitleI18n(
 
   if (matchAny("/order-chats")) return ownerAdminTitle("biz_title_order_chats");
 
+  if (matchPattern(/^\/stores\/owner\/customer-care\/customer-center$/)) {
+    return ownerAdminTitle("biz_title_customer_center");
+  }
   if (matchPattern(/^\/stores\/owner\/customer-care\/messages(\/[^/]+)?$/)) {
     return ownerAdminTitle("biz_title_care_messages");
   }
@@ -73,14 +76,18 @@ export function getBusinessAdminPageTitleI18n(
   if (matchAny("/customer-care")) return ownerAdminTitle("biz_title_customer_care");
 
   if (matchAny("/gift-certificates")) {
-    if (view === "money" || view === "cash-out" || view === "cash-out-success" || view === "cash-out-history") {
-      return ownerAdminTitle("biz_title_gift_money");
+    if (view === "money") return ownerAdminTitle("biz_title_gift_money");
+    if (view === "history" || view === "convert-history" || view === "cash-out-history") {
+      return ownerAdminTitle("biz_title_gift_history");
     }
     if (view === "redemptions") return ownerAdminTitle("biz_title_gift_redemptions");
-    if (view === "convert" || view === "convert-success" || view === "convert-history") {
+    if (view === "cash-out" || view === "cash-out-success") {
+      return ownerAdminTitle("biz_title_gift_cash_out");
+    }
+    if (view === "convert" || view === "convert-success") {
       return ownerAdminTitle("biz_title_gift_convert");
     }
-    if (view === "apply" || view === "history" || view === "products") {
+    if (view === "apply" || view === "applications" || view === "products") {
       return ownerAdminTitle("biz_title_gift_products");
     }
     return ownerAdminTitle("biz_title_gift_certificates");

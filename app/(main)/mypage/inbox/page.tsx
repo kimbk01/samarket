@@ -1,13 +1,7 @@
 "use client";
 
-import { Suspense } from "react";
-import { MemberCsNoteListClient } from "@/components/mypage/cs/MemberCsNoteListClient";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MypageCsOwnerCareBridgeSuspense } from "@/components/mypage/cs/MypageCsOwnerCareBridge";
 
 export default function MypageInboxPage() {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
-      <MemberCsNoteListClient kind="inbox" />
-    </Suspense>
-  );
+  return <MypageCsOwnerCareBridgeSuspense kind="inbox" mode="list" />;
 }

@@ -43,6 +43,21 @@ function isUuid(value: string): boolean {
   );
 }
 
+async function resolveFirstOwnedStoreId(
+  sb: SupabaseClient,
+  memberUserId: string
+): Promise<string | null> {
+  const { data } = await sb
+    .from("stores")
+    .select("id")
+    .eq("owner_user_id", memberUserId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const id = String((data as { id?: string } | null)?.id ?? "").trim();
+  return id || null;
+}
+
 async function notifyMemberOfAdminNote(
   sb: SupabaseClient,
   input: {
@@ -55,11 +70,13 @@ async function notifyMemberOfAdminNote(
   }
 ): Promise<void> {
   const startedBy = input.startedBy ?? "member";
+  const ownerStoreId = await resolveFirstOwnedStoreId(sb, input.memberUserId);
   const displayPayload = buildMemberAdminNoteNotificationPayload({
     threadId: input.threadId,
     subject: input.subject,
     bodyPreview: input.body,
     startedBy,
+    ownerStoreId,
   });
   const dedupeKey = `member_admin_note:${input.threadId}:${Date.now()}`;
   /**

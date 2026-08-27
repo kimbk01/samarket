@@ -19,6 +19,10 @@ type Thread = {
   last_message_at: string;
   admin_unread_count: number;
   started_by?: string;
+  member_display_name?: string | null;
+  member_email?: string | null;
+  is_store_owner?: boolean;
+  store_names?: string[];
 };
 
 type Message = {
@@ -200,6 +204,13 @@ function AdminMemberNotesPageInner() {
                 {th.subject}
               </span>
               <span className="mt-0.5 block truncate text-[11px] text-sam-muted">
+                {th.member_display_name || th.member_email || th.member_user_id.slice(0, 8)}
+                {th.is_store_owner && th.store_names && th.store_names.length > 0
+                  ? ` · Store: ${th.store_names.slice(0, 2).join(", ")}`
+                  : th.is_store_owner
+                    ? " · Store Owner"
+                    : ""}
+                {" · "}
                 {kindFromStartedBy(th.started_by) === "inbox"
                   ? safeT("admin_menu_cp_member_inbox", {
                       fallbackKo: "쪽지",

@@ -29,14 +29,41 @@ export function buildMemberAdminNoteRoute(
   return `${base}/${encodeURIComponent(id)}`;
 }
 
+/**
+ * Owner Care landing for the same member_admin_note thread authority.
+ * Member canonical path remains `/mypage/...` (Customer Communication HARD LOCK).
+ */
+export function buildOwnerCareAdminNoteRoute(
+  threadId: string,
+  startedBy?: string | null,
+  storeId?: string | null
+): string {
+  const id = threadId.trim();
+  const kind = kindFromStartedBy(startedBy);
+  const path =
+    kind === "inbox"
+      ? `/stores/owner/customer-care/messages/${encodeURIComponent(id)}`
+      : `/stores/owner/customer-care/inquiries/${encodeURIComponent(id)}`;
+  const sid = (storeId ?? "").trim();
+  const withStore = sid
+    ? `${path}${path.includes("?") ? "&" : "?"}storeId=${encodeURIComponent(sid)}`
+    : path;
+  return `${withStore}${withStore.includes("?") ? "&" : "?"}from=owner-care`;
+}
+
 export function buildMemberAdminNoteNotificationPayload(input: {
   threadId: string;
   subject: string;
   bodyPreview: string;
   startedBy?: string | null;
+  /** When set, notification deep-links into Owner Customer Care (store owner session). */
+  ownerStoreId?: string | null;
 }): Record<string, unknown> {
   const startedBy = input.startedBy ?? "member";
-  const routeUrl = buildMemberAdminNoteRoute(input.threadId, startedBy);
+  const ownerStoreId = (input.ownerStoreId ?? "").trim();
+  const routeUrl = ownerStoreId
+    ? buildOwnerCareAdminNoteRoute(input.threadId, startedBy, ownerStoreId)
+    : buildMemberAdminNoteRoute(input.threadId, startedBy);
   return {
     routeUrl,
     noteThreadId: input.threadId.trim(),
@@ -45,5 +72,6 @@ export function buildMemberAdminNoteNotificationPayload(input: {
     supportKind: kindFromStartedBy(startedBy) === "inbox" ? "direct_message" : "inquiry",
     subject: input.subject,
     bodyPreview: input.bodyPreview.slice(0, 200),
+    ...(ownerStoreId ? { ownerStoreId, ownerCareRoute: true } : {}),
   };
 }

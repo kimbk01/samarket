@@ -18,6 +18,7 @@ import {
 import { buildCustomerCenterBoardDetailPath } from "@/lib/notices/customer-center-content-paths";
 import { buildCommunityPostNotificationPath } from "@/lib/notifications/community-post-notification-destination";
 import { classifyMemberNotificationDomain } from "@/lib/notifications/member-notification-domain";
+import { buildOwnerCareAdminNoteRoute } from "@/lib/notifications/member-admin-notes";
 
 export type InboxNotificationRow = {
   id: string;
@@ -355,6 +356,10 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   const noteThreadIdEarly = trimText(payload?.noteThreadId);
   if (noteThreadIdEarly) {
     const startedBy = trimText(payload?.startedBy) || "member";
+    const ownerStoreId = trimText(payload?.ownerStoreId);
+    if (ownerStoreId || payload?.ownerCareRoute === true) {
+      return buildOwnerCareAdminNoteRoute(noteThreadIdEarly, startedBy, ownerStoreId || null);
+    }
     const base = startedBy === "admin" ? "/mypage/inbox" : "/mypage/inquiries";
     return `${base}/${encodeURIComponent(noteThreadIdEarly)}`;
   }

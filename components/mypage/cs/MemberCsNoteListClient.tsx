@@ -81,6 +81,7 @@ export function MemberCsNoteListClient({
   const [busy, setBusy] = useState(false);
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [typeSheetOpen, setTypeSheetOpen] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const title = safeT(meta.titleKey, {
     fallbackKo: kind === "inquiry" ? "1:1 문의" : "받은 쪽지",
@@ -149,13 +150,14 @@ export function MemberCsNoteListClient({
       const createdId = String(j.thread?.id ?? "").trim();
       setSubject("");
       setBody("");
-      if (createdId) {
+      setSubmitSuccess(true);
+      await load();
+      if (createdId && !hideChrome) {
         window.location.assign(
           withCustomerCenterFrom(`${listHref}/${encodeURIComponent(createdId)}`, from),
         );
         return;
       }
-      await load();
     } finally {
       setBusy(false);
     }
@@ -222,6 +224,27 @@ export function MemberCsNoteListClient({
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
           {meta.allowCreate ? (
             <section className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} ${CC_CARD_CLASS} space-y-1 p-4 !px-4`}>
+              {submitSuccess ? (
+                <div className="space-y-3" data-owner-cs-inquiry-success="1">
+                  <p className={CC_HEADER_CLASS}>
+                    {safeT("mypage_cs_inquiry_submitted", {
+                      fallbackKo: "문의가 접수되었습니다.",
+                      fallbackEn: "Your inquiry was submitted.",
+                    })}
+                  </p>
+                  <button
+                    type="button"
+                    className={CC_PRIMARY_BTN_CLASS}
+                    onClick={() => setSubmitSuccess(false)}
+                  >
+                    {safeT("mypage_cs_inquiry_view_list", {
+                      fallbackKo: "문의 내역 보기",
+                      fallbackEn: "View inquiries",
+                    })}
+                  </button>
+                </div>
+              ) : (
+                <>
               <h2 className={CC_HEADER_CLASS}>
                 {safeT("mypage_cs_inquiry_new", {
                   fallbackKo: "1:1 문의 작성",
@@ -270,6 +293,8 @@ export function MemberCsNoteListClient({
                   fallbackEn: "Send",
                 })}
               </button>
+                </>
+              )}
             </section>
           ) : null}
 
@@ -305,7 +330,23 @@ export function MemberCsNoteListClient({
                         {new Date(th.last_message_at).toLocaleString(
                           language === "ko" ? "ko-KR" : "en-US",
                         )}
-                        {th.status ? ` · ${th.status}` : ""}
+                        {" · "}
+                        {th.status === "open"
+                          ? safeT("mypage_cs_status_awaiting", {
+                              fallbackKo: "답변 대기",
+                              fallbackEn: "Awaiting reply",
+                            })
+                          : th.status === "answered"
+                            ? safeT("mypage_cs_status_answered", {
+                                fallbackKo: "답변 완료",
+                                fallbackEn: "Answered",
+                              })
+                            : th.status === "closed"
+                              ? safeT("mypage_cs_status_closed", {
+                                  fallbackKo: "종료",
+                                  fallbackEn: "Closed",
+                                })
+                              : th.status}
                       </span>
                     </span>
                     {th.member_unread_count > 0 ? (

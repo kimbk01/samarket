@@ -36,6 +36,15 @@ export const OwnerRoutes = {
   inquiries: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/inquiries`, storeId),
   /** Owner Care Hub — order chat / store inquiry / customer center */
   customerCare: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/customer-care`, storeId),
+  /**
+   * Owner Customer Center — 관리자 쪽지 + 1:1 문의 tabs.
+   * `tab`: messages | inquiries
+   */
+  customerCareCenter: (storeId?: string | null, tab?: "messages" | "inquiries" | null) => {
+    const base = withStoreId(`${OWNER_ROUTES_BASE}/customer-care/customer-center`, storeId);
+    if (tab !== "messages" && tab !== "inquiries") return base;
+    return `${base}${base.includes("?") ? "&" : "?"}tab=${tab}`;
+  },
   customerCareMessages: (storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/customer-care/messages`, storeId),
   customerCareInquiries: (storeId?: string | null) =>
@@ -43,6 +52,16 @@ export const OwnerRoutes = {
   /** Platform 1:1 CS under Owner Care (distinct from store inquiries) */
   customerCareCsInquiries: (storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/customer-care/inquiries`, storeId),
+  customerCareMessageThread: (threadId: string, storeId?: string | null) =>
+    withStoreId(
+      `${OWNER_ROUTES_BASE}/customer-care/messages/${encodeURIComponent(threadId.trim())}`,
+      storeId
+    ),
+  customerCareInquiryThread: (threadId: string, storeId?: string | null) =>
+    withStoreId(
+      `${OWNER_ROUTES_BASE}/customer-care/inquiries/${encodeURIComponent(threadId.trim())}`,
+      storeId
+    ),
   giftCertificatesMoney: (storeId?: string | null) => {
     const base = withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId);
     return `${base}${base.includes("?") ? "&" : "?"}view=money`;

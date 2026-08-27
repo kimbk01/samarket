@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MessageCircle, HelpCircle, Headphones } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,17 +9,81 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OWNER_ADMIN_LIST_CARD_CLASS } from "@/lib/business/owner-admin-list-ui";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { useOwnerFabOrderChatBadgeCount } from "@/lib/chats/use-owner-hub-badge-total";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
-export function OwnerCustomerCareHubView({
-  orderChatUnread = 0,
-  inquiryUnread = 0,
-}: {
-  orderChatUnread?: number;
-  inquiryUnread?: number;
-}) {
+type UnreadState = {
+  storeInquiry: number;
+  adminInbox: number;
+  adminInquiry: number;
+};
+
+export function OwnerCustomerCareHubView() {
   const { safeT } = useI18n();
   const sp = useSearchParams();
-  const storeId = sp.get("storeId");
+  const storeIdParam = sp.get("storeId");
+  const orderChatUnread = useOwnerFabOrderChatBadgeCount();
+  const [unread, setUnread] = useState<UnreadState>({
+    storeInquiry: 0,
+    adminInbox: 0,
+    adminInquiry: 0,
+  });
+  const [resolvedStoreId, setResolvedStoreId] = useState<string | null>(storeIdParam);
+
+  const loadBadges = useCallback(async () => {
+    let sid = (storeIdParam ?? "").trim();
+    if (!sid) {
+      const { status, json } = await fetchMeStoresListDeduped();
+      const stores = (json as { stores?: { id?: string }[] } | null)?.stores;
+      if (status === 200 && Array.isArray(stores) && stores[0]?.id) {
+        sid = String(stores[0].id);
+      }
+    }
+    setResolvedStoreId(sid || null);
+
+    const noteUnread = async (kind: "inbox" | "inquiry") => {
+      const res = await fetch(`/api/me/admin-notes?kind=${kind}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        threads?: { member_unread_count?: number }[];
+      };
+      if (!res.ok || !j.ok || !Array.isArray(j.threads)) return 0;
+      return j.threads.reduce((sum, th) => sum + Math.max(0, Number(th.member_unread_count) || 0), 0);
+    };
+
+    let storeInquiry = 0;
+    if (sid) {
+      const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/inquiries`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        inquiries?: { status?: string }[];
+      };
+      if (res.ok && j.ok && Array.isArray(j.inquiries)) {
+        storeInquiry = j.inquiries.filter((r) => String(r.status ?? "") === "open").length;
+      }
+    }
+
+    const [adminInbox, adminInquiry] = await Promise.all([noteUnread("inbox"), noteUnread("inquiry")]);
+    setUnread({ storeInquiry, adminInbox, adminInquiry });
+  }, [storeIdParam]);
+
+  useEffect(() => {
+    void loadBadges();
+  }, [loadBadges]);
+
+  const storeId = resolvedStoreId ?? storeIdParam;
+  const customerCenterUnread = unread.adminInbox + unread.adminInquiry;
+
+  const customerCenterHref = (() => {
+    const base = OwnerRoutes.customerCareCenter(storeId);
+    return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
+  })();
 
   const entries = [
     {
@@ -47,21 +112,21 @@ export function OwnerCustomerCareHubView({
         fallbackKo: "이 매장으로 온 문의",
         fallbackEn: "Inquiries sent to this store",
       }),
-      badge: inquiryUnread,
+      badge: unread.storeInquiry,
     },
     {
       id: "customer-center",
-      href: `${OwnerRoutes.customerCareMessages(storeId)}${OwnerRoutes.customerCareMessages(storeId).includes("?") ? "&" : "?"}from=owner-care`,
+      href: customerCenterHref,
       icon: Headphones,
       title: safeT("biz_care_customer_center", {
         fallbackKo: "고객센터",
         fallbackEn: "Customer center",
       }),
       desc: safeT("biz_care_customer_center_desc", {
-        fallbackKo: "받은 쪽지 · 1:1 문의",
-        fallbackEn: "Inbox and 1:1 support",
+        fallbackKo: "관리자 쪽지 · 1:1 문의",
+        fallbackEn: "Admin messages and 1:1 support",
       }),
-      badge: 0,
+      badge: customerCenterUnread,
     },
   ];
 
@@ -91,7 +156,10 @@ export function OwnerCustomerCareHubView({
                     <span className="mt-0.5 block text-xs text-sam-muted">{e.desc}</span>
                   </span>
                   {e.badge > 0 ? (
-                    <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    <span
+                      className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                      data-owner-care-badge={e.id}
+                    >
                       {e.badge > 99 ? "99+" : e.badge}
                     </span>
                   ) : null}
@@ -100,20 +168,6 @@ export function OwnerCustomerCareHubView({
             );
           })}
         </ul>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <Link
-            href={`${OwnerRoutes.customerCareMessages(storeId)}${OwnerRoutes.customerCareMessages(storeId).includes("?") ? "&" : "?"}from=owner-care`}
-            className={`${OWNER_ADMIN_LIST_CARD_CLASS} text-center text-sm font-medium`}
-          >
-            {safeT("biz_care_tab_inbox", { fallbackKo: "받은 쪽지", fallbackEn: "Inbox" })}
-          </Link>
-          <Link
-            href={`${OwnerRoutes.customerCareCsInquiries(storeId)}${OwnerRoutes.customerCareCsInquiries(storeId).includes("?") ? "&" : "?"}from=owner-care`}
-            className={`${OWNER_ADMIN_LIST_CARD_CLASS} text-center text-sm font-medium`}
-          >
-            {safeT("biz_care_tab_1on1", { fallbackKo: "1:1 문의", fallbackEn: "1:1 Inquiry" })}
-          </Link>
-        </div>
       </OwnerStoreAdminDashSection>
     </div>
   );

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMemberAdminNoteNotificationPayload,
   buildMemberAdminNoteRoute,
+  buildOwnerCareAdminNoteRoute,
   kindFromStartedBy,
 } from "@/lib/notifications/member-admin-notes";
 import {
@@ -31,6 +32,43 @@ describe("Phase 3 member-admin-notes paths", () => {
     expect(p.startedBy).toBe("admin");
     expect(p.routeUrl).toBe("/mypage/inbox/abc");
     expect(p.previewKind).toBe("member_admin_note");
+  });
+
+  it("Owner Care payload deep-links to customer-care thread", () => {
+    expect(buildOwnerCareAdminNoteRoute("tid-9", "admin", "store-1")).toContain(
+      "/stores/owner/customer-care/messages/tid-9"
+    );
+    const p = buildMemberAdminNoteNotificationPayload({
+      threadId: "tid-9",
+      subject: "Hello",
+      bodyPreview: "Body",
+      startedBy: "admin",
+      ownerStoreId: "store-1",
+    });
+    expect(String(p.routeUrl)).toContain("/stores/owner/customer-care/messages/tid-9");
+    expect(p.ownerCareRoute).toBe(true);
+  });
+
+  it("Bell prefers Owner Care route when ownerStoreId present", () => {
+    const href = resolveEventInboxLinkUrl({
+      id: "e-owner",
+      user_id: "u1",
+      type: "inbox_message_received",
+      category: "inbox_message_received",
+      title: "t",
+      body: "b",
+      unread: true,
+      created_at: new Date().toISOString(),
+      display_payload: {
+        previewKind: "member_admin_note",
+        noteThreadId: "n-owner",
+        startedBy: "admin",
+        ownerStoreId: "store-x",
+        ownerCareRoute: true,
+        routeUrl: "/mypage/inbox/n-owner",
+      },
+    } as never);
+    expect(href).toContain("/stores/owner/customer-care/messages/n-owner");
   });
 
   it("Bell prefers noteThreadId over poisoned routeUrl (legacy admin_notice dual-read)", () => {

@@ -1,7 +1,7 @@
 /** Owner Gift U5 — revenue / redemption / cash conversion UX */
 export const giftCertificateU5Messages = {
   ko: {
-    gift_u5_money_title: "상품권 수익·Cash",
+    gift_u5_money_title: "상품권 수익·현금 관리",
     gift_u5_kpi_outstanding: "미사용 상품권 잔액",
     gift_u5_kpi_sold_count: "발행 상품권 수량 (운영)",
     gift_u5_kpi_sold_face: "발행 Face Value (운영)",
@@ -10,13 +10,13 @@ export const giftCertificateU5Messages = {
     gift_u5_kpi_merchant_net: "확정 상품권 수익",
     gift_u5_kpi_pending_merchant: "수익 확정 대기",
     gift_u5_kpi_available: "전환 가능 수익",
-    gift_u5_kpi_cash_pending: "Cash 전환 대기",
+    gift_u5_kpi_cash_pending: "Store Cash 전환 대기",
     gift_u5_kpi_store_cash: "매장 Cash",
     gift_u5_money_hint_credit:
       "비즈니스 크레딧은 운영용이며, 상품권 수익·매장 Cash와 다른 돈입니다.",
     gift_u5_cta_redemptions: "사용 내역",
     gift_u5_cta_money: "상품권 수익·Cash",
-    gift_u5_cta_convert: "Cash 전환 신청",
+    gift_u5_cta_convert: "Store Cash 전환",
     gift_u5_cta_history: "전환 내역 보기",
     gift_u5_cta_order: "주문 보기",
     gift_u5_redemptions_title: "상품권 사용 내역",
@@ -67,13 +67,13 @@ export const giftCertificateU5Messages = {
     gift_u5_kpi_merchant_net: "Recognized gift revenue",
     gift_u5_kpi_pending_merchant: "Revenue pending recognition",
     gift_u5_kpi_available: "Available to convert",
-    gift_u5_kpi_cash_pending: "Cash conversion pending",
+    gift_u5_kpi_cash_pending: "Store Cash conversion pending",
     gift_u5_kpi_store_cash: "Store Cash",
     gift_u5_money_hint_credit:
       "Business credit is for operations and is separate from gift revenue and Store Cash.",
     gift_u5_cta_redemptions: "Redemption history",
     gift_u5_cta_money: "Gift revenue & cash",
-    gift_u5_cta_convert: "Request cash conversion",
+    gift_u5_cta_convert: "Store Cash conversion",
     gift_u5_cta_history: "View conversion history",
     gift_u5_cta_order: "View order",
     gift_u5_redemptions_title: "Gift redemptions",
