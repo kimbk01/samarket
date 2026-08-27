@@ -52,13 +52,14 @@ export async function GET(
   const orderIds = [...new Set(rows.map((r) => String(r.order_id)))];
 
   const titleByInstance = new Map<string, string>();
+  const publicNumberByInstance = new Map<string, string>();
   const orderNoById = new Map<string, string | null>();
   const orderStatusById = new Map<string, string>();
 
   if (instanceIds.length > 0) {
     const { data: instRows } = await sb
       .from(GIFT_TABLES.instances)
-      .select("id, product_id")
+      .select("id, public_gift_number, product_id")
       .in("id", instanceIds)
       .limit(200);
     const productIds = [
@@ -79,6 +80,10 @@ export async function GET(
       const id = String((inst as { id: string }).id);
       const pid = String((inst as { product_id?: string }).product_id ?? "");
       titleByInstance.set(id, titleByProduct.get(pid) ?? "");
+      publicNumberByInstance.set(
+        id,
+        String((inst as { public_gift_number?: string | null }).public_gift_number ?? "")
+      );
     }
   }
 
@@ -137,6 +142,7 @@ export async function GET(
       orderNo: orderNoById.get(orderId) ?? null,
       orderStatus: orderStatusById.get(orderId) || null,
       instanceId,
+      publicGiftNumber: publicNumberByInstance.get(instanceId) ?? "",
       giftTitle: titleByInstance.get(instanceId) ?? "",
       redeemedAmount: Math.trunc(Number(r.redeemed_amount) || 0),
       platformFeeAmount: Math.trunc(Number(r.platform_fee_amount) || 0),

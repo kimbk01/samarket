@@ -100,6 +100,14 @@ export function StoreCartGiftApplyPanel({
               {applied.storeName ? (
                 <p className="truncate text-xs text-sam-muted">{applied.storeName}</p>
               ) : null}
+              {applied.publicGiftNumber ? (
+                <p className="mt-0.5 text-xs text-sam-muted" data-cart-gift-public-number={applied.publicGiftNumber}>
+                  {safeT("gift_u2_public_number_label", {
+                    fallbackKo: "상품권 번호",
+                    fallbackEn: "Gift number",
+                  })}: {applied.publicGiftNumber}
+                </p>
+              ) : null}
               <p className="mt-0.5 text-xs text-sam-muted">
                 {safeT("gift_u4_cart_remaining", {
                   fallbackKo: `잔액 ${formatMoneyPhp(applied.remainingBalance)}`,
@@ -165,6 +173,14 @@ export function StoreCartGiftApplyPanel({
                       <p className="truncate text-sm font-semibold text-sam-fg">{g.title || "—"}</p>
                       {g.storeName ? (
                         <p className="truncate text-xs text-sam-muted">{g.storeName}</p>
+                      ) : null}
+                      {g.publicGiftNumber ? (
+                        <p className="mt-0.5 text-xs text-sam-muted" data-cart-gift-public-number={g.publicGiftNumber}>
+                          {safeT("gift_u2_public_number_label", {
+                            fallbackKo: "상품권 번호",
+                            fallbackEn: "Gift number",
+                          })}: {g.publicGiftNumber}
+                        </p>
                       ) : null}
                       <p className="mt-0.5 text-xs text-sam-muted">
                         {safeT("gift_u4_cart_remaining", {

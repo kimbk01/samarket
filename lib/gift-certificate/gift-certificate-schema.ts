@@ -43,3 +43,5 @@ export const GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID =
   "20261128140000_gift_certificate_order_completion_revenue" as const;
 export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =
   "20261128150000_gift_certificate_recognition_correction" as const;
+export const GIFT_PUBLIC_NUMBER_MIGRATION_ID =
+  "20261128160000_gift_certificate_public_number" as const;

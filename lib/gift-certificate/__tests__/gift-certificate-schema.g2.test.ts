@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
+  GIFT_PUBLIC_NUMBER_MIGRATION_ID,
   GIFT_RECOGNITION_CORRECTION_MIGRATION_ID,
   GIFT_RPCS,
   GIFT_TABLES,
@@ -24,6 +25,10 @@ const MIG_ORDER_COMPLETION = readFileSync(
 );
 const MIG_RECOGNITION_CORRECTION = readFileSync(
   resolve(process.cwd(), `supabase/migrations/${GIFT_RECOGNITION_CORRECTION_MIGRATION_ID}.sql`),
+  "utf8"
+);
+const MIG_PUBLIC_NUMBER = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_PUBLIC_NUMBER_MIGRATION_ID}.sql`),
   "utf8"
 );
 
@@ -80,5 +85,15 @@ describe("G2 gift certificate schema migration", () => {
     expect(MIG).toMatch(/gift_certificate_transfers_one_pending/);
     expect(MIG).toMatch(/remaining_balance integer/);
     expect(MIG).toMatch(/ENABLE ROW LEVEL SECURITY/);
+  });
+
+  it("adds a public gift number as display identity without replacing UUID authority", () => {
+    expect(MIG_PUBLIC_NUMBER).toContain("ADD COLUMN IF NOT EXISTS public_gift_number");
+    expect(MIG_PUBLIC_NUMBER).toContain("gift_certificate_instances_public_number_uq");
+    expect(MIG_PUBLIC_NUMBER).toContain("ALTER COLUMN public_gift_number SET NOT NULL");
+    expect(MIG_PUBLIC_NUMBER).toContain("public.generate_gift_public_number()");
+    expect(MIG_PUBLIC_NUMBER).toContain("Not redeem, transfer, wallet claim, or ownership authority");
+    expect(MIG_PUBLIC_NUMBER).toContain("'public_gift_number', v_public_gift_number");
+    expect(MIG_PUBLIC_NUMBER).not.toMatch(/substr\s*\(\s*v_instance_id/i);
   });
 });

@@ -31,11 +31,20 @@ describe("checkout-eligible-gifts (U4)", () => {
 
   it("T1: same-store Gift visible", () => {
     const gifts = filterCheckoutEligibleGifts(
-      [inst({ id: "g1", storeId: storeA, remainingBalance: 500, status: "ACTIVE" })],
+      [
+        inst({
+          id: "g1",
+          publicGiftNumber: "GFT-ABCDE-23456",
+          storeId: storeA,
+          remainingBalance: 500,
+          status: "ACTIVE",
+        }),
+      ],
       storeA
     );
     expect(gifts).toHaveLength(1);
     expect(gifts[0]?.instanceId).toBe("g1");
+    expect(gifts[0]?.publicGiftNumber).toBe("GFT-ABCDE-23456");
   });
 
   it("T2: other-store Gift excluded", () => {

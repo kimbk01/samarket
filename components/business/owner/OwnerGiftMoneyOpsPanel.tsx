@@ -277,6 +277,14 @@ export function OwnerGiftMoneyOpsPanel(props: {
                     onClick={() => setExpandedId(open ? null : row.id)}
                   >
                     <p className="truncate text-sm font-semibold">{row.giftTitle || "Gift"}</p>
+                    {row.publicGiftNumber ? (
+                      <p className="mt-1 text-xs text-sam-muted tabular-nums" data-owner-gift-public-number={row.publicGiftNumber}>
+                        {safeT("gift_u2_public_number_label", {
+                          fallbackKo: "상품권 번호",
+                          fallbackEn: "Gift number",
+                        })}: {row.publicGiftNumber}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs text-sam-muted tabular-nums">
                       {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
                     </p>
@@ -315,7 +323,13 @@ export function OwnerGiftMoneyOpsPanel(props: {
                         Order: <span className="font-mono break-all">{row.orderNo || row.orderId}</span>
                       </p>
                       <p>
-                        Gift: <span className="font-mono break-all">{row.instanceId}</span>
+                        Gift:{" "}
+                        <span className="font-mono break-all">
+                          {row.publicGiftNumber || row.instanceId}
+                        </span>
+                      </p>
+                      <p>
+                        Internal ID: <span className="font-mono break-all">{row.instanceId}</span>
                       </p>
                       <Link
                         href={`${OwnerRoutes.orders(storeId)}${OwnerRoutes.orders(storeId).includes("?") ? "&" : "?"}order_id=${encodeURIComponent(row.orderId)}`}

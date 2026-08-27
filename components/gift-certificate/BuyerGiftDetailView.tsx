@@ -36,6 +36,7 @@ export function BuyerGiftDetailView({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [purchasedGiftNumber, setPurchasedGiftNumber] = useState<string | null>(null);
 
   const mallHref = storeId
     ? `/stores/gift-mall?storeId=${encodeURIComponent(storeId)}`
@@ -104,7 +105,12 @@ export function BuyerGiftDetailView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productId: product.id, idempotencyKey }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        public_gift_number?: string | null;
+        publicGiftNumber?: string | null;
+      };
       if (res.status === 401 || json.error === "unauthorized") {
         setAuthed(false);
         setConfirmOpen(false);
@@ -121,6 +127,9 @@ export function BuyerGiftDetailView({
         }
         return;
       }
+      setPurchasedGiftNumber(
+        String(json.publicGiftNumber ?? json.public_gift_number ?? "").trim() || null
+      );
       setConfirmOpen(false);
       setPhase("success");
       void refreshBalance();
@@ -193,6 +202,14 @@ export function BuyerGiftDetailView({
             {safeT("gift_u2_mall_face", { fallbackKo: "액면", fallbackEn: "Face value" })}{" "}
             <span className="tabular-nums font-medium">{product.faceValue.toLocaleString()}</span>
           </p>
+          {purchasedGiftNumber ? (
+            <p className="text-sm text-sam-fg" data-gift-public-number={purchasedGiftNumber}>
+              {safeT("gift_u2_public_number_label", {
+                fallbackKo: "상품권 번호",
+                fallbackEn: "Gift number",
+              })}: <span className="tabular-nums font-medium">{purchasedGiftNumber}</span>
+            </p>
+          ) : null}
           <p className="text-sm text-sam-fg">
             {safeT("gift_u2_success_spent", { fallbackKo: "결제 Point", fallbackEn: "Point spent" })}{" "}
             <span className="tabular-nums font-medium">

@@ -53,5 +53,10 @@ export async function POST(req: NextRequest) {
       { status }
     );
   }
-  return NextResponse.json({ ok: true, ...result.data });
+  const publicGiftNumber = String(result.data.public_gift_number ?? "").trim();
+  return NextResponse.json({
+    ok: true,
+    ...result.data,
+    ...(publicGiftNumber ? { publicGiftNumber } : {}),
+  });
 }

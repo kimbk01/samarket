@@ -29,16 +29,30 @@ export function BuyerGiftMallView() {
         : "/stores";
   const [products, setProducts] = useState<GiftMallProduct[]>([]);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    setReady(false);
+    setLoadError(false);
     const qs = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
-    const res = await fetch(`/api/me/gift-certificates/mall${qs}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const json = (await res.json()) as { ok?: boolean; products?: GiftMallProduct[] };
-    setProducts(json.ok ? json.products ?? [] : []);
-    setReady(true);
+    try {
+      const res = await fetch(`/api/me/gift-certificates/mall${qs}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json()) as { ok?: boolean; products?: GiftMallProduct[] };
+      if (!res.ok || !json.ok) {
+        setProducts([]);
+        setLoadError(true);
+        return;
+      }
+      setProducts(json.products ?? []);
+    } catch {
+      setProducts([]);
+      setLoadError(true);
+    } finally {
+      setReady(true);
+    }
   }, [storeId]);
 
   useEffect(() => {
@@ -78,11 +92,26 @@ export function BuyerGiftMallView() {
           })}
         </Link>
       </div>
-      {products.length === 0 ? (
-        <p className="text-sm text-sam-muted">
+      {loadError ? (
+        <div className="space-y-3" data-gift-mall-error="1">
+          <p className="text-sm text-sam-danger">
+            {safeT("gift_u2_mall_error", {
+              fallbackKo: "상품권을 불러오지 못했습니다.",
+              fallbackEn: "Could not load gift certificates.",
+            })}
+          </p>
+          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
+            {safeT("gift_u2_mall_retry", {
+              fallbackKo: "다시 시도",
+              fallbackEn: "Try again",
+            })}
+          </button>
+        </div>
+      ) : products.length === 0 ? (
+        <p className="text-sm text-sam-muted" data-gift-mall-empty="1">
           {safeT("gift_u2_mall_empty", {
-            fallbackKo: "판매 중인 상품권이 없습니다.",
-            fallbackEn: "No gift certificates on sale.",
+            fallbackKo: "현재 판매 중인 상품권이 없습니다.",
+            fallbackEn: "No gift certificates are currently on sale.",
           })}
         </p>
       ) : (

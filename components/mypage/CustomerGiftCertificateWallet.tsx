@@ -42,6 +42,7 @@ export function CustomerGiftCertificateWallet() {
   const [authed, setAuthed] = useState(true);
   const [ready, setReady] = useState(false);
   const [sendInstanceId, setSendInstanceId] = useState<string | null>(null);
+  const [copiedGiftNumber, setCopiedGiftNumber] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/me/gift-certificates/wallet", {
@@ -80,6 +81,13 @@ export function CustomerGiftCertificateWallet() {
   }, [wallet]);
 
   const browseHref = mallBrowseHref(fromDelivery);
+  const copyGiftNumber = (value: string) => {
+    const text = value.trim();
+    if (!text) return;
+    void navigator.clipboard?.writeText(text).catch(() => {});
+    setCopiedGiftNumber(text);
+    window.setTimeout(() => setCopiedGiftNumber((cur) => (cur === text ? null : cur)), 1600);
+  };
 
   return (
     <div
@@ -173,6 +181,7 @@ export function CustomerGiftCertificateWallet() {
             {availableRows.map((row) => {
               const locked = row.status === "GIFT_LOCKED";
               const canSend = row.transferable && !locked && row.remainingBalance > 0;
+              const giftNumber = row.publicGiftNumber?.trim() ?? "";
               return (
               <li
                 key={row.id}
@@ -190,6 +199,35 @@ export function CustomerGiftCertificateWallet() {
                   </p>
                   {row.storeName ? (
                     <p className="truncate text-xs text-sam-muted">{row.storeName}</p>
+                  ) : null}
+                  {giftNumber ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-sam-muted">
+                      <span>
+                        {safeT("gift_u2_public_number_label", {
+                          fallbackKo: "상품권 번호",
+                          fallbackEn: "Gift number",
+                        })}{" "}
+                        <span className="font-medium tabular-nums text-sam-fg" data-gift-public-number={giftNumber}>
+                          {giftNumber}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        className="font-medium text-signature"
+                        data-gift-public-number-copy={giftNumber}
+                        onClick={() => copyGiftNumber(giftNumber)}
+                      >
+                        {copiedGiftNumber === giftNumber
+                          ? safeT("gift_u2_public_number_copied", {
+                              fallbackKo: "복사됨",
+                              fallbackEn: "Copied",
+                            })
+                          : safeT("gift_u2_public_number_copy", {
+                              fallbackKo: "번호 복사",
+                              fallbackEn: "Copy number",
+                            })}
+                      </button>
+                    </div>
                   ) : null}
                   <p className="text-sm tabular-nums text-sam-fg">
                     {safeT("gift_u2_wallet_remaining", {
@@ -334,6 +372,14 @@ export function CustomerGiftCertificateWallet() {
                 <p className="truncate text-sm font-semibold text-sam-fg">
                   {row.title || row.faceValue.toLocaleString()}
                 </p>
+                {row.publicGiftNumber ? (
+                  <p className="text-xs text-sam-muted" data-gift-public-number={row.publicGiftNumber}>
+                    {safeT("gift_u2_public_number_label", {
+                      fallbackKo: "상품권 번호",
+                      fallbackEn: "Gift number",
+                    })}: {row.publicGiftNumber}
+                  </p>
+                ) : null}
                 <p className="text-xs text-sam-muted">{row.status}</p>
               </div>
             </li>

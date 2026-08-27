@@ -14,6 +14,7 @@ import {
 
 export type CheckoutEligibleGift = {
   instanceId: string;
+  publicGiftNumber: string;
   storeId: string;
   storeName: string;
   title: string;
@@ -43,6 +44,7 @@ export function filterCheckoutEligibleGifts(
     if (!isCheckoutEligibleGiftInstance(inst, orderStoreId)) continue;
     out.push({
       instanceId: inst.id,
+      publicGiftNumber: inst.publicGiftNumber ?? "",
       storeId: inst.storeId,
       storeName: inst.storeName,
       title: inst.title,

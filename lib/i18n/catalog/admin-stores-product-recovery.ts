@@ -21,6 +21,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_menu_gift_conversions: "환전/전환 요청",
     admin_menu_gift_revenue: "Platform Revenue",
     admin_menu_gift_recovery: "Recovery Obligation",
+    admin_menu_gift_tracking: "상품권 추적",
     admin_menu_store_promo_control: "기획 프로모션",
     admin_stores_home_shelves_title: "HOME 구성",
     admin_stores_home_shelves_desc:
@@ -254,6 +255,7 @@ export const adminStoresProductRecoveryMessages = {
     admin_menu_gift_conversions: "Cash conversion requests",
     admin_menu_gift_revenue: "Platform Revenue",
     admin_menu_gift_recovery: "Recovery obligations",
+    admin_menu_gift_tracking: "Gift tracking",
     admin_menu_store_promo_control: "Editorial promotions",
     admin_stores_home_shelves_title: "HOME composition",
     admin_stores_home_shelves_desc:

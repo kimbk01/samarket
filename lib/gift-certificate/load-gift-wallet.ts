@@ -7,6 +7,7 @@ import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 
 export type GiftWalletInstance = {
   id: string;
+  publicGiftNumber?: string;
   productId: string;
   storeId: string;
   storeName: string;
@@ -55,6 +56,7 @@ function mapInstance(row: Record<string, unknown>): GiftWalletInstance {
       : "";
   return {
     id: String(row.id),
+    publicGiftNumber: String(row.public_gift_number ?? ""),
     productId: String(row.product_id),
     storeId: String(row.store_id),
     storeName,
@@ -94,7 +96,7 @@ export async function loadGiftWallet(
     sb
       .from(GIFT_TABLES.instances)
       .select(
-        "id, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, transferable, stores(store_name))"
+        "id, public_gift_number, product_id, store_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, gift_certificate_products(title, image_url, transferable, stores(store_name))"
       )
       .eq("current_owner_user_id", uid)
       .order("created_at", { ascending: false })
