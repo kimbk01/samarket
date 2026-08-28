@@ -6,7 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   ADMIN_GIFT_OPS_TABS,
   buildAdminGiftOpsHref,
-  parseAdminGiftOpsMoneySubtab,
+  parseAdminGiftOpsFinanceSubtab,
+  parseAdminGiftOpsLedgerSubtab,
   parseAdminGiftOpsProductsSubtab,
   parseAdminGiftOpsTab,
   type AdminGiftOpsTab,
@@ -20,29 +21,28 @@ import { AdminGiftRedemptionsPanel } from "@/components/admin/gift/panels/AdminG
 import { AdminGiftRevenuePanel } from "@/components/admin/gift/panels/AdminGiftRevenuePanel";
 import { AdminGiftSummaryPanel } from "@/components/admin/gift/panels/AdminGiftSummaryPanel";
 
-const TAB_LABEL: Record<
-  AdminGiftOpsTab,
-  { ko: string; en: string }
-> = {
-  summary: { ko: "운영 요약", en: "Summary" },
-  products: { ko: "발급·상품", en: "Issuance" },
-  instances: { ko: "상품권 현황", en: "Instances" },
-  redemptions: { ko: "사용 내역", en: "Usage" },
-  revenue: { ko: "매장 정산·수익", en: "Settlement" },
-  money: { ko: "환전·전환", en: "Money" },
-  recovery: { ko: "Recovery", en: "Recovery" },
-  audit: { ko: "감사 이력", en: "Audit" },
+const TAB_LABEL: Record<AdminGiftOpsTab, { ko: string; en: string }> = {
+  dashboard: { ko: "대시보드", en: "Dashboard" },
+  products: { ko: "상품 관리", en: "Products" },
+  instances: { ko: "발급 상품권", en: "Issued certificates" },
+  ledger: { ko: "사용·정산", en: "Usage & settlement" },
+  finance: { ko: "환전·복구", en: "Conversion & recovery" },
+  audit: { ko: "감사", en: "Audit" },
 };
 
 export function AdminGiftOpsCenter() {
   const { safeT } = useI18n();
   const sp = useSearchParams();
-  const tab = parseAdminGiftOpsTab(sp.get("tab"));
+  const rawTab = sp.get("tab");
+  const tab = parseAdminGiftOpsTab(rawTab);
   const id = sp.get("id")?.trim() ?? "";
   const productsSubRaw = parseAdminGiftOpsProductsSubtab(sp.get("products"));
   const productsSub =
-    id && sp.get("products") == null ? ("products" as const) : productsSubRaw;
-  const moneySub = parseAdminGiftOpsMoneySubtab(sp.get("money"));
+    id && sp.get("products") == null && tab === "products"
+      ? ("products" as const)
+      : productsSubRaw;
+  const ledgerSub = parseAdminGiftOpsLedgerSubtab(sp.get("ledger"), rawTab);
+  const financeSub = parseAdminGiftOpsFinanceSubtab(sp.get("finance"), sp.get("money"), rawTab);
   const q = sp.get("q")?.trim() ?? "";
   const status = sp.get("status")?.trim() ?? "";
   const storeId = sp.get("storeId")?.trim() ?? "";
@@ -53,6 +53,9 @@ export function AdminGiftOpsCenter() {
   const filter = sp.get("filter")?.trim() ?? "all";
   const event = sp.get("event")?.trim() ?? "";
   const number = sp.get("number")?.trim() ?? "";
+  const balance = sp.get("balance")?.trim() ?? "";
+  const focus = sp.get("focus")?.trim() ?? "";
+  const pane = sp.get("pane")?.trim() ?? "";
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4" data-admin-gift-ops-center="1">
@@ -65,8 +68,8 @@ export function AdminGiftOpsCenter() {
         </h1>
         <p className="text-sm text-sam-muted">
           {safeT("gift_ops_center_desc", {
-            fallbackKo: "발급부터 사용·수익·환전·Recovery까지 한곳에서 운영합니다.",
-            fallbackEn: "Operate issuance through redemption, revenue, cash-out, and recovery in one place.",
+            fallbackKo: "상품·발급·사용·정산·환전·복구를 업무 기준으로 운영합니다.",
+            fallbackEn: "Operate products, issued certificates, usage, settlement, and recovery by workflow.",
           })}
         </p>
       </div>
@@ -84,7 +87,8 @@ export function AdminGiftOpsCenter() {
           const href = buildAdminGiftOpsHref({
             tab: t,
             products: t === "products" ? productsSub : undefined,
-            money: t === "money" ? moneySub : undefined,
+            ledger: t === "ledger" ? ledgerSub : undefined,
+            finance: t === "finance" ? financeSub : undefined,
           });
           return (
             <Link
@@ -99,16 +103,28 @@ export function AdminGiftOpsCenter() {
                   : "border border-sam-border bg-sam-surface text-sam-fg",
               ].join(" ")}
             >
-              {safeT(`gift_ops_tab_${t}`, {
-                fallbackKo: TAB_LABEL[t].ko,
-                fallbackEn: TAB_LABEL[t].en,
-              })}
+              {safeT(
+                (
+                  {
+                    dashboard: "gift_ops_tab_dashboard",
+                    products: "gift_ops_tab_products",
+                    instances: "gift_ops_tab_instances",
+                    ledger: "gift_ops_tab_ledger",
+                    finance: "gift_ops_tab_finance",
+                    audit: "gift_ops_tab_audit",
+                  } as const
+                )[t],
+                {
+                  fallbackKo: TAB_LABEL[t].ko,
+                  fallbackEn: TAB_LABEL[t].en,
+                }
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {tab === "summary" ? <AdminGiftSummaryPanel range={range} /> : null}
+      {tab === "dashboard" ? <AdminGiftSummaryPanel range={range} /> : null}
       {tab === "products" ? (
         <AdminGiftIssuancePanel
           productsSubtab={productsSub}
@@ -117,19 +133,95 @@ export function AdminGiftOpsCenter() {
           storeId={storeId}
           scopeFilter={scopeFilter}
           createType={createType}
+          pane={pane}
         />
       ) : null}
       {tab === "instances" ? (
-        <AdminGiftInstancesPanel id={id || number} q={q} status={status} />
+        <AdminGiftInstancesPanel
+          id={id || number}
+          q={q}
+          status={status}
+          balance={balance}
+          focus={focus}
+        />
       ) : null}
-      {tab === "redemptions" ? (
-        <AdminGiftRedemptionsPanel filter={filter} q={q} />
+      {tab === "ledger" ? (
+        <div className="space-y-3" data-admin-gift-ledger="1">
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={buildAdminGiftOpsHref({ tab: "ledger", ledger: "usage" })}
+              className={[
+                "rounded-ui-rect px-3 py-1.5 text-xs font-semibold",
+                ledgerSub === "usage" ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
+              ].join(" ")}
+              data-admin-gift-ledger-sub="usage"
+            >
+              {safeT("gift_ops_ledger_usage", { fallbackKo: "사용 내역", fallbackEn: "Usage" })}
+            </Link>
+            <Link
+              href={buildAdminGiftOpsHref({ tab: "ledger", ledger: "settlement" })}
+              className={[
+                "rounded-ui-rect px-3 py-1.5 text-xs font-semibold",
+                ledgerSub === "settlement" ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
+              ].join(" ")}
+              data-admin-gift-ledger-sub="settlement"
+            >
+              {safeT("gift_ops_ledger_settlement", {
+                fallbackKo: "매장·Platform 정산",
+                fallbackEn: "Settlement",
+              })}
+            </Link>
+          </div>
+          {ledgerSub === "usage" ? <AdminGiftRedemptionsPanel filter={filter} q={q} /> : null}
+          {ledgerSub === "settlement" ? <AdminGiftRevenuePanel storeId={storeId} /> : null}
+        </div>
       ) : null}
-      {tab === "revenue" ? <AdminGiftRevenuePanel storeId={storeId} /> : null}
-      {tab === "money" ? (
-        <AdminGiftMoneyPanel moneySubtab={moneySub} id={id} status={status} />
+      {tab === "finance" ? (
+        <div className="space-y-3" data-admin-gift-finance="1">
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { id: "external" as const, ko: "외부 환전", en: "External cash-out" },
+                { id: "store-cash" as const, ko: "Store Cash 전환", en: "Store Cash" },
+                { id: "recovery" as const, ko: "Recovery", en: "Recovery" },
+              ] as const
+            ).map((s) => (
+              <Link
+                key={s.id}
+                href={buildAdminGiftOpsHref({ tab: "finance", finance: s.id })}
+                className={[
+                  "rounded-ui-rect px-3 py-1.5 text-xs font-semibold",
+                  financeSub === s.id ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
+                ].join(" ")}
+                data-admin-gift-finance-sub={s.id}
+              >
+                {safeT(
+                  (
+                    {
+                      external: "gift_ops_finance_external",
+                      "store-cash": "gift_ops_finance_store_cash",
+                      recovery: "gift_ops_finance_recovery",
+                    } as const
+                  )[s.id],
+                  {
+                    fallbackKo: s.ko,
+                    fallbackEn: s.en,
+                  }
+                )}
+              </Link>
+            ))}
+          </div>
+          {financeSub === "recovery" ? (
+            <AdminGiftRecoveryPanel id={id} />
+          ) : (
+            <AdminGiftMoneyPanel
+              moneySubtab={financeSub === "store-cash" ? "store-cash" : "external"}
+              id={id}
+              status={status}
+            />
+          )}
+        </div>
       ) : null}
-      {tab === "recovery" ? <AdminGiftRecoveryPanel id={id} /> : null}
       {tab === "audit" ? <AdminGiftAuditPanel q={q} event={event} /> : null}
     </div>
   );

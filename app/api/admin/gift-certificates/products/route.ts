@@ -9,6 +9,7 @@ import {
   type GiftScope,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -215,7 +216,14 @@ export async function POST(req: NextRequest) {
     maxIssuanceRaw == null || maxIssuanceRaw === ""
       ? null
       : Math.trunc(Number(maxIssuanceRaw));
-  const activate = body.active !== false;
+  const draftRequested = body.draft === true || body.active === false;
+  // Approve path: applicationId → inactive draft (approve ≠ activate). Direct admin create may activate.
+  const activate = applicationId
+    ? false
+    : draftRequested
+      ? false
+      : body.active !== false;
+  const mallVisible = activate === true && body.mallVisible !== false && body.mall_visible !== false;
 
   if (!title || !Number.isFinite(faceValue) || faceValue <= 0 || !Number.isFinite(purchasePrice)) {
     return NextResponse.json({ ok: false, error: "invalid_product_fields" }, { status: 400 });
@@ -277,6 +285,7 @@ export async function POST(req: NextRequest) {
       sales_starts_at: salesStartsAt ?? new Date().toISOString(),
       sales_ends_at: salesEndsAt,
       active: activate,
+      mall_visible: mallVisible,
       archived_at: null,
       image_url: imageUrl,
       created_by_admin_user_id: gate.actor.userId,
@@ -294,7 +303,26 @@ export async function POST(req: NextRequest) {
       .from(GIFT_TABLES.applications)
       .update({ status: "approved", updated_at: new Date().toISOString() })
       .eq("id", applicationId);
+    await recordGiftAdminEvent(gate.sb, {
+      entityType: "application",
+      entityId: applicationId,
+      eventType: "APPLICATION_APPROVED_DRAFT_PRODUCT",
+      operatorId: gate.actor.userId,
+      after: { productId: String((data as { id?: string }).id ?? ""), active: false },
+    });
   }
+
+  await recordGiftAdminEvent(gate.sb, {
+    entityType: "product",
+    entityId: String((data as { id?: string }).id ?? ""),
+    eventType: activate ? "PRODUCT_CREATED_ACTIVE" : "PRODUCT_CREATED_DRAFT",
+    operatorId: gate.actor.userId,
+    after: {
+      active: activate,
+      mall_visible: mallVisible,
+      application_id: applicationId || null,
+    },
+  });
 
   return NextResponse.json({ ok: true, product: data }, { status: 201 });
 }

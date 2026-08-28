@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -9,6 +9,7 @@ import {
   ADMIN_GIFT_PRIMARY_BTN_STYLE,
   adminGiftPrimaryBtnClass,
 } from "@/lib/gift-certificate/admin-gift-primary-button";
+import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -113,10 +114,11 @@ function dt(v: string | null | undefined): string {
 }
 
 function formatValidity(from: string | null | undefined, until: string | null | undefined): string {
-  if (!from && !until) return "—";
-  if (from && until) return `${from} → ${until}`;
-  if (until) return until;
-  return from ?? "—";
+  return formatGiftAdminValidityLabel({
+    validFrom: from,
+    validUntil: until,
+    noExpiryLabel: "—",
+  });
 }
 
 function recognitionLabel(entries: { entryType: string }[], reversed: boolean): string {
@@ -137,14 +139,20 @@ export function AdminGiftInstanceDetailConsole({
   instanceId,
   listQ = "",
   listStatus = "",
+  focus = "",
 }: {
   instanceId: string;
   listQ?: string;
   listStatus?: string;
+  focus?: string;
 }) {
   const { safeT } = useI18n();
   const [detail, setDetail] = useState<TrackingDetail | null>(null);
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [adjustUntil, setAdjustUntil] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const seqRef = useRef(0);
 
@@ -198,10 +206,92 @@ export function AdminGiftInstanceDetailConsole({
     return () => abortRef.current?.abort();
   }, [load]);
 
+  const runCorrective = async (action: "suspend" | "resume" | "adjust_validity") => {
+    if (actionBusy || !reason.trim()) {
+      setActionError(
+        safeT("gift_ops_corrective_reason_required", {
+          fallbackKo: "사유를 입력해 주세요.",
+          fallbackEn: "Reason is required.",
+        })
+      );
+      return;
+    }
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const body: Record<string, unknown> = { action, reason: reason.trim() };
+      if (action === "adjust_validity") {
+        body.validUntil = adjustUntil.trim() || null;
+      }
+      const res = await fetch(
+        `/api/admin/gift-certificates/instances/${encodeURIComponent(instanceId.trim())}/corrective`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setActionError(json.error || "action_failed");
+        return;
+      }
+      setReason("");
+      setAdjustUntil("");
+      await load();
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const row = detail?.instance;
   const redeemedGross = (detail?.redemptions ?? [])
     .filter((r) => !r.reversed)
     .reduce((sum, r) => sum + Math.max(0, r.usedAmount), 0);
+  const focusRedemptionId = focus.startsWith("redemption:") ? focus.slice("redemption:".length) : "";
+
+  const timeline = useMemo(() => {
+    if (!detail) return [] as Array<{ id: string; at: string; kind: string; label: string; focus?: boolean }>;
+    const items: Array<{ id: string; at: string; kind: string; label: string; focus?: boolean }> = [];
+    const inst = detail.instance;
+    if (inst.purchasedAt || inst.createdAt) {
+      items.push({
+        id: `issued:${inst.id}`,
+        at: inst.purchasedAt || inst.createdAt,
+        kind: "ISSUED",
+        label: `ISSUED · ${formatMoneyPhp(inst.faceValue)}`,
+      });
+    }
+    for (const e of detail.ownership) {
+      items.push({
+        id: `own:${e.id}`,
+        at: e.createdAt,
+        kind: e.eventType || "OWNERSHIP",
+        label: `${e.eventType}: ${e.fromLabel || "—"} → ${e.toLabel || "—"}`,
+      });
+    }
+    for (const t of detail.transfers) {
+      items.push({
+        id: `xfer:${t.id}`,
+        at: t.offeredAt,
+        kind: "TRANSFER",
+        label: `TRANSFER ${t.status}: ${t.senderLabel} → ${t.recipientLabel}`,
+      });
+    }
+    for (const r of detail.redemptions) {
+      items.push({
+        id: `redeem:${r.id}`,
+        at: r.createdAt,
+        kind: "REDEMPTION",
+        label: `REDEEM ${formatMoneyPhp(r.usedAmount)} · ${recognitionLabel(r.revenue ?? [], r.reversed)}${
+          r.orderNo ? ` · #${r.orderNo}` : ""
+        }`,
+        focus: focusRedemptionId === r.id,
+      });
+    }
+    return items.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  }, [detail, focusRedemptionId]);
 
   if (state === "loading" && !detail) {
     return (
@@ -243,7 +333,10 @@ export function AdminGiftInstanceDetailConsole({
         ← {safeT("gift_ops_instance_back_list", { fallbackKo: "발급 상품권", fallbackEn: "Issued gifts" })}
       </Link>
 
-      <div className="flex flex-col gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:flex-row">
+      <div
+        className="flex flex-col gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:flex-row"
+        data-admin-gift-instance-header="1"
+      >
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
           {row.productImageUrl ? (
             <SamarketThumbnail
@@ -266,10 +359,22 @@ export function AdminGiftInstanceDetailConsole({
               : row.storeName || "—"}{" "}
             · {row.status}
           </p>
+          {row.productId ? (
+            <Link
+              href={buildAdminGiftOpsHref({ tab: "products", extra: { id: row.productId } })}
+              className="inline-block text-xs font-semibold text-sam-brand"
+              data-admin-gift-cta-product-settings="1"
+            >
+              {safeT("gift_ops_cta_product_settings", {
+                fallbackKo: "상품 설정 보기",
+                fallbackEn: "View product settings",
+              })}
+            </Link>
+          ) : null}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-gift-instance-kpis="1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-admin-gift-instance-summary="1">
         {[
           {
             label: safeT("gift_ops_kpi_face", { fallbackKo: "최초 금액", fallbackEn: "Face value" }),
@@ -295,30 +400,10 @@ export function AdminGiftInstanceDetailConsole({
         ))}
       </div>
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3 text-sm">
-        <h3 className="font-semibold">
-          {safeT("gift_ops_sec_instance_info", { fallbackKo: "상품권 정보", fallbackEn: "Certificate info" })}
-        </h3>
-        <p className="tabular-nums">
-          {safeT("gift_ops_field_purchase", { fallbackKo: "구매 금액", fallbackEn: "Purchase price" })}:{" "}
-          {formatMoneyPhp(row.purchasePrice)}
-        </p>
-        <p>
-          {safeT("gift_ops_field_issued_at", { fallbackKo: "발급일", fallbackEn: "Issued" })}:{" "}
-          {dt(row.purchasedAt || row.createdAt)}
-        </p>
-        <p className="text-xs text-sam-muted break-all font-mono">ID: {row.id}</p>
-        {row.productId ? (
-          <Link
-            href={buildAdminGiftOpsHref({ tab: "products", extra: { id: row.productId } })}
-            className="inline-block text-xs font-semibold text-sam-brand"
-          >
-            {safeT("gift_ops_cta_product_detail", { fallbackKo: "상품 상세", fallbackEn: "Product detail" })}
-          </Link>
-        ) : null}
-      </div>
-
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm">
+      <div
+        className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm"
+        data-admin-gift-instance-owner="1"
+      >
         <h3 className="font-semibold">
           {safeT("gift_ops_sec_buyer_owner", { fallbackKo: "구매자 / 현재 소유자", fallbackEn: "Buyer / owner" })}
         </h3>
@@ -329,66 +414,47 @@ export function AdminGiftInstanceDetailConsole({
           {safeT("gift_ops_field_owner", { fallbackKo: "현재 소유자", fallbackEn: "Current owner" })}:{" "}
           {row.currentOwnerLabel || "—"}
         </p>
-        {detail.ownership.length > 0 ? (
-          <ul className="mt-2 space-y-1 text-xs text-sam-muted">
-            {detail.ownership.map((e) => (
-              <li key={e.id}>
-                #{e.seq} {e.eventType}: {e.fromLabel || "—"} → {e.toLabel || "—"} · {dt(e.createdAt)}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <p className="text-xs text-sam-muted">
+          {safeT("gift_ops_field_issued_at", { fallbackKo: "발급일", fallbackEn: "Issued" })}:{" "}
+          {dt(row.purchasedAt || row.createdAt)} · ID: {row.id}
+        </p>
       </div>
 
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm">
+      <div
+        className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3 text-sm"
+        data-admin-gift-instance-timeline="1"
+      >
         <h3 className="font-semibold">
-          {safeT("gift_ops_sec_transfer", { fallbackKo: "선물 이력", fallbackEn: "Transfer history" })}
+          {safeT("gift_ops_sec_lifecycle_timeline", {
+            fallbackKo: "생명주기 타임라인",
+            fallbackEn: "Lifecycle timeline",
+          })}
         </h3>
-        {detail.transfers.length === 0 ? (
+        {timeline.length === 0 ? (
           <p className="text-sam-muted">
-            {safeT("gift_ops_transfers_empty", { fallbackKo: "선물 이력이 없습니다.", fallbackEn: "No transfers." })}
+            {safeT("gift_ops_timeline_empty", {
+              fallbackKo: "타임라인 이벤트가 없습니다.",
+              fallbackEn: "No timeline events.",
+            })}
           </p>
         ) : (
-          <ul className="space-y-2">
-            {detail.transfers.map((t) => (
-              <li key={t.id} className="rounded-ui-rect bg-sam-app p-2">
-                {t.senderLabel} → {t.recipientLabel} · {t.status} · {dt(t.offeredAt)}
+          <ol className="relative space-y-0 border-l border-sam-border pl-4">
+            {timeline.map((item) => (
+              <li
+                key={item.id}
+                id={item.kind === "REDEMPTION" ? item.id.replace("redeem:", "redemption-") : undefined}
+                className={[
+                  "relative pb-4 last:pb-0",
+                  item.focus ? "rounded-ui-rect bg-sam-app/80 ring-2 ring-sam-brand px-2 -ml-1" : "",
+                ].join(" ")}
+                data-focus-redemption={item.focus ? "1" : "0"}
+              >
+                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-sam-brand" />
+                <p className="text-xs text-sam-muted">{dt(item.at)}</p>
+                <p className="font-medium">{item.label}</p>
               </li>
             ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2 text-sm">
-        <h3 className="font-semibold">
-          {safeT("gift_ops_sec_redeem", { fallbackKo: "사용 내역", fallbackEn: "Redemptions" })}
-        </h3>
-        {detail.redemptions.length === 0 ? (
-          <p className="text-sam-muted">
-            {safeT("gift_ops_redemptions_empty", { fallbackKo: "사용 내역이 없습니다.", fallbackEn: "No redemptions." })}
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {detail.redemptions.map((r) => (
-              <li key={r.id} className="rounded-ui-rect bg-sam-app p-2">
-                <p>
-                  Order {r.orderNo || r.orderId} · {r.orderStatus || "—"} ·{" "}
-                  {recognitionLabel(r.revenue, r.reversed)}
-                </p>
-                {r.redeemedStoreName || r.redeemedStoreId ? (
-                  <p className="text-xs text-sam-muted">
-                    {safeT("gift_ops_redeemed_store", { fallbackKo: "사용 매장", fallbackEn: "Redeemed store" })}:{" "}
-                    {r.redeemedStoreName || r.redeemedStoreId}
-                  </p>
-                ) : null}
-                <p className="tabular-nums">
-                  {formatMoneyPhp(r.usedAmount)} · Fee {r.feeRate}% {formatMoneyPhp(r.platformFee)} · Net{" "}
-                  {formatMoneyPhp(r.merchantNet)}
-                </p>
-                <p className="text-xs text-sam-muted">{dt(r.createdAt)}</p>
-              </li>
-            ))}
-          </ul>
+          </ol>
         )}
       </div>
 
@@ -466,6 +532,73 @@ export function AdminGiftInstanceDetailConsole({
             )}
           </>
         )}
+      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3 text-sm">
+        <h3 className="font-semibold">
+          {safeT("gift_ops_sec_corrective", {
+            fallbackKo: "운영 조치 (전용)",
+            fallbackEn: "Admin corrective actions",
+          })}
+        </h3>
+        <p className="text-xs text-sam-muted">
+          {safeT("gift_ops_corrective_note", {
+            fallbackKo: "잔액 필드를 직접 수정하지 않습니다. 사유 필수 · 전용 RPC만 사용합니다.",
+            fallbackEn: "No direct balance field edit. Reason required · dedicated RPC only.",
+          })}
+        </p>
+        <label className="block space-y-1 text-sm">
+          <span>{safeT("gift_ops_corrective_reason", { fallbackKo: "사유", fallbackEn: "Reason" })}</span>
+          <input
+            className={Sam.input.base}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="…"
+          />
+        </label>
+        <label className="block space-y-1 text-sm">
+          <span>
+            {safeT("gift_ops_corrective_valid_until", {
+              fallbackKo: "유효기간 종료 (비우면 만료 없음)",
+              fallbackEn: "Valid until (empty = no expiry)",
+            })}
+          </span>
+          <input
+            className={Sam.input.base}
+            type="date"
+            value={adjustUntil}
+            onChange={(e) => setAdjustUntil(e.target.value)}
+          />
+        </label>
+        {actionError ? <p className="text-sm text-red-600">{actionError}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            disabled={actionBusy}
+            onClick={() => void runCorrective("suspend")}
+          >
+            {safeT("gift_ops_cta_suspend", { fallbackKo: "사용 정지", fallbackEn: "Suspend" })}
+          </button>
+          <button
+            type="button"
+            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            disabled={actionBusy}
+            onClick={() => void runCorrective("resume")}
+          >
+            {safeT("gift_ops_cta_resume_instance", { fallbackKo: "사용 재개", fallbackEn: "Resume" })}
+          </button>
+          <button
+            type="button"
+            className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}
+            disabled={actionBusy}
+            onClick={() => void runCorrective("adjust_validity")}
+          >
+            {safeT("gift_ops_cta_adjust_validity", {
+              fallbackKo: "유효기간 조정",
+              fallbackEn: "Adjust validity",
+            })}
+          </button>
+        </div>
       </div>
     </section>
   );

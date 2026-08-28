@@ -5,6 +5,7 @@ import {
   loadAdminGiftProfileMap,
 } from "@/lib/gift-certificate/admin-gift-ops-profile";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -128,5 +129,18 @@ export async function PATCH(
   if (!data) {
     return NextResponse.json({ ok: false, error: "application_not_found" }, { status: 404 });
   }
+  await recordGiftAdminEvent(gate.sb, {
+    entityType: "application",
+    entityId: appId,
+    eventType:
+      status === "approved"
+        ? "APPLICATION_APPROVED"
+        : status === "rejected"
+          ? "APPLICATION_REJECTED"
+          : "APPLICATION_UNDER_REVIEW",
+    operatorId: gate.actor.userId,
+    reason: status === "rejected" ? rejectionReason : null,
+    after: { status },
+  });
   return NextResponse.json({ ok: true, application: data });
 }

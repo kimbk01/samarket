@@ -30,7 +30,7 @@ export const GIFT_CERTIFICATE_HARD_LOCK = {
 export function assertGiftCertificateHardLockAnchors(): boolean {
   return (
     GIFT_CERTIFICATE_HARD_LOCK.giftIsNotCoupon === true &&
-    GIFT_CERTIFICATE_HARD_LOCK.instanceExpiryDisabled === true &&
+    GIFT_CERTIFICATE_HARD_LOCK.instanceExpiryDisabled === false &&
     GIFT_CERTIFICATE_HARD_LOCK.customerDPointSupported === false &&
     GIFT_CERTIFICATE_HARD_LOCK.deliveryCheckoutKeepsDpointFalse === true
   );

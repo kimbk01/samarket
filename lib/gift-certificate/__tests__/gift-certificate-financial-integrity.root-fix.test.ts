@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   GIFT_CASH_OUT_MIGRATION_ID,
   GIFT_CHECKOUT_REFUND_MIGRATION_ID,
+  GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID,
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
   GIFT_PROMO_ECONOMICS_MIGRATION_ID,
@@ -102,6 +103,7 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
     const recognitionCorrection = readMig(GIFT_RECOGNITION_CORRECTION_MIGRATION_ID);
     const cashOut = readMig(GIFT_CASH_OUT_MIGRATION_ID);
     const promoEconomics = readMig(GIFT_PROMO_ECONOMICS_MIGRATION_ID);
+    const corrective = readMig(GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID);
     for (const fn of Object.values(GIFT_RPCS)) {
       const found =
         g2.includes(`FUNCTION public.${fn}(`) ||
@@ -109,7 +111,8 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
         orderCompletion.includes(`FUNCTION public.${fn}(`) ||
         recognitionCorrection.includes(`FUNCTION public.${fn}(`) ||
         cashOut.includes(`FUNCTION public.${fn}(`) ||
-        promoEconomics.includes(`FUNCTION public.${fn}(`);
+        promoEconomics.includes(`FUNCTION public.${fn}(`) ||
+        corrective.includes(`FUNCTION public.${fn}(`);
       expect(found, fn).toBe(true);
     }
   });

@@ -24,7 +24,8 @@ Paid Gift Certificate is a **store-scoped stored-value payment asset**. It is **
 ## Non-negotiables
 
 1. **GIFT_IS_NOT_COUPON** — never merge with `store-coupon-ssot` / coupon tables.
-2. **No instance value expiry** — migration must not add `expires_at` on `gift_certificate_instances`.
+2. **No ad-hoc `expires_at` column on instances** — migration must not add bare `expires_at`.  
+   **SUPERSEDED (FINAL Design Lock / Admin Master Plan):** certificate validity via `expiry_policy` + instance `valid_from`/`valid_until` is **ON** (`GIFT_INSTANCE_EXPIRY_DISABLED = false`). Historical “no value expiry” PASS claims below remain historical evidence only.
 3. **Delivery checkout D-Point remains false** — `STORE_ORDER_FINANCIAL_CONTRACT.customerDPointSupported === false`.
 4. **Money RPCs** — `SECURITY DEFINER` + `service_role` EXECUTE only (`GIFT_RPCS`).
 5. **Owner revenue at sale = 0** — recognition on redemption only.

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { storeCashRecoveryClear } from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
+import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -150,5 +151,12 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+  await recordGiftAdminEvent(gate.sb, {
+    entityType: "recovery",
+    entityId: obligationId,
+    eventType: "RECOVERY_CLEARED",
+    operatorId: gate.actor.userId,
+    after: { amount, ...(result.data ?? {}) },
+  });
   return NextResponse.json({ ok: true, ...result.data });
 }

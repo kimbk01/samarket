@@ -19,6 +19,7 @@ export const GIFT_TABLES = {
   storeCashRecoveryObligations: "store_cash_recovery_obligations",
   promoObligations: "gift_promo_obligations",
   promoLedger: "gift_promo_ledger",
+  adminEvents: "gift_admin_events",
 } as const;
 
 export const GIFT_RPCS = {
@@ -46,6 +47,9 @@ export const GIFT_RPCS = {
   promoRecognizeForRedemption: "gift_certificate_promo_recognize_for_redemption",
   promoReverseForRedemption: "gift_certificate_promo_reverse_for_redemption",
   promoSettle: "gift_certificate_promo_settle",
+  instanceSuspend: "gift_certificate_instance_suspend",
+  instanceResume: "gift_certificate_instance_resume",
+  instanceAdjustValidity: "gift_certificate_instance_adjust_validity",
 } as const;
 
 export const GIFT_MIGRATION_ID = "20261127120000_gift_certificate_domain_g2" as const;
@@ -67,3 +71,9 @@ export const GIFT_PROMO_ECONOMICS_MIGRATION_ID =
   "20261128190000_gift_certificate_promo_economics" as const;
 export const GIFT_FINANCIAL_SNAPSHOT_MIGRATION_ID =
   "20261129150000_gift_certificate_redeem_instance_fee_snapshot" as const;
+export const GIFT_MALL_VISIBLE_MIGRATION_ID =
+  "20261129205000_gift_certificate_product_mall_visible" as const;
+export const GIFT_ADMIN_EVENTS_MIGRATION_ID =
+  "20261129210000_gift_admin_events" as const;
+export const GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID =
+  "20261129220000_gift_certificate_instance_corrective_rpcs" as const;

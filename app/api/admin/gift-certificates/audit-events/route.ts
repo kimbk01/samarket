@@ -32,7 +32,7 @@ type AuditEvent = {
   summary: string;
 };
 
-/** GET /api/admin/gift-certificates/audit-events — chronological gift ops stream (read-only). */
+/** GET /api/admin/gift-certificates/audit-events — prefers gift_admin_events; falls back to synthetic interim. */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
@@ -40,8 +40,49 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const q = s(url.searchParams.get("q")).toUpperCase();
   const eventFilter = s(url.searchParams.get("event")).toUpperCase();
+  const entityType = s(url.searchParams.get("entityType")).toLowerCase();
+  const entityId = s(url.searchParams.get("entityId"));
   const storeFilter = s(url.searchParams.get("storeId"));
 
+  // Canonical store (M3) — prefer when available.
+  {
+    let canon = sb
+      .from(GIFT_TABLES.adminEvents)
+      .select("id, entity_type, entity_id, event_type, operator_id, reason, before_json, after_json, reference, created_at")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (entityType) canon = canon.eq("entity_type", entityType);
+    if (entityId) canon = canon.eq("entity_id", entityId);
+    if (eventFilter) canon = canon.ilike("event_type", `%${eventFilter}%`);
+    const { data: canonRows, error: canonErr } = await canon;
+    if (!canonErr && Array.isArray(canonRows) && canonRows.length > 0) {
+      let events = (canonRows as Record<string, unknown>[]).map((r) => ({
+        id: s(r.id),
+        eventType: s(r.event_type),
+        at: s(r.created_at),
+        storeId: null as string | null,
+        storeName: null as string | null,
+        publicGiftNumber: null as string | null,
+        instanceId: s(r.entity_type) === "instance" ? s(r.entity_id) : null,
+        orderId: null as string | null,
+        userId: r.operator_id == null ? null : s(r.operator_id),
+        userLabel: null as string | null,
+        amount: null as number | null,
+        summary: s(r.reason) || s(r.reference) || s(r.entity_type),
+        entityType: s(r.entity_type),
+        entityId: s(r.entity_id),
+        interim: false,
+      }));
+      if (q) {
+        events = events.filter((e) =>
+          [e.eventType, e.summary, e.entityId, e.entityType].join(" ").toUpperCase().includes(q)
+        );
+      }
+      return NextResponse.json({ ok: true, events, source: "gift_admin_events" });
+    }
+  }
+
+  // Interim synthetic stream (pre-M3 or empty table).
   const [
     { data: products },
     { data: ownership },
@@ -356,5 +397,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, events: filtered.slice(0, 400) });
+  return NextResponse.json({
+    ok: true,
+    events: filtered.slice(0, 400).map((e) => ({
+      ...e,
+      entityType: e.instanceId ? "instance" : e.id.startsWith("product:") ? "product" : "system",
+      entityId: e.instanceId || (e.id.includes(":") ? e.id.split(":")[1] : null),
+      interim: true,
+    })),
+    source: "synthetic_interim",
+  });
 }

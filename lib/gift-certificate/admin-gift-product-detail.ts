@@ -3,9 +3,9 @@ import {
   adminGiftProfileLabel,
   loadAdminGiftProfileMap,
 } from "@/lib/gift-certificate/admin-gift-ops-profile";
+import { loadAdminGiftLedgerRedemptions } from "@/lib/gift-certificate/admin-gift-ledger-loaders";
 import {
   aggregateGiftRevenuePendingRecognized,
-  isRedemptionRecognizedFromLedger,
 } from "@/lib/gift-certificate/gift-revenue-recognition";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import type { GiftScope } from "@/lib/gift-certificate/gift-certificate-domain-contract";
@@ -105,25 +105,18 @@ export async function loadAdminGiftProductDetail(
   const profiles = await loadAdminGiftProfileMap(sb, profileIds);
 
   let transfers: Record<string, unknown>[] = [];
-  let redemptions: Record<string, unknown>[] = [];
+  const redemptions: Record<string, unknown>[] = [];
   const redemptionByStore = new Map<string, { store_id: string; store_name: string; gross: number; fee: number; net: number }>();
 
   if (instanceIds.length) {
-    const [{ data: transfersRaw }, { data: redemptionsRaw }] = await Promise.all([
+    const [{ data: transfersRaw }, ledgerResult] = await Promise.all([
       sb
         .from(GIFT_TABLES.transfers)
         .select("id, instance_id, sender_user_id, recipient_user_id, status, created_at, resolved_at, room_id")
         .in("instance_id", instanceIds)
         .order("created_at", { ascending: false })
         .limit(100),
-      sb
-        .from(GIFT_TABLES.redemptions)
-        .select(
-          "id, instance_id, store_id, order_id, redeemed_amount, platform_fee_amount, merchant_net_amount, reversed, created_at, reversed_at"
-        )
-        .in("instance_id", instanceIds)
-        .order("created_at", { ascending: false })
-        .limit(100),
+      loadAdminGiftLedgerRedemptions(sb, { productId, limit: 100 }),
     ]);
 
     const instById = new Map(instances.map((r) => [s(r.id), r]));
@@ -144,60 +137,19 @@ export async function loadAdminGiftProductDetail(
       };
     });
 
-    const orderIds = [...new Set(((redemptionsRaw ?? []) as Record<string, unknown>[]).map((r) => s(r.order_id)).filter(Boolean))];
-    const orderById = new Map<string, Record<string, unknown>>();
-    if (orderIds.length) {
-      const { data: orderRows } = await sb
-        .from("store_orders")
-        .select("id, order_no, order_status")
-        .in("id", orderIds.slice(0, 200));
-      for (const raw of (orderRows ?? []) as Record<string, unknown>[]) {
-        orderById.set(s(raw.id), raw);
-      }
-    }
-
-    const storeIds = new Set<string>();
-    for (const r of (redemptionsRaw ?? []) as Record<string, unknown>[]) {
-      const sid = s(r.store_id);
-      if (sid) storeIds.add(sid);
-    }
-    const { data: storeRows } = storeIds.size
-      ? await sb.from("stores").select("id, store_name").in("id", [...storeIds])
-      : { data: [] };
-    const storeNameById = new Map(
-      ((storeRows ?? []) as Record<string, unknown>[]).map((r) => [s(r.id), s(r.store_name)])
-    );
-
-    const redemptionIds = ((redemptionsRaw ?? []) as Record<string, unknown>[]).map((r) => s(r.id)).filter(Boolean);
-    const ledgerByRedemption = new Map<string, Array<{ entry_type: string; amount: number }>>();
-    if (redemptionIds.length) {
-      const { data: ledgerRows } = await sb
-        .from(GIFT_TABLES.revenueLedger)
-        .select("redemption_id, entry_type, amount")
-        .in("redemption_id", redemptionIds);
-      for (const raw of (ledgerRows ?? []) as Record<string, unknown>[]) {
-        const rid = s(raw.redemption_id);
-        const list = ledgerByRedemption.get(rid) ?? [];
-        list.push({ entry_type: s(raw.entry_type), amount: n(raw.amount) });
-        ledgerByRedemption.set(rid, list);
-      }
-    }
-
-    redemptions = ((redemptionsRaw ?? []) as Record<string, unknown>[]).map((r) => {
-      const inst = instById.get(s(r.instance_id));
-      const reversed = r.reversed === true;
-      const gross = Math.max(0, n(r.redeemed_amount));
+    const ledgerRows = ledgerResult.ok ? ledgerResult.redemptions : [];
+    for (const r of ledgerRows) {
+      const reversed = r.reversed;
+      const gross = Math.max(0, r.gross);
       if (!reversed) {
         stats.redeemedGross += gross;
-        const ledger = ledgerByRedemption.get(s(r.id)) ?? [];
-        const recognized = isRedemptionRecognizedFromLedger(ledger);
         const totals = aggregateGiftRevenuePendingRecognized([
           {
             reversed: false,
-            recognized,
+            recognized: r.recognitionState === "recognized",
             redeemedAmount: gross,
-            platformFeeAmount: n(r.platform_fee_amount),
-            merchantNetAmount: n(r.merchant_net_amount),
+            platformFeeAmount: r.platformFee,
+            merchantNetAmount: r.merchantNet,
           },
         ]);
         stats.pendingGross += totals.pendingGross;
@@ -205,42 +157,44 @@ export async function loadAdminGiftProductDetail(
         stats.platformFee += totals.recognizedPlatformFee;
         stats.merchantNet += totals.recognizedMerchantNet;
 
-        const sid = s(r.store_id);
+        const sid = r.storeId;
         if (sid) {
           const prev = redemptionByStore.get(sid) ?? {
             store_id: sid,
-            store_name: storeNameById.get(sid) || "",
+            store_name: r.storeName || "",
             gross: 0,
             fee: 0,
             net: 0,
           };
           prev.gross += gross;
-          prev.fee += Math.max(0, n(r.platform_fee_amount));
-          prev.net += Math.max(0, n(r.merchant_net_amount));
+          prev.fee += Math.max(0, r.platformFee);
+          prev.net += Math.max(0, r.merchantNet);
           redemptionByStore.set(sid, prev);
         }
       }
-      const order = orderById.get(s(r.order_id));
-      const ledger = ledgerByRedemption.get(s(r.id)) ?? [];
-      const recognized = !reversed && isRedemptionRecognizedFromLedger(ledger);
-      return {
-        id: s(r.id),
-        instanceId: s(r.instance_id),
-        publicGiftNumber: inst ? s(inst.public_gift_number) : "",
-        giftScope: inst ? s(inst.gift_scope) || giftScope : giftScope,
-        redeemedStoreId: s(r.store_id) || null,
-        redeemedStoreName: storeNameById.get(s(r.store_id)) || "",
-        orderId: s(r.order_id) || null,
-        orderNo: order ? s(order.order_no) : null,
-        orderStatus: order ? s(order.order_status) : null,
+      redemptions.push({
+        id: r.id,
+        instanceId: r.instanceId,
+        publicGiftNumber: r.publicGiftNumber,
+        giftScope: r.giftScope || giftScope,
+        redeemedStoreId: r.storeId || null,
+        redeemedStoreName: r.storeName || "",
+        orderId: r.orderId || null,
+        orderNo: r.orderNo,
+        orderStatus: r.orderStatus,
         usedAmount: gross,
-        platformFee: n(r.platform_fee_amount),
-        merchantNet: n(r.merchant_net_amount),
+        platformFee: r.platformFee,
+        merchantNet: r.merchantNet,
         reversed,
-        createdAt: s(r.created_at),
-        recognitionState: reversed ? "REVERSED" : recognized ? "RECOGNIZED" : "PENDING",
-      };
-    });
+        createdAt: r.usedAt,
+        recognitionState:
+          r.recognitionState === "reversed"
+            ? "REVERSED"
+            : r.recognitionState === "recognized"
+              ? "RECOGNIZED"
+              : "PENDING",
+      });
+    }
   }
 
   const instanceRows = instances.map((r) => ({
@@ -258,30 +212,44 @@ export async function loadAdminGiftProductDetail(
     lastActivityAt: s(r.updated_at) || s(r.purchased_at) || s(r.created_at),
   }));
 
-  const auditEvents: Array<Record<string, unknown>> = [];
-  auditEvents.push({
-    id: `product-create:${productId}`,
-    eventType: "PRODUCT_CREATED",
-    at: s(productRaw.created_at),
-    summary: s(productRaw.title),
-  });
   const updatedAt = s(productRaw.updated_at);
   const createdAt = s(productRaw.created_at);
-  if (updatedAt && updatedAt !== createdAt) {
+  const auditEvents: Array<Record<string, unknown>> = [];
+  const { data: adminEventRows } = await sb
+    .from(GIFT_TABLES.adminEvents)
+    .select("id, event_type, reason, created_at, reference")
+    .eq("entity_type", "product")
+    .eq("entity_id", productId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (adminEventRows && adminEventRows.length > 0) {
+    for (const raw of adminEventRows as Record<string, unknown>[]) {
+      auditEvents.push({
+        id: s(raw.id),
+        eventType: s(raw.event_type),
+        at: s(raw.created_at),
+        summary: s(raw.reason) || s(raw.reference) || s(productRaw.title),
+      });
+    }
+  } else {
     auditEvents.push({
-      id: `product-update:${productId}:${updatedAt}`,
-      eventType: productRaw.archived_at ? "PRODUCT_ARCHIVED" : productRaw.active ? "PRODUCT_UPDATED" : "PRODUCT_PAUSED",
-      at: updatedAt,
+      id: `product-create:${productId}`,
+      eventType: "PRODUCT_CREATED",
+      at: createdAt,
       summary: s(productRaw.title),
     });
-  }
-  if (productRaw.archived_at) {
-    auditEvents.push({
-      id: `product-archive:${productId}`,
-      eventType: "PRODUCT_ARCHIVED",
-      at: s(productRaw.archived_at),
-      summary: s(productRaw.title),
-    });
+    if (updatedAt && updatedAt !== createdAt) {
+      auditEvents.push({
+        id: `product-update:${productId}:${updatedAt}`,
+        eventType: productRaw.archived_at
+          ? "PRODUCT_ARCHIVED"
+          : productRaw.active
+            ? "PRODUCT_UPDATED"
+            : "PRODUCT_PAUSED",
+        at: updatedAt,
+        summary: s(productRaw.title),
+      });
+    }
   }
 
   const product = {
@@ -301,6 +269,7 @@ export async function loadAdminGiftProductDetail(
     sales_starts_at: productRaw.sales_starts_at == null ? null : s(productRaw.sales_starts_at),
     sales_ends_at: productRaw.sales_ends_at == null ? null : s(productRaw.sales_ends_at),
     active: productRaw.active === true,
+    mall_visible: productRaw.mall_visible !== false,
     archived_at: productRaw.archived_at == null ? null : s(productRaw.archived_at),
     image_url: productRaw.image_url == null ? null : s(productRaw.image_url),
     issued_count: n(productRaw.issued_count),

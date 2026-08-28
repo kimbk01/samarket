@@ -88,6 +88,7 @@ export function AdminGiftIssuancePanel({
   storeId,
   scopeFilter = "ALL",
   createType = "",
+  pane = "",
 }: {
   productsSubtab: AdminGiftOpsProductsSubtab;
   id: string;
@@ -95,6 +96,7 @@ export function AdminGiftIssuancePanel({
   storeId: string;
   scopeFilter?: string;
   createType?: string;
+  pane?: string;
 }) {
   const { safeT } = useI18n();
   const labelScope = (scope: string | undefined) =>
@@ -279,8 +281,10 @@ export function AdminGiftIssuancePanel({
         fallbackEn: "Register this gift product?",
       }),
       description: safeT("gift_admin_register_confirm_body", {
-        fallbackKo: "확인을 누르면 판매가 시작됩니다. 취소하면 등록되지 않습니다.",
-        fallbackEn: "Confirm to start selling. Cancel leaves it unregistered.",
+        fallbackKo:
+          "확인을 누르면 초안 상품이 등록됩니다. 판매는 상품 상세에서 [판매 시작]으로 시작합니다. 취소하면 등록되지 않습니다.",
+        fallbackEn:
+          "Confirm to create a draft product. Selling starts only after [Start selling] on product detail. Cancel leaves it unregistered.",
       }),
       cancelLabel: safeT("gift_admin_register_confirm_cancel", {
         fallbackKo: "취소",
@@ -322,7 +326,9 @@ export function AdminGiftIssuancePanel({
         imageUrl: prodImage.trim() || null,
         salesStartsAt,
         salesEndsAt,
-        active: true,
+        // Approve ≠ activate: always create inactive draft; sell via Product Detail.
+        active: false,
+        draft: true,
       };
       if (opts.applicationId) body.applicationId = opts.applicationId;
       if (opts.giftScope === "STORE" && opts.storeId) body.storeId = opts.storeId;
@@ -343,35 +349,41 @@ export function AdminGiftIssuancePanel({
         );
         return;
       }
+      const createdId = String(json.product.id);
+      if (opts.applicationId) {
+        await dibayAlert({
+          title: safeT("gift_admin_draft_created_title", {
+            fallbackKo: "상품 초안이 생성되었습니다",
+            fallbackEn: "Product draft created",
+          }),
+          description: safeT("gift_admin_draft_created_body", {
+            fallbackKo: "판매 시작 전에 Product Detail에서 최종 설정을 확인하세요.",
+            fallbackEn: "Review Product Detail and start selling when ready.",
+          }),
+          confirmLabel: safeT("gift_admin_draft_created_ok", {
+            fallbackKo: "상품 상세로",
+            fallbackEn: "Open product",
+          }),
+        });
+        go({ tab: "products", products: "products", extra: { id: createdId } });
+        return;
+      }
       await dibayAlert({
         title: safeT("gift_admin_product_success_title", {
-          fallbackKo: "상품권이 판매 등록되었습니다.",
-          fallbackEn: "Gift product is now on sale.",
+          fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
+          fallbackEn: "Draft product registered. Start selling from product detail.",
         }),
-        confirmLabel: safeT("gift_admin_product_success_ok", {
-          fallbackKo: "확인",
-          fallbackEn: "OK",
+        confirmLabel: safeT("gift_admin_draft_created_ok", {
+          fallbackKo: "상품 상세로",
+          fallbackEn: "Open product",
         }),
       });
-      setProdSuccess({
-        ...json.product,
-        gift_scope: opts.giftScope,
-        store_name:
-          opts.giftScope === "PLATFORM"
-            ? ""
-            : selectedStoreName || detail?.store_name || json.product.store_name || "",
-        outstanding_balance: 0,
-        redeemed_gross: 0,
-        issued_count: Math.trunc(Number(json.product.issued_count) || 0),
-        platform_fee_rate: Math.trunc(Number(json.product.platform_fee_rate) || Number(prodFee) || 0),
-      });
-      if (opts.applicationId) await loadApps();
-      else await loadProducts();
+      go({ tab: "products", products: "products", extra: { id: createdId } });
+      return;
     } finally {
       setBusy(false);
     }
   };
-
 
   const subTabs = (
     <div className="flex flex-wrap gap-2">
@@ -471,8 +483,8 @@ export function AdminGiftIssuancePanel({
         {subTabs}
         <h2 className="text-lg font-semibold">
           {safeT("gift_admin_product_success_title", {
-            fallbackKo: "상품권이 판매 등록되었습니다.",
-            fallbackEn: "Gift product is now on sale.",
+            fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
+            fallbackEn: "Draft product registered. Start selling from product detail.",
           })}
         </h2>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
@@ -745,6 +757,7 @@ export function AdminGiftIssuancePanel({
         {productInstanceNote}
         <AdminGiftProductDetailConsole
           productId={id}
+          pane={pane}
           onBack={() => go({ tab: "products", products: "products" })}
           onChanged={() => void loadProducts()}
         />

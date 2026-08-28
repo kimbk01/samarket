@@ -51,11 +51,14 @@ function dt(v: string | null | undefined): string {
   }
 }
 
+import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
+
 function formatValidity(from: string | null | undefined, until: string | null | undefined): string {
-  if (!from && !until) return "—";
-  if (from && until) return `${from} → ${until}`;
-  if (until) return until;
-  return from ?? "—";
+  return formatGiftAdminValidityLabel({
+    validFrom: from,
+    validUntil: until,
+    noExpiryLabel: "—",
+  });
 }
 
 function buildTrackingQuery(args: { q?: string; status?: string }): string {
@@ -69,10 +72,14 @@ export function AdminGiftInstancesPanel({
   id: urlInstanceId,
   q: urlQ,
   status: urlStatus,
+  balance: urlBalance = "",
+  focus: urlFocus = "",
 }: {
   id: string;
   q: string;
   status: string;
+  balance?: string;
+  focus?: string;
 }) {
   const { safeT } = useI18n();
   const router = useRouter();
@@ -102,14 +109,17 @@ export function AdminGiftInstancesPanel({
         setListStatus("error");
         return;
       }
-      const list = json.instances ?? [];
+      const list = (json.instances ?? []).filter((row) => {
+        if (urlBalance === "gt0") return Math.trunc(Number(row.remainingBalance) || 0) > 0;
+        return true;
+      });
       setRows(list);
       setListStatus(list.length === 0 ? "empty" : "ready");
     } catch {
       setRows([]);
       setListStatus("error");
     }
-  }, [urlQ, urlStatus]);
+  }, [urlQ, urlStatus, urlBalance]);
 
   useEffect(() => {
     if (urlInstanceId.trim()) return;
@@ -140,7 +150,12 @@ export function AdminGiftInstancesPanel({
 
   if (urlInstanceId.trim()) {
     return (
-      <AdminGiftInstanceDetailConsole instanceId={urlInstanceId.trim()} listQ={urlQ} listStatus={urlStatus} />
+      <AdminGiftInstanceDetailConsole
+        instanceId={urlInstanceId.trim()}
+        listQ={urlQ}
+        listStatus={urlStatus}
+        focus={urlFocus}
+      />
     );
   }
 

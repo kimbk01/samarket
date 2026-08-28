@@ -74,7 +74,7 @@ describe("G1 Paid Gift domain contract", () => {
 
   // T2
   it("T2 Paid Gift has no value expiry", () => {
-    expect(GIFT_INSTANCE_EXPIRY_DISABLED).toBe(true);
+    expect(GIFT_INSTANCE_EXPIRY_DISABLED).toBe(false);
     expect(GIFT_BALANCE_EXPIRY_DISABLED).toBe(true);
     expect(giftProductHasForbiddenExpiryField({ expiresAt: "2099-01-01" })).toBe(true);
     expect(giftProductHasForbiddenExpiryField({})).toBe(false);

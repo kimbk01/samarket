@@ -7,26 +7,27 @@ import {
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 
 describe("admin-gift-ops-tabs", () => {
-  it("exposes eight lifecycle tabs", () => {
+  it("exposes six workflow groups", () => {
     expect(ADMIN_GIFT_OPS_TABS).toEqual([
-      "summary",
+      "dashboard",
       "products",
       "instances",
-      "redemptions",
-      "revenue",
-      "money",
-      "recovery",
+      "ledger",
+      "finance",
       "audit",
     ]);
   });
 
-  it("builds canonical hrefs and legacy redirects", () => {
-    expect(parseAdminGiftOpsTab("instances")).toBe("instances");
-    expect(buildAdminGiftOpsHref({ tab: "money", money: "external" })).toContain("tab=money");
-    expect(buildAdminGiftOpsHref({ tab: "money", money: "external" })).toContain("money=external");
+  it("maps legacy tabs and builds canonical hrefs", () => {
+    expect(parseAdminGiftOpsTab("summary")).toBe("dashboard");
+    expect(parseAdminGiftOpsTab("redemptions")).toBe("ledger");
+    expect(parseAdminGiftOpsTab("money")).toBe("finance");
+    expect(parseAdminGiftOpsTab("recovery")).toBe("finance");
+    expect(buildAdminGiftOpsHref({ tab: "finance", finance: "external" })).toContain("tab=finance");
+    expect(buildAdminGiftOpsHref({ tab: "finance", finance: "external" })).toContain("finance=external");
     const href = legacyGiftPathToOpsHref("cash-outs", new URLSearchParams("id=abc"));
-    expect(href).toContain("tab=money");
-    expect(href).toContain("money=external");
+    expect(href).toContain("tab=finance");
+    expect(href).toContain("finance=external");
     expect(href).toContain("id=abc");
   });
 });

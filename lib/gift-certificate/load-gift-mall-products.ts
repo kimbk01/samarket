@@ -32,9 +32,10 @@ export async function loadGiftMallProducts(
   let q = sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, gift_scope, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, archived_at, stores(store_name, profile_image_url)"
+      "id, store_id, gift_scope, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, archived_at, mall_visible, stores(store_name, profile_image_url)"
     )
     .eq("active", true)
+    .eq("mall_visible", true)
     .is("archived_at", null)
     .lte("sales_starts_at", nowIso)
     .or(`sales_ends_at.is.null,sales_ends_at.gte.${nowIso}`)

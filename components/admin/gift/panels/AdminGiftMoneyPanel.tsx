@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import {
   buildAdminGiftOpsHref,
   type AdminGiftOpsMoneySubtab,
@@ -75,7 +76,7 @@ export function AdminGiftMoneyPanel({
     <div className="space-y-4" data-admin-gift-money="1">
       <div className="flex flex-wrap gap-2">
         <Link
-          href={buildAdminGiftOpsHref({ tab: "money", money: "external" })}
+          href={buildAdminGiftOpsHref({ tab: "finance", money: "external" })}
           className={[
             "rounded-ui-rect px-3 py-2 text-sm font-semibold",
             isExternal ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
@@ -85,7 +86,7 @@ export function AdminGiftMoneyPanel({
           {safeT("gift_ops_money_external", { fallbackKo: "외부 환전", fallbackEn: "External cash-out" })}
         </Link>
         <Link
-          href={buildAdminGiftOpsHref({ tab: "money", money: "store-cash" })}
+          href={buildAdminGiftOpsHref({ tab: "finance", money: "store-cash" })}
           className={[
             "rounded-ui-rect px-3 py-2 text-sm font-semibold",
             !isExternal ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
@@ -170,6 +171,19 @@ function ExternalCashOuts({
 
   const postAction = async (action: string, extra?: Record<string, string>) => {
     if (!id || busy) return;
+    const ok = await dibayConfirm({
+      title: safeT("gift_ops_finance_confirm_title", {
+        fallbackKo: "이 환전 조치를 진행할까요?",
+        fallbackEn: "Proceed with this cash-out action?",
+      }),
+      description: safeT("gift_ops_finance_confirm_body", {
+        fallbackKo: "확인 후 상태가 갱신됩니다.",
+        fallbackEn: "Status will refresh after confirm.",
+      }),
+      confirmLabel: safeT("gift_ops_finance_confirm_ok", { fallbackKo: "확인", fallbackEn: "Confirm" }),
+      cancelLabel: safeT("gift_ops_finance_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+    });
+    if (!ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -202,7 +216,7 @@ function ExternalCashOuts({
           <Link
             key={s || "all"}
             href={buildAdminGiftOpsHref({
-              tab: "money",
+              tab: "finance",
               money: "external",
               extra: { status: s || null },
             })}
@@ -265,7 +279,7 @@ function ExternalCashOuts({
                   onClick={() =>
                     routerPush(
                       buildAdminGiftOpsHref({
-                        tab: "money",
+                        tab: "finance",
                         money: "external",
                         extra: { id: r.id, status: status || null },
                       })
@@ -286,7 +300,7 @@ function ExternalCashOuts({
             type="button"
             className="text-sm font-semibold text-signature underline"
             onClick={() =>
-              routerPush(buildAdminGiftOpsHref({ tab: "money", money: "external", extra: { status: status || null } }))
+              routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "external", extra: { status: status || null } }))
             }
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
@@ -416,6 +430,19 @@ function StoreCashConversions({
 
   const approve = async () => {
     if (!id || busy || !detail) return;
+    const ok = await dibayConfirm({
+      title: safeT("gift_ops_conversion_confirm_title", {
+        fallbackKo: "Store Cash 전환을 승인할까요?",
+        fallbackEn: "Approve this Store Cash conversion?",
+      }),
+      description: safeT("gift_ops_finance_confirm_body", {
+        fallbackKo: "확인 후 상태가 갱신됩니다.",
+        fallbackEn: "Status will refresh after confirm.",
+      }),
+      confirmLabel: safeT("gift_ops_finance_confirm_ok", { fallbackKo: "확인", fallbackEn: "Confirm" }),
+      cancelLabel: safeT("gift_ops_finance_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+    });
+    if (!ok) return;
     setBusy(true);
     setError(null);
     try {
@@ -490,7 +517,7 @@ function StoreCashConversions({
                   onClick={() =>
                     routerPush(
                       buildAdminGiftOpsHref({
-                        tab: "money",
+                        tab: "finance",
                         money: "store-cash",
                         extra: { id: r.id },
                       })
@@ -510,7 +537,7 @@ function StoreCashConversions({
           <button
             type="button"
             className="text-sm font-semibold text-signature underline"
-            onClick={() => routerPush(buildAdminGiftOpsHref({ tab: "money", money: "store-cash" }))}
+            onClick={() => routerPush(buildAdminGiftOpsHref({ tab: "finance", money: "store-cash" }))}
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
           </button>

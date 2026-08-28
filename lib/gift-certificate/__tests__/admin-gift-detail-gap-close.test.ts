@@ -21,7 +21,9 @@ describe("admin gift detail gap close static", () => {
     expect(detail).toContain('data-admin-gift-product-activate="1"');
     expect(detail).toContain('data-admin-gift-product-unarchive="1"');
     expect(detail).toContain("discountFundingParty");
-    expect(detail).toContain("gift_ops_expiry_edit_blocked");
+    expect(detail).toContain("editExpiryPolicy");
+    expect(detail).toContain("expiry_policy");
+    expect(detail).not.toContain("gift_ops_expiry_edit_blocked");
   });
 
   it("tracking API falls back when validity columns are absent", () => {

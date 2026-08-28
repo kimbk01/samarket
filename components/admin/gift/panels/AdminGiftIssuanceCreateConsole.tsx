@@ -198,8 +198,10 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
         fallbackEn: "Register this gift product?",
       }),
       description: safeT("gift_admin_register_confirm_body", {
-        fallbackKo: "확인을 누르면 판매가 시작됩니다. 취소하면 등록되지 않습니다.",
-        fallbackEn: "Confirm to start selling. Cancel leaves it unregistered.",
+        fallbackKo:
+          "확인을 누르면 초안 상품이 등록됩니다. 판매는 상품 상세에서 [판매 시작]으로 시작합니다. 취소하면 등록되지 않습니다.",
+        fallbackEn:
+          "Confirm to create a draft product. Selling starts only after [Start selling] on product detail. Cancel leaves it unregistered.",
       }),
       cancelLabel: safeT("gift_admin_register_confirm_cancel", {
         fallbackKo: "취소",
@@ -230,7 +232,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
         imageUrl: imageUrl.trim() || null,
         salesStartsAt: salesStart ? new Date(salesStart).toISOString() : new Date().toISOString(),
         salesEndsAt: salesEnd ? new Date(salesEnd).toISOString() : null,
-        active: true,
+        active: false,
+        draft: true,
       };
       if (mode === "STORE" && selected?.storeId) body.storeId = selected.storeId;
       const res = await fetch("/api/admin/gift-certificates/products", {
@@ -265,8 +268,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
       }
       await dibayAlert({
         title: safeT("gift_admin_product_success_title", {
-          fallbackKo: "상품권이 판매 등록되었습니다.",
-          fallbackEn: "Gift product is now on sale.",
+          fallbackKo: "초안 상품이 등록되었습니다. 판매는 상품 상세에서 시작합니다.",
+          fallbackEn: "Draft product registered. Start selling from product detail.",
         }),
         confirmLabel: safeT("gift_admin_product_success_ok", {
           fallbackKo: "확인",

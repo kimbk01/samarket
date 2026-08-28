@@ -95,7 +95,17 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
             ].join(" ")}
             data-redemption-filter={f.id}
           >
-            {safeT(`gift_ops_red_filter_${f.id}`, { fallbackKo: f.ko, fallbackEn: f.en })}
+            {safeT(
+              (
+                {
+                  all: "gift_ops_red_filter_all",
+                  pending: "gift_ops_red_filter_pending",
+                  recognized: "gift_ops_red_filter_recognized",
+                  reversed: "gift_ops_red_filter_reversed",
+                } as const
+              )[f.id],
+              { fallbackKo: f.ko, fallbackEn: f.en }
+            )}
           </Link>
         ))}
       </div>
@@ -189,7 +199,10 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                       <Link
                         href={buildAdminGiftOpsHref({
                           tab: "instances",
-                          extra: { id: r.instanceId || r.publicGiftNumber || null },
+                          extra: {
+                            id: r.instanceId || r.publicGiftNumber || null,
+                            focus: r.id ? `redemption:${r.id}` : null,
+                          },
                         })}
                         className={`${Sam.btn.secondary} inline-flex min-h-[36px] items-center px-3 text-xs`}
                       >
@@ -214,7 +227,10 @@ export function AdminGiftRedemptionsPanel({ filter, q: initialQ }: { filter: str
                 <Link
                   href={buildAdminGiftOpsHref({
                     tab: "instances",
-                    extra: { id: r.instanceId || r.publicGiftNumber || null },
+                    extra: {
+                      id: r.instanceId || r.publicGiftNumber || null,
+                      focus: r.id ? `redemption:${r.id}` : null,
+                    },
                   })}
                   className={`${Sam.btn.secondary} mt-2 flex min-h-[40px] items-center justify-center`}
                 >

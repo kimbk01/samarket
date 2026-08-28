@@ -11,6 +11,7 @@ import {
 } from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { validateGiftCashOutMarkPaid } from "@/lib/gift-certificate/gift-cash-out-ops";
+import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,6 +109,13 @@ export async function POST(
         { status: 400 }
       );
     }
+    await recordGiftAdminEvent(gate.sb, {
+      entityType: "cash_out",
+      entityId: requestId,
+      eventType: "CASH_OUT_APPROVED",
+      operatorId: adminUserId,
+      after: result.data ?? null,
+    });
     return NextResponse.json({ ok: true, ...result.data });
   }
 
@@ -123,6 +131,14 @@ export async function POST(
         { status: 400 }
       );
     }
+    await recordGiftAdminEvent(gate.sb, {
+      entityType: "cash_out",
+      entityId: requestId,
+      eventType: "CASH_OUT_REJECTED",
+      operatorId: adminUserId,
+      reason: body.reason == null ? null : String(body.reason),
+      after: result.data ?? null,
+    });
     return NextResponse.json({ ok: true, ...result.data });
   }
 
@@ -150,6 +166,13 @@ export async function POST(
         { status: 400 }
       );
     }
+    await recordGiftAdminEvent(gate.sb, {
+      entityType: "cash_out",
+      entityId: requestId,
+      eventType: "CASH_OUT_MARK_PAID",
+      operatorId: adminUserId,
+      after: result.data ?? null,
+    });
     return NextResponse.json({ ok: true, ...result.data });
   }
 

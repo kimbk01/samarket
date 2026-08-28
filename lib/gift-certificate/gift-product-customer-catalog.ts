@@ -5,6 +5,7 @@
  * - active
  * - archived_at
  * - sales_starts_at / sales_ends_at
+ * - mall_visible (HIDE ≠ PAUSE)
  * - gift_scope / store_id (scope binding)
  * - creation_source (provenance; not a visibility mask)
  *
@@ -17,6 +18,7 @@ export type GiftProductCatalogRow = {
   archived_at?: string | null;
   sales_starts_at?: string | null;
   sales_ends_at?: string | null;
+  mall_visible?: boolean | null;
 };
 
 /** True when product may appear in customer Gift Mall catalog queries. */
@@ -25,6 +27,7 @@ export function isGiftProductCustomerCatalogEligible(
   nowMs: number = Date.now()
 ): boolean {
   if (row.active !== true) return false;
+  if (row.mall_visible === false) return false;
   if (row.archived_at != null && String(row.archived_at).trim() !== "") return false;
   const startMs = parseIsoMs(row.sales_starts_at);
   if (startMs != null && startMs > nowMs) return false;

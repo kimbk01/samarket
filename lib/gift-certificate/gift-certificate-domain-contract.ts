@@ -26,12 +26,62 @@ export const GIFT_CERTIFICATE_DOMAIN = "paid_gift_certificate" as const;
 /** Gift is never a Coupon campaign / discount_type. */
 export const GIFT_IS_NOT_COUPON = true as const;
 
-/** Paid Gift value never expires (RA 10962-aligned product contract). */
-export const GIFT_INSTANCE_EXPIRY_DISABLED = true as const;
+/** Paid Gift may carry product expiry policy → instance valid_until snapshot (Expiry ON). */
+export const GIFT_INSTANCE_EXPIRY_DISABLED = false as const;
+/** Balance expiry follows instance valid_until (null = no expiry). */
 export const GIFT_BALANCE_EXPIRY_DISABLED = true as const;
 
-/** Sales campaign window is allowed; it does not expire issued value. */
+/** Sales campaign window is allowed; distinct from certificate validity. */
 export const GIFT_SALES_WINDOW_ALLOWED = true as const;
+
+/** DB storage enums (migration 20261128200000). */
+export const GIFT_EXPIRY_POLICIES = ["NO_EXPIRY", "FIXED_DAYS", "FIXED_DATE"] as const;
+export type GiftExpiryPolicy = (typeof GIFT_EXPIRY_POLICIES)[number];
+
+/** FINAL Design Lock aliases → DB storage. */
+export const GIFT_EXPIRY_POLICY_ALIASES: Record<string, GiftExpiryPolicy> = {
+  NO_EXPIRY: "NO_EXPIRY",
+  FIXED_DAYS: "FIXED_DAYS",
+  FIXED_DATE: "FIXED_DATE",
+  VALID_DAYS_AFTER_ISSUE: "FIXED_DAYS",
+  FIXED_UNTIL: "FIXED_DATE",
+};
+
+export function isGiftExpiryPolicy(v: unknown): v is GiftExpiryPolicy {
+  return typeof v === "string" && (GIFT_EXPIRY_POLICIES as readonly string[]).includes(v);
+}
+
+export function normalizeGiftExpiryPolicy(raw: unknown): GiftExpiryPolicy | null {
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().toUpperCase();
+  const mapped = GIFT_EXPIRY_POLICY_ALIASES[key];
+  return mapped ?? null;
+}
+
+export function validateGiftProductExpiryPolicy(input: {
+  expiryPolicy: unknown;
+  validityDays?: unknown;
+  fixedValidUntil?: unknown;
+}):
+  | { ok: true; expiryPolicy: GiftExpiryPolicy; validityDays: number | null; fixedValidUntil: string | null }
+  | { ok: false; error: string } {
+  const expiryPolicy = normalizeGiftExpiryPolicy(input.expiryPolicy);
+  if (!expiryPolicy) return { ok: false, error: "invalid_expiry_policy" };
+
+  if (expiryPolicy === "NO_EXPIRY") {
+    return { ok: true, expiryPolicy, validityDays: null, fixedValidUntil: null };
+  }
+
+  if (expiryPolicy === "FIXED_DAYS") {
+    const days = Math.trunc(Number(input.validityDays));
+    if (!Number.isFinite(days) || days <= 0) return { ok: false, error: "invalid_validity_days" };
+    return { ok: true, expiryPolicy, validityDays: days, fixedValidUntil: null };
+  }
+
+  const until = typeof input.fixedValidUntil === "string" ? input.fixedValidUntil.trim().slice(0, 10) : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) return { ok: false, error: "invalid_fixed_valid_until" };
+  return { ok: true, expiryPolicy, validityDays: null, fixedValidUntil: until };
+}
 
 /** Owner cannot self-issue sellable products — Admin approve/create only. */
 export const GIFT_ADMIN_ISSUED_ONLY = true as const;

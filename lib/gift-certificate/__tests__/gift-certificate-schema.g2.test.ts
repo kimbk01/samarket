@@ -2,6 +2,8 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { describe, expect, it } from "vitest";
 import {
+  GIFT_ADMIN_EVENTS_MIGRATION_ID,
+  GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID,
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
   GIFT_PROMO_ECONOMICS_MIGRATION_ID,
@@ -36,19 +38,32 @@ const MIG_PROMO_ECONOMICS = readFileSync(
   resolve(process.cwd(), `supabase/migrations/${GIFT_PROMO_ECONOMICS_MIGRATION_ID}.sql`),
   "utf8"
 );
+const MIG_ADMIN_EVENTS = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_ADMIN_EVENTS_MIGRATION_ID}.sql`),
+  "utf8"
+);
+const MIG_CORRECTIVE = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID}.sql`),
+  "utf8"
+);
 
 const PROMO_TABLES = new Set<string>([GIFT_TABLES.promoObligations, GIFT_TABLES.promoLedger]);
+const LATER_TABLES = new Set<string>([
+  GIFT_TABLES.cashOutRequests,
+  GIFT_TABLES.adminEvents,
+  ...PROMO_TABLES,
+]);
 
 describe("G2 gift certificate schema migration", () => {
   it("creates all domain tables and forbids instance expires_at", () => {
     for (const t of Object.values(GIFT_TABLES)) {
-      if (t === GIFT_TABLES.cashOutRequests) continue;
-      if (PROMO_TABLES.has(t)) continue;
+      if (LATER_TABLES.has(t)) continue;
       expect(MIG).toContain(`CREATE TABLE IF NOT EXISTS public.${t}`);
     }
     for (const t of PROMO_TABLES) {
       expect(MIG_PROMO_ECONOMICS).toContain(`CREATE TABLE IF NOT EXISTS public.${t}`);
     }
+    expect(MIG_ADMIN_EVENTS).toContain(`CREATE TABLE IF NOT EXISTS public.${GIFT_TABLES.adminEvents}`);
     expect(MIG).toMatch(/gift_redemption_amount/);
     const createStart = MIG.indexOf(
       "CREATE TABLE IF NOT EXISTS public.gift_certificate_instances"
@@ -56,7 +71,7 @@ describe("G2 gift certificate schema migration", () => {
     const createEnd = MIG.indexOf(");", createStart) + 2;
     const instCreate = MIG.slice(createStart, createEnd);
     expect(instCreate).not.toMatch(/\bexpires_at\b/);
-    expect(GIFT_INSTANCE_EXPIRY_DISABLED).toBe(true);
+    expect(GIFT_INSTANCE_EXPIRY_DISABLED).toBe(false);
   });
 
   it("defines money RPCs as service_role only and separates coupon/credit/settlement", () => {
@@ -81,13 +96,19 @@ describe("G2 gift certificate schema migration", () => {
       GIFT_RPCS.promoReverseForRedemption,
       GIFT_RPCS.promoSettle,
     ]);
+    const correctiveRpcs = new Set<string>([
+      GIFT_RPCS.instanceSuspend,
+      GIFT_RPCS.instanceResume,
+      GIFT_RPCS.instanceAdjustValidity,
+    ]);
     const g2Rpcs = Object.values(GIFT_RPCS).filter(
       (fn) =>
         fn !== "gift_certificate_refund_order_atomic" &&
         !orderCompletionRpcs.has(fn) &&
         !recognitionCorrectionRpcs.has(fn) &&
         !cashOutRpcs.has(fn) &&
-        !promoRpcs.has(fn)
+        !promoRpcs.has(fn) &&
+        !correctiveRpcs.has(fn)
     );
     for (const rpc of g2Rpcs) {
       expect(MIG).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
@@ -104,6 +125,10 @@ describe("G2 gift certificate schema migration", () => {
     for (const rpc of promoRpcs) {
       expect(MIG_PROMO_ECONOMICS).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
       expect(MIG_PROMO_ECONOMICS).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
+    }
+    for (const rpc of correctiveRpcs) {
+      expect(MIG_CORRECTIVE).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
+      expect(MIG_CORRECTIVE).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
     }
     expect(MIG).toMatch(/service_role/);
     expect(MIG).not.toMatch(/store_coupon_campaigns/);
