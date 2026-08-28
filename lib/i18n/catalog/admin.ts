@@ -576,6 +576,10 @@ export const adminMessages = {
     admin_platform_inquiry_toast_title: "매장 플랫폼 문의",
     admin_platform_inquiry_account_toast_title: "매장 입금계좌 문의",
     admin_ops_awareness_toast_open: "신청 상세 보기",
+    admin_trade_report_toast_title: "거래 신고",
+    admin_community_report_toast_title: "커뮤니티 신고",
+    admin_store_report_toast_title: "매장 신고",
+    admin_store_application_toast_title: "매장 등록 신청",
     admin_feed_ad_toast_open: "신청 상세 보기",
     admin_menu_ads_legacy: "레거시 광고 (비권장)",
     admin_legacy_comments_quarantine_banner:
@@ -3265,6 +3269,10 @@ export const adminMessages = {
     admin_platform_inquiry_toast_title: "Store platform inquiry",
     admin_platform_inquiry_account_toast_title: "Store deposit-account inquiry",
     admin_ops_awareness_toast_open: "Open request",
+    admin_trade_report_toast_title: "Trade report",
+    admin_community_report_toast_title: "Community report",
+    admin_store_report_toast_title: "Store report",
+    admin_store_application_toast_title: "Store application",
     admin_feed_ad_toast_open: "Open request",
     admin_menu_ads_legacy: "Legacy ads (not preferred)",
     admin_legacy_comments_quarantine_banner:

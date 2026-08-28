@@ -11,6 +11,7 @@
  *   - platform_admin_inquiries (Owner → Admin)
  *   - feed_ad_requests
  *   - delivery_operation_alert_events
+ *   - reports / store_reports / community_reports / stores (store apply)
  *
  * HARD LOCK:
  *   Badge digits come only from /api/admin/admin-bell (Action Queue).
@@ -45,6 +46,18 @@ import {
   resolveAdminMemberCareInquiryHref,
   resolveAdminPlatformInquiryHref,
 } from "@/lib/admin/admin-inquiry-deeplink";
+import {
+  resolveAdminCommunityReportHref,
+  resolveAdminStoreApplicationHref,
+  resolveAdminStoreReportHref,
+  resolveAdminTradeReportHref,
+} from "@/lib/admin/admin-ops-deeplink";
+import { shouldPlayAdminOpsSound } from "@/lib/admin/admin-ops-sound-decision";
+import {
+  isAdminActionableCommunityReport,
+  isAdminActionableStoreApproval,
+  isAdminActionableStoreReport,
+} from "@/lib/admin/admin-ops-actionable-status";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
@@ -62,7 +75,11 @@ type AwarenessToast = {
     | "store_point_charge"
     | "feed_ad"
     | "member_care_inquiry"
-    | "platform_inquiry";
+    | "platform_inquiry"
+    | "trade_report"
+    | "community_report"
+    | "store_report"
+    | "store_application";
   requestId: string;
   label: string;
   href: string;
@@ -76,6 +93,11 @@ type Ctx = {
   tradePromoPendingCount: number;
   memberInquiryOpenCount: number;
   platformInquiryOpenCount: number;
+  tradeReportsCount: number;
+  storeReportsCount: number;
+  communityReportsCount: number;
+  globalReportsCount: number;
+  storeApplicationsCount: number;
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
@@ -87,6 +109,11 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   tradePromoPendingCount: 0,
   memberInquiryOpenCount: 0,
   platformInquiryOpenCount: 0,
+  tradeReportsCount: 0,
+  storeReportsCount: 0,
+  communityReportsCount: 0,
+  globalReportsCount: 0,
+  storeApplicationsCount: 0,
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -126,6 +153,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [tradePromoPendingCount, setTradePromoPendingCount] = useState(0);
   const [memberInquiryOpenCount, setMemberInquiryOpenCount] = useState(0);
   const [platformInquiryOpenCount, setPlatformInquiryOpenCount] = useState(0);
+  const [tradeReportsCount, setTradeReportsCount] = useState(0);
+  const [storeReportsCount, setStoreReportsCount] = useState(0);
+  const [communityReportsCount, setCommunityReportsCount] = useState(0);
+  const [globalReportsCount, setGlobalReportsCount] = useState(0);
+  const [storeApplicationsCount, setStoreApplicationsCount] = useState(0);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
   const awarenessToastTimeoutRef = useRef<number | null>(null);
@@ -135,6 +167,35 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const feedSoundHydratedRef = useRef(false);
   const chargeSoundHydratedRef = useRef(false);
   const inquirySoundHydratedRef = useRef(false);
+  const reportOpsSoundHydratedRef = useRef(false);
+
+  const maybeIngestAdminOpsSound = useCallback(
+    (input: {
+      eventType: "INSERT" | "UPDATE";
+      sourceTable: string;
+      rowId: string;
+      createdAt?: string | null;
+      oldRow?: Record<string, unknown> | null;
+      newRow?: Record<string, unknown> | null;
+    }) => {
+      if (
+        !shouldPlayAdminOpsSound({
+          eventType: input.eventType,
+          sourceTable: input.sourceTable,
+          oldRow: input.oldRow,
+          newRow: input.newRow,
+        })
+      ) {
+        return;
+      }
+      ingestAdminRowSound({
+        sourceTable: input.sourceTable,
+        rowId: input.rowId,
+        createdAt: input.createdAt ?? undefined,
+      });
+    },
+    []
+  );
 
   const showAwarenessToast = useCallback((toast: AwarenessToast) => {
     setAwarenessToast(toast);
@@ -245,6 +306,86 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         requestId: id,
         label,
         href: resolveAdminPlatformInquiryHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markTradeReportAlert = useCallback(
+    (reportId: string) => {
+      const id = String(reportId ?? "").trim();
+      if (!id) return;
+      showAwarenessToast({
+        kind: "trade_report",
+        requestId: id,
+        label: safeT("admin_trade_report_toast_title", {
+          fallbackKo: "거래 신고",
+          fallbackEn: "Trade report",
+        }),
+        href: resolveAdminTradeReportHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markCommunityReportAlert = useCallback(
+    (reportId: string) => {
+      const id = String(reportId ?? "").trim();
+      if (!id) return;
+      showAwarenessToast({
+        kind: "community_report",
+        requestId: id,
+        label: safeT("admin_community_report_toast_title", {
+          fallbackKo: "커뮤니티 신고",
+          fallbackEn: "Community report",
+        }),
+        href: resolveAdminCommunityReportHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markStoreReportAlert = useCallback(
+    (reportId: string, meta?: { storeName?: string | null }) => {
+      const id = String(reportId ?? "").trim();
+      if (!id) return;
+      const storeName = String(meta?.storeName ?? "").trim().slice(0, 60);
+      showAwarenessToast({
+        kind: "store_report",
+        requestId: id,
+        label: [
+          safeT("admin_store_report_toast_title", {
+            fallbackKo: "매장 신고",
+            fallbackEn: "Store report",
+          }),
+          storeName || null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: resolveAdminStoreReportHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markStoreApplicationAlert = useCallback(
+    (storeId: string, meta?: { storeName?: string | null }) => {
+      const id = String(storeId ?? "").trim();
+      if (!id) return;
+      const storeName = String(meta?.storeName ?? "").trim().slice(0, 60);
+      showAwarenessToast({
+        kind: "store_application",
+        requestId: id,
+        label: [
+          safeT("admin_store_application_toast_title", {
+            fallbackKo: "매장 등록 신청",
+            fallbackEn: "Store application",
+          }),
+          storeName || null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: resolveAdminStoreApplicationHref(id),
       });
     },
     [safeT, showAwarenessToast]
@@ -401,6 +542,96 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     }
   }, []);
 
+  const seedPendingReportOpsRowsSilent = useCallback(async () => {
+    try {
+      let seeded = 0;
+      const sb = getSupabaseClient();
+      if (sb) {
+        const { data: tradeRows } = await sb
+          .from("reports")
+          .select("id, status")
+          .in("status", ["pending", "reviewing"])
+          .limit(200);
+        if (Array.isArray(tradeRows)) {
+          for (const r of tradeRows) {
+            const id = String((r as { id?: string }).id ?? "").trim();
+            if (!id) continue;
+            seedCanonicalSoundConsumed({ identityKind: "admin_row", canonicalEventId: id });
+            seeded += 1;
+          }
+        }
+      }
+      const [storeRepRes, communityRes, storesRes] = await Promise.all([
+        adminFetch("/api/admin/store-reports", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:store-reports:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }).catch(() => null),
+        adminFetch("/api/admin/community-reports", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:community-reports:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }).catch(() => null),
+        adminFetch("/api/admin/stores", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:stores:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }).catch(() => null),
+      ]);
+      if (storeRepRes?.ok) {
+        const json = (await storeRepRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          reports?: { id?: string; status?: string }[];
+        };
+        if (json.ok && Array.isArray(json.reports)) {
+          for (const r of json.reports) {
+            const id = String(r.id ?? "").trim();
+            if (!id || !isAdminActionableStoreReport(String(r.status ?? ""))) continue;
+            seedCanonicalSoundConsumed({ identityKind: "admin_row", canonicalEventId: id });
+            seeded += 1;
+          }
+        }
+      }
+      if (communityRes?.ok) {
+        const json = (await communityRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          reports?: { id?: string; status?: string }[];
+        };
+        if (json.ok && Array.isArray(json.reports)) {
+          for (const r of json.reports) {
+            const id = String(r.id ?? "").trim();
+            if (!id || !isAdminActionableCommunityReport(String(r.status ?? ""))) continue;
+            seedCanonicalSoundConsumed({ identityKind: "admin_row", canonicalEventId: id });
+            seeded += 1;
+          }
+        }
+      }
+      if (storesRes?.ok) {
+        const json = (await storesRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          stores?: { id?: string; approval_status?: string }[];
+        };
+        if (json.ok && Array.isArray(json.stores)) {
+          for (const s of json.stores) {
+            const id = String(s.id ?? "").trim();
+            if (!id || !isAdminActionableStoreApproval(String(s.approval_status ?? ""))) continue;
+            seedCanonicalSoundConsumed({ identityKind: "admin_row", canonicalEventId: id });
+            seeded += 1;
+          }
+        }
+      }
+      traceAdminSound("HYDRATE_SEED", {
+        table: "reports+store_reports+community_reports+stores",
+        count: seeded,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const detectNewFeedAds = useCallback(async () => {
     try {
       const res = await adminFetch("/api/admin/feed-ad-requests?status=pending_review", {
@@ -450,6 +681,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             trade_promo_pending?: number;
             member_inquiry_open?: number;
             platform_inquiry_open?: number;
+            trade_reports?: number;
+            store_reports?: number;
+            community_reports?: number;
+            global_reports?: number;
+            store_applications?: number;
           };
         };
         return { resOk: res.ok, json };
@@ -468,12 +704,37 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           0,
           Math.floor(Number(json.by_category?.platform_inquiry_open) || 0)
         );
+        const tradeReports = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.trade_reports) || 0)
+        );
+        const storeReports = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.store_reports) || 0)
+        );
+        const communityReports = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.community_reports) || 0)
+        );
+        const globalReports = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.global_reports) || tradeReports + communityReports)
+        );
+        const storeApplications = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.store_applications) || 0)
+        );
         setPendingCount(storeCharges);
         setUserChargePendingCount(userCharges);
         setFeedAdPendingCount(feedAds);
         setTradePromoPendingCount(tradePromo);
         setMemberInquiryOpenCount(memberInquiry);
         setPlatformInquiryOpenCount(platformInquiry);
+        setTradeReportsCount(tradeReports);
+        setStoreReportsCount(storeReports);
+        setCommunityReportsCount(communityReports);
+        setGlobalReportsCount(globalReports);
+        setStoreApplicationsCount(storeApplications);
         if (!feedSoundHydratedRef.current) {
           feedSoundHydratedRef.current = true;
           void detectNewFeedAds();
@@ -486,12 +747,21 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           inquirySoundHydratedRef.current = true;
           void seedPendingInquiryRowsSilent();
         }
+        if (!reportOpsSoundHydratedRef.current) {
+          reportOpsSoundHydratedRef.current = true;
+          void seedPendingReportOpsRowsSilent();
+        }
         prevFeedCountRef.current = feedAds;
       }
     } catch {
       /* ignore */
     }
-  }, [detectNewFeedAds, seedPendingChargeRowsSilent, seedPendingInquiryRowsSilent]);
+  }, [
+    detectNewFeedAds,
+    seedPendingChargeRowsSilent,
+    seedPendingInquiryRowsSilent,
+    seedPendingReportOpsRowsSilent,
+  ]);
 
   useEffect(() => {
     void refresh();
@@ -555,6 +825,50 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           : null;
       const n = Number(next?.point_amount);
       return Number.isFinite(n) ? n : null;
+    };
+
+    const rowAsRecord = (value: unknown): Record<string, unknown> | null =>
+      value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+
+    const handleReportOpsChange = (
+      sourceTable: "reports" | "store_reports" | "community_reports" | "stores",
+      payload: { eventType?: string; new?: unknown; old?: unknown }
+    ) => {
+      const eventType = payload.eventType === "INSERT" ? "INSERT" : "UPDATE";
+      const newRow = rowAsRecord(payload.new);
+      const oldRow = rowAsRecord(payload.old);
+      const rowId = String(newRow?.id ?? oldRow?.id ?? "").trim();
+      if (eventType === "INSERT" && rowId) {
+        if (
+          shouldPlayAdminOpsSound({
+            eventType: "INSERT",
+            sourceTable,
+            newRow,
+            oldRow,
+          })
+        ) {
+          maybeIngestAdminOpsSound({
+            eventType: "INSERT",
+            sourceTable,
+            rowId,
+            createdAt: createdAtFromPayload(payload),
+            newRow,
+            oldRow,
+          });
+          if (sourceTable === "reports") {
+            markTradeReportAlert(rowId);
+          } else if (sourceTable === "community_reports") {
+            markCommunityReportAlert(rowId);
+          } else if (sourceTable === "store_reports") {
+            markStoreReportAlert(rowId);
+          } else if (sourceTable === "stores") {
+            markStoreApplicationAlert(rowId, {
+              storeName: typeof newRow?.store_name === "string" ? newRow.store_name : null,
+            });
+          }
+        }
+      }
+      scheduleRefresh();
     };
 
     void (async () => {
@@ -740,6 +1054,46 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             scheduleRefresh();
           }
         )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "reports" },
+          (payload) => handleReportOpsChange("reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "reports" },
+          (payload) => handleReportOpsChange("reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "store_reports" },
+          (payload) => handleReportOpsChange("store_reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "store_reports" },
+          (payload) => handleReportOpsChange("store_reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "community_reports" },
+          (payload) => handleReportOpsChange("community_reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "community_reports" },
+          (payload) => handleReportOpsChange("community_reports", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "stores" },
+          (payload) => handleReportOpsChange("stores", payload)
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "stores" },
+          (payload) => handleReportOpsChange("stores", payload)
+        )
         .subscribe((status) => {
           traceAdminSound("RT_SUBSCRIBE", { status });
           if (status === "SUBSCRIBED") {
@@ -761,6 +1115,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     markStorePointChargeAlert,
     markMemberCareInquiryAlert,
     markPlatformInquiryAlert,
+    markTradeReportAlert,
+    markCommunityReportAlert,
+    markStoreReportAlert,
+    markStoreApplicationAlert,
+    maybeIngestAdminOpsSound,
   ]);
 
   const value = useMemo(
@@ -771,6 +1130,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       tradePromoPendingCount,
       memberInquiryOpenCount,
       platformInquiryOpenCount,
+      tradeReportsCount,
+      storeReportsCount,
+      communityReportsCount,
+      globalReportsCount,
+      storeApplicationsCount,
       adminBellCount,
       refresh,
     }),
@@ -782,6 +1146,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       tradePromoPendingCount,
       memberInquiryOpenCount,
       platformInquiryOpenCount,
+      tradeReportsCount,
+      storeReportsCount,
+      communityReportsCount,
+      globalReportsCount,
+      storeApplicationsCount,
       refresh,
     ]
   );
@@ -802,7 +1171,15 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                   ? "admin-member-care-inquiry-toast"
                   : awarenessToast.kind === "platform_inquiry"
                     ? "admin-platform-inquiry-toast"
-                    : "admin-feed-ad-toast"
+                    : awarenessToast.kind === "trade_report"
+                      ? "admin-trade-report-toast"
+                      : awarenessToast.kind === "community_report"
+                        ? "admin-community-report-toast"
+                        : awarenessToast.kind === "store_report"
+                          ? "admin-store-report-toast"
+                          : awarenessToast.kind === "store_application"
+                            ? "admin-store-application-toast"
+                            : "admin-feed-ad-toast"
           }
           data-request-id={awarenessToast.requestId}
         >

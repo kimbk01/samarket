@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { businessCcBackToStoreHref } from "@/lib/admin-business/business-control-center-links";
+import { parseAdminStoreReportFocusRequestId } from "@/lib/admin/admin-ops-deeplink";
 
 type Row = {
   id: string;
@@ -28,11 +29,13 @@ export function AdminStoreReportsPage() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
   const storeIdFilter = (searchParams.get("store_id") ?? "").trim();
+  const focusRequestId = parseAdminStoreReportFocusRequestId(searchParams);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memoById, setMemoById] = useState<Record<string, string>>({});
+  const rowRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
   const errorText =
     error === "forbidden"
@@ -74,6 +77,20 @@ export function AdminStoreReportsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const id = focusRequestId.trim();
+    if (!id) return;
+    const el = rowRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-amber-400");
+      const timeoutId = window.setTimeout(() => {
+        el.classList.remove("ring-2", "ring-amber-400");
+      }, 2500);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [focusRequestId, rows]);
 
   async function patchStatus(id: string, status: "dismissed" | "actioned") {
     setBusyId(id);
@@ -120,7 +137,14 @@ export function AdminStoreReportsPage() {
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
-            <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <li
+              key={r.id}
+              ref={(el) => {
+                rowRefs.current[r.id] = el;
+              }}
+              data-testid={focusRequestId === r.id ? "admin-store-report-focused" : undefined}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
+            >
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-medium text-sam-fg">
                   {r.store_name || r.store_id}

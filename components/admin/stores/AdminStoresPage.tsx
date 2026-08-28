@@ -61,9 +61,6 @@ export function AdminStoresPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
   const [searchText, setSearchText] = useState(() => searchParams.get("q")?.trim() ?? "");
-  const [realtimeBadge, setRealtimeBadge] = useState(false);
-  const [toast, setToast] = useState(false);
-  const toastTimeoutRef = useRef<number | null>(null);
   const rtRefreshTimeoutRef = useRef<number | null>(null);
 
   const qs = useMemo(() => {
@@ -127,17 +124,7 @@ export function AdminStoresPage() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    const scheduleRefresh = (payload?: { eventType?: string }) => {
-      setRealtimeBadge(true);
-      if (payload?.eventType === "INSERT") {
-        if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-        setToast(true);
-        toastTimeoutRef.current = window.setTimeout(() => {
-          toastTimeoutRef.current = null;
-          setToast(false);
-        }, 3500);
-      }
-
+    const scheduleRefresh = () => {
       if (rtRefreshTimeoutRef.current) window.clearTimeout(rtRefreshTimeoutRef.current);
       rtRefreshTimeoutRef.current = window.setTimeout(() => {
         rtRefreshTimeoutRef.current = null;
@@ -146,12 +133,11 @@ export function AdminStoresPage() {
     };
 
     const channel = sb
-      .channel("admin-stores-realtime")
+      .channel("admin-stores-list-freshness")
       .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, scheduleRefresh)
       .subscribe();
 
     return () => {
-      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
       if (rtRefreshTimeoutRef.current) window.clearTimeout(rtRefreshTimeoutRef.current);
       void sb.removeChannel(channel);
     };
@@ -193,25 +179,7 @@ export function AdminStoresPage() {
         <div className="flex items-start justify-between gap-3 border-b border-[#D4C5B9] pb-4">
           <div className="min-w-0 flex-1">
             <AdminPageHeader titleKey="admin_page_store_review_queue" />
-            {toast ? (
-              <div className="mt-2 rounded-sm border border-[#A5D6A7] bg-[#E8F5E9] px-3 py-2 text-[13px] font-medium text-[#1B5E20]">
-                {t("admin_stores_toast_new_application")}
-              </div>
-            ) : null}
           </div>
-          {realtimeBadge ? (
-            <button
-              type="button"
-              onClick={() => {
-                setRealtimeBadge(false);
-                void load();
-              }}
-              className="shrink-0 rounded-sm bg-[#00704A] px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-white"
-              title={t("admin_stores_realtime_refresh_title")}
-            >
-              NEW
-            </button>
-          ) : null}
         </div>
 
         <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">

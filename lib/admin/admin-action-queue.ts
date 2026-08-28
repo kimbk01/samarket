@@ -17,6 +17,11 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
+import {
+  ADMIN_ACTIONABLE_STORE_APPROVAL,
+  COMMUNITY_REPORT_ADMIN_ACTIONABLE,
+  TRADE_REPORT_ADMIN_ACTIONABLE,
+} from "@/lib/admin/admin-ops-actionable-status";
 
 /** Member D-Point charge rows that still need Admin action. */
 export const USER_CHARGE_ACTIONABLE_STATUSES = [
@@ -46,7 +51,8 @@ export type AdminActionQueueCategory =
   | "member_inquiry_open"
   | "store_inquiry_open"
   | "platform_inquiry_open"
-  | "community_reports";
+  | "community_reports"
+  | "store_applications";
 
 export type AdminActionQueuePriority = "P0_CRITICAL" | "P1_ACTION_REQUIRED" | "P2_INFORMATIONAL" | "P3_SILENT";
 
@@ -66,12 +72,14 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   feed_ad_requests: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   /** TRADE_PROMO_PENDING — point_promotion_orders domain=trade · pending_review */
   trade_promo_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
-  reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
-  store_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
+  reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  store_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   member_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   store_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
   platform_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
-  community_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
+  community_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  /** stores.approval_status — Admin next-action only (pending|under_review; not revision_requested). */
+  store_applications: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
 };
 
 export type AdminActionQueueCounts = {
@@ -87,6 +95,7 @@ export type AdminActionQueueCounts = {
   store_inquiry_open: number;
   platform_inquiry_open: number;
   community_reports: number;
+  store_applications: number;
   /** Sum of all actionable categories */
   total: number;
   /** Legacy admin-bell shape (charges = store+user; reports = reports+store_reports) */
@@ -94,14 +103,20 @@ export type AdminActionQueueCounts = {
     charges: number;
     store_charges: number;
     user_charges: number;
+    /** Legacy combined trade + store delivery reports */
     reports: number;
+    trade_reports: number;
+    store_reports: number;
+    community_reports: number;
+    /** /admin/reports unified queue (trade + community sources) */
+    global_reports: number;
+    store_applications: number;
     alerts: number;
     feed_ad_requests: number;
     trade_promo_pending: number;
     member_inquiry_open: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
-    community_reports: number;
   };
 };
 
@@ -130,19 +145,24 @@ export async function loadAdminActionQueueCounts(input: {
     store_inquiry_open: 0,
     platform_inquiry_open: 0,
     community_reports: 0,
+    store_applications: 0,
     total: 0,
     by_category: {
       charges: 0,
       store_charges: 0,
       user_charges: 0,
       reports: 0,
+      trade_reports: 0,
+      store_reports: 0,
+      community_reports: 0,
+      global_reports: 0,
+      store_applications: 0,
       alerts: 0,
       feed_ad_requests: 0,
       trade_promo_pending: 0,
       member_inquiry_open: 0,
       store_inquiry_open: 0,
       platform_inquiry_open: 0,
-      community_reports: 0,
     },
   });
 
@@ -160,6 +180,7 @@ export async function loadAdminActionQueueCounts(input: {
     storeInquiryRes,
     platformInquiryRes,
     communityReportsRes,
+    storeApplicationsRes,
   ] = await Promise.all([
     storesSb
       ? storesSb
@@ -174,7 +195,10 @@ export async function loadAdminActionQueueCounts(input: {
           .in("request_status", [...USER_CHARGE_ACTIONABLE_STATUSES])
       : Promise.resolve({ count: 0, error: null }),
     storesSb
-      ? storesSb.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending")
+      ? storesSb
+          .from("reports")
+          .select("id", { count: "exact", head: true })
+          .in("status", [...TRADE_REPORT_ADMIN_ACTIONABLE])
       : Promise.resolve({ count: 0, error: null }),
     storesSb
       ? storesSb.from("store_reports").select("id", { count: "exact", head: true }).eq("status", "open")
@@ -219,7 +243,13 @@ export async function loadAdminActionQueueCounts(input: {
       ? notesSb
           .from("community_reports")
           .select("id", { count: "exact", head: true })
-          .in("status", ["open", "reviewing"])
+          .in("status", [...COMMUNITY_REPORT_ADMIN_ACTIONABLE])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("stores")
+          .select("id", { count: "exact", head: true })
+          .in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL])
       : Promise.resolve({ count: 0, error: null }),
   ]);
 
@@ -268,9 +298,15 @@ export async function loadAdminActionQueueCounts(input: {
     /community_reports|schema cache|does not exist/i.test(communityReportsRes.error.message ?? "")
       ? 0
       : safeCount(communityReportsRes);
+  const store_applications =
+    storeApplicationsRes.error &&
+    /stores|schema cache|does not exist/i.test(storeApplicationsRes.error.message ?? "")
+      ? 0
+      : safeCount(storeApplicationsRes);
 
   const charges = store_charges + user_charges;
   const reportsCombined = reports + store_reports;
+  const global_reports = reports + community_reports;
   const total =
     charges +
     feed_ad_requests +
@@ -280,7 +316,8 @@ export async function loadAdminActionQueueCounts(input: {
     member_inquiry_open +
     store_inquiry_open +
     platform_inquiry_open +
-    community_reports;
+    community_reports +
+    store_applications;
 
   return {
     store_charges,
@@ -294,19 +331,24 @@ export async function loadAdminActionQueueCounts(input: {
     store_inquiry_open,
     platform_inquiry_open,
     community_reports,
+    store_applications,
     total,
     by_category: {
       charges,
       store_charges,
       user_charges,
       reports: reportsCombined,
+      trade_reports: reports,
+      store_reports,
+      community_reports,
+      global_reports,
+      store_applications,
       alerts: delivery_alerts,
       feed_ad_requests,
       trade_promo_pending,
       member_inquiry_open,
       store_inquiry_open,
       platform_inquiry_open,
-      community_reports,
     },
   };
 }
