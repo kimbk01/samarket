@@ -39,7 +39,7 @@ async function loadProfileMap(
 }
 
 const INSTANCE_SELECT =
-  "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)";
+  "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, valid_from, valid_until, gift_certificate_products(title, image_url), stores(store_name)";
 
 function mapInstanceRow(
   row: Record<string, unknown>,
@@ -49,6 +49,8 @@ function mapInstanceRow(
   const store = firstObject(row.stores);
   const purchaserId = s(row.purchaser_user_id);
   const ownerId = s(row.current_owner_user_id);
+  const validFromRaw = row.valid_from;
+  const validUntilRaw = row.valid_until;
   return {
     id: s(row.id),
     publicGiftNumber: s(row.public_gift_number),
@@ -57,6 +59,7 @@ function mapInstanceRow(
     storeName: s(row.gift_scope) === "PLATFORM" ? "" : s(store?.store_name),
     productId: s(row.product_id),
     productTitle: s(product?.title),
+    productImageUrl: product?.image_url == null ? null : s(product.image_url),
     originalBuyerUserId: purchaserId,
     originalBuyerLabel: profileLabel(profileMap.get(purchaserId)),
     currentOwnerUserId: ownerId,
@@ -70,6 +73,8 @@ function mapInstanceRow(
     status: s(row.status),
     purchasedAt: s(row.purchased_at),
     createdAt: s(row.created_at),
+    validFrom: validFromRaw == null ? null : s(validFromRaw).slice(0, 10),
+    validUntil: validUntilRaw == null ? null : s(validUntilRaw).slice(0, 10),
   };
 }
 

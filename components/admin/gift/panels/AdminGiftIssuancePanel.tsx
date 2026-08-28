@@ -14,11 +14,12 @@ import {
   ADMIN_GIFT_PRIMARY_BTN_STYLE,
   adminGiftPrimaryBtnClass,
 } from "@/lib/gift-certificate/admin-gift-primary-button";
-import { Sam } from "@/lib/ui/css-vars";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
+import { Sam } from "@/lib/ui/css-vars";
 
 type ApplicationRow = {
   id: string;
@@ -87,7 +88,6 @@ export function AdminGiftIssuancePanel({
   storeId,
   scopeFilter = "ALL",
   createType = "",
-  productEditOpen = false,
 }: {
   productsSubtab: AdminGiftOpsProductsSubtab;
   id: string;
@@ -95,7 +95,6 @@ export function AdminGiftIssuancePanel({
   storeId: string;
   scopeFilter?: string;
   createType?: string;
-  productEditOpen?: boolean;
 }) {
   const { safeT } = useI18n();
   const labelScope = (scope: string | undefined) =>
@@ -499,7 +498,6 @@ export function AdminGiftIssuancePanel({
           onClick={() =>
             go({
               tab: "products",
-              products: "products",
               extra: { id: prodSuccess.id },
             })
           }
@@ -747,7 +745,6 @@ export function AdminGiftIssuancePanel({
         {productInstanceNote}
         <AdminGiftProductDetailConsole
           productId={id}
-          initialEditOpen={productEditOpen}
           onBack={() => go({ tab: "products", products: "products" })}
           onChanged={() => void loadProducts()}
         />
@@ -927,22 +924,21 @@ export function AdminGiftIssuancePanel({
 
       {listState === "data" && productsSubtab === "products" ? (
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[1000px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-sam-border text-xs text-sam-muted">
-                <th className="px-2 py-2">Type</th>
-                <th className="px-2 py-2">Store</th>
-                <th className="px-2 py-2">Title</th>
-                <th className="px-2 py-2">Face</th>
-                <th className="px-2 py-2">Purchase</th>
-                <th className="px-2 py-2">Fee%</th>
-                <th className="px-2 py-2">Window</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_image", { fallbackKo: "이미지", fallbackEn: "Image" })}</th>
+                <th className="px-2 py-2">{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_face_amount", { fallbackKo: "표시금액", fallbackEn: "Face" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_purchase", { fallbackKo: "판매가격", fallbackEn: "Sale price" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_field_sales_window", { fallbackKo: "판매기간", fallbackEn: "Sales window" })}</th>
                 <th className="px-2 py-2">Status</th>
-                <th className="px-2 py-2">Issued</th>
-                <th className="px-2 py-2">Outstanding</th>
-                <th className="px-2 py-2">{safeT("gift_ops_col_redeemed", { fallbackKo: "사용 금액", fallbackEn: "Redeemed" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_kpi_issued", { fallbackKo: "발급수", fallbackEn: "Issued" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_col_updated", { fallbackKo: "최근 수정", fallbackEn: "Updated" })}</th>
-                <th className="px-2 py-2">{safeT("gift_ops_col_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}</th>
+                <th className="px-2 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -950,7 +946,16 @@ export function AdminGiftIssuancePanel({
                 const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
                 return (
                   <tr key={p.id} className="border-b border-sam-border/60">
-                    <td className="px-2 py-2 text-xs">{sc === "PLATFORM" ? "DIBAY" : "STORE"}</td>
+                    <td className="px-2 py-2">
+                      <div className="relative h-10 w-10 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
+                        {p.image_url ? (
+                          <SamarketThumbnail src={p.image_url} alt="" fill className="relative h-full w-full" imageClassName="object-cover" />
+                        ) : (
+                          <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-2 font-semibold">{p.title}</td>
                     <td className="px-2 py-2">
                       {sc === "PLATFORM"
                         ? safeT("gift_ops_store_all_dibay", {
@@ -959,7 +964,6 @@ export function AdminGiftIssuancePanel({
                           })
                         : p.store_name || "—"}
                     </td>
-                    <td className="px-2 py-2 font-semibold">{p.title}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.face_value)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.purchase_price)}</td>
                     <td className="px-2 py-2">{p.platform_fee_rate}%</td>
@@ -971,19 +975,16 @@ export function AdminGiftIssuancePanel({
                     </td>
                     <td className="px-2 py-2 tabular-nums">{p.issued_count}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.outstanding_balance)}</td>
-                    <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.redeemed_gross)}</td>
                     <td className="px-2 py-2 text-xs">{dt(p.updated_at || null)}</td>
                     <td className="px-2 py-2">
                       <button
                         type="button"
                         className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs min-h-[36px]")}
                         style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                        data-admin-gift-product-manage="1"
-                        onClick={() =>
-                          go({ tab: "products", products: "products", extra: { id: p.id } })
-                        }
+                        data-admin-gift-product-detail="1"
+                        onClick={() => go({ tab: "products", extra: { id: p.id } })}
                       >
-                        {safeT("gift_ops_cta_manage", { fallbackKo: "상세 관리", fallbackEn: "Manage" })}
+                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
                       </button>
                     </td>
                   </tr>
@@ -1000,19 +1001,28 @@ export function AdminGiftIssuancePanel({
             const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
             return (
               <li key={p.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                <p className="text-xs text-sam-muted">{labelScope(sc)}</p>
-                <p className="font-semibold">{p.title}</p>
-                <p className="text-xs tabular-nums">
-                  {formatMoneyPhp(p.face_value)} · {p.active ? "ACTIVE" : "PAUSED"}
-                </p>
+                <div className="flex gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
+                    {p.image_url ? (
+                      <SamarketThumbnail src={p.image_url} alt="" fill className="relative h-full w-full" imageClassName="object-cover" />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-sam-muted">{labelScope(sc)}</p>
+                    <p className="font-semibold">{p.title}</p>
+                    <p className="text-xs tabular-nums">
+                      {formatMoneyPhp(p.face_value)} · {p.archived_at ? "ARCHIVED" : p.active ? "ACTIVE" : "PAUSED"}
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
                   className={adminGiftPrimaryBtnClass("mt-3 w-full min-h-[40px] text-sm")}
                   style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                  data-admin-gift-product-manage="1"
-                  onClick={() => go({ tab: "products", products: "products", extra: { id: p.id } })}
+                  data-admin-gift-product-detail="1"
+                  onClick={() => go({ tab: "products", extra: { id: p.id } })}
                 >
-                  {safeT("gift_ops_cta_manage", { fallbackKo: "상세 관리", fallbackEn: "Manage" })}
+                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
                 </button>
               </li>
             );

@@ -79,6 +79,15 @@ export function buildAdminGiftOpsHref(args: {
     for (const [k, v] of Object.entries(args.extra)) {
       if (v != null && String(v).trim()) qs.set(k, String(v).trim());
     }
+    // Product detail: ?tab=products&id={productId} — omit redundant products=products.
+    if (
+      tab === "products" &&
+      args.extra.id &&
+      !args.products &&
+      !("products" in args.extra)
+    ) {
+      qs.delete("products");
+    }
   }
   return `${ADMIN_GIFT_OPS_BASE}?${qs.toString()}`;
 }

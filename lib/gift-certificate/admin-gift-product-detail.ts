@@ -305,6 +305,13 @@ export async function loadAdminGiftProductDetail(
     image_url: productRaw.image_url == null ? null : s(productRaw.image_url),
     issued_count: n(productRaw.issued_count),
     max_issuance: productRaw.max_issuance == null ? null : n(productRaw.max_issuance),
+    expiry_policy: s(productRaw.expiry_policy) || "NO_EXPIRY",
+    validity_days: productRaw.validity_days == null ? null : n(productRaw.validity_days),
+    fixed_valid_until:
+      productRaw.fixed_valid_until == null ? null : s(productRaw.fixed_valid_until).slice(0, 10),
+    discount_funding_party: s(productRaw.discount_funding_party) || "NONE",
+    platform_funded_units: n(productRaw.platform_funded_units),
+    merchant_funded_units: n(productRaw.merchant_funded_units),
     created_at: createdAt,
     updated_at: updatedAt,
     outstanding_balance: stats.outstanding,

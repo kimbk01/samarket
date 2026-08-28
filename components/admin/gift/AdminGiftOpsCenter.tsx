@@ -38,9 +38,11 @@ export function AdminGiftOpsCenter() {
   const { safeT } = useI18n();
   const sp = useSearchParams();
   const tab = parseAdminGiftOpsTab(sp.get("tab"));
-  const productsSub = parseAdminGiftOpsProductsSubtab(sp.get("products"));
-  const moneySub = parseAdminGiftOpsMoneySubtab(sp.get("money"));
   const id = sp.get("id")?.trim() ?? "";
+  const productsSubRaw = parseAdminGiftOpsProductsSubtab(sp.get("products"));
+  const productsSub =
+    id && sp.get("products") == null ? ("products" as const) : productsSubRaw;
+  const moneySub = parseAdminGiftOpsMoneySubtab(sp.get("money"));
   const q = sp.get("q")?.trim() ?? "";
   const status = sp.get("status")?.trim() ?? "";
   const storeId = sp.get("storeId")?.trim() ?? "";
@@ -115,7 +117,6 @@ export function AdminGiftOpsCenter() {
           storeId={storeId}
           scopeFilter={scopeFilter}
           createType={createType}
-          productEditOpen={sp.get("edit") === "1"}
         />
       ) : null}
       {tab === "instances" ? (
