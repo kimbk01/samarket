@@ -169,10 +169,14 @@ async function main() {
   });
   await page.waitForSelector('[data-admin-gift-issuance-panel="1"]', { timeout: 45000 }).catch(() => null);
 
+  await page.waitForSelector('[data-admin-gift-product-search="1"]', { timeout: 60000 }).catch(() => null);
+  await page.waitForTimeout(1500);
+
   const hasSearch = (await page.locator('[data-admin-gift-product-search="1"]').count()) > 0;
   const hasManage = (await page.locator('[data-admin-gift-product-manage="1"]').count()) > 0;
   const hasStatus = (await page.locator('[data-admin-gift-product-status="ACTIVE"]').count()) > 0;
   report.productList = hasSearch && hasManage && hasStatus ? "PASS" : "FAIL";
+  report.productionCommit = process.env.GIFT_EXPECTED_PRODUCTION_COMMIT || "fc8658ae3";
 
   const { data: issuedRow } = await sb
     .from("gift_certificate_products")

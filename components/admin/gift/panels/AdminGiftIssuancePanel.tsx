@@ -939,6 +939,7 @@ export function AdminGiftIssuancePanel({
                 <button
                   type="button"
                   className={`${Sam.btn.primary} mt-3 w-full min-h-[40px] text-sm`}
+                  data-admin-gift-product-manage="1"
                   onClick={() => go({ tab: "products", products: "products", extra: { id: p.id } })}
                 >
                   {safeT("gift_ops_cta_manage", { fallbackKo: "상세 관리", fallbackEn: "Manage" })}

@@ -119,7 +119,7 @@ export async function loadAdminGiftProductDetail(
       sb
         .from(GIFT_TABLES.redemptions)
         .select(
-          "id, instance_id, store_id, order_id, redeemed_amount, platform_fee_amount, merchant_net_amount, reversed, created_at, reversed_at, store_orders(order_no, order_status)"
+          "id, instance_id, store_id, order_id, redeemed_amount, platform_fee_amount, merchant_net_amount, reversed, created_at, reversed_at"
         )
         .in("instance_id", instanceIds)
         .order("created_at", { ascending: false })
@@ -143,6 +143,18 @@ export async function loadAdminGiftProductDetail(
         roomId: t.room_id == null ? null : s(t.room_id),
       };
     });
+
+    const orderIds = [...new Set(((redemptionsRaw ?? []) as Record<string, unknown>[]).map((r) => s(r.order_id)).filter(Boolean))];
+    const orderById = new Map<string, Record<string, unknown>>();
+    if (orderIds.length) {
+      const { data: orderRows } = await sb
+        .from("store_orders")
+        .select("id, order_no, order_status")
+        .in("id", orderIds.slice(0, 200));
+      for (const raw of (orderRows ?? []) as Record<string, unknown>[]) {
+        orderById.set(s(raw.id), raw);
+      }
+    }
 
     const storeIds = new Set<string>();
     for (const r of (redemptionsRaw ?? []) as Record<string, unknown>[]) {
@@ -208,7 +220,7 @@ export async function loadAdminGiftProductDetail(
           redemptionByStore.set(sid, prev);
         }
       }
-      const order = firstObject(r.store_orders);
+      const order = orderById.get(s(r.order_id));
       const ledger = ledgerByRedemption.get(s(r.id)) ?? [];
       const recognized = !reversed && isRedemptionRecognizedFromLedger(ledger);
       return {
