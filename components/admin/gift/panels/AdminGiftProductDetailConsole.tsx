@@ -441,7 +441,10 @@ export function AdminGiftProductDetailConsole({
           fallbackKo: "변경 내용이 저장됩니다.",
           fallbackEn: "Your edits will be saved.",
         }),
-      cancelLabel: safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+      cancelLabel: safeT("gift_admin_edit_confirm_cancel", {
+        fallbackKo: "취소",
+        fallbackEn: "Cancel",
+      }),
       confirmLabel: safeT("gift_admin_save_confirm_ok", {
         fallbackKo: "변경 저장",
         fallbackEn: "Save changes",
@@ -1030,7 +1033,10 @@ export function AdminGiftProductDetailConsole({
               data-admin-gift-product-cancel="1"
               onClick={cancelEdit}
             >
-              {safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+              {safeT("gift_admin_edit_confirm_cancel", {
+                fallbackKo: "취소",
+                fallbackEn: "Cancel",
+              })}
             </button>
             <button
               type="button"

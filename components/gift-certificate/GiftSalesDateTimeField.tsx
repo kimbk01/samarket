@@ -141,7 +141,7 @@ export function GiftSalesDateTimeField({
         actions={[
           {
             key: "cancel",
-            label: safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" }),
+            label: safeT("gift_ops_datetime_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
             onClick: () => setOpen(false),
             roleTone: "secondary",
           },
