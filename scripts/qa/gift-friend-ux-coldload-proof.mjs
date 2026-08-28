@@ -461,6 +461,8 @@ try {
   });
   report.transferBC = transferBC;
 
+  // Owner tab may have sat idle while peer accepted/re-gifted — re-settle auth before room hard-nav.
+  await uiLogin(ownerPage, owner.email);
   await gotoRoom(ownerPage, roomId);
   await waitCard(ownerPage, transferBC, "REGIFT_CARD");
   const accept2 = await apiJson(ownerPage, `/api/me/gift-certificates/transfers/${transferBC}/accept`, {
