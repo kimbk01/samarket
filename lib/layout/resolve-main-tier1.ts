@@ -182,7 +182,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (p === "/mypage/coupons") {
     return {
       ...DEFAULT,
-      backHref: "/mypage",
+      backHref: "/stores",
       preferHistoryBack: true,
       titleText: "commerce_hub_title",
       showHubQuickActions: false,
@@ -192,7 +192,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (p === "/mypage/gift-certificates") {
     return {
       ...DEFAULT,
-      backHref: "/mypage",
+      backHref: "/stores",
       preferHistoryBack: true,
       titleText: "commerce_hub_title",
       showHubQuickActions: false,

@@ -1,7 +1,7 @@
 /**
  * `StoreCommerceCartProvider` 마운트 표면 — 장바구니·재주문·카트 충돌 UI 가 필요한 경로만.
  *
- * `/orders` 는 하단 「주문내역」·`OrdersHubContent`·`StoreOrderReorderAgainButton` 이
+ * `/orders` 는 하단 「주문내역」·`CustomerCommerceHubBody`·`StoreOrderReorderAgainButton` 이
  * `useStoreCommerceCart` 를 쓰므로 반드시 포함한다. (`/mypage` 만으로는 부족)
  *
  * DO NOT: `/stores/owner` 에서 Customer cart Provider 마운트 (Owner 도메인 누수).

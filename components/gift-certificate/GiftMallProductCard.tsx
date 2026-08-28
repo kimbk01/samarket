@@ -14,7 +14,7 @@ export function GiftMallProductCard({
   href: string;
 }) {
   const { safeT } = useI18n();
-  const displayTitle = product.titleIsCustomerOpaque ? product.customerTitle : product.title;
+  const displayTitle = product.title;
   return (
     <li className="min-w-0 list-none" data-gift-mall-product={product.id}>
       <Link href={href} prefetch={false} className="block min-w-0" data-gift-mall-card-link={product.id}>

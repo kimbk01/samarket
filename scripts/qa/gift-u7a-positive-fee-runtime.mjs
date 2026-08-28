@@ -229,6 +229,8 @@ write();
 
 const sb = sbService();
 const browser = await chromium.launch({ headless: true });
+/** Products created in this run — archived after proof to avoid customer catalog pollution. */
+const qaProductIdsToArchive = [];
 
 try {
   const health = await fetch(`${ORIGIN}/`);
@@ -425,6 +427,7 @@ try {
   if (productFeeRate !== FEE_RATE) fail("U1_PRODUCT_FEE", { expected: FEE_RATE, got: productFeeRate });
   report.positiveFeeProduct = productRow.id;
   report.evidence.product = productRow;
+  if (!SKIP_PRODUCT_CREATE) qaProductIdsToArchive.push(productRow.id);
   }
 
   // ========== U2 prep: Admin Point credit if buyer balance insufficient ==========
@@ -854,5 +857,10 @@ try {
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = 1;
 } finally {
+  if (qaProductIdsToArchive.length) {
+    const { archiveGiftQaProducts } = await import("./lib/gift-qa-product-archive.mjs");
+    report.qaCatalogCleanup = await archiveGiftQaProducts(sb, qaProductIdsToArchive);
+    write();
+  }
   await browser.close();
 }

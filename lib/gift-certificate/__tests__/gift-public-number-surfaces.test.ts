@@ -9,13 +9,14 @@ function source(path: string): string {
 describe("gift public number surfaces", () => {
   it("wallet and purchase success expose public gift number without using UUID as display identity", () => {
     const walletLoader = source("lib/gift-certificate/load-gift-wallet.ts");
-    const walletUi = source("components/mypage/CustomerGiftCertificateWallet.tsx");
+    const walletUi = source("components/gift-certificate/GiftVisualCard.tsx");
     const buyerDetail = source("components/gift-certificate/BuyerGiftDetailView.tsx");
 
     expect(walletLoader).toContain("public_gift_number");
     expect(walletLoader).toContain("publicGiftNumber");
+    expect(walletLoader).toContain('product?.title');
+    expect(walletLoader).not.toContain("customerGiftDisplayTitle");
     expect(walletUi).toContain("data-gift-public-number");
-    expect(walletUi).toContain("data-gift-public-number-copy");
     expect(buyerDetail).toContain("public_gift_number");
     expect(buyerDetail).toContain("data-gift-public-number");
   });

@@ -105,10 +105,7 @@ export function BuyerGiftDetailView({
     return Math.max(0, balance - product.purchasePrice);
   }, [balance, product]);
 
-  const productDisplayTitle = useMemo(() => {
-    if (!product) return "";
-    return product.titleIsCustomerOpaque ? product.customerTitle : product.title;
-  }, [product]);
+  const productDisplayTitle = useMemo(() => product?.title ?? "", [product]);
 
   const purchase = async () => {
     if (!product || busy) return;

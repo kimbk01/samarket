@@ -20,12 +20,11 @@ describe("gift final buyer/admin control surfaces", () => {
   });
 
   it("keeps wallet empty browse CTA and hides store detail strip when no active products exist", () => {
-    const wallet = source("components/mypage/CustomerGiftCertificateWallet.tsx");
+    const wallet = source("components/orders/customer-commerce/CustomerGiftWalletBody.tsx");
     const strip = source("components/stores/store-detail/StoreDetailGiftStrip.tsx");
 
-    expect(wallet).toContain("data-gift-wallet-empty");
-    expect(wallet).toContain("data-gift-wallet-empty-browse");
-    expect(wallet).toContain("보유한 상품권이 없습니다.");
+    expect(wallet).toContain("data-gift-wallet-buy-cta");
+    expect(wallet).toContain("gift_certificate_wallet_empty");
     expect(strip).toContain("if (!ready || products.length === 0) return null");
   });
 

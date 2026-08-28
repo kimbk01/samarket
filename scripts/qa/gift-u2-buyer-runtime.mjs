@@ -316,9 +316,9 @@ async function main() {
     await ordersBtnResume.waitFor({ state: "visible", timeout: 25000 });
     await ordersBtnResume.click();
     await page.waitForURL(/\/orders\/activity/, { timeout: 20000 });
-    await page.locator('[data-delivery-activity-gift-wallet="1"]').click();
+    await page.locator('[data-commerce-hub-overview-gifts-wallet-cta="1"]').click();
     await page.waitForURL(/\/mypage\/gift-certificates/, { timeout: 20000 });
-    await page.waitForSelector('[data-customer-gift-certificate-wallet="1"][data-wallet-ready="1"]', {
+    await page.waitForSelector('[data-customer-gift-wallet="1"][data-wallet-ready="1"]', {
       timeout: 30000,
     });
 
@@ -425,10 +425,12 @@ async function main() {
     await ordersBtn.click();
   }
   await page.waitForURL(/\/orders\/activity/, { timeout: 20000 });
-  await page.waitForSelector('[data-delivery-activity-hub="1"]', { timeout: 20000 });
-  const giftSection = page.locator('[data-delivery-activity-gift-section="1"]');
-  const walletCta = page.locator('[data-delivery-activity-gift-wallet="1"]');
-  const mallCta = page.locator('[data-delivery-activity-gift-mall="1"]');
+  await page.waitForSelector('[data-commerce-hub-overview="1"][data-overview-ready="1"]', {
+    timeout: 20000,
+  });
+  const giftSection = page.locator('[data-commerce-hub-overview-section="gifts"]');
+  const walletCta = page.locator('[data-commerce-hub-overview-gifts-wallet-cta="1"]');
+  const mallCta = page.locator('[data-commerce-hub-overview-gifts-buy-cta="1"]');
   await giftSection.waitFor({ timeout: 10000 });
   await walletCta.waitFor({ timeout: 5000 });
   await mallCta.waitFor({ timeout: 5000 });

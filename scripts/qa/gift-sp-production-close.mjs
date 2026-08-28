@@ -828,6 +828,12 @@ async function main() {
     adminAvail === ownerAvail && adminRec === ownerRec && adminStore.json?.store?.parityOk !== false ? "PASS" : "FAIL";
   report.artifacts.parity = { adminAvail, ownerAvail, adminRec, ownerRec, parityOk: adminStore.json?.store?.parityOk };
 
+  const qaProductIds = [report.artifacts.storeProductId, report.artifacts.platformProductId].filter(Boolean);
+  if (qaProductIds.length) {
+    const { archiveGiftQaProducts } = await import("./lib/gift-qa-product-archive.mjs");
+    report.qaCatalogCleanup = await archiveGiftQaProducts(sb, qaProductIds);
+  }
+
   await browser.close();
 
   const allPass =
