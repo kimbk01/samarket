@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -445,26 +446,22 @@ export function AdminGiftProductDetailConsole({
                   })}
                 </p>
               ) : null}
-              <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}</span>
-                <input className={Sam.input.base} type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span>{safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}</span>
-                <input className={Sam.input.base} type="datetime-local" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
-              </label>
+              <GiftSalesDateTimeField
+                label={safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
+                value={editStart}
+                onChange={setEditStart}
+                data-testid="edit-start"
+              />
+              <GiftSalesDateTimeField
+                label={safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}
+                value={editEnd}
+                onChange={setEditEnd}
+                data-testid="edit-end"
+              />
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={editTransferable} onChange={(e) => setEditTransferable(e.target.checked)} />
                 {safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" })}
               </label>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className={`${Sam.btn.primary} min-h-[44px] px-4`} disabled={busy} onClick={() => void saveEdit()}>
-                  {safeT("gift_ops_cta_save", { fallbackKo: "저장", fallbackEn: "Save" })}
-                </button>
-                <button type="button" className={`${Sam.btn.secondary} min-h-[44px] px-4`} onClick={() => setEditOpen(false)}>
-                  {safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" })}
-                </button>
-              </div>
             </div>
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
@@ -476,9 +473,34 @@ export function AdminGiftProductDetailConsole({
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
+          {editOpen ? (
+            <div
+              className="sticky bottom-0 z-20 -mx-1 flex gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm"
+              data-admin-gift-product-edit-actions="1"
+            >
+              <button
+                type="button"
+                className={`${Sam.btn.secondary} min-h-[48px] flex-1 px-4`}
+                disabled={busy}
+                onClick={() => setEditOpen(false)}
+              >
+                {safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" })}
+              </button>
+              <button
+                type="button"
+                className={`${Sam.btn.primary} min-h-[48px] flex-1 px-4 text-sam-on-primary`}
+                disabled={busy}
+                data-admin-gift-product-save="1"
+                onClick={() => void saveEdit()}
+              >
+                {safeT("gift_ops_cta_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+              </button>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2" data-admin-gift-product-actions="1">
             {!editOpen ? (
-              <button type="button" className={`${Sam.btn.primary} min-h-[44px] px-4`} onClick={() => setEditOpen(true)}>
+              <button type="button" className={`${Sam.btn.primary} min-h-[44px] px-4 text-sam-on-primary`} onClick={() => setEditOpen(true)}>
                 {safeT("gift_ops_cta_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
               </button>
             ) : null}

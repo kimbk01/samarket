@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
-import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { DibayDialog } from "@/components/ui/dibay-overlay";
 import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
@@ -18,8 +18,6 @@ import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-type Phase = "detail" | "success";
-
 export function BuyerGiftDetailView({
   productId,
   storeId,
@@ -28,6 +26,7 @@ export function BuyerGiftDetailView({
   storeId?: string | null;
 }) {
   const { safeT } = useI18n();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const from = searchParams.get("from")?.trim() || "";
@@ -36,8 +35,8 @@ export function BuyerGiftDetailView({
   const [ready, setReady] = useState(false);
   const [missing, setMissing] = useState(false);
   const [authed, setAuthed] = useState(true);
-  const [phase, setPhase] = useState<Phase>("detail");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [purchasedGiftNumber, setPurchasedGiftNumber] = useState<string | null>(null);
@@ -51,8 +50,8 @@ export function BuyerGiftDetailView({
     from === "delivery-activity" ? canonicalHubHref("gifts", { from: "delivery-activity" }) : mallHref;
 
   useCommerceChildChrome({
-    titleKey: phase === "success" ? "gift_u2_success_title" : "gift_u2_detail_title",
-    backHref: phase === "success" ? canonicalHubHref("gifts") : detailBackHref,
+    titleKey: "gift_u2_detail_title",
+    backHref: detailBackHref,
     preferHistoryBack: true,
   });
 
@@ -148,7 +147,7 @@ export function BuyerGiftDetailView({
         String(json.publicGiftNumber ?? json.public_gift_number ?? "").trim() || null
       );
       setConfirmOpen(false);
-      setPhase("success");
+      setSuccessOpen(true);
       void refreshBalance();
     } catch {
       const key = mapGiftPurchaseErrorKey("generic");
@@ -189,77 +188,34 @@ export function BuyerGiftDetailView({
     );
   }
 
-  if (phase === "success") {
-    return (
-      <div
-        className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
-        data-gift-detail="1"
-        data-gift-purchase-success="1"
-        data-ready="1"
-      >
-        <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <GiftVisualCard
-            visual={{
-              giftScope: product.giftScope,
-              imageUrl: product.imageUrl,
-              storeLogoUrl: product.storeLogoUrl,
-              storeName: product.storeName,
-              title: productDisplayTitle,
-            }}
-            surface="mall"
-            title={productDisplayTitle}
-            issuerName={product.storeName}
-            faceValue={product.faceValue}
-            purchasePrice={product.purchasePrice}
-          />
-          {purchasedGiftNumber ? (
-            <p className="text-sm text-sam-fg" data-gift-public-number={purchasedGiftNumber}>
-              {safeT("gift_u2_public_number_label", {
-                fallbackKo: "상품권 번호",
-                fallbackEn: "Gift number",
-              })}: <span className="tabular-nums font-medium">{purchasedGiftNumber}</span>
-            </p>
-          ) : null}
-          <p className="text-sm text-sam-fg">
-            {safeT("gift_u2_success_spent", { fallbackKo: "결제 Point", fallbackEn: "Point spent" })}{" "}
-            <span className="tabular-nums font-medium">
-              {product.purchasePrice.toLocaleString()}
-            </span>
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 pb-8">
-          <Link
-            href={canonicalHubHref("gifts")}
-            prefetch={false}
-            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
-            data-gift-success-wallet-cta="1"
-          >
-            {safeT("gift_u2_success_wallet_cta", {
-              fallbackKo: "내 상품권 보기",
-              fallbackEn: "View my gifts",
-            })}
-          </Link>
-          <Link
-            href={mallHref}
-            prefetch={false}
-            className={`${Sam.btn.secondary} inline-flex min-h-[48px] items-center justify-center px-4`}
-            data-gift-success-browse-cta="1"
-          >
-            {safeT("gift_u2_success_browse_cta", {
-              fallbackKo: "상품권 더 둘러보기",
-              fallbackEn: "Browse more gifts",
-            })}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const priceLabel = safeT("gift_u2_detail_buy_with_points", {
     fallbackKo: "{price} Point로 구매",
     fallbackEn: "Buy for {price} Point",
     vars: { price: product.purchasePrice.toLocaleString() },
   });
+  const confirmBody = safeT("gift_u2_confirm_body", {
+    fallbackKo: "{title} · {price} Point를 결제합니다.\n구매 후 예상 잔액은 {after} Point입니다.",
+    fallbackEn: "Pay {price} Point for {title}.\nEstimated balance after purchase: {after} Point.",
+    vars: {
+      title: productDisplayTitle || product.storeName,
+      price: product.purchasePrice.toLocaleString(),
+      after: afterBalance.toLocaleString(),
+    },
+  });
+  const successBody = purchasedGiftNumber
+    ? safeT("gift_u2_success_dialog_body", {
+        fallbackKo: "결제 Point {price}\n상품권 번호 {number}",
+        fallbackEn: "Point spent {price}\nGift number {number}",
+        vars: {
+          price: product.purchasePrice.toLocaleString(),
+          number: purchasedGiftNumber,
+        },
+      })
+    : safeT("gift_u2_success_dialog_body_no_number", {
+        fallbackKo: "결제 Point {price}",
+        fallbackEn: "Point spent {price}",
+        vars: { price: product.purchasePrice.toLocaleString() },
+      });
 
   return (
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
@@ -368,11 +324,14 @@ export function BuyerGiftDetailView({
 
       {errorMsg ? <p className="mb-3 text-sm text-sam-danger">{errorMsg}</p> : null}
 
-      <div className="flex flex-col gap-2 pb-10">
+      <div
+        className="sticky bottom-0 z-20 -mx-[10px] mt-auto flex flex-col gap-2 border-t border-sam-border/80 bg-sam-app/95 px-[10px] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm"
+        data-gift-detail-cta-bar="1"
+      >
         {!authed ? (
           <Link
             href={loginHref}
-            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
             data-gift-detail-login-cta="1"
           >
             {safeT("gift_u2_detail_login_cta", {
@@ -383,7 +342,7 @@ export function BuyerGiftDetailView({
         ) : enough ? (
           <button
             type="button"
-            className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] px-4 text-base font-semibold`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] w-full px-4 text-base font-semibold`}
             data-gift-detail-buy-cta="1"
             disabled={busy || balanceLoading}
             onClick={() => {
@@ -408,7 +367,7 @@ export function BuyerGiftDetailView({
             </p>
             <Link
               href={chargeHref}
-              className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
               data-gift-detail-charge-cta="1"
             >
               {safeT("gift_u2_detail_charge_cta", {
@@ -418,7 +377,7 @@ export function BuyerGiftDetailView({
             </Link>
             <Link
               href={mallHref}
-              className={`${Sam.btn.secondary} inline-flex min-h-[48px] items-center justify-center px-4`}
+              className={`${Sam.btn.secondary} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
               data-gift-detail-browse-cta="1"
             >
               {safeT("gift_u2_detail_browse_other", {
@@ -430,20 +389,38 @@ export function BuyerGiftDetailView({
         )}
       </div>
 
-      <DibayBottomSheet
+      <DibayDialog
         open={confirmOpen}
         onClose={() => {
           if (!busy) setConfirmOpen(false);
         }}
+        dismissible={!busy}
         title={safeT("gift_u2_confirm_title", {
           fallbackKo: "구매 확인",
           fallbackEn: "Confirm purchase",
         })}
-        footer={
-          <div className="flex gap-2 px-4 pb-4">
+        description={confirmBody}
+      >
+        <div className="mt-3 space-y-3" data-gift-confirm-dialog="1">
+          <GiftVisualCard
+            visual={{
+              giftScope: product.giftScope,
+              imageUrl: product.imageUrl,
+              storeLogoUrl: product.storeLogoUrl,
+              storeName: product.storeName,
+              title: productDisplayTitle,
+            }}
+            surface="mall"
+            compact
+            title={productDisplayTitle}
+            issuerName={product.storeName}
+            faceValue={product.faceValue}
+            purchasePrice={product.purchasePrice}
+          />
+          <div className="flex gap-2 pt-1">
             <button
               type="button"
-              className={`${Sam.btn.secondary} min-h-[48px] flex-1`}
+              className="dibay-overlay-btn dibay-overlay-btn--secondary min-h-[48px] flex-1"
               disabled={busy}
               onClick={() => setConfirmOpen(false)}
             >
@@ -451,7 +428,7 @@ export function BuyerGiftDetailView({
             </button>
             <button
               type="button"
-              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[48px] flex-1`}
+              className="dibay-overlay-btn dibay-overlay-btn--primary min-h-[48px] flex-1"
               disabled={busy}
               data-gift-confirm-submit="1"
               onClick={() => void purchase()}
@@ -467,43 +444,53 @@ export function BuyerGiftDetailView({
                   })}
             </button>
           </div>
-        }
-      >
-        <div className="flex flex-col gap-3 px-4 pb-2">
-          <GiftVisualCard
-            visual={{
-              giftScope: product.giftScope,
-              imageUrl: product.imageUrl,
-              storeLogoUrl: product.storeLogoUrl,
-              storeName: product.storeName,
-              title: productDisplayTitle,
-            }}
-            surface="mall"
-            title={productDisplayTitle}
-            issuerName={product.storeName}
-            faceValue={product.faceValue}
-            purchasePrice={product.purchasePrice}
-          />
-          <div className="flex justify-between text-sm">
-            <span className="text-sam-muted">
-              {safeT("gift_u2_detail_balance_label", {
-                fallbackKo: "보유 D-Point",
-                fallbackEn: "Your D-Point",
-              })}
-            </span>
-            <span className="tabular-nums font-medium">{balance.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-sam-muted">
-              {safeT("gift_u2_confirm_after_balance", {
-                fallbackKo: "구매 후 예상 Point",
-                fallbackEn: "Point after purchase",
-              })}
-            </span>
-            <span className="tabular-nums font-medium">{afterBalance.toLocaleString()}</span>
-          </div>
         </div>
-      </DibayBottomSheet>
+      </DibayDialog>
+
+      <DibayDialog
+        open={successOpen}
+        onClose={() => {
+          setSuccessOpen(false);
+          router.push(mallHref);
+        }}
+        dismissible
+        title={safeT("gift_u2_success_title", {
+          fallbackKo: "상품권 구매가 완료되었습니다.",
+          fallbackEn: "Gift certificate purchased.",
+        })}
+        description={successBody}
+      >
+        <div className="mt-3 flex gap-2" data-gift-purchase-success="1">
+          <button
+            type="button"
+            className="dibay-overlay-btn dibay-overlay-btn--secondary min-h-[48px] flex-1"
+            data-gift-success-browse-cta="1"
+            onClick={() => {
+              setSuccessOpen(false);
+              router.push(mallHref);
+            }}
+          >
+            {safeT("gift_u2_success_browse_cta", {
+              fallbackKo: "상품권 더 둘러보기",
+              fallbackEn: "Browse more gifts",
+            })}
+          </button>
+          <button
+            type="button"
+            className="dibay-overlay-btn dibay-overlay-btn--primary min-h-[48px] flex-1"
+            data-gift-success-wallet-cta="1"
+            onClick={() => {
+              setSuccessOpen(false);
+              router.push(canonicalHubHref("gifts"));
+            }}
+          >
+            {safeT("gift_u2_success_wallet_cta", {
+              fallbackKo: "내 상품권 보기",
+              fallbackEn: "View my gifts",
+            })}
+          </button>
+        </div>
+      </DibayDialog>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/css-vars";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { resolveGiftProductFundingFromGap } from "@/lib/gift-certificate/gift-promo-economics";
 
 type ApplicationRow = {
@@ -126,6 +127,27 @@ export function AdminGiftApplicationsPage() {
 
   const createProduct = async () => {
     if (!detail || busy) return;
+    const confirmed = await dibayConfirm({
+      title: safeT("gift_admin_register_confirm_title", {
+        fallbackKo: "상품권을 등록할까요?",
+        fallbackEn: "Register this gift product?",
+      }),
+      description: safeT("gift_admin_register_confirm_body", {
+        fallbackKo: "확인을 누르면 판매가 시작됩니다. 취소하면 등록되지 않습니다.",
+        fallbackEn: "Confirm to start selling. Cancel leaves it unregistered.",
+      }),
+      cancelLabel: safeT("gift_admin_register_confirm_cancel", {
+        fallbackKo: "취소",
+        fallbackEn: "Cancel",
+      }),
+      confirmLabel: safeT("gift_admin_register_confirm_ok", {
+        fallbackKo: "등록 확정",
+        fallbackEn: "Confirm registration",
+      }),
+      blocking: true,
+    });
+    if (!confirmed) return;
+
     setBusy(true);
     setError(null);
     try {
@@ -167,6 +189,16 @@ export function AdminGiftApplicationsPage() {
         );
         return;
       }
+      await dibayAlert({
+        title: safeT("gift_admin_product_success_title", {
+          fallbackKo: "상품권이 판매 등록되었습니다.",
+          fallbackEn: "Gift product is now on sale.",
+        }),
+        confirmLabel: safeT("gift_admin_product_success_ok", {
+          fallbackKo: "확인",
+          fallbackEn: "OK",
+        }),
+      });
       setProdSuccessId(String(json.product?.id ?? ""));
       await loadList();
     } finally {

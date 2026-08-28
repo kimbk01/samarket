@@ -89,7 +89,7 @@ export function CommerceChildSlideShell({ children }: { children: ReactNode }) {
   return (
     <div
       ref={hostRef}
-      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
       data-commerce-child-slide-shell="1"
       onAnimationEnd={(e) => {
         if (e.target !== e.currentTarget) return;

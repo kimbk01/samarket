@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import {
   validateGiftProductFunding,
@@ -187,6 +189,27 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
 
   const startSale = async () => {
     if (busy || !canReview) return;
+    const confirmed = await dibayConfirm({
+      title: safeT("gift_admin_register_confirm_title", {
+        fallbackKo: "상품권을 등록할까요?",
+        fallbackEn: "Register this gift product?",
+      }),
+      description: safeT("gift_admin_register_confirm_body", {
+        fallbackKo: "확인을 누르면 판매가 시작됩니다. 취소하면 등록되지 않습니다.",
+        fallbackEn: "Confirm to start selling. Cancel leaves it unregistered.",
+      }),
+      cancelLabel: safeT("gift_admin_register_confirm_cancel", {
+        fallbackKo: "취소",
+        fallbackEn: "Cancel",
+      }),
+      confirmLabel: safeT("gift_admin_register_confirm_ok", {
+        fallbackKo: "등록 확정",
+        fallbackEn: "Confirm registration",
+      }),
+      blocking: true,
+    });
+    if (!confirmed) return;
+
     setBusy(true);
     setError(null);
     try {
@@ -237,6 +260,16 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
         );
         return;
       }
+      await dibayAlert({
+        title: safeT("gift_admin_product_success_title", {
+          fallbackKo: "상품권이 판매 등록되었습니다.",
+          fallbackEn: "Gift product is now on sale.",
+        }),
+        confirmLabel: safeT("gift_admin_product_success_ok", {
+          fallbackKo: "확인",
+          fallbackEn: "OK",
+        }),
+      });
       onCreated({
         ...json.product,
         store_name:
@@ -466,8 +499,9 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
             <div className="flex flex-col gap-2 pt-2 sm:flex-row-reverse">
               <button
                 type="button"
-                className={`${Sam.btn.primary} min-h-[48px] flex-1`}
+                className={`${Sam.btn.primary} min-h-[48px] flex-1 text-sam-on-primary`}
                 disabled={busy}
+                data-admin-gift-create-start="1"
                 onClick={() => void startSale()}
               >
                 {mode === "PLATFORM"
@@ -721,18 +755,19 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
             <h3 className="text-sm font-semibold">
               {safeT("gift_ops_sec_sales", { fallbackKo: "판매 설정", fallbackEn: "Sales settings" })}
             </h3>
-            <label className="block space-y-1 text-sm">
-              <span>
-                {safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
-              </span>
-              <input className={Sam.input.base} type="datetime-local" value={salesStart} onChange={(e) => setSalesStart(e.target.value)} />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span>
-                {safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}
-              </span>
-              <input className={Sam.input.base} type="datetime-local" value={salesEnd} onChange={(e) => setSalesEnd(e.target.value)} />
-            </label>
+            <GiftSalesDateTimeField
+              label={safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
+              value={salesStart}
+              onChange={setSalesStart}
+              allowEmpty={false}
+              data-testid="create-start"
+            />
+            <GiftSalesDateTimeField
+              label={safeT("gift_ops_field_sales_end", { fallbackKo: "판매 종료", fallbackEn: "Sales end" })}
+              value={salesEnd}
+              onChange={setSalesEnd}
+              data-testid="create-end"
+            />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={transferable} onChange={(e) => setTransferable(e.target.checked)} />
               {safeT("gift_admin_field_transferable", { fallbackKo: "선물 가능", fallbackEn: "Transferable" })}
@@ -741,11 +776,12 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-          <div className="flex flex-col gap-2 sm:flex-row-reverse">
+          <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm sm:flex-row-reverse">
             <button
               type="button"
-              className={`${Sam.btn.primary} min-h-[48px] flex-1`}
+              className={`${Sam.btn.primary} min-h-[48px] flex-1 text-sam-on-primary`}
               disabled={!canReview}
+              data-admin-gift-create-review="1"
               onClick={() => setReview(true)}
             >
               {safeT("gift_admin_cta_review_product", {

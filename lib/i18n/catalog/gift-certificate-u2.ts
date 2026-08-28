@@ -41,11 +41,15 @@ export const giftCertificateU2Messages = {
     gift_u2_confirm_submit: "구매 확정",
     gift_u2_confirm_cancel: "취소",
     gift_u2_confirm_pending: "구매 중…",
+    gift_u2_confirm_body:
+      "{title} · {price} Point를 결제합니다.\n구매 후 예상 잔액은 {after} Point입니다.",
 
     gift_u2_success_title: "상품권 구매가 완료되었습니다.",
     gift_u2_success_wallet_cta: "내 상품권 보기",
     gift_u2_success_browse_cta: "상품권 더 둘러보기",
     gift_u2_success_spent: "결제 Point",
+    gift_u2_success_dialog_body: "결제 Point {price}\n상품권 번호 {number}",
+    gift_u2_success_dialog_body_no_number: "결제 Point {price}",
 
     gift_u2_err_insufficient: "Point가 부족합니다.",
     gift_u2_err_unavailable: "현재 구매할 수 없는 상품권입니다.",
@@ -103,11 +107,15 @@ export const giftCertificateU2Messages = {
     gift_u2_confirm_submit: "Confirm purchase",
     gift_u2_confirm_cancel: "Cancel",
     gift_u2_confirm_pending: "Purchasing…",
+    gift_u2_confirm_body:
+      "Pay {price} Point for {title}.\nEstimated balance after purchase: {after} Point.",
 
     gift_u2_success_title: "Gift certificate purchased.",
     gift_u2_success_wallet_cta: "View my gifts",
     gift_u2_success_browse_cta: "Browse more gifts",
     gift_u2_success_spent: "Point spent",
+    gift_u2_success_dialog_body: "Point spent {price}\nGift number {number}",
+    gift_u2_success_dialog_body_no_number: "Point spent {price}",
 
     gift_u2_err_insufficient: "Not enough Point.",
     gift_u2_err_unavailable: "This gift certificate is not available for purchase.",
