@@ -156,8 +156,8 @@ export function AdminGiftInstancesPanel({
     else setRefreshing(true);
 
     const qs = new URLSearchParams();
-    if (q.trim()) qs.set("q", q.trim());
-    if (status.trim()) qs.set("status", status.trim());
+    if (initialQ.trim()) qs.set("q", initialQ.trim());
+    if (initialStatus.trim()) qs.set("status", initialStatus.trim());
     if (id.trim()) qs.set("id", id.trim());
 
     try {
@@ -198,19 +198,20 @@ export function AdminGiftInstancesPanel({
         setRefreshing(false);
       }
     }
-  }, [id, q, status]);
+  }, [id, initialQ, initialStatus]);
 
   useEffect(() => {
     void load();
-    return () => {
-      abortRef.current?.abort();
-    };
   }, [load]);
 
   const selected = useMemo(
     () => rows.find((r) => r.id === id || r.publicGiftNumber === id.toUpperCase()) ?? detail?.instance ?? null,
     [detail, id, rows]
   );
+
+  const detailLoading = Boolean(id.trim()) && !detail && (refreshing || state === "loading");
+  const detailLoadFailed =
+    Boolean(id.trim()) && !detail && !detailLoading && state === "data" && !refreshing;
 
   const pushSearch = () => {
     router.push(
@@ -558,6 +559,39 @@ export function AdminGiftInstancesPanel({
               </ul>
             )}
           </div>
+        </section>
+      ) : null}
+
+      {selected && detailLoading ? (
+        <section
+          className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-admin-gift-instance-detail-loading="1"
+          data-admin-gift-instance-id={selected.id}
+        >
+          <h2 className="text-lg font-semibold font-mono">{selected.publicGiftNumber}</h2>
+          <p className="text-sm text-sam-muted" aria-live="polite">
+            {safeT("gift_ops_instance_detail_loading", {
+              fallbackKo: "상세 이력을 불러오는 중…",
+              fallbackEn: "Loading instance detail…",
+            })}
+          </p>
+        </section>
+      ) : null}
+
+      {(selected || id.trim()) && detailLoadFailed ? (
+        <section
+          className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-admin-gift-instance-detail-error="1"
+        >
+          <p className="text-sm text-red-600">
+            {safeT("gift_ops_instance_detail_error", {
+              fallbackKo: "상품권 상세를 불러오지 못했습니다.",
+              fallbackEn: "Couldn’t load gift instance detail.",
+            })}
+          </p>
+          <button type="button" className={Sam.btn.secondary} onClick={() => void load()}>
+            {safeT("gift_ops_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+          </button>
         </section>
       ) : null}
     </div>
