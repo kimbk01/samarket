@@ -27,9 +27,53 @@ vi.mock("@/components/ui/dibay-overlay", () => ({
     open ? <div data-testid="sheet">{children}</div> : null,
 }));
 
-vi.mock("@/lib/ui/sam-component-classes", () => ({
-  Sam: { btn: { secondary: "secondary" } },
+vi.mock("@/components/gift-certificate/GiftVisualCard", () => ({
+  GiftVisualCard: () => <div data-testid="gift-preview" />,
 }));
+
+vi.mock("@/lib/ui/sam-component-classes", () => ({
+  Sam: { btn: { secondary: "secondary", primary: "primary" } },
+}));
+
+function mockFetchRoutes(
+  fetchMock: ReturnType<typeof vi.fn>,
+  opts?: { roomId?: string | null }
+) {
+  fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+    if (url.includes("/api/me/gift-certificates/friends/eligible")) {
+      return {
+        ok: true,
+        json: async () => ({ ok: true, friends: [{ id: FRIEND_C, label: "Friend C" }] }),
+      };
+    }
+    if (url.includes(`/api/me/gift-certificates/instances/${INSTANCE_ID}`)) {
+      return {
+        ok: true,
+        json: async () => ({
+          ok: true,
+          instance: {
+            id: INSTANCE_ID,
+            giftScope: "STORE",
+            storeName: "Test Store",
+            title: "Test Gift",
+            faceValue: 1000,
+            remainingBalance: 1000,
+          },
+        }),
+      };
+    }
+    if (url === "/api/community-messenger/rooms" && init?.method === "POST") {
+      if (opts?.roomId === null) {
+        return { ok: false, json: async () => ({ ok: false }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({ ok: true, roomId: opts?.roomId ?? ROOM_ID }),
+      };
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+}
 
 describe("WalletGiftFriendPicker", () => {
   let container: HTMLDivElement;
@@ -61,10 +105,7 @@ describe("WalletGiftFriendPicker", () => {
   }
 
   it("T1 shows canonical friend C from the picker API", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true, friends: [{ id: FRIEND_C, label: "Friend C" }] }),
-    });
+    mockFetchRoutes(fetchMock);
 
     act(() => {
       root.render(<WalletGiftFriendPicker open onClose={() => {}} instanceId={INSTANCE_ID} />);
@@ -75,19 +116,16 @@ describe("WalletGiftFriendPicker", () => {
       credentials: "include",
       cache: "no-store",
     });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/me/gift-certificates/instances/${INSTANCE_ID}`,
+      expect.objectContaining({ credentials: "include", cache: "no-store" })
+    );
     expect(container.querySelector(`[data-wallet-gift-friend="${FRIEND_C}"]`)).not.toBeNull();
+    expect(container.querySelector("[data-testid='gift-preview']")).not.toBeNull();
   });
 
   it("T5 routes selected friend into the same Gift Offer Flow", async () => {
-    fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ ok: true, friends: [{ id: FRIEND_C, label: "Friend C" }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ ok: true, roomId: ROOM_ID }),
-      });
+    mockFetchRoutes(fetchMock);
 
     act(() => {
       root.render(<WalletGiftFriendPicker open onClose={() => {}} instanceId={INSTANCE_ID} />);
@@ -97,10 +135,15 @@ describe("WalletGiftFriendPicker", () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>(`[data-wallet-gift-friend="${FRIEND_C}"]`)?.click();
       await Promise.resolve();
+    });
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>("[data-wallet-gift-friend-continue='1']")?.click();
+      await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(fetchMock).toHaveBeenLastCalledWith("/api/community-messenger/rooms", {
+    expect(fetchMock).toHaveBeenCalledWith("/api/community-messenger/rooms", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
