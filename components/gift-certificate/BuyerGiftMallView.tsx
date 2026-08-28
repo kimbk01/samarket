@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftMallProductCard } from "@/components/gift-certificate/GiftMallProductCard";
@@ -9,6 +8,11 @@ import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-c
 import { canonicalHubHref, giftProductHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  GIFT_CARD_RESPONSIVE_GRID_CLASS,
+  GIFT_COMMERCE_CONTENT_MAX_WIDTH_PX,
+} from "@/lib/gift-certificate/gift-visual-layout";
+import { CommerceSecondaryCtaLink } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type MallScopeFilter = "all" | "platform" | "store";
@@ -84,6 +88,10 @@ export function BuyerGiftMallView() {
       data-active-product-count={activeProductCount}
       data-client-filter-allowed={clientFilterAllowed ? "1" : "0"}
     >
+      <div
+        className="mx-auto w-full min-w-0"
+        style={{ maxWidth: GIFT_COMMERCE_CONTENT_MAX_WIDTH_PX }}
+      >
       {clientFilterAllowed ? (
         <div className="mb-3 flex flex-wrap gap-2" data-gift-mall-scope-filter="1">
           {(["all", "platform", "store"] as const).map((id) => {
@@ -122,18 +130,13 @@ export function BuyerGiftMallView() {
         })}
       </p>
 
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-        <Link
-          href={walletHref}
-          prefetch={false}
-          className={`${Sam.btn.secondary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-          data-gift-mall-wallet-cta="1"
-        >
+      <div className="mb-4">
+        <CommerceSecondaryCtaLink href={walletHref} className="w-full" data-gift-mall-wallet-cta="1">
           {safeT("commerce_hub_gift_my_wallet_cta", {
             fallbackKo: "내 상품권",
             fallbackEn: "My gifts",
           })}
-        </Link>
+        </CommerceSecondaryCtaLink>
       </div>
 
       {loadError ? (
@@ -161,7 +164,7 @@ export function BuyerGiftMallView() {
           })}
         </p>
       ) : (
-        <ul className="grid min-w-0 grid-cols-1 gap-4 pb-8 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
+        <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
           {visibleProducts.map((p) => (
             <GiftMallProductCard
               key={p.id}
@@ -171,6 +174,7 @@ export function BuyerGiftMallView() {
           ))}
         </ul>
       )}
+      </div>
     </div>
   );
 }

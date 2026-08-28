@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 
 export function GiftMallProductCard({
   product,
@@ -14,6 +14,7 @@ export function GiftMallProductCard({
   href: string;
 }) {
   const { safeT } = useI18n();
+  const displayTitle = product.titleIsCustomerOpaque ? product.customerTitle : product.title;
   return (
     <li className="min-w-0 list-none" data-gift-mall-product={product.id}>
       <Link href={href} prefetch={false} className="block min-w-0" data-gift-mall-card-link={product.id}>
@@ -23,15 +24,15 @@ export function GiftMallProductCard({
             imageUrl: product.imageUrl,
             storeLogoUrl: product.storeLogoUrl,
             storeName: product.storeName,
-            title: product.title,
+            title: displayTitle,
           }}
           surface="mall"
-          title={product.title}
+          title={displayTitle}
           issuerName={product.storeName}
           faceValue={product.faceValue}
           purchasePrice={product.purchasePrice}
           footer={
-            <div className="space-y-1">
+            <div className="space-y-2">
               <p className="text-xs text-sam-muted">
                 {product.transferable
                   ? safeT("gift_u2_mall_transferable", {
@@ -43,7 +44,9 @@ export function GiftMallProductCard({
                       fallbackEn: "Non-transferable",
                     })}
               </p>
-              <span className={`${Sam.btn.primary} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm pointer-events-none`}>
+              <span
+                className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[40px] w-full`}
+              >
                 {safeT("gift_u2_mall_card_view", {
                   fallbackKo: "상품권 보기",
                   fallbackEn: "View gift",

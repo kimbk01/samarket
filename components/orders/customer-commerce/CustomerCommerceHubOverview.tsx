@@ -1,8 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  CommercePrimaryCtaLink,
+  CommerceSecondaryCtaLink,
+} from "./CommerceHubSegmentTabs";
 import {
   canonicalHubHref,
   giftMallHref,
@@ -12,7 +15,6 @@ import type { BuyerStoreOrdersHubSummary } from "@/lib/delivery/customer/load-bu
 import type { GiftWalletOverviewSummary } from "@/lib/gift-certificate/load-gift-wallet";
 import { customerWalletPresentationTab } from "@/lib/stores/customer-coupon-wallet-view";
 import type { CustomerCouponCardView } from "@/lib/stores/store-coupon-product-view";
-import { Sam } from "@/lib/ui/sam-component-classes";
 
 type OverviewData = {
   authed: boolean;
@@ -56,6 +58,27 @@ async function fetchOverview(signal: AbortSignal): Promise<OverviewData> {
   };
 }
 
+const DOMAIN_STYLE: Record<
+  CommerceHubTab,
+  { accent: string; icon: string; header: string }
+> = {
+  orders: {
+    accent: "border-l-[#6366F1]",
+    icon: "📦",
+    header: "from-[#EEF2FF] to-white",
+  },
+  coupons: {
+    accent: "border-l-[#3B82F6]",
+    icon: "🎟️",
+    header: "from-[#EFF6FF] to-white",
+  },
+  gifts: {
+    accent: "border-l-[#059669]",
+    icon: "🎁",
+    header: "from-[#ECFDF5] to-white",
+  },
+};
+
 function OverviewBlock({
   title,
   summary,
@@ -67,14 +90,22 @@ function OverviewBlock({
   children: ReactNode;
   dataSection: CommerceHubTab;
 }) {
+  const style = DOMAIN_STYLE[dataSection];
   return (
     <section
-      className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+      className={`overflow-hidden rounded-ui-rect border border-sam-border bg-gradient-to-br ${style.header} shadow-sm border-l-4 ${style.accent}`}
       data-commerce-hub-overview-section={dataSection}
     >
-      <h2 className="text-base font-bold text-sam-fg">{title}</h2>
-      <div className="mt-2 text-sm text-sam-muted">{summary}</div>
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">{children}</div>
+      <div className="p-4">
+        <div className="flex items-center gap-2">
+          <span className="text-lg" aria-hidden>
+            {style.icon}
+          </span>
+          <h2 className="text-base font-bold text-sam-fg">{title}</h2>
+        </div>
+        <div className="mt-2 text-sm text-sam-muted">{summary}</div>
+        <div className="mt-3 flex flex-col gap-2">{children}</div>
+      </div>
     </section>
   );
 }
@@ -162,7 +193,7 @@ export function CustomerCommerceHubOverview({ from }: { from?: string | null }) 
         });
 
   return (
-    <div className="space-y-4 pb-8" data-commerce-hub-overview="1" data-overview-ready={ready ? "1" : "0"}>
+    <div className="space-y-3 pb-8" data-commerce-hub-overview="1" data-overview-ready={ready ? "1" : "0"}>
       <OverviewBlock
         title={safeT("commerce_hub_tab_orders", {
           fallbackKo: "주문 내역",
@@ -171,17 +202,12 @@ export function CustomerCommerceHubOverview({ from }: { from?: string | null }) 
         summary={ordersSummary}
         dataSection="orders"
       >
-        <Link
-          href={ordersHref}
-          prefetch={false}
-          className={`${Sam.btn.primary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-          data-commerce-hub-overview-orders-cta="1"
-        >
+        <CommercePrimaryCtaLink href={ordersHref} data-commerce-hub-overview-orders-cta="1">
           {safeT("commerce_hub_overview_orders_cta", {
             fallbackKo: "주문 내역 보기",
             fallbackEn: "View orders",
           })}
-        </Link>
+        </CommercePrimaryCtaLink>
       </OverviewBlock>
 
       <OverviewBlock
@@ -192,17 +218,12 @@ export function CustomerCommerceHubOverview({ from }: { from?: string | null }) 
         summary={couponsSummary}
         dataSection="coupons"
       >
-        <Link
-          href={couponsHref}
-          prefetch={false}
-          className={`${Sam.btn.primary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-          data-commerce-hub-overview-coupons-cta="1"
-        >
+        <CommercePrimaryCtaLink href={couponsHref} data-commerce-hub-overview-coupons-cta="1">
           {safeT("commerce_hub_overview_coupons_cta", {
             fallbackKo: "쿠폰 보기",
             fallbackEn: "View coupons",
           })}
-        </Link>
+        </CommercePrimaryCtaLink>
       </OverviewBlock>
 
       <OverviewBlock
@@ -213,28 +234,18 @@ export function CustomerCommerceHubOverview({ from }: { from?: string | null }) 
         summary={giftsSummary}
         dataSection="gifts"
       >
-        <Link
-          href={giftsHref}
-          prefetch={false}
-          className={`${Sam.btn.secondary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-          data-commerce-hub-overview-gifts-wallet-cta="1"
-        >
-          {safeT("commerce_hub_gift_my_wallet_cta", {
-            fallbackKo: "내 상품권",
-            fallbackEn: "My gifts",
-          })}
-        </Link>
-        <Link
-          href={buyHref}
-          prefetch={false}
-          className={`${Sam.btn.primary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-          data-commerce-hub-overview-gifts-buy-cta="1"
-        >
+        <CommercePrimaryCtaLink href={buyHref} data-commerce-hub-overview-gifts-buy-cta="1">
           {safeT("commerce_hub_gift_buy_cta", {
             fallbackKo: "상품권 구매하기",
             fallbackEn: "Buy gift certificates",
           })}
-        </Link>
+        </CommercePrimaryCtaLink>
+        <CommerceSecondaryCtaLink href={giftsHref} data-commerce-hub-overview-gifts-wallet-cta="1">
+          {safeT("commerce_hub_gift_my_wallet_cta", {
+            fallbackKo: "내 상품권",
+            fallbackEn: "My gifts",
+          })}
+        </CommerceSecondaryCtaLink>
       </OverviewBlock>
     </div>
   );

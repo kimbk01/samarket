@@ -11,6 +11,7 @@ import {
 } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-release";
 import { DeliveryPresentationShell } from "@/components/delivery/presentation/DeliveryPresentationShell";
+import { CommerceChildSlideShell } from "@/components/orders/customer-commerce/CommerceChildSlideShell";
 
 /**
  * `/stores` 레이아웃 — 목록↔상세 전환 시 popstate 전에 pending 을 세팅해
@@ -41,7 +42,9 @@ export function StoresDeliveryLayoutShell({
 
   return (
     <div className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0">
-      <DeliveryPresentationShell>{children}</DeliveryPresentationShell>
+      <DeliveryPresentationShell>
+        <CommerceChildSlideShell>{children}</CommerceChildSlideShell>
+      </DeliveryPresentationShell>
     </div>
   );
 }

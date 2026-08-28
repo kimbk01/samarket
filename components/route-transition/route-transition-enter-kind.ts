@@ -1,6 +1,7 @@
 import type { MutableRefObject } from "react";
 import {
   resolveCanonicalNavIndex,
+  shouldSuppressCommerceConsumerMainShellSlide,
   shouldSuppressMessengerRoomMainShellSlide,
   shouldSuppressOwnerStackMainShellSlide,
   type RouteTransitionEnterKind,
@@ -29,6 +30,11 @@ import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
+import {
+  commerceConsumerStackDepth,
+  isCommerceConsumerStackPath,
+} from "@/lib/delivery/customer/commerce-consumer-stack-slide";
+import { computeCommerceChildTransitionKind } from "@/lib/delivery/customer/commerce-child-page-slide";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -162,6 +168,11 @@ export function computeRouteTransitionEnterKind(
     const stackKind = computeStoresOwnerStackTransitionKind(prevPath, nextPath, opts);
     syncLastForwardAxisAfterKind(stackKind, opts.lastForwardAxisRef);
     return kind;
+  } else if (shouldSuppressCommerceConsumerMainShellSlide(prevPath, nextPath)) {
+    kind = "none";
+    const stackKind = computeCommerceChildTransitionKind(prevPath, nextPath, opts);
+    syncLastForwardAxisAfterKind(stackKind, opts.lastForwardAxisRef);
+    return kind;
   } else if (isStoreOwnerApplyPath(nextPath) && isMypagePath(prevPath)) {
     kind = "store-apply-forward";
   } else if (isStoreOwnerApplyPath(prevPath) && isMypagePath(nextPath)) {
@@ -221,6 +232,29 @@ export function computeRouteTransitionEnterKind(
       opts.lastForwardAxisRef.current = "rtl";
     } else if (dPrev >= 0 && dNext < 0) {
       kind = "ltr-back";
+    } else {
+      kind = "none";
+    }
+  } else if (isCommerceConsumerStackPath(prevPath) && isCommerceConsumerStackPath(nextPath)) {
+    const dPrev = commerceConsumerStackDepth(prevPath);
+    const dNext = commerceConsumerStackDepth(nextPath);
+    if (opts.popstateBack) {
+      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
+    } else if (dNext > dPrev) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else if (dNext < dPrev) {
+      kind = "ltr-back";
+    } else {
+      kind = "subtle";
+    }
+  } else if (isCommerceConsumerStackPath(prevPath) && !isCommerceConsumerStackPath(nextPath)) {
+    kind = "ltr-back";
+  } else if (!isCommerceConsumerStackPath(prevPath) && isCommerceConsumerStackPath(nextPath)) {
+    const dNext = commerceConsumerStackDepth(nextPath);
+    if (dNext > 0) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
     } else {
       kind = "none";
     }

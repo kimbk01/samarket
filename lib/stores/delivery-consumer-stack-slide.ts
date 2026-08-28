@@ -26,6 +26,7 @@ const STORES_RESERVED_ROOT = new Set([
   "checkout",
   "write",
   "new",
+  "gift-mall",
 ]);
 
 /**

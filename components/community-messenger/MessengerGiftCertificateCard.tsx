@@ -20,6 +20,7 @@ import {
 } from "@/lib/gift-certificate/gift-transfer-ui-status";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
+import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -185,7 +186,7 @@ export function MessengerGiftCertificateCard(props: {
               type="button"
               disabled={busy}
               data-gift-card-accept="1"
-              className={`${Sam.btn.primary} min-h-[44px] w-full px-3 text-sm disabled:opacity-60`}
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[44px] w-full px-3 text-sm disabled:opacity-60`}
               onClick={(e) => {
                 e.stopPropagation();
                 void act("accept");
@@ -250,7 +251,7 @@ export function MessengerGiftCertificateCard(props: {
         {props.isRecipient && displayStatus === "ACCEPTED" ? (
           <Link
             href={canonicalHubHref("gifts", { giftTab: "owned" })}
-            className={`${Sam.btn.primary} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm`}
             data-gift-card-wallet-cta="1"
           >
             {safeT("commerce_hub_gift_my_wallet_cta", {

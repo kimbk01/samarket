@@ -15,6 +15,7 @@ import {
 } from "@/lib/gift-certificate/map-gift-purchase-error";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
+import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Phase = "detail" | "success";
@@ -103,6 +104,11 @@ export function BuyerGiftDetailView({
     if (!product) return balance;
     return Math.max(0, balance - product.purchasePrice);
   }, [balance, product]);
+
+  const productDisplayTitle = useMemo(() => {
+    if (!product) return "";
+    return product.titleIsCustomerOpaque ? product.customerTitle : product.title;
+  }, [product]);
 
   const purchase = async () => {
     if (!product || busy) return;
@@ -201,10 +207,10 @@ export function BuyerGiftDetailView({
               imageUrl: product.imageUrl,
               storeLogoUrl: product.storeLogoUrl,
               storeName: product.storeName,
-              title: product.title,
+              title: productDisplayTitle,
             }}
             surface="mall"
-            title={product.title}
+            title={productDisplayTitle}
             issuerName={product.storeName}
             faceValue={product.faceValue}
             purchasePrice={product.purchasePrice}
@@ -228,7 +234,7 @@ export function BuyerGiftDetailView({
           <Link
             href={canonicalHubHref("gifts")}
             prefetch={false}
-            className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
             data-gift-success-wallet-cta="1"
           >
             {safeT("gift_u2_success_wallet_cta", {
@@ -267,10 +273,10 @@ export function BuyerGiftDetailView({
           imageUrl: product.imageUrl,
           storeLogoUrl: product.storeLogoUrl,
           storeName: product.storeName,
-          title: product.title,
+          title: productDisplayTitle,
         }}
         surface="mall"
-        title={product.title}
+        title={productDisplayTitle}
         issuerName={product.storeName}
         faceValue={product.faceValue}
         purchasePrice={product.purchasePrice}
@@ -369,7 +375,7 @@ export function BuyerGiftDetailView({
         {!authed ? (
           <Link
             href={loginHref}
-            className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
             data-gift-detail-login-cta="1"
           >
             {safeT("gift_u2_detail_login_cta", {
@@ -380,7 +386,7 @@ export function BuyerGiftDetailView({
         ) : enough ? (
           <button
             type="button"
-            className={`${Sam.btn.primary} min-h-[52px] px-4 text-base font-semibold`}
+            className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] px-4 text-base font-semibold`}
             data-gift-detail-buy-cta="1"
             disabled={busy || balanceLoading}
             onClick={() => {
@@ -405,7 +411,7 @@ export function BuyerGiftDetailView({
             </p>
             <Link
               href={chargeHref}
-              className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4`}
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] items-center justify-center px-4`}
               data-gift-detail-charge-cta="1"
             >
               {safeT("gift_u2_detail_charge_cta", {
@@ -448,7 +454,7 @@ export function BuyerGiftDetailView({
             </button>
             <button
               type="button"
-              className={`${Sam.btn.primary} min-h-[48px] flex-1`}
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[48px] flex-1`}
               disabled={busy}
               data-gift-confirm-submit="1"
               onClick={() => void purchase()}
@@ -473,10 +479,10 @@ export function BuyerGiftDetailView({
               imageUrl: product.imageUrl,
               storeLogoUrl: product.storeLogoUrl,
               storeName: product.storeName,
-              title: product.title,
+              title: productDisplayTitle,
             }}
             surface="mall"
-            title={product.title}
+            title={productDisplayTitle}
             issuerName={product.storeName}
             faceValue={product.faceValue}
             purchasePrice={product.purchasePrice}

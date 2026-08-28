@@ -14,7 +14,7 @@ import {
   type GiftSubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { CommercePrimaryCtaLink } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 
 export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string }) {
   const { safeT } = useI18n();
@@ -149,16 +149,16 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <Link href={useHref} prefetch={false} className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center px-4 text-sm`}>
+            <CommercePrimaryCtaLink href={useHref} className="min-h-[48px]">
               {safeT("commerce_hub_use_on_order_cta", {
                 fallbackKo: "주문에 사용하기",
                 fallbackEn: "Use on order",
               })}
-            </Link>
+            </CommercePrimaryCtaLink>
             {canSend ? (
               <button
                 type="button"
-                className={`${Sam.btn.secondary} inline-flex min-h-[48px] items-center px-4 text-sm`}
+                className="sam-btn-secondary inline-flex min-h-[48px] items-center px-4 text-sm"
                 onClick={() => setSendOpen(true)}
               >
                 {safeT("gift_u3_wallet_send", { fallbackKo: "선물하기", fallbackEn: "Send as gift" })}

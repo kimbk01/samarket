@@ -176,6 +176,7 @@
 
   .sam-btn--primary {
     @apply border-transparent bg-sam-primary text-sam-on-primary;
+    color: var(--sam-text-on-primary);
   }
 
   .sam-btn--primary:not(:disabled):active {
@@ -252,6 +253,12 @@
     @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 text-sam-on-primary transition-[background-color,opacity] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
+    color: var(--sam-text-on-primary);
+  }
+
+  :is(a, button).sam-btn-primary,
+  :is(a, button).sam-btn.sam-btn--primary {
+    color: var(--sam-text-on-primary);
   }
 
   .sam-btn-primary:disabled {
@@ -1486,6 +1493,10 @@
   .sm-btn-primary {
     border: 1px solid transparent;
     background: var(--sam-primary);
+    color: var(--sam-text-on-primary);
+  }
+
+  :is(a, button).sm-btn-primary {
     color: var(--sam-text-on-primary);
   }
 

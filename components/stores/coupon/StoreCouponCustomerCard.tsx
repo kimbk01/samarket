@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import type { CustomerCouponCardView } from "@/lib/stores/store-coupon-product-view";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
-const CTA_PRIMARY =
-  "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect bg-signature px-3 text-sm font-medium text-white";
+const CTA_PRIMARY = COMMERCE_PRIMARY_BTN_CLASS + " w-full";
 const CTA_OUTLINE =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm font-medium text-sam-fg";
 const BADGE =
@@ -69,15 +69,21 @@ export function StoreCouponCustomerCard({
 
   return (
     <article
-      className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+      className="relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
       data-coupon-card="1"
       data-coupon-face="1"
       data-coupon-bucket={card.bucket}
       data-coupon-number={showNumber ? card.couponNumber ?? "" : ""}
     >
-      <div className="min-w-0 p-3" data-coupon-face-contract="1">
+      {/* Ticket silhouette — coupon ≠ gift */}
+      <div
+        className="absolute bottom-3 left-0 top-3 w-3 border-r border-dashed border-[#3B82F6]/35 bg-[#3B82F6]/10"
+        aria-hidden
+        data-coupon-ticket-notch="1"
+      />
+      <div className="min-w-0 p-3 pl-5" data-coupon-face-contract="1">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className="min-w-0 text-xl font-bold tabular-nums text-signature" data-coupon-face-benefit="1">
+          <p className="min-w-0 text-xl font-bold tabular-nums text-[#3B82F6]" data-coupon-face-benefit="1">
             {benefitHero}
           </p>
         </div>

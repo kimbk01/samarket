@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCouponCustomerCard } from "@/components/stores/coupon/StoreCouponCustomerCard";
 import { CommerceEmptyState } from "./CommerceEmptyState";
+import { CommerceHubSegmentTabs } from "./CommerceHubSegmentTabs";
 import {
   markCommerceHubFetchUnauthed,
   useCommerceHubTabFetch,
@@ -86,38 +87,19 @@ export function CustomerCouponWalletBody({
 
   return (
     <div data-customer-coupon-wallet="1" data-wallet-ready={ready ? "1" : "0"}>
-      <div
-        className="mb-3 grid min-w-0 grid-cols-2 gap-2"
-        data-customer-coupon-wallet-tabs="1"
-        role="tablist"
-      >
-        {(["held", "used"] as const).map((id) => {
-          const selected = couponTab === id;
-          const count = counts[COUPON_TAB_MAP[id]];
-          const href = canonicalHubHref("coupons", { couponTab: id });
-          return (
-            <Link
-              key={id}
-              href={href}
-              prefetch={false}
-              role="tab"
-              aria-selected={selected}
-              data-wallet-tab={id}
-              className={`flex min-h-[48px] min-w-0 items-center justify-center gap-1 rounded-ui-rect px-2 text-sm font-medium ${
-                selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
-              }`}
-            >
-              <span className="min-w-0 truncate">
-                {safeT(TAB_KEY[id], {
-                  fallbackKo: id === "held" ? "보유 쿠폰" : "사용 완료 쿠폰",
-                  fallbackEn: id === "held" ? "Held coupons" : "Used coupons",
-                })}
-              </span>
-              {count > 0 ? <span className="tabular-nums">{count}</span> : null}
-            </Link>
-          );
-        })}
-      </div>
+      <CommerceHubSegmentTabs
+        tabs={["held", "used"] as const}
+        activeId={couponTab}
+        hrefFor={(id) => canonicalHubHref("coupons", { couponTab: id })}
+        labelFor={(id) =>
+          safeT(TAB_KEY[id], {
+            fallbackKo: id === "held" ? "보유" : "사용 완료",
+            fallbackEn: id === "held" ? "Held" : "Used",
+          })
+        }
+        countFor={(id) => counts[COUPON_TAB_MAP[id]]}
+        dataAttr="data-wallet-tab"
+      />
       {!ready ? (
         <div className="flex min-h-[24vh] items-center justify-center text-sm text-sam-muted">…</div>
       ) : !isAuthed ? (

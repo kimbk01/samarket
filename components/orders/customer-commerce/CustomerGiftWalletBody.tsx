@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
@@ -17,6 +16,13 @@ import {
   type GiftSubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
 import type { GiftWalletPayload, GiftWalletTransfer } from "@/lib/gift-certificate/load-gift-wallet";
+import {
+  CommerceHubSegmentTabs,
+  CommercePrimaryCtaButton,
+  CommercePrimaryCtaLink,
+  CommerceSecondaryCtaLink,
+} from "./CommerceHubSegmentTabs";
+import { GIFT_CARD_RESPONSIVE_GRID_CLASS } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const GIFT_TABS: GiftSubTab[] = ["owned", "received", "sent", "used"];
@@ -139,16 +145,15 @@ function TransferCard({
           ) : null}
           {direction === "received" && pending ? (
             <div className="flex gap-2">
-              <button
-                type="button"
-                className={`${Sam.btn.primary} min-h-[44px] flex-1 px-3 text-sm`}
+              <CommercePrimaryCtaButton
+                className="min-h-[44px] flex-1 px-3"
                 onClick={() => void act("accept")}
               >
                 {safeT("gift_cert_chat_accept", {
                   fallbackKo: "선물 받기",
                   fallbackEn: "Accept gift",
                 })}
-              </button>
+              </CommercePrimaryCtaButton>
               <button
                 type="button"
                 className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-3 text-sm`}
@@ -217,89 +222,41 @@ export function CustomerGiftWalletBody({
 
   return (
     <div data-customer-gift-wallet="1" data-wallet-ready={ready ? "1" : "0"}>
-      <section
-        className="mb-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
-        data-commerce-hub-gift-summary="1"
-      >
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sam-muted">
-          <span data-gift-summary-owned={counts.owned}>
-            {safeT("commerce_hub_gift_summary_owned", {
-              vars: { count: String(counts.owned) },
-              fallbackKo: `보유 ${counts.owned}장`,
-              fallbackEn: `${counts.owned} owned`,
-            })}
-          </span>
-          <span data-gift-summary-received={counts.received}>
-            {safeT("commerce_hub_gift_summary_received", {
-              vars: { count: String(counts.received) },
-              fallbackKo: `받은 선물 ${counts.received}건`,
-              fallbackEn: `${counts.received} received`,
-            })}
-          </span>
-        </div>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <Link
-            href={browseHref}
-            prefetch={false}
-            className={`${Sam.btn.primary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-            data-gift-wallet-buy-cta="1"
-          >
-            {safeT("commerce_hub_gift_buy_cta", {
-              fallbackKo: "상품권 구매하기",
-              fallbackEn: "Buy gift certificates",
-            })}
-          </Link>
-          <Link
-            href={ownedHref}
-            prefetch={false}
-            className={`${Sam.btn.secondary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
-            data-gift-wallet-owned-cta="1"
-          >
-            {safeT("commerce_hub_gift_my_wallet_cta", {
-              fallbackKo: "내 상품권",
-              fallbackEn: "My gifts",
-            })}
-          </Link>
-        </div>
-      </section>
-      <div
-        className="mb-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4"
-        data-gift-wallet-tabs="1"
-        role="tablist"
-      >
-        {GIFT_TABS.map((id) => {
-          const selected = giftTab === id;
-          const href = canonicalHubHref("gifts", { giftTab: id, from });
-          return (
-            <Link
-              key={id}
-              href={href}
-              prefetch={false}
-              role="tab"
-              aria-selected={selected}
-              data-gift-wallet-tab={id}
-              className={`flex min-h-[48px] min-w-0 items-center justify-center gap-1 rounded-ui-rect px-2 text-sm font-medium ${
-                selected ? "bg-signature text-white" : "border border-sam-border bg-sam-surface text-sam-fg"
-              }`}
-            >
-              <span className="min-w-0 truncate">
-                {safeT(TAB_KEY[id], {
-                  fallbackKo:
-                    id === "owned"
-                      ? "보유"
-                      : id === "received"
-                        ? "받은 선물"
-                        : id === "sent"
-                          ? "보낸 선물"
-                          : "사용 완료",
-                  fallbackEn:
-                    id === "owned" ? "Owned" : id === "received" ? "Received" : id === "sent" ? "Sent" : "Used",
-                })}
-              </span>
-              {counts[id] > 0 ? <span className="tabular-nums">{counts[id]}</span> : null}
-            </Link>
-          );
-        })}
+      <CommerceHubSegmentTabs
+        tabs={GIFT_TABS}
+        activeId={giftTab}
+        hrefFor={(id) => canonicalHubHref("gifts", { giftTab: id, from })}
+        labelFor={(id) =>
+          safeT(TAB_KEY[id], {
+            fallbackKo:
+              id === "owned"
+                ? "보유"
+                : id === "received"
+                  ? "받은 선물"
+                  : id === "sent"
+                    ? "보낸 선물"
+                    : "사용 완료",
+            fallbackEn:
+              id === "owned" ? "Owned" : id === "received" ? "Received" : id === "sent" ? "Sent" : "Used",
+          })
+        }
+        countFor={(id) => counts[id]}
+        dataAttr="data-gift-wallet-tab"
+      />
+
+      <div className="mb-3 flex flex-col gap-2">
+        <CommercePrimaryCtaLink href={browseHref} data-gift-wallet-buy-cta="1">
+          {safeT("commerce_hub_gift_buy_cta", {
+            fallbackKo: "상품권 구매하기",
+            fallbackEn: "Buy gift certificates",
+          })}
+        </CommercePrimaryCtaLink>
+        <CommerceSecondaryCtaLink href={ownedHref} data-gift-wallet-owned-cta="1">
+          {safeT("commerce_hub_gift_my_wallet_cta", {
+            fallbackKo: "내 상품권",
+            fallbackEn: "My gifts",
+          })}
+        </CommerceSecondaryCtaLink>
       </div>
       {!ready ? (
         <div className="flex min-h-[24vh] items-center justify-center text-sm text-sam-muted">…</div>
@@ -324,7 +281,7 @@ export function CustomerGiftWalletBody({
             })}
           />
         ) : (
-          <ul className="min-w-0 space-y-3 pb-8">
+          <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
             {ownedRows.map((row) => {
               const locked = row.status === "GIFT_LOCKED";
               const canSend = row.transferable && !locked && row.remainingBalance > 0;
@@ -372,7 +329,7 @@ export function CustomerGiftWalletBody({
             })}
           />
         ) : (
-          <ul className="min-w-0 space-y-3 pb-8">
+          <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
             {wallet.pendingTransfers.map((t) => (
               <li key={t.id}>
                 <TransferCard transfer={t} direction="received" onReload={reload} />
@@ -389,7 +346,7 @@ export function CustomerGiftWalletBody({
             })}
           />
         ) : (
-          <ul className="min-w-0 space-y-3 pb-8">
+          <ul className={GIFT_CARD_RESPONSIVE_GRID_CLASS}>
             {wallet.sentTransfers.map((t) => (
               <li key={t.id}>
                 <TransferCard

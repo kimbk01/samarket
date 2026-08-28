@@ -6,6 +6,7 @@
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 
 export { shouldSuppressOwnerStackMainShellSlide } from "@/lib/business/owner-stack-path";
+export { shouldSuppressCommerceConsumerMainShellSlide } from "@/lib/delivery/customer/commerce-child-page-slide";
 
 /** philife(0) → market(1) → delivery(2) → messenger(3) → mypage(4) */
 export const CANONICAL_NAV_INDICES = {

@@ -756,6 +756,25 @@ a,
   animation: main-shell-route-enter-subtle-kf 270ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
+/** Customer commerce child (gift mall / owned instance) — 440ms 우→좌 / 좌→우 */
+.commerce-child-route-enter-rtl-forward {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-enter-rtl-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.commerce-child-route-enter-ltr-back {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-enter-ltr-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.commerce-child-route-enter-subtle {
+  backface-visibility: hidden;
+  will-change: opacity;
+  animation: main-shell-route-enter-subtle-kf 150ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
 /** 내정보 → 매장 입점 신청(`/stores/owner/apply`) — 370ms 우→좌 진입 / 좌→우 복귀 */
 .store-owner-apply-route-enter-rtl-forward {
   backface-visibility: hidden;
@@ -861,6 +880,9 @@ a,
   .owner-stack-route-enter-rtl-forward,
   .owner-stack-route-enter-ltr-back,
   .owner-stack-route-enter-subtle,
+  .commerce-child-route-enter-rtl-forward,
+  .commerce-child-route-enter-ltr-back,
+  .commerce-child-route-enter-subtle,
   .store-owner-apply-route-enter-rtl-forward,
   .store-owner-apply-route-enter-ltr-back,
   .store-owner-enter-route-enter-up,

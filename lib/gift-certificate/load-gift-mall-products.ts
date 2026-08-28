@@ -5,6 +5,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import type { GiftScope } from "@/lib/gift-certificate/gift-certificate-domain-contract";
+import {
+  isCustomerOpaqueGiftProductTitle,
+  resolveCustomerGiftProductTitle,
+} from "@/lib/gift-certificate/gift-product-customer-view";
 
 export type GiftMallProduct = {
   id: string;
@@ -13,6 +17,9 @@ export type GiftMallProduct = {
   storeName: string;
   storeLogoUrl: string | null;
   title: string;
+  /** Customer-safe display title — opaque QA/internal names replaced. */
+  customerTitle: string;
+  titleIsCustomerOpaque: boolean;
   faceValue: number;
   purchasePrice: number;
   transferable: boolean;
@@ -69,13 +76,23 @@ export async function loadGiftMallProducts(
         ? null
         : String(storeLogoRaw).trim();
     const sid = row.store_id == null ? "" : String(row.store_id).trim();
+    const rawTitle = String(row.title ?? "");
+    if (isCustomerOpaqueGiftProductTitle(rawTitle)) continue;
+    const resolvedStoreName = giftScope === "PLATFORM" ? "DIBAY" : storeName;
+    const { customerTitle, titleIsCustomerOpaque } = resolveCustomerGiftProductTitle({
+      title: rawTitle,
+      storeName: resolvedStoreName,
+      giftScope,
+    });
     products.push({
       id: String(row.id),
       giftScope,
       storeId: giftScope === "PLATFORM" ? null : sid || null,
-      storeName: giftScope === "PLATFORM" ? "DIBAY" : storeName,
+      storeName: resolvedStoreName,
       storeLogoUrl: giftScope === "PLATFORM" ? null : storeLogoUrl,
-      title: String(row.title ?? ""),
+      title: rawTitle,
+      customerTitle,
+      titleIsCustomerOpaque,
       faceValue: Math.trunc(Number(row.face_value) || 0),
       purchasePrice: Math.trunc(Number(row.purchase_price) || 0),
       transferable: row.transferable !== false,

@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import type { GiftInstanceDetail } from "@/lib/gift-certificate/load-gift-instance-detail";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 
 type FriendRow = {
   id: string;
@@ -201,7 +201,7 @@ export function WalletGiftFriendPicker({
 
         <button
           type="button"
-          className={`${Sam.btn.primary} min-h-[48px] w-full px-4 text-sm disabled:opacity-50`}
+          className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[48px] w-full disabled:opacity-50`}
           disabled={!selectedId || busy || friends.length === 0}
           data-wallet-gift-friend-continue="1"
           onClick={() => void continueToRoom()}

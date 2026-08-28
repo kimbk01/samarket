@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { CommercePrimaryCtaLink } from "./CommerceHubSegmentTabs";
 
 export function CommerceEmptyState({
   icon,
@@ -26,13 +25,9 @@ export function CommerceEmptyState({
       <p className="text-sm font-semibold text-sam-fg">{title}</p>
       {description ? <p className="text-sm text-sam-muted">{description}</p> : null}
       {ctaHref && ctaLabel ? (
-        <Link
-          href={ctaHref}
-          prefetch={false}
-          className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4 text-sm`}
-        >
+        <CommercePrimaryCtaLink href={ctaHref} className="min-h-[48px]">
           {ctaLabel}
-        </Link>
+        </CommercePrimaryCtaLink>
       ) : null}
     </div>
   );
