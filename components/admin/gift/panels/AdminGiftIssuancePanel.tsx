@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -10,6 +10,7 @@ import {
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
+import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 
 type ApplicationRow = {
   id: string;
@@ -57,8 +58,6 @@ type ProductRow = {
   redemption_by_store?: RedemptionByStore[];
 };
 
-type StoreOption = { id: string; store_name: string };
-
 function dt(v: string | null | undefined): string {
   if (!v) return "—";
   try {
@@ -102,7 +101,6 @@ export function AdminGiftIssuancePanel({
   const [error, setError] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [stores, setStores] = useState<StoreOption[]>([]);
 
   const [prodTitle, setProdTitle] = useState("");
   const [prodFace, setProdFace] = useState("");
@@ -112,7 +110,6 @@ export function AdminGiftIssuancePanel({
   const [prodTransferable, setProdTransferable] = useState(true);
   const [prodStart, setProdStart] = useState("");
   const [prodEnd, setProdEnd] = useState("");
-  const [prodStoreId, setProdStoreId] = useState("");
   const [prodReview, setProdReview] = useState(false);
   const [prodSuccess, setProdSuccess] = useState<ProductRow | null>(null);
   const [chooseType, setChooseType] = useState(false);
@@ -191,7 +188,6 @@ export function AdminGiftIssuancePanel({
             : String(app.requested_face_value)
         );
         setProdImage(app.image_url ?? "");
-        setProdStoreId(app.store_id);
         setProdStart(new Date().toISOString().slice(0, 16));
         setProdEnd("");
         setError(null);
@@ -208,28 +204,6 @@ export function AdminGiftIssuancePanel({
     [safeT]
   );
 
-  const loadStores = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/gift-certificates/stores", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        stores?: Array<{ storeId?: string; storeName?: string; id?: string; store_name?: string }>;
-      };
-      if (!res.ok || !json.ok) return;
-      setStores(
-        (json.stores ?? []).map((r) => ({
-          id: String(r.storeId ?? r.id ?? ""),
-          store_name: String(r.storeName ?? r.store_name ?? ""),
-        })).filter((s) => s.id)
-      );
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   useEffect(() => {
     if (productsSubtab === "applications") void loadApps();
     else void loadProducts();
@@ -241,18 +215,11 @@ export function AdminGiftIssuancePanel({
   }, [id, loadAppDetail, productsSubtab]);
 
   useEffect(() => {
-    if (isDirectCreate && directScope === "STORE") void loadStores();
-  }, [directScope, isDirectCreate, loadStores]);
-
-  useEffect(() => {
     if (productsSubtab === "products" && create && !directScope) setChooseType(true);
     else setChooseType(false);
   }, [create, directScope, productsSubtab]);
 
-  const selectedStoreName = useMemo(() => {
-    if (detail?.store_name) return detail.store_name;
-    return stores.find((s) => s.id === prodStoreId)?.store_name || "";
-  }, [detail, prodStoreId, stores]);
+  const selectedStoreName = detail?.store_name || "";
 
   const patchStatus = async (action: "under_review" | "rejected", reason?: string) => {
     if (!id || busy) return;
@@ -462,39 +429,14 @@ export function AdminGiftIssuancePanel({
 
   const formFields = (
     <>
-      {directScope === "STORE" ? (
-        <label className="block space-y-1 text-sm">
-          <span>{safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}</span>
-          <select
-            className={Sam.input.base}
-            value={prodStoreId}
-            onChange={(e) => setProdStoreId(e.target.value)}
-          >
-            <option value="">
-              {safeT("gift_ops_select_store", { fallbackKo: "매장 선택", fallbackEn: "Select store" })}
-            </option>
-            {stores.map((st) => (
-              <option key={st.id} value={st.id}>
-                {st.store_name || shortId(st.id)}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      {directScope === "PLATFORM" ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
-          {safeT("gift_ops_usable_platform", {
-            fallbackKo: "사용 범위: DIBAY eligible stores",
-            fallbackEn: "Usable at: DIBAY eligible stores",
-          })}
-        </p>
-      ) : null}
       <label className="block space-y-1 text-sm">
         <span>{safeT("gift_admin_field_title", { fallbackKo: "상품명", fallbackEn: "Title" })}</span>
         <input className={Sam.input.base} value={prodTitle} onChange={(e) => setProdTitle(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
-        <span>{safeT("gift_ops_field_face", { fallbackKo: "액면가", fallbackEn: "Face value" })}</span>
+        <span>
+          {safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Display amount" })}
+        </span>
         <input className={Sam.input.base} inputMode="numeric" value={prodFace} onChange={(e) => setProdFace(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
@@ -502,7 +444,9 @@ export function AdminGiftIssuancePanel({
         <input className={Sam.input.base} inputMode="numeric" value={prodPrice} onChange={(e) => setProdPrice(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
-        <span>{safeT("gift_ops_field_fee", { fallbackKo: "플랫폼 수수료 %", fallbackEn: "Platform fee %" })}</span>
+        <span>
+          {safeT("gift_ops_field_fee_dibay", { fallbackKo: "DIBAY 수수료 %", fallbackEn: "DIBAY fee %" })}
+        </span>
         <input className={Sam.input.base} inputMode="numeric" value={prodFee} onChange={(e) => setProdFee(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
@@ -514,7 +458,9 @@ export function AdminGiftIssuancePanel({
         <input className={Sam.input.base} type="datetime-local" value={prodEnd} onChange={(e) => setProdEnd(e.target.value)} />
       </label>
       <label className="block space-y-1 text-sm">
-        <span>{safeT("gift_ops_field_image", { fallbackKo: "이미지 URL", fallbackEn: "Image URL" })}</span>
+        <span>
+          {safeT("gift_ops_field_image_upload", { fallbackKo: "상품권 이미지 URL", fallbackEn: "Gift image URL" })}
+        </span>
         <input className={Sam.input.base} value={prodImage} onChange={(e) => setProdImage(e.target.value)} />
       </label>
       <label className="flex items-center gap-2 text-sm">
@@ -569,138 +515,42 @@ export function AdminGiftIssuancePanel({
 
   if (chooseType) {
     return (
-      <section className="space-y-4" data-admin-gift-create-choice="1">
-        {subTabs}
-        <h2 className="text-lg font-semibold">
-          {safeT("gift_ops_create_choose_title", {
-            fallbackKo: "새 상품권 만들기",
-            fallbackEn: "Create gift product",
-          })}
-        </h2>
-        <button
-          type="button"
-          className={`${Sam.btn.primary} min-h-[48px] w-full`}
-          onClick={() =>
-            go({ tab: "products", products: "products", extra: { create: "1", type: "STORE" } })
-          }
-        >
-          {safeT("gift_ops_type_store", { fallbackKo: "매장 상품권", fallbackEn: "Store Gift" })}
-        </button>
-        <button
-          type="button"
-          className={`${Sam.btn.secondary} min-h-[48px] w-full`}
-          onClick={() =>
-            go({ tab: "products", products: "products", extra: { create: "1", type: "PLATFORM" } })
-          }
-        >
-          {safeT("gift_ops_type_platform", { fallbackKo: "DIBAY 상품권", fallbackEn: "DIBAY Gift" })}
-        </button>
-        <button
-          type="button"
-          className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
-          onClick={() => go({ tab: "products", products: "products" })}
-        >
-          {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
-        </button>
-      </section>
-    );
-  }
-
-  if (isDirectCreate && directScope && prodReview) {
-    const face = Math.trunc(Number(prodFace) || 0);
-    const price = Math.trunc(Number(prodPrice) || 0);
-    return (
-      <section className="space-y-4" data-admin-gift-product-review="1">
-        {subTabs}
-        <h2 className="text-lg font-semibold">
-          {safeT("gift_admin_cta_review_product", {
-            fallbackKo: "판매 내용 확인",
-            fallbackEn: "Review product",
-          })}
-        </h2>
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
-          <p>
-            {safeT("gift_ops_field_type", { fallbackKo: "상품권 종류", fallbackEn: "Gift type" })}:{" "}
-            {labelScope(directScope)}
-          </p>
-          <p>
-            {safeT("gift_ops_usable_label", { fallbackKo: "사용 가능 매장", fallbackEn: "Usable stores" })}:{" "}
-            {directScope === "PLATFORM"
-              ? safeT("gift_ops_usable_platform", {
-                  fallbackKo: "DIBAY eligible stores",
-                  fallbackEn: "DIBAY eligible stores",
-                })
-              : selectedStoreName || shortId(prodStoreId)}
-          </p>
-          <p className="font-semibold">{prodTitle}</p>
-          <p className="tabular-nums">
-            Face {formatMoneyPhp(face)} · Purchase {formatMoneyPhp(price)} · Fee {Math.trunc(Number(prodFee) || 0)}%
-          </p>
-        </div>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <button
-          type="button"
-          className={`${Sam.btn.primary} min-h-[48px] w-full`}
-          disabled={busy || (directScope === "STORE" && !prodStoreId)}
-          onClick={() =>
-            void createProduct({
-              giftScope: directScope,
-              storeId: directScope === "STORE" ? prodStoreId : undefined,
-            })
-          }
-        >
-          {safeT("gift_ops_cta_start_sale", { fallbackKo: "판매 시작", fallbackEn: "Start selling" })}
-        </button>
-        <button
-          type="button"
-          className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
-          onClick={() => setProdReview(false)}
-        >
-          {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
-        </button>
-      </section>
+      <AdminGiftIssuanceCreateConsole
+        mode="choose"
+        subTabs={subTabs}
+        onCreated={() => {
+          /* choose mode never creates */
+        }}
+      />
     );
   }
 
   if (isDirectCreate && directScope) {
-    const face = Math.trunc(Number(prodFace) || 0);
-    const price = Math.trunc(Number(prodPrice) || 0);
     return (
-      <section className="space-y-4" data-admin-gift-product-create="1">
-        {subTabs}
-        <h2 className="text-lg font-semibold">
-          {labelScope(directScope)} —{" "}
-          {safeT("gift_ops_create_choose_title", {
-            fallbackKo: "새 상품권 만들기",
-            fallbackEn: "Create gift product",
-          })}
-        </h2>
-        {formFields}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <button
-          type="button"
-          className={`${Sam.btn.primary} min-h-[48px] w-full`}
-          disabled={
-            !prodTitle.trim() ||
-            face <= 0 ||
-            price < 0 ||
-            (directScope === "STORE" && !prodStoreId)
-          }
-          onClick={() => setProdReview(true)}
-        >
-          {safeT("gift_admin_cta_review_product", {
-            fallbackKo: "판매 내용 확인",
-            fallbackEn: "Review product",
-          })}
-        </button>
-        <button
-          type="button"
-          className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
-          onClick={() => go({ tab: "products", products: "products", extra: { create: "1" } })}
-        >
-          {safeT("gift_admin_cta_back", { fallbackKo: "돌아가기", fallbackEn: "Back" })}
-        </button>
-      </section>
+      <AdminGiftIssuanceCreateConsole
+        mode={directScope}
+        subTabs={subTabs}
+        onCreated={(product) => {
+          setProdSuccess({
+            id: product.id,
+            gift_scope: product.gift_scope,
+            store_id: product.store_id,
+            store_name: product.store_name,
+            title: product.title,
+            face_value: product.face_value,
+            purchase_price: product.purchase_price,
+            platform_fee_rate: product.platform_fee_rate,
+            sales_starts_at: null,
+            sales_ends_at: null,
+            active: product.active,
+            issued_count: 0,
+            outstanding_balance: 0,
+            redeemed_gross: 0,
+            image_url: product.image_url,
+          });
+          void loadProducts();
+        }}
+      />
     );
   }
 

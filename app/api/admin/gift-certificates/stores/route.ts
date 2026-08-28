@@ -161,12 +161,73 @@ async function storeMoneySnapshot(sb: SupabaseClient, storeId: string) {
   };
 }
 
-/** GET /api/admin/gift-certificates/stores — store settlement rollup + optional detail parity. */
+/** GET /api/admin/gift-certificates/stores — store settlement rollup + optional detail parity.
+ *  `purpose=issuance` — Admin Gift create picker: all Admin-eligible stores (not gift-product-derived).
+ */
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
   const sb = gate.sb;
-  const storeId = s(new URL(req.url).searchParams.get("storeId"));
+  const url = new URL(req.url);
+  const storeId = s(url.searchParams.get("storeId"));
+  const purpose = s(url.searchParams.get("purpose")).toLowerCase();
+  const q = s(url.searchParams.get("q"));
+
+  /** Issuance picker — must NOT reuse settlement list (stores that already have gift products). */
+  if (purpose === "issuance") {
+    const selectAttempts = [
+      "id, store_name, owner_user_id, approval_status, is_visible, business_type",
+    ] as const;
+    let rows: Record<string, unknown>[] = [];
+    let lastErr: string | null = null;
+    for (const sel of selectAttempts) {
+      const { data, error } = await sb
+        .from("stores")
+        .select(sel)
+        .order("store_name", { ascending: true })
+        .limit(400);
+      if (!error) {
+        rows = ((data ?? []) as unknown as Record<string, unknown>[]);
+        lastErr = null;
+        break;
+      }
+      lastErr = error.message;
+    }
+    if (lastErr) {
+      return NextResponse.json({ ok: false, error: lastErr }, { status: 500 });
+    }
+
+    rows = rows.filter((r) => {
+      const st = s(r.approval_status);
+      return st === "approved" || st === "suspended" || (q.length > 0 && st === "under_review");
+    });
+
+    if (q) {
+      const ql = q.toLowerCase();
+      rows = rows.filter((r) => {
+        const name = s(r.store_name).toLowerCase();
+        const id = s(r.id).toLowerCase();
+        return name.includes(ql) || id.includes(ql) || id.startsWith(ql);
+      });
+    }
+
+    const ownerIds = rows.map((r) => s(r.owner_user_id)).filter(Boolean);
+    const profiles = await loadAdminGiftProfileMap(sb, ownerIds);
+    return NextResponse.json({
+      ok: true,
+      purpose: "issuance",
+      stores: rows.slice(0, 50).map((r) => ({
+        storeId: s(r.id),
+        storeName: s(r.store_name),
+        ownerUserId: s(r.owner_user_id),
+        ownerLabel: adminGiftProfileLabel(profiles.get(s(r.owner_user_id))),
+        approvalStatus: s(r.approval_status),
+        isVisible: r.is_visible === true,
+        businessType: s(r.business_type),
+        categoryName: "",
+      })),
+    });
+  }
 
   if (storeId) {
     const { data: store, error } = await sb
