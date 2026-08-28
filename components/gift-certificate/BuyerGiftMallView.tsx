@@ -74,6 +74,8 @@ export function BuyerGiftMallView() {
     return products.filter((p) => p.giftScope === "STORE");
   }, [products, scopeFilter, clientFilterAllowed]);
 
+  const walletHref = canonicalHubHref("gifts", { from: from || null });
+
   return (
     <div
       className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
@@ -82,25 +84,6 @@ export function BuyerGiftMallView() {
       data-active-product-count={activeProductCount}
       data-client-filter-allowed={clientFilterAllowed ? "1" : "0"}
     >
-      <p className="mb-3 text-sm text-sam-muted">
-        {safeT("gift_u2_mall_desc", {
-          fallbackKo: "D-Point로 매장 상품권을 구매할 수 있습니다. 상품권 잔액은 만료되지 않습니다.",
-          fallbackEn: "Buy store gift certificates with D-Point. Gift balances never expire.",
-        })}
-      </p>
-      <div className="mb-4">
-        <Link
-          href={canonicalHubHref("gifts", { from: from || null })}
-          prefetch={false}
-          className={`${Sam.btn.secondary} inline-flex min-h-[44px] items-center justify-center px-4 text-sm`}
-          data-gift-mall-wallet-cta="1"
-        >
-          {safeT("gift_u2_mall_wallet_cta", {
-            fallbackKo: "내 상품권",
-            fallbackEn: "My gifts",
-          })}
-        </Link>
-      </div>
       {clientFilterAllowed ? (
         <div className="mb-3 flex flex-wrap gap-2" data-gift-mall-scope-filter="1">
           {(["all", "platform", "store"] as const).map((id) => {
@@ -131,6 +114,28 @@ export function BuyerGiftMallView() {
           })}
         </div>
       ) : null}
+
+      <p className="mb-3 text-sm leading-relaxed text-sam-muted" data-gift-mall-desc="1">
+        {safeT("gift_u2_mall_desc", {
+          fallbackKo: "D-Point로 매장 상품권을 구매할 수 있습니다. 상품권 잔액은 만료되지 않습니다.",
+          fallbackEn: "Buy store gift certificates with D-Point. Gift balances never expire.",
+        })}
+      </p>
+
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+        <Link
+          href={walletHref}
+          prefetch={false}
+          className={`${Sam.btn.secondary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
+          data-gift-mall-wallet-cta="1"
+        >
+          {safeT("commerce_hub_gift_my_wallet_cta", {
+            fallbackKo: "내 상품권",
+            fallbackEn: "My gifts",
+          })}
+        </Link>
+      </div>
+
       {loadError ? (
         <div className="space-y-3" data-gift-mall-error="1">
           <p className="text-sm text-sam-danger">
@@ -146,6 +151,8 @@ export function BuyerGiftMallView() {
             })}
           </button>
         </div>
+      ) : !ready ? (
+        <div className="flex min-h-[30vh] items-center justify-center text-sm text-sam-muted">…</div>
       ) : visibleProducts.length === 0 ? (
         <p className="text-sm text-sam-muted" data-gift-mall-empty="1">
           {safeT("gift_u2_mall_empty", {
@@ -154,7 +161,7 @@ export function BuyerGiftMallView() {
           })}
         </p>
       ) : (
-        <ul className="grid min-w-0 gap-3 pb-8 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
+        <ul className="grid min-w-0 grid-cols-1 gap-4 pb-8 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(320px,1fr))]">
           {visibleProducts.map((p) => (
             <GiftMallProductCard
               key={p.id}

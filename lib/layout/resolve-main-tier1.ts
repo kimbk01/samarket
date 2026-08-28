@@ -61,6 +61,26 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     };
   }
 
+  if (p === "/stores/gift-mall") {
+    return {
+      ...DEFAULT,
+      backHref: "/stores",
+      preferHistoryBack: true,
+      titleText: "gift_u2_mall_title",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (/^\/stores\/gift-mall\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: "/stores/gift-mall",
+      preferHistoryBack: true,
+      titleText: "gift_u2_detail_title",
+      showHubQuickActions: false,
+    };
+  }
+
   if (p === "/mypage/trade") {
     return {
       ...DEFAULT,

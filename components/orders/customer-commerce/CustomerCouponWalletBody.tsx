@@ -129,8 +129,9 @@ export function CustomerCouponWalletBody({
         </p>
       ) : visible.length === 0 ? (
         <CommerceEmptyState
+          icon="🎟️"
           title={safeT("commerce_hub_coupons_empty_title", {
-            fallbackKo: "보유한 쿠폰이 없습니다.",
+            fallbackKo: "사용 가능한 쿠폰이 없습니다.",
             fallbackEn: "You have no coupons.",
           })}
           ctaHref={deliveryDiscoveryHref()}

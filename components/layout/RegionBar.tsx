@@ -31,6 +31,7 @@ import {
 } from "@/lib/design/delivery-chrome";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
+import { isCustomerCommerceHubPath, isCustomerGiftCommercePath } from "@/lib/delivery/customer/commerce-hub-nav";
 import type { ReactNode } from "react";
 
 /** Main tier-1 chrome router — MAIN HUB / Delivery special / DetailHeader subpages. */
@@ -163,9 +164,15 @@ export function RegionBar({
   const barClass = isDeliveryConsumerPath(pathNoQuery)
     ? `delivery-ui ${DELIVERY_CONSUMER_HEADER_BAR_CLASS}`
     : APP_TIER1_HEADER_BAR_CLASS;
+  const isCommerceHub = isCustomerCommerceHubPath(pathNoQuery);
+  const isGiftCommerce = isCustomerGiftCommercePath(pathNoQuery);
 
   return (
-    <header className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${barClass}`}>
+    <header
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${barClass}`}
+      data-commerce-hub-tier1={isCommerceHub ? "1" : undefined}
+      data-customer-gift-commerce-tier1={isGiftCommerce ? "1" : undefined}
+    >
       <DetailHeader
         embedded
         title={centerNode}

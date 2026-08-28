@@ -82,8 +82,10 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
   const isStoresBrowsePath =
     pathNoQuery === "/stores/browse" || pathNoQuery.startsWith("/stores/browse/");
   /** browse 는 전역 1단 + `MainTier1Extras` 2단으로 통일, 그 외 매장 하위는 로컬 앱바만 */
+  const isStoresGiftMallPath =
+    pathNoQuery === "/stores/gift-mall" || pathNoQuery.startsWith("/stores/gift-mall/");
   const suppressStoresTier1ForLocalChrome =
-    isStoresSubpathExcludingRoot && !isStoresBrowsePath;
+    isStoresSubpathExcludingRoot && !isStoresBrowsePath && !isStoresGiftMallPath;
 
   /**
    * 매장 오너(`/stores/owner` · 옛 `/my/business`) 및 하위(매장 허브·설정 등)는 `TradePrimaryColumnStickyAppBar` 등 로컬 헤더만 씀.

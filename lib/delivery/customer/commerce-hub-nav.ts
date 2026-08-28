@@ -52,6 +52,13 @@ export type CommerceHubSearchParams = {
   refresh?: string | null;
 };
 
+export function hubOverviewHref(opts?: { from?: string | null }): string {
+  const p = new URLSearchParams();
+  if (opts?.from?.trim()) p.set("from", opts.from.trim());
+  const qs = p.toString();
+  return qs ? `/orders/activity?${qs}` : "/orders/activity";
+}
+
 export function canonicalHubHref(
   tab: CommerceHubTab,
   opts?: {
@@ -138,22 +145,34 @@ export function translateLegacyGiftWalletSearchParams(sp: URLSearchParams): URLS
   return out;
 }
 
+export function parseCommerceHubTabParam(
+  sp: URLSearchParams | null | undefined
+): CommerceHubTab | null {
+  const raw = sp?.get("tab");
+  if (raw == null || !String(raw).trim()) return null;
+  return isCommerceHubTab(raw) ? raw : null;
+}
+
 export function parseCommerceHubState(sp: URLSearchParams | null | undefined): {
-  tab: CommerceHubTab;
+  /** null = bare `/orders/activity` overview landing */
+  tab: CommerceHubTab | null;
   giftTab: GiftSubTab;
   couponTab: CouponSubTab;
   expand: string | null;
   orderFilter: string | null;
   from: string | null;
+  isOverview: boolean;
 } {
   const params = sp ?? new URLSearchParams();
+  const tab = parseCommerceHubTabParam(params);
   return {
-    tab: normalizeCommerceHubTab(params.get("tab")),
+    tab,
     giftTab: normalizeGiftSubTab(params.get("giftTab")),
     couponTab: normalizeCouponSubTab(params.get("couponTab")),
     expand: params.get("expand")?.trim() || null,
     orderFilter: params.get("orderFilter")?.trim() || null,
     from: params.get("from")?.trim() || null,
+    isOverview: tab == null,
   };
 }
 
@@ -165,6 +184,14 @@ export function isCustomerCommerceHubPath(pathname: string | null | undefined): 
   if (p === "/mypage/coupons") return true;
   if (p === "/mypage/gift-certificates") return true;
   return false;
+}
+
+/** Gift mall + owned instance detail — canonical AppStickyHeader + safe-top SSOT. */
+export function isCustomerGiftCommercePath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
+  if (p === "/stores/gift-mall" || p.startsWith("/stores/gift-mall/")) return true;
+  if (/^\/mypage\/gift-certificates\/[^/]+$/.test(p)) return true;
+  return isCustomerCommerceHubPath(p);
 }
 
 export function resolveCommerceHubBackHref(pathname: string, from: string | null): string {

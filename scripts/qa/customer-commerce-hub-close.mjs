@@ -39,6 +39,8 @@ report.checks.push(
   mustMatch("A3_coupons_alias", read("app/(main)/mypage/coupons/page.tsx"), /CustomerCommerceHubPage/),
   mustMatch("A3_gifts_alias", read("app/(main)/mypage/gift-certificates/page.tsx"), /CustomerCommerceHubPage/),
   mustMatch("A4_active_tab_mount", hubBody, /state\.tab === "orders"/),
+  mustMatch("A4_overview_landing", hubBody, /data-commerce-hub-overview/),
+  mustMatch("A4_overview_component", read("components/orders/customer-commerce/CustomerCommerceHubOverview.tsx"), /data-commerce-hub-overview-section/),
   mustMatch("A5_tab_fetch_hook", read("components/orders/customer-commerce/useCommerceHubTabFetch.ts"), /AbortController/),
   mustMatch(
     "G3_instance_api",

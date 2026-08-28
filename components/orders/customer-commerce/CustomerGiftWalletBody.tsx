@@ -84,15 +84,27 @@ function TransferCard({
   transfer,
   direction,
   onCancel,
+  onReload,
 }: {
   transfer: GiftWalletTransfer;
   direction: "received" | "sent";
   onCancel?: () => void;
+  onReload?: () => void;
 }) {
   const { safeT } = useI18n();
   const scope = transfer.giftScope === "PLATFORM" ? "PLATFORM" : "STORE";
   const peerName =
     direction === "received" ? transfer.senderDisplayName : transfer.recipientDisplayName;
+  const pending = transfer.status.toUpperCase() === "PENDING";
+
+  async function act(kind: "accept" | "reject") {
+    if (!onReload) return;
+    await fetch(
+      `/api/me/gift-certificates/transfers/${encodeURIComponent(transfer.id)}/${kind}`,
+      { method: "POST", credentials: "include" }
+    );
+    onReload();
+  }
 
   return (
     <GiftVisualCard
@@ -108,11 +120,11 @@ function TransferCard({
       issuerName={transfer.storeName}
       faceValue={transfer.faceValue}
       remainingBalance={transfer.remainingBalance}
+      statusLabel={transferStatusLabel(transfer.status, safeT)}
       footer={
-        <div className="space-y-1 text-xs text-sam-muted">
-          <p>{transferStatusLabel(transfer.status, safeT)}</p>
+        <div className="space-y-2">
           {peerName ? (
-            <p>
+            <p className="text-sm text-sam-muted">
               {direction === "received"
                 ? safeT("commerce_hub_transfer_from_sender", {
                     fallbackKo: "보낸 사람",
@@ -122,11 +134,35 @@ function TransferCard({
                     fallbackKo: "받는 사람",
                     fallbackEn: "To",
                   })}
-              : {peerName}
+              : <span className="font-medium text-sam-fg">{peerName}</span>
             </p>
           ) : null}
-          {direction === "sent" && transfer.status.toUpperCase() === "PENDING" && onCancel ? (
-            <button type="button" className="text-sm font-medium text-signature" onClick={onCancel}>
+          {direction === "received" && pending ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`${Sam.btn.primary} min-h-[44px] flex-1 px-3 text-sm`}
+                onClick={() => void act("accept")}
+              >
+                {safeT("gift_cert_chat_accept", {
+                  fallbackKo: "선물 받기",
+                  fallbackEn: "Accept gift",
+                })}
+              </button>
+              <button
+                type="button"
+                className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-3 text-sm`}
+                onClick={() => void act("reject")}
+              >
+                {safeT("gift_cert_chat_reject", {
+                  fallbackKo: "거절",
+                  fallbackEn: "Decline",
+                })}
+              </button>
+            </div>
+          ) : null}
+          {direction === "sent" && pending && onCancel ? (
+            <button type="button" className={`${Sam.btn.secondary} min-h-[44px] w-full px-3 text-sm`} onClick={onCancel}>
               {safeT("gift_u3_wallet_cancel_gift", {
                 fallbackKo: "선물 취소",
                 fallbackEn: "Cancel gift",
@@ -177,21 +213,55 @@ export function CustomerGiftWalletBody({
     [wallet, ownedRows.length]
   );
 
+  const ownedHref = canonicalHubHref("gifts", { giftTab: "owned", from });
+
   return (
     <div data-customer-gift-wallet="1" data-wallet-ready={ready ? "1" : "0"}>
-      <div className="mb-3">
-        <Link
-          href={browseHref}
-          prefetch={false}
-          className={`${Sam.btn.secondary} inline-flex min-h-[40px] items-center justify-center px-3 text-sm`}
-          data-gift-wallet-mall-cta="1"
-        >
-          {safeT("commerce_hub_gift_browse_cta", {
-            fallbackKo: "상품권 둘러보기",
-            fallbackEn: "Browse gift certificates",
-          })}
-        </Link>
-      </div>
+      <section
+        className="mb-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+        data-commerce-hub-gift-summary="1"
+      >
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sam-muted">
+          <span data-gift-summary-owned={counts.owned}>
+            {safeT("commerce_hub_gift_summary_owned", {
+              vars: { count: String(counts.owned) },
+              fallbackKo: `보유 ${counts.owned}장`,
+              fallbackEn: `${counts.owned} owned`,
+            })}
+          </span>
+          <span data-gift-summary-received={counts.received}>
+            {safeT("commerce_hub_gift_summary_received", {
+              vars: { count: String(counts.received) },
+              fallbackKo: `받은 선물 ${counts.received}건`,
+              fallbackEn: `${counts.received} received`,
+            })}
+          </span>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <Link
+            href={browseHref}
+            prefetch={false}
+            className={`${Sam.btn.primary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
+            data-gift-wallet-buy-cta="1"
+          >
+            {safeT("commerce_hub_gift_buy_cta", {
+              fallbackKo: "상품권 구매하기",
+              fallbackEn: "Buy gift certificates",
+            })}
+          </Link>
+          <Link
+            href={ownedHref}
+            prefetch={false}
+            className={`${Sam.btn.secondary} inline-flex min-h-[48px] flex-1 items-center justify-center px-4 text-sm`}
+            data-gift-wallet-owned-cta="1"
+          >
+            {safeT("commerce_hub_gift_my_wallet_cta", {
+              fallbackKo: "내 상품권",
+              fallbackEn: "My gifts",
+            })}
+          </Link>
+        </div>
+      </section>
       <div
         className="mb-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4"
         data-gift-wallet-tabs="1"
@@ -273,33 +343,20 @@ export function CustomerGiftWalletBody({
                     issuerName={row.storeName}
                     faceValue={row.faceValue}
                     remainingBalance={row.remainingBalance}
-                    footer={
-                      <div className="flex flex-wrap gap-3">
-                        <Link
-                          href={ownedGiftInstanceHref(row.id, { from, giftTab: "owned" })}
-                          prefetch={false}
-                          className="text-sm font-medium text-signature"
-                          data-gift-wallet-detail-cta={row.id}
-                        >
-                          {safeT("gift_u2_wallet_detail_cta", {
-                            fallbackKo: "상품권 상세",
-                            fallbackEn: "Gift details",
-                          })}
-                        </Link>
-                        {canSend ? (
-                          <button
-                            type="button"
-                            className="text-sm font-medium text-signature"
-                            onClick={() => setSendInstanceId(row.id)}
-                          >
-                            {safeT("gift_u3_wallet_send", {
-                              fallbackKo: "선물하기",
-                              fallbackEn: "Send as gift",
-                            })}
-                          </button>
-                        ) : null}
-                      </div>
+                    publicGiftNumber={row.publicGiftNumber}
+                    showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
+                    statusLabel={
+                      locked
+                        ? safeT("gift_u3_wallet_pending_lock", {
+                            fallbackKo: "수령 대기 중",
+                            fallbackEn: "Awaiting accept",
+                          })
+                        : undefined
                     }
+                    detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "owned" })}
+                    showSend={canSend}
+                    onSend={() => setSendInstanceId(row.id)}
+                    sendDisabled={!canSend}
                   />
                 </li>
               );
@@ -318,7 +375,7 @@ export function CustomerGiftWalletBody({
           <ul className="min-w-0 space-y-3 pb-8">
             {wallet.pendingTransfers.map((t) => (
               <li key={t.id}>
-                <TransferCard transfer={t} direction="received" />
+                <TransferCard transfer={t} direction="received" onReload={reload} />
               </li>
             ))}
           </ul>
@@ -382,10 +439,12 @@ export function CustomerGiftWalletBody({
                   title: row.title,
                 }}
                 surface="used"
+                faded
                 title={row.title}
                 issuerName={row.storeName}
                 faceValue={row.faceValue}
                 remainingBalance={0}
+                detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "used" })}
                 footer={
                   row.latestRedemptionStoreName ? (
                     <p className="text-xs text-sam-muted">
@@ -395,7 +454,7 @@ export function CustomerGiftWalletBody({
                       })}
                       : {row.latestRedemptionStoreName}
                     </p>
-                  ) : null
+                  ) : undefined
                 }
               />
             </li>

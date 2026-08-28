@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
@@ -19,11 +20,11 @@ import {
 } from "@/lib/gift-certificate/gift-transfer-ui-status";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
- * Chat presentation for gift_certificate messages.
- * Accept/reject/cancel call Gift Transfer APIs — never mutate balance client-side.
- * After mutation success, session-local transfer status outranks stale message metadata.
+ * Chat presentation for gift_certificate messages — one system gift event per transfer.
  */
 export function MessengerGiftCertificateCard(props: {
   metadata: unknown;
@@ -52,7 +53,6 @@ export function MessengerGiftCertificateCard(props: {
     );
   }
 
-  // Remount-safe: prefer remembered success over stale PENDING snapshot on this render.
   const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, status);
 
   const giftScope = presentation?.giftScope ?? "STORE";
@@ -64,7 +64,18 @@ export function MessengerGiftCertificateCard(props: {
   const storeLogoUrl = presentation?.storeLogoUrl ?? null;
   const faceValue = presentation?.faceValue ?? meta.face_value ?? null;
   const remainingBalance = presentation?.remainingBalance ?? meta.remaining_balance ?? null;
-  const senderName = presentation?.senderDisplayName ?? null;
+  const senderName =
+    presentation?.senderDisplayName?.trim() ||
+    safeT("commerce_hub_gift_chat_sender_fallback", {
+      fallbackKo: "친구",
+      fallbackEn: "Friend",
+    });
+  const amountLabel =
+    remainingBalance != null
+      ? formatMoneyPhp(remainingBalance)
+      : faceValue != null
+        ? formatMoneyPhp(faceValue)
+        : "";
 
   async function act(kind: "accept" | "reject" | "cancel") {
     if (busy || displayStatus !== "PENDING") return;
@@ -92,128 +103,163 @@ export function MessengerGiftCertificateCard(props: {
     }
   }
 
+  const statusHuman =
+    displayStatus === "PENDING"
+      ? safeT("gift_cert_chat_status_pending", {
+          fallbackKo: "수령 대기",
+          fallbackEn: "Awaiting accept",
+        })
+      : displayStatus === "ACCEPTED"
+        ? safeT("gift_cert_chat_status_accepted", {
+            fallbackKo: "수령 완료",
+            fallbackEn: "Accepted",
+          })
+        : displayStatus === "REJECTED"
+          ? safeT("gift_cert_chat_status_rejected", {
+              fallbackKo: "거절됨",
+              fallbackEn: "Rejected",
+            })
+          : safeT("gift_u3_card_cancelled", {
+              fallbackKo: "선물 취소됨",
+              fallbackEn: "Gift cancelled",
+            });
+
   return (
     <div
-      className="min-w-[220px] max-w-[320px]"
+      className="min-w-[240px] max-w-[340px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
       data-messenger-gift-certificate-card="1"
+      data-messenger-gift-system-event="1"
       data-gift-transfer-id={meta.gift_transfer_id}
       data-transfer-status={displayStatus}
       data-gift-scope={resolvedScope}
     >
-      <GiftVisualCard
-        visual={{
-          giftScope: resolvedScope,
-          imageUrl,
-          storeLogoUrl,
-          storeName,
-          title,
-        }}
-        surface="chat"
-        title={title}
-        issuerName={storeName}
-        faceValue={faceValue}
-        remainingBalance={remainingBalance}
-        className="shadow-sm"
-      />
-      {senderName ? (
-        <p className="mt-1 px-1 text-xs text-sam-muted">
-          {safeT("commerce_hub_transfer_from_sender", {
-            fallbackKo: "보낸 사람",
-            fallbackEn: "From",
+      <div className="border-b border-sam-border/70 bg-[#F0FAF5] px-3 py-2.5">
+        <p className="text-sm font-bold text-[#045E3A]">
+          🎁{" "}
+          {safeT("commerce_hub_gift_chat_arrival", {
+            fallbackKo: "상품권 선물이 도착했어요!",
+            fallbackEn: "A gift certificate has arrived!",
           })}
-          : {senderName}
         </p>
-      ) : null}
-      <p className="mt-2 px-1 text-xs text-sam-muted">
-        {displayStatus === "PENDING"
-          ? safeT("gift_cert_chat_status_pending", {
-              fallbackKo: "수령 대기",
-              fallbackEn: "Awaiting accept",
-            })
-          : displayStatus === "ACCEPTED"
-            ? safeT("gift_cert_chat_status_accepted", {
-                fallbackKo: "수령 완료",
-                fallbackEn: "Accepted",
-              })
-            : displayStatus === "REJECTED"
-              ? safeT("gift_cert_chat_status_rejected", {
-                  fallbackKo: "거절됨",
-                  fallbackEn: "Rejected",
-                })
-              : safeT("gift_u3_card_cancelled", {
-                  fallbackKo: "선물 취소됨",
-                  fallbackEn: "Gift cancelled",
-                })}
-      </p>
-      {errorMsg ? <p className="mt-1 text-xs text-sam-danger">{errorMsg}</p> : null}
-      {props.isRecipient && displayStatus === "PENDING" ? (
-        <div
-          className="mt-3 flex gap-2"
-          // Timeline bubble long-press uses setPointerCapture on the parent; stop here so CTA taps work.
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            disabled={busy}
-            data-gift-card-accept="1"
-            className="flex-1 rounded-ui-rect bg-signature px-2 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            onClick={(e) => {
-              e.stopPropagation();
-              void act("accept");
-            }}
-          >
-            {safeT("gift_cert_chat_accept", {
-              fallbackKo: "상품권 수령하기",
-              fallbackEn: "Accept gift",
-            })}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            data-gift-card-reject="1"
-            className="flex-1 rounded-ui-rect border border-sam-border px-2 py-2 text-sm font-semibold text-sam-fg disabled:opacity-60"
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmKind("reject");
-            }}
-          >
-            {safeT("gift_cert_chat_reject", {
-              fallbackKo: "거절",
-              fallbackEn: "Decline",
-            })}
-          </button>
-        </div>
-      ) : null}
-      {!props.isRecipient && displayStatus === "PENDING" ? (
-        <button
-          type="button"
-          disabled={busy}
-          data-gift-card-cancel="1"
-          className="mt-3 w-full rounded-ui-rect border border-sam-border px-2 py-2 text-sm font-semibold text-sam-fg disabled:opacity-60"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            setConfirmKind("cancel");
+        <p className="mt-0.5 text-xs text-sam-muted">
+          {safeT("commerce_hub_gift_chat_from", {
+            vars: { name: senderName ?? "" },
+            fallbackKo: `${senderName}님이 상품권을 선물했습니다.`,
+            fallbackEn: `${senderName} sent you a gift certificate.`,
+          })}
+        </p>
+      </div>
+
+      <div className="p-2">
+        <GiftVisualCard
+          visual={{
+            giftScope: resolvedScope,
+            imageUrl,
+            storeLogoUrl,
+            storeName,
+            title,
           }}
-        >
-          {safeT("gift_u3_card_cancel", {
-            fallbackKo: "선물 취소",
-            fallbackEn: "Cancel gift",
-          })}
-        </button>
-      ) : null}
-      {props.isRecipient && displayStatus === "ACCEPTED" ? (
-        <a
-          href={canonicalHubHref("gifts", { giftTab: "owned" })}
-          className="mt-3 block text-center text-sm font-semibold text-signature underline"
-          data-gift-card-wallet-cta="1"
-        >
-          {safeT("gift_cert_chat_view_wallet", {
-            fallbackKo: "내 상품권 보기",
-            fallbackEn: "View my gifts",
-          })}
-        </a>
-      ) : null}
+          surface="chat"
+          compact
+          title={title}
+          issuerName={storeName}
+          faceValue={faceValue}
+          remainingBalance={remainingBalance}
+          showValidity={false}
+          className="border-0 shadow-none"
+        />
+        {amountLabel ? (
+          <p className="mt-2 text-center text-lg font-bold tabular-nums text-sam-fg">{amountLabel}</p>
+        ) : null}
+        <p className="mt-1 text-center text-xs text-sam-muted">{statusHuman}</p>
+        {errorMsg ? <p className="mt-1 text-center text-xs text-sam-danger">{errorMsg}</p> : null}
+      </div>
+
+      <div
+        className="space-y-2 border-t border-sam-border/70 px-3 py-3"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {props.isRecipient && displayStatus === "PENDING" ? (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              data-gift-card-accept="1"
+              className={`${Sam.btn.primary} min-h-[44px] w-full px-3 text-sm disabled:opacity-60`}
+              onClick={(e) => {
+                e.stopPropagation();
+                void act("accept");
+              }}
+            >
+              {safeT("commerce_hub_gift_chat_confirm", {
+                fallbackKo: "선물 확인하기",
+                fallbackEn: "View gift",
+              })}
+            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                data-gift-card-accept-alt="1"
+                className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void act("accept");
+                }}
+              >
+                {safeT("gift_cert_chat_accept", {
+                  fallbackKo: "선물 받기",
+                  fallbackEn: "Accept gift",
+                })}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                data-gift-card-reject="1"
+                className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmKind("reject");
+                }}
+              >
+                {safeT("gift_cert_chat_reject", {
+                  fallbackKo: "거절",
+                  fallbackEn: "Decline",
+                })}
+              </button>
+            </div>
+          </>
+        ) : null}
+        {!props.isRecipient && displayStatus === "PENDING" ? (
+          <button
+            type="button"
+            disabled={busy}
+            data-gift-card-cancel="1"
+            className={`${Sam.btn.secondary} min-h-[44px] w-full px-3 text-sm disabled:opacity-60`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmKind("cancel");
+            }}
+          >
+            {safeT("gift_u3_card_cancel", {
+              fallbackKo: "선물 취소",
+              fallbackEn: "Cancel gift",
+            })}
+          </button>
+        ) : null}
+        {props.isRecipient && displayStatus === "ACCEPTED" ? (
+          <Link
+            href={canonicalHubHref("gifts", { giftTab: "owned" })}
+            className={`${Sam.btn.primary} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm`}
+            data-gift-card-wallet-cta="1"
+          >
+            {safeT("commerce_hub_gift_my_wallet_cta", {
+              fallbackKo: "내 상품권",
+              fallbackEn: "My gifts",
+            })}
+          </Link>
+        ) : null}
+      </div>
 
       <DibayConfirmDialog
         open={confirmKind != null}

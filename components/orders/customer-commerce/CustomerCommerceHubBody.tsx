@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { parseCommerceHubState } from "@/lib/delivery/customer/commerce-hub-nav";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { BuyerDeliveryOrdersBody } from "./BuyerDeliveryOrdersBody";
+import { CustomerCommerceHubOverview } from "./CustomerCommerceHubOverview";
 import { CustomerCouponWalletBody } from "./CustomerCouponWalletBody";
 import { CustomerGiftWalletBody } from "./CustomerGiftWalletBody";
 
@@ -24,8 +25,12 @@ export function CustomerCommerceHubBody() {
     <div
       className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
       data-customer-commerce-hub-body="1"
-      data-commerce-hub-tab={state.tab}
+      data-commerce-hub-tab={state.tab ?? "overview"}
+      data-commerce-hub-overview={state.isOverview ? "1" : "0"}
     >
+      {state.isOverview ? (
+        <CustomerCommerceHubOverview from={state.from} />
+      ) : null}
       {state.tab === "orders" ? (
         <Suspense fallback={<HubPanelFallback />}>
           <BuyerDeliveryOrdersBody />

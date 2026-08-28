@@ -31,6 +31,10 @@ export const giftCertificateU3Messages = {
     gift_u3_err_generic: "상품권 선물에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     gift_u3_friend_pick_title: "선물할 친구",
     gift_u3_friend_pick_empty: "선물할 수 있는 친구가 없습니다.",
+    gift_u3_transfer_title: "상품권 선물하기",
+    gift_u3_transfer_preview_label: "보낼 상품권",
+    gift_u3_friend_pick_recipient: "받는 사람 선택",
+    gift_u3_friend_pick_continue: "다음",
   },
   en: {
     gift_u3_attach_cta: "Send gift certificate",
@@ -63,5 +67,9 @@ export const giftCertificateU3Messages = {
     gift_u3_err_generic: "Couldn’t send the gift. Please try again.",
     gift_u3_friend_pick_title: "Choose a friend",
     gift_u3_friend_pick_empty: "No friends available to gift.",
+    gift_u3_transfer_title: "Send gift certificate",
+    gift_u3_transfer_preview_label: "Gift to send",
+    gift_u3_friend_pick_recipient: "Choose recipient",
+    gift_u3_friend_pick_continue: "Continue",
   },
 } as const;

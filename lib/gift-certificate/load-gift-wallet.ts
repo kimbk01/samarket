@@ -330,3 +330,49 @@ export async function loadGiftWallet(
     },
   };
 }
+
+export type GiftWalletOverviewSummary = {
+  owned: number;
+  receivedPending: number;
+};
+
+/** Lightweight overview counts — no product joins or transfer enrichment. */
+export async function loadGiftWalletOverviewSummary(
+  sb: SupabaseClient,
+  buyerUserId: string
+): Promise<{ ok: true; summary: GiftWalletOverviewSummary } | { ok: false; error: string }> {
+  const uid = buyerUserId.trim();
+  if (!uid) return { ok: false, error: "missing_user" };
+
+  const [instRes, pendingRes] = await Promise.all([
+    sb
+      .from(GIFT_TABLES.instances)
+      .select("status")
+      .eq("current_owner_user_id", uid)
+      .limit(300),
+    sb
+      .from(GIFT_TABLES.transfers)
+      .select("id", { count: "exact", head: true })
+      .eq("recipient_user_id", uid)
+      .eq("status", "PENDING"),
+  ]);
+
+  if (instRes.error) return { ok: false, error: instRes.error.message };
+  if (pendingRes.error) return { ok: false, error: pendingRes.error.message };
+
+  let owned = 0;
+  for (const raw of instRes.data ?? []) {
+    const status = String((raw as { status?: string }).status ?? "");
+    if (status === "ACTIVE" || status === "PARTIALLY_REDEEMED" || status === "GIFT_LOCKED") {
+      owned += 1;
+    }
+  }
+
+  return {
+    ok: true,
+    summary: {
+      owned,
+      receivedPending: pendingRes.count ?? 0,
+    },
+  };
+}

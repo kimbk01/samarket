@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
 import {
@@ -28,6 +28,8 @@ export function BuyerGiftDetailView({
 }) {
   const { safeT } = useI18n();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from")?.trim() || "";
   const { balance, loading: balanceLoading, refresh: refreshBalance } = useUserPointBalance();
   const [product, setProduct] = useState<GiftMallProduct | null>(null);
   const [ready, setReady] = useState(false);
@@ -40,8 +42,19 @@ export function BuyerGiftDetailView({
   const [purchasedGiftNumber, setPurchasedGiftNumber] = useState<string | null>(null);
 
   const mallHref = storeId
-    ? `/stores/gift-mall?storeId=${encodeURIComponent(storeId)}`
-    : "/stores/gift-mall";
+    ? `/stores/gift-mall?storeId=${encodeURIComponent(storeId)}${from ? `&from=${encodeURIComponent(from)}` : ""}`
+    : from
+      ? `/stores/gift-mall?from=${encodeURIComponent(from)}`
+      : "/stores/gift-mall";
+  const detailBackHref =
+    from === "delivery-activity" ? canonicalHubHref("gifts", { from: "delivery-activity" }) : mallHref;
+
+  useCommerceChildChrome({
+    titleKey: phase === "success" ? "gift_u2_success_title" : "gift_u2_detail_title",
+    backHref: phase === "success" ? canonicalHubHref("gifts") : detailBackHref,
+    preferHistoryBack: true,
+  });
+
   const chargeHref = `/mypage/points/charge?next=${encodeURIComponent(pathname || mallHref)}`;
   const loginHref = `/login?next=${encodeURIComponent(pathname || mallHref)}`;
 
@@ -143,15 +156,10 @@ export function BuyerGiftDetailView({
     }
   };
 
-  const headerTitle = safeT("gift_u2_detail_title", {
-    fallbackKo: "상품권 상세",
-    fallbackEn: "Gift details",
-  });
-
   if (!ready) {
     return (
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="0">
-        <MySubpageHeader title={headerTitle} titleKey="gift_u2_detail_title" backHref={mallHref} />
+        <div className="flex min-h-[30vh] items-center justify-center text-sm text-sam-muted">…</div>
       </div>
     );
   }
@@ -159,7 +167,6 @@ export function BuyerGiftDetailView({
   if (missing || !product) {
     return (
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
-        <MySubpageHeader title={headerTitle} titleKey="gift_u2_detail_title" backHref={mallHref} />
         <p className="text-sm text-sam-muted">
           {safeT("gift_u2_err_not_found", {
             fallbackKo: "상품권을 찾을 수 없습니다.",
@@ -187,14 +194,6 @@ export function BuyerGiftDetailView({
         data-gift-purchase-success="1"
         data-ready="1"
       >
-        <MySubpageHeader
-          title={safeT("gift_u2_success_title", {
-            fallbackKo: "상품권 구매가 완료되었습니다.",
-            fallbackEn: "Gift certificate purchased.",
-          })}
-          titleKey="gift_u2_success_title"
-          backHref={canonicalHubHref("gifts")}
-        />
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <GiftVisualCard
             visual={{
@@ -261,8 +260,6 @@ export function BuyerGiftDetailView({
 
   return (
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
-      <MySubpageHeader title={headerTitle} titleKey="gift_u2_detail_title" backHref={mallHref} />
-
       <GiftVisualCard
         className="mb-4"
         visual={{
@@ -383,7 +380,7 @@ export function BuyerGiftDetailView({
         ) : enough ? (
           <button
             type="button"
-            className={`${Sam.btn.primary} min-h-[48px] px-4`}
+            className={`${Sam.btn.primary} min-h-[52px] px-4 text-base font-semibold`}
             data-gift-detail-buy-cta="1"
             disabled={busy || balanceLoading}
             onClick={() => {
@@ -391,6 +388,11 @@ export function BuyerGiftDetailView({
               setConfirmOpen(true);
             }}
           >
+            {safeT("commerce_hub_gift_buy_cta", {
+              fallbackKo: "상품권 구매하기",
+              fallbackEn: "Buy gift certificate",
+            })}
+            {" · "}
             {priceLabel}
           </button>
         ) : (

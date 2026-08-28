@@ -109,6 +109,10 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
             issuerName={instance.storeName}
             faceValue={instance.faceValue}
             remainingBalance={instance.remainingBalance}
+            publicGiftNumber={instance.publicGiftNumber}
+            showGiftNumber={Boolean(instance.publicGiftNumber?.trim())}
+            showSend={Boolean(canSend)}
+            onSend={() => setSendOpen(true)}
           />
           {instance.publicGiftNumber ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">

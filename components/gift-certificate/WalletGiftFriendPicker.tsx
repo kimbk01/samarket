@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import type { GiftInstanceDetail } from "@/lib/gift-certificate/load-gift-instance-detail";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type FriendRow = {
@@ -28,47 +30,60 @@ export function WalletGiftFriendPicker({
   const { safeT } = useI18n();
   const router = useRouter();
   const [friends, setFriends] = useState<FriendRow[]>([]);
+  const [instance, setInstance] = useState<GiftInstanceDetail | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setReady(false);
     try {
-      const res = await fetch("/api/me/gift-certificates/friends/eligible", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json()) as {
+      const [friendsRes, instanceRes] = await Promise.all([
+        fetch("/api/me/gift-certificates/friends/eligible", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch(`/api/me/gift-certificates/instances/${encodeURIComponent(instanceId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+      const friendsJson = (await friendsRes.json()) as {
         ok?: boolean;
         friends?: FriendRow[];
         data?: { friends?: FriendRow[] };
       };
-      const list = json.friends ?? json.data?.friends ?? [];
+      const list = friendsJson.friends ?? friendsJson.data?.friends ?? [];
       setFriends(Array.isArray(list) ? list : []);
+
+      const instanceJson = (await instanceRes.json()) as { ok?: boolean; instance?: GiftInstanceDetail };
+      setInstance(instanceJson.ok ? instanceJson.instance ?? null : null);
     } catch {
       setFriends([]);
+      setInstance(null);
     } finally {
       setReady(true);
     }
-  }, []);
+  }, [instanceId]);
 
   useEffect(() => {
     if (!open) return;
     setErrorMsg(null);
+    setSelectedId(null);
     void load();
   }, [open, load]);
 
-  const pick = async (peerUserId: string) => {
-    if (busyId) return;
-    setBusyId(peerUserId);
+  const continueToRoom = async () => {
+    if (!selectedId || busy) return;
+    setBusy(true);
     setErrorMsg(null);
     try {
       const res = await fetch("/api/community-messenger/rooms", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomType: "direct", peerUserId }),
+        body: JSON.stringify({ roomType: "direct", peerUserId: selectedId }),
       });
       const json = (await res.json()) as { ok?: boolean; roomId?: string; error?: string };
       if (!res.ok || !json.ok || !json.roomId) {
@@ -89,7 +104,7 @@ export function WalletGiftFriendPicker({
         `/community-messenger/rooms/${encodeURIComponent(json.roomId)}?${q.toString()}`
       );
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
@@ -97,12 +112,47 @@ export function WalletGiftFriendPicker({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
-      title={safeT("gift_u3_friend_pick_title", {
-        fallbackKo: "선물할 친구",
-        fallbackEn: "Choose a friend",
+      title={safeT("gift_u3_transfer_title", {
+        fallbackKo: "상품권 선물하기",
+        fallbackEn: "Send gift certificate",
       })}
     >
       <div className="px-4 pb-4" data-wallet-gift-friend-picker="1">
+        {instance ? (
+          <div className="mb-4">
+            <p className="mb-2 text-xs font-medium text-sam-muted">
+              {safeT("gift_u3_transfer_preview_label", {
+                fallbackKo: "보낼 상품권",
+                fallbackEn: "Gift to send",
+              })}
+            </p>
+            <GiftVisualCard
+              visual={{
+                giftScope: instance.giftScope,
+                imageUrl: instance.imageUrl,
+                storeLogoUrl: instance.storeLogoUrl,
+                storeName: instance.storeName,
+                title: instance.title,
+              }}
+              surface="transfer"
+              compact
+              title={instance.title}
+              issuerName={instance.storeName}
+              faceValue={instance.faceValue}
+              remainingBalance={instance.remainingBalance}
+              showValidity={false}
+              className="border-0 shadow-none"
+            />
+          </div>
+        ) : null}
+
+        <p className="mb-2 text-sm font-semibold text-sam-fg">
+          {safeT("gift_u3_friend_pick_recipient", {
+            fallbackKo: "받는 사람 선택",
+            fallbackEn: "Choose recipient",
+          })}
+        </p>
+
         {errorMsg ? <p className="mb-2 text-sm text-sam-danger">{errorMsg}</p> : null}
         {!ready ? (
           <p className="text-sm text-sam-muted">…</p>
@@ -114,26 +164,53 @@ export function WalletGiftFriendPicker({
             })}
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="mb-4 max-h-[40vh] space-y-2 overflow-y-auto">
             {friends.map((f) => {
               const label = String(f.displayName || f.nickname || f.label || f.id).trim();
+              const handle = f.nickname?.trim() && f.nickname !== label ? f.nickname : null;
+              const selected = selectedId === f.id;
               return (
                 <li key={f.id}>
                   <button
                     type="button"
-                    className={`${Sam.btn.secondary} flex min-h-[48px] w-full items-center justify-between px-3 text-left`}
-                    disabled={busyId === f.id}
+                    className={`flex min-h-[52px] w-full items-center gap-3 rounded-ui-rect border px-3 text-left ${
+                      selected ? "border-signature bg-signature/5" : "border-sam-border bg-sam-surface"
+                    }`}
                     data-wallet-gift-friend={f.id}
-                    onClick={() => void pick(f.id)}
+                    aria-pressed={selected}
+                    onClick={() => setSelectedId(f.id)}
                   >
-                    <span className="truncate">{label}</span>
-                    <span>›</span>
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                        selected ? "border-signature bg-signature text-white" : "border-sam-border"
+                      }`}
+                      aria-hidden
+                    >
+                      {selected ? "✓" : ""}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-sam-fg">{label}</span>
+                      {handle ? <span className="block truncate text-xs text-sam-muted">@{handle}</span> : null}
+                    </span>
                   </button>
                 </li>
               );
             })}
           </ul>
         )}
+
+        <button
+          type="button"
+          className={`${Sam.btn.primary} min-h-[48px] w-full px-4 text-sm disabled:opacity-50`}
+          disabled={!selectedId || busy || friends.length === 0}
+          data-wallet-gift-friend-continue="1"
+          onClick={() => void continueToRoom()}
+        >
+          {safeT("gift_u3_friend_pick_continue", {
+            fallbackKo: "다음",
+            fallbackEn: "Continue",
+          })}
+        </button>
       </div>
     </DibayBottomSheet>
   );

@@ -43,7 +43,7 @@ export function GiftMallProductCard({
                       fallbackEn: "Non-transferable",
                     })}
               </p>
-              <span className={`${Sam.btn.secondary} inline-flex min-h-[40px] w-full items-center justify-center px-3 text-sm`}>
+              <span className={`${Sam.btn.primary} inline-flex min-h-[44px] w-full items-center justify-center px-3 text-sm pointer-events-none`}>
                 {safeT("gift_u2_mall_card_view", {
                   fallbackKo: "상품권 보기",
                   fallbackEn: "View gift",

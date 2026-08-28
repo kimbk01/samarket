@@ -19,6 +19,15 @@ export function CommerceHubLegacyUrlSync({ alias }: { alias: LegacyAliasKind }) 
 
   useLayoutEffect(() => {
     const current = new URLSearchParams(searchParams.toString());
+    if (alias === "activity") {
+      const tabRaw = current.get("tab")?.trim() ?? "";
+      if (tabRaw && !isCommerceHubTab(tabRaw)) {
+        current.delete("tab");
+        router.replace(`${pathname}?${current.toString()}`, { scroll: false });
+      }
+      return;
+    }
+
     let canonical: URLSearchParams;
     if (alias === "coupons") {
       canonical = translateLegacyCouponsSearchParams(current);
@@ -38,7 +47,6 @@ export function CommerceHubLegacyUrlSync({ alias }: { alias: LegacyAliasKind }) 
     }
     if (tabOk && alias === "coupons" && current.get("couponTab") === canonical.get("couponTab")) return;
     if (tabOk && alias === "gifts" && current.get("giftTab") === canonical.get("giftTab")) return;
-    if (tabOk && alias === "activity") return;
 
     router.replace(`${pathname}?${canonical.toString()}`, { scroll: false });
   }, [alias, pathname, router, searchParams]);
