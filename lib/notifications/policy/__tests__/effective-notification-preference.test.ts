@@ -290,9 +290,8 @@ describe("resolveEffectiveNotificationPreference (P2-A3)", () => {
     expect(src).not.toMatch(/from\s+["']@supabase/);
   });
 
-  it("runtime consumers remain unchanged — no resolver import", () => {
+  it("runtime sound consumer remains unchanged — no resolver import", () => {
     const paths = [
-      "lib/notifications/web-push-user-settings-gate.ts",
       "lib/notifications/notification-sound-gate.ts",
       "lib/notifications/badge-authority-rebuild/member-notification-a-eligibility.ts",
       "lib/admin/admin-ops-sound-decision.ts",
