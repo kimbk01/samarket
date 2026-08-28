@@ -14,9 +14,9 @@ export const GIFT_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[30rem]";
 /** Detail hero — fill content column; cap on desktop. */
 export const GIFT_DETAIL_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[36rem]";
 
-/** Fixed reference coordinate — 1600×960 → 5:3. */
-export const GIFT_CERT_ASPECT_RATIO = "5 / 3" as const;
+/** Fixed reference coordinate — 1600×950 landscape certificate. */
+export const GIFT_CERT_ASPECT_RATIO = "1600 / 950" as const;
 export const GIFT_CERT_COORD_WIDTH = 1600;
-export const GIFT_CERT_COORD_HEIGHT = 960;
+export const GIFT_CERT_COORD_HEIGHT = 950;
 
 export type GiftCertificateFaceVariant = "hero" | "standard" | "compact";

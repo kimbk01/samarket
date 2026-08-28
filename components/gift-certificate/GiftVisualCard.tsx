@@ -3,10 +3,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayGiftCertificateSvg } from "@/components/gift-certificate/DibayGiftCertificateSvg";
 import {
-  DibayGiftCertificateFace,
-  type GiftCertificateValueMode,
-} from "@/components/gift-certificate/DibayGiftCertificateFace";
+  buildGiftCertificateVisualModel,
+  buildGiftVisualModelLabels,
+} from "@/lib/gift-certificate/gift-certificate-visual-model";
 import {
   resolveGiftVisual,
   type GiftScope,
@@ -20,12 +21,6 @@ import {
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type GiftVisualSurface = "mall" | "wallet" | "instance" | "transfer" | "chat" | "used";
-
-function resolveValueMode(surface: GiftVisualSurface, faded: boolean): GiftCertificateValueMode {
-  if (surface === "mall") return "mall";
-  if (surface === "used" || faded) return "used";
-  return "wallet";
-}
 
 function resolveFaceVariant(
   faceVariant: GiftCertificateFaceVariant | undefined,
@@ -45,10 +40,14 @@ export function GiftVisualCard({
   issuerName,
   faceValue,
   remainingBalance,
-  purchasePrice,
+  purchasePrice: _purchasePrice,
   publicGiftNumber,
   statusLabel,
+  status,
   faded = false,
+  validFrom,
+  validUntil,
+  validityDisplay,
   detailHref,
   onDetail,
   onSend,
@@ -56,13 +55,13 @@ export function GiftVisualCard({
   showSend = false,
   showValidity = true,
   showGiftNumber = false,
-  amountSlot,
+  amountSlot: _amountSlot,
   footer,
   className = "",
   compact = false,
   fullWidth = false,
   faceVariant,
-  hideFooter = false,
+  hideFooter: _hideFooter = false,
 }: {
   visual: GiftVisualInput;
   surface: GiftVisualSurface;
@@ -73,6 +72,10 @@ export function GiftVisualCard({
   purchasePrice?: number | null;
   publicGiftNumber?: string | null;
   statusLabel?: string | null;
+  status?: string | null;
+  validFrom?: string | null;
+  validUntil?: string | null;
+  validityDisplay?: string | null;
   faded?: boolean;
   detailHref?: string;
   onDetail?: () => void;
@@ -97,7 +100,28 @@ export function GiftVisualCard({
   const issuer = issuerName?.trim() || (scope === "PLATFORM" ? "DIBAY" : visual.storeName?.trim() || "");
   const isUsed = surface === "used" || faded;
   const variant = resolveFaceVariant(faceVariant, fullWidth, compact);
-  const valueMode = resolveValueMode(surface, isUsed);
+  const labels = buildGiftVisualModelLabels((key, opts) =>
+    safeT(
+      key as Parameters<typeof safeT>[0],
+      opts as Parameters<typeof safeT>[1]
+    )
+  );
+
+  const certModel = buildGiftCertificateVisualModel({
+    surface,
+    title: displayTitle,
+    giftScope: scope,
+    storeName: visual.storeName?.trim() || issuer,
+    faceValue: faceValue ?? null,
+    remainingBalance: remainingBalance ?? null,
+    validFrom: validFrom ?? null,
+    validUntil: validUntil ?? null,
+    validityDisplay: validityDisplay ?? null,
+    status: status ?? undefined,
+    faded: isUsed,
+    variant,
+    labels,
+  });
 
   const scopeLine = isStore
     ? safeT("commerce_hub_gift_scope_store_named", {
@@ -109,11 +133,6 @@ export function GiftVisualCard({
         fallbackKo: "DIBAY 이용 가능 매장",
         fallbackEn: "Eligible DIBAY stores",
       });
-
-  const validityLine = safeT("commerce_hub_gift_validity_never", {
-    fallbackKo: "유효기간 · 만료되지 않음",
-    fallbackEn: "Validity · Never expires",
-  });
 
   const detailBtn = detailHref ? (
     <Link
@@ -163,25 +182,28 @@ export function GiftVisualCard({
       data-gift-visual-surface={surface}
       data-gift-face-variant={variant}
     >
-      <DibayGiftCertificateFace
-        variant={variant}
-        valueMode={valueMode}
-        faceValue={faceValue ?? null}
-        purchasePrice={purchasePrice ?? null}
-        remainingBalance={remainingBalance ?? null}
-        valueSlot={amountSlot}
-        priority={variant === "hero"}
-        hideFooter={hideFooter}
-      />
+      {certModel ? (
+        <DibayGiftCertificateSvg model={certModel} priority={variant === "hero"} />
+      ) : (
+        <div
+          data-gift-cert-face="1"
+          className="flex min-h-[12rem] items-center justify-center bg-sam-muted/10 text-sm text-sam-muted"
+        >
+          {safeT("gift_u2_mall_error", {
+            fallbackKo: "상품권을 불러오지 못했습니다.",
+            fallbackEn: "Could not load gift certificate.",
+          })}
+        </div>
+      )}
 
       <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
         {displayTitle && displayTitle !== issuer ? (
           <p className="truncate text-sm font-semibold text-sam-fg">{displayTitle}</p>
         ) : null}
         <p className="text-xs leading-snug text-sam-muted">{scopeLine}</p>
-        {showValidity ? (
+        {showValidity && certModel?.validity ? (
           <p className="text-xs text-sam-muted" data-gift-validity="1">
-            {validityLine}
+            {certModel.validity.label} · {certModel.validity.display}
           </p>
         ) : null}
         {statusLabel ? (
