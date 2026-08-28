@@ -7,7 +7,7 @@ function source(path: string): string {
 }
 
 describe("DIBAY gift certificate brand face", () => {
-  it("uses canonical transparent mark, comp layers, and live value data — no logo redraw", () => {
+  it("uses fixed 1600x960 comp, canonical PNG logo, cqw typography — no logo SVG", () => {
     const face = source("components/gift-certificate/DibayGiftCertificateFace.tsx");
     const card = source("components/gift-certificate/GiftVisualCard.tsx");
     const paths = source("lib/brand/brand-asset-paths.ts");
@@ -17,17 +17,24 @@ describe("DIBAY gift certificate brand face", () => {
     expect(paths).toContain('DIBAY_LOGO_MARK_PATH = "/images/brand/dibay-logo-mark.png"');
     expect(existsSync(resolve(process.cwd(), "public/images/brand/dibay-logo-mark.png"))).toBe(true);
 
-    expect(face).toContain("DIBAY_LOGO_MARK_PATH");
+    expect(face).toContain("viewBox=\"0 0 1600 960\"");
+    expect(face).toContain('data-gift-cert-face="1"');
+    expect(face).toContain("containerType: \"inline-size\"");
+    expect(face).toContain('data-gift-cert-artwork');
     expect(face).toContain('data-gift-dibay-logo="1"');
     expect(face).toContain('data-gift-cert-top-badge="1"');
     expect(face).toContain('data-gift-cert-s-curve="1"');
     expect(face).toContain('data-gift-cert-value-panel="1"');
     expect(face).toContain('data-gift-cert-footer="1"');
+    expect(face).toContain('data-gift-gold-divider="1"');
+    expect(face).toContain("formatMoneyPhp(face)");
+    expect(face).toContain("7.0cqw");
+    expect(face).not.toContain("10vw");
+    expect(face).not.toContain("clamp(");
 
-    expect(card).toContain('data-gift-gold-divider="1"');
-    expect(card).toContain("formatMoneyPhp(face)");
-    expect(card).toContain("formatMoneyPhp(purchase)");
-    expect(layout).toContain('aspect-[1.65/1]');
+    expect(card).not.toContain("clamp(");
+    expect(card).not.toContain("10vw");
+    expect(layout).toContain('GIFT_CERT_ASPECT_RATIO = "5 / 3"');
     expect(detail).toContain('data-gift-detail-buy-cta="1"');
   });
 });

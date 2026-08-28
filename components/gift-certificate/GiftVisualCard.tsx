@@ -3,7 +3,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayGiftCertificateFace } from "@/components/gift-certificate/DibayGiftCertificateFace";
+import {
+  DibayGiftCertificateFace,
+  type GiftCertificateValueMode,
+} from "@/components/gift-certificate/DibayGiftCertificateFace";
 import {
   resolveGiftVisual,
   type GiftScope,
@@ -12,11 +15,28 @@ import {
 import {
   GIFT_CARD_SHELL_CLASS,
   GIFT_DETAIL_CARD_SHELL_CLASS,
+  type GiftCertificateFaceVariant,
 } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type GiftVisualSurface = "mall" | "wallet" | "instance" | "transfer" | "chat" | "used";
+
+function resolveValueMode(surface: GiftVisualSurface, faded: boolean): GiftCertificateValueMode {
+  if (surface === "mall") return "mall";
+  if (surface === "used" || faded) return "used";
+  return "wallet";
+}
+
+function resolveFaceVariant(
+  faceVariant: GiftCertificateFaceVariant | undefined,
+  fullWidth: boolean,
+  compact: boolean
+): GiftCertificateFaceVariant {
+  if (faceVariant) return faceVariant;
+  if (fullWidth) return "hero";
+  if (compact) return "compact";
+  return "standard";
+}
 
 export function GiftVisualCard({
   visual,
@@ -41,6 +61,8 @@ export function GiftVisualCard({
   className = "",
   compact = false,
   fullWidth = false,
+  faceVariant,
+  hideFooter = false,
 }: {
   visual: GiftVisualInput;
   surface: GiftVisualSurface;
@@ -64,6 +86,8 @@ export function GiftVisualCard({
   className?: string;
   compact?: boolean;
   fullWidth?: boolean;
+  faceVariant?: GiftCertificateFaceVariant;
+  hideFooter?: boolean;
 }) {
   const { safeT } = useI18n();
   const resolved = resolveGiftVisual(visual);
@@ -72,6 +96,8 @@ export function GiftVisualCard({
   const displayTitle = title?.trim() || visual.title?.trim() || "";
   const issuer = issuerName?.trim() || (scope === "PLATFORM" ? "DIBAY" : visual.storeName?.trim() || "");
   const isUsed = surface === "used" || faded;
+  const variant = resolveFaceVariant(faceVariant, fullWidth, compact);
+  const valueMode = resolveValueMode(surface, isUsed);
 
   const scopeLine = isStore
     ? safeT("commerce_hub_gift_scope_store_named", {
@@ -88,93 +114,6 @@ export function GiftVisualCard({
     fallbackKo: "유효기간 · 만료되지 않음",
     fallbackEn: "Validity · Never expires",
   });
-
-  const face = faceValue ?? null;
-  const remaining = remainingBalance ?? null;
-  const purchase = purchasePrice ?? null;
-
-  const valueTypeClass = compact
-    ? "whitespace-nowrap text-[clamp(1.35rem,7vw,1.85rem)] font-bold tabular-nums leading-none tracking-tight text-white"
-    : "whitespace-nowrap text-[clamp(1.85rem,10vw,3.15rem)] font-bold tabular-nums leading-none tracking-tight text-white";
-
-  const faceLabelClass = compact
-    ? "text-[9px] font-medium tracking-wide text-[#E4C56A]"
-    : "text-[10px] font-medium tracking-wide text-[#E4C56A] sm:text-[11px]";
-
-  const purchaseLineClass = compact
-    ? "mt-2 whitespace-nowrap text-[10px] font-semibold tabular-nums text-white/95"
-    : "mt-2 whitespace-nowrap text-[11px] font-semibold tabular-nums text-white/95 sm:text-sm";
-
-  const amountBlock =
-    amountSlot ??
-    (surface === "mall" ? (
-      <div className="min-w-0 max-w-full text-right">
-        {face != null ? (
-          <p className={faceLabelClass}>
-            {safeT("commerce_hub_gift_face_label", {
-              fallbackKo: "상품권 금액",
-              fallbackEn: "Gift certificate amount",
-            })}
-          </p>
-        ) : null}
-        {face != null ? (
-          <p className={`mt-0.5 ${valueTypeClass}`} data-gift-face-amount="1">
-            {formatMoneyPhp(face)}
-          </p>
-        ) : null}
-        {purchase != null ? (
-          <>
-            <div className="mx-auto mt-2.5 flex w-full max-w-[92%] items-center gap-1.5" aria-hidden data-gift-gold-divider="1">
-              <span className="h-px flex-1 bg-[#D4AF37]/60" />
-              <span className="h-1.5 w-1.5 rotate-45 bg-[#D4AF37]" />
-              <span className="h-px flex-1 bg-[#D4AF37]/60" />
-            </div>
-            <p className={purchaseLineClass} data-gift-purchase-amount="1">
-              {safeT("commerce_hub_gift_purchase_label", {
-                fallbackKo: "구매가",
-                fallbackEn: "Purchase price",
-              })}{" "}
-              {formatMoneyPhp(purchase)}
-            </p>
-          </>
-        ) : null}
-      </div>
-    ) : isUsed ? (
-      <div className="min-w-0 max-w-full text-right">
-        <p className="text-base font-bold text-white/90">
-          {safeT("commerce_hub_used_completed", {
-            fallbackKo: "사용 완료",
-            fallbackEn: "Fully used",
-          })}
-        </p>
-        {face != null ? (
-          <p className="mt-0.5 text-sm tabular-nums text-white/80">{formatMoneyPhp(face)}</p>
-        ) : null}
-      </div>
-    ) : (
-      <div className="min-w-0 max-w-full text-right">
-        {remaining != null ? (
-          <>
-            <p className="text-[10px] font-medium tracking-wide text-white/80 sm:text-[11px]">
-              {safeT("gift_u2_wallet_remaining", {
-                fallbackKo: "잔액",
-                fallbackEn: "Balance",
-              })}
-            </p>
-            <p className={`mt-0.5 ${valueTypeClass}`} data-gift-remaining-amount="1">
-              {formatMoneyPhp(remaining)}
-            </p>
-          </>
-        ) : face != null ? (
-          <p className={valueTypeClass} data-gift-face-amount="1">
-            {formatMoneyPhp(face)}
-          </p>
-        ) : null}
-        {face != null && remaining != null && face !== remaining ? (
-          <p className="mt-0.5 text-xs tabular-nums text-white/80">/ {formatMoneyPhp(face)}</p>
-        ) : null}
-      </div>
-    ));
 
   const detailBtn = detailHref ? (
     <Link
@@ -211,7 +150,8 @@ export function GiftVisualCard({
       </button>
     ) : null;
 
-  const shellClass = compact ? "" : fullWidth ? GIFT_DETAIL_CARD_SHELL_CLASS : GIFT_CARD_SHELL_CLASS;
+  const shellClass =
+    variant === "hero" ? GIFT_DETAIL_CARD_SHELL_CLASS : variant === "standard" ? GIFT_CARD_SHELL_CLASS : "";
 
   return (
     <article
@@ -221,8 +161,18 @@ export function GiftVisualCard({
       data-gift-visual-card="1"
       data-gift-scope={scope}
       data-gift-visual-surface={surface}
+      data-gift-face-variant={variant}
     >
-      <DibayGiftCertificateFace compact={compact} valueSlot={amountBlock} priority={fullWidth} />
+      <DibayGiftCertificateFace
+        variant={variant}
+        valueMode={valueMode}
+        faceValue={faceValue ?? null}
+        purchasePrice={purchasePrice ?? null}
+        remainingBalance={remainingBalance ?? null}
+        valueSlot={amountSlot}
+        priority={variant === "hero"}
+        hideFooter={hideFooter}
+      />
 
       <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
         {displayTitle && displayTitle !== issuer ? (

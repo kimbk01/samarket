@@ -231,6 +231,23 @@ async function main() {
   }
   report.giftNumber = pick.publicGiftNumber || pick.id;
 
+  await page.goto(`${ORIGIN}/admin/gift-certificates?tab=instances`, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
+  await page.waitForTimeout(2000);
+  const detailOpenBtn = page.locator('[data-admin-gift-instance-detail-open="1"]').first();
+  const detailOpenCount = await detailOpenBtn.count();
+  if (detailOpenCount > 0) {
+    await detailOpenBtn.click();
+    await page.waitForTimeout(3500);
+  }
+  const clickDetailUi = await page.locator("[data-admin-gift-instance-detail='1']").count();
+  const clickDetailReady = await page.locator('[data-admin-gift-instance-detail-status="ready"]').count();
+  report.lifecycle.detailClickUi = clickDetailUi > 0 ? "PASS" : "FAIL";
+  report.lifecycle.detailClickReady = clickDetailReady > 0 ? "PASS" : "FAIL";
+  await page.screenshot({ path: resolve(SHOT, "instance-detail-click.png"), fullPage: true });
+
   const detailRes = await page.evaluate(async (id) => {
     const res = await fetch(`/api/admin/gift-certificates/tracking?id=${encodeURIComponent(id)}`, {
       credentials: "include",
@@ -318,6 +335,8 @@ async function main() {
     report.shell,
     report.panels,
     report.apis,
+    report.lifecycle.detailClickUi,
+    report.lifecycle.detailClickReady,
     report.lifecycle.detailUi,
     report.parity === "PASS" ? "PASS" : "FAIL",
   ].filter((x) => x !== "PASS");

@@ -97,6 +97,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
       ) : (
         <div className="space-y-4 pb-8">
           <GiftVisualCard
+            fullWidth
             visual={{
               giftScope: instance.giftScope,
               imageUrl: instance.imageUrl,

@@ -1,25 +1,22 @@
-/** Measured responsive Gift card / mall grid — reference §11. */
+/** Gift card grid / shell — fixed-comp SSOT uses 5:3 face geometry. */
 
-export const GIFT_CARD_MIN_WIDTH_PX = 280;
-export const GIFT_CARD_MAX_WIDTH_PX = 420;
+export const GIFT_CARD_MIN_WIDTH_PX = 360;
+export const GIFT_CARD_MAX_WIDTH_PX = 480;
 export const GIFT_COMMERCE_CONTENT_MAX_WIDTH_PX = 1120;
 
-/** Tailwind grid for mall + wallet lists — auto-fill by min card width. */
+/** Tailwind grid for mall + wallet lists — avoid sub-360px comp crush. */
 export const GIFT_CARD_RESPONSIVE_GRID_CLASS =
-  "grid min-w-0 grid-cols-1 gap-4 pb-8 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]";
+  "grid min-w-0 grid-cols-1 gap-4 pb-8 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,360px),1fr))]";
 
-/** Single card width clamp inside hub lists. */
-export const GIFT_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[26.25rem]";
+/** List / wallet card shell — desktop readable fixed-comp scale. */
+export const GIFT_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[30rem]";
 
-/** Detail hero — fill content column on 390px; cap so desktop is not a postage stamp. */
+/** Detail hero — fill content column; cap on desktop. */
 export const GIFT_DETAIL_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[36rem]";
 
-/** Landscape stored-value certificate — ~1.65:1. */
-export const GIFT_HERO_ASPECT_CLASS = "aspect-[1.65/1]";
-export const GIFT_HERO_ASPECT_COMPACT_CLASS = "aspect-[1.65/1]";
+/** Fixed reference coordinate — 1600×960 → 5:3. */
+export const GIFT_CERT_ASPECT_RATIO = "5 / 3" as const;
+export const GIFT_CERT_COORD_WIDTH = 1600;
+export const GIFT_CERT_COORD_HEIGHT = 960;
 
-export const GIFT_CERT_DEEP_GREEN = "#043322";
-export const GIFT_CERT_DARK_PANEL = "#021f16";
-export const GIFT_CERT_FOOTER_BG = "#011810";
-export const GIFT_CERT_CHAMPAGNE_GOLD = "#C5A572";
-export const GIFT_CERT_WARM_GOLD = "#E4C56A";
+export type GiftCertificateFaceVariant = "hero" | "standard" | "compact";
