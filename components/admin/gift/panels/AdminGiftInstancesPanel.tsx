@@ -286,7 +286,17 @@ export function AdminGiftInstancesPanel({
     );
   };
 
-  const openInstanceDetail = (row: InstanceRow) => {
+  const openProductEdit = (row: InstanceRow) => {
+    router.push(
+      buildAdminGiftOpsHref({
+        tab: "products",
+        products: "products",
+        extra: { id: row.productId, edit: "1" },
+      })
+    );
+  };
+
+  const openInstanceTrace = (row: InstanceRow) => {
     setFocusInstanceId(row.id);
     router.push(
       buildAdminGiftOpsHref({
@@ -300,6 +310,13 @@ export function AdminGiftInstancesPanel({
     );
   };
 
+  const productEditHref = (productId: string) =>
+    buildAdminGiftOpsHref({
+      tab: "products",
+      products: "products",
+      extra: { id: productId, edit: "1" },
+    });
+
   const closeDetailHref = buildAdminGiftOpsHref({
     tab: "instances",
     extra: { q: urlQ || null, status: urlStatus || null },
@@ -309,6 +326,12 @@ export function AdminGiftInstancesPanel({
 
   return (
     <div className="space-y-4" data-admin-gift-instances="1">
+      <p className="text-xs text-sam-muted">
+        {safeT("gift_ops_instance_list_hint", {
+          fallbackKo: "「상세」는 상품권 상품 설정(제목·가격·판매기간) 수정입니다. 「추적」은 개별 발급 이력 조회입니다.",
+          fallbackEn: "Detail opens product settings (title, price, sales window). Trace shows one issued certificate history.",
+        })}
+      </p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="min-w-0 flex-1 text-sm">
           <span className="text-sam-muted">
@@ -409,16 +432,26 @@ export function AdminGiftInstancesPanel({
                     <td className="px-2 py-2">{row.status}</td>
                     <td className="px-2 py-2 text-xs text-sam-muted">{dt(row.purchasedAt || row.createdAt)}</td>
                     <td className="px-2 py-2">
-                      <button
-                        type="button"
-                        className={adminGiftPrimaryBtnClass("min-h-[36px] px-3 text-xs")}
-                        style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                        data-admin-gift-instance-detail-open="1"
-                        aria-pressed={effectiveInstanceId === row.id}
-                        onClick={() => openInstanceDetail(row)}
-                      >
-                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                      </button>
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          className={adminGiftPrimaryBtnClass("min-h-[36px] px-3 text-xs")}
+                          style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                          data-admin-gift-instance-detail-open="1"
+                          onClick={() => openProductEdit(row)}
+                        >
+                          {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                        </button>
+                        <button
+                          type="button"
+                          className={`${Sam.btn.secondary} min-h-[36px] px-3 text-xs`}
+                          data-admin-gift-instance-trace-open="1"
+                          aria-pressed={effectiveInstanceId === row.id}
+                          onClick={() => openInstanceTrace(row)}
+                        >
+                          {safeT("gift_ops_cta_trace", { fallbackKo: "추적", fallbackEn: "Trace" })}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -435,16 +468,26 @@ export function AdminGiftInstancesPanel({
                 <p className="text-xs text-sam-muted">
                   {row.status} · rem {formatMoneyPhp(row.remainingBalance)} · {row.currentOwnerLabel}
                 </p>
-                <button
-                  type="button"
-                  className={adminGiftPrimaryBtnClass("mt-2 min-h-[40px] w-full text-sm")}
-                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                  data-admin-gift-instance-detail-open="1"
-                  aria-pressed={effectiveInstanceId === row.id}
-                  onClick={() => openInstanceDetail(row)}
-                >
-                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
-                </button>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    className={adminGiftPrimaryBtnClass("min-h-[40px] w-full text-sm")}
+                    style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                    data-admin-gift-instance-detail-open="1"
+                    onClick={() => openProductEdit(row)}
+                  >
+                    {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${Sam.btn.secondary} min-h-[40px] w-full text-sm`}
+                    data-admin-gift-instance-trace-open="1"
+                    aria-pressed={effectiveInstanceId === row.id}
+                    onClick={() => openInstanceTrace(row)}
+                  >
+                    {safeT("gift_ops_cta_trace", { fallbackKo: "추적", fallbackEn: "Trace" })}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -492,9 +535,22 @@ export function AdminGiftInstancesPanel({
                 <p className="break-all font-mono">store: {selectedRow.storeId}</p>
               </details>
             </div>
-            <Link href={closeDetailHref} className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}>
-              {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={productEditHref(selectedRow.productId)}
+                className={adminGiftPrimaryBtnClass("min-h-[40px] px-3 text-sm")}
+                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                data-admin-gift-instance-product-edit="1"
+              >
+                {safeT("gift_ops_cta_edit_product", {
+                  fallbackKo: "상품 설정 수정",
+                  fallbackEn: "Edit product settings",
+                })}
+              </Link>
+              <Link href={closeDetailHref} className={`${Sam.btn.secondary} min-h-[40px] px-3 text-sm`}>
+                {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
+              </Link>
+            </div>
           </div>
 
           {detailStatus === "loading" ? (

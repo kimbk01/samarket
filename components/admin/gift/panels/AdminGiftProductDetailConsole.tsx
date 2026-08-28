@@ -115,10 +115,12 @@ function toLocalInput(iso: string | null): string {
 
 export function AdminGiftProductDetailConsole({
   productId,
+  initialEditOpen = false,
   onBack,
   onChanged,
 }: {
   productId: string;
+  initialEditOpen?: boolean;
   onBack: () => void;
   onChanged: () => void;
 }) {
@@ -187,6 +189,13 @@ export function AdminGiftProductDetailConsole({
   }, [load]);
 
   const product = payload?.product;
+
+  useEffect(() => {
+    if (!initialEditOpen || state !== "ready" || !product || editOpen) return;
+    hydrateEditFromProduct(product);
+    setEditOpen(true);
+  }, [editOpen, hydrateEditFromProduct, initialEditOpen, product, state]);
+
   const scope = product?.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
   const status = product ? productStatus(product) : "PAUSED";
   const moneyLocked = product?.money_locked === true;

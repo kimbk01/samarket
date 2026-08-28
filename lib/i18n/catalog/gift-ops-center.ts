@@ -18,6 +18,10 @@ export const giftOpsCenterMessages = {
     gift_ops_technical: "기술 상세",
     gift_ops_close_detail: "목록으로",
     gift_ops_cta_detail: "상세",
+    gift_ops_cta_trace: "추적",
+    gift_ops_cta_edit_product: "상품 설정 수정",
+    gift_ops_instance_list_hint:
+      "「상세」는 상품권 상품 설정(제목·가격·판매기간) 수정입니다. 「추적」은 개별 발급 이력 조회입니다.",
     gift_ops_cta_review: "검토",
     gift_ops_cta_process: "처리",
     gift_ops_cta_store: "매장 상세",
@@ -218,6 +222,10 @@ export const giftOpsCenterMessages = {
     gift_ops_technical: "Technical details",
     gift_ops_close_detail: "Back to list",
     gift_ops_cta_detail: "Detail",
+    gift_ops_cta_trace: "Trace",
+    gift_ops_cta_edit_product: "Edit product settings",
+    gift_ops_instance_list_hint:
+      "Detail opens product settings (title, price, sales window). Trace shows one issued certificate history.",
     gift_ops_cta_review: "Review",
     gift_ops_cta_process: "Process",
     gift_ops_cta_store: "Store detail",

@@ -47,6 +47,8 @@ describe("gift public number surfaces", () => {
     expect(instancesPanel).toContain("publicGiftNumber");
     expect(instancesPanel).toContain("fetchList");
     expect(instancesPanel).toContain("fetchInstanceDetail");
+    expect(instancesPanel).toContain("openProductEdit");
+    expect(instancesPanel).toContain("data-admin-gift-instance-trace-open");
     expect(instancesPanel).toContain("data-admin-gift-instance-detail-open");
     expect(instancesPanel).toContain("data-admin-gift-instance-detail-status");
     expect(instancesPanel).toContain("ADMIN_GIFT_PRIMARY_BTN_STYLE");

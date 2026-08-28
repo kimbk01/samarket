@@ -87,6 +87,7 @@ export function AdminGiftIssuancePanel({
   storeId,
   scopeFilter = "ALL",
   createType = "",
+  productEditOpen = false,
 }: {
   productsSubtab: AdminGiftOpsProductsSubtab;
   id: string;
@@ -94,6 +95,7 @@ export function AdminGiftIssuancePanel({
   storeId: string;
   scopeFilter?: string;
   createType?: string;
+  productEditOpen?: boolean;
 }) {
   const { safeT } = useI18n();
   const labelScope = (scope: string | undefined) =>
@@ -745,6 +747,7 @@ export function AdminGiftIssuancePanel({
         {productInstanceNote}
         <AdminGiftProductDetailConsole
           productId={id}
+          initialEditOpen={productEditOpen}
           onBack={() => go({ tab: "products", products: "products" })}
           onChanged={() => void loadProducts()}
         />

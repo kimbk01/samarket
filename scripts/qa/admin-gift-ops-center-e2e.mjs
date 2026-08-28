@@ -242,11 +242,24 @@ async function main() {
     await detailOpenBtn.click();
     await page.waitForTimeout(3500);
   }
-  const clickDetailUi = await page.locator("[data-admin-gift-instance-detail='1']").count();
-  const clickDetailReady = await page.locator('[data-admin-gift-instance-detail-status="ready"]').count();
-  report.lifecycle.detailClickUi = clickDetailUi > 0 ? "PASS" : "FAIL";
-  report.lifecycle.detailClickReady = clickDetailReady > 0 ? "PASS" : "FAIL";
+  const clickProductEditUi = await page.locator("[data-admin-gift-product-edit='1']").count();
+  const clickProductSaveUi = await page.locator("[data-admin-gift-product-save='1']").count();
+  report.lifecycle.detailClickUi = clickProductEditUi > 0 || clickProductSaveUi > 0 ? "PASS" : "FAIL";
+  report.lifecycle.detailClickReady = clickProductSaveUi > 0 ? "PASS" : "FAIL";
   await page.screenshot({ path: resolve(SHOT, "instance-detail-click.png"), fullPage: true });
+
+  await page.goto(`${ORIGIN}/admin/gift-certificates?tab=instances`, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
+  await page.waitForTimeout(1500);
+  const traceBtn = page.locator('[data-admin-gift-instance-trace-open="1"]').first();
+  if ((await traceBtn.count()) > 0) {
+    await traceBtn.click();
+    await page.waitForTimeout(3500);
+  }
+  const traceDetailUi = await page.locator("[data-admin-gift-instance-detail='1']").count();
+  report.lifecycle.instanceTraceUi = traceDetailUi > 0 ? "PASS" : "FAIL";
 
   const detailRes = await page.evaluate(async (id) => {
     const res = await fetch(`/api/admin/gift-certificates/tracking?id=${encodeURIComponent(id)}`, {
@@ -337,6 +350,7 @@ async function main() {
     report.apis,
     report.lifecycle.detailClickUi,
     report.lifecycle.detailClickReady,
+    report.lifecycle.instanceTraceUi,
     report.lifecycle.detailUi,
     report.parity === "PASS" ? "PASS" : "FAIL",
   ].filter((x) => x !== "PASS");

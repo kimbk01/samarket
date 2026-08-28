@@ -115,6 +115,7 @@ export function AdminGiftOpsCenter() {
           storeId={storeId}
           scopeFilter={scopeFilter}
           createType={createType}
+          productEditOpen={sp.get("edit") === "1"}
         />
       ) : null}
       {tab === "instances" ? (
