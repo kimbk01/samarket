@@ -112,6 +112,8 @@ export function WalletGiftFriendPicker({
     <DibayBottomSheet
       open={open}
       onClose={onClose}
+      // Gift buyer routes suppress main bottom nav; default above-nav lift leaves a 60px page gap.
+      anchor="device-bottom"
       title={safeT("gift_u3_transfer_title", {
         fallbackKo: "상품권 선물하기",
         fallbackEn: "Send gift certificate",

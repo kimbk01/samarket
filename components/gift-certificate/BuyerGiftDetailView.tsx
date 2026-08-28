@@ -324,10 +324,7 @@ export function BuyerGiftDetailView({
 
       {errorMsg ? <p className="mb-3 text-sm text-sam-danger">{errorMsg}</p> : null}
 
-      <div
-        className="sticky bottom-0 z-20 -mx-[10px] mt-auto flex flex-col gap-2 border-t border-sam-border/80 bg-sam-app/95 px-[10px] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm"
-        data-gift-detail-cta-bar="1"
-      >
+      <div className="flex flex-col gap-2 pb-10" data-gift-detail-cta-bar="1">
         {!authed ? (
           <Link
             href={loginHref}
@@ -339,52 +336,46 @@ export function BuyerGiftDetailView({
               fallbackEn: "Sign in to buy",
             })}
           </Link>
-        ) : enough ? (
-          <button
-            type="button"
-            className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] w-full px-4 text-base font-semibold`}
-            data-gift-detail-buy-cta="1"
-            disabled={busy || balanceLoading}
-            onClick={() => {
-              setErrorMsg(null);
-              setConfirmOpen(true);
-            }}
-          >
-            {safeT("commerce_hub_gift_buy_cta", {
-              fallbackKo: "상품권 구매하기",
-              fallbackEn: "Buy gift certificate",
-            })}
-            {" · "}
-            {priceLabel}
-          </button>
         ) : (
           <>
-            <p className="text-sm font-medium text-sam-fg">
-              {safeT("gift_u2_detail_insufficient_title", {
-                fallbackKo: "Point가 부족합니다",
-                fallbackEn: "Not enough Point",
-              })}
-            </p>
-            <Link
-              href={chargeHref}
-              className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
-              data-gift-detail-charge-cta="1"
+            <button
+              type="button"
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] w-full px-4 text-base font-semibold`}
+              data-gift-detail-buy-cta="1"
+              disabled={busy || balanceLoading || !enough}
+              onClick={() => {
+                if (!enough) return;
+                setErrorMsg(null);
+                setConfirmOpen(true);
+              }}
             >
-              {safeT("gift_u2_detail_charge_cta", {
-                fallbackKo: "Point 충전하기",
-                fallbackEn: "Top up Point",
+              {safeT("commerce_hub_gift_buy_cta", {
+                fallbackKo: "상품권 구매하기",
+                fallbackEn: "Buy gift certificate",
               })}
-            </Link>
-            <Link
-              href={mallHref}
-              className={`${Sam.btn.secondary} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
-              data-gift-detail-browse-cta="1"
-            >
-              {safeT("gift_u2_detail_browse_other", {
-                fallbackKo: "다른 상품권 보기",
-                fallbackEn: "Browse other gifts",
-              })}
-            </Link>
+              {" · "}
+              {priceLabel}
+            </button>
+            {!enough ? (
+              <>
+                <p className="text-sm font-medium text-sam-fg">
+                  {safeT("gift_u2_detail_insufficient_title", {
+                    fallbackKo: "Point가 부족합니다",
+                    fallbackEn: "Not enough Point",
+                  })}
+                </p>
+                <Link
+                  href={chargeHref}
+                  className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
+                  data-gift-detail-charge-cta="1"
+                >
+                  {safeT("gift_u2_detail_charge_cta", {
+                    fallbackKo: "Point 충전하기",
+                    fallbackEn: "Top up Point",
+                  })}
+                </Link>
+              </>
+            ) : null}
           </>
         )}
       </div>
@@ -460,7 +451,16 @@ export function BuyerGiftDetailView({
         })}
         description={successBody}
       >
-        <div className="mt-3 flex gap-2" data-gift-purchase-success="1">
+        <div className="mt-3 space-y-3" data-gift-purchase-success="1">
+          {purchasedGiftNumber ? (
+            <p
+              className="text-sm tabular-nums text-sam-fg"
+              data-gift-public-number={purchasedGiftNumber}
+            >
+              {purchasedGiftNumber}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
           <button
             type="button"
             className="dibay-overlay-btn dibay-overlay-btn--secondary min-h-[48px] flex-1"
@@ -489,6 +489,7 @@ export function BuyerGiftDetailView({
               fallbackEn: "View my gifts",
             })}
           </button>
+          </div>
         </div>
       </DibayDialog>
     </div>

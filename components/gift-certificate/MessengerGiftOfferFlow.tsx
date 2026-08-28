@@ -140,6 +140,8 @@ export function MessengerGiftOfferFlow({
       onClose={() => {
         if (!busy) onClose();
       }}
+      // Room/gift surfaces suppress main bottom nav; avoid phantom above-nav lift.
+      anchor="device-bottom"
       title={
         phase === "confirm"
           ? safeT("gift_u3_confirm_title", {
