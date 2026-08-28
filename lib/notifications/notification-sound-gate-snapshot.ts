@@ -2,6 +2,11 @@
  * Provider snapshot for sound settings / active room — not sound occurrence identity.
  */
 
+import type {
+  LegacyUserSettingsPushRow,
+  NotificationSettingsStorageRow,
+} from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+
 export type NotificationSoundGateSnapshot = {
   userNotificationSettings: {
     trade_chat_enabled: boolean;
@@ -11,6 +16,11 @@ export type NotificationSoundGateSnapshot = {
     sound_enabled: boolean;
     vibration_enabled: boolean;
   };
+  /** Raw storage inputs — re-normalized at decision time for quiet.activeNow. */
+  memberPreferenceStorage?: Readonly<{
+    notificationSettingsRow: NotificationSettingsStorageRow | null;
+    legacyUserSettingsRow: LegacyUserSettingsPushRow | null;
+  }>;
   activeTradeChatRoomId: string | null;
   activeCommunityChatRoomId: string | null;
   activeGroupChatRoomId: string | null;

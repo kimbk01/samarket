@@ -20,6 +20,11 @@ import {
   syncNotificationSoundGateSnapshot,
   type NotificationSoundGateSnapshot,
 } from "@/lib/notifications/notification-sound-gate-snapshot";
+import { normalizeNotificationPreferenceStorage } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import {
+  resolveMemberSoundFromPreferences,
+  resolveSoundPreferenceRecipientRole,
+} from "@/lib/notifications/notification-sound-member-preference-gate";
 
 export type { NotificationSoundGateSnapshot };
 export { getNotificationSoundGateSnapshot, syncNotificationSoundGateSnapshot };
@@ -159,19 +164,81 @@ function explainShouldPlayGroupChatInAppSoundFromGate(
   snap: NotificationSoundGateSnapshot,
   roomId: string | null | undefined,
 ): { play: boolean; skipReason: string | null } {
-  if (!snap.userNotificationSettings.sound_enabled) {
-    return { play: false, skipReason: "sound_disabled" };
-  }
   if (!snap.isWindowFocused) {
     return { play: false, skipReason: "window_unfocused_os_owns_sound" };
-  }
-  if (snap.userNotificationSettings.community_chat_enabled === false) {
-    return { play: false, skipReason: "community_chat_disabled" };
   }
   const ref = roomId != null ? String(roomId).trim() : "";
   if (ref && snap.activeGroupChatRoomId === ref) {
     return { play: false, skipReason: "active_group_room" };
   }
+  return { play: true, skipReason: null };
+}
+
+function memberPreferenceSnapshotFromGate(
+  snap: NotificationSoundGateSnapshot,
+  now: Date
+) {
+  const storage = snap.memberPreferenceStorage ?? {
+    notificationSettingsRow: null,
+    legacyUserSettingsRow: null,
+  };
+  return normalizeNotificationPreferenceStorage({
+    notificationSettingsRow: storage.notificationSettingsRow,
+    legacyUserSettingsRow: storage.legacyUserSettingsRow,
+    now,
+  });
+}
+
+function explainMemberSoundPreferenceFromRow(
+  snap: NotificationSoundGateSnapshot,
+  row: Record<string, unknown>,
+  now: Date = new Date()
+): { play: boolean; skipReason: string | null } {
+  const preferences = memberPreferenceSnapshotFromGate(snap, now);
+  const play = resolveMemberSoundFromPreferences(row, preferences, now);
+  return {
+    play,
+    skipReason: play ? null : "member_preference_resolver",
+  };
+}
+
+function explainPreferenceSoundFromGate(
+  snap: NotificationSoundGateSnapshot,
+  row: Record<string, unknown>,
+  domain: NotificationDomain | null,
+  refId: string | null | undefined,
+  roomId?: string | null
+): { play: boolean; skipReason: string | null } {
+  if (!snap.isWindowFocused) {
+    return { play: false, skipReason: "window_unfocused_os_owns_sound" };
+  }
+
+  if (roomId != null) {
+    const groupGate = explainShouldPlayGroupChatInAppSoundFromGate(snap, roomId);
+    if (!groupGate.play) return groupGate;
+  } else if (domain) {
+    const ref = refId != null ? String(refId).trim() : "";
+    if (domain === "trade_chat" && ref && snap.activeTradeChatRoomId === ref) {
+      return { play: false, skipReason: "active_trade_room" };
+    }
+    if (isCommunityChatSoundDomain(domain) && ref && snap.activeCommunityChatRoomId === ref) {
+      return { play: false, skipReason: "active_community_room" };
+    }
+  }
+
+  const recipientRole = resolveSoundPreferenceRecipientRole(row);
+  if (recipientRole === "member") {
+    return explainMemberSoundPreferenceFromRow(snap, row);
+  }
+
+  if (domain) {
+    return explainShouldPlayInAppSoundFromGate(snap, domain, refId);
+  }
+
+  if (roomId != null) {
+    return explainShouldPlayGroupChatInAppSoundFromGate(snap, roomId);
+  }
+
   return { play: true, skipReason: null };
 }
 
@@ -264,15 +331,15 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   if (metaKind === "community_group_invite") {
     const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;
     if (typeof roomId === "string" && roomId.trim()) {
-      const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, roomId);
+      const gate = explainPreferenceSoundFromGate(surface, row, null, null, roomId);
       logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
         ...probeBase,
         roomId,
         play: gate.play,
         skipReason: gate.skipReason,
       });
-      if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomId)) {
-        playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
+      if (!gate.play) {
+        playRowEventSound(row, { muted: true });
         return finish(false, gate.skipReason ?? "group_invite_gate_false", { roomId });
       }
       const played = playRowEventSound(row);
@@ -282,15 +349,15 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   }
 
   if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
-    const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id);
+    const gate = explainPreferenceSoundFromGate(surface, row, null, null, metaAny.room_id);
     logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
       ...probeBase,
       roomId: metaAny.room_id,
       play: gate.play,
       skipReason: gate.skipReason,
     });
-    if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
-      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
+    if (!gate.play) {
+      playRowEventSound(row, { muted: true });
       return finish(false, gate.skipReason ?? "group_chat_gate_false", { roomId: metaAny.room_id });
     }
     const played = playRowEventSound(row);
@@ -300,15 +367,15 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const gateDomain = gateDomainEarly;
 
   if (gateDomain === "community_group_chat") {
-    const gate = explainShouldPlayGroupChatInAppSoundFromGate(surface, roomRef);
+    const gate = explainPreferenceSoundFromGate(surface, row, gateDomain, roomRef, roomRef);
     logBadgeFdProbe("shouldPlayGroupChatInAppSoundFromGate", {
       ...probeBase,
       roomId: roomRef,
       play: gate.play,
       skipReason: gate.skipReason,
     });
-    if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomRef)) {
-      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" || gate.skipReason === "community_chat_disabled" });
+    if (!gate.play) {
+      playRowEventSound(row, { muted: true });
       return finish(false, gate.skipReason ?? "community_group_chat_gate_false", { roomRef });
     }
     const played = playRowEventSound(row);
@@ -316,7 +383,7 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   }
 
   if (gateDomain) {
-    const gate = explainShouldPlayInAppSoundFromGate(surface, gateDomain, roomRef);
+    const gate = explainPreferenceSoundFromGate(surface, row, gateDomain, roomRef);
     logBadgeFdProbe("shouldPlayInAppSoundFromGate", {
       ...probeBase,
       domain: gateDomain,
@@ -324,8 +391,8 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       play: gate.play,
       skipReason: gate.skipReason,
     });
-    if (!shouldPlayInAppSoundFromGate(surface, gateDomain, roomRef)) {
-      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" });
+    if (!gate.play) {
+      playRowEventSound(row, { muted: true });
       return finish(false, gate.skipReason ?? "domain_gate_false", { gateDomain, roomRef });
     }
     const played = playRowEventSound(row);
@@ -336,7 +403,7 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   if (typeof domainRaw === "string" && isNotificationDomain(domainRaw)) {
     const routedDomain =
       domainRaw === "community_chat" ? "community_direct_chat" : (domainRaw as NotificationDomain);
-    const gate = explainShouldPlayInAppSoundFromGate(surface, routedDomain, refId);
+    const gate = explainPreferenceSoundFromGate(surface, row, routedDomain, refId);
     logBadgeFdProbe("shouldPlayInAppSoundFromGate", {
       ...probeBase,
       domain: routedDomain,
@@ -344,12 +411,18 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       play: gate.play,
       skipReason: gate.skipReason,
     });
-    if (!shouldPlayInAppSoundFromGate(surface, routedDomain, refId)) {
-      playRowEventSound(row, { muted: gate.skipReason === "sound_disabled" });
+    if (!gate.play) {
+      playRowEventSound(row, { muted: true });
       return finish(false, gate.skipReason ?? "legacy_domain_gate_false", { routedDomain, refId });
     }
     const played = playRowEventSound(row);
     return finish(played, played ? null : "decision_skip", { played: routedDomain });
+  }
+
+  const fallbackGate = explainPreferenceSoundFromGate(surface, row, null, refId);
+  if (!fallbackGate.play) {
+    playRowEventSound(row, { muted: true });
+    return finish(false, fallbackGate.skipReason ?? "member_preference_resolver");
   }
 
   const played = playRowEventSound(row);

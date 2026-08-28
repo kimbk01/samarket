@@ -14,6 +14,7 @@ import type { NotificationDomain } from "@/lib/notifications/notification-domain
 import {
   fetchMeNotificationSettingsSnapshot,
   peekMeNotificationSettingsSnapshotCached,
+  type MeNotificationSettingsSnapshot,
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
 import {
@@ -21,6 +22,12 @@ import {
   shouldPlayInAppSoundFromGate,
   syncNotificationSoundGateSnapshot,
 } from "@/lib/notifications/notification-sound-gate";
+import type { NotificationSettingsStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import {
+  getUserSettings,
+  subscribeUserSettings,
+} from "@/lib/settings/user-settings-store";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 export type UserNotificationSettingsState = {
   trade_chat_enabled: boolean;
@@ -85,6 +92,7 @@ function groupChatRoomIdFromPathname(pathname: string | null): string | null {
 
 export function NotificationSurfaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const userId = getCurrentUser()?.id ?? "me";
   const [explicitTradeChatRoomId, setExplicitTradeChatRoomId] = useState<string | null>(null);
   const [explicitCommunityChatRoomId, setExplicitCommunityChatRoomId] = useState<string | null>(
     null
@@ -92,6 +100,16 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
   const [isWindowFocused, setIsWindowFocused] = useState(true);
   const [userNotificationSettings, setUserNotificationSettings] =
     useState<UserNotificationSettingsState>(DEFAULT_SETTINGS);
+  const [notificationSettingsRow, setNotificationSettingsRow] =
+    useState<NotificationSettingsStorageRow | null>(null);
+  const [legacyUserSettingsVersion, setLegacyUserSettingsVersion] = useState(0);
+
+  const applyNotificationSettingsSnapshot = useCallback((snapshot: MeNotificationSettingsSnapshot | null) => {
+    if (snapshot?.ok && snapshot.settings && typeof snapshot.settings === "object") {
+      setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...snapshot.settings });
+      setNotificationSettingsRow(snapshot.settings as NotificationSettingsStorageRow);
+    }
+  }, []);
 
   const pathTrade = tradeRoomIdFromPathname(pathname ?? null);
   const pathCommunity = communityRoomIdFromPathname(pathname ?? null);
@@ -104,18 +122,16 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
   const refreshUserNotificationSettings = useCallback(async () => {
     try {
       const snapshot = await fetchMeNotificationSettingsSnapshot();
-      if (snapshot?.ok && snapshot.settings && typeof snapshot.settings === "object") {
-        setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...snapshot.settings });
-      }
+      applyNotificationSettingsSnapshot(snapshot);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [applyNotificationSettingsSnapshot]);
 
   useEffect(() => {
     const cached = peekMeNotificationSettingsSnapshotCached();
     if (cached?.ok && cached.settings && typeof cached.settings === "object") {
-      setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...cached.settings });
+      applyNotificationSettingsSnapshot(cached);
       return;
     }
     const cancel = scheduleNotificationSettingsSnapshotDeferred(
@@ -125,7 +141,7 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
       { source: "notification-surface" }
     );
     return cancel;
-  }, [refreshUserNotificationSettings]);
+  }, [refreshUserNotificationSettings, applyNotificationSettingsSnapshot]);
 
   useEffect(() => {
     const onCustom = () => void refreshUserNotificationSettings();
@@ -137,7 +153,15 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
         window.removeEventListener("kasama:user-notification-settings-changed", onCustom);
       }
     };
-  }, [refreshUserNotificationSettings]);
+  }, [refreshUserNotificationSettings, applyNotificationSettingsSnapshot]);
+
+  useEffect(() => {
+    return subscribeUserSettings(({ userId: changedUserId }) => {
+      if (changedUserId === userId) {
+        setLegacyUserSettingsVersion((v) => v + 1);
+      }
+    });
+  }, [userId]);
 
   useEffect(() => {
     const onFocus = () => setIsWindowFocused(true);
@@ -164,9 +188,26 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     }
   }, [activeTradeChatRoomId, activeCommunityChatRoomId, activeGroupChatRoomId]);
 
+  const memberPreferenceStorage = useMemo(() => {
+    void legacyUserSettingsVersion;
+    const legacy = getUserSettings(userId);
+    return {
+      notificationSettingsRow,
+      legacyUserSettingsRow: {
+        push_enabled: legacy.push_enabled,
+        chat_push_enabled: legacy.chat_push_enabled,
+        marketing_push_enabled: legacy.marketing_push_enabled,
+        do_not_disturb_enabled: legacy.do_not_disturb_enabled,
+        do_not_disturb_start: legacy.do_not_disturb_start,
+        do_not_disturb_end: legacy.do_not_disturb_end,
+      },
+    };
+  }, [notificationSettingsRow, userId, legacyUserSettingsVersion]);
+
   const soundGateSnapshot = useMemo(
     () => ({
       userNotificationSettings,
+      memberPreferenceStorage,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
       activeGroupChatRoomId,
@@ -174,6 +215,7 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     }),
     [
       userNotificationSettings,
+      memberPreferenceStorage,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
       activeGroupChatRoomId,
