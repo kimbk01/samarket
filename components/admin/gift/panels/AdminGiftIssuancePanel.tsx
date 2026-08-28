@@ -11,6 +11,7 @@ import {
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
+import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
 
 type ApplicationRow = {
   id: string;
@@ -56,6 +57,7 @@ type ProductRow = {
   transferable?: boolean;
   image_url?: string | null;
   redemption_by_store?: RedemptionByStore[];
+  updated_at?: string;
 };
 
 function dt(v: string | null | undefined): string {
@@ -95,12 +97,13 @@ export function AdminGiftIssuancePanel({
   const [apps, setApps] = useState<ApplicationRow[]>([]);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [detail, setDetail] = useState<ApplicationRow | null>(null);
-  const [productDetail, setProductDetail] = useState<ProductRow | null>(null);
   const [listState, setListState] = useState<"loading" | "error" | "empty" | "data">("loading");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "ARCHIVED">("ALL");
 
   const [prodTitle, setProdTitle] = useState("");
   const [prodFace, setProdFace] = useState("");
@@ -162,8 +165,6 @@ export function AdminGiftIssuancePanel({
       const rows = json.products ?? [];
       setProducts(rows);
       setListState(rows.length ? "data" : "empty");
-      if (id) setProductDetail(rows.find((p) => p.id === id) ?? null);
-      else setProductDetail(null);
     } catch {
       setProducts([]);
       setListState("error");
@@ -322,66 +323,6 @@ export function AdminGiftIssuancePanel({
     }
   };
 
-  const patchProduct = async (action: string) => {
-    if (!productDetail || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/gift-certificates/products/${encodeURIComponent(productDetail.id)}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        }
-      );
-      const json = (await res.json()) as { ok?: boolean; product?: ProductRow; error?: string };
-      if (!res.ok || !json.ok) {
-        setError(
-          safeT("gift_admin_action_fail", {
-            fallbackKo: "처리에 실패했습니다.",
-            fallbackEn: "Action failed.",
-          })
-        );
-        return;
-      }
-      await loadProducts();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const deleteProduct = async () => {
-    if (!productDetail || busy) return;
-    if (productDetail.issued_count > 0) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/gift-certificates/products/${encodeURIComponent(productDetail.id)}`,
-        { method: "DELETE", credentials: "include" }
-      );
-      const json = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setError(
-          json.error === "delete_forbidden_has_instances"
-            ? safeT("gift_ops_delete_forbidden", {
-                fallbackKo: "발급된 Instance가 있어 삭제할 수 없습니다. 판매중지/보관을 사용하세요.",
-                fallbackEn: "Cannot delete: instances exist. Pause or archive instead.",
-              })
-            : safeT("gift_admin_action_fail", {
-                fallbackKo: "처리에 실패했습니다.",
-                fallbackEn: "Action failed.",
-              })
-        );
-        return;
-      }
-      go({ tab: "products", products: "products" });
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const subTabs = (
     <div className="flex flex-wrap gap-2">
@@ -734,129 +675,31 @@ export function AdminGiftIssuancePanel({
     );
   }
 
-  if (productsSubtab === "products" && id && productDetail) {
-    const scope = productDetail.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
+  if (productsSubtab === "products" && id) {
     return (
-      <section className="space-y-4" data-admin-gift-product-detail="1">
+      <section className="space-y-4">
         {subTabs}
         {productInstanceNote}
-        <h2 className="text-lg font-semibold">{productDetail.title}</h2>
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
-          <p>
-            {safeT("gift_ops_field_type", { fallbackKo: "상품권 종류", fallbackEn: "Gift type" })}:{" "}
-            {labelScope(scope)}
-          </p>
-          <p>
-            {scope === "PLATFORM"
-              ? safeT("gift_ops_usable_platform", {
-                  fallbackKo: "사용 범위: DIBAY eligible stores",
-                  fallbackEn: "Usable at: DIBAY eligible stores",
-                })
-              : `${safeT("gift_ops_field_store", { fallbackKo: "매장", fallbackEn: "Store" })}: ${
-                  productDetail.store_name || "—"
-                }`}
-          </p>
-          <p className="tabular-nums">Face {formatMoneyPhp(productDetail.face_value)}</p>
-          <p className="tabular-nums">Purchase {formatMoneyPhp(productDetail.purchase_price)}</p>
-          <p>Fee {productDetail.platform_fee_rate}%</p>
-          <p>
-            {dt(productDetail.sales_starts_at)} → {dt(productDetail.sales_ends_at)}
-          </p>
-          <p>
-            {productDetail.archived_at
-              ? "ARCHIVED"
-              : productDetail.active
-                ? "ACTIVE"
-                : "PAUSED"}
-          </p>
-          <p className="tabular-nums">
-            Issued {productDetail.issued_count} · Outstanding{" "}
-            {formatMoneyPhp(productDetail.outstanding_balance)} · Redeemed{" "}
-            {formatMoneyPhp(productDetail.redeemed_gross)}
-          </p>
-          {productDetail.creation_source ? (
-            <p className="text-xs text-sam-muted">Source: {productDetail.creation_source}</p>
-          ) : null}
-        </div>
-        {scope === "PLATFORM" && (productDetail.redemption_by_store?.length ?? 0) > 0 ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <p className="mb-2 text-sm font-semibold">
-              {safeT("gift_ops_redeem_by_store", {
-                fallbackKo: "매장별 사용",
-                fallbackEn: "Redemption by store",
-              })}
-            </p>
-            <ul className="space-y-1 text-sm">
-              {productDetail.redemption_by_store!.map((r) => (
-                <li key={r.store_id} className="tabular-nums">
-                  {r.store_name || shortId(r.store_id)}: Gross {formatMoneyPhp(r.gross)} · Fee{" "}
-                  {formatMoneyPhp(r.fee)} · Net {formatMoneyPhp(r.net)}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          {productDetail.active ? (
-            <button
-              type="button"
-              className={Sam.btn.secondary}
-              disabled={busy}
-              onClick={() => void patchProduct("pause")}
-            >
-              {safeT("gift_ops_cta_pause", { fallbackKo: "판매중지", fallbackEn: "Pause sales" })}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={Sam.btn.primary}
-              disabled={busy || !!productDetail.archived_at}
-              onClick={() => void patchProduct("activate")}
-            >
-              {safeT("gift_ops_cta_resume", { fallbackKo: "판매 재개", fallbackEn: "Resume sales" })}
-            </button>
-          )}
-          {!productDetail.archived_at ? (
-            <button
-              type="button"
-              className={Sam.btn.secondary}
-              disabled={busy}
-              onClick={() => void patchProduct("archive")}
-            >
-              {safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
-            </button>
-          ) : null}
-          {productDetail.issued_count === 0 ? (
-            <button
-              type="button"
-              className="rounded-ui-rect border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
-              disabled={busy}
-              onClick={() => void deleteProduct()}
-            >
-              {safeT("gift_ops_cta_delete", { fallbackKo: "삭제", fallbackEn: "Delete" })}
-            </button>
-          ) : null}
-        </div>
-        <Link
-          href={buildAdminGiftOpsHref({ tab: "instances", extra: { q: productDetail.id } })}
-          className={`${Sam.btn.primary} inline-flex min-h-[44px] items-center justify-center px-4`}
-        >
-          {safeT("gift_ops_cta_instances", {
-            fallbackKo: "상품권 현황 보기",
-            fallbackEn: "View instances",
-          })}
-        </Link>
-        <button
-          type="button"
-          className="min-h-[44px] w-full rounded-ui-rect border border-sam-border text-sm font-semibold"
-          onClick={() => go({ tab: "products", products: "products" })}
-        >
-          {safeT("gift_admin_cta_back_list", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
-        </button>
+        <AdminGiftProductDetailConsole
+          productId={id}
+          onBack={() => go({ tab: "products", products: "products" })}
+          onChanged={() => void loadProducts()}
+        />
       </section>
     );
   }
+
+  const filteredProducts = products.filter((p) => {
+    const st = p.archived_at ? "ARCHIVED" : p.active ? "ACTIVE" : "PAUSED";
+    if (statusFilter !== "ALL" && st !== statusFilter) return false;
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.store_name || "").toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <section className="space-y-4" data-admin-gift-issuance-panel="1">
@@ -903,6 +746,36 @@ export function AdminGiftIssuancePanel({
                   ? safeT("gift_ops_type_store", { fallbackKo: "매장", fallbackEn: "Store" })
                   : safeT("gift_ops_type_platform", { fallbackKo: "DIBAY", fallbackEn: "DIBAY" })}
             </Link>
+          ))}
+          <input
+            className={`${Sam.input.base} min-h-[40px] min-w-[140px] flex-1 text-sm`}
+            placeholder={safeT("gift_ops_product_search_ph", {
+              fallbackKo: "상품명·매장명·Product ID",
+              fallbackEn: "Gift name, store, product ID",
+            })}
+            value={productSearch}
+            onChange={(e) => setProductSearch(e.target.value)}
+            data-admin-gift-product-search="1"
+          />
+          {(["ALL", "ACTIVE", "PAUSED", "ARCHIVED"] as const).map((st) => (
+            <button
+              key={st}
+              type="button"
+              data-admin-gift-product-status={st}
+              className={[
+                "rounded-ui-rect px-3 py-1.5 text-xs font-semibold min-h-[40px]",
+                statusFilter === st ? "bg-sam-fg text-sam-app" : "border border-sam-border bg-sam-surface",
+              ].join(" ")}
+              onClick={() => setStatusFilter(st)}
+            >
+              {st === "ALL"
+                ? safeT("gift_ops_status_all", { fallbackKo: "전체 상태", fallbackEn: "All status" })
+                : st === "ACTIVE"
+                  ? safeT("gift_ops_status_active", { fallbackKo: "판매중", fallbackEn: "Active" })
+                  : st === "PAUSED"
+                    ? safeT("gift_ops_status_paused", { fallbackKo: "중지", fallbackEn: "Paused" })
+                    : safeT("gift_ops_status_archived", { fallbackKo: "보관", fallbackEn: "Archived" })}
+            </button>
           ))}
         </div>
       )}
@@ -999,12 +872,13 @@ export function AdminGiftIssuancePanel({
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Issued</th>
                 <th className="px-2 py-2">Outstanding</th>
-                <th className="px-2 py-2">Redeemed Gross</th>
-                <th className="px-2 py-2" />
+                <th className="px-2 py-2">{safeT("gift_ops_col_redeemed", { fallbackKo: "사용 금액", fallbackEn: "Redeemed" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_updated", { fallbackKo: "최근 수정", fallbackEn: "Updated" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => {
+              {filteredProducts.map((p) => {
                 const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
                 return (
                   <tr key={p.id} className="border-b border-sam-border/60">
@@ -1030,15 +904,17 @@ export function AdminGiftIssuancePanel({
                     <td className="px-2 py-2 tabular-nums">{p.issued_count}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.outstanding_balance)}</td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.redeemed_gross)}</td>
+                    <td className="px-2 py-2 text-xs">{dt(p.updated_at || null)}</td>
                     <td className="px-2 py-2">
                       <button
                         type="button"
-                        className={`${Sam.btn.primary} px-3 py-1.5 text-xs`}
+                        className={`${Sam.btn.primary} px-3 py-1.5 text-xs min-h-[36px]`}
+                        data-admin-gift-product-manage="1"
                         onClick={() =>
                           go({ tab: "products", products: "products", extra: { id: p.id } })
                         }
                       >
-                        {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                        {safeT("gift_ops_cta_manage", { fallbackKo: "상세 관리", fallbackEn: "Manage" })}
                       </button>
                     </td>
                   </tr>
@@ -1051,7 +927,7 @@ export function AdminGiftIssuancePanel({
 
       {listState === "data" && productsSubtab === "products" ? (
         <ul className="space-y-2 md:hidden">
-          {products.map((p) => {
+          {filteredProducts.map((p) => {
             const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
             return (
               <li key={p.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
@@ -1065,7 +941,7 @@ export function AdminGiftIssuancePanel({
                   className={`${Sam.btn.primary} mt-3 w-full min-h-[40px] text-sm`}
                   onClick={() => go({ tab: "products", products: "products", extra: { id: p.id } })}
                 >
-                  {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
+                  {safeT("gift_ops_cta_manage", { fallbackKo: "상세 관리", fallbackEn: "Manage" })}
                 </button>
               </li>
             );

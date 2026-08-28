@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { loadAdminGiftProductDetail } from "@/lib/gift-certificate/admin-gift-product-detail";
 import { validateGiftProductFunding, type GiftDiscountFundingParty } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 
@@ -15,6 +16,21 @@ function n(v: unknown): number {
 }
 
 type Ctx = { params: Promise<{ id: string }> };
+
+/** GET /api/admin/gift-certificates/products/[id] — canonical product master detail. */
+export async function GET(_req: NextRequest, ctx: Ctx) {
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
+
+  const id = s((await ctx.params).id);
+  if (!id) return NextResponse.json({ ok: false, error: "id_required" }, { status: 400 });
+
+  const detail = await loadAdminGiftProductDetail(gate.sb, id);
+  if (!detail) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, ...detail });
+}
 
 /** PATCH/DELETE /api/admin/gift-certificates/products/[id] */
 export async function PATCH(req: NextRequest, ctx: Ctx) {

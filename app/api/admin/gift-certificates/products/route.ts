@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, gift_scope, creation_source, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, archived_at, image_url, issued_count, max_issuance, created_at, stores(store_name)"
+      "id, store_id, gift_scope, creation_source, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, archived_at, image_url, issued_count, max_issuance, created_at, updated_at, stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -165,6 +165,7 @@ export async function GET(req: NextRequest) {
       issued_count: n(row.issued_count),
       max_issuance: row.max_issuance == null ? null : n(row.max_issuance),
       created_at: s(row.created_at),
+      updated_at: row.updated_at == null ? s(row.created_at) : s(row.updated_at),
       outstanding_balance: outstandingByProduct.get(id) ?? 0,
       redeemed_gross: redeemedByProduct.get(id) ?? 0,
       redemption_by_store,
