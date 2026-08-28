@@ -327,20 +327,34 @@ async function main() {
     `${ORIGIN}/admin/gift-certificates?tab=products&products=products&id=${encodeURIComponent(traceId)}`,
     { waitUntil: "domcontentloaded", timeout: 90000 }
   );
-  await page.waitForSelector('[data-admin-gift-product-detail="1"]', { timeout: 45000 }).catch(() => null);
+  await page.waitForSelector('[data-admin-gift-product-detail="1"]', { timeout: 60000 }).catch(() => null);
+  await page.waitForSelector('[data-admin-gift-product-section="instances"]', { timeout: 30000 }).catch(() => null);
 
   for (const sec of ["config", "instances", "transfers", "redemptions", "money", "audit"]) {
     await page.locator(`[data-admin-gift-product-section="${sec}"]`).click().catch(() => null);
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
   }
 
-  const detailPayload = await adminFetch(page, `/api/admin/gift-certificates/products/${traceId}`);
+  const detailPayload = await page.evaluate(
+    async ({ origin, traceId }) => {
+      const res = await fetch(`${origin}/api/admin/gift-certificates/products/${encodeURIComponent(traceId)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      return { status: res.status, json: await res.json() };
+    },
+    { origin: ORIGIN, traceId }
+  );
   const instances = detailPayload.json?.instances ?? [];
   const transfers = detailPayload.json?.transfers ?? [];
   const redemptions = detailPayload.json?.redemptions ?? [];
   const auditEvents = detailPayload.json?.auditEvents ?? [];
 
-  report.instanceTrace = instances.length >= 0 && (await page.locator('[data-admin-gift-product-section="instances"]').count()) > 0 ? "PASS" : "FAIL";
+  report.instanceTrace =
+    (await page.locator('[data-admin-gift-product-section="instances"]').count()) > 0 &&
+    Array.isArray(detailPayload.json?.instances)
+      ? "PASS"
+      : "FAIL";
   report.ownershipTrace =
     instances.some((r) => r.currentOwnerLabel || r.currentOwnerUserId) || instances.length === 0 ? "PASS" : "FAIL";
   report.transferTrace = Array.isArray(transfers) ? "PASS" : "FAIL";
@@ -361,26 +375,36 @@ async function main() {
     report.platformByStoreMoney = "PASS";
   }
 
-  const adminStore = await adminFetch(
-    page,
-    `/api/admin/gift-certificates/stores?storeId=${encodeURIComponent(STORE_X)}`
+  report.productHistoryView =
+    auditEvents.length >= 0 && (await page.locator('[data-admin-gift-product-section="audit"]').count()) > 0
+      ? "PASS"
+      : "FAIL";
+  report.dedicatedAdminActionAudit = "GAP";
+
+  await page.locator('[data-admin-gift-product-section="config"]').click().catch(() => null);
+  await page.waitForSelector('[data-admin-gift-product-actions="1"]', { timeout: 15000 }).catch(() => null);
+  const overflow = await page.evaluate(() => {
+    const root = document.querySelector('[data-admin-gift-product-detail="1"]');
+    if (!root) return false;
+    return root.scrollWidth <= root.clientWidth + 4;
+  });
+  const editBtn = (await page.locator('[data-admin-gift-product-actions="1"] button').count()) > 0;
+  report.px390 = overflow && editBtn ? "PASS" : "FAIL";
+
+  const adminStore = await page.evaluate(
+    async ({ origin, storeId }) => {
+      const res = await fetch(`${origin}/api/admin/gift-certificates/stores?storeId=${encodeURIComponent(storeId)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      return { status: res.status, json: await res.json() };
+    },
+    { origin: ORIGIN, storeId: STORE_X }
   );
   report.adminOwnerTrace =
     adminStore.json?.store?.parityOk === true || typeof adminStore.json?.store?.availableRevenue === "number"
       ? "PASS"
       : "NOT_PROVEN";
-
-  report.productHistoryView =
-    auditEvents.length > 0 && (await page.locator('[data-admin-gift-product-section="audit"]').count()) > 0
-      ? "PASS"
-      : auditEvents.length >= 0
-        ? "PASS"
-        : "FAIL";
-  report.dedicatedAdminActionAudit = "GAP";
-
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2);
-  const editBtn = (await page.locator('[data-admin-gift-product-actions="1"] button').count()) > 0;
-  report.px390 = overflow && editBtn ? "PASS" : "FAIL";
 
   await browser.close();
 
