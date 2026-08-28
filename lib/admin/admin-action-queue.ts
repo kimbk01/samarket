@@ -68,9 +68,9 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   trade_promo_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
   reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
   store_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
-  member_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  member_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   store_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
-  platform_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  platform_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   community_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_OPTIONAL", soundEligible: true },
 };
 

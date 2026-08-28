@@ -7,6 +7,8 @@
  * Owner of Admin ops RT wake-up + sound ingest + awareness CTA for:
  *   - point_charge_requests (member)
  *   - store_point_charge_requests (owner)
+ *   - member_admin_note_threads (Care inquiry, started_by=member)
+ *   - platform_admin_inquiries (Owner → Admin)
  *   - feed_ad_requests
  *   - delivery_operation_alert_events
  *
@@ -14,7 +16,7 @@
  *   Badge digits come only from /api/admin/admin-bell (Action Queue).
  *   Sound must not invent badge counts.
  *   One INSERT → one ingestAdminRowSound (canonical rowId dedupe).
- *   Future inquiry/report/store-apply subscribe here — do not add page RT.
+ *   Future report/store-apply subscribe here — do not add page RT.
  */
 
 import Link from "next/link";
@@ -39,6 +41,10 @@ import {
   adminMemberPointChargeDetailHref,
   adminStorePointChargeFocusHref,
 } from "@/lib/admin/admin-point-charge-deeplink";
+import {
+  resolveAdminMemberCareInquiryHref,
+  resolveAdminPlatformInquiryHref,
+} from "@/lib/admin/admin-inquiry-deeplink";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
@@ -51,7 +57,12 @@ import {
 } from "@/lib/notifications/notification-sound-decision";
 
 type AwarenessToast = {
-  kind: "member_point_charge" | "store_point_charge" | "feed_ad";
+  kind:
+    | "member_point_charge"
+    | "store_point_charge"
+    | "feed_ad"
+    | "member_care_inquiry"
+    | "platform_inquiry";
   requestId: string;
   label: string;
   href: string;
@@ -63,6 +74,8 @@ type Ctx = {
   feedAdPendingCount: number;
   /** TRADE_PROMO_PENDING — sidebar Trade ads-applications only */
   tradePromoPendingCount: number;
+  memberInquiryOpenCount: number;
+  platformInquiryOpenCount: number;
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
@@ -72,6 +85,8 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   userChargePendingCount: 0,
   feedAdPendingCount: 0,
   tradePromoPendingCount: 0,
+  memberInquiryOpenCount: 0,
+  platformInquiryOpenCount: 0,
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -109,6 +124,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
   const [tradePromoPendingCount, setTradePromoPendingCount] = useState(0);
+  const [memberInquiryOpenCount, setMemberInquiryOpenCount] = useState(0);
+  const [platformInquiryOpenCount, setPlatformInquiryOpenCount] = useState(0);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
   const awarenessToastTimeoutRef = useRef<number | null>(null);
@@ -117,6 +134,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const prevFeedCountRef = useRef(0);
   const feedSoundHydratedRef = useRef(false);
   const chargeSoundHydratedRef = useRef(false);
+  const inquirySoundHydratedRef = useRef(false);
 
   const showAwarenessToast = useCallback((toast: AwarenessToast) => {
     setAwarenessToast(toast);
@@ -176,6 +194,57 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         requestId: id,
         label,
         href: adminStorePointChargeFocusHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markMemberCareInquiryAlert = useCallback(
+    (threadId: string, meta?: { subject?: string | null }) => {
+      const id = String(threadId ?? "").trim();
+      if (!id) return;
+      const subject = String(meta?.subject ?? "").trim().slice(0, 80);
+      const label = [
+        safeT("admin_member_care_inquiry_toast_title", {
+          fallbackKo: "Owner/회원 1:1 문의",
+          fallbackEn: "Owner/Member 1:1 inquiry",
+        }),
+        subject || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      showAwarenessToast({
+        kind: "member_care_inquiry",
+        requestId: id,
+        label,
+        href: resolveAdminMemberCareInquiryHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markPlatformInquiryAlert = useCallback(
+    (inquiryId: string, meta?: { subject?: string | null; inquiryKind?: string | null }) => {
+      const id = String(inquiryId ?? "").trim();
+      if (!id) return;
+      const subject = String(meta?.subject ?? "").trim().slice(0, 80);
+      const kind = String(meta?.inquiryKind ?? "").trim();
+      const title =
+        kind === "account_request"
+          ? safeT("admin_platform_inquiry_account_toast_title", {
+              fallbackKo: "매장 입금계좌 문의",
+              fallbackEn: "Store deposit-account inquiry",
+            })
+          : safeT("admin_platform_inquiry_toast_title", {
+              fallbackKo: "매장 플랫폼 문의",
+              fallbackEn: "Store platform inquiry",
+            });
+      const label = [title, subject || null].filter(Boolean).join(" · ");
+      showAwarenessToast({
+        kind: "platform_inquiry",
+        requestId: id,
+        label,
+        href: resolveAdminPlatformInquiryHref(id),
       });
     },
     [safeT, showAwarenessToast]
@@ -274,6 +343,64 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     }
   }, []);
 
+  const seedPendingInquiryRowsSilent = useCallback(async () => {
+    try {
+      const [careRes, platformRes] = await Promise.all([
+        adminFetch("/api/admin/member-notes?kind=inquiry", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:member-notes:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }),
+        adminFetch("/api/admin/platform-inquiries", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:platform-inquiries:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }),
+      ]);
+      const careJson = (await careRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        threads?: { id?: string; status?: string }[];
+      };
+      const platformJson = (await platformRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        inquiries?: { id?: string; status?: string }[];
+      };
+      let seeded = 0;
+      if (careRes.ok && careJson.ok && Array.isArray(careJson.threads)) {
+        for (const t of careJson.threads) {
+          const id = String(t.id ?? "").trim();
+          if (!id) continue;
+          if (String(t.status ?? "") !== "open") continue;
+          seedCanonicalSoundConsumed({
+            identityKind: "admin_row",
+            canonicalEventId: id,
+          });
+          seeded += 1;
+        }
+      }
+      if (platformRes.ok && platformJson.ok !== false && Array.isArray(platformJson.inquiries)) {
+        for (const r of platformJson.inquiries) {
+          const id = String(r.id ?? "").trim();
+          if (!id) continue;
+          if (String(r.status ?? "") !== "open") continue;
+          seedCanonicalSoundConsumed({
+            identityKind: "admin_row",
+            canonicalEventId: id,
+          });
+          seeded += 1;
+        }
+      }
+      traceAdminSound("HYDRATE_SEED", {
+        table: "member_admin_note_threads+platform_admin_inquiries",
+        count: seeded,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const detectNewFeedAds = useCallback(async () => {
     try {
       const res = await adminFetch("/api/admin/feed-ad-requests?status=pending_review", {
@@ -321,6 +448,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             user_charges?: number;
             feed_ad_requests?: number;
             trade_promo_pending?: number;
+            member_inquiry_open?: number;
+            platform_inquiry_open?: number;
           };
         };
         return { resOk: res.ok, json };
@@ -331,10 +460,20 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         const userCharges = Math.max(0, Math.floor(Number(json.by_category?.user_charges) || 0));
         const feedAds = Math.max(0, Math.floor(Number(json.by_category?.feed_ad_requests) || 0));
         const tradePromo = Math.max(0, Math.floor(Number(json.by_category?.trade_promo_pending) || 0));
+        const memberInquiry = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.member_inquiry_open) || 0)
+        );
+        const platformInquiry = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.platform_inquiry_open) || 0)
+        );
         setPendingCount(storeCharges);
         setUserChargePendingCount(userCharges);
         setFeedAdPendingCount(feedAds);
         setTradePromoPendingCount(tradePromo);
+        setMemberInquiryOpenCount(memberInquiry);
+        setPlatformInquiryOpenCount(platformInquiry);
         if (!feedSoundHydratedRef.current) {
           feedSoundHydratedRef.current = true;
           void detectNewFeedAds();
@@ -343,12 +482,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           chargeSoundHydratedRef.current = true;
           void seedPendingChargeRowsSilent();
         }
+        if (!inquirySoundHydratedRef.current) {
+          inquirySoundHydratedRef.current = true;
+          void seedPendingInquiryRowsSilent();
+        }
         prevFeedCountRef.current = feedAds;
       }
     } catch {
       /* ignore */
     }
-  }, [detectNewFeedAds, seedPendingChargeRowsSilent]);
+  }, [detectNewFeedAds, seedPendingChargeRowsSilent, seedPendingInquiryRowsSilent]);
 
   useEffect(() => {
     void refresh();
@@ -473,6 +616,79 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
+          { event: "INSERT", schema: "public", table: "member_admin_note_threads" },
+          (payload) => {
+            const row = payload.new as {
+              id?: string;
+              started_by?: string;
+              status?: string;
+              subject?: string;
+            };
+            const rowId = String(row?.id ?? "").trim();
+            const startedBy = String(row?.started_by ?? "member").trim();
+            const status = String(row?.status ?? "").trim();
+            traceAdminSound("RT_INSERT", {
+              table: "member_admin_note_threads",
+              eventType: payload.eventType,
+              rowId,
+              startedBy,
+              status,
+            });
+            if (rowId && startedBy === "member" && status === "open") {
+              ingestAdminRowSound({
+                sourceTable: "member_admin_note_threads",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+              markMemberCareInquiryAlert(rowId, { subject: row.subject });
+            }
+            scheduleRefresh();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "member_admin_note_threads" },
+          () => scheduleRefresh()
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "platform_admin_inquiries" },
+          (payload) => {
+            const row = payload.new as {
+              id?: string;
+              status?: string;
+              subject?: string;
+              inquiry_kind?: string;
+            };
+            const rowId = String(row?.id ?? "").trim();
+            const status = String(row?.status ?? "").trim();
+            traceAdminSound("RT_INSERT", {
+              table: "platform_admin_inquiries",
+              eventType: payload.eventType,
+              rowId,
+              status,
+            });
+            if (rowId && status === "open") {
+              ingestAdminRowSound({
+                sourceTable: "platform_admin_inquiries",
+                rowId,
+                createdAt: createdAtFromPayload(payload),
+              });
+              markPlatformInquiryAlert(rowId, {
+                subject: row.subject,
+                inquiryKind: row.inquiry_kind,
+              });
+            }
+            scheduleRefresh();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "platform_admin_inquiries" },
+          () => scheduleRefresh()
+        )
+        .on(
+          "postgres_changes",
           { event: "INSERT", schema: "public", table: "feed_ad_requests" },
           (payload) => {
             const row = payload.new as {
@@ -538,7 +754,14 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
       if (channel) void sb.removeChannel(channel);
     };
-  }, [refresh, markFeedAdAlert, markMemberPointChargeAlert, markStorePointChargeAlert]);
+  }, [
+    refresh,
+    markFeedAdAlert,
+    markMemberPointChargeAlert,
+    markStorePointChargeAlert,
+    markMemberCareInquiryAlert,
+    markPlatformInquiryAlert,
+  ]);
 
   const value = useMemo(
     () => ({
@@ -546,6 +769,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       userChargePendingCount,
       feedAdPendingCount,
       tradePromoPendingCount,
+      memberInquiryOpenCount,
+      platformInquiryOpenCount,
       adminBellCount,
       refresh,
     }),
@@ -555,6 +780,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       userChargePendingCount,
       feedAdPendingCount,
       tradePromoPendingCount,
+      memberInquiryOpenCount,
+      platformInquiryOpenCount,
       refresh,
     ]
   );
@@ -571,7 +798,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               ? "admin-member-point-charge-toast"
               : awarenessToast.kind === "store_point_charge"
                 ? "admin-store-point-charge-toast"
-                : "admin-feed-ad-toast"
+                : awarenessToast.kind === "member_care_inquiry"
+                  ? "admin-member-care-inquiry-toast"
+                  : awarenessToast.kind === "platform_inquiry"
+                    ? "admin-platform-inquiry-toast"
+                    : "admin-feed-ad-toast"
           }
           data-request-id={awarenessToast.requestId}
         >

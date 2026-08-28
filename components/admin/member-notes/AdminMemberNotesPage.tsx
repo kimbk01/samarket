@@ -42,6 +42,7 @@ function AdminMemberNotesPageInner() {
   const searchParams = useSearchParams();
   const kind = parseKind(searchParams.get("kind"));
   const memberUserId = searchParams.get("memberUserId")?.trim() ?? "";
+  const focusThreadId = String(searchParams.get("thread") ?? "").trim();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -126,6 +127,12 @@ function AdminMemberNotesPageInner() {
     setSubject("");
     void loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    if (!focusThreadId || listLoading) return;
+    if (activeId === focusThreadId) return;
+    void loadThread(focusThreadId);
+  }, [focusThreadId, listLoading, activeId, loadThread]);
 
   const sendReply = async () => {
     if (!activeId || busy || !reply.trim()) return;

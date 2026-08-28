@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { parseAdminPlatformInquiryFocusRequestId } from "@/lib/admin/admin-inquiry-deeplink";
+import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 
 type Row = {
   id: string;
@@ -42,8 +45,11 @@ const STATUS_KEYS: Record<string, MessageKey> = {
 
 type FilterType = "all" | "store_point";
 
-export function AdminPlatformInquiriesPage() {
+function AdminPlatformInquiriesPageInner() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const focusRequestId = parseAdminPlatformInquiryFocusRequestId(searchParams);
+  const { refresh: refreshAdminQ } = useAdminStorePointPendingCount();
   const [filter, setFilter] = useState<FilterType>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +73,13 @@ export function AdminPlatformInquiriesPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!focusRequestId || loading) return;
+    const el = document.getElementById(`admin-platform-inquiry-${focusRequestId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusRequestId, loading, rows]);
+
   const submitAnswer = async (id: string) => {
     const answer = answerDraft[id]?.trim();
     if (!answer) return;
@@ -85,6 +98,7 @@ export function AdminPlatformInquiriesPage() {
         return;
       }
       await load();
+      void refreshAdminQ();
     } catch {
       setErr(t("common_network_error"));
     } finally {
@@ -132,7 +146,13 @@ export function AdminPlatformInquiriesPage() {
           {rows.map((r) => (
             <article
               key={r.id}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
+              id={`admin-platform-inquiry-${r.id}`}
+              className={`rounded-ui-rect border bg-sam-surface p-4 shadow-sm ${
+                focusRequestId === r.id
+                  ? "border-[#006241] ring-2 ring-[#006241]/30"
+                  : "border-sam-border"
+              }`}
+              data-admin-platform-inquiry-row={focusRequestId === r.id ? "focused" : "idle"}
             >
               <div className="flex flex-wrap justify-between gap-2 text-sm">
                 <span className="font-semibold text-sam-fg">
@@ -195,5 +215,13 @@ export function AdminPlatformInquiriesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export function AdminPlatformInquiriesPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPlatformInquiriesPageInner />
+    </Suspense>
   );
 }

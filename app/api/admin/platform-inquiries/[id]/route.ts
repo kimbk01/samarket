@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { notifyStoreOwnerPointAccountReplied } from "@/lib/notifications/notify-store-points";
+import {
+  notifyStoreOwnerPlatformInquiryReplied,
+  notifyStoreOwnerPointAccountReplied,
+} from "@/lib/notifications/notify-store-points";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +42,7 @@ export async function PATCH(
 
   const { data: before, error: loadErr } = await sb
     .from("platform_admin_inquiries")
-    .select("id, inquiry_type, inquiry_kind, store_id, from_user_id, status, answer")
+    .select("id, inquiry_type, inquiry_kind, store_id, from_user_id, subject, status, answer")
     .eq("id", iid)
     .maybeSingle();
 
@@ -78,18 +81,32 @@ export async function PATCH(
 
   const hadAnswerBefore = String(before.answer ?? "").trim().length > 0;
   const newAnswer = body.answer !== undefined ? String(body.answer).trim() : "";
-  const isAccountReply =
-    before.inquiry_type === "store_point" &&
-    String(before.inquiry_kind ?? "general") === "account_request" &&
+  const shouldNotifyOwner =
+    Boolean(before.store_id) &&
+    Boolean(before.from_user_id) &&
     newAnswer.length > 0 &&
     !hadAnswerBefore;
 
-  if (isAccountReply && before.store_id && before.from_user_id) {
-    void notifyStoreOwnerPointAccountReplied(sb, {
-      storeId: String(before.store_id),
-      ownerUserId: String(before.from_user_id),
-      inquiryId: iid,
-    }).catch((err) => console.error("[PATCH platform-inquiry notify]", err));
+  if (shouldNotifyOwner) {
+    const isAccountReply =
+      before.inquiry_type === "store_point" &&
+      String(before.inquiry_kind ?? "general") === "account_request";
+
+    if (isAccountReply) {
+      void notifyStoreOwnerPointAccountReplied(sb, {
+        storeId: String(before.store_id),
+        ownerUserId: String(before.from_user_id),
+        inquiryId: iid,
+      }).catch((err) => console.error("[PATCH platform-inquiry account notify]", err));
+    } else {
+      void notifyStoreOwnerPlatformInquiryReplied(sb, {
+        storeId: String(before.store_id),
+        ownerUserId: String(before.from_user_id),
+        inquiryId: iid,
+        subject: String(before.subject ?? ""),
+        answer: newAnswer,
+      }).catch((err) => console.error("[PATCH platform-inquiry notify]", err));
+    }
   }
 
   return NextResponse.json({ ok: true, inquiry: data });

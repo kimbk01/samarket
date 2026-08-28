@@ -41,7 +41,7 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount } =
+  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, memberInquiryOpenCount, platformInquiryOpenCount } =
     useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
   /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
@@ -54,7 +54,11 @@ export function AdminSidebarItem({
           ? tradePromoPendingCount
           : item.key === "ads-feed-applications" && feedAdPendingCount > 0
             ? feedAdPendingCount
-            : 0;
+            : item.key === "cp-member-inquiry" && memberInquiryOpenCount > 0
+              ? memberInquiryOpenCount
+              : item.key === "cp-store-inbox" && platformInquiryOpenCount > 0
+                ? platformInquiryOpenCount
+                : 0;
 
   const childActive = hasChildren
     ? hasActiveDescendantInMenu(item.children ?? [], currentPath)
