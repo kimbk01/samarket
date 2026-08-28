@@ -57,9 +57,13 @@ export const GIFT_RECOGNITION_CORRECTION_MIGRATION_ID =
   "20261128150000_gift_certificate_recognition_correction" as const;
 export const GIFT_PUBLIC_NUMBER_MIGRATION_ID =
   "20261128160000_gift_certificate_public_number" as const;
+export const GIFT_INSTANCE_VALIDITY_MIGRATION_ID =
+  "20261128200000_gift_certificate_instance_validity" as const;
 export const GIFT_CASH_OUT_MIGRATION_ID =
   "20261128170000_gift_certificate_cash_out" as const;
 export const GIFT_SCOPE_PLATFORM_MIGRATION_ID =
   "20261128180000_gift_certificate_scope_platform" as const;
 export const GIFT_PROMO_ECONOMICS_MIGRATION_ID =
   "20261128190000_gift_certificate_promo_economics" as const;
+export const GIFT_FINANCIAL_SNAPSHOT_MIGRATION_ID =
+  "20261129150000_gift_certificate_redeem_instance_fee_snapshot" as const;

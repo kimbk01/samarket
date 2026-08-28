@@ -310,7 +310,7 @@ export async function loadAdminGiftProductDetail(
     outstanding_balance: stats.outstanding,
     redeemed_gross: stats.redeemedGross,
     redemption_by_store: [...redemptionByStore.values()],
-    money_locked: stats.issued > 0,
+    money_locked: false,
   };
 
   return {

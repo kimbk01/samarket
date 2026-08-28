@@ -198,7 +198,6 @@ export function AdminGiftProductDetailConsole({
 
   const scope = product?.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
   const status = product ? productStatus(product) : "PAUSED";
-  const moneyLocked = product?.money_locked === true;
 
   const isDirty = useMemo(() => {
     if (!product) return false;
@@ -313,11 +312,9 @@ export function AdminGiftProductDetailConsole({
         salesStartsAt: editStart ? new Date(editStart).toISOString() : undefined,
         salesEndsAt: editEnd ? new Date(editEnd).toISOString() : null,
       };
-      if (!moneyLocked) {
-        body.faceValue = Math.trunc(Number(editFace));
-        body.purchasePrice = Math.trunc(Number(editPrice));
-        body.platformFeeRate = Math.trunc(Number(editFee) || 0);
-      }
+      body.faceValue = Math.trunc(Number(editFace));
+      body.purchasePrice = Math.trunc(Number(editPrice));
+      body.platformFeeRate = Math.trunc(Number(editFee) || 0);
       const res = await fetch(`/api/admin/gift-certificates/products/${encodeURIComponent(product.id)}`, {
         method: "PATCH",
         credentials: "include",
@@ -327,12 +324,7 @@ export function AdminGiftProductDetailConsole({
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         setError(
-          json.error === "money_fields_locked_after_issuance"
-            ? safeT("gift_ops_edit_money_locked", {
-                fallbackKo: "발급 이력이 있어 금액·수수료는 수정할 수 없습니다.",
-                fallbackEn: "Money fields are locked after issuance.",
-              })
-            : safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
+          safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." })
         );
         return;
       }
@@ -529,24 +521,16 @@ export function AdminGiftProductDetailConsole({
               </label>
               <label className="block space-y-1 text-sm">
                 <span>{safeT("gift_ops_field_face_amount", { fallbackKo: "표시 금액", fallbackEn: "Face value" })}</span>
-                <input className={Sam.input.base} inputMode="numeric" value={editFace} disabled={moneyLocked} onChange={(e) => setEditFace(e.target.value)} />
+                <input className={Sam.input.base} inputMode="numeric" value={editFace} disabled={false} onChange={(e) => setEditFace(e.target.value)} />
               </label>
               <label className="block space-y-1 text-sm">
                 <span>{safeT("gift_ops_field_purchase", { fallbackKo: "판매 가격", fallbackEn: "Sale price" })}</span>
-                <input className={Sam.input.base} inputMode="numeric" value={editPrice} disabled={moneyLocked} onChange={(e) => setEditPrice(e.target.value)} />
+                <input className={Sam.input.base} inputMode="numeric" value={editPrice} disabled={false} onChange={(e) => setEditPrice(e.target.value)} />
               </label>
               <label className="block space-y-1 text-sm">
                 <span>{safeT("gift_ops_field_fee_dibay", { fallbackKo: "플랫폼 수수료 %", fallbackEn: "Platform fee %" })}</span>
-                <input className={Sam.input.base} inputMode="numeric" value={editFee} disabled={moneyLocked} onChange={(e) => setEditFee(e.target.value)} />
+                <input className={Sam.input.base} inputMode="numeric" value={editFee} disabled={false} onChange={(e) => setEditFee(e.target.value)} />
               </label>
-              {moneyLocked ? (
-                <p className="text-xs text-amber-700">
-                  {safeT("gift_ops_edit_money_locked", {
-                    fallbackKo: "발급 이력이 있어 금액·수수료는 수정할 수 없습니다.",
-                    fallbackEn: "Money fields are locked after issuance.",
-                  })}
-                </p>
-              ) : null}
               <GiftSalesDateTimeField
                 label={safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" })}
                 value={editStart}

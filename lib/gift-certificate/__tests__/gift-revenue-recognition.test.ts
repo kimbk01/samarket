@@ -52,9 +52,10 @@ describe("Gift order-completion revenue recognition T1–T16", () => {
     expect(redeemBody).not.toMatch(/REVENUE_AVAILABLE/);
   });
 
-  it("T4 fee snapshot preserved at redeem (no fee calc change in migration)", () => {
-    expect(mig).toMatch(/platform_fee_rate_snapshot/);
+  it("T4 fee snapshot authority moved to CUT1 instance helper (historical order_completion still live-product)", () => {
     expect(mig).toMatch(/floor\(v_gift_total::numeric \* v_gift_fee_rate \/ 100\)/);
+    const cut1 = readFileSync(resolve(process.cwd(), "supabase/migrations/20261129150000_gift_certificate_redeem_instance_fee_snapshot.sql"), "utf8");
+    expect(cut1).toMatch(/gift_certificate_instance_redeem_fee_rate\(v_gift_inst\)/);
   });
 
   it("T5 pending revenue cannot conversion request (available RPC unchanged semantics)", () => {

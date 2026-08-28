@@ -112,12 +112,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       "discount_funding_party" in body;
 
     if (wantsMoney) {
-      if (issued > 0) {
-        return NextResponse.json(
-          { ok: false, error: "money_fields_locked_after_issuance" },
-          { status: 409 }
-        );
-      }
       const faceValue = Math.trunc(
         Number(body.faceValue ?? body.face_value ?? (existing as Record<string, unknown>).face_value)
       );
