@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
+import { parseAdminStorePointChargeFocusRequestId } from "@/lib/admin/admin-point-charge-deeplink";
 import { isPendingChargeStatus } from "@/lib/stores/owner-point-deposit-context";
 
 type Row = {
@@ -42,6 +43,7 @@ export function AdminStorePointChargeListPage() {
   const { refresh: refreshPendingCount } = useAdminStorePointPendingCount();
   const searchParams = useSearchParams();
   const filterStoreId = searchParams.get("storeId")?.trim() ?? "";
+  const focusRequestId = parseAdminStorePointChargeFocusRequestId(searchParams);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,13 @@ export function AdminStorePointChargeListPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!focusRequestId || loading) return;
+    const el = document.getElementById(`admin-store-point-charge-${focusRequestId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusRequestId, loading, rows]);
 
   const patch = async (id: string, action: "approve" | "reject" | "hold") => {
     setBusyId(id);
@@ -123,10 +132,15 @@ export function AdminStorePointChargeListPage() {
             const statusKey = STATUS_KEYS[r.request_status];
             const badgeClass =
               STATUS_BADGE_CLASS[r.request_status] ?? "bg-sam-app text-sam-muted";
+            const focused = focusRequestId === r.id;
             return (
               <article
                 key={r.id}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
+                id={`admin-store-point-charge-${r.id}`}
+                data-testid={focused ? "admin-store-point-charge-focus" : undefined}
+                className={`rounded-ui-rect border bg-sam-surface p-4 shadow-sm ${
+                  focused ? "border-[#006241] ring-2 ring-[#006241]/30" : "border-sam-border"
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <span className="font-semibold text-sam-fg">{r.store_name || r.store_id}</span>

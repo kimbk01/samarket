@@ -156,6 +156,26 @@ export async function notifyStoreOwnerPointChargeRejected(
   });
 }
 
+export async function notifyStoreOwnerPointChargeOnHold(
+  sb: SupabaseClient,
+  opts: { storeId: string; ownerUserId: string; requestId: string }
+): Promise<void> {
+  const ownerId = opts.ownerUserId.trim();
+  if (!ownerId) return;
+  const language = await loadUserLanguage(sb, ownerId);
+  await appendUserNotification(sb, {
+    user_id: ownerId,
+    notification_type: "commerce",
+    domain: "store",
+    ref_id: opts.requestId,
+    dedupe_key: `store_point_charge_hold:${opts.requestId}`,
+    title: nt(language, "notify_store_point_charge_on_hold_title"),
+    body: nt(language, "notify_store_point_charge_on_hold_body"),
+    link_url: OwnerRoutes.points(opts.storeId),
+    meta: { kind: "store_point_charge_on_hold", store_id: opts.storeId, request_id: opts.requestId },
+  });
+}
+
 export async function notifyStoreOwnerPointAccountReplied(
   sb: SupabaseClient,
   opts: { storeId: string; ownerUserId: string; inquiryId: string }

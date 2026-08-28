@@ -138,6 +138,24 @@ describe("GATE 2 notification sound decision", () => {
     expect(playEventNotificationSound).toHaveBeenCalledTimes(1);
   });
 
+  it("P0-B T5/T6 point_charge_requests INSERT sound once then duplicate blocked", () => {
+    const first = ingestAdminRowSound({
+      sourceTable: "point_charge_requests",
+      rowId: "pcr-1",
+      recipientId: RECIPIENT,
+      createdAt: new Date().toISOString(),
+    });
+    expect(first.action).toBe("PLAY");
+    const replay = ingestAdminRowSound({
+      sourceTable: "point_charge_requests",
+      rowId: "pcr-1",
+      recipientId: RECIPIENT,
+      createdAt: new Date().toISOString(),
+    });
+    expect(replay.reason).toBe("SKIP_ALREADY_CONSUMED");
+    expect(playEventNotificationSound).toHaveBeenCalledTimes(1);
+  });
+
   it("10 logout A then login B drops delayed A callback", () => {
     ingestCanonicalNotificationSound(playInput());
     resetNotificationSoundRuntimeForAuthEpoch();

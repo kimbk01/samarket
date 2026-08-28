@@ -570,6 +570,9 @@ export const adminMessages = {
     admin_feed_ad_products_hint:
       "기간·D-Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
     admin_feed_ad_toast_title: "배너 광고 신청",
+    admin_member_point_charge_toast_title: "회원 포인트 입금 신청",
+    admin_store_point_charge_toast_title: "매장 포인트 입금 신청",
+    admin_ops_awareness_toast_open: "신청 상세 보기",
     admin_feed_ad_toast_open: "신청 상세 보기",
     admin_menu_ads_legacy: "레거시 광고 (비권장)",
     admin_legacy_comments_quarantine_banner:
@@ -3253,6 +3256,9 @@ export const adminMessages = {
     admin_feed_ad_products_hint:
       "Duration and D-Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
     admin_feed_ad_toast_title: "Banner ad request",
+    admin_member_point_charge_toast_title: "Member point deposit request",
+    admin_store_point_charge_toast_title: "Store point deposit request",
+    admin_ops_awareness_toast_open: "Open request",
     admin_feed_ad_toast_open: "Open request",
     admin_menu_ads_legacy: "Legacy ads (not preferred)",
     admin_legacy_comments_quarantine_banner:

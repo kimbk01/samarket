@@ -7,8 +7,10 @@ import { Tier1HeaderBellGlyph } from "@/lib/ui/tier1-header-glyphs";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 
 /**
- * Admin ops bell — badge SSOT = pending-action COUNTs from /api/admin/admin-bell.
+ * Admin ops bell — badge SSOT = actionable pending COUNTs from /api/admin/admin-bell (Admin Q).
+ * HARD LOCK: digit is business workload, not notification unread.
  * Tap → Action Queue (full Q), not a single-category priority deep-link.
+ * View-only does not clear Q; terminal status handling does.
  */
 export function AdminNotificationBell() {
   const { t } = useI18n();

@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   notifyStoreOwnerPointChargeApproved,
+  notifyStoreOwnerPointChargeOnHold,
   notifyStoreOwnerPointChargeRejected,
 } from "@/lib/notifications/notify-store-points";
 
@@ -109,6 +110,14 @@ export async function PATCH(
 
   if (action === "reject" && reqRow.owner_user_id) {
     void notifyStoreOwnerPointChargeRejected(sb, {
+      storeId: String(reqRow.store_id),
+      ownerUserId: String(reqRow.owner_user_id),
+      requestId: rid,
+    });
+  }
+
+  if (action === "hold" && reqRow.owner_user_id) {
+    void notifyStoreOwnerPointChargeOnHold(sb, {
       storeId: String(reqRow.store_id),
       ownerUserId: String(reqRow.owner_user_id),
       requestId: rid,

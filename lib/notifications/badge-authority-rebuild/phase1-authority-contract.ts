@@ -231,6 +231,7 @@ export const OWNER_STORE_OPERATION_META_KINDS = [
   "store_point_low",
   "store_point_charge_approved",
   "store_point_charge_rejected",
+  "store_point_charge_on_hold",
   "store_point_account_replied",
 ] as const;
 

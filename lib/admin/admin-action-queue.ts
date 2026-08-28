@@ -4,12 +4,32 @@
  * Bell count and CP Overview Action Queue MUST derive from this definition.
  * RT = wake-up only. Durable COUNT = these head counts.
  *
- * DO NOT: invent queues · use /api/me/notifications as Admin ops inbox.
+ * HARD LOCK (P0-A):
+ *   ADMIN_Q = actionable business pending workload SUM
+ *   ADMIN_Q ≠ Member notification_events unread
+ *   ADMIN_Q ≠ Admin “notification unread inbox”
+ * Opening / viewing a pending row MUST NOT decrement Q (status unchanged).
+ * Terminal statuses (approved / rejected / cancelled) leave Q.
+ * on_hold remains actionable — Admin still must decide.
+ *
+ * DO NOT: invent queues · use /api/me/notifications as Admin ops inbox ·
+ *         invent admin_ops_events table inside point CUT · merge A/B/OwnerC/AdminQ.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 
+/** Member D-Point charge rows that still need Admin action. */
 export const USER_CHARGE_ACTIONABLE_STATUSES = [
+  "pending",
+  "waiting_confirm",
+  "on_hold",
+] as const;
+
+/**
+ * Owner/store Business Credit charge rows that still need Admin action.
+ * Must stay aligned with PENDING_CHARGE_STATUSES (owner deposit UI).
+ */
+export const STORE_CHARGE_ACTIONABLE_STATUSES = [
   "pending",
   "waiting_confirm",
   "on_hold",
@@ -145,7 +165,7 @@ export async function loadAdminActionQueueCounts(input: {
       ? storesSb
           .from("store_point_charge_requests")
           .select("id", { count: "exact", head: true })
-          .eq("request_status", "pending")
+          .in("request_status", [...STORE_CHARGE_ACTIONABLE_STATUSES])
       : Promise.resolve({ count: 0, error: null }),
     storesSb
       ? storesSb

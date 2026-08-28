@@ -151,6 +151,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <AdminStorePointPendingProvider>
+      {/* AdminOpsRealtimeBridge — single Admin-shell RT/sound/awareness owner (P0-A) */}
       <div
         data-admin
         data-admin-console="v2"

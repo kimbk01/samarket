@@ -53,6 +53,7 @@ const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
   store_point_low: "settlement_balance_low",
   store_point_charge_approved: "settlement_charge_approved",
   store_point_charge_rejected: "settlement_charge_rejected",
+  store_point_charge_on_hold: "settlement_charge_requested",
   user_point_charge_approved: "settlement_charge_approved",
   user_point_charge_rejected: "settlement_charge_rejected",
   user_point_charge_on_hold: "settlement_charge_requested",

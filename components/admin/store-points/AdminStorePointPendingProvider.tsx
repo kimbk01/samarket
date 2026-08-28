@@ -1,5 +1,22 @@
 "use client";
 
+/**
+ * AdminOpsRealtimeBridge (P0-A/P0-B)
+ *
+ * Mounted once from AdminPlatformShell — NOT page-local.
+ * Owner of Admin ops RT wake-up + sound ingest + awareness CTA for:
+ *   - point_charge_requests (member)
+ *   - store_point_charge_requests (owner)
+ *   - feed_ad_requests
+ *   - delivery_operation_alert_events
+ *
+ * HARD LOCK:
+ *   Badge digits come only from /api/admin/admin-bell (Action Queue).
+ *   Sound must not invent badge counts.
+ *   One INSERT → one ingestAdminRowSound (canonical rowId dedupe).
+ *   Future inquiry/report/store-apply subscribe here — do not add page RT.
+ */
+
 import Link from "next/link";
 import {
   createContext,
@@ -18,6 +35,10 @@ import {
   waitForSupabaseRealtimeAuth,
 } from "@/lib/supabase/wait-for-realtime-auth";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import {
+  adminMemberPointChargeDetailHref,
+  adminStorePointChargeFocusHref,
+} from "@/lib/admin/admin-point-charge-deeplink";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
@@ -29,7 +50,8 @@ import {
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
 
-type FeedAdToast = {
+type AwarenessToast = {
+  kind: "member_point_charge" | "store_point_charge" | "feed_ad";
   requestId: string;
   label: string;
   href: string;
@@ -78,22 +100,86 @@ export function useAdminStorePointPendingCount(): Ctx {
   return useContext(AdminStorePointPendingContext);
 }
 
+/** Alias — AdminStorePointPendingProvider IS the AdminOpsRealtimeBridge. */
+export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
+
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
-  const { t, safeT } = useI18n();
+  const { safeT } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
   const [tradePromoPendingCount, setTradePromoPendingCount] = useState(0);
   const [adminBellCount, setAdminBellCount] = useState(0);
-  const [toast, setToast] = useState(false);
-  const [feedAdToast, setFeedAdToast] = useState<FeedAdToast | null>(null);
-  const toastTimeoutRef = useRef<number | null>(null);
-  const feedToastTimeoutRef = useRef<number | null>(null);
+  const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
+  const awarenessToastTimeoutRef = useRef<number | null>(null);
   const rtTimeoutRef = useRef<number | null>(null);
   const seenFeedIdsRef = useRef<Set<string> | null>(null);
   const prevFeedCountRef = useRef(0);
   const feedSoundHydratedRef = useRef(false);
   const chargeSoundHydratedRef = useRef(false);
+
+  const showAwarenessToast = useCallback((toast: AwarenessToast) => {
+    setAwarenessToast(toast);
+    if (awarenessToastTimeoutRef.current) window.clearTimeout(awarenessToastTimeoutRef.current);
+    awarenessToastTimeoutRef.current = window.setTimeout(() => {
+      awarenessToastTimeoutRef.current = null;
+      setAwarenessToast(null);
+    }, 8000);
+  }, []);
+
+  const markMemberPointChargeAlert = useCallback(
+    (requestId: string, meta?: { amount?: number | null }) => {
+      const id = String(requestId ?? "").trim();
+      if (!id) return;
+      const amount =
+        meta?.amount != null && Number.isFinite(Number(meta.amount))
+          ? `${Number(meta.amount).toLocaleString()}P`
+          : "";
+      const label = [
+        safeT("admin_member_point_charge_toast_title", {
+          fallbackKo: "회원 포인트 입금 신청",
+          fallbackEn: "Member point deposit request",
+        }),
+        amount || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      showAwarenessToast({
+        kind: "member_point_charge",
+        requestId: id,
+        label,
+        href: adminMemberPointChargeDetailHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
+
+  const markStorePointChargeAlert = useCallback(
+    (requestId: string, meta?: { amount?: number | null }) => {
+      const id = String(requestId ?? "").trim();
+      if (!id) return;
+      const amount =
+        meta?.amount != null && Number.isFinite(Number(meta.amount))
+          ? `${Number(meta.amount).toLocaleString()}P`
+          : "";
+      const label = [
+        safeT("admin_store_point_charge_toast_title", {
+          fallbackKo: "매장 포인트 입금 신청",
+          fallbackEn: "Store point deposit request",
+        }),
+        amount || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      showAwarenessToast({
+        kind: "store_point_charge",
+        requestId: id,
+        label,
+        href: adminStorePointChargeFocusHref(id),
+      });
+    },
+    [safeT, showAwarenessToast]
+  );
 
   const markFeedAdAlert = useCallback(
     async (requestId: string, meta?: { domain?: string; placement?: string; pointCost?: number }) => {
@@ -117,49 +203,71 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         .filter(Boolean)
         .join(" · ");
 
-      setFeedAdToast({
+      showAwarenessToast({
+        kind: "feed_ad",
         requestId,
         label,
         href: `/admin/feed-ad-requests/${encodeURIComponent(requestId)}`,
       });
-      if (feedToastTimeoutRef.current) window.clearTimeout(feedToastTimeoutRef.current);
-      feedToastTimeoutRef.current = window.setTimeout(() => {
-        feedToastTimeoutRef.current = null;
-        setFeedAdToast(null);
-      }, 8000);
 
       ingestAdminRowSound({
         sourceTable: "feed_ad_requests",
         rowId: requestId,
       });
     },
-    [safeT]
+    [safeT, showAwarenessToast]
   );
 
   const seedPendingChargeRowsSilent = useCallback(async () => {
     try {
-      const res = await adminFetch("/api/admin/point-charges", {
-        credentials: "include",
-        cache: "no-store",
-        dedupeKey: "admin:point-charges:hydrate-seed",
-        cacheTtlMs: 3_000,
-      });
-      const json = (await res.json().catch(() => ({}))) as {
+      const [memberRes, storeRes] = await Promise.all([
+        adminFetch("/api/admin/point-charges", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:point-charges:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }),
+        adminFetch("/api/admin/store-point-charges", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: "admin:store-point-charges:hydrate-seed",
+          cacheTtlMs: 3_000,
+        }),
+      ]);
+      const memberJson = (await memberRes.json().catch(() => ({}))) as {
         ok?: boolean;
         requests?: { id?: string }[];
       };
-      if (!res.ok || !json.ok || !Array.isArray(json.requests)) return;
-      for (const r of json.requests) {
-        const id = String(r.id ?? "").trim();
-        if (!id) continue;
-        seedCanonicalSoundConsumed({
-          identityKind: "admin_row",
-          canonicalEventId: id,
-        });
+      const storeJson = (await storeRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        requests?: { id?: string }[];
+      };
+      let seeded = 0;
+      if (memberRes.ok && memberJson.ok && Array.isArray(memberJson.requests)) {
+        for (const r of memberJson.requests) {
+          const id = String(r.id ?? "").trim();
+          if (!id) continue;
+          seedCanonicalSoundConsumed({
+            identityKind: "admin_row",
+            canonicalEventId: id,
+          });
+          seeded += 1;
+        }
+      }
+      if (storeRes.ok && storeJson.ok && Array.isArray(storeJson.requests)) {
+        for (const r of storeJson.requests) {
+          const id = String(r.id ?? "").trim();
+          if (!id) continue;
+          seedCanonicalSoundConsumed({
+            identityKind: "admin_row",
+            canonicalEventId: id,
+          });
+          seeded += 1;
+        }
       }
       traceAdminSound("HYDRATE_SEED", {
-        table: "point_charge_requests",
-        count: json.requests.length,
+        table: "point_charge_requests+store_point_charge_requests",
+        count: seeded,
       });
     } catch {
       /* ignore */
@@ -274,15 +382,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     let cancelled = false;
     let channel: ReturnType<typeof sb.channel> | null = null;
 
-    const scheduleRefresh = (showToast: boolean, eventType?: string) => {
-      if (showToast && eventType === "INSERT") {
-        if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-        setToast(true);
-        toastTimeoutRef.current = window.setTimeout(() => {
-          toastTimeoutRef.current = null;
-          setToast(false);
-        }, 4000);
-      }
+    const scheduleRefresh = () => {
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
       rtTimeoutRef.current = window.setTimeout(() => {
         rtTimeoutRef.current = null;
@@ -305,6 +405,15 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       return typeof v === "string" && v.trim() ? v : null;
     };
 
+    const amountFromPayload = (payload: { new?: unknown }) => {
+      const next =
+        payload.new && typeof payload.new === "object"
+          ? (payload.new as { point_amount?: unknown })
+          : null;
+      const n = Number(next?.point_amount);
+      return Number.isFinite(n) ? n : null;
+    };
+
     void (async () => {
       const authOk = await waitForSupabaseRealtimeAuth(sb);
       traceAdminSound("RT_AUTH", { authOk });
@@ -315,7 +424,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       }
 
       channel = sb
-        .channel("admin-point-charges-realtime")
+        .channel("admin-ops-realtime-bridge")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "store_point_charge_requests" },
@@ -334,8 +443,9 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 rowId,
                 createdAt: createdAtFromPayload(payload),
               });
+              markStorePointChargeAlert(rowId, { amount: amountFromPayload(payload) });
             }
-            scheduleRefresh(true, payload.eventType);
+            scheduleRefresh();
           }
         )
         .on(
@@ -356,8 +466,9 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 rowId,
                 createdAt: createdAtFromPayload(payload),
               });
+              markMemberPointChargeAlert(rowId, { amount: amountFromPayload(payload) });
             }
-            scheduleRefresh(false);
+            scheduleRefresh();
           }
         )
         .on(
@@ -385,13 +496,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 pointCost: row.point_cost,
               });
             }
-            scheduleRefresh(false);
+            scheduleRefresh();
           }
         )
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "feed_ad_requests" },
-          () => scheduleRefresh(false)
+          () => scheduleRefresh()
         )
         .on(
           "postgres_changes",
@@ -410,7 +521,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 createdAt: createdAtFromPayload(payload),
               });
             }
-            scheduleRefresh(true, payload.eventType);
+            scheduleRefresh();
           }
         )
         .subscribe((status) => {
@@ -423,12 +534,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
     return () => {
       cancelled = true;
-      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-      if (feedToastTimeoutRef.current) window.clearTimeout(feedToastTimeoutRef.current);
+      if (awarenessToastTimeoutRef.current) window.clearTimeout(awarenessToastTimeoutRef.current);
       if (rtTimeoutRef.current) window.clearTimeout(rtTimeoutRef.current);
       if (channel) void sb.removeChannel(channel);
     };
-  }, [refresh, markFeedAdAlert]);
+  }, [refresh, markFeedAdAlert, markMemberPointChargeAlert, markStorePointChargeAlert]);
 
   const value = useMemo(
     () => ({
@@ -451,24 +561,23 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
   return (
     <AdminStorePointPendingContext.Provider value={value}>
-      {toast ? (
-        <div
-          className="fixed bottom-4 right-4 z-50 max-w-sm rounded-ui-rect border border-[#006241]/40 bg-[#E8F5E9] px-4 py-3 text-sm font-medium text-[#1B5E20] shadow-lg"
-          role="status"
-        >
-          {t("admin_store_point_charge_toast_new")}
-        </div>
-      ) : null}
-      {feedAdToast ? (
+      {awarenessToast ? (
         <Link
-          href={feedAdToast.href}
+          href={awarenessToast.href}
           className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-ui-rect border border-sam-primary/40 bg-sam-surface px-4 py-3 text-sm font-medium text-sam-fg shadow-lg"
           role="status"
-          data-testid="admin-feed-ad-toast"
+          data-testid={
+            awarenessToast.kind === "member_point_charge"
+              ? "admin-member-point-charge-toast"
+              : awarenessToast.kind === "store_point_charge"
+                ? "admin-store-point-charge-toast"
+                : "admin-feed-ad-toast"
+          }
+          data-request-id={awarenessToast.requestId}
         >
-          <span className="block">{feedAdToast.label}</span>
+          <span className="block">{awarenessToast.label}</span>
           <span className="mt-1 block sam-text-helper text-sam-primary underline">
-            {safeT("admin_feed_ad_toast_open", {
+            {safeT("admin_ops_awareness_toast_open", {
               fallbackKo: "신청 상세 보기",
               fallbackEn: "Open request",
             })}

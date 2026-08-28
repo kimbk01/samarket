@@ -48,6 +48,7 @@ export function commerceMetaKindLabel(
     store_point_low: "notify_kind_store_point",
     store_point_charge_approved: "notify_kind_store_point",
     store_point_charge_rejected: "notify_kind_store_point",
+    store_point_charge_on_hold: "notify_kind_store_point",
     user_point_charge_approved: "notify_kind_user_point",
     user_point_charge_rejected: "notify_kind_user_point",
     user_point_charge_on_hold: "notify_kind_user_point",

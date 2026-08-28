@@ -4,12 +4,13 @@
  * New event types: register in `notification-event-registry` + A/B classifier.
  * Do not invent per-surface switch statements for the same type.
  *
- * APPROVED PRODUCT CONTRACT (GATE 2 / GATE 3):
+ * APPROVED PRODUCT CONTRACT (GATE 2 / GATE 3) — HARD LOCK P0-A:
  *   Member Bell A = eligible unread notification_events (room count ≠ message SUM)
  *   Member Chat B = unread ROOM count (GD + private_group + trade + store_order_customer)
  *   Member App Icon = A + B only (Owner/Admin excluded)
  *   Owner store chat = unread store_order_owner rooms WHERE store = ACTIVE_STORE
- *   Admin Q = actionable Action Queue COUNT
+ *   Admin Q = actionable Action Queue COUNT (business pending — NOT notification unread)
+ * DO NOT sum A + B + OwnerC + AdminQ into one digit. DO NOT clear Admin Q on view-only.
  */
 import { MEMBER_NOTIFICATION_A_KINDS } from "@/lib/notifications/badge-authority-rebuild/badge-event-classifier";
 import {

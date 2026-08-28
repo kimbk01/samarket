@@ -10,8 +10,9 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/admin-bell
  *
- * Durable ADMIN ACTION QUEUE COUNT SSOT — not /api/me/notifications.
- * Realtime is wake-up only (AdminStorePointPendingProvider).
+ * Durable ADMIN ACTION QUEUE COUNT SSOT — actionable pending workload.
+ * HARD LOCK: ADMIN_Q ≠ Member /api/me/notifications unread.
+ * Realtime is wake-up only (AdminStorePointPendingProvider = AdminOpsRealtimeBridge).
  */
 export async function GET() {
   const admin = await requireAdminApiUser();
