@@ -300,7 +300,6 @@ export function CustomerGiftWalletBody({
                     issuerName={row.storeName}
                     faceValue={row.faceValue}
                     remainingBalance={row.remainingBalance}
-                    status={row.status}
                     publicGiftNumber={row.publicGiftNumber}
                     showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
                     statusLabel={

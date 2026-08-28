@@ -16,7 +16,6 @@ import {
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { formatGiftDateOnly } from "@/lib/gift-certificate/gift-certificate-format";
 
 /** Gift detail primary CTA — solid fill; utility/layer classes can resolve transparent under `.delivery-ui`. */
 const GIFT_DETAIL_BUY_BTN_STYLE = {
@@ -114,16 +113,6 @@ export function BuyerGiftDetailView({
   }, [balance, product]);
 
   const productDisplayTitle = useMemo(() => product?.title ?? "", [product]);
-
-  const salesWindowLabel = useMemo(() => {
-    if (!product) return null;
-    const start = product.salesStartsAt?.trim().slice(0, 10) ?? "";
-    const end = product.salesEndsAt?.trim().slice(0, 10) ?? "";
-    if (start && end) return `${formatGiftDateOnly(start)} ~ ${formatGiftDateOnly(end)}`;
-    if (end) return formatGiftDateOnly(end);
-    if (start) return formatGiftDateOnly(start);
-    return null;
-  }, [product]);
 
   const purchase = async () => {
     if (!product || busy) return;
@@ -237,13 +226,7 @@ export function BuyerGiftDetailView({
       });
 
   return (
-    <div
-      className={APP_MAIN_TAB_SCROLL_BODY_CLASS}
-      data-gift-detail="1"
-      data-gift-product-id={productId}
-      data-gift-detail-title={productDisplayTitle}
-      data-ready="1"
-    >
+    <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
       <GiftVisualCard
         className="mb-3"
         fullWidth
@@ -376,15 +359,21 @@ export function BuyerGiftDetailView({
           })}
           : {product.storeName}
         </p>
-        {salesWindowLabel ? (
-          <p className="text-xs text-sam-muted" data-gift-detail-sales-window="1">
-            {safeT("gift_u2_detail_sales_window", {
-              vars: { range: salesWindowLabel },
-              fallbackKo: `판매기간 ${salesWindowLabel}`,
-              fallbackEn: `Sales period ${salesWindowLabel}`,
+        {product.salesEndsAt ? (
+          <p className="text-xs text-sam-muted">
+            {safeT("gift_u2_detail_sales_ends", {
+              fallbackKo: "판매 종료",
+              fallbackEn: "Sales end",
             })}
+            : {new Date(product.salesEndsAt).toLocaleString()}
           </p>
         ) : null}
+        <p className="text-sm font-medium text-sam-fg">
+          {safeT("gift_u2_detail_no_expiry", {
+            fallbackKo: "상품권 잔액은 만료되지 않습니다.",
+            fallbackEn: "Gift certificate balances never expire.",
+          })}
+        </p>
         <p className="text-xs text-sam-muted">
           {safeT("gift_u2_detail_terms", {
             fallbackKo:

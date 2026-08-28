@@ -110,7 +110,6 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
             issuerName={instance.storeName}
             faceValue={instance.faceValue}
             remainingBalance={instance.remainingBalance}
-            status={instance.status}
             publicGiftNumber={instance.publicGiftNumber}
             showGiftNumber={Boolean(instance.publicGiftNumber?.trim())}
             showSend={Boolean(canSend)}
