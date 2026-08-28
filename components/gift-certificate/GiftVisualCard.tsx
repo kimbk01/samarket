@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { GiftHeroArtwork } from "@/components/gift-certificate/GiftHeroArtwork";
+import { DibayGiftCertificateFace } from "@/components/gift-certificate/DibayGiftCertificateFace";
 import {
   resolveGiftVisual,
   type GiftScope,
@@ -11,24 +11,12 @@ import {
 } from "@/lib/gift-certificate/resolve-gift-visual";
 import {
   GIFT_CARD_SHELL_CLASS,
-  GIFT_HERO_ASPECT_CLASS,
-  GIFT_HERO_ASPECT_COMPACT_CLASS,
+  GIFT_DETAIL_CARD_SHELL_CLASS,
 } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type GiftVisualSurface = "mall" | "wallet" | "instance" | "transfer" | "chat" | "used";
-
-const STORE_TONE = {
-  ring: "ring-[#E11D48]/20",
-  badge: "bg-[#E11D48]/90 text-white",
-  amountBg: "from-black/55 via-black/25 to-transparent",
-};
-const PLATFORM_TONE = {
-  ring: "ring-[#059669]/20",
-  badge: "bg-[#059669]/90 text-white",
-  amountBg: "from-black/55 via-black/25 to-transparent",
-};
 
 export function GiftVisualCard({
   visual,
@@ -52,6 +40,7 @@ export function GiftVisualCard({
   footer,
   className = "",
   compact = false,
+  fullWidth = false,
 }: {
   visual: GiftVisualInput;
   surface: GiftVisualSurface;
@@ -74,23 +63,22 @@ export function GiftVisualCard({
   footer?: ReactNode;
   className?: string;
   compact?: boolean;
+  fullWidth?: boolean;
 }) {
   const { safeT } = useI18n();
   const resolved = resolveGiftVisual(visual);
   const scope: GiftScope = resolved.badgeScope;
   const isStore = scope === "STORE";
-  const tone = isStore ? STORE_TONE : PLATFORM_TONE;
   const displayTitle = title?.trim() || visual.title?.trim() || "";
   const issuer = issuerName?.trim() || (scope === "PLATFORM" ? "DIBAY" : visual.storeName?.trim() || "");
   const isUsed = surface === "used" || faded;
 
-  const badgeLabel = safeT(
-    isStore ? "commerce_hub_gift_badge_store" : "commerce_hub_gift_badge_platform",
-    {
-      fallbackKo: isStore ? "매장 상품권" : "DIBAY 상품권",
-      fallbackEn: isStore ? "Store gift" : "DIBAY gift",
-    }
-  );
+  const identityLeft = isStore
+    ? issuer
+    : safeT("gift_u2_card_identity", {
+        fallbackKo: "디바이 상품권",
+        fallbackEn: "DIBAY Gift Certificate",
+      });
 
   const scopeLine = isStore
     ? safeT("commerce_hub_gift_scope_store_named", {
@@ -111,65 +99,43 @@ export function GiftVisualCard({
   const face = faceValue ?? null;
   const remaining = remainingBalance ?? null;
   const purchase = purchasePrice ?? null;
-  const promoGap =
-    face != null && purchase != null && face > purchase ? face - purchase : null;
+
+  const valueTypeClass = compact
+    ? "whitespace-nowrap text-xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-2xl"
+    : "whitespace-nowrap text-[1.65rem] font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl";
 
   const amountBlock =
     amountSlot ??
     (surface === "mall" ? (
-      <div className="text-right">
-        {face != null && purchase != null && face > purchase ? (
-          <>
-            <p className="text-sm tabular-nums text-white/75 line-through">{formatMoneyPhp(face)}</p>
-            <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
-              {formatMoneyPhp(purchase)}
-            </p>
-            {promoGap != null && promoGap > 0 ? (
-              <p className="mt-1 text-xs font-semibold text-emerald-200">
-                {safeT("commerce_hub_gift_mall_savings", {
-                  vars: { savings: formatMoneyPhp(promoGap) },
-                  fallbackKo: `${formatMoneyPhp(promoGap)} 할인`,
-                  fallbackEn: `Save ${formatMoneyPhp(promoGap)}`,
-                })}
-              </p>
-            ) : null}
-            <p className="mt-1 text-[11px] text-white/85">
-              {safeT("commerce_hub_gift_mall_buy_use_copy", {
-                vars: { purchase: formatMoneyPhp(purchase), face: formatMoneyPhp(face) },
-                fallbackKo: `${formatMoneyPhp(purchase)}에 구매 · ${formatMoneyPhp(face)}까지 사용`,
-                fallbackEn: `Buy for ${formatMoneyPhp(purchase)} · use up to ${formatMoneyPhp(face)}`,
-              })}
-            </p>
-          </>
-        ) : (
-          <>
-            {face != null ? (
-              <p className="text-[11px] font-medium uppercase tracking-wide text-white/85">
-                {safeT("commerce_hub_gift_face_label", {
-                  fallbackKo: "액면가",
-                  fallbackEn: "Face value",
-                })}
-              </p>
-            ) : null}
-            {face != null ? (
-              <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
-                {formatMoneyPhp(face)}
-              </p>
-            ) : null}
-            {purchase != null ? (
-              <p className="mt-1 text-sm tabular-nums text-white/90">
-                {safeT("commerce_hub_gift_purchase_label", {
-                  fallbackKo: "구매가",
-                  fallbackEn: "Purchase",
-                })}{" "}
-                {formatMoneyPhp(purchase)}
-              </p>
-            ) : null}
-          </>
-        )}
+      <div className="min-w-0 max-w-full text-right">
+        {face != null ? (
+          <p className="text-[10px] font-medium tracking-wide text-white/80 sm:text-[11px]">
+            {safeT("commerce_hub_gift_face_label", {
+              fallbackKo: "상품권 금액",
+              fallbackEn: "Gift certificate amount",
+            })}
+          </p>
+        ) : null}
+        {face != null ? (
+          <p className={`mt-0.5 ${valueTypeClass}`} data-gift-face-amount="1">
+            {formatMoneyPhp(face)}
+          </p>
+        ) : null}
+        {purchase != null ? (
+          <p
+            className="mt-1.5 whitespace-nowrap border-t border-[#D4AF37]/45 pt-1.5 text-[11px] tabular-nums text-white/90 sm:text-sm"
+            data-gift-purchase-amount="1"
+          >
+            {safeT("commerce_hub_gift_purchase_label", {
+              fallbackKo: "구매가",
+              fallbackEn: "Purchase price",
+            })}{" "}
+            {formatMoneyPhp(purchase)}
+          </p>
+        ) : null}
       </div>
     ) : isUsed ? (
-      <div className="text-right">
+      <div className="min-w-0 max-w-full text-right">
         <p className="text-base font-bold text-white/90">
           {safeT("commerce_hub_used_completed", {
             fallbackKo: "사용 완료",
@@ -177,34 +143,30 @@ export function GiftVisualCard({
           })}
         </p>
         {face != null ? (
-          <p className="mt-0.5 text-sm tabular-nums text-white/80">
-            {formatMoneyPhp(face)}
-          </p>
+          <p className="mt-0.5 text-sm tabular-nums text-white/80">{formatMoneyPhp(face)}</p>
         ) : null}
       </div>
     ) : (
-      <div className="text-right">
+      <div className="min-w-0 max-w-full text-right">
         {remaining != null ? (
           <>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-white/85">
+            <p className="text-[10px] font-medium tracking-wide text-white/80 sm:text-[11px]">
               {safeT("gift_u2_wallet_remaining", {
                 fallbackKo: "잔액",
                 fallbackEn: "Balance",
               })}
             </p>
-            <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
+            <p className={`mt-0.5 ${valueTypeClass}`} data-gift-remaining-amount="1">
               {formatMoneyPhp(remaining)}
             </p>
           </>
         ) : face != null ? (
-          <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
+          <p className={valueTypeClass} data-gift-face-amount="1">
             {formatMoneyPhp(face)}
           </p>
         ) : null}
         {face != null && remaining != null && face !== remaining ? (
-          <p className="mt-0.5 text-xs tabular-nums text-white/80">
-            / {formatMoneyPhp(face)}
-          </p>
+          <p className="mt-0.5 text-xs tabular-nums text-white/80">/ {formatMoneyPhp(face)}</p>
         ) : null}
       </div>
     ));
@@ -244,38 +206,28 @@ export function GiftVisualCard({
       </button>
     ) : null;
 
-  const shellClass = compact ? "" : GIFT_CARD_SHELL_CLASS;
-  const aspectClass = compact ? GIFT_HERO_ASPECT_COMPACT_CLASS : GIFT_HERO_ASPECT_CLASS;
+  const shellClass = compact ? "" : fullWidth ? GIFT_DETAIL_CARD_SHELL_CLASS : GIFT_CARD_SHELL_CLASS;
 
   return (
     <article
-      className={`overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm ring-1 ${tone.ring} ${
+      className={`overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm ${
         isUsed ? "opacity-75 saturate-[0.7]" : ""
       } ${shellClass} ${className}`}
       data-gift-visual-card="1"
       data-gift-scope={scope}
       data-gift-visual-surface={surface}
     >
-      {/* Monetary asset — hero first */}
-      <div className={`relative min-h-[120px] w-full overflow-hidden ${aspectClass}`}>
-        <GiftHeroArtwork resolved={resolved} issuer={issuer} compact={compact} />
-        <div className={`absolute inset-0 bg-gradient-to-t ${tone.amountBg}`} aria-hidden />
-        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-2.5 sm:p-3">
-          <div className="min-w-0">
-            <span className={`inline-flex rounded-ui-rect px-2 py-0.5 text-[10px] font-bold tracking-wide ${tone.badge}`}>
-              {badgeLabel}
-            </span>
-            <p className="mt-1 truncate text-sm font-bold text-white drop-shadow-sm">{issuer}</p>
-            {displayTitle && displayTitle !== issuer ? (
-              <p className="truncate text-xs text-white/85">{displayTitle}</p>
-            ) : null}
-          </div>
-        </div>
-        <div className="absolute inset-x-0 bottom-0 p-2.5 sm:p-3">{amountBlock}</div>
-      </div>
+      <DibayGiftCertificateFace
+        compact={compact}
+        valueSlot={amountBlock}
+        identityLeft={identityLeft}
+        priority={fullWidth}
+      />
 
-      {/* Metadata — second */}
       <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
+        {displayTitle && displayTitle !== issuer ? (
+          <p className="truncate text-sm font-semibold text-sam-fg">{displayTitle}</p>
+        ) : null}
         <p className="text-xs leading-snug text-sam-muted">{scopeLine}</p>
         {showValidity ? (
           <p className="text-xs text-sam-muted" data-gift-validity="1">

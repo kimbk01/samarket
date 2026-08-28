@@ -4,6 +4,8 @@ export const DIBAY_BRAND_ASSET_VERSION = "20260614";
 export const DIBAY_AUTH_LOGO_PATH = "/images/brand/dibay-auth-logo.png";
 export const DIBAY_APP_ICON_512_PATH = "/images/brand/dibay-app-icon.png";
 export const DIBAY_APP_ICON_180_PATH = "/images/brand/dibay-app-icon-180.png";
+/** Transparent mark keyed from `dibay-auth-logo.png` (no vector redraw). */
+export const DIBAY_LOGO_MARK_PATH = "/images/brand/dibay-logo-mark.png";
 export const DIBAY_FAVICON_PATH = "/favicon.ico";
 
 export function dibayBrandAssetUrl(path: string): string {

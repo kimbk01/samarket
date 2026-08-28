@@ -11,6 +11,9 @@ export const GIFT_CARD_RESPONSIVE_GRID_CLASS =
 /** Single card width clamp inside hub lists. */
 export const GIFT_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[26.25rem]";
 
-/** Hero asset band aspect — dominant art, compact metadata below. */
-export const GIFT_HERO_ASPECT_CLASS = "aspect-[5/3]";
-export const GIFT_HERO_ASPECT_COMPACT_CLASS = "aspect-[2/1]";
+/** Detail hero — fill content column on 390px; cap so desktop is not a postage stamp. */
+export const GIFT_DETAIL_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[36rem]";
+
+/** Landscape stored-value certificate — ~1.65:1. */
+export const GIFT_HERO_ASPECT_CLASS = "aspect-[1.65/1]";
+export const GIFT_HERO_ASPECT_COMPACT_CLASS = "aspect-[1.65/1]";

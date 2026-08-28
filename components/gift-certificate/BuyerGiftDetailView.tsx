@@ -229,6 +229,7 @@ export function BuyerGiftDetailView({
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
       <GiftVisualCard
         className="mb-3"
+        fullWidth
         visual={{
           giftScope: product.giftScope,
           imageUrl: product.imageUrl,
