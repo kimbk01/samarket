@@ -45,6 +45,10 @@ describe("gift public number surfaces", () => {
     // UI authority: Ops Center instances tab (legacy /tracking redirects here)
     expect(instancesPanel).toContain("/api/admin/gift-certificates/tracking");
     expect(instancesPanel).toContain("publicGiftNumber");
+    expect(instancesPanel).toContain("loadGenerationRef");
+    expect(instancesPanel).toContain("AbortController");
+    expect(instancesPanel).toContain("data-admin-gift-instance-detail-open");
+    expect(instancesPanel).toContain("ADMIN_GIFT_PRIMARY_BTN_STYLE");
     expect(menu).toContain('path: "/admin/gift-certificates"');
     expect(menu).not.toContain('path: "/admin/gift-certificates/tracking"');
     expect(opsTabs).toContain('tracking: { tab: "instances" }');

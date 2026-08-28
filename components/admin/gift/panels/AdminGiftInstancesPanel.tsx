@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -130,26 +130,51 @@ export function AdminGiftInstancesPanel({
   const [status, setStatus] = useState(initialStatus);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
   const [refreshing, setRefreshing] = useState(false);
+  const loadGenerationRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const rowsRef = useRef(rows);
+  const detailRef = useRef(detail);
+  rowsRef.current = rows;
+  detailRef.current = detail;
+
+  useEffect(() => {
+    setQ(initialQ);
+    setStatus(initialStatus);
+  }, [initialQ, initialStatus]);
 
   const load = useCallback(async (opts?: { background?: boolean }) => {
-    if (!opts?.background) setState("loading");
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const generation = ++loadGenerationRef.current;
+
+    const background =
+      opts?.background ??
+      (Boolean(id.trim()) && (rowsRef.current.length > 0 || detailRef.current != null));
+
+    if (!background) setState("loading");
     else setRefreshing(true);
+
+    const qs = new URLSearchParams();
+    if (q.trim()) qs.set("q", q.trim());
+    if (status.trim()) qs.set("status", status.trim());
+    if (id.trim()) qs.set("id", id.trim());
+
     try {
-      const qs = new URLSearchParams();
-      if (q.trim()) qs.set("q", q.trim());
-      if (status.trim()) qs.set("status", status.trim());
-      if (id.trim()) qs.set("id", id.trim());
       const res = await fetch(`/api/admin/gift-certificates/tracking?${qs.toString()}`, {
         credentials: "include",
         cache: "no-store",
+        signal: controller.signal,
       });
+      if (generation !== loadGenerationRef.current) return;
+
       const json = (await res.json()) as {
         ok?: boolean;
         instances?: InstanceRow[];
         detail?: TrackingDetail | null;
       };
       if (!res.ok || !json.ok) {
-        if (!opts?.background) {
+        if (!background) {
           setRows([]);
           setDetail(null);
           setState("error");
@@ -160,19 +185,26 @@ export function AdminGiftInstancesPanel({
       setRows(list);
       setDetail(json.detail ?? null);
       setState(list.length === 0 && !json.detail ? "empty" : "data");
-    } catch {
-      if (!opts?.background) {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (generation !== loadGenerationRef.current) return;
+      if (!background) {
         setRows([]);
         setDetail(null);
         setState("error");
       }
     } finally {
-      setRefreshing(false);
+      if (generation === loadGenerationRef.current) {
+        setRefreshing(false);
+      }
     }
   }, [id, q, status]);
 
   useEffect(() => {
     void load();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [load]);
 
   const selected = useMemo(
@@ -252,7 +284,9 @@ export function AdminGiftInstancesPanel({
         </p>
       ) : null}
 
-      {state === "loading" && rows.length === 0 ? <p className="text-sm text-sam-muted">…</p> : null}
+      {state === "loading" && rows.length === 0 && !id.trim() ? (
+        <p className="text-sm text-sam-muted">…</p>
+      ) : null}
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-red-600">
@@ -275,7 +309,7 @@ export function AdminGiftInstancesPanel({
         </p>
       ) : null}
 
-      {state === "data" ? (
+      {(state === "data" || (state === "loading" && rows.length > 0)) ? (
         <>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[960px] border-collapse text-left text-sm">
@@ -310,7 +344,14 @@ export function AdminGiftInstancesPanel({
                     <td className="px-2 py-2">{row.status}</td>
                     <td className="px-2 py-2 text-xs text-sam-muted">{dt(row.purchasedAt || row.createdAt)}</td>
                     <td className="px-2 py-2">
-                      <button type="button" className={`${Sam.btn.secondary} min-h-[36px] px-3 text-xs`} onClick={() => openDetail(row)}>
+                      <button
+                        type="button"
+                        className={adminGiftPrimaryBtnClass("min-h-[36px] px-3 text-xs")}
+                        style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                        data-admin-gift-instance-detail-open="1"
+                        aria-pressed={id === row.id}
+                        onClick={() => openDetail(row)}
+                      >
                         {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
                       </button>
                     </td>
@@ -327,7 +368,14 @@ export function AdminGiftInstancesPanel({
                 <p className="text-xs text-sam-muted">
                   {row.status} · rem {formatMoneyPhp(row.remainingBalance)} · {row.currentOwnerLabel}
                 </p>
-                <button type="button" className={`${Sam.btn.secondary} mt-2 min-h-[40px] w-full`} onClick={() => openDetail(row)}>
+                <button
+                  type="button"
+                  className={adminGiftPrimaryBtnClass("mt-2 min-h-[40px] w-full text-sm")}
+                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+                  data-admin-gift-instance-detail-open="1"
+                  aria-pressed={id === row.id}
+                  onClick={() => openDetail(row)}
+                >
                   {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
                 </button>
               </li>
@@ -337,7 +385,11 @@ export function AdminGiftInstancesPanel({
       ) : null}
 
       {selected && detail ? (
-        <section className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-gift-instance-detail="1">
+        <section
+          className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-admin-gift-instance-detail="1"
+          data-admin-gift-instance-id={selected.id}
+        >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold font-mono">{selected.publicGiftNumber}</h2>
