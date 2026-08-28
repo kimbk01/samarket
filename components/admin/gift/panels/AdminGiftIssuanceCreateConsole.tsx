@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
+import {
+  validateGiftProductFunding,
+  type GiftDiscountFundingParty,
+} from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 import { useRouter } from "next/navigation";
@@ -78,11 +82,37 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
   const [review, setReview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [discountFundingParty, setDiscountFundingParty] = useState<GiftDiscountFundingParty>("NONE");
 
   const faceN = Math.trunc(Number(face) || 0);
   const priceN = Math.trunc(Number(price) || 0);
   const feeN = Math.trunc(Number(fee) || 0);
+  const promoGap = Math.max(0, faceN - priceN);
+  const fundingUnits = useMemo(() => {
+    if (promoGap <= 0) return { platformFundedUnits: 0, merchantFundedUnits: 0 };
+    if (discountFundingParty === "PLATFORM") {
+      return { platformFundedUnits: promoGap, merchantFundedUnits: 0 };
+    }
+    if (discountFundingParty === "MERCHANT") {
+      return { platformFundedUnits: 0, merchantFundedUnits: promoGap };
+    }
+    if (discountFundingParty === "SHARED") {
+      const half = Math.floor(promoGap / 2);
+      return { platformFundedUnits: half, merchantFundedUnits: promoGap - half };
+    }
+    return { platformFundedUnits: 0, merchantFundedUnits: 0 };
+  }, [promoGap, discountFundingParty]);
   const preview = useMemo(() => settlementPreview(faceN, feeN), [faceN, feeN]);
+
+  useEffect(() => {
+    if (promoGap <= 0) {
+      if (discountFundingParty !== "NONE") setDiscountFundingParty("NONE");
+      return;
+    }
+    if (discountFundingParty === "NONE") {
+      setDiscountFundingParty(mode === "PLATFORM" ? "PLATFORM" : "MERCHANT");
+    }
+  }, [promoGap, mode, discountFundingParty]);
 
   const searchStores = useCallback(async (q: string) => {
     setStoreLoading(true);
@@ -146,22 +176,30 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
     priceN >= 0 &&
     feeN >= 0 &&
     feeN <= 100 &&
-    (mode === "PLATFORM" || Boolean(selected?.storeId));
+    (mode === "PLATFORM" || Boolean(selected?.storeId)) &&
+    validateGiftProductFunding({
+      faceValue: faceN,
+      purchasePrice: priceN,
+      discountFundingParty: promoGap > 0 ? discountFundingParty : "NONE",
+      platformFundedUnits: fundingUnits.platformFundedUnits,
+      merchantFundedUnits: fundingUnits.merchantFundedUnits,
+    }).ok;
 
   const startSale = async () => {
     if (busy || !canReview) return;
     setBusy(true);
     setError(null);
     try {
+      const party = promoGap > 0 ? discountFundingParty : "NONE";
       const body: Record<string, unknown> = {
         giftScope: mode === "PLATFORM" ? "PLATFORM" : "STORE",
         title: title.trim(),
         faceValue: faceN,
         purchasePrice: priceN,
         platformFeeRate: feeN,
-        discountFundingParty: "NONE",
-        platformFundedUnits: 0,
-        merchantFundedUnits: 0,
+        discountFundingParty: party,
+        platformFundedUnits: fundingUnits.platformFundedUnits,
+        merchantFundedUnits: fundingUnits.merchantFundedUnits,
         transferable,
         imageUrl: imageUrl.trim() || null,
         salesStartsAt: salesStart ? new Date(salesStart).toISOString() : new Date().toISOString(),
@@ -619,6 +657,49 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
                 })}
               </span>
             </label>
+            {promoGap > 0 ? (
+              <label className="block space-y-1 text-sm">
+                <span>
+                  {safeT("gift_ops_field_promo_funding", {
+                    fallbackKo: "할인 부담",
+                    fallbackEn: "Discount funding",
+                  })}
+                </span>
+                <select
+                  className={Sam.input.base}
+                  value={discountFundingParty}
+                  onChange={(e) =>
+                    setDiscountFundingParty(e.target.value as GiftDiscountFundingParty)
+                  }
+                >
+                  <option value="MERCHANT">
+                    {safeT("gift_ops_funding_merchant", {
+                      fallbackKo: "매장 부담",
+                      fallbackEn: "Merchant funded",
+                    })}
+                  </option>
+                  <option value="PLATFORM">
+                    {safeT("gift_ops_funding_platform", {
+                      fallbackKo: "DIBAY 부담",
+                      fallbackEn: "DIBAY funded",
+                    })}
+                  </option>
+                  <option value="SHARED">
+                    {safeT("gift_ops_funding_shared", {
+                      fallbackKo: "분담 (SHARED)",
+                      fallbackEn: "Shared",
+                    })}
+                  </option>
+                </select>
+                <span className="text-xs text-sam-muted tabular-nums">
+                  {safeT("gift_ops_promo_gap_label", {
+                    vars: { gap: formatMoneyPhp(promoGap) },
+                    fallbackKo: `할인 ${formatMoneyPhp(promoGap)} · 구매 시 Ledger C accrual`,
+                    fallbackEn: `Discount ${formatMoneyPhp(promoGap)} · Ledger C accrual at purchase`,
+                  })}
+                </span>
+              </label>
+            ) : null}
           </section>
 
           <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">

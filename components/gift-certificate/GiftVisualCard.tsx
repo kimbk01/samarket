@@ -110,33 +110,63 @@ export function GiftVisualCard({
 
   const face = faceValue ?? null;
   const remaining = remainingBalance ?? null;
+  const purchase = purchasePrice ?? null;
+  const promoGap =
+    face != null && purchase != null && face > purchase ? face - purchase : null;
 
   const amountBlock =
     amountSlot ??
     (surface === "mall" ? (
       <div className="text-right">
-        {face != null ? (
-          <p className="text-[11px] font-medium uppercase tracking-wide text-white/85">
-            {safeT("commerce_hub_gift_face_label", {
-              fallbackKo: "액면가",
-              fallbackEn: "Face value",
-            })}
-          </p>
-        ) : null}
-        {face != null ? (
-          <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
-            {formatMoneyPhp(face)}
-          </p>
-        ) : null}
-        {purchasePrice != null ? (
-          <p className="mt-1 text-sm tabular-nums text-white/90">
-            {safeT("commerce_hub_gift_purchase_label", {
-              fallbackKo: "구매가",
-              fallbackEn: "Purchase",
-            })}{" "}
-            {formatMoneyPhp(purchasePrice)}
-          </p>
-        ) : null}
+        {face != null && purchase != null && face > purchase ? (
+          <>
+            <p className="text-sm tabular-nums text-white/75 line-through">{formatMoneyPhp(face)}</p>
+            <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
+              {formatMoneyPhp(purchase)}
+            </p>
+            {promoGap != null && promoGap > 0 ? (
+              <p className="mt-1 text-xs font-semibold text-emerald-200">
+                {safeT("commerce_hub_gift_mall_savings", {
+                  vars: { savings: formatMoneyPhp(promoGap) },
+                  fallbackKo: `${formatMoneyPhp(promoGap)} 할인`,
+                  fallbackEn: `Save ${formatMoneyPhp(promoGap)}`,
+                })}
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-white/85">
+              {safeT("commerce_hub_gift_mall_buy_use_copy", {
+                vars: { purchase: formatMoneyPhp(purchase), face: formatMoneyPhp(face) },
+                fallbackKo: `${formatMoneyPhp(purchase)}에 구매 · ${formatMoneyPhp(face)}까지 사용`,
+                fallbackEn: `Buy for ${formatMoneyPhp(purchase)} · use up to ${formatMoneyPhp(face)}`,
+              })}
+            </p>
+          </>
+        ) : (
+          <>
+            {face != null ? (
+              <p className="text-[11px] font-medium uppercase tracking-wide text-white/85">
+                {safeT("commerce_hub_gift_face_label", {
+                  fallbackKo: "액면가",
+                  fallbackEn: "Face value",
+                })}
+              </p>
+            ) : null}
+            {face != null ? (
+              <p className="text-2xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-3xl">
+                {formatMoneyPhp(face)}
+              </p>
+            ) : null}
+            {purchase != null ? (
+              <p className="mt-1 text-sm tabular-nums text-white/90">
+                {safeT("commerce_hub_gift_purchase_label", {
+                  fallbackKo: "구매가",
+                  fallbackEn: "Purchase",
+                })}{" "}
+                {formatMoneyPhp(purchase)}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
     ) : isUsed ? (
       <div className="text-right">

@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   let query = sb
     .from(GIFT_TABLES.instances)
     .select(
-      "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)"
+      "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -98,6 +98,9 @@ export async function GET(req: NextRequest) {
       currentOwnerLabel: profileLabel(profileMap.get(ownerId)),
       faceValue: n(row.face_value),
       purchasePrice: n(row.purchase_price),
+      purchaseDiscountAmount: n(row.purchase_discount_amount),
+      discountFundingPartySnapshot: s(row.discount_funding_party_snapshot) || "UNKNOWN_LEGACY",
+      platformFeeRateSnapshot: n(row.platform_fee_rate_snapshot),
       remainingBalance: n(row.remaining_balance),
       status: s(row.status),
       purchasedAt: s(row.purchased_at),
@@ -180,6 +183,8 @@ export async function GET(req: NextRequest) {
     { data: cashOutRows },
     { data: conversionRows },
     { data: recoveryRows },
+    { data: promoObligationRows },
+    { data: promoLedgerRows },
   ] = await Promise.all([
     storeId
       ? sb.rpc("gift_certificate_store_revenue_available", { p_store_id: storeId })
@@ -208,6 +213,17 @@ export async function GET(req: NextRequest) {
           .order("created_at", { ascending: false })
           .limit(20)
       : Promise.resolve({ data: [] }),
+    sb
+      .from(GIFT_TABLES.promoObligations)
+      .select("id, party, store_id, contracted_amount, recognized_amount, settled_amount, created_at")
+      .eq("instance_id", instanceId)
+      .order("created_at", { ascending: true }),
+    sb
+      .from(GIFT_TABLES.promoLedger)
+      .select("id, party, entry_type, amount, redemption_id, related_type, related_id, created_at")
+      .eq("instance_id", instanceId)
+      .order("created_at", { ascending: true })
+      .limit(100),
   ]);
 
   const redemptionIdSet = new Set(redemptions.map((row) => s(row.id)));
@@ -297,6 +313,27 @@ export async function GET(req: NextRequest) {
         })),
       },
       recovery: recoveryMapped,
+      promo: {
+        obligations: ((promoObligationRows ?? []) as Record<string, unknown>[]).map((row) => ({
+          id: s(row.id),
+          party: s(row.party),
+          storeId: s(row.store_id) || null,
+          contractedAmount: n(row.contracted_amount),
+          recognizedAmount: n(row.recognized_amount),
+          settledAmount: n(row.settled_amount),
+          createdAt: s(row.created_at),
+        })),
+        ledger: ((promoLedgerRows ?? []) as Record<string, unknown>[]).map((row) => ({
+          id: s(row.id),
+          party: s(row.party),
+          entryType: s(row.entry_type),
+          amount: n(row.amount),
+          redemptionId: s(row.redemption_id) || null,
+          relatedType: s(row.related_type),
+          relatedId: s(row.related_id),
+          createdAt: s(row.created_at),
+        })),
+      },
     },
   });
 }

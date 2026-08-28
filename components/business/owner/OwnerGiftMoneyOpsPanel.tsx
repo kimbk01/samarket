@@ -22,6 +22,10 @@ import {
   type OwnerGiftRedemptionRow,
 } from "@/lib/gift-certificate/owner-gift-money-ops";
 import {
+  computeOwnerEconomicReportingSum,
+  type GiftPromoDisplayFields,
+} from "@/lib/gift-certificate/gift-promo-economics";
+import {
   canRequestGiftCashOut,
   ownerCashOutStatusLabelKey,
   validateGiftCashOutAmount,
@@ -231,12 +235,19 @@ export function OwnerGiftMoneyOpsPanel(props: {
   const [lastRequestId, setLastRequestId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
+  const [ownerPromo, setOwnerPromo] = useState<GiftPromoDisplayFields>({
+    contracted: 0,
+    recognized: 0,
+    unrecognized: 0,
+    settled: 0,
+    outstanding: 0,
+  });
 
   const load = useCallback(async () => {
     const sid = storeId.trim();
     if (!sid) return;
     setLoaded(false);
-    const [rRes, redRes, cRes, cashOutRes] = await Promise.all([
+    const [rRes, redRes, cRes, cashOutRes, promoRes] = await Promise.all([
       fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/revenue`, {
         credentials: "include",
         cache: "no-store",
@@ -250,6 +261,10 @@ export function OwnerGiftMoneyOpsPanel(props: {
         cache: "no-store",
       }),
       fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/cash-outs`, {
+        credentials: "include",
+        cache: "no-store",
+      }).catch(() => null),
+      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/promo`, {
         credentials: "include",
         cache: "no-store",
       }).catch(() => null),
@@ -279,6 +294,10 @@ export function OwnerGiftMoneyOpsPanel(props: {
             }[];
             pendingAmount?: number;
           })
+        : null;
+    const promoJson =
+      promoRes && promoRes.ok
+        ? ((await promoRes.json()) as { ok?: boolean; ownerPromo?: GiftPromoDisplayFields })
         : null;
     if (rJson.ok) {
       setRevenue({
@@ -311,6 +330,17 @@ export function OwnerGiftMoneyOpsPanel(props: {
       setCashOuts([]);
       setCashOutPending(Math.trunc(Number(cashOutJson?.pendingAmount) || 0));
     }
+    if (promoJson?.ok && promoJson.ownerPromo) {
+      setOwnerPromo(promoJson.ownerPromo);
+    } else {
+      setOwnerPromo({
+        contracted: 0,
+        recognized: 0,
+        unrecognized: 0,
+        settled: 0,
+        outstanding: 0,
+      });
+    }
     setLoaded(true);
   }, [storeId]);
 
@@ -319,6 +349,14 @@ export function OwnerGiftMoneyOpsPanel(props: {
   }, [load]);
 
   const redeemKpis = useMemo(() => aggregateOwnerRedemptionKpis(redemptions), [redemptions]);
+  const economicReportingNet = useMemo(
+    () =>
+      computeOwnerEconomicReportingSum({
+        recognizedMerchantNet: redeemKpis.recognizedMerchantNet,
+        ownerPromoRecognized: ownerPromo.recognized,
+      }),
+    [redeemKpis.recognizedMerchantNet, ownerPromo.recognized]
+  );
   const pendingConv = useMemo(() => conversionPendingAmount(conversions), [conversions]);
   const processingPending = cashOutPending + pendingConv;
   const gate = useMemo(
@@ -1220,6 +1258,115 @@ export function OwnerGiftMoneyOpsPanel(props: {
                   formatMoneyPhp(revenue.storeCashBalance),
                   "store-cash"
                 )}
+              </div>
+              <div className="mt-4 grid gap-3" data-owner-gift-three-panels="1">
+                <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm">
+                  <p className="mb-2 font-semibold text-sam-fg">
+                    {safeT("gift_u5_panel_settlement_title", {
+                      fallbackKo: "사용 정산",
+                      fallbackEn: "Redemption settlement",
+                    })}
+                  </p>
+                  <p className="tabular-nums text-sam-muted">
+                    {safeT("gift_u5_panel_settlement_value", {
+                      fallbackKo: "사용 가치",
+                      fallbackEn: "Redeemed value",
+                    })}
+                    : {formatMoneyPhp(redeemKpis.redeemedGross)}
+                  </p>
+                  <p className="tabular-nums text-sam-muted">
+                    {safeT("gift_u5_panel_settlement_fee", {
+                      fallbackKo: "DIBAY 수수료",
+                      fallbackEn: "DIBAY fee",
+                    })}
+                    : −{formatMoneyPhp(redeemKpis.platformFeeTotal)}
+                  </p>
+                  <p className="tabular-nums font-semibold text-sam-fg">
+                    {safeT("gift_u5_panel_settlement_merchant", {
+                      fallbackKo: "매장 정산",
+                      fallbackEn: "Merchant net",
+                    })}
+                    : {formatMoneyPhp(redeemKpis.merchantNetTotal)}
+                  </p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm">
+                  <p className="mb-2 font-semibold text-sam-fg">
+                    {safeT("gift_u5_panel_promo_title", {
+                      fallbackKo: "프로모션",
+                      fallbackEn: "Promotion",
+                    })}
+                  </p>
+                  <p className="tabular-nums text-sam-muted">
+                    {safeT("gift_u5_panel_promo_discount", {
+                      fallbackKo: "할인",
+                      fallbackEn: "Discount",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.contracted)}
+                  </p>
+                  <p className="tabular-nums text-sam-muted">
+                    {safeT("gift_u5_panel_promo_owner_burden", {
+                      fallbackKo: "오너 부담",
+                      fallbackEn: "Owner burden",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.contracted)}
+                  </p>
+                  <p className="mt-1 tabular-nums text-xs text-sam-muted">
+                    {safeT("gift_u5_panel_promo_contracted", {
+                      fallbackKo: "약정",
+                      fallbackEn: "Contracted",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.contracted)} ·{" "}
+                    {safeT("gift_u5_panel_promo_recognized", {
+                      fallbackKo: "인식",
+                      fallbackEn: "Recognized",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.recognized)} ·{" "}
+                    {safeT("gift_u5_panel_promo_unrecognized", {
+                      fallbackKo: "미인식",
+                      fallbackEn: "Unrecognized",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.unrecognized)}
+                  </p>
+                  <p className="tabular-nums text-xs text-sam-muted">
+                    {safeT("gift_u5_panel_promo_settled", {
+                      fallbackKo: "정산",
+                      fallbackEn: "Settled",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.settled)} ·{" "}
+                    {safeT("gift_u5_panel_promo_outstanding", {
+                      fallbackKo: "미정산",
+                      fallbackEn: "Outstanding",
+                    })}
+                    : {formatMoneyPhp(ownerPromo.outstanding)}
+                  </p>
+                </div>
+                <div className="rounded-ui-rect border border-amber-200/80 bg-amber-50/80 p-3 text-sm">
+                  <p className="mb-2 font-semibold text-amber-950">
+                    {safeT("gift_u5_panel_economic_title", {
+                      fallbackKo: "경제 손익 (보고용)",
+                      fallbackEn: "Economic P&L (reporting)",
+                    })}
+                  </p>
+                  <p className="tabular-nums font-semibold text-amber-950">
+                    {safeT("gift_u5_panel_economic_sum", {
+                      vars: {
+                        merchant: formatMoneyPhp(redeemKpis.recognizedMerchantNet),
+                        promo: formatMoneyPhp(ownerPromo.recognized),
+                        net: formatMoneyPhp(economicReportingNet),
+                      },
+                      fallbackKo: `정산 ${formatMoneyPhp(redeemKpis.recognizedMerchantNet)} − 프로모션 ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
+                      fallbackEn: `Settlement ${formatMoneyPhp(redeemKpis.recognizedMerchantNet)} − promo ${formatMoneyPhp(ownerPromo.recognized)} = ${formatMoneyPhp(economicReportingNet)}`,
+                    })}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-900/80">
+                    {safeT("gift_u5_panel_economic_note", {
+                      fallbackKo:
+                        "정산 수익에서 프로모션 부담을 뺀 참고 값입니다. REVENUE_AVAILABLE을 변경하지 않습니다.",
+                      fallbackEn:
+                        "Reference only — does not mutate REVENUE_AVAILABLE.",
+                    })}
+                  </p>
+                </div>
               </div>
               <div className="mt-4 space-y-2">
                 <ActionRow

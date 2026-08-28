@@ -17,6 +17,8 @@ export const GIFT_TABLES = {
   storeCashAccounts: "store_cash_accounts",
   storeCashLedger: "store_cash_ledger",
   storeCashRecoveryObligations: "store_cash_recovery_obligations",
+  promoObligations: "gift_promo_obligations",
+  promoLedger: "gift_promo_ledger",
 } as const;
 
 export const GIFT_RPCS = {
@@ -40,6 +42,10 @@ export const GIFT_RPCS = {
   redemptionIsRecognized: "gift_certificate_redemption_is_recognized",
   redemptionRecognizedNet: "gift_certificate_redemption_recognized_net",
   correctLegacyRecognition: "gift_certificate_correct_legacy_recognition",
+  promoAccrueForInstance: "gift_certificate_promo_accrue_for_instance",
+  promoRecognizeForRedemption: "gift_certificate_promo_recognize_for_redemption",
+  promoReverseForRedemption: "gift_certificate_promo_reverse_for_redemption",
+  promoSettle: "gift_certificate_promo_settle",
 } as const;
 
 export const GIFT_MIGRATION_ID = "20261127120000_gift_certificate_domain_g2" as const;
@@ -55,3 +61,5 @@ export const GIFT_CASH_OUT_MIGRATION_ID =
   "20261128170000_gift_certificate_cash_out" as const;
 export const GIFT_SCOPE_PLATFORM_MIGRATION_ID =
   "20261128180000_gift_certificate_scope_platform" as const;
+export const GIFT_PROMO_ECONOMICS_MIGRATION_ID =
+  "20261128190000_gift_certificate_promo_economics" as const;

@@ -6,6 +6,7 @@ import {
   GIFT_CHECKOUT_REFUND_MIGRATION_ID,
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
+  GIFT_PROMO_ECONOMICS_MIGRATION_ID,
   GIFT_RECOGNITION_CORRECTION_MIGRATION_ID,
   GIFT_RPCS,
 } from "@/lib/gift-certificate/gift-certificate-schema";
@@ -100,13 +101,15 @@ describe("Gift financial integrity root fix contracts T1–T16 (static)", () => 
     const orderCompletion = readMig(GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID);
     const recognitionCorrection = readMig(GIFT_RECOGNITION_CORRECTION_MIGRATION_ID);
     const cashOut = readMig(GIFT_CASH_OUT_MIGRATION_ID);
+    const promoEconomics = readMig(GIFT_PROMO_ECONOMICS_MIGRATION_ID);
     for (const fn of Object.values(GIFT_RPCS)) {
       const found =
         g2.includes(`FUNCTION public.${fn}(`) ||
         g7.includes(`FUNCTION public.${fn}(`) ||
         orderCompletion.includes(`FUNCTION public.${fn}(`) ||
         recognitionCorrection.includes(`FUNCTION public.${fn}(`) ||
-        cashOut.includes(`FUNCTION public.${fn}(`);
+        cashOut.includes(`FUNCTION public.${fn}(`) ||
+        promoEconomics.includes(`FUNCTION public.${fn}(`);
       expect(found, fn).toBe(true);
     }
   });

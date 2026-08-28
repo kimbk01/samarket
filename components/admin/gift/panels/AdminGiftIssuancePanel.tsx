@@ -9,6 +9,7 @@ import {
   type AdminGiftOpsProductsSubtab,
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { resolveGiftProductFundingFromGap } from "@/lib/gift-certificate/gift-promo-economics";
 import { Sam } from "@/lib/ui/css-vars";
 import { AdminGiftIssuanceCreateConsole } from "@/components/admin/gift/panels/AdminGiftIssuanceCreateConsole";
 import { AdminGiftProductDetailConsole } from "@/components/admin/gift/panels/AdminGiftProductDetailConsole";
@@ -270,15 +271,25 @@ export function AdminGiftIssuancePanel({
     try {
       const salesStartsAt = prodStart ? new Date(prodStart).toISOString() : new Date().toISOString();
       const salesEndsAt = prodEnd ? new Date(prodEnd).toISOString() : null;
+      const faceValue = Math.trunc(Number(prodFace));
+      const purchasePrice = Math.trunc(Number(prodPrice));
+      const promoGap = Math.max(0, faceValue - purchasePrice);
+      const discountFundingParty =
+        promoGap > 0 ? (opts.giftScope === "PLATFORM" ? "PLATFORM" : "MERCHANT") : "NONE";
+      const fundingUnits = resolveGiftProductFundingFromGap({
+        faceValue,
+        purchasePrice,
+        discountFundingParty,
+      });
       const body: Record<string, unknown> = {
         giftScope: opts.giftScope,
         title: prodTitle.trim(),
-        faceValue: Math.trunc(Number(prodFace)),
-        purchasePrice: Math.trunc(Number(prodPrice)),
+        faceValue,
+        purchasePrice,
         platformFeeRate: Math.trunc(Number(prodFee) || 0),
-        discountFundingParty: "NONE",
-        platformFundedUnits: 0,
-        merchantFundedUnits: 0,
+        discountFundingParty,
+        platformFundedUnits: fundingUnits.dibayUnits,
+        merchantFundedUnits: fundingUnits.ownerUnits,
         transferable: prodTransferable,
         imageUrl: prodImage.trim() || null,
         salesStartsAt,

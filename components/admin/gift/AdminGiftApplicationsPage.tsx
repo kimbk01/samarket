@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/css-vars";
+import { resolveGiftProductFundingFromGap } from "@/lib/gift-certificate/gift-promo-economics";
 
 type ApplicationRow = {
   id: string;
@@ -128,6 +129,15 @@ export function AdminGiftApplicationsPage() {
     setBusy(true);
     setError(null);
     try {
+      const faceValue = Math.trunc(Number(prodFace));
+      const purchasePrice = Math.trunc(Number(prodPrice));
+      const promoGap = Math.max(0, faceValue - purchasePrice);
+      const discountFundingParty = promoGap > 0 ? "MERCHANT" : "NONE";
+      const fundingUnits = resolveGiftProductFundingFromGap({
+        faceValue,
+        purchasePrice,
+        discountFundingParty,
+      });
       const res = await fetch("/api/admin/gift-certificates/products", {
         method: "POST",
         credentials: "include",
@@ -136,12 +146,12 @@ export function AdminGiftApplicationsPage() {
           applicationId: detail.id,
           storeId: detail.store_id,
           title: prodTitle.trim(),
-          faceValue: Math.trunc(Number(prodFace)),
-          purchasePrice: Math.trunc(Number(prodPrice)),
+          faceValue,
+          purchasePrice,
           platformFeeRate: Math.trunc(Number(prodFee) || 0),
-          discountFundingParty: "NONE",
-          platformFundedUnits: 0,
-          merchantFundedUnits: 0,
+          discountFundingParty,
+          platformFundedUnits: fundingUnits.dibayUnits,
+          merchantFundedUnits: fundingUnits.ownerUnits,
           transferable: prodTransferable,
           imageUrl: prodImage.trim() || null,
           salesStartsAt: new Date().toISOString(),
