@@ -18,10 +18,12 @@ describe("commerce hub tier1 SSOT", () => {
   });
 
   it("resolveMainTier1Subpage owns hub alias static back contract to /stores", () => {
-    expect(resolveMainTier1Subpage("/orders/activity")?.backHref).toBe("/stores");
+    const activity = resolveMainTier1Subpage("/orders/activity");
+    expect(activity?.backHref).toBe("/stores");
+    expect(activity?.preferHistoryBack).toBe(false);
     expect(resolveMainTier1Subpage("/mypage/coupons")?.backHref).toBe("/stores");
     expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.backHref).toBe("/stores");
-    expect(resolveMainTier1Subpage("/orders/activity")?.titleText).toBe("commerce_hub_title");
+    expect(activity?.titleText).toBe("commerce_hub_title");
     expect(resolveMainTier1Subpage("/mypage/coupons")?.titleText).toBe("commerce_hub_title");
     expect(resolveMainTier1Subpage("/mypage/gift-certificates")?.titleText).toBe("commerce_hub_title");
   });

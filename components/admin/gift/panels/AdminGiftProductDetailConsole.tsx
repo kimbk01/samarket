@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
+import {
+  ADMIN_GIFT_PRIMARY_BTN_STYLE,
+  adminGiftPrimaryBtnClass,
+} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -121,6 +125,7 @@ export function AdminGiftProductDetailConsole({
   const { safeT } = useI18n();
   const [payload, setPayload] = useState<DetailPayload | null>(null);
   const [state, setState] = useState<"loading" | "error" | "ready">("loading");
+  const [refreshing, setRefreshing] = useState(false);
   const [section, setSection] = useState<SectionId>("config");
   const [editOpen, setEditOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -134,6 +139,8 @@ export function AdminGiftProductDetailConsole({
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editTransferable, setEditTransferable] = useState(true);
+  const editOpenRef = useRef(false);
+  editOpenRef.current = editOpen;
 
   const hydrateEditFromProduct = useCallback((p: ProductDetail) => {
     setEditTitle(p.title);
@@ -146,8 +153,9 @@ export function AdminGiftProductDetailConsole({
     setEditTransferable(p.transferable !== false);
   }, []);
 
-  const load = useCallback(async () => {
-    setState("loading");
+  const load = useCallback(async (opts?: { background?: boolean }) => {
+    if (!opts?.background) setState("loading");
+    else setRefreshing(true);
     try {
       const res = await fetch(`/api/admin/gift-certificates/products/${encodeURIComponent(productId)}`, {
         credentials: "include",
@@ -155,16 +163,22 @@ export function AdminGiftProductDetailConsole({
       });
       const json = (await res.json()) as DetailPayload & { ok?: boolean };
       if (!res.ok || !json.ok || !json.product) {
-        setPayload(null);
-        setState("error");
+        if (!opts?.background) {
+          setPayload(null);
+          setState("error");
+        }
         return;
       }
       setPayload(json as DetailPayload);
-      hydrateEditFromProduct(json.product);
+      if (!editOpenRef.current) hydrateEditFromProduct(json.product);
       setState("ready");
     } catch {
-      setPayload(null);
-      setState("error");
+      if (!opts?.background) {
+        setPayload(null);
+        setState("error");
+      }
+    } finally {
+      setRefreshing(false);
     }
   }, [hydrateEditFromProduct, productId]);
 
@@ -251,7 +265,7 @@ export function AdminGiftProductDetailConsole({
         setError(safeT("gift_admin_action_fail", { fallbackKo: "처리에 실패했습니다.", fallbackEn: "Action failed." }));
         return;
       }
-      await load();
+      await load({ background: true });
       onChanged();
     } finally {
       setBusy(false);
@@ -313,7 +327,7 @@ export function AdminGiftProductDetailConsole({
         );
         return;
       }
-      await load();
+      await load({ background: true });
       onChanged();
       setEditOpen(false);
       await dibayAlert({
@@ -393,7 +407,7 @@ export function AdminGiftProductDetailConsole({
     if (ok) await patchAction("archive");
   };
 
-  if (state === "loading") {
+  if (state === "loading" && !payload) {
     return (
       <p className="text-sm text-sam-muted">
         {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
@@ -419,6 +433,11 @@ export function AdminGiftProductDetailConsole({
 
   return (
     <section className="space-y-4" data-admin-gift-product-detail="1">
+      {refreshing ? (
+        <p className="text-xs text-sam-muted" aria-live="polite">
+          {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        </p>
+      ) : null}
       <div className="flex flex-col gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:flex-row">
         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
           {product.image_url ? (
@@ -559,12 +578,13 @@ export function AdminGiftProductDetailConsole({
               </button>
               <button
                 type="button"
-                className={`${Sam.btn.primary} min-h-[48px] flex-1 px-4 text-sam-on-primary`}
+                className={adminGiftPrimaryBtnClass("min-h-[48px] flex-1")}
+                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                 disabled={busy || !isDirty}
                 data-admin-gift-product-save="1"
                 onClick={() => void saveEdit()}
               >
-                {safeT("gift_ops_cta_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+                {safeT("gift_ops_cta_save", { fallbackKo: "수정 완료", fallbackEn: "Save changes" })}
               </button>
             </div>
           ) : null}
@@ -573,7 +593,8 @@ export function AdminGiftProductDetailConsole({
             {!editOpen ? (
               <button
                 type="button"
-                className={`${Sam.btn.primary} min-h-[44px] px-4 text-sam-on-primary`}
+                className={adminGiftPrimaryBtnClass("min-h-[44px] px-4")}
+                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                 data-admin-gift-product-edit="1"
                 onClick={enterEdit}
               >
@@ -587,7 +608,8 @@ export function AdminGiftProductDetailConsole({
             ) : (
               <button
                 type="button"
-                className={`${Sam.btn.primary} min-h-[44px] px-4`}
+                className={adminGiftPrimaryBtnClass("min-h-[44px] px-4")}
+                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                 disabled={busy || !!product.archived_at}
                 onClick={() => void patchAction(product.archived_at ? "unarchive" : "activate")}
               >

@@ -10,6 +10,10 @@ import {
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveGiftProductFundingFromGap } from "@/lib/gift-certificate/gift-promo-economics";
+import {
+  ADMIN_GIFT_PRIMARY_BTN_STYLE,
+  adminGiftPrimaryBtnClass,
+} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { Sam } from "@/lib/ui/css-vars";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
@@ -488,7 +492,8 @@ export function AdminGiftIssuancePanel({
         </div>
         <button
           type="button"
-          className={`${Sam.btn.primary} min-h-[44px] w-full`}
+          className={adminGiftPrimaryBtnClass("min-h-[44px] w-full")}
+          style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
           onClick={() =>
             go({
               tab: "products",
@@ -571,7 +576,8 @@ export function AdminGiftIssuancePanel({
           <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm">
             <button
               type="button"
-              className={`${Sam.btn.primary} min-h-[48px] w-full text-sam-on-primary`}
+              className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
+              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
               disabled={busy}
               data-admin-gift-app-start="1"
               onClick={() =>
@@ -614,7 +620,8 @@ export function AdminGiftIssuancePanel({
         <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm">
           <button
             type="button"
-            className={`${Sam.btn.primary} min-h-[48px] w-full text-sam-on-primary`}
+            className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
+            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
             disabled={!prodTitle.trim() || face <= 0 || price < 0}
             data-admin-gift-app-review="1"
             onClick={() => setProdReview(true)}
@@ -666,7 +673,8 @@ export function AdminGiftIssuancePanel({
         detail.status === "approved" ? (
           <button
             type="button"
-            className={`${Sam.btn.primary} min-h-[48px] w-full`}
+            className={adminGiftPrimaryBtnClass("min-h-[48px] w-full")}
+            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
             onClick={() =>
               go({ tab: "products", products: "applications", extra: { id, create: "1" } })
             }
@@ -772,7 +780,8 @@ export function AdminGiftIssuancePanel({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className={`${Sam.btn.primary} min-h-[40px] px-4 text-sm`}
+            className={adminGiftPrimaryBtnClass("min-h-[40px] px-4 text-sm")}
+            style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
             onClick={() => go({ tab: "products", products: "products", extra: { create: "1" } })}
           >
             {safeT("gift_ops_cta_new_product", {
@@ -897,7 +906,8 @@ export function AdminGiftIssuancePanel({
                   <td className="px-2 py-2">
                     <button
                       type="button"
-                      className={`${Sam.btn.primary} px-3 py-1.5 text-xs`}
+                      className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs")}
+                      style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                       onClick={() =>
                         go({ tab: "products", products: "applications", extra: { id: r.id } })
                       }
@@ -963,7 +973,8 @@ export function AdminGiftIssuancePanel({
                     <td className="px-2 py-2">
                       <button
                         type="button"
-                        className={`${Sam.btn.primary} px-3 py-1.5 text-xs min-h-[36px]`}
+                        className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs min-h-[36px]")}
+                        style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                         data-admin-gift-product-manage="1"
                         onClick={() =>
                           go({ tab: "products", products: "products", extra: { id: p.id } })
@@ -993,7 +1004,8 @@ export function AdminGiftIssuancePanel({
                 </p>
                 <button
                   type="button"
-                  className={`${Sam.btn.primary} mt-3 w-full min-h-[40px] text-sm`}
+                  className={adminGiftPrimaryBtnClass("mt-3 w-full min-h-[40px] text-sm")}
+                  style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                   data-admin-gift-product-manage="1"
                   onClick={() => go({ tab: "products", products: "products", extra: { id: p.id } })}
                 >

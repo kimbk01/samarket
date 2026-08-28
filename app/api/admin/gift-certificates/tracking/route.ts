@@ -38,6 +38,41 @@ async function loadProfileMap(
   return new Map((data ?? []).map((row: Record<string, unknown>) => [s(row.id), row]));
 }
 
+const INSTANCE_SELECT =
+  "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)";
+
+function mapInstanceRow(
+  row: Record<string, unknown>,
+  profileMap: Map<string, Record<string, unknown>>
+) {
+  const product = firstObject(row.gift_certificate_products);
+  const store = firstObject(row.stores);
+  const purchaserId = s(row.purchaser_user_id);
+  const ownerId = s(row.current_owner_user_id);
+  return {
+    id: s(row.id),
+    publicGiftNumber: s(row.public_gift_number),
+    giftScope: s(row.gift_scope) === "PLATFORM" ? ("PLATFORM" as const) : ("STORE" as const),
+    storeId: s(row.store_id) || null,
+    storeName: s(row.gift_scope) === "PLATFORM" ? "" : s(store?.store_name),
+    productId: s(row.product_id),
+    productTitle: s(product?.title),
+    originalBuyerUserId: purchaserId,
+    originalBuyerLabel: profileLabel(profileMap.get(purchaserId)),
+    currentOwnerUserId: ownerId,
+    currentOwnerLabel: profileLabel(profileMap.get(ownerId)),
+    faceValue: n(row.face_value),
+    purchasePrice: n(row.purchase_price),
+    purchaseDiscountAmount: n(row.purchase_discount_amount),
+    discountFundingPartySnapshot: s(row.discount_funding_party_snapshot) || "UNKNOWN_LEGACY",
+    platformFeeRateSnapshot: n(row.platform_fee_rate_snapshot),
+    remainingBalance: n(row.remaining_balance),
+    status: s(row.status),
+    purchasedAt: s(row.purchased_at),
+    createdAt: s(row.created_at),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
@@ -49,9 +84,7 @@ export async function GET(req: NextRequest) {
 
   let query = sb
     .from(GIFT_TABLES.instances)
-    .select(
-      "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title), stores(store_name)"
-    )
+    .select(INSTANCE_SELECT)
     .order("created_at", { ascending: false })
     .limit(200);
   if (status) query = query.eq("status", status);
@@ -76,42 +109,34 @@ export async function GET(req: NextRequest) {
     sb,
     rows.flatMap((row) => [s(row.purchaser_user_id), s(row.current_owner_user_id)])
   );
-  const instances = rows.map((row) => {
-    const product = firstObject(row.gift_certificate_products);
-    const store = firstObject(row.stores);
-    const purchaserId = s(row.purchaser_user_id);
-    const ownerId = s(row.current_owner_user_id);
-    return {
-      id: s(row.id),
-      publicGiftNumber: s(row.public_gift_number),
-      giftScope: s(row.gift_scope) === "PLATFORM" ? "PLATFORM" : "STORE",
-      storeId: s(row.store_id) || null,
-      storeName:
-        s(row.gift_scope) === "PLATFORM"
-          ? ""
-          : s(store?.store_name),
-      productId: s(row.product_id),
-      productTitle: s(product?.title),
-      originalBuyerUserId: purchaserId,
-      originalBuyerLabel: profileLabel(profileMap.get(purchaserId)),
-      currentOwnerUserId: ownerId,
-      currentOwnerLabel: profileLabel(profileMap.get(ownerId)),
-      faceValue: n(row.face_value),
-      purchasePrice: n(row.purchase_price),
-      purchaseDiscountAmount: n(row.purchase_discount_amount),
-      discountFundingPartySnapshot: s(row.discount_funding_party_snapshot) || "UNKNOWN_LEGACY",
-      platformFeeRateSnapshot: n(row.platform_fee_rate_snapshot),
-      remainingBalance: n(row.remaining_balance),
-      status: s(row.status),
-      purchasedAt: s(row.purchased_at),
-      createdAt: s(row.created_at),
-    };
-  });
+  const instances = rows.map((row) => mapInstanceRow(row, profileMap));
 
-  const selectedRow =
+  let selectedRow =
     selected.length > 0
-      ? instances.find((row) => row.id === selected || row.publicGiftNumber === selected.toUpperCase())
+      ? instances.find((row) => row.id === selected || row.publicGiftNumber === selected.toUpperCase()) ?? null
       : null;
+
+  if (selected.length > 0 && !selectedRow) {
+    let directQuery = sb.from(GIFT_TABLES.instances).select(INSTANCE_SELECT).limit(1);
+    if (isUuid(selected)) {
+      directQuery = directQuery.eq("id", selected);
+    } else {
+      directQuery = directQuery.eq("public_gift_number", selected.toUpperCase());
+    }
+    const { data: directRows, error: directError } = await directQuery;
+    if (!directError && directRows?.[0]) {
+      const directRaw = directRows[0] as Record<string, unknown>;
+      const directProfileMap = await loadProfileMap(sb, [
+        s(directRaw.purchaser_user_id),
+        s(directRaw.current_owner_user_id),
+      ]);
+      selectedRow = mapInstanceRow(directRaw, directProfileMap);
+      if (!instances.some((row) => row.id === selectedRow!.id)) {
+        instances.unshift(selectedRow);
+      }
+    }
+  }
+
   if (!selectedRow) {
     return NextResponse.json({ ok: true, instances, detail: null });
   }

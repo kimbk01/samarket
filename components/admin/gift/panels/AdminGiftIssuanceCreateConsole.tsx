@@ -10,6 +10,10 @@ import {
   type GiftDiscountFundingParty,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  ADMIN_GIFT_PRIMARY_BTN_STYLE,
+  adminGiftPrimaryBtnClass,
+} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { Sam } from "@/lib/ui/css-vars";
 import { useRouter } from "next/navigation";
 
@@ -305,7 +309,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
             </p>
             <button
               type="button"
-              className={`${Sam.btn.primary} mt-auto min-h-[48px] w-full`}
+              className={adminGiftPrimaryBtnClass("mt-auto min-h-[48px] w-full")}
+              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
               onClick={() => go({ create: "1", type: "STORE" })}
             >
               {safeT("gift_ops_cta_make_store", {
@@ -326,7 +331,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
             </p>
             <button
               type="button"
-              className={`${Sam.btn.primary} mt-auto min-h-[48px] w-full`}
+              className={adminGiftPrimaryBtnClass("mt-auto min-h-[48px] w-full")}
+              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
               onClick={() => go({ create: "1", type: "PLATFORM" })}
             >
               {safeT("gift_ops_cta_make_platform", {
@@ -499,7 +505,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
             <div className="flex flex-col gap-2 pt-2 sm:flex-row-reverse">
               <button
                 type="button"
-                className={`${Sam.btn.primary} min-h-[48px] flex-1 text-sam-on-primary`}
+                className={adminGiftPrimaryBtnClass("min-h-[48px] flex-1")}
+                style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
                 disabled={busy}
                 data-admin-gift-create-start="1"
                 onClick={() => void startSale()}
@@ -779,7 +786,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
           <div className="sticky bottom-0 z-20 -mx-1 flex flex-col gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm sm:flex-row-reverse">
             <button
               type="button"
-              className={`${Sam.btn.primary} min-h-[48px] flex-1 text-sam-on-primary`}
+              className={adminGiftPrimaryBtnClass("min-h-[48px] flex-1")}
+              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
               disabled={!canReview}
               data-admin-gift-create-review="1"
               onClick={() => setReview(true)}

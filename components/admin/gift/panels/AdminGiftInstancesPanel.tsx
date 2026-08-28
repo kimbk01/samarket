@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
+import {
+  ADMIN_GIFT_PRIMARY_BTN_STYLE,
+  adminGiftPrimaryBtnClass,
+} from "@/lib/gift-certificate/admin-gift-primary-button";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -125,9 +129,11 @@ export function AdminGiftInstancesPanel({
   const [q, setQ] = useState(initialQ);
   const [status, setStatus] = useState(initialStatus);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setState("loading");
+  const load = useCallback(async (opts?: { background?: boolean }) => {
+    if (!opts?.background) setState("loading");
+    else setRefreshing(true);
     try {
       const qs = new URLSearchParams();
       if (q.trim()) qs.set("q", q.trim());
@@ -143,19 +149,25 @@ export function AdminGiftInstancesPanel({
         detail?: TrackingDetail | null;
       };
       if (!res.ok || !json.ok) {
-        setRows([]);
-        setDetail(null);
-        setState("error");
+        if (!opts?.background) {
+          setRows([]);
+          setDetail(null);
+          setState("error");
+        }
         return;
       }
       const list = json.instances ?? [];
       setRows(list);
       setDetail(json.detail ?? null);
-      setState(list.length === 0 ? "empty" : "data");
+      setState(list.length === 0 && !json.detail ? "empty" : "data");
     } catch {
-      setRows([]);
-      setDetail(null);
-      setState("error");
+      if (!opts?.background) {
+        setRows([]);
+        setDetail(null);
+        setState("error");
+      }
+    } finally {
+      setRefreshing(false);
     }
   }, [id, q, status]);
 
@@ -224,12 +236,23 @@ export function AdminGiftInstancesPanel({
             ))}
           </select>
         </label>
-        <button type="button" className={`${Sam.btn.primary} min-h-[44px]`} onClick={pushSearch}>
+        <button
+          type="button"
+          className={adminGiftPrimaryBtnClass("min-h-[44px]")}
+          style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+          onClick={pushSearch}
+        >
           {safeT("gift_ops_search", { fallbackKo: "검색", fallbackEn: "Search" })}
         </button>
       </div>
 
-      {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
+      {refreshing ? (
+        <p className="text-xs text-sam-muted" aria-live="polite">
+          {safeT("gift_ops_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}
+        </p>
+      ) : null}
+
+      {state === "loading" && rows.length === 0 ? <p className="text-sm text-sam-muted">…</p> : null}
       {state === "error" ? (
         <div className="space-y-2">
           <p className="text-sm text-red-600">

@@ -159,7 +159,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return {
       ...DEFAULT,
       backHref: "/stores",
-      preferHistoryBack: true,
+      preferHistoryBack: false,
       ariaLabel: "tier1_back",
       titleText: "commerce_hub_title",
       showHubQuickActions: false,
