@@ -153,9 +153,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
     setError(null);
     try {
       const fd = new FormData();
-      fd.set("kind", "hero");
       fd.set("file", file);
-      const res = await fetch("/api/admin/app-notices/upload-image", {
+      const res = await fetch("/api/admin/gift-certificates/upload-image", {
         method: "POST",
         credentials: "include",
         body: fd,

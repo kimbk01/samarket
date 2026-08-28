@@ -11,6 +11,10 @@ import {
   ADMIN_GIFT_PRIMARY_BTN_STYLE,
   adminGiftPrimaryBtnClass,
 } from "@/lib/gift-certificate/admin-gift-primary-button";
+import {
+  isGiftDiscountFundingParty,
+  type GiftDiscountFundingParty,
+} from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -119,14 +123,6 @@ function toLocalInput(iso: string | null): string {
   }
 }
 
-function expiryLabel(p: ProductDetail): string {
-  const policy = p.expiry_policy ?? "NO_EXPIRY";
-  if (policy === "NO_EXPIRY") return "No expiry";
-  if (policy === "FIXED_DAYS") return `${p.validity_days ?? "—"} days from issue`;
-  if (policy === "FIXED_DATE") return p.fixed_valid_until ?? "—";
-  return policy;
-}
-
 export function AdminGiftProductDetailConsole({
   productId,
   onBack,
@@ -155,6 +151,7 @@ export function AdminGiftProductDetailConsole({
   const [editEnd, setEditEnd] = useState("");
   const [editTransferable, setEditTransferable] = useState(true);
   const [editMaxIssuance, setEditMaxIssuance] = useState("");
+  const [editFundingParty, setEditFundingParty] = useState<GiftDiscountFundingParty>("NONE");
   const editOpenRef = useRef(false);
   editOpenRef.current = editOpen;
 
@@ -168,6 +165,9 @@ export function AdminGiftProductDetailConsole({
     setEditEnd(toLocalInput(p.sales_ends_at));
     setEditTransferable(p.transferable !== false);
     setEditMaxIssuance(p.max_issuance == null ? "" : String(p.max_issuance));
+    setEditFundingParty(
+      isGiftDiscountFundingParty(p.discount_funding_party) ? p.discount_funding_party : "NONE"
+    );
   }, []);
 
   const load = useCallback(async (opts?: { background?: boolean }) => {
@@ -207,11 +207,42 @@ export function AdminGiftProductDetailConsole({
   const scope = product?.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
   const status = product ? productStatus(product) : "PAUSED";
 
+  const fundingUnits = useMemo(() => {
+    const faceN = Math.trunc(Number(editFace) || 0);
+    const priceN = Math.trunc(Number(editPrice) || 0);
+    const gap = Math.max(0, faceN - priceN);
+    if (gap <= 0) return { party: "NONE" as GiftDiscountFundingParty, platform: 0, merchant: 0 };
+    if (editFundingParty === "PLATFORM") return { party: "PLATFORM" as const, platform: gap, merchant: 0 };
+    if (editFundingParty === "MERCHANT") return { party: "MERCHANT" as const, platform: 0, merchant: gap };
+    if (editFundingParty === "SHARED") {
+      const half = Math.floor(gap / 2);
+      return { party: "SHARED" as const, platform: half, merchant: gap - half };
+    }
+    return { party: "NONE" as const, platform: 0, merchant: 0 };
+  }, [editFace, editPrice, editFundingParty]);
+
+  useEffect(() => {
+    const faceN = Math.trunc(Number(editFace) || 0);
+    const priceN = Math.trunc(Number(editPrice) || 0);
+    const gap = Math.max(0, faceN - priceN);
+    if (!editOpen) return;
+    if (gap <= 0) {
+      if (editFundingParty !== "NONE") setEditFundingParty("NONE");
+      return;
+    }
+    if (editFundingParty === "NONE") {
+      setEditFundingParty(scope === "PLATFORM" ? "PLATFORM" : "MERCHANT");
+    }
+  }, [editFace, editPrice, editFundingParty, editOpen, scope]);
+
   const isDirty = useMemo(() => {
     if (!product) return false;
     const startCanon = toLocalInput(product.sales_starts_at);
     const endCanon = toLocalInput(product.sales_ends_at);
     const maxCanon = product.max_issuance == null ? "" : String(product.max_issuance);
+    const canonParty = isGiftDiscountFundingParty(product.discount_funding_party)
+      ? product.discount_funding_party
+      : "NONE";
     return (
       editTitle.trim() !== product.title ||
       (editImage.trim() || "") !== (product.image_url ?? "") ||
@@ -221,7 +252,8 @@ export function AdminGiftProductDetailConsole({
       editStart !== startCanon ||
       editEnd !== endCanon ||
       editTransferable !== (product.transferable !== false) ||
-      editMaxIssuance.trim() !== maxCanon
+      editMaxIssuance.trim() !== maxCanon ||
+      fundingUnits.party !== canonParty
     );
   }, [
     product,
@@ -234,6 +266,7 @@ export function AdminGiftProductDetailConsole({
     editEnd,
     editTransferable,
     editMaxIssuance,
+    fundingUnits.party,
   ]);
 
   const editDiffLines = useMemo(() => {
@@ -266,6 +299,11 @@ export function AdminGiftProductDetailConsole({
       safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" }),
       `${product.platform_fee_rate}%`,
       `${Math.trunc(Number(editFee) || 0)}%`
+    );
+    push(
+      safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" }),
+      product.discount_funding_party ?? "NONE",
+      fundingUnits.party
     );
     push(
       safeT("gift_ops_field_sales_start", { fallbackKo: "판매 시작", fallbackEn: "Sales start" }),
@@ -303,6 +341,7 @@ export function AdminGiftProductDetailConsole({
     editEnd,
     editMaxIssuance,
     editTransferable,
+    fundingUnits.party,
     safeT,
   ]);
 
@@ -325,9 +364,8 @@ export function AdminGiftProductDetailConsole({
     setError(null);
     try {
       const fd = new FormData();
-      fd.set("kind", "hero");
       fd.set("file", file);
-      const res = await fetch("/api/admin/app-notices/upload-image", {
+      const res = await fetch("/api/admin/gift-certificates/upload-image", {
         method: "POST",
         credentials: "include",
         body: fd,
@@ -423,6 +461,9 @@ export function AdminGiftProductDetailConsole({
         faceValue: Math.trunc(Number(editFace)),
         purchasePrice: Math.trunc(Number(editPrice)),
         platformFeeRate: Math.trunc(Number(editFee) || 0),
+        discountFundingParty: fundingUnits.party,
+        platformFundedUnits: fundingUnits.platform,
+        merchantFundedUnits: fundingUnits.merchant,
         maxIssuance: editMaxIssuance.trim() ? Math.trunc(Number(editMaxIssuance)) : null,
       };
       const res = await fetch(`/api/admin/gift-certificates/products/${encodeURIComponent(product.id)}`, {
@@ -681,7 +722,14 @@ export function AdminGiftProductDetailConsole({
                 />
               </label>
               <div className="rounded-ui-rect bg-sam-app p-3 text-xs text-sam-muted">
-                <p>{safeT("gift_ops_field_validity", { fallbackKo: "유효기간 정책", fallbackEn: "Validity policy" })}: {expiryLabel(product)}</p>
+                <p>
+                  {safeT("gift_ops_expiry_edit_blocked", {
+                    fallbackKo:
+                      "유효기간 정책은 현재 Product PATCH 대상이 아닙니다. G2 상품 마스터에 expiry_policy 컬럼·validateGiftProductExpiryPolicy가 없고, 도메인 계약은 발급 잔액 만료를 비활성화합니다.",
+                    fallbackEn:
+                      "Expiry policy is not a Product PATCH field on this branch. G2 product master has no expiry columns or validator; domain contract disables instance balance expiry.",
+                  })}
+                </p>
                 <p>{creationSourceLabel(product.creation_source, safeT)}</p>
               </div>
             </div>
@@ -694,7 +742,11 @@ export function AdminGiftProductDetailConsole({
                 {product.max_issuance ?? safeT("gift_ops_max_issuance_unlimited", { fallbackKo: "제한 없음", fallbackEn: "Unlimited" })}
               </p>
               <p>
-                {safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" })}: {expiryLabel(product)}
+                {safeT("gift_ops_field_validity", { fallbackKo: "유효기간", fallbackEn: "Validity" })}:{" "}
+                {safeT("gift_ops_expiry_not_on_product", {
+                  fallbackKo: "발급 잔액 만료 없음 (상품 마스터 미지원)",
+                  fallbackEn: "No product-master expiry (not on G2 product)",
+                })}
               </p>
               <p className="text-xs text-sam-muted">{creationSourceLabel(product.creation_source, safeT)}</p>
             </div>
@@ -732,6 +784,37 @@ export function AdminGiftProductDetailConsole({
                 onChange={setEditEnd}
                 data-testid="edit-end"
               />
+              {Math.max(0, Math.trunc(Number(editFace) || 0) - Math.trunc(Number(editPrice) || 0)) > 0 ? (
+                <label className="block space-y-1 text-sm">
+                  <span>{safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" })}</span>
+                  <select
+                    className={Sam.input.base}
+                    value={editFundingParty}
+                    data-admin-gift-product-funding="1"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (isGiftDiscountFundingParty(v) && v !== "NONE") setEditFundingParty(v);
+                    }}
+                  >
+                    <option value="MERCHANT">
+                      {safeT("gift_ops_funding_merchant", { fallbackKo: "매장 부담", fallbackEn: "Merchant funded" })}
+                    </option>
+                    <option value="PLATFORM">
+                      {safeT("gift_ops_funding_platform", { fallbackKo: "DIBAY 부담", fallbackEn: "DIBAY funded" })}
+                    </option>
+                    <option value="SHARED">
+                      {safeT("gift_ops_funding_shared", { fallbackKo: "분담 (SHARED)", fallbackEn: "Shared" })}
+                    </option>
+                  </select>
+                  <p className="text-xs text-sam-muted tabular-nums">
+                    P {fundingUnits.platform} / M {fundingUnits.merchant}
+                  </p>
+                </label>
+              ) : (
+                <p className="text-xs text-sam-muted">
+                  {safeT("gift_ops_funding_none", { fallbackKo: "할인 없음 (NONE)", fallbackEn: "No discount (NONE)" })}
+                </p>
+              )}
             </div>
           ) : (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-sm space-y-1">
@@ -743,10 +826,15 @@ export function AdminGiftProductDetailConsole({
               </p>
               {(product.discount_funding_party ?? "NONE") !== "NONE" ? (
                 <p className="text-xs text-sam-muted">
-                  Funding: {product.discount_funding_party} (P {product.platform_funded_units ?? 0} / M{" "}
+                  {safeT("gift_ops_field_promo_funding", { fallbackKo: "할인 부담", fallbackEn: "Discount funding" })}:{" "}
+                  {product.discount_funding_party} (P {product.platform_funded_units ?? 0} / M{" "}
                   {product.merchant_funded_units ?? 0})
                 </p>
-              ) : null}
+              ) : (
+                <p className="text-xs text-sam-muted">
+                  {safeT("gift_ops_funding_none", { fallbackKo: "할인 없음 (NONE)", fallbackEn: "No discount (NONE)" })}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -765,28 +853,39 @@ export function AdminGiftProductDetailConsole({
           >
             {safeT("gift_ops_cta_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
           </button>
-          {product.active ? (
+          {product.active && !product.archived_at ? (
             <button type="button" className={`${Sam.btn.secondary} min-h-[44px] px-4`} disabled={busy} onClick={() => void handlePause()}>
               {safeT("gift_ops_cta_pause", { fallbackKo: "판매 중지", fallbackEn: "Pause" })}
             </button>
-          ) : (
+          ) : null}
+          {!product.active && !product.archived_at ? (
             <button
               type="button"
               className={adminGiftPrimaryBtnClass("min-h-[44px] px-4")}
               style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-              disabled={busy || !!product.archived_at}
-              onClick={() => void patchAction(product.archived_at ? "unarchive" : "activate")}
+              disabled={busy}
+              data-admin-gift-product-activate="1"
+              onClick={() => void patchAction("activate")}
             >
-              {product.archived_at
-                ? safeT("gift_ops_cta_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })
-                : safeT("gift_ops_cta_resume", { fallbackKo: "판매 재개", fallbackEn: "Resume" })}
+              {safeT("gift_ops_cta_resume", { fallbackKo: "판매 재개", fallbackEn: "Resume" })}
             </button>
-          )}
-          {!product.archived_at ? (
+          ) : null}
+          {product.archived_at ? (
+            <button
+              type="button"
+              className={adminGiftPrimaryBtnClass("min-h-[44px] px-4")}
+              style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
+              disabled={busy}
+              data-admin-gift-product-unarchive="1"
+              onClick={() => void patchAction("unarchive")}
+            >
+              {safeT("gift_ops_cta_unarchive", { fallbackKo: "보관 해제", fallbackEn: "Unarchive" })}
+            </button>
+          ) : (
             <button type="button" className={`${Sam.btn.secondary} min-h-[44px] px-4`} disabled={busy} onClick={() => void handleArchive()}>
               {safeT("gift_ops_cta_archive", { fallbackKo: "보관", fallbackEn: "Archive" })}
             </button>
-          ) : null}
+          )}
           {product.issued_count === 0 ? (
             <button
               type="button"

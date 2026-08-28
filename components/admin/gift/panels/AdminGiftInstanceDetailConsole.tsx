@@ -345,7 +345,9 @@ export function AdminGiftInstanceDetailConsole({
           {safeT("gift_ops_sec_transfer", { fallbackKo: "선물 이력", fallbackEn: "Transfer history" })}
         </h3>
         {detail.transfers.length === 0 ? (
-          <p className="text-sam-muted">—</p>
+          <p className="text-sam-muted">
+            {safeT("gift_ops_transfers_empty", { fallbackKo: "선물 이력이 없습니다.", fallbackEn: "No transfers." })}
+          </p>
         ) : (
           <ul className="space-y-2">
             {detail.transfers.map((t) => (
@@ -362,7 +364,9 @@ export function AdminGiftInstanceDetailConsole({
           {safeT("gift_ops_sec_redeem", { fallbackKo: "사용 내역", fallbackEn: "Redemptions" })}
         </h3>
         {detail.redemptions.length === 0 ? (
-          <p className="text-sam-muted">—</p>
+          <p className="text-sam-muted">
+            {safeT("gift_ops_redemptions_empty", { fallbackKo: "사용 내역이 없습니다.", fallbackEn: "No redemptions." })}
+          </p>
         ) : (
           <ul className="space-y-2">
             {detail.redemptions.map((r) => (
@@ -402,39 +406,66 @@ export function AdminGiftInstanceDetailConsole({
         <h3 className="font-semibold">
           {safeT("gift_ops_sec_settlement", { fallbackKo: "정산", fallbackEn: "Settlement" })}
         </h3>
-        <p className="tabular-nums">
-          {safeT("gift_ops_settlement_available", {
-            fallbackKo: "Available Gift Revenue",
-            fallbackEn: "Available Gift Revenue",
-          })}
-          : {formatMoneyPhp(detail.settlement?.availableRevenue ?? 0)}
-        </p>
-        <ul className="space-y-1 text-xs">
-          {(detail.settlement?.cashOuts ?? []).map((c) => (
-            <li key={c.id}>
-              {safeT("gift_ops_cash_out", { fallbackKo: "외부 환전", fallbackEn: "Cash out" })}{" "}
-              {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
-            </li>
-          ))}
-          {(detail.settlement?.conversions ?? []).map((c) => (
-            <li key={c.id}>
-              {safeT("gift_ops_store_cash", { fallbackKo: "Store Cash 전환", fallbackEn: "Store Cash" })}{" "}
-              {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
-            </li>
-          ))}
-        </ul>
-        {(detail.recovery ?? []).length > 0 ? (
-          <div className="mt-2">
-            <p className="text-xs font-semibold">Recovery</p>
-            <ul className="mt-1 space-y-1 text-xs">
-              {(detail.recovery ?? []).map((r) => (
-                <li key={r.id}>
-                  {r.linkage} · {formatMoneyPhp(r.amountRemaining)} / {formatMoneyPhp(r.amountOriginal)} · {r.status}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+        {!detail.settlement && (detail.recovery ?? []).length === 0 ? (
+          <p className="text-sam-muted">
+            {safeT("gift_ops_settlement_empty", { fallbackKo: "정산 데이터가 없습니다.", fallbackEn: "No settlement data." })}
+          </p>
+        ) : (
+          <>
+            {detail.settlement ? (
+              <p className="tabular-nums">
+                {safeT("gift_ops_settlement_available", {
+                  fallbackKo: "Available Gift Revenue",
+                  fallbackEn: "Available Gift Revenue",
+                })}
+                : {formatMoneyPhp(detail.settlement.availableRevenue)}
+              </p>
+            ) : null}
+            {(detail.settlement?.cashOuts.length ?? 0) === 0 &&
+            (detail.settlement?.conversions.length ?? 0) === 0 ? (
+              <p className="text-xs text-sam-muted">
+                {safeT("gift_ops_settlement_moves_empty", {
+                  fallbackKo: "환전·전환 내역이 없습니다.",
+                  fallbackEn: "No cash-out or conversion rows.",
+                })}
+              </p>
+            ) : (
+              <ul className="space-y-1 text-xs">
+                {(detail.settlement?.cashOuts ?? []).map((c) => (
+                  <li key={c.id}>
+                    {safeT("gift_ops_cash_out", { fallbackKo: "외부 환전", fallbackEn: "Cash out" })}{" "}
+                    {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
+                  </li>
+                ))}
+                {(detail.settlement?.conversions ?? []).map((c) => (
+                  <li key={c.id}>
+                    {safeT("gift_ops_store_cash", { fallbackKo: "Store Cash 전환", fallbackEn: "Store Cash" })}{" "}
+                    {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(detail.recovery ?? []).length > 0 ? (
+              <div className="mt-2">
+                <p className="text-xs font-semibold">Recovery</p>
+                <ul className="mt-1 space-y-1 text-xs">
+                  {(detail.recovery ?? []).map((r) => (
+                    <li key={r.id}>
+                      {r.linkage} · {formatMoneyPhp(r.amountRemaining)} / {formatMoneyPhp(r.amountOriginal)} · {r.status}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-xs text-sam-muted">
+                {safeT("gift_ops_recovery_none", {
+                  fallbackKo: "관련 Recovery 없음",
+                  fallbackEn: "No related recovery",
+                })}
+              </p>
+            )}
+          </>
+        )}
       </div>
     </section>
   );

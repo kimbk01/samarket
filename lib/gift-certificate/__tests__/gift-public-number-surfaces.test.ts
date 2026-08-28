@@ -34,24 +34,27 @@ describe("gift public number surfaces", () => {
   it("admin instance tracking is read-only, admin-gated via Ops Center single entry", () => {
     const route = source("app/api/admin/gift-certificates/tracking/route.ts");
     const instancesPanel = source("components/admin/gift/panels/AdminGiftInstancesPanel.tsx");
+    const instanceDetail = source("components/admin/gift/panels/AdminGiftInstanceDetailConsole.tsx");
     const menu = source("components/admin/admin-menu.ts");
     const opsTabs = source("lib/gift-certificate/admin-gift-ops-tabs.ts");
 
     expect(route).toContain('requireAdminPermission("business")');
     expect(route).toContain("public_gift_number");
     expect(route).toContain("messenger_message_id");
+    expect(route).toContain("INSTANCE_SELECT_CORE");
+    expect(route).toContain("isMissingValidityColumnError");
     expect(route).not.toContain("message_body");
     expect(route).not.toMatch(/\b(insert|update|delete|upsert)\s*\(/i);
-    // UI authority: Ops Center instances tab (legacy /tracking redirects here)
     expect(instancesPanel).toContain("/api/admin/gift-certificates/tracking");
     expect(instancesPanel).toContain("publicGiftNumber");
     expect(instancesPanel).toContain("fetchList");
-    expect(instancesPanel).toContain("fetchInstanceDetail");
-    expect(instancesPanel).toContain("openProductEdit");
-    expect(instancesPanel).toContain("data-admin-gift-instance-trace-open");
+    expect(instancesPanel).toContain("openInstanceDetail");
+    expect(instancesPanel).not.toContain("openProductEdit");
+    expect(instancesPanel).not.toContain("openInstanceTrace");
+    expect(instancesPanel).not.toContain("data-admin-gift-instance-trace-open");
     expect(instancesPanel).toContain("data-admin-gift-instance-detail-open");
-    expect(instancesPanel).toContain("data-admin-gift-instance-detail-status");
-    expect(instancesPanel).toContain("ADMIN_GIFT_PRIMARY_BTN_STYLE");
+    expect(instanceDetail).toContain("data-admin-gift-instance-detail");
+    expect(instanceDetail).not.toMatch(/추적/);
     expect(menu).toContain('path: "/admin/gift-certificates"');
     expect(menu).not.toContain('path: "/admin/gift-certificates/tracking"');
     expect(opsTabs).toContain('tracking: { tab: "instances" }');

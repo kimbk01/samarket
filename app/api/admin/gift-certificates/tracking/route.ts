@@ -38,8 +38,27 @@ async function loadProfileMap(
   return new Map((data ?? []).map((row: Record<string, unknown>) => [s(row.id), row]));
 }
 
-const INSTANCE_SELECT =
+const INSTANCE_SELECT_CORE =
+  "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, gift_certificate_products(title, image_url), stores(store_name)";
+
+const INSTANCE_SELECT_WITH_VALIDITY =
   "id, public_gift_number, product_id, store_id, gift_scope, purchaser_user_id, current_owner_user_id, face_value, purchase_price, purchase_discount_amount, discount_funding_party_snapshot, platform_fee_rate_snapshot, remaining_balance, status, purchased_at, created_at, valid_from, valid_until, gift_certificate_products(title, image_url), stores(store_name)";
+
+/** null = unknown; true/false cached after first successful/failed validity select. */
+let instanceValidityColumns: boolean | null = null;
+
+function isMissingValidityColumnError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("valid_from") ||
+    m.includes("valid_until") ||
+    (m.includes("column") && m.includes("does not exist"))
+  );
+}
+
+function instanceSelect(): string {
+  return instanceValidityColumns === false ? INSTANCE_SELECT_CORE : INSTANCE_SELECT_WITH_VALIDITY;
+}
 
 function mapInstanceRow(
   row: Record<string, unknown>,
@@ -87,29 +106,44 @@ export async function GET(req: NextRequest) {
   const status = s(url.searchParams.get("status")).toUpperCase();
   const selected = s(url.searchParams.get("id") || url.searchParams.get("number"));
 
-  let query = sb
-    .from(GIFT_TABLES.instances)
-    .select(INSTANCE_SELECT)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (status) query = query.eq("status", status);
-  if (q) {
-    const parts = [`public_gift_number.ilike.%${q}%`];
-    if (isUuid(q)) {
-      parts.push(
-        `id.eq.${q}`,
-        `store_id.eq.${q}`,
-        `product_id.eq.${q}`,
-        `purchaser_user_id.eq.${q}`,
-        `current_owner_user_id.eq.${q}`
-      );
+  const runList = async (select: string) => {
+    let query = sb
+      .from(GIFT_TABLES.instances)
+      .select(select)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (status) query = query.eq("status", status);
+    if (q) {
+      const parts = [`public_gift_number.ilike.%${q}%`];
+      if (isUuid(q)) {
+        parts.push(
+          `id.eq.${q}`,
+          `store_id.eq.${q}`,
+          `product_id.eq.${q}`,
+          `purchaser_user_id.eq.${q}`,
+          `current_owner_user_id.eq.${q}`
+        );
+      }
+      query = query.or(parts.join(","));
     }
-    query = query.or(parts.join(","));
+    return query;
+  };
+
+  let listResult = await runList(instanceSelect());
+  if (
+    listResult.error &&
+    instanceValidityColumns !== false &&
+    isMissingValidityColumnError(listResult.error.message)
+  ) {
+    instanceValidityColumns = false;
+    listResult = await runList(INSTANCE_SELECT_CORE);
+  } else if (!listResult.error && instanceValidityColumns !== false) {
+    instanceValidityColumns = true;
   }
-  const { data, error } = await query;
+  const { data, error } = listResult;
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  const rows = (data ?? []) as Record<string, unknown>[];
+  const rows = (data as unknown as Record<string, unknown>[] | null) ?? [];
   const profileMap = await loadProfileMap(
     sb,
     rows.flatMap((row) => [s(row.purchaser_user_id), s(row.current_owner_user_id)])
@@ -122,7 +156,7 @@ export async function GET(req: NextRequest) {
       : null;
 
   if (selected.length > 0 && !selectedRow) {
-    let directQuery = sb.from(GIFT_TABLES.instances).select(INSTANCE_SELECT).limit(1);
+    let directQuery = sb.from(GIFT_TABLES.instances).select(instanceSelect()).limit(1);
     if (isUuid(selected)) {
       directQuery = directQuery.eq("id", selected);
     } else {
@@ -130,7 +164,7 @@ export async function GET(req: NextRequest) {
     }
     const { data: directRows, error: directError } = await directQuery;
     if (!directError && directRows?.[0]) {
-      const directRaw = directRows[0] as Record<string, unknown>;
+      const directRaw = directRows[0] as unknown as Record<string, unknown>;
       const directProfileMap = await loadProfileMap(sb, [
         s(directRaw.purchaser_user_id),
         s(directRaw.current_owner_user_id),
