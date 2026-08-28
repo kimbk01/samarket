@@ -3,7 +3,6 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import {
   aggregatePromoDisplayFields,
-  computeOwnerEconomicReportingSum,
   type GiftPromoParty,
 } from "@/lib/gift-certificate/gift-promo-economics";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
@@ -84,5 +83,3 @@ export type OwnerPromoApiPayload = {
     createdAt: string;
   }>;
 };
-
-export { computeOwnerEconomicReportingSum };

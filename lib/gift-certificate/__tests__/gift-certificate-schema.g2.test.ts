@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   GIFT_MIGRATION_ID,
   GIFT_ORDER_COMPLETION_REVENUE_MIGRATION_ID,
+  GIFT_PROMO_ECONOMICS_MIGRATION_ID,
   GIFT_PUBLIC_NUMBER_MIGRATION_ID,
   GIFT_RECOGNITION_CORRECTION_MIGRATION_ID,
   GIFT_RPCS,
@@ -31,12 +32,22 @@ const MIG_PUBLIC_NUMBER = readFileSync(
   resolve(process.cwd(), `supabase/migrations/${GIFT_PUBLIC_NUMBER_MIGRATION_ID}.sql`),
   "utf8"
 );
+const MIG_PROMO_ECONOMICS = readFileSync(
+  resolve(process.cwd(), `supabase/migrations/${GIFT_PROMO_ECONOMICS_MIGRATION_ID}.sql`),
+  "utf8"
+);
+
+const PROMO_TABLES = new Set<string>([GIFT_TABLES.promoObligations, GIFT_TABLES.promoLedger]);
 
 describe("G2 gift certificate schema migration", () => {
   it("creates all domain tables and forbids instance expires_at", () => {
     for (const t of Object.values(GIFT_TABLES)) {
       if (t === GIFT_TABLES.cashOutRequests) continue;
+      if (PROMO_TABLES.has(t)) continue;
       expect(MIG).toContain(`CREATE TABLE IF NOT EXISTS public.${t}`);
+    }
+    for (const t of PROMO_TABLES) {
+      expect(MIG_PROMO_ECONOMICS).toContain(`CREATE TABLE IF NOT EXISTS public.${t}`);
     }
     expect(MIG).toMatch(/gift_redemption_amount/);
     const createStart = MIG.indexOf(
@@ -64,12 +75,19 @@ describe("G2 gift certificate schema migration", () => {
       GIFT_RPCS.cashOutApprove,
       GIFT_RPCS.cashOutMarkPaid,
     ]);
+    const promoRpcs = new Set<string>([
+      GIFT_RPCS.promoAccrueForInstance,
+      GIFT_RPCS.promoRecognizeForRedemption,
+      GIFT_RPCS.promoReverseForRedemption,
+      GIFT_RPCS.promoSettle,
+    ]);
     const g2Rpcs = Object.values(GIFT_RPCS).filter(
       (fn) =>
         fn !== "gift_certificate_refund_order_atomic" &&
         !orderCompletionRpcs.has(fn) &&
         !recognitionCorrectionRpcs.has(fn) &&
-        !cashOutRpcs.has(fn)
+        !cashOutRpcs.has(fn) &&
+        !promoRpcs.has(fn)
     );
     for (const rpc of g2Rpcs) {
       expect(MIG).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
@@ -82,6 +100,10 @@ describe("G2 gift certificate schema migration", () => {
     for (const rpc of recognitionCorrectionRpcs) {
       expect(MIG_RECOGNITION_CORRECTION).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
       expect(MIG_RECOGNITION_CORRECTION).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
+    }
+    for (const rpc of promoRpcs) {
+      expect(MIG_PROMO_ECONOMICS).toContain(`CREATE OR REPLACE FUNCTION public.${rpc}`);
+      expect(MIG_PROMO_ECONOMICS).toContain(`GRANT EXECUTE ON FUNCTION public.${rpc}`);
     }
     expect(MIG).toMatch(/service_role/);
     expect(MIG).not.toMatch(/store_coupon_campaigns/);
