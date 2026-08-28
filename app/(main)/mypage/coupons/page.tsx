@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { CustomerStoreCouponWallet } from "@/components/mypage/CustomerStoreCouponWallet";
+import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
 
 function CouponsFallback() {
   return (
@@ -12,7 +12,7 @@ function CouponsFallback() {
 export default function MypageCouponsPage() {
   return (
     <Suspense fallback={<CouponsFallback />}>
-      <CustomerStoreCouponWallet />
+      <CustomerCommerceHubPage legacyAlias="coupons" />
     </Suspense>
   );
 }

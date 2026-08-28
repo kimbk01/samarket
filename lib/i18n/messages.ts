@@ -21,6 +21,7 @@ import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
+import { commerceHubMessages } from "./catalog/commerce-hub";
 import { giftCertificateU1Messages } from "./catalog/gift-certificate-u1";
 import { giftCertificateU2Messages } from "./catalog/gift-certificate-u2";
 import { giftCertificateU3Messages } from "./catalog/gift-certificate-u3";
@@ -88,6 +89,7 @@ const KO_MESSAGES = {
   ...personalizedFeedMessages.ko,
   ...businessAdminNavMessages.ko,
   ...storeCouponSsotMessages.ko,
+  ...commerceHubMessages.ko,
   ...giftCertificateU1Messages.ko,
   ...giftCertificateU2Messages.ko,
   ...giftCertificateU3Messages.ko,
@@ -155,6 +157,7 @@ const EN_MESSAGES = {
   ...personalizedFeedMessages.en,
   ...businessAdminNavMessages.en,
   ...storeCouponSsotMessages.en,
+  ...commerceHubMessages.en,
   ...giftCertificateU1Messages.en,
   ...giftCertificateU2Messages.en,
   ...giftCertificateU3Messages.en,

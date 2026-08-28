@@ -1,7 +1,7 @@
 "use client";
 
-import { DeliveryActivityHub } from "@/components/orders/DeliveryActivityHub";
+import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
 
 export default function DeliveryActivityPage() {
-  return <DeliveryActivityHub />;
+  return <CustomerCommerceHubPage legacyAlias="activity" />;
 }

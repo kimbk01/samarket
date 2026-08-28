@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
+import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 
 describe("Coupon UI / Activity Hub presentation contracts", () => {
   it("customer face is certificate hierarchy without purpose/menu dump", () => {
@@ -19,18 +20,21 @@ describe("Coupon UI / Activity Hub presentation contracts", () => {
 
   it("buyer header document entry goes to activity hub", () => {
     expect(resolveDeliveryOrderHistoryHref(null)).toBe("/orders/activity");
-    const hub = readFileSync(join(process.cwd(), "components/orders/DeliveryActivityHub.tsx"), "utf8");
-    expect(hub).toMatch(/href=\"\/orders\"/);
-    expect(hub).toMatch(/mypage\/coupons\?from=delivery-activity/);
-    expect(hub).toMatch(/mypage\/gift-certificates\?from=delivery-activity/);
-    expect(hub).toMatch(/data-delivery-activity-hub/);
-  });
-
-  it("orders list back targets activity hub", () => {
-    const hdr = readFileSync(
-      join(process.cwd(), "components/orders/BuyerDeliveryOrdersHeader.tsx"),
+    expect(canonicalHubHref("coupons", { from: "delivery-activity" })).toMatch(
+      /tab=coupons/
+    );
+    expect(canonicalHubHref("gifts", { from: "delivery-activity" })).toMatch(/tab=gifts/);
+    const hubPage = readFileSync(
+      join(process.cwd(), "components/orders/customer-commerce/CustomerCommerceHubPage.tsx"),
       "utf8"
     );
-    expect(hdr).toMatch(/backHref=\"\/orders\/activity\"/);
+    expect(hubPage).toMatch(/CustomerCommerceHubBody/);
+    expect(hubPage).toMatch(/CommerceHubChromeSyncGate/);
+  });
+
+  it("hub primary tabs are path-embedded in AppStickyHeader", () => {
+    const header = readFileSync(join(process.cwd(), "components/layout/AppStickyHeader.tsx"), "utf8");
+    expect(header).toMatch(/CustomerCommerceHubPrimaryTabs/);
+    expect(header).toMatch(/isCustomerCommerceHubPath/);
   });
 });

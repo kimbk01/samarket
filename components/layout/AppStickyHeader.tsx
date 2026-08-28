@@ -30,6 +30,15 @@ import { MarketplaceHomeEntryChrome } from "@/components/trade/MarketplaceHomeEn
 import { StoresHomeCategoryHeaderStack } from "@/components/stores/home/hub/StoresHomeCategoryHeaderStack";
 import { StoresHomePullRefreshHost } from "@/components/stores/home/hub/StoresHomePullRefreshHost";
 import { StoresBrowsePullRefreshHost } from "@/components/stores/browse/StoresBrowsePullRefreshHost";
+import { isCustomerCommerceHubPath } from "@/lib/delivery/customer/commerce-hub-nav";
+
+const CustomerCommerceHubPrimaryTabs = dynamic(
+  () =>
+    import("@/components/orders/customer-commerce/CustomerCommerceHubPrimaryTabs").then(
+      (m) => m.CustomerCommerceHubPrimaryTabs
+    ),
+  { ssr: false }
+);
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
@@ -81,6 +90,7 @@ export function AppStickyHeader() {
   const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";
   const isStoresHubRoot = pathNoQuery === "/stores" || pathNoQuery === "/stores/";
   const isStoresBrowse = pathNoQuery.startsWith("/stores/browse/");
+  const isCommerceHub = isCustomerCommerceHubPath(pathNoQuery);
 
   return (
     <div
@@ -119,6 +129,7 @@ export function AppStickyHeader() {
                 {tradeSecondaryTabs}
               </>
             ) : null}
+            {isCommerceHub ? <CustomerCommerceHubPrimaryTabs /> : null}
             {isStoresHubRoot ? <StoresHomeCategoryHeaderStack /> : null}
             {isStoresHubRoot ? <StoresHomePullRefreshHost /> : null}
             {isStoresBrowse ? <StoresBrowsePullRefreshHost /> : null}

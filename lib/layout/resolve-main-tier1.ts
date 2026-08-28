@@ -1,6 +1,7 @@
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 
 function starts(p: string, prefix: string): boolean {
   return p === prefix || p.startsWith(`${prefix}/`);
@@ -140,7 +141,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       backHref: "/stores",
       preferHistoryBack: true,
       ariaLabel: "tier1_back",
-      titleText: "store_coupon_delivery_activity_title",
+      titleText: "commerce_hub_title",
       showHubQuickActions: false,
       hideBack: false,
       showBack: true,
@@ -153,7 +154,37 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       showBack: false,
       hideBack: true,
       backHref: "/orders/activity",
-      titleText: "tier1_order",
+      titleText: "commerce_hub_title",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (p === "/mypage/coupons") {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "commerce_hub_title",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (p === "/mypage/gift-certificates") {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "commerce_hub_title",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (/^\/mypage\/gift-certificates\/[^/]+$/.test(p)) {
+    return {
+      ...DEFAULT,
+      backHref: canonicalHubHref("gifts"),
+      preferHistoryBack: true,
+      titleText: "gift_certificate_wallet_title",
       showHubQuickActions: false,
     };
   }

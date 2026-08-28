@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { OrdersHubContent } from "@/components/orders/OrdersHubContent";
+import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
 import { parseRoomId } from "@/lib/validate-params";
 
 function OrdersHubFallback() {
@@ -58,7 +58,7 @@ async function OrdersPageBody({ searchParams }: { searchParams: Promise<OrdersSe
 
   return (
     <Suspense fallback={<OrdersHubFallback />}>
-      <OrdersHubContent />
+      <CustomerCommerceHubPage legacyAlias="orders" />
     </Suspense>
   );
 }

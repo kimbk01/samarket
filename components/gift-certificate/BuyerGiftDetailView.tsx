@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { GiftArtwork } from "@/components/gift-certificate/GiftArtwork";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
@@ -14,6 +14,7 @@ import {
   mapGiftPurchaseErrorKey,
 } from "@/lib/gift-certificate/map-gift-purchase-error";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Phase = "detail" | "success";
@@ -192,16 +193,23 @@ export function BuyerGiftDetailView({
             fallbackEn: "Gift certificate purchased.",
           })}
           titleKey="gift_u2_success_title"
-          backHref="/mypage/gift-certificates"
+          backHref={canonicalHubHref("gifts")}
         />
         <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <GiftArtwork src={product.imageUrl} alt={product.title} size={160} />
-          <p className="text-base font-semibold text-sam-fg">{product.title}</p>
-          <p className="text-sm text-sam-muted">{product.storeName}</p>
-          <p className="text-sm text-sam-fg">
-            {safeT("gift_u2_mall_face", { fallbackKo: "액면", fallbackEn: "Face value" })}{" "}
-            <span className="tabular-nums font-medium">{product.faceValue.toLocaleString()}</span>
-          </p>
+          <GiftVisualCard
+            visual={{
+              giftScope: product.giftScope,
+              imageUrl: product.imageUrl,
+              storeLogoUrl: product.storeLogoUrl,
+              storeName: product.storeName,
+              title: product.title,
+            }}
+            surface="mall"
+            title={product.title}
+            issuerName={product.storeName}
+            faceValue={product.faceValue}
+            purchasePrice={product.purchasePrice}
+          />
           {purchasedGiftNumber ? (
             <p className="text-sm text-sam-fg" data-gift-public-number={purchasedGiftNumber}>
               {safeT("gift_u2_public_number_label", {
@@ -219,7 +227,7 @@ export function BuyerGiftDetailView({
         </div>
         <div className="flex flex-col gap-2 pb-8">
           <Link
-            href="/mypage/gift-certificates"
+            href={canonicalHubHref("gifts")}
             prefetch={false}
             className={`${Sam.btn.primary} inline-flex min-h-[48px] items-center justify-center px-4`}
             data-gift-success-wallet-cta="1"
@@ -255,23 +263,23 @@ export function BuyerGiftDetailView({
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
       <MySubpageHeader title={headerTitle} titleKey="gift_u2_detail_title" backHref={mallHref} />
 
-      <div className="mb-4 flex justify-center">
-        <GiftArtwork src={product.imageUrl} alt={product.title} size={200} />
-      </div>
+      <GiftVisualCard
+        className="mb-4"
+        visual={{
+          giftScope: product.giftScope,
+          imageUrl: product.imageUrl,
+          storeLogoUrl: product.storeLogoUrl,
+          storeName: product.storeName,
+          title: product.title,
+        }}
+        surface="mall"
+        title={product.title}
+        issuerName={product.storeName}
+        faceValue={product.faceValue}
+        purchasePrice={product.purchasePrice}
+      />
 
       <div className="mb-4 min-w-0 space-y-1">
-        <p className="text-xs text-sam-muted">{product.storeName}</p>
-        <h1 className="text-lg font-semibold text-sam-fg">{product.title}</h1>
-        <p className="text-sm text-sam-fg">
-          {safeT("gift_u2_mall_face", { fallbackKo: "액면", fallbackEn: "Face value" })}{" "}
-          <span className="tabular-nums font-medium">{product.faceValue.toLocaleString()}</span>
-        </p>
-        <p className="text-sm text-sam-fg">
-          {safeT("gift_u2_mall_price", { fallbackKo: "구매가", fallbackEn: "Price" })}{" "}
-          <span className="tabular-nums font-medium">
-            {product.purchasePrice.toLocaleString()} Point
-          </span>
-        </p>
         <p className="text-sm text-sam-muted">
           {safeT("gift_u2_detail_unit", {
             fallbackKo: "구매 단위 1장",
@@ -457,16 +465,20 @@ export function BuyerGiftDetailView({
         }
       >
         <div className="flex flex-col gap-3 px-4 pb-2">
-          <div className="flex gap-3">
-            <GiftArtwork src={product.imageUrl} alt={product.title} size={72} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-sam-fg">{product.title}</p>
-              <p className="text-xs text-sam-muted">{product.storeName}</p>
-              <p className="text-sm tabular-nums text-sam-fg">
-                {product.faceValue.toLocaleString()} / {product.purchasePrice.toLocaleString()} Point
-              </p>
-            </div>
-          </div>
+          <GiftVisualCard
+            visual={{
+              giftScope: product.giftScope,
+              imageUrl: product.imageUrl,
+              storeLogoUrl: product.storeLogoUrl,
+              storeName: product.storeName,
+              title: product.title,
+            }}
+            surface="mall"
+            title={product.title}
+            issuerName={product.storeName}
+            faceValue={product.faceValue}
+            purchasePrice={product.purchasePrice}
+          />
           <div className="flex justify-between text-sm">
             <span className="text-sam-muted">
               {safeT("gift_u2_detail_balance_label", {

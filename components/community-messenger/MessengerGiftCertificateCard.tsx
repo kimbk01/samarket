@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { GiftArtwork } from "@/components/gift-certificate/GiftArtwork";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayConfirmDialog } from "@/components/ui/dibay-overlay";
 import {
   parseGiftCertificateMessageMetadata,
@@ -17,7 +17,8 @@ import {
   resolveGiftTransferUiStatus,
   type GiftTransferUiStatus,
 } from "@/lib/gift-certificate/gift-transfer-ui-status";
-import { formatMoneyPhp } from "@/lib/utils/format";
+import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
+import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
 
 /**
  * Chat presentation for gift_certificate messages.
@@ -31,6 +32,7 @@ export function MessengerGiftCertificateCard(props: {
 }) {
   const { safeT } = useI18n();
   const meta = parseGiftCertificateMessageMetadata(props.metadata);
+  const presentation = useGiftTransferPresentation(meta?.gift_transfer_id);
   const initialStatus: GiftTransferUiStatus = meta
     ? resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status)
     : "PENDING";
@@ -53,11 +55,16 @@ export function MessengerGiftCertificateCard(props: {
   // Remount-safe: prefer remembered success over stale PENDING snapshot on this render.
   const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, status);
 
-  const face = meta.face_value != null ? formatMoneyPhp(meta.face_value) : "—";
-  const remaining =
-    meta.remaining_balance != null ? meta.remaining_balance.toLocaleString() : null;
-  const title = meta.title?.trim() || null;
-  const storeName = meta.store_name?.trim() || null;
+  const giftScope = presentation?.giftScope ?? "STORE";
+  const resolvedScope = giftScope === "PLATFORM" ? "PLATFORM" : "STORE";
+  const title = presentation?.title?.trim() || meta.title?.trim() || null;
+  const storeName =
+    resolvedScope === "PLATFORM" ? "DIBAY" : presentation?.storeName?.trim() || meta.store_name?.trim() || null;
+  const imageUrl = presentation?.imageUrl ?? meta.image_url;
+  const storeLogoUrl = presentation?.storeLogoUrl ?? null;
+  const faceValue = presentation?.faceValue ?? meta.face_value ?? null;
+  const remainingBalance = presentation?.remainingBalance ?? meta.remaining_balance ?? null;
+  const senderName = presentation?.senderDisplayName ?? null;
 
   async function act(kind: "accept" | "reject" | "cancel") {
     if (busy || displayStatus !== "PENDING") return;
@@ -87,29 +94,37 @@ export function MessengerGiftCertificateCard(props: {
 
   return (
     <div
-      className="min-w-[220px] max-w-[280px] rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+      className="min-w-[220px] max-w-[320px]"
       data-messenger-gift-certificate-card="1"
       data-gift-transfer-id={meta.gift_transfer_id}
       data-transfer-status={displayStatus}
+      data-gift-scope={resolvedScope}
     >
-      <div className="flex gap-2">
-        <GiftArtwork src={meta.image_url} alt={title ?? ""} size={56} className="shrink-0" />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-sam-muted">
-            {safeT("gift_cert_chat_card_badge", {
-              fallbackKo: "상품권",
-              fallbackEn: "Gift certificate",
-            })}
-          </p>
-          {title ? <p className="truncate text-sm font-semibold text-sam-fg">{title}</p> : null}
-          {storeName ? <p className="truncate text-xs text-sam-muted">{storeName}</p> : null}
-          <p className="mt-0.5 text-base font-semibold text-sam-fg">{face}</p>
-          {remaining != null ? (
-            <p className="text-xs tabular-nums text-sam-muted">{remaining}</p>
-          ) : null}
-        </div>
-      </div>
-      <p className="mt-2 text-xs text-sam-muted">
+      <GiftVisualCard
+        visual={{
+          giftScope: resolvedScope,
+          imageUrl,
+          storeLogoUrl,
+          storeName,
+          title,
+        }}
+        surface="chat"
+        title={title}
+        issuerName={storeName}
+        faceValue={faceValue}
+        remainingBalance={remainingBalance}
+        className="shadow-sm"
+      />
+      {senderName ? (
+        <p className="mt-1 px-1 text-xs text-sam-muted">
+          {safeT("commerce_hub_transfer_from_sender", {
+            fallbackKo: "보낸 사람",
+            fallbackEn: "From",
+          })}
+          : {senderName}
+        </p>
+      ) : null}
+      <p className="mt-2 px-1 text-xs text-sam-muted">
         {displayStatus === "PENDING"
           ? safeT("gift_cert_chat_status_pending", {
               fallbackKo: "수령 대기",
@@ -189,7 +204,7 @@ export function MessengerGiftCertificateCard(props: {
       ) : null}
       {props.isRecipient && displayStatus === "ACCEPTED" ? (
         <a
-          href="/mypage/gift-certificates"
+          href={canonicalHubHref("gifts", { giftTab: "owned" })}
           className="mt-3 block text-center text-sm font-semibold text-signature underline"
           data-gift-card-wallet-cta="1"
         >

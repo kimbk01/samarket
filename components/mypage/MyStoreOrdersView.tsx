@@ -45,6 +45,13 @@ import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerSto
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
+import {
+  canonicalHubHref,
+} from "@/lib/delivery/customer/commerce-hub-nav";
+import {
+  filterOrdersByHubFilter,
+  type StoreOrdersHubFilter,
+} from "@/lib/delivery/customer/store-orders-hub-filter";
 
 type ItemRow = {
   id: string;
@@ -589,6 +596,7 @@ export function MyStoreOrdersView({
   suppressTier1Sync = false,
   variant = "default",
   initialExpandOrderId = null,
+  hubOrderFilter = "all",
 }: {
   embedded?: boolean;
   suppressTier1Sync?: boolean;
@@ -596,6 +604,8 @@ export function MyStoreOrdersView({
   variant?: "default" | "deliveryHub";
   /** `/orders?expand=` 딥링크 — 해당 주문 카드 자동 펼침 */
   initialExpandOrderId?: string | null;
+  /** Hub orders tab status filter from URL `orderFilter` */
+  hubOrderFilter?: StoreOrdersHubFilter;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -603,7 +613,7 @@ export function MyStoreOrdersView({
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const isDeliveryHub = variant === "deliveryHub";
   const ordersHubPaths = embedded || isDeliveryHub;
-  const ordersListHref = ordersHubPaths ? "/orders" : "/mypage/store-orders";
+  const ordersListHref = ordersHubPaths ? canonicalHubHref("orders") : "/mypage/store-orders";
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(
     initialExpandOrderId?.trim() || null
   );
@@ -710,7 +720,9 @@ export function MyStoreOrdersView({
       setExpandedOrderId((prev) => {
         const next = prev === orderId ? null : orderId;
         if (next) warmMeStoreOrderExpandDetail(next);
-        const url = next ? `/orders?expand=${encodeURIComponent(next)}` : "/orders";
+        const url = next
+          ? canonicalHubHref("orders", { expand: next, orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null })
+          : canonicalHubHref("orders", { orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null });
         router.replace(url, { scroll: false });
         return next;
       });
@@ -723,7 +735,9 @@ export function MyStoreOrdersView({
       if (!isDeliveryHub) return;
       setExpandedOrderId(null);
       setReviewOrderId(null);
-      router.replace("/orders", { scroll: false });
+      router.replace(canonicalHubHref("orders", { orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null }), {
+        scroll: false,
+      });
       setChatOrderId(orderId);
     },
     [isDeliveryHub, router]
@@ -738,7 +752,9 @@ export function MyStoreOrdersView({
       if (!isDeliveryHub) return;
       setExpandedOrderId(null);
       setChatOrderId(null);
-      router.replace("/orders", { scroll: false });
+      router.replace(canonicalHubHref("orders", { orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null }), {
+        scroll: false,
+      });
       setReviewOrderId(orderId);
     },
     [isDeliveryHub, router]
@@ -779,8 +795,11 @@ export function MyStoreOrdersView({
 
   const counts = useMemo(() => tabCounts(allSorted), [allSorted]);
   const filtered = useMemo(
-    () => (isDeliveryHub ? allSorted : filterByTab(allSorted, tab)),
-    [allSorted, isDeliveryHub, tab]
+    () => {
+      const base = isDeliveryHub ? allSorted : filterByTab(allSorted, tab);
+      return isDeliveryHub ? filterOrdersByHubFilter(base, hubOrderFilter) : base;
+    },
+    [allSorted, isDeliveryHub, tab, hubOrderFilter]
   );
   const loginHref = "/login";
 
@@ -953,7 +972,7 @@ export function MyStoreOrdersView({
                       order={o}
                       detailHref={
                         ordersHubPaths
-                          ? `/orders?expand=${encodeURIComponent(o.id)}`
+                          ? canonicalHubHref("orders", { expand: o.id, orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null })
                           : `/mypage/store-orders/${encodeURIComponent(o.id)}`
                       }
                       chatHref={resolveBuyerStoreOrderChatHref({
@@ -961,7 +980,10 @@ export function MyStoreOrdersView({
                         ordersHubPaths,
                         returnHref:
                           isDeliveryHub && expandedOrderId === o.id
-                            ? `/orders?expand=${encodeURIComponent(o.id)}`
+                            ? canonicalHubHref("orders", {
+                                expand: o.id,
+                                orderFilter: hubOrderFilter !== "all" ? hubOrderFilter : null,
+                              })
                             : ordersListHref,
                       })}
                       chatDisabled={isStoreOrderChatDisabledForBuyer(o.order_status)}

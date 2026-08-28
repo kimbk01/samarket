@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { CustomerGiftCertificateWallet } from "@/components/mypage/CustomerGiftCertificateWallet";
+import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
 
 function GiftCertificatesFallback() {
   return (
@@ -12,7 +12,7 @@ function GiftCertificatesFallback() {
 export default function MypageGiftCertificatesPage() {
   return (
     <Suspense fallback={<GiftCertificatesFallback />}>
-      <CustomerGiftCertificateWallet />
+      <CustomerCommerceHubPage legacyAlias="gifts" />
     </Suspense>
   );
 }

@@ -98,8 +98,6 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
   const isPhilifeMeetings = startsWithPath(pathNoQuery, "/philife/meetings");
   const isPhilifeMyPage = pathNoQuery === "/philife/my";
   const isStoresSearch = pathNoQuery === "/stores/search" || startsWithPath(pathNoQuery, "/stores/search");
-  /** `/orders` — `OrdersHubContent` 의 `AppTopHeader` 와 1단 중복 방지 */
-  const isOrdersHubRoot = pathNoQuery === "/orders";
 
   const isCommunityOrPhilifePostDetail =
     COMMUNITY_POST_DETAIL_RE.test(pathNoQuery) || PHILIFE_POST_DETAIL_RE.test(pathNoQuery);
@@ -118,8 +116,7 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     isCommunityOrPhilifePostDetail ||
     isPhilifeMeetings ||
     isPhilifeMyPage ||
-    isStoresSearch ||
-    isOrdersHubRoot;
+    isStoresSearch;
 
   const showRegionBar = !suppressMainTier1;
 
