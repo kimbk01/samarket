@@ -73,13 +73,6 @@ export function GiftVisualCard({
   const issuer = issuerName?.trim() || (scope === "PLATFORM" ? "DIBAY" : visual.storeName?.trim() || "");
   const isUsed = surface === "used" || faded;
 
-  const identityLeft = isStore
-    ? issuer
-    : safeT("gift_u2_card_identity", {
-        fallbackKo: "디바이 상품권",
-        fallbackEn: "DIBAY Gift Certificate",
-      });
-
   const scopeLine = isStore
     ? safeT("commerce_hub_gift_scope_store_named", {
         vars: { store: issuer },
@@ -101,15 +94,23 @@ export function GiftVisualCard({
   const purchase = purchasePrice ?? null;
 
   const valueTypeClass = compact
-    ? "whitespace-nowrap text-xl font-bold tabular-nums leading-none tracking-tight text-white sm:text-2xl"
-    : "whitespace-nowrap text-[1.65rem] font-bold tabular-nums leading-none tracking-tight text-white sm:text-4xl";
+    ? "whitespace-nowrap text-[clamp(1.35rem,7vw,1.85rem)] font-bold tabular-nums leading-none tracking-tight text-white"
+    : "whitespace-nowrap text-[clamp(1.85rem,10vw,3.15rem)] font-bold tabular-nums leading-none tracking-tight text-white";
+
+  const faceLabelClass = compact
+    ? "text-[9px] font-medium tracking-wide text-[#E4C56A]"
+    : "text-[10px] font-medium tracking-wide text-[#E4C56A] sm:text-[11px]";
+
+  const purchaseLineClass = compact
+    ? "mt-2 whitespace-nowrap text-[10px] font-semibold tabular-nums text-white/95"
+    : "mt-2 whitespace-nowrap text-[11px] font-semibold tabular-nums text-white/95 sm:text-sm";
 
   const amountBlock =
     amountSlot ??
     (surface === "mall" ? (
       <div className="min-w-0 max-w-full text-right">
         {face != null ? (
-          <p className="text-[10px] font-medium tracking-wide text-white/80 sm:text-[11px]">
+          <p className={faceLabelClass}>
             {safeT("commerce_hub_gift_face_label", {
               fallbackKo: "상품권 금액",
               fallbackEn: "Gift certificate amount",
@@ -122,16 +123,20 @@ export function GiftVisualCard({
           </p>
         ) : null}
         {purchase != null ? (
-          <p
-            className="mt-1.5 whitespace-nowrap border-t border-[#D4AF37]/45 pt-1.5 text-[11px] tabular-nums text-white/90 sm:text-sm"
-            data-gift-purchase-amount="1"
-          >
-            {safeT("commerce_hub_gift_purchase_label", {
-              fallbackKo: "구매가",
-              fallbackEn: "Purchase price",
-            })}{" "}
-            {formatMoneyPhp(purchase)}
-          </p>
+          <>
+            <div className="mx-auto mt-2.5 flex w-full max-w-[92%] items-center gap-1.5" aria-hidden data-gift-gold-divider="1">
+              <span className="h-px flex-1 bg-[#D4AF37]/60" />
+              <span className="h-1.5 w-1.5 rotate-45 bg-[#D4AF37]" />
+              <span className="h-px flex-1 bg-[#D4AF37]/60" />
+            </div>
+            <p className={purchaseLineClass} data-gift-purchase-amount="1">
+              {safeT("commerce_hub_gift_purchase_label", {
+                fallbackKo: "구매가",
+                fallbackEn: "Purchase price",
+              })}{" "}
+              {formatMoneyPhp(purchase)}
+            </p>
+          </>
         ) : null}
       </div>
     ) : isUsed ? (
@@ -217,12 +222,7 @@ export function GiftVisualCard({
       data-gift-scope={scope}
       data-gift-visual-surface={surface}
     >
-      <DibayGiftCertificateFace
-        compact={compact}
-        valueSlot={amountBlock}
-        identityLeft={identityLeft}
-        priority={fullWidth}
-      />
+      <DibayGiftCertificateFace compact={compact} valueSlot={amountBlock} priority={fullWidth} />
 
       <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
         {displayTitle && displayTitle !== issuer ? (

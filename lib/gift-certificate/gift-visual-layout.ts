@@ -17,3 +17,9 @@ export const GIFT_DETAIL_CARD_SHELL_CLASS = "mx-auto w-full min-w-0 max-w-[36rem
 /** Landscape stored-value certificate — ~1.65:1. */
 export const GIFT_HERO_ASPECT_CLASS = "aspect-[1.65/1]";
 export const GIFT_HERO_ASPECT_COMPACT_CLASS = "aspect-[1.65/1]";
+
+export const GIFT_CERT_DEEP_GREEN = "#043322";
+export const GIFT_CERT_DARK_PANEL = "#021f16";
+export const GIFT_CERT_FOOTER_BG = "#011810";
+export const GIFT_CERT_CHAMPAGNE_GOLD = "#C5A572";
+export const GIFT_CERT_WARM_GOLD = "#E4C56A";
