@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
@@ -135,6 +135,17 @@ export function AdminGiftProductDetailConsole({
   const [editEnd, setEditEnd] = useState("");
   const [editTransferable, setEditTransferable] = useState(true);
 
+  const hydrateEditFromProduct = useCallback((p: ProductDetail) => {
+    setEditTitle(p.title);
+    setEditImage(p.image_url ?? "");
+    setEditFace(String(p.face_value));
+    setEditPrice(String(p.purchase_price));
+    setEditFee(String(p.platform_fee_rate));
+    setEditStart(toLocalInput(p.sales_starts_at));
+    setEditEnd(toLocalInput(p.sales_ends_at));
+    setEditTransferable(p.transferable !== false);
+  }, []);
+
   const load = useCallback(async () => {
     setState("loading");
     try {
@@ -149,21 +160,13 @@ export function AdminGiftProductDetailConsole({
         return;
       }
       setPayload(json as DetailPayload);
-      const p = json.product;
-      setEditTitle(p.title);
-      setEditImage(p.image_url ?? "");
-      setEditFace(String(p.face_value));
-      setEditPrice(String(p.purchase_price));
-      setEditFee(String(p.platform_fee_rate));
-      setEditStart(toLocalInput(p.sales_starts_at));
-      setEditEnd(toLocalInput(p.sales_ends_at));
-      setEditTransferable(p.transferable !== false);
+      hydrateEditFromProduct(json.product);
       setState("ready");
     } catch {
       setPayload(null);
       setState("error");
     }
-  }, [productId]);
+  }, [hydrateEditFromProduct, productId]);
 
   useEffect(() => {
     void load();
@@ -173,6 +176,46 @@ export function AdminGiftProductDetailConsole({
   const scope = product?.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
   const status = product ? productStatus(product) : "PAUSED";
   const moneyLocked = product?.money_locked === true;
+
+  const isDirty = useMemo(() => {
+    if (!product) return false;
+    const startCanon = toLocalInput(product.sales_starts_at);
+    const endCanon = toLocalInput(product.sales_ends_at);
+    return (
+      editTitle.trim() !== product.title ||
+      (editImage.trim() || "") !== (product.image_url ?? "") ||
+      editFace.trim() !== String(product.face_value) ||
+      editPrice.trim() !== String(product.purchase_price) ||
+      editFee.trim() !== String(product.platform_fee_rate) ||
+      editStart !== startCanon ||
+      editEnd !== endCanon ||
+      editTransferable !== (product.transferable !== false)
+    );
+  }, [
+    product,
+    editTitle,
+    editImage,
+    editFace,
+    editPrice,
+    editFee,
+    editStart,
+    editEnd,
+    editTransferable,
+  ]);
+
+  const enterEdit = () => {
+    if (!product || busy) return;
+    hydrateEditFromProduct(product);
+    setError(null);
+    setEditOpen(true);
+  };
+
+  const cancelEdit = () => {
+    if (busy) return;
+    if (product) hydrateEditFromProduct(product);
+    setError(null);
+    setEditOpen(false);
+  };
 
   const labelScope =
     scope === "PLATFORM"
@@ -216,7 +259,27 @@ export function AdminGiftProductDetailConsole({
   };
 
   const saveEdit = async () => {
-    if (!product || busy) return;
+    if (!product || busy || !isDirty) return;
+    const confirmed = await dibayConfirm({
+      title: safeT("gift_admin_edit_confirm_title", {
+        fallbackKo: "상품권을 수정할까요?",
+        fallbackEn: "Save gift product changes?",
+      }),
+      description: safeT("gift_admin_edit_confirm_body", {
+        fallbackKo: "확인을 누르면 변경 내용이 저장됩니다. 취소하면 저장되지 않습니다.",
+        fallbackEn: "Confirm to save your edits. Cancel leaves the product unchanged.",
+      }),
+      cancelLabel: safeT("gift_admin_edit_confirm_cancel", {
+        fallbackKo: "취소",
+        fallbackEn: "Cancel",
+      }),
+      confirmLabel: safeT("gift_admin_edit_confirm_ok", {
+        fallbackKo: "확인",
+        fallbackEn: "Confirm",
+      }),
+    });
+    if (!confirmed) return;
+
     setBusy(true);
     setError(null);
     try {
@@ -250,9 +313,19 @@ export function AdminGiftProductDetailConsole({
         );
         return;
       }
-      setEditOpen(false);
       await load();
       onChanged();
+      setEditOpen(false);
+      await dibayAlert({
+        title: safeT("gift_admin_edit_success_title", {
+          fallbackKo: "수정이 완료되었습니다",
+          fallbackEn: "Changes saved",
+        }),
+        confirmLabel: safeT("gift_admin_edit_success_ok", {
+          fallbackKo: "확인",
+          fallbackEn: "OK",
+        }),
+      });
     } finally {
       setBusy(false);
     }
@@ -474,22 +547,20 @@ export function AdminGiftProductDetailConsole({
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
           {editOpen ? (
-            <div
-              className="sticky bottom-0 z-20 -mx-1 flex gap-2 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur-sm"
-              data-admin-gift-product-edit-actions="1"
-            >
+            <div className="flex gap-2" data-admin-gift-product-edit-actions="1">
               <button
                 type="button"
                 className={`${Sam.btn.secondary} min-h-[48px] flex-1 px-4`}
                 disabled={busy}
-                onClick={() => setEditOpen(false)}
+                data-admin-gift-product-cancel="1"
+                onClick={cancelEdit}
               >
                 {safeT("gift_admin_cta_back", { fallbackKo: "취소", fallbackEn: "Cancel" })}
               </button>
               <button
                 type="button"
                 className={`${Sam.btn.primary} min-h-[48px] flex-1 px-4 text-sam-on-primary`}
-                disabled={busy}
+                disabled={busy || !isDirty}
                 data-admin-gift-product-save="1"
                 onClick={() => void saveEdit()}
               >
@@ -500,7 +571,12 @@ export function AdminGiftProductDetailConsole({
 
           <div className="flex flex-wrap gap-2" data-admin-gift-product-actions="1">
             {!editOpen ? (
-              <button type="button" className={`${Sam.btn.primary} min-h-[44px] px-4 text-sam-on-primary`} onClick={() => setEditOpen(true)}>
+              <button
+                type="button"
+                className={`${Sam.btn.primary} min-h-[44px] px-4 text-sam-on-primary`}
+                data-admin-gift-product-edit="1"
+                onClick={enterEdit}
+              >
                 {safeT("gift_ops_cta_edit", { fallbackKo: "수정", fallbackEn: "Edit" })}
               </button>
             ) : null}
