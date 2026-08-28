@@ -15,8 +15,16 @@ import {
 } from "@/lib/gift-certificate/map-gift-purchase-error";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
-import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
+
+/** Gift detail primary CTA — solid fill; utility/layer classes can resolve transparent under `.delivery-ui`. */
+const GIFT_DETAIL_BUY_BTN_STYLE = {
+  backgroundColor: "var(--delivery-primary, var(--dibay-green, #0B421A))",
+  color: "var(--dibay-cream, #fffdf8)",
+} as const;
+
+const GIFT_DETAIL_BUY_BTN_CLASS =
+  "inline-flex min-h-[52px] w-full touch-manipulation select-none items-center justify-center rounded-ui-rect border-0 px-4 text-[15px] font-bold leading-tight disabled:cursor-not-allowed disabled:opacity-45";
 
 export function BuyerGiftDetailView({
   productId,
@@ -220,7 +228,7 @@ export function BuyerGiftDetailView({
   return (
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
       <GiftVisualCard
-        className="mb-4"
+        className="mb-3"
         visual={{
           giftScope: product.giftScope,
           imageUrl: product.imageUrl,
@@ -235,7 +243,97 @@ export function BuyerGiftDetailView({
         purchasePrice={product.purchasePrice}
       />
 
-      <div className="mb-4 min-w-0 space-y-1">
+      {/* Solid inline fill — sam-btn-primary / delivery-btn-primary can paint transparent here. */}
+      <div className="mb-4 flex flex-col gap-2" data-gift-detail-cta-bar="1">
+        {!authed ? (
+          <Link
+            href={loginHref}
+            className={GIFT_DETAIL_BUY_BTN_CLASS}
+            style={GIFT_DETAIL_BUY_BTN_STYLE}
+            data-gift-detail-login-cta="1"
+          >
+            {safeT("gift_u2_detail_login_cta", {
+              fallbackKo: "로그인하고 구매",
+              fallbackEn: "Sign in to buy",
+            })}
+          </Link>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={GIFT_DETAIL_BUY_BTN_CLASS}
+              style={GIFT_DETAIL_BUY_BTN_STYLE}
+              data-gift-detail-buy-cta="1"
+              disabled={busy || balanceLoading || !enough}
+              onClick={() => {
+                if (!enough) return;
+                setErrorMsg(null);
+                setConfirmOpen(true);
+              }}
+            >
+              {safeT("commerce_hub_gift_buy_cta", {
+                fallbackKo: "상품권 구매하기",
+                fallbackEn: "Buy gift certificate",
+              })}
+              {" · "}
+              {priceLabel}
+            </button>
+            {!enough ? (
+              <Link
+                href={chargeHref}
+                className={GIFT_DETAIL_BUY_BTN_CLASS}
+                style={GIFT_DETAIL_BUY_BTN_STYLE}
+                data-gift-detail-charge-cta="1"
+              >
+                {safeT("gift_u2_detail_charge_cta", {
+                  fallbackKo: "Point 충전하기",
+                  fallbackEn: "Top up Point",
+                })}
+              </Link>
+            ) : null}
+          </>
+        )}
+        {errorMsg ? <p className="text-sm text-sam-danger">{errorMsg}</p> : null}
+      </div>
+
+      <div
+        className="mb-4 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+        data-gift-point-panel="1"
+      >
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-sam-muted">
+            {safeT("gift_u2_detail_balance_label", {
+              fallbackKo: "보유 D-Point",
+              fallbackEn: "Your D-Point",
+            })}
+          </span>
+          <span className="tabular-nums font-semibold text-sam-fg">
+            {balanceLoading ? "…" : balance.toLocaleString()}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-sm">
+          <span className="text-sam-muted">
+            {safeT("gift_u2_detail_need_label", {
+              fallbackKo: "구매 필요",
+              fallbackEn: "Required",
+            })}
+          </span>
+          <span className="tabular-nums font-semibold text-sam-fg">
+            {product.purchasePrice.toLocaleString()}
+          </span>
+        </div>
+        {!enough && authed ? (
+          <p className="mt-2 text-sm text-sam-danger">
+            {safeT("gift_u2_detail_shortfall", {
+              fallbackKo: "{shortfall} Point가 부족합니다.",
+              fallbackEn: "You need {shortfall} more Point.",
+              vars: { shortfall: shortfall.toLocaleString() },
+            })}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mb-8 min-w-0 space-y-1">
         <p className="text-sm text-sam-muted">
           {safeT("gift_u2_detail_unit", {
             fallbackKo: "구매 단위 1장",
@@ -283,101 +381,6 @@ export function BuyerGiftDetailView({
               "Gift certificates can only be purchased with D-Point. Remaining balance can be used at this store’s orders.",
           })}
         </p>
-      </div>
-
-      <div
-        className="mb-4 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
-        data-gift-point-panel="1"
-      >
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-sam-muted">
-            {safeT("gift_u2_detail_balance_label", {
-              fallbackKo: "보유 D-Point",
-              fallbackEn: "Your D-Point",
-            })}
-          </span>
-          <span className="tabular-nums font-semibold text-sam-fg">
-            {balanceLoading ? "…" : balance.toLocaleString()}
-          </span>
-        </div>
-        <div className="mt-1 flex items-center justify-between gap-2 text-sm">
-          <span className="text-sam-muted">
-            {safeT("gift_u2_detail_need_label", {
-              fallbackKo: "구매 필요",
-              fallbackEn: "Required",
-            })}
-          </span>
-          <span className="tabular-nums font-semibold text-sam-fg">
-            {product.purchasePrice.toLocaleString()}
-          </span>
-        </div>
-        {!enough && authed ? (
-          <p className="mt-2 text-sm text-sam-danger">
-            {safeT("gift_u2_detail_shortfall", {
-              fallbackKo: "{shortfall} Point가 부족합니다.",
-              fallbackEn: "You need {shortfall} more Point.",
-              vars: { shortfall: shortfall.toLocaleString() },
-            })}
-          </p>
-        ) : null}
-      </div>
-
-      {errorMsg ? <p className="mb-3 text-sm text-sam-danger">{errorMsg}</p> : null}
-
-      <div className="flex flex-col gap-2 pb-10" data-gift-detail-cta-bar="1">
-        {!authed ? (
-          <Link
-            href={loginHref}
-            className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
-            data-gift-detail-login-cta="1"
-          >
-            {safeT("gift_u2_detail_login_cta", {
-              fallbackKo: "로그인하고 구매",
-              fallbackEn: "Sign in to buy",
-            })}
-          </Link>
-        ) : (
-          <>
-            <button
-              type="button"
-              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[52px] w-full px-4 text-base font-semibold`}
-              data-gift-detail-buy-cta="1"
-              disabled={busy || balanceLoading || !enough}
-              onClick={() => {
-                if (!enough) return;
-                setErrorMsg(null);
-                setConfirmOpen(true);
-              }}
-            >
-              {safeT("commerce_hub_gift_buy_cta", {
-                fallbackKo: "상품권 구매하기",
-                fallbackEn: "Buy gift certificate",
-              })}
-              {" · "}
-              {priceLabel}
-            </button>
-            {!enough ? (
-              <>
-                <p className="text-sm font-medium text-sam-fg">
-                  {safeT("gift_u2_detail_insufficient_title", {
-                    fallbackKo: "Point가 부족합니다",
-                    fallbackEn: "Not enough Point",
-                  })}
-                </p>
-                <Link
-                  href={chargeHref}
-                  className={`${COMMERCE_PRIMARY_BTN_CLASS} inline-flex min-h-[48px] w-full items-center justify-center px-4`}
-                  data-gift-detail-charge-cta="1"
-                >
-                  {safeT("gift_u2_detail_charge_cta", {
-                    fallbackKo: "Point 충전하기",
-                    fallbackEn: "Top up Point",
-                  })}
-                </Link>
-              </>
-            ) : null}
-          </>
-        )}
       </div>
 
       <DibayDialog
