@@ -34,6 +34,10 @@ import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import {
+  giftInstanceAllowsCheckoutStore,
+  isGiftScope,
+} from "@/lib/gift-certificate/gift-certificate-domain-contract";
+import {
   tryLoadBuyerStoreOrdersListFromSnapshot,
 } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot";
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
@@ -406,7 +410,7 @@ export async function POST(req: NextRequest) {
     const gid = giftInstanceIds[0]!;
     const { data: giftRow, error: giftErr } = await sb
       .from("gift_certificate_instances")
-      .select("id, store_id, current_owner_user_id, remaining_balance, status")
+      .select("id, store_id, gift_scope, current_owner_user_id, remaining_balance, status")
       .eq("id", gid)
       .maybeSingle();
     if (giftErr) {
@@ -419,7 +423,18 @@ export async function POST(req: NextRequest) {
     if (String(row.current_owner_user_id) !== buyerId) {
       return NextResponse.json({ ok: false, error: "gift_not_owner" }, { status: 403 });
     }
-    if (String(row.store_id) !== storeId) {
+    const scope = isGiftScope(row.gift_scope) ? row.gift_scope : "STORE";
+    const instanceStoreId =
+      row.store_id == null || String(row.store_id).trim() === ""
+        ? null
+        : String(row.store_id);
+    if (
+      !giftInstanceAllowsCheckoutStore({
+        giftScope: scope,
+        instanceStoreId,
+        checkoutStoreId: storeId,
+      })
+    ) {
       return NextResponse.json({ ok: false, error: "gift_store_mismatch" }, { status: 400 });
     }
     const status = String(row.status ?? "");
