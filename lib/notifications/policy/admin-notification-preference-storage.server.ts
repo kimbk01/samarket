@@ -11,6 +11,7 @@ import {
   normalizeNotificationPreferenceStorage,
   type AdminNotificationPreferenceStorageRow,
 } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import { isMissingPreferenceRelationError } from "@/lib/notifications/policy/notification-preference-relation-errors";
 
 export type AdminNotificationPreferenceWriteInput = Readonly<{
   soundEnabled?: boolean | null;
@@ -22,13 +23,19 @@ export async function readAdminNotificationPreference(
   now: Date = new Date()
 ): Promise<NormalizedAdminOpsPreferenceSnapshot> {
   const sb = supabase ?? getSupabaseServer();
-  const { data } = await sb
+  const { data, error } = await sb
     .from("admin_notification_preferences")
     .select("sound_enabled")
     .eq("user_id", userId)
     .maybeSingle();
+  if (error && isMissingPreferenceRelationError(error)) {
+    return normalizeNotificationPreferenceStorage({
+      adminOpsPreferenceRow: null,
+      now,
+    }).adminOps!;
+  }
   return normalizeNotificationPreferenceStorage({
-    adminOpsPreferenceRow: data as AdminNotificationPreferenceStorageRow | null,
+    adminOpsPreferenceRow: (error ? null : data) as AdminNotificationPreferenceStorageRow | null,
     now,
   }).adminOps!;
 }

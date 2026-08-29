@@ -54,6 +54,11 @@ import {
 } from "@/lib/admin/admin-ops-deeplink";
 import { shouldPlayAdminOpsSound } from "@/lib/admin/admin-ops-sound-decision";
 import {
+  allowAdminOpsSoundAfterPreference,
+  preferencesFromAdminOpsStorageRow,
+} from "@/lib/admin/admin-ops-sound-preference-gate";
+import { fetchAdminNotificationPreferencesRow } from "@/lib/notifications/fetch-admin-notification-preferences-client";
+import {
   isAdminActionableCommunityReport,
   isAdminActionableStoreApproval,
   isAdminActionableStoreReport,
@@ -68,6 +73,9 @@ import {
   ingestAdminRowSound,
   seedCanonicalSoundConsumed,
 } from "@/lib/notifications/notification-sound-decision";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type { AdminNotificationPreferenceStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import type { NormalizedNotificationPreferenceSnapshot } from "@/lib/notifications/policy/notification-preference-normalized-snapshot";
 
 type AwarenessToast = {
   kind:
@@ -168,6 +176,41 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const chargeSoundHydratedRef = useRef(false);
   const inquirySoundHydratedRef = useRef(false);
   const reportOpsSoundHydratedRef = useRef(false);
+  const [adminOpsPrefRow, setAdminOpsPrefRow] =
+    useState<AdminNotificationPreferenceStorageRow | null>(null);
+
+  const adminOpsPreferences: NormalizedNotificationPreferenceSnapshot = useMemo(
+    () => preferencesFromAdminOpsStorageRow(adminOpsPrefRow),
+    [adminOpsPrefRow]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const userId = getCurrentUser()?.id?.trim() ?? "";
+    if (!userId) {
+      setAdminOpsPrefRow(null);
+      return;
+    }
+    void fetchAdminNotificationPreferencesRow(userId).then((row) => {
+      if (!cancelled) setAdminOpsPrefRow(row);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ingestAdminOpsSoundIfPrefAllowed = useCallback(
+    (input: {
+      sourceTable: string;
+      rowId: string;
+      createdAt?: string | null;
+    }) => {
+      // Eligible event already selected by caller; preference only suppresses sound.
+      if (!allowAdminOpsSoundAfterPreference(true, adminOpsPreferences)) return;
+      ingestAdminRowSound(input);
+    },
+    [adminOpsPreferences]
+  );
 
   const maybeIngestAdminOpsSound = useCallback(
     (input: {
@@ -178,14 +221,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       oldRow?: Record<string, unknown> | null;
       newRow?: Record<string, unknown> | null;
     }) => {
-      if (
-        !shouldPlayAdminOpsSound({
-          eventType: input.eventType,
-          sourceTable: input.sourceTable,
-          oldRow: input.oldRow,
-          newRow: input.newRow,
-        })
-      ) {
+      const semanticEligible = shouldPlayAdminOpsSound({
+        eventType: input.eventType,
+        sourceTable: input.sourceTable,
+        oldRow: input.oldRow,
+        newRow: input.newRow,
+      });
+      if (!allowAdminOpsSoundAfterPreference(semanticEligible, adminOpsPreferences)) {
         return;
       }
       ingestAdminRowSound({
@@ -194,7 +236,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         createdAt: input.createdAt ?? undefined,
       });
     },
-    []
+    [adminOpsPreferences]
   );
 
   const showAwarenessToast = useCallback((toast: AwarenessToast) => {
@@ -420,12 +462,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         href: `/admin/feed-ad-requests/${encodeURIComponent(requestId)}`,
       });
 
-      ingestAdminRowSound({
+      ingestAdminOpsSoundIfPrefAllowed({
         sourceTable: "feed_ad_requests",
         rowId: requestId,
       });
     },
-    [safeT, showAwarenessToast]
+    [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
   );
 
   const seedPendingChargeRowsSilent = useCallback(async () => {
@@ -895,7 +937,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 payload.new && typeof payload.new === "object" ? Object.keys(payload.new as object) : [],
             });
             if (payload.eventType === "INSERT" && rowId) {
-              ingestAdminRowSound({
+              ingestAdminOpsSoundIfPrefAllowed({
                 sourceTable: "store_point_charge_requests",
                 rowId,
                 createdAt: createdAtFromPayload(payload),
@@ -918,7 +960,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
                 payload.new && typeof payload.new === "object" ? Object.keys(payload.new as object) : [],
             });
             if (payload.eventType === "INSERT" && rowId) {
-              ingestAdminRowSound({
+              ingestAdminOpsSoundIfPrefAllowed({
                 sourceTable: "point_charge_requests",
                 rowId,
                 createdAt: createdAtFromPayload(payload),
@@ -949,7 +991,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               status,
             });
             if (rowId && startedBy === "member" && status === "open") {
-              ingestAdminRowSound({
+              ingestAdminOpsSoundIfPrefAllowed({
                 sourceTable: "member_admin_note_threads",
                 rowId,
                 createdAt: createdAtFromPayload(payload),
@@ -983,7 +1025,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               status,
             });
             if (rowId && status === "open") {
-              ingestAdminRowSound({
+              ingestAdminOpsSoundIfPrefAllowed({
                 sourceTable: "platform_admin_inquiries",
                 rowId,
                 createdAt: createdAtFromPayload(payload),
@@ -1045,7 +1087,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               rowId,
             });
             if (rowId) {
-              ingestAdminRowSound({
+              ingestAdminOpsSoundIfPrefAllowed({
                 sourceTable: "delivery_operation_alert_events",
                 rowId,
                 createdAt: createdAtFromPayload(payload),
@@ -1120,6 +1162,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     markStoreReportAlert,
     markStoreApplicationAlert,
     maybeIngestAdminOpsSound,
+    ingestAdminOpsSoundIfPrefAllowed,
   ]);
 
   const value = useMemo(
