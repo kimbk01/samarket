@@ -4,6 +4,7 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import { listOwnerSponsoredCampaignsForStores } from "@/lib/stores/advertising/owner-store-sponsored-writer";
+import { listOwnerBannerCampaignsForStores } from "@/lib/stores/advertising/owner-banner-writer";
 import {
   DELIVERY_AD_OWNER_PRICING_PRODUCT,
   lifecycleToOwnerSummaryBucket,
@@ -36,7 +37,14 @@ export async function GET() {
   );
 
   const storeIds = storesResult.stores.map((s) => s.id);
-  const campaigns = await listOwnerSponsoredCampaignsForStores(sb, userId, storeIds);
+  const [sponsored, banners] = await Promise.all([
+    listOwnerSponsoredCampaignsForStores(sb, userId, storeIds),
+    listOwnerBannerCampaignsForStores(sb, userId, storeIds),
+  ]);
+  const campaigns = [
+    ...sponsored.map((c) => ({ ...c, productKind: "store_sponsored" as const })),
+    ...banners.map((c) => ({ ...c, productKind: "banner" as const })),
+  ].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 
   const summary = {
     under_review: 0,

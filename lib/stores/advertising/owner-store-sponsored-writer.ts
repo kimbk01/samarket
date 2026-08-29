@@ -339,26 +339,9 @@ export async function createOwnerSponsoredDraft(
       ? input.clientRequestId.trim().slice(0, 128)
       : null;
 
-  if (clientRequestId) {
-    const { data: existing } = await sb
-      .from(STORE_SPONSORED_CAMPAIGN_TABLE)
-      .select(SELECT_COLS)
-      .eq("owner_user_id", input.ownerUserId)
-      .eq("owner_client_request_id", clientRequestId)
-      .maybeSingle();
-    if (existing) {
-      const keys = await loadInventoryKeysForCampaign(sb, String((existing as unknown as { id: string }).id));
-      const mapped = mapRow(existing as unknown as Record<string, unknown>, keys);
-      if (mapped) return { ok: true, row: mapped };
-    }
-  }
-
-  const invIds = await resolveInventoryIds(sb, inv.keys);
-  if (!invIds.ok) return invIds;
-
   const { data: store } = await sb
     .from("stores")
-    .select("store_name, profile_image_url")
+    .select("store_name")
     .eq("id", input.storeId)
     .maybeSingle();
   const storeName =
@@ -367,78 +350,33 @@ export async function createOwnerSponsoredDraft(
       : "Store";
   const title = (input.title?.trim() || storeName).slice(0, 120);
   const headline = (input.headline?.trim() || storeName).slice(0, 160);
-  const imageUrl =
-    store && typeof (store as { profile_image_url?: string | null }).profile_image_url === "string"
-      ? (store as { profile_image_url: string }).profile_image_url
-      : null;
 
-  const now = new Date().toISOString();
-  const { data, error } = await sb
-    .from(STORE_SPONSORED_CAMPAIGN_TABLE)
-    .insert({
-      store_id: input.storeId,
-      placement,
-      title,
-      headline,
-      body_copy: null,
-      image_url: imageUrl,
-      start_at: schedule.startAt,
-      end_at: schedule.endAt,
-      is_active: false,
-      product_key: "store_sponsored",
-      owner_user_id: input.ownerUserId,
-      lifecycle_status: "DRAFT",
-      review_status: "NOT_SUBMITTED",
-      pricing_model: null,
-      owner_client_request_id: clientRequestId,
-      created_by_user_id: input.ownerUserId,
-      updated_by_user_id: input.ownerUserId,
-      created_at: now,
-      updated_at: now,
-    })
-    .select(SELECT_COLS)
-    .single();
-
-  if (error || !data) {
-    if (clientRequestId && /unique|duplicate/i.test(String(error?.message ?? ""))) {
-      const { data: again } = await sb
-        .from(STORE_SPONSORED_CAMPAIGN_TABLE)
-        .select(SELECT_COLS)
-        .eq("owner_user_id", input.ownerUserId)
-        .eq("owner_client_request_id", clientRequestId)
-        .maybeSingle();
-      if (again) {
-        const keys = await loadInventoryKeysForCampaign(sb, String((again as unknown as { id: string }).id));
-        const mapped = mapRow(again as unknown as Record<string, unknown>, keys);
-        if (mapped) return { ok: true, row: mapped };
-      }
-      return { ok: false, error: "duplicate_submit" };
-    }
-    console.error("[createOwnerSponsoredDraft]", error?.message);
+  /** CUT E — atomic RPC (campaign + junction + audit). */
+  const { data, error } = await sb.rpc("owner_delivery_sponsored_upsert", {
+    p_owner_user_id: input.ownerUserId,
+    p_store_id: input.storeId,
+    p_campaign_id: null,
+    p_inventory_keys: inv.keys,
+    p_placement: placement,
+    p_title: title,
+    p_headline: headline,
+    p_body_copy: null,
+    p_start_at: schedule.startAt,
+    p_end_at: schedule.endAt,
+    p_client_request_id: clientRequestId,
+  });
+  if (error) {
+    console.error("[createOwnerSponsoredDraft]", error.message);
     return { ok: false, error: "db_error" };
   }
-
-  const campaignId = String((data as unknown as { id: string }).id);
-  const junct = await replaceJunctions(sb, campaignId, invIds.ids);
-  if (!junct.ok) {
-    await sb.from(STORE_SPONSORED_CAMPAIGN_TABLE).delete().eq("id", campaignId);
-    return junct;
+  const payload = data as { ok?: boolean; error?: string; campaign_id?: string } | null;
+  if (!payload?.ok || !payload.campaign_id) {
+    return {
+      ok: false,
+      error: (payload?.error ?? "db_error") as OwnerSponsoredWriterError,
+    };
   }
-
-  const audit = await writeAudit(sb, {
-    campaignId,
-    actorUserId: input.ownerUserId,
-    action: "draft_created",
-    after: data as unknown as Record<string, unknown>,
-  });
-  if (!audit.ok) {
-    await sb.from(STORE_SPONSORED_CAMPAIGN_TABLE).delete().eq("id", campaignId);
-    return audit;
-  }
-
-  const mapped = mapRow(data as unknown as Record<string, unknown>, inv.keys);
-  if (!mapped) return { ok: false, error: "db_error" };
-  return { ok: true, row: mapped };
+  return loadOwnerSponsoredCampaign(sb, payload.campaign_id, input.ownerUserId);
 }
 
 export type OwnerUpdateDraftInput = {
@@ -493,35 +431,42 @@ export async function updateOwnerSponsoredDraft(
     patch.headline = input.headline.trim().slice(0, 160);
   }
 
-  const before = { ...row };
-  const { data, error } = await sb
-    .from(STORE_SPONSORED_CAMPAIGN_TABLE)
-    .update(patch)
-    .eq("id", row.id)
-    .eq("owner_user_id", input.ownerUserId)
-    .select(SELECT_COLS)
-    .single();
-  if (error || !data) return { ok: false, error: "db_error" };
+  const startAt = (patch.start_at as string | undefined) ?? row.startAt;
+  const endAt = (patch.end_at as string | undefined) ?? row.endAt;
+  const title =
+    typeof patch.title === "string" ? patch.title : row.title;
+  const headline =
+    typeof patch.headline === "string" ? patch.headline : row.headline;
+  const placement =
+    typeof patch.placement === "string"
+      ? patch.placement
+      : row.placement;
 
-  if (input.inventoryKeys !== undefined) {
-    const invIds = await resolveInventoryIds(sb, nextKeys);
-    if (!invIds.ok) return invIds;
-    const junct = await replaceJunctions(sb, row.id, invIds.ids);
-    if (!junct.ok) return junct;
-  }
-
-  const audit = await writeAudit(sb, {
-    campaignId: row.id,
-    actorUserId: input.ownerUserId,
-    action: "draft_updated",
-    before: before as unknown as Record<string, unknown>,
-    after: data as unknown as Record<string, unknown>,
+  const { data, error } = await sb.rpc("owner_delivery_sponsored_upsert", {
+    p_owner_user_id: input.ownerUserId,
+    p_store_id: row.storeId,
+    p_campaign_id: row.id,
+    p_inventory_keys: nextKeys,
+    p_placement: placement,
+    p_title: title,
+    p_headline: headline,
+    p_body_copy: row.bodyCopy,
+    p_start_at: startAt,
+    p_end_at: endAt,
+    p_client_request_id: null,
   });
-  if (!audit.ok) return audit;
-
-  const mapped = mapRow(data as unknown as Record<string, unknown>, nextKeys);
-  if (!mapped) return { ok: false, error: "db_error" };
-  return { ok: true, row: mapped };
+  if (error) {
+    console.error("[updateOwnerSponsoredDraft]", error.message);
+    return { ok: false, error: "db_error" };
+  }
+  const payload = data as { ok?: boolean; error?: string; campaign_id?: string } | null;
+  if (!payload?.ok || !payload.campaign_id) {
+    return {
+      ok: false,
+      error: (payload?.error ?? "db_error") as OwnerSponsoredWriterError,
+    };
+  }
+  return loadOwnerSponsoredCampaign(sb, payload.campaign_id, input.ownerUserId);
 }
 
 async function loadHistoryFlags(
@@ -670,13 +615,29 @@ export async function listOwnerCampaignAudits(
   campaignId: string,
   ownerUserId: string
 ): Promise<Array<{ action: string; reason: string | null; createdAt: string }>> {
-  const loaded = await loadOwnerSponsoredCampaign(sb, campaignId, ownerUserId);
-  if (!loaded.ok) return [];
+  const sponsored = await loadOwnerSponsoredCampaign(sb, campaignId, ownerUserId);
+  let productKind: "store_sponsored" | "banner" | null = null;
+  if (sponsored.ok) {
+    productKind = "store_sponsored";
+  } else {
+    const { data: banner } = await sb
+      .from("store_banner_ad_campaigns")
+      .select("id, owner_user_id")
+      .eq("id", campaignId)
+      .maybeSingle();
+    if (
+      banner &&
+      String((banner as { owner_user_id?: string }).owner_user_id ?? "") === ownerUserId
+    ) {
+      productKind = "banner";
+    }
+  }
+  if (!productKind) return [];
   const { data } = await sb
     .from(DELIVERY_AD_AUDIT_LOG_TABLE)
     .select("action, reason, created_at, actor_type")
     .eq("campaign_id", campaignId)
-    .eq("product_kind", "store_sponsored")
+    .eq("product_kind", productKind)
     .order("created_at", { ascending: false })
     .limit(50);
   return (data ?? []).map((r) => ({

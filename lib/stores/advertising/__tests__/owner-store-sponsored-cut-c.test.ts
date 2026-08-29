@@ -117,20 +117,15 @@ describe("CUT C Owner Store Sponsored contracts", () => {
     expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.chargeCollection).toBe(false);
   });
 
-  it("Owner routes exist for hub/create/detail; no banner create page", () => {
+  it("Owner routes exist for hub/create/detail; banner create page (CUT E)", () => {
     expect(DELIVERY_AD_OWNER_ROUTES.hub).toBe("/stores/owner/ads");
     expect(DELIVERY_AD_OWNER_ROUTES.createStoreSponsored).toContain("store-sponsored");
+    expect(DELIVERY_AD_OWNER_ROUTES.createBanner).toContain("banner");
     const bannerPage = resolve(
       process.cwd(),
       "app/(main)/stores/owner/ads/new/banner/page.tsx"
     );
-    let exists = true;
-    try {
-      readFileSync(bannerPage);
-    } catch {
-      exists = false;
-    }
-    expect(exists).toBe(false);
+    expect(() => readFileSync(bannerPage)).not.toThrow();
   });
 
   it("C18 organic isolation modules still free of owner writer", () => {

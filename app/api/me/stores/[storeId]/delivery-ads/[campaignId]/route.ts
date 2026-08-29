@@ -9,6 +9,7 @@ import {
   loadOwnerSponsoredCampaign,
   updateOwnerSponsoredDraft,
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
+import { loadOwnerBannerCampaign } from "@/lib/stores/advertising/owner-banner-writer";
 import { DELIVERY_AD_OWNER_PRICING_PRODUCT } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 
 export const runtime = "nodejs";
@@ -53,7 +54,23 @@ export async function GET(
 
   const loaded = await loadOwnerSponsoredCampaign(sb, cid, userId);
   if (!loaded.ok) {
-    return NextResponse.json({ ok: false, error: loaded.error }, { status: statusForError(loaded.error) });
+    const banner = await loadOwnerBannerCampaign(sb, cid, userId);
+    if (!banner.ok) {
+      return NextResponse.json(
+        { ok: false, error: loaded.error },
+        { status: statusForError(loaded.error) }
+      );
+    }
+    if (banner.row.storeId !== sid) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+    const history = await listOwnerCampaignAudits(sb, cid, userId);
+    return NextResponse.json({
+      ok: true,
+      campaign: banner.row,
+      history,
+      meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT, productKind: "banner" },
+    });
   }
   if (loaded.row.storeId !== sid) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -64,7 +81,7 @@ export async function GET(
     ok: true,
     campaign: loaded.row,
     history,
-    meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT },
+    meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT, productKind: "store_sponsored" },
   });
 }
 

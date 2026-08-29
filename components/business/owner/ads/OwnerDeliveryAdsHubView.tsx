@@ -22,6 +22,18 @@ type HubStore = {
   eligible: boolean;
 };
 
+type HubCampaign = {
+  id: string;
+  storeId: string;
+  title?: string | null;
+  startAt: string;
+  endAt: string;
+  lifecycleStatus: OwnerSponsoredCampaignRow["lifecycleStatus"];
+  inventoryKeys?: string[];
+  productKind?: "store_sponsored" | "banner";
+  updatedAt?: string;
+};
+
 type HubSummary = {
   under_review: number;
   scheduled: number;
@@ -35,7 +47,7 @@ export function OwnerDeliveryAdsHubView() {
   const { t, safeT } = useI18n();
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [campaigns, setCampaigns] = useState<OwnerSponsoredCampaignRow[]>([]);
+  const [campaigns, setCampaigns] = useState<HubCampaign[]>([]);
   const [stores, setStores] = useState<HubStore[]>([]);
   const [summary, setSummary] = useState<HubSummary>({
     under_review: 0,
@@ -53,7 +65,7 @@ export function OwnerDeliveryAdsHubView() {
       const json = (await res.json()) as {
         ok?: boolean;
         error?: string;
-        campaigns?: OwnerSponsoredCampaignRow[];
+        campaigns?: HubCampaign[];
         stores?: HubStore[];
         summary?: HubSummary;
       };
@@ -106,12 +118,20 @@ export function OwnerDeliveryAdsHubView() {
           <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_delivery_ads_hub_title")}</h1>
           <p className="mt-1 text-[13px] text-sam-muted">{t("owner_delivery_ads_hub_desc")}</p>
         </div>
-        <Link
-          href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
-          className={`${Sam.btn.primary} shrink-0 px-3 py-2 text-[13px] font-semibold`}
-        >
-          {t("owner_ads_create_cta")}
-        </Link>
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Link
+            href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
+            className={`${Sam.btn.secondary} px-3 py-2 text-[13px] font-semibold`}
+          >
+            {t("owner_ads_create_store_sponsored_cta")}
+          </Link>
+          <Link
+            href={DELIVERY_AD_OWNER_ROUTES.createBanner}
+            className={`${Sam.btn.primary} px-3 py-2 text-[13px] font-semibold`}
+          >
+            {t("owner_ads_create_banner_cta")}
+          </Link>
+        </div>
       </div>
 
       <OwnerStoreAdminDashSection title={t("owner_delivery_ads_hub_title")}>
@@ -144,23 +164,37 @@ export function OwnerDeliveryAdsHubView() {
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
           <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
           <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_empty_body")}</p>
-          <Link
-            href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
-            className={`${Sam.btn.primary} mt-4 inline-flex px-4 py-2 text-[14px] font-semibold`}
-          >
-            {t("owner_ads_create_cta")}
-          </Link>
+          <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+            <Link
+              href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
+              className={`${Sam.btn.secondary} inline-flex px-4 py-2 text-[14px] font-semibold`}
+            >
+              {t("owner_ads_create_store_sponsored_cta")}
+            </Link>
+            <Link
+              href={DELIVERY_AD_OWNER_ROUTES.createBanner}
+              className={`${Sam.btn.primary} inline-flex px-4 py-2 text-[14px] font-semibold`}
+            >
+              {t("owner_ads_create_banner_cta")}
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="space-y-2">
           {campaigns.map((c) => {
-            const invLabels = (c.inventoryKeys as OwnerStoreSponsoredInventoryKey[])
-              .map((k) => t(ownerInventoryI18nKey(k)))
-              .join(" · ");
+            const isBanner = c.productKind === "banner";
+            const invLabels = isBanner
+              ? t("owner_ads_inventory_home_hero")
+              : ((c.inventoryKeys ?? []) as OwnerStoreSponsoredInventoryKey[])
+                  .map((k) => t(ownerInventoryI18nKey(k)))
+                  .join(" · ");
             return (
               <li key={c.id}>
                 <Link
-                  href={DELIVERY_AD_OWNER_ROUTES.detail(c.id) + `?storeId=${encodeURIComponent(c.storeId)}`}
+                  href={
+                    DELIVERY_AD_OWNER_ROUTES.detail(c.id) +
+                    `?storeId=${encodeURIComponent(c.storeId)}${isBanner ? "&product=banner" : ""}`
+                  }
                   className="block rounded-ui-rect border border-sam-border bg-sam-surface p-3"
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -169,7 +203,9 @@ export function OwnerDeliveryAdsHubView() {
                         {storeNameById.get(c.storeId) ?? c.title}
                       </p>
                       <p className="mt-0.5 text-[12px] text-sam-muted">
-                        {t("owner_ads_product_store_sponsored")}
+                        {isBanner
+                          ? t("owner_ads_product_banner")
+                          : t("owner_ads_product_store_sponsored")}
                         {invLabels ? ` · ${invLabels}` : ""}
                       </p>
                       <p className="mt-1 text-[12px] text-sam-muted">

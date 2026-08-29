@@ -1,19 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
-import { STORES_HOME_LCP_HERO_ATTR } from "@/lib/stores/stores-home-lcp-policy";
-import { STORES_HOME_CARD } from "@/lib/stores/stores-home-ui";
-import type { StoresHomeHeroBannerSlide } from "@/lib/stores/store-banner-ad-exposure";
+import type { HomeHeroBannerResolvedSlide } from "@/lib/stores/load-store-banner-ad-campaigns";
 
 /**
- * CUT 5 — HOME Hero consumes ONE Banner authority (`store_banner_ad_campaigns` via API).
- * Static slide constants are not runtime authority. Empty = hide (CUT 0 hero_banner fallback).
+ * CUT 5 + CUT E — HOME Hero uses DeliveryAdBanner (campaign→inventory→creative).
+ * Empty = hide. No static slide dual authority.
  */
 export function StoresHomeHeroBanner() {
-  const [banners, setBanners] = useState<StoresHomeHeroBannerSlide[] | null>(null);
+  const { t } = useI18n();
+  const [banners, setBanners] = useState<HomeHeroBannerResolvedSlide[] | null>(null);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function StoresHomeHeroBanner() {
         const res = await fetch("/api/stores/home-hero-banners", { cache: "no-store" });
         const json = (await res.json().catch(() => null)) as {
           ok?: boolean;
-          banners?: StoresHomeHeroBannerSlide[];
+          banners?: HomeHeroBannerResolvedSlide[];
         } | null;
         if (cancelled) return;
         const list = Array.isArray(json?.banners) ? json!.banners! : [];
@@ -54,7 +54,6 @@ export function StoresHomeHeroBanner() {
     markStoresHomePerf("hero");
   }, []);
 
-  /** Loading: reserve no fake campaign — null until fetch settles. */
   if (banners === null) {
     return (
       <div
@@ -66,7 +65,6 @@ export function StoresHomeHeroBanner() {
     );
   }
 
-  /** No valid banner → hide hero surface (no static dual authority). */
   if (!slide) {
     return (
       <div
@@ -78,66 +76,28 @@ export function StoresHomeHeroBanner() {
     );
   }
 
-  const href = slide.ctaHref.trim();
-  const media = (
-    <>
-      <div className="absolute inset-0">
-        <SamarketThumbnail
-          src={slide.imageUrl}
-          alt={slide.title?.trim() || ""}
-          fill
-          fetchDisplayPx={780}
-          roundedClassName="rounded-none"
-          className="object-cover"
-        />
-      </div>
-      {(slide.title?.trim() || slide.subtitle?.trim()) ?
-        <div className="absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-black/55 to-transparent px-4 pb-3 pt-8 text-white">
-          {slide.title?.trim() ?
-            <p className="text-[17px] font-bold leading-snug">{slide.title.trim()}</p>
-          : null}
-          {slide.subtitle?.trim() ?
-            <p className="mt-0.5 text-[13px] leading-snug opacity-90">{slide.subtitle.trim()}</p>
-          : null}
-        </div>
-      : null}
-    </>
-  );
+  const inventory = inventoryViewFromKey("STORES_HOME_HERO");
 
   return (
     <div
-      className="relative overflow-hidden rounded-[var(--delivery-radius)]"
       data-stores-perf="hero"
       data-stores-home-hero="banner"
       data-stores-home-hero-count={slideCount}
-      data-banner-campaign-id={slide.id}
     >
-      {href ?
-        <Link
-          href={href}
-          prefetch={false}
-          className={`relative block min-h-[140px] max-h-[180px] overflow-hidden ${STORES_HOME_CARD} border-0`}
-          {...{ [STORES_HOME_LCP_HERO_ATTR]: "hero" }}
-        >
-          {media}
-        </Link>
-      : <div
-          className={`relative block min-h-[140px] max-h-[180px] overflow-hidden ${STORES_HOME_CARD} border-0`}
-          {...{ [STORES_HOME_LCP_HERO_ATTR]: "hero" }}
-        >
-          {media}
-        </div>
-      }
-      {slideCount > 1 ?
-        <div className="absolute bottom-2 right-3 z-[2] flex gap-1" aria-hidden>
-          {banners!.map((s, i) => (
-            <span
-              key={s.id}
-              className={`h-1.5 w-1.5 rounded-full ${i === index ? "bg-white" : "bg-white/40"}`}
-            />
-          ))}
-        </div>
-      : null}
+      <DeliveryAdBanner
+        inventory={inventory}
+        creative={{
+          assetUrl: slide.imageUrl,
+          headline: slide.title,
+          subcopy: slide.subtitle,
+          alt: slide.title,
+        }}
+        destination={{ href: slide.ctaHref }}
+        adLabel={t("store_insertion_sponsored")}
+        renderContext="customer"
+        campaignId={slide.id}
+        priority
+      />
     </div>
   );
 }

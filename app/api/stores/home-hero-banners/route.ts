@@ -23,8 +23,9 @@ export async function GET() {
       ok: true,
       banners,
       meta: {
+        authority: "delivery_ad_creatives" as const,
+        inventory: "STORES_HOME_HERO" as const,
         surface: "stores_home_hero" as const,
-        authority: "store_banner_ad_campaigns" as const,
         count: banners.length,
       },
     },

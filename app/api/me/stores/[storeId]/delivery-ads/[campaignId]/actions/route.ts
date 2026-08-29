@@ -8,6 +8,10 @@ import {
   transitionOwnerSponsoredCampaign,
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import {
+  loadOwnerBannerCampaign,
+  transitionOwnerBannerCampaign,
+} from "@/lib/stores/advertising/owner-banner-writer";
+import {
   ownerActionTargetLifecycle,
   type OwnerCampaignAction,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
@@ -68,6 +72,34 @@ export async function POST(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const productKind =
+    body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";
+
+  if (productKind === "banner") {
+    const loaded = await loadOwnerBannerCampaign(sb, cid, userId);
+    if (!loaded.ok) {
+      return NextResponse.json(
+        { ok: false, error: loaded.error },
+        { status: statusForError(loaded.error) }
+      );
+    }
+    if (loaded.row.storeId !== sid) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+    const result = await transitionOwnerBannerCampaign(sb, {
+      campaignId: cid,
+      ownerUserId: userId,
+      action,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: statusForError(result.error) }
+      );
+    }
+    return NextResponse.json({ ok: true, campaign: result.row });
+  }
+
   const loaded = await loadOwnerSponsoredCampaign(sb, cid, userId);
   if (!loaded.ok) {
     return NextResponse.json({ ok: false, error: loaded.error }, { status: statusForError(loaded.error) });
@@ -76,7 +108,6 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  // PAUSED_ADMIN resume must fail via transition authority
   const actionLabel =
     action === "submit"
       ? "submitted"
