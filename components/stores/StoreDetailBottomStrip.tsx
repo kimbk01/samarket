@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, type MouseEvent } from "react";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
 import {
@@ -25,6 +26,10 @@ import {
   writeStoreCommerceCheckoutSeed,
 } from "@/lib/stores/store-commerce-checkout-seed-cache";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
+import {
+  buildDeliveryStoreCartHref,
+  navigateToDeliveryStoreCart,
+} from "@/lib/navigation/navigate-to-delivery-store-cart";
 
 /**
  * 매장 메뉴 하단 스트립
@@ -58,6 +63,7 @@ export function StoreDetailBottomStrip({
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
 
   const deliveryBlockedByDistance =
     distanceOutOfRange && fulfillmentMode === "local_delivery";
@@ -102,13 +108,15 @@ export function StoreDetailBottomStrip({
       minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : formatMoneyPhp(0),
   });
 
-  const cartHref = `/stores/${encodeURIComponent(slug)}/cart`;
+  const cartHref = buildDeliveryStoreCartHref(slug);
 
-  const onCheckoutNavigate = () => {
+  const onCheckoutNavigate = (e: MouseEvent) => {
+    e.preventDefault();
     markStoreCommerceCheckoutNavigation();
     const bus = getCommerceCartSnapshotBus();
     const bucket = findCommerceCartBucketBySlug(bus.snapshot, slug);
     if (bucket) writeStoreCommerceCheckoutSeed(bucket);
+    navigateToDeliveryStoreCart(router, { storeSlug: slug });
   };
 
   const active = cartQtyTotal > 0;

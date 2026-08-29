@@ -1,19 +1,63 @@
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+/**
+ * CUT 3 — Cart Back thin adapter.
+ * Destination policy: resolveDibayBackTarget only.
+ * DO NOT call runHistoryBackWithFallback with an independent fallback decision.
+ */
 
-/** 장바구니 뒤로가기 폴백 — 히스토리가 없을 때 매장 메뉴(또는 배달 허브) */
+import { readNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
+import { resolveDibayBackTarget } from "@/lib/navigation/resolve-dibay-back-target";
+import { runDibayBackResolution } from "@/lib/navigation/run-dibay-back-resolution";
+import { storeMenuHrefFromSlug } from "@/lib/navigation/dibay-entry-context";
+
+/** @deprecated Fallback href helper kept for tests — not a Back policy owner. */
 export function buildStoreCartBackFallbackHref(storeSlug: string): string {
   const slug = storeSlug.trim();
-  if (slug) return `/stores/${encodeURIComponent(slug)}`;
+  if (slug) return storeMenuHrefFromSlug(slug);
   return "/stores";
 }
 
+export type RunStoreCartBackNavigationOptions = {
+  overlayOpen?: boolean;
+  onCloseOverlay?: () => void;
+  pathname?: string;
+  search?: string;
+  animatedBack?: ((navigate: () => void) => void) | null;
+};
+
 /**
- * 장바구니 헤더·엣지 스와이프 공통 — 브라우저/앱 **이전 화면(history back)** 우선,
- * 동일 URL 유지·외부 진입 등은 `fallbackHref` 로 복귀.
+ * Cart header / swipe — resolve via global Dibay SSOT then execute.
  */
 export function runStoreCartBackNavigation(
-  router: { back: () => void; push: (href: string) => void },
-  storeSlug: string
+  router: {
+    back: () => void;
+    push: (href: string, options?: { scroll?: boolean }) => void;
+    replace: (href: string, options?: { scroll?: boolean }) => void;
+  },
+  storeSlug: string,
+  opts?: RunStoreCartBackNavigationOptions
 ): void {
-  runHistoryBackWithFallback(router, buildStoreCartBackFallbackHref(storeSlug));
+  const slug = storeSlug.trim();
+  if (!slug) return;
+
+  const pathname =
+    opts?.pathname ??
+    (typeof window !== "undefined" ? window.location.pathname : `${storeMenuHrefFromSlug(slug)}/cart`);
+  const search =
+    opts?.search ?? (typeof window !== "undefined" ? window.location.search : "");
+
+  const entryContext = readNavigationEntryContext(slug);
+  const resolution = resolveDibayBackTarget({
+    currentPathname: pathname,
+    currentSearch: search,
+    storeSlug: slug,
+    entryContext,
+    overlayOpen: opts?.overlayOpen === true,
+  });
+
+  if (resolution.action === "CLOSE") {
+    opts?.onCloseOverlay?.();
+    return;
+  }
+
+  runDibayBackResolution(router, resolution, opts?.animatedBack ?? null);
 }

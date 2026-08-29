@@ -1,5 +1,5 @@
 /**
- * Canonical Back resolver (CUT 1) — Delivery cutover (CUT 2).
+ * Canonical Back resolver (CUT 1) — Delivery cutover (CUT 2) + commerce (CUT 3).
  *
  * Priority is not a blind ladder: entry context + current route select exactly one
  * BackResolution. UI must not re-decide destinations.
@@ -20,6 +20,7 @@ import {
 } from "@/lib/stores/store-consumer-route";
 
 export const DIBAY_DELIVERY_ROOT_FALLBACK = "/stores";
+export const DIBAY_ORDERS_HUB_FALLBACK = "/orders";
 
 export type ResolveDibayBackTargetInput = {
   currentPathname: string;
@@ -41,12 +42,24 @@ function focusProductIdFromSearch(search: string | undefined): string | null {
   return id || null;
 }
 
+function expandOrderIdFromSearch(search: string | undefined): string | null {
+  const raw = (search ?? "").replace(/^\?/, "");
+  const id = new URLSearchParams(raw).get("expand")?.trim();
+  return id || null;
+}
+
 function isStoreInfoOrReviewsChild(pathname: string, storeSlug: string): boolean {
   const path = pathOnly(pathname);
   const root = storeMenuHrefFromSlug(storeSlug);
   if (path === `${root}/info` || path.startsWith(`${root}/info/`)) return true;
   if (path === `${root}/reviews` || path.startsWith(`${root}/reviews/`)) return true;
   return false;
+}
+
+function isStoreCartPath(pathname: string, storeSlug: string): boolean {
+  const path = pathOnly(pathname);
+  const root = storeMenuHrefFromSlug(storeSlug);
+  return path === `${root}/cart` || path.startsWith(`${root}/cart/`);
 }
 
 function originResolution(ctx: NavigationEntryContext | null): BackResolution {
@@ -66,8 +79,37 @@ function originResolution(ctx: NavigationEntryContext | null): BackResolution {
   };
 }
 
+function ordersHubResolution(ctx: NavigationEntryContext | null): BackResolution {
+  const hub =
+    (ctx?.semanticParentHref && sanitizeDibayInternalHref(ctx.semanticParentHref)) ||
+    (ctx?.originHref && sanitizeDibayInternalHref(ctx.originHref)) ||
+    DIBAY_ORDERS_HUB_FALLBACK;
+  // Never cart / checkout / confirm for committed or hub order destinations
+  if (hub.includes("/cart") || hub.includes("/checkout")) {
+    return {
+      action: "PUSH",
+      targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+      restoreKey: null,
+      reason: "order_fallback_reject_cart",
+    };
+  }
+  if (ctx?.transactionBoundary === "ORDER_COMMITTED") {
+    return {
+      action: "REPLACE",
+      targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+      restoreKey: null,
+      reason: "order_committed_to_orders_hub",
+    };
+  }
+  return {
+    action: "HISTORY",
+    reason: "orders_hub_return",
+    fallbackHref: hub,
+  };
+}
+
 /**
- * Resolve one Back action for Delivery store consumer surfaces.
+ * Resolve one Back action for Delivery store consumer + commerce surfaces.
  */
 export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): BackResolution {
   if (input.overlayOpen) {
@@ -83,14 +125,75 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
       ? input.entryContext
       : null;
 
-  const storeRoot = storeMenuHrefFromSlug(slug);
+  // CUT 3 — /orders hub (+ expand). Never resolve to cart/confirm after ORDER_COMMITTED.
+  if (path === "/orders" || path.startsWith("/orders/")) {
+    const expandId = expandOrderIdFromSearch(search);
+    if (ctx?.transactionBoundary === "ORDER_COMMITTED") {
+      if (expandId || path.startsWith("/orders/")) {
+        return {
+          action: "REPLACE",
+          targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+          restoreKey: null,
+          reason: "order_committed_collapse_to_hub",
+        };
+      }
+      return {
+        action: "PUSH",
+        targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+        restoreKey: null,
+        reason: "order_committed_already_hub",
+      };
+    }
+    if (expandId || /^\/orders\/store\//.test(path)) {
+      return ordersHubResolution(ctx);
+    }
+    return {
+      action: "PUSH",
+      targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+      restoreKey: null,
+      reason: "orders_hub_noop_fallback",
+    };
+  }
+
+  const storeRoot = slug ? storeMenuHrefFromSlug(slug) : "";
   const focusId = focusProductIdFromSearch(search);
   const onProductPage = isStoreProductDetailConsumerPath(path);
-  const onMenuRoot = isStoreSlugOrderMenuRoot(path, slug);
-  const onInfoOrReviews = isStoreInfoOrReviewsChild(path, slug);
+  const onMenuRoot = slug ? isStoreSlugOrderMenuRoot(path, slug) : false;
+  const onInfoOrReviews = slug ? isStoreInfoOrReviewsChild(path, slug) : false;
+
+  // CUT 3 — cart (checkout is same URL; no separate checkout route)
+  if (slug && isStoreCartPath(path, slug)) {
+    // Stale ORDER_COMMITTED must never send Back into cart policy as shopping return to cart
+    if (ctx?.transactionBoundary === "ORDER_COMMITTED") {
+      return {
+        action: "REPLACE",
+        targetHref: DIBAY_ORDERS_HUB_FALLBACK,
+        restoreKey: null,
+        reason: "reject_cart_after_order_committed",
+      };
+    }
+    const parent =
+      (ctx?.semanticParentHref && sanitizeDibayInternalHref(ctx.semanticParentHref)) ||
+      storeRoot ||
+      DIBAY_DELIVERY_ROOT_FALLBACK;
+    // Never invent browse category — store menu or recorded origin only
+    if (parent.includes("/cart") || parent.includes("/checkout")) {
+      return {
+        action: "PUSH",
+        targetHref: storeRoot || DIBAY_DELIVERY_ROOT_FALLBACK,
+        restoreKey: null,
+        reason: "cart_parent_sanitized_to_store",
+      };
+    }
+    return {
+      action: "HISTORY",
+      reason: "cart_to_shopping_parent",
+      fallbackHref: parent,
+    };
+  }
 
   // Store child chrome (info / reviews) → menu root
-  if (onInfoOrReviews) {
+  if (onInfoOrReviews && storeRoot) {
     return {
       action: "PUSH",
       targetHref: storeRoot,
@@ -115,7 +218,7 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
     // Deep link / missing aligned history — semantic parent without inventing origin
     return {
       action: "REPLACE",
-      targetHref: parent,
+      targetHref: parent || DIBAY_DELIVERY_ROOT_FALLBACK,
       restoreKey: null,
       reason: "semantic_parent_store_menu_deeplink",
     };
@@ -139,7 +242,11 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
   }
 
   // Other store subtree (rare) — prefer store menu then let next back use context
-  if (path.startsWith("/stores/") && decodeSlugSegment(path.split("/")[2] ?? "") === slug) {
+  if (
+    slug &&
+    path.startsWith("/stores/") &&
+    decodeSlugSegment(path.split("/")[2] ?? "") === slug
+  ) {
     return {
       action: "PUSH",
       targetHref: storeRoot,

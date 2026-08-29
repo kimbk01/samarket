@@ -41,8 +41,12 @@ function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTie
 /**
  * `RegionBar` 기본 서브페이지 1단(뒤로·제목·허브).
  * `null`이면 호출측에서 전용 분기(거래 탐색·커뮤니티 피드·배달 루트·거래 허브 루트 등)를 쓴다.
+ * @param search optional `?…` or raw query — CUT 3 uses expand on `/orders`.
  */
-export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subpage | null {
+export function resolveMainTier1Subpage(
+  pathname: string,
+  search = ""
+): ResolvedMainTier1Subpage | null {
   const raw = (pathname ?? "").split("?")[0]!.trim();
   /** Never brand-fallback — empty path is unavailable, not "dibaY". */
   if (!raw) return { ...DEFAULT, titleText: "common_content_unavailable" };
@@ -169,6 +173,20 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   if (p === "/orders") {
+    // CUT 3 — expand/detail on hub: show Back → /orders (never cart via blind history)
+    const expand = new URLSearchParams(search.replace(/^\?/, "")).get("expand")?.trim();
+    if (expand) {
+      return {
+        ...DEFAULT,
+        showBack: true,
+        hideBack: false,
+        backHref: "/orders",
+        preferHistoryBack: false,
+        ariaLabel: "tier1_back",
+        titleText: "commerce_hub_title",
+        showHubQuickActions: false,
+      };
+    }
     return {
       ...DEFAULT,
       showBack: false,

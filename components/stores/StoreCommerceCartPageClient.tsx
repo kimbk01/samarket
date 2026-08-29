@@ -246,7 +246,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const pathname = usePathname();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
-  const goCartBack = useStoreCartBack(storeSlug);
   const cartFlowMountT0Ref = useRef(
     typeof performance !== "undefined" ? performance.now() : 0
   );
@@ -310,6 +309,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     orderSummaryLabel: string;
     requestLabel: string;
   } | null>(null);
+  const goCartBack = useStoreCartBack(storeSlug, {
+    overlayOpen: checkoutConfirmOpen,
+    onCloseOverlay: () => {
+      setCheckoutConfirmOpen(false);
+      setCheckoutConfirmPayload(null);
+    },
+  });
   const [appliedCouponCampaignId, setAppliedCouponCampaignId] = useState<string | null>(null);
   const [appliedUserCouponId, setAppliedUserCouponId] = useState<string | null>(null);
   const [couponQuotes, setCouponQuotes] = useState<StoreCouponQuote[]>([]);
@@ -606,7 +612,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const remembered = getLastCheckoutOrderId(store.id);
     if (!remembered) return;
     clearLastCheckoutOrderId(store.id);
-    navigateToBuyerStoreOrderDetail(remembered, router);
+    navigateToBuyerStoreOrderDetail(remembered, router, { storeSlug });
   }, [cart.hydrated, store?.id, lines.length, router]);
 
   useEffect(() => {
@@ -1643,7 +1649,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         /* ignore */
       }
       window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-      navigateToBuyerStoreOrderDetail(oid, router);
+      navigateToBuyerStoreOrderDetail(oid, router, {
+        storeSlug,
+        storeId: store.id,
+      });
       cart.clearStoreCart(store.id);
     } catch {
       dibayPerfOnOrderApiDone(store.id);

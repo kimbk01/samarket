@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert } from "@/components/ui/dibay-overlay";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import {
@@ -14,6 +15,10 @@ import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContex
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
+import {
+  buildDeliveryStoreCartHref,
+  navigateToDeliveryStoreCart,
+} from "@/lib/navigation/navigate-to-delivery-store-cart";
 
 const iconBtnClass =
   `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} disabled:pointer-events-none disabled:opacity-40`;
@@ -64,6 +69,7 @@ export function StoreDetailStickyTopRow({
   orderChrome?: StoreStickyOrderChrome | null;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
   const moreRef = useRef<HTMLDetailsElement>(null);
 
@@ -142,8 +148,12 @@ export function StoreDetailStickyTopRow({
       </div>
       <div className="flex shrink-0 items-center gap-[length:var(--delivery-header-action-gap)]">
         <Link
-          href={`/stores/${encodeURIComponent(storeSlug)}/cart`}
+          href={buildDeliveryStoreCartHref(storeSlug)}
           className={`${iconBtnClass} relative`}
+          onClick={(e) => {
+            e.preventDefault();
+            navigateToDeliveryStoreCart(router, { storeSlug });
+          }}
           aria-label={
             cartLineKindCount > 0
               ? t("store_cart_aria_with_kinds", { count: cartLineKindCount.toLocaleString("en-PH") })

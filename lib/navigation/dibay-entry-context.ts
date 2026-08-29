@@ -32,7 +32,15 @@ export type DibayReturnMode =
   | "FLOW"
   | "CLOSE";
 
-export type DibayDeliveryEntryKind = "store_card" | "product_from_list";
+export type DibayDeliveryEntryKind =
+  | "store_card"
+  | "product_from_list"
+  | "cart_from_shopping"
+  | "order_committed"
+  | "order_from_hub";
+
+/** Navigation-only transaction boundary — not commerce order-status SSOT. */
+export type DibayTransactionBoundary = "NONE" | "CART" | "ORDER_COMMITTED";
 
 export type NavigationEntryContext = {
   version: typeof DIBAY_NAV_ENTRY_CONTEXT_VERSION;
@@ -54,6 +62,11 @@ export type NavigationEntryContext = {
    * Deep-link / single-entry product stays false.
    */
   historyIncludesStoreParent?: boolean;
+  /**
+   * CUT 3 — commerce transaction navigation boundary (cart / order committed).
+   * Not a duplicate of server order status.
+   */
+  transactionBoundary?: DibayTransactionBoundary;
   restoreKey?: string | null;
   transactionId?: string | null;
   createdAt: number;

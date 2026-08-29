@@ -54,7 +54,10 @@ export function RegionBar({
     () => tier1RuleSetProp ?? getMobileTopTier1RuleSet(pathname),
     [tier1RuleSetProp, pathname]
   );
-  const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
+  const tier1Subpage = useMemo(() => {
+    const q = searchParams?.toString();
+    return resolveMainTier1Subpage(pathNoQuery, q ? `?${q}` : "");
+  }, [pathNoQuery, searchParams]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
   if (!ruleSet.showRegionBar || isMessengerSplitSurface) {

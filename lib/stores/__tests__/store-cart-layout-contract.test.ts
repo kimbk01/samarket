@@ -39,7 +39,9 @@ describe("store cart layout contract", () => {
     expect(shell).toContain("StoreCartSwipeBackShell");
 
     const backNav = readRepo("lib/stores/store-cart-back-navigation.ts");
-    expect(backNav).toContain("runHistoryBackWithFallback");
+    expect(backNav).toContain("resolveDibayBackTarget");
+    expect(backNav).toContain("runDibayBackResolution");
+    expect(backNav).not.toContain("runHistoryBackWithFallback");
 
     const flags = readRepo("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("isStoreCommerceCartCheckoutPage");

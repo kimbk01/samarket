@@ -19,6 +19,8 @@ import {
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 
 const KEY_PREFIX = "dibay:nav-entry-context:v1:";
+/** CUT 3 — orders hub / expand destination context (not store-slug keyed). */
+const ORDERS_CTX_KEY = "dibay:nav-entry-context:v1:__orders__";
 
 function ssKey(storeSlug: string): string {
   return KEY_PREFIX + storeSlug.trim().toLowerCase();
@@ -88,6 +90,181 @@ export function clearNavigationEntryContext(storeSlug: string): void {
   } catch {
     /* ignore */
   }
+}
+
+export function writeOrdersNavigationEntryContext(ctx: NavigationEntryContext): void {
+  if (!canUseSessionStorage()) return;
+  const safeOrigin = ctx.originHref ? sanitizeDibayInternalHref(ctx.originHref) : null;
+  const safeParent = ctx.semanticParentHref
+    ? sanitizeDibayInternalHref(ctx.semanticParentHref)
+    : null;
+  const payload: NavigationEntryContext = {
+    ...ctx,
+    version: DIBAY_NAV_ENTRY_CONTEXT_VERSION,
+    originHref: safeOrigin,
+    semanticParentHref: safeParent,
+  };
+  try {
+    sessionStorage.setItem(ORDERS_CTX_KEY, JSON.stringify(payload));
+  } catch {
+    /* quota */
+  }
+}
+
+export function readOrdersNavigationEntryContext(
+  now = Date.now()
+): NavigationEntryContext | null {
+  if (!canUseSessionStorage()) return null;
+  try {
+    const raw = sessionStorage.getItem(ORDERS_CTX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as NavigationEntryContext;
+    if (!isNavigationEntryContextFresh(parsed, now)) {
+      sessionStorage.removeItem(ORDERS_CTX_KEY);
+      return null;
+    }
+    if (parsed.originHref && !sanitizeDibayInternalHref(parsed.originHref)) {
+      sessionStorage.removeItem(ORDERS_CTX_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function clearOrdersNavigationEntryContext(): void {
+  if (!canUseSessionStorage()) return;
+  try {
+    sessionStorage.removeItem(ORDERS_CTX_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * CUT 3 — intentional STORE/PRODUCT → CART entry.
+ * Shopping parent = store menu; originHref = current shopping URL when internal.
+ */
+export function commitDeliveryCartNavigationEntry(input: {
+  storeSlug: string;
+  pathname: string;
+  search: string;
+  storeId?: string | null;
+}): NavigationEntryContext {
+  const storeSlug = input.storeSlug.trim();
+  const storeRoot = storeMenuHrefFromSlug(storeSlug);
+  const path = (input.pathname || "").split("?")[0] || "";
+  const currentHref = sanitizeDibayInternalHref(
+    buildHrefFromPathAndSearch(input.pathname, input.search)
+  );
+
+  let originHref: string | null = storeRoot;
+  let surface: DibayOriginSurface = "STORE_DETAIL";
+
+  if (path === storeRoot || path.startsWith(`${storeRoot}/`)) {
+    originHref = currentHref || storeRoot;
+    surface = "STORE_DETAIL";
+  } else {
+    const classified = classifyDeliveryOriginSurface(input.pathname, input.search);
+    if (classified) {
+      surface = classified.surface;
+      originHref = classified.originHref;
+    } else if (currentHref) {
+      originHref = currentHref;
+      surface = "EXTERNAL";
+    }
+  }
+
+  const restoreKey = originHref
+    ? buildDeliveryListScrollRouteKey(
+        originHref.split("?")[0] ?? originHref,
+        originHref.includes("?") ? `?${originHref.split("?")[1] ?? ""}` : ""
+      )
+    : null;
+
+  const ctx: NavigationEntryContext = {
+    version: DIBAY_NAV_ENTRY_CONTEXT_VERSION,
+    originSurface: surface,
+    originHref,
+    semanticParentHref: storeRoot,
+    entityType: "store_cart",
+    entityId: storeSlug,
+    storeId: input.storeId ?? null,
+    storeSlug,
+    productId: null,
+    entryKind: "cart_from_shopping",
+    returnMode: "HISTORY",
+    transactionBoundary: "CART",
+    restoreKey,
+    transactionId: null,
+    createdAt: Date.now(),
+    ttlMs: DIBAY_NAV_ENTRY_DEFAULT_TTL_MS,
+  };
+  writeNavigationEntryContext(ctx);
+  return ctx;
+}
+
+/**
+ * CUT 3 — successful order commit stamps orders-hub semantic parent.
+ * Clears store-keyed cart shopping context so it cannot override.
+ */
+export function commitOrderCommittedNavigationEntry(input: {
+  orderId: string;
+  storeSlug: string;
+  storeId?: string | null;
+}): NavigationEntryContext {
+  const orderId = input.orderId.trim();
+  const storeSlug = input.storeSlug.trim();
+  const ctx: NavigationEntryContext = {
+    version: DIBAY_NAV_ENTRY_CONTEXT_VERSION,
+    originSurface: "ORDER",
+    originHref: "/orders",
+    semanticParentHref: "/orders",
+    entityType: "store_order",
+    entityId: orderId,
+    storeId: input.storeId ?? null,
+    storeSlug: storeSlug || null,
+    productId: null,
+    entryKind: "order_committed",
+    returnMode: "ORIGIN",
+    transactionBoundary: "ORDER_COMMITTED",
+    restoreKey: null,
+    transactionId: orderId,
+    createdAt: Date.now(),
+    ttlMs: DIBAY_NAV_ENTRY_DEFAULT_TTL_MS,
+  };
+  writeOrdersNavigationEntryContext(ctx);
+  if (storeSlug) clearNavigationEntryContext(storeSlug);
+  return ctx;
+}
+
+/** Hub expand without checkout success — orders list origin. */
+export function commitOrdersHubNavigationEntry(input: {
+  orderId: string;
+  storeSlug?: string | null;
+}): NavigationEntryContext {
+  const orderId = input.orderId.trim();
+  const ctx: NavigationEntryContext = {
+    version: DIBAY_NAV_ENTRY_CONTEXT_VERSION,
+    originSurface: "ORDER",
+    originHref: "/orders",
+    semanticParentHref: "/orders",
+    entityType: "store_order",
+    entityId: orderId,
+    storeId: null,
+    storeSlug: input.storeSlug?.trim() || null,
+    productId: null,
+    entryKind: "order_from_hub",
+    returnMode: "ORIGIN",
+    transactionBoundary: "NONE",
+    restoreKey: null,
+    transactionId: orderId,
+    createdAt: Date.now(),
+    ttlMs: DIBAY_NAV_ENTRY_DEFAULT_TTL_MS,
+  };
+  writeOrdersNavigationEntryContext(ctx);
+  return ctx;
 }
 
 export type CommitDeliveryStoreEntryInput = {
