@@ -293,13 +293,23 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
     expect(soundGate).not.toContain("readNormalizedNotificationPreferenceSnapshot");
   });
 
-  it("owner notifications stay on legacy path", async () => {
-    const fromSpy = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { service_enabled: false, order_enabled: true },
-      }),
+  it("owner notifications use P2-A6/P2-A3 Owner path", async () => {
+    const tables: string[] = [];
+    const fromSpy = vi.fn((table: string) => {
+      tables.push(table);
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data:
+            table === "owner_notification_settings"
+              ? { optional_push_enabled: false }
+              : table === "user_notification_settings"
+                ? { service_enabled: false, order_enabled: true }
+                : { push_enabled: false },
+          error: null,
+        }),
+      };
     });
     const svc = { from: fromSpy } as unknown as Parameters<typeof shouldSendWebPushForUser>[0];
 
@@ -311,8 +321,7 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
 
     const allowed = await shouldSendWebPushForUser(svc, "owner-1", ownerPayload);
     expect(allowed).toBe(false);
-    expect(fromSpy).toHaveBeenCalledWith("user_notification_settings");
-    expect(fromSpy).toHaveBeenCalledWith("user_settings");
+    expect(tables).toContain("owner_notification_settings");
   });
 
   it("member web push gate consumes P2-A3 resolver", () => {
@@ -323,6 +332,7 @@ describe("shouldSendWebPushForUser boundary (P2-A5a)", () => {
     expect(src).toContain("resolveEffectiveNotificationPreference");
     expect(src).toContain("readNormalizedNotificationPreferenceSnapshot");
     expect(src).toContain("shouldSendMemberWebPushForUser");
-    expect(src).toContain("shouldSendLegacyWebPushForUser");
+    expect(src).toContain("shouldSendOwnerWebPushForUser");
+    expect(src).not.toContain("shouldSendLegacyWebPushForUser");
   });
 });

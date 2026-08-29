@@ -239,7 +239,7 @@ describe("P2-A6 owner/admin preference storage authority", () => {
     );
   });
 
-  it("T21 no runtime consumer imports new reader/writer unexpectedly", () => {
+  it("T21 no runtime consumer imports new writer unexpectedly", () => {
     const paths = [
       "lib/notifications/web-push-user-settings-gate.ts",
       "lib/notifications/notification-sound-gate.ts",
@@ -250,9 +250,14 @@ describe("P2-A6 owner/admin preference storage authority", () => {
       const src = readFileSync(join(process.cwd(), path), "utf8");
       expect(src).not.toContain("owner-notification-preference-storage");
       expect(src).not.toContain("admin-notification-preference-storage");
-      expect(src).not.toContain("owner_notification_settings");
       expect(src).not.toContain("admin_notification_preferences");
     }
+    // Owner push consumer may reference owner_notification_settings via P2-A6 reader only.
+    const soundGate = readFileSync(
+      join(process.cwd(), "lib/notifications/notification-sound-gate.ts"),
+      "utf8"
+    );
+    expect(soundGate).not.toContain("owner_notification_settings");
   });
 
   it("T22 Gift/Nav files untouched by P2-A6 source imports", () => {

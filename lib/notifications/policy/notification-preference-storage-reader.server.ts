@@ -33,6 +33,32 @@ export type ReadNormalizedNotificationPreferenceSnapshotOptions = Readonly<{
   timezone?: string;
 }>;
 
+/** Missing P2-A6 tables (Production apply NOT_PROVEN) must not fail Member/Owner reads. */
+export function isMissingPreferenceRelationError(
+  error: { code?: string; message?: string } | null | undefined
+): boolean {
+  if (!error) return false;
+  const code = String(error.code ?? "");
+  const message = String(error.message ?? "");
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    /could not find the table|relation .* does not exist|schema cache/i.test(message)
+  );
+}
+
+async function maybeSinglePreferenceRow<T>(
+  query: PromiseLike<{ data: T | null; error: { code?: string; message?: string } | null }>
+): Promise<T | null> {
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingPreferenceRelationError(error)) return null;
+    // Non-missing errors: treat as absent for preference decision (fail-open to no-row compat).
+    return null;
+  }
+  return data;
+}
+
 export async function readNormalizedNotificationPreferenceSnapshot(
   userId: string,
   options?: ReadNormalizedNotificationPreferenceSnapshotOptions,
@@ -40,39 +66,55 @@ export async function readNormalizedNotificationPreferenceSnapshot(
 ): Promise<NormalizedNotificationPreferenceSnapshot> {
   const sb = supabase ?? getSupabaseServer();
 
-  const [
-    { data: notificationSettingsRow },
-    { data: legacyUserSettingsRow },
-    { data: ownerSettingsRow },
-    { data: adminOpsPreferenceRow },
-  ] = await Promise.all([
-    sb
-      .from("user_notification_settings")
-      .select(NOTIFICATION_SETTINGS_SELECT)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    sb
-      .from("user_settings")
-      .select(LEGACY_USER_SETTINGS_PUSH_SELECT)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    sb
-      .from("owner_notification_settings")
-      .select(OWNER_SETTINGS_SELECT)
-      .eq("user_id", userId)
-      .maybeSingle(),
-    sb
-      .from("admin_notification_preferences")
-      .select(ADMIN_OPS_PREFERENCE_SELECT)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+  const [notificationSettingsRow, legacyUserSettingsRow, ownerSettingsRow, adminOpsPreferenceRow] =
+    await Promise.all([
+      maybeSinglePreferenceRow(
+        sb
+          .from("user_notification_settings")
+          .select(NOTIFICATION_SETTINGS_SELECT)
+          .eq("user_id", userId)
+          .maybeSingle() as PromiseLike<{
+          data: NotificationSettingsStorageRow | null;
+          error: { code?: string; message?: string } | null;
+        }>
+      ),
+      maybeSinglePreferenceRow(
+        sb
+          .from("user_settings")
+          .select(LEGACY_USER_SETTINGS_PUSH_SELECT)
+          .eq("user_id", userId)
+          .maybeSingle() as PromiseLike<{
+          data: LegacyUserSettingsPushRow | null;
+          error: { code?: string; message?: string } | null;
+        }>
+      ),
+      maybeSinglePreferenceRow(
+        sb
+          .from("owner_notification_settings")
+          .select(OWNER_SETTINGS_SELECT)
+          .eq("user_id", userId)
+          .maybeSingle() as PromiseLike<{
+          data: OwnerNotificationSettingsStorageRow | null;
+          error: { code?: string; message?: string } | null;
+        }>
+      ),
+      maybeSinglePreferenceRow(
+        sb
+          .from("admin_notification_preferences")
+          .select(ADMIN_OPS_PREFERENCE_SELECT)
+          .eq("user_id", userId)
+          .maybeSingle() as PromiseLike<{
+          data: AdminNotificationPreferenceStorageRow | null;
+          error: { code?: string; message?: string } | null;
+        }>
+      ),
+    ]);
 
   return normalizeNotificationPreferenceStorage({
-    notificationSettingsRow: notificationSettingsRow as NotificationSettingsStorageRow | null,
-    legacyUserSettingsRow: legacyUserSettingsRow as LegacyUserSettingsPushRow | null,
-    ownerSettingsRow: ownerSettingsRow as OwnerNotificationSettingsStorageRow | null,
-    adminOpsPreferenceRow: adminOpsPreferenceRow as AdminNotificationPreferenceStorageRow | null,
+    notificationSettingsRow,
+    legacyUserSettingsRow,
+    ownerSettingsRow,
+    adminOpsPreferenceRow,
     now: options?.now ?? new Date(),
     timezone: options?.timezone,
   });
