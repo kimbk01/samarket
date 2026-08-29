@@ -44,7 +44,7 @@ export const GIFT_PORTRAIT_LANDMARKS = {
   issuerY: 1530,
   expiryY: 1640,
   numberY: 1750,
-  serialY: 1845,
+  footerY: 2027,
   giftableY: 2080,
 } as const;
 
@@ -547,36 +547,21 @@ function AmountBlock({
   );
 }
 
-function TicketSerialMarks({ isPlatform }: { isPlatform: boolean }) {
-  /** Design-reference ticket serial strip — decorative identity only (not redeem authority). */
-  const baseY = GIFT_PORTRAIT_LANDMARKS.serialY;
-  const pattern = [5, 3, 7, 3, 5, 8, 3, 5, 3, 7, 5, 3, 8, 3, 5, 7, 3, 5, 3, 8, 5, 3, 7, 3, 5, 3, 7, 5, 3, 8, 3, 5, 7, 3, 5, 8, 3, 7, 4, 6, 3, 8, 4, 5, 3, 7, 4, 6];
-  const startX = 64;
-  const barScale = 1.42;
-  let x = startX;
+function TicketFooterBrand({ isPlatform }: { isPlatform: boolean }) {
   return (
-    <g data-gift-foot-serial="1" aria-hidden>
-      {pattern.map((w, i) => {
-        const rect = (
-          <rect key={i} x={x} y={baseY} width={w * barScale} height={142} fill="#1A1A1A" />
-        );
-        x += w * barScale + 5.5;
-        return rect;
-      })}
-      <text
-        x={400}
-        y={baseY + 182}
-        textAnchor="middle"
-        fontSize={GIFT_PORTRAIT_TYPE.footBrand}
-        fontWeight={600}
-        fill={MUTED}
-        fontFamily="system-ui,sans-serif"
-        letterSpacing="2"
-        data-gift-foot-brand="1"
-      >
-        {isPlatform ? "DIBAY GIFT CERTIFICATE" : "Powered by DIBAY"}
-      </text>
-    </g>
+    <text
+      x={400}
+      y={GIFT_PORTRAIT_LANDMARKS.footerY}
+      textAnchor="middle"
+      fontSize={GIFT_PORTRAIT_TYPE.footBrand}
+      fontWeight={600}
+      fill={MUTED}
+      fontFamily="system-ui,sans-serif"
+      letterSpacing="2"
+      data-gift-foot-brand="1"
+    >
+      {isPlatform ? "DIBAY GIFT CERTIFICATE" : "Powered by DIBAY"}
+    </text>
   );
 }
 
@@ -776,7 +761,7 @@ export function DibayGiftCertificateFace({
             dataAttr="number"
           />
 
-          <TicketSerialMarks isPlatform={isPlatform} />
+          <TicketFooterBrand isPlatform={isPlatform} />
 
           {model.transferable === true ? (
             <GiftableStrip title={labels.giftableTitle} hint={labels.giftableHint} />

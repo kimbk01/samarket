@@ -39,8 +39,10 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(face).not.toContain("디바이 상품권");
     expect(face).not.toContain("만료되지 않음");
     expect(face).not.toMatch(/\b(barcode|barCode)\b/);
-    expect(face).toContain("data-gift-foot-serial");
+    expect(face).not.toContain("data-gift-foot-serial");
+    expect(face).not.toContain("TicketSerialMarks");
     expect(face).toContain("data-gift-giftable-strip");
+    expect(face).toContain("data-gift-foot-brand");
     expect(face).toContain("DIBAY_LOGO_MARK_PATH");
     expect(face).toContain("data-gift-cert-perforation");
     expect(face).toContain('data-gift-face-strike-line="1"');
@@ -85,7 +87,7 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(1530);
     expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(1640);
     expect(GIFT_PORTRAIT_LANDMARKS.numberY).toBe(1750);
-    expect(GIFT_PORTRAIT_LANDMARKS.serialY).toBe(1845);
+    expect(GIFT_PORTRAIT_LANDMARKS.footerY).toBe(2027);
     expect(GIFT_PORTRAIT_LANDMARKS.giftableY).toBe(2080);
     expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(640 / 2280, 5);
     expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(1405 / 2280, 5);
