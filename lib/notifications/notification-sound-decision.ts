@@ -11,6 +11,7 @@
 import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import { useCallStore, type MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
 import { getDomainBadgeSurfaceAuthEpoch } from "@/lib/messenger/contracts/domain-badge-surface-store";
+import { resolveAdminOpsSoundEventKey } from "@/lib/admin/admin-ops-sound-event-key";
 import {
   ADMIN_SOUND_BURST_WINDOW_MS,
   isAdminSoundEligible,
@@ -423,11 +424,12 @@ export function ingestAdminRowSound(input: {
     canonicalEventId: rowId,
     createdAt: input.createdAt ?? null,
   });
+  const eventType = resolveAdminOpsSoundEventKey(sourceTable);
   const decision = ingestCanonicalNotificationSound({
     identityKind: "admin_row",
     canonicalEventId: rowId,
     recipientId: trimId(input.recipientId) || currentRecipientId() || "admin",
-    eventType: "admin_notice_received",
+    eventType,
     source: "realtime",
     createdAt: input.createdAt ?? null,
     adminSourceTable: sourceTable,
