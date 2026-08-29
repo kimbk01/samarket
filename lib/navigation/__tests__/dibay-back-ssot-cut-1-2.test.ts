@@ -47,7 +47,8 @@ function expectReplaceStore(resolution: ReturnType<typeof resolveDibayBackTarget
   expect(resolution.action).toBe("REPLACE");
   if (resolution.action === "REPLACE") {
     expect(resolution.targetHref).toBe(storeMenuHrefFromSlug(slug));
-    expect(resolution.reason).toBe("semantic_parent_store_menu");
+    // Without historyIncludesStoreParent — deep-link / unaligned product entry
+    expect(resolution.reason).toBe("semantic_parent_store_menu_deeplink");
   }
 }
 

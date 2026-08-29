@@ -104,11 +104,20 @@ export function resolveDibayBackTarget(input: ResolveDibayBackTargetInput): Back
     const parent =
       (ctx?.semanticParentHref && sanitizeDibayInternalHref(ctx.semanticParentHref)) ||
       storeRoot;
+    // CUT 2B — in-app product entry built ORIGIN→STORE→PRODUCT history
+    if (ctx?.historyIncludesStoreParent === true) {
+      return {
+        action: "HISTORY",
+        reason: "history_semantic_parent_store",
+        fallbackHref: parent,
+      };
+    }
+    // Deep link / missing aligned history — semantic parent without inventing origin
     return {
       action: "REPLACE",
       targetHref: parent,
       restoreKey: null,
-      reason: "semantic_parent_store_menu",
+      reason: "semantic_parent_store_menu_deeplink",
     };
   }
 

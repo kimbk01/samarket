@@ -48,6 +48,12 @@ export type NavigationEntryContext = {
   productId?: string | null;
   entryKind: DibayDeliveryEntryKind;
   returnMode: DibayReturnMode;
+  /**
+   * CUT 2B — true when in-app product entry created real history:
+   * ORIGIN → STORE → PRODUCT. Enables HISTORY back to store.
+   * Deep-link / single-entry product stays false.
+   */
+  historyIncludesStoreParent?: boolean;
   restoreKey?: string | null;
   transactionId?: string | null;
   createdAt: number;

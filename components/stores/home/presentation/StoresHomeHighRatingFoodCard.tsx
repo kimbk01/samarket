@@ -7,8 +7,10 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
+import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
@@ -31,6 +33,7 @@ function StoresHomeHighRatingFoodCardInner({
   benefit?: StoresHomeShelfCardBenefit;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
   const warmMenus = () => {
     deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
@@ -45,6 +48,15 @@ function StoresHomeHighRatingFoodCardInner({
       data-stores-home-presentation-avis={STORES_HOME_PRESENTATION_SPEC.patterns.highRatingHorizontal.avisSection}
       onPointerDown={warmMenus}
       onFocus={warmMenus}
+      onClick={(e) => {
+        e.preventDefault();
+        warmMenus();
+        navigateToDeliveryStoreProduct(router, {
+          storeSlug: entry.storeSlug,
+          productId: entry.productId,
+          childMode: "productPage",
+        });
+      }}
       className={`flex w-[8.75rem] shrink-0 flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-[4/3] w-full bg-[color:var(--delivery-bg-thumb)]">

@@ -28,12 +28,14 @@ import {
   deliveryStoreDetailPrefetch,
   deliveryStoreDetailPrefetchForTap,
 } from "@/lib/dibay/delivery-store-detail-prefetch";
-import { armStoreMenuFocusEntryIntent } from "@/lib/dibay/store-menu-focus-entry-intent";
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
-import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
-import { commitStoreDetailBrowseOriginForEntry } from "@/lib/dibay/store-detail-browse-origin";
+import { storeDetailHrefFromSlug } from "@/lib/dibay/store-detail-href";
+import {
+  navigateToDeliveryStoreCard,
+  navigateToDeliveryStoreProduct,
+} from "@/lib/navigation/navigate-to-delivery-store-product";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
 import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
@@ -230,17 +232,10 @@ function StoreBrowseCategoryRowCardInner({
 
   const navigateToStore = useCallback(
     (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
-      const href = buildStoreDetailHref(data.slug, focusProductId);
-      if (focusProductId) armStoreMenuFocusEntryIntent(focusProductId);
-      saveDeliveryListScrollBeforeStoreNavigation();
-      if (typeof window !== "undefined") {
-        commitStoreDetailBrowseOriginForEntry(
-          data.slug,
-          window.location.pathname,
-          window.location.search,
-          focusProductId ?? null,
-        );
-      }
+      const storeHref = storeDetailHrefFromSlug(data.slug);
+      const href = focusProductId
+        ? buildStoreDetailHref(data.slug, focusProductId)
+        : storeHref;
       writeStoreDetailListSeed({
         slug: data.slug,
         store_name: data.nameKo,
@@ -254,8 +249,19 @@ function StoreBrowseCategoryRowCardInner({
       });
       deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       deliveryShellEntryBeginNavigation(data.slug);
-      deliveryShellEntryScheduleRouterPushStart(data.slug, href);
-      router.push(href, { scroll: false });
+      deliveryShellEntryScheduleRouterPushStart(data.slug, storeHref);
+      if (focusProductId) {
+        navigateToDeliveryStoreProduct(router, {
+          storeSlug: data.slug,
+          productId: focusProductId,
+          childMode: "focusProduct",
+        });
+      } else {
+        navigateToDeliveryStoreCard(router, {
+          storeSlug: data.slug,
+          href: storeHref,
+        });
+      }
       const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
       markStoreDetailListSeedNavigation(data.slug);
       dibayPerfRecordStoreCardNavigationIntent(data.slug);

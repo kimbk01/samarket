@@ -8,8 +8,10 @@ import {
 } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
-import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
-import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
+import {
+  navigateToDeliveryStoreCard,
+  navigateToDeliveryStoreProduct,
+} from "@/lib/navigation/navigate-to-delivery-store-product";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearchHeader";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
@@ -157,17 +159,17 @@ export function DeliverySearchPage() {
     (slug: string) => {
       const s = slug.trim();
       if (!s) return;
+      const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
-      commitDeliveryStoreNavigationEntry({
+      markStoreDetailListSeedNavigation(s);
+      navigateToDeliveryStoreCard(router, {
         storeSlug: s,
         pathname: "/stores/search",
-        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
-        productId: null,
+        search,
         originHrefOverride: listScrollRouteKey,
         originSurfaceOverride: "SEARCH",
+        saveScroll: false,
       });
-      markStoreDetailListSeedNavigation(s);
-      router.push(`/stores/${encodeURIComponent(s)}`);
     },
     [router, listScrollRouteKey, debouncedQ]
   );
@@ -176,17 +178,19 @@ export function DeliverySearchPage() {
     (menu: DeliverySearchMenu) => {
       const slug = menu.store_slug?.trim();
       if (!slug) return;
+      const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
-      commitDeliveryStoreNavigationEntry({
+      markStoreDetailListSeedNavigation(slug);
+      navigateToDeliveryStoreProduct(router, {
         storeSlug: slug,
-        pathname: "/stores/search",
-        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
         productId: menu.id,
+        childMode: "focusProduct",
+        pathname: "/stores/search",
+        search,
         originHrefOverride: listScrollRouteKey,
         originSurfaceOverride: "SEARCH",
+        saveScroll: false,
       });
-      markStoreDetailListSeedNavigation(slug);
-      router.push(buildStoreDetailHref(slug, menu.id));
     },
     [router, listScrollRouteKey, debouncedQ]
   );

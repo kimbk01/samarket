@@ -11,8 +11,10 @@ import { StoreCardFavoriteIcon } from "./StoreCardFavoriteIcon";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
-import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
-import { commitStoreDetailBrowseOriginForEntry } from "@/lib/dibay/store-detail-browse-origin";
+import {
+  navigateToDeliveryStoreCard,
+  navigateToDeliveryStoreProduct,
+} from "@/lib/navigation/navigate-to-delivery-store-product";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import {
   DELIVERY_PERF_TAG_ROUTE_TRANSITION,
@@ -205,19 +207,10 @@ export function StoreVerticalDiscoveryCard({
           deliveryStoreMenusPrewarm(store.slug);
           prefetchStoreDetail("touch_start", { force: true });
         }}
-        onClick={() => {
+        onClick={(e) => {
+          e.preventDefault();
           resetDeliveryStoreMenusPrewarmForTests();
           deliveryStoreMenusPrewarm(store.slug, { force: true });
-          saveDeliveryListScrollBeforeStoreNavigation();
-          if (typeof window !== "undefined") {
-            commitStoreDetailBrowseOriginForEntry(
-              store.slug,
-              window.location.pathname,
-              window.location.search,
-              null
-            );
-          }
-          markStoreDetailListSeedNavigation(store.slug);
           writeStoreDetailListSeed({
             slug: store.slug,
             store_name: store.nameKo,
@@ -228,12 +221,14 @@ export function StoreVerticalDiscoveryCard({
             pickup_available: store.pickupAvailable,
             tagline: store.tagline,
           });
+          markStoreDetailListSeedNavigation(store.slug);
           dibayPerfRecordStoreCardNavigationIntent(store.slug);
           deliveryMenuVisibleBeginNavSession(store.slug);
           deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
             event: "vertical_store_card_tap",
             slug: store.slug,
           });
+          navigateToDeliveryStoreCard(router, { storeSlug: store.slug });
         }}
       >
         <div className={`relative aspect-[5/3] w-full overflow-hidden ${FB.thumbMuted}`}>
@@ -353,21 +348,18 @@ export function StoreVerticalDiscoveryCard({
                 onFocus={() => prefetchProductDetail(it.productId)}
                 onTouchStart={() => prefetchProductDetail(it.productId)}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  saveDeliveryListScrollBeforeStoreNavigation();
-                  if (typeof window !== "undefined") {
-                    commitStoreDetailBrowseOriginForEntry(
-                      store.slug,
-                      window.location.pathname,
-                      window.location.search,
-                      it.productId
-                    );
-                  }
                   markStoreDetailListSeedNavigation(store.slug);
                   deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
                     event: "vertical_featured_product_tap",
                     slug: store.slug,
                     product_id: it.productId,
+                  });
+                  navigateToDeliveryStoreProduct(router, {
+                    storeSlug: store.slug,
+                    productId: it.productId,
+                    childMode: "productPage",
                   });
                 }}
               >

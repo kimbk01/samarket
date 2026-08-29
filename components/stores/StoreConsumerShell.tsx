@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReactNode } from "react";
 import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
+import { DeliveryStoreProductChildCommit } from "@/components/navigation/DeliveryStoreProductChildCommit";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
@@ -19,9 +20,10 @@ import { StoreSlugStickyBar } from "@/components/stores/StoreSlugStickyBar";
 /**
  * 소비자용 `/stores/[slug]/*` — 오너(/owner/) 제외.
  * 메뉴 루트: SlideShell + 내부 헤더. cart/checkout/상품: SlideShell 없음(내부 스크롤).
+ * CUT 2B: DeliveryStoreProductChildCommit — store route commit 후 product child push.
  */
 export function StoreConsumerShell({ slug, children }: { slug: string; children: ReactNode }) {
-  const { t } = useI18n();
+  useI18n();
   const pathname = usePathname();
   const decodedSlug = decodeSlugSegment(slug);
 
@@ -36,26 +38,49 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
   }
 
   const path = (pathname ?? "").split("?")[0] ?? "";
+  const childCommit = decodedSlug ? (
+    <DeliveryStoreProductChildCommit storeSlug={decodedSlug} />
+  ) : null;
+
   if (isStoreCommerceCartCheckoutPath(path)) {
-    return <>{children}</>;
+    return (
+      <>
+        {childCommit}
+        {children}
+      </>
+    );
   }
 
   if (isStoreProductDetailConsumerPath(path)) {
-    return <>{children}</>;
+    return (
+      <>
+        {childCommit}
+        {children}
+      </>
+    );
   }
 
   if (shouldWrapStoreDetailSlideShell(pathname, slug)) {
     return (
-      <StoreDetailSlideShell>{children}</StoreDetailSlideShell>
+      <>
+        {childCommit}
+        <StoreDetailSlideShell>{children}</StoreDetailSlideShell>
+      </>
     );
   }
 
   if (isStoreSlugOrderMenuRoot(pathname, decodedSlug)) {
-    return <>{children}</>;
+    return (
+      <>
+        {childCommit}
+        {children}
+      </>
+    );
   }
 
   return (
     <>
+      {childCommit}
       <div className="relative w-full min-w-0 max-w-full shrink-0">
         <StoreSlugStickyBar slug={slug} />
       </div>

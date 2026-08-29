@@ -17,9 +17,11 @@ import {
   buildDeliveryListScrollRouteKey,
   saveDeliveryListScrollBeforeStoreNavigation,
 } from "@/lib/dibay/delivery-list-scroll-restore";
-import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
-import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
+import {
+  navigateToDeliveryStoreCard,
+  navigateToDeliveryStoreProduct,
+} from "@/lib/navigation/navigate-to-delivery-store-product";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
 import { RecommendedSearchChips } from "@/components/delivery/search/RecommendedSearchChips";
@@ -185,18 +187,18 @@ export function StoresHomeSearchModal({
     (slug: string) => {
       const s = slug.trim();
       if (!s) return;
+      const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
-      commitDeliveryStoreNavigationEntry({
-        storeSlug: s,
-        pathname: "/stores/search",
-        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
-        productId: null,
-        originHrefOverride: listScrollRouteKey,
-        originSurfaceOverride: "SEARCH",
-      });
       markStoreDetailListSeedNavigation(s);
       onClose();
-      router.push(`/stores/${encodeURIComponent(s)}`);
+      navigateToDeliveryStoreCard(router, {
+        storeSlug: s,
+        pathname: "/stores/search",
+        search,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+        saveScroll: false,
+      });
     },
     [router, listScrollRouteKey, onClose, debouncedQ]
   );
@@ -205,18 +207,20 @@ export function StoresHomeSearchModal({
     (menu: DeliverySearchMenu) => {
       const slug = menu.store_slug?.trim();
       if (!slug) return;
+      const search = debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "";
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
-      commitDeliveryStoreNavigationEntry({
-        storeSlug: slug,
-        pathname: "/stores/search",
-        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
-        productId: menu.id,
-        originHrefOverride: listScrollRouteKey,
-        originSurfaceOverride: "SEARCH",
-      });
       markStoreDetailListSeedNavigation(slug);
       onClose();
-      router.push(buildStoreDetailHref(slug, menu.id));
+      navigateToDeliveryStoreProduct(router, {
+        storeSlug: slug,
+        productId: menu.id,
+        childMode: "focusProduct",
+        pathname: "/stores/search",
+        search,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+        saveScroll: false,
+      });
     },
     [router, listScrollRouteKey, onClose, debouncedQ]
   );

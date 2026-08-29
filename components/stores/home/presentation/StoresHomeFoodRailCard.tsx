@@ -6,8 +6,10 @@
 
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
+import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
@@ -38,6 +40,7 @@ function StoresHomeFoodRailCardInner({
   benefit?: StoresHomeShelfCardBenefit;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
   const widthClass = presentation === "grid" ? "w-full" : "w-[7.5rem] shrink-0";
 
@@ -59,6 +62,15 @@ function StoresHomeFoodRailCardInner({
       data-stores-perf={markStoreCardPerf ? "store-card" : undefined}
       onPointerDown={warmMenus}
       onFocus={warmMenus}
+      onClick={(e) => {
+        e.preventDefault();
+        warmMenus();
+        navigateToDeliveryStoreProduct(router, {
+          storeSlug: entry.storeSlug,
+          productId: entry.productId,
+          childMode: "productPage",
+        });
+      }}
       className={`flex ${widthClass} flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-square w-full bg-[color:var(--delivery-bg-thumb)]">
