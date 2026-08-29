@@ -166,9 +166,11 @@ describe("platform admin menu SSOT contract", () => {
     expect(findAdminMenuByKey(adminMenu, "stores-browse-policy")?.path).toBe(
       "/admin/stores-category-policy"
     );
-    expect(findAdminMenuByKey(adminMenu, "store-banner-ads-control")?.path).toBe(
-      "/admin/store-banner-ads"
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
+      "/admin/delivery-ads"
     );
+    expect(findAdminMenuByKey(adminMenu, "store-banner-ads-control")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "store-ads-control")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "stores-commerce")?.path).toBe("/admin/stores");
     expect(findAdminMenuByKey(adminMenu, "store-settlements-admin")?.path).toBe(
       "/admin/store-settlements"

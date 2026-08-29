@@ -66,12 +66,19 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(api).toMatch(/store_composition_policy_overrides|composition/);
   });
 
-  it("T6 Paid Ads → paid campaign writer", () => {
-    expect(findByKey("store-ads-control")?.path).toContain("focus=ads");
+  it("T6 Paid Ads → Delivery Ads control plane (legacy insertions redirected)", () => {
+    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+    expect(findByKey("store-ads-control")).toBeNull();
     expect(STORE_PAID_AD_CAMPAIGN_TABLE).toBe("store_paid_ad_campaigns");
     const api = readFileSync(join(process.cwd(), "app/api/admin/store-paid-ads/route.ts"), "utf8");
-    expect(api).toMatch(/createStorePaidAdCampaignAdmin/);
+    expect(api).toMatch(/legacy_writer_disabled/);
+    expect(api).toMatch(/status: 410/);
     expect(api).toMatch(/resolveStorePaidAdCampaignExposure/);
+    const page = readFileSync(
+      join(process.cwd(), "app/admin/store-insertions/page.tsx"),
+      "utf8"
+    );
+    expect(page).toMatch(/delivery-ads|DELIVERY_AD_ADMIN_ROUTES/);
   });
 
   it("T7 Paid exposure status consumes canonical resolver", () => {
@@ -98,11 +105,13 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(exposure.blockingReasons).toContain("surfaceAllowed");
   });
 
-  it("T8 Banner Ads → banner campaign writer", () => {
-    expect(findByKey("store-banner-ads-control")?.path).toBe("/admin/store-banner-ads");
+  it("T8 Banner Ads → Delivery Ads control plane (legacy banner redirected)", () => {
+    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+    expect(findByKey("store-banner-ads-control")).toBeNull();
     expect(STORE_BANNER_AD_CAMPAIGN_TABLE).toBe("store_banner_ad_campaigns");
     const api = readFileSync(join(process.cwd(), "app/api/admin/store-banner-ads/route.ts"), "utf8");
-    expect(api).toMatch(/createStoreBannerAdCampaignAdmin/);
+    expect(api).toMatch(/legacy_writer_disabled/);
+    expect(api).toMatch(/status: 410/);
     expect(api).toMatch(/resolveStoreBannerAdVisibility/);
     expect(typeof createStoreBannerAdCampaignAdmin).toBe("function");
     const parsed = parseStoreBannerAdCampaignCreateBody({
@@ -112,6 +121,11 @@ describe("CUT 8 Admin Control Plane", () => {
       endAt: "2026-07-01T00:00:00.000Z",
     });
     expect(parsed.ok).toBe(true);
+    const page = readFileSync(
+      join(process.cwd(), "app/admin/store-banner-ads/page.tsx"),
+      "utf8"
+    );
+    expect(page).toMatch(/delivery-ads|DELIVERY_AD_ADMIN_ROUTES/);
   });
 
   it("T9 Banner status consumes canonical resolver", () => {
@@ -207,7 +221,9 @@ describe("CUT 8 Admin Control Plane", () => {
     for (const p of paths) counts.set(p, (counts.get(p) ?? 0) + 1);
     const dupes = [...counts.entries()].filter(([, n]) => n > 1);
     expect(dupes).toEqual([]);
-    expect(findByKey("store-ads-control")?.path).not.toBe(findByKey("store-banner-ads-control")?.path);
+    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+    expect(findByKey("store-ads-control")).toBeNull();
+    expect(findByKey("store-banner-ads-control")).toBeNull();
   });
 
   it("T17 closed runtime authorities unchanged (spot)", () => {

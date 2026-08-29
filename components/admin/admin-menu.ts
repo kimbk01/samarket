@@ -524,18 +524,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
                 path: "/admin/delivery-ads",
                 status: "done",
               },
-              {
-                key: "store-ads-control",
-                title: "",
-                path: "/admin/delivery-ads",
-                status: "done",
-              },
-              {
-                key: "store-banner-ads-control",
-                title: "",
-                path: "/admin/delivery-ads",
-                status: "done",
-              },
             ],
           },
           {
