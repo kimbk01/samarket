@@ -265,7 +265,7 @@ describe("resolveMemberSoundFromPreferences (P2-A5b)", () => {
 });
 
 describe("P2-A5b boundaries", () => {
-  it("T23 — owner stays legacy role", () => {
+  it("T23 — owner role still detected (Owner sound cut over in P2-A7b)", () => {
     expect(
       resolveSoundPreferenceRecipientRole(
         row({ notification_type: "commerce", meta: { kind: "store_order_created" } })

@@ -22,7 +22,11 @@ import {
   shouldPlayInAppSoundFromGate,
   syncNotificationSoundGateSnapshot,
 } from "@/lib/notifications/notification-sound-gate";
-import type { NotificationSettingsStorageRow } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import type {
+  NotificationSettingsStorageRow,
+  OwnerNotificationSettingsStorageRow,
+} from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import { fetchOwnerNotificationSettingsRow } from "@/lib/notifications/fetch-owner-notification-settings-client";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -102,6 +106,8 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     useState<UserNotificationSettingsState>(DEFAULT_SETTINGS);
   const [notificationSettingsRow, setNotificationSettingsRow] =
     useState<NotificationSettingsStorageRow | null>(null);
+  const [ownerSettingsRow, setOwnerSettingsRow] =
+    useState<OwnerNotificationSettingsStorageRow | null>(null);
   const [legacyUserSettingsVersion, setLegacyUserSettingsVersion] = useState(0);
 
   const applyNotificationSettingsSnapshot = useCallback((snapshot: MeNotificationSettingsSnapshot | null) => {
@@ -156,6 +162,20 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
   }, [refreshUserNotificationSettings, applyNotificationSettingsSnapshot]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!userId || userId === "me") {
+      setOwnerSettingsRow(null);
+      return;
+    }
+    void fetchOwnerNotificationSettingsRow(userId).then((row) => {
+      if (!cancelled) setOwnerSettingsRow(row);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  useEffect(() => {
     return subscribeUserSettings(({ userId: changedUserId }) => {
       if (changedUserId === userId) {
         setLegacyUserSettingsVersion((v) => v + 1);
@@ -204,10 +224,16 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     };
   }, [notificationSettingsRow, userId, legacyUserSettingsVersion]);
 
+  const ownerPreferenceStorage = useMemo(
+    () => ({ ownerSettingsRow }),
+    [ownerSettingsRow]
+  );
+
   const soundGateSnapshot = useMemo(
     () => ({
       userNotificationSettings,
       memberPreferenceStorage,
+      ownerPreferenceStorage,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
       activeGroupChatRoomId,
@@ -216,6 +242,7 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     [
       userNotificationSettings,
       memberPreferenceStorage,
+      ownerPreferenceStorage,
       activeTradeChatRoomId,
       activeCommunityChatRoomId,
       activeGroupChatRoomId,

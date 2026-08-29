@@ -107,6 +107,19 @@ describe("resolveEffectiveNotificationPreference (P2-A3)", () => {
     expect(result.reason).toBe("owner_optional_disabled");
   });
 
+  it("T5b — owner mandatory + optional_sound OFF → push true, playSound false", () => {
+    const result = resolveEffectiveNotificationPreference({
+      metaKind: "store_point_charge_on_hold",
+      recipientRole: "owner",
+      preferences: prefs({
+        owner: { optionalPushEnabled: false, optionalSoundEnabled: false },
+      }),
+    });
+    expect(result.mandatory).toBe(true);
+    expect(result.sendPush).toBe(true);
+    expect(result.playSound).toBe(false);
+  });
+
   it("T6 — payment-critical order → mandatory", () => {
     const result = resolveEffectiveNotificationPreference({
       metaKind: "store_order_payment_failed",

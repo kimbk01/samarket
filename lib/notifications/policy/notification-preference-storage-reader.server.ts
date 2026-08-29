@@ -16,6 +16,9 @@ import {
   type NotificationSettingsStorageRow,
   type OwnerNotificationSettingsStorageRow,
 } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
+import { isMissingPreferenceRelationError } from "@/lib/notifications/policy/notification-preference-relation-errors";
+
+export { isMissingPreferenceRelationError } from "@/lib/notifications/policy/notification-preference-relation-errors";
 
 const NOTIFICATION_SETTINGS_SELECT =
   "service_enabled, trade_chat_enabled, community_chat_enabled, order_enabled, store_enabled, trade_events_enabled, community_social_enabled, notice_enabled, marketing_enabled, sound_enabled, vibration_enabled, quiet_hours_enabled, quiet_hours_start, quiet_hours_end";
@@ -32,20 +35,6 @@ export type ReadNormalizedNotificationPreferenceSnapshotOptions = Readonly<{
   now?: Date;
   timezone?: string;
 }>;
-
-/** Missing P2-A6 tables (Production apply NOT_PROVEN) must not fail Member/Owner reads. */
-export function isMissingPreferenceRelationError(
-  error: { code?: string; message?: string } | null | undefined
-): boolean {
-  if (!error) return false;
-  const code = String(error.code ?? "");
-  const message = String(error.message ?? "");
-  return (
-    code === "42P01" ||
-    code === "PGRST205" ||
-    /could not find the table|relation .* does not exist|schema cache/i.test(message)
-  );
-}
 
 async function maybeSinglePreferenceRow<T>(
   query: PromiseLike<{ data: T | null; error: { code?: string; message?: string } | null }>

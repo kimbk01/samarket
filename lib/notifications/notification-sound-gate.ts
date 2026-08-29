@@ -25,6 +25,7 @@ import {
   resolveMemberSoundFromPreferences,
   resolveSoundPreferenceRecipientRole,
 } from "@/lib/notifications/notification-sound-member-preference-gate";
+import { resolveOwnerSoundFromPreferences } from "@/lib/notifications/notification-sound-owner-preference-gate";
 
 export type { NotificationSoundGateSnapshot };
 export { getNotificationSoundGateSnapshot, syncNotificationSoundGateSnapshot };
@@ -182,9 +183,11 @@ function memberPreferenceSnapshotFromGate(
     notificationSettingsRow: null,
     legacyUserSettingsRow: null,
   };
+  const ownerStorage = snap.ownerPreferenceStorage ?? { ownerSettingsRow: null };
   return normalizeNotificationPreferenceStorage({
     notificationSettingsRow: storage.notificationSettingsRow,
     legacyUserSettingsRow: storage.legacyUserSettingsRow,
+    ownerSettingsRow: ownerStorage.ownerSettingsRow,
     now,
   });
 }
@@ -199,6 +202,19 @@ function explainMemberSoundPreferenceFromRow(
   return {
     play,
     skipReason: play ? null : "member_preference_resolver",
+  };
+}
+
+function explainOwnerSoundPreferenceFromRow(
+  snap: NotificationSoundGateSnapshot,
+  row: Record<string, unknown>,
+  now: Date = new Date()
+): { play: boolean; skipReason: string | null } {
+  const preferences = memberPreferenceSnapshotFromGate(snap, now);
+  const play = resolveOwnerSoundFromPreferences(row, preferences, now);
+  return {
+    play,
+    skipReason: play ? null : "owner_preference_resolver",
   };
 }
 
@@ -229,6 +245,9 @@ function explainPreferenceSoundFromGate(
   const recipientRole = resolveSoundPreferenceRecipientRole(row);
   if (recipientRole === "member") {
     return explainMemberSoundPreferenceFromRow(snap, row);
+  }
+  if (recipientRole === "owner") {
+    return explainOwnerSoundPreferenceFromRow(snap, row);
   }
 
   if (domain) {

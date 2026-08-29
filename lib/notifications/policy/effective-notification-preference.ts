@@ -345,6 +345,11 @@ export function resolveEffectiveNotificationPreference(
     }
   }
 
+  // mandatory delivery ≠ forced sound — Owner optional_sound_enabled=false always mutes.
+  if (policy.recipientRole === "owner" && input.preferences.owner?.optionalSoundEnabled === false) {
+    playSound = false;
+  }
+
   playSound = applyQuietToSound(quietActive, playSound);
 
   const vibrate = resolveVibrate(

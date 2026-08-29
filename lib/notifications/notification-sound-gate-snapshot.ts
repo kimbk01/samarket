@@ -5,6 +5,7 @@
 import type {
   LegacyUserSettingsPushRow,
   NotificationSettingsStorageRow,
+  OwnerNotificationSettingsStorageRow,
 } from "@/lib/notifications/policy/notification-preference-storage-normalizer";
 
 export type NotificationSoundGateSnapshot = {
@@ -20,6 +21,10 @@ export type NotificationSoundGateSnapshot = {
   memberPreferenceStorage?: Readonly<{
     notificationSettingsRow: NotificationSettingsStorageRow | null;
     legacyUserSettingsRow: LegacyUserSettingsPushRow | null;
+  }>;
+  /** P2-A6 Owner optional prefs — absent/null → no-row compatibility. */
+  ownerPreferenceStorage?: Readonly<{
+    ownerSettingsRow: OwnerNotificationSettingsStorageRow | null;
   }>;
   activeTradeChatRoomId: string | null;
   activeCommunityChatRoomId: string | null;

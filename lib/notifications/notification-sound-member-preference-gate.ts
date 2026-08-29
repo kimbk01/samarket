@@ -2,7 +2,7 @@
  * P2-A5b — Member in-app sound preference decision (pure + row adapter).
  *
  * Consumes P2-A4-normalized preferences via P2-A3 resolver.
- * Owner sound remains on legacy path in notification-sound-gate.
+ * Owner sound: P2-A7b `notification-sound-owner-preference-gate`.
  */
 
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
