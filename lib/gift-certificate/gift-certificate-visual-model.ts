@@ -40,6 +40,8 @@ export type GiftCertificateVisualModel = {
   expirationDisplay: string | null;
   /** Instance public number only; mall must be null. */
   certificateDisplayNumber: string | null;
+  /** Mall/wallet giftable strip — null = hide strip. */
+  transferable: boolean | null;
   valueMode: GiftCertificateValueMode;
 };
 
@@ -56,6 +58,7 @@ export type BuildGiftCertificateVisualModelInput = {
   remainingBalance?: number | null;
   expirationDisplay?: string | null;
   certificateDisplayNumber?: string | null;
+  transferable?: boolean | null;
   /** Override valueMode; otherwise derived from context. */
   valueMode?: GiftCertificateValueMode;
   issuerBadgePlatform?: string;
@@ -112,6 +115,7 @@ export function buildGiftCertificateVisualModel(
     remainingBalance: input.remainingBalance ?? null,
     expirationDisplay: input.expirationDisplay?.trim() || null,
     certificateDisplayNumber: input.certificateDisplayNumber?.trim() || null,
+    transferable: input.transferable == null ? null : Boolean(input.transferable),
     valueMode: resolveValueMode(input.context, input.valueMode),
   };
 }

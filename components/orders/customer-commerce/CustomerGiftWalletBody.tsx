@@ -354,6 +354,7 @@ export function CustomerGiftWalletBody({
                     showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
                     expirationDisplay={formatExpiry(row.validUntil)}
                     showValidity
+                    transferable={row.transferable}
                     statusLabel={
                       locked
                         ? safeT("gift_u3_wallet_pending_lock", {

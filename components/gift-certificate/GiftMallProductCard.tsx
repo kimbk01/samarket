@@ -52,26 +52,14 @@ export function GiftMallProductCard({
           purchasePrice={product.purchasePrice}
           expirationDisplay={expirationDisplay}
           showValidity={Boolean(expirationDisplay)}
+          transferable={product.transferable}
           footer={
-            <div className="space-y-2">
-              <p className="text-xs text-sam-muted">
-                {product.transferable
-                  ? safeT("gift_u2_mall_transferable", {
-                      fallbackKo: "선물 가능",
-                      fallbackEn: "Transferable",
-                    })
-                  : safeT("gift_u2_mall_non_transferable", {
-                      fallbackKo: "선물 불가",
-                      fallbackEn: "Non-transferable",
-                    })}
-              </p>
-              <span className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[40px] w-full`}>
-                {safeT("gift_u2_mall_card_view", {
-                  fallbackKo: "상품권 보기",
-                  fallbackEn: "View gift",
-                })}
-              </span>
-            </div>
+            <span className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[44px] w-full rounded-ui-rect`}>
+              {safeT("gift_u2_mall_card_view", {
+                fallbackKo: "상품권 보기",
+                fallbackEn: "View gift",
+              })}
+            </span>
           }
         />
       </Link>

@@ -2,6 +2,7 @@
 
 /**
  * Canonical DIBAY gift certificate portrait face — ONE SVG, 800×1200 user units.
+ * Typography sized for ~333–338px runtime width (scale ≈ 0.42).
  * SAME CERTIFICATE × SCALE. No container-query / viewport internals. No decorative redeem bars.
  */
 
@@ -30,16 +31,37 @@ const ARROW = "#6F7773";
 const LINE = "#D8DEDA";
 const BORDER = "#D9E2DC";
 
-/** Landmark Y — fixed fractions of 1200 for geometry QA. */
+/** Landmark Y — fixed fractions of 1200 for geometry QA (matches design reference denser lower third). */
 export const GIFT_PORTRAIT_LANDMARKS = {
   heroBottomY: 330,
-  titleY: 440,
-  amountY: 640,
-  priceY: 715,
-  perforationY: 770,
-  issuerY: 850,
-  expiryY: 910,
-  numberY: 970,
+  titleY: 430,
+  amountY: 600,
+  priceY: 680,
+  perforationY: 735,
+  issuerY: 790,
+  expiryY: 845,
+  numberY: 900,
+  serialY: 960,
+  giftableY: 1060,
+} as const;
+
+/** SVG font-size contract — readable at Mall ~338px (scale ≈ 0.4225). */
+export const GIFT_PORTRAIT_TYPE = {
+  badge: 28,
+  title: 40,
+  titleLine: 50,
+  amountLabel: 30,
+  amountValue: 78,
+  originalPrice: 33,
+  arrow: 33,
+  purchasePrice: 40,
+  priceSubLabel: 26,
+  metaLabel: 29,
+  metaValue: 30,
+  footBrand: 23,
+  heroWordmark: 38,
+  heroSubtitle: 23,
+  heroBadge: 26,
 } as const;
 
 const VB_W = GIFT_CERT_COORD_WIDTH;
@@ -47,7 +69,10 @@ const VB_H = GIFT_CERT_COORD_HEIGHT;
 const TICKET = { x: 12, y: 12, w: 776, h: 1176, rx: 34 } as const;
 const PAD_L = 64;
 const PAD_R = 736;
-const CONTENT_W = 672;
+
+/** Original-price strike slot (deterministic — no hardcoded ₱1,000-only width). */
+const ORIGINAL_PRICE_SLOT = { x: PAD_L, width: 155 } as const;
+const STRIKE_STROKE = 5.5;
 
 const PLATFORM_LOGO_SRC = dibayBrandAssetUrl(DIBAY_LOGO_MARK_PATH);
 
@@ -61,34 +86,49 @@ export type GiftCertificateFaceLabels = {
   expiryLabel: string;
   numberLabel: string;
   numberUnavailable: string;
+  giftableTitle: string;
+  giftableHint: string;
 };
 
+/** Deterministic money string width estimate in SVG user units (tabular-ish). */
+export function estimateGiftMoneySvgWidth(text: string, fontSize: number): number {
+  let w = 0;
+  for (const ch of text) {
+    if (ch === "," || ch === "." || ch === " ") w += fontSize * 0.32;
+    else if (ch === "₱" || ch === "$" || ch === "€") w += fontSize * 0.72;
+    else w += fontSize * 0.6;
+  }
+  return Math.min(ORIGINAL_PRICE_SLOT.width, Math.max(fontSize * 1.2, Math.round(w)));
+}
+
 function MetaIcon({ kind, y }: { kind: "issuer" | "expiry" | "number"; y: number }) {
-  const cy = y - 6;
+  const size = 26;
+  const cx = PAD_L + size / 2;
+  const cy = y - 8;
   if (kind === "issuer") {
     return (
-      <g fill="none" stroke={MUTED} strokeWidth={1.6} aria-hidden>
-        <path d={`M ${PAD_L} ${cy + 8} L ${PAD_L + 10} ${cy - 2} L ${PAD_L + 20} ${cy + 8} V ${cy + 14} H ${PAD_L} Z`} />
-        <path d={`M ${PAD_L + 7} ${cy + 14} V ${cy + 6} H ${PAD_L + 13} V ${cy + 14}`} />
+      <g fill="none" stroke={MUTED} strokeWidth={2} aria-hidden>
+        <path
+          d={`M ${cx - 10} ${cy + 10} L ${cx} ${cy - 4} L ${cx + 10} ${cy + 10} V ${cy + 14} H ${cx - 10} Z`}
+        />
+        <path d={`M ${cx - 3} ${cy + 14} V ${cy + 4} H ${cx + 3} V ${cy + 14}`} />
       </g>
     );
   }
   if (kind === "expiry") {
     return (
-      <g fill="none" stroke={MUTED} strokeWidth={1.6} aria-hidden>
-        <rect x={PAD_L} y={cy - 6} width={20} height={18} rx={2} />
-        <path d={`M ${PAD_L} ${cy} H ${PAD_L + 20}`} />
-        <path d={`M ${PAD_L + 6} ${cy - 9} V ${cy - 3}`} />
-        <path d={`M ${PAD_L + 14} ${cy - 9} V ${cy - 3}`} />
+      <g fill="none" stroke={MUTED} strokeWidth={2} aria-hidden>
+        <rect x={cx - 11} y={cy - 8} width={22} height={20} rx={3} />
+        <path d={`M ${cx - 11} ${cy - 1} H ${cx + 11}`} />
+        <path d={`M ${cx - 5} ${cy - 12} V ${cy - 5}`} />
+        <path d={`M ${cx + 5} ${cy - 12} V ${cy - 5}`} />
       </g>
     );
   }
   return (
-    <g fill="none" stroke={MUTED} strokeWidth={1.6} aria-hidden>
-      <path
-        d={`M ${PAD_L + 2} ${cy - 4} H ${PAD_L + 18} L ${PAD_L + 14} ${cy + 10} H ${PAD_L + 6} Z`}
-      />
-      <circle cx={PAD_L + 10} cy={cy + 1} r={1.5} fill={MUTED} stroke="none" />
+    <g fill="none" stroke={MUTED} strokeWidth={2} aria-hidden>
+      <path d={`M ${cx - 9} ${cy - 6} H ${cx + 9} L ${cx + 6} ${cy + 12} H ${cx - 6} Z`} />
+      <circle cx={cx} cy={cy + 2} r={2} fill={MUTED} stroke="none" />
     </g>
   );
 }
@@ -109,19 +149,25 @@ function MetaRow({
   return (
     <g data-gift-landmark={dataAttr}>
       <MetaIcon kind={kind} y={y} />
-      <text x={PAD_L + 32} y={y} fontSize={22} fill={MUTED} fontFamily="system-ui,sans-serif">
+      <text
+        x={PAD_L + 36}
+        y={y}
+        fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
+        fill={MUTED}
+        fontFamily="system-ui,sans-serif"
+      >
         {label}
       </text>
       <text
         x={PAD_R}
         y={y}
-        fontSize={22}
+        fontSize={GIFT_PORTRAIT_TYPE.metaValue}
         fill={INK}
         fontFamily="system-ui,sans-serif"
         fontWeight={600}
         textAnchor="end"
       >
-        {value.length > 28 ? `${value.slice(0, 27)}…` : value}
+        {value.length > 22 ? `${value.slice(0, 21)}…` : value}
       </text>
     </g>
   );
@@ -137,6 +183,8 @@ function TicketHero({
   const isPlatform = model.kind === "PLATFORM";
   const heroGrad = `${uid}-hero`;
   const heroClip = `${uid}-hero-clip`;
+  /** ~12% smaller than prior 230×150 so title/amount stay primary. */
+  const logo = { x: 299, y: 62, w: 202, h: 132 } as const;
 
   return (
     <g data-gift-landmark="hero" data-gift-cert-hero="1">
@@ -175,7 +223,6 @@ function TicketHero({
         `}
       />
 
-      {/* subtle wave décor in hero */}
       <g clipPath={`url(#${heroClip})`} opacity={0.18} aria-hidden>
         {[0, 18, 36].map((off) => (
           <path
@@ -193,17 +240,17 @@ function TicketHero({
           <image
             data-gift-dibay-logo="1"
             href={PLATFORM_LOGO_SRC}
-            x={285}
-            y={58}
-            width={230}
-            height={150}
+            x={logo.x}
+            y={logo.y}
+            width={logo.w}
+            height={logo.h}
             preserveAspectRatio="xMidYMid meet"
           />
           <text
             x={400}
-            y={245}
+            y={232}
             textAnchor="middle"
-            fontSize={42}
+            fontSize={GIFT_PORTRAIT_TYPE.heroWordmark}
             fontWeight={800}
             fill="#FFFFFF"
             fontFamily="system-ui,sans-serif"
@@ -213,13 +260,13 @@ function TicketHero({
           </text>
           <text
             x={400}
-            y={280}
+            y={268}
             textAnchor="middle"
-            fontSize={16}
+            fontSize={GIFT_PORTRAIT_TYPE.heroSubtitle}
             fontWeight={600}
             fill={GOLD}
             fontFamily="system-ui,sans-serif"
-            letterSpacing="4"
+            letterSpacing="3"
           >
             GIFT CERTIFICATE
           </text>
@@ -251,7 +298,7 @@ function TicketHero({
               x={400}
               y={200}
               textAnchor="middle"
-              fontSize={120}
+              fontSize={110}
               fontWeight={800}
               fill="#FFFFFF"
               fontFamily="system-ui,sans-serif"
@@ -264,7 +311,7 @@ function TicketHero({
               x={400}
               y={300}
               textAnchor="middle"
-              fontSize={22}
+              fontSize={26}
               fontWeight={700}
               fill="#FFFFFF"
               fontFamily="system-ui,sans-serif"
@@ -275,14 +322,13 @@ function TicketHero({
         </g>
       )}
 
-      {/* top-right badge */}
       <g data-gift-hero-badge="1">
-        <rect x={560} y={36} width={180} height={44} rx={22} fill="rgba(255,255,255,0.18)" />
+        <rect x={548} y={34} width={200} height={48} rx={24} fill="rgba(255,255,255,0.18)" />
         <text
-          x={650}
-          y={64}
+          x={648}
+          y={65}
           textAnchor="middle"
-          fontSize={20}
+          fontSize={GIFT_PORTRAIT_TYPE.heroBadge}
           fontWeight={700}
           fill="#FFFFFF"
           fontFamily="system-ui,sans-serif"
@@ -306,12 +352,17 @@ function AmountBlock({
   if (model.valueMode === "mall" && model.faceValue != null) {
     const faceStr = formatMoneyPhp(model.faceValue);
     const purchaseStr = model.purchasePrice != null ? formatMoneyPhp(model.purchasePrice) : null;
+    const strikeW = estimateGiftMoneySvgWidth(faceStr, GIFT_PORTRAIT_TYPE.originalPrice);
+    const strikeY = GIFT_PORTRAIT_LANDMARKS.priceY - GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
+    const arrowX = ORIGINAL_PRICE_SLOT.x + ORIGINAL_PRICE_SLOT.width + 10;
+    const purchaseX = arrowX + 36;
+
     return (
       <g data-gift-landmark="amount" data-gift-value-block="mall">
         <text
           x={PAD_L}
-          y={560}
-          fontSize={24}
+          y={530}
+          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
           fill="#303833"
           fontFamily="system-ui,sans-serif"
           fontWeight={600}
@@ -322,7 +373,7 @@ function AmountBlock({
           data-gift-face-amount="1"
           x={PAD_L}
           y={GIFT_PORTRAIT_LANDMARKS.amountY}
-          fontSize={74}
+          fontSize={GIFT_PORTRAIT_TYPE.amountValue}
           fill={BRAND}
           fontFamily="system-ui,sans-serif"
           fontWeight={800}
@@ -331,26 +382,45 @@ function AmountBlock({
           {faceStr}
         </text>
 
+        {/* thin divider above purchase row — matches design reference */}
+        <line
+          x1={PAD_L}
+          x2={PAD_R}
+          y1={GIFT_PORTRAIT_LANDMARKS.priceY - 42}
+          y2={GIFT_PORTRAIT_LANDMARKS.priceY - 42}
+          stroke={LINE}
+          strokeWidth={1.5}
+        />
+
         <g data-gift-landmark="price">
           {showDiscount && purchaseStr ? (
             <>
               <text
                 data-gift-face-strike="1"
-                x={PAD_L}
+                x={ORIGINAL_PRICE_SLOT.x}
                 y={GIFT_PORTRAIT_LANDMARKS.priceY}
-                fontSize={28}
+                fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
                 fill={MUTED_PRICE}
                 fontFamily="system-ui,sans-serif"
                 fontWeight={500}
-                textDecoration="line-through"
                 style={{ fontVariantNumeric: "tabular-nums" }}
               >
                 {faceStr}
               </text>
+              <line
+                data-gift-face-strike-line="1"
+                x1={ORIGINAL_PRICE_SLOT.x}
+                x2={ORIGINAL_PRICE_SLOT.x + strikeW}
+                y1={strikeY}
+                y2={strikeY}
+                stroke={MUTED_PRICE}
+                strokeWidth={STRIKE_STROKE}
+                strokeLinecap="round"
+              />
               <text
-                x={230}
+                x={arrowX}
                 y={GIFT_PORTRAIT_LANDMARKS.priceY}
-                fontSize={28}
+                fontSize={GIFT_PORTRAIT_TYPE.arrow}
                 fill={ARROW}
                 fontFamily="system-ui,sans-serif"
               >
@@ -358,9 +428,9 @@ function AmountBlock({
               </text>
               <text
                 data-gift-purchase-amount="1"
-                x={268}
+                x={purchaseX}
                 y={GIFT_PORTRAIT_LANDMARKS.priceY}
-                fontSize={34}
+                fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
                 fill={BRAND}
                 fontFamily="system-ui,sans-serif"
                 fontWeight={800}
@@ -369,18 +439,18 @@ function AmountBlock({
                 {purchaseStr}
               </text>
               <text
-                x={PAD_L}
-                y={GIFT_PORTRAIT_LANDMARKS.priceY + 34}
-                fontSize={18}
+                x={ORIGINAL_PRICE_SLOT.x}
+                y={GIFT_PORTRAIT_LANDMARKS.priceY + 36}
+                fontSize={GIFT_PORTRAIT_TYPE.priceSubLabel}
                 fill={MUTED}
                 fontFamily="system-ui,sans-serif"
               >
                 {labels.originalFaceLabel}
               </text>
               <text
-                x={268}
-                y={GIFT_PORTRAIT_LANDMARKS.priceY + 34}
-                fontSize={18}
+                x={purchaseX}
+                y={GIFT_PORTRAIT_LANDMARKS.priceY + 36}
+                fontSize={GIFT_PORTRAIT_TYPE.priceSubLabel}
                 fill={MUTED}
                 fontFamily="system-ui,sans-serif"
               >
@@ -392,10 +462,10 @@ function AmountBlock({
               data-gift-purchase-amount="1"
               x={PAD_L}
               y={GIFT_PORTRAIT_LANDMARKS.priceY}
-              fontSize={28}
+              fontSize={GIFT_PORTRAIT_TYPE.purchasePrice}
               fill={INK}
               fontFamily="system-ui,sans-serif"
-              fontWeight={600}
+              fontWeight={700}
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
               {labels.purchaseLabel} {purchaseStr}
@@ -411,8 +481,8 @@ function AmountBlock({
       <g data-gift-landmark="amount" data-gift-value-block="wallet">
         <text
           x={PAD_L}
-          y={560}
-          fontSize={24}
+          y={530}
+          fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
           fill="#303833"
           fontFamily="system-ui,sans-serif"
           fontWeight={600}
@@ -423,7 +493,7 @@ function AmountBlock({
           data-gift-remaining-amount="1"
           x={PAD_L}
           y={GIFT_PORTRAIT_LANDMARKS.amountY}
-          fontSize={74}
+          fontSize={GIFT_PORTRAIT_TYPE.amountValue}
           fill={BRAND}
           fontFamily="system-ui,sans-serif"
           fontWeight={800}
@@ -435,7 +505,7 @@ function AmountBlock({
           <text
             x={PAD_L}
             y={GIFT_PORTRAIT_LANDMARKS.priceY}
-            fontSize={24}
+            fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
             fill={MUTED}
             fontFamily="system-ui,sans-serif"
             style={{ fontVariantNumeric: "tabular-nums" }}
@@ -452,7 +522,7 @@ function AmountBlock({
       <text
         x={PAD_L}
         y={GIFT_PORTRAIT_LANDMARKS.amountY}
-        fontSize={42}
+        fontSize={48}
         fill={MUTED}
         fontFamily="system-ui,sans-serif"
         fontWeight={800}
@@ -463,7 +533,7 @@ function AmountBlock({
         <text
           x={PAD_L}
           y={GIFT_PORTRAIT_LANDMARKS.priceY}
-          fontSize={28}
+          fontSize={GIFT_PORTRAIT_TYPE.originalPrice}
           fill={MUTED_PRICE}
           fontFamily="system-ui,sans-serif"
           style={{ fontVariantNumeric: "tabular-nums" }}
@@ -471,6 +541,87 @@ function AmountBlock({
           {formatMoneyPhp(model.faceValue)}
         </text>
       ) : null}
+    </g>
+  );
+}
+
+function TicketSerialMarks({ isPlatform }: { isPlatform: boolean }) {
+  /** Design-reference ticket serial strip — decorative identity only (not redeem authority). */
+  const baseY = GIFT_PORTRAIT_LANDMARKS.serialY;
+  const pattern = [3, 2, 4, 2, 3, 5, 2, 3, 2, 4, 3, 2, 5, 2, 3, 4, 2, 3, 2, 5, 3, 2, 4, 2, 3, 2, 4, 3, 2, 5, 2, 3, 4, 2, 3];
+  const startX = 220;
+  let x = startX;
+  return (
+    <g data-gift-foot-serial="1" aria-hidden>
+      {pattern.map((w, i) => {
+        const rect = (
+          <rect key={i} x={x} y={baseY} width={w} height={58} fill="#1A1A1A" />
+        );
+        x += w + 3;
+        return rect;
+      })}
+      <text
+        x={400}
+        y={baseY + 88}
+        textAnchor="middle"
+        fontSize={GIFT_PORTRAIT_TYPE.footBrand}
+        fontWeight={600}
+        fill={MUTED}
+        fontFamily="system-ui,sans-serif"
+        letterSpacing="2"
+        data-gift-foot-brand="1"
+      >
+        {isPlatform ? "DIBAY GIFT CERTIFICATE" : "Powered by DIBAY"}
+      </text>
+    </g>
+  );
+}
+
+function GiftableStrip({
+  title,
+  hint,
+}: {
+  title: string;
+  hint: string;
+}) {
+  const y = GIFT_PORTRAIT_LANDMARKS.giftableY;
+  return (
+    <g data-gift-giftable-strip="1">
+      <rect
+        x={PAD_L}
+        y={y}
+        width={PAD_R - PAD_L}
+        height={72}
+        rx={16}
+        fill="#EAF5EE"
+      />
+      {/* gift box icon */}
+      <g fill="none" stroke={BRAND} strokeWidth={2.2} aria-hidden>
+        <rect x={PAD_L + 22} y={y + 22} width={28} height={28} rx={3} />
+        <path d={`M ${PAD_L + 22} ${y + 34} H ${PAD_L + 50}`} />
+        <path d={`M ${PAD_L + 36} ${y + 22} V ${y + 50}`} />
+        <path d={`M ${PAD_L + 36} ${y + 22} C ${PAD_L + 28} ${y + 12}, ${PAD_L + 18} ${y + 18}, ${PAD_L + 36} ${y + 22}`} />
+        <path d={`M ${PAD_L + 36} ${y + 22} C ${PAD_L + 44} ${y + 12}, ${PAD_L + 54} ${y + 18}, ${PAD_L + 36} ${y + 22}`} />
+      </g>
+      <text
+        x={PAD_L + 68}
+        y={y + 34}
+        fontSize={26}
+        fontWeight={700}
+        fill={BRAND}
+        fontFamily="system-ui,sans-serif"
+      >
+        {title}
+      </text>
+      <text
+        x={PAD_L + 68}
+        y={y + 58}
+        fontSize={20}
+        fill={MUTED}
+        fontFamily="system-ui,sans-serif"
+      >
+        {hint.length > 28 ? `${hint.slice(0, 27)}…` : hint}
+      </text>
     </g>
   );
 }
@@ -486,9 +637,9 @@ export function DibayGiftCertificateFace({
   const uid = `gcf-${reactId}`;
   const maskId = `${uid}-mask`;
   const isPlatform = model.kind === "PLATFORM";
-  const titleLines = wrapGiftCertificateTitle(model.title, { maxCharsPerLine: 20, maxLines: 2 });
+  const titleLines = wrapGiftCertificateTitle(model.title, { maxCharsPerLine: 18, maxLines: 2 });
   const numberValue = model.certificateDisplayNumber?.trim() || labels.numberUnavailable;
-  const expiryValue = model.expirationDisplay?.trim() || null;
+  const expiryValue = model.expirationDisplay?.trim() || "—";
 
   return (
     <div
@@ -547,22 +698,21 @@ export function DibayGiftCertificateFace({
 
           <TicketHero model={model} uid={uid} />
 
-          {/* body issuer badge */}
           <g data-gift-issuer-badge="1">
             <rect
               x={PAD_L}
-              y={372}
-              width={Math.min(44 + model.issuerBadge.length * 14, 220)}
-              height={44}
-              rx={22}
+              y={368}
+              width={Math.min(52 + model.issuerBadge.length * 16, 260)}
+              height={48}
+              rx={24}
               fill={BRAND_SOFT}
               stroke={BRAND_SOFT_STROKE}
               strokeWidth={1.5}
             />
             <text
-              x={PAD_L + 18}
+              x={PAD_L + 20}
               y={400}
-              fontSize={20}
+              fontSize={GIFT_PORTRAIT_TYPE.badge}
               fontWeight={700}
               fill={BRAND}
               fontFamily="system-ui,sans-serif"
@@ -571,14 +721,13 @@ export function DibayGiftCertificateFace({
             </text>
           </g>
 
-          {/* title — fixed box, max 2 lines */}
           <g data-gift-landmark="title" data-gift-cert-title="1">
             {titleLines.map((line, i) => (
               <text
                 key={i}
                 x={PAD_L}
-                y={GIFT_PORTRAIT_LANDMARKS.titleY + i * 40}
-                fontSize={32}
+                y={GIFT_PORTRAIT_LANDMARKS.titleY + i * GIFT_PORTRAIT_TYPE.titleLine}
+                fontSize={GIFT_PORTRAIT_TYPE.title}
                 fontWeight={700}
                 fill={INK}
                 fontFamily="system-ui,sans-serif"
@@ -590,7 +739,6 @@ export function DibayGiftCertificateFace({
 
           <AmountBlock model={model} labels={labels} />
 
-          {/* perforation dashed line */}
           <g data-gift-landmark="perforation" data-gift-cert-perforation="1">
             <line
               x1={52}
@@ -603,7 +751,6 @@ export function DibayGiftCertificateFace({
             />
           </g>
 
-          {/* meta */}
           <MetaRow
             kind="issuer"
             label={labels.issuerLabel}
@@ -611,15 +758,13 @@ export function DibayGiftCertificateFace({
             y={GIFT_PORTRAIT_LANDMARKS.issuerY}
             dataAttr="issuer"
           />
-          {expiryValue ? (
-            <MetaRow
-              kind="expiry"
-              label={labels.expiryLabel}
-              value={expiryValue}
-              y={GIFT_PORTRAIT_LANDMARKS.expiryY}
-              dataAttr="expiry"
-            />
-          ) : null}
+          <MetaRow
+            kind="expiry"
+            label={labels.expiryLabel}
+            value={expiryValue}
+            y={GIFT_PORTRAIT_LANDMARKS.expiryY}
+            dataAttr="expiry"
+          />
           <MetaRow
             kind="number"
             label={labels.numberLabel}
@@ -628,23 +773,13 @@ export function DibayGiftCertificateFace({
             dataAttr="number"
           />
 
-          {/* bottom brand identity */}
-          <text
-            x={400}
-            y={1100}
-            textAnchor="middle"
-            fontSize={14}
-            fontWeight={600}
-            fill={MUTED}
-            fontFamily="system-ui,sans-serif"
-            letterSpacing="3"
-            data-gift-foot-brand="1"
-          >
-            {isPlatform ? "DIBAY GIFT CERTIFICATE" : "Powered by DIBAY"}
-          </text>
+          <TicketSerialMarks isPlatform={isPlatform} />
+
+          {model.transferable === true ? (
+            <GiftableStrip title={labels.giftableTitle} hint={labels.giftableHint} />
+          ) : null}
         </g>
 
-        {/* outer stroke after mask so edge reads clean */}
         <rect
           x={TICKET.x}
           y={TICKET.y}

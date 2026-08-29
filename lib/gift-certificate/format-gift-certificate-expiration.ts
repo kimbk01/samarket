@@ -6,17 +6,15 @@
 
 import type { GiftExpiryPolicy } from "@/lib/gift-certificate/gift-certificate-domain-contract";
 import { normalizeGiftExpiryPolicy } from "@/lib/gift-certificate/gift-certificate-domain-contract";
-import { formatGiftAdminValidityLabel } from "@/lib/gift-certificate/format-gift-admin-validity";
 
 export function formatGiftInstanceExpirationDisplay(args: {
   validUntil: string | null | undefined;
   noExpiryLabel: string;
 }): string {
-  return formatGiftAdminValidityLabel({
-    validFrom: null,
-    validUntil: args.validUntil,
-    noExpiryLabel: args.noExpiryLabel,
-  });
+  const until =
+    typeof args.validUntil === "string" ? args.validUntil.trim().slice(0, 10) : "";
+  if (!until) return args.noExpiryLabel;
+  return `${until.replace(/-/g, ".")}까지`;
 }
 
 export function formatGiftProductExpirationDisplay(args: {
@@ -33,7 +31,7 @@ export function formatGiftProductExpirationDisplay(args: {
     const until =
       typeof args.fixedValidUntil === "string" ? args.fixedValidUntil.trim().slice(0, 10) : "";
     if (!until) return null;
-    return until.replace(/-/g, ".");
+    return `${until.replace(/-/g, ".")}까지`;
   }
   const days = Math.trunc(Number(args.validityDays));
   if (!Number.isFinite(days) || days <= 0) return null;

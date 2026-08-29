@@ -14,13 +14,13 @@ describe("format gift certificate expiration", () => {
     ).toBe("만료 없음");
   });
 
-  it("instance date formats via label helper", () => {
+  it("instance date → YYYY.MM.DD까지", () => {
     expect(
       formatGiftInstanceExpirationDisplay({
         validUntil: "2027-08-29",
         noExpiryLabel: "만료 없음",
       })
-    ).toContain("2027-08-29");
+    ).toBe("2027.08.29까지");
   });
 
   it("product policy NO_EXPIRY / FIXED_DATE / FIXED_DAYS", () => {
@@ -42,7 +42,7 @@ describe("format gift certificate expiration", () => {
         noExpiryLabel: "만료 없음",
         daysAfterIssueLabel: (d) => `발급 후 ${d}일`,
       })
-    ).toBe("2027.08.29");
+    ).toBe("2027.08.29까지");
 
     expect(
       formatGiftProductExpirationDisplay({

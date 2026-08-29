@@ -68,6 +68,7 @@ export function GiftVisualCard({
   showSend = false,
   showValidity = true,
   showGiftNumber = false,
+  transferable = null,
   footer,
   className = "",
   compact = false,
@@ -96,6 +97,8 @@ export function GiftVisualCard({
   /** Outer validity line removed — face meta is authority when expirationDisplay is set. */
   showValidity?: boolean;
   showGiftNumber?: boolean;
+  /** When true, face shows design-reference giftable strip. */
+  transferable?: boolean | null;
   /** @deprecated unused — amounts live on face */
   amountSlot?: ReactNode;
   footer?: ReactNode;
@@ -147,6 +150,7 @@ export function GiftVisualCard({
     remainingBalance,
     expirationDisplay: showValidity ? resolvedExpiry : null,
     certificateDisplayNumber: showGiftNumber ? publicGiftNumber : null,
+    transferable,
     valueMode: isUsed ? "used" : undefined,
     issuerBadgePlatform: badgePlatform,
     issuerBadgeStore: badgeStore,
@@ -194,6 +198,14 @@ export function GiftVisualCard({
             fallbackEn: "Issued after purchase",
           })
         : "—",
+    giftableTitle: safeT("gift_u2_mall_transferable", {
+      fallbackKo: "선물 가능",
+      fallbackEn: "Transferable",
+    }),
+    giftableHint: safeT("gift_portrait_giftable_hint", {
+      fallbackKo: "소중한 사람에게 마음을 전하세요.",
+      fallbackEn: "Send it to someone special.",
+    }),
   };
 
   const detailBtn = detailHref ? (
