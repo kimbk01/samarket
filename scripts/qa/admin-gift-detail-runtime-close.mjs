@@ -209,21 +209,30 @@ async function main() {
     await page.waitForSelector("[data-admin-gift-issuance-panel='1'], [data-admin-gift-product-detail='1']", {
       timeout: 60000,
     });
-    await page.waitForSelector("button[data-admin-gift-product-detail='1'], button:has-text('상세'), button:has-text('Detail')", {
+    await page.waitForSelector(
+      "button[data-admin-gift-product-open-detail='1'], button[data-admin-gift-product-detail='1'], button:has-text('상세'), button:has-text('Detail')",
+      {
       timeout: 60000,
-    });
+    }
+    );
     await page.waitForTimeout(500);
     await page.screenshot({ path: `${SHOT}/desktop-product-list.png`, fullPage: true });
 
     const listManage = await page.locator("[data-admin-gift-product-manage='1']").count();
     // List CTA and detail console both used data-admin-gift-product-detail historically —
     // wait on URL id + KPIs so soft-nav (~3s) is not mistaken for already-open detail.
-    const openProductBtn = page.locator("button[data-admin-gift-product-detail='1']").first();
+    const openProductBtn = page
+      .locator(
+        "button[data-admin-gift-product-open-detail='1'], button[data-admin-gift-product-detail='1']"
+      )
+      .first();
     const openProductAlt = page.locator("button:has-text('상세'), button:has-text('Detail')").first();
     const listDetailCta =
-      (await openProductBtn.count()) > 0
-        ? await page.locator("button[data-admin-gift-product-detail='1']").count()
-        : await openProductAlt.count();
+      (await page
+        .locator(
+          "button[data-admin-gift-product-open-detail='1'], button[data-admin-gift-product-detail='1']"
+        )
+        .count()) || (await openProductAlt.count());
 
     if (listDetailCta < 1) {
       report.notes.productList = { listManage, listDetailCta };
@@ -490,7 +499,12 @@ async function main() {
     report.notes.productList390 = pl;
 
     // Prefer visible CTA (desktop table buttons are hidden at 390 via md: breakpoints).
-    const openBtn = page.locator("ul.md\\:hidden button[data-admin-gift-product-detail='1'], button[data-admin-gift-product-detail='1']").locator("visible=true").first();
+    const openBtn = page
+      .locator(
+        "ul.md\\:hidden button[data-admin-gift-product-open-detail='1'], button[data-admin-gift-product-open-detail='1'], ul.md\\:hidden button[data-admin-gift-product-detail='1'], button[data-admin-gift-product-detail='1']"
+      )
+      .locator("visible=true")
+      .first();
     await openBtn.waitFor({ state: "visible", timeout: 60000 });
     await Promise.all([
       page.waitForURL(/[?&]id=[^&]+/, { timeout: 45000 }),

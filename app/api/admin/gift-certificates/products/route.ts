@@ -8,6 +8,7 @@ import {
   type GiftDiscountFundingParty,
   type GiftScope,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
+import { evaluateGiftProductCustomerPurchaseEligibility } from "@/lib/gift-certificate/gift-product-customer-catalog";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, gift_scope, creation_source, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, archived_at, image_url, issued_count, max_issuance, created_at, updated_at, stores(store_name)"
+      "id, store_id, gift_scope, creation_source, application_id, title, face_value, purchase_price, platform_fee_rate, discount_funding_party, platform_funded_units, merchant_funded_units, transferable, sales_starts_at, sales_ends_at, active, archived_at, mall_visible, image_url, issued_count, max_issuance, created_at, updated_at, stores(store_name)"
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -143,6 +144,16 @@ export async function GET(req: NextRequest) {
           net: agg.net,
         }))
       : [];
+    const mallVisible = row.mall_visible !== false;
+    const customerEval = evaluateGiftProductCustomerPurchaseEligibility({
+      active: row.active === true,
+      mall_visible: mallVisible,
+      archived_at: row.archived_at == null ? null : s(row.archived_at),
+      sales_starts_at: row.sales_starts_at == null ? null : s(row.sales_starts_at),
+      sales_ends_at: row.sales_ends_at == null ? null : s(row.sales_ends_at),
+      max_issuance: row.max_issuance == null ? null : n(row.max_issuance),
+      issued_count: n(row.issued_count),
+    });
     return {
       id,
       gift_scope: giftScope,
@@ -162,6 +173,7 @@ export async function GET(req: NextRequest) {
       sales_ends_at: row.sales_ends_at == null ? null : s(row.sales_ends_at),
       active: row.active === true,
       archived_at: row.archived_at == null ? null : s(row.archived_at),
+      mall_visible: mallVisible,
       image_url: row.image_url == null ? null : s(row.image_url),
       issued_count: n(row.issued_count),
       max_issuance: row.max_issuance == null ? null : n(row.max_issuance),
@@ -170,6 +182,8 @@ export async function GET(req: NextRequest) {
       outstanding_balance: outstandingByProduct.get(id) ?? 0,
       redeemed_gross: redeemedByProduct.get(id) ?? 0,
       redemption_by_store,
+      customer_purchasable: customerEval.eligible,
+      customer_purchase_reason: customerEval.reason,
     };
   });
 

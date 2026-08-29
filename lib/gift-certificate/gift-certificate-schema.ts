@@ -77,3 +77,5 @@ export const GIFT_ADMIN_EVENTS_MIGRATION_ID =
   "20261129210000_gift_admin_events" as const;
 export const GIFT_INSTANCE_CORRECTIVE_MIGRATION_ID =
   "20261129220000_gift_certificate_instance_corrective_rpcs" as const;
+export const GIFT_PURCHASE_MALL_VISIBLE_GATE_MIGRATION_ID =
+  "20261129230000_gift_certificate_purchase_mall_visible_gate" as const;

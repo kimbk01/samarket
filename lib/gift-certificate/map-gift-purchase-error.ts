@@ -12,10 +12,12 @@ export type GiftPurchaseErrorCopyKey =
 
 const UNAVAILABLE = new Set([
   "product_inactive",
+  "product_mall_hidden",
   "sales_not_started",
   "sales_ended",
   "max_issuance_reached",
   "invalid_price",
+  "not_purchasable",
 ]);
 
 export function mapGiftPurchaseErrorKey(code: string | null | undefined): GiftPurchaseErrorCopyKey {

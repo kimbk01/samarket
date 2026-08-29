@@ -68,22 +68,23 @@ export function BuyerGiftDetailView({
 
   const load = useCallback(async () => {
     const qs = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
-    const res = await fetch(`/api/me/gift-certificates/mall${qs}`, {
+    const res = await fetch(`/api/me/gift-certificates/mall/${encodeURIComponent(productId)}${qs}`, {
       credentials: "include",
       cache: "no-store",
     });
-    const json = (await res.json()) as { ok?: boolean; products?: GiftMallProduct[] };
-    let found = (json.ok ? json.products ?? [] : []).find((p) => p.id === productId) ?? null;
-    if (!found) {
-      const resAll = await fetch(`/api/me/gift-certificates/mall`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const jsonAll = (await resAll.json()) as { ok?: boolean; products?: GiftMallProduct[] };
-      found = (jsonAll.ok ? jsonAll.products ?? [] : []).find((p) => p.id === productId) ?? null;
+    const json = (await res.json()) as {
+      ok?: boolean;
+      product?: GiftMallProduct;
+      error?: string;
+      reason?: string;
+    };
+    if (res.ok && json.ok && json.product?.id === productId) {
+      setProduct(json.product);
+      setMissing(false);
+    } else {
+      setProduct(null);
+      setMissing(true);
     }
-    setProduct(found);
-    setMissing(!found);
     setReady(true);
   }, [productId, storeId]);
 

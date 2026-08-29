@@ -59,13 +59,17 @@ type ProductRow = {
   sales_ends_at: string | null;
   active: boolean;
   archived_at?: string | null;
+  mall_visible?: boolean;
   issued_count: number;
+  max_issuance?: number | null;
   outstanding_balance: number;
   redeemed_gross: number;
   transferable?: boolean;
   image_url?: string | null;
   redemption_by_store?: RedemptionByStore[];
   updated_at?: string;
+  customer_purchasable?: boolean;
+  customer_purchase_reason?: string | null;
 };
 
 function dt(v: string | null | undefined): string {
@@ -79,6 +83,45 @@ function dt(v: string | null | undefined): string {
 
 function shortId(id: string): string {
   return id.length > 10 ? `${id.slice(0, 8)}…` : id;
+}
+
+function productOpsLabels(
+  p: ProductRow,
+  safeT: ReturnType<typeof useI18n>["safeT"]
+): { sales: string; mall: string; window: string | null; customer: string } {
+  const sales = p.archived_at
+    ? safeT("gift_ops_status_archived", { fallbackKo: "보관", fallbackEn: "Archived" })
+    : p.active
+      ? safeT("gift_ops_status_active", { fallbackKo: "판매중", fallbackEn: "On sale" })
+      : safeT("gift_ops_status_paused", { fallbackKo: "일시중지", fallbackEn: "Paused" });
+  const mall =
+    p.mall_visible === false
+      ? safeT("gift_ops_mall_hidden_badge", { fallbackKo: "Mall 숨김", fallbackEn: "Mall hidden" })
+      : safeT("gift_ops_mall_visible_badge", { fallbackKo: "Mall 노출", fallbackEn: "Mall visible" });
+  let window: string | null = null;
+  if (p.customer_purchase_reason === "before_sales_start") {
+    window = safeT("gift_ops_sales_before_start", {
+      fallbackKo: "판매기간 전",
+      fallbackEn: "Before sales start",
+    });
+  } else if (p.customer_purchase_reason === "after_sales_end") {
+    window = safeT("gift_ops_sales_after_end", {
+      fallbackKo: "판매기간 종료",
+      fallbackEn: "Sales ended",
+    });
+  } else if (p.customer_purchase_reason === "issuance_cap_reached") {
+    window = safeT("gift_ops_issuance_cap_reached", {
+      fallbackKo: "발급한도 도달",
+      fallbackEn: "Issuance cap reached",
+    });
+  }
+  const customer = p.customer_purchasable
+    ? safeT("gift_ops_customer_purchasable", { fallbackKo: "구매 가능", fallbackEn: "Purchasable" })
+    : safeT("gift_ops_customer_not_purchasable", {
+        fallbackKo: "구매 불가",
+        fallbackEn: "Not purchasable",
+      });
+  return { sales, mall, window, customer };
 }
 
 export function AdminGiftIssuancePanel({
@@ -947,7 +990,8 @@ export function AdminGiftIssuancePanel({
                 <th className="px-2 py-2">{safeT("gift_ops_field_purchase", { fallbackKo: "판매가격", fallbackEn: "Sale price" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_field_fee_dibay", { fallbackKo: "수수료", fallbackEn: "Fee" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_field_sales_window", { fallbackKo: "판매기간", fallbackEn: "Sales window" })}</th>
-                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_ops_state", { fallbackKo: "운영 상태", fallbackEn: "Ops state" })}</th>
+                <th className="px-2 py-2">{safeT("gift_ops_col_customer_state", { fallbackKo: "고객 상태", fallbackEn: "Customer" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_kpi_issued", { fallbackKo: "발급수", fallbackEn: "Issued" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_kpi_outstanding", { fallbackKo: "미사용 잔액", fallbackEn: "Outstanding" })}</th>
                 <th className="px-2 py-2">{safeT("gift_ops_col_updated", { fallbackKo: "최근 수정", fallbackEn: "Updated" })}</th>
@@ -957,8 +1001,13 @@ export function AdminGiftIssuancePanel({
             <tbody>
               {filteredProducts.map((p) => {
                 const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
+                const ops = productOpsLabels(p, safeT);
                 return (
-                  <tr key={p.id} className="border-b border-sam-border/60">
+                  <tr
+                    key={p.id}
+                    className="border-b border-sam-border/60"
+                    data-admin-gift-product-row={p.id}
+                  >
                     <td className="px-2 py-2">
                       <div className="relative h-10 w-10 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
                         {p.image_url ? (
@@ -984,9 +1033,30 @@ export function AdminGiftIssuancePanel({
                       {dt(p.sales_starts_at)} → {dt(p.sales_ends_at)}
                     </td>
                     <td className="px-2 py-2">
-                      {p.archived_at ? "ARCHIVED" : p.active ? "ACTIVE" : "PAUSED"}
+                      <div className="flex flex-col gap-0.5 text-xs" data-admin-gift-product-ops-state="1">
+                        <span>{ops.sales}</span>
+                        <span className={p.mall_visible === false ? "text-amber-700" : "text-sam-muted"}>
+                          {ops.mall}
+                        </span>
+                        {ops.window ? <span className="text-amber-700">{ops.window}</span> : null}
+                      </div>
                     </td>
-                    <td className="px-2 py-2 tabular-nums">{p.issued_count}</td>
+                    <td className="px-2 py-2">
+                      <span
+                        className={[
+                          "text-xs font-semibold",
+                          p.customer_purchasable ? "text-emerald-700" : "text-sam-muted",
+                        ].join(" ")}
+                        data-admin-gift-customer-purchasable={p.customer_purchasable ? "1" : "0"}
+                        data-admin-gift-customer-reason={p.customer_purchase_reason || ""}
+                      >
+                        {ops.customer}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2 tabular-nums">
+                      {p.issued_count}
+                      {p.max_issuance != null ? ` / ${p.max_issuance}` : ""}
+                    </td>
                     <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(p.outstanding_balance)}</td>
                     <td className="px-2 py-2 text-xs">{dt(p.updated_at || null)}</td>
                     <td className="px-2 py-2">
@@ -994,7 +1064,7 @@ export function AdminGiftIssuancePanel({
                         type="button"
                         className={adminGiftPrimaryBtnClass("px-3 py-1.5 text-xs min-h-[36px]")}
                         style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                        data-admin-gift-product-detail="1"
+                        data-admin-gift-product-open-detail="1"
                         onClick={() => go({ tab: "products", extra: { id: p.id } })}
                       >
                         {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
@@ -1012,8 +1082,13 @@ export function AdminGiftIssuancePanel({
         <ul className="space-y-2 md:hidden">
           {filteredProducts.map((p) => {
             const sc = p.gift_scope === "PLATFORM" ? "PLATFORM" : "STORE";
+            const ops = productOpsLabels(p, safeT);
             return (
-              <li key={p.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+              <li
+                key={p.id}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+                data-admin-gift-product-row={p.id}
+              >
                 <div className="flex gap-3">
                   <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
                     {p.image_url ? (
@@ -1024,7 +1099,15 @@ export function AdminGiftIssuancePanel({
                     <p className="text-xs text-sam-muted">{labelScope(sc)}</p>
                     <p className="font-semibold">{p.title}</p>
                     <p className="text-xs tabular-nums">
-                      {formatMoneyPhp(p.face_value)} · {p.archived_at ? "ARCHIVED" : p.active ? "ACTIVE" : "PAUSED"}
+                      {formatMoneyPhp(p.face_value)} · {ops.sales} · {ops.mall}
+                    </p>
+                    <p
+                      className="text-xs font-semibold"
+                      data-admin-gift-customer-purchasable={p.customer_purchasable ? "1" : "0"}
+                      data-admin-gift-customer-reason={p.customer_purchase_reason || ""}
+                    >
+                      {ops.customer}
+                      {ops.window ? ` · ${ops.window}` : ""}
                     </p>
                   </div>
                 </div>
@@ -1032,7 +1115,7 @@ export function AdminGiftIssuancePanel({
                   type="button"
                   className={adminGiftPrimaryBtnClass("mt-3 w-full min-h-[40px] text-sm")}
                   style={ADMIN_GIFT_PRIMARY_BTN_STYLE}
-                  data-admin-gift-product-detail="1"
+                  data-admin-gift-product-open-detail="1"
                   onClick={() => go({ tab: "products", extra: { id: p.id } })}
                 >
                   {safeT("gift_ops_cta_detail", { fallbackKo: "상세", fallbackEn: "Detail" })}
