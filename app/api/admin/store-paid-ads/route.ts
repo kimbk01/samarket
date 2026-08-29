@@ -1,12 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import {
-  createStorePaidAdCampaignAdmin,
-  updateStorePaidAdCampaignAdmin,
-  type StorePaidAdWriterError,
-} from "@/lib/stores/store-paid-ad-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   isStorePaidAdCampaignActive,
@@ -25,32 +19,9 @@ import {
   mapBrowseScopeDbRow,
 } from "@/lib/stores/product/stores-browse-scope-policy-db";
 import { resolveBrowseScopePolicy } from "@/lib/stores/product/stores-browse-scope-policy-catalog";
-import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function writerErrorStatus(error: StorePaidAdWriterError): number {
-  switch (error) {
-    case "forbidden_fields":
-    case "missing_store_id":
-    case "missing_id":
-    case "invalid_placement":
-    case "empty_title":
-    case "empty_headline":
-    case "invalid_start_at":
-    case "invalid_end_at":
-    case "invalid_window":
-      return 400;
-    case "store_not_found":
-    case "campaign_not_found":
-      return 404;
-    case "store_not_eligible":
-      return 422;
-    default:
-      return 500;
-  }
-}
 
 function computedState(row: {
   is_active: boolean;
@@ -210,60 +181,26 @@ export async function GET() {
   });
 }
 
-export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const result = await createStorePaidAdCampaignAdmin(sb, body, userId);
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, forbidden: result.forbidden },
-      { status: writerErrorStatus(result.error) }
-    );
-  }
-  invalidateStoresBrowseMemoryCache();
-  return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
+export async function POST() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      canonical: "/admin/delivery-ads",
+      api: "/api/admin/delivery-ads",
+    },
+    { status: 410 }
+  );
 }
 
-export async function PATCH(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const result = await updateStorePaidAdCampaignAdmin(sb, body, userId);
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, forbidden: result.forbidden },
-      { status: writerErrorStatus(result.error) }
-    );
-  }
-  invalidateStoresBrowseMemoryCache();
-  return NextResponse.json({ ok: true, campaign: result.row });
+export async function PATCH() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      canonical: "/admin/delivery-ads",
+      api: "/api/admin/delivery-ads",
+    },
+    { status: 410 }
+  );
 }

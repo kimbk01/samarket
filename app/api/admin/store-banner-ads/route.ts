@@ -1,11 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import {
-  createStoreBannerAdCampaignAdmin,
-  updateStoreBannerAdCampaignAdmin,
-  type StoreBannerAdWriterError,
-} from "@/lib/stores/store-banner-ad-campaign-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   STORE_BANNER_AD_CAMPAIGN_TABLE,
@@ -15,23 +9,6 @@ import { resolveStoreBannerAdVisibility } from "@/lib/stores/store-banner-ad-exp
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function writerErrorStatus(error: StoreBannerAdWriterError): number {
-  switch (error) {
-    case "forbidden_fields":
-    case "missing_id":
-    case "invalid_surface":
-    case "empty_image_url":
-    case "invalid_start_at":
-    case "invalid_end_at":
-    case "invalid_window":
-      return 400;
-    case "campaign_not_found":
-      return 404;
-    default:
-      return 500;
-  }
-}
 
 function computedState(row: {
   is_active: boolean;
@@ -133,58 +110,26 @@ export async function GET() {
   });
 }
 
-export async function POST(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const result = await createStoreBannerAdCampaignAdmin(sb, body, userId);
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, forbidden: result.forbidden },
-      { status: writerErrorStatus(result.error) }
-    );
-  }
-  return NextResponse.json({ ok: true, campaign: result.row }, { status: 201 });
+export async function POST() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      canonical: "/admin/delivery-ads",
+      api: "/api/admin/delivery-ads",
+    },
+    { status: 410 }
+  );
 }
 
-export async function PATCH(req: NextRequest) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const userId = await getRouteUserId();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const result = await updateStoreBannerAdCampaignAdmin(sb, body, userId);
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, forbidden: result.forbidden },
-      { status: writerErrorStatus(result.error) }
-    );
-  }
-  return NextResponse.json({ ok: true, campaign: result.row });
+export async function PATCH() {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      canonical: "/admin/delivery-ads",
+      api: "/api/admin/delivery-ads",
+    },
+    { status: 410 }
+  );
 }

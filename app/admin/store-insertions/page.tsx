@@ -1,7 +1,7 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { AdminStoreInsertionControlPage } from "@/components/admin/stores/AdminStoreInsertionControlPage";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
+/** CUT F — legacy Admin Store Sponsored surface → canonical Delivery Ads hub. */
 export default async function AdminStoreInsertionsRoutePage({
   searchParams,
 }: {
@@ -12,9 +12,5 @@ export default async function AdminStoreInsertionsRoutePage({
   if (focus === "coupons") {
     redirect("/admin/store-coupon-control");
   }
-  return (
-    <Suspense fallback={null}>
-      <AdminStoreInsertionControlPage />
-    </Suspense>
-  );
+  redirect(DELIVERY_AD_ADMIN_ROUTES.hub);
 }

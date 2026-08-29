@@ -17,8 +17,10 @@ export const DELIVERY_AD_ADMIN_ROUTES = {
     `/admin/delivery-ads/${encodeURIComponent(campaignId)}`,
 } as const;
 
-/** Existing writers remain until CUT F consolidation. */
+/** Existing writers redirected / mutation-disabled as of CUT F. */
 export const DELIVERY_AD_LEGACY_ADMIN_ROUTES = {
   storeSponsored: "/admin/store-insertions",
   banner: "/admin/store-banner-ads",
+  disposition: "canonical_redirect",
+  canonical: "/admin/delivery-ads",
 } as const;
