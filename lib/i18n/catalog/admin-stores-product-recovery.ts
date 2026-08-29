@@ -16,8 +16,6 @@ export const adminStoresProductRecoveryMessages = {
     admin_delivery_ads_stub_title: "배달 광고 (기반)",
     admin_delivery_ads_stub_body:
       "CUT B 기반이 준비되었습니다. CUT F 통합 전까지는 매장 홍보 광고·배너 광고 화면을 사용하세요.",
-    owner_delivery_ads_hub_title: "광고 관리",
-    owner_delivery_ads_hub_stub: "광고 신청·관리 화면은 준비 중입니다.",
     admin_menu_store_coupons_control: "쿠폰",
     admin_menu_store_coupon_control_center: "쿠폰 운영 센터",
     admin_menu_gift_certificates: "상품권 관리",
@@ -256,8 +254,6 @@ export const adminStoresProductRecoveryMessages = {
     admin_delivery_ads_stub_title: "Delivery ads (foundation)",
     admin_delivery_ads_stub_body:
       "CUT B foundation is ready. Use Store sponsored / Banner ads screens until the CUT F control plane.",
-    owner_delivery_ads_hub_title: "Ad management",
-    owner_delivery_ads_hub_stub: "Ad application and management UI is coming soon.",
     admin_menu_store_coupons_control: "Coupons",
     admin_menu_store_coupon_control_center: "Coupon control center",
     admin_menu_gift_certificates: "Gift certificates",

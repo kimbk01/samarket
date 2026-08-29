@@ -1,11 +1,16 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, use } from "react";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerDeliveryAdsHubView } from "@/components/business/owner/ads/OwnerDeliveryAdsHubView";
+import { OwnerDeliveryAdDetailView } from "@/components/business/owner/ads/OwnerDeliveryAdDetailView";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 
-export default function OwnerDeliveryAdsHubPage() {
+export default function OwnerDeliveryAdDetailPage({
+  params,
+}: {
+  params: Promise<{ campaignId: string }>;
+}) {
+  const { campaignId } = use(params);
   return (
     <Suspense
       fallback={
@@ -15,7 +20,7 @@ export default function OwnerDeliveryAdsHubPage() {
       }
     >
       <OwnerAdminPageScrollShell>
-        <OwnerDeliveryAdsHubView />
+        <OwnerDeliveryAdDetailView campaignId={campaignId} />
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

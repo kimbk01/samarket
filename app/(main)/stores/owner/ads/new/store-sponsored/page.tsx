@@ -2,10 +2,10 @@
 
 import { Suspense } from "react";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerDeliveryAdsHubView } from "@/components/business/owner/ads/OwnerDeliveryAdsHubView";
+import { OwnerStoreSponsoredCreateView } from "@/components/business/owner/ads/OwnerStoreSponsoredCreateView";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 
-export default function OwnerDeliveryAdsHubPage() {
+export default function OwnerStoreSponsoredCreatePage() {
   return (
     <Suspense
       fallback={
@@ -15,7 +15,7 @@ export default function OwnerDeliveryAdsHubPage() {
       }
     >
       <OwnerAdminPageScrollShell>
-        <OwnerDeliveryAdsHubView />
+        <OwnerStoreSponsoredCreateView />
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

@@ -128,4 +128,17 @@ export {
   DELIVERY_AD_LEGACY_ADMIN_ROUTES,
 } from "@/lib/stores/advertising/delivery-ad-routes";
 
+export {
+  OWNER_STORE_SPONSORED_INVENTORY_KEYS,
+  DELIVERY_AD_OWNER_PRICING_PRODUCT,
+  validateOwnerStoreSponsoredSchedule,
+  validateOwnerInventorySelection,
+  isStoreEligibleForOwnerAdApplication,
+  ownerLifecycleStatusI18nKey,
+  ownerActionTargetLifecycle,
+  type OwnerStoreSponsoredInventoryKey,
+  type OwnerCampaignAction,
+} from "@/lib/stores/advertising/owner-store-sponsored-contract";
+
 export const DELIVERY_AD_PLATFORM_CUT_B = "B" as const;
+export const DELIVERY_AD_PLATFORM_CUT_C = "C" as const;

@@ -5,6 +5,7 @@
 export const DELIVERY_AD_OWNER_ROUTES = {
   hub: "/stores/owner/ads",
   createStoreSponsored: "/stores/owner/ads/new/store-sponsored",
+  /** Banner Owner create — CUT E (no Owner entry until then). */
   createBanner: "/stores/owner/ads/new/banner",
   detail: (campaignId: string) =>
     `/stores/owner/ads/${encodeURIComponent(campaignId)}`,
