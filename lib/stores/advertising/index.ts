@@ -1,8 +1,5 @@
 /**
- * CUT A — DIBAY Delivery Ad Platform canonical contract owner.
- *
- * Import from `@/lib/stores/advertising` only — do not redeclare product/placement
- * unions in components or composition modules.
+ * CUT A/B — DIBAY Delivery Ad Platform canonical contract owner.
  *
  * @see docs/dibay-delivery-advertising-ssot.md
  */
@@ -51,3 +48,84 @@ export {
   type DeliveryAdExposureLayer,
   type CompatibilitySurfacePolicyKey,
 } from "@/lib/stores/advertising/delivery-ad-layers";
+
+export {
+  DELIVERY_AD_PRODUCT_TABLE,
+  DELIVERY_AD_PRODUCT_KEYS,
+  DELIVERY_AD_PRODUCT_REGISTRY,
+  isDeliveryAdProductKey,
+  deliveryAdProductByKey,
+  type DeliveryAdProductKey,
+  type DeliveryAdCreativeMode,
+  type DeliveryAdProductRow,
+} from "@/lib/stores/advertising/delivery-ad-product-registry";
+
+export {
+  DELIVERY_AD_INVENTORY_TABLE,
+  DELIVERY_AD_INVENTORY_KEYS,
+  DELIVERY_AD_INVENTORY_SEEDS,
+  ACTIVE_DELIVERY_AD_INVENTORY_KEYS,
+  FUTURE_DELIVERY_AD_INVENTORY_KEYS,
+  LEGACY_PLACEMENT_TO_INVENTORY,
+  LEGACY_SURFACE_GATE_CLASSIFICATION,
+  DELIVERY_AD_DEVICE_RATIO_CONTRACT,
+  inventorySeedByKey,
+  isRuntimeActiveInventory,
+  mapLegacyPlacementToInventory,
+  type DeliveryAdInventoryKey,
+  type DeliveryAdRatioSource,
+  type DeliveryAdInventoryRuntimeStatus,
+  type DeliveryAdInventorySeed,
+  type LegacySurfaceGateKey,
+} from "@/lib/stores/advertising/delivery-ad-inventory";
+
+export {
+  DELIVERY_AD_LIFECYCLE_STATUSES,
+  DELIVERY_AD_REVIEW_STATUSES,
+  DELIVERY_AD_PRICING_MODELS,
+  DELIVERY_AD_PRICING_CONTRACT,
+  canTransitionDeliveryAdLifecycle,
+  canOwnerRequestLifecycleTransition,
+  assertDeliveryAdLifecycleTransition,
+  lifecycleImpliesIsActive,
+  type DeliveryAdLifecycleStatus,
+  type DeliveryAdReviewStatus,
+  type DeliveryAdActorRole,
+  type DeliveryAdPricingModel,
+} from "@/lib/stores/advertising/delivery-ad-lifecycle";
+
+export {
+  DELIVERY_AD_CREATIVE_TABLE,
+  DELIVERY_AD_CTA_TARGETS,
+  isDeliveryAdCtaTarget,
+  isForbiddenExternalCta,
+  validateDeliveryAdCreativeForInventory,
+  validateCtaPayload,
+  creativeMatchesInventoryAspect,
+  simplifyAspectRatio,
+  type DeliveryAdCtaTarget,
+  type DeliveryAdCreativeInput,
+  type DeliveryAdCreativeValidationError,
+} from "@/lib/stores/advertising/delivery-ad-creative";
+
+export {
+  DELIVERY_AD_AUDIT_LOG_TABLE,
+  canPhysicallyDeleteDeliveryAdCampaign,
+  DELIVERY_AD_DELETE_CONTRACT,
+  type DeliveryAdAuditInsert,
+  type DeliveryAdHistoryFlags,
+} from "@/lib/stores/advertising/delivery-ad-audit";
+
+export {
+  DELIVERY_AD_EXPOSURE_ELIGIBILITY_FACTORS,
+  STORE_ELIGIBILITY_CUT_B_STATUS,
+  type DeliveryAdExposureEligibilityFactor,
+} from "@/lib/stores/advertising/delivery-ad-eligibility-contract";
+
+export {
+  DELIVERY_AD_OWNER_ROUTES,
+  DELIVERY_AD_ADMIN_ROUTES,
+  DELIVERY_AD_LEGACY_ADMIN_ROUTES,
+} from "@/lib/stores/advertising/delivery-ad-routes";
+
+export const DELIVERY_AD_PLATFORM_CUT_B = "B" as const;

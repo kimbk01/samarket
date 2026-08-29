@@ -1,16 +1,8 @@
 /**
  * CUT A — Campaign ≠ Exposure layer contract.
+ * CUT B — Legacy surface gates classified COMPATIBILITY (see LEGACY_SURFACE_GATE_CLASSIFICATION).
  *
  * HARD LOCK: campaign exists ≠ exposure.
- *
- * Layers (independent authorities):
- *   CAMPAIGN        — row exists / is_active / schedule window
- *   SURFACE_POLICY  — surface allows this ad product (legacy gates)
- *   ELIGIBILITY     — store/service/taxonomy factors
- *   INSERTION_PLAN  — where to interleave (does not reorder organic ranking)
- *
- * Legacy surface gates (COMPATIBILITY — migrate to inventory SSOT in CUT B):
- *   ad_integration · ad_enabled · homePaidAdInsertion
  */
 
 export const DELIVERY_AD_EXPOSURE_LAYERS = [
@@ -36,7 +28,8 @@ export const DELIVERY_AD_CAMPAIGN_NE_EXPOSURE = {
   rule: "campaign_exists_is_not_exposure",
   requiredLayers: DELIVERY_AD_EXPOSURE_LAYERS,
   compatibilitySurfacePolicy: COMPATIBILITY_SURFACE_POLICY_KEYS,
-  cutBMigrationTarget: "inventory_placement_ssot",
+  /** CUT B — gates remain COMPATIBILITY; inventory is CANONICAL for placement identity. */
+  cutBStatus: "COMPATIBILITY_SURFACE_POLICY_WITH_INVENTORY_SSOT",
 } as const;
 
 /**
