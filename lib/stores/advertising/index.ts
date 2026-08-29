@@ -248,3 +248,20 @@ export const DELIVERY_AD_PLATFORM_CUT_E = "E" as const;
 export const DELIVERY_AD_PLATFORM_CUT_F = "F" as const;
 export const DELIVERY_AD_PLATFORM_CUT_G = "G" as const;
 export const DELIVERY_AD_PLATFORM_CUT_H = "H" as const;
+export const DELIVERY_AD_PLATFORM_CUT_I = "I" as const;
+
+export {
+  CUT_I_ANALYTICS_AUTHORITY,
+  DELIVERY_AD_ATTRIBUTED_SALES_AUTHORITY,
+  DELIVERY_AD_ANALYTICS_TIMEZONE,
+  computeDeliveryAdCtr,
+  computeDeliveryAdRoas,
+  assembleDeliveryAdPerformanceMetrics,
+  buildDeliveryAdAnalyticsPlatformStatus,
+  resolveDeliveryAdAnalyticsRange,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
+
+export {
+  loadDeliveryAdPerformance,
+  loadDeliveryAdPerformanceBreakdown,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-loader";

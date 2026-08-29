@@ -26,6 +26,11 @@ import {
   DELIVERY_AD_INVENTORY_KEYS,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
+import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import type {
+  DeliveryAdAnalyticsDateRange,
+  DeliveryAdPerformancePayload,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
@@ -65,6 +70,9 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
   const [confirmAction, setConfirmAction] = useState<AdminDeliveryAdAction | null>(null);
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
+  const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
+  const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,6 +110,38 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!campaign) return;
+    let cancelled = false;
+    setPerfLoading(true);
+    const qs = new URLSearchParams({
+      range: perfRange,
+      productKind: campaign.productKind,
+    });
+    void fetch(
+      `/api/admin/delivery-ads/${encodeURIComponent(campaignId)}/performance?${qs.toString()}`,
+      { credentials: "include", cache: "no-store" }
+    )
+      .then(async (res) => {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          performance?: DeliveryAdPerformancePayload;
+        };
+        if (cancelled) return;
+        if (res.ok && json.ok && json.performance) setPerformance(json.performance);
+        else setPerformance(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformance(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPerfLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign, campaignId, perfRange]);
 
   const allowedActions = useMemo(() => {
     if (!campaign) return [];
@@ -281,6 +321,15 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
                   <dd>{campaign.reviewStatus}</dd>
                 </div>
               </dl>
+            </AdminCard>
+
+            <AdminCard titleKey="delivery_ads_perf_section_title">
+              <DeliveryAdPerformancePanel
+                performance={performance}
+                loading={perfLoading}
+                range={perfRange}
+                onRangeChange={setPerfRange}
+              />
             </AdminCard>
 
             <AdminCard titleKey="admin_delivery_ads_section_settings">

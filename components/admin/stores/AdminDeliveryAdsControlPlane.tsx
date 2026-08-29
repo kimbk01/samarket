@@ -10,6 +10,11 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import type { AdminDeliveryAdListBucket } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import type {
+  DeliveryAdAnalyticsDateRange,
+  DeliveryAdPerformancePayload,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 
 const BUCKETS: AdminDeliveryAdListBucket[] = [
   "all",
@@ -49,6 +54,9 @@ export function AdminDeliveryAdsControlPlane() {
     held: 0,
     ended: 0,
   });
+  const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
+  const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +91,33 @@ export function AdminDeliveryAdsControlPlane() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPerfLoading(true);
+    void fetch(
+      `/api/admin/delivery-ads/performance?scope=all&range=${encodeURIComponent(perfRange)}`,
+      { credentials: "include", cache: "no-store" }
+    )
+      .then(async (res) => {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          performance?: DeliveryAdPerformancePayload;
+        };
+        if (cancelled) return;
+        if (res.ok && json.ok && json.performance) setPerformance(json.performance);
+        else setPerformance(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformance(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPerfLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [perfRange]);
 
   return (
     <AdminDeliveryCmsChrome help="home">
@@ -131,6 +166,15 @@ export function AdminDeliveryAdsControlPlane() {
             </AdminCard>
           ))}
         </div>
+
+        <AdminCard titleKey="delivery_ads_perf_section_title">
+          <DeliveryAdPerformancePanel
+            performance={performance}
+            loading={perfLoading}
+            range={perfRange}
+            onRangeChange={setPerfRange}
+          />
+        </AdminCard>
 
         <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("admin_delivery_ads_title")}>
           {BUCKETS.map((b) => (

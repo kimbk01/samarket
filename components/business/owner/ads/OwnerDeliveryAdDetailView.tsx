@@ -23,6 +23,11 @@ import {
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
+import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import type {
+  DeliveryAdAnalyticsDateRange,
+  DeliveryAdPerformancePayload,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
 
@@ -38,6 +43,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<OwnerCampaignAction | "delete" | null>(null);
+  const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
+  const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!storeId) {
@@ -97,6 +105,33 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPerfLoading(true);
+    void fetch(
+      `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/performance?range=${encodeURIComponent(perfRange)}`,
+      { credentials: "include" }
+    )
+      .then(async (res) => {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          performance?: DeliveryAdPerformancePayload;
+        };
+        if (cancelled) return;
+        if (res.ok && json.ok && json.performance) setPerformance(json.performance);
+        else setPerformance(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformance(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPerfLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, perfRange]);
 
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
@@ -223,6 +258,15 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~ {campaign.endAt.slice(0, 10)}
             </p>
             <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_pricing_not_configured")}</p>
+          </OwnerStoreAdminDashSection>
+
+          <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
+            <DeliveryAdPerformancePanel
+              performance={performance}
+              loading={perfLoading}
+              range={perfRange}
+              onRangeChange={setPerfRange}
+            />
           </OwnerStoreAdminDashSection>
 
           {campaign.lifecycleStatus === "PAUSED_ADMIN" ? (

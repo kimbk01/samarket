@@ -14,6 +14,11 @@ import {
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
 import { Sam } from "@/lib/ui/css-vars";
+import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import type {
+  DeliveryAdAnalyticsDateRange,
+  DeliveryAdPerformancePayload,
+} from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 
 type HubStore = {
   id: string;
@@ -57,6 +62,9 @@ export function OwnerDeliveryAdsHubView() {
     ended: 0,
     draft: 0,
   });
+  const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
+  const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -87,6 +95,32 @@ export function OwnerDeliveryAdsHubView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPerfLoading(true);
+    void fetch(`/api/me/delivery-ads/performance?range=${encodeURIComponent(perfRange)}`, {
+      credentials: "include",
+    })
+      .then(async (res) => {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          performance?: DeliveryAdPerformancePayload;
+        };
+        if (cancelled) return;
+        if (res.ok && json.ok && json.performance) setPerformance(json.performance);
+        else setPerformance(null);
+      })
+      .catch(() => {
+        if (!cancelled) setPerformance(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPerfLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [perfRange]);
 
   const storeNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -149,6 +183,15 @@ export function OwnerDeliveryAdsHubView() {
             </div>
           ))}
         </div>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
+        <DeliveryAdPerformancePanel
+          performance={performance}
+          loading={perfLoading}
+          range={perfRange}
+          onRangeChange={setPerfRange}
+        />
       </OwnerStoreAdminDashSection>
 
       {!loaded ? (

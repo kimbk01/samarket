@@ -28,6 +28,7 @@ import { adminStoreInsertionsMessages } from "./admin-store-insertions";
 import { adminStoresCompositionMessages } from "./admin-stores-composition";
 import { adminStoresProductRecoveryMessages } from "./admin-stores-product-recovery";
 import { adminDeliveryAdsMessages } from "./admin-delivery-ads";
+import { deliveryAdsPerformanceMessages } from "./delivery-ads-performance";
 
 export const adminMessages = {
   ko: {
@@ -2723,6 +2724,7 @@ export const adminMessages = {
     ...adminStoresCompositionMessages.ko,
     ...adminStoresProductRecoveryMessages.ko,
     ...adminDeliveryAdsMessages.ko,
+    ...deliveryAdsPerformanceMessages.ko,
   },
   en: {
     admin_brand: "dibaY Admin",
@@ -5391,6 +5393,7 @@ export const adminMessages = {
     ...adminStoresCompositionMessages.en,
     ...adminStoresProductRecoveryMessages.en,
     ...adminDeliveryAdsMessages.en,
+    ...deliveryAdsPerformanceMessages.en,
   },
   
 } as const;
