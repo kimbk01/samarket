@@ -11,6 +11,11 @@
  */
 
 import { STORE_SPONSORED_CAMPAIGN_TABLE } from "@/lib/stores/advertising/delivery-ad-domain";
+import type {
+  DeliveryAdLifecycleStatus,
+  DeliveryAdReviewStatus,
+} from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import type { OwnerStoreSponsoredInventoryKey } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 
 export const STORE_PAID_AD_CAMPAIGN_TABLE = STORE_SPONSORED_CAMPAIGN_TABLE;
 
@@ -28,6 +33,10 @@ export type StorePaidAdCampaignRow = {
   startAt: string;
   endAt: string;
   isActive: boolean;
+  /** CUT D — canonical when present; legacy rows may omit. */
+  lifecycleStatus?: DeliveryAdLifecycleStatus;
+  reviewStatus?: DeliveryAdReviewStatus;
+  inventoryKeys?: OwnerStoreSponsoredInventoryKey[];
 };
 
 export function isStorePaidAdPlacement(value: unknown): value is StorePaidAdPlacement {

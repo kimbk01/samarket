@@ -140,5 +140,22 @@ export {
   type OwnerCampaignAction,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 
+export {
+  STORE_SPONSORED_BUDGET_GATE,
+  STORE_ELIGIBILITY_CUT_D_STATUS,
+  SURFACE_TO_REQUIRED_INVENTORY,
+  evaluateStoreSponsoredCampaignGates,
+  evaluateStoreSponsoredExposureEligibility,
+  buildStoreSponsoredEligibilityMapFromOrganicPool,
+  dedupeSponsoredCampaignsOnePerStore,
+  isSponsoredScheduleActive,
+  placementToSponsoredSurface,
+  sponsoredSurfaceToPlacement,
+  type StoreSponsoredRuntimeCampaign,
+  type StoreSponsoredExposureSurface,
+  type StoreSponsoredExposureGateResult,
+} from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
+
 export const DELIVERY_AD_PLATFORM_CUT_B = "B" as const;
 export const DELIVERY_AD_PLATFORM_CUT_C = "C" as const;
+export const DELIVERY_AD_PLATFORM_CUT_D = "D" as const;

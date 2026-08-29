@@ -2,9 +2,8 @@
  * Stores A — attach browse insertion plan to API meta (organic order preserved).
  * CUT 4 — exposure authority → then insertion (after organic).
  *
- * CUT A — storeEligibleById: null (PARTIAL → CUT D). Surface policy via
- * COMPATIBILITY_SURFACE_POLICY_KEYS (ad_enabled). campaign ≠ exposure.
- * @see lib/stores/advertising/delivery-ad-layers.ts
+ * CUT D — storeEligibleById from organic pool (null→true REMOVED).
+ * Surface policy COMPATIBILITY (ad_enabled). Inventory canonical for placement.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -31,6 +30,7 @@ import {
   type StoresBrowseScopeCustomerMeta,
 } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import { selectExposureEligibleStorePaidAds } from "@/lib/stores/store-paid-ad-exposure";
+import { buildStoreSponsoredEligibilityMapFromOrganicPool } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
 
 export type { StoresBrowseScopeCustomerMeta };
 
@@ -144,102 +144,136 @@ export async function attachStoresBrowseInsertionMeta(
 
   const organicIds = gatedBody.stores.map((s) => s.id);
   const organicSet = new Set(organicIds);
-  const policy = scope
-    ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
-    : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
-  const [paidAdsRaw, couponsRaw] = await Promise.all([
-    loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
-    loadActiveStoreCouponCampaigns(sb),
-  ]);
 
-  const couponBadgeByStoreId: Record<string, { title: string }> = {};
-  if (scopeMeta?.couponEnabled) {
-    let eligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
-    const viewerId = scope?.viewerUserId?.trim() || "";
-    if (viewerId) {
-      const ctx = await loadViewerCouponDiscoveryContext(sb, viewerId);
-      eligible = filterDiscoveryCouponsForViewer(eligible, ctx);
-    }
-    for (const c of eligible) {
-      if (!organicSet.has(c.storeId)) continue;
-      if (!couponBadgeByStoreId[c.storeId]) {
-        /** CUT 6 — list badge is generic; never campaign title/amount. */
-        couponBadgeByStoreId[c.storeId] = { title: "" };
+  try {
+    const policy = scope
+      ? await resolveBrowseInsertionPolicy(sb, scope.primarySlug, scope.subSlug)
+      : (await loadRuntimeCompositionPolicy(sb, "browse")).rows;
+    const [paidAdsRaw, couponsRaw] = await Promise.all([
+      loadActiveStorePaidAdCampaigns(sb, "stores_browse"),
+      loadActiveStoreCouponCampaigns(sb),
+    ]);
+
+    const couponBadgeByStoreId: Record<string, { title: string }> = {};
+    if (scopeMeta?.couponEnabled) {
+      let eligible = selectDiscoveryEligibleStoreCoupons({ campaigns: couponsRaw });
+      const viewerId = scope?.viewerUserId?.trim() || "";
+      if (viewerId) {
+        const ctx = await loadViewerCouponDiscoveryContext(sb, viewerId);
+        eligible = filterDiscoveryCouponsForViewer(eligible, ctx);
+      }
+      for (const c of eligible) {
+        if (!organicSet.has(c.storeId)) continue;
+        if (!couponBadgeByStoreId[c.storeId]) {
+          couponBadgeByStoreId[c.storeId] = { title: "" };
+        }
       }
     }
-  }
 
-  const adPolicy = policy.find((r) => r.surface === "browse" && r.slot === "future_ad_insertion");
-  const surfaceAllowed = adPolicy?.enabled === true;
-  const taxonomyMatchedStoreIds = new Set(organicIds);
-  const exposure = selectExposureEligibleStorePaidAds({
-    campaigns: paidAdsRaw,
-    targetPlacement: "stores_browse",
-    surfaceAllowed,
-    taxonomyMatchedStoreIds,
-    storeEligibleById: null,
-  });
+    const adPolicy = policy.find((r) => r.surface === "browse" && r.slot === "future_ad_insertion");
+    const surfaceAllowed = adPolicy?.enabled === true;
+    const taxonomyMatchedStoreIds = new Set(organicIds);
+    const storeEligibleById = buildStoreSponsoredEligibilityMapFromOrganicPool(organicIds);
+    const exposure = selectExposureEligibleStorePaidAds({
+      campaigns: paidAdsRaw,
+      targetPlacement: "stores_browse",
+      surfaceAllowed,
+      taxonomyMatchedStoreIds,
+      storeEligibleById,
+    });
 
-  /** CUT 8 — no paid-style coupon insertion; badge uses browseScopePolicy.couponEnabled. */
-  const plan = planStoresBrowseInsertions({
-    organicStoreIds: organicIds,
-    paidAds: exposure.eligible,
-    coupons: [],
-    policy,
-    paidAdsEnabled: surfaceAllowed,
-  });
+    const plan = planStoresBrowseInsertions({
+      organicStoreIds: organicIds,
+      paidAds: exposure.eligible,
+      coupons: [],
+      policy,
+      paidAdsEnabled: surfaceAllowed,
+    });
 
-  const rows: StoresBrowseInsertionMetaRow[] = plan.rows.map((row) => {
-    if (row.kind === "organic") {
+    const rows: StoresBrowseInsertionMetaRow[] = plan.rows.map((row) => {
+      if (row.kind === "organic") {
+        return { kind: "organic", storeId: row.storeId };
+      }
+      if (row.kind === "paid_ad") {
+        const p = row.payload;
+        return {
+          kind: "paid_ad",
+          campaignId: p.id,
+          storeId: p.storeId,
+          title: p.title,
+          headline: p.headline,
+          bodyCopy: p.bodyCopy,
+          imageUrl: p.imageUrl,
+          placement: p.placement,
+          isSponsored: true as const,
+        };
+      }
       return { kind: "organic", storeId: row.storeId };
-    }
-    if (row.kind === "paid_ad") {
-      const p = row.payload;
-      return {
-        kind: "paid_ad",
-        campaignId: p.id,
-        storeId: p.storeId,
-        title: p.title,
-        headline: p.headline,
-        bodyCopy: p.bodyCopy,
-        imageUrl: p.imageUrl,
-        placement: p.placement,
-        isSponsored: true as const,
-      };
-    }
-    /** Coupon insertion rows no longer produced. */
-    return { kind: "organic", storeId: row.storeId };
-  });
+    });
 
-  return {
-    ...gatedBody,
-    meta: {
-      ...gatedBody.meta,
-      compositionEngine: "live",
-      browseInsertion: {
-        organicIds: plan.organicIds,
-        rows,
-        adCount: plan.adCount,
-        couponCount: plan.couponCount,
-        sponsoredStoreIds: plan.sponsoredStoreIds,
-        surfaceAllowed,
-        couponBadgeByStoreId,
+    return {
+      ...gatedBody,
+      meta: {
+        ...gatedBody.meta,
+        compositionEngine: "live",
+        browseInsertion: {
+          organicIds: plan.organicIds,
+          rows,
+          adCount: plan.adCount,
+          couponCount: plan.couponCount,
+          sponsoredStoreIds: plan.sponsoredStoreIds,
+          surfaceAllowed,
+          couponBadgeByStoreId,
+        },
+        ...(scopeMeta
+          ? {
+              browseScopePolicy: {
+                primarySlug: scopeMeta.primarySlug,
+                subSlug: scopeMeta.subSlug,
+                enabled: scopeMeta.enabled,
+                displayTitleKo: scopeMeta.displayTitleKo,
+                displayTitleEn: scopeMeta.displayTitleEn,
+                adEnabled: scopeMeta.adEnabled,
+                couponEnabled: scopeMeta.couponEnabled,
+                cardType: scopeMeta.cardType,
+                defaultSort: scopeMeta.defaultSort,
+              },
+            }
+          : {}),
       },
-      ...(scopeMeta
-        ? {
-            browseScopePolicy: {
-              primarySlug: scopeMeta.primarySlug,
-              subSlug: scopeMeta.subSlug,
-              enabled: scopeMeta.enabled,
-              displayTitleKo: scopeMeta.displayTitleKo,
-              displayTitleEn: scopeMeta.displayTitleEn,
-              adEnabled: scopeMeta.adEnabled,
-              couponEnabled: scopeMeta.couponEnabled,
-              cardType: scopeMeta.cardType,
-              defaultSort: scopeMeta.defaultSort,
-            },
-          }
-        : {}),
-    },
-  };
+    };
+  } catch (e) {
+    console.error("[attachStoresBrowseInsertionMeta]", e instanceof Error ? e.message : e);
+    return {
+      ...gatedBody,
+      meta: {
+        ...gatedBody.meta,
+        compositionEngine: "live",
+        browseInsertion: {
+          organicIds,
+          rows: organicIds.map((storeId) => ({ kind: "organic" as const, storeId })),
+          adCount: 0,
+          couponCount: 0,
+          sponsoredStoreIds: [],
+          surfaceAllowed: false,
+          couponBadgeByStoreId: {},
+        },
+        ...(scopeMeta
+          ? {
+              browseScopePolicy: {
+                primarySlug: scopeMeta.primarySlug,
+                subSlug: scopeMeta.subSlug,
+                enabled: scopeMeta.enabled,
+                displayTitleKo: scopeMeta.displayTitleKo,
+                displayTitleEn: scopeMeta.displayTitleEn,
+                adEnabled: scopeMeta.adEnabled,
+                couponEnabled: scopeMeta.couponEnabled,
+                cardType: scopeMeta.cardType,
+                defaultSort: scopeMeta.defaultSort,
+              },
+            }
+          : {}),
+      },
+    };
+  }
 }

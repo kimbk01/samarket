@@ -11,8 +11,24 @@ import {
 } from "@/lib/stores/store-coupon-campaign-authority";
 import { STORE_COUPON_CAMPAIGN_TABLE } from "@/lib/stores/store-coupon-campaign-authority";
 import { STORE_PAID_AD_CAMPAIGN_TABLE } from "@/lib/stores/store-paid-ad-campaign-authority";
+import type { OwnerStoreSponsoredInventoryKey } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import type {
+  DeliveryAdLifecycleStatus,
+  DeliveryAdReviewStatus,
+} from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import { isSponsoredScheduleActive } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
+import { lifecycleImpliesIsActive } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 
-function mapPaidAd(raw: Record<string, unknown>): StorePaidAdCampaignRow | null {
+const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories";
+const INVENTORY_TABLE = "delivery_ad_inventories";
+
+const PAID_SELECT =
+  "id, store_id, placement, title, headline, body_copy, image_url, start_at, end_at, is_active, lifecycle_status, review_status";
+
+function mapPaidAd(
+  raw: Record<string, unknown>,
+  inventoryKeys: OwnerStoreSponsoredInventoryKey[] = []
+): StorePaidAdCampaignRow | null {
   const placement = raw.placement;
   if (!isStorePaidAdPlacement(placement)) return null;
   const id = String(raw.id ?? "").trim();
@@ -22,6 +38,17 @@ function mapPaidAd(raw: Record<string, unknown>): StorePaidAdCampaignRow | null 
   const startAt = String(raw.start_at ?? "").trim();
   const endAt = String(raw.end_at ?? "").trim();
   if (!id || !storeId || !title || !headline || !startAt || !endAt) return null;
+
+  const lifecycleRaw = String(raw.lifecycle_status ?? "").trim();
+  const reviewRaw = String(raw.review_status ?? "").trim();
+  const lifecycleStatus = (lifecycleRaw || undefined) as DeliveryAdLifecycleStatus | undefined;
+  const reviewStatus = (reviewRaw || undefined) as DeliveryAdReviewStatus | undefined;
+
+  const isActive =
+    lifecycleStatus != null
+      ? lifecycleImpliesIsActive(lifecycleStatus) && reviewStatus === "APPROVED"
+      : raw.is_active === true;
+
   return {
     id,
     storeId,
@@ -32,7 +59,10 @@ function mapPaidAd(raw: Record<string, unknown>): StorePaidAdCampaignRow | null 
     imageUrl: raw.image_url == null ? null : String(raw.image_url).trim() || null,
     startAt,
     endAt,
-    isActive: raw.is_active === true,
+    isActive,
+    lifecycleStatus,
+    reviewStatus,
+    inventoryKeys,
   };
 }
 
@@ -61,10 +91,95 @@ function mapCoupon(raw: Record<string, unknown>): StoreCouponCampaignRow | null 
   };
 }
 
+async function loadInventoryKeysByCampaignId(
+  sb: SupabaseClient,
+  campaignIds: string[]
+): Promise<Map<string, OwnerStoreSponsoredInventoryKey[]>> {
+  const out = new Map<string, OwnerStoreSponsoredInventoryKey[]>();
+  if (!campaignIds.length) return out;
+
+  const { data: links, error } = await sb
+    .from(JUNCTION_TABLE)
+    .select("campaign_id, inventory_id")
+    .in("campaign_id", campaignIds);
+  if (error || !links?.length) return out;
+
+  const inventoryIds = [
+    ...new Set(links.map((r) => String((r as { inventory_id: string }).inventory_id))),
+  ];
+  const { data: invs } = await sb
+    .from(INVENTORY_TABLE)
+    .select("id, key, is_active")
+    .in("id", inventoryIds);
+  const keyById = new Map<string, string>();
+  for (const inv of invs ?? []) {
+    const row = inv as { id: string; key: string; is_active?: boolean };
+    if (row.is_active === false) continue;
+    keyById.set(String(row.id), String(row.key));
+  }
+
+  for (const link of links) {
+    const cid = String((link as { campaign_id: string }).campaign_id);
+    const key = keyById.get(String((link as { inventory_id: string }).inventory_id));
+    if (key !== "STORES_HOME_FEED" && key !== "STORES_CATEGORY_FEED") continue;
+    const list = out.get(cid) ?? [];
+    if (!list.includes(key)) list.push(key);
+    out.set(cid, list);
+  }
+  return out;
+}
+
+/**
+ * CUT D — load ACTIVE + APPROVED sponsored campaigns for a legacy placement surface.
+ * Fail-closed: any query error → empty list (organic callers must continue).
+ */
 export async function loadActiveStorePaidAdCampaigns(
   sb: SupabaseClient,
   placement: StorePaidAdPlacement,
   nowMs: number = Date.now()
+): Promise<StorePaidAdCampaignRow[]> {
+  try {
+    const { data, error } = await sb
+      .from(STORE_PAID_AD_CAMPAIGN_TABLE)
+      .select(PAID_SELECT)
+      .eq("placement", placement)
+      .eq("lifecycle_status", "ACTIVE")
+      .eq("review_status", "APPROVED");
+
+    if (error) {
+      // Compatibility: older DBs without lifecycle columns
+      if (/lifecycle_status|review_status|column/i.test(String(error.message))) {
+        return loadActiveStorePaidAdCampaignsLegacy(sb, placement, nowMs);
+      }
+      if (error.message?.includes(STORE_PAID_AD_CAMPAIGN_TABLE)) return [];
+      console.error("[loadActiveStorePaidAdCampaigns]", error.message);
+      return [];
+    }
+
+    const rows = (data ?? []) as Record<string, unknown>[];
+    const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
+    const invMap = await loadInventoryKeysByCampaignId(sb, ids);
+
+    const parsed: StorePaidAdCampaignRow[] = [];
+    for (const raw of rows) {
+      const id = String(raw.id ?? "");
+      const mapped = mapPaidAd(raw, invMap.get(id) ?? []);
+      if (!mapped) continue;
+      if (!isSponsoredScheduleActive(mapped.startAt, mapped.endAt, nowMs)) continue;
+      parsed.push(mapped);
+    }
+    return selectActiveStorePaidAdCampaigns(parsed, placement, nowMs);
+  } catch (e) {
+    console.error("[loadActiveStorePaidAdCampaigns]", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/** Pre-CUT-B fallback path — is_active only. */
+async function loadActiveStorePaidAdCampaignsLegacy(
+  sb: SupabaseClient,
+  placement: StorePaidAdPlacement,
+  nowMs: number
 ): Promise<StorePaidAdCampaignRow[]> {
   const { data, error } = await sb
     .from(STORE_PAID_AD_CAMPAIGN_TABLE)
@@ -76,7 +191,7 @@ export async function loadActiveStorePaidAdCampaigns(
 
   if (error) {
     if (error.message?.includes(STORE_PAID_AD_CAMPAIGN_TABLE)) return [];
-    console.error("[loadActiveStorePaidAdCampaigns]", error.message);
+    console.error("[loadActiveStorePaidAdCampaignsLegacy]", error.message);
     return [];
   }
 

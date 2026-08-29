@@ -200,6 +200,7 @@ describe("CUT 4 store paid ads exposure + insertion", () => {
       targetPlacement: "stores_browse",
       surfaceAllowed: true,
       taxonomyMatchedStoreIds: new Set(organic),
+      storeEligibleById: new Map(organic.map((id) => [id, true] as const)),
     });
     expect(eligible.map((e) => e.id)).toEqual(["ok"]);
     const plan = planStoresBrowseInsertions({

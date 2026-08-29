@@ -33,13 +33,13 @@ export const DELIVERY_AD_CAMPAIGN_NE_EXPOSURE = {
 } as const;
 
 /**
- * storeEligibleById: null → default true (CUT A audit).
- * HOME/BROWSE callers currently pass null; organic-pool membership is the
- * indirect gate. Explicit store/serviceability map = CUT D — do not boolean-patch.
+ * CUT A historical: storeEligibleById null → default true (PARTIAL).
+ * CUT D closed the gap — see STORE_ELIGIBILITY_CUT_D_STATUS (null→true REMOVED).
  */
 export const STORE_ELIGIBILITY_CUT_A_STATUS = {
   status: "PARTIAL_DEFER_CUT_D",
   evidence:
-    "storeEligibleById null at HOME/BROWSE callers; resolver defaults storeEligible=true; taxonomy/organic pool is indirect gate",
+    "HISTORICAL CUT A: storeEligibleById null at HOME/BROWSE callers; resolver defaulted storeEligible=true. CLOSED by CUT D organic-pool map (fail-closed).",
   contract: "paid_campaign_must_not_bypass_organic_or_serviceability_eligibility",
+  supersededBy: "CUT_D",
 } as const;
