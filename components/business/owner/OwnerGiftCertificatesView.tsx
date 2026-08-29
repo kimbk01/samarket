@@ -22,6 +22,7 @@ import {
   type OwnerGiftConversionRow,
   type OwnerGiftRedemptionRow,
 } from "@/lib/gift-certificate/owner-gift-money-ops";
+import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 type GiftApp = {
@@ -44,6 +45,10 @@ type GiftProduct = {
   active: boolean;
   image_url: string | null;
   issued_count?: number;
+  expiry_policy?: string | null;
+  validity_days?: number | null;
+  fixed_valid_until?: string | null;
+  stores?: { store_name?: string | null; profile_image_url?: string | null } | null;
 };
 
 type Draft = {
@@ -515,12 +520,12 @@ function OwnerGiftCertificatesInner() {
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection
-            title={safeT("gift_owner_selling_list", {
-              fallbackKo: "판매 중인 상품권",
-              fallbackEn: "Products on sale",
+            title={safeT("gift_owner_product_list", {
+              fallbackKo: "상품권 상품",
+              fallbackEn: "Gift certificate products",
             })}
           >
-            {activeProducts.length === 0 ? (
+            {products.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-sm text-sam-muted">
                   {safeT("gift_owner_empty_products", {
@@ -537,22 +542,38 @@ function OwnerGiftCertificatesInner() {
               </div>
             ) : (
               <ul className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                {activeProducts.map((p) => (
+                {products.map((p) => (
                   <li key={p.id} className="min-w-0" data-gift-product={p.id}>
                     <GiftVisualCard
                       visual={{
                         giftScope: "STORE",
                         imageUrl: p.image_url,
-                        storeName: p.title,
+                        storeLogoUrl: p.stores?.profile_image_url ?? null,
+                        storeName: p.stores?.store_name ?? "",
                         title: p.title,
                       }}
                       surface="mall"
                       size="sm"
                       title={p.title}
-                      issuerName={p.title}
+                      issuerName={p.stores?.store_name ?? ""}
                       faceValue={p.face_value}
                       purchasePrice={p.purchase_price}
-                      showValidity={false}
+                      expirationDisplay={formatGiftProductExpirationDisplay({
+                        expiryPolicy: p.expiry_policy,
+                        validityDays: p.validity_days,
+                        fixedValidUntil: p.fixed_valid_until,
+                        noExpiryLabel: safeT("gift_portrait_expiry_none", {
+                          fallbackKo: "만료 없음",
+                          fallbackEn: "No expiry",
+                        }),
+                        daysAfterIssueLabel: (days) =>
+                          safeT("gift_portrait_expiry_days_after_issue", {
+                            fallbackKo: `발급 후 ${days}일`,
+                            fallbackEn: `${days} days after issue`,
+                            vars: { days: String(days) },
+                          }),
+                      })}
+                      showValidity
                       footer={
                         <p className="text-xs text-sam-muted">
                           {p.active

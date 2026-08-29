@@ -173,6 +173,17 @@ function TransferCard({
       issuerName={transfer.storeName}
       faceValue={transfer.faceValue}
       remainingBalance={transfer.remainingBalance}
+      purchasePrice={transfer.purchasePrice}
+      expirationDisplay={formatGiftInstanceExpirationDisplay({
+        validUntil: transfer.validUntil,
+        noExpiryLabel: safeT("gift_portrait_expiry_none", {
+          fallbackKo: "만료 없음",
+          fallbackEn: "No expiry",
+        }),
+      })}
+      showValidity
+      publicGiftNumber={transfer.publicGiftNumber}
+      showGiftNumber={Boolean(transfer.publicGiftNumber?.trim())}
       statusLabel={transferStatusLabel(transfer.status, safeT)}
       footer={
         <div className="space-y-2">
@@ -354,7 +365,6 @@ export function CustomerGiftWalletBody({
                     showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
                     expirationDisplay={formatExpiry(row.validUntil)}
                     showValidity
-                    transferable={row.transferable}
                     statusLabel={
                       locked
                         ? safeT("gift_u3_wallet_pending_lock", {

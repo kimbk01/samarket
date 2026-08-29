@@ -20,6 +20,7 @@ import {
 } from "@/lib/gift-certificate/gift-transfer-ui-status";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
+import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -64,6 +65,16 @@ export function MessengerGiftCertificateCard(props: {
   const storeLogoUrl = presentation?.storeLogoUrl ?? null;
   const faceValue = presentation?.faceValue ?? meta.face_value ?? null;
   const remainingBalance = presentation?.remainingBalance ?? meta.remaining_balance ?? null;
+  const expirationDisplay = presentation
+    ? formatGiftInstanceExpirationDisplay({
+        validUntil: presentation.validUntil,
+        noExpiryLabel: safeT("gift_portrait_expiry_none", {
+          fallbackKo: "만료 없음",
+          fallbackEn: "No expiry",
+        }),
+      })
+    : null;
+  const publicGiftNumber = presentation?.publicGiftNumber ?? null;
   const senderName =
     presentation?.senderDisplayName?.trim() ||
     safeT("commerce_hub_gift_chat_sender_fallback", {
@@ -159,7 +170,11 @@ export function MessengerGiftCertificateCard(props: {
           issuerName={storeName}
           faceValue={faceValue}
           remainingBalance={remainingBalance}
-          showValidity={false}
+          purchasePrice={presentation?.purchasePrice ?? null}
+          expirationDisplay={expirationDisplay}
+          showValidity={Boolean(expirationDisplay)}
+          publicGiftNumber={publicGiftNumber}
+          showGiftNumber={Boolean(publicGiftNumber)}
           className="border-0 shadow-none"
         />
         <p className="mt-1 text-center text-xs text-sam-muted">{statusHuman}</p>
@@ -171,55 +186,38 @@ export function MessengerGiftCertificateCard(props: {
         onPointerDown={(e) => e.stopPropagation()}
       >
         {props.isRecipient && displayStatus === "PENDING" ? (
-          <>
+          <div className="flex gap-2">
             <button
               type="button"
               disabled={busy}
               data-gift-card-accept="1"
-              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[44px] w-full px-3 text-sm disabled:opacity-60`}
+              className={`${COMMERCE_PRIMARY_BTN_CLASS} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
               onClick={(e) => {
                 e.stopPropagation();
                 void act("accept");
               }}
             >
-              {safeT("commerce_hub_gift_chat_confirm", {
-                fallbackKo: "선물 확인하기",
-                fallbackEn: "View gift",
+              {safeT("gift_cert_chat_accept", {
+                fallbackKo: "선물 받기",
+                fallbackEn: "Accept gift",
               })}
             </button>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                data-gift-card-accept-alt="1"
-                className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void act("accept");
-                }}
-              >
-                {safeT("gift_cert_chat_accept", {
-                  fallbackKo: "선물 받기",
-                  fallbackEn: "Accept gift",
-                })}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                data-gift-card-reject="1"
-                className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmKind("reject");
-                }}
-              >
-                {safeT("gift_cert_chat_reject", {
-                  fallbackKo: "거절",
-                  fallbackEn: "Decline",
-                })}
-              </button>
-            </div>
-          </>
+            <button
+              type="button"
+              disabled={busy}
+              data-gift-card-reject="1"
+              className={`${Sam.btn.secondary} min-h-[44px] flex-1 px-2 text-sm disabled:opacity-60`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmKind("reject");
+              }}
+            >
+              {safeT("gift_cert_chat_reject", {
+                fallbackKo: "거절",
+                fallbackEn: "Decline",
+              })}
+            </button>
+          </div>
         ) : null}
         {!props.isRecipient && displayStatus === "PENDING" ? (
           <button

@@ -68,7 +68,6 @@ export function GiftVisualCard({
   showSend = false,
   showValidity = true,
   showGiftNumber = false,
-  transferable = null,
   footer,
   className = "",
   compact = false,
@@ -97,8 +96,6 @@ export function GiftVisualCard({
   /** Outer validity line removed — face meta is authority when expirationDisplay is set. */
   showValidity?: boolean;
   showGiftNumber?: boolean;
-  /** When true, face shows design-reference giftable strip. */
-  transferable?: boolean | null;
   /** @deprecated unused — amounts live on face */
   amountSlot?: ReactNode;
   footer?: ReactNode;
@@ -127,11 +124,6 @@ export function GiftVisualCard({
     fallbackKo: "매장 상품권",
     fallbackEn: "Store gift",
   });
-  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
-    fallbackKo: "만료 없음",
-    fallbackEn: "No expiry",
-  });
-
   const resolvedExpiry =
     expirationDisplay != null && expirationDisplay.trim() !== ""
       ? expirationDisplay.trim()
@@ -150,13 +142,10 @@ export function GiftVisualCard({
     remainingBalance,
     expirationDisplay: showValidity ? resolvedExpiry : null,
     certificateDisplayNumber: showGiftNumber ? publicGiftNumber : null,
-    transferable,
     valueMode: isUsed ? "used" : undefined,
     issuerBadgePlatform: badgePlatform,
     issuerBadgeStore: badgeStore,
   });
-
-  void noExpiryLabel;
 
   const labels = {
     faceAmountLabel: safeT("commerce_hub_gift_face_label", {
@@ -197,15 +186,10 @@ export function GiftVisualCard({
             fallbackKo: "구매 후 발급",
             fallbackEn: "Issued after purchase",
           })
-        : "—",
-    giftableTitle: safeT("gift_u2_mall_transferable", {
-      fallbackKo: "선물 가능",
-      fallbackEn: "Transferable",
-    }),
-    giftableHint: safeT("gift_portrait_giftable_hint", {
-      fallbackKo: "소중한 사람에게 마음을 전하세요.",
-      fallbackEn: "Send it to someone special.",
-    }),
+        : safeT("gift_portrait_number_after_acceptance", {
+            fallbackKo: "수령 후 표시",
+            fallbackEn: "Shown after acceptance",
+          }),
   };
 
   const detailBtn = detailHref ? (

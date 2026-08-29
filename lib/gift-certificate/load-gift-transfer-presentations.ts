@@ -14,21 +14,28 @@ export type GiftTransferPresentation = {
   storeLogoUrl: string | null;
   imageUrl: string | null;
   faceValue: number | null;
+  purchasePrice: number | null;
   remainingBalance: number | null;
+  validUntil: string | null;
+  publicGiftNumber: string | null;
   senderDisplayName: string | null;
 };
 
 export async function loadGiftTransferPresentations(
   sb: SupabaseClient,
+  participantUserId: string,
   transferIds: string[]
 ): Promise<{ ok: true; items: GiftTransferPresentation[] } | { ok: false; error: string }> {
+  const userId = participantUserId.trim();
+  if (!userId) return { ok: false, error: "missing_participant" };
   const ids = [...new Set(transferIds.map((id) => id.trim()).filter(Boolean))].slice(0, 50);
   if (!ids.length) return { ok: true, items: [] };
 
   const { data: transferRows, error } = await sb
     .from(GIFT_TABLES.transfers)
-    .select("id, instance_id, sender_user_id, gift_certificate_instances(gift_scope, face_value, remaining_balance, gift_certificate_products(title, image_url, gift_scope, stores(store_name, profile_image_url)))")
-    .in("id", ids);
+    .select("id, instance_id, sender_user_id, recipient_user_id, gift_certificate_instances(gift_scope, face_value, purchase_price, remaining_balance, valid_until, public_gift_number, gift_certificate_products(title, image_url, gift_scope, stores(store_name, profile_image_url)))")
+    .in("id", ids)
+    .or(`sender_user_id.eq.${userId},recipient_user_id.eq.${userId}`);
 
   if (error) return { ok: false, error: error.message };
 
@@ -90,10 +97,22 @@ export async function loadGiftTransferPresentations(
       storeLogoUrl: giftScope === "PLATFORM" ? null : storeLogoUrl,
       imageUrl: product?.image_url == null ? null : String(product.image_url),
       faceValue: inst && Number.isFinite(Number(inst.face_value)) ? Math.trunc(Number(inst.face_value)) : null,
+      purchasePrice:
+        inst && Number.isFinite(Number(inst.purchase_price))
+          ? Math.trunc(Number(inst.purchase_price))
+          : null,
       remainingBalance:
         inst && Number.isFinite(Number(inst.remaining_balance))
           ? Math.trunc(Number(inst.remaining_balance))
           : null,
+      validUntil:
+        inst?.valid_until == null || String(inst.valid_until).trim() === ""
+          ? null
+          : String(inst.valid_until).slice(0, 10),
+      publicGiftNumber:
+        inst?.public_gift_number == null || String(inst.public_gift_number).trim() === ""
+          ? null
+          : String(inst.public_gift_number).trim(),
       senderDisplayName: nickById.get(senderUserId) ?? null,
     });
   }

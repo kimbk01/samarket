@@ -21,6 +21,35 @@ describe("gift public number surfaces", () => {
     expect(buyerDetail).toContain("data-gift-public-number");
   });
 
+  it("participant-scoped transfer presentation carries instance expiry and public number", () => {
+    const route = source("app/api/me/gift-certificates/transfers/presentation/route.ts");
+    const loader = source("lib/gift-certificate/load-gift-transfer-presentations.ts");
+    const messenger = source("components/community-messenger/MessengerGiftCertificateCard.tsx");
+    const wallet = source("components/orders/customer-commerce/CustomerGiftWalletBody.tsx");
+
+    expect(route).toContain("loadGiftTransferPresentations(sb, userId, transferIds)");
+    expect(loader).toContain("participantUserId");
+    expect(loader).toContain("sender_user_id.eq.");
+    expect(loader).toContain("recipient_user_id.eq.");
+    expect(loader).toContain("valid_until");
+    expect(loader).toContain("public_gift_number");
+    expect(messenger).toContain("formatGiftInstanceExpirationDisplay");
+    expect(messenger).toContain("showGiftNumber={Boolean(publicGiftNumber)}");
+    expect(messenger).not.toContain("showValidity={false}");
+    expect(messenger).not.toContain("data-gift-card-accept-alt");
+    expect(wallet).toContain("validUntil: transfer.validUntil");
+    expect(wallet).toContain("publicGiftNumber={transfer.publicGiftNumber}");
+  });
+
+  it("owner preview uses store identity instead of product title as issuer", () => {
+    const route = source("app/api/me/stores/[storeId]/gift-certificates/products/route.ts");
+    const owner = source("components/business/owner/OwnerGiftCertificatesView.tsx");
+
+    expect(route).toContain("stores(store_name, profile_image_url)");
+    expect(owner).toContain("issuerName={p.stores?.store_name ?? \"\"}");
+    expect(owner).not.toContain("issuerName={p.title}");
+  });
+
   it("owner redemption readback includes public number while remaining scoped to store redemptions", () => {
     const route = source("app/api/me/stores/[storeId]/gift-certificates/redemptions/route.ts");
     const ui = source("components/business/owner/OwnerGiftMoneyOpsPanel.tsx");

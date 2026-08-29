@@ -52,7 +52,6 @@ export function GiftMallProductCard({
           purchasePrice={product.purchasePrice}
           expirationDisplay={expirationDisplay}
           showValidity={Boolean(expirationDisplay)}
-          transferable={product.transferable}
           footer={
             <span className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[44px] w-full rounded-ui-rect`}>
               {safeT("gift_u2_mall_card_view", {

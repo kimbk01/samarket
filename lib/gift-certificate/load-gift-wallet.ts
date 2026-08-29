@@ -53,7 +53,10 @@ export type GiftWalletTransfer = {
   storeLogoUrl?: string | null;
   imageUrl?: string | null;
   faceValue?: number;
+  purchasePrice?: number;
   remainingBalance?: number;
+  validUntil?: string | null;
+  publicGiftNumber?: string;
   senderDisplayName?: string;
   recipientDisplayName?: string;
 };
@@ -137,7 +140,7 @@ async function enrichTransferRows(
     sb
       .from(GIFT_TABLES.instances)
       .select(
-        "id, gift_scope, face_value, remaining_balance, gift_certificate_products(title, image_url, gift_scope, stores(store_name, profile_image_url))"
+        "id, gift_scope, face_value, purchase_price, remaining_balance, valid_until, public_gift_number, gift_certificate_products(title, image_url, gift_scope, stores(store_name, profile_image_url))"
       )
       .in("id", instanceIds),
     userIds.length
@@ -191,7 +194,13 @@ async function enrichTransferRows(
       storeLogoUrl: giftScope === "PLATFORM" ? null : storeLogoUrl,
       imageUrl: product?.image_url == null ? null : String(product.image_url),
       faceValue: Math.trunc(Number(inst.face_value) || 0),
+      purchasePrice: Math.trunc(Number(inst.purchase_price) || 0),
       remainingBalance: Math.trunc(Number(inst.remaining_balance) || 0),
+      validUntil:
+        inst.valid_until == null || String(inst.valid_until).trim() === ""
+          ? null
+          : String(inst.valid_until).slice(0, 10),
+      publicGiftNumber: String(inst.public_gift_number ?? ""),
       senderDisplayName: nickById.get(t.senderUserId),
       recipientDisplayName: nickById.get(t.recipientUserId),
     };

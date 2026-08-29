@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   }
   const body = (await req.json().catch(() => null)) as { transferIds?: string[] } | null;
   const transferIds = Array.isArray(body?.transferIds) ? body!.transferIds! : [];
-  const loaded = await loadGiftTransferPresentations(sb, transferIds);
+  const loaded = await loadGiftTransferPresentations(sb, userId, transferIds);
   if (!loaded.ok) {
     return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
   }

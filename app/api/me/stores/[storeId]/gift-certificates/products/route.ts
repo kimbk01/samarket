@@ -33,7 +33,7 @@ export async function GET(
   const { data, error } = await sb
     .from(GIFT_TABLES.products)
     .select(
-      "id, store_id, application_id, title, face_value, purchase_price, transferable, sales_starts_at, sales_ends_at, active, image_url, issued_count, max_issuance, created_at"
+      "id, store_id, application_id, title, face_value, purchase_price, transferable, sales_starts_at, sales_ends_at, active, image_url, issued_count, max_issuance, expiry_policy, validity_days, fixed_valid_until, created_at, stores(store_name, profile_image_url)"
     )
     .eq("store_id", sid)
     .order("created_at", { ascending: false })
