@@ -83,7 +83,7 @@ export const giftCertificateU2Messages = {
     gift_portrait_expiry_days_after_issue: "발급 후 {days}일",
     gift_portrait_expiry_label: "유효기간",
     gift_portrait_issuer_label: "발행처",
-    gift_portrait_original_face: "최초 상품권 금액",
+    gift_portrait_original_face: "원래 금액",
     gift_portrait_number_preview: "구매 후 발급",
     gift_portrait_purchase_at_buy: "구매 당시",
     gift_owner_product_active: "판매중",

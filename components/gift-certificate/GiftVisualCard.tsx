@@ -93,6 +93,7 @@ export function GiftVisualCard({
   onSend?: () => void;
   sendDisabled?: boolean;
   showSend?: boolean;
+  /** Outer validity line removed — face meta is authority when expirationDisplay is set. */
   showValidity?: boolean;
   showGiftNumber?: boolean;
   /** @deprecated unused — amounts live on face */
@@ -131,9 +132,7 @@ export function GiftVisualCard({
   const resolvedExpiry =
     expirationDisplay != null && expirationDisplay.trim() !== ""
       ? expirationDisplay.trim()
-      : showValidity
-        ? null
-        : null;
+      : null;
 
   const model = buildGiftCertificateVisualModel({
     giftScope: visual.giftScope,
@@ -146,15 +145,13 @@ export function GiftVisualCard({
     faceValue,
     purchasePrice,
     remainingBalance,
-    expirationDisplay: resolvedExpiry,
+    expirationDisplay: showValidity ? resolvedExpiry : null,
     certificateDisplayNumber: showGiftNumber ? publicGiftNumber : null,
     valueMode: isUsed ? "used" : undefined,
     issuerBadgePlatform: badgePlatform,
     issuerBadgeStore: badgeStore,
   });
 
-  // If caller asked to show validity but provided no expiry string, leave blank on face
-  // (do not invent noExpiryLabel without authority). Outer meta may still show status.
   void noExpiryLabel;
 
   const labels = {
@@ -171,7 +168,7 @@ export function GiftVisualCard({
       fallbackEn: "Balance",
     }),
     originalFaceLabel: safeT("gift_portrait_original_face", {
-      fallbackKo: "최초 상품권 금액",
+      fallbackKo: "원래 금액",
       fallbackEn: "Original amount",
     }),
     usedLabel: safeT("commerce_hub_used_completed", {
@@ -251,25 +248,13 @@ export function GiftVisualCard({
     >
       <DibayGiftCertificateFace model={model} labels={labels} />
 
-      {(statusLabel || (showValidity && model.expirationDisplay)) && (
+      {statusLabel ? (
         <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
-          {showValidity && model.expirationDisplay ? (
-            <p className="text-xs text-sam-muted" data-gift-validity="1">
-              {safeT("gift_portrait_expiry_label", {
-                fallbackKo: "유효기간",
-                fallbackEn: "Valid until",
-              })}
-              {" · "}
-              {model.expirationDisplay}
-            </p>
-          ) : null}
-          {statusLabel ? (
-            <p className="text-xs font-semibold text-sam-fg" data-gift-status-label="1">
-              {statusLabel}
-            </p>
-          ) : null}
+          <p className="text-xs font-semibold text-sam-fg" data-gift-status-label="1">
+            {statusLabel}
+          </p>
         </div>
-      )}
+      ) : null}
 
       {footer ? (
         <div className="border-t border-sam-border/60 px-3 py-2.5">{footer}</div>

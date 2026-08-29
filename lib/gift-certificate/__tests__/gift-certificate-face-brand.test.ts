@@ -38,6 +38,10 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(face).not.toContain("gift-cert-footer");
     expect(face).not.toContain("디바이 상품권");
     expect(face).not.toContain("만료되지 않음");
+    expect(face).not.toMatch(/\b(barcode|barCode)\b/);
+    expect(face).not.toContain("strokeDasharray=\"1 2 1 2\""); // decorative bar patterns
+    expect(face).toContain("DIBAY_LOGO_MARK_PATH");
+    expect(face).toContain("data-gift-cert-perforation");
 
     expect(paths).toContain('DIBAY_LOGO_MARK_PATH = "/images/brand/dibay-logo-mark.png"');
     expect(existsSync(resolve(process.cwd(), "public/images/brand/dibay-logo-mark.png"))).toBe(true);
@@ -52,17 +56,23 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
   });
 
   it("mall discount arrow only when purchase < face", () => {
-    expect(giftMallShowsDiscountArrow(10000, 7000)).toBe(true);
-    expect(giftMallShowsDiscountArrow(10000, 10000)).toBe(false);
-    expect(giftMallShowsDiscountArrow(10000, null)).toBe(false);
+    expect(giftMallShowsDiscountArrow(1000, 900)).toBe(true);
+    expect(giftMallShowsDiscountArrow(1000, 1000)).toBe(false);
+    expect(giftMallShowsDiscountArrow(1000, null)).toBe(false);
   });
 
-  it("landmark normalized Y are fixed fractions of 1200", () => {
+  it("landmark zoning matches master geometry", () => {
     const h = GIFT_CERT_COORD_HEIGHT;
-    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(320 / 1200, 5);
-    expect(GIFT_PORTRAIT_LANDMARKS.amountY / h).toBeCloseTo(520 / 1200, 5);
-    expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(720 / 1200, 5);
-    expect(GIFT_PORTRAIT_LANDMARKS.expiryY / h).toBeCloseTo(880 / 1200, 5);
+    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY).toBe(330);
+    expect(GIFT_PORTRAIT_LANDMARKS.titleY).toBe(440);
+    expect(GIFT_PORTRAIT_LANDMARKS.amountY).toBe(640);
+    expect(GIFT_PORTRAIT_LANDMARKS.priceY).toBe(715);
+    expect(GIFT_PORTRAIT_LANDMARKS.perforationY).toBe(770);
+    expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(850);
+    expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(910);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberY).toBe(970);
+    expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(330 / 1200, 5);
+    expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(770 / 1200, 5);
   });
 
   it("outer scale sizes preserve identical aspect constant", () => {
