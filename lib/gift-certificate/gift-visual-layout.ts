@@ -1,4 +1,4 @@
-/** Gift card grid / shell — fixed-comp SSOT uses 2:3 portrait face geometry. */
+/** Gift card grid / shell — fixed-comp SSOT uses the canonical long-ticket geometry. */
 
 export const GIFT_CARD_MIN_WIDTH_PX = 280;
 export const GIFT_CARD_MAX_WIDTH_PX = 420;
@@ -8,10 +8,10 @@ export const GIFT_COMMERCE_CONTENT_MAX_WIDTH_PX = 1120;
 export const GIFT_CARD_RESPONSIVE_GRID_CLASS =
   "grid min-w-0 grid-cols-1 gap-4 pb-8 sm:grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))]";
 
-/** Canonical portrait coordinate system — 800×1200 → 2:3. ONE ratio authority. */
+/** Canonical portrait coordinate system — measured from the approved long-ticket reference. */
 export const GIFT_CERT_COORD_WIDTH = 800;
-export const GIFT_CERT_COORD_HEIGHT = 1200;
-export const GIFT_CERT_ASPECT_RATIO = "2 / 3" as const;
+export const GIFT_CERT_COORD_HEIGHT = 2280;
+export const GIFT_CERT_ASPECT_RATIO = "20 / 57" as const;
 export const GIFT_CERT_ASPECT_RATIO_NUMBER = GIFT_CERT_COORD_WIDTH / GIFT_CERT_COORD_HEIGHT;
 
 /** Scale-only size variants — max-width only; never change internal geometry. */

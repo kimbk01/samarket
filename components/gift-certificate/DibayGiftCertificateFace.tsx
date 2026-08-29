@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Canonical DIBAY gift certificate portrait face — ONE SVG, 800×1200 user units.
- * Typography sized for ~333–338px runtime width (scale ≈ 0.42).
+ * Canonical DIBAY gift certificate portrait face — ONE SVG, 800×2280 user units.
+ * Geometry is measured from the approved 296×834px face reference.
  * SAME CERTIFICATE × SCALE. No container-query / viewport internals. No decorative redeem bars.
  */
 
@@ -31,47 +31,50 @@ const ARROW = "#6F7773";
 const LINE = "#D8DEDA";
 const BORDER = "#D9E2DC";
 
-/** Landmark Y — fixed fractions of 1200 for geometry QA (matches design reference denser lower third). */
+/** Landmark Y — measured against the approved long-ticket reference. */
 export const GIFT_PORTRAIT_LANDMARKS = {
-  heroBottomY: 330,
-  titleY: 430,
-  amountY: 600,
-  priceY: 680,
-  perforationY: 735,
-  issuerY: 790,
-  expiryY: 845,
-  numberY: 900,
-  serialY: 960,
-  giftableY: 1060,
+  heroBottomY: 640,
+  badgeY: 685,
+  titleY: 805,
+  amountLabelY: 940,
+  amountY: 1080,
+  priceDividerY: 1135,
+  priceY: 1240,
+  perforationY: 1405,
+  issuerY: 1530,
+  expiryY: 1640,
+  numberY: 1750,
+  serialY: 1845,
+  giftableY: 2080,
 } as const;
 
-/** SVG font-size contract — readable at Mall ~338px (scale ≈ 0.4225). */
+/** Typography measured for a 296–340px rendered card. */
 export const GIFT_PORTRAIT_TYPE = {
-  badge: 28,
-  title: 40,
-  titleLine: 50,
-  amountLabel: 30,
-  amountValue: 78,
-  originalPrice: 33,
-  arrow: 33,
-  purchasePrice: 40,
-  priceSubLabel: 26,
-  metaLabel: 29,
-  metaValue: 30,
-  footBrand: 23,
-  heroWordmark: 38,
-  heroSubtitle: 23,
-  heroBadge: 26,
+  badge: 34,
+  title: 56,
+  titleLine: 68,
+  amountLabel: 36,
+  amountValue: 112,
+  originalPrice: 40,
+  arrow: 42,
+  purchasePrice: 50,
+  priceSubLabel: 30,
+  metaLabel: 37,
+  metaValue: 38,
+  footBrand: 27,
+  heroWordmark: 52,
+  heroSubtitle: 28,
+  heroBadge: 30,
 } as const;
 
 const VB_W = GIFT_CERT_COORD_WIDTH;
 const VB_H = GIFT_CERT_COORD_HEIGHT;
-const TICKET = { x: 12, y: 12, w: 776, h: 1176, rx: 34 } as const;
+const TICKET = { x: 12, y: 12, w: 776, h: 2256, rx: 34 } as const;
 const PAD_L = 64;
 const PAD_R = 736;
 
 /** Original-price strike slot (deterministic — no hardcoded ₱1,000-only width). */
-const ORIGINAL_PRICE_SLOT = { x: PAD_L, width: 155 } as const;
+const ORIGINAL_PRICE_SLOT = { x: PAD_L, width: 266 } as const;
 const STRIKE_STROKE = 5.5;
 
 const PLATFORM_LOGO_SRC = dibayBrandAssetUrl(DIBAY_LOGO_MARK_PATH);
@@ -183,8 +186,7 @@ function TicketHero({
   const isPlatform = model.kind === "PLATFORM";
   const heroGrad = `${uid}-hero`;
   const heroClip = `${uid}-hero-clip`;
-  /** ~12% smaller than prior 230×150 so title/amount stay primary. */
-  const logo = { x: 299, y: 62, w: 202, h: 132 } as const;
+  const logo = { x: 252, y: 178, w: 296, h: 220 } as const;
 
   return (
     <g data-gift-landmark="hero" data-gift-cert-hero="1">
@@ -200,9 +202,9 @@ function TicketHero({
               Q ${TICKET.x} ${TICKET.y} ${TICKET.x + TICKET.rx} ${TICKET.y}
               L ${TICKET.x + TICKET.w - TICKET.rx} ${TICKET.y}
               Q ${TICKET.x + TICKET.w} ${TICKET.y} ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.rx}
-              L ${TICKET.x + TICKET.w} 300
-              C 650 355, 500 350, 400 322
-              C 250 286, 150 285, ${TICKET.x} 340
+              L ${TICKET.x + TICKET.w} 575
+              C 650 665, 500 670, 400 630
+              C 250 575, 150 575, ${TICKET.x} 650
               Z
             `}
           />
@@ -216,18 +218,18 @@ function TicketHero({
           Q ${TICKET.x} ${TICKET.y} ${TICKET.x + TICKET.rx} ${TICKET.y}
           L ${TICKET.x + TICKET.w - TICKET.rx} ${TICKET.y}
           Q ${TICKET.x + TICKET.w} ${TICKET.y} ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.rx}
-          L ${TICKET.x + TICKET.w} 300
-          C 650 355, 500 350, 400 322
-          C 250 286, 150 285, ${TICKET.x} 340
+          L ${TICKET.x + TICKET.w} 575
+          C 650 665, 500 670, 400 630
+          C 250 575, 150 575, ${TICKET.x} 650
           Z
         `}
       />
 
       <g clipPath={`url(#${heroClip})`} opacity={0.18} aria-hidden>
-        {[0, 18, 36].map((off) => (
+        {[0, 24, 48].map((off) => (
           <path
             key={off}
-            d={`M ${TICKET.x} ${210 + off} C 200 ${180 + off}, 400 ${250 + off}, 788 ${200 + off}`}
+            d={`M ${TICKET.x} ${470 + off} C 200 ${430 + off}, 400 ${520 + off}, 788 ${445 + off}`}
             fill="none"
             stroke="#9CCDB5"
             strokeWidth={1.2}
@@ -248,7 +250,7 @@ function TicketHero({
           />
           <text
             x={400}
-            y={232}
+            y={465}
             textAnchor="middle"
             fontSize={GIFT_PORTRAIT_TYPE.heroWordmark}
             fontWeight={800}
@@ -260,7 +262,7 @@ function TicketHero({
           </text>
           <text
             x={400}
-            y={268}
+            y={518}
             textAnchor="middle"
             fontSize={GIFT_PORTRAIT_TYPE.heroSubtitle}
             fontWeight={600}
@@ -281,14 +283,14 @@ function TicketHero({
                 x={TICKET.x}
                 y={TICKET.y}
                 width={TICKET.w}
-                height={330}
+                height={640}
                 preserveAspectRatio="xMidYMid slice"
               />
               <rect
                 x={TICKET.x}
                 y={TICKET.y}
                 width={TICKET.w}
-                height={330}
+                height={640}
                 fill="#000000"
                 opacity={0.28}
               />
@@ -296,9 +298,9 @@ function TicketHero({
           ) : (
             <text
               x={400}
-              y={200}
+              y={360}
               textAnchor="middle"
-              fontSize={110}
+              fontSize={180}
               fontWeight={800}
               fill="#FFFFFF"
               fontFamily="system-ui,sans-serif"
@@ -309,7 +311,7 @@ function TicketHero({
           {model.issuerName ? (
             <text
               x={400}
-              y={300}
+              y={565}
               textAnchor="middle"
               fontSize={26}
               fontWeight={700}
@@ -323,10 +325,10 @@ function TicketHero({
       )}
 
       <g data-gift-hero-badge="1">
-        <rect x={548} y={34} width={200} height={48} rx={24} fill="rgba(255,255,255,0.18)" />
+        <rect x={548} y={124} width={200} height={54} rx={27} fill="rgba(255,255,255,0.18)" />
         <text
           x={648}
-          y={65}
+          y={160}
           textAnchor="middle"
           fontSize={GIFT_PORTRAIT_TYPE.heroBadge}
           fontWeight={700}
@@ -355,13 +357,13 @@ function AmountBlock({
     const strikeW = estimateGiftMoneySvgWidth(faceStr, GIFT_PORTRAIT_TYPE.originalPrice);
     const strikeY = GIFT_PORTRAIT_LANDMARKS.priceY - GIFT_PORTRAIT_TYPE.originalPrice * 0.32;
     const arrowX = ORIGINAL_PRICE_SLOT.x + ORIGINAL_PRICE_SLOT.width + 10;
-    const purchaseX = arrowX + 36;
+    const purchaseX = arrowX + 90;
 
     return (
       <g data-gift-landmark="amount" data-gift-value-block="mall">
         <text
           x={PAD_L}
-          y={530}
+          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
           fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
           fill="#303833"
           fontFamily="system-ui,sans-serif"
@@ -386,8 +388,8 @@ function AmountBlock({
         <line
           x1={PAD_L}
           x2={PAD_R}
-          y1={GIFT_PORTRAIT_LANDMARKS.priceY - 42}
-          y2={GIFT_PORTRAIT_LANDMARKS.priceY - 42}
+          y1={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
+          y2={GIFT_PORTRAIT_LANDMARKS.priceDividerY}
           stroke={LINE}
           strokeWidth={1.5}
         />
@@ -440,7 +442,7 @@ function AmountBlock({
               </text>
               <text
                 x={ORIGINAL_PRICE_SLOT.x}
-                y={GIFT_PORTRAIT_LANDMARKS.priceY + 36}
+                y={GIFT_PORTRAIT_LANDMARKS.priceY + 48}
                 fontSize={GIFT_PORTRAIT_TYPE.priceSubLabel}
                 fill={MUTED}
                 fontFamily="system-ui,sans-serif"
@@ -449,7 +451,7 @@ function AmountBlock({
               </text>
               <text
                 x={purchaseX}
-                y={GIFT_PORTRAIT_LANDMARKS.priceY + 36}
+                y={GIFT_PORTRAIT_LANDMARKS.priceY + 48}
                 fontSize={GIFT_PORTRAIT_TYPE.priceSubLabel}
                 fill={MUTED}
                 fontFamily="system-ui,sans-serif"
@@ -481,7 +483,7 @@ function AmountBlock({
       <g data-gift-landmark="amount" data-gift-value-block="wallet">
         <text
           x={PAD_L}
-          y={530}
+          y={GIFT_PORTRAIT_LANDMARKS.amountLabelY}
           fontSize={GIFT_PORTRAIT_TYPE.amountLabel}
           fill="#303833"
           fontFamily="system-ui,sans-serif"
@@ -548,21 +550,22 @@ function AmountBlock({
 function TicketSerialMarks({ isPlatform }: { isPlatform: boolean }) {
   /** Design-reference ticket serial strip — decorative identity only (not redeem authority). */
   const baseY = GIFT_PORTRAIT_LANDMARKS.serialY;
-  const pattern = [3, 2, 4, 2, 3, 5, 2, 3, 2, 4, 3, 2, 5, 2, 3, 4, 2, 3, 2, 5, 3, 2, 4, 2, 3, 2, 4, 3, 2, 5, 2, 3, 4, 2, 3];
-  const startX = 220;
+  const pattern = [5, 3, 7, 3, 5, 8, 3, 5, 3, 7, 5, 3, 8, 3, 5, 7, 3, 5, 3, 8, 5, 3, 7, 3, 5, 3, 7, 5, 3, 8, 3, 5, 7, 3, 5, 8, 3, 7, 4, 6, 3, 8, 4, 5, 3, 7, 4, 6];
+  const startX = 64;
+  const barScale = 1.42;
   let x = startX;
   return (
     <g data-gift-foot-serial="1" aria-hidden>
       {pattern.map((w, i) => {
         const rect = (
-          <rect key={i} x={x} y={baseY} width={w} height={58} fill="#1A1A1A" />
+          <rect key={i} x={x} y={baseY} width={w * barScale} height={142} fill="#1A1A1A" />
         );
-        x += w + 3;
+        x += w * barScale + 5.5;
         return rect;
       })}
       <text
         x={400}
-        y={baseY + 88}
+        y={baseY + 182}
         textAnchor="middle"
         fontSize={GIFT_PORTRAIT_TYPE.footBrand}
         fontWeight={600}
@@ -591,22 +594,22 @@ function GiftableStrip({
         x={PAD_L}
         y={y}
         width={PAD_R - PAD_L}
-        height={72}
-        rx={16}
+        height={165}
+        rx={18}
         fill="#EAF5EE"
       />
       {/* gift box icon */}
       <g fill="none" stroke={BRAND} strokeWidth={2.2} aria-hidden>
-        <rect x={PAD_L + 22} y={y + 22} width={28} height={28} rx={3} />
-        <path d={`M ${PAD_L + 22} ${y + 34} H ${PAD_L + 50}`} />
-        <path d={`M ${PAD_L + 36} ${y + 22} V ${y + 50}`} />
-        <path d={`M ${PAD_L + 36} ${y + 22} C ${PAD_L + 28} ${y + 12}, ${PAD_L + 18} ${y + 18}, ${PAD_L + 36} ${y + 22}`} />
-        <path d={`M ${PAD_L + 36} ${y + 22} C ${PAD_L + 44} ${y + 12}, ${PAD_L + 54} ${y + 18}, ${PAD_L + 36} ${y + 22}`} />
+        <rect x={PAD_L + 24} y={y + 48} width={42} height={42} rx={4} />
+        <path d={`M ${PAD_L + 24} ${y + 64} H ${PAD_L + 66}`} />
+        <path d={`M ${PAD_L + 45} ${y + 48} V ${y + 90}`} />
+        <path d={`M ${PAD_L + 45} ${y + 48} C ${PAD_L + 33} ${y + 31}, ${PAD_L + 17} ${y + 42}, ${PAD_L + 45} ${y + 48}`} />
+        <path d={`M ${PAD_L + 45} ${y + 48} C ${PAD_L + 57} ${y + 31}, ${PAD_L + 73} ${y + 42}, ${PAD_L + 45} ${y + 48}`} />
       </g>
       <text
-        x={PAD_L + 68}
-        y={y + 34}
-        fontSize={26}
+        x={PAD_L + 88}
+        y={y + 70}
+        fontSize={34}
         fontWeight={700}
         fill={BRAND}
         fontFamily="system-ui,sans-serif"
@@ -614,9 +617,9 @@ function GiftableStrip({
         {title}
       </text>
       <text
-        x={PAD_L + 68}
-        y={y + 58}
-        fontSize={20}
+        x={PAD_L + 88}
+        y={y + 116}
+        fontSize={27}
         fill={MUTED}
         fontFamily="system-ui,sans-serif"
       >
@@ -701,17 +704,17 @@ export function DibayGiftCertificateFace({
           <g data-gift-issuer-badge="1">
             <rect
               x={PAD_L}
-              y={368}
+              y={GIFT_PORTRAIT_LANDMARKS.badgeY}
               width={Math.min(52 + model.issuerBadge.length * 16, 260)}
-              height={48}
-              rx={24}
+              height={56}
+              rx={28}
               fill={BRAND_SOFT}
               stroke={BRAND_SOFT_STROKE}
               strokeWidth={1.5}
             />
             <text
               x={PAD_L + 20}
-              y={400}
+              y={GIFT_PORTRAIT_LANDMARKS.badgeY + 38}
               fontSize={GIFT_PORTRAIT_TYPE.badge}
               fontWeight={700}
               fill={BRAND}
@@ -780,12 +783,33 @@ export function DibayGiftCertificateFace({
           ) : null}
         </g>
 
-        <rect
-          x={TICKET.x}
-          y={TICKET.y}
-          width={TICKET.w}
-          height={TICKET.h}
-          rx={TICKET.rx}
+        <path
+          d={`
+            M ${TICKET.x + TICKET.rx} ${TICKET.y}
+            H ${TICKET.x + TICKET.w - TICKET.rx}
+            Q ${TICKET.x + TICKET.w} ${TICKET.y} ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.rx}
+            V ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18}
+            C ${TICKET.x + TICKET.w - 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18},
+              ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 10},
+              ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY}
+            C ${TICKET.x + TICKET.w - 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 10},
+              ${TICKET.x + TICKET.w - 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18},
+              ${TICKET.x + TICKET.w} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18}
+            V ${TICKET.y + TICKET.h - TICKET.rx}
+            Q ${TICKET.x + TICKET.w} ${TICKET.y + TICKET.h} ${TICKET.x + TICKET.w - TICKET.rx} ${TICKET.y + TICKET.h}
+            H ${TICKET.x + TICKET.rx}
+            Q ${TICKET.x} ${TICKET.y + TICKET.h} ${TICKET.x} ${TICKET.y + TICKET.h - TICKET.rx}
+            V ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18}
+            C ${TICKET.x + 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 18},
+              ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY + 10},
+              ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY}
+            C ${TICKET.x + 18} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 10},
+              ${TICKET.x + 10} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18},
+              ${TICKET.x} ${GIFT_PORTRAIT_LANDMARKS.perforationY - 18}
+            V ${TICKET.y + TICKET.rx}
+            Q ${TICKET.x} ${TICKET.y} ${TICKET.x + TICKET.rx} ${TICKET.y}
+            Z
+          `}
           fill="none"
           stroke={BORDER}
           strokeWidth={2}
