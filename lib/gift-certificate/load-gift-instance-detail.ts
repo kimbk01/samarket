@@ -24,6 +24,8 @@ export type GiftInstanceDetail = {
   status: string;
   purchasedAt: string;
   fullyRedeemedAt: string | null;
+  validFrom: string | null;
+  validUntil: string | null;
   redemptionHistory: GiftWalletRedemptionSummary[];
 };
 
@@ -42,7 +44,7 @@ export async function loadGiftInstanceDetail(
   const { data: raw, error } = await sb
     .from(GIFT_TABLES.instances)
     .select(
-      "id, public_gift_number, product_id, store_id, gift_scope, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, current_owner_user_id, gift_certificate_products(title, image_url, transferable, gift_scope, stores(store_name, profile_image_url, slug))"
+      "id, public_gift_number, product_id, store_id, gift_scope, face_value, purchase_price, remaining_balance, status, purchased_at, created_at, fully_redeemed_at, valid_from, valid_until, current_owner_user_id, gift_certificate_products(title, image_url, transferable, gift_scope, stores(store_name, profile_image_url, slug))"
     )
     .eq("id", iid)
     .maybeSingle();
@@ -135,6 +137,8 @@ export async function loadGiftInstanceDetail(
       status: String(row.status ?? ""),
       purchasedAt: String(row.purchased_at ?? row.created_at ?? ""),
       fullyRedeemedAt: row.fully_redeemed_at == null ? null : String(row.fully_redeemed_at),
+      validFrom: row.valid_from == null ? null : String(row.valid_from).slice(0, 10),
+      validUntil: row.valid_until == null ? null : String(row.valid_until).slice(0, 10),
       redemptionHistory,
     },
   };

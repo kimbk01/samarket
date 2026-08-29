@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
+import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 
 export function GiftMallProductCard({
@@ -15,6 +16,23 @@ export function GiftMallProductCard({
 }) {
   const { safeT } = useI18n();
   const displayTitle = product.title;
+  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
+    fallbackKo: "만료 없음",
+    fallbackEn: "No expiry",
+  });
+  const expirationDisplay = formatGiftProductExpirationDisplay({
+    expiryPolicy: product.expiryPolicy,
+    validityDays: product.validityDays,
+    fixedValidUntil: product.fixedValidUntil,
+    noExpiryLabel,
+    daysAfterIssueLabel: (days) =>
+      safeT("gift_portrait_expiry_days_after_issue", {
+        fallbackKo: `발급 후 ${days}일`,
+        fallbackEn: `${days} days after issue`,
+        vars: { days: String(days) },
+      }),
+  });
+
   return (
     <li className="min-w-0 list-none" data-gift-mall-product={product.id}>
       <Link href={href} prefetch={false} className="block min-w-0" data-gift-mall-card-link={product.id}>
@@ -27,10 +45,13 @@ export function GiftMallProductCard({
             title: displayTitle,
           }}
           surface="mall"
+          size="md"
           title={displayTitle}
           issuerName={product.storeName}
           faceValue={product.faceValue}
           purchasePrice={product.purchasePrice}
+          expirationDisplay={expirationDisplay}
+          showValidity={Boolean(expirationDisplay)}
           footer={
             <div className="space-y-2">
               <p className="text-xs text-sam-muted">
@@ -44,9 +65,7 @@ export function GiftMallProductCard({
                       fallbackEn: "Non-transferable",
                     })}
               </p>
-              <span
-                className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[40px] w-full`}
-              >
+              <span className={`${COMMERCE_PRIMARY_BTN_CLASS} pointer-events-none min-h-[40px] w-full`}>
                 {safeT("gift_u2_mall_card_view", {
                   fallbackKo: "상품권 보기",
                   fallbackEn: "View gift",

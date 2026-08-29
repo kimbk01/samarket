@@ -125,8 +125,8 @@ export function BuyerGiftMallView() {
 
       <p className="mb-3 text-sm leading-relaxed text-sam-muted" data-gift-mall-desc="1">
         {safeT("gift_u2_mall_desc", {
-          fallbackKo: "D-Point로 매장 상품권을 구매할 수 있습니다. 상품권 잔액은 만료되지 않습니다.",
-          fallbackEn: "Buy store gift certificates with D-Point. Gift balances never expire.",
+          fallbackKo: "D-Point로 매장·DIBAY 상품권을 구매할 수 있습니다. 유효기간은 상품권마다 다를 수 있습니다.",
+          fallbackEn: "Buy store and DIBAY gift certificates with D-Point. Validity may vary by product.",
         })}
       </p>
 

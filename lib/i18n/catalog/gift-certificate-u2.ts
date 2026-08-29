@@ -9,7 +9,7 @@ export const giftCertificateU2Messages = {
     gift_u2_store_view_cta: "상품권 보기",
 
     gift_u2_mall_title: "상품권 몰",
-    gift_u2_mall_desc: "D-Point로 매장 상품권을 구매할 수 있습니다. 상품권 잔액은 만료되지 않습니다.",
+    gift_u2_mall_desc: "D-Point로 매장·DIBAY 상품권을 구매할 수 있습니다. 유효기간은 상품권마다 다를 수 있습니다.",
     gift_u2_mall_wallet_cta: "내 상품권",
     gift_u2_mall_empty: "현재 판매 중인 상품권이 없습니다.",
     gift_u2_mall_error: "상품권을 불러오지 못했습니다.",
@@ -76,6 +76,18 @@ export const giftCertificateU2Messages = {
     gift_u2_public_number_label: "상품권 번호",
     gift_u2_public_number_copy: "번호 복사",
     gift_u2_public_number_copied: "복사됨",
+
+    gift_portrait_badge_platform: "DIBAY 상품권",
+    gift_portrait_badge_store: "매장 상품권",
+    gift_portrait_expiry_none: "만료 없음",
+    gift_portrait_expiry_days_after_issue: "발급 후 {days}일",
+    gift_portrait_expiry_label: "유효기간",
+    gift_portrait_issuer_label: "발행처",
+    gift_portrait_original_face: "최초 상품권 금액",
+    gift_portrait_number_preview: "구매 후 발급",
+    gift_portrait_purchase_at_buy: "구매 당시",
+    gift_owner_product_active: "판매중",
+    gift_owner_product_paused: "중지",
   },
   en: {
     gift_u2_activity_section_title: "Gift certificates",
@@ -87,7 +99,7 @@ export const giftCertificateU2Messages = {
 
     gift_u2_mall_title: "Gift mall",
     gift_u2_mall_desc:
-      "Buy store gift certificates with D-Point. Gift balances never expire.",
+      "Buy store and DIBAY gift certificates with D-Point. Validity may vary by product.",
     gift_u2_mall_wallet_cta: "My gifts",
     gift_u2_mall_empty: "No gift certificates are currently on sale.",
     gift_u2_mall_error: "Could not load gift certificates.",
@@ -154,5 +166,17 @@ export const giftCertificateU2Messages = {
     gift_u2_public_number_label: "Gift number",
     gift_u2_public_number_copy: "Copy number",
     gift_u2_public_number_copied: "Copied",
+
+    gift_portrait_badge_platform: "DIBAY gift",
+    gift_portrait_badge_store: "Store gift",
+    gift_portrait_expiry_none: "No expiry",
+    gift_portrait_expiry_days_after_issue: "{days} days after issue",
+    gift_portrait_expiry_label: "Valid until",
+    gift_portrait_issuer_label: "Issuer",
+    gift_portrait_original_face: "Original amount",
+    gift_portrait_number_preview: "Issued after purchase",
+    gift_portrait_purchase_at_buy: "Purchased at",
+    gift_owner_product_active: "On sale",
+    gift_owner_product_paused: "Paused",
   },
 } as const;

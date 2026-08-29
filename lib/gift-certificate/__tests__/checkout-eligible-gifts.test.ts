@@ -22,6 +22,8 @@ function inst(partial: Partial<GiftWalletInstance> & Pick<GiftWalletInstance, "i
     status: "ACTIVE",
     purchasedAt: "2026-01-01",
     fullyRedeemedAt: null,
+    validFrom: null,
+    validUntil: null,
     ...partial,
   };
 }

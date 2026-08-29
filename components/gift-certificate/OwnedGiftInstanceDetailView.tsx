@@ -8,6 +8,9 @@ import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { WalletGiftFriendPicker } from "@/components/gift-certificate/WalletGiftFriendPicker";
 import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
 import type { GiftInstanceDetail } from "@/lib/gift-certificate/load-gift-instance-detail";
+import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
+import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
+import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   canonicalHubHref,
   deliveryDiscoveryHref,
@@ -97,7 +100,7 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
       ) : (
         <div className="space-y-4 pb-8">
           <GiftVisualCard
-            fullWidth
+            size="lg"
             visual={{
               giftScope: instance.giftScope,
               imageUrl: instance.imageUrl,
@@ -110,10 +113,32 @@ export function OwnedGiftInstanceDetailView({ instanceId }: { instanceId: string
             issuerName={instance.storeName}
             faceValue={instance.faceValue}
             remainingBalance={instance.remainingBalance}
+            purchasePrice={instance.purchasePrice}
             publicGiftNumber={instance.publicGiftNumber}
             showGiftNumber={Boolean(instance.publicGiftNumber?.trim())}
+            expirationDisplay={formatGiftInstanceExpirationDisplay({
+              validUntil: instance.validUntil,
+              noExpiryLabel: safeT("gift_portrait_expiry_none", {
+                fallbackKo: "만료 없음",
+                fallbackEn: "No expiry",
+              }),
+            })}
+            showValidity
             showSend={Boolean(canSend)}
             onSend={() => setSendOpen(true)}
+            footer={
+              giftMallShowsDiscountArrow(instance.faceValue, instance.purchasePrice) ? (
+                <p className="text-xs text-sam-muted tabular-nums" data-gift-wallet-purchase-secondary="1">
+                  {safeT("gift_portrait_purchase_at_buy", {
+                    fallbackKo: "구매 당시",
+                    fallbackEn: "Purchased at",
+                  })}{" "}
+                  <span className="line-through">{formatMoneyPhp(instance.faceValue)}</span>
+                  {" → "}
+                  <span className="font-medium text-sam-fg">{formatMoneyPhp(instance.purchasePrice)}</span>
+                </p>
+              ) : undefined
+            }
           />
           {instance.publicGiftNumber ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">

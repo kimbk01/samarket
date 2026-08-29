@@ -22,7 +22,6 @@ import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
  * Chat presentation for gift_certificate messages — one system gift event per transfer.
@@ -71,12 +70,6 @@ export function MessengerGiftCertificateCard(props: {
       fallbackKo: "친구",
       fallbackEn: "Friend",
     });
-  const amountLabel =
-    remainingBalance != null
-      ? formatMoneyPhp(remainingBalance)
-      : faceValue != null
-        ? formatMoneyPhp(faceValue)
-        : "";
 
   async function act(kind: "accept" | "reject" | "cancel") {
     if (busy || displayStatus !== "PENDING") return;
@@ -161,7 +154,7 @@ export function MessengerGiftCertificateCard(props: {
             title,
           }}
           surface="chat"
-          compact
+          size="sm"
           title={title}
           issuerName={storeName}
           faceValue={faceValue}
@@ -169,9 +162,6 @@ export function MessengerGiftCertificateCard(props: {
           showValidity={false}
           className="border-0 shadow-none"
         />
-        {amountLabel ? (
-          <p className="mt-2 text-center text-lg font-bold tabular-nums text-sam-fg">{amountLabel}</p>
-        ) : null}
         <p className="mt-1 text-center text-xs text-sam-muted">{statusHuman}</p>
         {errorMsg ? <p className="mt-1 text-center text-xs text-sam-danger">{errorMsg}</p> : null}
       </div>

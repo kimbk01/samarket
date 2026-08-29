@@ -3,39 +3,50 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayGiftCertificateFace } from "@/components/gift-certificate/DibayGiftCertificateFace";
 import {
-  DibayGiftCertificateFace,
-  type GiftCertificateValueMode,
-} from "@/components/gift-certificate/DibayGiftCertificateFace";
+  buildGiftCertificateVisualModel,
+  type GiftCertificateVisualContext,
+} from "@/lib/gift-certificate/gift-certificate-visual-model";
+import type { GiftVisualInput } from "@/lib/gift-certificate/resolve-gift-visual";
 import {
-  resolveGiftVisual,
-  type GiftScope,
-  type GiftVisualInput,
-} from "@/lib/gift-certificate/resolve-gift-visual";
-import {
-  GIFT_CARD_SHELL_CLASS,
-  GIFT_DETAIL_CARD_SHELL_CLASS,
+  giftCertificateSizeShellClass,
+  giftFaceVariantToSize,
+  type GiftCertificateFaceSize,
   type GiftCertificateFaceVariant,
 } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-export type GiftVisualSurface = "mall" | "wallet" | "instance" | "transfer" | "chat" | "used";
+export type GiftVisualSurface =
+  | "mall"
+  | "wallet"
+  | "instance"
+  | "transfer"
+  | "chat"
+  | "used"
+  | "admin_preview";
 
-function resolveValueMode(surface: GiftVisualSurface, faded: boolean): GiftCertificateValueMode {
+function surfaceToContext(surface: GiftVisualSurface): GiftCertificateVisualContext {
   if (surface === "mall") return "mall";
-  if (surface === "used" || faded) return "used";
+  if (surface === "admin_preview") return "admin_preview";
+  if (surface === "used") return "used";
+  if (surface === "transfer") return "transfer";
+  if (surface === "chat") return "chat";
+  if (surface === "instance") return "detail";
   return "wallet";
 }
 
-function resolveFaceVariant(
-  faceVariant: GiftCertificateFaceVariant | undefined,
-  fullWidth: boolean,
-  compact: boolean
-): GiftCertificateFaceVariant {
-  if (faceVariant) return faceVariant;
-  if (fullWidth) return "hero";
-  if (compact) return "compact";
-  return "standard";
+function resolveSize(args: {
+  size?: GiftCertificateFaceSize;
+  faceVariant?: GiftCertificateFaceVariant;
+  fullWidth?: boolean;
+  compact?: boolean;
+}): GiftCertificateFaceSize {
+  if (args.size) return args.size;
+  if (args.faceVariant) return giftFaceVariantToSize(args.faceVariant);
+  if (args.fullWidth) return "lg";
+  if (args.compact) return "sm";
+  return "md";
 }
 
 export function GiftVisualCard({
@@ -47,6 +58,7 @@ export function GiftVisualCard({
   remainingBalance,
   purchasePrice,
   publicGiftNumber,
+  expirationDisplay,
   statusLabel,
   faded = false,
   detailHref,
@@ -56,12 +68,12 @@ export function GiftVisualCard({
   showSend = false,
   showValidity = true,
   showGiftNumber = false,
-  amountSlot,
   footer,
   className = "",
   compact = false,
   fullWidth = false,
   faceVariant,
+  size,
   hideFooter = false,
 }: {
   visual: GiftVisualInput;
@@ -72,6 +84,8 @@ export function GiftVisualCard({
   remainingBalance?: number | null;
   purchasePrice?: number | null;
   publicGiftNumber?: string | null;
+  /** Preformatted expiry from loader/policy — never invent here. */
+  expirationDisplay?: string | null;
   statusLabel?: string | null;
   faded?: boolean;
   detailHref?: string;
@@ -81,39 +95,109 @@ export function GiftVisualCard({
   showSend?: boolean;
   showValidity?: boolean;
   showGiftNumber?: boolean;
+  /** @deprecated unused — amounts live on face */
   amountSlot?: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** @deprecated maps to size=sm only */
   compact?: boolean;
+  /** @deprecated maps to size=lg only */
   fullWidth?: boolean;
+  /** @deprecated maps to size scale only */
   faceVariant?: GiftCertificateFaceVariant;
+  size?: GiftCertificateFaceSize;
+  /** @deprecated no-op — face has no feature footer */
   hideFooter?: boolean;
 }) {
+  void hideFooter;
   const { safeT } = useI18n();
-  const resolved = resolveGiftVisual(visual);
-  const scope: GiftScope = resolved.badgeScope;
-  const isStore = scope === "STORE";
-  const displayTitle = title?.trim() || visual.title?.trim() || "";
-  const issuer = issuerName?.trim() || (scope === "PLATFORM" ? "DIBAY" : visual.storeName?.trim() || "");
+  const context = surfaceToContext(surface);
   const isUsed = surface === "used" || faded;
-  const variant = resolveFaceVariant(faceVariant, fullWidth, compact);
-  const valueMode = resolveValueMode(surface, isUsed);
+  const faceSize = resolveSize({ size, faceVariant, fullWidth, compact });
 
-  const scopeLine = isStore
-    ? safeT("commerce_hub_gift_scope_store_named", {
-        vars: { store: issuer },
-        fallbackKo: `이 상품권은 ${issuer}에서 사용할 수 있습니다.`,
-        fallbackEn: `Usable at ${issuer}.`,
-      })
-    : safeT("commerce_hub_gift_scope_platform", {
-        fallbackKo: "DIBAY 이용 가능 매장",
-        fallbackEn: "Eligible DIBAY stores",
-      });
-
-  const validityLine = safeT("commerce_hub_gift_validity_never", {
-    fallbackKo: "유효기간 · 만료되지 않음",
-    fallbackEn: "Validity · Never expires",
+  const badgePlatform = safeT("gift_portrait_badge_platform", {
+    fallbackKo: "DIBAY 상품권",
+    fallbackEn: "DIBAY gift",
   });
+  const badgeStore = safeT("gift_portrait_badge_store", {
+    fallbackKo: "매장 상품권",
+    fallbackEn: "Store gift",
+  });
+  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
+    fallbackKo: "만료 없음",
+    fallbackEn: "No expiry",
+  });
+
+  const resolvedExpiry =
+    expirationDisplay != null && expirationDisplay.trim() !== ""
+      ? expirationDisplay.trim()
+      : showValidity
+        ? null
+        : null;
+
+  const model = buildGiftCertificateVisualModel({
+    giftScope: visual.giftScope,
+    context: isUsed ? "used" : context,
+    title: title ?? visual.title,
+    issuerName: issuerName ?? visual.storeName,
+    imageUrl: visual.imageUrl,
+    storeLogoUrl: visual.storeLogoUrl,
+    storeName: visual.storeName,
+    faceValue,
+    purchasePrice,
+    remainingBalance,
+    expirationDisplay: resolvedExpiry,
+    certificateDisplayNumber: showGiftNumber ? publicGiftNumber : null,
+    valueMode: isUsed ? "used" : undefined,
+    issuerBadgePlatform: badgePlatform,
+    issuerBadgeStore: badgeStore,
+  });
+
+  // If caller asked to show validity but provided no expiry string, leave blank on face
+  // (do not invent noExpiryLabel without authority). Outer meta may still show status.
+  void noExpiryLabel;
+
+  const labels = {
+    faceAmountLabel: safeT("commerce_hub_gift_face_label", {
+      fallbackKo: "상품권 금액",
+      fallbackEn: "Gift certificate amount",
+    }),
+    purchaseLabel: safeT("commerce_hub_gift_purchase_label", {
+      fallbackKo: "구매가",
+      fallbackEn: "Purchase price",
+    }),
+    balanceLabel: safeT("gift_u2_wallet_remaining", {
+      fallbackKo: "잔액",
+      fallbackEn: "Balance",
+    }),
+    originalFaceLabel: safeT("gift_portrait_original_face", {
+      fallbackKo: "최초 상품권 금액",
+      fallbackEn: "Original amount",
+    }),
+    usedLabel: safeT("commerce_hub_used_completed", {
+      fallbackKo: "사용 완료",
+      fallbackEn: "Fully used",
+    }),
+    issuerLabel: safeT("gift_portrait_issuer_label", {
+      fallbackKo: "발행처",
+      fallbackEn: "Issuer",
+    }),
+    expiryLabel: safeT("gift_portrait_expiry_label", {
+      fallbackKo: "유효기간",
+      fallbackEn: "Valid until",
+    }),
+    numberLabel: safeT("gift_u2_public_number_label", {
+      fallbackKo: "상품권 번호",
+      fallbackEn: "Gift number",
+    }),
+    numberUnavailable:
+      context === "mall" || context === "admin_preview"
+        ? safeT("gift_portrait_number_preview", {
+            fallbackKo: "구매 후 발급",
+            fallbackEn: "Issued after purchase",
+          })
+        : "—",
+  };
 
   const detailBtn = detailHref ? (
     <Link
@@ -150,8 +234,7 @@ export function GiftVisualCard({
       </button>
     ) : null;
 
-  const shellClass =
-    variant === "hero" ? GIFT_DETAIL_CARD_SHELL_CLASS : variant === "standard" ? GIFT_CARD_SHELL_CLASS : "";
+  const shellClass = giftCertificateSizeShellClass(faceSize);
 
   return (
     <article
@@ -159,46 +242,34 @@ export function GiftVisualCard({
         isUsed ? "opacity-75 saturate-[0.7]" : ""
       } ${shellClass} ${className}`}
       data-gift-visual-card="1"
-      data-gift-scope={scope}
+      data-gift-scope={model.kind}
       data-gift-visual-surface={surface}
-      data-gift-face-variant={variant}
+      data-gift-face-size={faceSize}
+      {...(showGiftNumber && publicGiftNumber?.trim()
+        ? { "data-gift-public-number": publicGiftNumber.trim() }
+        : {})}
     >
-      <DibayGiftCertificateFace
-        variant={variant}
-        valueMode={valueMode}
-        faceValue={faceValue ?? null}
-        purchasePrice={purchasePrice ?? null}
-        remainingBalance={remainingBalance ?? null}
-        valueSlot={amountSlot}
-        priority={variant === "hero"}
-        hideFooter={hideFooter}
-      />
+      <DibayGiftCertificateFace model={model} labels={labels} />
 
-      <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
-        {displayTitle && displayTitle !== issuer ? (
-          <p className="truncate text-sm font-semibold text-sam-fg">{displayTitle}</p>
-        ) : null}
-        <p className="text-xs leading-snug text-sam-muted">{scopeLine}</p>
-        {showValidity ? (
-          <p className="text-xs text-sam-muted" data-gift-validity="1">
-            {validityLine}
-          </p>
-        ) : null}
-        {statusLabel ? (
-          <p className="text-xs font-semibold text-sam-fg" data-gift-status-label="1">
-            {statusLabel}
-          </p>
-        ) : null}
-        {showGiftNumber && publicGiftNumber?.trim() ? (
-          <p className="text-xs text-sam-fg" data-gift-public-number={publicGiftNumber.trim()}>
-            {safeT("gift_u2_public_number_label", {
-              fallbackKo: "상품권 번호",
-              fallbackEn: "Gift number",
-            })}
-            : <span className="font-medium tabular-nums">{publicGiftNumber.trim()}</span>
-          </p>
-        ) : null}
-      </div>
+      {(statusLabel || (showValidity && model.expirationDisplay)) && (
+        <div className="space-y-1 border-t border-sam-border/70 px-3 py-2.5">
+          {showValidity && model.expirationDisplay ? (
+            <p className="text-xs text-sam-muted" data-gift-validity="1">
+              {safeT("gift_portrait_expiry_label", {
+                fallbackKo: "유효기간",
+                fallbackEn: "Valid until",
+              })}
+              {" · "}
+              {model.expirationDisplay}
+            </p>
+          ) : null}
+          {statusLabel ? (
+            <p className="text-xs font-semibold text-sam-fg" data-gift-status-label="1">
+              {statusLabel}
+            </p>
+          ) : null}
+        </div>
+      )}
 
       {footer ? (
         <div className="border-t border-sam-border/60 px-3 py-2.5">{footer}</div>

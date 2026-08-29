@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import type { GiftInstanceDetail } from "@/lib/gift-certificate/load-gift-instance-detail";
+import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 
 type FriendRow = {
@@ -137,12 +138,19 @@ export function WalletGiftFriendPicker({
                 title: instance.title,
               }}
               surface="transfer"
-              compact
+              size="sm"
               title={instance.title}
               issuerName={instance.storeName}
               faceValue={instance.faceValue}
               remainingBalance={instance.remainingBalance}
-              showValidity={false}
+              expirationDisplay={formatGiftInstanceExpirationDisplay({
+                validUntil: instance.validUntil,
+                noExpiryLabel: safeT("gift_portrait_expiry_none", {
+                  fallbackKo: "만료 없음",
+                  fallbackEn: "No expiry",
+                }),
+              })}
+              showValidity
               className="border-0 shadow-none"
             />
           </div>

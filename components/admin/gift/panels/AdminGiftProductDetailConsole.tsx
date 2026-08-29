@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { GiftSalesDateTimeField } from "@/components/gift-certificate/GiftSalesDateTimeField";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
+import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { buildAdminGiftOpsHref } from "@/lib/gift-certificate/admin-gift-ops-tabs";
 import {
@@ -730,22 +732,52 @@ export function AdminGiftProductDetailConsole({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:flex-row">
-        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
-          {(editOpen ? editImage : product.image_url) ? (
-            <SamarketThumbnail
-              src={(editOpen ? editImage : product.image_url) ?? ""}
-              alt=""
-              fill
-              className="relative h-full w-full"
-              imageClassName="object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-xs text-sam-muted">
-              {safeT("gift_ops_preview_no_image", { fallbackKo: "이미지 없음", fallbackEn: "No image" })}
-            </div>
-          )}
-        </div>
+      <div
+        className="flex flex-col gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+        data-admin-gift-live-preview="1"
+      >
+        <GiftVisualCard
+          visual={{
+            giftScope: scope,
+            imageUrl: editOpen ? editImage || null : product.image_url,
+            storeName: scope === "PLATFORM" ? "DIBAY" : product.store_name,
+            title: editOpen ? editTitle : product.title,
+          }}
+          surface="admin_preview"
+          size="md"
+          title={editOpen ? editTitle : product.title}
+          issuerName={scope === "PLATFORM" ? "DIBAY" : product.store_name}
+          faceValue={
+            editOpen ? Math.trunc(Number(editFace)) || product.face_value : product.face_value
+          }
+          purchasePrice={
+            editOpen
+              ? Math.trunc(Number(editPrice)) || product.purchase_price
+              : product.purchase_price
+          }
+          expirationDisplay={formatGiftProductExpirationDisplay({
+            expiryPolicy: editOpen ? editExpiryPolicy : productExpiryPolicy(product),
+            validityDays: editOpen
+              ? editValidityDays.trim()
+                ? Math.trunc(Number(editValidityDays))
+                : null
+              : product.validity_days ?? null,
+            fixedValidUntil: editOpen
+              ? editFixedUntil.trim() || null
+              : product.fixed_valid_until ?? null,
+            noExpiryLabel: safeT("gift_portrait_expiry_none", {
+              fallbackKo: "만료 없음",
+              fallbackEn: "No expiry",
+            }),
+            daysAfterIssueLabel: (days) =>
+              safeT("gift_portrait_expiry_days_after_issue", {
+                fallbackKo: `발급 후 ${days}일`,
+                fallbackEn: `${days} days after issue`,
+                vars: { days: String(days) },
+              }),
+          })}
+          showValidity
+        />
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-ui-rect bg-sam-app px-2 py-0.5 text-xs font-semibold">{labelScope}</span>

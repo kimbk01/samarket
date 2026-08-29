@@ -15,6 +15,7 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerGiftMoneyOpsPanel } from "@/components/business/owner/OwnerGiftMoneyOpsPanel";
+import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import {
   aggregateOwnerRedemptionKpis,
   conversionPendingAmount,
@@ -535,27 +536,40 @@ function OwnerGiftCertificatesInner() {
                 </button>
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                 {activeProducts.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
-                    data-gift-product={p.id}
-                  >
-                    {p.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.image_url} alt="" className="h-14 w-14 rounded-ui-rect object-cover" />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-ui-rect bg-sam-app text-xs text-sam-muted">
-                        Gift
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{p.title}</p>
-                      <p className="text-xs text-sam-muted">
-                        {p.purchase_price.toLocaleString()} → {p.face_value.toLocaleString()}
-                      </p>
-                    </div>
+                  <li key={p.id} className="min-w-0" data-gift-product={p.id}>
+                    <GiftVisualCard
+                      visual={{
+                        giftScope: "STORE",
+                        imageUrl: p.image_url,
+                        storeName: p.title,
+                        title: p.title,
+                      }}
+                      surface="mall"
+                      size="sm"
+                      title={p.title}
+                      issuerName={p.title}
+                      faceValue={p.face_value}
+                      purchasePrice={p.purchase_price}
+                      showValidity={false}
+                      footer={
+                        <p className="text-xs text-sam-muted">
+                          {p.active
+                            ? safeT("gift_owner_product_active", {
+                                fallbackKo: "판매중",
+                                fallbackEn: "On sale",
+                              })
+                            : safeT("gift_owner_product_paused", {
+                                fallbackKo: "중지",
+                                fallbackEn: "Paused",
+                              })}
+                          {typeof p.issued_count === "number"
+                            ? ` · ${p.issued_count.toLocaleString()}`
+                            : ""}
+                        </p>
+                      }
+                    />
                   </li>
                 ))}
               </ul>

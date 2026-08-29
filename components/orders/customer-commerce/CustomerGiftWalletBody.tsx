@@ -16,6 +16,7 @@ import {
   type GiftSubTab,
 } from "@/lib/delivery/customer/commerce-hub-nav";
 import type { GiftWalletPayload, GiftWalletTransfer } from "@/lib/gift-certificate/load-gift-wallet";
+import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import {
   CommerceHubSegmentTabs,
   CommercePrimaryCtaButton,
@@ -24,7 +25,52 @@ import {
 } from "./CommerceHubSegmentTabs";
 import { GIFT_CARD_RESPONSIVE_GRID_CLASS } from "@/lib/gift-certificate/gift-visual-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { formatMoneyPhp } from "@/lib/utils/format";
+import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
+function useGiftExpiryLabel() {
+  const { safeT } = useI18n();
+  return (validUntil: string | null | undefined) =>
+    formatGiftInstanceExpirationDisplay({
+      validUntil,
+      noExpiryLabel: safeT("gift_portrait_expiry_none", {
+        fallbackKo: "만료 없음",
+        fallbackEn: "No expiry",
+      }),
+    });
+}
 
+function WalletPurchaseSecondary({
+  faceValue,
+  purchasePrice,
+}: {
+  faceValue: number;
+  purchasePrice: number;
+}) {
+  const { safeT } = useI18n();
+  if (!giftMallShowsDiscountArrow(faceValue, purchasePrice) && faceValue === purchasePrice) {
+    return (
+      <p className="text-xs text-sam-muted tabular-nums">
+        {safeT("commerce_hub_gift_purchase_label", {
+          fallbackKo: "구매가",
+          fallbackEn: "Purchase price",
+        })}{" "}
+        {formatMoneyPhp(purchasePrice)}
+      </p>
+    );
+  }
+  if (!giftMallShowsDiscountArrow(faceValue, purchasePrice)) return null;
+  return (
+    <p className="text-xs text-sam-muted tabular-nums" data-gift-wallet-purchase-secondary="1">
+      {safeT("gift_portrait_purchase_at_buy", {
+        fallbackKo: "구매 당시",
+        fallbackEn: "Purchased at",
+      })}{" "}
+      <span className="line-through">{formatMoneyPhp(faceValue)}</span>
+      {" → "}
+      <span className="font-medium text-sam-fg">{formatMoneyPhp(purchasePrice)}</span>
+    </p>
+  );
+}
 const GIFT_TABS: GiftSubTab[] = ["owned", "received", "sent", "used"];
 
 const TAB_KEY: Record<
@@ -122,6 +168,7 @@ function TransferCard({
         title: transfer.title,
       }}
       surface="transfer"
+      size="md"
       title={transfer.title}
       issuerName={transfer.storeName}
       faceValue={transfer.faceValue}
@@ -191,6 +238,7 @@ export function CustomerGiftWalletBody({
   refresh?: boolean;
 }) {
   const { safeT } = useI18n();
+  const formatExpiry = useGiftExpiryLabel();
   const [sendInstanceId, setSendInstanceId] = useState<string | null>(null);
   const { data, ready, authed, reload } = useCommerceHubTabFetch({
     cacheKey: "commerce-hub:gifts",
@@ -296,12 +344,16 @@ export function CustomerGiftWalletBody({
                       title: row.title,
                     }}
                     surface="wallet"
+                    size="md"
                     title={row.title}
                     issuerName={row.storeName}
                     faceValue={row.faceValue}
                     remainingBalance={row.remainingBalance}
+                    purchasePrice={row.purchasePrice}
                     publicGiftNumber={row.publicGiftNumber}
                     showGiftNumber={Boolean(row.publicGiftNumber?.trim())}
+                    expirationDisplay={formatExpiry(row.validUntil)}
+                    showValidity
                     statusLabel={
                       locked
                         ? safeT("gift_u3_wallet_pending_lock", {
@@ -314,6 +366,7 @@ export function CustomerGiftWalletBody({
                     showSend={canSend}
                     onSend={() => setSendInstanceId(row.id)}
                     sendDisabled={!canSend}
+                    footer={<WalletPurchaseSecondary faceValue={row.faceValue} purchasePrice={row.purchasePrice} />}
                   />
                 </li>
               );
@@ -396,11 +449,14 @@ export function CustomerGiftWalletBody({
                   title: row.title,
                 }}
                 surface="used"
+                size="md"
                 faded
                 title={row.title}
                 issuerName={row.storeName}
                 faceValue={row.faceValue}
                 remainingBalance={0}
+                expirationDisplay={formatExpiry(row.validUntil)}
+                showValidity
                 detailHref={ownedGiftInstanceHref(row.id, { from, giftTab: "used" })}
                 footer={
                   row.latestRedemptionStoreName ? (

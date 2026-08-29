@@ -9,10 +9,13 @@ import { DibayDialog } from "@/components/ui/dibay-overlay";
 import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { GiftMallProduct } from "@/lib/gift-certificate/load-gift-mall-products";
+import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
 import {
   giftPurchaseErrorFallbacks,
   mapGiftPurchaseErrorKey,
 } from "@/lib/gift-certificate/map-gift-purchase-error";
+import { giftMallShowsDiscountArrow } from "@/lib/gift-certificate/gift-certificate-visual-model";
+import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -226,11 +229,28 @@ export function BuyerGiftDetailView({
         vars: { price: product.purchasePrice.toLocaleString() },
       });
 
+  const noExpiryLabel = safeT("gift_portrait_expiry_none", {
+    fallbackKo: "만료 없음",
+    fallbackEn: "No expiry",
+  });
+  const expirationDisplay = formatGiftProductExpirationDisplay({
+    expiryPolicy: product.expiryPolicy,
+    validityDays: product.validityDays,
+    fixedValidUntil: product.fixedValidUntil,
+    noExpiryLabel,
+    daysAfterIssueLabel: (days) =>
+      safeT("gift_portrait_expiry_days_after_issue", {
+        fallbackKo: `발급 후 ${days}일`,
+        fallbackEn: `${days} days after issue`,
+        vars: { days: String(days) },
+      }),
+  });
+
   return (
     <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS} data-gift-detail="1" data-ready="1">
       <GiftVisualCard
         className="mb-3"
-        fullWidth
+        size="lg"
         visual={{
           giftScope: product.giftScope,
           imageUrl: product.imageUrl,
@@ -243,6 +263,8 @@ export function BuyerGiftDetailView({
         issuerName={product.storeName}
         faceValue={product.faceValue}
         purchasePrice={product.purchasePrice}
+        expirationDisplay={expirationDisplay}
+        showValidity={Boolean(expirationDisplay)}
       />
 
       {/* Solid inline fill — sam-btn-primary / delivery-btn-primary can paint transparent here. */}
@@ -369,12 +391,23 @@ export function BuyerGiftDetailView({
             : {new Date(product.salesEndsAt).toLocaleString()}
           </p>
         ) : null}
-        <p className="text-sm font-medium text-sam-fg">
-          {safeT("gift_u2_detail_no_expiry", {
-            fallbackKo: "상품권 잔액은 만료되지 않습니다.",
-            fallbackEn: "Gift certificate balances never expire.",
-          })}
-        </p>
+        {expirationDisplay ? (
+          <p className="text-sm font-medium text-sam-fg" data-gift-detail-expiry="1">
+            {safeT("gift_portrait_expiry_label", {
+              fallbackKo: "유효기간",
+              fallbackEn: "Valid until",
+            })}
+            {": "}
+            {expirationDisplay}
+          </p>
+        ) : null}
+        {giftMallShowsDiscountArrow(product.faceValue, product.purchasePrice) ? (
+          <p className="text-sm text-sam-muted tabular-nums" data-gift-detail-price-compare="1">
+            <span className="line-through">{formatMoneyPhp(product.faceValue)}</span>
+            {" → "}
+            <span className="font-semibold text-sam-fg">{formatMoneyPhp(product.purchasePrice)}</span>
+          </p>
+        ) : null}
         <p className="text-xs text-sam-muted">
           {safeT("gift_u2_detail_terms", {
             fallbackKo:
@@ -407,11 +440,13 @@ export function BuyerGiftDetailView({
               title: productDisplayTitle,
             }}
             surface="mall"
-            compact
+            size="sm"
             title={productDisplayTitle}
             issuerName={product.storeName}
             faceValue={product.faceValue}
             purchasePrice={product.purchasePrice}
+            expirationDisplay={expirationDisplay}
+            showValidity={Boolean(expirationDisplay)}
           />
           <div className="flex gap-2 pt-1">
             <button

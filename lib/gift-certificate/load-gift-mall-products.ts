@@ -25,6 +25,9 @@ export type GiftMallProduct = {
   imageUrl: string | null;
   salesStartsAt: string;
   salesEndsAt: string | null;
+  expiryPolicy: string;
+  validityDays: number | null;
+  fixedValidUntil: string | null;
 };
 
 export type GiftMallProductLoadResult =
@@ -36,7 +39,7 @@ export type GiftMallProductLoadResult =
     };
 
 const PRODUCT_SELECT =
-  "id, store_id, gift_scope, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, archived_at, mall_visible, max_issuance, issued_count, stores(store_name, profile_image_url)";
+  "id, store_id, gift_scope, title, face_value, purchase_price, transferable, image_url, sales_starts_at, sales_ends_at, active, archived_at, mall_visible, max_issuance, issued_count, expiry_policy, validity_days, fixed_valid_until, stores(store_name, profile_image_url)";
 
 function purchaseRowFromDb(row: Record<string, unknown>): GiftProductCustomerPurchaseRow {
   return {
@@ -81,6 +84,10 @@ function mapMallProduct(row: Record<string, unknown>): GiftMallProduct {
     imageUrl: row.image_url == null ? null : String(row.image_url),
     salesStartsAt: String(row.sales_starts_at ?? ""),
     salesEndsAt: row.sales_ends_at == null ? null : String(row.sales_ends_at),
+    expiryPolicy: String(row.expiry_policy ?? "NO_EXPIRY"),
+    validityDays: row.validity_days == null ? null : Math.trunc(Number(row.validity_days)),
+    fixedValidUntil:
+      row.fixed_valid_until == null ? null : String(row.fixed_valid_until).slice(0, 10),
   };
 }
 

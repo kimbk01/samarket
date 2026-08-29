@@ -27,6 +27,8 @@ function inst(
     status: "ACTIVE",
     purchasedAt: "2026-01-01",
     fullyRedeemedAt: null,
+    validFrom: null,
+    validUntil: null,
     ...partial,
   };
 }
