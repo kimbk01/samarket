@@ -8,8 +8,10 @@
 import {
   DEFAULT_NORMALIZED_ADMIN_OPS_PREFERENCES,
   DEFAULT_NORMALIZED_OWNER_PREFERENCES,
+  type NormalizedAdminOpsPreferenceSnapshot,
   type NormalizedMemberPreferenceSnapshot,
   type NormalizedNotificationPreferenceSnapshot,
+  type NormalizedOwnerPreferenceSnapshot,
   type NormalizedQuietPreference,
 } from "@/lib/notifications/policy/notification-preference-normalized-snapshot";
 
@@ -41,9 +43,25 @@ export type LegacyUserSettingsPushRow = Readonly<{
   do_not_disturb_end?: string | null;
 }>;
 
+/** P2-A6 — `owner_notification_settings` account-level optional prefs. */
+export type OwnerNotificationSettingsStorageRow = Readonly<{
+  optional_push_enabled?: boolean | null;
+  optional_sound_enabled?: boolean | null;
+  quiet_hours_enabled?: boolean | null;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+}>;
+
+/** P2-A6 — `admin_notification_preferences` per-admin Ops sound (not asset config). */
+export type AdminNotificationPreferenceStorageRow = Readonly<{
+  sound_enabled?: boolean | null;
+}>;
+
 export type NormalizeNotificationPreferenceStorageInput = Readonly<{
   notificationSettingsRow?: NotificationSettingsStorageRow | null;
   legacyUserSettingsRow?: LegacyUserSettingsPushRow | null;
+  ownerSettingsRow?: OwnerNotificationSettingsStorageRow | null;
+  adminOpsPreferenceRow?: AdminNotificationPreferenceStorageRow | null;
   now: Date;
   timezone?: string;
 }>;
@@ -275,6 +293,75 @@ function resolveMemberSnapshot(
   };
 }
 
+function coerceTriStateBool(value: boolean | null | undefined): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  return value === true;
+}
+
+function resolveOwnerQuietPreference(
+  ownerRow: OwnerNotificationSettingsStorageRow | null | undefined,
+  now: Date,
+  timeZone: string
+): NormalizedQuietPreference {
+  if (ownerRow == null) {
+    return DEFAULT_NORMALIZED_OWNER_PREFERENCES.quiet ?? { enabled: false, activeNow: false };
+  }
+  const quietHoursEnabled = ownerRow.quiet_hours_enabled === true;
+  const quietStart = trimTime(ownerRow.quiet_hours_start);
+  const quietEnd = trimTime(ownerRow.quiet_hours_end);
+  const activeNow =
+    quietHoursEnabled &&
+    isInNotificationQuietWindow(
+      now,
+      parseNotificationQuietTimeMinutes(quietStart),
+      parseNotificationQuietTimeMinutes(quietEnd),
+      timeZone
+    );
+  return { enabled: quietHoursEnabled, activeNow };
+}
+
+/**
+ * Owner optional prefs — no row / null columns → undefined (P2-A3 optimistic fallback).
+ * Never derive Owner from Member `order_enabled` / `store_enabled`.
+ */
+export function resolveOwnerSnapshot(
+  ownerRow: OwnerNotificationSettingsStorageRow | null | undefined,
+  now: Date,
+  timeZone: string
+): NormalizedOwnerPreferenceSnapshot {
+  if (ownerRow == null) {
+    return {
+      optionalPushEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.optionalPushEnabled,
+      optionalSoundEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.optionalSoundEnabled,
+      vibrationEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.vibrationEnabled,
+      quiet: DEFAULT_NORMALIZED_OWNER_PREFERENCES.quiet,
+    };
+  }
+  return {
+    optionalPushEnabled: coerceTriStateBool(ownerRow.optional_push_enabled),
+    optionalSoundEnabled: coerceTriStateBool(ownerRow.optional_sound_enabled),
+    vibrationEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.vibrationEnabled,
+    quiet: resolveOwnerQuietPreference(ownerRow, now, timeZone),
+  };
+}
+
+/**
+ * Admin Ops sound — no row / null → undefined (P2-A3 T15: compat default enabled at resolver).
+ * Never read `admin_notification_settings` asset rows here.
+ */
+export function resolveAdminOpsSnapshot(
+  adminRow: AdminNotificationPreferenceStorageRow | null | undefined
+): NormalizedAdminOpsPreferenceSnapshot {
+  if (adminRow == null) {
+    return {
+      soundEnabled: DEFAULT_NORMALIZED_ADMIN_OPS_PREFERENCES.soundEnabled,
+    };
+  }
+  return {
+    soundEnabled: coerceTriStateBool(adminRow.sound_enabled),
+  };
+}
+
 /**
  * Pure storage → normalized snapshot.
  *
@@ -282,7 +369,7 @@ function resolveMemberSnapshot(
  * - Push master: legacy `push_enabled` + canonical `service_enabled` (AND at resolver; both stored separately).
  * - Marketing: strict opt-in on both `marketing_enabled` and `marketing_push_enabled`.
  * - Quiet/DND: OR active window (`web-push-user-settings-gate` truth).
- * - Owner optional / admin ops persisted prefs: absent (P2-A3 compat fallbacks).
+ * - Owner optional / admin ops: dedicated P2-A6 rows; absent → P2-A3 compat undefined.
  */
 export function normalizeNotificationPreferenceStorage(
   input: NormalizeNotificationPreferenceStorageInput
@@ -299,14 +386,7 @@ export function normalizeNotificationPreferenceStorage(
       input.now,
       timeZone
     ),
-    owner: {
-      optionalPushEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.optionalPushEnabled,
-      optionalSoundEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.optionalSoundEnabled,
-      vibrationEnabled: DEFAULT_NORMALIZED_OWNER_PREFERENCES.vibrationEnabled,
-      quiet: DEFAULT_NORMALIZED_OWNER_PREFERENCES.quiet,
-    },
-    adminOps: {
-      soundEnabled: DEFAULT_NORMALIZED_ADMIN_OPS_PREFERENCES.soundEnabled,
-    },
+    owner: resolveOwnerSnapshot(input.ownerSettingsRow, input.now, timeZone),
+    adminOps: resolveAdminOpsSnapshot(input.adminOpsPreferenceRow),
   };
 }
