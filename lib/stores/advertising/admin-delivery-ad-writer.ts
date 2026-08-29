@@ -325,7 +325,7 @@ export async function adminUpdateDeliveryAdInventory(
 
   if (input.productKind === "banner") {
     const surface =
-      input.inventoryKey === "STORES_HOME_HERO" ? "stores_home_hero" : "stores_home_hero";
+      input.inventoryKey === "STORES_SEARCH_TOP" ? "stores_search" : "stores_home_hero";
     await sb
       .from(table)
       .update({

@@ -16,6 +16,7 @@ export const STORES_DISCOVERY_SURFACES = [
   "stores_home_rest",
   "stores_browse",
   "stores_home_hero",
+  "stores_search",
   "store_detail",
   "checkout",
 ] as const;
@@ -51,7 +52,8 @@ export const STORES_DISCOVERY_PAID_AD_ALLOWED_SURFACES = [
   "stores_browse",
 ] as const satisfies readonly StoresDiscoverySurface[];
 
-/** Surfaces that may host BANNER_AD (TARGET: hero only in v1). */
+/** Surfaces that may host BANNER_AD (HERO + CUT J SEARCH_TOP). */
 export const STORES_DISCOVERY_BANNER_AD_ALLOWED_SURFACES = [
   "stores_home_hero",
+  "stores_search",
 ] as const satisfies readonly StoresDiscoverySurface[];

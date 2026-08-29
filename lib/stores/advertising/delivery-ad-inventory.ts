@@ -148,10 +148,10 @@ export const DELIVERY_AD_INVENTORY_SEEDS: readonly DeliveryAdInventorySeed[] = [
     cropPolicy: "cover",
     objectPosition: "center",
     allowedCreativeType: "banner_image",
-    ratioSource: "FUTURE",
-    runtimeStatus: "FUTURE",
-    isActive: false,
-    notes: "CUT J",
+    ratioSource: "PRODUCT_DESIGN_LOCK",
+    runtimeStatus: "ACTIVE",
+    isActive: true,
+    notes: "CUT J: Search results top banner (banner product SSOT)",
   },
   {
     key: "STORE_DETAIL_RECOMMENDATION_BANNER",
@@ -166,7 +166,7 @@ export const DELIVERY_AD_INVENTORY_SEEDS: readonly DeliveryAdInventorySeed[] = [
     ratioSource: "FUTURE",
     runtimeStatus: "FUTURE",
     isActive: false,
-    notes: "CUT J",
+    notes: "CUT J BLOCKED: no canonical store-detail recommendation ad surface",
   },
 ] as const;
 
@@ -183,7 +183,15 @@ export const LEGACY_PLACEMENT_TO_INVENTORY = {
   stores_home: "STORES_HOME_FEED",
   stores_browse: "STORES_CATEGORY_FEED",
   stores_home_hero: "STORES_HOME_HERO",
+  stores_search: "STORES_SEARCH_TOP",
 } as const satisfies Record<string, DeliveryAdInventoryKey>;
+
+/** CUT J — Detail inventory remains FUTURE; do not treat as activatable. */
+export const CUT_J_DETAIL_INVENTORY_STATUS = {
+  key: "STORE_DETAIL_RECOMMENDATION_BANNER" as const,
+  state: "BLOCKED_NO_CANONICAL_SURFACE" as const,
+  note: "Store detail has menu recommendation only — not a Delivery Ad recommendation surface.",
+} as const;
 
 export type LegacySurfaceGateKey = "ad_integration" | "ad_enabled" | "homePaidAdInsertion";
 

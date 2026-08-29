@@ -3,10 +3,10 @@
  *
  * DB enum values stay migration-free:
  *   store_paid_ad_campaigns.placement: stores_home | stores_browse
- *   store_banner_ad_campaigns.surface: stores_home_hero
+ *   store_banner_ad_campaigns.surface: stores_home_hero | stores_search
  *
  * Application layer uses ActiveDeliveryAdPlacement. Future values are NOT
- * runtime-valid — do not accept them in validators/consumers until CUT J+.
+ * runtime-valid — DETAIL recommendation remains FUTURE (CUT J blocked).
  */
 
 import type { DeliveryAdProductKind } from "@/lib/stores/advertising/delivery-ad-domain";
@@ -15,14 +15,12 @@ export const ACTIVE_DELIVERY_AD_PLACEMENTS = [
   "stores_home_feed",
   "stores_category_feed",
   "stores_home_hero",
+  "stores_search",
 ] as const;
 export type ActiveDeliveryAdPlacement = (typeof ACTIVE_DELIVERY_AD_PLACEMENTS)[number];
 
-/** Reserved for later CUTs — never treat as runtime-valid in CUT A. */
-export const FUTURE_DELIVERY_AD_PLACEMENTS = [
-  "stores_search",
-  "store_detail_recommendation",
-] as const;
+/** Reserved — DETAIL recommendation ad surface not present in product. */
+export const FUTURE_DELIVERY_AD_PLACEMENTS = ["store_detail_recommendation"] as const;
 export type FutureDeliveryAdPlacement = (typeof FUTURE_DELIVERY_AD_PLACEMENTS)[number];
 
 export type DeliveryAdPlacement = ActiveDeliveryAdPlacement | FutureDeliveryAdPlacement;
@@ -42,11 +40,14 @@ export const ACTIVE_TO_STORE_PAID_AD_DB_PLACEMENT = {
 >;
 
 export const BANNER_AD_DB_SURFACE = "stores_home_hero" as const;
+export const BANNER_AD_DB_SURFACES = ["stores_home_hero", "stores_search"] as const;
+export type BannerAdDbSurface = (typeof BANNER_AD_DB_SURFACES)[number];
 
 export const ACTIVE_PLACEMENT_PRODUCT: Record<ActiveDeliveryAdPlacement, DeliveryAdProductKind> = {
   stores_home_feed: "store_sponsored",
   stores_category_feed: "store_sponsored",
   stores_home_hero: "banner",
+  stores_search: "banner",
 };
 
 export function isActiveDeliveryAdPlacement(value: unknown): value is ActiveDeliveryAdPlacement {

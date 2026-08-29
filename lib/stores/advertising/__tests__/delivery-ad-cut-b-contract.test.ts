@@ -99,6 +99,7 @@ describe("CUT B Delivery Ad SSOT", () => {
     expect(mapLegacyPlacementToInventory("stores_home")).toBe("STORES_HOME_FEED");
     expect(mapLegacyPlacementToInventory("stores_browse")).toBe("STORES_CATEGORY_FEED");
     expect(mapLegacyPlacementToInventory("stores_home_hero")).toBe("STORES_HOME_HERO");
+    expect(mapLegacyPlacementToInventory("stores_search")).toBe("STORES_SEARCH_TOP");
     const values = Object.values(LEGACY_PLACEMENT_TO_INVENTORY);
     expect(new Set(values).size).toBe(values.length);
   });
@@ -111,6 +112,7 @@ describe("CUT B Delivery Ad SSOT", () => {
       "STORES_HOME_HERO",
       "STORES_HOME_FEED",
       "STORES_CATEGORY_FEED",
+      "STORES_SEARCH_TOP",
     ]);
     for (const key of ACTIVE_DELIVERY_AD_INVENTORY_KEYS) {
       expect(isRuntimeActiveInventory(key)).toBe(true);

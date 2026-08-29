@@ -6,6 +6,10 @@ import {
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  loadStoresSearchTopBannerSlide,
+  type SearchTopBannerSlide,
+} from "@/lib/stores/load-store-search-top-banners";
 
 function sanitizeForIlike(raw: string): string {
   return raw
@@ -98,6 +102,8 @@ export async function searchDeliveryDomain(input: {
   stores: DeliverySearchStoreResult[];
   menus: DeliverySearchMenuResult[];
   result_count: number;
+  /** CUT J — presentation-only; null when none / failure (organic unchanged). */
+  searchTopBanner?: SearchTopBannerSlide | null;
   debug?: DeliverySearchDebug;
 }> {
   const parsed = normalizeDeliveryKeyword(input.q);
@@ -381,6 +387,24 @@ export async function searchDeliveryDomain(input: {
         }
       : undefined;
 
-  return { ok: true, stores: mergedStores, menus, result_count, debug };
+  let searchTopBanner: SearchTopBannerSlide | null = null;
+  try {
+    searchTopBanner = await loadStoresSearchTopBannerSlide(sb as SupabaseClient, {
+      organicStoreIds: mergedStores.map((s) => s.id),
+      query: keyword,
+    });
+  } catch (e) {
+    console.error("[delivery-search] searchTopBanner", e instanceof Error ? e.message : e);
+    searchTopBanner = null;
+  }
+
+  return {
+    ok: true,
+    stores: mergedStores,
+    menus,
+    result_count,
+    searchTopBanner,
+    debug,
+  };
 }
 

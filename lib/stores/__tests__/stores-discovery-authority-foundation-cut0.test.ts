@@ -146,7 +146,10 @@ describe("CUT 0 stores discovery authority foundation", () => {
       "stores_home_rest",
       "stores_browse",
     ]);
-    expect(STORES_DISCOVERY_BANNER_AD_ALLOWED_SURFACES).toEqual(["stores_home_hero"]);
+    expect(STORES_DISCOVERY_BANNER_AD_ALLOWED_SURFACES).toEqual([
+      "stores_home_hero",
+      "stores_search",
+    ]);
   });
 
   it("separates STORE_PAID_AD, BANNER_AD, COUPON, fee, editorial", () => {

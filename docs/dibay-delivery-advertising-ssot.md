@@ -44,8 +44,8 @@ Table: `delivery_ad_inventories`
 | STORES_HOME_INLINE_1 | banner | FUTURE | false | 2:1 | FUTURE |
 | STORES_CATEGORY_TOP | banner | FUTURE | false | 3:1 | FUTURE |
 | STORES_CATEGORY_INLINE | banner | FUTURE | false | 2:1 | FUTURE |
-| STORES_SEARCH_TOP | banner | FUTURE | false | — | FUTURE (CUT J) |
-| STORE_DETAIL_RECOMMENDATION_BANNER | banner | FUTURE | false | — | FUTURE (CUT J) |
+| STORES_SEARCH_TOP | banner | ACTIVE | true | 3:1 | PRODUCT_DESIGN_LOCK (CUT J) |
+| STORE_DETAIL_RECOMMENDATION_BANNER | banner | FUTURE | false | 16:9 | FUTURE — CUT J BLOCKED (no canonical recommendation ad surface) |
 
 **Device principle:** one inventory ratio for iOS / Android APK / mobile web / tablet. Forbidden: `ios_ratio` / `android_ratio` / `tablet_ratio`. Parity proof = CUT E/K.
 
@@ -60,6 +60,7 @@ Table: `delivery_ad_inventories`
 | `stores_home` | STORES_HOME_FEED |
 | `stores_browse` | STORES_CATEGORY_FEED |
 | `stores_home_hero` | STORES_HOME_HERO |
+| `stores_search` | STORES_SEARCH_TOP |
 
 Junctions: `delivery_store_sponsored_campaign_inventories` · `delivery_banner_campaign_inventories`
 

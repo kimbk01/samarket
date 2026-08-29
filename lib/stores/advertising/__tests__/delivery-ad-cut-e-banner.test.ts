@@ -30,12 +30,16 @@ import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { ownerActionTargetLifecycle } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 
 describe("CUT E Owner Banner + renderer", () => {
-  it("E1 draft inventory ACTIVE STORES_HOME_HERO accepted", () => {
+  it("E1 draft inventory ACTIVE STORES_HOME_HERO + STORES_SEARCH_TOP accepted", () => {
     expect(validateOwnerBannerInventory("STORES_HOME_HERO")).toEqual({
       ok: true,
       key: "STORES_HOME_HERO",
     });
-    expect(OWNER_BANNER_INVENTORY_KEYS).toEqual(["STORES_HOME_HERO"]);
+    expect(validateOwnerBannerInventory("STORES_SEARCH_TOP")).toEqual({
+      ok: true,
+      key: "STORES_SEARCH_TOP",
+    });
+    expect(OWNER_BANNER_INVENTORY_KEYS).toEqual(["STORES_HOME_HERO", "STORES_SEARCH_TOP"]);
   });
 
   it("E2 ownership enforced by contract (cta target must be store)", () => {
@@ -51,7 +55,7 @@ describe("CUT E Owner Banner + renderer", () => {
       ok: false,
       error: "future_inventory",
     });
-    expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(false);
+    expect(validateOwnerBannerInventory("STORE_DETAIL_RECOMMENDATION_BANNER").ok).toBe(false);
   });
 
   it("E4 ACTIVE inventory accepted", () => {

@@ -158,6 +158,9 @@ async function loadInventoryKeys(
     if (String((row as { key?: string }).key) === "STORES_HOME_HERO") {
       keys.push("STORES_HOME_HERO");
     }
+    if (String((row as { key?: string }).key) === "STORES_SEARCH_TOP") {
+      keys.push("STORES_SEARCH_TOP");
+    }
   }
   return keys;
 }

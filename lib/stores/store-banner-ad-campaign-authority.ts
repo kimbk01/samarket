@@ -1,22 +1,24 @@
 /**
- * CUT 5 — BANNER_AD campaign authority (stores_home_hero only).
+ * CUT 5 / CUT J — BANNER_AD campaign authority
+ * (stores_home_hero + stores_search).
  * NOT store_paid_ad_campaigns / store_banners / feed_ad_campaigns / my_page_banners.
  *
  * CUT A HARD LOCK:
  * store_banner_ad_campaigns = BANNER_AD = image creative Delivery banner campaign.
- * Current capability = Admin HOME hero CMS only.
- * Owner campaign / billing / review / budget do NOT exist — do not abstract them in.
  *
  * @see lib/stores/advertising
  */
 
 import { BANNER_AD_CAMPAIGN_TABLE } from "@/lib/stores/advertising/delivery-ad-domain";
-import { BANNER_AD_DB_SURFACE } from "@/lib/stores/advertising/delivery-ad-placement";
+import {
+  BANNER_AD_DB_SURFACES,
+  type BannerAdDbSurface,
+} from "@/lib/stores/advertising/delivery-ad-placement";
 
 export const STORE_BANNER_AD_CAMPAIGN_TABLE = BANNER_AD_CAMPAIGN_TABLE;
 
-export const STORE_BANNER_AD_SURFACES = [BANNER_AD_DB_SURFACE] as const;
-export type StoreBannerAdSurface = (typeof STORE_BANNER_AD_SURFACES)[number];
+export const STORE_BANNER_AD_SURFACES = BANNER_AD_DB_SURFACES;
+export type StoreBannerAdSurface = BannerAdDbSurface;
 
 export type StoreBannerAdCampaignRow = {
   id: string;
@@ -33,7 +35,10 @@ export type StoreBannerAdCampaignRow = {
 };
 
 export function isStoreBannerAdSurface(value: unknown): value is StoreBannerAdSurface {
-  return value === BANNER_AD_DB_SURFACE;
+  return (
+    typeof value === "string" &&
+    (STORE_BANNER_AD_SURFACES as readonly string[]).includes(value)
+  );
 }
 
 export function isStoreBannerAdCreativeValid(

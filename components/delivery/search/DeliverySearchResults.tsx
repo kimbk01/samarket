@@ -2,6 +2,9 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
 
 type DeliverySearchStore = {
   id: string;
@@ -40,6 +43,7 @@ export function DeliverySearchResults({
   stores,
   menus,
   resultCount,
+  searchTopBanner,
   onClickStore,
   onClickMenu,
 }: {
@@ -48,11 +52,17 @@ export function DeliverySearchResults({
   stores: DeliverySearchStore[];
   menus: DeliverySearchMenu[];
   resultCount: number;
+  searchTopBanner?: SearchTopBannerSlide | null;
   onClickStore: (slug: string) => void;
   onClickMenu: (menu: DeliverySearchMenu) => void;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const hasAny = (stores?.length ?? 0) + (menus?.length ?? 0) > 0;
+  const banner = searchTopBanner ?? null;
+  const adLabel = safeT("store_insertion_sponsored", {
+    fallbackKo: "광고",
+    fallbackEn: "Sponsored",
+  });
 
   if (loading && !hasAny) {
     return (
@@ -79,8 +89,29 @@ export function DeliverySearchResults({
         </p>
       </div>
 
+      {banner && stores.length > 0 ? (
+        <div className="w-full overflow-hidden" data-delivery-ad-inventory="STORES_SEARCH_TOP">
+          <DeliveryAdBanner
+            inventory={inventoryViewFromKey("STORES_SEARCH_TOP")}
+            creative={{
+              assetUrl: banner.imageUrl,
+              headline: banner.headline,
+              subcopy: banner.subcopy,
+              alt: adLabel,
+            }}
+            destination={{ href: banner.href }}
+            adLabel={adLabel}
+            renderContext="customer"
+            campaignId={banner.campaignId}
+            exposureToken={banner.exposureToken}
+          />
+        </div>
+      ) : null}
+
       <section className="space-y-2">
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_stores_heading")}</h2>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
+          {t("ui_delivery_search_stores_heading")}
+        </h2>
         {stores.length === 0 ? (
           <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_stores_empty")}</p>
         ) : (
@@ -92,7 +123,12 @@ export function DeliverySearchResults({
                   onClick={() => onClickStore(s.slug)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <SamarketThumbnail src={s.profile_image_url} size={48} roundedClassName="rounded-ui-rect" className="bg-sam-surface-muted" />
+                  <SamarketThumbnail
+                    src={s.profile_image_url}
+                    size={48}
+                    roundedClassName="rounded-ui-rect"
+                    className="bg-sam-surface-muted"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
                     {s.description ? (
@@ -110,7 +146,9 @@ export function DeliverySearchResults({
       </section>
 
       <section className="space-y-2">
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_menu_heading")}</h2>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">
+          {t("ui_delivery_search_menu_heading")}
+        </h2>
         {menus.length === 0 ? (
           <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_menu_empty")}</p>
         ) : (
@@ -122,7 +160,12 @@ export function DeliverySearchResults({
                   onClick={() => onClickMenu(m)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <SamarketThumbnail src={m.thumbnail_url} size={48} roundedClassName="rounded-ui-rect" className="bg-sam-surface-muted" />
+                  <SamarketThumbnail
+                    src={m.thumbnail_url}
+                    size={48}
+                    roundedClassName="rounded-ui-rect"
+                    className="bg-sam-surface-muted"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-semibold text-sam-fg">{m.title}</p>
                     <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>
@@ -130,7 +173,9 @@ export function DeliverySearchResults({
                       <p className="mt-0.5 line-clamp-1 sam-text-helper text-sam-meta">{m.summary}</p>
                     ) : null}
                   </div>
-                  <div className="shrink-0 sam-text-body-secondary font-semibold text-sam-fg">{priceLabel(m)}</div>
+                  <div className="shrink-0 sam-text-body-secondary font-semibold text-sam-fg">
+                    {priceLabel(m)}
+                  </div>
                 </button>
               </li>
             ))}
@@ -140,4 +185,3 @@ export function DeliverySearchResults({
     </div>
   );
 }
-

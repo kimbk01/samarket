@@ -18,6 +18,7 @@ import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChip
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
 import { RecommendedSearchChips } from "@/components/delivery/search/RecommendedSearchChips";
 import { DeliverySearchResults } from "@/components/delivery/search/DeliverySearchResults";
+import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
 
 type DeliverySearchStore = {
   id: string;
@@ -49,6 +50,7 @@ type SearchResponse = {
   stores: DeliverySearchStore[];
   menus: DeliverySearchMenu[];
   result_count: number;
+  searchTopBanner?: SearchTopBannerSlide | null;
 };
 
 const FALLBACK_RECOMMENDED = [
@@ -76,6 +78,7 @@ export function DeliverySearchPage() {
   const [stores, setStores] = useState<DeliverySearchStore[]>([]);
   const [menus, setMenus] = useState<DeliverySearchMenu[]>([]);
   const [resultCount, setResultCount] = useState(0);
+  const [searchTopBanner, setSearchTopBanner] = useState<SearchTopBannerSlide | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
   const trimmed = useMemo(() => normalizeKeyword(q), [q]);
@@ -101,6 +104,7 @@ export function DeliverySearchPage() {
         setStores([]);
         setMenus([]);
         setResultCount(0);
+        setSearchTopBanner(null);
         return;
       }
 
@@ -115,16 +119,17 @@ export function DeliverySearchPage() {
           signal: controller.signal,
         });
         const j = (await res.json().catch(() => ({}))) as SearchResponse;
-        console.log("[delivery-search-response]", j);
         if (controller.signal.aborted) return;
         setStores(Array.isArray(j.stores) ? j.stores : []);
         setMenus(Array.isArray(j.menus) ? j.menus : []);
         setResultCount(Number.isFinite(Number(j.result_count)) ? Number(j.result_count) : 0);
+        setSearchTopBanner(j.searchTopBanner ?? null);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         setStores([]);
         setMenus([]);
         setResultCount(0);
+        setSearchTopBanner(null);
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -212,6 +217,7 @@ export function DeliverySearchPage() {
             stores={stores}
             menus={menus}
             resultCount={resultCount}
+            searchTopBanner={searchTopBanner}
             onClickStore={onClickStore}
             onClickMenu={onClickMenu}
           />

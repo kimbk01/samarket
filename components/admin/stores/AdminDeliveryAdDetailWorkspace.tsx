@@ -26,6 +26,10 @@ import {
   DELIVERY_AD_INVENTORY_KEYS,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
+import {
+  OWNER_BANNER_INVENTORY_KEYS,
+  type OwnerBannerInventoryKey,
+} from "@/lib/stores/advertising/owner-banner-contract";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
 import type {
   DeliveryAdAnalyticsDateRange,
@@ -70,6 +74,7 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
   const [confirmAction, setConfirmAction] = useState<AdminDeliveryAdAction | null>(null);
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
+  const [editInventoryKey, setEditInventoryKey] = useState<OwnerBannerInventoryKey>("STORES_HOME_HERO");
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
@@ -100,6 +105,15 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
       setCreative(json.creative ?? null);
       setStartAt(json.campaign.startAt.slice(0, 16));
       setEndAt(json.campaign.endAt.slice(0, 16));
+      const inv0 = json.campaign.inventoryKeys[0];
+      if (
+        inv0 &&
+        (OWNER_BANNER_INVENTORY_KEYS as readonly string[]).includes(inv0)
+      ) {
+        setEditInventoryKey(inv0 as OwnerBannerInventoryKey);
+      } else {
+        setEditInventoryKey("STORES_HOME_HERO");
+      }
     } catch {
       setError("network_error");
     } finally {
@@ -237,6 +251,36 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
     }
   }
 
+  async function saveInventory() {
+    if (!campaign || busy || campaign.productKind !== "banner") return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/delivery-ads/${encodeURIComponent(campaignId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productKind: campaign.productKind,
+          op: "inventory",
+          expectedUpdatedAt: campaign.updatedAt,
+          inventoryKey: editInventoryKey,
+          reason: reason.trim() || null,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error || "update_failed");
+        return;
+      }
+      await load();
+    } catch {
+      setError("network_error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const inventoryKey = campaign?.inventoryKeys[0] ?? "STORES_HOME_HERO";
   const bannerInventory = inventoryViewFromKey(
     (DELIVERY_AD_INVENTORY_KEYS as readonly string[]).includes(inventoryKey)
@@ -333,9 +377,72 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
             </AdminCard>
 
             <AdminCard titleKey="admin_delivery_ads_section_settings">
-              <p className="text-[13px] text-sam-fg">
-                Inventory: {campaign.inventoryKeys.join(", ") || "—"}
-              </p>
+              {campaign.productKind === "banner" ? (
+                <div className="mb-3 space-y-2">
+                  <label className="flex flex-col gap-1 text-[12px]">
+                    {safeT("admin_delivery_ads_inventory_label", {
+                      fallbackKo: "광고 지면",
+                      fallbackEn: "Placement",
+                    })}
+                    <select
+                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
+                      value={editInventoryKey}
+                      onChange={(e) =>
+                        setEditInventoryKey(e.target.value as OwnerBannerInventoryKey)
+                      }
+                      disabled={busy}
+                    >
+                      {OWNER_BANNER_INVENTORY_KEYS.map((key) => (
+                        <option key={key} value={key}>
+                          {key === "STORES_SEARCH_TOP"
+                            ? safeT("owner_ads_inventory_search_top", {
+                                fallbackKo: "검색 결과 상단",
+                                fallbackEn: "Search results top",
+                              })
+                            : safeT("owner_ads_inventory_home_hero", {
+                                fallbackKo: "배달 홈 히어로",
+                                fallbackEn: "Delivery home hero",
+                              })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
+                    onClick={() => void saveInventory()}
+                  >
+                    {safeT("admin_delivery_ads_save_inventory", {
+                      fallbackKo: "지면 저장",
+                      fallbackEn: "Save placement",
+                    })}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[13px] text-sam-fg">
+                  {safeT("admin_delivery_ads_inventory_label", {
+                    fallbackKo: "광고 지면",
+                    fallbackEn: "Placement",
+                  })}
+                  :{" "}
+                  {(campaign.inventoryKeys ?? [])
+                    .map((k) =>
+                      k === "STORES_HOME_FEED"
+                        ? safeT("owner_ads_inventory_home", {
+                            fallbackKo: "배달 홈",
+                            fallbackEn: "Delivery home",
+                          })
+                        : k === "STORES_CATEGORY_FEED"
+                          ? safeT("owner_ads_inventory_category", {
+                              fallbackKo: "카테고리 목록",
+                              fallbackEn: "Category list",
+                            })
+                          : k
+                    )
+                    .join(", ") || "—"}
+                </p>
+              )}
               <p className="mt-1 text-[13px] text-sam-muted">
                 {safeT("admin_delivery_ads_pricing_not_configured", {
                   fallbackKo: "과금: NOT_CONFIGURED (CUT H 이전)",

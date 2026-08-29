@@ -19,12 +19,16 @@ import {
   DELIVERY_AD_OWNER_PRICING_PRODUCT,
   validateOwnerStoreSponsoredSchedule,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
-import { BANNER_AD_DB_SURFACE } from "@/lib/stores/advertising/delivery-ad-placement";
+import {
+  BANNER_AD_DB_SURFACE,
+  type BannerAdDbSurface,
+} from "@/lib/stores/advertising/delivery-ad-placement";
 
 /** Owner-selectable banner inventories (ACTIVE only). */
-export const OWNER_BANNER_INVENTORY_KEYS = ["STORES_HOME_HERO"] as const satisfies ReadonlyArray<
-  DeliveryAdInventoryKey
->;
+export const OWNER_BANNER_INVENTORY_KEYS = [
+  "STORES_HOME_HERO",
+  "STORES_SEARCH_TOP",
+] as const satisfies ReadonlyArray<DeliveryAdInventoryKey>;
 
 export type OwnerBannerInventoryKey = (typeof OWNER_BANNER_INVENTORY_KEYS)[number];
 
@@ -135,9 +139,17 @@ export function resolveOwnerBannerCtaHref(input: {
 
 export function ownerBannerInventoryToLegacySurface(
   key: OwnerBannerInventoryKey
-): typeof BANNER_AD_DB_SURFACE {
-  void key;
+): BannerAdDbSurface {
+  if (key === "STORES_SEARCH_TOP") return "stores_search";
   return BANNER_AD_DB_SURFACE;
+}
+
+/** Owner/Admin UX label key — never expose technical inventory keys. */
+export function ownerBannerInventoryLabelKey(
+  key: OwnerBannerInventoryKey
+): "owner_ads_inventory_home_hero" | "owner_ads_inventory_search_top" {
+  if (key === "STORES_SEARCH_TOP") return "owner_ads_inventory_search_top";
+  return "owner_ads_inventory_home_hero";
 }
 
 export function ownerBannerAspectGuideCopy(inventoryKey: DeliveryAdInventoryKey): {

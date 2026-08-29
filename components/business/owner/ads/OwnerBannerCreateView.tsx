@@ -335,7 +335,11 @@ export function OwnerBannerCreateView() {
                   checked={inventoryKey === key}
                   onChange={() => setInventoryKey(key)}
                 />
-                {t("owner_ads_inventory_home_hero")}
+                {t(
+                  key === "STORES_SEARCH_TOP"
+                    ? "owner_ads_inventory_search_top"
+                    : "owner_ads_inventory_home_hero"
+                )}
               </label>
             ))}
             <p className="mt-2 text-[12px] text-sam-muted">
