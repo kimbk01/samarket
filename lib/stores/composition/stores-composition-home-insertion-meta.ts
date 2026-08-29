@@ -26,6 +26,7 @@ import {
 } from "@/lib/stores/store-paid-ad-exposure";
 import { selectDiscoveryEligibleStoreCoupons } from "@/lib/stores/store-coupon-eligibility";
 import { buildStoreSponsoredEligibilityMapFromOrganicPool } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
+import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 
 export type StoresHomeRestInsertionMetaRow =
   | { kind: "organic"; storeId: string }
@@ -39,6 +40,8 @@ export type StoresHomeRestInsertionMetaRow =
       imageUrl: string | null;
       placement: string;
       isSponsored: true;
+      /** CUT G — server-issued exposure context */
+      exposureToken: string;
     };
 
 export type StoresHomeInsertionMeta = {
@@ -91,6 +94,18 @@ function mapRestPlan(plan: StoresBrowseInsertionPlan): StoresHomeInsertionMeta["
     if (row.kind === "organic") return { kind: "organic", storeId: row.storeId };
     if (row.kind === "paid_ad") {
       const p = row.payload;
+      const { token } = issueEligibleDeliveryAdExposure({
+        campaignId: p.id,
+        productKind: "store_sponsored",
+        creativeId: null,
+        inventoryId: null,
+        storeId: p.storeId,
+        surface:
+          p.placement === "stores_browse" ? "STORES_CATEGORY_FEED" : "STORES_HOME_FEED",
+        destinationType: "store_detail",
+        destinationId: p.storeId,
+        preview: false,
+      });
       return {
         kind: "paid_ad",
         campaignId: p.id,
@@ -101,6 +116,7 @@ function mapRestPlan(plan: StoresBrowseInsertionPlan): StoresHomeInsertionMeta["
         imageUrl: p.imageUrl,
         placement: p.placement,
         isSponsored: true as const,
+        exposureToken: token,
       };
     }
     return { kind: "organic", storeId: row.storeId };

@@ -59,6 +59,7 @@ import { toCheckoutDeliveryPayload, type CheckoutDeliveryPayload } from "@/lib/a
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { translate } from "@/lib/i18n/messages";
 import { createStoreOrderAtomic } from "@/lib/stores/create-store-order-atomic";
+import { reconcileDeliveryAdAttributionForOrder } from "@/lib/stores/advertising/delivery-ad-event-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -871,6 +872,17 @@ export async function POST(req: NextRequest) {
   if (ownerUserId) invalidateOwnerHubBadgeCache(ownerUserId);
   invalidateStoreOrderDetailSnapshot(orderId, buyerId, "order_created");
   invalidateBuyerStoreOrdersListSnapshot(buyerId, "order_created");
+
+  // CUT G — attribution after committed boundary; never fails the order.
+  void reconcileDeliveryAdAttributionForOrder(sb, {
+    orderId,
+    storeId,
+    buyerUserId: buyerId,
+  }).then((r) => {
+    if (!r.ok) {
+      console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
+    }
+  });
 
   return NextResponse.json({
     ok: true,

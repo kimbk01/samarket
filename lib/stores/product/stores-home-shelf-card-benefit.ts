@@ -55,20 +55,35 @@ export function buildHomeRestSponsoredStoreIds(
 export function orderHomeRestStoresForPaidInsertion(
   stores: readonly StoreHomeFeedItem[],
   insertions: StoresHomeInsertionMeta | undefined
-): Array<{ store: StoreHomeFeedItem; isSponsored: boolean; campaignId?: string }> {
+): Array<{
+  store: StoreHomeFeedItem;
+  isSponsored: boolean;
+  campaignId?: string;
+  exposureToken?: string;
+}> {
   const byId = new Map(stores.map((s) => [s.id, s]));
   const rows = insertions?.restInsertion?.rows;
   if (!rows?.length) {
     return stores.map((store) => ({ store, isSponsored: false }));
   }
-  const out: Array<{ store: StoreHomeFeedItem; isSponsored: boolean; campaignId?: string }> = [];
+  const out: Array<{
+    store: StoreHomeFeedItem;
+    isSponsored: boolean;
+    campaignId?: string;
+    exposureToken?: string;
+  }> = [];
   const seen = new Set<string>();
   for (const row of rows) {
     const store = byId.get(row.storeId);
     if (!store || seen.has(row.storeId)) continue;
     seen.add(row.storeId);
     if (row.kind === "paid_ad") {
-      out.push({ store, isSponsored: true, campaignId: row.campaignId });
+      out.push({
+        store,
+        isSponsored: true,
+        campaignId: row.campaignId,
+        exposureToken: row.exposureToken,
+      });
     } else {
       out.push({ store, isSponsored: false });
     }

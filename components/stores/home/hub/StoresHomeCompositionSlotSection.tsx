@@ -12,6 +12,7 @@ import { StoresHomeBrandCircularCard } from "@/components/stores/home/presentati
 import { StoresHomeStoreHorizontalCard } from "@/components/stores/home/presentation/StoresHomeStoreHorizontalCard";
 import { StoresHomeStoreTeaserCard } from "@/components/stores/home/presentation/StoresHomeStoreTeaserCard";
 import { StoresHomeTimesaleRowCardList } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
+import { DeliveryAdSponsoredBeacon } from "@/components/stores/advertising/DeliveryAdSponsoredBeacon";
 import {
   resolveHomeShelfStoreImage,
 } from "@/lib/stores/product/stores-home-shelf-image-resolve";
@@ -347,11 +348,12 @@ export function StoresHomeCompositionSlotSection({
               store,
               isSponsored: false as const,
               campaignId: undefined as string | undefined,
+              exposureToken: undefined as string | undefined,
             }));
         return wrap(
           <StoresHomeSectionShell title={title} subtitle={subtitle} actionHref={showAllHref} actionLabel={showAllLabel}>
             <div className={STORES_HOME_RAIL_SCROLL}>
-              {ordered.map(({ store, isSponsored, campaignId }) => {
+              {ordered.map(({ store, isSponsored, campaignId, exposureToken }) => {
                 const entry = storeHomeFeedItemToShelfEntry(store);
                 const imageUrl = resolveHomeShelfStoreImage(store, shelf.productConfig.imageSource);
                 const benefitBase = resolveHomeShelfCardBenefit({
@@ -392,21 +394,38 @@ export function StoresHomeCompositionSlotSection({
                           sponsored: true,
                         }
                       : benefitBase;
-                return shelf.presentation === "store_teaser_horizontal" ?
+                const card =
+                  shelf.presentation === "store_teaser_horizontal" ? (
                     <StoresHomeStoreTeaserCard
-                      key={isSponsored && campaignId ? `ad-${campaignId}` : store.id}
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
                       benefit={benefit}
                     />
-                  : <StoresHomeStoreHorizontalCard
-                      key={isSponsored && campaignId ? `ad-${campaignId}` : store.id}
+                  ) : (
+                    <StoresHomeStoreHorizontalCard
                       entry={entry}
                       imageUrl={imageUrl}
                       loadingImage={false}
                       benefit={benefit}
-                    />;
+                    />
+                  );
+                if (isSponsored && campaignId && exposureToken) {
+                  return (
+                    <DeliveryAdSponsoredBeacon
+                      key={`ad-${campaignId}`}
+                      campaignId={campaignId}
+                      exposureToken={exposureToken}
+                    >
+                      {card}
+                    </DeliveryAdSponsoredBeacon>
+                  );
+                }
+                return (
+                  <div key={store.id}>
+                    {card}
+                  </div>
+                );
               })}
             </div>
           </StoresHomeSectionShell>

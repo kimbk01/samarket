@@ -20,6 +20,7 @@ import type {
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad-creative";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
@@ -33,6 +34,9 @@ export type HomeHeroBannerResolvedSlide = StoresHomeHeroBannerSlide & {
   creativeId: string | null;
   /** Present for sort / window debugging; optional on compatibility slides. */
   startAt?: string;
+  /** CUT G — server-issued; customer events only. */
+  exposureToken?: string | null;
+  storeId?: string | null;
 };
 
 function isLifecycle(v: unknown): v is DeliveryAdLifecycleStatus {
@@ -157,6 +161,22 @@ export async function loadVisibleStoresHomeHeroBanners(
       });
       if (!gate.ok) continue;
 
+      const storeId = raw.store_id == null ? null : String(raw.store_id);
+      const { token } = storeId
+        ? issueEligibleDeliveryAdExposure({
+            campaignId: id,
+            productKind: "banner",
+            creativeId,
+            inventoryId: null,
+            storeId,
+            surface: "STORES_HOME_HERO",
+            placementIndex: Number(raw.sort_order) || 0,
+            destinationType: "store_detail",
+            destinationId: storeId,
+            preview: false,
+          })
+        : { token: null as string | null };
+
       eligible.push({
         sortOrder: Number(raw.sort_order) || 0,
         startAt: String(raw.start_at ?? ""),
@@ -173,6 +193,8 @@ export async function loadVisibleStoresHomeHeroBanners(
           cropPolicy: invView.cropPolicy,
           objectPosition: invView.objectPosition,
           creativeId,
+          exposureToken: token,
+          storeId,
         },
       });
     }

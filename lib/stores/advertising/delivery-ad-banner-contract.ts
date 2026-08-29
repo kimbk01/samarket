@@ -46,6 +46,8 @@ export type DeliveryAdBannerProps = {
   renderContext: DeliveryAdBannerRenderContext;
   /** Optional campaign id for analytics attrs only. */
   campaignId?: string | null;
+  /** CUT G — server-issued exposure token; customer runtime only. */
+  exposureToken?: string | null;
   className?: string;
   priority?: boolean;
 };

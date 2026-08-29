@@ -197,8 +197,34 @@ export {
   adminTransitionDeliveryAdCampaign,
 } from "@/lib/stores/advertising/admin-delivery-ad-writer";
 
+export {
+  DELIVERY_AD_IMPRESSION_EVENT_TABLE,
+  DELIVERY_AD_CLICK_EVENT_TABLE,
+  DELIVERY_AD_ORDER_ATTRIBUTION_TABLE,
+  DELIVERY_AD_ATTRIBUTION_POLICY,
+  DELIVERY_AD_ATTRIBUTION_MODEL,
+  DELIVERY_AD_IMPRESSION_VIEWABILITY,
+  isDeliveryAdAttributionConfigured,
+  selectLastEligibleClick,
+  attributionEligibleForOrder,
+} from "@/lib/stores/advertising/delivery-ad-event-contract";
+
+export {
+  issueDeliveryAdExposureToken,
+  verifyDeliveryAdExposureToken,
+  issueEligibleDeliveryAdExposure,
+  hashDeliveryAdViewerSession,
+  hashDeliveryAdAttributionBridge,
+} from "@/lib/stores/advertising/delivery-ad-exposure-token";
+
+export {
+  CUT_G_EVENT_AUTHORITY,
+  reconcileDeliveryAdAttributionForOrder,
+} from "@/lib/stores/advertising/delivery-ad-event-writer";
+
 export const DELIVERY_AD_PLATFORM_CUT_B = "B" as const;
 export const DELIVERY_AD_PLATFORM_CUT_C = "C" as const;
 export const DELIVERY_AD_PLATFORM_CUT_D = "D" as const;
 export const DELIVERY_AD_PLATFORM_CUT_E = "E" as const;
 export const DELIVERY_AD_PLATFORM_CUT_F = "F" as const;
+export const DELIVERY_AD_PLATFORM_CUT_G = "G" as const;

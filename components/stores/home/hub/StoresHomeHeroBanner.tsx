@@ -96,6 +96,7 @@ export function StoresHomeHeroBanner() {
         adLabel={t("store_insertion_sponsored")}
         renderContext="customer"
         campaignId={slide.id}
+        exposureToken={slide.exposureToken}
         priority
       />
     </div>

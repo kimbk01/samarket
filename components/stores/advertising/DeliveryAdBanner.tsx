@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   DELIVERY_AD_BANNER_CONTENT_MAX_CLASS,
@@ -8,10 +9,14 @@ import {
   deliveryAdBannerObjectFit,
   type DeliveryAdBannerProps,
 } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import {
+  reportDeliveryAdClick,
+  useDeliveryAdImpressionObserver,
+} from "@/components/stores/advertising/useDeliveryAdEvents";
 
 /**
- * CUT E — ONE Banner renderer for Owner preview / Admin preview / Customer runtime.
- * Inventory ratio is geometry authority. No device-specific ratio props.
+ * CUT E/G — ONE Banner renderer for Owner preview / Admin preview / Customer runtime.
+ * Production impression/click only when renderContext=customer + exposureToken.
  */
 export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
   const {
@@ -21,9 +26,21 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
     adLabel,
     renderContext,
     campaignId,
+    exposureToken,
     className,
     priority,
   } = props;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const isCustomer = renderContext === "customer";
+  const token = String(exposureToken ?? "").trim();
+  const sessionSeed = `banner:${campaignId ?? "unknown"}:${token.slice(0, 12)}`;
+
+  useDeliveryAdImpressionObserver(rootRef, {
+    enabled: isCustomer && Boolean(token),
+    exposureToken: token || null,
+    sessionSeed,
+  });
 
   const assetUrl = String(creative.assetUrl ?? "").trim();
   if (!assetUrl) {
@@ -47,6 +64,14 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
     inventory.key !== "STORES_HOME_HERO"
       ? Boolean(creative.headline?.trim() || creative.subcopy?.trim())
       : false;
+
+  const onCustomerClick = () => {
+    if (!isCustomer || !token) return;
+    reportDeliveryAdClick({
+      exposureToken: token,
+      sessionSeed,
+    });
+  };
 
   const media = (
     <>
@@ -111,12 +136,14 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
 
   const frame = (
     <div
+      ref={rootRef}
       className="relative w-full overflow-hidden"
       style={aspect}
       data-delivery-ad-banner="frame"
       data-inventory-key={inventory.key}
       data-render-context={renderContext}
       data-banner-campaign-id={campaignId ?? undefined}
+      data-has-exposure-token={token ? "1" : "0"}
       data-aspect={`${inventory.aspectRatioWidth}/${inventory.aspectRatioHeight}`}
     >
       {media}
@@ -131,6 +158,7 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
           prefetch={false}
           className="relative block w-full overflow-hidden"
           aria-label={ctaLabel || adLabel}
+          onClick={onCustomerClick}
         >
           {frame}
         </Link>
