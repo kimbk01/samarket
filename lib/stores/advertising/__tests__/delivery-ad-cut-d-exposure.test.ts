@@ -550,7 +550,7 @@ describe("CUT D store sponsored exposure eligibility", () => {
 
   it("D25 organic ranking modules still have zero paid dependency", () => {
     expect(DELIVERY_AD_ORGANIC_PAID_ISOLATION.forbidden).toContain("organicScore += paidBoost");
-    expect(STORE_SPONSORED_BUDGET_GATE.status).toBe("NOT_IMPLEMENTED");
+    expect(STORE_SPONSORED_BUDGET_GATE.status).toBe("BILLING_NOT_LAUNCHED");
 
     const discoveryDir = join(process.cwd(), "lib/stores/discovery");
     const rankingFiles = [

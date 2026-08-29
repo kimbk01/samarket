@@ -2,7 +2,7 @@
  * CUT B — Final exposure eligibility AND-list (contract).
  * CUT D — runtime fail-closed wiring + null→true REMOVED
  *   (@see store-sponsored-exposure-eligibility.ts).
- * budget_available remains NOT_IMPLEMENTED until CUT H (not a fake PASS).
+ * budget_available = BILLING_NOT_LAUNCHED (CUT H) — not enforced; does not block exposure.
  */
 
 export const DELIVERY_AD_EXPOSURE_ELIGIBILITY_FACTORS = [

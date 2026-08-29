@@ -210,6 +210,9 @@ export async function reconcileDeliveryAdAttributionForOrder(
   deduped?: boolean;
   reason?: string;
   error?: string;
+  id?: string;
+  campaignId?: string;
+  productKind?: "store_sponsored" | "banner";
 }> {
   try {
     const bridge = hashDeliveryAdAttributionBridge(input.buyerUserId);
@@ -229,6 +232,9 @@ export async function reconcileDeliveryAdAttributionForOrder(
       deduped?: boolean;
       reason?: string;
       error?: string;
+      id?: string;
+      campaign_id?: string;
+      product_kind?: string;
     } | null;
     if (!payload?.ok) {
       return { ok: false, error: payload?.error || "attribution_failed" };
@@ -238,6 +244,9 @@ export async function reconcileDeliveryAdAttributionForOrder(
       attributed: payload.attributed === true,
       deduped: payload.deduped === true,
       reason: payload.reason,
+      id: payload.id,
+      campaignId: payload.campaign_id,
+      productKind: payload.product_kind as "store_sponsored" | "banner" | undefined,
     };
   } catch (e) {
     console.error("[delivery-ad-attribution]", e instanceof Error ? e.message : e);

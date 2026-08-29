@@ -222,9 +222,29 @@ export {
   reconcileDeliveryAdAttributionForOrder,
 } from "@/lib/stores/advertising/delivery-ad-event-writer";
 
+export {
+  DELIVERY_AD_BILLING_PLATFORM,
+  DELIVERY_AD_ORDER_PERCENT_BASIS,
+  DELIVERY_AD_REFUND_POLICY,
+  DELIVERY_AD_FIXED_PERIOD_BILLING,
+  buildChargeIdempotencyKey,
+  buildRefundIdempotencyKey,
+  assertDeliveryAdMoneyMinor,
+  computeOrderPercentChargeMinor,
+  isAutomaticChargingAllowed,
+} from "@/lib/stores/advertising/delivery-ad-billing-contract";
+
+export {
+  CUT_H_BILLING_AUTHORITY,
+  reconcileDeliveryAdChargeFromSource,
+  reconcileDeliveryAdRefundForCharge,
+  reconcileDeliveryAdChargeForOrderSafe,
+} from "@/lib/stores/advertising/delivery-ad-billing-writer";
+
 export const DELIVERY_AD_PLATFORM_CUT_B = "B" as const;
 export const DELIVERY_AD_PLATFORM_CUT_C = "C" as const;
 export const DELIVERY_AD_PLATFORM_CUT_D = "D" as const;
 export const DELIVERY_AD_PLATFORM_CUT_E = "E" as const;
 export const DELIVERY_AD_PLATFORM_CUT_F = "F" as const;
 export const DELIVERY_AD_PLATFORM_CUT_G = "G" as const;
+export const DELIVERY_AD_PLATFORM_CUT_H = "H" as const;

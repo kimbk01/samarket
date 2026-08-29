@@ -2,7 +2,7 @@
  * CUT D — Canonical Store Sponsored exposure eligibility (HOME/CATEGORY feed).
  *
  * Organic ranking NEVER receives paid campaign input.
- * BUDGET_GATE = NOT_IMPLEMENTED (CUT H) — not a fake PASS.
+ * BUDGET_GATE = BILLING_NOT_LAUNCHED (CUT H) — does not block exposure.
  */
 
 import {
@@ -16,12 +16,9 @@ import type {
 import type { StorePaidAdPlacement } from "@/lib/stores/store-paid-ad-campaign-authority";
 import { isStorePaidAdPlacement } from "@/lib/stores/store-paid-ad-campaign-authority";
 import { isRuntimeActiveInventory } from "@/lib/stores/advertising/delivery-ad-inventory";
+import { STORE_SPONSORED_BUDGET_GATE } from "@/lib/stores/advertising/delivery-ad-billing-contract";
 
-export const STORE_SPONSORED_BUDGET_GATE = {
-  status: "NOT_IMPLEMENTED" as const,
-  cut: "H",
-  note: "No fake budget available PASS — billing is CUT H",
-};
+export { STORE_SPONSORED_BUDGET_GATE };
 
 export const STORE_ELIGIBILITY_CUT_D_STATUS = {
   status: "WIRED" as const,
@@ -113,7 +110,7 @@ export function evaluateStoreSponsoredCampaignGates(input: {
   if (!keys.includes(required)) reasons.push("inventory_match");
   if (!isRuntimeActiveInventory(required)) reasons.push("inventory_active");
 
-  // Budget intentionally omitted — NOT_IMPLEMENTED
+  // Budget gate = BILLING_NOT_LAUNCHED — not enforced on exposure yet
   void STORE_SPONSORED_BUDGET_GATE;
 
   return { ok: reasons.length === 0, reasons };
