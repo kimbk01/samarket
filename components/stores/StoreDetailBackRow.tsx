@@ -6,27 +6,27 @@ import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton
 import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
 import { useStoreDetailAnimatedBack } from "@/lib/dibay/store-detail-animated-back-context";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
-import { runStoreDetailDirectBack } from "@/lib/navigation/store-detail-animated-back";
-import {
-  decodeSlugSegment,
-  isStoreSlugConsumerSubtree,
-  isStoreSlugOrderMenuRoot,
-} from "@/lib/stores/store-consumer-route";
+import { readNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
+import { resolveDibayBackTarget } from "@/lib/navigation/resolve-dibay-back-target";
+import { runDibayBackResolution } from "@/lib/navigation/run-dibay-back-resolution";
+import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 
 type Variant = "back" | "close";
 
 /**
- * 매장 상단 — fallbackHref 로 직접 이동(업종 browse 전체 목록 등).
- * `close`: 참고 앱처럼 X(닫기) 아이콘.
+ * 매장 상단 Back — destination policy = resolveDibayBackTarget only (CUT 2).
+ * DO NOT invent browse URLs from DB category here.
  */
 export function StoreDetailBackLink({
-  fallbackHref,
+  storeSlug,
+  /** @deprecated Ignored for destination — resolver owns policy. Kept for call-site compat. */
+  fallbackHref: _fallbackHref,
   variant = "back",
   className,
 }: {
-  fallbackHref: string;
+  storeSlug?: string;
+  fallbackHref?: string;
   variant?: Variant;
-  /** 투명 헤더·히어로 위 등 — 기본은 text-sam-fg */
   className?: string;
 }) {
   const { t } = useI18n();
@@ -36,20 +36,35 @@ export function StoreDetailBackLink({
   const label = variant === "close" ? t("common_close") : t("nav_back");
 
   const onBackPress = () => {
-    const fallbackPath = (fallbackHref || "").split("?")[0] ?? "";
-    const menuRootMatch = fallbackPath.match(/^\/stores\/([^/]+)$/);
-    const targetSlug = menuRootMatch ? decodeSlugSegment(menuRootMatch[1] ?? "") : "";
-    const onStoreChildRoute =
-      targetSlug &&
-      isStoreSlugConsumerSubtree(pathname, targetSlug) &&
-      !isStoreSlugOrderMenuRoot(pathname, targetSlug);
+    const pathSlug =
+      storeSlug?.trim() ||
+      (() => {
+        const parts = pathname.split("/").filter(Boolean);
+        if (parts[0] === "stores" && parts[1]) return decodeSlugSegment(parts[1]);
+        return "";
+      })();
+    if (!pathSlug) return;
 
-    if (onStoreChildRoute) {
-      markStoreDetailMenuTabsLanding();
-      router.push(fallbackHref, { scroll: false });
-      return;
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const entryContext = readNavigationEntryContext(pathSlug);
+    const resolution = resolveDibayBackTarget({
+      currentPathname: pathname,
+      currentSearch: search,
+      storeSlug: pathSlug,
+      entryContext,
+    });
+
+    if (
+      resolution.action === "PUSH" ||
+      resolution.action === "REPLACE"
+    ) {
+      const targetPath = resolution.targetHref.split("?")[0] ?? "";
+      if (targetPath === `/stores/${encodeURIComponent(pathSlug)}`) {
+        markStoreDetailMenuTabsLanding();
+      }
     }
-    runStoreDetailDirectBack(router, fallbackHref, animatedBack);
+
+    runDibayBackResolution(router, resolution, animatedBack);
   };
 
   return (

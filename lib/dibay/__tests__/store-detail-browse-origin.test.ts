@@ -7,6 +7,7 @@ import {
   writeStoreDetailBrowseOrigin,
 } from "@/lib/dibay/store-detail-browse-origin";
 import { resolveStoreBrowseListHref } from "@/lib/stores/resolve-store-browse-list-href";
+import { readNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
 
 function stubSessionStorage() {
   const store = new Map<string, string>();
@@ -24,7 +25,7 @@ function stubSessionStorage() {
   return store;
 }
 
-describe("store-detail-browse-origin", () => {
+describe("store-detail-browse-origin (CUT 2 adapted)", () => {
   beforeEach(() => {
     stubSessionStorage();
   });
@@ -39,12 +40,15 @@ describe("store-detail-browse-origin", () => {
     expect(parseBrowseSubSlugFromSearch("")).toBe("all");
   });
 
-  it("write and read primary + sub", () => {
+  it("write and read primary + sub via full originHref", () => {
     writeStoreDetailBrowseOrigin("my-store", "restaurant", "korean");
     expect(readStoreDetailBrowseOrigin("my-store")).toEqual({
       primarySlug: "restaurant",
       subSlug: "korean",
     });
+    expect(readNavigationEntryContext("my-store")?.originHref).toBe(
+      "/stores/browse/restaurant?sub=korean"
+    );
   });
 
   it("defaults sub to all when omitted", () => {
@@ -60,7 +64,7 @@ describe("store-detail-browse-origin", () => {
       commitStoreDetailBrowseOriginForEntry(
         "store-a",
         "/stores/browse/restaurant",
-        "?sub=korean",
+        "?sub=korean"
       );
       expect(readStoreDetailBrowseOrigin("store-a")).toEqual({
         primarySlug: "restaurant",
@@ -70,24 +74,23 @@ describe("store-detail-browse-origin", () => {
         resolveStoreBrowseListHref({
           storeSlug: "store-a",
           storeCategorySlug: "mart",
-        }),
+        })
       ).toBe("/stores/browse/restaurant?sub=korean");
 
       commitStoreDetailBrowseOriginForEntry(
         "store-a",
         "/stores/browse/cafe",
-        "?sub=dessert",
+        "?sub=dessert&sort=popular"
       );
-      expect(readStoreDetailBrowseOrigin("store-a")).toEqual({
-        primarySlug: "cafe",
-        subSlug: "dessert",
-      });
+      expect(readNavigationEntryContext("store-a")?.originHref).toBe(
+        "/stores/browse/cafe?sub=dessert&sort=popular"
+      );
       expect(
         resolveStoreBrowseListHref({
           storeSlug: "store-a",
           storeCategorySlug: "mart",
-        }),
-      ).toBe("/stores/browse/cafe?sub=dessert");
+        })
+      ).toBe("/stores/browse/cafe?sub=dessert&sort=popular");
     });
   });
 
@@ -96,45 +99,29 @@ describe("store-detail-browse-origin", () => {
       commitStoreDetailBrowseOriginForEntry(
         "store-x",
         "/stores/browse/restaurant",
-        "?sub=korean",
+        "?sub=korean"
       );
       commitStoreDetailBrowseOriginForEntry(
         "store-y",
         "/stores/browse/cafe",
-        "?sub=dessert",
+        "?sub=dessert"
       );
       expect(
-        resolveStoreBrowseListHref({ storeSlug: "store-x", storeCategorySlug: "mart" }),
+        resolveStoreBrowseListHref({ storeSlug: "store-x", storeCategorySlug: "mart" })
       ).toBe("/stores/browse/restaurant?sub=korean");
       expect(
-        resolveStoreBrowseListHref({ storeSlug: "store-y", storeCategorySlug: "mart" }),
+        resolveStoreBrowseListHref({ storeSlug: "store-y", storeCategorySlug: "mart" })
       ).toBe("/stores/browse/cafe?sub=dessert");
     });
   });
 
-  describe("T6 — TTL does not block overwrite", () => {
-    it("overwrites within TTL window", () => {
-      const now = 1_000_000;
-      vi.spyOn(Date, "now").mockReturnValue(now);
+  describe("HOME entry preserved (CUT 2 — no clear)", () => {
+    it("HOME commit keeps /stores origin (does not clear)", () => {
       writeStoreDetailBrowseOrigin("store-a", "restaurant", "korean");
-
-      vi.spyOn(Date, "now").mockReturnValue(now + 10_000);
-      commitStoreDetailBrowseOriginForEntry(
-        "store-a",
-        "/stores/browse/cafe",
-        "?sub=dessert",
-      );
-      expect(readStoreDetailBrowseOrigin("store-a")).toEqual({
-        primarySlug: "cafe",
-        subSlug: "dessert",
-      });
+      commitStoreDetailBrowseOriginForEntry("store-a", "/stores", "");
+      expect(readNavigationEntryContext("store-a")?.originHref).toBe("/stores");
+      expect(resolveStoreBrowseListHref({ storeSlug: "store-a" })).toBe("/stores");
+      clearStoreDetailBrowseOrigin("store-a");
     });
-  });
-
-  it("non-browse entry clears stale origin", () => {
-    writeStoreDetailBrowseOrigin("store-a", "restaurant", "korean");
-    commitStoreDetailBrowseOriginForEntry("store-a", "/stores", "");
-    expect(readStoreDetailBrowseOrigin("store-a")).toBeNull();
-    clearStoreDetailBrowseOrigin("store-a");
   });
 });

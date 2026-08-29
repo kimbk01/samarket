@@ -120,7 +120,7 @@ export function StoreDetailStickyTopRow({
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
     <div className="flex w-full min-w-0 max-w-full min-h-[length:var(--delivery-header-action)] items-center gap-1.5">
-      <StoreDetailBackLink fallbackHref={fallbackHref} />
+      <StoreDetailBackLink storeSlug={storeSlug} fallbackHref={fallbackHref} />
       <SamarketThumbnail
         src={profileImageUrl}
         size={40}

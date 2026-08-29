@@ -1,16 +1,18 @@
 import { STORES_BROWSE_SUB_ALL } from "@/components/stores/browse/stores-browse-paths";
+import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
+import { sanitizeDibayInternalHref } from "@/lib/navigation/dibay-entry-context";
+import { readNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
 
 /**
- * browse → 매장 상세 진입 시 **이번 entry** 의 1·2차 업종을 기록해
- * 상세 「목록으로」가 직전 browse 목록으로 복귀하게 한다.
+ * Legacy browse primary+sub session helpers — ADAPTED under NavigationEntryContext (CUT 2).
  *
- * CONTRACT:
- * - LATEST ENTRY WINS — store card 탭마다 current browse origin 으로 ALWAYS overwrite
- * - TTL(45s) = stale navigation fallback 폐기만 (overwrite 금지 근거 아님)
- * - browse URL 이 아닌 진입(홈 피드 등)은 origin clear → DB/businessType fallback
+ * HARD LOCK:
+ * - DO NOT clear HOME/SEARCH as non-browse.
+ * - New writes go through commitDeliveryStoreNavigationEntry (full originHref).
+ * - readStoreDetailBrowseOrigin derives primary/sub from stored originHref when browse.
  */
 
-const KEY_PREFIX = "dibay:store-detail-browse-origin:";
+const LEGACY_KEY_PREFIX = "dibay:store-detail-browse-origin:";
 const TTL_MS = 45_000;
 
 export type StoreDetailBrowseOrigin = {
@@ -19,7 +21,7 @@ export type StoreDetailBrowseOrigin = {
 };
 
 function ssKey(storeSlug: string): string {
-  return KEY_PREFIX + storeSlug.trim().toLowerCase();
+  return LEGACY_KEY_PREFIX + storeSlug.trim().toLowerCase();
 }
 
 function normalizeSubSlug(subSlug: string | null | undefined): string {
@@ -27,23 +29,36 @@ function normalizeSubSlug(subSlug: string | null | undefined): string {
   return s && s !== STORES_BROWSE_SUB_ALL ? s : STORES_BROWSE_SUB_ALL;
 }
 
+/** @deprecated Prefer commitDeliveryStoreNavigationEntry — kept for unit tests of primary/sub shape. */
 export function writeStoreDetailBrowseOrigin(
   storeSlug: string,
   primarySlug: string,
-  subSlug?: string | null,
+  subSlug?: string | null
 ): void {
-  if (typeof sessionStorage === "undefined") return;
-  const slug = storeSlug.trim();
   const primary = primarySlug.trim().toLowerCase();
-  if (!slug || !primary) return;
+  if (!storeSlug.trim() || !primary) return;
+  const sub = normalizeSubSlug(subSlug);
+  const originHref =
+    sub === STORES_BROWSE_SUB_ALL
+      ? `/stores/browse/${encodeURIComponent(primary)}?sub=all`
+      : `/stores/browse/${encodeURIComponent(primary)}?sub=${encodeURIComponent(sub)}`;
+  commitDeliveryStoreNavigationEntry({
+    storeSlug,
+    pathname: `/stores/browse/${primary}`,
+    search: `?sub=${sub}`,
+    productId: null,
+  });
+  // Also keep legacy key for mid-migration readers
+  if (typeof sessionStorage === "undefined") return;
   try {
     sessionStorage.setItem(
-      ssKey(slug),
+      ssKey(storeSlug),
       JSON.stringify({
         primarySlug: primary,
-        subSlug: normalizeSubSlug(subSlug),
+        subSlug: sub,
         saved_at: Date.now(),
-      }),
+        originHref,
+      })
     );
   } catch {
     /* quota */
@@ -62,23 +77,38 @@ export function clearStoreDetailBrowseOrigin(storeSlug: string): void {
 }
 
 /**
- * Detail entry commit — pathname browse primary 가 있으면 overwrite, 없으면 stale clear.
- * DO NOT: existing origin 유지 / write skip.
+ * Intentional entry commit — full origin via NavigationEntryContext.
+ * HOME / SEARCH / BROWSE all preserved (no clear-on-non-browse).
  */
 export function commitStoreDetailBrowseOriginForEntry(
   storeSlug: string,
   pathname: string,
   search: string,
+  productId?: string | null
 ): void {
-  const primary = parseBrowsePrimarySlugFromPathname(pathname);
-  if (primary) {
-    writeStoreDetailBrowseOrigin(storeSlug, primary, parseBrowseSubSlugFromSearch(search));
-    return;
-  }
-  clearStoreDetailBrowseOrigin(storeSlug);
+  commitDeliveryStoreNavigationEntry({
+    storeSlug,
+    pathname,
+    search,
+    productId: productId ?? null,
+  });
 }
 
 export function readStoreDetailBrowseOrigin(storeSlug: string): StoreDetailBrowseOrigin | null {
+  const ctx = readNavigationEntryContext(storeSlug);
+  if (ctx?.originHref) {
+    const safe = sanitizeDibayInternalHref(ctx.originHref);
+    if (safe) {
+      const primary = parseBrowsePrimarySlugFromPathname(safe);
+      if (primary) {
+        return {
+          primarySlug: primary,
+          subSlug: parseBrowseSubSlugFromSearch(safe.includes("?") ? safe.slice(safe.indexOf("?")) : ""),
+        };
+      }
+    }
+  }
+
   if (typeof sessionStorage === "undefined") return null;
   const slug = storeSlug.trim();
   if (!slug) return null;
@@ -108,7 +138,7 @@ export function readStoreDetailBrowseOrigin(storeSlug: string): StoreDetailBrows
 /** `?sub=korean` → `korean` (없음·all → `all`) */
 export function parseBrowseSubSlugFromSearch(search: string): string {
   const raw = (search ?? "").trim();
-  const qs = raw.startsWith("?") ? raw.slice(1) : raw;
+  const qs = raw.startsWith("?") ? raw.slice(1) : raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw;
   const sub = new URLSearchParams(qs).get("sub")?.trim().toLowerCase() ?? "";
   return sub && sub !== STORES_BROWSE_SUB_ALL ? sub : STORES_BROWSE_SUB_ALL;
 }

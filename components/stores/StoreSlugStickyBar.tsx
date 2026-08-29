@@ -221,7 +221,7 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
             className={`flex flex-col gap-1 py-0.5 ${isStoreMenuRoot ? "min-h-[84px]" : "min-h-[44px]"}`}
           >
             <div className="flex min-h-[length:var(--delivery-header-action)] items-center gap-1.5">
-              <StoreDetailBackLink fallbackHref={fallbackHref} />
+              <StoreDetailBackLink storeSlug={decoded} fallbackHref={fallbackHref} />
               <div className="min-w-0 flex-1 py-0.5">
                 {loading ? (
                   <p className="sam-text-body-secondary text-sam-meta">{t("common_loading")}</p>

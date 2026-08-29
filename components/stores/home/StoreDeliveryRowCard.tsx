@@ -475,6 +475,7 @@ function StoreDeliveryRowCardInner({
           data.slug,
           window.location.pathname,
           window.location.search,
+          focusProductId ?? null,
         );
       }
       writeStoreDetailListSeed({

@@ -1,12 +1,23 @@
 import { STORES_BROWSE_SUB_ALL, storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
-import { readStoreDetailBrowseOrigin } from "@/lib/dibay/store-detail-browse-origin";
-import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
+import { parseBrowseSubSlugFromSearch } from "@/lib/dibay/store-detail-browse-origin";
+import { sanitizeDibayInternalHref } from "@/lib/navigation/dibay-entry-context";
+import { readNavigationEntryContext } from "@/lib/navigation/dibay-navigation-context-store";
+import { DIBAY_DELIVERY_ROOT_FALLBACK } from "@/lib/navigation/resolve-dibay-back-target";
 
-const DEFAULT_PRIMARY_SLUG = "restaurant";
-
+/**
+ * @deprecated CUT 2 — Back destination authority is resolveDibayBackTarget.
+ * Kept for non-back callers that still need a list href hint.
+ *
+ * CONTRACT (CUT 2):
+ * - Prefer NavigationEntryContext.originHref (full href).
+ * - DO NOT invent browse URL from DB store category / businessType for back.
+ * - Missing origin → /stores root fallback.
+ */
 export type StoreBrowseListHrefInput = {
   storeSlug?: string | null;
+  /** Ignored for back destination (legacy signature). */
   storeCategorySlug?: string | null;
+  /** Ignored for back destination (legacy signature). */
   businessType?: string | null;
 };
 
@@ -19,70 +30,18 @@ function embedCategorySlug(rel: RelSlug | RelSlug[]): string | null {
   return s || null;
 }
 
-/** browse API·오너 폼과 동일 — `식당 · 한식` 등 */
-function normalizeBizTypeSeparators(raw: string): string {
-  return raw
-    .trim()
-    .replace(/\s*[\u00B7\u2219‧･]\s*/g, " · ")
-    .replace(/\s*[-–—|]\s*/g, " · ");
-}
-
 /**
- * Legacy business_type string heuristic only (not HOME/BROWSE chrome).
- * Seed catalog used as name→slug dictionary for unstructured Owner strings —
- * not as industry membership whitelist for taxonomy chrome.
- */
-function resolvePrimarySlugFromBusinessType(businessType: string | null | undefined): string | null {
-  const bt = (businessType ?? "").trim();
-  if (!bt) return null;
-  const primaries = listBrowsePrimaryIndustries();
-  const norm = normalizeBizTypeSeparators(bt);
-  const parts = norm.split(" · ").map((s) => s.trim()).filter(Boolean);
-  const head = (parts[0] ?? norm).toLowerCase();
-  for (const p of primaries) {
-    const slug = p.slug.toLowerCase();
-    const name = p.nameKo.trim().toLowerCase();
-    if (head === slug || head === name) return p.slug;
-  }
-  const lower = bt.toLowerCase();
-  for (const p of primaries) {
-    if (lower.includes(p.slug.toLowerCase()) || lower.includes(p.nameKo.trim().toLowerCase())) {
-      return p.slug;
-    }
-  }
-  return null;
-}
-
-function normalizePrimarySlug(candidate: string | null | undefined): string {
-  const raw = (candidate ?? "").trim().toLowerCase();
-  if (!raw) return DEFAULT_PRIMARY_SLUG;
-  // CUT 1 — accept any slug token; do not gate against fixed 8-seed whitelist.
-  return raw;
-}
-
-/**
- * 매장 상세 뒤로가기 — **이번 detail entry** 에서 기록한 1·2차 browse 목록으로 복귀.
- * session 은 LATEST ENTRY WINS (stale past visit 이 아님).
+ * List href for a store's last intentional entry origin — full href when present.
  */
 export function resolveStoreBrowseListHref(input: StoreBrowseListHrefInput): string {
   const slug = input.storeSlug?.trim();
-  const fromSession = slug ? readStoreDetailBrowseOrigin(slug) : null;
-  const fromCategory = input.storeCategorySlug?.trim()
-    ? normalizePrimarySlug(input.storeCategorySlug)
-    : null;
-  const bizPrimary = resolvePrimarySlugFromBusinessType(input.businessType);
-  const fromBiz = bizPrimary ? normalizePrimarySlug(bizPrimary) : null;
+  if (!slug) return DIBAY_DELIVERY_ROOT_FALLBACK;
 
-  const primary =
-    (fromSession?.primarySlug?.trim()
-      ? normalizePrimarySlug(fromSession.primarySlug)
-      : null) ??
-    fromCategory ??
-    fromBiz ??
-    DEFAULT_PRIMARY_SLUG;
+  const ctx = readNavigationEntryContext(slug);
+  const fromCtx = ctx?.originHref ? sanitizeDibayInternalHref(ctx.originHref) : null;
+  if (fromCtx) return fromCtx;
 
-  const sub = fromSession?.subSlug ?? STORES_BROWSE_SUB_ALL;
-  return storesBrowsePath(normalizePrimarySlug(primary), sub);
+  return DIBAY_DELIVERY_ROOT_FALLBACK;
 }
 
 export function storeCategorySlugFromStoreRow(
@@ -102,10 +61,18 @@ export function resolveStoreBrowseListHrefFromStore(
     business_type?: string | null;
   } | null
 ): string {
-  if (!store?.slug?.trim()) return storesBrowsePath(DEFAULT_PRIMARY_SLUG, "all");
+  if (!store?.slug?.trim()) return DIBAY_DELIVERY_ROOT_FALLBACK;
   return resolveStoreBrowseListHref({
     storeSlug: store.slug,
     storeCategorySlug: storeCategorySlugFromStoreRow(store),
     businessType: store.business_type ?? null,
   });
+}
+
+/** Test/helper — reconstruct browse path only when explicitly given primary/sub (not from DB). */
+export function storesBrowseHrefFromPrimarySub(
+  primarySlug: string,
+  subSlug: string = STORES_BROWSE_SUB_ALL
+): string {
+  return storesBrowsePath(primarySlug, parseBrowseSubSlugFromSearch(`?sub=${subSlug}`));
 }

@@ -147,7 +147,7 @@ export function StoreOrderStickyHeader({
         <AppTier1HeaderRow
           title={storeName}
           titleHidden={!elevated}
-          leading={<StoreDetailBackLink fallbackHref={fallbackHref} className={backBtnClass} />}
+          leading={<StoreDetailBackLink storeSlug={storeSlug} fallbackHref={fallbackHref} className={backBtnClass} />}
           trailing={
             <>
               <button

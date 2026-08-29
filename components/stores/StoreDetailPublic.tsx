@@ -1553,15 +1553,17 @@ export function StoreDetailPublic({
     }, 280);
   }, []);
 
+  /**
+   * CUT 2 — keep `?focusProduct=` until Back resolves SEMANTIC_PARENT (REPLACE).
+   * Auto-replace collapsed product depth into one history entry (header/OS diverge).
+   */
   const onFocusProductHandled = useCallback(() => {
-    if (!storeActive || !focusProductId || typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("focusProduct")) return;
-    url.searchParams.delete("focusProduct");
-    const qs = url.searchParams.toString();
-    deliveryPresentationMarkEvent("focusUrlCleanup", { productId: focusProductId });
-    router.replace(`${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`, { scroll: false });
-  }, [storeActive, focusProductId, router]);
+    if (!storeActive || !focusProductId) return;
+    deliveryPresentationMarkEvent("focusUrlCleanup", {
+      productId: focusProductId,
+      deferred_until_back: true,
+    });
+  }, [storeActive, focusProductId]);
 
   const armMenuScrollSpyLock = useCallback((sectionIndex: number, durationMs = 720) => {
     menuScrollSpyLockRef.current = {

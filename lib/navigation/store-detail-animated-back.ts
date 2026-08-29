@@ -10,8 +10,8 @@ type StoreDetailRouter = {
 };
 
 /**
- * 매장 UI 뒤로가기 — 브라우저 히스토리 대신 fallbackHref 로 직접 이동.
- * browse 목록 복귀 시 저장된 스크롤 복원 플래그를 세팅한다.
+ * 매장 UI 뒤로가기 — @deprecated Prefer resolveDibayBackTarget + runDibayBackResolution.
+ * Kept for non-cutover callers; Delivery store header uses resolver adapter.
  */
 export function runStoreDetailDirectBack(
   router: StoreDetailRouter,

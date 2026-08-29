@@ -17,6 +17,7 @@ import {
   buildDeliveryListScrollRouteKey,
   saveDeliveryListScrollBeforeStoreNavigation,
 } from "@/lib/dibay/delivery-list-scroll-restore";
+import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
@@ -185,11 +186,19 @@ export function StoresHomeSearchModal({
       const s = slug.trim();
       if (!s) return;
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      commitDeliveryStoreNavigationEntry({
+        storeSlug: s,
+        pathname: "/stores/search",
+        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
+        productId: null,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+      });
       markStoreDetailListSeedNavigation(s);
       onClose();
       router.push(`/stores/${encodeURIComponent(s)}`);
     },
-    [router, listScrollRouteKey, onClose]
+    [router, listScrollRouteKey, onClose, debouncedQ]
   );
 
   const onClickMenu = useCallback(
@@ -197,11 +206,19 @@ export function StoresHomeSearchModal({
       const slug = menu.store_slug?.trim();
       if (!slug) return;
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      commitDeliveryStoreNavigationEntry({
+        storeSlug: slug,
+        pathname: "/stores/search",
+        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
+        productId: menu.id,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+      });
       markStoreDetailListSeedNavigation(slug);
       onClose();
       router.push(buildStoreDetailHref(slug, menu.id));
     },
-    [router, listScrollRouteKey, onClose]
+    [router, listScrollRouteKey, onClose, debouncedQ]
   );
 
   if (!domReady || !visible || !layout) return null;

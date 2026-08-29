@@ -9,6 +9,7 @@ import {
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
+import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearchHeader";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
@@ -157,10 +158,18 @@ export function DeliverySearchPage() {
       const s = slug.trim();
       if (!s) return;
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      commitDeliveryStoreNavigationEntry({
+        storeSlug: s,
+        pathname: "/stores/search",
+        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
+        productId: null,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+      });
       markStoreDetailListSeedNavigation(s);
       router.push(`/stores/${encodeURIComponent(s)}`);
     },
-    [router, listScrollRouteKey]
+    [router, listScrollRouteKey, debouncedQ]
   );
 
   const onClickMenu = useCallback(
@@ -168,10 +177,18 @@ export function DeliverySearchPage() {
       const slug = menu.store_slug?.trim();
       if (!slug) return;
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      commitDeliveryStoreNavigationEntry({
+        storeSlug: slug,
+        pathname: "/stores/search",
+        search: debouncedQ.trim() ? `?q=${encodeURIComponent(debouncedQ.trim())}` : "",
+        productId: menu.id,
+        originHrefOverride: listScrollRouteKey,
+        originSurfaceOverride: "SEARCH",
+      });
       markStoreDetailListSeedNavigation(slug);
       router.push(buildStoreDetailHref(slug, menu.id));
     },
-    [router, listScrollRouteKey]
+    [router, listScrollRouteKey, debouncedQ]
   );
 
   return (

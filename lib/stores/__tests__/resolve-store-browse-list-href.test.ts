@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { writeStoreDetailBrowseOrigin } from "@/lib/dibay/store-detail-browse-origin";
+import { commitDeliveryStoreNavigationEntry } from "@/lib/navigation/dibay-navigation-context-store";
 import { resolveStoreBrowseListHref } from "@/lib/stores/resolve-store-browse-list-href";
+import { DIBAY_DELIVERY_ROOT_FALLBACK } from "@/lib/navigation/resolve-dibay-back-target";
 
 function stubSessionStorage() {
   const store = new Map<string, string>();
@@ -17,7 +18,7 @@ function stubSessionStorage() {
   vi.stubGlobal("sessionStorage", sessionStorage);
 }
 
-describe("resolveStoreBrowseListHref", () => {
+describe("resolveStoreBrowseListHref (CUT 2)", () => {
   beforeEach(() => {
     stubSessionStorage();
   });
@@ -26,39 +27,43 @@ describe("resolveStoreBrowseListHref", () => {
     vi.unstubAllGlobals();
   });
 
-  it("restores saved browse sub from session", () => {
-    writeStoreDetailBrowseOrigin("aa11", "restaurant", "korean");
-    expect(
-      resolveStoreBrowseListHref({
-        storeSlug: "aa11",
-        storeCategorySlug: "mart",
-        businessType: "식당 · 한식",
-      }),
-    ).toBe("/stores/browse/restaurant?sub=korean");
-  });
-
-  it("uses store category slug when present", () => {
+  it("returns full originHref including sort", () => {
+    commitDeliveryStoreNavigationEntry({
+      storeSlug: "aa11",
+      pathname: "/stores/browse/restaurant",
+      search: "?sub=korean&sort=popular",
+      productId: null,
+    });
     expect(
       resolveStoreBrowseListHref({
         storeSlug: "aa11",
         storeCategorySlug: "mart",
         businessType: "식당 · 한식",
       })
-    ).toBe("/stores/browse/mart?sub=all");
+    ).toBe("/stores/browse/restaurant?sub=korean&sort=popular");
   });
 
-  it("parses business_type primary display name", () => {
+  it("does not invent browse from DB category when no origin", () => {
     expect(
       resolveStoreBrowseListHref({
-        storeSlug: "x",
-        businessType: "공구류 · 전동공구",
+        storeSlug: "aa11",
+        storeCategorySlug: "mart",
+        businessType: "식당 · 한식",
       })
-    ).toBe("/stores/browse/hardware?sub=all");
+    ).toBe(DIBAY_DELIVERY_ROOT_FALLBACK);
   });
 
-  it("defaults to restaurant when unknown", () => {
-    expect(resolveStoreBrowseListHref({ storeSlug: "x" })).toBe(
-      "/stores/browse/restaurant?sub=all"
-    );
+  it("HOME origin is /stores", () => {
+    commitDeliveryStoreNavigationEntry({
+      storeSlug: "x",
+      pathname: "/stores",
+      search: "",
+      productId: null,
+    });
+    expect(resolveStoreBrowseListHref({ storeSlug: "x" })).toBe("/stores");
+  });
+
+  it("defaults to /stores when unknown slug empty", () => {
+    expect(resolveStoreBrowseListHref({ storeSlug: "" })).toBe(DIBAY_DELIVERY_ROOT_FALLBACK);
   });
 });

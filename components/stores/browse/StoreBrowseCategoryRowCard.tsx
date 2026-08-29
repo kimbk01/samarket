@@ -238,6 +238,7 @@ function StoreBrowseCategoryRowCardInner({
           data.slug,
           window.location.pathname,
           window.location.search,
+          focusProductId ?? null,
         );
       }
       writeStoreDetailListSeed({

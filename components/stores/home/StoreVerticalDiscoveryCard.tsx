@@ -12,6 +12,7 @@ import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
+import { commitStoreDetailBrowseOriginForEntry } from "@/lib/dibay/store-detail-browse-origin";
 import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
 import {
   DELIVERY_PERF_TAG_ROUTE_TRANSITION,
@@ -208,6 +209,14 @@ export function StoreVerticalDiscoveryCard({
           resetDeliveryStoreMenusPrewarmForTests();
           deliveryStoreMenusPrewarm(store.slug, { force: true });
           saveDeliveryListScrollBeforeStoreNavigation();
+          if (typeof window !== "undefined") {
+            commitStoreDetailBrowseOriginForEntry(
+              store.slug,
+              window.location.pathname,
+              window.location.search,
+              null
+            );
+          }
           markStoreDetailListSeedNavigation(store.slug);
           writeStoreDetailListSeed({
             slug: store.slug,
@@ -343,7 +352,24 @@ export function StoreVerticalDiscoveryCard({
                 onPointerEnter={() => prefetchProductDetail(it.productId)}
                 onFocus={() => prefetchProductDetail(it.productId)}
                 onTouchStart={() => prefetchProductDetail(it.productId)}
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  saveDeliveryListScrollBeforeStoreNavigation();
+                  if (typeof window !== "undefined") {
+                    commitStoreDetailBrowseOriginForEntry(
+                      store.slug,
+                      window.location.pathname,
+                      window.location.search,
+                      it.productId
+                    );
+                  }
+                  markStoreDetailListSeedNavigation(store.slug);
+                  deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
+                    event: "vertical_featured_product_tap",
+                    slug: store.slug,
+                    product_id: it.productId,
+                  });
+                }}
               >
                 <span className={`truncate ${FB.link}`}>{it.name}</span>
                 <span className={FB.priceStrong}>
