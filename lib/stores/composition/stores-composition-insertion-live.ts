@@ -1,6 +1,10 @@
 /**
  * Stores A — composition insertion (organic order preserved).
  * CUT 4 — STORE_PAID_AD insertion for BROWSE + HOME rest_stores.
+ *
+ * CUT A — INSERTION_PLAN layer only. Does not reorder organic ranking.
+ * Pipeline: ORGANIC RESULT + SPONSORED PLAN → INTERLEAVE.
+ * @see DELIVERY_AD_ORGANIC_PAID_ISOLATION in lib/stores/advertising
  */
 
 import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";

@@ -64,10 +64,10 @@ export function AdminStoreInsertionControlPage() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="text-[12px] text-sam-muted">
-              {ko ? "배달 › 광고" : "Delivery › Ads"}
+              {ko ? "배달 › 광고 관리" : "Delivery › Ad management"}
             </p>
             <h1 className="text-[20px] font-bold text-sam-fg">
-              {ko ? "광고 관리" : "Ad management"}
+              {t("admin_store_insertions_title")}
             </h1>
           </div>
           <button type="button" className={Sam.btn.secondary} onClick={() => void loadPaidAds()}>

@@ -1,8 +1,18 @@
 /**
  * Stores A — paid ad placement authority (NOT feed_ad_campaigns / NOT store_discovery_campaigns).
+ *
+ * CUT A HARD LOCK:
+ * store_paid_ad_campaigns = STORE_PAID_AD = store_sponsored = paid list placement campaign.
+ * FORBIDDEN: banner · coupon · editorial · fee promo · organic ranking boost.
+ *
+ * DB placement strings (stores_home | stores_browse) are unchanged.
+ * Canonical app placements: stores_home_feed | stores_category_feed
+ * @see lib/stores/advertising
  */
 
-export const STORE_PAID_AD_CAMPAIGN_TABLE = "store_paid_ad_campaigns" as const;
+import { STORE_SPONSORED_CAMPAIGN_TABLE } from "@/lib/stores/advertising/delivery-ad-domain";
+
+export const STORE_PAID_AD_CAMPAIGN_TABLE = STORE_SPONSORED_CAMPAIGN_TABLE;
 
 export const STORE_PAID_AD_PLACEMENTS = ["stores_home", "stores_browse"] as const;
 export type StorePaidAdPlacement = (typeof STORE_PAID_AD_PLACEMENTS)[number];

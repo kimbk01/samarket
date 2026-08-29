@@ -1,6 +1,10 @@
 /**
  * Stores A — attach browse insertion plan to API meta (organic order preserved).
  * CUT 4 — exposure authority → then insertion (after organic).
+ *
+ * CUT A — storeEligibleById: null (PARTIAL → CUT D). Surface policy via
+ * COMPATIBILITY_SURFACE_POLICY_KEYS (ad_enabled). campaign ≠ exposure.
+ * @see lib/stores/advertising/delivery-ad-layers.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

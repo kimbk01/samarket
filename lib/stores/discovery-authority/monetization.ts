@@ -1,5 +1,12 @@
 /**
  * CUT 0 — Monetization terminology: never collapse into catch-all "promotion".
+ *
+ * CUT A — Delivery Ad Platform vocabulary lives in `lib/stores/advertising`.
+ * This module keeps SCREAMING discovery kinds for CUT0–8 compatibility.
+ * Do not declare parallel DeliveryAdProductKind unions here.
+ *
+ * @see lib/stores/advertising/delivery-ad-domain.ts
+ * @see docs/dibay-delivery-advertising-ssot.md
  */
 
 export const STORE_PAID_AD = "STORE_PAID_AD" as const;

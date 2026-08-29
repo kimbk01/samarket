@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   STORE_BANNER_AD_CAMPAIGN_TABLE,
@@ -155,18 +155,14 @@ describe("CUT 5 store banner ads", () => {
     expect(STORE_BANNER_AD_CAMPAIGN_TABLE).toBe("store_banner_ad_campaigns");
   });
 
-  it("T10 static Hero dual authority 없음", () => {
+  it("T10 static Hero dual authority 없음 — STORES_HOME_HERO_SLIDES removed (CUT A)", () => {
     const heroSrc = readFileSync(
       join(process.cwd(), "components/stores/home/hub/StoresHomeHeroBanner.tsx"),
       "utf8"
     );
     expect(heroSrc).not.toContain("STORES_HOME_HERO_SLIDES");
     expect(heroSrc).not.toContain("stores-home-hero-slides");
-    const slidesSrc = readFileSync(
-      join(process.cwd(), "lib/stores/stores-home-hero-slides.ts"),
-      "utf8"
-    );
-    expect(slidesSrc).toMatch(/@deprecated|REMOVED as runtime/);
+    expect(existsSync(join(process.cwd(), "lib/stores/stores-home-hero-slides.ts"))).toBe(false);
   });
 
   it("T11 Paid Ads untouched", () => {

@@ -1,8 +1,8 @@
 /**
  * CUT 0 — Current identifier → TARGET canonical mapping.
  *
- * States: CANONICAL | LEGACY | DEPRECATED | DEFERRED | UNAVAILABLE | REMOVE_IN_LATER_CUT
- * Change in this CUT: mapping only (no runtime rename).
+ * States: CANONICAL | LEGACY | DEPRECATED | DEFERRED | UNAVAILABLE | REMOVE_IN_LATER_CUT | REMOVED
+ * Change: mapping_only (default) | removed (authority deleted — CUT A+).
  */
 
 export const STORES_DISCOVERY_MAP_STATES = [
@@ -12,6 +12,7 @@ export const STORES_DISCOVERY_MAP_STATES = [
   "DEFERRED",
   "UNAVAILABLE",
   "REMOVE_IN_LATER_CUT",
+  "REMOVED",
 ] as const;
 
 export type StoresDiscoveryMapState = (typeof STORES_DISCOVERY_MAP_STATES)[number];
@@ -20,8 +21,8 @@ export type StoresDiscoveryCurrentToTargetRow = {
   current: string;
   canonical: string;
   state: StoresDiscoveryMapState;
-  /** What CUT 0 does — always mapping-only for these rows. */
-  changeInThisCut: "mapping_only";
+  /** mapping_only = rename deferred; removed = authority file deleted. */
+  changeInThisCut: "mapping_only" | "removed";
   /** Later CUT that owns runtime change, if any. */
   laterCut: "CUT_1" | "CUT_2" | "CUT_3" | "CUT_4" | "CUT_5" | "CUT_6" | "CUT_7" | "CUT_8" | null;
   notes?: string;
@@ -207,10 +208,10 @@ export const STORES_DISCOVERY_CURRENT_TO_TARGET_MAP: readonly StoresDiscoveryCur
     {
       current: "STORES_HOME_HERO_SLIDES",
       canonical: "hero_banner",
-      state: "REMOVE_IN_LATER_CUT",
-      changeInThisCut: "mapping_only",
-      laterCut: "CUT_5",
-      notes: "CUT 5 — removed as runtime authority; store_banner_ad_campaigns owns hero",
+      state: "REMOVED",
+      changeInThisCut: "removed",
+      laterCut: null,
+      notes: "CUT A — file deleted; store_banner_ad_campaigns owns HOME hero via /api/stores/home-hero-banners",
     },
     {
       current: "feed_ad_campaigns",

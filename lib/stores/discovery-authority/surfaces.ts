@@ -5,7 +5,10 @@
  * (lib/stores/store-paid-ad-campaign-authority.ts). Do not change that in CUT 0.
  *
  * Composition contract uses surface "home" | "browse" — also unchanged.
- * This module is the TARGET naming owner for later CUTs.
+ *
+ * CUT A — Active Delivery Ad placements (stores_home_feed / stores_category_feed /
+ * stores_home_hero) are owned by `lib/stores/advertising/delivery-ad-placement.ts`.
+ * DB values stay as-is; app-layer aliases map there.
  */
 
 export const STORES_DISCOVERY_SURFACES = [

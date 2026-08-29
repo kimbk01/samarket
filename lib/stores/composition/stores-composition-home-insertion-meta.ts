@@ -1,5 +1,9 @@
 /**
  * Stores A — HOME insertion meta (CUT 4: rest_stores paid insertion + coupon rails).
+ *
+ * CUT A — storeEligibleById: null (PARTIAL → CUT D). Surface policy via
+ * COMPATIBILITY_SURFACE_POLICY_KEYS (ad_integration / homePaidAdInsertion).
+ * @see lib/stores/advertising/delivery-ad-layers.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

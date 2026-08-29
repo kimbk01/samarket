@@ -207,14 +207,20 @@ describe("CUT 0 stores discovery authority foundation", () => {
       "DEFERRED",
       "UNAVAILABLE",
       "REMOVE_IN_LATER_CUT",
+      "REMOVED",
     ]);
     for (const row of STORES_DISCOVERY_CURRENT_TO_TARGET_MAP) {
       expect(STORES_DISCOVERY_MAP_STATES).toContain(row.state);
-      expect(row.changeInThisCut).toBe("mapping_only");
+      if (row.state === "REMOVED") {
+        expect(row.changeInThisCut).toBe("removed");
+      } else {
+        expect(row.changeInThisCut).toBe("mapping_only");
+      }
       expect(row.current.length).toBeGreaterThan(0);
       expect(row.canonical.length).toBeGreaterThan(0);
     }
 
+    expect(storesDiscoveryMapRowByCurrent("STORES_HOME_HERO_SLIDES")?.state).toBe("REMOVED");
     expect(storesDiscoveryMapRowByCurrent("main_stores")?.canonical).toBe("rest_stores");
     expect(storesDiscoveryMapRowByCurrent("main_stores")?.state).toBe("DEPRECATED");
     expect(storesDiscoveryMapRowByCurrent("promo_campaign")?.canonical).toBe("editorial_promo");

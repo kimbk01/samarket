@@ -1,6 +1,13 @@
 /**
  * CUT 4 — STORE_PAID_AD runtime exposure resolver (ONE authority).
  * Consumes CUT 0 `deriveStoresDiscoveryPaidAdExposureState` — no parallel eligibility math.
+ *
+ * CUT A — Exposure requires ALL layers (campaign ≠ exposure):
+ * CAMPAIGN · SURFACE_POLICY · ELIGIBILITY · INSERTION_PLAN
+ * @see DELIVERY_AD_CAMPAIGN_NE_EXPOSURE in lib/stores/advertising/delivery-ad-layers.ts
+ *
+ * storeEligibleById: null → default true (PARTIAL; CUT D will wire organic/serviceability map).
+ * Callers must not treat campaign existence alone as exposure.
  */
 
 import { deriveStoresDiscoveryPaidAdExposureState } from "@/lib/stores/discovery-authority/paid-exposure-state";
