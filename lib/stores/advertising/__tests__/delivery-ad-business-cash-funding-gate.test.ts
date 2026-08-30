@@ -263,10 +263,11 @@ describe("Business Cash funding gate P1", () => {
     expect(hub).toContain('data-owner-ads-business-cash="summary"');
     expect(hub).not.toContain('data-owner-ads-business-cash="stub"');
     expect(hub).not.toMatch(/text-\[3[2-9]px\].*Business Cash|hero.*Business Cash/i);
-    expect(hub).toContain("owner_ads_business_cash_topup_unavailable");
+    expect(hub).not.toContain("owner_ads_business_cash_topup_unavailable");
     expect(detail).toContain('data-owner-ads-detail-section="funding"');
     expect(detail).toContain("owner_ads_funding_pay_cta");
-    expect(detail).toContain("owner_ads_funding_insufficient");
+    expect(detail).toContain("ownerAdsFundingErrorI18nKey");
+    expect(detail).toContain("ownerAdsShouldShowFundingPanel");
   });
 
   it("money minor helpers + idempotency key", () => {

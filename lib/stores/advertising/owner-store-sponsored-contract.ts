@@ -225,6 +225,7 @@ export function placementToOwnerInventoryKey(
 }
 
 export const OWNER_ADS_SUMMARY_BUCKETS = [
+  "changes_requested",
   "under_review",
   "scheduled",
   "active",
@@ -237,9 +238,10 @@ export function lifecycleToOwnerSummaryBucket(
   status: DeliveryAdLifecycleStatus
 ): OwnerAdsSummaryBucket | null {
   switch (status) {
+    case "CHANGES_REQUESTED":
+      return "changes_requested";
     case "SUBMITTED":
     case "UNDER_REVIEW":
-    case "CHANGES_REQUESTED":
       return "under_review";
     case "APPROVED":
     case "SCHEDULED":

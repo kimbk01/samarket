@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -24,7 +25,6 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import {
   ownerLifecycleStatusI18nKey,
-  ownerReviewStatusI18nKey,
   type OwnerCampaignAction,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
@@ -35,10 +35,15 @@ import type {
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
-import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import {
+  OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED,
+  ownerAdsDetailPanelsForLifecycle,
+  ownerAdsFundingErrorI18nKey,
+  ownerAdsShouldShowFundingPanel,
+} from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 import { Sam } from "@/lib/ui/css-vars";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
@@ -56,6 +61,7 @@ type CommercialSnapshotSoft = {
 type DetailCampaign = OwnerSponsoredCampaignRow & {
   productKind?: DeliveryAdOwnerProductKind;
   commercialSnapshot?: CommercialSnapshotSoft | null;
+  storeName?: string | null;
 };
 
 function requiredActionToneClass(
@@ -73,17 +79,25 @@ function requiredActionToneClass(
   }
 }
 
+function draftEditHref(productKind: DeliveryAdOwnerProductKind, storeId: string, campaignId: string) {
+  const base =
+    productKind === "banner"
+      ? DELIVERY_AD_OWNER_ROUTES.createBanner
+      : DELIVERY_AD_OWNER_ROUTES.createStoreSponsored;
+  return `${base}?${new URLSearchParams({ storeId, campaignId }).toString()}`;
+}
+
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
   const { t, safeT } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
   const productQ = sp.get("product")?.trim() === "banner" ? "banner" : null;
-  const focusOperations = sp.get("focus")?.trim() === "operations";
   const { formPadStyle, footerPadStyle, footerFixedClassName } = useOwnerAdminFormKeyboard({
     aboveBottomNav: true,
   });
   const [storeId, setStoreId] = useState(storeIdQ);
+  const [storeName, setStoreName] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<DetailCampaign | null>(null);
   const [productKind, setProductKind] = useState<DeliveryAdOwnerProductKind>(
     productQ ?? "store_sponsored"
@@ -112,6 +126,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       const hubJson = (await hub.json()) as {
         ok?: boolean;
         campaigns?: DetailCampaign[];
+        stores?: Array<{ id: string; storeName: string }>;
       };
       const found = (hubJson.campaigns ?? []).find((c) => c.id === campaignId);
       if (!found) {
@@ -120,8 +135,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         return;
       }
       setStoreId(found.storeId);
+      const sn = (hubJson.stores ?? []).find((s) => s.id === found.storeId)?.storeName;
+      if (sn) setStoreName(sn);
       setCampaign(found);
       if (found.productKind === "banner") setProductKind("banner");
+      if (found.lifecycleStatus === "DRAFT") {
+        router.replace(draftEditHref(found.productKind === "banner" ? "banner" : "store_sponsored", found.storeId, found.id));
+        return;
+      }
       setLoaded(true);
       const res = await fetch(
         `/api/me/stores/${encodeURIComponent(found.storeId)}/delivery-ads/${encodeURIComponent(campaignId)}`,
@@ -133,9 +154,18 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         history?: HistoryItem[];
         meta?: { productKind?: DeliveryAdOwnerProductKind };
         placementPreview?: DeliveryAdPlacementPreviewPayload | null;
-        error?: string;
       };
       if (res.ok && json.ok && json.campaign) {
+        if (json.campaign.lifecycleStatus === "DRAFT") {
+          router.replace(
+            draftEditHref(
+              json.meta?.productKind === "banner" ? "banner" : "store_sponsored",
+              found.storeId,
+              campaignId
+            )
+          );
+          return;
+        }
         setCampaign(json.campaign);
         setHistory(json.history ?? []);
         setPlacementPreview(json.placementPreview ?? null);
@@ -162,19 +192,47 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       setLoaded(true);
       return;
     }
+    const pk =
+      json.meta?.productKind === "banner"
+        ? "banner"
+        : json.meta?.productKind === "store_sponsored"
+          ? "store_sponsored"
+          : productKind;
+    if (json.campaign.lifecycleStatus === "DRAFT") {
+      router.replace(draftEditHref(pk, storeId, campaignId));
+      return;
+    }
     setCampaign(json.campaign);
     setHistory(json.history ?? []);
     setPlacementPreview(json.placementPreview ?? null);
-    if (json.meta?.productKind === "banner") setProductKind("banner");
-    else if (json.meta?.productKind === "store_sponsored") setProductKind("store_sponsored");
+    setProductKind(pk);
     setLoaded(true);
-  }, [campaignId, storeId]);
+  }, [campaignId, storeId, productKind, router]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const panels = useMemo(
+    () =>
+      campaign
+        ? ownerAdsDetailPanelsForLifecycle(campaign.lifecycleStatus)
+        : new Set<string>(),
+    [campaign]
+  );
+
+  const snap = campaign?.commercialSnapshot ?? null;
+  const showFunding = Boolean(
+    campaign &&
+      ownerAdsShouldShowFundingPanel({
+        lifecycleStatus: campaign.lifecycleStatus,
+        hasPricedSnapshot: Boolean(snap && (snap.finalPayableMinor ?? 0) > 0),
+        finalPayableMinor: snap?.finalPayableMinor,
+      })
+  );
+
   useEffect(() => {
+    if (!showFunding || !loaded) return;
     let cancelled = false;
     const run = async () => {
       setFundError(null);
@@ -200,16 +258,17 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             : 0
         );
       } catch {
-        /* funding panel optional until migration applied */
+        /* optional until ready */
       }
     };
     void run();
     return () => {
       cancelled = true;
     };
-  }, [campaignId, productKind, loaded]);
+  }, [campaignId, productKind, loaded, showFunding]);
 
   useEffect(() => {
+    if (!campaign || !panels.has("performance")) return;
     let cancelled = false;
     setPerfLoading(true);
     void fetch(
@@ -234,7 +293,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     return () => {
       cancelled = true;
     };
-  }, [campaignId, perfRange]);
+  }, [campaign, campaignId, perfRange, panels]);
 
   const nextActions = useMemo((): OwnerNextAction[] => {
     if (!campaign || !storeId) return [];
@@ -243,7 +302,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       productKind,
       storeId,
       campaignId: campaign.id,
-    });
+    }).filter((a) => !(a.kind === "action" && a.action === "delete"));
   }, [campaign, productKind, storeId]);
 
   const requiredAction = useMemo(() => {
@@ -259,6 +318,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const actionCtas = nextActions.filter(
     (a): a is Extract<OwnerNextAction, { kind: "action" }> => a.kind === "action"
   );
+  const primaryAction = actionCtas[0] ?? null;
+  const secondaryActions = actionCtas.slice(1);
 
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
@@ -272,7 +333,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         );
         const json = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          setError(json.error || "generic");
+          setError("generic");
           return;
         }
         router.push(DELIVERY_AD_OWNER_ROUTES.hub);
@@ -293,7 +354,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         campaign?: DetailCampaign;
       };
       if (!res.ok || !json.ok || !json.campaign) {
-        setError(json.error || "generic");
+        setError("generic");
         return;
       }
       setCampaign(json.campaign);
@@ -322,391 +383,347 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       ? t("owner_ads_product_banner")
       : t("owner_ads_product_store_sponsored");
 
-  return (
-    <div
-      className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`}
-      style={actionCtas.length ? formPadStyle : { paddingBottom: 24 }}
-      data-owner-ads-detail="1"
-    >
-      <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_detail_title")}</h1>
+  const packageId = campaign
+    ? decodeOwnerAdPackagePricingModel(campaign.pricingModel)
+    : null;
 
-      {!loaded ? (
-        <p className="mt-4 text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
-      ) : !campaign ? (
-        <p className="mt-4 text-[13px] text-red-600" role="alert">
+  if (!loaded && !campaign) {
+    return (
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} data-owner-ads-detail="r1">
+        <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
+      </div>
+    );
+  }
+
+  if (!campaign) {
+    return (
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} data-owner-ads-detail="r1">
+        <p className="text-[13px] text-red-600" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
           })}
         </p>
-      ) : (
-        <>
-          {error ? (
-            <p className="mt-2 text-[13px] text-red-600" role="alert">
-              {safeT("owner_ads_error_generic", {
-                fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                fallbackEn: "Something went wrong. Please try again.",
-              })}
-            </p>
-          ) : null}
+      </div>
+    );
+  }
 
-          {/* 1–2 Identity + current state */}
-          <section
-            className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
-            data-owner-ads-detail-section="identity"
-          >
-            <p className="text-[12px] font-medium text-sam-muted">{productTitle}</p>
-            <p className="mt-1 text-[16px] font-bold text-sam-fg break-words">
-              {campaign.title?.trim() || productTitle}
-            </p>
-            <p className="mt-2 text-[12px] text-sam-muted break-all">
-              {t("owner_ads_store")}: {campaign.storeId}
-            </p>
-          </section>
+  void OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED;
 
-          <section
-            className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
-            data-owner-ads-detail-section="state"
-          >
-            <p className="text-[12px] font-medium text-sam-muted">{t("owner_ads_detail_title")}</p>
-            <p className="mt-1 text-[15px] font-semibold text-sam-fg">
-              {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
-            </p>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {t(ownerReviewStatusI18nKey(campaign.reviewStatus))}
-            </p>
-          </section>
+  return (
+    <div
+      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4`}
+      style={actionCtas.length ? formPadStyle : { paddingBottom: 24 }}
+      data-owner-ads-detail="r1"
+      data-owner-ads-lifecycle={campaign.lifecycleStatus}
+    >
+      <h1 className="text-[18px] font-bold text-sam-fg">
+        {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
+      </h1>
 
-          {/* 3 Required action */}
-          {requiredAction ? (
-            <section
-              className={`rounded-ui-rect border p-4 ${requiredActionToneClass(requiredAction.tone)}`}
-              data-owner-ads-detail-section="required-action"
-              data-owner-task-required={requiredAction.ownerTaskRequired ? "1" : "0"}
-              data-lifecycle={campaign.lifecycleStatus}
+      {error ? (
+        <p className="mt-2 text-[13px] text-red-600" role="alert">
+          {safeT("owner_ads_error_generic", {
+            fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
+            fallbackEn: "Something went wrong. Please try again.",
+          })}
+        </p>
+      ) : null}
+
+      {panels.has("identity") ? (
+        <section
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-owner-ads-detail-section="identity"
+        >
+          <p className="text-[12px] font-medium text-sam-muted">{productTitle}</p>
+          <p className="mt-1 text-[16px] font-bold text-sam-fg break-words">
+            {storeName || campaign.storeName || campaign.title?.trim() || productTitle}
+          </p>
+          <p className="mt-2 text-[13px] text-sam-muted">
+            {deliveryAdPlacementI18nKeys(campaign.inventoryKeys ?? [])
+              .map((k) => t(k as MessageKey))
+              .join(" · ") || "—"}
+          </p>
+          <p className="mt-1 text-[12px] text-sam-muted">
+            {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~ {campaign.endAt.slice(0, 10)}
+          </p>
+        </section>
+      ) : null}
+
+      {panels.has("required_action") && requiredAction ? (
+        <section
+          className={`rounded-ui-rect border p-4 ${requiredActionToneClass(requiredAction.tone)}`}
+          data-owner-ads-detail-section="required-action"
+        >
+          <p className="text-[16px] font-bold">{t(requiredAction.titleKey)}</p>
+          <p className="mt-2 text-[13px] leading-snug">{t(requiredAction.bodyKey)}</p>
+          {requiredAction.primaryHref ? (
+            <Link
+              href={requiredAction.primaryHref.href}
+              className={`${Sam.btn.primary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+              data-owner-ads-required-cta="edit"
             >
-              <p className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
-                {t("owner_ads_required_action_section")}
-              </p>
-              <p className="mt-1 text-[16px] font-bold">{t(requiredAction.titleKey)}</p>
-              <p className="mt-2 text-[13px] leading-snug">{t(requiredAction.bodyKey)}</p>
-              {requiredAction.primaryHref ? (
-                <button
-                  type="button"
-                  className={`${Sam.btn.primary} mt-3 min-h-[44px] w-full px-4 text-[14px] font-semibold`}
-                  data-owner-ads-required-cta="edit"
-                  disabled={busy}
-                  onClick={() => router.push(requiredAction.primaryHref!.href)}
-                >
-                  {t(requiredAction.primaryHref.labelKey)}
-                </button>
-              ) : null}
-              {requiredAction.guidanceHref ? (
-                <button
-                  type="button"
-                  className={`${Sam.btn.secondary} mt-3 min-h-[44px] w-full px-4 text-[14px] font-semibold`}
-                  data-owner-ads-required-cta="new-application"
-                  disabled={busy}
-                  onClick={() => router.push(requiredAction.guidanceHref!.href)}
-                >
-                  {t(requiredAction.guidanceHref.labelKey)}
-                </button>
-              ) : null}
-            </section>
+              {t(requiredAction.primaryHref.labelKey)}
+            </Link>
           ) : null}
-
-          {/* 4 Admin reason */}
-          {requiredAction?.showAdminReason && campaign.reviewNotes ? (
-            <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
-              <div data-owner-ads-detail-section="admin-reason">
-                <p className="text-[13px] text-sam-fg whitespace-pre-wrap break-words">
-                  {campaign.reviewNotes}
-                </p>
-              </div>
-            </OwnerStoreAdminDashSection>
+          {requiredAction.guidanceHref ? (
+            <Link
+              href={requiredAction.guidanceHref.href}
+              className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+            >
+              {t(requiredAction.guidanceHref.labelKey)}
+            </Link>
           ) : null}
+        </section>
+      ) : null}
 
-          {/* 5 Customer preview */}
-          <div data-owner-ads-detail-section="preview">
-            <OwnerStoreAdminDashSection title={t("delivery_ads_preview_detail_section_title")}>
-              <DeliveryAdCampaignPlacementPreviews
-                productKind={productKind}
-                inventoryKeys={campaign.inventoryKeys ?? []}
-                renderContext="owner_preview"
-                placementPreview={placementPreview}
-                bannerCreative={
-                  productKind === "banner" && campaign.imageUrl
-                    ? {
-                        assetUrl: campaign.imageUrl,
-                        headline: campaign.headline ?? campaign.title ?? null,
-                        subcopy: null,
-                        alt: campaign.title || "banner",
-                      }
-                    : null
-                }
-                ctaLabel={productKind === "banner" ? t("owner_ads_banner_cta_store") : null}
-              />
-            </OwnerStoreAdminDashSection>
+      {panels.has("admin_reason") && campaign.reviewNotes ? (
+        <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
+          <div data-owner-ads-detail-section="admin-reason">
+            <p className="whitespace-pre-wrap break-words text-[13px] text-sam-fg">
+              {campaign.reviewNotes}
+            </p>
           </div>
+        </OwnerStoreAdminDashSection>
+      ) : null}
 
-          {/* 6 Campaign facts */}
-          <div data-owner-ads-detail-section="facts">
-            <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
-              <p className="text-[13px] text-sam-fg">
-                {deliveryAdPlacementI18nKeys(campaign.inventoryKeys ?? [])
-                  .map((k) => t(k as MessageKey))
-                  .join(" · ") || "—"}
-              </p>
-              <p className="mt-2 text-[13px] text-sam-muted">
-                {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~{" "}
-                {campaign.endAt.slice(0, 10)}
-              </p>
-            </OwnerStoreAdminDashSection>
-          </div>
-
-          {(() => {
-            const packageId = decodeOwnerAdPackagePricingModel(campaign.pricingModel);
-            const snap = campaign.commercialSnapshot ?? null;
-            if (!packageId && !snap) {
-              return (
-                <div data-owner-ads-detail-section="commercial">
-                  <OwnerStoreAdminDashSection title={t("owner_ads_commercial_facts_title")}>
-                    <p className="text-[13px] text-sam-muted">
-                      {t("owner_ads_pricing_not_configured")}
-                    </p>
-                  </OwnerStoreAdminDashSection>
-                </div>
-              );
-            }
-            const totalDisplay =
-              snap?.finalPayableDisplay ??
-              (snap?.finalPayableMinor != null
-                ? formatDeliveryAdPhpMinor(snap.finalPayableMinor)
-                : null);
-            const baseDisplay =
-              snap?.basePriceDisplay ??
-              (snap?.basePriceMinor != null
-                ? formatDeliveryAdPhpMinor(snap.basePriceMinor)
-                : null);
-            return (
-              <div data-owner-ads-detail-section="commercial">
-                <OwnerStoreAdminDashSection title={t("owner_ads_commercial_facts_title")}>
-                  {packageId ? (
-                    <p className="text-[13px] text-sam-fg">
-                      {t("owner_ads_commercial_package_bound")}
-                      {snap?.packageDisplayName
-                        ? ` · ${snap.packageDisplayName}`
-                        : ""}
-                    </p>
-                  ) : null}
-                  {snap?.durationDays != null ? (
-                    <p className="mt-2 text-[12px] text-sam-muted">
-                      {t("owner_ads_period_duration_days").replace(
-                        "{days}",
-                        String(snap.durationDays)
-                      )}
-                    </p>
-                  ) : null}
-                  {baseDisplay ? (
-                    <p className="mt-2 text-[12px] text-sam-muted">
-                      {t("owner_ads_price_base")}: {baseDisplay}
-                    </p>
-                  ) : null}
-                  {snap?.partnerDiscountPercent != null && snap.partnerDiscountPercent > 0 ? (
-                    <p className="mt-1 text-[12px] text-sam-muted">
-                      {t("owner_ads_price_partner_discount")}: {snap.partnerDiscountPercent}%
-                    </p>
-                  ) : null}
-                  {totalDisplay ? (
-                    <p className="mt-2 text-[15px] font-bold text-sam-fg">
-                      {t("owner_ads_price_total")}: {totalDisplay}
-                    </p>
-                  ) : null}
-                </OwnerStoreAdminDashSection>
-              </div>
-            );
-          })()}
-
-          <div data-owner-ads-detail-section="funding">
-            <OwnerStoreAdminDashSection title={t("owner_ads_funding_section")}>
-              {cashBalanceMinor != null ? (
-                <p className="text-[12px] text-sam-muted">
-                  {t("owner_ads_funding_balance")}: {formatDeliveryAdPhpMinor(cashBalanceMinor)}
-                </p>
-              ) : null}
-              {fundingStatus === "FUNDED" ? (
-                <p className="mt-2 text-[13px] font-semibold text-sam-fg">
-                  {t("owner_ads_funding_done")}
-                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
-                </p>
-              ) : fundingStatus === "REFUNDED" ? (
-                <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
-              ) : (
-                <>
-                  <p className="mt-2 text-[13px] font-semibold text-sam-fg">
-                    {t("owner_ads_funding_needed")}
+      {panels.has("commercial_summary") ? (
+        <div data-owner-ads-detail-section="commercial">
+          <OwnerStoreAdminDashSection title={t("owner_ads_commercial_facts_title")}>
+            {!packageId && !snap ? (
+              <p className="text-[13px] text-sam-muted">{t("owner_ads_price_unset")}</p>
+            ) : (
+              <>
+                {snap?.packageDisplayName ? (
+                  <p className="text-[13px] text-sam-fg">{snap.packageDisplayName}</p>
+                ) : null}
+                {snap?.durationDays != null ? (
+                  <p className="mt-1 text-[12px] text-sam-muted">
+                    {t("owner_ads_period_duration_days").replace(
+                      "{days}",
+                      String(snap.durationDays)
+                    )}
                   </p>
-                  {fundError === "insufficient_balance" ? (
-                    <p className="mt-1 text-[12px] text-red-600">
-                      {t("owner_ads_funding_insufficient")}
-                    </p>
-                  ) : fundError ? (
-                    <p className="mt-1 text-[12px] text-red-600">{fundError}</p>
-                  ) : (
-                    <p className="mt-1 text-[12px] text-sam-muted">
-                      {t("owner_ads_business_cash_topup_unavailable")}
-                    </p>
-                  )}
+                ) : null}
+                {snap?.finalPayableDisplay || snap?.finalPayableMinor != null ? (
+                  <p className="mt-2 text-[15px] font-bold text-sam-fg">
+                    {t("owner_ads_price_total")}:{" "}
+                    {snap.finalPayableDisplay ??
+                      formatDeliveryAdPhpMinor(snap.finalPayableMinor ?? 0)}
+                  </p>
+                ) : null}
+              </>
+            )}
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {panels.has("preview") ? (
+        <div data-owner-ads-detail-section="preview">
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_preview")}>
+            <DeliveryAdCampaignPlacementPreviews
+              productKind={productKind}
+              inventoryKeys={campaign.inventoryKeys ?? []}
+              renderContext="owner_preview"
+              placementPreview={placementPreview}
+              bannerCreative={
+                productKind === "banner" && campaign.imageUrl
+                  ? {
+                      assetUrl: campaign.imageUrl,
+                      headline: campaign.headline ?? campaign.title ?? null,
+                      subcopy: null,
+                      alt: campaign.title || "banner",
+                    }
+                  : null
+              }
+              ctaLabel={productKind === "banner" ? t("owner_ads_banner_cta_store") : null}
+            />
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {showFunding ? (
+        <div data-owner-ads-detail-section="funding">
+          <OwnerStoreAdminDashSection title={t("owner_ads_funding_section")}>
+            {cashBalanceMinor != null ? (
+              <p className="text-[12px] text-sam-muted">
+                {t("owner_ads_funding_balance")}: {formatDeliveryAdPhpMinor(cashBalanceMinor)}
+              </p>
+            ) : null}
+            {snap?.finalPayableMinor != null ? (
+              <p className="mt-1 text-[13px] text-sam-fg">
+                {t("owner_ads_price_total")}:{" "}
+                {snap.finalPayableDisplay ?? formatDeliveryAdPhpMinor(snap.finalPayableMinor)}
+              </p>
+            ) : null}
+            {fundingStatus === "FUNDED" ? (
+              <p className="mt-2 text-[13px] font-semibold text-sam-fg">
+                {t("owner_ads_funding_done")}
+                {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+              </p>
+            ) : fundingStatus === "REFUNDED" ? (
+              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
+            ) : (
+              <>
+                <p className="mt-2 text-[13px] font-semibold text-sam-fg">
+                  {t("owner_ads_funding_needed")}
+                </p>
+                {fundError ? (
+                  <p className="mt-1 text-[12px] text-red-600" data-owner-ads-fund-error="mapped">
+                    {t(ownerAdsFundingErrorI18nKey(fundError))}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[12px] text-sam-muted">
+                    {t("owner_ads_business_cash_topup_unavailable")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className={`${Sam.btn.primary} mt-3`}
+                  disabled={fundBusy}
+                  data-owner-ads-fund-cta="1"
+                  onClick={() => {
+                    void (async () => {
+                      setFundBusy(true);
+                      setFundError(null);
+                      try {
+                        const res = await fetch(
+                          `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ productKind }),
+                          }
+                        );
+                        const json = (await res.json()) as {
+                          ok?: boolean;
+                          error?: string;
+                          result?: { balanceMinor?: number };
+                        };
+                        if (!res.ok || !json.ok) {
+                          setFundError(json.error || "fund_failed");
+                          return;
+                        }
+                        setFundingStatus("FUNDED");
+                        if (typeof json.result?.balanceMinor === "number") {
+                          setCashBalanceMinor(json.result.balanceMinor);
+                        }
+                        setFundedAt(new Date().toISOString());
+                      } catch {
+                        setFundError("network");
+                      } finally {
+                        setFundBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {t("owner_ads_funding_pay_cta")}
+                </button>
+              </>
+            )}
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {panels.has("performance") ? (
+        <div data-owner-ads-detail-section="performance">
+          <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
+            <DeliveryAdPerformancePanel
+              performance={performance}
+              loading={perfLoading}
+              range={perfRange}
+              onRangeChange={setPerfRange}
+              compact
+            />
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {panels.has("history") && history.length > 0 ? (
+        <div data-owner-ads-detail-section="history">
+          <OwnerStoreAdminDashSection title={t("owner_ads_history")}>
+            <ul className="space-y-2 text-[12px] text-sam-muted">
+              {history.map((h, i) => (
+                <li key={`${h.createdAt}-${i}`}>
+                  <span className="font-medium text-sam-fg">{h.action}</span>
+                  {" · "}
+                  {h.createdAt.slice(0, 19).replace("T", " ")}
+                </li>
+              ))}
+            </ul>
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {actionCtas.length > 0 ? (
+        <BodyPortal>
+          <footer
+            className={footerFixedClassName}
+            style={footerPadStyle}
+            data-owner-ads-footer="owner-admin-ssot"
+          >
+            <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+              <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+                <button
+                  type="button"
+                  className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                  disabled={busy}
+                  onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
+                >
+                  {t("owner_ads_back_hub")}
+                </button>
+                {primaryAction ? (
                   <button
                     type="button"
-                    className={`${Sam.btn.primary} mt-3`}
-                    disabled={fundBusy || fundingStatus == null}
-                    data-owner-ads-fund-cta="1"
+                    className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                    disabled={busy}
                     onClick={() => {
-                      void (async () => {
-                        setFundBusy(true);
-                        setFundError(null);
-                        try {
-                          const res = await fetch(
-                            `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding`,
-                            {
-                              method: "POST",
-                              credentials: "include",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ productKind }),
-                            }
-                          );
-                          const json = (await res.json()) as {
-                            ok?: boolean;
-                            error?: string;
-                            result?: { balanceMinor?: number };
-                          };
-                          if (!res.ok || !json.ok) {
-                            setFundError(json.error || "fund_failed");
-                            return;
-                          }
-                          setFundingStatus("FUNDED");
-                          if (typeof json.result?.balanceMinor === "number") {
-                            setCashBalanceMinor(json.result.balanceMinor);
-                          }
-                          setFundedAt(new Date().toISOString());
-                        } catch {
-                          setFundError("network");
-                        } finally {
-                          setFundBusy(false);
-                        }
-                      })();
+                      if (
+                        primaryAction.action === "pause" ||
+                        primaryAction.action === "end" ||
+                        primaryAction.action === "resume"
+                      ) {
+                        setConfirm(primaryAction.action);
+                      } else {
+                        void runAction(primaryAction.action);
+                      }
                     }}
                   >
-                    {t("owner_ads_funding_pay_cta")}
+                    {t(primaryAction.labelKey)}
                   </button>
-                </>
-              )}
-            </OwnerStoreAdminDashSection>
-          </div>
-
-          {/* 7 Operations */}
-          {storeId ? (
-            <div data-owner-ads-detail-section="operations">
-              <OwnerStoreAdminDashSection title={t("delivery_ad_ops_ui_section_title")}>
-                <DeliveryAdOperationsPanel
-                  actorRole="owner"
-                  productKind={productKind}
-                  campaignId={campaignId}
-                  storeId={storeId}
-                  focusOperations={focusOperations}
-                  hideHeading
-                />
-              </OwnerStoreAdminDashSection>
-            </div>
-          ) : null}
-
-          {/* 8 Performance */}
-          <div data-owner-ads-detail-section="performance">
-            <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
-              <DeliveryAdPerformancePanel
-                performance={performance}
-                loading={perfLoading}
-                range={perfRange}
-                onRangeChange={setPerfRange}
-              />
-            </OwnerStoreAdminDashSection>
-          </div>
-
-          {/* 9 History */}
-          {history.length > 0 ? (
-            <div data-owner-ads-detail-section="history">
-              <OwnerStoreAdminDashSection title={t("owner_ads_history")}>
-                <ul className="space-y-2 text-[12px] text-sam-muted">
-                  {history.map((h, i) => (
-                    <li key={`${h.createdAt}-${i}`}>
-                      <span className="font-medium text-sam-fg">{h.action}</span>
-                      {" · "}
-                      {h.createdAt.slice(0, 19).replace("T", " ")}
-                      {h.reason ? ` — ${h.reason}` : ""}
-                    </li>
+                ) : null}
+              </div>
+              {secondaryActions.length > 0 ? (
+                <div className="mt-2 flex flex-wrap justify-center gap-3">
+                  {secondaryActions.map((a) => (
+                    <button
+                      key={a.action}
+                      type="button"
+                      className="text-[12px] font-medium text-sam-muted underline"
+                      disabled={busy}
+                      onClick={() => {
+                        if (a.action === "pause" || a.action === "end" || a.action === "resume") {
+                          setConfirm(a.action);
+                        } else {
+                          void runAction(a.action);
+                        }
+                      }}
+                    >
+                      {t(a.labelKey)}
+                    </button>
                   ))}
-                </ul>
-              </OwnerStoreAdminDashSection>
-            </div>
-          ) : null}
-
-          {actionCtas.length > 0 ? (
-            <BodyPortal>
-              <footer
-                className={footerFixedClassName}
-                style={footerPadStyle}
-                data-owner-ads-footer="owner-admin-ssot"
-              >
-                <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
-                  <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
-                    <button
-                      type="button"
-                      className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
-                      disabled={busy}
-                      onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
-                    >
-                      {t("owner_ads_back_hub")}
-                    </button>
-                    <button
-                      type="button"
-                      className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-                      disabled={busy}
-                      onClick={() => setConfirm(actionCtas[0]!.action)}
-                    >
-                      {t(actionCtas[0]!.labelKey)}
-                    </button>
-                  </div>
-                  {actionCtas.length > 1 ? (
-                    <div className="flex gap-2 border-t border-sam-border p-2">
-                      {actionCtas.slice(1).map((c) => (
-                        <button
-                          key={c.action}
-                          type="button"
-                          disabled={busy}
-                          className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
-                            c.tone === "danger"
-                              ? "bg-red-600 text-white"
-                              : "bg-sam-app text-sam-fg border border-sam-border"
-                          }`}
-                          onClick={() => setConfirm(c.action)}
-                        >
-                          {t(c.labelKey)}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
-              </footer>
-            </BodyPortal>
-          ) : null}
-        </>
-      )}
+              ) : null}
+            </div>
+          </footer>
+        </BodyPortal>
+      ) : null}
 
       {confirm && confirmCopy ? (
         <OwnerStoreAdminConfirmModal
           open
-          titleId="owner-delivery-ad-confirm"
+          titleId="owner-ads-confirm"
           title={confirmCopy.title}
           description={confirmCopy.body}
           confirmLabel={t("owner_ads_confirm")}

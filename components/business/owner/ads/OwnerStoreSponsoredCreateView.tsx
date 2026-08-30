@@ -7,7 +7,6 @@ import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerSto
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
@@ -474,7 +473,7 @@ export function OwnerStoreSponsoredCreateView() {
         <p className="mt-4 text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
       ) : (
         <form id={formId} className="space-y-3" onSubmit={(e) => e.preventDefault()}>
-          <OwnerStoreAdminDashSection title={t("owner_ads_select_store")}>
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_store")}>
             {stores.length === 0 ? (
               <p className="text-[13px] text-sam-muted">{t("owner_ads_no_eligible_store")}</p>
             ) : (
@@ -518,26 +517,33 @@ export function OwnerStoreSponsoredCreateView() {
             </p>
           </OwnerStoreAdminDashSection>
 
-          <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
+          <OwnerStoreAdminDashSection title={t("owner_ads_placement_surface_title")}>
             <div className="space-y-2">
               {placementOptions.map((key) => (
                 <label
                   key={key}
-                  className={`flex min-h-[44px] items-center gap-3 rounded-ui-rect border px-3 ${
+                  className={`flex min-h-[44px] flex-col gap-1 rounded-ui-rect border px-3 py-2 ${
                     inventoryKey === key
                       ? "border-signature bg-sam-app"
                       : "border-sam-border bg-sam-surface"
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name={`${formId}-placement`}
-                    checked={inventoryKey === key}
-                    onChange={() => onSelectPlacement(key)}
-                    className="h-4 w-4"
-                  />
-                  <span className="text-[14px] text-sam-fg">
-                    {deliveryAdCommercialPlacementLabel(key, lang)}
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name={`${formId}-placement`}
+                      checked={inventoryKey === key}
+                      onChange={() => onSelectPlacement(key)}
+                      className="h-4 w-4"
+                    />
+                    <span className="text-[14px] font-semibold text-sam-fg">
+                      {deliveryAdCommercialPlacementLabel(key, lang)}
+                    </span>
+                  </span>
+                  <span className="pl-7 text-[12px] text-sam-muted">
+                    {key === "STORES_HOME_FEED"
+                      ? t("owner_ads_placement_home_help")
+                      : t("owner_ads_placement_category_help")}
                   </span>
                 </label>
               ))}
@@ -550,7 +556,11 @@ export function OwnerStoreSponsoredCreateView() {
             ) : commercialLoading ? (
               <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
             ) : noSellablePackages || packages.length === 0 ? (
-              <p className="text-[13px] text-red-600" role="status">
+              <p
+                className="text-[13px] text-sam-muted"
+                role="status"
+                data-owner-ads-packages="preparing"
+              >
                 {t("owner_ads_no_sellable_packages")}
               </p>
             ) : (
@@ -590,8 +600,12 @@ export function OwnerStoreSponsoredCreateView() {
           </OwnerStoreAdminDashSection>
 
           {quote ? (
-            <OwnerStoreAdminDashSection title={t("owner_ads_section_price")}>
+            <OwnerStoreAdminDashSection title={t("owner_ads_section_payable")}>
               <dl className="space-y-2 text-[13px]">
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-sam-muted">{t("owner_ads_section_product")}</dt>
+                  <dd className="text-sam-fg">{t("owner_ads_product_store_sponsored")}</dd>
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   <dt className="text-sam-muted">{t("owner_ads_price_base")}</dt>
                   <dd className="tabular-nums text-sam-fg">{quote.basePriceDisplay}</dd>
@@ -636,7 +650,7 @@ export function OwnerStoreSponsoredCreateView() {
                 )}
               </p>
               <p className="mt-2 text-[12px] text-sam-muted">
-                {t("owner_ads_period_pending_start")}
+                {t("owner_ads_period_pending_start_r1")}
               </p>
             </OwnerStoreAdminDashSection>
           ) : null}
@@ -653,13 +667,6 @@ export function OwnerStoreSponsoredCreateView() {
               />
             </OwnerStoreAdminDashSection>
           ) : null}
-
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_notice")}>
-            <p className="text-[13px] text-sam-muted">{t("owner_ads_review_admin_note")}</p>
-            <p className="mt-2 text-[12px] text-sam-muted">
-              {t("owner_ads_billing_application_note")}
-            </p>
-          </OwnerStoreAdminDashSection>
         </form>
       )}
 
@@ -675,19 +682,16 @@ export function OwnerStoreSponsoredCreateView() {
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
-                disabled={busy}
-                onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
-              >
-                {t("owner_ads_cancel")}
-              </button>
-              <button
-                type="button"
                 className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
                 disabled={!canSubmit}
+                data-owner-ads-submit-cta={canSubmit ? "ready" : "blocked"}
                 onClick={() => void submit()}
               >
-                {busy ? t("owner_ads_submitting") : t("owner_ads_apply_request_cta")}
+                {busy
+                  ? t("owner_ads_submitting")
+                  : noSellablePackages || packages.length === 0
+                    ? t("owner_ads_cta_sale_preparing")
+                    : t("owner_ads_apply_request_cta")}
               </button>
             </div>
           </div>

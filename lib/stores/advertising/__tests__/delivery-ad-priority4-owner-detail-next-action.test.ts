@@ -41,18 +41,13 @@ function baseInput(status: DeliveryAdLifecycleStatus, productKind: "store_sponso
 }
 
 describe("Priority 4 Owner detail next-action", () => {
-  it("T1 — detail sections place required-action before preview/facts/ops/perf/history", () => {
+  it("T1 — detail sections place required-action before preview/commercial/performance", () => {
     const src = detailSrc();
     const order = [
-      'data-owner-ads-detail-section="identity"',
-      'data-owner-ads-detail-section="state"',
       'data-owner-ads-detail-section="required-action"',
-      'data-owner-ads-detail-section="admin-reason"',
+      'data-owner-ads-detail-section="commercial"',
       'data-owner-ads-detail-section="preview"',
-      'data-owner-ads-detail-section="facts"',
-      'data-owner-ads-detail-section="operations"',
       'data-owner-ads-detail-section="performance"',
-      'data-owner-ads-detail-section="history"',
     ];
     let prev = -1;
     for (const marker of order) {
@@ -60,6 +55,7 @@ describe("Priority 4 Owner detail next-action", () => {
       expect(idx).toBeGreaterThan(prev);
       prev = idx;
     }
+    expect(src).not.toContain('data-owner-ads-detail-section="operations"');
   });
 
   it("T2/T3/T4 — CHANGES_REQUESTED requires correction + admin reason + existing edit path", () => {
@@ -159,10 +155,10 @@ describe("Priority 4 Owner detail next-action", () => {
     expect(previewSrc()).not.toContain("DeliveryAdSponsoredBeacon");
   });
 
-  it("T15/T16 — CUT 3 operations panel preserved; messaging unrelated to lifecycle write", () => {
+  it("T15/T16 — R1 CUT3 fail-closed: operations panel not mounted on Owner detail", () => {
     const src = detailSrc();
-    expect(src).toContain("DeliveryAdOperationsPanel");
-    expect(src).toContain('actorRole="owner"');
+    expect(src).not.toContain("<DeliveryAdOperationsPanel");
+    expect(src).toContain("OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED");
     expect(opsPanelSrc()).toContain("DeliveryAdOperationsComposer");
     expect(opsPanelSrc()).not.toMatch(/lifecycleStatus|ownerDeliveryAdNextActions|transitionOwner/);
   });

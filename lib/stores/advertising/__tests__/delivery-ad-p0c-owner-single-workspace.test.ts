@@ -199,9 +199,9 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(DELIVERY_AD_PARTNER_ORGANIC_EFFECT.altersOrganicEligibility).toBe(false);
   });
 
-  it("T20 — Business Cash not presented as active payment", () => {
-    expect(hub()).toContain('data-owner-ads-business-cash="stub"');
-    expect(hub()).toContain("owner_ads_business_cash_preparing");
+  it("T20 — Business Cash is summary only; no fake top-up or charge copy on create", () => {
+    expect(hub()).toContain('data-owner-ads-business-cash="summary"');
+    expect(hub()).not.toContain('data-owner-ads-business-cash="stub"');
     expect(sponsored()).not.toMatch(/결제 완료|Business Cash 차감|광고비 결제됨/);
     expect(banner()).not.toMatch(/결제 완료|Business Cash 차감/);
   });

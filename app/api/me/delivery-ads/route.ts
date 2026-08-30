@@ -59,6 +59,7 @@ export async function GET() {
   const businessCash = await loadOwnerBusinessCashBalance(sb, userId, "PHP");
 
   const summary = {
+    changes_requested: 0,
     under_review: 0,
     scheduled: 0,
     active: 0,

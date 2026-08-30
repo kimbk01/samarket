@@ -88,10 +88,8 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     const src = hubSrc();
     expect(src).toContain("owner_ads_product_store_sponsored_desc");
     expect(src).toContain("owner_ads_product_banner_desc");
-    expect(src).toContain("owner_ads_product_store_sponsored_shape");
-    expect(src).toContain("owner_ads_product_banner_shape");
     expect(ownerDeliveryAdsMessages.ko.owner_ads_product_store_sponsored).toBe("매장 홍보");
-    expect(ownerDeliveryAdsMessages.ko.owner_ads_product_banner).toBe("배너");
+    expect(ownerDeliveryAdsMessages.ko.owner_ads_product_banner).toBe("배너 광고");
   });
 
   it("T7 — /mypage/ads remains a separate non–Delivery Ads domain", () => {
@@ -110,11 +108,12 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     ]);
   });
 
-  it("T9 — Business Cash remains informational / not implemented", () => {
+  it("T9 — Business Cash is muted summary only; no fake top-up CTA", () => {
     const src = hubSrc();
-    expect(src).toContain("owner_ads_business_cash_preparing");
+    expect(src).toContain('data-owner-ads-business-cash="summary"');
+    expect(src).not.toContain('data-owner-ads-business-cash="stub"');
     expect(src).not.toMatch(/BusinessCashBalance|chargeBusinessCash|walletBalance/);
-    expect(ownerDeliveryAdsMessages.ko.owner_ads_business_cash_preparing).toContain("준비 중");
+    expect(src).not.toContain("owner_ads_business_cash_topup_unavailable");
   });
 
   it("Owner dashboard card menu exposes canonical Delivery Ads entry", () => {
