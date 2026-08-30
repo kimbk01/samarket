@@ -250,7 +250,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
       {
         id: "ads",
         labelKey: "biz_nav_ads",
-        href: "/my/ads",
+        href: OwnerRoutes.ads(storeId),
         descriptionKey: "biz_nav_ads_desc",
       },
     ],

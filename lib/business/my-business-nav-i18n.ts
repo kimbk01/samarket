@@ -75,7 +75,10 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
   const extra: MyBusinessNavItem[] = [
     item("my_biz_staff", "staff", { disabled: true, hint: bizT("my_biz_staff_hint") }),
     item("my_biz_reviews", "review", { href: OwnerRoutes.reviews(storeId) }),
-    item("biz_nav_ads", "promo", { href: "/my/ads", hint: bizT("my_biz_ads_hint") }),
+    item("biz_nav_ads", "promo", {
+      href: OwnerRoutes.ads(storeId),
+      hint: bizT("my_biz_ads_hint"),
+    }),
   ];
   if (approved) {
     extra.unshift(

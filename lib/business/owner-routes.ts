@@ -107,6 +107,8 @@ export const OwnerRoutes = {
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
   points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),
+  /** Delivery Ads Owner hub — canonical entry (not /my/ads /mypage feed ads). */
+  ads: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/ads`, storeId),
 } as const;
 
 /**

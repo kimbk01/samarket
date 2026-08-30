@@ -82,9 +82,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_store_points_desc: "충전·계좌 문의·잔액",
 
-    biz_nav_ads: "광고 · 프로모션",
+    biz_nav_ads: "광고",
 
-    biz_nav_ads_desc: "노출·광고 신청",
+    biz_nav_ads_desc: "배달 광고 신청·관리",
 
     biz_nav_notifications: "알림 · 운영",
 
@@ -100,7 +100,7 @@ export const businessAdminNavMessages = {
     my_biz_staff_hint: "준비 중",
     my_biz_reviews: "리뷰 관리",
     my_biz_public_hint: "고객이 보는 창",
-    my_biz_ads_hint: "노출·신청",
+    my_biz_ads_hint: "배달 광고",
     my_biz_notif_hint: "배달 알림음(전역)",
     biz_title_orders: "주문 관리",
     biz_title_inquiries: "매장 문의",
@@ -216,9 +216,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_store_points_desc: "Top-up, account inquiry, balance",
 
-    biz_nav_ads: "Ads & promotions",
+    biz_nav_ads: "Ads",
 
-    biz_nav_ads_desc: "Exposure & ad requests",
+    biz_nav_ads_desc: "Apply for and manage Delivery ads",
 
     biz_nav_notifications: "Alerts & ops",
 
@@ -234,7 +234,7 @@ export const businessAdminNavMessages = {
     my_biz_staff_hint: "Coming soon",
     my_biz_reviews: "Reviews",
     my_biz_public_hint: "Customer view",
-    my_biz_ads_hint: "Exposure & apply",
+    my_biz_ads_hint: "Delivery ads",
     my_biz_notif_hint: "Delivery sounds (global)",
     biz_title_orders: "Orders",
     biz_title_inquiries: "Store inquiries",

@@ -22,6 +22,8 @@ import type {
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 
 type HubStore = {
   id: string;
@@ -69,6 +71,8 @@ export function OwnerDeliveryAdsHubView() {
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
   const [unreadByCampaignId, setUnreadByCampaignId] = useState<Record<string, number>>({});
+  const [productSelectOpen, setProductSelectOpen] = useState(false);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(productSelectOpen);
 
   const load = useCallback(async () => {
     setError(null);
@@ -158,50 +162,16 @@ export function OwnerDeliveryAdsHubView() {
         <p className="mt-1 text-[13px] text-sam-muted">{t("owner_delivery_ads_hub_desc")}</p>
       </div>
 
-      <OwnerStoreAdminDashSection title={t("owner_ads_product_entry_title")}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Link
-            href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
-            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4 transition hover:border-signature"
-          >
-            <p className="text-[15px] font-bold text-sam-fg">
-              {t("owner_ads_product_store_sponsored")}
-            </p>
-            <p className="mt-2 text-[13px] text-sam-muted">
-              {t("owner_ads_product_store_sponsored_desc")}
-            </p>
-            <p className="mt-2 text-[12px] text-sam-fg">
-              {t("owner_ads_product_store_sponsored_shape")}
-            </p>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {t("owner_ads_product_store_sponsored_placements")}
-            </p>
-            <span className={`${Sam.btn.secondary} mt-3 inline-flex px-3 py-1.5 text-[13px] font-semibold`}>
-              {t("owner_ads_create_store_sponsored_cta")}
-            </span>
-          </Link>
-          <Link
-            href={DELIVERY_AD_OWNER_ROUTES.createBanner}
-            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4 transition hover:border-signature"
-          >
-            <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_product_banner")}</p>
-            <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_product_banner_desc")}</p>
-            <p className="mt-2 text-[12px] text-sam-fg">{t("owner_ads_product_banner_shape")}</p>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {t("owner_ads_product_banner_placements")}
-            </p>
-            <span className={`${Sam.btn.primary} mt-3 inline-flex px-3 py-1.5 text-[13px] font-semibold`}>
-              {t("owner_ads_create_banner_cta")}
-            </span>
-          </Link>
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("owner_ads_business_cash_title")}>
-        <p className="text-[14px] font-semibold text-sam-fg">{t("owner_ads_business_cash_label")}</p>
-        <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_business_cash_preparing")}</p>
-        <p className="mt-2 text-[12px] text-sam-muted">{t("owner_ads_business_cash_note")}</p>
-      </OwnerStoreAdminDashSection>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <button
+          type="button"
+          className={`${Sam.btn.primary} min-h-[48px] w-full px-4 text-[15px] font-semibold`}
+          data-owner-ads-primary-cta="apply"
+          onClick={() => setProductSelectOpen(true)}
+        >
+          {t("owner_ads_apply_primary_cta")}
+        </button>
+      </div>
 
       <OwnerStoreAdminDashSection title={t("owner_delivery_ads_hub_title")}>
         <div className="grid grid-cols-5 gap-1">
@@ -218,15 +188,6 @@ export function OwnerDeliveryAdsHubView() {
             </div>
           ))}
         </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
-        <DeliveryAdPerformancePanel
-          performance={performance}
-          loading={perfLoading}
-          range={perfRange}
-          onRangeChange={setPerfRange}
-        />
       </OwnerStoreAdminDashSection>
 
       {!loaded ? (
@@ -312,6 +273,64 @@ export function OwnerDeliveryAdsHubView() {
           })}
         </ul>
       )}
+
+      <OwnerStoreAdminDashSection title={t("owner_ads_business_cash_title")}>
+        <p className="text-[14px] font-semibold text-sam-fg">{t("owner_ads_business_cash_label")}</p>
+        <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_business_cash_preparing")}</p>
+        <p className="mt-2 text-[12px] text-sam-muted">{t("owner_ads_business_cash_note")}</p>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
+        <DeliveryAdPerformancePanel
+          performance={performance}
+          loading={perfLoading}
+          range={perfRange}
+          onRangeChange={setPerfRange}
+        />
+      </OwnerStoreAdminDashSection>
+
+      <DibayBottomSheet
+        open={productSelectOpen}
+        onClose={() => setProductSelectOpen(false)}
+        title={t("owner_ads_product_select_title")}
+        anchor="above-bottom-nav"
+        ariaLabel={t("owner_ads_product_select_title")}
+        panelClassName="!max-w-md"
+        contentPaddingBottomPx={contentPaddingBottomPx}
+      >
+        <div className="mt-3 space-y-3" data-owner-ads-product-select="1">
+          <Link
+            href={DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}
+            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4 transition hover:border-signature"
+            onClick={() => setProductSelectOpen(false)}
+          >
+            <p className="text-[15px] font-bold text-sam-fg">
+              {t("owner_ads_product_store_sponsored")}
+            </p>
+            <p className="mt-2 text-[13px] text-sam-muted">
+              {t("owner_ads_product_store_sponsored_desc")}
+            </p>
+            <p className="mt-2 text-[12px] text-sam-fg">
+              {t("owner_ads_product_store_sponsored_shape")}
+            </p>
+            <p className="mt-1 text-[12px] text-sam-muted">
+              {t("owner_ads_product_store_sponsored_placements")}
+            </p>
+          </Link>
+          <Link
+            href={DELIVERY_AD_OWNER_ROUTES.createBanner}
+            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4 transition hover:border-signature"
+            onClick={() => setProductSelectOpen(false)}
+          >
+            <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_product_banner")}</p>
+            <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_product_banner_desc")}</p>
+            <p className="mt-2 text-[12px] text-sam-fg">{t("owner_ads_product_banner_shape")}</p>
+            <p className="mt-1 text-[12px] text-sam-muted">
+              {t("owner_ads_product_banner_placements")}
+            </p>
+          </Link>
+        </div>
+      </DibayBottomSheet>
     </div>
   );
 }

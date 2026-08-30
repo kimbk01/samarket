@@ -86,6 +86,13 @@ export function BusinessDashboardOwnerCardMenu({
       disabled: false,
     },
     {
+      id: "ads",
+      titleKey: "biz_nav_ads",
+      descKey: "biz_nav_ads_desc",
+      href: `/stores/owner/ads?${q}`,
+      disabled: false,
+    },
+    {
       id: "settlements",
       titleKey: "business_phase7_595",
       descKey: "biz_nav_settlements",
