@@ -68,6 +68,8 @@ function toRuntimeCampaign(campaign: StorePaidAdCampaignRow): StoreSponsoredRunt
     lifecycleStatus,
     reviewStatus,
     inventoryKeys,
+    campaignSource: campaign.campaignSource ?? "OWNER_PAID",
+    fundingStatus: campaign.fundingStatus ?? "UNFUNDED",
   };
 }
 

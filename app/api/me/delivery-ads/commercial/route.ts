@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
       quote: null,
       sellablePackageCount: 0,
       noSellablePackages: true,
-      billing: { businessCash: false, chargeCollection: false },
+      billing: { businessCash: true, chargeCollection: false },
     });
   }
 
@@ -168,6 +168,6 @@ export async function GET(req: NextRequest) {
     quote,
     sellablePackageCount: sellable.length,
     noSellablePackages: sellable.length === 0,
-    billing: { businessCash: false, chargeCollection: false },
+    billing: { businessCash: true, chargeCollection: false },
   });
 }

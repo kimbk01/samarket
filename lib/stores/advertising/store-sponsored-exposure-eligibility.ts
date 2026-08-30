@@ -17,6 +17,11 @@ import type { StorePaidAdPlacement } from "@/lib/stores/store-paid-ad-campaign-a
 import { isStorePaidAdPlacement } from "@/lib/stores/store-paid-ad-campaign-authority";
 import { isRuntimeActiveInventory } from "@/lib/stores/advertising/delivery-ad-inventory";
 import { STORE_SPONSORED_BUDGET_GATE } from "@/lib/stores/advertising/delivery-ad-billing-contract";
+import {
+  isDeliveryAdFundingReadyForGoLive,
+  resolveDeliveryAdFundingStatus,
+  type DeliveryAdFundingStatus,
+} from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 export { STORE_SPONSORED_BUDGET_GATE };
 
@@ -43,6 +48,10 @@ export type StoreSponsoredRuntimeCampaign = {
   lifecycleStatus: DeliveryAdLifecycleStatus;
   reviewStatus: DeliveryAdReviewStatus;
   inventoryKeys: OwnerStoreSponsoredInventoryKey[];
+  /** OWNER_PAID | DIBAY_FIRST_PARTY — default OWNER_PAID when absent. */
+  campaignSource?: string | null;
+  /** FUNDED | REFUNDED | absent(=UNFUNDED). */
+  fundingStatus?: DeliveryAdFundingStatus | null;
 };
 
 export type StoreSponsoredExposureSurface = "STORES_HOME_FEED" | "STORES_CATEGORY_FEED";
@@ -112,6 +121,18 @@ export function evaluateStoreSponsoredCampaignGates(input: {
 
   // Budget gate = BILLING_NOT_LAUNCHED — not enforced on exposure yet
   void STORE_SPONSORED_BUDGET_GATE;
+
+  // Business Cash MODEL B defense-in-depth (CUT H usage billing still off)
+  if (
+    !isDeliveryAdFundingReadyForGoLive({
+      campaignSource: campaign.campaignSource,
+      fundingStatus: resolveDeliveryAdFundingStatus({
+        rowStatus: campaign.fundingStatus,
+      }),
+    })
+  ) {
+    reasons.push("funding_ready");
+  }
 
   return { ok: reasons.length === 0, reasons };
 }

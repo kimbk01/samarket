@@ -61,6 +61,7 @@ export type AdminDeliveryAdWriterError =
   | "future_inventory"
   | "creative_not_ready"
   | "destination_not_ready"
+  | "funding_required"
   | "db_error"
   | "rpc_failed";
 
@@ -93,6 +94,7 @@ function mapRpcError(raw: unknown): AdminDeliveryAdWriterError {
     e === "stale_updated_at" ||
     e === "creative_not_ready" ||
     e === "destination_not_ready" ||
+    e === "funding_required" ||
     e === "db_error"
   ) {
     return e;

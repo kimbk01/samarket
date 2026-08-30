@@ -37,6 +37,9 @@ export type StorePaidAdCampaignRow = {
   lifecycleStatus?: DeliveryAdLifecycleStatus;
   reviewStatus?: DeliveryAdReviewStatus;
   inventoryKeys?: OwnerStoreSponsoredInventoryKey[];
+  /** P0-A / Business Cash — default OWNER_PAID when absent. */
+  campaignSource?: string | null;
+  fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED" | null;
 };
 
 export function isStorePaidAdPlacement(value: unknown): value is StorePaidAdPlacement {

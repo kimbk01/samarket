@@ -11,6 +11,8 @@ import {
   isStoreEligibleForOwnerAdApplication,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { listOwnerDeliveryAdOperationsUnreadByCampaignIds } from "@/lib/stores/advertising/delivery-ad-operations-unread";
+import { loadOwnerBusinessCashBalance } from "@/lib/stores/advertising/delivery-ad-business-cash-writer";
+import { DELIVERY_AD_BUSINESS_CASH_PLATFORM } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +56,7 @@ export async function GET() {
       productKind: c.productKind,
     })),
   });
+  const businessCash = await loadOwnerBusinessCashBalance(sb, userId, "PHP");
 
   const summary = {
     under_review: 0,
@@ -97,6 +100,11 @@ export async function GET() {
     eligibleStoreCount: eligibleStores.length,
     summary,
     unreadByCampaignId,
+    businessCash: {
+      balanceMinor: businessCash?.balanceMinor ?? 0,
+      currency: businessCash?.currency ?? "PHP",
+      externalTopUp: DELIVERY_AD_BUSINESS_CASH_PLATFORM.externalTopUp,
+    },
     meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT },
   });
 }

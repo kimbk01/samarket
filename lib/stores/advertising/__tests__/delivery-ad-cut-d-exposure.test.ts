@@ -48,6 +48,8 @@ function runtimeCampaign(
     lifecycleStatus: overrides.lifecycleStatus ?? "ACTIVE",
     reviewStatus: overrides.reviewStatus ?? "APPROVED",
     inventoryKeys: overrides.inventoryKeys ?? ["STORES_CATEGORY_FEED"],
+    campaignSource: overrides.campaignSource ?? "OWNER_PAID",
+    fundingStatus: overrides.fundingStatus ?? "FUNDED",
   };
 }
 
@@ -68,6 +70,8 @@ function paidRow(
     lifecycleStatus: overrides.lifecycleStatus ?? "ACTIVE",
     reviewStatus: overrides.reviewStatus ?? "APPROVED",
     inventoryKeys: overrides.inventoryKeys ?? ["STORES_CATEGORY_FEED"],
+    campaignSource: overrides.campaignSource ?? "OWNER_PAID",
+    fundingStatus: overrides.fundingStatus ?? "FUNDED",
   };
 }
 

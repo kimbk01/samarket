@@ -104,10 +104,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
           ? 403
           : result.error === "campaign_not_found"
             ? 404
-            : result.error === "reason_required" || result.error === "illegal_transition"
+            : result.error === "reason_required" ||
+                result.error === "illegal_transition" ||
+                result.error === "funding_required"
               ? 422
               : 400;
-    return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error,
+        detail: result.detail,
+        ...(result.error === "funding_required"
+          ? { reasonKey: "admin_delivery_ad_funding_required" }
+          : {}),
+      },
+      { status }
+    );
   }
 
   return NextResponse.json({ ok: true, result });

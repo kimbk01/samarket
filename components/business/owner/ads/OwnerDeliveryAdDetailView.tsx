@@ -98,6 +98,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [perfLoading, setPerfLoading] = useState(false);
   const [placementPreview, setPlacementPreview] =
     useState<DeliveryAdPlacementPreviewPayload | null>(null);
+  const [fundingStatus, setFundingStatus] = useState<
+    "UNFUNDED" | "FUNDED" | "REFUNDED" | null
+  >(null);
+  const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
+  const [fundedAt, setFundedAt] = useState<string | null>(null);
+  const [fundBusy, setFundBusy] = useState(false);
+  const [fundError, setFundError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!storeId) {
@@ -166,6 +173,41 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setFundError(null);
+      try {
+        const res = await fetch(
+          `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding?product=${encodeURIComponent(productKind)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          funding?: {
+            fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
+            fundedAt?: string | null;
+          };
+          businessCash?: { balanceMinor?: number };
+        };
+        if (cancelled || !res.ok || !json.ok) return;
+        setFundingStatus(json.funding?.fundingStatus ?? "UNFUNDED");
+        setFundedAt(json.funding?.fundedAt ?? null);
+        setCashBalanceMinor(
+          typeof json.businessCash?.balanceMinor === "number"
+            ? json.businessCash.balanceMinor
+            : 0
+        );
+      } catch {
+        /* funding panel optional until migration applied */
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [campaignId, productKind, loaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -484,6 +526,84 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               </div>
             );
           })()}
+
+          <div data-owner-ads-detail-section="funding">
+            <OwnerStoreAdminDashSection title={t("owner_ads_funding_section")}>
+              {cashBalanceMinor != null ? (
+                <p className="text-[12px] text-sam-muted">
+                  {t("owner_ads_funding_balance")}: {formatDeliveryAdPhpMinor(cashBalanceMinor)}
+                </p>
+              ) : null}
+              {fundingStatus === "FUNDED" ? (
+                <p className="mt-2 text-[13px] font-semibold text-sam-fg">
+                  {t("owner_ads_funding_done")}
+                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                </p>
+              ) : fundingStatus === "REFUNDED" ? (
+                <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_funding_refunded")}</p>
+              ) : (
+                <>
+                  <p className="mt-2 text-[13px] font-semibold text-sam-fg">
+                    {t("owner_ads_funding_needed")}
+                  </p>
+                  {fundError === "insufficient_balance" ? (
+                    <p className="mt-1 text-[12px] text-red-600">
+                      {t("owner_ads_funding_insufficient")}
+                    </p>
+                  ) : fundError ? (
+                    <p className="mt-1 text-[12px] text-red-600">{fundError}</p>
+                  ) : (
+                    <p className="mt-1 text-[12px] text-sam-muted">
+                      {t("owner_ads_business_cash_topup_unavailable")}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className={`${Sam.btn.primary} mt-3`}
+                    disabled={fundBusy || fundingStatus == null}
+                    data-owner-ads-fund-cta="1"
+                    onClick={() => {
+                      void (async () => {
+                        setFundBusy(true);
+                        setFundError(null);
+                        try {
+                          const res = await fetch(
+                            `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding`,
+                            {
+                              method: "POST",
+                              credentials: "include",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ productKind }),
+                            }
+                          );
+                          const json = (await res.json()) as {
+                            ok?: boolean;
+                            error?: string;
+                            result?: { balanceMinor?: number };
+                          };
+                          if (!res.ok || !json.ok) {
+                            setFundError(json.error || "fund_failed");
+                            return;
+                          }
+                          setFundingStatus("FUNDED");
+                          if (typeof json.result?.balanceMinor === "number") {
+                            setCashBalanceMinor(json.result.balanceMinor);
+                          }
+                          setFundedAt(new Date().toISOString());
+                        } catch {
+                          setFundError("network");
+                        } finally {
+                          setFundBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {t("owner_ads_funding_pay_cta")}
+                  </button>
+                </>
+              )}
+            </OwnerStoreAdminDashSection>
+          </div>
 
           {/* 7 Operations */}
           {storeId ? (

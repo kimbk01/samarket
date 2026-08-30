@@ -10,6 +10,11 @@ import {
   isDeliveryBannerCreativeAssetReady,
   isDeliveryBannerDestinationReady,
 } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import {
+  isDeliveryAdFundingReadyForGoLive,
+  resolveDeliveryAdFundingStatus,
+  type DeliveryAdFundingStatus,
+} from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 export type BannerHeroExposureCampaign = {
   id: string;
@@ -22,6 +27,8 @@ export type BannerHeroExposureCampaign = {
   creativeReviewStatus: DeliveryAdReviewStatus | null;
   ctaHref: string;
   storeId: string | null;
+  campaignSource?: string | null;
+  fundingStatus?: DeliveryAdFundingStatus | null;
 };
 
 export function evaluateBannerHomeHeroExposure(input: {
@@ -45,6 +52,14 @@ export function evaluateBannerHomeHeroExposure(input: {
   if (!isDeliveryBannerDestinationReady(c.ctaHref)) reasons.push("destination_not_ready");
   if (c.creativeReviewStatus != null && c.creativeReviewStatus !== "APPROVED") {
     reasons.push("creative_approved");
+  }
+  if (
+    !isDeliveryAdFundingReadyForGoLive({
+      campaignSource: c.campaignSource,
+      fundingStatus: resolveDeliveryAdFundingStatus({ rowStatus: c.fundingStatus }),
+    })
+  ) {
+    reasons.push("funding_ready");
   }
 
   void c.storeId;

@@ -18,16 +18,18 @@ import type {
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { isSponsoredScheduleActive } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
 import { lifecycleImpliesIsActive } from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
 
 const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
 
 const PAID_SELECT =
-  "id, store_id, placement, title, headline, body_copy, image_url, start_at, end_at, is_active, lifecycle_status, review_status";
+  "id, store_id, placement, title, headline, body_copy, image_url, start_at, end_at, is_active, lifecycle_status, review_status, campaign_source";
 
 function mapPaidAd(
   raw: Record<string, unknown>,
-  inventoryKeys: OwnerStoreSponsoredInventoryKey[] = []
+  inventoryKeys: OwnerStoreSponsoredInventoryKey[] = [],
+  fundingStatus: StorePaidAdCampaignRow["fundingStatus"] = "UNFUNDED"
 ): StorePaidAdCampaignRow | null {
   const placement = raw.placement;
   if (!isStorePaidAdPlacement(placement)) return null;
@@ -63,6 +65,8 @@ function mapPaidAd(
     lifecycleStatus,
     reviewStatus,
     inventoryKeys,
+    campaignSource: raw.campaign_source == null ? "OWNER_PAID" : String(raw.campaign_source),
+    fundingStatus,
   };
 }
 
@@ -158,12 +162,18 @@ export async function loadActiveStorePaidAdCampaigns(
 
     const rows = (data ?? []) as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
-    const invMap = await loadInventoryKeysByCampaignId(sb, ids);
+    const [invMap, fundingMap] = await Promise.all([
+      loadInventoryKeysByCampaignId(sb, ids),
+      loadDeliveryAdFundingStatusByCampaignIds(sb, {
+        productKind: "store_sponsored",
+        campaignIds: ids,
+      }),
+    ]);
 
     const parsed: StorePaidAdCampaignRow[] = [];
     for (const raw of rows) {
       const id = String(raw.id ?? "");
-      const mapped = mapPaidAd(raw, invMap.get(id) ?? []);
+      const mapped = mapPaidAd(raw, invMap.get(id) ?? [], fundingMap.get(id) ?? "UNFUNDED");
       if (!mapped) continue;
       if (!isSponsoredScheduleActive(mapped.startAt, mapped.endAt, nowMs)) continue;
       parsed.push(mapped);

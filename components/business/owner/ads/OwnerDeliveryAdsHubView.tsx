@@ -24,6 +24,7 @@ import type {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
+import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
 type HubStore = {
   id: string;
@@ -101,6 +102,7 @@ export function OwnerDeliveryAdsHubView() {
   const [perfLoading, setPerfLoading] = useState(false);
   const [unreadByCampaignId, setUnreadByCampaignId] = useState<Record<string, number>>({});
   const [productSelectOpen, setProductSelectOpen] = useState(false);
+  const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(productSelectOpen);
 
   const load = useCallback(async () => {
@@ -114,6 +116,7 @@ export function OwnerDeliveryAdsHubView() {
         stores?: HubStore[];
         summary?: HubSummary;
         unreadByCampaignId?: Record<string, number>;
+        businessCash?: { balanceMinor?: number };
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
@@ -124,6 +127,11 @@ export function OwnerDeliveryAdsHubView() {
       setStores(json.stores ?? []);
       if (json.summary) setSummary(json.summary);
       setUnreadByCampaignId(json.unreadByCampaignId ?? {});
+      setCashBalanceMinor(
+        typeof json.businessCash?.balanceMinor === "number"
+          ? json.businessCash.balanceMinor
+          : 0
+      );
     } catch {
       setError("network");
     } finally {
@@ -323,11 +331,14 @@ export function OwnerDeliveryAdsHubView() {
 
       <p
         className="text-center text-[11px] leading-relaxed text-sam-muted"
-        data-owner-ads-business-cash="stub"
+        data-owner-ads-business-cash="summary"
       >
-        {t("owner_ads_business_cash_label")} · {t("owner_ads_business_cash_preparing")}
+        {t("owner_ads_business_cash_label")}
+        {cashBalanceMinor != null
+          ? ` · ${formatDeliveryAdPhpMinor(cashBalanceMinor)}`
+          : ""}
         <br />
-        {t("owner_ads_business_cash_note")}
+        {t("owner_ads_business_cash_topup_unavailable")}
       </p>
 
       <DibayBottomSheet

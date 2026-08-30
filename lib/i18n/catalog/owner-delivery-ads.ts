@@ -51,6 +51,15 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_business_cash_preparing: "광고 결제 기능 준비 중",
     owner_ads_business_cash_note:
       "Business Cash는 별도 광고 예치금으로 도입 예정이며 D-Point·매장 Business Credit과 무관합니다.",
+    owner_ads_business_cash_topup_unavailable:
+      "외부 충전(카드·GCash 등)은 아직 없습니다. 잔액은 관리자 적립 후 Business Cash로 결제합니다.",
+    owner_ads_funding_section: "결제",
+    owner_ads_funding_needed: "결제 필요",
+    owner_ads_funding_pay_cta: "Business Cash로 결제",
+    owner_ads_funding_done: "결제 완료",
+    owner_ads_funding_insufficient: "Business Cash 잔액이 부족합니다.",
+    owner_ads_funding_balance: "Business Cash 잔액",
+    owner_ads_funding_refunded: "환불됨",
     owner_ads_next_action_label: "다음",
     owner_ads_required_action_section: "지금 해야 할 일",
     owner_ads_ra_changes_requested_title: "수정이 필요합니다",
@@ -271,6 +280,15 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_business_cash_preparing: "Ad payment coming soon",
     owner_ads_business_cash_note:
       "Business Cash will be a separate ad funding wallet — unrelated to D-Point or store Business Credit.",
+    owner_ads_business_cash_topup_unavailable:
+      "External top-up (card/GCash) is not available yet. Fund via admin credit, then pay with Business Cash.",
+    owner_ads_funding_section: "Payment",
+    owner_ads_funding_needed: "Payment required",
+    owner_ads_funding_pay_cta: "Pay with Business Cash",
+    owner_ads_funding_done: "Paid",
+    owner_ads_funding_insufficient: "Insufficient Business Cash balance.",
+    owner_ads_funding_balance: "Business Cash balance",
+    owner_ads_funding_refunded: "Refunded",
     owner_ads_next_action_label: "Next",
     owner_ads_required_action_section: "What to do now",
     owner_ads_ra_changes_requested_title: "Changes required",

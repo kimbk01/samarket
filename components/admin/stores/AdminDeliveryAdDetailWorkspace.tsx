@@ -104,6 +104,11 @@ export function AdminDeliveryAdDetailWorkspace({
   const [perfLoading, setPerfLoading] = useState(false);
   const [placementPreview, setPlacementPreview] =
     useState<DeliveryAdPlacementPreviewPayload | null>(null);
+  const [fundingStatus, setFundingStatus] = useState<
+    "UNFUNDED" | "FUNDED" | "REFUNDED" | null
+  >(null);
+  const [fundingPayable, setFundingPayable] = useState<number | null>(null);
+  const [fundedAt, setFundedAt] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,6 +138,38 @@ export function AdminDeliveryAdDetailWorkspace({
       setPlacementPreview(json.placementPreview ?? null);
       setStartAt(json.campaign.startAt.slice(0, 16));
       setEndAt(json.campaign.endAt.slice(0, 16));
+      try {
+        const fQs = new URLSearchParams({
+          campaignId: json.campaign.id,
+          product: json.campaign.productKind,
+        });
+        if (json.campaign.ownerUserId) fQs.set("ownerUserId", json.campaign.ownerUserId);
+        const fRes = await fetch(`/api/admin/delivery-ads/business-cash?${fQs.toString()}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const fJson = (await fRes.json()) as {
+          ok?: boolean;
+          funding?: {
+            fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
+            amountMinor?: number | null;
+            fundedAt?: string | null;
+          };
+        };
+        if (fRes.ok && fJson.ok && fJson.funding) {
+          setFundingStatus(fJson.funding.fundingStatus ?? "UNFUNDED");
+          setFundingPayable(
+            typeof fJson.funding.amountMinor === "number" ? fJson.funding.amountMinor : null
+          );
+          setFundedAt(fJson.funding.fundedAt ?? null);
+        } else {
+          setFundingStatus("UNFUNDED");
+          setFundingPayable(null);
+          setFundedAt(null);
+        }
+      } catch {
+        setFundingStatus("UNFUNDED");
+      }
       const inv0 = json.campaign.inventoryKeys[0];
       if (
         inv0 &&
@@ -260,7 +297,11 @@ export function AdminDeliveryAdDetailWorkspace({
       );
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(json.error || "action_failed");
+        setError(
+          json.error === "funding_required"
+            ? t("admin_delivery_ad_funding_required")
+            : json.error || "action_failed"
+        );
         setConfirmAction(null);
         return;
       }
@@ -609,6 +650,23 @@ export function AdminDeliveryAdDetailWorkspace({
                     fallbackEn: "Pricing: NOT_CONFIGURED (before CUT H)",
                   })}
                 </p>
+                <p className="mt-3 text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
+                  {t("admin_delivery_ads_funding_section")}:{" "}
+                  {fundingStatus === "FUNDED"
+                    ? t("admin_delivery_ads_funding_funded")
+                    : fundingStatus === "REFUNDED"
+                      ? t("admin_delivery_ads_funding_refunded")
+                      : t("admin_delivery_ads_funding_unfunded")}
+                  {fundingPayable != null
+                    ? ` · ${t("admin_delivery_ads_funding_payable")} ${fundingPayable}`
+                    : ""}
+                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                </p>
+                {fundingStatus !== "FUNDED" ? (
+                  <p className="mt-1 text-[12px] text-amber-800">
+                    {t("admin_delivery_ad_funding_required")}
+                  </p>
+                ) : null}
               </AdminCard>
             </div>
 

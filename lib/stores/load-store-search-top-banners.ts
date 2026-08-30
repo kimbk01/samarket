@@ -17,6 +17,7 @@ import {
   selectSearchTopBannerCampaign,
   STORES_SEARCH_TOP_SLOT_POLICY,
 } from "@/lib/stores/advertising/banner-search-top-exposure";
+import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
@@ -62,7 +63,7 @@ export async function loadStoresSearchTopBannerSlide(
     const { data: rows, error } = await sb
       .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
       .select(
-        "id, surface, store_id, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, is_active, lifecycle_status, review_status, creative_id"
+        "id, surface, store_id, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, is_active, lifecycle_status, review_status, creative_id, campaign_source"
       )
       .eq("surface", "stores_search")
       .eq("lifecycle_status", "ACTIVE")
@@ -71,6 +72,10 @@ export async function loadStoresSearchTopBannerSlide(
     if (error || !rows?.length) return null;
 
     const campaignIds = rows.map((r) => String((r as { id: string }).id));
+    const fundingMap = await loadDeliveryAdFundingStatusByCampaignIds(sb, {
+      productKind: "banner",
+      campaignIds,
+    });
     const { data: links } = await sb
       .from(BANNER_JUNCTION)
       .select("campaign_id, inventory_id")
@@ -148,6 +153,8 @@ export async function loadStoresSearchTopBannerSlide(
             : null
           : null,
         ctaHref: String(r.cta_href ?? ""),
+        campaignSource: r.campaign_source == null ? "OWNER_PAID" : String(r.campaign_source),
+        fundingStatus: fundingMap.get(id) ?? "UNFUNDED",
         title: r.title == null ? null : String(r.title),
         subtitle: r.subtitle == null ? null : String(r.subtitle),
         headline: creative?.headline == null ? null : String(creative.headline),

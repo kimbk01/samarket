@@ -21,6 +21,7 @@ import type {
 import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad-creative";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
+import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
@@ -87,7 +88,7 @@ export async function loadVisibleStoresHomeHeroBanners(
     const { data, error } = await sb
       .from(STORE_BANNER_AD_CAMPAIGN_TABLE)
       .select(
-        "id, surface, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, is_active, store_id, creative_id, lifecycle_status, review_status"
+        "id, surface, title, subtitle, image_url, cta_href, sort_order, start_at, end_at, is_active, store_id, creative_id, lifecycle_status, review_status, campaign_source"
       )
       .eq("surface", "stores_home_hero")
       .eq("lifecycle_status", "ACTIVE")
@@ -104,7 +105,13 @@ export async function loadVisibleStoresHomeHeroBanners(
 
     const rows = (data ?? []) as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
-    const invMap = await loadInventoryKeysByCampaign(sb, ids);
+    const [invMap, fundingMap] = await Promise.all([
+      loadInventoryKeysByCampaign(sb, ids),
+      loadDeliveryAdFundingStatusByCampaignIds(sb, {
+        productKind: "banner",
+        campaignIds: ids,
+      }),
+    ]);
 
     const creativeIds = rows
       .map((r) => (r.creative_id == null ? "" : String(r.creative_id)))
@@ -156,6 +163,8 @@ export async function loadVisibleStoresHomeHeroBanners(
           creativeReviewStatus: creative?.reviewStatus ?? null,
           ctaHref: String(raw.cta_href ?? ""),
           storeId: raw.store_id == null ? null : String(raw.store_id),
+          campaignSource: raw.campaign_source == null ? "OWNER_PAID" : String(raw.campaign_source),
+          fundingStatus: fundingMap.get(id) ?? "UNFUNDED",
         },
         nowMs,
       });
