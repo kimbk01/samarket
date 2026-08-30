@@ -52,6 +52,9 @@ function sponsored(partial: Partial<StoreSponsoredRuntimeCampaign>): StoreSponso
     bodyCopy: null,
     imageUrl: null,
     isActive: true,
+    // MODEL B: OWNER_PAID ACTIVE exposure requires FUNDED (absent = UNFUNDED)
+    campaignSource: "OWNER_PAID",
+    fundingStatus: "FUNDED",
     ...partial,
   };
 }
@@ -259,6 +262,8 @@ describe("CUT F Admin Delivery Ads", () => {
       creativeReviewStatus: "APPROVED" as const,
       ctaHref: "/stores/s1",
       storeId: "s1",
+      campaignSource: "OWNER_PAID" as const,
+      fundingStatus: "FUNDED" as const,
     };
     expect(evaluateBannerHomeHeroExposure({ campaign: base, nowMs: now }).ok).toBe(true);
     expect(

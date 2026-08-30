@@ -66,6 +66,9 @@ function bannerCampaign(
     creativeAssetPath: partial.creativeAssetPath ?? "stores/ads/search.jpg",
     creativeReviewStatus: partial.creativeReviewStatus ?? "APPROVED",
     ctaHref: partial.ctaHref ?? "/stores/demo",
+    // MODEL B: OWNER_PAID ACTIVE exposure requires FUNDED (absent = UNFUNDED)
+    campaignSource: partial.campaignSource ?? "OWNER_PAID",
+    fundingStatus: partial.fundingStatus ?? "FUNDED",
   };
 }
 
