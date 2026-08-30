@@ -301,7 +301,11 @@ export function OwnerBannerCreateView() {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "submit", productKind: "banner" }),
+          body: JSON.stringify({
+            action:
+              draft.lifecycleStatus === "CHANGES_REQUESTED" ? "resubmit" : "submit",
+            productKind: "banner",
+          }),
         }
       );
       const json = (await res.json()) as {
