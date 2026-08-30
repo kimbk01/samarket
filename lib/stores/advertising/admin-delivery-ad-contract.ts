@@ -28,6 +28,7 @@ export type AdminDeliveryAdAction = (typeof ADMIN_DELIVERY_AD_ACTIONS)[number];
 
 export const ADMIN_DELIVERY_AD_LIST_BUCKETS = [
   "all",
+  "needs_creative",
   "review",
   "scheduled",
   "active",
@@ -158,7 +159,7 @@ export function validateAdminDeliveryAdSchedule(input: {
 /** UI bucket from persisted lifecycle (not schedule-normalized). */
 export function lifecycleToAdminListBucket(
   status: DeliveryAdLifecycleStatus
-): Exclude<AdminDeliveryAdListBucket, "all"> | null {
+): Exclude<AdminDeliveryAdListBucket, "all" | "needs_creative"> | null {
   switch (status) {
     case "SUBMITTED":
     case "UNDER_REVIEW":

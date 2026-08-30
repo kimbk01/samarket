@@ -23,6 +23,7 @@ export function DeliveryAdCampaignPlacementPreviews({
   placementPreview,
   bannerCreative,
   ctaLabel,
+  destinationHref,
 }: {
   productKind: DeliveryAdProductKey;
   inventoryKeys: string[];
@@ -30,6 +31,7 @@ export function DeliveryAdCampaignPlacementPreviews({
   placementPreview: DeliveryAdPlacementPreviewPayload | null | undefined;
   bannerCreative?: DeliveryAdBannerCreativeView | null;
   ctaLabel?: string | null;
+  destinationHref?: string | null;
 }) {
   const keys = inventoryKeys.filter(Boolean);
   if (!keys.length) return null;
@@ -74,6 +76,7 @@ export function DeliveryAdCampaignPlacementPreviews({
             eligibilityWarning={payload?.eligibilityWarning === true}
             bannerCreative={bannerCreative ?? null}
             ctaLabel={ctaLabel ?? null}
+            destinationHref={destinationHref ?? null}
             ctaDestinationLabel={payload?.storeName ?? null}
             policyHref={policyHref}
           />

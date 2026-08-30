@@ -22,6 +22,7 @@ import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-
 
 const BUCKETS: AdminDeliveryAdListBucket[] = [
   "all",
+  "needs_creative",
   "review",
   "scheduled",
   "active",

@@ -3,7 +3,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { isAdminDeliveryAdProduct } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import { loadAdminDeliveryAdCampaignDetail } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import {
+  adminRemoveBannerCreative,
   adminReplaceBannerCreative,
+  adminUpdateBannerDestination,
   adminUpdateDeliveryAdInventory,
   adminUpdateDeliveryAdSchedule,
 } from "@/lib/stores/advertising/admin-delivery-ad-writer";
@@ -118,6 +120,52 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
     }
     return NextResponse.json({ ok: true, creativeId: result.creativeId, version: result.version });
+  }
+
+  if (op === "remove_creative") {
+    if (body.productKind !== "banner") {
+      return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+    }
+    const result = await adminRemoveBannerCreative(sb, {
+      adminUserId: admin.userId,
+      campaignId,
+      expectedUpdatedAt,
+      reason: body.reason == null ? null : String(body.reason),
+    });
+    if (!result.ok) {
+      const status =
+        result.error === "stale_updated_at"
+          ? 409
+          : result.error === "campaign_not_found"
+            ? 404
+            : 400;
+      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+    }
+    return NextResponse.json({ ok: true, creativeId: result.creativeId, version: result.version });
+  }
+
+  if (op === "destination") {
+    if (body.productKind !== "banner") {
+      return NextResponse.json({ ok: false, error: "invalid_product" }, { status: 400 });
+    }
+    const result = await adminUpdateBannerDestination(sb, {
+      adminUserId: admin.userId,
+      campaignId,
+      expectedUpdatedAt,
+      ctaType: body.ctaType,
+      ctaHref: body.ctaHref == null ? null : String(body.ctaHref),
+      reason: body.reason == null ? null : String(body.reason),
+    });
+    if (!result.ok) {
+      const status =
+        result.error === "stale_updated_at"
+          ? 409
+          : result.error === "campaign_not_found"
+            ? 404
+            : 400;
+      return NextResponse.json({ ok: false, error: result.error, detail: result.detail }, { status });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   const result = await adminUpdateDeliveryAdSchedule(sb, {

@@ -41,6 +41,8 @@ export type DeliveryAdPlacementPreviewProps = {
   eligibilityWarning?: boolean;
   bannerCreative?: DeliveryAdBannerCreativeView | null;
   ctaLabel?: string | null;
+  /** Admin/Owner preview destination — customer href; clicks disabled in preview chrome. */
+  destinationHref?: string | null;
   ctaDestinationLabel?: string | null;
   policyHref?: string | null;
   className?: string;
@@ -73,6 +75,7 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
     eligibilityWarning,
     bannerCreative,
     ctaLabel,
+    destinationHref,
     ctaDestinationLabel,
     policyHref,
     className,
@@ -234,7 +237,10 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
                 <DeliveryAdBanner
                   inventory={inventoryViewFromKey(inventoryKey as DeliveryAdInventoryKey)}
                   creative={bannerCreative}
-                  destination={{ href: "", ctaLabel: ctaLabel ?? null }}
+                  destination={{
+                    href: String(destinationHref ?? "").trim(),
+                    ctaLabel: ctaLabel ?? null,
+                  }}
                   adLabel={t("store_insertion_sponsored")}
                   renderContext={renderContext}
                   campaignId={null}

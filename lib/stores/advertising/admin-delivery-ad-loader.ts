@@ -9,6 +9,7 @@ import {
   type AdminDeliveryAdListBucket,
   type AdminDeliveryAdProduct,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
+import { isAdminBannerNeedsCreativeProduction } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import {
   BANNER_AD_CAMPAIGN_TABLE,
   STORE_SPONSORED_CAMPAIGN_TABLE,
@@ -94,6 +95,10 @@ export type AdminDeliveryAdListItem = {
   title: string | null;
   headline: string | null;
   imageUrl: string | null;
+  /** Banner only — Admin final destination (Owner request → Admin authority). */
+  ctaHref: string | null;
+  /** Store public slug for destination resolver UI. */
+  storeSlug: string | null;
   creativeId: string | null;
   startAt: string;
   endAt: string;
@@ -222,7 +227,7 @@ export async function loadAdminDeliveryAdCampaignList(
       ? sb
           .from("stores")
           .select(
-            "id, store_name, profile_image_url, store_categories ( slug ), store_topics ( slug )"
+            "id, store_name, slug, profile_image_url, store_categories ( slug ), store_topics ( slug )"
           )
           .in("id", storeIds)
       : Promise.resolve({ data: [], error: null }),
@@ -248,6 +253,7 @@ export async function loadAdminDeliveryAdCampaignList(
     {
       name: string | null;
       thumb: string | null;
+      slug: string | null;
       primarySlug: string | null;
       subSlug: string | null;
     }
@@ -256,6 +262,7 @@ export async function loadAdminDeliveryAdCampaignList(
     storeMap.set(String(s.id), {
       name: s.store_name == null ? null : String(s.store_name),
       thumb: s.profile_image_url == null ? null : String(s.profile_image_url),
+      slug: s.slug == null ? null : String(s.slug).trim() || null,
       primarySlug: embedSlug(
         s.store_categories as { slug?: string | null } | { slug?: string | null }[] | null
       ),
@@ -301,6 +308,14 @@ export async function loadAdminDeliveryAdCampaignList(
     const storeId = raw.store_id == null ? null : String(raw.store_id);
     const ownerUserId = raw.owner_user_id == null ? null : String(raw.owner_user_id);
     const store = storeId ? storeMap.get(storeId) : null;
+    const imageUrl = raw.image_url == null ? null : String(raw.image_url);
+    const lifecycleBucket = lifecycleToAdminListBucket(lifecycle);
+    const needsCreative =
+      productKind === "banner" &&
+      isAdminBannerNeedsCreativeProduction({
+        productKind: "banner",
+        creativeAssetPath: imageUrl,
+      });
     return {
       id: String(raw.id),
       productKind,
@@ -324,7 +339,14 @@ export async function loadAdminDeliveryAdCampaignList(
           : raw.headline == null
             ? null
             : String(raw.headline),
-      imageUrl: raw.image_url == null ? null : String(raw.image_url),
+      imageUrl,
+      ctaHref:
+        productKind === "banner"
+          ? raw.cta_href == null
+            ? null
+            : String(raw.cta_href)
+          : null,
+      storeSlug: store?.slug ?? null,
       creativeId: raw.creative_id == null ? null : String(raw.creative_id),
       startAt,
       endAt,
@@ -332,7 +354,7 @@ export async function loadAdminDeliveryAdCampaignList(
       submittedAt: raw.submitted_at == null ? null : String(raw.submitted_at),
       createdAt: String(raw.created_at),
       updatedAt: String(raw.updated_at),
-      listBucket: lifecycleToAdminListBucket(lifecycle),
+      listBucket: needsCreative ? "needs_creative" : lifecycleBucket,
       scheduleHint: display.scheduleHint,
     };
   };
@@ -460,7 +482,7 @@ async function loadDetailExtras(sb: SupabaseClient, item: AdminDeliveryAdListIte
       ? sb
           .from("delivery_ad_creatives")
           .select(
-            "id, asset_path, headline, subcopy, version, cta_type, cta_label, supersedes_creative_id"
+            "id, asset_path, headline, subcopy, version, cta_type, cta_label, supersedes_creative_id, source_width, source_height, review_status, created_at"
           )
           .eq("id", item.creativeId)
           .maybeSingle()
@@ -494,6 +516,10 @@ async function loadDetailExtras(sb: SupabaseClient, item: AdminDeliveryAdListIte
         version: Number(c.version ?? 1),
         ctaType: c.cta_type == null ? null : String(c.cta_type),
         ctaLabel: c.cta_label == null ? null : String(c.cta_label),
+        sourceWidth: c.source_width == null ? null : Number(c.source_width),
+        sourceHeight: c.source_height == null ? null : Number(c.source_height),
+        reviewStatus: c.review_status == null ? null : String(c.review_status),
+        createdAt: c.created_at == null ? null : String(c.created_at),
         supersedesCreativeId:
           c.supersedes_creative_id == null ? null : String(c.supersedes_creative_id),
       }

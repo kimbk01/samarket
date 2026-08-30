@@ -6,6 +6,10 @@ import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/deliver
 import type { DeliveryAdReviewStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import { isRuntimeActiveInventory } from "@/lib/stores/advertising/delivery-ad-inventory";
 import { isSponsoredScheduleActive } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
+import {
+  isDeliveryBannerCreativeAssetReady,
+  isDeliveryBannerDestinationReady,
+} from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 
 export type BannerHeroExposureCampaign = {
   id: string;
@@ -37,12 +41,12 @@ export function evaluateBannerHomeHeroExposure(input: {
 
   const asset = String(c.creativeAssetPath ?? "").trim();
   if (!asset) reasons.push("creative_asset");
+  else if (!isDeliveryBannerCreativeAssetReady(asset)) reasons.push("creative_not_ready");
+  if (!isDeliveryBannerDestinationReady(c.ctaHref)) reasons.push("destination_not_ready");
   if (c.creativeReviewStatus != null && c.creativeReviewStatus !== "APPROVED") {
     reasons.push("creative_approved");
   }
 
-  // CTA empty = still showable (non-clickable); invalid external blocked at write time
-  void c.ctaHref;
   void c.storeId;
 
   return { ok: reasons.length === 0, reasons };

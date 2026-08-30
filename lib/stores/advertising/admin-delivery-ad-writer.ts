@@ -24,10 +24,21 @@ import {
   type DeliveryAdHistoryFlags,
 } from "@/lib/stores/advertising/delivery-ad-audit";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
-import { validateOwnerBannerInventory, validateOwnerBannerCreativeAspect } from "@/lib/stores/advertising/owner-banner-contract";
+import {
+  validateOwnerBannerInventory,
+  validateOwnerBannerCreativeAspect,
+  validateOwnerBannerCta,
+  resolveOwnerBannerCtaHref,
+  OWNER_BANNER_CTA_TARGET_TO_LABEL_KEY,
+} from "@/lib/stores/advertising/owner-banner-contract";
 import { validateOwnerInventorySelection } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { simplifyAspectRatio } from "@/lib/stores/advertising/delivery-ad-creative";
 import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
+import {
+  evaluateDeliveryBannerPublishReadiness,
+  isDeliveryBannerDestinationReady,
+} from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import { OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 
 export const CUT_F_ADMIN_TRANSACTIONAL_MUTATION = {
   authority: "admin_delivery_ad_transition",
@@ -48,6 +59,8 @@ export type AdminDeliveryAdWriterError =
   | "invalid_schedule"
   | "invalid_inventory"
   | "future_inventory"
+  | "creative_not_ready"
+  | "destination_not_ready"
   | "db_error"
   | "rpc_failed";
 
@@ -78,11 +91,80 @@ function mapRpcError(raw: unknown): AdminDeliveryAdWriterError {
     e === "reason_required" ||
     e === "stale_lifecycle" ||
     e === "stale_updated_at" ||
+    e === "creative_not_ready" ||
+    e === "destination_not_ready" ||
     e === "db_error"
   ) {
     return e;
   }
   return "rpc_failed";
+}
+
+async function loadBannerPublishGate(
+  sb: SupabaseClient,
+  campaignId: string
+): Promise<
+  | { ok: true }
+  | { ok: false; error: AdminDeliveryAdWriterError; detail?: string }
+> {
+  const { data: row, error } = await sb
+    .from(BANNER_AD_CAMPAIGN_TABLE)
+    .select("id, image_url, cta_href, creative_id")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (error) return { ok: false, error: "db_error", detail: error.message };
+  if (!row) return { ok: false, error: "campaign_not_found" };
+
+  let assetPath = String((row as { image_url?: string }).image_url ?? "").trim();
+  const creativeId = (row as { creative_id?: string | null }).creative_id;
+  if (creativeId) {
+    const { data: creative } = await sb
+      .from("delivery_ad_creatives")
+      .select("asset_path")
+      .eq("id", String(creativeId))
+      .maybeSingle();
+    const fromCreative = String(
+      (creative as { asset_path?: string } | null)?.asset_path ?? ""
+    ).trim();
+    if (fromCreative) assetPath = fromCreative;
+  }
+
+  const readiness = evaluateDeliveryBannerPublishReadiness({
+    creativeAssetPath: assetPath,
+    ctaHref: (row as { cta_href?: string | null }).cta_href,
+  });
+  if (!readiness.creativeReady) {
+    return {
+      ok: false,
+      error: "creative_not_ready",
+      detail: readiness.reasons.join(","),
+    };
+  }
+  if (!readiness.destinationReady) {
+    return {
+      ok: false,
+      error: "destination_not_ready",
+      detail: readiness.reasons.join(","),
+    };
+  }
+  return { ok: true };
+}
+
+async function loadBannerInventoryKeys(
+  sb: SupabaseClient,
+  campaignId: string
+): Promise<string[]> {
+  const { data: links } = await sb
+    .from("delivery_banner_campaign_inventories")
+    .select("inventory_id, delivery_ad_inventories(key)")
+    .eq("campaign_id", campaignId);
+  const keys: string[] = [];
+  for (const row of (links ?? []) as Record<string, unknown>[]) {
+    const inv = row.delivery_ad_inventories as { key?: string } | { key?: string }[] | null;
+    const key = Array.isArray(inv) ? inv[0]?.key : inv?.key;
+    if (key && !keys.includes(String(key))) keys.push(String(key));
+  }
+  return keys;
 }
 
 export async function adminTransitionDeliveryAdCampaign(
@@ -109,6 +191,11 @@ export async function adminTransitionDeliveryAdCampaign(
   }
   if (adminActionRequiresReason(input.action) && !String(input.reason ?? "").trim()) {
     return { ok: false, error: "reason_required" };
+  }
+
+  if (input.productKind === "banner" && input.action === "approve") {
+    const gate = await loadBannerPublishGate(sb, input.campaignId);
+    if (!gate.ok) return gate;
   }
 
   const { data, error } = await sb.rpc("admin_delivery_ad_transition", {
@@ -393,23 +480,39 @@ export async function adminReplaceBannerCreative(
 > {
   const assetPath = String(input.assetPath ?? "").trim();
   if (!assetPath) return { ok: false, error: "db_error", detail: "empty_asset_path" };
-
-  const ratio = validateOwnerBannerCreativeAspect({
-    inventoryKey: "STORES_HOME_HERO",
-    sourceWidth: input.sourceWidth,
-    sourceHeight: input.sourceHeight,
-  });
-  if (!ratio.ok) return { ok: false, error: "invalid_inventory", detail: ratio.error };
+  if (assetPath === OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET) {
+    return { ok: false, error: "creative_not_ready", detail: "placeholder_forbidden" };
+  }
 
   const { data: row, error: loadErr } = await sb
     .from(BANNER_AD_CAMPAIGN_TABLE)
-    .select("id, store_id, owner_user_id, creative_id, updated_at, lifecycle_status")
+    .select("id, store_id, owner_user_id, creative_id, updated_at, lifecycle_status, image_url")
     .eq("id", input.campaignId)
     .maybeSingle();
   if (loadErr) return { ok: false, error: "db_error", detail: loadErr.message };
   if (!row) return { ok: false, error: "campaign_not_found" };
   if (String(row.updated_at) !== input.expectedUpdatedAt) {
     return { ok: false, error: "stale_updated_at" };
+  }
+
+  const inventoryKeys = await loadBannerInventoryKeys(sb, input.campaignId);
+  const keysToValidate =
+    inventoryKeys.length > 0 ? inventoryKeys : (["STORES_HOME_HERO"] as const);
+  for (const key of keysToValidate) {
+    const inv = validateOwnerBannerInventory(key);
+    if (!inv.ok) {
+      const mapped =
+        inv.error === "future_inventory" ? "future_inventory" : "invalid_inventory";
+      return { ok: false, error: mapped, detail: `${inv.error}:${key}` };
+    }
+    const ratio = validateOwnerBannerCreativeAspect({
+      inventoryKey: inv.key,
+      sourceWidth: input.sourceWidth,
+      sourceHeight: input.sourceHeight,
+    });
+    if (!ratio.ok) {
+      return { ok: false, error: "invalid_inventory", detail: `${ratio.error}:${inv.key}` };
+    }
   }
 
   let nextVersion = 1;
@@ -435,7 +538,7 @@ export async function adminReplaceBannerCreative(
       source_aspect_ratio: simplifyAspectRatio(input.sourceWidth, input.sourceHeight),
       headline: input.headline ?? null,
       subcopy: input.subcopy ?? null,
-      review_status: "PENDING",
+      review_status: "APPROVED",
       version: nextVersion,
       supersedes_creative_id: prevCreativeId,
       created_by: input.adminUserId,
@@ -454,7 +557,10 @@ export async function adminReplaceBannerCreative(
     })
     .eq("id", input.campaignId)
     .eq("updated_at", input.expectedUpdatedAt);
-  if (uErr) return { ok: false, error: "db_error", detail: uErr.message };
+  if (uErr) {
+    // Failed campaign attach — keep prior creative pointer; new row is orphan supersede only.
+    return { ok: false, error: "db_error", detail: uErr.message };
+  }
 
   await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
     product_kind: "banner",
@@ -463,8 +569,201 @@ export async function adminReplaceBannerCreative(
     actor_user_id: input.adminUserId,
     action: "creative_replaced",
     reason: input.reason?.trim() || null,
-    before_json: { creative_id: prevCreativeId },
-    after_json: { creative_id: created.id, version: created.version },
+    before_json: {
+      creative_id: prevCreativeId,
+      image_url: row.image_url == null ? null : String(row.image_url),
+    },
+    after_json: {
+      creative_id: created.id,
+      version: created.version,
+      image_url: assetPath,
+    },
+  });
+
+  return { ok: true, creativeId: String(created.id), version: Number(created.version) };
+}
+
+/** Admin final destination — single cta_href field (Owner request → Admin final). */
+export async function adminUpdateBannerDestination(
+  sb: SupabaseClient,
+  input: {
+    adminUserId: string;
+    campaignId: string;
+    expectedUpdatedAt: string;
+    ctaType?: unknown;
+    ctaHref?: string | null;
+    reason?: string | null;
+  }
+): Promise<{ ok: true } | { ok: false; error: AdminDeliveryAdWriterError; detail?: string }> {
+  const { data: row, error: loadErr } = await sb
+    .from(BANNER_AD_CAMPAIGN_TABLE)
+    .select("id, store_id, creative_id, cta_href, updated_at")
+    .eq("id", input.campaignId)
+    .maybeSingle();
+  if (loadErr) return { ok: false, error: "db_error", detail: loadErr.message };
+  if (!row) return { ok: false, error: "campaign_not_found" };
+  if (String(row.updated_at) !== input.expectedUpdatedAt) {
+    return { ok: false, error: "stale_updated_at" };
+  }
+
+  const storeId = row.store_id == null ? null : String(row.store_id);
+  let nextHref = String(input.ctaHref ?? "").trim();
+  let resolvedCtaType: string | null = null;
+
+  if (input.ctaType != null && String(input.ctaType).trim()) {
+    if (!storeId) return { ok: false, error: "destination_not_ready", detail: "store_required" };
+    const cta = validateOwnerBannerCta({
+      ctaType: input.ctaType,
+      ctaTargetId: storeId,
+    });
+    if (!cta.ok) {
+      return { ok: false, error: "destination_not_ready", detail: cta.error };
+    }
+    const { data: store } = await sb
+      .from("stores")
+      .select("slug")
+      .eq("id", storeId)
+      .maybeSingle();
+    const slug = String((store as { slug?: string } | null)?.slug ?? "").trim();
+    if (!slug) return { ok: false, error: "destination_not_ready", detail: "store_slug_missing" };
+    nextHref = resolveOwnerBannerCtaHref({ ctaType: cta.ctaType, storeSlug: slug });
+    resolvedCtaType = cta.ctaType;
+  }
+
+  if (!isDeliveryBannerDestinationReady(nextHref)) {
+    return { ok: false, error: "destination_not_ready", detail: "invalid_cta_href" };
+  }
+
+  const beforeHref = row.cta_href == null ? null : String(row.cta_href);
+  const { error: uErr } = await sb
+    .from(BANNER_AD_CAMPAIGN_TABLE)
+    .update({
+      cta_href: nextHref,
+      updated_by_user_id: input.adminUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.campaignId)
+    .eq("updated_at", input.expectedUpdatedAt);
+  if (uErr) return { ok: false, error: "db_error", detail: uErr.message };
+
+  if (row.creative_id && resolvedCtaType) {
+    await sb
+      .from("delivery_ad_creatives")
+      .update({
+        cta_type: resolvedCtaType,
+        cta_target_id: storeId,
+        cta_label: OWNER_BANNER_CTA_TARGET_TO_LABEL_KEY[
+          resolvedCtaType as keyof typeof OWNER_BANNER_CTA_TARGET_TO_LABEL_KEY
+        ],
+      })
+      .eq("id", String(row.creative_id));
+  }
+
+  await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
+    product_kind: "banner",
+    campaign_id: input.campaignId,
+    actor_type: "admin",
+    actor_user_id: input.adminUserId,
+    action: "destination_changed",
+    reason: input.reason?.trim() || null,
+    before_json: { cta_href: beforeHref },
+    after_json: { cta_href: nextHref, cta_type: resolvedCtaType },
+  });
+
+  return { ok: true };
+}
+
+/** Remove final creative → pending placeholder (NOT READY / non-deliverable). */
+export async function adminRemoveBannerCreative(
+  sb: SupabaseClient,
+  input: {
+    adminUserId: string;
+    campaignId: string;
+    expectedUpdatedAt: string;
+    reason?: string | null;
+  }
+): Promise<
+  | { ok: true; creativeId: string; version: number }
+  | { ok: false; error: AdminDeliveryAdWriterError; detail?: string }
+> {
+  const { data: row, error: loadErr } = await sb
+    .from(BANNER_AD_CAMPAIGN_TABLE)
+    .select("id, store_id, owner_user_id, creative_id, updated_at, image_url")
+    .eq("id", input.campaignId)
+    .maybeSingle();
+  if (loadErr) return { ok: false, error: "db_error", detail: loadErr.message };
+  if (!row) return { ok: false, error: "campaign_not_found" };
+  if (String(row.updated_at) !== input.expectedUpdatedAt) {
+    return { ok: false, error: "stale_updated_at" };
+  }
+
+  const {
+    OWNER_BANNER_PENDING_SOURCE_WIDTH,
+    OWNER_BANNER_PENDING_SOURCE_HEIGHT,
+  } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
+
+  let nextVersion = 1;
+  const prevCreativeId = row.creative_id == null ? null : String(row.creative_id);
+  if (prevCreativeId) {
+    const { data: prev } = await sb
+      .from("delivery_ad_creatives")
+      .select("version")
+      .eq("id", prevCreativeId)
+      .maybeSingle();
+    nextVersion = Number(prev?.version ?? 0) + 1;
+  }
+
+  const pendingAsset = OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET;
+  const { data: created, error: cErr } = await sb
+    .from("delivery_ad_creatives")
+    .insert({
+      product_kind: "banner",
+      owner_id: row.owner_user_id,
+      store_id: row.store_id,
+      asset_path: pendingAsset,
+      source_width: OWNER_BANNER_PENDING_SOURCE_WIDTH,
+      source_height: OWNER_BANNER_PENDING_SOURCE_HEIGHT,
+      source_aspect_ratio: simplifyAspectRatio(
+        OWNER_BANNER_PENDING_SOURCE_WIDTH,
+        OWNER_BANNER_PENDING_SOURCE_HEIGHT
+      ),
+      review_status: "PENDING",
+      version: nextVersion,
+      supersedes_creative_id: prevCreativeId,
+      created_by: input.adminUserId,
+    })
+    .select("id, version")
+    .single();
+  if (cErr || !created) return { ok: false, error: "db_error", detail: cErr?.message };
+
+  const { error: uErr } = await sb
+    .from(BANNER_AD_CAMPAIGN_TABLE)
+    .update({
+      creative_id: created.id,
+      image_url: pendingAsset,
+      updated_by_user_id: input.adminUserId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.campaignId)
+    .eq("updated_at", input.expectedUpdatedAt);
+  if (uErr) return { ok: false, error: "db_error", detail: uErr.message };
+
+  await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
+    product_kind: "banner",
+    campaign_id: input.campaignId,
+    actor_type: "admin",
+    actor_user_id: input.adminUserId,
+    action: "creative_removed",
+    reason: input.reason?.trim() || null,
+    before_json: {
+      creative_id: prevCreativeId,
+      image_url: row.image_url == null ? null : String(row.image_url),
+    },
+    after_json: {
+      creative_id: created.id,
+      version: created.version,
+      image_url: pendingAsset,
+    },
   });
 
   return { ok: true, creativeId: String(created.id), version: Number(created.version) };
