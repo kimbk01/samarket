@@ -139,8 +139,9 @@ export function AdminDeliveryAdsControlPlane() {
 
   return (
     <AdminDeliveryCmsChrome help="home">
-      <div className="space-y-4 pb-10">
-        <div>
+      <div className="space-y-4 pb-10" data-admin-delivery-ads-hub="1">
+        {/* 1 — Page identity / summary */}
+        <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">Delivery › Ads</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
             {safeT("admin_delivery_ads_title", {
@@ -182,7 +183,10 @@ export function AdminDeliveryAdsControlPlane() {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-5"
+          data-admin-delivery-ads-section="summary"
+        >
           {(
             [
               ["total", summary.total],
@@ -211,152 +215,168 @@ export function AdminDeliveryAdsControlPlane() {
           ))}
         </div>
 
-        <AdminCard titleKey="delivery_ads_perf_section_title">
-          <DeliveryAdPerformancePanel
-            performance={performance}
-            loading={perfLoading}
-            range={perfRange}
-            onRangeChange={setPerfRange}
-          />
-        </AdminCard>
-
-        <AdminDeliveryAdActionQueuePanel />
-
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("admin_delivery_ads_title")}>
-          {BUCKETS.map((b) => (
-            <button
-              key={b}
-              type="button"
-              role="tab"
-              aria-selected={bucket === b}
-              className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
-                bucket === b
-                  ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
-                  : "border-sam-border bg-sam-surface text-sam-muted"
-              }`}
-              onClick={() => setBucket(b)}
-            >
-              {safeT(bucketLabelKey(b), {
-                fallbackKo: b,
-                fallbackEn: b,
-              })}
-            </button>
-          ))}
+        {/* 2 — Action Queue ahead of passive browsing */}
+        <div data-admin-delivery-ads-section="action-queue">
+          <AdminDeliveryAdActionQueuePanel />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {(["all", "store_sponsored", "banner"] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
-                product === p
-                  ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
-                  : "border-sam-border bg-sam-surface text-sam-muted"
-              }`}
-              onClick={() => setProduct(p)}
-            >
-              {safeT(productLabelKey(p), { fallbackKo: p, fallbackEn: p })}
-            </button>
-          ))}
-        </div>
-
-        {loading ? (
-          <p className="text-[13px] text-sam-muted" role="status">
-            {safeT("admin_delivery_ads_loading", {
-              fallbackKo: "불러오는 중…",
-              fallbackEn: "Loading…",
+        {/* 3 — Campaign control / existing list */}
+        <div data-admin-delivery-ads-section="campaign-list">
+          <h2 className="mb-2 text-[14px] font-semibold text-sam-fg">
+            {safeT("admin_delivery_ads_campaign_list_title", {
+              fallbackKo: "캠페인 목록",
+              fallbackEn: "Campaign list",
             })}
-          </p>
-        ) : null}
+          </h2>
 
-        {error ? (
-          <p className="text-[13px] text-sam-danger" role="alert">
-            {safeT("admin_delivery_ads_load_error", {
-              fallbackKo: "목록을 불러오지 못했습니다.",
-              fallbackEn: "Failed to load campaigns.",
-            })}{" "}
-            ({error})
-          </p>
-        ) : null}
-
-        {!loading && !error && campaigns.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">
-            {safeT("admin_delivery_ads_empty", {
-              fallbackKo: "해당 조건의 광고가 없습니다.",
-              fallbackEn: "No campaigns for this filter.",
-            })}
-          </p>
-        ) : null}
-
-        <ul className="space-y-2">
-          {campaigns.map((c) => (
-            <li key={`${c.productKind}:${c.id}`}>
-              <Link
-                href={`${DELIVERY_AD_ADMIN_ROUTES.detail(c.id)}?product=${c.productKind}`}
-                className="flex gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 hover:border-sam-brand"
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("admin_delivery_ads_title")}>
+            {BUCKETS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                role="tab"
+                aria-selected={bucket === b}
+                className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
+                  bucket === b
+                    ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
+                    : "border-sam-border bg-sam-surface text-sam-muted"
+                }`}
+                onClick={() => setBucket(b)}
               >
-                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-app">
-                  {c.productKind === "banner" && c.imageUrl ? (
-                    <SamarketThumbnail
-                      src={c.imageUrl}
-                      alt=""
-                      fill
-                      fetchDisplayPx={160}
-                      roundedClassName="rounded-ui-rect"
-                    />
-                  ) : c.storeThumbnailUrl ? (
-                    <SamarketThumbnail
-                      src={c.storeThumbnailUrl}
-                      alt=""
-                      fill
-                      fetchDisplayPx={160}
-                      roundedClassName="rounded-ui-rect"
-                    />
-                  ) : (
-                    <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">
-                      —
-                    </span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
-                      {safeT(productLabelKey(c.productKind), {
-                        fallbackKo: c.productKind,
-                        fallbackEn: c.productKind,
-                      })}
-                    </span>
-                    <span className="text-[12px] font-medium text-sam-fg">
-                      {safeT(lifecycleLabelKey(c.lifecycleStatus), {
-                        fallbackKo: c.lifecycleStatus,
-                        fallbackEn: c.lifecycleStatus,
-                      })}
-                    </span>
-                    {c.scheduleHint === "ended" && c.lifecycleStatus === "ACTIVE" ? (
-                      <span className="text-[11px] text-sam-warning">
-                        {safeT("admin_delivery_ads_schedule_ended_hint", {
-                          fallbackKo: "일정 종료(표시)",
-                          fallbackEn: "Schedule ended (display)",
+                {safeT(bucketLabelKey(b), {
+                  fallbackKo: b,
+                  fallbackEn: b,
+                })}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(["all", "store_sponsored", "banner"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
+                  product === p
+                    ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
+                    : "border-sam-border bg-sam-surface text-sam-muted"
+                }`}
+                onClick={() => setProduct(p)}
+              >
+                {safeT(productLabelKey(p), { fallbackKo: p, fallbackEn: p })}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <p className="mt-3 text-[13px] text-sam-muted" role="status">
+              {safeT("admin_delivery_ads_loading", {
+                fallbackKo: "불러오는 중…",
+                fallbackEn: "Loading…",
+              })}
+            </p>
+          ) : null}
+
+          {error ? (
+            <p className="mt-3 text-[13px] text-sam-danger" role="alert">
+              {safeT("admin_delivery_ads_load_error", {
+                fallbackKo: "목록을 불러오지 못했습니다.",
+                fallbackEn: "Failed to load campaigns.",
+              })}{" "}
+              ({error})
+            </p>
+          ) : null}
+
+          {!loading && !error && campaigns.length === 0 ? (
+            <p className="mt-3 text-[13px] text-sam-muted">
+              {safeT("admin_delivery_ads_empty", {
+                fallbackKo: "해당 조건의 광고가 없습니다.",
+                fallbackEn: "No campaigns for this filter.",
+              })}
+            </p>
+          ) : null}
+
+          <ul className="mt-3 space-y-2">
+            {campaigns.map((c) => (
+              <li key={`${c.productKind}:${c.id}`}>
+                <Link
+                  href={`${DELIVERY_AD_ADMIN_ROUTES.detail(c.id)}?product=${c.productKind}`}
+                  className="flex gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 hover:border-sam-brand"
+                >
+                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-app">
+                    {c.productKind === "banner" && c.imageUrl ? (
+                      <SamarketThumbnail
+                        src={c.imageUrl}
+                        alt=""
+                        fill
+                        fetchDisplayPx={160}
+                        roundedClassName="rounded-ui-rect"
+                      />
+                    ) : c.storeThumbnailUrl ? (
+                      <SamarketThumbnail
+                        src={c.storeThumbnailUrl}
+                        alt=""
+                        fill
+                        fetchDisplayPx={160}
+                        roundedClassName="rounded-ui-rect"
+                      />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-[10px] text-sam-muted">
+                        —
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+                        {safeT(productLabelKey(c.productKind), {
+                          fallbackKo: c.productKind,
+                          fallbackEn: c.productKind,
                         })}
                       </span>
-                    ) : null}
+                      <span className="text-[12px] font-medium text-sam-fg">
+                        {safeT(lifecycleLabelKey(c.lifecycleStatus), {
+                          fallbackKo: c.lifecycleStatus,
+                          fallbackEn: c.lifecycleStatus,
+                        })}
+                      </span>
+                      {c.scheduleHint === "ended" && c.lifecycleStatus === "ACTIVE" ? (
+                        <span className="text-[11px] text-sam-warning">
+                          {safeT("admin_delivery_ads_schedule_ended_hint", {
+                            fallbackKo: "일정 종료(표시)",
+                            fallbackEn: "Schedule ended (display)",
+                          })}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 truncate text-[13px] text-sam-fg">
+                      {c.storeName || c.title || c.id.slice(0, 8)}
+                    </p>
+                    <p className="truncate text-[11px] text-sam-muted">
+                      {c.ownerDisplayName || c.ownerUserId || "—"} ·{" "}
+                      {deliveryAdPlacementI18nKeys(c.inventoryKeys)
+                        .map((k) => t(k as MessageKey))
+                        .join(" · ") || "—"}{" "}
+                      · {c.updatedAt.slice(0, 16)}
+                    </p>
                   </div>
-                  <p className="mt-0.5 truncate text-[13px] text-sam-fg">
-                    {c.storeName || c.title || c.id.slice(0, 8)}
-                  </p>
-                  <p className="truncate text-[11px] text-sam-muted">
-                    {c.ownerDisplayName || c.ownerUserId || "—"} ·{" "}
-                    {deliveryAdPlacementI18nKeys(c.inventoryKeys)
-                      .map((k) => t(k as MessageKey))
-                      .join(" · ") || "—"}{" "}
-                    · {c.updatedAt.slice(0, 16)}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* 4 — Secondary tools (performance) */}
+        <div data-admin-delivery-ads-section="secondary">
+          <AdminCard titleKey="delivery_ads_perf_section_title">
+            <DeliveryAdPerformancePanel
+              performance={performance}
+              loading={perfLoading}
+              range={perfRange}
+              onRangeChange={setPerfRange}
+            />
+          </AdminCard>
+        </div>
       </div>
     </AdminDeliveryCmsChrome>
   );

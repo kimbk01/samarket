@@ -5,9 +5,15 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import {
+  adminDeliveryAdLifecycleLabelKey,
+  adminDeliveryAdOpsCaseStatusLabelKey,
+} from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * CUT 3-E — consumes 3-D listDeliveryAdAdminActionQueue via HTTP. No new queue authority.
+ * Priority 5 — human-readable row context from existing payload only.
  */
 export function AdminDeliveryAdActionQueuePanel() {
   const { t, safeT } = useI18n();
@@ -53,8 +59,8 @@ export function AdminDeliveryAdActionQueuePanel() {
     <AdminCard titleKey="admin_delivery_ads_action_queue_title">
       <p className="mb-2 text-[12px] text-sam-muted">
         {safeT("admin_delivery_ads_action_queue_subtitle", {
-          fallbackKo: "관리자 처리가 필요한 운영 Case (WAITING_ADMIN)",
-          fallbackEn: "Ops cases needing admin action (WAITING_ADMIN)",
+          fallbackKo: "관리자 조치가 필요한 운영 Case입니다. 읽지 않은 메시지와는 별개입니다.",
+          fallbackEn: "Ops cases that need an admin decision. Separate from unread messages.",
         })}
         {total > 0 ? (
           <span className="ml-2 font-semibold text-sam-fg">
@@ -63,63 +69,92 @@ export function AdminDeliveryAdActionQueuePanel() {
         ) : null}
       </p>
 
-      {loading ? (
-        <p className="text-[13px] text-sam-muted" role="status">
-          {t("admin_delivery_ads_loading")}
-        </p>
-      ) : error ? (
-        <p className="text-[13px] text-sam-danger" role="alert">
-          {safeT("admin_delivery_ads_action_queue_error", {
-            fallbackKo: "처리 필요 목록을 불러오지 못했습니다.",
-            fallbackEn: "Could not load the action queue.",
-          })}
-        </p>
-      ) : items.length === 0 ? (
-        <p className="text-[13px] text-sam-muted" role="status">
-          {safeT("admin_delivery_ads_action_queue_empty", {
-            fallbackKo: "지금 처리할 운영 Case가 없습니다.",
-            fallbackEn: "No ops cases need action right now.",
-          })}
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {items.map((item) => (
-            <li
-              key={item.caseId}
-              className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-sam-fg">
-                    {item.campaignTitle || item.campaignId}
-                  </p>
-                  <p className="mt-0.5 text-[12px] text-sam-muted">
-                    {item.productKind === "banner"
-                      ? t("admin_delivery_ads_product_banner")
-                      : t("admin_delivery_ads_product_store_sponsored")}
-                    {" · "}
-                    {item.campaignLifecycle || "—"}
-                    {" · "}
-                    {item.caseStatus}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-sam-muted">
-                    {item.updatedAt.slice(0, 19).replace("T", " ")}
-                  </p>
-                </div>
-                <Link
-                  href={`${item.destination}?product=${encodeURIComponent(item.productKind)}&focus=operations`}
-                  className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+        {loading ? (
+          <p className="text-[13px] text-sam-muted" role="status">
+            {t("admin_delivery_ads_loading")}
+          </p>
+        ) : error ? (
+          <p className="text-[13px] text-sam-danger" role="alert">
+            {safeT("admin_delivery_ads_action_queue_error", {
+              fallbackKo: "처리 필요 목록을 불러오지 못했습니다.",
+              fallbackEn: "Could not load the action queue.",
+            })}
+          </p>
+        ) : items.length === 0 ? (
+          <p className="text-[13px] text-sam-muted" role="status">
+            {safeT("admin_delivery_ads_action_queue_empty", {
+              fallbackKo: "지금 처리할 운영 Case가 없습니다.",
+              fallbackEn: "No ops cases need action right now.",
+            })}
+          </p>
+        ) : (
+          <ul className="space-y-2" data-admin-delivery-ads-action-queue-list="1">
+            {items.map((item) => {
+              const productLabel =
+                item.productKind === "banner"
+                  ? t("admin_delivery_ads_product_banner")
+                  : t("admin_delivery_ads_product_store_sponsored");
+              const lifecycleKey = item.campaignLifecycle
+                ? (adminDeliveryAdLifecycleLabelKey(item.campaignLifecycle) as MessageKey)
+                : null;
+              const caseKey = adminDeliveryAdOpsCaseStatusLabelKey(item.caseStatus);
+              return (
+                <li
+                  key={item.caseId}
+                  className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px]"
+                  data-admin-delivery-ads-queue-row="1"
+                  data-case-id={item.caseId}
+                  data-product-kind={item.productKind}
+                  data-lifecycle={item.campaignLifecycle ?? ""}
+                  data-case-status={item.caseStatus}
                 >
-                  {safeT("admin_delivery_ads_action_queue_open", {
-                    fallbackKo: "상세 보기",
-                    fallbackEn: "Open detail",
-                  })}
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </AdminCard>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sam-fg break-words">
+                        {item.campaignTitle || item.campaignId}
+                      </p>
+                      <p className="mt-0.5 text-[12px] text-sam-fg">
+                        <span className="font-medium">{productLabel}</span>
+                        {" · "}
+                        <span>
+                          {lifecycleKey
+                            ? safeT(lifecycleKey, {
+                                fallbackKo: item.campaignLifecycle || "—",
+                                fallbackEn: item.campaignLifecycle || "—",
+                              })
+                            : "—"}
+                        </span>
+                        {" · "}
+                        <span className="font-medium text-sam-brand">
+                          {safeT(caseKey, {
+                            fallbackKo: "검토 필요",
+                            fallbackEn: "Needs review",
+                          })}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-sam-muted break-all">
+                        {t("admin_delivery_ads_action_queue_updated")}:{" "}
+                        {item.updatedAt
+                          ? item.updatedAt.slice(0, 19).replace("T", " ")
+                          : "—"}
+                      </p>
+                    </div>
+                    <Link
+                      href={`${item.destination}?product=${encodeURIComponent(item.productKind)}&focus=operations`}
+                      className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+                      data-admin-delivery-ads-queue-open="1"
+                    >
+                      {safeT("admin_delivery_ads_action_queue_open", {
+                        fallbackKo: "상세 보기",
+                        fallbackEn: "Open detail",
+                      })}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </AdminCard>
   );
 }

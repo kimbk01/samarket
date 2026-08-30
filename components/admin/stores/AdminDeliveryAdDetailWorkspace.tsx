@@ -23,6 +23,9 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import {
+  getAdminDeliveryAdRequiredDecisionPresentation,
+} from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
@@ -173,6 +176,27 @@ export function AdminDeliveryAdDetailWorkspace({
     );
   }, [campaign]);
 
+  const requiredDecision = useMemo(() => {
+    if (!campaign) return null;
+    return getAdminDeliveryAdRequiredDecisionPresentation(
+      campaign.lifecycleStatus as DeliveryAdLifecycleStatus
+    );
+  }, [campaign]);
+
+  const secondaryActions = useMemo(() => {
+    if (!requiredDecision) return allowedActions;
+    const primary = new Set(requiredDecision.primaryReviewActions);
+    return allowedActions.filter((a) => !primary.has(a));
+  }, [allowedActions, requiredDecision]);
+
+  function decisionToneClass(
+    tone: NonNullable<typeof requiredDecision>["tone"]
+  ): string {
+    if (tone === "urgent") return "border-sam-danger/40 bg-sam-danger/5 text-sam-fg";
+    if (tone === "info") return "border-sam-brand/30 bg-sam-brand/5 text-sam-fg";
+    return "border-sam-border bg-sam-surface text-sam-fg";
+  }
+
   async function runAction(action: AdminDeliveryAdAction) {
     if (!campaign || busy) return;
     if (adminActionRequiresReason(action) && !reason.trim()) {
@@ -292,7 +316,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
   return (
     <AdminDeliveryCmsChrome help="home">
-      <div className="space-y-4 pb-24">
+      <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="1">
         <div>
           <Link
             href={DELIVERY_AD_ADMIN_ROUTES.hub}
@@ -326,102 +350,101 @@ export function AdminDeliveryAdDetailWorkspace({
           </p>
         ) : null}
 
-        {campaign ? (
+        {campaign && requiredDecision ? (
           <>
-            <AdminCard titleKey="admin_delivery_ads_section_basic">
-              <dl className="grid gap-2 text-[13px] sm:grid-cols-2">
-                <div>
-                  <dt className="text-sam-muted">ID</dt>
-                  <dd className="break-all font-mono text-[12px]">{campaign.id}</dd>
-                </div>
-                <div>
-                  <dt className="text-sam-muted">
-                    {safeT("admin_delivery_ads_product_label", {
-                      fallbackKo: "상품",
-                      fallbackEn: "Product",
-                    })}
-                  </dt>
-                  <dd>{campaign.productKind}</dd>
-                </div>
-                <div>
-                  <dt className="text-sam-muted">Owner</dt>
-                  <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-sam-muted">Store</dt>
-                  <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-sam-muted">Lifecycle</dt>
-                  <dd>
-                    {campaign.lifecycleStatus}
-                    {campaign.scheduleHint !== "in_window" ? (
-                      <span className="ml-2 text-[11px] text-sam-muted">
-                        ({campaign.scheduleHint})
-                      </span>
-                    ) : null}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sam-muted">Review</dt>
-                  <dd>{campaign.reviewStatus}</dd>
-                </div>
-              </dl>
-            </AdminCard>
+            <div data-admin-delivery-ads-detail-section="identity">
+              <AdminCard titleKey="admin_delivery_ads_section_basic">
+                <dl className="grid gap-2 text-[13px] sm:grid-cols-2">
+                  <div>
+                    <dt className="text-sam-muted">ID</dt>
+                    <dd className="break-all font-mono text-[12px]">{campaign.id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">
+                      {safeT("admin_delivery_ads_product_label", {
+                        fallbackKo: "상품",
+                        fallbackEn: "Product",
+                      })}
+                    </dt>
+                    <dd>
+                      {safeT(
+                        `admin_delivery_ads_product_${campaign.productKind}` as MessageKey,
+                        {
+                          fallbackKo: campaign.productKind,
+                          fallbackEn: campaign.productKind,
+                        }
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Owner</dt>
+                    <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Store</dt>
+                    <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Lifecycle</dt>
+                    <dd>
+                      {safeT(
+                        `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
+                        {
+                          fallbackKo: campaign.lifecycleStatus,
+                          fallbackEn: campaign.lifecycleStatus,
+                        }
+                      )}
+                      {campaign.scheduleHint !== "in_window" ? (
+                        <span className="ml-2 text-[11px] text-sam-muted">
+                          ({campaign.scheduleHint})
+                        </span>
+                      ) : null}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Review</dt>
+                    <dd>{campaign.reviewStatus}</dd>
+                  </div>
+                </dl>
+              </AdminCard>
+            </div>
 
-            <AdminCard titleKey="delivery_ads_perf_section_title">
-              <DeliveryAdPerformancePanel
-                performance={performance}
-                loading={perfLoading}
-                range={perfRange}
-                onRangeChange={setPerfRange}
-              />
-            </AdminCard>
+            <section
+              className={`rounded-ui-rect border p-4 ${decisionToneClass(requiredDecision.tone)}`}
+              data-admin-delivery-ads-detail-section="required-decision"
+              data-admin-decision-required={requiredDecision.decisionRequired ? "1" : "0"}
+              data-lifecycle={campaign.lifecycleStatus}
+            >
+              <p className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
+                {t("admin_delivery_ads_rd_section")}
+              </p>
+              <p className="mt-1 text-[16px] font-bold">{t(requiredDecision.titleKey)}</p>
+              <p className="mt-2 text-[13px] leading-snug">{t(requiredDecision.bodyKey)}</p>
+              {campaign.reviewNotes ? (
+                <p className="mt-3 text-[13px] whitespace-pre-wrap break-words">
+                  {safeT("admin_delivery_ads_owner_visible_notes", {
+                    fallbackKo: "Owner 공개 메모",
+                    fallbackEn: "Owner-visible notes",
+                  })}
+                  : {campaign.reviewNotes}
+                </p>
+              ) : null}
+              <label className="mt-3 flex flex-col gap-1 text-[12px]">
+                {safeT("admin_delivery_ads_reason", {
+                  fallbackKo: "사유 (수정요청·거절·중지·강제중단 필수)",
+                  fallbackEn: "Reason (required for changes/reject/pause/terminate)",
+                })}
+                <textarea
+                  className="min-h-[72px] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  data-admin-delivery-ads-reason="1"
+                />
+              </label>
+            </section>
 
-            <AdminCard titleKey="admin_delivery_ads_section_settings">
-              {campaign.productKind === "banner" ? (
-                <div className="mb-3 space-y-2">
-                  <label className="flex flex-col gap-1 text-[12px]">
-                    {safeT("admin_delivery_ads_inventory_label", {
-                      fallbackKo: "광고 지면",
-                      fallbackEn: "Placement",
-                    })}
-                    <select
-                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
-                      value={editInventoryKey}
-                      onChange={(e) =>
-                        setEditInventoryKey(e.target.value as OwnerBannerInventoryKey)
-                      }
-                      disabled={busy}
-                    >
-                      {OWNER_BANNER_INVENTORY_KEYS.map((key) => (
-                        <option key={key} value={key}>
-                          {key === "STORES_SEARCH_TOP"
-                            ? safeT("owner_ads_inventory_search_top", {
-                                fallbackKo: "검색 결과 상단",
-                                fallbackEn: "Search results top",
-                              })
-                            : safeT("owner_ads_inventory_home_hero", {
-                                fallbackKo: "배달 홈 히어로",
-                                fallbackEn: "Delivery home hero",
-                              })}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
-                    onClick={() => void saveInventory()}
-                  >
-                    {safeT("admin_delivery_ads_save_inventory", {
-                      fallbackKo: "지면 저장",
-                      fallbackEn: "Save placement",
-                    })}
-                  </button>
-                </div>
-              ) : (
+            <div data-admin-delivery-ads-detail-section="facts">
+              <AdminCard titleKey="admin_delivery_ads_section_facts">
                 <p className="text-[13px] text-sam-fg">
                   {safeT("admin_delivery_ads_inventory_label", {
                     fallbackKo: "광고 지면",
@@ -432,131 +455,116 @@ export function AdminDeliveryAdDetailWorkspace({
                     .map((k) => t(deliveryAdPlacementI18nKey(k) as MessageKey))
                     .join(" · ") || "—"}
                 </p>
-              )}
-              <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
-                <p className="text-[12px] font-bold text-sam-fg">
-                  {t("admin_delivery_ads_policy_section")}
+                <p className="mt-2 text-[13px] text-sam-muted">
+                  {campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}
                 </p>
-                <ul className="mt-2 space-y-2 text-[12px] text-sam-fg">
-                  {(campaign.inventoryKeys.length
-                    ? campaign.inventoryKeys
-                    : [editInventoryKey]
-                  ).map((key) => {
-                    const href = deliveryAdPolicyScreenHref(key, {
-                      primarySlug: campaign.storePrimarySlug,
-                      subSlug: campaign.storeSubSlug,
-                    });
-                    const label = t(deliveryAdPlacementI18nKey(key) as MessageKey);
-                    return (
-                      <li key={key} className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{label}</span>
-                        {href ? (
-                          <Link
-                            href={href}
-                            className="text-signature underline underline-offset-2"
-                          >
-                            {key === "STORES_CATEGORY_FEED"
-                              ? t("admin_delivery_ads_policy_view_browse")
-                              : t("admin_delivery_ads_policy_view_home")}
-                          </Link>
-                        ) : (
-                          <span className="text-sam-muted">
-                            {t("admin_delivery_ads_policy_no_screen")}
-                          </span>
-                        )}
-                      </li>
-                    );
+                <p className="mt-2 text-[13px] text-sam-muted">
+                  {safeT("admin_delivery_ads_pricing_not_configured", {
+                    fallbackKo: "과금: NOT_CONFIGURED (CUT H 이전)",
+                    fallbackEn: "Pricing: NOT_CONFIGURED (before CUT H)",
                   })}
-                </ul>
-              </div>
-              <p className="mt-1 text-[13px] text-sam-muted">
-                {safeT("admin_delivery_ads_pricing_not_configured", {
-                  fallbackKo: "과금: NOT_CONFIGURED (CUT H 이전)",
-                  fallbackEn: "Pricing: NOT_CONFIGURED (before CUT H)",
-                })}
-              </p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                  Start
-                  <input
-                    type="datetime-local"
-                    className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-                    value={startAt}
-                    onChange={(e) => setStartAt(e.target.value)}
-                  />
-                </label>
-                <label className="flex flex-1 flex-col gap-1 text-[12px]">
-                  End
-                  <input
-                    type="datetime-local"
-                    className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
-                    value={endAt}
-                    onChange={(e) => setEndAt(e.target.value)}
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                disabled={busy}
-                className="mt-2 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
-                onClick={() => void saveSchedule()}
-              >
-                {safeT("admin_delivery_ads_save_schedule", {
-                  fallbackKo: "일정 저장",
-                  fallbackEn: "Save schedule",
-                })}
-              </button>
-            </AdminCard>
-
-            <AdminCard titleKey="admin_delivery_ads_section_creative">
-              <DeliveryAdCampaignPlacementPreviews
-                productKind={campaign.productKind}
-                inventoryKeys={campaign.inventoryKeys}
-                renderContext="admin_preview"
-                placementPreview={placementPreview}
-                bannerCreative={
-                  campaign.productKind === "banner"
-                    ? {
-                        assetUrl: creative?.assetPath || campaign.imageUrl || "",
-                        headline: creative?.headline ?? campaign.title,
-                        subcopy: creative?.subcopy ?? campaign.headline,
-                        alt: campaign.title || "banner",
-                      }
-                    : null
-                }
-                ctaLabel={creative?.ctaLabel ?? null}
-              />
-              {creative ? (
-                <p className="mt-2 text-[11px] text-sam-muted">
-                  creative v{creative.version} · {creative.id.slice(0, 8)}
                 </p>
-              ) : null}
-            </AdminCard>
+              </AdminCard>
+            </div>
 
-            <AdminCard titleKey="admin_delivery_ads_section_review">
-              {campaign.reviewNotes ? (
-                <p className="mb-2 text-[13px] text-sam-fg">
-                  {safeT("admin_delivery_ads_owner_visible_notes", {
-                    fallbackKo: "Owner 공개 메모",
-                    fallbackEn: "Owner-visible notes",
-                  })}
-                  : {campaign.reviewNotes}
-                </p>
-              ) : null}
-              <label className="flex flex-col gap-1 text-[12px]">
-                {safeT("admin_delivery_ads_reason", {
-                  fallbackKo: "사유 (수정요청·거절·중지·강제중단 필수)",
-                  fallbackEn: "Reason (required for changes/reject/pause/terminate)",
-                })}
-                <textarea
-                  className="min-h-[72px] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+            <div data-admin-delivery-ads-detail-section="preview">
+              <AdminCard titleKey="admin_delivery_ads_section_preview">
+                <DeliveryAdCampaignPlacementPreviews
+                  productKind={campaign.productKind}
+                  inventoryKeys={campaign.inventoryKeys}
+                  renderContext="admin_preview"
+                  placementPreview={placementPreview}
+                  bannerCreative={
+                    campaign.productKind === "banner"
+                      ? {
+                          assetUrl: creative?.assetPath || campaign.imageUrl || "",
+                          headline: creative?.headline ?? campaign.title,
+                          subcopy: creative?.subcopy ?? campaign.headline,
+                          alt: campaign.title || "banner",
+                        }
+                      : null
+                  }
+                  ctaLabel={creative?.ctaLabel ?? null}
                 />
-              </label>
-            </AdminCard>
+                {creative ? (
+                  <p className="mt-2 text-[11px] text-sam-muted">
+                    creative v{creative.version} · {creative.id.slice(0, 8)}
+                  </p>
+                ) : null}
+              </AdminCard>
+            </div>
 
-            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5">
+            <div data-admin-delivery-ads-detail-section="decision-actions">
+              <AdminCard titleKey="admin_delivery_ads_section_decision_actions">
+                <div className="flex flex-wrap gap-2">
+                  {(requiredDecision.decisionRequired
+                    ? requiredDecision.primaryReviewActions
+                    : allowedActions
+                  ).map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      disabled={busy}
+                      data-admin-delivery-ads-action={action}
+                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
+                        action === "terminate" ||
+                        action === "reject" ||
+                        action === "delete_safe_draft"
+                          ? "bg-sam-danger text-white"
+                          : action === "approve"
+                            ? "bg-sam-brand text-white"
+                            : "border border-sam-border bg-sam-surface text-sam-fg"
+                      }`}
+                      onClick={() => void runAction(action)}
+                    >
+                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+                        fallbackKo: action,
+                        fallbackEn: action,
+                      })}
+                      {confirmAction === action
+                        ? ` · ${safeT("admin_delivery_ads_confirm_again", {
+                            fallbackKo: "다시 눌러 확인",
+                            fallbackEn: "Tap again to confirm",
+                          })}`
+                        : ""}
+                    </button>
+                  ))}
+                </div>
+                {requiredDecision.decisionRequired && secondaryActions.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-sam-border pt-3">
+                    {secondaryActions.map((action) => (
+                      <button
+                        key={action}
+                        type="button"
+                        disabled={busy}
+                        data-admin-delivery-ads-action={action}
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-medium text-sam-fg"
+                        onClick={() => void runAction(action)}
+                      >
+                        {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+                          fallbackKo: action,
+                          fallbackEn: action,
+                        })}
+                        {confirmAction === action
+                          ? ` · ${safeT("admin_delivery_ads_confirm_again", {
+                              fallbackKo: "다시 눌러 확인",
+                              fallbackEn: "Tap again to confirm",
+                            })}`
+                          : ""}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </AdminCard>
+            </div>
+
+            <div
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5"
+              data-admin-delivery-ads-detail-section="operations"
+            >
+              <p className="mb-2 text-[13px] font-semibold text-sam-fg">
+                {t("admin_delivery_ads_section_operations")}
+              </p>
               <DeliveryAdOperationsPanel
                 actorRole="admin"
                 productKind={campaign.productKind}
@@ -565,57 +573,154 @@ export function AdminDeliveryAdDetailWorkspace({
               />
             </div>
 
-            <div className="sticky bottom-0 z-10 -mx-1 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur">
-              <div className="flex flex-wrap gap-2">
-                {allowedActions.map((action) => (
-                  <button
-                    key={action}
-                    type="button"
-                    disabled={busy}
-                    className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
-                      action === "terminate" || action === "reject" || action === "delete_safe_draft"
-                        ? "bg-sam-danger text-white"
-                        : action === "approve"
-                          ? "bg-sam-brand text-white"
-                          : "border border-sam-border bg-sam-surface text-sam-fg"
-                    }`}
-                    onClick={() => void runAction(action)}
-                  >
-                    {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
-                      fallbackKo: action,
-                      fallbackEn: action,
-                    })}
-                    {confirmAction === action
-                      ? ` · ${safeT("admin_delivery_ads_confirm_again", {
-                          fallbackKo: "다시 눌러 확인",
-                          fallbackEn: "Tap again to confirm",
-                        })}`
-                      : ""}
-                  </button>
-                ))}
-              </div>
+            <div data-admin-delivery-ads-detail-section="history">
+              <AdminCard titleKey="admin_delivery_ads_section_history">
+                {audits.length === 0 ? (
+                  <p className="text-[13px] text-sam-muted">—</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {audits.map((a) => (
+                      <li
+                        key={a.id}
+                        className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px]"
+                      >
+                        <div className="font-medium text-sam-fg">
+                          {a.action} · {a.actorType}
+                        </div>
+                        <div className="text-sam-muted">{a.createdAt}</div>
+                        {a.reason ? <div className="mt-0.5 text-sam-fg">{a.reason}</div> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </AdminCard>
             </div>
 
-            <AdminCard titleKey="admin_delivery_ads_section_history">
-              {audits.length === 0 ? (
-                <p className="text-[13px] text-sam-muted">—</p>
-              ) : (
-                <ul className="space-y-2">
-                  {audits.map((a) => (
-                    <li
-                      key={a.id}
-                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px]"
+            <div data-admin-delivery-ads-detail-section="performance">
+              <AdminCard titleKey="admin_delivery_ads_section_performance">
+                <DeliveryAdPerformancePanel
+                  performance={performance}
+                  loading={perfLoading}
+                  range={perfRange}
+                  onRangeChange={setPerfRange}
+                />
+              </AdminCard>
+            </div>
+
+            <div data-admin-delivery-ads-detail-section="settings">
+              <AdminCard titleKey="admin_delivery_ads_section_settings">
+                {campaign.productKind === "banner" ? (
+                  <div className="mb-3 space-y-2">
+                    <label className="flex flex-col gap-1 text-[12px]">
+                      {safeT("admin_delivery_ads_inventory_label", {
+                        fallbackKo: "광고 지면",
+                        fallbackEn: "Placement",
+                      })}
+                      <select
+                        className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
+                        value={editInventoryKey}
+                        onChange={(e) =>
+                          setEditInventoryKey(e.target.value as OwnerBannerInventoryKey)
+                        }
+                        disabled={busy}
+                      >
+                        {OWNER_BANNER_INVENTORY_KEYS.map((key) => (
+                          <option key={key} value={key}>
+                            {key === "STORES_SEARCH_TOP"
+                              ? safeT("owner_ads_inventory_search_top", {
+                                  fallbackKo: "검색 결과 상단",
+                                  fallbackEn: "Search results top",
+                                })
+                              : safeT("owner_ads_inventory_home_hero", {
+                                  fallbackKo: "배달 홈 히어로",
+                                  fallbackEn: "Delivery home hero",
+                                })}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
+                      onClick={() => void saveInventory()}
                     >
-                      <div className="font-medium text-sam-fg">
-                        {a.action} · {a.actorType}
-                      </div>
-                      <div className="text-sam-muted">{a.createdAt}</div>
-                      {a.reason ? <div className="mt-0.5 text-sam-fg">{a.reason}</div> : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </AdminCard>
+                      {safeT("admin_delivery_ads_save_inventory", {
+                        fallbackKo: "지면 저장",
+                        fallbackEn: "Save placement",
+                      })}
+                    </button>
+                  </div>
+                ) : null}
+                <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
+                  <p className="text-[12px] font-bold text-sam-fg">
+                    {t("admin_delivery_ads_policy_section")}
+                  </p>
+                  <ul className="mt-2 space-y-2 text-[12px] text-sam-fg">
+                    {(campaign.inventoryKeys.length
+                      ? campaign.inventoryKeys
+                      : [editInventoryKey]
+                    ).map((key) => {
+                      const href = deliveryAdPolicyScreenHref(key, {
+                        primarySlug: campaign.storePrimarySlug,
+                        subSlug: campaign.storeSubSlug,
+                      });
+                      const label = t(deliveryAdPlacementI18nKey(key) as MessageKey);
+                      return (
+                        <li key={key} className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{label}</span>
+                          {href ? (
+                            <Link
+                              href={href}
+                              className="text-signature underline underline-offset-2"
+                            >
+                              {key === "STORES_CATEGORY_FEED"
+                                ? t("admin_delivery_ads_policy_view_browse")
+                                : t("admin_delivery_ads_policy_view_home")}
+                            </Link>
+                          ) : (
+                            <span className="text-sam-muted">
+                              {t("admin_delivery_ads_policy_no_screen")}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <label className="flex flex-1 flex-col gap-1 text-[12px]">
+                    Start
+                    <input
+                      type="datetime-local"
+                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
+                      value={startAt}
+                      onChange={(e) => setStartAt(e.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-1 flex-col gap-1 text-[12px]">
+                    End
+                    <input
+                      type="datetime-local"
+                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
+                      value={endAt}
+                      onChange={(e) => setEndAt(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="mt-2 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
+                  onClick={() => void saveSchedule()}
+                >
+                  {safeT("admin_delivery_ads_save_schedule", {
+                    fallbackKo: "일정 저장",
+                    fallbackEn: "Save schedule",
+                  })}
+                </button>
+              </AdminCard>
+            </div>
           </>
         ) : null}
       </div>
