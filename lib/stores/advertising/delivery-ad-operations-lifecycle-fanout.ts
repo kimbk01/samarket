@@ -15,6 +15,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-event";
 import {
   DELIVERY_AD_OPERATIONS_MESSAGE_TABLE,
+  mapDeliveryAdOperationsMessageRow,
   type DeliveryAdOperationsMessageRow,
 } from "@/lib/stores/advertising/delivery-ad-operations-message";
 import { isDeliveryAdProductKind } from "@/lib/stores/advertising/delivery-ad-domain";
@@ -46,30 +47,6 @@ function isUniqueViolation(err: { code?: string; message?: string } | null): boo
   return /duplicate key|unique constraint/i.test(String(err.message ?? ""));
 }
 
-function mapMessageRow(raw: Record<string, unknown>): DeliveryAdOperationsMessageRow | null {
-  const id = raw.id == null ? "" : String(raw.id);
-  const threadId = raw.thread_id == null ? "" : String(raw.thread_id);
-  const sourceAuditId = raw.source_audit_id == null ? "" : String(raw.source_audit_id);
-  const eventType = raw.event_type == null ? "" : String(raw.event_type);
-  const messageKey = raw.message_key == null ? "" : String(raw.message_key);
-  const kind = raw.kind;
-  const senderRole = raw.sender_role;
-  if (!id || !threadId || !sourceAuditId || !eventType || !messageKey) return null;
-  if (kind !== "system_lifecycle" && kind !== "human") return null;
-  if (senderRole !== "system" && senderRole !== "owner" && senderRole !== "admin") return null;
-  return {
-    id,
-    threadId,
-    kind,
-    senderRole,
-    sourceAuditId,
-    eventType,
-    messageKey,
-    occurredAt: String(raw.occurred_at ?? ""),
-    createdAt: String(raw.created_at ?? ""),
-  };
-}
-
 async function loadMessageByAuditId(
   sb: SupabaseClient,
   auditId: string
@@ -80,7 +57,7 @@ async function loadMessageByAuditId(
     .eq("source_audit_id", auditId)
     .maybeSingle();
   if (error || !data) return null;
-  return mapMessageRow(data as Record<string, unknown>);
+  return mapDeliveryAdOperationsMessageRow(data as Record<string, unknown>);
 }
 
 /**
@@ -181,9 +158,11 @@ export async function fanOutDeliveryAdLifecycleAudit(
       thread_id: threadId,
       kind: "system_lifecycle",
       sender_role: "system",
+      sender_user_id: null,
       source_audit_id: auditId,
       event_type: mapped.eventType,
       message_key: mapped.messageKey,
+      body: null,
       occurred_at: occurredAt,
       created_at: nowIso,
     })
@@ -206,8 +185,8 @@ export async function fanOutDeliveryAdLifecycleAudit(
   }
   if (!inserted) return { ok: false, error: "db_error" };
 
-  const message = mapMessageRow(inserted as Record<string, unknown>);
-  if (!message) return { ok: false, error: "db_error" };
+  const message = mapDeliveryAdOperationsMessageRow(inserted as Record<string, unknown>);
+  if (!message || message.kind !== "system_lifecycle") return { ok: false, error: "db_error" };
 
   if (mapped.caseEffect) {
     const statusRes = await updateDeliveryAdOperationsCaseStatus(sb, {

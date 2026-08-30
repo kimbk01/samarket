@@ -243,7 +243,34 @@ function makeMockSb(state: MockState) {
     };
     return api;
   };
-  return { from } as never;
+  return {
+    from,
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "delivery_ad_ops_apply_case_status") {
+        const caseId = String(args.p_case_id ?? "");
+        const status = String(args.p_status ?? "");
+        const idx = state.cases.findIndex((c) => c.id === caseId);
+        if (idx < 0) {
+          return { data: { ok: false, error: "case_not_found" }, error: null };
+        }
+        if (!["OPEN", "WAITING_OWNER", "WAITING_ADMIN", "RESOLVED"].includes(status)) {
+          return { data: { ok: false, error: "invalid_status" }, error: null };
+        }
+        const now = "t-status";
+        state.cases[idx] = {
+          ...state.cases[idx],
+          status,
+          updated_at: now,
+          resolved_at: status === "RESOLVED" ? now : null,
+        };
+        return {
+          data: { ok: true, case: state.cases[idx] },
+          error: null,
+        };
+      }
+      return { data: null, error: { message: `unknown_rpc:${name}` } };
+    },
+  } as never;
 }
 
 describe("CUT 3-A ensureDeliveryAdOperationsCase", () => {

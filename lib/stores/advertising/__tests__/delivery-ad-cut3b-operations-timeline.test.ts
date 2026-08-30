@@ -256,7 +256,26 @@ function makeFanOutSb(state: FanOutState) {
     };
     return api;
   };
-  return { from } as never;
+  return {
+    from,
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "delivery_ad_ops_apply_case_status") {
+        const caseId = String(args.p_case_id ?? "");
+        const status = String(args.p_status ?? "");
+        const prev = state.cases[caseId];
+        if (!prev) return { data: { ok: false, error: "case_not_found" }, error: null };
+        const next = {
+          ...prev,
+          status,
+          updated_at: "t-status",
+          resolved_at: status === "RESOLVED" ? "t-status" : null,
+        };
+        state.cases[caseId] = next;
+        return { data: { ok: true, case: next }, error: null };
+      }
+      return { data: null, error: { message: `unknown_rpc:${name}` } };
+    },
+  } as never;
 }
 
 describe("CUT 3-B fanOutDeliveryAdLifecycleAudit", () => {

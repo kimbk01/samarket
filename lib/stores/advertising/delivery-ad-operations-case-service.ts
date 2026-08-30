@@ -226,6 +226,7 @@ export async function getDeliveryAdOperationsCase(
 
 /**
  * Sole Case status mutation authority (server-only).
+ * CUT 3-C: delegates to delivery_ad_ops_apply_case_status (shared with human-send RPC).
  * UI / Owner / Admin routes must not PATCH status directly.
  */
 export async function updateDeliveryAdOperationsCaseStatus(
@@ -238,29 +239,22 @@ export async function updateDeliveryAdOperationsCaseStatus(
     return { ok: false, error: "invalid_status" };
   }
 
-  const nowIso = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    status: input.status,
-    updated_at: nowIso,
-  };
-  if (input.status === "RESOLVED") {
-    patch.resolved_at = nowIso;
-  } else {
-    patch.resolved_at = null;
+  const { data, error } = await sb.rpc("delivery_ad_ops_apply_case_status", {
+    p_case_id: caseId,
+    p_status: input.status,
+  });
+  if (error) return { ok: false, error: "db_error" };
+  const payload = data as { ok?: boolean; error?: string; case?: Record<string, unknown> } | null;
+  if (!payload?.ok || !payload.case) {
+    const err = payload?.error;
+    if (err === "case_not_found" || err === "invalid_status") {
+      return { ok: false, error: err };
+    }
+    return { ok: false, error: "db_error" };
   }
 
-  const { data, error } = await sb
-    .from(DELIVERY_AD_OPERATIONS_CASE_TABLE)
-    .update(patch)
-    .eq("id", caseId)
-    .select("*")
-    .maybeSingle();
-
-  if (error) return { ok: false, error: "db_error" };
-  if (!data) return { ok: false, error: "case_not_found" };
-
   const threadId = await loadThreadIdForCase(sb, caseId);
-  const mapped = mapCaseRow(data as Record<string, unknown>, threadId);
+  const mapped = mapCaseRow(payload.case, threadId);
   if (!mapped) return { ok: false, error: "db_error" };
   return { ok: true, case: mapped };
 }
