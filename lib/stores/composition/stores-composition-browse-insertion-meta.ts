@@ -31,6 +31,8 @@ import {
 } from "@/lib/stores/product/stores-browse-scope-customer-meta";
 import { selectExposureEligibleStorePaidAds } from "@/lib/stores/store-paid-ad-exposure";
 import { buildStoreSponsoredEligibilityMapFromOrganicPool } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
+import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
+import type { StorePaidAdCampaignRow } from "@/lib/stores/store-paid-ad-campaign-authority";
 
 export type { StoresBrowseScopeCustomerMeta };
 
@@ -46,6 +48,8 @@ export type StoresBrowseInsertionMetaRow =
       imageUrl: string | null;
       placement: string;
       isSponsored: true;
+      /** CUT G / P0-B — server-issued exposure context (canonical issuer) */
+      exposureToken: string;
     }
   | {
       kind: "coupon";
@@ -57,6 +61,41 @@ export type StoresBrowseInsertionMetaRow =
       minOrderAmount: number | null;
       termsCopy: string | null;
     };
+
+/**
+ * P0-B — project sponsored browse insertion row with canonical exposureToken.
+ * Does not change eligibility/insertion; only attribution identity for STORES_CATEGORY_FEED.
+ */
+export function projectBrowsePaidAdInsertionMetaRow(
+  payload: Pick<
+    StorePaidAdCampaignRow,
+    "id" | "storeId" | "title" | "headline" | "bodyCopy" | "imageUrl" | "placement"
+  >
+): Extract<StoresBrowseInsertionMetaRow, { kind: "paid_ad" }> {
+  const { token } = issueEligibleDeliveryAdExposure({
+    campaignId: payload.id,
+    productKind: "store_sponsored",
+    creativeId: null,
+    inventoryId: null,
+    storeId: payload.storeId,
+    surface: "STORES_CATEGORY_FEED",
+    destinationType: "store_detail",
+    destinationId: payload.storeId,
+    preview: false,
+  });
+  return {
+    kind: "paid_ad",
+    campaignId: payload.id,
+    storeId: payload.storeId,
+    title: payload.title,
+    headline: payload.headline,
+    bodyCopy: payload.bodyCopy,
+    imageUrl: payload.imageUrl,
+    placement: payload.placement,
+    isSponsored: true as const,
+    exposureToken: token,
+  };
+}
 
 function scopePolicyToCompositionRows(
   resolved: ReturnType<typeof resolveBrowseScopePolicy>
@@ -195,18 +234,7 @@ export async function attachStoresBrowseInsertionMeta(
         return { kind: "organic", storeId: row.storeId };
       }
       if (row.kind === "paid_ad") {
-        const p = row.payload;
-        return {
-          kind: "paid_ad",
-          campaignId: p.id,
-          storeId: p.storeId,
-          title: p.title,
-          headline: p.headline,
-          bodyCopy: p.bodyCopy,
-          imageUrl: p.imageUrl,
-          placement: p.placement,
-          isSponsored: true as const,
-        };
+        return projectBrowsePaidAdInsertionMetaRow(row.payload);
       }
       return { kind: "organic", storeId: row.storeId };
     });

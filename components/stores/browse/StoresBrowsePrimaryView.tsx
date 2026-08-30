@@ -38,6 +38,7 @@ import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-brow
 import {
   insertDiscoveryShelfIntoMixedItems,
 } from "@/lib/stores/stores-browse-discovery-shelf";
+import { DeliveryAdSponsoredBeacon } from "@/components/stores/advertising/DeliveryAdSponsoredBeacon";
 import { networkDiscoveryShelfWins } from "@/lib/stores/stores-browse-shelf-snapshot-authority";
 import {
   coerceBrowseSortToCustomerAvailability,
@@ -917,15 +918,27 @@ export function StoresBrowsePrimaryView({
                   // Browse badge = discovery only — never write Coupon Instance handoff
                 };
               }
-              return (
+              const card = (
                 <StoreBrowseCategoryRowCard
-                  key={item.key}
                   data={cardData}
                   locale={language}
                   deliveryRideTimeSource={deliveryRideTimeSource}
                   campaignBenefit={campaignBenefit}
                 />
               );
+              /** P0-B — mount existing CUT G beacon when browse meta already issued a token. */
+              if (item.kind === "paid_ad" && item.row.exposureToken) {
+                return (
+                  <DeliveryAdSponsoredBeacon
+                    key={item.key}
+                    campaignId={item.row.campaignId}
+                    exposureToken={item.row.exposureToken}
+                  >
+                    {card}
+                  </DeliveryAdSponsoredBeacon>
+                );
+              }
+              return <div key={item.key}>{card}</div>;
             })}
           </ul>
         : showEmptyBlock ?
