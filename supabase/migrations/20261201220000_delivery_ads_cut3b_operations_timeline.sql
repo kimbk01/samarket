@@ -1,5 +1,6 @@
 -- PRODUCT CUT 3-B — Operations system lifecycle timeline
--- delivery_ad_operations_messages + Admin RPC return audit_id (return-shape only).
+-- delivery_ad_operations_messages + Admin RPC audit_id return.
+-- PRESERVES Business Cash MODEL B funding gate from 197000 (funding_required).
 -- No notification / human messaging / Action Queue / Case FK redesign.
 
 BEGIN;
@@ -65,7 +66,8 @@ CREATE POLICY delivery_ad_ops_messages_admin_select
 
 -- No authenticated INSERT/UPDATE/DELETE policies → client system/human write DENY
 
--- ── Admin RPC: return existing audit row id (lifecycle semantics UNCHANGED) ─
+-- ── Admin RPC: funding gate (197000) PRESERVED + audit_id return (CUT3-B) ─
+-- FIRST DIVERGENCE FIX: do NOT overwrite MODEL B funding_required gate.
 CREATE OR REPLACE FUNCTION public.admin_delivery_ad_transition(
   p_admin_user_id uuid,
   p_product_kind text,
@@ -92,6 +94,7 @@ DECLARE
   v_go_live text;
   v_audit_action text;
   v_audit_id uuid;
+  v_source text;
 BEGIN
   IF p_admin_user_id IS NULL OR p_campaign_id IS NULL THEN
     RETURN jsonb_build_object('ok', false, 'error', 'forbidden');
@@ -121,6 +124,7 @@ BEGIN
   END IF;
 
   v_from := v_row.lifecycle_status;
+  v_source := coalesce(v_row.campaign_source, 'OWNER_PAID');
 
   IF p_expected_lifecycle IS NOT NULL AND v_from IS DISTINCT FROM p_expected_lifecycle THEN
     RETURN jsonb_build_object('ok', false, 'error', 'stale_lifecycle', 'current', v_from);
@@ -186,6 +190,13 @@ BEGIN
       v_go_live := 'ACTIVE';
     END IF;
     v_to := v_go_live;
+  END IF;
+
+  -- MODEL B: OWNER_PAID cannot enter ACTIVE without FUNDED Business Cash
+  IF v_to = 'ACTIVE' AND NOT public.delivery_ad_campaign_funding_allows_active(
+    p_product_kind, p_campaign_id, v_source
+  ) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'funding_required');
   END IF;
 
   v_is_active := (v_to IN ('ACTIVE','SCHEDULED'));

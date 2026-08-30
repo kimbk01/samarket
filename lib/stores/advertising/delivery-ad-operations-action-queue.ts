@@ -29,6 +29,10 @@ export type DeliveryAdAdminActionQueueItem = {
   ownerUserId: string;
   campaignTitle: string | null;
   campaignLifecycle: string | null;
+  /** Banner image_url / creative path for 제작 필요 presentation (null for Store Promotion). */
+  creativeAssetPath: string | null;
+  /** Soft resubmit signal: prior Admin review notes present. */
+  hadChangesRequested: boolean;
   updatedAt: string;
   destination: string;
 };
@@ -113,7 +117,7 @@ export async function listDeliveryAdAdminActionQueue(
         : BANNER_AD_CAMPAIGN_TABLE;
     const { data: camp } = await sb
       .from(table)
-      .select("id, title, lifecycle_status")
+      .select("id, title, lifecycle_status, image_url, review_notes")
       .eq("id", campaignId)
       .maybeSingle();
 
@@ -123,6 +127,15 @@ export async function listDeliveryAdAdminActionQueue(
       .eq("case_id", caseId)
       .maybeSingle();
 
+    const campRow = camp as {
+      title?: string;
+      lifecycle_status?: string;
+      image_url?: string | null;
+      review_notes?: string | null;
+    } | null;
+    const reviewNotes =
+      campRow?.review_notes == null ? "" : String(campRow.review_notes).trim();
+
     items.push({
       caseId,
       threadId: thread?.id == null ? null : String(thread.id),
@@ -131,13 +144,16 @@ export async function listDeliveryAdAdminActionQueue(
       caseStatus: "WAITING_ADMIN",
       ownerUserId: String(row.owner_user_id ?? ""),
       campaignTitle:
-        camp && typeof (camp as { title?: string }).title === "string"
-          ? String((camp as { title: string }).title)
-          : null,
+        campRow && typeof campRow.title === "string" ? String(campRow.title) : null,
       campaignLifecycle:
-        camp && typeof (camp as { lifecycle_status?: string }).lifecycle_status === "string"
-          ? String((camp as { lifecycle_status: string }).lifecycle_status)
+        campRow && typeof campRow.lifecycle_status === "string"
+          ? String(campRow.lifecycle_status)
           : null,
+      creativeAssetPath:
+        productKind === "banner" && campRow?.image_url != null
+          ? String(campRow.image_url)
+          : null,
+      hadChangesRequested: reviewNotes.length > 0,
       updatedAt: String(row.updated_at ?? ""),
       destination: DELIVERY_AD_ADMIN_ROUTES.detail(campaignId),
     });

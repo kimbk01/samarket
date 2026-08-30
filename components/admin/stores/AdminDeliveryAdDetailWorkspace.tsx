@@ -65,12 +65,14 @@ type Props = {
   campaignId: string;
   productHint: AdminDeliveryAdProduct | null;
   focusOperations?: boolean;
+  focusCreative?: boolean;
 };
 
 export function AdminDeliveryAdDetailWorkspace({
   campaignId,
   productHint,
   focusOperations = false,
+  focusCreative = false,
 }: Props) {
   const { t, safeT } = useI18n();
   const router = useRouter();
@@ -241,9 +243,13 @@ export function AdminDeliveryAdDetailWorkspace({
   const requiredDecision = useMemo(() => {
     if (!campaign) return null;
     return getAdminDeliveryAdRequiredDecisionPresentation(
-      campaign.lifecycleStatus as DeliveryAdLifecycleStatus
+      campaign.lifecycleStatus as DeliveryAdLifecycleStatus,
+      {
+        productKind: campaign.productKind,
+        creativeAssetPath: creative?.assetPath || campaign.imageUrl,
+      }
     );
-  }, [campaign]);
+  }, [campaign, creative]);
 
   const secondaryActions = useMemo(() => {
     if (!requiredDecision) return allowedActions;
@@ -500,6 +506,12 @@ export function AdminDeliveryAdDetailWorkspace({
     });
   }, [campaign, creative]);
 
+  useEffect(() => {
+    if (!focusCreative || loading || !campaign) return;
+    const el = document.getElementById("admin-delivery-ad-creative");
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [focusCreative, loading, campaign]);
+
   return (
     <AdminDeliveryCmsChrome help="home">
       <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="1">
@@ -599,10 +611,29 @@ export function AdminDeliveryAdDetailWorkspace({
               className={`rounded-ui-rect border p-4 ${decisionToneClass(requiredDecision.tone)}`}
               data-admin-delivery-ads-detail-section="required-decision"
               data-admin-decision-required={requiredDecision.decisionRequired ? "1" : "0"}
+              data-admin-needs-creative={requiredDecision.needsCreativeProduction ? "1" : "0"}
               data-lifecycle={campaign.lifecycleStatus}
             >
               <p className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
-                {t("admin_delivery_ads_rd_section")}
+                {safeT("admin_delivery_ads_rd_current_status", {
+                  fallbackKo: "현재 상태",
+                  fallbackEn: "Current status",
+                })}
+              </p>
+              <p className="mt-1 text-[14px] font-semibold text-sam-fg">
+                {safeT(
+                  `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
+                  {
+                    fallbackKo: campaign.lifecycleStatus,
+                    fallbackEn: campaign.lifecycleStatus,
+                  }
+                )}
+              </p>
+              <p className="mt-3 text-[12px] font-semibold uppercase tracking-wide opacity-80">
+                {safeT("admin_delivery_ads_rd_section", {
+                  fallbackKo: "지금 해야 할 일",
+                  fallbackEn: "What to do now",
+                })}
               </p>
               <p className="mt-1 text-[16px] font-bold">{t(requiredDecision.titleKey)}</p>
               <p className="mt-2 text-[13px] leading-snug">{t(requiredDecision.bodyKey)}</p>
@@ -614,6 +645,55 @@ export function AdminDeliveryAdDetailWorkspace({
                   })}
                   : {campaign.reviewNotes}
                 </p>
+              ) : null}
+              {requiredDecision.needsCreativeProduction ? (
+                <a
+                  href="#admin-delivery-ad-creative"
+                  className="mt-3 inline-flex rounded-ui-rect bg-sam-brand px-3 py-2 text-[12px] font-semibold text-white"
+                  data-admin-delivery-ads-action="produce_banner"
+                >
+                  {safeT("admin_delivery_ads_aq_cta_produce_banner", {
+                    fallbackKo: "배너 제작",
+                    fallbackEn: "Produce banner",
+                  })}
+                </a>
+              ) : null}
+              {requiredDecision.decisionRequired &&
+              requiredDecision.primaryReviewActions.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2" data-admin-decision-primary-ctas="1">
+                  {requiredDecision.primaryReviewActions.map((action) => (
+                    <button
+                      key={`rd-${action}`}
+                      type="button"
+                      disabled={
+                        busy ||
+                        (action === "approve" &&
+                          campaign.productKind === "banner" &&
+                          bannerPublishReady?.ok === false)
+                      }
+                      data-admin-delivery-ads-action={action}
+                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
+                        action === "reject"
+                          ? "bg-sam-danger text-white"
+                          : action === "approve"
+                            ? "bg-sam-brand text-white"
+                            : "border border-sam-border bg-sam-surface text-sam-fg"
+                      }`}
+                      onClick={() => void runAction(action)}
+                    >
+                      {safeT(`admin_delivery_ads_action_${action}` as MessageKey, {
+                        fallbackKo: action,
+                        fallbackEn: action,
+                      })}
+                      {confirmAction === action
+                        ? ` · ${safeT("admin_delivery_ads_confirm_again", {
+                            fallbackKo: "다시 눌러 확인",
+                            fallbackEn: "Tap again to confirm",
+                          })}`
+                        : ""}
+                    </button>
+                  ))}
+                </div>
               ) : null}
               <label className="mt-3 flex flex-col gap-1 text-[12px]">
                 {safeT("admin_delivery_ads_reason", {
@@ -671,7 +751,10 @@ export function AdminDeliveryAdDetailWorkspace({
             </div>
 
             {campaign.productKind === "banner" ? (
-              <div data-admin-delivery-ads-detail-section="creative">
+              <div
+                id="admin-delivery-ad-creative"
+                data-admin-delivery-ads-detail-section="creative"
+              >
                 <AdminCard titleKey="admin_delivery_ads_section_creative">
                   <p className="text-[13px] font-medium text-sam-fg">
                     {safeT("admin_delivery_ads_creative_status_label", {

@@ -72,14 +72,15 @@ describe("R1 Owner Commercial Application Recovery", () => {
     expect(ownerAdsDetailPanelsForLifecycle("ENDED").has("performance")).toBe(true);
   });
 
-  it("R1-T10 CUT3 unavailable → operations panel hidden", () => {
+  it("R1-T10 CUT3 unavailable → R1 ops flag remains false (R2 owns mount)", () => {
     expect(OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED).toBe(false);
-    expect(detail()).not.toContain("<DeliveryAdOperationsPanel");
+    expect(detail()).toContain("OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED");
   });
 
-  it("R1-T11 CUT3 unavailable → composer absent", () => {
-    expect(detail()).not.toContain("DeliveryAdOperationsComposer");
-    expect(detail()).not.toContain("delivery_ad_ops_ui_composer");
+  it("R1-T11 R1 flag does not enable composer by itself", () => {
+    expect(OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED).toBe(false);
+    // R2 may mount panel; R1 gate must stay hard-false.
+    expect(detail()).toContain("OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED");
   });
 
   it("R1-T12 hub global giant performance absent", () => {

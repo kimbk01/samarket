@@ -7,6 +7,10 @@ import { DeliveryAdOperationsTimeline } from "@/components/stores/advertising/De
 import type { DeliveryAdOperationsCaseStatus } from "@/lib/stores/advertising/delivery-ad-operations-case";
 import type { DeliveryAdOperationsTimelineMessage } from "@/lib/stores/advertising/delivery-ad-operations-message";
 import type { DeliveryAdProductKind } from "@/lib/stores/advertising/delivery-ad-domain";
+import {
+  classifyOwnerAdsOpsBackendCapability,
+  type OwnerAdsOpsBackendCapability,
+} from "@/lib/stores/advertising/owner-delivery-ad-r2-operations";
 
 type ActorRole = "owner" | "admin";
 
@@ -17,6 +21,7 @@ export function DeliveryAdOperationsPanel({
   storeId,
   focusOperations,
   hideHeading = false,
+  onCapabilityChange,
 }: {
   actorRole: ActorRole;
   productKind: DeliveryAdProductKind;
@@ -26,6 +31,8 @@ export function DeliveryAdOperationsPanel({
   focusOperations?: boolean;
   /** When parent section already provides the title */
   hideHeading?: boolean;
+  /** R2 — parent learns backend availability (e.g. contact-admin CTA). */
+  onCapabilityChange?: (capability: OwnerAdsOpsBackendCapability) => void;
 }) {
   const { t, safeT } = useI18n();
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -33,11 +40,13 @@ export function DeliveryAdOperationsPanel({
   const [caseStatus, setCaseStatus] = useState<DeliveryAdOperationsCaseStatus | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [capability, setCapability] = useState<OwnerAdsOpsBackendCapability>("unknown");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const markedRef = useRef(false);
+  const capabilityCbRef = useRef(onCapabilityChange);
+  capabilityCbRef.current = onCapabilityChange;
 
   const messagesUrl =
     actorRole === "owner"
@@ -49,13 +58,18 @@ export function DeliveryAdOperationsPanel({
       ? `/api/me/stores/${encodeURIComponent(storeId ?? "")}/delivery-ads/${encodeURIComponent(campaignId)}/messages/read`
       : `/api/admin/delivery-ads/${encodeURIComponent(campaignId)}/messages/read`;
 
+  const applyCapability = useCallback((next: OwnerAdsOpsBackendCapability) => {
+    setCapability(next);
+    capabilityCbRef.current?.(next);
+  }, []);
+
   const load = useCallback(async () => {
     if (actorRole === "owner" && !storeId) {
       setLoading(false);
+      applyCapability("unavailable");
       return;
     }
     setLoading(true);
-    setLoadError(false);
     try {
       const res = await fetch(messagesUrl, { credentials: "include" });
       const json = (await res.json()) as {
@@ -63,10 +77,19 @@ export function DeliveryAdOperationsPanel({
         messages?: DeliveryAdOperationsTimelineMessage[];
         caseStatus?: DeliveryAdOperationsCaseStatus | null;
         unreadCount?: number;
+        error?: string;
       };
-      if (!res.ok || !json.ok) {
-        setLoadError(true);
+      const next = classifyOwnerAdsOpsBackendCapability({
+        httpOk: res.ok,
+        jsonOk: Boolean(json.ok),
+        error: json.error,
+        status: res.status,
+      });
+      applyCapability(next);
+      if (next !== "available") {
         setMessages([]);
+        setCaseStatus(null);
+        setUnreadCount(0);
         return;
       }
       const list = Array.isArray(json.messages) ? json.messages : [];
@@ -89,12 +112,12 @@ export function DeliveryAdOperationsPanel({
         }).then(() => setUnreadCount(0));
       }
     } catch {
-      setLoadError(true);
+      applyCapability("unavailable");
       setMessages([]);
     } finally {
       setLoading(false);
     }
-  }, [actorRole, messagesUrl, productKind, readUrl, storeId]);
+  }, [actorRole, applyCapability, messagesUrl, productKind, readUrl, storeId]);
 
   useEffect(() => {
     markedRef.current = false;
@@ -103,11 +126,13 @@ export function DeliveryAdOperationsPanel({
 
   useEffect(() => {
     if (!focusOperations || !sectionRef.current) return;
+    if (capability !== "available") return;
     sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [focusOperations, loading]);
+  }, [focusOperations, loading, capability]);
 
   const onSend = async () => {
     if (sending || !draft.trim()) return;
+    if (capability !== "available") return;
     if (actorRole === "owner" && !storeId) return;
     setSending(true);
     setSendError(null);
@@ -148,12 +173,16 @@ export function DeliveryAdOperationsPanel({
     }
   };
 
+  const opsUnavailable = !loading && capability === "unavailable";
+  const opsReady = !loading && capability === "available";
+
   return (
     <section
       ref={sectionRef}
       id="delivery-ad-operations"
       className="space-y-3"
       aria-labelledby="delivery-ad-ops-heading"
+      data-delivery-ad-ops-capability={capability}
     >
       <div className="flex items-center justify-between gap-2">
         {hideHeading ? (
@@ -171,7 +200,7 @@ export function DeliveryAdOperationsPanel({
             })}
           </h2>
         )}
-        {unreadCount > 0 ? (
+        {opsReady && unreadCount > 0 ? (
           <span
             className="rounded-ui-rect bg-sam-brand/15 px-2 py-0.5 text-[11px] font-semibold text-sam-fg"
             aria-label={t("delivery_ad_ops_ui_unread_aria", { count: unreadCount })}
@@ -181,62 +210,66 @@ export function DeliveryAdOperationsPanel({
         ) : null}
       </div>
 
-      <p className="text-[13px] text-sam-muted">
-        {safeT("delivery_ad_ops_ui_case_status_label", {
-          fallbackKo: "처리 상태",
-          fallbackEn: "Case status",
-        })}
-        {": "}
-        <span className="font-medium text-sam-fg">
-          {caseStatus === "OPEN"
-            ? safeT("delivery_ad_ops_ui_case_open", {
-                fallbackKo: "열림",
-                fallbackEn: "Open",
-              })
-            : caseStatus === "WAITING_OWNER"
-              ? safeT("delivery_ad_ops_ui_case_waiting_owner", {
-                  fallbackKo: "오너 응답 대기",
-                  fallbackEn: "Waiting on owner",
+      {opsReady ? (
+        <p className="text-[13px] text-sam-muted">
+          {safeT("delivery_ad_ops_ui_case_status_label", {
+            fallbackKo: "처리 상태",
+            fallbackEn: "Case status",
+          })}
+          {": "}
+          <span className="font-medium text-sam-fg">
+            {caseStatus === "OPEN"
+              ? safeT("delivery_ad_ops_ui_case_open", {
+                  fallbackKo: "열림",
+                  fallbackEn: "Open",
                 })
-              : caseStatus === "WAITING_ADMIN"
-                ? safeT("delivery_ad_ops_ui_case_waiting_admin", {
-                    fallbackKo: "관리자 처리 대기",
-                    fallbackEn: "Waiting on admin",
+              : caseStatus === "WAITING_OWNER"
+                ? safeT("delivery_ad_ops_ui_case_waiting_owner", {
+                    fallbackKo: "오너 응답 대기",
+                    fallbackEn: "Waiting on owner",
                   })
-                : caseStatus === "RESOLVED"
-                  ? safeT("delivery_ad_ops_ui_case_resolved", {
-                      fallbackKo: "종료",
-                      fallbackEn: "Resolved",
+                : caseStatus === "WAITING_ADMIN"
+                  ? safeT("delivery_ad_ops_ui_case_waiting_admin", {
+                      fallbackKo: "관리자 처리 대기",
+                      fallbackEn: "Waiting on admin",
                     })
-                  : safeT("delivery_ad_ops_ui_case_none", {
-                      fallbackKo: "아직 없음",
-                      fallbackEn: "None yet",
-                    })}
-        </span>
-      </p>
+                  : caseStatus === "RESOLVED"
+                    ? safeT("delivery_ad_ops_ui_case_resolved", {
+                        fallbackKo: "종료",
+                        fallbackEn: "Resolved",
+                      })
+                    : safeT("delivery_ad_ops_ui_case_none", {
+                        fallbackKo: "아직 없음",
+                        fallbackEn: "None yet",
+                      })}
+          </span>
+        </p>
+      ) : null}
 
       {loading ? (
         <p className="text-[13px] text-sam-muted" role="status">
           {t("delivery_ad_ops_ui_loading")}
         </p>
-      ) : loadError ? (
-        <p className="text-[13px] text-red-600" role="alert">
-          {safeT("delivery_ad_ops_ui_load_error", {
-            fallbackKo: "운영 기록을 불러오지 못했습니다.",
-            fallbackEn: "Could not load operations history.",
+      ) : opsUnavailable ? (
+        <p className="text-[13px] text-sam-muted" role="status" data-delivery-ad-ops-unavailable="1">
+          {safeT("delivery_ad_ops_ui_unavailable", {
+            fallbackKo: "광고 운영 연결을 사용할 수 없습니다.",
+            fallbackEn: "Ad operations connection is unavailable.",
           })}
         </p>
       ) : (
         <DeliveryAdOperationsTimeline messages={messages} viewerRole={actorRole} />
       )}
 
-      <DeliveryAdOperationsComposer
-        value={draft}
-        onChange={setDraft}
-        onSend={() => void onSend()}
-        sending={sending}
-        error={sendError}
-      />
+      {opsReady ? (
+        <DeliveryAdOperationsComposer
+          value={draft}
+          onChange={setDraft}
+          onSend={() => void onSend()}
+          sending={sending}
+          error={sendError}
+        />
+      ) : null}
     </section>
   );
 }

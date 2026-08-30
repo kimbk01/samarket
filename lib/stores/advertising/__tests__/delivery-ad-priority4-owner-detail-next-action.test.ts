@@ -55,7 +55,8 @@ describe("Priority 4 Owner detail next-action", () => {
       expect(idx).toBeGreaterThan(prev);
       prev = idx;
     }
-    expect(src).not.toContain('data-owner-ads-detail-section="operations"');
+    expect(src).toContain('data-owner-ads-detail-section="performance"');
+    // R2 may mount operations after history; order above remains primary hierarchy.
   });
 
   it("T2/T3/T4 — CHANGES_REQUESTED requires correction + admin reason + existing edit path", () => {
@@ -155,10 +156,10 @@ describe("Priority 4 Owner detail next-action", () => {
     expect(previewSrc()).not.toContain("DeliveryAdSponsoredBeacon");
   });
 
-  it("T15/T16 — R1 CUT3 fail-closed: operations panel not mounted on Owner detail", () => {
+  it("T15/T16 — R2 mounts DeliveryAdOperationsPanel; messaging ≠ lifecycle write", () => {
     const src = detailSrc();
-    expect(src).not.toContain("<DeliveryAdOperationsPanel");
-    expect(src).toContain("OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED");
+    expect(src).toContain("<DeliveryAdOperationsPanel");
+    expect(src).toContain("OWNER_ADS_R2_OPERATIONS_PANEL_ENABLED");
     expect(opsPanelSrc()).toContain("DeliveryAdOperationsComposer");
     expect(opsPanelSrc()).not.toMatch(/lifecycleStatus|ownerDeliveryAdNextActions|transitionOwner/);
   });

@@ -44,6 +44,13 @@ import {
   ownerAdsFundingErrorI18nKey,
   ownerAdsShouldShowFundingPanel,
 } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
+import {
+  OWNER_ADS_R2_OPERATIONS_PANEL_ENABLED,
+  ownerAdsShouldMountOperationsPanel,
+  ownerAdsShouldShowContactAdminCta,
+  type OwnerAdsOpsBackendCapability,
+} from "@/lib/stores/advertising/owner-delivery-ad-r2-operations";
+import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import { Sam } from "@/lib/ui/css-vars";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
@@ -119,6 +126,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [fundedAt, setFundedAt] = useState<string | null>(null);
   const [fundBusy, setFundBusy] = useState(false);
   const [fundError, setFundError] = useState<string | null>(null);
+  const [opsCapability, setOpsCapability] =
+    useState<OwnerAdsOpsBackendCapability>("unknown");
+  const [focusOperations, setFocusOperations] = useState(false);
 
   const load = useCallback(async () => {
     if (!storeId) {
@@ -409,6 +419,12 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   }
 
   void OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED;
+  void OWNER_ADS_R2_OPERATIONS_PANEL_ENABLED;
+  const showOpsPanel = ownerAdsShouldMountOperationsPanel(campaign.lifecycleStatus);
+  const showContactAdmin = ownerAdsShouldShowContactAdminCta({
+    lifecycleStatus: campaign.lifecycleStatus,
+    opsCapability,
+  });
 
   return (
     <div
@@ -474,6 +490,23 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               {t(requiredAction.guidanceHref.labelKey)}
             </Link>
           ) : null}
+          {showContactAdmin && !campaign.reviewNotes ? (
+            <button
+              type="button"
+              className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+              data-owner-ads-contact-admin="1"
+              onClick={() => {
+                setFocusOperations(true);
+                const el = document.getElementById("delivery-ad-operations");
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {safeT("owner_ads_contact_admin_cta", {
+                fallbackKo: "관리자에게 문의",
+                fallbackEn: "Contact admin",
+              })}
+            </button>
+          ) : null}
         </section>
       ) : null}
 
@@ -483,6 +516,23 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             <p className="whitespace-pre-wrap break-words text-[13px] text-sam-fg">
               {campaign.reviewNotes}
             </p>
+            {showContactAdmin ? (
+              <button
+                type="button"
+                className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+                data-owner-ads-contact-admin="1"
+                onClick={() => {
+                  setFocusOperations(true);
+                  const el = document.getElementById("delivery-ad-operations");
+                  el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                {safeT("owner_ads_contact_admin_cta", {
+                  fallbackKo: "관리자에게 문의",
+                  fallbackEn: "Contact admin",
+                })}
+              </button>
+            ) : null}
           </div>
         </OwnerStoreAdminDashSection>
       ) : null}
@@ -652,6 +702,22 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 </li>
               ))}
             </ul>
+          </OwnerStoreAdminDashSection>
+        </div>
+      ) : null}
+
+      {showOpsPanel && storeId ? (
+        <div data-owner-ads-detail-section="operations">
+          <OwnerStoreAdminDashSection title={t("delivery_ad_ops_ui_section_title")}>
+            <DeliveryAdOperationsPanel
+              actorRole="owner"
+              productKind={productKind}
+              campaignId={campaign.id}
+              storeId={storeId}
+              hideHeading
+              focusOperations={focusOperations}
+              onCapabilityChange={setOpsCapability}
+            />
           </OwnerStoreAdminDashSection>
         </div>
       ) : null}

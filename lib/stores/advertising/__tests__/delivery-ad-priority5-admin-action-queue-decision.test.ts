@@ -62,7 +62,7 @@ describe("Priority 5 Admin Action Queue + decision-first detail", () => {
     expect(src).toContain("item.campaignLifecycle");
     expect(src).toContain("item.caseStatus");
     expect(src).toContain("item.updatedAt");
-    expect(src).toContain("adminDeliveryAdOpsCaseStatusLabelKey");
+    expect(src).toContain("mapAdminDeliveryAdActionQueuePresentation");
     expect(src).toContain("admin_delivery_ads_product_banner");
     expect(src).toContain("admin_delivery_ads_product_store_sponsored");
     expect(src).not.toMatch(/>\s*\{item\.caseStatus\}\s*</);
@@ -74,7 +74,7 @@ describe("Priority 5 Admin Action Queue + decision-first detail", () => {
   it("T9 — queue click uses existing Admin campaign detail", () => {
     const src = queuePanelSrc();
     expect(src).toContain("item.destination");
-    expect(src).toContain("focus=operations");
+    expect(src).toMatch(/focus=\$\{focus\}|focus=operations|focus=creative/);
     expect(queueAuthSrc()).toContain("DELIVERY_AD_ADMIN_ROUTES.detail");
     expect(DELIVERY_AD_ADMIN_ROUTES.detail("camp-x")).toContain("camp-x");
   });

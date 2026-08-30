@@ -17,11 +17,13 @@ export default function AdminDeliveryAdDetailPage({
   const productHint = isAdminDeliveryAdProduct(raw) ? raw : null;
   const focusRaw = Array.isArray(sp.focus) ? sp.focus[0] : sp.focus;
   const focusOperations = focusRaw === "operations";
+  const focusCreative = focusRaw === "creative";
   return (
     <AdminDeliveryAdDetailWorkspace
       campaignId={campaignId}
       productHint={productHint}
       focusOperations={focusOperations}
+      focusCreative={focusCreative}
     />
   );
 }

@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import {
   adminDeliveryAdLifecycleLabelKey,
-  adminDeliveryAdOpsCaseStatusLabelKey,
 } from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
- * CUT 3-E — consumes 3-D listDeliveryAdAdminActionQueue via HTTP. No new queue authority.
- * Priority 5 — human-readable row context from existing payload only.
+ * CUT 3-E / R2 — consumes listDeliveryAdAdminActionQueue via HTTP.
+ * Presentation buckets + CTAs from lifecycle + Banner creative readiness.
  */
 export function AdminDeliveryAdActionQueuePanel() {
   const { t, safeT } = useI18n();
@@ -90,6 +90,12 @@ export function AdminDeliveryAdActionQueuePanel() {
         ) : (
           <ul className="space-y-2" data-admin-delivery-ads-action-queue-list="1">
             {items.map((item) => {
+              const presentation = mapAdminDeliveryAdActionQueuePresentation({
+                productKind: item.productKind,
+                lifecycleStatus: item.campaignLifecycle,
+                creativeAssetPath: item.creativeAssetPath,
+                hadChangesRequested: item.hadChangesRequested,
+              });
               const productLabel =
                 item.productKind === "banner"
                   ? t("admin_delivery_ads_product_banner")
@@ -97,7 +103,8 @@ export function AdminDeliveryAdActionQueuePanel() {
               const lifecycleKey = item.campaignLifecycle
                 ? (adminDeliveryAdLifecycleLabelKey(item.campaignLifecycle) as MessageKey)
                 : null;
-              const caseKey = adminDeliveryAdOpsCaseStatusLabelKey(item.caseStatus);
+              const focus =
+                presentation.cta === "produce_banner" ? "creative" : "operations";
               return (
                 <li
                   key={item.caseId}
@@ -107,6 +114,8 @@ export function AdminDeliveryAdActionQueuePanel() {
                   data-product-kind={item.productKind}
                   data-lifecycle={item.campaignLifecycle ?? ""}
                   data-case-status={item.caseStatus}
+                  data-queue-bucket={presentation.bucket}
+                  data-queue-cta={presentation.cta}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
@@ -126,9 +135,9 @@ export function AdminDeliveryAdActionQueuePanel() {
                         </span>
                         {" · "}
                         <span className="font-medium text-sam-brand">
-                          {safeT(caseKey, {
-                            fallbackKo: "검토 필요",
-                            fallbackEn: "Needs review",
+                          {safeT(presentation.bucketLabelKey, {
+                            fallbackKo: "처리 필요",
+                            fallbackEn: "Needs action",
                           })}
                         </span>
                       </p>
@@ -140,11 +149,12 @@ export function AdminDeliveryAdActionQueuePanel() {
                       </p>
                     </div>
                     <Link
-                      href={`${item.destination}?product=${encodeURIComponent(item.productKind)}&focus=operations`}
+                      href={`${item.destination}?product=${encodeURIComponent(item.productKind)}&focus=${focus}`}
                       className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
                       data-admin-delivery-ads-queue-open="1"
+                      data-admin-delivery-ads-queue-cta={presentation.cta}
                     >
-                      {safeT("admin_delivery_ads_action_queue_open", {
+                      {safeT(presentation.ctaLabelKey, {
                         fallbackKo: "상세 보기",
                         fallbackEn: "Open detail",
                       })}
