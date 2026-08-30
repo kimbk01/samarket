@@ -19,7 +19,7 @@ import {
   ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
 import { BodyPortal } from "@/components/layout/BodyPortal";
-import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { DeliveryAdPlacementPreview } from "@/components/stores/advertising/DeliveryAdPlacementPreview";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
@@ -27,7 +27,6 @@ import {
   ownerBannerAspectGuideCopy,
   type OwnerBannerInventoryKey,
 } from "@/lib/stores/advertising/owner-banner-contract";
-import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { OwnerBannerCampaignRow } from "@/lib/stores/advertising/owner-banner-writer";
 import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
 import { isDeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
@@ -126,7 +125,11 @@ export function OwnerBannerCreateView() {
   const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
 
   const aspectGuide = useMemo(() => ownerBannerAspectGuideCopy(inventoryKey), [inventoryKey]);
-  const inventoryView = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
+
+  const selectedStore = useMemo(
+    () => stores.find((s) => s.id === storeId) ?? null,
+    [stores, storeId]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -466,7 +469,7 @@ export function OwnerBannerCreateView() {
       ) : null}
 
       {(step === "preview" || step === "review") && assetUrl ? (
-        <OwnerStoreAdminDashSection title={t("owner_ads_banner_preview_title")}>
+        <OwnerStoreAdminDashSection title={t("delivery_ads_preview_section_title")}>
           <div className="mb-2 flex gap-2">
             <button
               type="button"
@@ -488,12 +491,19 @@ export function OwnerBannerCreateView() {
             </button>
           </div>
           <div className={`mx-auto w-full ${previewWidthClass}`}>
-            <DeliveryAdBanner
-              inventory={inventoryView}
-              creative={{ assetUrl, headline: headline || null }}
-              destination={{ href: "#", ctaLabel }}
-              adLabel={t("store_insertion_sponsored")}
+            <DeliveryAdPlacementPreview
+              productKind="banner"
+              inventoryKey={inventoryKey}
               renderContext="owner_preview"
+              surfaceEnabled
+              bannerCreative={{
+                assetUrl,
+                headline: headline || null,
+                subcopy: null,
+                alt: headline || "banner",
+              }}
+              ctaLabel={ctaLabel}
+              ctaDestinationLabel={selectedStore?.storeName ?? null}
             />
           </div>
         </OwnerStoreAdminDashSection>

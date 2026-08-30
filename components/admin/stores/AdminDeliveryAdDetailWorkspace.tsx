@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
 import {
   adminActionAllowed,
   adminActionRequiresReason,
@@ -22,14 +21,9 @@ import {
   deliveryAdPlacementI18nKey,
   deliveryAdPolicyScreenHref,
 } from "@/lib/stores/advertising/delivery-ad-placement-language";
-import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import type { MessageKey } from "@/lib/i18n/messages";
-import {
-  DELIVERY_AD_INVENTORY_KEYS,
-  type DeliveryAdInventoryKey,
-} from "@/lib/stores/advertising/delivery-ad-inventory";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
   type OwnerBannerInventoryKey,
@@ -39,6 +33,7 @@ import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
+import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
@@ -82,6 +77,8 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  const [placementPreview, setPlacementPreview] =
+    useState<DeliveryAdPlacementPreviewPayload | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +95,7 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
         campaign?: AdminDeliveryAdListItem;
         audits?: AdminDeliveryAdAuditRow[];
         creative?: typeof creative;
+        placementPreview?: DeliveryAdPlacementPreviewPayload | null;
       };
       if (!res.ok || !json.ok || !json.campaign) {
         setError(json.error || "load_failed");
@@ -107,6 +105,7 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
       setCampaign(json.campaign);
       setAudits(json.audits ?? []);
       setCreative(json.creative ?? null);
+      setPlacementPreview(json.placementPreview ?? null);
       setStartAt(json.campaign.startAt.slice(0, 16));
       setEndAt(json.campaign.endAt.slice(0, 16));
       const inv0 = json.campaign.inventoryKeys[0];
@@ -284,13 +283,6 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
       setBusy(false);
     }
   }
-
-  const inventoryKey = campaign?.inventoryKeys[0] ?? "STORES_HOME_HERO";
-  const bannerInventory = inventoryViewFromKey(
-    (DELIVERY_AD_INVENTORY_KEYS as readonly string[]).includes(inventoryKey)
-      ? (inventoryKey as DeliveryAdInventoryKey)
-      : "STORES_HOME_HERO"
-  );
 
   return (
     <AdminDeliveryCmsChrome help="home">
@@ -511,55 +503,23 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
             </AdminCard>
 
             <AdminCard titleKey="admin_delivery_ads_section_creative">
-              {campaign.productKind === "banner" && (creative?.assetPath || campaign.imageUrl) ? (
-                <DeliveryAdBanner
-                  inventory={bannerInventory}
-                  creative={{
-                    assetUrl: creative?.assetPath || campaign.imageUrl || "",
-                    headline: creative?.headline ?? campaign.title,
-                    subcopy: creative?.subcopy ?? campaign.headline,
-                    alt: campaign.title || "banner",
-                  }}
-                  destination={{
-                    href: "#",
-                    ctaLabel: creative?.ctaLabel ?? undefined,
-                  }}
-                  adLabel={safeT("admin_delivery_ads_ad_label", {
-                    fallbackKo: "광고",
-                    fallbackEn: "Ad",
-                  })}
-                  renderContext="admin_preview"
-                  campaignId={campaign.id}
-                />
-              ) : (
-                <div className="flex items-center gap-3 rounded-ui-rect border border-sam-border p-3">
-                  <div className="relative h-16 w-16 overflow-hidden rounded-ui-rect bg-sam-app">
-                    {campaign.storeThumbnailUrl ? (
-                      <SamarketThumbnail
-                        src={campaign.storeThumbnailUrl}
-                        alt=""
-                        fill
-                        fetchDisplayPx={128}
-                        roundedClassName="rounded-ui-rect"
-                      />
-                    ) : null}
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-medium text-sam-fg">
-                      {campaign.storeName || "Store"}
-                    </p>
-                    <span className="mt-1 inline-block rounded-sm bg-sam-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-sam-fg">
-                      {safeT("admin_delivery_ads_sponsored_badge", {
-                        fallbackKo: "광고",
-                        fallbackEn: "Ad",
-                      })}
-                    </span>
-                    <p className="mt-1 text-[12px] text-sam-muted">
-                      {campaign.headline || campaign.title || "—"}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <DeliveryAdCampaignPlacementPreviews
+                productKind={campaign.productKind}
+                inventoryKeys={campaign.inventoryKeys}
+                renderContext="admin_preview"
+                placementPreview={placementPreview}
+                bannerCreative={
+                  campaign.productKind === "banner"
+                    ? {
+                        assetUrl: creative?.assetPath || campaign.imageUrl || "",
+                        headline: creative?.headline ?? campaign.title,
+                        subcopy: creative?.subcopy ?? campaign.headline,
+                        alt: campaign.title || "banner",
+                      }
+                    : null
+                }
+                ctaLabel={creative?.ctaLabel ?? null}
+              />
               {creative ? (
                 <p className="mt-2 text-[11px] text-sam-muted">
                   creative v{creative.version} · {creative.id.slice(0, 8)}

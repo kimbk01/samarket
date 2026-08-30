@@ -8,6 +8,7 @@ import {
   adminUpdateDeliveryAdSchedule,
 } from "@/lib/stores/advertising/admin-delivery-ad-writer";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadDeliveryAdPlacementPreviewBundle } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,11 +30,21 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const status = detail.error === "not_found" ? 404 : 500;
     return NextResponse.json({ ok: false, error: detail.error, detail: detail.detail }, { status });
   }
+  let placementPreview = null;
+  try {
+    const storeId = String(detail.item.storeId ?? "").trim();
+    if (storeId) {
+      placementPreview = await loadDeliveryAdPlacementPreviewBundle(sb, { storeId });
+    }
+  } catch {
+    placementPreview = null;
+  }
   return NextResponse.json({
     ok: true,
     campaign: detail.item,
     audits: detail.audits,
     creative: detail.creative,
+    placementPreview,
     pricing: { model: "NOT_CONFIGURED", billing: "NONE" },
   });
 }

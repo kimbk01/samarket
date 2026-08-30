@@ -23,6 +23,7 @@ import { businessAdminNavMessages } from "./catalog/business-admin-nav";
 import { storeCouponSsotMessages } from "./catalog/store-coupon-ssot";
 import { ownerDeliveryAdsMessages } from "./catalog/owner-delivery-ads";
 import { deliveryAdsPerformanceMessages } from "./catalog/delivery-ads-performance";
+import { deliveryAdsPlacementPreviewMessages } from "./catalog/delivery-ads-placement-preview";
 import { commerceHubMessages } from "./catalog/commerce-hub";
 import { giftCertificateU1Messages } from "./catalog/gift-certificate-u1";
 import { giftCertificateU2Messages } from "./catalog/gift-certificate-u2";
@@ -93,6 +94,7 @@ const KO_MESSAGES = {
   ...storeCouponSsotMessages.ko,
   ...ownerDeliveryAdsMessages.ko,
   ...deliveryAdsPerformanceMessages.ko,
+  ...deliveryAdsPlacementPreviewMessages.ko,
   ...commerceHubMessages.ko,
   ...giftCertificateU1Messages.ko,
   ...giftCertificateU2Messages.ko,
@@ -163,6 +165,7 @@ const EN_MESSAGES = {
   ...storeCouponSsotMessages.en,
   ...ownerDeliveryAdsMessages.en,
   ...deliveryAdsPerformanceMessages.en,
+  ...deliveryAdsPlacementPreviewMessages.en,
   ...commerceHubMessages.en,
   ...giftCertificateU1Messages.en,
   ...giftCertificateU2Messages.en,

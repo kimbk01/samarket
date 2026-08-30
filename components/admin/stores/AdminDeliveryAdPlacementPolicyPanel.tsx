@@ -8,6 +8,7 @@ import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-
 import type { HomePaidPlacementPolicySummary } from "@/lib/stores/advertising/delivery-ad-home-placement-policy";
 import { resolveHomePaidPlacementPolicySummary } from "@/lib/stores/advertising/delivery-ad-home-placement-policy";
 import type { StoresCompositionSectionContract } from "@/lib/stores/composition/stores-composition-contract";
+import { DeliveryAdPolicySlotPreview } from "@/components/stores/advertising/DeliveryAdPolicySlotPreview";
 
 function fmtTemplate(template: string, n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return template.replace("{n}", "—");
@@ -106,6 +107,15 @@ export function AdminDeliveryAdHomePolicyPanel({
       ) : (
         <p className="mt-2 text-[12px] text-sam-muted">{t("admin_delivery_ads_loading")}</p>
       )}
+      {summary ? (
+        <div className="mt-3">
+          <DeliveryAdPolicySlotPreview
+            intervalEveryN={summary.intervalEveryN}
+            maxInsertion={summary.max}
+            surfaceEnabled={summary.enabled}
+          />
+        </div>
+      ) : null}
       {counts ? (
         <ul className="mt-3 flex flex-wrap gap-3 text-[12px] text-sam-fg">
           <li>
@@ -217,6 +227,13 @@ export function AdminDeliveryAdBrowsePolicyPanel({
           </dd>
         </div>
       </dl>
+      <div className="mt-3">
+        <DeliveryAdPolicySlotPreview
+          intervalEveryN={intervalEveryN > 0 ? intervalEveryN : 1}
+          maxInsertion={maxInsertion}
+          surfaceEnabled={adEnabled}
+        />
+      </div>
       {counts ? (
         <ul className="mt-3 flex flex-wrap gap-3 text-[12px] text-sam-fg">
           <li>

@@ -11,6 +11,7 @@ import {
 } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { loadOwnerBannerCampaign } from "@/lib/stores/advertising/owner-banner-writer";
 import { DELIVERY_AD_OWNER_PRICING_PRODUCT } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import { loadDeliveryAdPlacementPreviewBundle } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,10 +66,17 @@ export async function GET(
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
     const history = await listOwnerCampaignAudits(sb, cid, userId);
+    let placementPreview = null;
+    try {
+      placementPreview = await loadDeliveryAdPlacementPreviewBundle(sb, { storeId: sid });
+    } catch {
+      placementPreview = null;
+    }
     return NextResponse.json({
       ok: true,
       campaign: banner.row,
       history,
+      placementPreview,
       meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT, productKind: "banner" },
     });
   }
@@ -77,10 +85,17 @@ export async function GET(
   }
 
   const history = await listOwnerCampaignAudits(sb, cid, userId);
+  let placementPreview = null;
+  try {
+    placementPreview = await loadDeliveryAdPlacementPreviewBundle(sb, { storeId: sid });
+  } catch {
+    placementPreview = null;
+  }
   return NextResponse.json({
     ok: true,
     campaign: loaded.row,
     history,
+    placementPreview,
     meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT, productKind: "store_sponsored" },
   });
 }

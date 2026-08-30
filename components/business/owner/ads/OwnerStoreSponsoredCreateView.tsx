@@ -27,6 +27,8 @@ import {
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
+import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
+import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 type EligibleStore = {
   id: string;
@@ -69,6 +71,8 @@ export function OwnerStoreSponsoredCreateView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
+  const [placementPreview, setPlacementPreview] =
+    useState<DeliveryAdPlacementPreviewPayload | null>(null);
   const [clientRequestId] = useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -138,6 +142,30 @@ export function OwnerStoreSponsoredCreateView() {
       cancelled = true;
     };
   }, [preloadCampaignId, preloadStoreId]);
+
+  useEffect(() => {
+    if (step !== "review" || !campaign?.id || !storeId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(campaign.id)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          placementPreview?: DeliveryAdPlacementPreviewPayload | null;
+        };
+        if (cancelled || !res.ok || !json.ok) return;
+        setPlacementPreview(json.placementPreview ?? null);
+      } catch {
+        if (!cancelled) setPlacementPreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [step, campaign?.id, storeId]);
 
   const selectedStore = useMemo(
     () => stores.find((s) => s.id === storeId) ?? null,
@@ -399,6 +427,17 @@ export function OwnerStoreSponsoredCreateView() {
             </div>
           </dl>
           <p className="mt-3 text-[12px] text-sam-muted">{t("owner_ads_review_admin_note")}</p>
+        </OwnerStoreAdminDashSection>
+      ) : null}
+
+      {step === "review" && inventories.length > 0 ? (
+        <OwnerStoreAdminDashSection title={t("delivery_ads_preview_section_title")}>
+          <DeliveryAdCampaignPlacementPreviews
+            productKind="store_sponsored"
+            inventoryKeys={inventories}
+            renderContext="owner_preview"
+            placementPreview={placementPreview}
+          />
         </OwnerStoreAdminDashSection>
       ) : null}
 

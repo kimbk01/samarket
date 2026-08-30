@@ -33,6 +33,8 @@ import type {
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
+import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
 
@@ -59,6 +61,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  const [placementPreview, setPlacementPreview] =
+    useState<DeliveryAdPlacementPreviewPayload | null>(null);
 
   const load = useCallback(async () => {
     if (!storeId) {
@@ -86,11 +90,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         campaign?: DetailCampaign;
         history?: HistoryItem[];
         meta?: { productKind?: DeliveryAdOwnerProductKind };
+        placementPreview?: DeliveryAdPlacementPreviewPayload | null;
         error?: string;
       };
       if (res.ok && json.ok && json.campaign) {
         setCampaign(json.campaign);
         setHistory(json.history ?? []);
+        setPlacementPreview(json.placementPreview ?? null);
         if (json.meta?.productKind === "banner") setProductKind("banner");
         else if (json.meta?.productKind === "store_sponsored") setProductKind("store_sponsored");
       }
@@ -106,6 +112,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       campaign?: DetailCampaign;
       history?: HistoryItem[];
       meta?: { productKind?: DeliveryAdOwnerProductKind };
+      placementPreview?: DeliveryAdPlacementPreviewPayload | null;
       error?: string;
     };
     if (!res.ok || !json.ok || !json.campaign) {
@@ -115,6 +122,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     }
     setCampaign(json.campaign);
     setHistory(json.history ?? []);
+    setPlacementPreview(json.placementPreview ?? null);
     if (json.meta?.productKind === "banner") setProductKind("banner");
     else if (json.meta?.productKind === "store_sponsored") setProductKind("store_sponsored");
     setLoaded(true);
@@ -276,6 +284,26 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
               {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~ {campaign.endAt.slice(0, 10)}
             </p>
             <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_pricing_not_configured")}</p>
+          </OwnerStoreAdminDashSection>
+
+          <OwnerStoreAdminDashSection title={t("delivery_ads_preview_detail_section_title")}>
+            <DeliveryAdCampaignPlacementPreviews
+              productKind={productKind}
+              inventoryKeys={campaign.inventoryKeys ?? []}
+              renderContext="owner_preview"
+              placementPreview={placementPreview}
+              bannerCreative={
+                productKind === "banner" && campaign.imageUrl
+                  ? {
+                      assetUrl: campaign.imageUrl,
+                      headline: campaign.headline ?? campaign.title ?? null,
+                      subcopy: null,
+                      alt: campaign.title || "banner",
+                    }
+                  : null
+              }
+              ctaLabel={productKind === "banner" ? t("owner_ads_banner_cta_store") : null}
+            />
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
