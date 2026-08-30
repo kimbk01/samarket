@@ -32,6 +32,7 @@ import { assertOwnerStoreEligibleForAds } from "@/lib/stores/advertising/owner-s
 import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
 import type { OwnerCampaignAction } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { ownerActionTargetLifecycle } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
 const INVENTORY_TABLE = "delivery_ad_inventories" as const;
@@ -472,6 +473,10 @@ export async function transitionOwnerBannerCampaign(
 
   const reloaded = await loadOwnerBannerCampaign(sb, row.id, input.ownerUserId);
   if (!reloaded.ok) return reloaded;
+
+  // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
+  await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
+
   return { ok: true, row: reloaded.row, auditId };
 }
 

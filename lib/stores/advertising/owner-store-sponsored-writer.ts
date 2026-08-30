@@ -17,6 +17,7 @@ import {
   type DeliveryAdLifecycleStatus,
   type DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
 import {
   DELIVERY_AD_OWNER_PRICING_PRODUCT,
   inventoryKeysToPrimaryPlacement,
@@ -571,6 +572,10 @@ export async function transitionOwnerSponsoredCampaign(
 
   const reloaded = await loadOwnerSponsoredCampaign(sb, input.campaignId, input.ownerUserId);
   if (!reloaded.ok) return reloaded;
+
+  // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
+  await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
+
   return { ok: true, row: reloaded.row, auditId };
 }
 

@@ -27,6 +27,7 @@ import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/deliver
 import { validateOwnerBannerInventory, validateOwnerBannerCreativeAspect } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateOwnerInventorySelection } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { simplifyAspectRatio } from "@/lib/stores/advertising/delivery-ad-creative";
+import { safeFanOutDeliveryAdLifecycleAudit } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-fanout";
 
 export const CUT_F_ADMIN_TRANSACTIONAL_MUTATION = {
   authority: "admin_delivery_ad_transition",
@@ -57,6 +58,8 @@ export type AdminTransitionResult =
       from: DeliveryAdLifecycleStatus;
       to: DeliveryAdLifecycleStatus;
       action: AdminDeliveryAdAction;
+      /** Present for lifecycle RPC transitions (CUT 3-B fan-out). Absent for delete_safe_draft. */
+      auditId?: string;
     }
   | { ok: false; error: AdminDeliveryAdWriterError; detail?: string };
 
@@ -131,12 +134,21 @@ export async function adminTransitionDeliveryAdCampaign(
     };
   }
 
+  const auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
+  if (!auditId) {
+    return { ok: false, error: "db_error", detail: "missing_audit_id" };
+  }
+
+  // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
+  await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
+
   return {
     ok: true,
     campaignId: String(payload.campaign_id),
     from: String(payload.from) as DeliveryAdLifecycleStatus,
     to: String(payload.to) as DeliveryAdLifecycleStatus,
     action: input.action,
+    auditId,
   };
 }
 
