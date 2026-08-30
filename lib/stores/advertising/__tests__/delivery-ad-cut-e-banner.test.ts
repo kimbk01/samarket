@@ -243,13 +243,21 @@ describe("CUT E Owner Banner + renderer", () => {
     );
   });
 
-  it("E28 Owner preview uses DeliveryAdBanner", () => {
-    const src = readFileSync(
+  it("E28 Owner preview uses DeliveryAdBanner via canonical PlacementPreview", () => {
+    const owner = readFileSync(
       join(process.cwd(), "components/business/owner/ads/OwnerBannerCreateView.tsx"),
       "utf8"
     );
-    expect(src).toMatch(/DeliveryAdBanner/);
-    expect(src).toMatch(/owner_preview/);
+    expect(owner).toMatch(/DeliveryAdPlacementPreview/);
+    expect(owner).toMatch(/owner_preview/);
+    expect(owner).not.toMatch(/AdminBannerPreview|OwnerBannerPreview/);
+    const preview = readFileSync(
+      join(process.cwd(), "components/stores/advertising/DeliveryAdPlacementPreview.tsx"),
+      "utf8"
+    );
+    expect(preview).toMatch(/from \"@\/components\/stores\/advertising\/DeliveryAdBanner\"/);
+    expect(preview).toMatch(/<DeliveryAdBanner/);
+    expect(preview).toMatch(/renderContext=\{renderContext\}/);
   });
 
   it("E29 Admin preview foundation — same component export", () => {
