@@ -13,6 +13,7 @@ import {
   type InboxHrefRow,
   resolveNotificationInboxHref as resolveInboxHrefImpl,
 } from "@/lib/notifications/resolve-notification-inbox-href";
+import { tryResolveDeliveryAdOpsOwnerDestinationFromMeta } from "@/lib/stores/advertising/delivery-ad-operations-notification-map";
 
 export type NotificationDestinationKind = "canonical" | "notification_detail" | "inbox_fallback";
 
@@ -154,11 +155,15 @@ export function resolveNotificationDestination(
 
   if (input.inboxRow) {
     const fromInbox = resolveInboxHrefImpl(input.inboxRow);
+    const deliveryAdHeal = tryResolveDeliveryAdOpsOwnerDestinationFromMeta(
+      input.inboxRow.meta
+    );
     const href =
       resolveSafeNotificationInternalRoute(fromInbox, null) ??
       (isBareNotificationsCenterHref(input.inboxRow.link_url)
         ? null
         : resolveSafeNotificationInternalRoute(input.inboxRow.link_url, null)) ??
+      resolveSafeNotificationInternalRoute(deliveryAdHeal, null) ??
       fallbackHref;
     const semantic = classifyHrefKind(href, fallbackHref);
     return {

@@ -23,6 +23,7 @@ import {
   type DeliveryAdOpsHumanMessage,
   type DeliveryAdOperationsTimelineMessage,
 } from "@/lib/stores/advertising/delivery-ad-operations-message";
+import { safeNotifyDeliveryAdHumanOwner } from "@/lib/stores/advertising/delivery-ad-operations-notification";
 
 export type DeliveryAdOpsMessagingActorRole = "owner" | "admin";
 
@@ -186,11 +187,25 @@ export async function sendDeliveryAdOperationsMessage(
     return { ok: false, error: "db_error" };
   }
 
+  const caseId = String(payload.case_id ?? ensured.case.id);
+  const outThreadId = String(payload.thread_id ?? threadId);
+
+  // CUT 3-D — Admin→Owner human notify (Owner→Admin: Action Queue only)
+  await safeNotifyDeliveryAdHumanOwner(sb, {
+    ownerUserId: ensured.case.ownerUserId,
+    productKind: input.productKind,
+    campaignId,
+    messageId: message.id,
+    senderRole: message.senderRole,
+    caseId,
+    threadId: outThreadId,
+  });
+
   return {
     ok: true,
     message,
-    caseId: String(payload.case_id ?? ensured.case.id),
-    threadId: String(payload.thread_id ?? threadId),
+    caseId,
+    threadId: outThreadId,
     caseStatus,
   };
 }

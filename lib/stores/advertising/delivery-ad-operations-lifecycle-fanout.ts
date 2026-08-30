@@ -1,6 +1,7 @@
 /**
- * PRODUCT CUT 3-B — Fan-out durable audit_id → ensure Case → one system lifecycle event.
- * Does NOT transition campaigns. Idempotent on source_audit_id. No notification / human msg.
+ * PRODUCT CUT 3-B/3-D — Fan-out durable audit_id → ensure Case → one system lifecycle event
+ * → Owner notification (derived; failure does not roll back).
+ * Does NOT transition campaigns. Idempotent on source_audit_id.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -15,10 +16,19 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-operations-lifecycle-event";
 import {
   DELIVERY_AD_OPERATIONS_MESSAGE_TABLE,
+  DELIVERY_AD_OPS_LIFECYCLE_EVENT_TYPES,
   mapDeliveryAdOperationsMessageRow,
   type DeliveryAdOperationsMessageRow,
+  type DeliveryAdOpsLifecycleEventType,
 } from "@/lib/stores/advertising/delivery-ad-operations-message";
 import { isDeliveryAdProductKind } from "@/lib/stores/advertising/delivery-ad-domain";
+import { safeNotifyDeliveryAdLifecycleOwner } from "@/lib/stores/advertising/delivery-ad-operations-notification";
+
+function asLifecycleEventType(v: string): DeliveryAdOpsLifecycleEventType | null {
+  return (DELIVERY_AD_OPS_LIFECYCLE_EVENT_TYPES as readonly string[]).includes(v)
+    ? (v as DeliveryAdOpsLifecycleEventType)
+    : null;
+}
 
 export type FanOutDeliveryAdLifecycleAuditError =
   | "invalid_audit_id"
@@ -81,6 +91,32 @@ export async function fanOutDeliveryAdLifecycleAudit(
       thread && (thread as { case_id?: string }).case_id != null
         ? String((thread as { case_id: string }).case_id)
         : "";
+    // Idempotent Owner notify retry (dedupe_key); no lifecycle mutation
+    if (existing.kind === "system_lifecycle" && caseId) {
+      const { data: caseRow } = await sb
+        .from("delivery_ad_operations_cases")
+        .select("owner_user_id, product_kind, store_sponsored_campaign_id, banner_campaign_id")
+        .eq("id", caseId)
+        .maybeSingle();
+      const eventType = asLifecycleEventType(existing.eventType);
+      if (caseRow && eventType && isDeliveryAdProductKind(caseRow.product_kind)) {
+        const campId =
+          caseRow.product_kind === "store_sponsored"
+            ? String(caseRow.store_sponsored_campaign_id ?? "")
+            : String(caseRow.banner_campaign_id ?? "");
+        if (campId) {
+          await safeNotifyDeliveryAdLifecycleOwner(sb, {
+            ownerUserId: String(caseRow.owner_user_id ?? ""),
+            productKind: caseRow.product_kind,
+            campaignId: campId,
+            auditId,
+            eventType,
+            caseId,
+            threadId: existing.threadId,
+          });
+        }
+      }
+    }
     return {
       ok: true,
       message: existing,
@@ -173,6 +209,21 @@ export async function fanOutDeliveryAdLifecycleAudit(
     if (isUniqueViolation(insertErr)) {
       const again = await loadMessageByAuditId(sb, auditId);
       if (!again) return { ok: false, error: "db_error", detail: insertErr.message };
+      // Idempotent Owner notify retry (dedupe_key); no lifecycle mutation
+      if (again.kind === "system_lifecycle") {
+        const eventType = asLifecycleEventType(again.eventType);
+        if (eventType) {
+          await safeNotifyDeliveryAdLifecycleOwner(sb, {
+            ownerUserId: ensured.case.ownerUserId,
+            productKind,
+            campaignId,
+            auditId,
+            eventType,
+            caseId: ensured.case.id,
+            threadId,
+          });
+        }
+      }
       return {
         ok: true,
         message: again,
@@ -194,12 +245,27 @@ export async function fanOutDeliveryAdLifecycleAudit(
       status: mapped.caseEffect,
     });
     if (!statusRes.ok) {
-      // Event already durable; status retryable. Do not invent campaign rollback.
       console.error(
         "[fanOutDeliveryAdLifecycleAudit] case status update failed",
         ensured.case.id,
         statusRes.error
       );
+    }
+  }
+
+  // CUT 3-D — Owner notification derived side effect (no lifecycle rollback)
+  if (message.kind === "system_lifecycle") {
+    const eventType = asLifecycleEventType(message.eventType);
+    if (eventType) {
+      await safeNotifyDeliveryAdLifecycleOwner(sb, {
+        ownerUserId: ensured.case.ownerUserId,
+        productKind,
+        campaignId,
+        auditId,
+        eventType,
+        caseId: ensured.case.id,
+        threadId,
+      });
     }
   }
 
