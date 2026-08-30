@@ -53,6 +53,35 @@ type HubSummary = {
   draft: number;
 };
 
+/** Actionable first, then draft/ended noise. */
+function hubCampaignSortRank(status: HubCampaign["lifecycleStatus"]): number {
+  switch (status) {
+    case "CHANGES_REQUESTED":
+      return 0;
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return 1;
+    case "ACTIVE":
+      return 2;
+    case "PAUSED_OWNER":
+    case "PAUSED_ADMIN":
+      return 3;
+    case "SCHEDULED":
+    case "APPROVED":
+      return 4;
+    case "DRAFT":
+      return 8;
+    case "ENDED":
+    case "TERMINATED":
+    case "ARCHIVED":
+    case "REJECTED":
+    case "EXHAUSTED":
+      return 9;
+    default:
+      return 7;
+  }
+}
+
 export function OwnerDeliveryAdsHubView() {
   const { t, safeT } = useI18n();
   const [loaded, setLoaded] = useState(false);
@@ -138,6 +167,16 @@ export function OwnerDeliveryAdsHubView() {
     return m;
   }, [stores]);
 
+  const sortedCampaigns = useMemo(() => {
+    return [...campaigns].sort((a, b) => {
+      const rank = hubCampaignSortRank(a.lifecycleStatus) - hubCampaignSortRank(b.lifecycleStatus);
+      if (rank !== 0) return rank;
+      const aTs = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+      const bTs = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+      return bTs - aTs;
+    });
+  }, [campaigns]);
+
   const summaryItems: Array<{
     key: "under_review" | "scheduled" | "active" | "paused" | "ended";
     labelKey:
@@ -156,39 +195,21 @@ export function OwnerDeliveryAdsHubView() {
   ];
 
   return (
-    <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pb-8 pt-4`}>
-      <div className="min-w-0">
-        <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_delivery_ads_hub_title")}</h1>
-        <p className="mt-1 text-[13px] text-sam-muted">{t("owner_delivery_ads_hub_desc")}</p>
-      </div>
-
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+    <div className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pb-8 pt-4`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_delivery_ads_hub_title")}</h1>
+          <p className="mt-1 text-[13px] text-sam-muted">{t("owner_delivery_ads_hub_desc")}</p>
+        </div>
         <button
           type="button"
-          className={`${Sam.btn.primary} min-h-[48px] w-full px-4 text-[15px] font-semibold`}
+          className={`${Sam.btn.primary} shrink-0 min-h-[40px] px-3 text-[13px] font-semibold`}
           data-owner-ads-primary-cta="apply"
           onClick={() => setProductSelectOpen(true)}
         >
           {t("owner_ads_apply_primary_cta")}
         </button>
       </div>
-
-      <OwnerStoreAdminDashSection title={t("owner_delivery_ads_hub_title")}>
-        <div className="grid grid-cols-5 gap-1">
-          {summaryItems.map((item) => (
-            <div
-              key={item.key}
-              className="rounded-ui-rect border border-sam-border bg-sam-app px-1 py-2 text-center"
-            >
-              <OwnerMobileStackedLabelCount
-                variant="kpi"
-                label={t(item.labelKey)}
-                count={item.count}
-              />
-            </div>
-          ))}
-        </div>
-      </OwnerStoreAdminDashSection>
 
       {!loaded ? (
         <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
@@ -199,14 +220,14 @@ export function OwnerDeliveryAdsHubView() {
             fallbackEn: "Something went wrong. Please try again.",
           })}
         </p>
-      ) : campaigns.length === 0 ? (
+      ) : sortedCampaigns.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
           <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
           <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_empty_body")}</p>
         </div>
       ) : (
         <ul className="space-y-2">
-          {campaigns.map((c) => {
+          {sortedCampaigns.map((c) => {
             const productKind: DeliveryAdOwnerProductKind =
               c.productKind === "banner" ? "banner" : "store_sponsored";
             const invLabels = deliveryAdPlacementI18nKeys(c.inventoryKeys ?? [])
@@ -274,11 +295,22 @@ export function OwnerDeliveryAdsHubView() {
         </ul>
       )}
 
-      <OwnerStoreAdminDashSection title={t("owner_ads_business_cash_title")}>
-        <p className="text-[14px] font-semibold text-sam-fg">{t("owner_ads_business_cash_label")}</p>
-        <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_business_cash_preparing")}</p>
-        <p className="mt-2 text-[12px] text-sam-muted">{t("owner_ads_business_cash_note")}</p>
-      </OwnerStoreAdminDashSection>
+      {loaded && !error ? (
+        <div
+          className="grid grid-cols-5 gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-2"
+          data-owner-ads-summary-kpi="secondary"
+        >
+          {summaryItems.map((item) => (
+            <div key={item.key} className="px-0.5 py-1 text-center">
+              <OwnerMobileStackedLabelCount
+                variant="kpi"
+                label={t(item.labelKey)}
+                count={item.count}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
         <DeliveryAdPerformancePanel
@@ -288,6 +320,15 @@ export function OwnerDeliveryAdsHubView() {
           onRangeChange={setPerfRange}
         />
       </OwnerStoreAdminDashSection>
+
+      <p
+        className="text-center text-[11px] leading-relaxed text-sam-muted"
+        data-owner-ads-business-cash="stub"
+      >
+        {t("owner_ads_business_cash_label")} · {t("owner_ads_business_cash_preparing")}
+        <br />
+        {t("owner_ads_business_cash_note")}
+      </p>
 
       <DibayBottomSheet
         open={productSelectOpen}

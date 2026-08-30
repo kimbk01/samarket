@@ -118,9 +118,11 @@ describe("P0-A delivery ad commercial SSOT", () => {
   it("T2 — no price constant authority in Owner/client path or commercial contract", () => {
     expect(contractSrc()).not.toMatch(/priceAmountMinor:\s*[1-9]/);
     expect(contractSrc()).not.toMatch(/point_cost|pointCost/);
-    expect(ownerHub() + ownerSponsored() + ownerBanner()).not.toMatch(
-      /delivery-ad-commercial|priceAmountMinor|10_000_00/
-    );
+    const ownerUi = ownerHub() + ownerSponsored() + ownerBanner();
+    expect(ownerUi).not.toMatch(/priceAmountMinor|10_000_00/);
+    expect(ownerUi).not.toContain("calculateDeliveryAdCommercialQuote");
+    expect(ownerUi).not.toContain("delivery-ad-commercial-catalog");
+    expect(ownerUi).not.toContain("delivery-ad-commercial-contract");
     expect(mig()).toMatch(/price_amount_minor NULL/);
     expect(mig()).toMatch(/enabled, display_order[\s\S]*false/);
   });
@@ -342,7 +344,10 @@ describe("P0-A delivery ad commercial SSOT", () => {
 
   it("P0-A UI hard lock — Owner/Admin ads views not importing commercial writers", () => {
     const ui = ownerHub() + ownerSponsored() + ownerBanner() + adminHub();
-    expect(ui).not.toContain("delivery-ad-commercial");
+    /** P0-C may use delivery-ad-commercial-labels + /commercial API; quote writers remain server-only. */
     expect(ui).not.toContain("calculateDeliveryAdCommercialQuote");
+    expect(ui).not.toContain("delivery-ad-commercial-catalog");
+    expect(ui).not.toContain("delivery-ad-commercial-contract");
+    expect(ui).not.toContain("delivery-ad-commercial-admin-writer");
   });
 });

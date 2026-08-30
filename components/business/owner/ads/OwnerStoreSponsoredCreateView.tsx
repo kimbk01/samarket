@@ -4,31 +4,31 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
-import {
-  OWNER_STORE_PROFILE_CONTROL_CLASS,
-  OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS,
-  OWNER_STORE_PROFILE_FIELD_EDGE_CLASS,
-  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
-  OWNER_STORE_STACK_Y_CLASS,
-} from "@/lib/business/owner-store-stack";
+import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { BodyPortal } from "@/components/layout/BodyPortal";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   OWNER_STORE_SPONSORED_INVENTORY_KEYS,
   isOwnerStoreSponsoredInventoryKey,
-  ownerInventoryI18nKey,
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
-import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
-import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+import { DeliveryAdPlacementPreview } from "@/components/stores/advertising/DeliveryAdPlacementPreview";
+import {
+  deliveryAdCommercialPlacementLabel,
+  formatDeliveryAdPhpMinor,
+} from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { Sam } from "@/lib/ui/css-vars";
 
 type EligibleStore = {
   id: string;
@@ -38,48 +38,78 @@ type EligibleStore = {
   categoryLabel: string | null;
 };
 
-type Step = "store" | "setup" | "review" | "done";
+type CommercialPackage = {
+  packageId: string;
+  code: string;
+  displayName: string;
+  durationDays: number;
+  basePriceMinor: number;
+  partnerDiscountPercent: number;
+  finalPayableMinor: number;
+  basePriceDisplay: string;
+  finalPayableDisplay: string;
+  partnerActive: boolean;
+};
 
-function toDateInputValue(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+type CommercialQuote = {
+  ok: true;
+  packageId: string;
+  packageDisplayName: string;
+  durationDays: number;
+  basePriceMinor: number;
+  partnerDiscountPercent: number;
+  finalPayableMinor: number;
+  basePriceDisplay: string;
+  finalPayableDisplay: string;
+  partnerActive: boolean;
+};
 
-function dateInputToStartIso(dateStr: string): string {
-  return `${dateStr}T00:00:00.000Z`;
-}
-
-function dateInputToEndIso(dateStr: string): string {
-  return `${dateStr}T23:59:59.999Z`;
-}
+type CommercialPlacement = {
+  inventoryKey: string;
+  sellable: boolean;
+  labels: { ko: string; en: string } | null;
+};
 
 export function OwnerStoreSponsoredCreateView() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const formId = useId();
-  const [step, setStep] = useState<Step>("store");
+  const lang = language === "en" ? "en" : "ko";
+  const {
+    formPadStyle,
+    footerPadStyle,
+    footerFixedClassName,
+    keyboardOpen,
+  } = useOwnerAdminFormKeyboard({ aboveBottomNav: true });
+
   const [stores, setStores] = useState<EligibleStore[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [storeId, setStoreId] = useState("");
-  const [inventories, setInventories] = useState<OwnerStoreSponsoredInventoryKey[]>([]);
-  const [startDate, setStartDate] = useState(() => toDateInputValue(new Date()));
-  const [endDate, setEndDate] = useState(() => {
-    const d = new Date();
-    d.setUTCDate(d.getUTCDate() + 7);
-    return toDateInputValue(d);
-  });
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
+  const [inventoryKey, setInventoryKey] = useState<OwnerStoreSponsoredInventoryKey | "">("");
+  const [packageId, setPackageId] = useState("");
+  const [packages, setPackages] = useState<CommercialPackage[]>([]);
+  const [placements, setPlacements] = useState<CommercialPlacement[]>([]);
+  const [quote, setQuote] = useState<CommercialQuote | null>(null);
+  const [noSellablePackages, setNoSellablePackages] = useState(false);
+  const [acceptingApplications, setAcceptingApplications] = useState(true);
+  const [commercialLoading, setCommercialLoading] = useState(false);
+  const [productLabel, setProductLabel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [campaign, setCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
-  const [placementPreview, setPlacementPreview] =
-    useState<DeliveryAdPlacementPreviewPayload | null>(null);
+  const [doneCampaign, setDoneCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
+  const [existingCampaign, setExistingCampaign] = useState<OwnerSponsoredCampaignRow | null>(
+    null
+  );
   const [clientRequestId] = useState(() =>
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `req_${Date.now()}`
   );
-  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
   const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
+  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
 
   useEffect(() => {
     let cancelled = false;
@@ -124,16 +154,12 @@ export function OwnerStoreSponsoredCreateView() {
         if (row.lifecycleStatus !== "DRAFT" && row.lifecycleStatus !== "CHANGES_REQUESTED") {
           return;
         }
-        setCampaign(row);
+        setExistingCampaign(row);
         setStoreId(row.storeId);
-        setInventories(
-          row.inventoryKeys.filter((k): k is OwnerStoreSponsoredInventoryKey =>
-            isOwnerStoreSponsoredInventoryKey(k)
-          )
-        );
-        setStartDate(row.startAt.slice(0, 10));
-        setEndDate(row.endAt.slice(0, 10));
-        setStep("setup");
+        const key = row.inventoryKeys.find(isOwnerStoreSponsoredInventoryKey);
+        if (key) setInventoryKey(key);
+        const bound = decodeOwnerAdPackagePricingModel(row.pricingModel);
+        if (bound) setPackageId(bound);
       } catch {
         /* keep empty create */
       }
@@ -143,94 +169,180 @@ export function OwnerStoreSponsoredCreateView() {
     };
   }, [preloadCampaignId, preloadStoreId]);
 
-  useEffect(() => {
-    if (step !== "review" || !campaign?.id || !storeId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(campaign.id)}`,
-          { credentials: "include" }
-        );
-        const json = (await res.json()) as {
-          ok?: boolean;
-          placementPreview?: DeliveryAdPlacementPreviewPayload | null;
-        };
-        if (cancelled || !res.ok || !json.ok) return;
-        setPlacementPreview(json.placementPreview ?? null);
-      } catch {
-        if (!cancelled) setPlacementPreview(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [step, campaign?.id, storeId]);
-
   const selectedStore = useMemo(
     () => stores.find((s) => s.id === storeId) ?? null,
     [stores, storeId]
   );
 
-  const toggleInventory = (key: OwnerStoreSponsoredInventoryKey) => {
-    setInventories((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
-  };
+  const placementOptions = useMemo(() => {
+    const fromApi = placements
+      .map((p) => p.inventoryKey)
+      .filter(isOwnerStoreSponsoredInventoryKey);
+    if (fromApi.length) return fromApi;
+    return [...OWNER_STORE_SPONSORED_INVENTORY_KEYS];
+  }, [placements]);
 
-  const saveDraft = useCallback(async (): Promise<OwnerSponsoredCampaignRow | null> => {
+  const refetchCommercial = useCallback(async () => {
     if (!storeId) {
-      setError("store");
-      return null;
+      setPackages([]);
+      setQuote(null);
+      setNoSellablePackages(false);
+      setPlacements([]);
+      return;
     }
-    if (!inventories.length) {
-      setError("inventory");
-      return null;
-    }
-    setBusy(true);
-    setError(null);
+    setCommercialLoading(true);
     try {
-      const path = campaign
-        ? `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(campaign.id)}`
-        : `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads`;
-      const method = campaign ? "PATCH" : "POST";
-      const res = await fetch(path, {
-        method,
+      const qs = new URLSearchParams({
+        storeId,
+        productKind: "store_sponsored",
+      });
+      if (inventoryKey) qs.set("inventoryKey", inventoryKey);
+      if (packageId) qs.set("packageId", packageId);
+      const res = await fetch(`/api/me/delivery-ads/commercial?${qs.toString()}`, {
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          inventoryKeys: inventories,
-          startAt: dateInputToStartIso(startDate),
-          endAt: dateInputToEndIso(endDate),
-          clientRequestId: campaign ? undefined : clientRequestId,
-        }),
       });
       const json = (await res.json()) as {
         ok?: boolean;
-        error?: string;
-        campaign?: OwnerSponsoredCampaignRow;
+        product?: {
+          displayName?: string | null;
+          acceptingApplications?: boolean;
+          enabled?: boolean;
+        } | null;
+        placements?: CommercialPlacement[];
+        packages?: CommercialPackage[];
+        quote?: CommercialQuote | { ok: false; error?: string } | null;
+        noSellablePackages?: boolean;
       };
-      if (!res.ok || !json.ok || !json.campaign) {
-        setError(json.error || "generic");
-        return null;
+      if (!res.ok || !json.ok) {
+        setPackages([]);
+        setQuote(null);
+        setNoSellablePackages(true);
+        return;
       }
-      setCampaign(json.campaign);
-      return json.campaign;
+      setProductLabel(json.product?.displayName?.trim() || null);
+      setAcceptingApplications(
+        json.product?.acceptingApplications !== false && json.product?.enabled !== false
+      );
+      setPlacements(json.placements ?? []);
+      if (inventoryKey) {
+        setPackages(json.packages ?? []);
+        setNoSellablePackages(json.noSellablePackages === true);
+        if (json.quote && "ok" in json.quote && json.quote.ok === true) {
+          setQuote(json.quote);
+        } else {
+          setQuote(null);
+        }
+      } else {
+        setPackages([]);
+        setQuote(null);
+        setNoSellablePackages(false);
+      }
     } catch {
-      setError("generic");
-      return null;
+      setPackages([]);
+      setQuote(null);
+      setNoSellablePackages(true);
     } finally {
-      setBusy(false);
+      setCommercialLoading(false);
     }
-  }, [campaign, clientRequestId, endDate, inventories, startDate, storeId]);
+  }, [inventoryKey, packageId, storeId]);
+
+  useEffect(() => {
+    void refetchCommercial();
+  }, [refetchCommercial]);
+
+  useEffect(() => {
+    if (!inventoryKey && placementOptions.length === 1) {
+      setInventoryKey(placementOptions[0]!);
+    }
+  }, [inventoryKey, placementOptions]);
+
+  const onSelectStore = (id: string) => {
+    setStoreId(id);
+    setInventoryKey("");
+    setPackageId("");
+    setPackages([]);
+    setQuote(null);
+    setError(null);
+    setStoreSheetOpen(false);
+  };
+
+  const onSelectPlacement = (key: OwnerStoreSponsoredInventoryKey) => {
+    setInventoryKey(key);
+    setPackageId("");
+    setPackages([]);
+    setQuote(null);
+    setError(null);
+  };
+
+  const onSelectPackage = (id: string) => {
+    setPackageId(id);
+    setQuote(null);
+    setError(null);
+  };
 
   const submit = useCallback(async () => {
-    const saved = await saveDraft();
-    if (!saved) return;
+    if (!storeId || !inventoryKey || !packageId) {
+      setError(!storeId ? "store" : "inventory");
+      return;
+    }
+    if (!acceptingApplications) {
+      setError("applications_paused");
+      return;
+    }
+    if (noSellablePackages || !quote) {
+      setError("no_packages");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(
+      let saved = existingCampaign;
+      if (saved) {
+        const patchRes = await fetch(
+          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(saved.id)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ inventoryKeys: [inventoryKey] }),
+          }
+        );
+        const patchJson = (await patchRes.json()) as {
+          ok?: boolean;
+          error?: string;
+          campaign?: OwnerSponsoredCampaignRow;
+        };
+        if (!patchRes.ok || !patchJson.ok || !patchJson.campaign) {
+          setError(patchJson.error || "generic");
+          return;
+        }
+        saved = patchJson.campaign;
+      } else {
+        const createRes = await fetch(
+          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              inventoryKeys: [inventoryKey],
+              packageId,
+              clientRequestId,
+            }),
+          }
+        );
+        const createJson = (await createRes.json()) as {
+          ok?: boolean;
+          error?: string;
+          campaign?: OwnerSponsoredCampaignRow;
+        };
+        if (!createRes.ok || !createJson.ok || !createJson.campaign) {
+          setError(createJson.error || "generic");
+          return;
+        }
+        saved = createJson.campaign;
+      }
+      const actionRes = await fetch(
         `/api/me/stores/${encodeURIComponent(saved.storeId)}/delivery-ads/${encodeURIComponent(saved.id)}/actions`,
         {
           method: "POST",
@@ -238,58 +350,119 @@ export function OwnerStoreSponsoredCreateView() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: saved.lifecycleStatus === "CHANGES_REQUESTED" ? "resubmit" : "submit",
+            packageId,
+            clientFinalPayableMinor: quote.finalPayableMinor,
           }),
         }
       );
-      const json = (await res.json()) as {
+      const actionJson = (await actionRes.json()) as {
         ok?: boolean;
         error?: string;
+        refreshQuote?: boolean;
         campaign?: OwnerSponsoredCampaignRow;
       };
-      if (!res.ok || !json.ok || !json.campaign) {
-        setError(json.error || "generic");
+      if (
+        !actionRes.ok ||
+        !actionJson.ok ||
+        actionJson.error === "quote_stale" ||
+        actionJson.refreshQuote
+      ) {
+        await refetchCommercial();
+        setError(
+          actionJson.error === "quote_stale" || actionJson.refreshQuote
+            ? "quote_stale"
+            : actionJson.error || "generic"
+        );
         return;
       }
-      setCampaign(json.campaign);
-      setStep("done");
+      setDoneCampaign(actionJson.campaign ?? saved);
     } catch {
       setError("generic");
     } finally {
       setBusy(false);
     }
-  }, [saveDraft]);
+  }, [
+    acceptingApplications,
+    clientRequestId,
+    existingCampaign,
+    inventoryKey,
+    noSellablePackages,
+    packageId,
+    quote,
+    refetchCommercial,
+    storeId,
+  ]);
 
   const errorText =
     error === "inventory"
       ? t("owner_ads_error_inventory")
       : error === "store"
         ? t("owner_ads_error_store")
-        : error === "invalid_start_at" ||
-            error === "invalid_end_at" ||
-            error === "end_before_start" ||
-            error === "start_in_past"
-          ? t("owner_ads_error_dates")
-          : error
-            ? safeT("owner_ads_error_generic", {
-                fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                fallbackEn: "Something went wrong. Please try again.",
-              })
-            : null;
+        : error === "quote_stale"
+          ? t("owner_ads_error_quote_stale")
+          : error === "applications_paused"
+            ? t("owner_ads_error_applications_paused")
+            : error === "no_packages"
+              ? t("owner_ads_no_sellable_packages")
+              : error
+                ? safeT("owner_ads_error_generic", {
+                    fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
+                    fallbackEn: "Something went wrong. Please try again.",
+                  })
+                : null;
 
-  const footerBottom = "calc(60px + var(--safe-bottom, 0px))";
+  const canSubmit =
+    Boolean(storeId && inventoryKey && packageId && quote) &&
+    !noSellablePackages &&
+    acceptingApplications &&
+    !busy &&
+    !commercialLoading;
+
+  if (doneCampaign) {
+    return (
+      <div
+        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4 pb-8`}
+        data-owner-ads-workspace="store-sponsored"
+        data-owner-ads-wizard="absent"
+      >
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
+          <p className="text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
+          <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_success_body")}</p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              type="button"
+              className={`${Sam.btn.primary} min-h-[48px] w-full`}
+              onClick={() =>
+                router.push(
+                  `${DELIVERY_AD_OWNER_ROUTES.detail(doneCampaign.id)}?storeId=${encodeURIComponent(doneCampaign.storeId)}`
+                )
+              }
+            >
+              {t("owner_ads_view_detail")}
+            </button>
+            <button
+              type="button"
+              className={`${Sam.btn.secondary} min-h-[48px] w-full`}
+              onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
+            >
+              {t("owner_ads_back_hub")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} style={{ paddingBottom: 88 }}>
-      <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_product_store_sponsored")}</h1>
-      <p className="mt-1 text-[12px] text-sam-muted">
-        {step === "store"
-          ? t("owner_ads_step_store")
-          : step === "setup"
-            ? t("owner_ads_step_setup")
-            : step === "review"
-              ? t("owner_ads_step_review")
-              : t("owner_ads_step_done")}
-      </p>
+    <div
+      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4`}
+      style={formPadStyle}
+      data-owner-ads-workspace="store-sponsored"
+      data-owner-ads-wizard="absent"
+    >
+      <h1 className="text-[18px] font-bold text-sam-fg">
+        {t("owner_ads_workspace_store_sponsored_title")}
+      </h1>
 
       {errorText ? (
         <p className="mt-3 text-[13px] text-red-600" role="alert">
@@ -299,226 +472,270 @@ export function OwnerStoreSponsoredCreateView() {
 
       {!loaded ? (
         <p className="mt-4 text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
-      ) : step === "store" ? (
-        <OwnerStoreAdminDashSection title={t("owner_ads_select_store")}>
-          <p className="text-[13px] text-sam-muted">{t("owner_ads_select_store_hint")}</p>
-          {stores.length === 0 ? (
-            <p className="mt-3 text-[13px] text-sam-muted">{t("owner_ads_no_eligible_store")}</p>
-          ) : (
-            <ul className="mt-3 space-y-2">
-              {stores.map((s) => (
-                <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => setStoreId(s.id)}
-                    className={`flex w-full items-center gap-3 rounded-ui-rect border p-3 text-left ${
-                      storeId === s.id
-                        ? "border-signature bg-sam-app"
-                        : "border-sam-border bg-sam-surface"
-                    }`}
-                  >
-                    {s.profileImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={s.profileImageUrl}
-                        alt=""
-                        className="h-12 w-12 rounded-ui-rect object-cover"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-ui-rect bg-sam-app" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-sam-fg">{s.storeName}</p>
-                      {s.categoryLabel ? (
-                        <p className="text-[12px] text-sam-muted">{s.categoryLabel}</p>
-                      ) : null}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </OwnerStoreAdminDashSection>
-      ) : null}
-
-      {step === "setup" && selectedStore ? (
+      ) : (
         <form id={formId} className="space-y-3" onSubmit={(e) => e.preventDefault()}>
-          <OwnerStoreAdminDashSection title={t("owner_ads_store")}>
-            <p className="text-[14px] font-semibold text-sam-fg">{selectedStore.storeName}</p>
-            {selectedStore.categoryLabel ? (
-              <p className="text-[12px] text-sam-muted">{selectedStore.categoryLabel}</p>
-            ) : null}
+          <OwnerStoreAdminDashSection title={t("owner_ads_select_store")}>
+            {stores.length === 0 ? (
+              <p className="text-[13px] text-sam-muted">{t("owner_ads_no_eligible_store")}</p>
+            ) : (
+              <button
+                type="button"
+                className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left"
+                onClick={() => setStoreSheetOpen(true)}
+                data-owner-ads-store-trigger="1"
+              >
+                {selectedStore?.profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedStore.profileImageUrl}
+                    alt=""
+                    className="h-12 w-12 rounded-ui-rect object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-ui-rect bg-sam-surface" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-sam-fg">
+                    {selectedStore?.storeName ?? t("owner_ads_select_store_hint")}
+                  </p>
+                  {selectedStore?.categoryLabel ? (
+                    <p className="text-[12px] text-sam-muted">{selectedStore.categoryLabel}</p>
+                  ) : null}
+                </div>
+                <span className="shrink-0 text-[12px] font-medium text-signature">
+                  {t("owner_ads_change_store")}
+                </span>
+              </button>
+            )}
+          </OwnerStoreAdminDashSection>
+
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_product")}>
+            <p className="text-[14px] font-semibold text-sam-fg">
+              {productLabel || t("owner_ads_product_store_sponsored")}
+            </p>
+            <p className="mt-1 text-[12px] text-sam-muted">
+              {t("owner_ads_product_store_sponsored_desc")}
+            </p>
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
             <div className="space-y-2">
-              {OWNER_STORE_SPONSORED_INVENTORY_KEYS.map((key) => (
+              {placementOptions.map((key) => (
                 <label
                   key={key}
-                  className="flex min-h-[44px] items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3"
+                  className={`flex min-h-[44px] items-center gap-3 rounded-ui-rect border px-3 ${
+                    inventoryKey === key
+                      ? "border-signature bg-sam-app"
+                      : "border-sam-border bg-sam-surface"
+                  }`}
                 >
                   <input
-                    type="checkbox"
-                    checked={inventories.includes(key)}
-                    onChange={() => toggleInventory(key)}
+                    type="radio"
+                    name={`${formId}-placement`}
+                    checked={inventoryKey === key}
+                    onChange={() => onSelectPlacement(key)}
                     className="h-4 w-4"
                   />
-                  <span className="text-[14px] text-sam-fg">{t(ownerInventoryI18nKey(key))}</span>
+                  <span className="text-[14px] text-sam-fg">
+                    {deliveryAdCommercialPlacementLabel(key, lang)}
+                  </span>
                 </label>
               ))}
             </div>
           </OwnerStoreAdminDashSection>
 
-          <OwnerStoreAdminDashSection title={t("owner_ads_schedule_title")}>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} htmlFor="owner-ads-start">
-                {t("owner_ads_start_date")}
-              </label>
-              <input
-                id="owner-ads-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
+            {!storeId || !inventoryKey ? (
+              <p className="text-[13px] text-sam-muted">{t("owner_ads_select_store_hint")}</p>
+            ) : commercialLoading ? (
+              <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
+            ) : noSellablePackages || packages.length === 0 ? (
+              <p className="text-[13px] text-red-600" role="status">
+                {t("owner_ads_no_sellable_packages")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {packages.map((pkg) => (
+                  <label
+                    key={pkg.packageId}
+                    className={`flex min-h-[44px] flex-col gap-1 rounded-ui-rect border px-3 py-2 ${
+                      packageId === pkg.packageId
+                        ? "border-signature bg-sam-app"
+                        : "border-sam-border bg-sam-surface"
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name={`${formId}-package`}
+                        checked={packageId === pkg.packageId}
+                        onChange={() => onSelectPackage(pkg.packageId)}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-[14px] font-semibold text-sam-fg">
+                        {pkg.displayName}
+                      </span>
+                    </span>
+                    <span className="pl-7 text-[12px] text-sam-muted">
+                      {t("owner_ads_period_duration_days").replace(
+                        "{days}",
+                        String(pkg.durationDays)
+                      )}{" "}
+                      · {pkg.finalPayableDisplay}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </OwnerStoreAdminDashSection>
+
+          {quote ? (
+            <OwnerStoreAdminDashSection title={t("owner_ads_section_price")}>
+              <dl className="space-y-2 text-[13px]">
+                <div className="flex items-center justify-between gap-2">
+                  <dt className="text-sam-muted">{t("owner_ads_price_base")}</dt>
+                  <dd className="tabular-nums text-sam-fg">{quote.basePriceDisplay}</dd>
+                </div>
+                {quote.partnerActive && quote.partnerDiscountPercent > 0 ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-sam-muted">
+                      {t("owner_ads_price_partner_discount")} ({quote.partnerDiscountPercent}%)
+                    </dt>
+                    <dd className="tabular-nums text-sam-fg">
+                      −
+                      {formatDeliveryAdPhpMinor(
+                        Math.max(0, quote.basePriceMinor - quote.finalPayableMinor)
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between gap-2 border-t border-sam-border pt-2">
+                  <dt className="text-[15px] font-bold text-sam-fg">
+                    {t("owner_ads_price_total")}
+                  </dt>
+                  <dd
+                    className="text-[18px] font-bold tabular-nums text-sam-fg"
+                    data-owner-ads-price-total="1"
+                  >
+                    {quote.finalPayableDisplay}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-[12px] text-sam-muted">
+                {t("owner_ads_billing_application_note")}
+              </p>
+            </OwnerStoreAdminDashSection>
+          ) : null}
+
+          {quote ? (
+            <OwnerStoreAdminDashSection title={t("owner_ads_section_period")}>
+              <p className="text-[14px] font-semibold text-sam-fg">
+                {t("owner_ads_period_duration_days").replace(
+                  "{days}",
+                  String(quote.durationDays)
+                )}
+              </p>
+              <p className="mt-2 text-[12px] text-sam-muted">
+                {t("owner_ads_period_pending_start")}
+              </p>
+            </OwnerStoreAdminDashSection>
+          ) : null}
+
+          {inventoryKey ? (
+            <OwnerStoreAdminDashSection title={t("owner_ads_section_preview")}>
+              <DeliveryAdPlacementPreview
+                productKind="store_sponsored"
+                inventoryKey={inventoryKey}
+                renderContext="owner_preview"
+                surfaceEnabled
+                store={null}
+                storeLoadError
               />
-            </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} htmlFor="owner-ads-end">
-                {t("owner_ads_end_date")}
-              </label>
-              <input
-                id="owner-ads-end"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
-              />
-            </div>
+            </OwnerStoreAdminDashSection>
+          ) : null}
+
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_notice")}>
+            <p className="text-[13px] text-sam-muted">{t("owner_ads_review_admin_note")}</p>
+            <p className="mt-2 text-[12px] text-sam-muted">
+              {t("owner_ads_billing_application_note")}
+            </p>
           </OwnerStoreAdminDashSection>
         </form>
-      ) : null}
+      )}
 
-      {step === "review" && selectedStore ? (
-        <OwnerStoreAdminDashSection title={t("owner_ads_review_title")}>
-          <dl className="space-y-2 text-[13px]">
-            <div>
-              <dt className="text-sam-muted">{t("owner_ads_store")}</dt>
-              <dd className="font-medium text-sam-fg">{selectedStore.storeName}</dd>
+      <BodyPortal>
+        <footer
+          className={footerFixedClassName}
+          style={footerPadStyle}
+          data-owner-ads-footer="owner-admin-ssot"
+          data-form-keyboard-footer="1"
+          data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+        >
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+              <button
+                type="button"
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                disabled={busy}
+                onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
+              >
+                {t("owner_ads_cancel")}
+              </button>
+              <button
+                type="button"
+                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                disabled={!canSubmit}
+                onClick={() => void submit()}
+              >
+                {busy ? t("owner_ads_submitting") : t("owner_ads_apply_request_cta")}
+              </button>
             </div>
-            <div>
-              <dt className="text-sam-muted">{t("owner_ads_type")}</dt>
-              <dd className="font-medium text-sam-fg">{t("owner_ads_product_store_sponsored")}</dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("owner_ads_inventory_title")}</dt>
-              <dd className="font-medium text-sam-fg">
-                {inventories.map((k) => t(ownerInventoryI18nKey(k))).join(" · ")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("owner_ads_period")}</dt>
-              <dd className="font-medium text-sam-fg">
-                {startDate} ~ {endDate}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sam-muted">{t("owner_ads_review_pricing")}</dt>
-              <dd className="font-medium text-sam-fg">{t("owner_ads_pricing_not_configured")}</dd>
-            </div>
-          </dl>
-          <p className="mt-3 text-[12px] text-sam-muted">{t("owner_ads_review_admin_note")}</p>
-        </OwnerStoreAdminDashSection>
-      ) : null}
-
-      {step === "review" && inventories.length > 0 ? (
-        <OwnerStoreAdminDashSection title={t("delivery_ads_preview_section_title")}>
-          <DeliveryAdCampaignPlacementPreviews
-            productKind="store_sponsored"
-            inventoryKeys={inventories}
-            renderContext="owner_preview"
-            placementPreview={placementPreview}
-          />
-        </OwnerStoreAdminDashSection>
-      ) : null}
-
-      {step === "done" && campaign ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
-          <p className="text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
-          <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_success_body")}</p>
-          <div className="mt-4 flex flex-col gap-2">
-            <button
-              type="button"
-              className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-              onClick={() =>
-                router.push(
-                  `${DELIVERY_AD_OWNER_ROUTES.detail(campaign.id)}?storeId=${encodeURIComponent(campaign.storeId)}`
-                )
-              }
-            >
-              {t("owner_ads_view_detail")}
-            </button>
-            <button
-              type="button"
-              className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
-              onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
-            >
-              {t("owner_ads_back_hub")}
-            </button>
           </div>
-        </div>
-      ) : null}
+        </footer>
+      </BodyPortal>
 
-      {step !== "done" ? (
-        <BodyPortal>
-          <footer
-            className={ownerStoreAdminFooterFixedClass({ aboveBottomNav: true })}
-            style={{ bottom: footerBottom }}
-          >
-            <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
-              <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
-                <button
-                  type="button"
-                  className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
-                  disabled={busy}
-                  onClick={() => {
-                    if (step === "store") router.push(DELIVERY_AD_OWNER_ROUTES.hub);
-                    else if (step === "setup") setStep("store");
-                    else setStep("setup");
-                  }}
-                >
-                  {step === "store" ? t("owner_ads_cancel") : t("owner_ads_back")}
-                </button>
-                <button
-                  type="button"
-                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
-                  disabled={busy || (step === "store" && !storeId)}
-                  onClick={() => {
-                    if (step === "store") setStep("setup");
-                    else if (step === "setup") {
-                      void (async () => {
-                        const saved = await saveDraft();
-                        if (saved) setStep("review");
-                      })();
-                    } else {
-                      void submit();
-                    }
-                  }}
-                >
-                  {busy
-                    ? step === "review"
-                      ? t("owner_ads_submitting")
-                      : t("owner_ads_saving")
-                    : step === "review"
-                      ? t("owner_ads_submit_cta")
-                      : step === "setup"
-                        ? t("owner_ads_next")
-                        : t("owner_ads_next")}
-                </button>
-              </div>
-            </div>
-          </footer>
-        </BodyPortal>
-      ) : null}
+      <DibayBottomSheet
+        open={storeSheetOpen}
+        onClose={() => setStoreSheetOpen(false)}
+        title={t("owner_ads_select_store")}
+        anchor="above-bottom-nav"
+        ariaLabel={t("owner_ads_select_store")}
+        panelClassName="!max-w-md"
+        contentPaddingBottomPx={contentPaddingBottomPx}
+      >
+        <ul className="mt-3 space-y-2">
+          {stores.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => onSelectStore(s.id)}
+                className={`flex w-full items-center gap-3 rounded-ui-rect border p-3 text-left ${
+                  storeId === s.id
+                    ? "border-signature bg-sam-app"
+                    : "border-sam-border bg-sam-surface"
+                }`}
+              >
+                {s.profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={s.profileImageUrl}
+                    alt=""
+                    className="h-12 w-12 rounded-ui-rect object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-ui-rect bg-sam-app" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-semibold text-sam-fg">{s.storeName}</p>
+                  {s.categoryLabel ? (
+                    <p className="text-[12px] text-sam-muted">{s.categoryLabel}</p>
+                  ) : null}
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </DibayBottomSheet>
     </div>
   );
 }

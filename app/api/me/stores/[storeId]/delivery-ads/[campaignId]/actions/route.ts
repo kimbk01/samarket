@@ -15,6 +15,10 @@ import {
   ownerActionTargetLifecycle,
   type OwnerCampaignAction,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import {
+  attachOwnerPaidCommercialSnapshotOnSubmit,
+  decodeOwnerAdPackagePricingModel,
+} from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,8 +33,10 @@ function statusForError(error: string): number {
       return 404;
     case "illegal_transition":
     case "duplicate_submit":
+    case "quote_stale":
       return 409;
     case "db_error":
+    case "commercial_snapshot_failed":
       return 500;
     default:
       return 400;
@@ -75,6 +81,13 @@ export async function POST(
   const productKind =
     body.productKind === "banner" || body.product_kind === "banner" ? "banner" : "store_sponsored";
 
+  const clientFinalPayableMinor =
+    typeof body.clientFinalPayableMinor === "number"
+      ? body.clientFinalPayableMinor
+      : typeof body.finalPayableMinor === "number"
+        ? body.finalPayableMinor
+        : null;
+
   if (productKind === "banner") {
     const loaded = await loadOwnerBannerCampaign(sb, cid, userId);
     if (!loaded.ok) {
@@ -86,6 +99,36 @@ export async function POST(
     if (loaded.row.storeId !== sid) {
       return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
+
+    if (action === "submit" || action === "resubmit") {
+      const packageId =
+        (typeof body.packageId === "string" && body.packageId.trim()) ||
+        decodeOwnerAdPackagePricingModel(loaded.row.pricingModel);
+      const inventoryKey = loaded.row.inventoryKeys[0];
+      if (!packageId || !inventoryKey) {
+        return NextResponse.json({ ok: false, error: "package_required" }, { status: 400 });
+      }
+      const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
+        campaignId: cid,
+        storeId: sid,
+        productKind: "banner",
+        inventoryKey,
+        packageId,
+        clientFinalPayableMinor,
+      });
+      if (!commercial.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: commercial.error,
+            quoteError: commercial.quoteError ?? null,
+            refreshQuote: true,
+          },
+          { status: statusForError(commercial.error) }
+        );
+      }
+    }
+
     const result = await transitionOwnerBannerCampaign(sb, {
       campaignId: cid,
       ownerUserId: userId,
@@ -106,6 +149,35 @@ export async function POST(
   }
   if (loaded.row.storeId !== sid) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
+  if (action === "submit" || action === "resubmit") {
+    const packageId =
+      (typeof body.packageId === "string" && body.packageId.trim()) ||
+      decodeOwnerAdPackagePricingModel(loaded.row.pricingModel);
+    const inventoryKey = loaded.row.inventoryKeys[0];
+    if (!packageId || !inventoryKey) {
+      return NextResponse.json({ ok: false, error: "package_required" }, { status: 400 });
+    }
+    const commercial = await attachOwnerPaidCommercialSnapshotOnSubmit(sb, {
+      campaignId: cid,
+      storeId: sid,
+      productKind: "store_sponsored",
+      inventoryKey,
+      packageId,
+      clientFinalPayableMinor,
+    });
+    if (!commercial.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: commercial.error,
+          quoteError: commercial.quoteError ?? null,
+          refreshQuote: true,
+        },
+        { status: statusForError(commercial.error) }
+      );
+    }
   }
 
   const actionLabel =

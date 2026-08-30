@@ -308,6 +308,8 @@ export type OwnerCreateDraftInput = {
   inventoryKeys: unknown;
   startAtIso: string;
   endAtIso: string;
+  /** P0-C — required for commercially priced applications. */
+  packageId?: string | null;
   title?: string;
   headline?: string;
   clientRequestId?: string | null;
@@ -318,15 +320,47 @@ export async function createOwnerSponsoredDraft(
   sb: SupabaseClient,
   input: OwnerCreateDraftInput
 ): Promise<OwnerSponsoredWriterResult<OwnerSponsoredCampaignRow>> {
-  void DELIVERY_AD_OWNER_PRICING_PRODUCT; // pricing stays null — NOT_CONFIGURED
+  void DELIVERY_AD_OWNER_PRICING_PRODUCT;
   const eligible = await assertOwnerStoreEligibleForAds(sb, input.storeId);
   if (!eligible.ok) return eligible;
 
   const inv = validateOwnerInventorySelection(input.inventoryKeys);
   if (!inv.ok) return { ok: false, error: inv.error };
+
+  let startAtIso = input.startAtIso;
+  let endAtIso = input.endAtIso;
+  let packagePricingModel: string | null = null;
+  const packageId =
+    typeof input.packageId === "string" && input.packageId.trim()
+      ? input.packageId.trim()
+      : "";
+  if (packageId) {
+    const { quoteDeliveryAdApplicationCommercial } = await import(
+      "@/lib/stores/advertising/delivery-ad-commercial-catalog"
+    );
+    const {
+      encodeOwnerAdPackagePricingModel,
+      scheduleWindowFromPackageDurationDays,
+    } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
+    const inventoryKey = inv.keys[0];
+    if (!inventoryKey) return { ok: false, error: "no_inventory" };
+    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
+      productKind: "store_sponsored",
+      inventoryKey,
+      packageId,
+      storeId: input.storeId,
+    });
+    if (!quote.ok) return { ok: false, error: "pricing_not_configured_ok" };
+    const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
+    if (!window.ok) return { ok: false, error: "invalid_end_at" };
+    startAtIso = window.startAtIso;
+    endAtIso = window.endAtIso;
+    packagePricingModel = encodeOwnerAdPackagePricingModel(packageId);
+  }
+
   const schedule = validateOwnerStoreSponsoredSchedule({
-    startAtIso: input.startAtIso,
-    endAtIso: input.endAtIso,
+    startAtIso,
+    endAtIso,
     nowMs: input.nowMs,
   });
   if (!schedule.ok) return { ok: false, error: schedule.error };
@@ -375,6 +409,16 @@ export async function createOwnerSponsoredDraft(
       ok: false,
       error: (payload?.error ?? "db_error") as OwnerSponsoredWriterError,
     };
+  }
+  if (packagePricingModel) {
+    await sb
+      .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+      .update({
+        pricing_model: packagePricingModel,
+        updated_by_user_id: input.ownerUserId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.campaign_id);
   }
   return loadOwnerSponsoredCampaign(sb, payload.campaign_id, input.ownerUserId);
 }

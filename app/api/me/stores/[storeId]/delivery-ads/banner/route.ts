@@ -66,20 +66,42 @@ export async function POST(
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const adminProducesCreative = body.adminProducesCreative === true || body.admin_produces_creative === true;
+  const packageId =
+    typeof body.packageId === "string"
+      ? body.packageId
+      : typeof body.package_id === "string"
+        ? body.package_id
+        : null;
+
   const result = await upsertOwnerBannerDraft(sb, {
     storeId: sid,
     ownerUserId: userId,
     campaignId: typeof body.campaignId === "string" ? body.campaignId : null,
     inventoryKey: body.inventoryKey ?? body.inventory_key,
-    assetPath: String(body.assetPath ?? body.asset_path ?? ""),
-    sourceWidth: Number(body.sourceWidth ?? body.source_width),
-    sourceHeight: Number(body.sourceHeight ?? body.source_height),
+    assetPath: adminProducesCreative
+      ? ""
+      : String(body.assetPath ?? body.asset_path ?? ""),
+    sourceWidth: adminProducesCreative
+      ? 390
+      : Number(body.sourceWidth ?? body.source_width),
+    sourceHeight: adminProducesCreative
+      ? 160
+      : Number(body.sourceHeight ?? body.source_height),
     headline: typeof body.headline === "string" ? body.headline : null,
     subcopy: typeof body.subcopy === "string" ? body.subcopy : null,
+    requestMemo:
+      typeof body.requestMemo === "string"
+        ? body.requestMemo
+        : typeof body.request_memo === "string"
+          ? body.request_memo
+          : null,
     ctaType: body.ctaType ?? body.cta_type,
     ctaTargetId: sid,
     startAtIso: String(body.startAt ?? body.start_at ?? ""),
     endAtIso: String(body.endAt ?? body.end_at ?? ""),
+    adminProducesCreative,
+    packageId,
     clientRequestId:
       typeof body.clientRequestId === "string"
         ? body.clientRequestId
@@ -104,6 +126,10 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     campaign: result.row,
-    meta: { pricing: OWNER_BANNER_PRICING },
+    meta: {
+      pricing: OWNER_BANNER_PRICING,
+      commercial: { chargeCollection: false, businessCash: false },
+      adminProducesCreative: true,
+    },
   });
 }

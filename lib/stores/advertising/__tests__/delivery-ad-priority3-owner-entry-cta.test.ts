@@ -57,8 +57,8 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     const src = hubSrc();
     expect(src).toContain('data-owner-ads-primary-cta="apply"');
     expect(src).toContain('t("owner_ads_apply_primary_cta")');
-    expect(ownerDeliveryAdsMessages.ko.owner_ads_apply_primary_cta).toBe("광고 신청하기");
-    expect(ownerDeliveryAdsMessages.en.owner_ads_apply_primary_cta).toBe("Apply for an ad");
+    expect(ownerDeliveryAdsMessages.ko.owner_ads_apply_primary_cta).toBe("광고 신청");
+    expect(ownerDeliveryAdsMessages.en.owner_ads_apply_primary_cta).toBe("Apply");
     expect(src.match(/data-owner-ads-primary-cta=/g)?.length).toBe(1);
   });
 

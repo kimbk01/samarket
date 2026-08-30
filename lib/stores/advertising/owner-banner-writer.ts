@@ -317,6 +317,11 @@ export type OwnerBannerUpsertInput = {
   clientRequestId?: string | null;
   supersedeCreativeId?: string | null;
   nowMs?: number;
+  /** P0-C — Admin produces creative; Owner does not upload. */
+  adminProducesCreative?: boolean;
+  packageId?: string | null;
+  /** Optional Owner request memo (stored as creative subcopy). */
+  requestMemo?: string | null;
 };
 
 export async function upsertOwnerBannerDraft(
@@ -330,17 +335,56 @@ export async function upsertOwnerBannerDraft(
   const inv = validateOwnerBannerInventory(input.inventoryKey);
   if (!inv.ok) return { ok: false, error: inv.error };
 
+  const {
+    OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET,
+    OWNER_BANNER_PENDING_SOURCE_HEIGHT,
+    OWNER_BANNER_PENDING_SOURCE_WIDTH,
+    encodeOwnerAdPackagePricingModel,
+    scheduleWindowFromPackageDurationDays,
+  } = await import("@/lib/stores/advertising/owner-delivery-ad-commercial-bind");
+
+  let assetPath = String(input.assetPath ?? "").trim();
+  let sourceWidth = input.sourceWidth;
+  let sourceHeight = input.sourceHeight;
+  let startAtIso = input.startAtIso;
+  let endAtIso = input.endAtIso;
+  let packagePricingModel: string | null = null;
+
+  if (input.adminProducesCreative === true) {
+    assetPath = OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET;
+    sourceWidth = OWNER_BANNER_PENDING_SOURCE_WIDTH;
+    sourceHeight = OWNER_BANNER_PENDING_SOURCE_HEIGHT;
+  }
+
   const aspect = validateOwnerBannerCreativeAspect({
     inventoryKey: inv.key,
-    sourceWidth: input.sourceWidth,
-    sourceHeight: input.sourceHeight,
+    sourceWidth,
+    sourceHeight,
   });
   if (!aspect.ok) return { ok: false, error: aspect.error };
 
-  const assetPath = String(input.assetPath ?? "").trim();
   if (!assetPath) return { ok: false, error: "empty_asset_path" };
-  if (/^https?:\/\//i.test(assetPath) === false && !assetPath.includes("/")) {
-    // allow storage path or public URL
+
+  const packageId =
+    typeof input.packageId === "string" && input.packageId.trim()
+      ? input.packageId.trim()
+      : "";
+  if (packageId) {
+    const { quoteDeliveryAdApplicationCommercial } = await import(
+      "@/lib/stores/advertising/delivery-ad-commercial-catalog"
+    );
+    const quote = await quoteDeliveryAdApplicationCommercial(sb, {
+      productKind: "banner",
+      inventoryKey: inv.key,
+      packageId,
+      storeId: input.storeId,
+    });
+    if (!quote.ok) return { ok: false, error: "db_error" };
+    const window = scheduleWindowFromPackageDurationDays(quote.durationDays, input.nowMs);
+    if (!window.ok) return { ok: false, error: "invalid_end_at" };
+    startAtIso = window.startAtIso;
+    endAtIso = window.endAtIso;
+    packagePricingModel = encodeOwnerAdPackagePricingModel(packageId);
   }
 
   const cta = validateOwnerBannerCta({
@@ -351,8 +395,8 @@ export async function upsertOwnerBannerDraft(
   if (cta.ctaTargetId !== input.storeId) return { ok: false, error: "invalid_cta_target" };
 
   const schedule = validateOwnerBannerSchedule({
-    startAtIso: input.startAtIso,
-    endAtIso: input.endAtIso,
+    startAtIso,
+    endAtIso,
     nowMs: input.nowMs,
   });
   if (!schedule.ok) return { ok: false, error: schedule.error };
@@ -370,11 +414,11 @@ export async function upsertOwnerBannerDraft(
     p_campaign_id: input.campaignId?.trim() || null,
     p_inventory_key: inv.key,
     p_asset_path: assetPath,
-    p_source_width: input.sourceWidth,
-    p_source_height: input.sourceHeight,
-    p_source_aspect_ratio: simplifyAspectRatio(input.sourceWidth, input.sourceHeight),
+    p_source_width: sourceWidth,
+    p_source_height: sourceHeight,
+    p_source_aspect_ratio: simplifyAspectRatio(sourceWidth, sourceHeight),
     p_headline: input.headline ?? null,
-    p_subcopy: input.subcopy ?? null,
+    p_subcopy: input.requestMemo ?? input.subcopy ?? null,
     p_cta_type: cta.ctaType,
     p_cta_target_id: input.storeId,
     p_cta_label: ctaLabelKey,
@@ -394,6 +438,16 @@ export async function upsertOwnerBannerDraft(
   if (!payload?.ok || !payload.campaign_id) {
     const err = (payload?.error ?? "db_error") as OwnerBannerWriterError;
     return { ok: false, error: err };
+  }
+
+  if (packagePricingModel) {
+    await sb
+      .from(BANNER_AD_CAMPAIGN_TABLE)
+      .update({
+        pricing_model: packagePricingModel,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.campaign_id);
   }
 
   return loadOwnerBannerCampaign(sb, payload.campaign_id, input.ownerUserId);

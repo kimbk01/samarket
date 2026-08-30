@@ -11,8 +11,8 @@ import {
   OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
   OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
-  ownerStoreAdminFooterFixedClass,
 } from "@/lib/business/owner-admin-footer-actions";
+import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
@@ -37,12 +37,25 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { Sam } from "@/lib/ui/css-vars";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
 
+type CommercialSnapshotSoft = {
+  packageDisplayName?: string | null;
+  durationDays?: number | null;
+  basePriceMinor?: number | null;
+  partnerDiscountPercent?: number | null;
+  finalPayableMinor?: number | null;
+  basePriceDisplay?: string | null;
+  finalPayableDisplay?: string | null;
+};
+
 type DetailCampaign = OwnerSponsoredCampaignRow & {
   productKind?: DeliveryAdOwnerProductKind;
+  commercialSnapshot?: CommercialSnapshotSoft | null;
 };
 
 function requiredActionToneClass(
@@ -67,6 +80,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
   const productQ = sp.get("product")?.trim() === "banner" ? "banner" : null;
   const focusOperations = sp.get("focus")?.trim() === "operations";
+  const { formPadStyle, footerPadStyle, footerFixedClassName } = useOwnerAdminFormKeyboard({
+    aboveBottomNav: true,
+  });
   const [storeId, setStoreId] = useState(storeIdQ);
   const [campaign, setCampaign] = useState<DetailCampaign | null>(null);
   const [productKind, setProductKind] = useState<DeliveryAdOwnerProductKind>(
@@ -259,7 +275,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             ? { title: t("owner_ads_delete_confirm_title"), body: t("owner_ads_delete_confirm_body") }
             : null;
 
-  const footerBottom = "calc(60px + var(--safe-bottom, 0px))";
   const productTitle =
     productKind === "banner"
       ? t("owner_ads_product_banner")
@@ -268,7 +283,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   return (
     <div
       className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`}
-      style={{ paddingBottom: actionCtas.length ? 88 : 24 }}
+      style={actionCtas.length ? formPadStyle : { paddingBottom: 24 }}
       data-owner-ads-detail="1"
     >
       <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_detail_title")}</h1>
@@ -404,9 +419,71 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~{" "}
                 {campaign.endAt.slice(0, 10)}
               </p>
-              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_pricing_not_configured")}</p>
             </OwnerStoreAdminDashSection>
           </div>
+
+          {(() => {
+            const packageId = decodeOwnerAdPackagePricingModel(campaign.pricingModel);
+            const snap = campaign.commercialSnapshot ?? null;
+            if (!packageId && !snap) {
+              return (
+                <div data-owner-ads-detail-section="commercial">
+                  <OwnerStoreAdminDashSection title={t("owner_ads_commercial_facts_title")}>
+                    <p className="text-[13px] text-sam-muted">
+                      {t("owner_ads_pricing_not_configured")}
+                    </p>
+                  </OwnerStoreAdminDashSection>
+                </div>
+              );
+            }
+            const totalDisplay =
+              snap?.finalPayableDisplay ??
+              (snap?.finalPayableMinor != null
+                ? formatDeliveryAdPhpMinor(snap.finalPayableMinor)
+                : null);
+            const baseDisplay =
+              snap?.basePriceDisplay ??
+              (snap?.basePriceMinor != null
+                ? formatDeliveryAdPhpMinor(snap.basePriceMinor)
+                : null);
+            return (
+              <div data-owner-ads-detail-section="commercial">
+                <OwnerStoreAdminDashSection title={t("owner_ads_commercial_facts_title")}>
+                  {packageId ? (
+                    <p className="text-[13px] text-sam-fg">
+                      {t("owner_ads_commercial_package_bound")}
+                      {snap?.packageDisplayName
+                        ? ` · ${snap.packageDisplayName}`
+                        : ""}
+                    </p>
+                  ) : null}
+                  {snap?.durationDays != null ? (
+                    <p className="mt-2 text-[12px] text-sam-muted">
+                      {t("owner_ads_period_duration_days").replace(
+                        "{days}",
+                        String(snap.durationDays)
+                      )}
+                    </p>
+                  ) : null}
+                  {baseDisplay ? (
+                    <p className="mt-2 text-[12px] text-sam-muted">
+                      {t("owner_ads_price_base")}: {baseDisplay}
+                    </p>
+                  ) : null}
+                  {snap?.partnerDiscountPercent != null && snap.partnerDiscountPercent > 0 ? (
+                    <p className="mt-1 text-[12px] text-sam-muted">
+                      {t("owner_ads_price_partner_discount")}: {snap.partnerDiscountPercent}%
+                    </p>
+                  ) : null}
+                  {totalDisplay ? (
+                    <p className="mt-2 text-[15px] font-bold text-sam-fg">
+                      {t("owner_ads_price_total")}: {totalDisplay}
+                    </p>
+                  ) : null}
+                </OwnerStoreAdminDashSection>
+              </div>
+            );
+          })()}
 
           {/* 7 Operations */}
           {storeId ? (
@@ -457,8 +534,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
           {actionCtas.length > 0 ? (
             <BodyPortal>
               <footer
-                className={ownerStoreAdminFooterFixedClass({ aboveBottomNav: true })}
-                style={{ bottom: footerBottom }}
+                className={footerFixedClassName}
+                style={footerPadStyle}
+                data-owner-ads-footer="owner-admin-ssot"
               >
                 <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
                   <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>

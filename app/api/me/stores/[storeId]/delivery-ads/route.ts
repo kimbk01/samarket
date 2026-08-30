@@ -96,6 +96,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
     inventoryKeys: body.inventoryKeys,
     startAtIso: String(body.startAt ?? body.start_at ?? ""),
     endAtIso: String(body.endAt ?? body.end_at ?? ""),
+    packageId:
+      typeof body.packageId === "string"
+        ? body.packageId
+        : typeof body.package_id === "string"
+          ? body.package_id
+          : null,
     title: typeof body.title === "string" ? body.title : undefined,
     headline: typeof body.headline === "string" ? body.headline : undefined,
     clientRequestId:
@@ -110,7 +116,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
     return NextResponse.json({ ok: false, error: result.error }, { status: statusForError(result.error) });
   }
   return NextResponse.json(
-    { ok: true, campaign: result.row, meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT } },
+    {
+      ok: true,
+      campaign: result.row,
+      meta: {
+        pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT,
+        commercial: { chargeCollection: false, businessCash: false },
+      },
+    },
     { status: 201 }
   );
 }
