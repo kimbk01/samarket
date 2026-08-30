@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link";
-import { memo, useCallback, useMemo } from "react";
+import { Fragment, memo, useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -42,6 +42,7 @@ import type {
   StoresHomeShelfBadgeMode,
   StoresHomeShelfBenefitLineMode,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
+import { DeliveryAdSponsoredBeacon } from "@/components/stores/advertising/DeliveryAdSponsoredBeacon";
 
 const TIMESALE_SPEC = STORES_HOME_PRESENTATION_SPEC.patterns.timesaleVertical;
 
@@ -322,7 +323,7 @@ export function StoresHomeTimesaleRowCardList({
 
   return (
     <ul className="space-y-0">
-      {ordered.map(({ store: s, isSponsored, campaignId }) => {
+      {ordered.map(({ store: s, isSponsored, campaignId, exposureToken }) => {
         const benefitBase = resolveHomeShelfCardBenefit({
           storeId: s.id,
           couponIntegration,
@@ -362,15 +363,29 @@ export function StoresHomeTimesaleRowCardList({
                   sponsored: true,
                 }
               : benefitBase;
-        return (
+        const card = (
           <StoresHomeTimesaleRowCard
-            key={isSponsored && campaignId ? `ad-${campaignId}` : s.id}
             store={s}
             locale={locale}
             registerListItem={registerListItem}
             imageUrl={resolveHomeShelfStoreImage(s, imageSource)}
             benefit={benefit}
           />
+        );
+        /** P0-A — mount existing CUT G beacon when API meta already issued a token. */
+        if (isSponsored && campaignId && exposureToken) {
+          return (
+            <DeliveryAdSponsoredBeacon
+              key={`ad-${campaignId}`}
+              campaignId={campaignId}
+              exposureToken={exposureToken}
+            >
+              {card}
+            </DeliveryAdSponsoredBeacon>
+          );
+        }
+        return (
+          <Fragment key={s.id}>{card}</Fragment>
         );
       })}
     </ul>
