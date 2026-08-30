@@ -153,6 +153,9 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_publish_ready: "승인 가능: 제작·목적지 준비됨",
     admin_delivery_ads_publish_blocked: "승인 차단: 제작 또는 목적지가 미완입니다",
     admin_delivery_ads_campaign_list_title: "캠페인 목록",
+    admin_delivery_ads_home_policy_switch_hint:
+      "HOME 유료 삽입 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
+    admin_delivery_ads_home_policy_open_shelves: "홈 선반에서 광고 연동 설정",
   },
   en: {
     admin_delivery_ads_title: "Delivery ads",
@@ -309,5 +312,8 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_publish_ready: "Approve-ready: creative & destination OK",
     admin_delivery_ads_publish_blocked: "Approve blocked: creative or destination incomplete",
     admin_delivery_ads_campaign_list_title: "Campaign list",
+    admin_delivery_ads_home_policy_switch_hint:
+      "HOME paid insertion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
+    admin_delivery_ads_home_policy_open_shelves: "Configure ad integration on home shelves",
   },
 } as const;

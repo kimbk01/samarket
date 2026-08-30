@@ -74,6 +74,7 @@ const ADMIN_TRANSITIONS: ReadonlyArray<readonly [DeliveryAdLifecycleStatus, Deli
 const SYSTEM_TRANSITIONS: ReadonlyArray<readonly [DeliveryAdLifecycleStatus, DeliveryAdLifecycleStatus]> =
   [
     ["SCHEDULED", "ACTIVE"],
+    ["SCHEDULED", "ENDED"],
     ["ACTIVE", "EXHAUSTED"],
     ["ACTIVE", "ENDED"],
   ];

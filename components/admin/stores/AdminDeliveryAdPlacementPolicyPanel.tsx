@@ -20,7 +20,7 @@ export function AdminDeliveryAdHomePolicyPanel({
 }: {
   restShelfAdIntegration: string | null | undefined;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [summary, setSummary] = useState<HomePaidPlacementPolicySummary | null>(null);
   const [counts, setCounts] = useState<PolicyCampaignCounts | null>(null);
 
@@ -134,6 +134,24 @@ export function AdminDeliveryAdHomePolicyPanel({
       ) : null}
       <Link href={hubHref} className="mt-3 inline-block text-[13px] font-semibold text-signature underline">
         {t("admin_delivery_ads_open_campaigns")}
+      </Link>
+      <p className="mt-2 text-[11px] text-sam-muted">
+        {safeT("admin_delivery_ads_home_policy_switch_hint", {
+          fallbackKo:
+            "HOME 유료 삽입 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
+          fallbackEn:
+            "HOME paid insertion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
+        })}
+      </p>
+      <Link
+        href="/admin/stores-home-shelves"
+        className="mt-1 inline-block text-[12px] font-medium text-signature underline"
+        data-admin-home-paid-insertion-switch-link="1"
+      >
+        {safeT("admin_delivery_ads_home_policy_open_shelves", {
+          fallbackKo: "홈 선반에서 광고 연동 설정",
+          fallbackEn: "Configure ad integration on home shelves",
+        })}
       </Link>
     </div>
   );
