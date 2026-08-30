@@ -12,7 +12,6 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-audit";
 import {
   assertDeliveryAdLifecycleTransition,
-  lifecycleImpliesIsActive,
   type DeliveryAdLifecycleStatus,
   type DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
@@ -132,7 +131,7 @@ export type OwnerBannerWriterError =
   | "store_slug_missing";
 
 export type OwnerBannerWriterResult<T> =
-  | { ok: true; row: T }
+  | { ok: true; row: T; auditId?: string }
   | { ok: false; error: OwnerBannerWriterError };
 
 function isLifecycle(v: unknown): v is DeliveryAdLifecycleStatus {
@@ -399,6 +398,19 @@ export async function upsertOwnerBannerDraft(
   return loadOwnerBannerCampaign(sb, payload.campaign_id, input.ownerUserId);
 }
 
+function mapOwnerBannerTransitionRpcError(error: unknown): OwnerBannerWriterError {
+  const code = typeof error === "string" ? error : "";
+  if (code === "forbidden") return "forbidden";
+  if (code === "campaign_not_found") return "campaign_not_found";
+  if (code === "illegal_transition") return "illegal_transition";
+  if (code === "stale_lifecycle") return "duplicate_submit";
+  return "db_error";
+}
+
+/**
+ * PRE-3B — campaign UPDATE + delivery_ad_audit_logs INSERT in one DB transaction via RPC.
+ * Returns stable audit_id from delivery_ad_audit_logs.id. Closes prior Banner no-CAS gap.
+ */
 export async function transitionOwnerBannerCampaign(
   sb: SupabaseClient,
   input: {
@@ -425,45 +437,42 @@ export async function transitionOwnerBannerCampaign(
   );
   if (!asserted.ok) return { ok: false, error: "illegal_transition" };
 
-  const nowIso = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    lifecycle_status: target,
-    is_active: lifecycleImpliesIsActive(target),
-    updated_by_user_id: input.ownerUserId,
-    updated_at: nowIso,
-  };
-
-  if (input.action === "submit" || input.action === "resubmit") {
-    patch.review_status = "PENDING";
-    patch.submitted_at = nowIso;
-    if (row.creativeId) {
-      await sb
-        .from(DELIVERY_AD_CREATIVE_TABLE)
-        .update({ review_status: "PENDING", updated_at: nowIso })
-        .eq("id", row.creativeId);
-    }
+  if (
+    input.action !== "submit" &&
+    input.action !== "resubmit" &&
+    input.action !== "pause" &&
+    input.action !== "resume" &&
+    input.action !== "end"
+  ) {
+    return { ok: false, error: "illegal_transition" };
   }
-  if (input.action === "pause") patch.paused_at = nowIso;
-  if (input.action === "end") patch.ended_at = nowIso;
 
-  const { error } = await sb
-    .from(BANNER_AD_CAMPAIGN_TABLE)
-    .update(patch)
-    .eq("id", row.id)
-    .eq("owner_user_id", input.ownerUserId);
-  if (error) return { ok: false, error: "db_error" };
-
-  await sb.from(DELIVERY_AD_AUDIT_LOG_TABLE).insert({
-    product_kind: "banner",
-    campaign_id: row.id,
-    actor_type: "owner",
-    actor_user_id: input.ownerUserId,
-    action: `owner_banner_${input.action}`,
-    before_json: { lifecycle: row.lifecycleStatus },
-    after_json: { lifecycle: target },
+  const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
+    p_owner_user_id: input.ownerUserId,
+    p_product_kind: "banner",
+    p_campaign_id: input.campaignId,
+    p_action: input.action,
+    p_expected_lifecycle: row.lifecycleStatus,
+    p_audit_action: `owner_banner_${input.action}`,
   });
+  if (error) {
+    console.error("[transitionOwnerBannerCampaign]", error.message);
+    return { ok: false, error: "db_error" };
+  }
+  const payload = data as {
+    ok?: boolean;
+    error?: string;
+    audit_id?: string;
+  } | null;
+  if (!payload?.ok) {
+    return { ok: false, error: mapOwnerBannerTransitionRpcError(payload?.error) };
+  }
+  const auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
+  if (!auditId) return { ok: false, error: "db_error" };
 
-  return loadOwnerBannerCampaign(sb, row.id, input.ownerUserId);
+  const reloaded = await loadOwnerBannerCampaign(sb, row.id, input.ownerUserId);
+  if (!reloaded.ok) return reloaded;
+  return { ok: true, row: reloaded.row, auditId };
 }
 
 export async function deleteOwnerBannerDraft(

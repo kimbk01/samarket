@@ -14,7 +14,6 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-audit";
 import {
   assertDeliveryAdLifecycleTransition,
-  lifecycleImpliesIsActive,
   type DeliveryAdLifecycleStatus,
   type DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
@@ -104,7 +103,7 @@ export type OwnerSponsoredWriterError =
   | "pricing_not_configured_ok";
 
 export type OwnerSponsoredWriterResult<T> =
-  | { ok: true; row: T }
+  | { ok: true; row: T; auditId?: string }
   | { ok: false; error: OwnerSponsoredWriterError };
 
 function isLifecycle(v: unknown): v is DeliveryAdLifecycleStatus {
@@ -488,6 +487,36 @@ async function loadHistoryFlags(
   };
 }
 
+function ownerSponsoredActionFromLabel(actionLabel: string): string | null {
+  switch (actionLabel) {
+    case "submitted":
+      return "submit";
+    case "resubmitted":
+      return "resubmit";
+    case "paused_owner":
+      return "pause";
+    case "resumed_owner":
+      return "resume";
+    case "ended_owner":
+      return "end";
+    default:
+      return null;
+  }
+}
+
+function mapOwnerTransitionRpcError(error: unknown): OwnerSponsoredWriterError {
+  const code = typeof error === "string" ? error : "";
+  if (code === "forbidden") return "forbidden";
+  if (code === "campaign_not_found") return "campaign_not_found";
+  if (code === "illegal_transition") return "illegal_transition";
+  if (code === "stale_lifecycle") return "duplicate_submit";
+  return "db_error";
+}
+
+/**
+ * PRE-3B — campaign UPDATE + delivery_ad_audit_logs INSERT in one DB transaction via RPC.
+ * Returns stable audit_id from delivery_ad_audit_logs.id.
+ */
 export async function transitionOwnerSponsoredCampaign(
   sb: SupabaseClient,
   input: {
@@ -513,52 +542,36 @@ export async function transitionOwnerSponsoredCampaign(
     }
   }
 
-  const nowIso = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    lifecycle_status: input.to,
-    is_active: lifecycleImpliesIsActive(input.to),
-    updated_by_user_id: input.ownerUserId,
-    updated_at: nowIso,
-  };
+  const action = ownerSponsoredActionFromLabel(input.actionLabel);
+  if (!action) return { ok: false, error: "illegal_transition" };
 
-  if (input.to === "SUBMITTED") {
-    patch.review_status = "PENDING";
-    patch.submitted_at = nowIso;
-  }
-  if (input.to === "PAUSED_OWNER") patch.paused_at = nowIso;
-  if (input.to === "ACTIVE" && row.lifecycleStatus === "PAUSED_OWNER") {
-    patch.paused_at = null;
-    patch.activated_at = nowIso;
-  }
-  if (input.to === "ENDED") {
-    patch.ended_at = nowIso;
-    patch.is_active = false;
-  }
-
-  const { data, error } = await sb
-    .from(STORE_SPONSORED_CAMPAIGN_TABLE)
-    .update(patch)
-    .eq("id", row.id)
-    .eq("owner_user_id", input.ownerUserId)
-    .eq("lifecycle_status", row.lifecycleStatus)
-    .select(SELECT_COLS)
-    .maybeSingle();
-
-  if (error) return { ok: false, error: "db_error" };
-  if (!data) return { ok: false, error: "duplicate_submit" };
-
-  const audit = await writeAudit(sb, {
-    campaignId: row.id,
-    actorUserId: input.ownerUserId,
-    action: input.actionLabel,
-    before: { lifecycle_status: row.lifecycleStatus, review_status: row.reviewStatus },
-    after: data as unknown as Record<string, unknown>,
+  const { data, error } = await sb.rpc("owner_delivery_ad_transition", {
+    p_owner_user_id: input.ownerUserId,
+    p_product_kind: "store_sponsored",
+    p_campaign_id: input.campaignId,
+    p_action: action,
+    p_expected_lifecycle: row.lifecycleStatus,
+    p_audit_action: input.actionLabel,
   });
-  if (!audit.ok) return audit;
+  if (error) {
+    console.error("[transitionOwnerSponsoredCampaign]", error.message);
+    return { ok: false, error: "db_error" };
+  }
+  const payload = data as {
+    ok?: boolean;
+    error?: string;
+    audit_id?: string;
+    campaign_id?: string;
+  } | null;
+  if (!payload?.ok) {
+    return { ok: false, error: mapOwnerTransitionRpcError(payload?.error) };
+  }
+  const auditId = typeof payload.audit_id === "string" ? payload.audit_id : null;
+  if (!auditId) return { ok: false, error: "db_error" };
 
-  const mapped = mapRow(data as unknown as Record<string, unknown>, row.inventoryKeys);
-  if (!mapped) return { ok: false, error: "db_error" };
-  return { ok: true, row: mapped };
+  const reloaded = await loadOwnerSponsoredCampaign(sb, input.campaignId, input.ownerUserId);
+  if (!reloaded.ok) return reloaded;
+  return { ok: true, row: reloaded.row, auditId };
 }
 
 export async function deleteOwnerSponsoredDraft(
