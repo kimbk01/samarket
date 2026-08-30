@@ -29,6 +29,14 @@ vi.mock("@/lib/push/disconnect-native-devices-for-logout-client", () => ({
   disconnectNativeDevicesForLogout: (...args: unknown[]) => disconnectNativeDevicesForLogout(...args),
 }));
 
+vi.mock("@/lib/auth/apply-local-logout-fail-closed", () => ({
+  applyLocalLogoutFailClosed: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/push/native/clear-all-delivered-notifications-for-logout", () => ({
+  clearAllDeliveredNotificationsForLogout: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/push/disconnect-web-push-for-logout-client", () => ({
   disconnectWebPushSubscriptionsForLogout: vi.fn(),
 }));
@@ -122,7 +130,7 @@ describe("logout native badge durable clear orchestration", () => {
     markSessionTerminalGuestFromClient.mockReset();
     applyImmediateLogoutClientState.mockReset();
     signOut.mockReset();
-    disconnectNativeDevicesForLogout.mockResolvedValue(undefined);
+    disconnectNativeDevicesForLogout.mockResolvedValue({ ok: true, mode: "authenticated" });
     wipeClientSessionState.mockResolvedValue(undefined);
     signOut.mockResolvedValue({ error: null });
     clearNativeBadgeCount.mockResolvedValue({

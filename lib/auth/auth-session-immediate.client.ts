@@ -41,11 +41,11 @@ export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
   const profile = sessionToProfile(session);
   if (!profile?.id) return false;
 
+  bindAuthUserId(profile.id);
   const { markSessionAuthenticatedFromClient } = await import("@/lib/auth/dibay-session-manager");
   markSessionAuthenticatedFromClient("prime_supabase");
   const { logGuestAuthBootMarker } = await import("@/lib/auth/guest-auth-boot-markers");
   logGuestAuthBootMarker("cookie_sync_after_login_done", { user_id: profile.id });
-  bindAuthUserId(profile.id);
   setSupabaseProfileCache(profile);
   /**
    * CUT-A — do not park boot in `hydrating` via setAppBootLoading().

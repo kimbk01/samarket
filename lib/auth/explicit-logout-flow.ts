@@ -239,9 +239,12 @@ export async function awaitLogoutNativeBadgeDurableClear(input: {
 export type ExplicitLogoutFlowResult = {
   localSignOutOk: boolean;
   serverWarning: string | null;
+  /** Client (+ native fallback) device deactivate outcome — observed separately from session logout. */
+  deviceUnbindOk: boolean;
+  deviceUnbindError: string | null;
 };
 
-/** B→F 순서 고정. 세션·쿠키는 deactivate/server 호출 전까지 유지한다. */
+/** B→F 순서 고정. Local fail-closed FIRST; 세션·쿠키는 deactivate/server 호출 전까지 유지. */
 export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise<ExplicitLogoutFlowResult> {
   logExplicitLogoutAudit("explicit_logout_start", { scope });
 
@@ -249,6 +252,9 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
     "@/lib/auth/explicit-logout-intent"
   );
   beginExplicitLogoutIntent(`explicit_logout:${scope}`);
+
+  let deviceUnbindOk = false;
+  let deviceUnbindError: string | null = null;
 
   try {
     const deviceId = ensureClientInstanceId();
@@ -259,16 +265,36 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
       user_id: userId ?? null,
     });
 
+    // CONTRACT 1 — local fail-closed before any remote cleanup.
+    const { applyLocalLogoutFailClosed } = await import("@/lib/auth/apply-local-logout-fail-closed");
+    await applyLocalLogoutFailClosed(`explicit_logout_start:${scope}`);
+    logExplicitLogoutAudit("local_fail_closed_applied", { scope });
+
     void disconnectWebPushSubscriptionsForLogout();
+    void import("@/lib/push/native/clear-all-delivered-notifications-for-logout").then(
+      ({ clearAllDeliveredNotificationsForLogout }) =>
+        clearAllDeliveredNotificationsForLogout(`explicit_logout:${scope}`),
+    );
 
     logExplicitLogoutAudit("logout_device_deactivate_start", { device_id: deviceId });
     try {
-      await disconnectNativeDevicesForLogout();
-      logExplicitLogoutAudit("logout_device_deactivate_done", { device_id: deviceId });
+      const unbind = await disconnectNativeDevicesForLogout();
+      deviceUnbindOk = unbind.ok === true;
+      deviceUnbindError = unbind.ok ? null : (unbind.error ?? "logout_device_deactivate_failed");
+      if (deviceUnbindOk) {
+        logExplicitLogoutAudit("logout_device_deactivate_done", { device_id: deviceId });
+      } else {
+        logExplicitLogoutAudit("logout_device_deactivate_failed", {
+          device_id: deviceId,
+          error: deviceUnbindError,
+        });
+      }
     } catch (error) {
+      deviceUnbindOk = false;
+      deviceUnbindError = error instanceof Error ? error.message : String(error);
       logExplicitLogoutAudit("logout_device_deactivate_failed", {
         device_id: deviceId,
-        error: error instanceof Error ? error.message : String(error),
+        error: deviceUnbindError,
       });
     }
 
@@ -278,6 +304,7 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
     logExplicitLogoutAudit("auth_logout_server_done", {
       path: serverPath,
       serverWarning: serverWarning ?? null,
+      deviceUnbindOk,
     });
 
     const localSignOutOk =
@@ -292,14 +319,18 @@ export async function runExplicitLogoutFlow(scope: ExplicitLogoutScope): Promise
     establishGuestAuthState(`explicit_logout:${scope}`);
     markSessionTerminalGuestFromClient(`explicit_logout:${scope}`);
     applyImmediateLogoutClientState();
-    logExplicitLogoutAudit("terminal_guest_after_explicit_logout", { scope });
+    logExplicitLogoutAudit("terminal_guest_after_explicit_logout", {
+      scope,
+      deviceUnbindOk,
+      deviceUnbindError,
+    });
 
     await awaitLogoutNativeBadgeDurableClear({
       reason: `explicit_logout:${scope}`,
       previousViewerId,
     });
 
-    return { localSignOutOk, serverWarning };
+    return { localSignOutOk, serverWarning, deviceUnbindOk, deviceUnbindError };
   } finally {
     clearExplicitLogoutIntent();
   }

@@ -4,6 +4,7 @@
 export type ExplicitLogoutAuditMarker =
   | "explicit_logout_start"
   | "explicit_logout_context"
+  | "local_fail_closed_applied"
   | "logout_device_deactivate_start"
   | "logout_device_deactivate_done"
   | "logout_device_deactivate_failed"

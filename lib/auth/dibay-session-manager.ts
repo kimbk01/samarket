@@ -28,6 +28,7 @@ import { registerRecoverableGuestRecoveryBootstrap } from "@/lib/auth/guest-auth
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { isExplicitLogoutIntentActive } from "@/lib/auth/explicit-logout-intent";
 import { shouldSkipSignedOutEventWipe } from "@/lib/auth/client-session-wipe";
+import { getBoundAuthUserId } from "@/lib/auth/client-instance-id";
 import {
   beginUnexpectedSignedOutRecovery,
   convergeUnexpectedSignedOutHealth,
@@ -61,23 +62,34 @@ function setSessionPhase(next: DibaySessionPhase): void {
   phaseListeners.forEach((l) => l(next));
 }
 
-function projectMemberEventEligibility(eligible: boolean, reason: string): void {
+function projectMemberEventEligibility(
+  eligible: boolean,
+  reason: string,
+  boundUserId?: string | null,
+): void {
   void import("@/lib/push/native/member-call-eligibility-bridge").then(
-    ({ setNativeMemberCallEligible }) => setNativeMemberCallEligible(eligible, reason),
+    ({ projectNativeMemberEventEligibility }) =>
+      projectNativeMemberEventEligibility({
+        eligible,
+        boundUserId: eligible ? boundUserId : null,
+        reason,
+      }),
   );
 }
 
-function applyAuthenticatedPhase(source: string): void {
+function applyAuthenticatedPhase(source: string, boundUserId?: string | null): void {
   clearGuestAuthState();
   setSessionPhase("authenticated");
   logGuestAuthBootMarker("session_authenticated", { source });
-  projectMemberEventEligibility(true, `session_authenticated:${source}`);
+  const uid =
+    (typeof boundUserId === "string" && boundUserId.trim()) || getBoundAuthUserId() || null;
+  projectMemberEventEligibility(true, `session_authenticated:${source}`, uid);
 }
 
 function applyTerminalGuestPhase(source: string): void {
   establishGuestAuthState(source);
   setSessionPhase("terminal_guest");
-  projectMemberEventEligibility(false, `terminal_guest:${source}`);
+  projectMemberEventEligibility(false, `terminal_guest:${source}`, null);
 }
 
 function shouldSkipEnsureHealthyForTerminalGuestGate(): boolean {
@@ -186,14 +198,15 @@ async function validateRegistryMatchesSupabaseSession(source: string): Promise<R
 }
 
 async function confirmAuthenticatedWithRegistry(
-  source: string
+  source: string,
+  boundUserId?: string | null,
 ): Promise<
   | { ok: true; phase: "authenticated" }
   | { ok: false; phase: DibaySessionPhase; terminal: boolean }
 > {
   const registry = await validateRegistryMatchesSupabaseSession(source);
   if (registry.ok) {
-    applyAuthenticatedPhase(source);
+    applyAuthenticatedPhase(source, boundUserId);
     return { ok: true, phase: "authenticated" };
   }
   if (registry.phase === "recovering") {
@@ -252,7 +265,7 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
 
     const { data: sessionData } = await sb.auth.getSession();
     if (sessionData.session?.user?.id) {
-      const result = await confirmAuthenticatedWithRegistry(source);
+      const result = await confirmAuthenticatedWithRegistry(source, sessionData.session.user.id);
       logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
       return result;
     }
@@ -269,7 +282,10 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
           return result;
         }
         if (refreshed.data.session?.user?.id) {
-          const result = await confirmAuthenticatedWithRegistry(source);
+          const result = await confirmAuthenticatedWithRegistry(
+            source,
+            refreshed.data.session.user.id,
+          );
           logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
           return result;
         }
@@ -280,7 +296,7 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
 
     const { data: { user }, error: userErr } = await dedupeSupabaseAuthGetUser(sb);
     if (user?.id) {
-      const result = await confirmAuthenticatedWithRegistry(source);
+      const result = await confirmAuthenticatedWithRegistry(source, user.id);
       logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
       return result;
     }
@@ -414,7 +430,7 @@ function handleAuthStateChange(event: AuthChangeEvent, session: Session | null):
     return;
   }
   if (session?.user?.id) {
-    applyAuthenticatedPhase(`auth_event:${event}`);
+    applyAuthenticatedPhase(`auth_event:${event}`, session.user.id);
   }
 }
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/push/native/member-call-eligibility-bridge", () => ({
   setNativeMemberCallEligible: vi.fn(async () => undefined),
+  projectNativeMemberEventEligibility: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/auth/dibay-session-manager", async (importOriginal) => {

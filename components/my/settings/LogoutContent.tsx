@@ -41,15 +41,10 @@ export function LogoutActionTrigger({
     setSubmitting((prev) => (prev ? prev : true));
     setError((prev) => (prev === null ? prev : null));
 
-    const safetyForceNavigate = window.setTimeout(() => {
-      setSubmitting((prev) => (prev ? false : prev));
-      setOpen((prev) => (prev ? false : prev));
-      navigateAfterAuthExitOnce("logout");
-    }, 6_000);
-
+    // Navigation authority: auth-exit-coordinator only (after logout flow).
+    // No parallel timeout navigate — local fail-closed runs at logout start.
     try {
       const result = await runAuthLogoutExit();
-      window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));
 
       if (!result.ok) {
@@ -59,7 +54,6 @@ export function LogoutActionTrigger({
 
       setOpen((prev) => (prev ? false : prev));
     } catch (e) {
-      window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));
       setError(e instanceof Error ? e.message : "로그아웃 처리 중 알 수 없는 오류가 발생했습니다.");
     }

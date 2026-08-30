@@ -105,12 +105,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     // iOS Delivery Adapter v1 — APNS aps.badge / badgeCount → SpringBoard (echo only).
+    // Guest/logout/wrong-user: skip badge echo (tray may still be OS-shown for alert APNs;
+    // logout clears delivered notifications + eligibility gates CallKit/tap).
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        DibayAppIconDeliveryAdapter.applyFromPushUserInfo(userInfo)
+        let recipient = DibayMemberEventEligibilityStore.resolvePayloadRecipientUserId(from: userInfo)
+        let present = DibayMemberEventEligibilityStore.presentDecision(payloadRecipientUserId: recipient)
+        if present.ok {
+            DibayAppIconDeliveryAdapter.applyFromPushUserInfo(userInfo)
+        } else {
+            NSLog("[DIBAY_PUSH] remote_badge_echo_skipped reason=%@", present.reason)
+        }
         completionHandler(.noData)
     }
 

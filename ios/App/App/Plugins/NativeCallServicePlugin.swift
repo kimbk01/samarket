@@ -473,11 +473,20 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     call.resolve(["ok": true])
   }
 
-  /// Member event eligibility projection — logout/guest must set false before VoIP presents CallKit.
+  /// Member event eligibility + bound user — logout/guest must set false before VoIP presents CallKit.
   @objc func setMemberCallEligible(_ call: CAPPluginCall) {
     let eligible = call.getBool("eligible") ?? false
     let reason = (call.getString("reason") ?? "js_bridge").trimmingCharacters(in: .whitespacesAndNewlines)
-    DibayMemberEventEligibilityStore.setEligible(eligible, reason: reason.isEmpty ? "js_bridge" : reason)
-    call.resolve(["ok": true, "eligible": eligible])
+    let boundUserId = (call.getString("boundUserId") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let safeReason = reason.isEmpty ? "js_bridge" : reason
+    DibayMemberEventEligibilityStore.setEligible(eligible, reason: safeReason)
+    if eligible {
+      DibayMemberEventEligibilityStore.setBoundMemberUserId(boundUserId, reason: safeReason)
+    }
+    call.resolve([
+      "ok": true,
+      "eligible": eligible,
+      "boundUserSet": eligible && !boundUserId.isEmpty,
+    ])
   }
 }

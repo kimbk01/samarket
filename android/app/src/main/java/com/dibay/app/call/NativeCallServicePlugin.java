@@ -363,12 +363,23 @@ public class NativeCallServicePlugin extends Plugin {
     call.resolve(new JSObject().put("ok", true));
   }
 
-  /** Member incoming-call eligibility — logout/guest must set false before FCM can present UI. */
+  /** Member private-event eligibility + optional bound user — logout/guest must set false first. */
   @PluginMethod
   public void setMemberCallEligible(PluginCall call) {
     boolean eligible = Boolean.TRUE.equals(call.getBoolean("eligible", false));
     String reason = call.getString("reason", "js_bridge");
+    String boundUserId = call.getString("boundUserId", "");
     com.dibay.app.DibayCallAuthEligibilityStore.setEligible(getContext(), eligible, reason);
-    call.resolve(new JSObject().put("ok", true).put("eligible", eligible));
+    if (eligible) {
+      com.dibay.app.DibayCallAuthEligibilityStore.setBoundMemberUserId(
+          getContext(), boundUserId != null ? boundUserId : "", reason);
+    }
+    call.resolve(
+        new JSObject()
+            .put("ok", true)
+            .put("eligible", eligible)
+            .put(
+                "boundUserSet",
+                eligible && boundUserId != null && !boundUserId.trim().isEmpty()));
   }
 }

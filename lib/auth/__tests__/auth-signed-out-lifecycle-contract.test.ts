@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/push/native/member-call-eligibility-bridge", () => ({
   setNativeMemberCallEligible: vi.fn(async () => undefined),
+  projectNativeMemberEventEligibility: vi.fn(async () => undefined),
 }));
 
 describe("SIGNED_OUT auth lifecycle contract", () => {

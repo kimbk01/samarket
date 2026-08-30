@@ -388,18 +388,41 @@ export function PushRouteListener() {
             action.notification?.id?.trim() ||
             undefined;
           if (!data) return;
-          const path = resolvePushRouteFromFcmData(data);
-          if (!path) return;
-          console.info("[push-route] notification_tap_received", {
-            path,
-            notificationId: notificationId ?? null,
-            via: "capacitor_push_action",
-          });
-          navigate(path, notificationId, {
-            recipientScope: data.recipientScope,
-            pipeline: data.pipeline,
-            type: data.type ?? data.eventType,
-          });
+
+          void (async () => {
+            const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
+            const {
+              canPresentAuthenticatedNotification,
+              resolvePushPayloadRecipientUserId,
+            } = await import("@/lib/push/native/can-present-authenticated-notification");
+            const phase = sessionPhaseRef.current;
+            const decision = canPresentAuthenticatedNotification({
+              memberEventEligible: phase === "authenticated",
+              boundUserId: getBoundAuthUserId(),
+              payloadRecipientUserId: resolvePushPayloadRecipientUserId(data),
+            });
+            if (!decision.ok) {
+              console.info("[push-route] notification_tap_dropped", {
+                reason: decision.reason,
+                phase,
+                notificationId: notificationId ?? null,
+              });
+              return;
+            }
+
+            const path = resolvePushRouteFromFcmData(data);
+            if (!path) return;
+            console.info("[push-route] notification_tap_received", {
+              path,
+              notificationId: notificationId ?? null,
+              via: "capacitor_push_action",
+            });
+            navigate(path, notificationId, {
+              recipientScope: data.recipientScope,
+              pipeline: data.pipeline,
+              type: data.type ?? data.eventType,
+            });
+          })();
         });
         removePushTap = () => {
           void sub.remove();

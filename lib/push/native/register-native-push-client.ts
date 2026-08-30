@@ -143,8 +143,9 @@ async function postDeviceRegistration(
         : "fcm";
     cacheDeviceUnbindPushToken(body.push_token, provider);
   }
+  const id = bodyToDeviceRegisterIdentity(body);
   void import("@/lib/push/native/member-call-eligibility-bridge").then(({ setNativeMemberCallEligible }) =>
-    setNativeMemberCallEligible(true, "device_register_success"),
+    setNativeMemberCallEligible(true, "device_register_success", id?.userId || null),
   );
   if (orchestrationSettled) {
     logPushRegister("api_post_late_after_timeout", {
@@ -216,7 +217,7 @@ async function postDeviceRegistrationWithNativeFirst(
         cacheDeviceUnbindPushToken(id.pushToken, id.pushProvider);
         void import("@/lib/push/native/member-call-eligibility-bridge").then(
           ({ setNativeMemberCallEligible }) =>
-            setNativeMemberCallEligible(true, "native_device_register_success"),
+            setNativeMemberCallEligible(true, "native_device_register_success", id.userId || null),
         );
         logPushRegister("success", {
           http_status: nativeResult.http_status ?? 200,

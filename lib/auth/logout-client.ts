@@ -11,23 +11,39 @@ import { disconnectNativeDevicesForLogout } from "@/lib/push/disconnect-native-d
 import { disconnectWebPushSubscriptionsForLogout } from "@/lib/push/disconnect-web-push-for-logout-client";
 
 export type LogoutResult =
-  | { ok: true; serverWarning?: string | null }
+  | {
+      ok: true;
+      serverWarning?: string | null;
+      deviceUnbindOk?: boolean;
+      deviceUnbindError?: string | null;
+    }
   | { ok: false; message: string };
 
 function logoutT(key: MessageKey): string {
   return translate(getRuntimeAppLanguage(), key);
 }
 
-/** 현재 기기 — deactivate → server logout → signOut → wipe → terminal_guest */
+/** 현재 기기 — local fail-closed → deactivate → server logout → signOut → wipe → terminal_guest */
 export async function logoutCurrentDevice(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
   }
-  const { localSignOutOk, serverWarning } = await runExplicitLogoutFlow("current_device");
+  const { localSignOutOk, serverWarning, deviceUnbindOk, deviceUnbindError } =
+    await runExplicitLogoutFlow("current_device");
   if (!localSignOutOk && serverWarning) {
-    return { ok: true, serverWarning };
+    return {
+      ok: true,
+      serverWarning,
+      deviceUnbindOk,
+      deviceUnbindError,
+    };
   }
-  return { ok: true, serverWarning: serverWarning ?? null };
+  return {
+    ok: true,
+    serverWarning: serverWarning ?? null,
+    deviceUnbindOk,
+    deviceUnbindError,
+  };
 }
 
 /** 모든 기기 — global signOut 포함 explicit flow */
@@ -35,14 +51,25 @@ export async function logoutAllDevices(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
   }
-  const { localSignOutOk, serverWarning } = await runExplicitLogoutFlow("all_devices");
+  const { localSignOutOk, serverWarning, deviceUnbindOk, deviceUnbindError } =
+    await runExplicitLogoutFlow("all_devices");
   if (!localSignOutOk && serverWarning) {
-    return { ok: true, serverWarning };
+    return {
+      ok: true,
+      serverWarning,
+      deviceUnbindOk,
+      deviceUnbindError,
+    };
   }
-  return { ok: true, serverWarning: serverWarning ?? null };
+  return {
+    ok: true,
+    serverWarning: serverWarning ?? null,
+    deviceUnbindOk,
+    deviceUnbindError,
+  };
 }
 
-/** refresh token 무효·corrupt — best-effort disconnect 후 local wipe */
+/** refresh token 무효·corrupt — local fail-closed 후 best-effort disconnect + local wipe */
 export async function forceClearCorruptSession(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
@@ -52,6 +79,9 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
   );
   beginExplicitLogoutIntent("corrupt_session_clear");
   try {
+    const { applyLocalLogoutFailClosed } = await import("@/lib/auth/apply-local-logout-fail-closed");
+    await applyLocalLogoutFailClosed("corrupt_session_clear");
+
     const { applyImmediateLogoutClientState } = await import("@/lib/auth/auth-session-immediate.client");
     const { wipeClientSessionState, markExplicitLogoutWipeDone } = await import(
       "@/lib/auth/client-session-wipe"
@@ -63,7 +93,19 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
     markExplicitLogoutWipeDone();
     const sb = getSupabaseClient();
     await disconnectWebPushSubscriptionsForLogout().catch(() => undefined);
-    await disconnectNativeDevicesForLogout().catch(() => undefined);
+    let deviceUnbindOk = false;
+    let deviceUnbindError: string | null = null;
+    try {
+      const unbind = await disconnectNativeDevicesForLogout();
+      deviceUnbindOk = unbind.ok === true;
+      deviceUnbindError = unbind.ok ? null : (unbind.error ?? "deactivate_failed");
+    } catch (error) {
+      deviceUnbindError = error instanceof Error ? error.message : String(error);
+    }
+    void import("@/lib/push/native/clear-all-delivered-notifications-for-logout").then(
+      ({ clearAllDeliveredNotificationsForLogout }) =>
+        clearAllDeliveredNotificationsForLogout("corrupt_session_clear"),
+    );
     await sb?.auth.signOut({ scope: "local" }).catch(() => undefined);
     await wipeClientSessionState("user_logout");
     establishGuestAuthState("corrupt_session_clear");
@@ -74,7 +116,7 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
       reason: "corrupt_session_clear",
       previousViewerId: null,
     });
-    return { ok: true, serverWarning: null };
+    return { ok: true, serverWarning: null, deviceUnbindOk, deviceUnbindError };
   } finally {
     clearExplicitLogoutIntent();
   }

@@ -413,6 +413,13 @@ export function buildFcmDataFields(
     fields.ringtone_url = ringtoneUrl;
   }
 
+  // Device local fail-closed identity — always present for recipient match after logout/A→B.
+  // Does not replace transport envelope recipientMemberId (may be null for owner_c).
+  if (out.user_id) {
+    fields.targetUserId = out.user_id;
+    fields.userId = out.user_id;
+  }
+
   // Gate 3 Step 9 — transport envelope (A/B/C identity). badgeCount stays absolute echo.
   const metaKind = meta ? trimText(meta.kind) : "";
   const eventClassWire = meta ? trimText(meta.eventClass ?? meta.event_class) : "";

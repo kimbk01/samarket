@@ -24,11 +24,13 @@ describe("logout device unbind + native call eligibility contract", () => {
 
   it("client logout disconnect sends token proof and clears native eligibility", () => {
     const client = read("lib/push/disconnect-native-devices-for-logout-client.ts");
+    const flow = read("lib/auth/explicit-logout-flow.ts");
     expect(client).toContain("readDeviceUnbindPushToken");
     expect(client).toContain("push_token");
     expect(client).toContain("setNativeMemberCallEligible");
     expect(client).toContain("deactivateBoundPushDeviceViaNative");
     expect(client).not.toMatch(/\.catch\(\(\)\s*=>\s*undefined\)/);
+    expect(flow).toContain("applyLocalLogoutFailClosed");
   });
 
   it("Android FCM receive and Activity gate guest incoming call UI", () => {
@@ -42,12 +44,14 @@ describe("logout device unbind + native call eligibility contract", () => {
     const store = read(
       "android/app/src/main/java/com/dibay/app/DibayCallAuthEligibilityStore.java",
     );
+    const fcmSvc = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(delivery).toContain("incoming_blocked_guest_ineligible");
-    expect(delivery).toContain("DibayCallAuthEligibilityStore.isMemberCallEligible");
+    expect(delivery).toContain("presentDecision");
     expect(video).toContain("incoming_activity_blocked_guest_ineligible");
     expect(voice).toContain("incoming_activity_blocked_guest_ineligible");
     expect(store).toContain("member_call_eligible");
     expect(store).toContain("getBoolean(KEY_ELIGIBLE, false)");
+    expect(fcmSvc).toContain("authenticated_notification_dropped");
   });
 
   it("call push sender still requires user_devices.is_active=true", () => {
@@ -60,6 +64,8 @@ describe("logout device unbind + native call eligibility contract", () => {
     const session = read("lib/auth/dibay-session-manager.ts");
     expect(register).toContain("cacheDeviceUnbindPushToken");
     expect(register).toContain("setNativeMemberCallEligible(true");
+    expect(register).toContain("id.userId");
+    expect(session).toContain("projectNativeMemberEventEligibility");
     expect(session).toContain("projectMemberEventEligibility(true");
     expect(session).toContain("projectMemberEventEligibility(false");
     expect(session).toContain("applyAuthenticatedPhase");

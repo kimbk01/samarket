@@ -229,6 +229,31 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       return
     }
 
+    let recipient = DibayMemberEventEligibilityStore.resolvePayloadRecipientUserId(from: data)
+    let present = DibayMemberEventEligibilityStore.presentDecision(payloadRecipientUserId: recipient)
+    guard present.ok else {
+      DibayCallLog.infoCall(
+        "[voip] incoming_blocked_auth_gate",
+        callId: sessionId,
+        detail: "reason=\(present.reason)"
+      )
+      callProvider.markTerminalSuppressed(sessionId: sessionId, reason: present.reason)
+      let identity = IncomingCallCallerIdentity.resolve(from: data)
+      callProvider.reportIncomingCall(
+        uuidString: sessionId,
+        callerDisplayName: identity.displayName,
+        remoteHandle: identity.remoteHandle,
+        hasVideo: identity.hasVideo,
+        roomId: stringField(data, keys: ["roomId", "room_id"]),
+        callerId: stringField(data, keys: ["callerId", "caller_id"]),
+        iosSoundName: nil,
+        ringtonePolicy: "silent"
+      ) { _ in
+        completion()
+      }
+      return
+    }
+
     let identity = IncomingCallCallerIdentity.resolve(from: data)
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])

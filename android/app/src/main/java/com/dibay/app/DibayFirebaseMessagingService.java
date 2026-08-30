@@ -48,6 +48,12 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (data == null || data.isEmpty()) {
       RemoteMessage.Notification n = message.getNotification();
       if (n != null) {
+        DibayCallAuthEligibilityStore.PresentDecision decision =
+            DibayCallAuthEligibilityStore.presentDecision(this, "");
+        if (!decision.ok) {
+          Log.w(TAG, "[fcm] notification_block_dropped reason=" + decision.reason);
+          return;
+        }
         showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null, 0, null);
       }
       return;
@@ -67,6 +73,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       body = message.getNotification().getBody();
     }
 
+    // Terminal call dismissals may still run (stop ring) without tray — identity gate below
+    // only blocks user-facing presentation paths.
     if (IncomingCallTerminalHandler.isTerminalPushType(type)
         || IncomingCallTerminalHandler.isTerminalPushType(data.get("call_push_kind"))) {
       String callId = FcmPayloadResolver.resolveCallId(data);
@@ -80,17 +88,21 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         IncomingCallTerminalHandler.handle(this, callId, kind, "fcm:" + type);
       }
       if ("missed_call".equals(type)) {
+        if (!allowAuthenticatedPresentation(data, type)) return;
         handleMissedCallNotificationOnly(data, title, body, appVisible);
       }
       return;
     }
 
     if ("incoming_call".equals(type)) {
+      // IncomingCallPushDelivery applies the same gate; keep early drop for logs.
+      if (!allowAuthenticatedPresentation(data, type)) return;
       handleIncomingCall(message, data, title, body, appVisible);
       return;
     }
 
     if (FcmPayloadResolver.isStandardRouteType(type) || "unknown".equals(type)) {
+      if (!allowAuthenticatedPresentation(data, type)) return;
       if (appVisible && FcmPayloadResolver.isStandardRouteType(type)) {
         Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
         return;
@@ -100,9 +112,25 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     Log.i(TAG, "[fcm] unknown_type_fallback type=" + type);
+    if (!allowAuthenticatedPresentation(data, type)) return;
     // P1: admin notice/marketing envelope must still show tray in foreground for tap wire.
     if (appVisible && !FcmPayloadResolver.isPushEnvelopePresent(data)) return;
     showStandardOrEnvelopeNotification(data, title, body, type);
+  }
+
+  /** Guest / logout / wrong-user → DROP tray/sound/badge/deeplink. */
+  private boolean allowAuthenticatedPresentation(Map<String, String> data, String type) {
+    String recipient = DibayCallAuthEligibilityStore.resolvePayloadRecipientUserId(data);
+    DibayCallAuthEligibilityStore.PresentDecision decision =
+        DibayCallAuthEligibilityStore.presentDecision(this, recipient);
+    if (decision.ok) return true;
+    Log.w(
+        TAG,
+        "[fcm] authenticated_notification_dropped type="
+            + type
+            + " reason="
+            + decision.reason);
+    return false;
   }
 
   private void showStandardOrEnvelopeNotification(

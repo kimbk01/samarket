@@ -161,6 +161,10 @@ public final class NativePushRegisterHelper {
       if (ok) {
         DibayBoundPushTokenStore.save(context, request.pushToken, request.pushProvider);
         DibayCallAuthEligibilityStore.setEligible(context, true, "native_register_success");
+        if (request.userId != null && !request.userId.trim().isEmpty()) {
+          DibayCallAuthEligibilityStore.setBoundMemberUserId(
+              context, request.userId, "native_register_success");
+        }
         logStep(
             "native_register_post_done",
             request,
