@@ -155,6 +155,18 @@ export function AdminDeliveryAdsControlPlane() {
               fallbackEn: "Unified Store Sponsored and Banner operations",
             })}
           </p>
+          <p className="mt-2">
+            <Link
+              href={DELIVERY_AD_ADMIN_ROUTES.commercialSettings}
+              className="text-[13px] font-medium text-signature underline"
+              data-admin-delivery-ads-commercial-link="1"
+            >
+              {safeT("admin_delivery_ads_commercial_link", {
+                fallbackKo: "광고 상품 설정",
+                fallbackEn: "Ad product settings",
+              })}
+            </Link>
+          </p>
           {inventoryFilter ? (
             <p className="mt-2 text-[12px] text-sam-fg">
               {t("admin_delivery_ads_filter_inventory")}:{" "}

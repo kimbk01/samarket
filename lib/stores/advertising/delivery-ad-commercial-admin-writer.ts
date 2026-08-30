@@ -55,9 +55,11 @@ export async function adminUpdateDeliveryAdPackagePrice(
   sb: SupabaseClient,
   input: {
     packageId: string;
-    priceAmountMinor: number | null;
+    priceAmountMinor?: number | null;
     enabled?: boolean;
     durationDays?: number;
+    displayName?: string;
+    displayOrder?: number;
     actorUserId: string;
     reason: string;
   }
@@ -77,16 +79,37 @@ export async function adminUpdateDeliveryAdPackagePrice(
   const before = mapDeliveryAdPackageRow(beforeRaw as Record<string, unknown>);
   if (!before) return { ok: false, error: "invalid_row" };
 
+  if (input.enabled === true) {
+    const price =
+      input.priceAmountMinor !== undefined
+        ? input.priceAmountMinor
+        : before.priceAmountMinor;
+    if (price == null || price <= 0) {
+      return { ok: false, error: "price_required_to_enable" };
+    }
+  }
+
   const patch: Record<string, unknown> = {
-    price_amount_minor: input.priceAmountMinor,
     updated_at: new Date().toISOString(),
   };
+  if (input.priceAmountMinor !== undefined) {
+    patch.price_amount_minor = input.priceAmountMinor;
+  }
   if (input.enabled != null) patch.enabled = input.enabled;
   if (input.durationDays != null) {
     if (!Number.isInteger(input.durationDays) || input.durationDays < 1) {
       return { ok: false, error: "invalid_duration" };
     }
     patch.duration_days = input.durationDays;
+  }
+  if (input.displayName != null) {
+    const name = input.displayName.trim();
+    if (!name) return { ok: false, error: "invalid_name" };
+    patch.display_name = name;
+  }
+  if (input.displayOrder != null) {
+    if (!Number.isInteger(input.displayOrder)) return { ok: false, error: "invalid_order" };
+    patch.display_order = input.displayOrder;
   }
 
   const { data: afterRaw, error } = await sb
@@ -219,6 +242,117 @@ export async function adminUpdateDeliveryAdExtensionPolicy(
     before: (before as Record<string, unknown>) ?? {},
     after: (after as Record<string, unknown>) ?? {},
   });
+}
+
+export async function adminUpdateDeliveryAdProductCommercial(
+  sb: SupabaseClient,
+  input: {
+    productKey: DeliveryAdProductKey;
+    displayName?: string;
+    description?: string | null;
+    enabled?: boolean;
+    acceptingApplications?: boolean;
+    actorUserId: string;
+    reason: string;
+  }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: before, error: loadErr } = await sb
+    .from("delivery_ad_products")
+    .select("*")
+    .eq("key", input.productKey)
+    .maybeSingle();
+  if (loadErr || !before) return { ok: false, error: loadErr?.message ?? "not_found" };
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.displayName != null) {
+    const name = input.displayName.trim();
+    if (!name) return { ok: false, error: "invalid_name" };
+    patch.display_name = name;
+  }
+  if (input.description !== undefined) patch.description = input.description;
+  if (input.enabled != null) patch.is_active = input.enabled;
+  if (input.acceptingApplications != null) {
+    patch.accepting_applications = input.acceptingApplications;
+  }
+
+  const { data: after, error } = await sb
+    .from("delivery_ad_products")
+    .update(patch)
+    .eq("key", input.productKey)
+    .select("*")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+
+  return recordDeliveryAdCommercialOverride(sb, {
+    entityType: "product",
+    entityId: input.productKey,
+    actorUserId: input.actorUserId,
+    reason: input.reason,
+    before: before as Record<string, unknown>,
+    after: (after as Record<string, unknown>) ?? {},
+  });
+}
+
+export async function adminCreateDeliveryAdPackage(
+  sb: SupabaseClient,
+  input: {
+    productKind: DeliveryAdProductKey;
+    inventoryKey: string;
+    code: string;
+    displayName: string;
+    durationDays: number;
+    priceAmountMinor: number | null;
+    enabled: boolean;
+    displayOrder: number;
+    actorUserId: string;
+    reason: string;
+  }
+): Promise<{ ok: true; package: DeliveryAdPackageRow } | { ok: false; error: string }> {
+  const code = input.code.trim();
+  const displayName = input.displayName.trim();
+  if (!code || !displayName) return { ok: false, error: "invalid_code" };
+  if (!Number.isInteger(input.durationDays) || input.durationDays < 1) {
+    return { ok: false, error: "invalid_duration" };
+  }
+  if (
+    input.priceAmountMinor != null &&
+    (!assertDeliveryAdMoneyMinor(input.priceAmountMinor) || input.priceAmountMinor <= 0)
+  ) {
+    return { ok: false, error: "invalid_price" };
+  }
+  if (input.enabled && (input.priceAmountMinor == null || input.priceAmountMinor <= 0)) {
+    return { ok: false, error: "price_required_to_enable" };
+  }
+
+  const { data, error } = await sb
+    .from(DELIVERY_AD_PACKAGE_TABLE)
+    .insert({
+      product_kind: input.productKind,
+      inventory_key: input.inventoryKey,
+      code,
+      display_name: displayName,
+      duration_days: input.durationDays,
+      price_amount_minor: input.priceAmountMinor,
+      currency: "PHP",
+      enabled: input.enabled,
+      display_order: input.displayOrder,
+    })
+    .select("*")
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message ?? "insert_failed" };
+  const row = mapDeliveryAdPackageRow(data as Record<string, unknown>);
+  if (!row) return { ok: false, error: "invalid_row" };
+
+  const audit = await recordDeliveryAdCommercialOverride(sb, {
+    entityType: "package",
+    entityId: row.id,
+    actorUserId: input.actorUserId,
+    reason: input.reason,
+    before: {},
+    after: row as unknown as Record<string, unknown>,
+  });
+  if (!audit.ok) return audit;
+  return { ok: true, package: row };
 }
 
 export async function adminSetPlacementSellable(

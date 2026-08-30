@@ -13,6 +13,7 @@ export const DELIVERY_AD_OWNER_ROUTES = {
 
 export const DELIVERY_AD_ADMIN_ROUTES = {
   hub: "/admin/delivery-ads",
+  commercialSettings: "/admin/delivery-ads/commercial-settings",
   detail: (campaignId: string) =>
     `/admin/delivery-ads/${encodeURIComponent(campaignId)}`,
 } as const;

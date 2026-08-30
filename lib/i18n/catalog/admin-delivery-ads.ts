@@ -68,6 +68,25 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_lifecycle_archived: "보관",
     admin_delivery_ads_legacy_redirect: "배달 광고 통합 관리로 이동했습니다.",
     admin_menu_delivery_ads_control: "배달 광고 관리",
+    admin_menu_delivery_ads_commercial: "광고 상품 설정",
+    admin_delivery_ads_commercial_title: "광고 상품 설정",
+    admin_delivery_ads_commercial_subtitle:
+      "기간 패키지 · 가격 · 지면 판매 · Partner (Admin SSOT)",
+    admin_delivery_ads_commercial_link: "광고 상품 설정",
+    admin_delivery_ads_commercial_price_warn:
+      "가격 변경은 기존 신청/구매 금액에 소급 적용되지 않습니다.",
+    admin_delivery_ads_exposure_policy_link: "노출(max/interval) 정책 — 별도 SSOT",
+    admin_delivery_ads_commercial_products: "광고 상품",
+    admin_delivery_ads_commercial_placements: "지면 판매 설정",
+    admin_delivery_ads_commercial_packages: "기간 패키지 · 가격",
+    admin_delivery_ads_commercial_extension: "연장 정책",
+    admin_delivery_ads_commercial_partner: "Partner 멤버십",
+    admin_delivery_ads_commercial_placement_note:
+      "판매 여부만 설정합니다. 삽입 간격·최대 개수는 노출 정책에서 관리합니다.",
+    admin_delivery_ads_commercial_extension_note:
+      "캠페인별 무료 보상 연장은 운영 workspace에서 처리합니다.",
+    admin_delivery_ads_commercial_partner_note:
+      "Partner는 월 정액 멤버십입니다. 광고 캠페인·organic ranking과 분리됩니다. 런치 혜택: 광고 패키지 할인.",
     admin_delivery_ads_policy_section: "지면 정책",
     admin_delivery_ads_policy_home_feed: "배달 홈 · 매장 리스트",
     admin_delivery_ads_policy_category_feed: "업종별 매장 목록",
@@ -187,6 +206,25 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_lifecycle_archived: "Archived",
     admin_delivery_ads_legacy_redirect: "Moved to unified Delivery ads control.",
     admin_menu_delivery_ads_control: "Delivery ads",
+    admin_menu_delivery_ads_commercial: "Ad product settings",
+    admin_delivery_ads_commercial_title: "Ad product settings",
+    admin_delivery_ads_commercial_subtitle:
+      "Packages · prices · placement sellability · Partner (Admin SSOT)",
+    admin_delivery_ads_commercial_link: "Ad product settings",
+    admin_delivery_ads_commercial_price_warn:
+      "Price changes do not apply retroactively to existing applications or purchases.",
+    admin_delivery_ads_exposure_policy_link: "Exposure (max/interval) policy — separate SSOT",
+    admin_delivery_ads_commercial_products: "Ad products",
+    admin_delivery_ads_commercial_placements: "Placement sellability",
+    admin_delivery_ads_commercial_packages: "Duration packages · price",
+    admin_delivery_ads_commercial_extension: "Extension policy",
+    admin_delivery_ads_commercial_partner: "Partner membership",
+    admin_delivery_ads_commercial_placement_note:
+      "Controls sellability only. Insertion max/interval stay in exposure policy.",
+    admin_delivery_ads_commercial_extension_note:
+      "Per-campaign free compensation extensions are handled in ops workspace.",
+    admin_delivery_ads_commercial_partner_note:
+      "Partner is a monthly membership — separate from ad campaigns and organic ranking. Launch benefit: ad package discount.",
     admin_delivery_ads_policy_section: "Placement policy",
     admin_delivery_ads_policy_home_feed: "Delivery home · store list",
     admin_delivery_ads_policy_category_feed: "Category store lists",
