@@ -17,6 +17,7 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import {
+  getOwnerDeliveryAdRequiredActionPresentation,
   ownerDeliveryAdNextActions,
   type DeliveryAdOwnerProductKind,
   type OwnerNextAction,
@@ -36,12 +37,28 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import { Sam } from "@/lib/ui/css-vars";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
 
 type DetailCampaign = OwnerSponsoredCampaignRow & {
   productKind?: DeliveryAdOwnerProductKind;
 };
+
+function requiredActionToneClass(
+  tone: ReturnType<typeof getOwnerDeliveryAdRequiredActionPresentation>["tone"]
+): string {
+  switch (tone) {
+    case "urgent":
+      return "border-amber-400 bg-amber-50 text-amber-950";
+    case "warning":
+      return "border-amber-300 bg-amber-50 text-amber-900";
+    case "info":
+      return "border-sam-border bg-sam-app text-sam-fg";
+    default:
+      return "border-sam-border bg-sam-surface text-sam-fg";
+  }
+}
 
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
   const { t, safeT } = useI18n();
@@ -171,10 +188,19 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     });
   }, [campaign, productKind, storeId]);
 
+  const requiredAction = useMemo(() => {
+    if (!campaign || !storeId) return null;
+    return getOwnerDeliveryAdRequiredActionPresentation({
+      lifecycleStatus: campaign.lifecycleStatus,
+      productKind,
+      storeId,
+      campaignId: campaign.id,
+    });
+  }, [campaign, productKind, storeId]);
+
   const actionCtas = nextActions.filter(
     (a): a is Extract<OwnerNextAction, { kind: "action" }> => a.kind === "action"
   );
-  const editHref = nextActions.find((a) => a.kind === "href");
 
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
@@ -243,6 +269,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     <div
       className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`}
       style={{ paddingBottom: actionCtas.length ? 88 : 24 }}
+      data-owner-ads-detail="1"
     >
       <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_detail_title")}</h1>
 
@@ -266,108 +293,165 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             </p>
           ) : null}
 
-          <OwnerStoreAdminDashSection title={productTitle}>
-            <p className="text-[14px] font-semibold text-sam-fg">
+          {/* 1–2 Identity + current state */}
+          <section
+            className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-owner-ads-detail-section="identity"
+          >
+            <p className="text-[12px] font-medium text-sam-muted">{productTitle}</p>
+            <p className="mt-1 text-[16px] font-bold text-sam-fg break-words">
+              {campaign.title?.trim() || productTitle}
+            </p>
+            <p className="mt-2 text-[12px] text-sam-muted break-all">
+              {t("owner_ads_store")}: {campaign.storeId}
+            </p>
+          </section>
+
+          <section
+            className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-owner-ads-detail-section="state"
+          >
+            <p className="text-[12px] font-medium text-sam-muted">{t("owner_ads_detail_title")}</p>
+            <p className="mt-1 text-[15px] font-semibold text-sam-fg">
               {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
             </p>
             <p className="mt-1 text-[12px] text-sam-muted">
               {t(ownerReviewStatusI18nKey(campaign.reviewStatus))}
             </p>
-            <p className="mt-2 text-[12px] text-sam-muted">ID: {campaign.id}</p>
-          </OwnerStoreAdminDashSection>
+          </section>
 
-          <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
-            <p className="text-[13px] text-sam-fg">
-              {deliveryAdPlacementI18nKeys(campaign.inventoryKeys ?? [])
-                .map((k) => t(k as MessageKey))
-                .join(" · ") || "—"}
-            </p>
-            <p className="mt-2 text-[13px] text-sam-muted">
-              {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~ {campaign.endAt.slice(0, 10)}
-            </p>
-            <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_pricing_not_configured")}</p>
-          </OwnerStoreAdminDashSection>
+          {/* 3 Required action */}
+          {requiredAction ? (
+            <section
+              className={`rounded-ui-rect border p-4 ${requiredActionToneClass(requiredAction.tone)}`}
+              data-owner-ads-detail-section="required-action"
+              data-owner-task-required={requiredAction.ownerTaskRequired ? "1" : "0"}
+              data-lifecycle={campaign.lifecycleStatus}
+            >
+              <p className="text-[12px] font-semibold uppercase tracking-wide opacity-80">
+                {t("owner_ads_required_action_section")}
+              </p>
+              <p className="mt-1 text-[16px] font-bold">{t(requiredAction.titleKey)}</p>
+              <p className="mt-2 text-[13px] leading-snug">{t(requiredAction.bodyKey)}</p>
+              {requiredAction.primaryHref ? (
+                <button
+                  type="button"
+                  className={`${Sam.btn.primary} mt-3 min-h-[44px] w-full px-4 text-[14px] font-semibold`}
+                  data-owner-ads-required-cta="edit"
+                  disabled={busy}
+                  onClick={() => router.push(requiredAction.primaryHref!.href)}
+                >
+                  {t(requiredAction.primaryHref.labelKey)}
+                </button>
+              ) : null}
+              {requiredAction.guidanceHref ? (
+                <button
+                  type="button"
+                  className={`${Sam.btn.secondary} mt-3 min-h-[44px] w-full px-4 text-[14px] font-semibold`}
+                  data-owner-ads-required-cta="new-application"
+                  disabled={busy}
+                  onClick={() => router.push(requiredAction.guidanceHref!.href)}
+                >
+                  {t(requiredAction.guidanceHref.labelKey)}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
 
-          <OwnerStoreAdminDashSection title={t("delivery_ads_preview_detail_section_title")}>
-            <DeliveryAdCampaignPlacementPreviews
-              productKind={productKind}
-              inventoryKeys={campaign.inventoryKeys ?? []}
-              renderContext="owner_preview"
-              placementPreview={placementPreview}
-              bannerCreative={
-                productKind === "banner" && campaign.imageUrl
-                  ? {
-                      assetUrl: campaign.imageUrl,
-                      headline: campaign.headline ?? campaign.title ?? null,
-                      subcopy: null,
-                      alt: campaign.title || "banner",
-                    }
-                  : null
-              }
-              ctaLabel={productKind === "banner" ? t("owner_ads_banner_cta_store") : null}
-            />
-          </OwnerStoreAdminDashSection>
+          {/* 4 Admin reason */}
+          {requiredAction?.showAdminReason && campaign.reviewNotes ? (
+            <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
+              <div data-owner-ads-detail-section="admin-reason">
+                <p className="text-[13px] text-sam-fg whitespace-pre-wrap break-words">
+                  {campaign.reviewNotes}
+                </p>
+              </div>
+            </OwnerStoreAdminDashSection>
+          ) : null}
 
-          <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
-            <DeliveryAdPerformancePanel
-              performance={performance}
-              loading={perfLoading}
-              range={perfRange}
-              onRangeChange={setPerfRange}
-            />
-          </OwnerStoreAdminDashSection>
+          {/* 5 Customer preview */}
+          <div data-owner-ads-detail-section="preview">
+            <OwnerStoreAdminDashSection title={t("delivery_ads_preview_detail_section_title")}>
+              <DeliveryAdCampaignPlacementPreviews
+                productKind={productKind}
+                inventoryKeys={campaign.inventoryKeys ?? []}
+                renderContext="owner_preview"
+                placementPreview={placementPreview}
+                bannerCreative={
+                  productKind === "banner" && campaign.imageUrl
+                    ? {
+                        assetUrl: campaign.imageUrl,
+                        headline: campaign.headline ?? campaign.title ?? null,
+                        subcopy: null,
+                        alt: campaign.title || "banner",
+                      }
+                    : null
+                }
+                ctaLabel={productKind === "banner" ? t("owner_ads_banner_cta_store") : null}
+              />
+            </OwnerStoreAdminDashSection>
+          </div>
 
-          {campaign.lifecycleStatus === "PAUSED_ADMIN" ? (
-            <div className="rounded-ui-rect border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">
-              {t("owner_ads_paused_admin_notice")}
-              {campaign.reviewNotes ? <p className="mt-1">{campaign.reviewNotes}</p> : null}
+          {/* 6 Campaign facts */}
+          <div data-owner-ads-detail-section="facts">
+            <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
+              <p className="text-[13px] text-sam-fg">
+                {deliveryAdPlacementI18nKeys(campaign.inventoryKeys ?? [])
+                  .map((k) => t(k as MessageKey))
+                  .join(" · ") || "—"}
+              </p>
+              <p className="mt-2 text-[13px] text-sam-muted">
+                {t("owner_ads_period")}: {campaign.startAt.slice(0, 10)} ~{" "}
+                {campaign.endAt.slice(0, 10)}
+              </p>
+              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_pricing_not_configured")}</p>
+            </OwnerStoreAdminDashSection>
+          </div>
+
+          {/* 7 Operations */}
+          {storeId ? (
+            <div data-owner-ads-detail-section="operations">
+              <OwnerStoreAdminDashSection title={t("delivery_ad_ops_ui_section_title")}>
+                <DeliveryAdOperationsPanel
+                  actorRole="owner"
+                  productKind={productKind}
+                  campaignId={campaignId}
+                  storeId={storeId}
+                  focusOperations={focusOperations}
+                  hideHeading
+                />
+              </OwnerStoreAdminDashSection>
             </div>
           ) : null}
 
-          {(campaign.lifecycleStatus === "CHANGES_REQUESTED" ||
-            campaign.lifecycleStatus === "REJECTED") &&
-          campaign.reviewNotes ? (
-            <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
-              <p className="text-[13px] text-sam-fg whitespace-pre-wrap">{campaign.reviewNotes}</p>
-            </OwnerStoreAdminDashSection>
-          ) : null}
-
-          {storeId ? (
-            <OwnerStoreAdminDashSection title={t("delivery_ad_ops_ui_section_title")}>
-              <DeliveryAdOperationsPanel
-                actorRole="owner"
-                productKind={productKind}
-                campaignId={campaignId}
-                storeId={storeId}
-                focusOperations={focusOperations}
-                hideHeading
+          {/* 8 Performance */}
+          <div data-owner-ads-detail-section="performance">
+            <OwnerStoreAdminDashSection title={t("delivery_ads_perf_section_title")}>
+              <DeliveryAdPerformancePanel
+                performance={performance}
+                loading={perfLoading}
+                range={perfRange}
+                onRangeChange={setPerfRange}
               />
             </OwnerStoreAdminDashSection>
-          ) : null}
+          </div>
 
+          {/* 9 History */}
           {history.length > 0 ? (
-            <OwnerStoreAdminDashSection title={t("owner_ads_history")}>
-              <ul className="space-y-2 text-[12px] text-sam-muted">
-                {history.map((h, i) => (
-                  <li key={`${h.createdAt}-${i}`}>
-                    <span className="font-medium text-sam-fg">{h.action}</span>
-                    {" · "}
-                    {h.createdAt.slice(0, 19).replace("T", " ")}
-                    {h.reason ? ` — ${h.reason}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </OwnerStoreAdminDashSection>
-          ) : null}
-
-          {editHref && editHref.kind === "href" ? (
-            <button
-              type="button"
-              className="mt-2 text-[13px] font-semibold text-signature underline"
-              onClick={() => router.push(editHref.href)}
-            >
-              {t(editHref.labelKey)}
-            </button>
+            <div data-owner-ads-detail-section="history">
+              <OwnerStoreAdminDashSection title={t("owner_ads_history")}>
+                <ul className="space-y-2 text-[12px] text-sam-muted">
+                  {history.map((h, i) => (
+                    <li key={`${h.createdAt}-${i}`}>
+                      <span className="font-medium text-sam-fg">{h.action}</span>
+                      {" · "}
+                      {h.createdAt.slice(0, 19).replace("T", " ")}
+                      {h.reason ? ` — ${h.reason}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </OwnerStoreAdminDashSection>
+            </div>
           ) : null}
 
           {actionCtas.length > 0 ? (

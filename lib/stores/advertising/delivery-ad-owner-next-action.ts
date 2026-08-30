@@ -151,6 +151,174 @@ export function ownerDeliveryAdPrimaryNextAction(
   return actions[0] ?? null;
 }
 
+export type OwnerRequiredActionTone = "urgent" | "warning" | "info" | "neutral";
+
+export type OwnerRequiredActionPresentation = {
+  tone: OwnerRequiredActionTone;
+  titleKey:
+    | "owner_ads_ra_changes_requested_title"
+    | "owner_ads_ra_waiting_title"
+    | "owner_ads_ra_rejected_title"
+    | "owner_ads_ra_paused_admin_title"
+    | "owner_ads_ra_paused_owner_title"
+    | "owner_ads_ra_active_title"
+    | "owner_ads_ra_draft_title"
+    | "owner_ads_ra_scheduled_title"
+    | "owner_ads_ra_ended_title"
+    | "owner_ads_ra_generic_title";
+  bodyKey:
+    | "owner_ads_ra_changes_requested_body"
+    | "owner_ads_ra_waiting_body"
+    | "owner_ads_ra_rejected_body"
+    | "owner_ads_ra_paused_admin_body"
+    | "owner_ads_ra_paused_owner_body"
+    | "owner_ads_ra_active_body"
+    | "owner_ads_ra_draft_body"
+    | "owner_ads_ra_scheduled_body"
+    | "owner_ads_ra_ended_body"
+    | "owner_ads_ra_generic_body";
+  /** Owner has a required task (not waiting / informational). */
+  ownerTaskRequired: boolean;
+  /** Show current reviewNotes snapshot when present. */
+  showAdminReason: boolean;
+  /** Existing edit/correct/continue href when applicable. */
+  primaryHref: Extract<OwnerNextAction, { kind: "href" }> | null;
+  /** Guidance-only navigation (e.g. REJECTED → hub for new application). */
+  guidanceHref: { labelKey: "owner_ads_ra_rejected_cta" | "owner_ads_back_hub"; href: string } | null;
+};
+
+/**
+ * Priority 4 — presentation-only required-action mapping.
+ * Derived from canonical lifecycle; does not write state or invent actions.
+ */
+export function getOwnerDeliveryAdRequiredActionPresentation(
+  input: OwnerNextActionInput
+): OwnerRequiredActionPresentation {
+  const status = input.lifecycleStatus;
+  const editHref =
+    status === "DRAFT" || status === "CHANGES_REQUESTED"
+      ? ({
+          kind: "href" as const,
+          labelKey: "owner_ads_edit_again" as const,
+          href: createEditHref(input),
+        })
+      : null;
+
+  switch (status) {
+    case "CHANGES_REQUESTED":
+      return {
+        tone: "urgent",
+        titleKey: "owner_ads_ra_changes_requested_title",
+        bodyKey: "owner_ads_ra_changes_requested_body",
+        ownerTaskRequired: true,
+        showAdminReason: true,
+        primaryHref: editHref,
+        guidanceHref: null,
+      };
+    case "SUBMITTED":
+    case "UNDER_REVIEW":
+      return {
+        tone: "info",
+        titleKey: "owner_ads_ra_waiting_title",
+        bodyKey: "owner_ads_ra_waiting_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    case "REJECTED":
+      return {
+        tone: "warning",
+        titleKey: "owner_ads_ra_rejected_title",
+        bodyKey: "owner_ads_ra_rejected_body",
+        ownerTaskRequired: false,
+        showAdminReason: true,
+        primaryHref: null,
+        guidanceHref: {
+          labelKey: "owner_ads_ra_rejected_cta",
+          href: DELIVERY_AD_OWNER_ROUTES.hub,
+        },
+      };
+    case "PAUSED_ADMIN":
+      return {
+        tone: "warning",
+        titleKey: "owner_ads_ra_paused_admin_title",
+        bodyKey: "owner_ads_ra_paused_admin_body",
+        ownerTaskRequired: false,
+        showAdminReason: true,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    case "PAUSED_OWNER":
+      return {
+        tone: "info",
+        titleKey: "owner_ads_ra_paused_owner_title",
+        bodyKey: "owner_ads_ra_paused_owner_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    case "ACTIVE":
+      return {
+        tone: "neutral",
+        titleKey: "owner_ads_ra_active_title",
+        bodyKey: "owner_ads_ra_active_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    case "DRAFT":
+      return {
+        tone: "info",
+        titleKey: "owner_ads_ra_draft_title",
+        bodyKey: "owner_ads_ra_draft_body",
+        ownerTaskRequired: true,
+        showAdminReason: false,
+        primaryHref: editHref,
+        guidanceHref: null,
+      };
+    case "APPROVED":
+    case "SCHEDULED":
+      return {
+        tone: "info",
+        titleKey: "owner_ads_ra_scheduled_title",
+        bodyKey: "owner_ads_ra_scheduled_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    case "ENDED":
+    case "TERMINATED":
+    case "EXHAUSTED":
+    case "ARCHIVED":
+      return {
+        tone: "neutral",
+        titleKey: "owner_ads_ra_ended_title",
+        bodyKey: "owner_ads_ra_ended_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    default: {
+      const _exhaustive: never = status;
+      void _exhaustive;
+      return {
+        tone: "neutral",
+        titleKey: "owner_ads_ra_generic_title",
+        bodyKey: "owner_ads_ra_generic_body",
+        ownerTaskRequired: false,
+        showAdminReason: false,
+        primaryHref: null,
+        guidanceHref: null,
+      };
+    }
+  }
+}
+
 export function ownerDeliveryAdDetailHref(input: {
   campaignId: string;
   storeId: string;
