@@ -78,6 +78,13 @@ const OWNER_LIFECYCLE_NOTIFY: Partial<
   },
 };
 
+/** CUT 3-E — Owner system-event unread reuses 3-D notification-worthy lifecycle SSOT. */
+export function isOwnerOpsUnreadLifecycleEvent(
+  eventType: string
+): eventType is DeliveryAdOpsLifecycleEventType {
+  return Object.prototype.hasOwnProperty.call(OWNER_LIFECYCLE_NOTIFY, eventType);
+}
+
 export function buildDeliveryAdLifecycleOwnerDedupeKey(auditId: string): string {
   return `delivery-ad:lifecycle:${auditId.trim()}:owner`;
 }

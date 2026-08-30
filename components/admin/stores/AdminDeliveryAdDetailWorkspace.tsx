@@ -29,6 +29,7 @@ import {
   type OwnerBannerInventoryKey,
 } from "@/lib/stores/advertising/owner-banner-contract";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
@@ -51,9 +52,14 @@ const ACTIONS: AdminDeliveryAdAction[] = [
 type Props = {
   campaignId: string;
   productHint: AdminDeliveryAdProduct | null;
+  focusOperations?: boolean;
 };
 
-export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Props) {
+export function AdminDeliveryAdDetailWorkspace({
+  campaignId,
+  productHint,
+  focusOperations = false,
+}: Props) {
   const { t, safeT } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -549,6 +555,15 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
                 />
               </label>
             </AdminCard>
+
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5">
+              <DeliveryAdOperationsPanel
+                actorRole="admin"
+                productKind={campaign.productKind}
+                campaignId={campaign.id}
+                focusOperations={focusOperations}
+              />
+            </div>
 
             <div className="sticky bottom-0 z-10 -mx-1 border-t border-sam-border bg-sam-app/95 p-3 backdrop-blur">
               <div className="flex flex-wrap gap-2">

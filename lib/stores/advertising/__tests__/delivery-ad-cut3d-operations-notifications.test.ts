@@ -296,10 +296,5 @@ describe("CUT 3-D wiring hard locks", () => {
 
   it("no timeline/composer/queue UI pages added for 3-D", () => {
     expect(existsSync(join(ROOT, "app/admin/delivery-ads/action-queue/page.tsx"))).toBe(false);
-    const ownerDetail = readFileSync(
-      join(ROOT, "app/(main)/stores/owner/ads/[campaignId]/page.tsx"),
-      "utf8"
-    );
-    expect(ownerDetail).not.toMatch(/DeliveryAdOperationsTimeline|ops composer|action-queue/i);
   });
 });

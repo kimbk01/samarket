@@ -9,13 +9,19 @@ export default function AdminDeliveryAdDetailPage({
   searchParams,
 }: {
   params: Promise<{ campaignId: string }>;
-  searchParams: Promise<{ product?: string | string[] }>;
+  searchParams: Promise<{ product?: string | string[]; focus?: string | string[] }>;
 }) {
   const { campaignId } = use(params);
   const sp = use(searchParams);
   const raw = Array.isArray(sp.product) ? sp.product[0] : sp.product;
   const productHint = isAdminDeliveryAdProduct(raw) ? raw : null;
+  const focusRaw = Array.isArray(sp.focus) ? sp.focus[0] : sp.focus;
+  const focusOperations = focusRaw === "operations";
   return (
-    <AdminDeliveryAdDetailWorkspace campaignId={campaignId} productHint={productHint} />
+    <AdminDeliveryAdDetailWorkspace
+      campaignId={campaignId}
+      productHint={productHint}
+      focusOperations={focusOperations}
+    />
   );
 }

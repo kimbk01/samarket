@@ -68,6 +68,7 @@ export function OwnerDeliveryAdsHubView() {
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  const [unreadByCampaignId, setUnreadByCampaignId] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     setError(null);
@@ -79,6 +80,7 @@ export function OwnerDeliveryAdsHubView() {
         campaigns?: HubCampaign[];
         stores?: HubStore[];
         summary?: HubSummary;
+        unreadByCampaignId?: Record<string, number>;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
@@ -88,6 +90,7 @@ export function OwnerDeliveryAdsHubView() {
       setCampaigns(json.campaigns ?? []);
       setStores(json.stores ?? []);
       if (json.summary) setSummary(json.summary);
+      setUnreadByCampaignId(json.unreadByCampaignId ?? {});
     } catch {
       setError("network");
     } finally {
@@ -284,9 +287,24 @@ export function OwnerDeliveryAdsHubView() {
                         </p>
                       ) : null}
                     </div>
-                    <span className="shrink-0 rounded-ui-rect bg-sam-app px-2 py-1 text-[11px] font-medium text-sam-fg">
-                      {t(ownerLifecycleStatusI18nKey(c.lifecycleStatus))}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="rounded-ui-rect bg-sam-app px-2 py-1 text-[11px] font-medium text-sam-fg">
+                        {t(ownerLifecycleStatusI18nKey(c.lifecycleStatus))}
+                      </span>
+                      {(unreadByCampaignId[c.id] ?? 0) > 0 ? (
+                        <span
+                          className="inline-block h-2 w-2 rounded-full bg-sam-brand"
+                          title={safeT("delivery_ad_ops_ui_unread_dot", {
+                            fallbackKo: "새 운영 알림",
+                            fallbackEn: "New operations update",
+                          })}
+                          aria-label={safeT("delivery_ad_ops_ui_unread_dot", {
+                            fallbackKo: "새 운영 알림",
+                            fallbackEn: "New operations update",
+                          })}
+                        />
+                      ) : null}
+                    </div>
                   </div>
                 </Link>
               </li>

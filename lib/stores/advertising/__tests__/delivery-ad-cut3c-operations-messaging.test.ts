@@ -515,7 +515,7 @@ describe("CUT 3-C wiring / hard locks (source)", () => {
     expect(owner).toContain("listDeliveryAdOperationsMessages");
     expect(owner).toContain("source_audit_id");
     expect(admin).toContain("requireAdminApiUser");
-    expect(owner).not.toMatch(/composer|chat bubble|unread|deeplink|notification/i);
+    expect(owner).not.toMatch(/composer|chat bubble|deeplink/i);
   });
 
   it("status sole authority still updateDeliveryAdOperationsCaseStatus → apply RPC", () => {

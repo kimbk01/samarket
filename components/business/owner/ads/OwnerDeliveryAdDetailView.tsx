@@ -34,6 +34,7 @@ import type {
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
+import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
@@ -48,6 +49,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   const sp = useSearchParams();
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
   const productQ = sp.get("product")?.trim() === "banner" ? "banner" : null;
+  const focusOperations = sp.get("focus")?.trim() === "operations";
   const [storeId, setStoreId] = useState(storeIdQ);
   const [campaign, setCampaign] = useState<DetailCampaign | null>(null);
   const [productKind, setProductKind] = useState<DeliveryAdOwnerProductKind>(
@@ -327,6 +329,19 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
           campaign.reviewNotes ? (
             <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
               <p className="text-[13px] text-sam-fg whitespace-pre-wrap">{campaign.reviewNotes}</p>
+            </OwnerStoreAdminDashSection>
+          ) : null}
+
+          {storeId ? (
+            <OwnerStoreAdminDashSection title={t("delivery_ad_ops_ui_section_title")}>
+              <DeliveryAdOperationsPanel
+                actorRole="owner"
+                productKind={productKind}
+                campaignId={campaignId}
+                storeId={storeId}
+                focusOperations={focusOperations}
+                hideHeading
+              />
             </OwnerStoreAdminDashSection>
           ) : null}
 

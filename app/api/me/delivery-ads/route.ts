@@ -10,6 +10,7 @@ import {
   lifecycleToOwnerSummaryBucket,
   isStoreEligibleForOwnerAdApplication,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
+import { listOwnerDeliveryAdOperationsUnreadByCampaignIds } from "@/lib/stores/advertising/delivery-ad-operations-unread";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,14 @@ export async function GET() {
     ...sponsored.map((c) => ({ ...c, productKind: "store_sponsored" as const })),
     ...banners.map((c) => ({ ...c, productKind: "banner" as const })),
   ].sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+
+  const unreadByCampaignId = await listOwnerDeliveryAdOperationsUnreadByCampaignIds(sb, {
+    ownerUserId: userId,
+    campaigns: campaigns.map((c) => ({
+      campaignId: c.id,
+      productKind: c.productKind,
+    })),
+  });
 
   const summary = {
     under_review: 0,
@@ -87,6 +96,7 @@ export async function GET() {
     }),
     eligibleStoreCount: eligibleStores.length,
     summary,
+    unreadByCampaignId,
     meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT },
   });
 }

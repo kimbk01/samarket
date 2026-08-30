@@ -91,6 +91,12 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_browse_policy_interval: "노출 간격: 일반 매장 {n}개마다 1개",
     admin_delivery_ads_browse_policy_authority:
       "여기는 지면 허용·간격·최대만 설정합니다. 캠페인 생성은 배달 광고 관리에서 합니다.",
+    admin_delivery_ads_action_queue_title: "처리 필요",
+    admin_delivery_ads_action_queue_subtitle: "관리자 처리가 필요한 운영 Case (WAITING_ADMIN)",
+    admin_delivery_ads_action_queue_count: "{count}건",
+    admin_delivery_ads_action_queue_empty: "지금 처리할 운영 Case가 없습니다.",
+    admin_delivery_ads_action_queue_error: "처리 필요 목록을 불러오지 못했습니다.",
+    admin_delivery_ads_action_queue_open: "상세 보기",
   },
   en: {
     admin_delivery_ads_title: "Delivery ads",
@@ -183,5 +189,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_browse_policy_interval: "Interval: 1 ad every {n} organic stores",
     admin_delivery_ads_browse_policy_authority:
       "This screen only sets surface allow / interval / max. Create campaigns in Delivery ads.",
+    admin_delivery_ads_action_queue_title: "Needs action",
+    admin_delivery_ads_action_queue_subtitle: "Ops cases needing admin action (WAITING_ADMIN)",
+    admin_delivery_ads_action_queue_count: "{count}",
+    admin_delivery_ads_action_queue_empty: "No ops cases need action right now.",
+    admin_delivery_ads_action_queue_error: "Could not load the action queue.",
+    admin_delivery_ads_action_queue_open: "Open detail",
   },
 } as const;

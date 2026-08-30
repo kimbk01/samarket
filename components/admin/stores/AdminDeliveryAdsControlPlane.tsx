@@ -13,6 +13,7 @@ import type { AdminDeliveryAdListBucket } from "@/lib/stores/advertising/admin-d
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import { AdminDeliveryAdActionQueuePanel } from "@/components/admin/stores/AdminDeliveryAdActionQueuePanel";
 import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
@@ -218,6 +219,8 @@ export function AdminDeliveryAdsControlPlane() {
             onRangeChange={setPerfRange}
           />
         </AdminCard>
+
+        <AdminDeliveryAdActionQueuePanel />
 
         <div className="flex flex-wrap gap-2" role="tablist" aria-label={t("admin_delivery_ads_title")}>
           {BUCKETS.map((b) => (

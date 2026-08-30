@@ -5,6 +5,8 @@ import {
   listDeliveryAdOperationsMessages,
   sendDeliveryAdOperationsMessage,
 } from "@/lib/stores/advertising/delivery-ad-operations-messaging";
+import { getDeliveryAdOperationsUnread } from "@/lib/stores/advertising/delivery-ad-operations-unread";
+import { getDeliveryAdOperationsCase } from "@/lib/stores/advertising/delivery-ad-operations-case-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -57,10 +59,24 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       { status: statusFor(result.error) }
     );
   }
+
+  const caseRes = await getDeliveryAdOperationsCase(sb, {
+    productKind,
+    campaignId: cid,
+  });
+  const unreadRes = await getDeliveryAdOperationsUnread(sb, {
+    actorUserId: admin.userId,
+    actorRole: "admin",
+    productKind,
+    campaignId: cid,
+  });
+
   return NextResponse.json({
     ok: true,
     caseId: result.caseId,
     threadId: result.threadId,
+    caseStatus: caseRes.ok ? caseRes.case.status : null,
+    unreadCount: unreadRes.ok ? unreadRes.unreadCount : 0,
     messages: result.messages,
   });
 }
