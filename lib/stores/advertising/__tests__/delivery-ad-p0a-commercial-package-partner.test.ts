@@ -21,7 +21,7 @@ import {
 const root = process.cwd();
 const mig = () =>
   readFileSync(
-    join(root, "supabase/migrations/20261201250000_delivery_ads_p0a_commercial_package_partner.sql"),
+    join(root, "supabase/migrations/20261201195000_delivery_ads_p0a_commercial_package_partner.sql"),
     "utf8"
   );
 const contractSrc = () =>
