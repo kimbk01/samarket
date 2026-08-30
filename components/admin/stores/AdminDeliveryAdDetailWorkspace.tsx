@@ -18,6 +18,10 @@ import type {
   AdminDeliveryAdAuditRow,
   AdminDeliveryAdListItem,
 } from "@/lib/stores/advertising/admin-delivery-ad-loader";
+import {
+  deliveryAdPlacementI18nKey,
+  deliveryAdPolicyScreenHref,
+} from "@/lib/stores/advertising/delivery-ad-placement-language";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
@@ -55,7 +59,7 @@ type Props = {
 };
 
 export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Props) {
-  const { safeT } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -427,22 +431,46 @@ export function AdminDeliveryAdDetailWorkspace({ campaignId, productHint }: Prop
                   })}
                   :{" "}
                   {(campaign.inventoryKeys ?? [])
-                    .map((k) =>
-                      k === "STORES_HOME_FEED"
-                        ? safeT("owner_ads_inventory_home", {
-                            fallbackKo: "배달 홈",
-                            fallbackEn: "Delivery home",
-                          })
-                        : k === "STORES_CATEGORY_FEED"
-                          ? safeT("owner_ads_inventory_category", {
-                              fallbackKo: "카테고리 목록",
-                              fallbackEn: "Category list",
-                            })
-                          : k
-                    )
-                    .join(", ") || "—"}
+                    .map((k) => t(deliveryAdPlacementI18nKey(k) as MessageKey))
+                    .join(" · ") || "—"}
                 </p>
               )}
+              <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
+                <p className="text-[12px] font-bold text-sam-fg">
+                  {t("admin_delivery_ads_policy_section")}
+                </p>
+                <ul className="mt-2 space-y-2 text-[12px] text-sam-fg">
+                  {(campaign.inventoryKeys.length
+                    ? campaign.inventoryKeys
+                    : [editInventoryKey]
+                  ).map((key) => {
+                    const href = deliveryAdPolicyScreenHref(key, {
+                      primarySlug: campaign.storePrimarySlug,
+                      subSlug: campaign.storeSubSlug,
+                    });
+                    const label = t(deliveryAdPlacementI18nKey(key) as MessageKey);
+                    return (
+                      <li key={key} className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{label}</span>
+                        {href ? (
+                          <Link
+                            href={href}
+                            className="text-signature underline underline-offset-2"
+                          >
+                            {key === "STORES_CATEGORY_FEED"
+                              ? t("admin_delivery_ads_policy_view_browse")
+                              : t("admin_delivery_ads_policy_view_home")}
+                          </Link>
+                        ) : (
+                          <span className="text-sam-muted">
+                            {t("admin_delivery_ads_policy_no_screen")}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               <p className="mt-1 text-[13px] text-sam-muted">
                 {safeT("admin_delivery_ads_pricing_not_configured", {
                   fallbackKo: "과금: NOT_CONFIGURED (CUT H 이전)",

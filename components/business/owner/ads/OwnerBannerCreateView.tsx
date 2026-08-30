@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -23,12 +23,14 @@ import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBann
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
+  isOwnerBannerInventoryKey,
   ownerBannerAspectGuideCopy,
   type OwnerBannerInventoryKey,
 } from "@/lib/stores/advertising/owner-banner-contract";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { OwnerBannerCampaignRow } from "@/lib/stores/advertising/owner-banner-writer";
 import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
+import { isDeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
 import { uploadStoreOwnerProductImage } from "@/lib/stores/upload-store-product-image-client";
 
 type EligibleStore = {
@@ -93,6 +95,7 @@ async function cropImageToAspect(
 export function OwnerBannerCreateView() {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const formId = useId();
   const [step, setStep] = useState<Step>("store");
   const [stores, setStores] = useState<EligibleStore[]>([]);
@@ -119,6 +122,8 @@ export function OwnerBannerCreateView() {
       ? crypto.randomUUID()
       : `req_${Date.now()}`
   );
+  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
+  const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
 
   const aspectGuide = useMemo(() => ownerBannerAspectGuideCopy(inventoryKey), [inventoryKey]);
   const inventoryView = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
@@ -133,7 +138,13 @@ export function OwnerBannerCreateView() {
           stores?: EligibleStore[];
         };
         if (cancelled) return;
-        setStores((json.stores ?? []).filter((s) => s.eligible));
+        const list = (json.stores ?? []).filter((s) => s.eligible);
+        setStores(list);
+        if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
+          setStoreId(preloadStoreId);
+        } else if (list.length === 1) {
+          setStoreId(list[0]!.id);
+        }
       } catch {
         if (!cancelled) setStores([]);
       } finally {
@@ -143,7 +154,49 @@ export function OwnerBannerCreateView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [preloadStoreId]);
+
+  useEffect(() => {
+    if (!preloadCampaignId || !preloadStoreId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/me/stores/${encodeURIComponent(preloadStoreId)}/delivery-ads/${encodeURIComponent(preloadCampaignId)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          campaign?: OwnerBannerCampaignRow;
+          meta?: { productKind?: string };
+        };
+        if (cancelled || !res.ok || !json.ok || !json.campaign) return;
+        if (json.meta?.productKind !== "banner") return;
+        const row = json.campaign;
+        if (row.lifecycleStatus !== "DRAFT" && row.lifecycleStatus !== "CHANGES_REQUESTED") {
+          return;
+        }
+        setCampaign(row);
+        setStoreId(row.storeId);
+        const inv = row.inventoryKeys[0];
+        if (inv && isOwnerBannerInventoryKey(inv)) setInventoryKey(inv);
+        setHeadline(row.creative?.headline ?? row.title ?? "");
+        setAssetUrl(row.imageUrl || row.creative?.assetPath || "");
+        if (row.creative?.sourceWidth) setSourceWidth(row.creative.sourceWidth);
+        if (row.creative?.sourceHeight) setSourceHeight(row.creative.sourceHeight);
+        const cta = row.creative?.ctaType;
+        if (cta && isDeliveryAdCtaTarget(cta)) setCtaType(cta);
+        setStartDate(row.startAt.slice(0, 10));
+        setEndDate(row.endAt.slice(0, 10));
+        setStep(row.imageUrl ? "preview" : "setup");
+      } catch {
+        /* keep empty create */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [preloadCampaignId, preloadStoreId]);
 
   const onPickImage = useCallback(
     async (file: File | null) => {

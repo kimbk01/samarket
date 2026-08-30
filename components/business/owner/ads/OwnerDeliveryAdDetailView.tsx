@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
@@ -15,12 +15,16 @@ import {
 } from "@/lib/business/owner-admin-footer-actions";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import {
-  ownerInventoryI18nKey,
+  ownerDeliveryAdNextActions,
+  type DeliveryAdOwnerProductKind,
+  type OwnerNextAction,
+} from "@/lib/stores/advertising/delivery-ad-owner-next-action";
+import {
   ownerLifecycleStatusI18nKey,
   ownerReviewStatusI18nKey,
   type OwnerCampaignAction,
-  type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
@@ -28,16 +32,25 @@ import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
+
+type DetailCampaign = OwnerSponsoredCampaignRow & {
+  productKind?: DeliveryAdOwnerProductKind;
+};
 
 export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }) {
   const { t, safeT } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const storeIdQ = sp.get("storeId")?.trim() ?? "";
+  const productQ = sp.get("product")?.trim() === "banner" ? "banner" : null;
   const [storeId, setStoreId] = useState(storeIdQ);
-  const [campaign, setCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
+  const [campaign, setCampaign] = useState<DetailCampaign | null>(null);
+  const [productKind, setProductKind] = useState<DeliveryAdOwnerProductKind>(
+    productQ ?? "store_sponsored"
+  );
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,11 +62,10 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   const load = useCallback(async () => {
     if (!storeId) {
-      // Resolve store via hub list when storeId missing
       const hub = await fetch("/api/me/delivery-ads", { credentials: "include" });
       const hubJson = (await hub.json()) as {
         ok?: boolean;
-        campaigns?: OwnerSponsoredCampaignRow[];
+        campaigns?: DetailCampaign[];
       };
       const found = (hubJson.campaigns ?? []).find((c) => c.id === campaignId);
       if (!found) {
@@ -63,21 +75,24 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       }
       setStoreId(found.storeId);
       setCampaign(found);
+      if (found.productKind === "banner") setProductKind("banner");
       setLoaded(true);
-      // still load detail for history
       const res = await fetch(
         `/api/me/stores/${encodeURIComponent(found.storeId)}/delivery-ads/${encodeURIComponent(campaignId)}`,
         { credentials: "include" }
       );
       const json = (await res.json()) as {
         ok?: boolean;
-        campaign?: OwnerSponsoredCampaignRow;
+        campaign?: DetailCampaign;
         history?: HistoryItem[];
+        meta?: { productKind?: DeliveryAdOwnerProductKind };
         error?: string;
       };
       if (res.ok && json.ok && json.campaign) {
         setCampaign(json.campaign);
         setHistory(json.history ?? []);
+        if (json.meta?.productKind === "banner") setProductKind("banner");
+        else if (json.meta?.productKind === "store_sponsored") setProductKind("store_sponsored");
       }
       return;
     }
@@ -88,8 +103,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     );
     const json = (await res.json()) as {
       ok?: boolean;
-      campaign?: OwnerSponsoredCampaignRow;
+      campaign?: DetailCampaign;
       history?: HistoryItem[];
+      meta?: { productKind?: DeliveryAdOwnerProductKind };
       error?: string;
     };
     if (!res.ok || !json.ok || !json.campaign) {
@@ -99,6 +115,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     }
     setCampaign(json.campaign);
     setHistory(json.history ?? []);
+    if (json.meta?.productKind === "banner") setProductKind("banner");
+    else if (json.meta?.productKind === "store_sponsored") setProductKind("store_sponsored");
     setLoaded(true);
   }, [campaignId, storeId]);
 
@@ -133,6 +151,21 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     };
   }, [campaignId, perfRange]);
 
+  const nextActions = useMemo((): OwnerNextAction[] => {
+    if (!campaign || !storeId) return [];
+    return ownerDeliveryAdNextActions({
+      lifecycleStatus: campaign.lifecycleStatus,
+      productKind,
+      storeId,
+      campaignId: campaign.id,
+    });
+  }, [campaign, productKind, storeId]);
+
+  const actionCtas = nextActions.filter(
+    (a): a is Extract<OwnerNextAction, { kind: "action" }> => a.kind === "action"
+  );
+  const editHref = nextActions.find((a) => a.kind === "href");
+
   const runAction = async (action: OwnerCampaignAction | "delete") => {
     if (!campaign || !storeId) return;
     setBusy(true);
@@ -157,13 +190,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
+          body: JSON.stringify({ action, productKind }),
         }
       );
       const json = (await res.json()) as {
         ok?: boolean;
         error?: string;
-        campaign?: OwnerSponsoredCampaignRow;
+        campaign?: DetailCampaign;
       };
       if (!res.ok || !json.ok || !json.campaign) {
         setError(json.error || "generic");
@@ -179,28 +212,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     }
   };
 
-  const status = campaign?.lifecycleStatus;
-  const ctas: Array<{ action: OwnerCampaignAction | "delete"; label: string; tone?: "danger" }> = [];
-  if (status === "DRAFT") {
-    ctas.push({ action: "submit", label: t("owner_ads_action_submit") });
-    ctas.push({
-      action: "delete",
-      label: t("owner_ads_action_delete"),
-      tone: "danger",
-    });
-  }
-  if (status === "CHANGES_REQUESTED") {
-    ctas.push({ action: "resubmit", label: t("owner_ads_action_resubmit") });
-  }
-  if (status === "ACTIVE") {
-    ctas.push({ action: "pause", label: t("owner_ads_action_pause") });
-    ctas.push({ action: "end", label: t("owner_ads_action_end"), tone: "danger" });
-  }
-  if (status === "PAUSED_OWNER") {
-    ctas.push({ action: "resume", label: t("owner_ads_action_resume") });
-    ctas.push({ action: "end", label: t("owner_ads_action_end"), tone: "danger" });
-  }
-
   const confirmCopy =
     confirm === "pause"
       ? { title: t("owner_ads_pause_confirm_title"), body: t("owner_ads_pause_confirm_body") }
@@ -213,9 +224,16 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             : null;
 
   const footerBottom = "calc(60px + var(--safe-bottom, 0px))";
+  const productTitle =
+    productKind === "banner"
+      ? t("owner_ads_product_banner")
+      : t("owner_ads_product_store_sponsored");
 
   return (
-    <div className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`} style={{ paddingBottom: ctas.length ? 88 : 24 }}>
+    <div
+      className={`${OWNER_STORE_STACK_Y_CLASS} px-4 pt-4`}
+      style={{ paddingBottom: actionCtas.length ? 88 : 24 }}
+    >
       <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_detail_title")}</h1>
 
       {!loaded ? (
@@ -238,7 +256,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             </p>
           ) : null}
 
-          <OwnerStoreAdminDashSection title={t("owner_ads_product_store_sponsored")}>
+          <OwnerStoreAdminDashSection title={productTitle}>
             <p className="text-[14px] font-semibold text-sam-fg">
               {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
             </p>
@@ -250,8 +268,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
           <OwnerStoreAdminDashSection title={t("owner_ads_inventory_title")}>
             <p className="text-[13px] text-sam-fg">
-              {(campaign.inventoryKeys as OwnerStoreSponsoredInventoryKey[])
-                .map((k) => t(ownerInventoryI18nKey(k)))
+              {deliveryAdPlacementI18nKeys(campaign.inventoryKeys ?? [])
+                .map((k) => t(k as MessageKey))
                 .join(" · ") || "—"}
             </p>
             <p className="mt-2 text-[13px] text-sam-muted">
@@ -299,21 +317,17 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             </OwnerStoreAdminDashSection>
           ) : null}
 
-          {status === "DRAFT" || status === "CHANGES_REQUESTED" ? (
+          {editHref && editHref.kind === "href" ? (
             <button
               type="button"
               className="mt-2 text-[13px] font-semibold text-signature underline"
-              onClick={() =>
-                router.push(
-                  `${DELIVERY_AD_OWNER_ROUTES.createStoreSponsored}?storeId=${encodeURIComponent(campaign.storeId)}&campaignId=${encodeURIComponent(campaign.id)}`
-                )
-              }
+              onClick={() => router.push(editHref.href)}
             >
-              {t("owner_ads_edit_again")}
+              {t(editHref.labelKey)}
             </button>
           ) : null}
 
-          {ctas.length > 0 ? (
+          {actionCtas.length > 0 ? (
             <BodyPortal>
               <footer
                 className={ownerStoreAdminFooterFixedClass({ aboveBottomNav: true })}
@@ -333,14 +347,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                       type="button"
                       className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
                       disabled={busy}
-                      onClick={() => setConfirm(ctas[0]!.action)}
+                      onClick={() => setConfirm(actionCtas[0]!.action)}
                     >
-                      {ctas[0]!.label}
+                      {t(actionCtas[0]!.labelKey)}
                     </button>
                   </div>
-                  {ctas.length > 1 ? (
+                  {actionCtas.length > 1 ? (
                     <div className="flex gap-2 border-t border-sam-border p-2">
-                      {ctas.slice(1).map((c) => (
+                      {actionCtas.slice(1).map((c) => (
                         <button
                           key={c.action}
                           type="button"
@@ -348,11 +362,11 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                           className={`min-h-[44px] flex-1 rounded-ui-rect px-2 text-[13px] font-semibold ${
                             c.tone === "danger"
                               ? "bg-red-600 text-white"
-                              : "border border-sam-border bg-sam-surface text-sam-fg"
+                              : "bg-sam-app text-sam-fg border border-sam-border"
                           }`}
                           onClick={() => setConfirm(c.action)}
                         >
-                          {c.label}
+                          {t(c.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -364,20 +378,19 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         </>
       )}
 
-      <OwnerStoreAdminConfirmModal
-        open={confirm != null && confirmCopy != null}
-        titleId="owner-ads-confirm"
-        title={confirmCopy?.title ?? ""}
-        description={confirmCopy?.body}
-        busy={busy}
-        confirmTone={confirm === "end" || confirm === "delete" ? "danger" : "primary"}
-        cancelLabel={t("owner_ads_cancel")}
-        confirmLabel={t("owner_ads_confirm")}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => {
-          if (confirm) void runAction(confirm);
-        }}
-      />
+      {confirm && confirmCopy ? (
+        <OwnerStoreAdminConfirmModal
+          open
+          titleId="owner-delivery-ad-confirm"
+          title={confirmCopy.title}
+          description={confirmCopy.body}
+          confirmLabel={t("owner_ads_confirm")}
+          cancelLabel={t("owner_ads_cancel")}
+          busy={busy}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => void runAction(confirm)}
+        />
+      ) : null}
     </div>
   );
 }

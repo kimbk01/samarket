@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import type { AdminDeliveryAdListBucket } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -15,6 +17,7 @@ import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
+import type { PolicyCampaignCounts } from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
 
 const BUCKETS: AdminDeliveryAdListBucket[] = [
   "all",
@@ -42,11 +45,18 @@ function lifecycleLabelKey(status: string): MessageKey {
 
 export function AdminDeliveryAdsControlPlane() {
   const { t, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const inventoryFilter = searchParams.get("inventory")?.trim() || "";
+  const primarySlugFilter =
+    searchParams.get("primarySlug")?.trim() || searchParams.get("primary")?.trim() || "";
+  const subSlugFilter =
+    searchParams.get("subSlug")?.trim() || searchParams.get("sub")?.trim() || "";
   const [bucket, setBucket] = useState<AdminDeliveryAdListBucket>("all");
   const [product, setProduct] = useState<ProductFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<AdminDeliveryAdListItem[]>([]);
+  const [policyCounts, setPolicyCounts] = useState<PolicyCampaignCounts | null>(null);
   const [summary, setSummary] = useState({
     total: 0,
     review: 0,
@@ -63,6 +73,9 @@ export function AdminDeliveryAdsControlPlane() {
     setError(null);
     try {
       const qs = new URLSearchParams({ bucket, product });
+      if (inventoryFilter) qs.set("inventory", inventoryFilter);
+      if (primarySlugFilter) qs.set("primarySlug", primarySlugFilter);
+      if (subSlugFilter) qs.set("subSlug", subSlugFilter);
       const res = await fetch(`/api/admin/delivery-ads?${qs.toString()}`, {
         credentials: "include",
         cache: "no-store",
@@ -72,21 +85,25 @@ export function AdminDeliveryAdsControlPlane() {
         error?: string;
         campaigns?: AdminDeliveryAdListItem[];
         summary?: typeof summary;
+        policyCounts?: PolicyCampaignCounts | null;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
         setCampaigns([]);
+        setPolicyCounts(null);
         return;
       }
       setCampaigns(json.campaigns ?? []);
+      setPolicyCounts(json.policyCounts ?? null);
       if (json.summary) setSummary(json.summary);
     } catch {
       setError("network_error");
       setCampaigns([]);
+      setPolicyCounts(null);
     } finally {
       setLoading(false);
     }
-  }, [bucket, product]);
+  }, [bucket, product, inventoryFilter, primarySlugFilter, subSlugFilter]);
 
   useEffect(() => {
     void load();
@@ -136,6 +153,32 @@ export function AdminDeliveryAdsControlPlane() {
               fallbackEn: "Unified Store Sponsored and Banner operations",
             })}
           </p>
+          {inventoryFilter ? (
+            <p className="mt-2 text-[12px] text-sam-fg">
+              {t("admin_delivery_ads_filter_inventory")}:{" "}
+              {deliveryAdPlacementI18nKeys([inventoryFilter])
+                .map((k) => t(k as MessageKey))
+                .join(" · ")}
+              {primarySlugFilter ? ` · ${primarySlugFilter}` : ""}
+              {subSlugFilter ? ` › ${subSlugFilter}` : ""}
+            </p>
+          ) : null}
+          {policyCounts ? (
+            <ul className="mt-2 flex flex-wrap gap-3 text-[12px] text-sam-fg">
+              <li>
+                {t("admin_delivery_ads_count_linked")}:{" "}
+                <span className="font-semibold">{policyCounts.linked}</span>
+              </li>
+              <li>
+                {t("admin_delivery_ads_count_exposable")}:{" "}
+                <span className="font-semibold">{policyCounts.exposable_now}</span>
+              </li>
+              <li>
+                {t("admin_delivery_ads_count_under_review")}:{" "}
+                <span className="font-semibold">{policyCounts.under_review}</span>
+              </li>
+            </ul>
+          ) : null}
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
@@ -301,7 +344,10 @@ export function AdminDeliveryAdsControlPlane() {
                   </p>
                   <p className="truncate text-[11px] text-sam-muted">
                     {c.ownerDisplayName || c.ownerUserId || "—"} ·{" "}
-                    {c.inventoryKeys.join(", ") || "—"} · {c.updatedAt.slice(0, 16)}
+                    {deliveryAdPlacementI18nKeys(c.inventoryKeys)
+                      .map((k) => t(k as MessageKey))
+                      .join(" · ") || "—"}{" "}
+                    · {c.updatedAt.slice(0, 16)}
                   </p>
                 </div>
               </Link>

@@ -18,6 +18,19 @@ import type {
   DeliveryAdLifecycleStatus,
   DeliveryAdReviewStatus,
 } from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import {
+  bucketPolicyCampaignCounts,
+  type PolicyCampaignCounts,
+} from "@/lib/stores/advertising/delivery-ad-policy-campaign-counts";
+
+function embedSlug(
+  rel: { slug?: string | null } | { slug?: string | null }[] | null | undefined
+): string | null {
+  if (!rel) return null;
+  const row = Array.isArray(rel) ? rel[0] : rel;
+  const slug = row?.slug == null ? null : String(row.slug).trim().toLowerCase();
+  return slug || null;
+}
 
 const SPONSORED_SELECT = [
   "id",
@@ -68,6 +81,10 @@ export type AdminDeliveryAdListItem = {
   storeId: string | null;
   storeName: string | null;
   storeThumbnailUrl: string | null;
+  /** Browse taxonomy primary (store_categories.slug) for policy↔campaign scope. */
+  storePrimarySlug: string | null;
+  /** Browse taxonomy sub (store_topics.slug). */
+  storeSubSlug: string | null;
   ownerUserId: string | null;
   ownerDisplayName: string | null;
   inventoryKeys: string[];
@@ -122,9 +139,19 @@ export async function loadAdminDeliveryAdCampaignList(
     bucket?: AdminDeliveryAdListBucket;
     storeId?: string | null;
     ownerUserId?: string | null;
+    /** Filter campaigns that include this inventory key. */
+    inventoryKey?: string | null;
+    /** BROWSE taxonomy scope (with inventoryKey=STORES_CATEGORY_FEED). */
+    primarySlug?: string | null;
+    subSlug?: string | null;
     limit?: number;
   } = {}
-): Promise<{ items: AdminDeliveryAdListItem[]; summary: AdminDeliveryAdSummary; error?: string }> {
+): Promise<{
+  items: AdminDeliveryAdListItem[];
+  summary: AdminDeliveryAdSummary;
+  policyCounts: PolicyCampaignCounts | null;
+  error?: string;
+}> {
   const limit = Math.min(Math.max(filters.limit ?? 200, 1), 500);
   const wantSponsored = filters.product !== "banner";
   const wantBanner = filters.product !== "store_sponsored";
@@ -158,6 +185,7 @@ export async function loadAdminDeliveryAdCampaignList(
     return {
       items: [],
       summary: emptySummary(),
+      policyCounts: null,
       error: sponsoredRes.error.message,
     };
   }
@@ -165,6 +193,7 @@ export async function loadAdminDeliveryAdCampaignList(
     return {
       items: [],
       summary: emptySummary(),
+      policyCounts: null,
       error: bannerRes.error.message,
     };
   }
@@ -190,7 +219,12 @@ export async function loadAdminDeliveryAdCampaignList(
 
   const [storesRes, profilesRes, sponsoredInvRes, bannerInvRes] = await Promise.all([
     storeIds.length
-      ? sb.from("stores").select("id, store_name, profile_image_url").in("id", storeIds)
+      ? sb
+          .from("stores")
+          .select(
+            "id, store_name, profile_image_url, store_categories ( slug ), store_topics ( slug )"
+          )
+          .in("id", storeIds)
       : Promise.resolve({ data: [], error: null }),
     ownerIds.length
       ? sb.from("profiles").select("id, display_name, nickname").in("id", ownerIds)
@@ -209,11 +243,25 @@ export async function loadAdminDeliveryAdCampaignList(
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  const storeMap = new Map<string, { name: string | null; thumb: string | null }>();
+  const storeMap = new Map<
+    string,
+    {
+      name: string | null;
+      thumb: string | null;
+      primarySlug: string | null;
+      subSlug: string | null;
+    }
+  >();
   for (const s of (storesRes.data ?? []) as Record<string, unknown>[]) {
     storeMap.set(String(s.id), {
       name: s.store_name == null ? null : String(s.store_name),
       thumb: s.profile_image_url == null ? null : String(s.profile_image_url),
+      primarySlug: embedSlug(
+        s.store_categories as { slug?: string | null } | { slug?: string | null }[] | null
+      ),
+      subSlug: embedSlug(
+        s.store_topics as { slug?: string | null } | { slug?: string | null }[] | null
+      ),
     });
   }
   const ownerMap = new Map<string, string | null>();
@@ -259,6 +307,8 @@ export async function loadAdminDeliveryAdCampaignList(
       storeId,
       storeName: store?.name ?? null,
       storeThumbnailUrl: store?.thumb ?? null,
+      storePrimarySlug: store?.primarySlug ?? null,
+      storeSubSlug: store?.subSlug ?? null,
       ownerUserId,
       ownerDisplayName: ownerUserId ? ownerMap.get(ownerUserId) ?? null : null,
       inventoryKeys: invByCampaign.get(String(raw.id)) ?? [],
@@ -292,12 +342,39 @@ export async function loadAdminDeliveryAdCampaignList(
     ...bannerRows.map((r) => mapRow(r, "banner")),
   ].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 
+  const inventoryKey = filters.inventoryKey?.trim() || null;
+  const primarySlug = filters.primarySlug?.trim() || null;
+  const subSlug = filters.subSlug?.trim() || null;
+
+  const policyCounts = inventoryKey
+    ? bucketPolicyCampaignCounts(
+        items.map((i) => ({
+          inventoryKeys: i.inventoryKeys,
+          lifecycleStatus: i.lifecycleStatus,
+          storePrimarySlug: i.storePrimarySlug,
+          storeSubSlug: i.storeSubSlug,
+        })),
+        { inventoryKey, primarySlug, subSlug }
+      )
+    : null;
+
+  if (inventoryKey) {
+    items = items.filter((i) => {
+      if (!i.inventoryKeys.includes(inventoryKey)) return false;
+      if (inventoryKey === "STORES_CATEGORY_FEED" && primarySlug) {
+        if ((i.storePrimarySlug ?? "").toLowerCase() !== primarySlug.toLowerCase()) return false;
+        if (subSlug && (i.storeSubSlug ?? "").toLowerCase() !== subSlug.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }
+
   const summary = summarize(items);
   if (filters.bucket && filters.bucket !== "all") {
     items = items.filter((i) => i.listBucket === filters.bucket);
   }
 
-  return { items: items.slice(0, limit), summary };
+  return { items: items.slice(0, limit), summary, policyCounts };
 }
 
 export async function loadAdminDeliveryAdCampaignDetail(

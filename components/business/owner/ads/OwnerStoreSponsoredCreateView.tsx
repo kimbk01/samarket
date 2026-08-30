@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -22,6 +22,7 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   OWNER_STORE_SPONSORED_INVENTORY_KEYS,
+  isOwnerStoreSponsoredInventoryKey,
   ownerInventoryI18nKey,
   type OwnerStoreSponsoredInventoryKey,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
@@ -52,6 +53,7 @@ function dateInputToEndIso(dateStr: string): string {
 export function OwnerStoreSponsoredCreateView() {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const formId = useId();
   const [step, setStep] = useState<Step>("store");
   const [stores, setStores] = useState<EligibleStore[]>([]);
@@ -72,6 +74,8 @@ export function OwnerStoreSponsoredCreateView() {
       ? crypto.randomUUID()
       : `req_${Date.now()}`
   );
+  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
+  const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +86,11 @@ export function OwnerStoreSponsoredCreateView() {
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
-        if (list.length === 1) setStoreId(list[0]!.id);
+        if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
+          setStoreId(preloadStoreId);
+        } else if (list.length === 1) {
+          setStoreId(list[0]!.id);
+        }
       } finally {
         if (!cancelled) setLoaded(true);
       }
@@ -90,7 +98,46 @@ export function OwnerStoreSponsoredCreateView() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [preloadStoreId]);
+
+  useEffect(() => {
+    if (!preloadCampaignId || !preloadStoreId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/me/stores/${encodeURIComponent(preloadStoreId)}/delivery-ads/${encodeURIComponent(preloadCampaignId)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          campaign?: OwnerSponsoredCampaignRow;
+          meta?: { productKind?: string };
+        };
+        if (cancelled || !res.ok || !json.ok || !json.campaign) return;
+        if (json.meta?.productKind === "banner") return;
+        const row = json.campaign;
+        if (row.lifecycleStatus !== "DRAFT" && row.lifecycleStatus !== "CHANGES_REQUESTED") {
+          return;
+        }
+        setCampaign(row);
+        setStoreId(row.storeId);
+        setInventories(
+          row.inventoryKeys.filter((k): k is OwnerStoreSponsoredInventoryKey =>
+            isOwnerStoreSponsoredInventoryKey(k)
+          )
+        );
+        setStartDate(row.startAt.slice(0, 10));
+        setEndDate(row.endAt.slice(0, 10));
+        setStep("setup");
+      } catch {
+        /* keep empty create */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [preloadCampaignId, preloadStoreId]);
 
   const selectedStore = useMemo(
     () => stores.find((s) => s.id === storeId) ?? null,

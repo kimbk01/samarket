@@ -36,6 +36,7 @@ import {
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { StoresHomeShelfResolvedConfig } from "@/lib/stores/product/stores-home-shelf-product-resolve";
 import { AdminStoresHomeShelfLivePreview } from "@/components/admin/stores/AdminStoresHomeShelfLivePreview";
+import { AdminDeliveryAdHomePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { clearStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 
@@ -702,8 +703,14 @@ export function AdminStoresHomeShelvesPage() {
     }
 
     if (tab === "coupon_ad") {
+      const isRestList =
+        shelf.shelfId === "rest_stores" || shelf.dataSource === "rest_stores";
       return (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
+          {isRestList ? (
+            <AdminDeliveryAdHomePolicyPanel restShelfAdIntegration={shelf.adIntegration} />
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-[12px] font-medium text-sam-muted">
             {t("admin_stores_home_shelves_col_coupon")}
             <select
@@ -734,6 +741,7 @@ export function AdminStoresHomeShelvesPage() {
               ))}
             </select>
           </label>
+          </div>
         </div>
       );
     }

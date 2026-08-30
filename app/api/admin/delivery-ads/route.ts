@@ -46,12 +46,22 @@ export async function GET(req: NextRequest) {
     bucket,
     storeId: sp.get("storeId"),
     ownerUserId: sp.get("ownerUserId"),
+    inventoryKey: sp.get("inventory") ?? sp.get("inventoryKey"),
+    primarySlug: sp.get("primarySlug") ?? sp.get("primary"),
+    subSlug: sp.get("subSlug") ?? sp.get("sub"),
     limit: Number(sp.get("limit") || 200) || 200,
   });
 
   if (result.error) {
     return NextResponse.json(
-      { ok: false, error: "db_error", detail: result.error, campaigns: [], summary: result.summary },
+      {
+        ok: false,
+        error: "db_error",
+        detail: result.error,
+        campaigns: [],
+        summary: result.summary,
+        policyCounts: result.policyCounts,
+      },
       { status: 500 }
     );
   }
@@ -60,6 +70,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     campaigns: result.items,
     summary: result.summary,
+    policyCounts: result.policyCounts,
     pricing: { model: "NOT_CONFIGURED", billing: "NONE" },
   });
 }

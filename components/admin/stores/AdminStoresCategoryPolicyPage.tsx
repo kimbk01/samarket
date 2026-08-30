@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
+import { AdminDeliveryAdBrowsePolicyPanel } from "@/components/admin/stores/AdminDeliveryAdPlacementPolicyPanel";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -846,12 +847,25 @@ export function AdminStoresCategoryPolicyPage() {
               <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                 <dt className="text-sam-muted">{label(ko, "2차 업종", "Secondary")}</dt>
                 <dd className="font-semibold text-sam-fg">{secondaries.length}</dd>
-                <dt className="text-sam-muted">{label(ko, "광고", "Ads")}</dt>
-                <dd className="font-semibold text-sam-fg">{draftPrimary.adEnabled ? "ON" : "OFF"}</dd>
+                <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_enabled")}</dt>
+                <dd className="font-semibold text-sam-fg">
+                  {draftPrimary.adEnabled
+                    ? t("admin_delivery_ads_home_policy_enabled_on")
+                    : t("admin_delivery_ads_home_policy_enabled_off")}
+                </dd>
                 <dt className="text-sam-muted">{label(ko, "쿠폰", "Coupons")}</dt>
                 <dd className="font-semibold text-sam-fg">{draftPrimary.couponEnabled ? "ON" : "OFF"}</dd>
+                <dt className="text-sam-muted">{t("admin_delivery_ads_browse_policy_max")}</dt>
+                <dd className="font-semibold text-sam-fg">
+                  {draftPrimary.draftMax.trim() === "" ? "—" : draftPrimary.draftMax}
+                </dd>
                 <dt className="text-sam-muted">{label(ko, "노출 간격", "Interval")}</dt>
-                <dd className="font-semibold text-sam-fg">{draftPrimary.draftInterval || "8"}</dd>
+                <dd className="font-semibold text-sam-fg">
+                  {t("admin_delivery_ads_browse_policy_interval").replace(
+                    "{n}",
+                    draftPrimary.draftInterval.trim() || "—"
+                  )}
+                </dd>
               </dl>
             </div>
           </Panel>
@@ -1068,12 +1082,28 @@ export function AdminStoresCategoryPolicyPage() {
           </Panel>
         );
       case "ad":
+        if (!draftPrimary) return null;
         return (
           <Panel title={label(ko, "매장 광고 허용", "Allow store ads")}>
+            {selectedPrimary ? (
+              <div className="mb-3">
+                <AdminDeliveryAdBrowsePolicyPanel
+                  primarySlug={selectedPrimary}
+                  subSlug={null}
+                  adEnabled={draftPrimary.adEnabled}
+                  maxInsertion={
+                    draftPrimary.draftMax.trim() === ""
+                      ? null
+                      : Number(draftPrimary.draftMax)
+                  }
+                  intervalEveryN={Number(draftPrimary.draftInterval) || 0}
+                />
+              </div>
+            ) : null}
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
                 <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 매장 광고 허용", "Allow store ads in this category")}</p>
-                <p className="text-[11px] text-sam-muted">{label(ko, "캠페인 생성은 「매장 광고」메뉴에서 합니다. 여기는 표면 허용만 설정합니다.", "Create campaigns under Store ads. This toggles surface permission only.")}</p>
+                <p className="text-[11px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
               </div>
               <Toggle
                 checked={draftPrimary.adEnabled}
