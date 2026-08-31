@@ -53,11 +53,16 @@ export const ADMIN_DELIVERY_ADS_HISTORY_LIST_BUCKETS = [
 /** Detail performance panel — ACTIVE / ENDED only. */
 export const ADMIN_DELIVERY_ADS_PERFORMANCE_LIFECYCLES = ["ACTIVE", "ENDED"] as const;
 
-/** Commercial matrix: 2 products × 2 placements × 3 seed durations = 12 cells. */
+/**
+ * Commercial matrix cells from launch-sellable inventories × seed durations.
+ * store_sponsored: HOME_FEED + CATEGORY_FEED (=2) × 3 = 6
+ * banner: HOME_HERO only (=1) × 3 = 3  (SEARCH_TOP NOT_SELLABLE)
+ * Total = 9
+ */
 export const R3_COMMERCIAL_MATRIX_PRODUCTS = ["store_sponsored", "banner"] as const;
 export const R3_COMMERCIAL_MATRIX_DURATIONS = [7, 15, 30] as const;
 export const R3_COMMERCIAL_MATRIX_SEED_CODES = DELIVERY_AD_PACKAGE_SEED_CODES;
-export const R3_COMMERCIAL_MATRIX_EXPECTED_CELLS = 12 as const;
+export const R3_COMMERCIAL_MATRIX_EXPECTED_CELLS = 9 as const;
 
 /**
  * R3 locked Admin first-party create. R4 flips this off and enables Banner-only create.

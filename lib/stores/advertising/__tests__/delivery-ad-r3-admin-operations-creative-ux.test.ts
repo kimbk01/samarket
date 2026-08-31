@@ -239,12 +239,12 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(i18n()).toContain("admin_delivery_ads_funding_err_snapshot");
   });
 
-  it("R3-T18 — commercial matrix 2 products / 12 packages represented", () => {
+  it("R3-T18 — commercial matrix 2 products / 9 launch-sellable package cells", () => {
     expect([...R3_COMMERCIAL_MATRIX_PRODUCTS]).toEqual(["store_sponsored", "banner"]);
     expect([...R3_COMMERCIAL_MATRIX_DURATIONS]).toEqual([7, 15, 30]);
     expect([...R3_COMMERCIAL_MATRIX_SEED_CODES]).toEqual(["7_day", "15_day", "30_day"]);
-    expect(R3_COMMERCIAL_MATRIX_EXPECTED_CELLS).toBe(12);
-    expect(r3CommercialMatrixExpectedCellCount()).toBe(12);
+    expect(R3_COMMERCIAL_MATRIX_EXPECTED_CELLS).toBe(9);
+    expect(r3CommercialMatrixExpectedCellCount()).toBe(9);
     expect(commercial()).toContain("data-commercial-matrix");
     expect(commercial()).toContain("R3_COMMERCIAL_MATRIX_PRODUCTS");
     expect(commercial()).toContain("data-commercial-matrix-product");
@@ -388,7 +388,7 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
 
   it("R3-T37 — export constants available for tests", () => {
     expect(ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW).toBeTruthy();
-    expect(R3_COMMERCIAL_MATRIX_EXPECTED_CELLS).toBe(12);
+    expect(R3_COMMERCIAL_MATRIX_EXPECTED_CELLS).toBe(9);
     expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(false);
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
   });
