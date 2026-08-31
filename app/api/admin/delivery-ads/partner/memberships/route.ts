@@ -9,6 +9,7 @@ import {
 import {
   adminApprovePartnerMembership,
   adminEndPartnerMembership,
+  adminRejectPartnerMembership,
   listPartnerMembershipsForAdmin,
   loadDeliveryAdPartnerConfig,
   partnerMembershipAdminFilterLabel,
@@ -86,7 +87,7 @@ type PostBody = {
   periodDays?: number;
 };
 
-/** POST — approve | end */
+/** POST — approve | reject | end */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -122,6 +123,22 @@ export async function POST(req: NextRequest) {
       ok: true,
       membership: result.membership,
       payment: DELIVERY_AD_PARTNER_PAYMENT,
+    });
+  }
+
+  if (op === "reject") {
+    const result = await adminRejectPartnerMembership(sb, {
+      membershipId,
+      actorUserId: admin.userId,
+      reason: String(body.reason ?? "admin_partner_reject"),
+    });
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({
+      ok: true,
+      membership: result.membership,
+      refundIdempotent: result.refundIdempotent,
     });
   }
 

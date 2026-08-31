@@ -72,7 +72,7 @@ describe("R4 Partner membership", () => {
     expect(migPending()).toContain("delivery_ad_partner_memberships_status_check");
   });
 
-  it("R4-P2 — membership status union includes PENDING_REVIEW", () => {
+  it("R4-P2 — membership status union includes PENDING_REVIEW + REJECTED", () => {
     expect([...DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES]).toEqual([
       "NONE",
       "PENDING_REVIEW",
@@ -80,13 +80,15 @@ describe("R4 Partner membership", () => {
       "PAST_DUE",
       "CANCEL_PENDING",
       "ENDED",
+      "REJECTED",
     ]);
   });
 
-  it("R4-P3 — Owner apply writer creates PENDING_REVIEW only", () => {
+  it("R4-P3 — Owner apply writer creates PENDING_REVIEW after BC secure", () => {
     expect(partnerWriter()).toContain("ownerApplyPartnerMembership");
     expect(partnerWriter()).toContain('status: "PENDING_REVIEW"');
-    expect(partnerWriter()).toContain("NOT_IMPLEMENTED");
+    expect(partnerWriter()).toContain("BUSINESS_CASH_SECURED");
+    expect(partnerWriter()).toContain("debitBusinessCashForDeliveryAd");
   });
 
   it("R4-P4 — Admin approve snapshots fee/discount/benefits/config_version", () => {
@@ -146,11 +148,10 @@ describe("R4 Partner membership", () => {
     }
   });
 
-  it("R4-P9 — Partner PAYMENT is NOT_IMPLEMENTED (no Business Cash fake)", () => {
-    expect(DELIVERY_AD_PARTNER_PAYMENT.status).toBe("NOT_IMPLEMENTED");
-    expect(DELIVERY_AD_PARTNER_PAYMENT.businessCashCharge).toBe(false);
-    expect(partnerWriter()).toContain("payment: \"NOT_IMPLEMENTED\"");
-    expect(ownerPartner()).toContain('data-partner-payment="NOT_IMPLEMENTED"');
+  it("R4-P9 — Partner PAYMENT requires AST-005 Business Cash secure", () => {
+    expect(DELIVERY_AD_PARTNER_PAYMENT.status).toBe("BUSINESS_CASH_SECURE_REQUIRED");
+    expect(DELIVERY_AD_PARTNER_PAYMENT.businessCashCharge).toBe(true);
+    expect(partnerWriter()).toContain('payment: "BUSINESS_CASH_SECURED"');
   });
 
   it("R4-P10 — Partner organic effect remains locked off", () => {

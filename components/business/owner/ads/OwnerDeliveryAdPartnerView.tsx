@@ -257,7 +257,7 @@ export function OwnerDeliveryAdPartnerView() {
 
           <p
             className="rounded-ui-rect bg-sam-app px-3 py-2 text-[12px] text-sam-muted"
-            data-partner-payment="NOT_IMPLEMENTED"
+            data-partner-payment="BUSINESS_CASH_SECURE_REQUIRED"
           >
             {t("owner_ads_partner_payment_note")}
           </p>

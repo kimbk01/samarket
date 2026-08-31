@@ -19,7 +19,7 @@ import {
   attachOwnerPaidCommercialSnapshotOnSubmit,
   decodeOwnerAdPackagePricingModel,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
-import { debitStoreCashForDeliveryAd } from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
+import { debitBusinessCashForDeliveryAd } from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +36,7 @@ function statusForError(error: string): number {
     case "duplicate_submit":
     case "quote_stale":
       return 409;
+    case "INSUFFICIENT_BUSINESS_CASH":
     case "INSUFFICIENT_STORE_CASH":
       return 402;
     case "db_error":
@@ -46,7 +47,8 @@ function statusForError(error: string): number {
   }
 }
 
-async function secureStoreCashBeforeSubmit(input: {
+/** Stage 1 canonical: AST-005 Business Cash secure (not Gift Store Cash). */
+async function secureBusinessCashBeforeSubmit(input: {
   sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
   ownerUserId: string;
   storeId: string;
@@ -57,18 +59,18 @@ async function secureStoreCashBeforeSubmit(input: {
   if (String(input.campaignSource ?? "OWNER_PAID").trim() === "DIBAY_FIRST_PARTY") {
     return null;
   }
-  const secured = await debitStoreCashForDeliveryAd(input.sb, {
+  const secured = await debitBusinessCashForDeliveryAd(input.sb, {
     ownerUserId: input.ownerUserId,
     storeId: input.storeId,
-    campaignId: input.campaignId,
+    applicationId: input.campaignId,
     productKind: input.productKind,
   });
   if (!secured.ok) {
-    if (secured.error === "INSUFFICIENT_STORE_CASH" && secured.insufficient) {
+    if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
       return NextResponse.json(
         {
           ok: false,
-          error: "INSUFFICIENT_STORE_CASH",
+          error: "INSUFFICIENT_BUSINESS_CASH",
           availablePhp: secured.insufficient.availablePhp,
           requiredPhp: secured.insufficient.requiredPhp,
           shortagePhp: secured.insufficient.shortagePhp,
@@ -173,7 +175,7 @@ export async function POST(
         );
       }
 
-      const cashBlock = await secureStoreCashBeforeSubmit({
+      const cashBlock = await secureBusinessCashBeforeSubmit({
         sb,
         ownerUserId: userId,
         storeId: sid,
@@ -234,7 +236,7 @@ export async function POST(
       );
     }
 
-    const cashBlock = await secureStoreCashBeforeSubmit({
+    const cashBlock = await secureBusinessCashBeforeSubmit({
       sb,
       ownerUserId: userId,
       storeId: sid,

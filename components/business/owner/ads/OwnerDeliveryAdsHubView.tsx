@@ -302,17 +302,16 @@ export function OwnerDeliveryAdsHubView() {
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2">
-              <button
-                type="button"
+              <Link
+                href={`/stores/owner/business-cash?storeId=${encodeURIComponent(stores[0]?.id || "")}`}
                 className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect bg-[#0A823E] px-3 text-[12px] font-semibold text-white"
                 data-owner-ads-cash-charge="1"
-                onClick={() => setCashChargeOpen(true)}
               >
                 {safeT("owner_ads_cash_charge_cta", {
-                  fallbackKo: "Store Cash 안내",
-                  fallbackEn: "Store Cash info",
+                  fallbackKo: "Business Cash 관리",
+                  fallbackEn: "Manage Business Cash",
                 })}
-              </button>
+              </Link>
               <button
                 type="button"
                 className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg"

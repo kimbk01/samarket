@@ -5,8 +5,8 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
 /**
- * MODEL B: insufficient Cash may still submit after explicit confirmation.
- * Never silent; never fake top-up.
+ * Stage 1 hard block: insufficient Business Cash cannot submit.
+ * No "submit anyway" path.
  */
 export function DeliveryAdOwnerInsufficientCashSubmitModal({
   open,
@@ -14,37 +14,34 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   balanceMinor,
   busy,
   onCancel,
-  onSubmitAnyway,
+  onSubmitAnyway: _onSubmitAnyway,
 }: {
   open: boolean;
   adAmountMinor: number;
   balanceMinor: number;
   busy?: boolean;
   onCancel: () => void;
-  onSubmitAnyway: () => void;
+  /** @deprecated Stage 1 — ignored; insufficient balance is hard-blocked. */
+  onSubmitAnyway?: () => void;
 }) {
   const { t, safeT } = useI18n();
   const shortage = Math.max(0, adAmountMinor - balanceMinor);
   const description = [
     `${t("owner_ads_confirm_ad_amount")}: ${formatDeliveryAdPhpMinor(adAmountMinor)}`,
-    `${t("owner_ads_confirm_cash_balance")}: ${formatDeliveryAdPhpMinor(balanceMinor)}`,
+    `${safeT("owner_bc_balance_label", {
+      fallbackKo: "Business Cash 잔액",
+      fallbackEn: "Business Cash balance",
+    })}: ${formatDeliveryAdPhpMinor(balanceMinor)}`,
     `${safeT("owner_ads_cash_shortage_amount", {
       fallbackKo: "부족 금액",
       fallbackEn: "Shortfall",
     })}: ${formatDeliveryAdPhpMinor(shortage)}`,
     "",
-    safeT("owner_ads_cash_shortage_modal_body", {
+    safeT("owner_bc_insufficient_hard_block", {
       fallbackKo:
-        "광고 신청은 접수할 수 있지만, 관리자 승인 후 광고를 시작하려면 Business Cash 결제가 필요합니다.",
+        "Business Cash 잔액이 부족해 광고를 신청할 수 없습니다. 충전 또는 매장 포인트 전환 후 다시 시도해 주세요.",
       fallbackEn:
-        "You can submit for review, but you will need Business Cash after approval before the ad can go live.",
-    }),
-    "",
-    safeT("owner_ads_cash_grant_ask_admin", {
-      fallbackKo:
-        "잔액이 부족하면 광고 허브에서 Business Cash 충전 신청을 해 주세요. (외부 카드·GCash 충전 없음)",
-      fallbackEn:
-        "If short, request a Business Cash top-up from the ads hub. (No external card/GCash top-up.)",
+        "Insufficient Business Cash — you cannot submit this ad. Top up or convert Store Points, then try again.",
     }),
   ].join("\n");
 
@@ -59,13 +56,13 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
         })}
         description={description}
         cancelLabel={t("owner_ads_cancel")}
-        confirmLabel={safeT("owner_ads_cash_shortage_submit_anyway", {
-          fallbackKo: "그래도 광고 신청",
-          fallbackEn: "Submit anyway",
+        confirmLabel={safeT("owner_bc_go_finance", {
+          fallbackKo: "Business Cash 관리",
+          fallbackEn: "Manage Business Cash",
         })}
         busy={busy}
         onCancel={onCancel}
-        onConfirm={onSubmitAnyway}
+        onConfirm={onCancel}
       />
     </div>
   );

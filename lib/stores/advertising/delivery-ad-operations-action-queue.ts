@@ -16,6 +16,8 @@ import {
   isDeliveryAdProductKind,
   type DeliveryAdProductKind,
 } from "@/lib/stores/advertising/delivery-ad-domain";
+import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
+import { loadCampaignStoreCashSpendRow } from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
 
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_DEFAULT_LIMIT = 50 as const;
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_MAX_LIMIT = 100 as const;
@@ -117,14 +119,8 @@ export async function listDeliveryAdAdminActionQueue(
         : BANNER_AD_CAMPAIGN_TABLE;
     const { data: camp } = await sb
       .from(table)
-      .select("id, title, lifecycle_status, image_url, review_notes")
+      .select("id, title, lifecycle_status, image_url, review_notes, campaign_source, store_id")
       .eq("id", campaignId)
-      .maybeSingle();
-
-    const { data: thread } = await sb
-      .from("delivery_ad_operations_threads")
-      .select("id")
-      .eq("case_id", caseId)
       .maybeSingle();
 
     const campRow = camp as {
@@ -132,7 +128,36 @@ export async function listDeliveryAdAdminActionQueue(
       lifecycle_status?: string;
       image_url?: string | null;
       review_notes?: string | null;
+      campaign_source?: string | null;
+      store_id?: string | null;
     } | null;
+
+    const campaignSource = String(campRow?.campaign_source ?? "OWNER_PAID").trim();
+    if (campaignSource !== "DIBAY_FIRST_PARTY") {
+      const storeId = String(campRow?.store_id ?? "").trim();
+      const canonicalFunded = await hasCanonicalBcFundingSecured(sb, {
+        productKind,
+        applicationId: campaignId,
+        storeId: storeId || undefined,
+      });
+      if (!canonicalFunded) {
+        // Legacy historical Store Cash SECURED may remain visible for audit continuity.
+        const legacy = await loadCampaignStoreCashSpendRow(sb, {
+          productKind,
+          campaignId,
+        });
+        if (!legacy || legacy.status !== "FUNDED") {
+          continue;
+        }
+      }
+    }
+
+    const { data: thread } = await sb
+      .from("delivery_ad_operations_threads")
+      .select("id")
+      .eq("case_id", caseId)
+      .maybeSingle();
+
     const reviewNotes =
       campRow?.review_notes == null ? "" : String(campRow.review_notes).trim();
 
@@ -159,5 +184,5 @@ export async function listDeliveryAdAdminActionQueue(
     });
   }
 
-  return { ok: true, items, total };
+  return { ok: true, items, total: items.length };
 }

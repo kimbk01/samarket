@@ -1,7 +1,7 @@
 /**
- * R4 — Partner membership apply / Admin approve / cancel / end.
+ * Partner membership apply / Admin approve / reject / cancel / end.
  * Membership product only — NOT a campaign product.
- * Partner monthly fee PAYMENT: NOT_IMPLEMENTED (no Business Cash charge).
+ * Partner monthly fee: AST-005 Business Cash secure before PENDING_REVIEW.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -18,6 +18,11 @@ import {
   type DeliveryAdPartnerMembershipRow,
 } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import { recordDeliveryAdCommercialOverride } from "@/lib/stores/advertising/delivery-ad-commercial-admin-writer";
+import {
+  debitBusinessCashForDeliveryAd,
+  hasCanonicalBcFundingSecured,
+  refundBusinessCashForRejectedDeliveryAd,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export type PartnerMembershipWriterError =
   | "not_found"
@@ -28,7 +33,10 @@ export type PartnerMembershipWriterError =
   | "invalid_status"
   | "illegal_transition"
   | "db_error"
-  | "invalid_store";
+  | "invalid_store"
+  | "INSUFFICIENT_BUSINESS_CASH"
+  | "funding_required"
+  | "bc_debit_failed";
 
 function mapPartnerConfig(raw: Record<string, unknown> | null): DeliveryAdPartnerConfigRow | null {
   if (!raw) return null;
@@ -136,15 +144,29 @@ export async function listPartnerMembershipsForAdmin(
 }
 
 /**
- * Owner "가입 신청" — creates PENDING_REVIEW.
- * Does NOT charge Business Cash (Partner PAYMENT: NOT_IMPLEMENTED).
+ * Owner apply — BC secure exactly once, then PENDING_REVIEW.
+ * Insufficient BC → no PENDING_REVIEW intake (row deleted).
  */
 export async function ownerApplyPartnerMembership(
   sb: SupabaseClient,
   input: { storeId: string; actorUserId: string }
 ): Promise<
-  | { ok: true; membership: DeliveryAdPartnerMembershipRow; payment: "NOT_IMPLEMENTED" }
-  | { ok: false; error: PartnerMembershipWriterError; detail?: string }
+  | {
+      ok: true;
+      membership: DeliveryAdPartnerMembershipRow;
+      payment: "BUSINESS_CASH_SECURED";
+      amountMinor: number;
+    }
+  | {
+      ok: false;
+      error: PartnerMembershipWriterError;
+      detail?: string;
+      insufficient?: {
+        availableMinor: number;
+        requiredMinor: number;
+        shortageMinor: number;
+      };
+    }
 > {
   const storeId = input.storeId.trim();
   if (!storeId) return { ok: false, error: "invalid_store" };
@@ -152,7 +174,7 @@ export async function ownerApplyPartnerMembership(
   const config = await loadDeliveryAdPartnerConfig(sb);
   if (!config || !config.enabled) return { ok: false, error: "config_disabled" };
   if (!config.acceptingNewMembers) return { ok: false, error: "not_accepting" };
-  if (config.monthlyFeeMinor == null || config.monthlyFeeMinor < 0) {
+  if (config.monthlyFeeMinor == null || config.monthlyFeeMinor <= 0) {
     return { ok: false, error: "fee_not_configured" };
   }
 
@@ -167,7 +189,7 @@ export async function ownerApplyPartnerMembership(
       status: "PENDING_REVIEW",
       period_start: null,
       period_end: null,
-      fee_snapshot_minor: null,
+      fee_snapshot_minor: config.monthlyFeeMinor,
       currency: config.currency,
       benefit_snapshot: {},
       advertising_discount_percent_snapshot: 0,
@@ -184,6 +206,33 @@ export async function ownerApplyPartnerMembership(
   const membership = mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
   if (!membership) return { ok: false, error: "db_error", detail: "invalid_row" };
 
+  const secured = await debitBusinessCashForDeliveryAd(sb, {
+    ownerUserId: input.actorUserId,
+    storeId,
+    applicationId: membership.id,
+    productKind: "partner",
+    amountMinor: config.monthlyFeeMinor,
+  });
+  if (!secured.ok) {
+    await sb.from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE).delete().eq("id", membership.id);
+    if (secured.error === "INSUFFICIENT_BUSINESS_CASH" && secured.insufficient) {
+      return {
+        ok: false,
+        error: "INSUFFICIENT_BUSINESS_CASH",
+        insufficient: {
+          availableMinor: secured.insufficient.availableMinor,
+          requiredMinor: secured.insufficient.requiredMinor,
+          shortageMinor: secured.insufficient.shortageMinor,
+        },
+      };
+    }
+    return {
+      ok: false,
+      error: "bc_debit_failed",
+      detail: secured.detail ?? secured.error,
+    };
+  }
+
   await recordDeliveryAdCommercialOverride(sb, {
     entityType: "partner_membership",
     entityId: membership.id,
@@ -193,17 +242,20 @@ export async function ownerApplyPartnerMembership(
     after: {
       status: membership.status,
       store_id: membership.storeId,
-      payment: "NOT_IMPLEMENTED",
+      payment: "BUSINESS_CASH_SECURED",
+      amount_minor: secured.amountMinor,
+      funding_id: secured.fundingId,
     },
   });
 
-  return { ok: true, membership, payment: "NOT_IMPLEMENTED" };
+  return {
+    ok: true,
+    membership,
+    payment: "BUSINESS_CASH_SECURED",
+    amountMinor: secured.amountMinor,
+  };
 }
 
-/**
- * Owner cancel request while ACTIVE → CANCEL_PENDING (해지 예정).
- * Continues discount eligibility until Admin ends or period expires.
- */
 export async function ownerRequestPartnerMembershipCancel(
   sb: SupabaseClient,
   input: { storeId: string; membershipId: string; actorUserId: string }
@@ -245,7 +297,7 @@ export async function ownerRequestPartnerMembershipCancel(
   return { ok: true, membership };
 }
 
-/** Admin approve PENDING_REVIEW → ACTIVE with fee/discount/benefit/config snapshots. */
+/** Admin approve PENDING_REVIEW → ACTIVE; requires canonical BC funding SECURED. */
 export async function adminApprovePartnerMembership(
   sb: SupabaseClient,
   input: {
@@ -261,6 +313,13 @@ export async function adminApprovePartnerMembership(
   const row = await loadPartnerMembershipById(sb, input.membershipId);
   if (!row) return { ok: false, error: "not_found" };
   if (row.status !== "PENDING_REVIEW") return { ok: false, error: "illegal_transition" };
+
+  const funded = await hasCanonicalBcFundingSecured(sb, {
+    productKind: "partner",
+    applicationId: row.id,
+    storeId: row.storeId,
+  });
+  if (!funded) return { ok: false, error: "funding_required" };
 
   const config = await loadDeliveryAdPartnerConfig(sb);
   if (!config || !config.enabled) return { ok: false, error: "config_disabled" };
@@ -282,7 +341,7 @@ export async function adminApprovePartnerMembership(
       status: "ACTIVE",
       period_start: now,
       period_end: end.toISOString(),
-      fee_snapshot_minor: config.monthlyFeeMinor,
+      fee_snapshot_minor: row.feeSnapshotMinor ?? config.monthlyFeeMinor,
       currency: config.currency,
       benefit_snapshot: config.benefitJson,
       advertising_discount_percent_snapshot: config.advertisingDiscountPercent,
@@ -313,14 +372,75 @@ export async function adminApprovePartnerMembership(
       config_version_snapshot: membership.configVersionSnapshot,
       period_start: membership.periodStart,
       period_end: membership.periodEnd,
-      payment: "NOT_IMPLEMENTED",
+      payment: "BUSINESS_CASH_SECURED",
     },
   });
 
   return { ok: true, membership };
 }
 
-/** Admin end ACTIVE | CANCEL_PENDING | PENDING_REVIEW → ENDED. */
+/**
+ * Admin reject PENDING_REVIEW → REJECTED + exactly-once BC refund.
+ * REJECTED ≠ ENDED (application outcome vs membership end).
+ */
+export async function adminRejectPartnerMembership(
+  sb: SupabaseClient,
+  input: { membershipId: string; actorUserId: string; reason: string }
+): Promise<
+  | { ok: true; membership: DeliveryAdPartnerMembershipRow; refundIdempotent: boolean }
+  | { ok: false; error: PartnerMembershipWriterError; detail?: string }
+> {
+  const row = await loadPartnerMembershipById(sb, input.membershipId);
+  if (!row) return { ok: false, error: "not_found" };
+  if (row.status !== "PENDING_REVIEW") return { ok: false, error: "illegal_transition" };
+
+  const refund = await refundBusinessCashForRejectedDeliveryAd(sb, {
+    adminUserId: input.actorUserId,
+    applicationId: row.id,
+    productKind: "partner",
+  });
+  if (!refund.ok && refund.error !== "funding_not_found") {
+    return { ok: false, error: "db_error", detail: refund.detail ?? refund.error };
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
+    .update({
+      status: "REJECTED",
+      updated_at: now,
+    })
+    .eq("id", row.id)
+    .eq("status", "PENDING_REVIEW")
+    .select("*")
+    .maybeSingle();
+  if (error || !data) {
+    return { ok: false, error: "db_error", detail: error?.message };
+  }
+  const membership = mapDeliveryAdPartnerMembershipRow(data as Record<string, unknown>);
+  if (!membership) return { ok: false, error: "db_error" };
+
+  await recordDeliveryAdCommercialOverride(sb, {
+    entityType: "partner_membership",
+    entityId: membership.id,
+    actorUserId: input.actorUserId,
+    reason: input.reason.trim() || "admin_partner_reject",
+    before: { status: row.status },
+    after: {
+      status: membership.status,
+      refund: refund.ok,
+      refund_idempotent: refund.ok ? refund.idempotent : false,
+    },
+  });
+
+  return {
+    ok: true,
+    membership,
+    refundIdempotent: refund.ok ? refund.idempotent : false,
+  };
+}
+
+/** Admin end ACTIVE | CANCEL_PENDING | PAST_DUE → ENDED. Not for PENDING_REVIEW reject. */
 export async function adminEndPartnerMembership(
   sb: SupabaseClient,
   input: { membershipId: string; actorUserId: string; reason: string }
@@ -333,7 +453,6 @@ export async function adminEndPartnerMembership(
   if (
     row.status !== "ACTIVE" &&
     row.status !== "CANCEL_PENDING" &&
-    row.status !== "PENDING_REVIEW" &&
     row.status !== "PAST_DUE"
   ) {
     return { ok: false, error: "illegal_transition" };
@@ -367,7 +486,6 @@ export async function adminEndPartnerMembership(
   return { ok: true, membership };
 }
 
-/** Spec filter labels: 가입 대기 | 이용 중 | 해지 예정 | 종료 */
 export function partnerMembershipAdminFilterLabel(
   status: DeliveryAdPartnerMembershipStatus,
   lang: "ko" | "en"
@@ -381,6 +499,8 @@ export function partnerMembershipAdminFilterLabel(
       return lang === "en" ? "Cancel pending" : "해지 예정";
     case "ENDED":
       return lang === "en" ? "Ended" : "종료";
+    case "REJECTED":
+      return lang === "en" ? "Rejected" : "거절";
     case "PAST_DUE":
       return lang === "en" ? "Past due" : "연체";
     case "NONE":
@@ -389,7 +509,6 @@ export function partnerMembershipAdminFilterLabel(
   }
 }
 
-/** Discount eligibility — PENDING_REVIEW must never discount. */
 export function partnerMembershipGrantsAdvertisingDiscount(
   status: DeliveryAdPartnerMembershipStatus
 ): boolean {

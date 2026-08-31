@@ -58,10 +58,11 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
     expect(DELIVERY_AD_PAYMENT_MODEL.id).toBe("DEBIT_REFUND");
   });
 
-  it("T2 — insufficient Store Cash returns structured error (no submit path invent)", () => {
+  it("T2 — insufficient Store Cash RPC still structured; product path uses BC", () => {
     expect(mig).toMatch(/INSUFFICIENT_STORE_CASH/);
-    expect(actions).toContain("INSUFFICIENT_STORE_CASH");
-    expect(actions).toContain("debitStoreCashForDeliveryAd");
+    expect(actions).toContain("INSUFFICIENT_BUSINESS_CASH");
+    expect(actions).toContain("debitBusinessCashForDeliveryAd");
+    expect(actions).not.toContain("debitStoreCashForDeliveryAd");
     const parsed = parseInsufficientStoreCashRpc({
       ok: false,
       error: "INSUFFICIENT_STORE_CASH",
@@ -110,7 +111,7 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
   it("T7 — resubmit reuses secured spend (no second debit)", () => {
     expect(mig).toMatch(/IF v_existing\.status = 'SECURED'/);
     expect(actions).toMatch(/action === "submit" \|\| action === "resubmit"/);
-    expect(actions).toContain("debitStoreCashForDeliveryAd");
+    expect(actions).toContain("debitBusinessCashForDeliveryAd");
   });
 
   it("T8 — approve does not trigger payment", () => {
@@ -150,11 +151,12 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
     );
   });
 
-  it("Owner/Admin balance APIs read Store Cash (not legacy delivery_ad_accounts)", () => {
+  it("Owner hub balance APIs read AST-005 Business Cash (Store Cash legacy retained)", () => {
     const hub = read("app/api/me/delivery-ads/route.ts");
     const funding = read("app/api/me/delivery-ads/[campaignId]/funding/route.ts");
     const adminCash = read("app/api/admin/delivery-ads/business-cash/route.ts");
-    expect(hub).toContain("loadOwnerStoreCashBalanceForAds");
+    expect(hub).toContain("loadStoreBusinessCashBalance");
+    expect(hub).toContain("AST_005_BUSINESS_CASH");
     expect(hub).not.toContain("loadOwnerBusinessCashBalance");
     expect(funding).toContain("loadStoreCashBalanceForStore");
     expect(funding).toContain("fundingStatus");
@@ -163,9 +165,10 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
     expect(adminCash).toContain("DISABLED_FOR_NEW_PRODUCT");
   });
 
-  it("T16 — activation/exposure uses Store Cash secured mark", () => {
+  it("T16 — activation/exposure prefers canonical BC; legacy Store Cash still loadable", () => {
     expect(mig).toMatch(/delivery_ad_store_cash_spends s/);
     expect(mig).toMatch(/s\.status = 'SECURED'/);
+    expect(loadFunding).toContain("loadCanonicalBcFundingStatusByApplicationIds");
     expect(loadFunding).toContain("loadDeliveryAdStoreCashSpendStatusByCampaignIds");
     expect(
       resolveFundingStatusFromStoreCashSpend("SECURED")

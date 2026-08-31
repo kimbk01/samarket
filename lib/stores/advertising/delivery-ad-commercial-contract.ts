@@ -88,6 +88,7 @@ export const DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES = [
   "PAST_DUE",
   "CANCEL_PENDING",
   "ENDED",
+  "REJECTED",
 ] as const;
 export type DeliveryAdPartnerMembershipStatus =
   (typeof DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES)[number];
@@ -100,7 +101,7 @@ export const DELIVERY_AD_PARTNER_OPEN_STATUSES = [
   "PAST_DUE",
 ] as const satisfies ReadonlyArray<DeliveryAdPartnerMembershipStatus>;
 
-/** Ad package discount — PENDING_REVIEW must never qualify. */
+/** Ad package discount — PENDING_REVIEW / REJECTED must never qualify. */
 export const DELIVERY_AD_PARTNER_DISCOUNT_ELIGIBLE_STATUSES = [
   "ACTIVE",
   "CANCEL_PENDING",
@@ -108,10 +109,11 @@ export const DELIVERY_AD_PARTNER_DISCOUNT_ELIGIBLE_STATUSES = [
 
 export const DELIVERY_AD_PARTNER_PERIOD_DAYS_DEFAULT = 30 as const;
 
-/** Partner monthly fee payment path — membership apply/state only in R4. */
+/** Partner monthly fee — AST-005 Business Cash secure before PENDING_REVIEW. */
 export const DELIVERY_AD_PARTNER_PAYMENT = {
-  status: "NOT_IMPLEMENTED",
-  businessCashCharge: false,
+  status: "BUSINESS_CASH_SECURE_REQUIRED",
+  businessCashCharge: true,
+  assetId: "AST-005",
 } as const;
 
 export type DeliveryAdPartnerMembershipRow = {

@@ -235,21 +235,38 @@ export async function adminTransitionDeliveryAdCampaign(
   // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
-  // Stage 1 — terminal REJECT → Store Cash AD_REFUND exactly once (not on request_changes)
+  // Stage 1 — terminal REJECT → AST-005 BC refund exactly once (not on request_changes).
+  // Legacy Store Cash spends remain refundable for historical rows only.
   if (input.action === "reject") {
+    const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
+    const { refundBusinessCashForRejectedDeliveryAd } = await import(
+      "@/lib/stores/advertising/canonical-business-cash-writer"
+    );
+    const bcRefund = await refundBusinessCashForRejectedDeliveryAd(sb, {
+      adminUserId: input.adminUserId,
+      applicationId: input.campaignId,
+      productKind,
+    });
+    if (!bcRefund.ok && bcRefund.error !== "funding_not_found") {
+      console.error(
+        "[adminTransitionDeliveryAdCampaign] business_cash_refund",
+        bcRefund.error,
+        bcRefund.detail ?? ""
+      );
+    }
     const { refundStoreCashForRejectedDeliveryAd } = await import(
       "@/lib/stores/advertising/delivery-ad-store-cash-writer"
     );
-    const refund = await refundStoreCashForRejectedDeliveryAd(sb, {
+    const legacyRefund = await refundStoreCashForRejectedDeliveryAd(sb, {
       adminUserId: input.adminUserId,
       campaignId: input.campaignId,
-      productKind: input.productKind === "banner" ? "banner" : "store_sponsored",
+      productKind,
     });
-    if (!refund.ok && refund.error !== "spend_not_found") {
+    if (!legacyRefund.ok && legacyRefund.error !== "spend_not_found") {
       console.error(
-        "[adminTransitionDeliveryAdCampaign] store_cash_refund",
-        refund.error,
-        refund.detail ?? ""
+        "[adminTransitionDeliveryAdCampaign] legacy_store_cash_refund",
+        legacyRefund.error,
+        legacyRefund.detail ?? ""
       );
     }
   }

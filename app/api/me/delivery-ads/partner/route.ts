@@ -129,12 +129,23 @@ export async function POST(req: NextRequest) {
       actorUserId: userId,
     });
     if (!result.ok) {
+      if (result.error === "INSUFFICIENT_BUSINESS_CASH") {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: result.error,
+            insufficient: result.insufficient ?? null,
+          },
+          { status: 402 }
+        );
+      }
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
     return NextResponse.json({
       ok: true,
       membership: result.membership,
       payment: result.payment,
+      amountMinor: result.amountMinor,
     });
   }
 
