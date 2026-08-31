@@ -185,6 +185,9 @@ describe("Preview + intake + destination", () => {
     const workspace = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
     expect(workspace).toContain("DeliveryAdCampaignPlacementPreviews");
     expect(workspace).toContain('renderContext="admin_preview"');
+    expect(read("app/admin/delivery-ads/[campaignId]/creative/page.tsx")).toContain(
+      "AdminDeliveryAdBannerStudioView"
+    );
   });
 
   it("T17 — preview produces no impression/click telemetry", () => {

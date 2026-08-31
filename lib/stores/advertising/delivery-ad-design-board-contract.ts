@@ -55,7 +55,7 @@ export const DELIVERY_AD_OWNER_APPLICATION_STEPS = [
 /** Package card durations shown on board when priced */
 export const DELIVERY_AD_DESIGN_BOARD_PACKAGE_DAYS = [7, 15, 30] as const;
 
-/** Admin hub — screen 1 */
+/** Admin hub — screen 1 (UI-2 work-first buckets) */
 export const DELIVERY_AD_ADMIN_HUB_CONTRACT = {
   titleKey: "admin_delivery_ads_title",
   subtitleKey: "admin_delivery_ads_subtitle",
@@ -64,11 +64,18 @@ export const DELIVERY_AD_ADMIN_HUB_CONTRACT = {
   firstPartyCtaKey: "admin_delivery_ads_first_party_cta",
   todaySummaryBuckets: [
     { id: "new", labelKey: "admin_delivery_ads_today_new" },
+    { id: "resubmit", labelKey: "admin_delivery_ads_today_resubmit" },
+    { id: "needs_production", labelKey: "admin_delivery_ads_today_needs_production" },
     { id: "pending_review", labelKey: "admin_delivery_ads_today_pending_review" },
     { id: "pending_payment", labelKey: "admin_delivery_ads_today_pending_payment" },
+    { id: "scheduled", labelKey: "admin_delivery_ads_today_scheduled" },
     { id: "active", labelKey: "admin_delivery_ads_today_active" },
+    { id: "paused", labelKey: "admin_delivery_ads_today_paused" },
   ] as const,
 } as const;
+
+export type DeliveryAdAdminHubTodayBucketId =
+  (typeof DELIVERY_AD_ADMIN_HUB_CONTRACT.todaySummaryBuckets)[number]["id"];
 
 /** Owner Partner — design board bottom row (4 steps) */
 export const DELIVERY_AD_OWNER_PARTNER_STEPS = [
@@ -97,10 +104,11 @@ export const DELIVERY_AD_ADMIN_FIRST_PARTY_STEPS = [
   { step: 4, labelKey: "admin_delivery_ads_fp_step_publish" },
 ] as const;
 
-/** Admin action queue table columns */
+/** Admin action queue table columns (UI-2) */
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_COLUMNS = [
   { id: "store", labelKey: "admin_delivery_ads_queue_col_store" },
   { id: "product", labelKey: "admin_delivery_ads_queue_col_product" },
+  { id: "placement", labelKey: "admin_delivery_ads_queue_col_placement" },
   { id: "status", labelKey: "admin_delivery_ads_queue_col_status" },
   { id: "date", labelKey: "admin_delivery_ads_queue_col_date" },
 ] as const;

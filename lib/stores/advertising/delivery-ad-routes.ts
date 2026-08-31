@@ -21,6 +21,8 @@ export const DELIVERY_AD_ADMIN_ROUTES = {
   partnerMemberships: "/admin/delivery-ads/partner",
   detail: (campaignId: string) =>
     `/admin/delivery-ads/${encodeURIComponent(campaignId)}`,
+  creative: (campaignId: string) =>
+    `/admin/delivery-ads/${encodeURIComponent(campaignId)}/creative`,
 } as const;
 
 /** Existing writers redirected / mutation-disabled as of CUT F. */

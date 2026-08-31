@@ -7,6 +7,10 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import {
+  AdminDeliveryAdPartnerConfigForm,
+  useAdminPartnerCatalogConfig,
+} from "@/components/admin/stores/AdminDeliveryAdPartnerConfigForm";
 
 type MembershipRow = {
   id: string;
@@ -25,12 +29,17 @@ type MembershipRow = {
 export function AdminDeliveryAdPartnerMembershipsView() {
   const { language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const partnerCatalog = useAdminPartnerCatalogConfig();
   const [items, setItems] = useState<MembershipRow[]>([]);
   const [filter, setFilter] = useState<"open" | "PENDING_REVIEW" | "ACTIVE" | "CANCEL_PENDING" | "ENDED" | "all">(
     "open"
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void partnerCatalog.load();
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -106,8 +115,8 @@ export function AdminDeliveryAdPartnerMembershipsView() {
               className="text-signature underline"
             >
               {safeT("admin_delivery_ads_commercial_link", {
-                fallbackKo: "광고 상품 설정",
-                fallbackEn: "Ad product settings",
+                fallbackKo: "가격 매트릭스",
+                fallbackEn: "Price matrix",
               })}
             </Link>
           </div>
@@ -123,6 +132,30 @@ export function AdminDeliveryAdPartnerMembershipsView() {
               "Partner monthly fee Business Cash payment is not implemented. Membership apply/state only.",
           })}
         </p>
+
+        <AdminCard titleKey="admin_delivery_ads_commercial_partner">
+          <p className="mb-3 text-[12px] text-sam-muted">
+            {safeT("admin_delivery_ads_commercial_partner_note", {
+              fallbackKo:
+                "광고 패키지 할인용 멤버십입니다. organic ranking과 분리 · 월 회비 결제는 미구현.",
+              fallbackEn:
+                "Membership for ad package discounts. Separate from organic ranking · monthly fee payment not implemented.",
+            })}
+          </p>
+          {partnerCatalog.catalog ? (
+            <AdminDeliveryAdPartnerConfigForm
+              config={partnerCatalog.catalog.partnerConfig}
+              busy={partnerCatalog.busy}
+              lang={lang}
+              onSave={(body) => void partnerCatalog.savePartner(body)}
+            />
+          ) : (
+            <p className="text-[13px] text-sam-muted">{safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>
+          )}
+          {partnerCatalog.error ? (
+            <p className="mt-2 text-[12px] text-red-600">{partnerCatalog.error}</p>
+          ) : null}
+        </AdminCard>
 
         {error ? (
           <p className="text-[13px] text-red-600" role="alert">

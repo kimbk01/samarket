@@ -28,6 +28,8 @@ import {
   adminDeliveryAdCampaignSourceLabelKey,
   isAdminDeliveryAdHubListItemVisible,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
+import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
+import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 
 type ProductFilter = "all" | "store_sponsored" | "banner";
@@ -78,6 +80,8 @@ export function AdminDeliveryAdsControlPlane() {
   const [perfRange, setPerfRange] = useState<DeliveryAdAnalyticsDateRange>("last_30d");
   const [performance, setPerformance] = useState<DeliveryAdPerformancePayload | null>(null);
   const [perfLoading, setPerfLoading] = useState(false);
+  const [allCampaigns, setAllCampaigns] = useState<AdminDeliveryAdListItem[]>([]);
+  const [actionQueueItems, setActionQueueItems] = useState<DeliveryAdAdminActionQueueItem[]>([]);
 
   const apiBucket = adminDeliveryAdsHubApiBucket(hubView);
 
@@ -123,7 +127,40 @@ export function AdminDeliveryAdsControlPlane() {
   }, [load]);
 
   useEffect(() => {
-    // R3 actionable-first hub: no global KPI wall on 처리 필요 landing.
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [campRes, queueRes] = await Promise.all([
+          fetch("/api/admin/delivery-ads?bucket=all&product=all&limit=500", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/admin/delivery-ads/action-queue?limit=100", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
+        const campJson = (await campRes.json()) as { ok?: boolean; campaigns?: AdminDeliveryAdListItem[] };
+        const queueJson = (await queueRes.json()) as {
+          ok?: boolean;
+          items?: DeliveryAdAdminActionQueueItem[];
+        };
+        if (cancelled) return;
+        if (campRes.ok && campJson.ok) setAllCampaigns(campJson.campaigns ?? []);
+        if (queueRes.ok && queueJson.ok) setActionQueueItems(queueJson.items ?? []);
+      } catch {
+        if (!cancelled) {
+          setAllCampaigns([]);
+          setActionQueueItems([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load]);
+
+  useEffect(() => {
     if (hubView === "actionable") {
       setPerformance(null);
       setPerfLoading(false);
@@ -167,13 +204,12 @@ export function AdminDeliveryAdsControlPlane() {
   );
 
   const todaySummaryCounts = useMemo(
-    () => ({
-      new: policyCounts?.under_review ?? summary.review,
-      pending_review: summary.review,
-      pending_payment: summary.held,
-      active: summary.active,
-    }),
-    [policyCounts, summary]
+    () =>
+      aggregateAdminHubTodayCounts({
+        campaigns: allCampaigns,
+        actionQueueItems,
+      }),
+    [allCampaigns, actionQueueItems]
   );
 
   return (

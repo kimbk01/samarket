@@ -121,6 +121,10 @@ export function AdminDeliveryAdDetailWorkspace({
   const [fundingPayable, setFundingPayable] = useState<number | null>(null);
   const [fundedAt, setFundedAt] = useState<string | null>(null);
   const [auditExpanded, setAuditExpanded] = useState(false);
+  const [fundingExpanded, setFundingExpanded] = useState(false);
+  const [opsExpanded, setOpsExpanded] = useState(false);
+  const [perfExpanded, setPerfExpanded] = useState(false);
+  const [decisionActionsExpanded, setDecisionActionsExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -524,9 +528,10 @@ export function AdminDeliveryAdDetailWorkspace({
 
   useEffect(() => {
     if (!focusCreative || loading || !campaign) return;
-    const el = document.getElementById("admin-delivery-ad-creative");
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [focusCreative, loading, campaign]);
+    if (campaign.productKind === "banner") {
+      router.replace(`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`);
+    }
+  }, [focusCreative, loading, campaign, campaignId, router]);
 
   return (
     <AdminDeliveryCmsChrome help="home">
@@ -607,16 +612,16 @@ export function AdminDeliveryAdDetailWorkspace({
                 </p>
               ) : null}
               {requiredDecision.needsCreativeProduction ? (
-                <a
-                  href="#admin-delivery-ad-creative"
-                  className="mt-3 inline-flex rounded-ui-rect bg-sam-brand px-3 py-2 text-[12px] font-semibold text-white"
+                <Link
+                  href={`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`}
+                  className="mt-3 inline-flex rounded-ui-rect bg-[#0A823E] px-3 py-2 text-[12px] font-semibold text-white"
                   data-admin-delivery-ads-action="produce_banner"
                 >
                   {safeT("admin_delivery_ads_creative_produce_cta", {
                     fallbackKo: "배너 제작하기",
                     fallbackEn: "Produce banner",
                   })}
-                </a>
+                </Link>
               ) : null}
               {requiredDecision.decisionRequired &&
               requiredDecision.primaryReviewActions.length > 0 ? (
@@ -779,8 +784,20 @@ export function AdminDeliveryAdDetailWorkspace({
               </div>
             </div>
 
-            {/* C — 결제 */}
+            {/* C — 결제 (collapsed by default) */}
             <div data-admin-delivery-ads-detail-section="funding">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                onClick={() => setFundingExpanded((v) => !v)}
+              >
+                {safeT("admin_delivery_ads_section_funding_title", {
+                  fallbackKo: "결제",
+                  fallbackEn: "Funding",
+                })}
+                <span>{fundingExpanded ? "−" : "+"}</span>
+              </button>
+              {fundingExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_funding_title">
                 <p className="text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
                   {t("admin_delivery_ads_funding_status")}:{" "}
@@ -796,43 +813,15 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                 ) : null}
               </AdminCard>
+              ) : null}
             </div>
 
-            {/* D — 광고 소재 */}
+            {/* D — 배너 스튜디오 링크 (UI-2 standalone studio) */}
             {campaign.productKind === "banner" ? (
-              <div
-                id="admin-delivery-ad-creative"
-                data-admin-delivery-ads-detail-section="creative"
-              >
+              <div data-admin-delivery-ads-detail-section="creative">
                 <AdminCard titleKey="admin_delivery_ads_section_creative_produce">
-                  <h3 className="text-[15px] font-bold text-sam-fg" data-creative-title="produce">
-                    {safeT("admin_delivery_ads_section_creative_produce", {
-                      fallbackKo: "배너 제작",
-                      fallbackEn: "Banner production",
-                    })}
-                  </h3>
-                  {(() => {
-                    const inv0 = campaign.inventoryKeys[0] || editInventoryKey;
-                    const ratio = adminDeliveryAdInventoryAspectLabel(inv0);
-                    return ratio ? (
-                      <p className="mt-1 text-[12px] text-sam-muted">
-                        {safeT("admin_delivery_ads_creative_aspect_hint", {
-                          fallbackKo: `권장 비율 ${ratio}`,
-                          fallbackEn: `Recommended ratio ${ratio}`,
-                          vars: { ratio },
-                        })}
-                      </p>
-                    ) : null;
-                  })()}
-                  <p className="mt-2 text-[13px] font-medium text-sam-fg">
-                    {safeT("admin_delivery_ads_creative_status_label", {
-                      fallbackKo: "제작 상태",
-                      fallbackEn: "Creative status",
-                    })}
-                    :{" "}
-                    {isDeliveryBannerCreativeAssetReady(
-                      creative?.assetPath || campaign.imageUrl
-                    )
+                  <p className="text-[13px] text-sam-fg">
+                    {isDeliveryBannerCreativeAssetReady(creative?.assetPath || campaign.imageUrl)
                       ? safeT("admin_delivery_ads_creative_status_ready", {
                           fallbackKo: "제작 완료",
                           fallbackEn: "Ready",
@@ -842,159 +831,34 @@ export function AdminDeliveryAdDetailWorkspace({
                           fallbackEn: "Needs production",
                         })}
                   </p>
-                  {isDeliveryBannerCreativeAssetReady(
-                    creative?.assetPath || campaign.imageUrl
-                  ) ? (
-                    <div className="relative mt-3 h-[160px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
-                      <SamarketThumbnail
-                        src={String(creative?.assetPath || campaign.imageUrl || "")}
-                        alt=""
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <p className="mt-2 text-[13px] text-sam-muted">
-                      {safeT("admin_delivery_ads_creative_placeholder_hint", {
-                        fallbackKo:
-                          "Owner 요청만 있습니다. Admin이 최종 배너 이미지를 업로드해야 합니다.",
-                        fallbackEn:
-                          "Owner request only. Admin must upload the final banner image.",
-                      })}
-                    </p>
-                  )}
-                  {creative?.sourceWidth && creative?.sourceHeight ? (
-                    <p className="mt-2 text-[12px] text-sam-muted">
-                      {creative.sourceWidth}×{creative.sourceHeight}
-                      {creative.createdAt ? ` · ${creative.createdAt.slice(0, 16)}` : ""}
-                    </p>
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <label className="inline-flex cursor-pointer items-center rounded-ui-rect bg-sam-brand px-3 py-2 text-[12px] font-semibold text-white">
-                      {safeT("admin_delivery_ads_creative_produce_cta", {
-                        fallbackKo: "배너 제작하기",
-                        fallbackEn: "Produce banner",
-                      })}
-                      <input
-                        key={fileInputKey}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="sr-only"
-                        disabled={busy}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) void uploadAndReplaceCreative(f);
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px]"
-                      onClick={() => {
-                        const el = document.createElement("input");
-                        el.type = "file";
-                        el.accept = "image/jpeg,image/png,image/webp";
-                        el.onchange = () => {
-                          const f = el.files?.[0];
-                          if (f) void uploadAndReplaceCreative(f);
-                        };
-                        el.click();
-                      }}
-                    >
-                      {safeT("admin_delivery_ads_creative_replace", {
-                        fallbackKo: "이미지 교체",
-                        fallbackEn: "Replace image",
-                      })}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        !isDeliveryBannerCreativeAssetReady(
-                          creative?.assetPath || campaign.imageUrl
-                        )
-                      }
-                      className="rounded-ui-rect border border-sam-danger/40 px-3 py-2 text-[12px] text-sam-danger"
-                      onClick={() => void removeCreative()}
-                    >
-                      {safeT("admin_delivery_ads_creative_remove", {
-                        fallbackKo: "이미지 삭제",
-                        fallbackEn: "Remove image",
-                      })}
-                    </button>
-                  </div>
-                </AdminCard>
-              </div>
-            ) : null}
-
-            {campaign.productKind === "banner" ? (
-              <div data-admin-delivery-ads-detail-section="destination">
-                <AdminCard titleKey="admin_delivery_ads_section_destination">
-                  <p className="text-[13px] text-sam-fg">
-                    {safeT("admin_delivery_ads_destination_help", {
-                      fallbackKo: "배너를 누르면 이동할 위치",
-                      fallbackEn: "Where the banner tap should go",
-                    })}
-                  </p>
-                  <label className="mt-3 flex flex-col gap-1 text-[12px]">
-                    {safeT("admin_delivery_ads_destination_type", {
-                      fallbackKo: "이동 위치",
-                      fallbackEn: "Destination",
-                    })}
-                    <select
-                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px]"
-                      value={editCtaType}
-                      disabled={busy}
-                      onChange={(e) => setEditCtaType(e.target.value as DeliveryAdCtaTarget)}
-                    >
-                      <option value="store_detail">
-                        {safeT("owner_ads_banner_cta_store", {
-                          fallbackKo: "매장 상세",
-                          fallbackEn: "Store detail",
-                        })}
-                      </option>
-                      <option value="store_menu">
-                        {safeT("owner_ads_banner_cta_menu", {
-                          fallbackKo: "메뉴",
-                          fallbackEn: "Menu",
-                        })}
-                      </option>
-                      <option value="store_promotion">
-                        {safeT("owner_ads_banner_cta_promo", {
-                          fallbackKo: "프로모션",
-                          fallbackEn: "Promotion",
-                        })}
-                      </option>
-                    </select>
-                  </label>
-                  {campaign.ctaHref ? (
-                    <p className="mt-2 break-all text-[12px] text-sam-muted">{campaign.ctaHref}</p>
-                  ) : (
-                    <p className="mt-2 text-[12px] text-sam-danger">
-                      {safeT("admin_delivery_ads_destination_missing", {
-                        fallbackKo: "목적지가 비어 있습니다.",
-                        fallbackEn: "Destination is empty.",
-                      })}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className="mt-3 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
-                    onClick={() => void saveDestination()}
+                  <Link
+                    href={`${DELIVERY_AD_ADMIN_ROUTES.creative(campaignId)}?product=banner`}
+                    className="mt-3 inline-flex min-h-[44px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white"
+                    data-admin-delivery-ads-creative-studio-link="1"
                   >
-                    {safeT("admin_delivery_ads_destination_save", {
-                      fallbackKo: "목적지 확정 저장",
-                      fallbackEn: "Save destination",
+                    {safeT("admin_delivery_ads_creative_produce_cta", {
+                      fallbackKo: "배너 제작 스튜디오 열기",
+                      fallbackEn: "Open banner studio",
                     })}
-                  </button>
+                  </Link>
                 </AdminCard>
               </div>
             ) : null}
 
-            {/* F — decision actions (secondary ops) */}
+            {/* F — decision actions (collapsed by default) */}
             <div data-admin-delivery-ads-detail-section="decision-actions">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                onClick={() => setDecisionActionsExpanded((v) => !v)}
+              >
+                {safeT("admin_delivery_ads_section_decision_actions", {
+                  fallbackKo: "추가 검수 액션",
+                  fallbackEn: "Additional review actions",
+                })}
+                <span>{decisionActionsExpanded ? "−" : "+"}</span>
+              </button>
+              {decisionActionsExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_decision_actions">
                 <div className="flex flex-wrap gap-2">
                   {(requiredDecision.decisionRequired
@@ -1061,22 +925,31 @@ export function AdminDeliveryAdDetailWorkspace({
                   </div>
                 ) : null}
               </AdminCard>
+              ) : null}
             </div>
 
-            {/* G — ops conversation */}
-            <div
-              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5"
-              data-admin-delivery-ads-detail-section="operations"
-            >
-              <p className="mb-2 text-[13px] font-semibold text-sam-fg">
+            {/* G — ops conversation (collapsed by default) */}
+            <div data-admin-delivery-ads-detail-section="operations">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                onClick={() => setOpsExpanded((v) => !v)}
+              >
                 {t("admin_delivery_ads_section_operations")}
-              </p>
+                <span>{opsExpanded ? "−" : "+"}</span>
+              </button>
+              {opsExpanded ? (
+              <div
+                className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5"
+              >
               <DeliveryAdOperationsPanel
                 actorRole="admin"
                 productKind={campaign.productKind}
                 campaignId={campaign.id}
                 focusOperations={focusOperations}
               />
+              </div>
+              ) : null}
             </div>
 
             {/* H — schedule / settings */}
@@ -1190,6 +1063,18 @@ export function AdminDeliveryAdDetailWorkspace({
             {/* I — performance ONLY ACTIVE/ENDED */}
             {isAdminDeliveryAdPerformanceLifecycle(campaign.lifecycleStatus) ? (
               <div data-admin-delivery-ads-detail-section="performance">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                  onClick={() => setPerfExpanded((v) => !v)}
+                >
+                  {safeT("admin_delivery_ads_section_performance", {
+                    fallbackKo: "성과",
+                    fallbackEn: "Performance",
+                  })}
+                  <span>{perfExpanded ? "−" : "+"}</span>
+                </button>
+                {perfExpanded ? (
                 <AdminCard titleKey="admin_delivery_ads_section_performance">
                   <DeliveryAdPerformancePanel
                     performance={performance}
@@ -1198,6 +1083,7 @@ export function AdminDeliveryAdDetailWorkspace({
                     onRangeChange={setPerfRange}
                   />
                 </AdminCard>
+                ) : null}
               </div>
             ) : null}
 

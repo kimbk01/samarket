@@ -110,24 +110,39 @@ describe("Delivery Ads design board UI contract", () => {
   });
 
   it("DB-A1 — admin hub today summary + action queue design board", () => {
+    expect(DELIVERY_AD_ADMIN_HUB_CONTRACT.todaySummaryBuckets).toHaveLength(8);
     const hub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
     expect(hub).toContain("DeliveryAdAdminTodaySummary");
     expect(hub).toContain('data-admin-delivery-ads-hub="design-board"');
+    expect(hub).toContain("aggregateAdminHubTodayCounts");
     const today = read("components/stores/advertising/DeliveryAdAdminTodaySummary.tsx");
     expect(today).toContain("DELIVERY_AD_ADMIN_HUB_CONTRACT.todaySummaryKey");
     expect(today).toContain('data-admin-delivery-ads-today-summary="design-board"');
     const queue = read("components/admin/stores/AdminDeliveryAdActionQueuePanel.tsx");
     expect(queue).toContain('data-admin-delivery-ads-action-queue="design-board"');
     expect(queue).toContain("data-admin-delivery-ads-action-queue-table");
+    expect(queue).toContain("data-queue-commercial-summary");
   });
 
   it("DB-A4 — admin partner table + first-party 4-step", () => {
-    expect(read("components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx")).toContain(
-      "data-admin-partner-memberships-table"
+    const partner = read("components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx");
+    expect(partner).toContain("data-admin-partner-memberships-table");
+    expect(partner).toContain("AdminDeliveryAdPartnerConfigForm");
+    const firstParty = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
+    expect(firstParty).toContain("DeliveryAdAdminFirstPartyStepProgress");
+    expect(firstParty).toContain('data-admin-first-party-wizard="step-gated"');
+    expect(firstParty).toContain('data-admin-first-party-panel="1"');
+  });
+
+  it("DB-A3b — standalone banner creative studio route", () => {
+    expect(read("lib/stores/advertising/delivery-ad-routes.ts")).toContain("creative:");
+    expect(read("app/admin/delivery-ads/[campaignId]/creative/page.tsx")).toContain(
+      "AdminDeliveryAdBannerStudioView"
     );
-    expect(read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx")).toContain(
-      "DeliveryAdAdminFirstPartyStepProgress"
-    );
+    const detail = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
+    expect(detail).toContain("data-admin-delivery-ads-creative-studio-link");
+    const queue = read("components/admin/stores/AdminDeliveryAdActionQueuePanel.tsx");
+    expect(queue).toContain("DELIVERY_AD_ADMIN_ROUTES.creative");
   });
 
   it("DB-A2 — admin detail split summary + phone preview", () => {
@@ -149,6 +164,12 @@ describe("Delivery Ads design board UI contract", () => {
       "data-delivery-ad-customer-tag"
     );
     expect(read("components/stores/home/presentation/StoresHomeTimesaleRowCard.tsx")).toContain(
+      "DeliveryAdCustomerAdTag"
+    );
+    expect(read("components/stores/home/presentation/StoresHomeStoreTeaserCard.tsx")).toContain(
+      "DeliveryAdCustomerAdTag"
+    );
+    expect(read("components/stores/home/presentation/StoresHomeBrandCircularCard.tsx")).toContain(
       "DeliveryAdCustomerAdTag"
     );
     expect(read("components/stores/advertising/DeliveryAdBanner.tsx")).toContain(
