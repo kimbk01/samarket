@@ -19,7 +19,6 @@ import type {
   AdminDeliveryAdListItem,
 } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import {
-  deliveryAdPlacementI18nKey,
   deliveryAdPolicyScreenHref,
 } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -47,6 +46,14 @@ import type {
   DeliveryAdPerformancePayload,
 } from "@/lib/stores/advertising/analytics/delivery-ad-analytics-contract";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
+import {
+  adminDeliveryAdFundingStatusLabelKey,
+  adminDeliveryAdInventoryAspectLabel,
+  adminDeliveryAdInventoryHumanLabel,
+  adminDeliveryAdProductLabelKey,
+  formatAdminDeliveryAdPriceOrUnset,
+  isAdminDeliveryAdPerformanceLifecycle,
+} from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
@@ -74,7 +81,8 @@ export function AdminDeliveryAdDetailWorkspace({
   focusOperations = false,
   focusCreative = false,
 }: Props) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -111,6 +119,7 @@ export function AdminDeliveryAdDetailWorkspace({
   >(null);
   const [fundingPayable, setFundingPayable] = useState<number | null>(null);
   const [fundedAt, setFundedAt] = useState<string | null>(null);
+  const [auditExpanded, setAuditExpanded] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,6 +212,12 @@ export function AdminDeliveryAdDetailWorkspace({
 
   useEffect(() => {
     if (!campaign) return;
+    // R3: do not fetch KPI dashboards during review / draft / scheduled.
+    if (!isAdminDeliveryAdPerformanceLifecycle(campaign.lifecycleStatus)) {
+      setPerformance(null);
+      setPerfLoading(false);
+      return;
+    }
     let cancelled = false;
     setPerfLoading(true);
     const qs = new URLSearchParams({
@@ -550,63 +565,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
         {campaign && requiredDecision ? (
           <>
-            <div data-admin-delivery-ads-detail-section="identity">
-              <AdminCard titleKey="admin_delivery_ads_section_basic">
-                <dl className="grid gap-2 text-[13px] sm:grid-cols-2">
-                  <div>
-                    <dt className="text-sam-muted">ID</dt>
-                    <dd className="break-all font-mono text-[12px]">{campaign.id}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">
-                      {safeT("admin_delivery_ads_product_label", {
-                        fallbackKo: "상품",
-                        fallbackEn: "Product",
-                      })}
-                    </dt>
-                    <dd>
-                      {safeT(
-                        `admin_delivery_ads_product_${campaign.productKind}` as MessageKey,
-                        {
-                          fallbackKo: campaign.productKind,
-                          fallbackEn: campaign.productKind,
-                        }
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">Owner</dt>
-                    <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">Store</dt>
-                    <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">Lifecycle</dt>
-                    <dd>
-                      {safeT(
-                        `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
-                        {
-                          fallbackKo: campaign.lifecycleStatus,
-                          fallbackEn: campaign.lifecycleStatus,
-                        }
-                      )}
-                      {campaign.scheduleHint !== "in_window" ? (
-                        <span className="ml-2 text-[11px] text-sam-muted">
-                          ({campaign.scheduleHint})
-                        </span>
-                      ) : null}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">Review</dt>
-                    <dd>{campaign.reviewStatus}</dd>
-                  </div>
-                </dl>
-              </AdminCard>
-            </div>
-
+            {/* A — 지금 해야 할 일 */}
             <section
               className={`rounded-ui-rect border p-4 ${decisionToneClass(requiredDecision.tone)}`}
               data-admin-delivery-ads-detail-section="required-decision"
@@ -652,8 +611,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   className="mt-3 inline-flex rounded-ui-rect bg-sam-brand px-3 py-2 text-[12px] font-semibold text-white"
                   data-admin-delivery-ads-action="produce_banner"
                 >
-                  {safeT("admin_delivery_ads_aq_cta_produce_banner", {
-                    fallbackKo: "배너 제작",
+                  {safeT("admin_delivery_ads_creative_produce_cta", {
+                    fallbackKo: "배너 제작하기",
                     fallbackEn: "Produce banner",
                   })}
                 </a>
@@ -709,37 +668,77 @@ export function AdminDeliveryAdDetailWorkspace({
               </label>
             </section>
 
-            <div data-admin-delivery-ads-detail-section="facts">
-              <AdminCard titleKey="admin_delivery_ads_section_facts">
-                <p className="text-[13px] text-sam-fg">
-                  {safeT("admin_delivery_ads_inventory_label", {
-                    fallbackKo: "광고 지면",
-                    fallbackEn: "Placement",
-                  })}
-                  :{" "}
-                  {(campaign.inventoryKeys ?? [])
-                    .map((k) => t(deliveryAdPlacementI18nKey(k) as MessageKey))
-                    .join(" · ") || "—"}
-                </p>
-                <p className="mt-2 text-[13px] text-sam-muted">
-                  {campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}
-                </p>
-                <p className="mt-2 text-[13px] text-sam-muted">
-                  {safeT("admin_delivery_ads_pricing_not_configured", {
-                    fallbackKo: "과금: NOT_CONFIGURED (CUT H 이전)",
-                    fallbackEn: "Pricing: NOT_CONFIGURED (before CUT H)",
-                  })}
-                </p>
-                <p className="mt-3 text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
-                  {t("admin_delivery_ads_funding_section")}:{" "}
-                  {fundingStatus === "FUNDED"
-                    ? t("admin_delivery_ads_funding_funded")
-                    : fundingStatus === "REFUNDED"
-                      ? t("admin_delivery_ads_funding_refunded")
-                      : t("admin_delivery_ads_funding_unfunded")}
-                  {fundingPayable != null
-                    ? ` · ${t("admin_delivery_ads_funding_payable")} ${fundingPayable}`
-                    : ""}
+            {/* B — 신청 내용 (compact) */}
+            <div data-admin-delivery-ads-detail-section="application">
+              <AdminCard titleKey="admin_delivery_ads_section_application">
+                <dl className="grid gap-2 text-[13px] sm:grid-cols-2" data-admin-delivery-ads-detail-section="facts">
+                  <div>
+                    <dt className="text-sam-muted">
+                      {safeT("admin_delivery_ads_product_label", {
+                        fallbackKo: "상품",
+                        fallbackEn: "Product",
+                      })}
+                    </dt>
+                    <dd>
+                      {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
+                        fallbackKo: campaign.productKind,
+                        fallbackEn: campaign.productKind,
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Store</dt>
+                    <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Owner</dt>
+                    <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">
+                      {safeT("admin_delivery_ads_inventory_label", {
+                        fallbackKo: "광고 지면",
+                        fallbackEn: "Placement",
+                      })}
+                    </dt>
+                    <dd>
+                      {(campaign.inventoryKeys ?? [])
+                        .map((k) => adminDeliveryAdInventoryHumanLabel(k, lang))
+                        .join(" · ") || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Lifecycle</dt>
+                    <dd>
+                      {safeT(
+                        `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
+                        {
+                          fallbackKo: campaign.lifecycleStatus,
+                          fallbackEn: campaign.lifecycleStatus,
+                        }
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">Period</dt>
+                    <dd className="text-sam-muted">
+                      {campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-2 break-all font-mono text-[11px] text-sam-muted">ID {campaign.id}</p>
+              </AdminCard>
+            </div>
+
+            {/* C — 결제 */}
+            <div data-admin-delivery-ads-detail-section="funding">
+              <AdminCard titleKey="admin_delivery_ads_section_funding_title">
+                <p className="text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
+                  {t("admin_delivery_ads_funding_status")}:{" "}
+                  {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
+                  {" · "}
+                  {t("admin_delivery_ads_funding_payable")}:{" "}
+                  {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
                   {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
                 </p>
                 {fundingStatus !== "FUNDED" ? (
@@ -750,13 +749,33 @@ export function AdminDeliveryAdDetailWorkspace({
               </AdminCard>
             </div>
 
+            {/* D — 광고 소재 */}
             {campaign.productKind === "banner" ? (
               <div
                 id="admin-delivery-ad-creative"
                 data-admin-delivery-ads-detail-section="creative"
               >
-                <AdminCard titleKey="admin_delivery_ads_section_creative">
-                  <p className="text-[13px] font-medium text-sam-fg">
+                <AdminCard titleKey="admin_delivery_ads_section_creative_produce">
+                  <h3 className="text-[15px] font-bold text-sam-fg" data-creative-title="produce">
+                    {safeT("admin_delivery_ads_section_creative_produce", {
+                      fallbackKo: "배너 제작",
+                      fallbackEn: "Banner production",
+                    })}
+                  </h3>
+                  {(() => {
+                    const inv0 = campaign.inventoryKeys[0] || editInventoryKey;
+                    const ratio = adminDeliveryAdInventoryAspectLabel(inv0);
+                    return ratio ? (
+                      <p className="mt-1 text-[12px] text-sam-muted">
+                        {safeT("admin_delivery_ads_creative_aspect_hint", {
+                          fallbackKo: `권장 비율 ${ratio}`,
+                          fallbackEn: `Recommended ratio ${ratio}`,
+                          vars: { ratio },
+                        })}
+                      </p>
+                    ) : null;
+                  })()}
+                  <p className="mt-2 text-[13px] font-medium text-sam-fg">
                     {safeT("admin_delivery_ads_creative_status_label", {
                       fallbackKo: "제작 상태",
                       fallbackEn: "Creative status",
@@ -802,10 +821,10 @@ export function AdminDeliveryAdDetailWorkspace({
                     </p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <label className="inline-flex cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-medium text-sam-fg">
-                      {safeT("admin_delivery_ads_creative_upload", {
-                        fallbackKo: "이미지 업로드",
-                        fallbackEn: "Upload image",
+                    <label className="inline-flex cursor-pointer items-center rounded-ui-rect bg-sam-brand px-3 py-2 text-[12px] font-semibold text-white">
+                      {safeT("admin_delivery_ads_creative_produce_cta", {
+                        fallbackKo: "배너 제작하기",
+                        fallbackEn: "Produce banner",
                       })}
                       <input
                         key={fileInputKey}
@@ -925,6 +944,7 @@ export function AdminDeliveryAdDetailWorkspace({
               </div>
             ) : null}
 
+            {/* E — preview */}
             <div data-admin-delivery-ads-detail-section="preview">
               <AdminCard titleKey="admin_delivery_ads_section_preview">
                 <DeliveryAdCampaignPlacementPreviews
@@ -966,6 +986,7 @@ export function AdminDeliveryAdDetailWorkspace({
               </AdminCard>
             </div>
 
+            {/* F — decision actions (secondary ops) */}
             <div data-admin-delivery-ads-detail-section="decision-actions">
               <AdminCard titleKey="admin_delivery_ads_section_decision_actions">
                 <div className="flex flex-wrap gap-2">
@@ -1035,6 +1056,7 @@ export function AdminDeliveryAdDetailWorkspace({
               </AdminCard>
             </div>
 
+            {/* G — ops conversation */}
             <div
               className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:p-5"
               data-admin-delivery-ads-detail-section="operations"
@@ -1050,40 +1072,7 @@ export function AdminDeliveryAdDetailWorkspace({
               />
             </div>
 
-            <div data-admin-delivery-ads-detail-section="history">
-              <AdminCard titleKey="admin_delivery_ads_section_history">
-                {audits.length === 0 ? (
-                  <p className="text-[13px] text-sam-muted">—</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {audits.map((a) => (
-                      <li
-                        key={a.id}
-                        className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px]"
-                      >
-                        <div className="font-medium text-sam-fg">
-                          {a.action} · {a.actorType}
-                        </div>
-                        <div className="text-sam-muted">{a.createdAt}</div>
-                        {a.reason ? <div className="mt-0.5 text-sam-fg">{a.reason}</div> : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </AdminCard>
-            </div>
-
-            <div data-admin-delivery-ads-detail-section="performance">
-              <AdminCard titleKey="admin_delivery_ads_section_performance">
-                <DeliveryAdPerformancePanel
-                  performance={performance}
-                  loading={perfLoading}
-                  range={perfRange}
-                  onRangeChange={setPerfRange}
-                />
-              </AdminCard>
-            </div>
-
+            {/* H — schedule / settings */}
             <div data-admin-delivery-ads-detail-section="settings">
               <AdminCard titleKey="admin_delivery_ads_section_settings">
                 {campaign.productKind === "banner" ? (
@@ -1103,15 +1092,7 @@ export function AdminDeliveryAdDetailWorkspace({
                       >
                         {OWNER_BANNER_INVENTORY_KEYS.map((key) => (
                           <option key={key} value={key}>
-                            {key === "STORES_SEARCH_TOP"
-                              ? safeT("owner_ads_inventory_search_top", {
-                                  fallbackKo: "검색 결과 상단",
-                                  fallbackEn: "Search results top",
-                                })
-                              : safeT("owner_ads_inventory_home_hero", {
-                                  fallbackKo: "배달 홈 히어로",
-                                  fallbackEn: "Delivery home hero",
-                                })}
+                            {adminDeliveryAdInventoryHumanLabel(key, lang)}
                           </option>
                         ))}
                       </select>
@@ -1142,7 +1123,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         primarySlug: campaign.storePrimarySlug,
                         subSlug: campaign.storeSubSlug,
                       });
-                      const label = t(deliveryAdPlacementI18nKey(key) as MessageKey);
+                      const label = adminDeliveryAdInventoryHumanLabel(key, lang);
                       return (
                         <li key={key} className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{label}</span>
@@ -1197,6 +1178,67 @@ export function AdminDeliveryAdDetailWorkspace({
                   })}
                 </button>
               </AdminCard>
+            </div>
+
+            {/* I — performance ONLY ACTIVE/ENDED */}
+            {isAdminDeliveryAdPerformanceLifecycle(campaign.lifecycleStatus) ? (
+              <div data-admin-delivery-ads-detail-section="performance">
+                <AdminCard titleKey="admin_delivery_ads_section_performance">
+                  <DeliveryAdPerformancePanel
+                    performance={performance}
+                    loading={perfLoading}
+                    range={perfRange}
+                    onRangeChange={setPerfRange}
+                  />
+                </AdminCard>
+              </div>
+            ) : null}
+
+            {/* J — audit collapsed */}
+            <div data-admin-delivery-ads-detail-section="history">
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                <button
+                  type="button"
+                  className="text-[13px] font-semibold text-sam-fg underline-offset-2 hover:underline"
+                  data-admin-delivery-ads-audit-toggle="1"
+                  aria-expanded={auditExpanded}
+                  onClick={() => setAuditExpanded((v) => !v)}
+                >
+                  {auditExpanded
+                    ? safeT("admin_delivery_ads_audit_hide", {
+                        fallbackKo: "변경 기록 숨기기",
+                        fallbackEn: "Hide change history",
+                      })
+                    : safeT("admin_delivery_ads_audit_collapsed", {
+                        fallbackKo: "변경 기록 보기",
+                        fallbackEn: "Show change history",
+                      })}
+                </button>
+                {auditExpanded ? (
+                  <div className="mt-3">
+                    {audits.length === 0 ? (
+                      <p className="text-[13px] text-sam-muted">—</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {audits.map((a) => (
+                          <li
+                            key={a.id}
+                            className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[12px]"
+                          >
+                            <div className="font-medium text-sam-fg">
+                              {a.action} · {a.actorType}
+                            </div>
+                            <div className="text-sam-muted">{a.createdAt}</div>
+                            {a.reason ? (
+                              <div className="mt-0.5 text-sam-fg">{a.reason}</div>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </>
         ) : null}

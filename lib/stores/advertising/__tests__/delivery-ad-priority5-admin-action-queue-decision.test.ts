@@ -79,18 +79,17 @@ describe("Priority 5 Admin Action Queue + decision-first detail", () => {
     expect(DELIVERY_AD_ADMIN_ROUTES.detail("camp-x")).toContain("camp-x");
   });
 
-  it("T10 — Admin detail puts required decision before performance/history", () => {
+  it("T10 — Admin detail puts required decision before performance/history (R3 order)", () => {
     const src = detailSrc();
     const order = [
-      'data-admin-delivery-ads-detail-section="identity"',
       'data-admin-delivery-ads-detail-section="required-decision"',
-      'data-admin-delivery-ads-detail-section="facts"',
+      'data-admin-delivery-ads-detail-section="application"',
+      'data-admin-delivery-ads-detail-section="funding"',
       'data-admin-delivery-ads-detail-section="preview"',
       'data-admin-delivery-ads-detail-section="decision-actions"',
       'data-admin-delivery-ads-detail-section="operations"',
-      'data-admin-delivery-ads-detail-section="history"',
-      'data-admin-delivery-ads-detail-section="performance"',
       'data-admin-delivery-ads-detail-section="settings"',
+      'data-admin-delivery-ads-detail-section="history"',
     ];
     let prev = -1;
     for (const marker of order) {
@@ -98,6 +97,10 @@ describe("Priority 5 Admin Action Queue + decision-first detail", () => {
       expect(idx).toBeGreaterThan(prev);
       prev = idx;
     }
+    // Performance is lifecycle-gated; marker may be conditional but when present after settings
+    const perfIdx = src.indexOf('data-admin-delivery-ads-detail-section="performance"');
+    const settingsIdx = src.indexOf('data-admin-delivery-ads-detail-section="settings"');
+    expect(perfIdx).toBeGreaterThan(settingsIdx);
   });
 
   it("T11 — states without required Admin action do not fabricate one", () => {

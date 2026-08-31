@@ -141,6 +141,20 @@ export function AdminDeliveryAdActionQueuePanel() {
                           })}
                         </span>
                       </p>
+                      <p className="mt-0.5 text-[11px] text-sam-muted break-words" data-queue-commercial-summary="1">
+                        {productLabel}
+                        {item.campaignTitle ? ` · ${item.campaignTitle}` : ""}
+                        {item.campaignLifecycle
+                          ? ` · ${
+                              lifecycleKey
+                                ? safeT(lifecycleKey, {
+                                    fallbackKo: item.campaignLifecycle,
+                                    fallbackEn: item.campaignLifecycle,
+                                  })
+                                : item.campaignLifecycle
+                            }`
+                          : ""}
+                      </p>
                       <p className="mt-0.5 text-[11px] text-sam-muted break-all">
                         {t("admin_delivery_ads_action_queue_updated")}:{" "}
                         {item.updatedAt
