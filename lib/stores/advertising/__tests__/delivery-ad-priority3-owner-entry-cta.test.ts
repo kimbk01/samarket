@@ -57,8 +57,8 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     const src = hubSrc();
     expect(src).toContain('data-owner-ads-primary-cta="apply"');
     expect(src).toContain('t("owner_ads_apply_primary_cta")');
-    expect(ownerDeliveryAdsMessages.ko.owner_ads_apply_primary_cta).toBe("광고 신청");
-    expect(ownerDeliveryAdsMessages.en.owner_ads_apply_primary_cta).toBe("Apply");
+    expect(ownerDeliveryAdsMessages.ko.owner_ads_apply_primary_cta).toBe("+ 새 광고 신청하기");
+    expect(ownerDeliveryAdsMessages.en.owner_ads_apply_primary_cta).toBe("+ New ad application");
     expect(src.match(/data-owner-ads-primary-cta=/g)?.length).toBe(1);
   });
 
@@ -66,7 +66,7 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     const src = hubSrc();
     expect(src).toContain("setProductSelectOpen(true)");
     expect(src).toContain("DibayBottomSheet");
-    expect(src).toContain('data-owner-ads-product-select="1"');
+    expect(src).toContain('data-owner-ads-product-select="design-board"');
     /** Competing first-level create Links removed from hub body. */
     expect(src).not.toMatch(
       /OwnerStoreAdminDashSection title=\{t\("owner_ads_product_entry_title"\)\}/
@@ -104,6 +104,7 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
       "hub",
       "createStoreSponsored",
       "createBanner",
+      "partner",
       "detail",
     ]);
   });

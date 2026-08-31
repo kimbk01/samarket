@@ -127,7 +127,8 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     });
     expect(aq.bucket).toBe("needs_creative");
     expect(aq.cta).toBe("produce_banner");
-    expect(queue()).toContain('presentation.cta === "produce_banner" ? "creative"');
+    expect(queue()).toContain('presentation.cta === "produce_banner"');
+    expect(queue()).toContain("DELIVERY_AD_ADMIN_ROUTES.creative");
     expect(detail()).toContain("admin-delivery-ad-creative");
     expect(detail()).toContain("focusCreative");
     expect(detail()).toContain("배너 제작");
@@ -172,8 +173,9 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
   it("R3-T12 — aspect from inventory SSOT (39:16 / 3:1)", () => {
     expect(adminDeliveryAdInventoryAspectLabel("STORES_HOME_HERO")).toBe("39:16");
     expect(adminDeliveryAdInventoryAspectLabel("STORES_SEARCH_TOP")).toBe("3:1");
-    expect(detail()).toContain("adminDeliveryAdInventoryAspectLabel");
-    expect(detail()).toContain("admin_delivery_ads_creative_aspect_hint");
+    const studio = read("components/admin/stores/AdminDeliveryAdBannerStudioView.tsx");
+    expect(studio).toContain("adminDeliveryAdInventoryAspectLabel");
+    expect(studio).toContain("admin_delivery_ads_creative_aspect_hint");
   });
 
   it("R3-T13 — performance lifecycle gate ACTIVE/ENDED only", () => {
@@ -247,12 +249,12 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(src).toContain('op: "update_placement"');
   });
 
-  it("R3-T20 — custom package via sheet/panel; extension collapsed; Partner live R4", () => {
+  it("R3-T20 — custom package via sheet/panel; extension collapsed; Partner unified link", () => {
     const src = commercial();
     expect(src).toContain("data-commercial-custom-package");
     expect(src).toContain("admin_delivery_ads_commercial_custom_package");
     expect(src).toContain("data-commercial-extension-collapsed");
-    expect(src).toContain('data-commercial-partner="r4"');
+    expect(src).toContain('data-commercial-partner="r4-link"');
     expect(src).not.toContain("data-commercial-partner-collapsed");
   });
 
@@ -322,9 +324,9 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     );
   });
 
-  it("R3-T29 — hub summary counts still from server summary object", () => {
+  it("R3-T29 — hub today summary uses queue aggregation + server summary", () => {
+    expect(hub()).toContain("aggregateAdminHubTodayCounts");
     expect(hub()).toContain("json.summary");
-    expect(hub()).toContain("summary.review");
     expect(hub()).not.toMatch(/countFromKorean|fakeCount/);
   });
 
@@ -338,12 +340,13 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(detail()).toMatch(/auditExpanded[\s\S]*admin_delivery_ads_audit_collapsed/);
   });
 
-  it("R3-T32 — product acceptingApplications control at top of commercial", () => {
+  it("R3-T32 — product acceptingApplications in advanced commercial settings", () => {
     const src = commercial();
-    expect(src.indexOf("data-commercial-product-accepting")).toBeLessThan(
-      src.indexOf("data-commercial-matrix")
+    expect(src.indexOf("data-commercial-matrix")).toBeLessThan(
+      src.indexOf("data-commercial-product-accepting")
     );
     expect(src).toContain("acceptingApplications");
+    expect(src).toContain("data-commercial-advanced-toggle");
   });
 
   it("R3-T33 — Store Promotion + Banner matrices both rendered", () => {

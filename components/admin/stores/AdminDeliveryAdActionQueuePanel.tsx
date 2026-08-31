@@ -6,7 +6,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
-import { adminDeliveryAdLifecycleLabelKey } from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
+import {
+  adminDeliveryAdLifecycleLabelKey,
+  adminDeliveryAdOpsCaseStatusLabelKey,
+} from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { isDeliveryBannerCreativeAssetReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -171,6 +174,17 @@ export function AdminDeliveryAdActionQueuePanel() {
                               fallbackKo: item.campaignLifecycle || "—",
                               fallbackEn: item.campaignLifecycle || "—",
                             })}
+                          </span>
+                        ) : null}
+                        {item.caseStatus ? (
+                          <span className="sr-only">
+                            {safeT(
+                              adminDeliveryAdOpsCaseStatusLabelKey(item.caseStatus) as MessageKey,
+                              {
+                                fallbackKo: item.caseStatus,
+                                fallbackEn: item.caseStatus,
+                              }
+                            )}
                           </span>
                         ) : null}
                         <span className="sr-only">{commercialSummary}</span>

@@ -679,6 +679,7 @@ export function AdminDeliveryAdDetailWorkspace({
               className="grid gap-4 lg:grid-cols-2"
               data-admin-delivery-ads-detail-split="design-board"
             >
+              <div className="space-y-4">
               <div data-admin-delivery-ads-detail-section="application">
                 <AdminCard titleKey="admin_delivery_ads_section_application">
                   <dl className="grid gap-2 text-[13px]" data-admin-delivery-ads-detail-section="facts">
@@ -740,6 +741,39 @@ export function AdminDeliveryAdDetailWorkspace({
               </AdminCard>
               </div>
 
+            {/* C — 결제 (collapsed by default) */}
+            <div data-admin-delivery-ads-detail-section="funding">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                onClick={() => setFundingExpanded((v) => !v)}
+              >
+                {safeT("admin_delivery_ads_section_funding_title", {
+                  fallbackKo: "결제",
+                  fallbackEn: "Funding",
+                })}
+                <span>{fundingExpanded ? "−" : "+"}</span>
+              </button>
+              {fundingExpanded ? (
+              <AdminCard titleKey="admin_delivery_ads_section_funding_title">
+                <p className="text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
+                  {t("admin_delivery_ads_funding_status")}:{" "}
+                  {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
+                  {" · "}
+                  {t("admin_delivery_ads_funding_payable")}:{" "}
+                  {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
+                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
+                </p>
+                {fundingStatus !== "FUNDED" ? (
+                  <p className="mt-1 text-[12px] text-amber-800">
+                    {t("admin_delivery_ad_funding_required")}
+                  </p>
+                ) : null}
+              </AdminCard>
+              ) : null}
+            </div>
+              </div>
+
               <div data-admin-delivery-ads-detail-section="preview">
                 <AdminCard titleKey="admin_delivery_ads_section_preview">
                   <DeliveryAdOwnerPhoneFrame
@@ -784,43 +818,17 @@ export function AdminDeliveryAdDetailWorkspace({
               </div>
             </div>
 
-            {/* C — 결제 (collapsed by default) */}
-            <div data-admin-delivery-ads-detail-section="funding">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
-                onClick={() => setFundingExpanded((v) => !v)}
-              >
-                {safeT("admin_delivery_ads_section_funding_title", {
-                  fallbackKo: "결제",
-                  fallbackEn: "Funding",
-                })}
-                <span>{fundingExpanded ? "−" : "+"}</span>
-              </button>
-              {fundingExpanded ? (
-              <AdminCard titleKey="admin_delivery_ads_section_funding_title">
-                <p className="text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
-                  {t("admin_delivery_ads_funding_status")}:{" "}
-                  {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
-                  {" · "}
-                  {t("admin_delivery_ads_funding_payable")}:{" "}
-                  {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
-                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
-                </p>
-                {fundingStatus !== "FUNDED" ? (
-                  <p className="mt-1 text-[12px] text-amber-800">
-                    {t("admin_delivery_ad_funding_required")}
-                  </p>
-                ) : null}
-              </AdminCard>
-              ) : null}
-            </div>
-
             {/* D — 배너 스튜디오 링크 (UI-2 standalone studio) */}
             {campaign.productKind === "banner" ? (
-              <div data-admin-delivery-ads-detail-section="creative">
+              <div
+                data-admin-delivery-ads-detail-section="creative"
+                data-admin-delivery-ad-creative="studio-link"
+              >
                 <AdminCard titleKey="admin_delivery_ads_section_creative_produce">
-                  <p className="text-[13px] text-sam-fg">
+                  <p
+                    className="text-[13px] text-sam-fg"
+                    data-creative-title="produce"
+                  >
                     {isDeliveryBannerCreativeAssetReady(creative?.assetPath || campaign.imageUrl)
                       ? safeT("admin_delivery_ads_creative_status_ready", {
                           fallbackKo: "제작 완료",

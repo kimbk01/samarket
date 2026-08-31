@@ -185,8 +185,9 @@ describe("R4 Partner membership", () => {
     ).toBe(true);
   });
 
-  it("R4-P14 — Admin commercial Partner section uncollapsed (live)", () => {
-    expect(commercial()).toContain('data-commercial-partner="r4"');
+  it("R4-P14 — Admin commercial Partner SSOT links to unified partner page", () => {
+    expect(commercial()).toContain('data-commercial-partner="r4-link"');
+    expect(commercial()).toContain("DELIVERY_AD_ADMIN_ROUTES.partnerMemberships");
     expect(commercial()).not.toContain("data-commercial-partner-collapsed");
     expect(R4_PARTNER_MEMBERSHIP_PRODUCT_ENABLED).toBe(true);
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
@@ -253,7 +254,8 @@ describe("R4 DIBAY first-party Banner", () => {
     ).toBe(true);
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
     expect(view).toContain("DeliveryAdBanner");
-    expect(view).toContain('data-admin-first-party-create="banner"');
+    expect(view).toContain('data-admin-first-party-create="design-board"');
+    expect(view).toContain('data-admin-first-party-wizard="step-gated"');
     expect(view).toContain("NOT_IMPLEMENTED_MODEL_BLOCKED");
   });
 

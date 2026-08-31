@@ -243,13 +243,13 @@ describe("CUT E Owner Banner + renderer", () => {
     );
   });
 
-  it("E28 Owner preview uses DeliveryAdBanner via canonical PlacementPreview", () => {
+  it("E28 Owner preview uses DeliveryAdBanner via canonical preview workspace", () => {
     const owner = readFileSync(
       join(process.cwd(), "components/business/owner/ads/OwnerBannerCreateView.tsx"),
       "utf8"
     );
-    expect(owner).toMatch(/DeliveryAdPlacementPreview/);
-    expect(owner).toMatch(/owner_preview/);
+    expect(owner).toMatch(/DeliveryAdOwnerPreviewWorkspace/);
+    expect(owner).toMatch(/owner_preview|presentationMode="owner_product"/);
     expect(owner).not.toMatch(/AdminBannerPreview|OwnerBannerPreview/);
     const preview = readFileSync(
       join(process.cwd(), "components/stores/advertising/DeliveryAdPlacementPreview.tsx"),
