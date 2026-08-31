@@ -20,7 +20,14 @@ import com.dibay.app.R;
 
 /** Foreground service for native video calls. WebView is not involved. */
 public class NativeVideoCallService extends Service {
-  private static final String CHANNEL_ID = "dibay_native_video_call";
+  /**
+   * Versioned FGS channel (CUT3). Old {@code dibay_native_video_call} stays unused for new posts —
+   * OS does not allow lowering importance of an already-created HIGH channel in place.
+   */
+  public static final String CHANNEL_ID = "dibay_native_video_call_v2";
+  /** @deprecated legacy HIGH channel id — do not create/post new ongoing FGS here. */
+  public static final String LEGACY_CHANNEL_ID = "dibay_native_video_call";
+
   private static final int NOTIFICATION_ID = 96001;
   private static final String ACTION_RINGING = "com.dibay.app.nativevideo.RINGING";
   private static final String ACTION_CONNECTING = "com.dibay.app.nativevideo.CONNECTING";
@@ -101,14 +108,19 @@ public class NativeVideoCallService extends Service {
         ACTION_CONNECTED.equals(action)
             ? "DIBAY video call"
             : ACTION_CONNECTING.equals(action) ? "DIBAY video connecting" : "DIBAY incoming video call";
+    // Voice FGS parity: DEFAULT + onlyAlertOnce + silent — shade ongoing, no heads-up.
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText("Native video runtime")
             .setOngoing(!ACTION_RINGING.equals(action))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_CALL);
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setSound(null)
+            .setVibrate(null);
 
     if (ACTION_CONNECTED.equals(action) && hasConnectedSession(callId)) {
       String sid = callId.trim();
@@ -187,9 +199,13 @@ public class NativeVideoCallService extends Service {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager manager = getSystemService(NotificationManager.class);
     if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
+    // DEFAULT — status-bar / shade ongoing only (heads-up requires HIGH). Voice FGS parity.
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "DIBAY Native Video", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("Native video call runtime");
+        new NotificationChannel(CHANNEL_ID, "DIBAY Native Video Call", NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription("Native video call foreground service (ongoing, no heads-up)");
+    channel.setSound(null, null);
+    channel.enableVibration(false);
+    channel.setShowBadge(false);
     manager.createNotificationChannel(channel);
   }
 
@@ -211,6 +227,7 @@ public class NativeVideoCallService extends Service {
       audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
     }
     NativeVideoCallLog.info("audio_route_applied", callId, "focus=video");
+    NativeVideoCallLog.corr("RB3", callId, "event=fgs_audio_focus_request");
   }
 
   private void releaseAudioFocus() {
