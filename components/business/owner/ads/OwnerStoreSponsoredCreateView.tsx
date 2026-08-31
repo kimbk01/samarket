@@ -89,7 +89,12 @@ export function OwnerStoreSponsoredCreateView() {
   const [storeId, setStoreId] = useState("");
   const [storeSheetOpen, setStoreSheetOpen] = useState(false);
   const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
-  const [inventoryKey, setInventoryKey] = useState<OwnerStoreSponsoredInventoryKey | "">("");
+  const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
+  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
+  const preloadInventoryKeyRaw = searchParams.get("inventoryKey")?.trim() ?? "";
+  const [inventoryKey, setInventoryKey] = useState<OwnerStoreSponsoredInventoryKey | "">(() =>
+    isOwnerStoreSponsoredInventoryKey(preloadInventoryKeyRaw) ? preloadInventoryKeyRaw : ""
+  );
   const [packageId, setPackageId] = useState("");
   const [packages, setPackages] = useState<CommercialPackage[]>([]);
   const [placements, setPlacements] = useState<CommercialPlacement[]>([]);
@@ -109,16 +114,16 @@ export function OwnerStoreSponsoredCreateView() {
       ? crypto.randomUUID()
       : `req_${Date.now()}`
   );
-  const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
-  const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
 
   const goToStep = useCallback(
     (next: OwnerDeliveryAdApplicationStep) => {
       const qs = new URLSearchParams(searchParams.toString());
       qs.set("step", String(next));
+      if (storeId) qs.set("storeId", storeId);
+      if (inventoryKey) qs.set("inventoryKey", inventoryKey);
       router.push(`${pathname}?${qs.toString()}`);
     },
-    [pathname, router, searchParams]
+    [pathname, router, searchParams, storeId, inventoryKey]
   );
 
   useEffect(() => {
@@ -458,9 +463,8 @@ export function OwnerStoreSponsoredCreateView() {
                 : null;
 
   const canAdvanceStep1 = Boolean(storeId && inventoryKey);
-  const canAdvanceStep2 = Boolean(
-    packageId && quote && !noSellablePackages && !commercialLoading
-  );
+  /** Preview (step 3) does not require a sellable package — only confirm/submit does. */
+  const canAdvanceStep2 = Boolean(storeId && inventoryKey && !commercialLoading);
 
   const confirmRows = useMemo(() => {
     if (!selectedStore) return [];
@@ -502,9 +506,7 @@ export function OwnerStoreSponsoredCreateView() {
       ? quote && !noSellablePackages
         ? "submit"
         : "blocked"
-      : step === 2 && (noSellablePackages || packages.length === 0)
-        ? "blocked"
-        : "next";
+      : "next";
 
   const handlePrimary = () => {
     if (step === 1 && canAdvanceStep1) goToStep(2);

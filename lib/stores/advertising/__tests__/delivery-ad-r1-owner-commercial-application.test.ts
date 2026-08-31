@@ -130,7 +130,9 @@ describe("R1 Owner Commercial Application Recovery", () => {
 
   it("R1-T17 application submit disabled without valid package/quote", () => {
     expect(createSp()).toContain("footerMode === \"blocked\"");
-    expect(createSp()).toMatch(/noSellablePackages \|\| !quote/);
+    expect(createSp()).toMatch(/quote && !noSellablePackages/);
+    // Step 2 may advance to preview without sellable packages; only step 4 submit is blocked.
+    expect(createSp()).toContain("Preview (step 3) does not require a sellable package");
   });
 
   it("R1-T18 preview uses canonical placement preview", () => {
