@@ -183,7 +183,9 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(adminDeliveryAdInventoryAspectLabel("STORES_SEARCH_TOP")).toBe("3:1");
     const studio = read("components/admin/stores/AdminDeliveryAdBannerStudioView.tsx");
     expect(studio).toContain("adminDeliveryAdInventoryAspectLabel");
-    expect(studio).toContain("admin_delivery_ads_creative_aspect_hint");
+    expect(studio).toContain("formatBannerPixelGuideLine");
+    expect(studio).toContain('data-admin-banner-pixel-guide="1"');
+    expect(studio).toContain("data-admin-banner-aspect");
   });
 
   it("R3-T13 — performance lifecycle gate ACTIVE/ENDED only", () => {
