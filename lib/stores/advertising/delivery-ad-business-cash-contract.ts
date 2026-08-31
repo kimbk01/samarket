@@ -1,7 +1,7 @@
 /**
- * Business Cash funding gate (P1) — Owner Delivery Ad prepaid funding SSOT.
- * NOT D-Point / Business Credit / CUT H usage billing.
- * MODEL B: OWNER_PAID may be SCHEDULED unfunded; ACTIVE requires FUNDED.
+ * LEGACY Business Cash tables/RPCs — MIGRATION_SOURCE only (Stage 1).
+ * New ads payment authority = Store Cash AD_SPEND/AD_REFUND
+ * (`delivery-ad-store-cash-contract.ts`). Do not use for new write product paths.
  */
 
 export const DELIVERY_AD_BUSINESS_CASH_LEDGER_TABLE =
@@ -16,16 +16,20 @@ export const ADMIN_BUSINESS_CASH_CREDIT_RPC =
 export const ADMIN_REFUND_DELIVERY_AD_FUNDING_RPC =
   "admin_refund_delivery_ad_campaign_funding" as const;
 
+/** @deprecated Stage 1 — replaced by DEBIT_REFUND Store Cash. Kept for test/history strings. */
 export const DELIVERY_AD_FUNDING_MODEL = {
   id: "MODEL_B_ACTIVATION_GATE" as const,
-  rule: "OWNER_PAID requires FUNDED before ACTIVE; SCHEDULED may be unfunded; DIBAY_FIRST_PARTY exempt",
+  supersededBy: "DEBIT_REFUND_STORE_CASH" as const,
+  rule: "LEGACY — do not use for new product. Stage 1: Store Cash debit at submit.",
+  status: "LEGACY_READ_ONLY" as const,
 } as const;
 
 export const DELIVERY_AD_BUSINESS_CASH_PLATFORM = {
   externalTopUp: "NOT_IMPLEMENTED_PRESERVED" as const,
-  adminCredit: "IMPLEMENTED" as const,
+  adminCredit: "LEGACY_READ_ONLY" as const,
   cutHBilling: "PRESERVED_DISABLED" as const,
-  note: "Prepaid Business Cash ledger only. No payment gateway in this CUT.",
+  chargeRequest: "DISABLED_FOR_NEW_PRODUCT" as const,
+  note: "MIGRATE — tables preserved; new ad payments use Store Cash.",
 } as const;
 
 export const DELIVERY_AD_BUSINESS_CASH_ENTRY_KINDS = [
@@ -44,7 +48,10 @@ export type DeliveryAdFundingStatus = (typeof DELIVERY_AD_FUNDING_STATUSES)[numb
 
 export type DeliveryAdCampaignSourceForFunding = "OWNER_PAID" | "DIBAY_FIRST_PARTY";
 
-/** Customer + ACTIVE gate readiness — one SSOT. */
+/**
+ * Customer + ACTIVE gate readiness.
+ * Stage 1: `fundingStatus` is mapped from Store Cash spend (SECURED → FUNDED).
+ */
 export function isDeliveryAdFundingReadyForGoLive(input: {
   campaignSource: string | null | undefined;
   fundingStatus: DeliveryAdFundingStatus | null | undefined;

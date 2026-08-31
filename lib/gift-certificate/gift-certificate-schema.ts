@@ -39,6 +39,8 @@ export const GIFT_RPCS = {
   cashOutApprove: "gift_certificate_cash_out_approve",
   cashOutMarkPaid: "gift_certificate_cash_out_mark_paid",
   recoveryClear: "store_cash_recovery_clear",
+  deliveryAdSpend: "store_cash_delivery_ad_spend",
+  deliveryAdRefund: "store_cash_delivery_ad_refund",
   recognizeRevenueForCompletedOrder: "gift_certificate_recognize_revenue_for_completed_order",
   redemptionIsRecognized: "gift_certificate_redemption_is_recognized",
   redemptionRecognizedNet: "gift_certificate_redemption_recognized_net",

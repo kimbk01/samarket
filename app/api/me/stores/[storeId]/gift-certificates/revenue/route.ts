@@ -30,7 +30,7 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const [availRes, ledgerRes, cashRes, recoveryRes, outstandingRes] = await Promise.all([
+  const [availRes, ledgerRes, cashRes, cashLedgerRes, recoveryRes, outstandingRes] = await Promise.all([
     sb.rpc("gift_certificate_store_revenue_available", { p_store_id: sid }),
     sb
       .from(GIFT_TABLES.revenueLedger)
@@ -39,6 +39,12 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(50),
     sb.from(GIFT_TABLES.storeCashAccounts).select("store_id, balance, updated_at").eq("store_id", sid).maybeSingle(),
+    sb
+      .from(GIFT_TABLES.storeCashLedger)
+      .select("id, store_id, amount, balance_after, source_type, related_type, related_id, created_at")
+      .eq("store_id", sid)
+      .order("created_at", { ascending: false })
+      .limit(50),
     sb
       .from(GIFT_TABLES.storeCashRecoveryObligations)
       .select("id, amount_remaining, status")
@@ -71,6 +77,30 @@ export async function GET(
     0
   );
 
+  const storeCashLedger = (cashLedgerRes.data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const sourceType = String(r.source_type ?? "");
+    const label =
+      sourceType === "AD_SPEND"
+        ? "광고비 사용"
+        : sourceType === "AD_REFUND"
+          ? "광고비 환불"
+          : sourceType === "GIFT_REVENUE_CONVERSION"
+            ? "상품권 수익 전환"
+            : sourceType;
+    return {
+      id: String(r.id ?? ""),
+      storeId: String(r.store_id ?? ""),
+      amount: Math.trunc(Number(r.amount) || 0),
+      balanceAfter: Math.trunc(Number(r.balance_after) || 0),
+      sourceType,
+      relatedType: String(r.related_type ?? ""),
+      relatedId: String(r.related_id ?? ""),
+      createdAt: String(r.created_at ?? ""),
+      label,
+    };
+  });
+
   return NextResponse.json({
     ok: true,
     availableRevenue: available,
@@ -78,5 +108,6 @@ export async function GET(
     openRecoveryAmount,
     outstandingBalance,
     ledger: ledgerRes.data ?? [],
+    storeCashLedger,
   });
 }

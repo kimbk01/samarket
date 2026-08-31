@@ -19,6 +19,7 @@ import {
   attachOwnerPaidCommercialSnapshotOnSubmit,
   decodeOwnerAdPackagePricingModel,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
+import { debitStoreCashForDeliveryAd } from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,12 +36,56 @@ function statusForError(error: string): number {
     case "duplicate_submit":
     case "quote_stale":
       return 409;
+    case "INSUFFICIENT_STORE_CASH":
+      return 402;
     case "db_error":
     case "commercial_snapshot_failed":
       return 500;
     default:
       return 400;
   }
+}
+
+async function secureStoreCashBeforeSubmit(input: {
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
+  ownerUserId: string;
+  storeId: string;
+  campaignId: string;
+  productKind: "store_sponsored" | "banner";
+  campaignSource: string | null | undefined;
+}): Promise<NextResponse | null> {
+  if (String(input.campaignSource ?? "OWNER_PAID").trim() === "DIBAY_FIRST_PARTY") {
+    return null;
+  }
+  const secured = await debitStoreCashForDeliveryAd(input.sb, {
+    ownerUserId: input.ownerUserId,
+    storeId: input.storeId,
+    campaignId: input.campaignId,
+    productKind: input.productKind,
+  });
+  if (!secured.ok) {
+    if (secured.error === "INSUFFICIENT_STORE_CASH" && secured.insufficient) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "INSUFFICIENT_STORE_CASH",
+          availablePhp: secured.insufficient.availablePhp,
+          requiredPhp: secured.insufficient.requiredPhp,
+          shortagePhp: secured.insufficient.shortagePhp,
+          availableMinor: secured.insufficient.availableMinor,
+          requiredMinor: secured.insufficient.requiredMinor,
+          shortageMinor: secured.insufficient.shortageMinor,
+          currency: secured.insufficient.currency,
+        },
+        { status: 402 }
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: secured.error, detail: secured.detail ?? null },
+      { status: statusForError(secured.error) }
+    );
+  }
+  return null;
 }
 
 export async function POST(
@@ -127,6 +172,16 @@ export async function POST(
           { status: statusForError(commercial.error) }
         );
       }
+
+      const cashBlock = await secureStoreCashBeforeSubmit({
+        sb,
+        ownerUserId: userId,
+        storeId: sid,
+        campaignId: cid,
+        productKind: "banner",
+        campaignSource: "OWNER_PAID",
+      });
+      if (cashBlock) return cashBlock;
     }
 
     const result = await transitionOwnerBannerCampaign(sb, {
@@ -178,6 +233,16 @@ export async function POST(
         { status: statusForError(commercial.error) }
       );
     }
+
+    const cashBlock = await secureStoreCashBeforeSubmit({
+      sb,
+      ownerUserId: userId,
+      storeId: sid,
+      campaignId: cid,
+      productKind: "store_sponsored",
+      campaignSource: "OWNER_PAID",
+    });
+    if (cashBlock) return cashBlock;
   }
 
   const actionLabel =

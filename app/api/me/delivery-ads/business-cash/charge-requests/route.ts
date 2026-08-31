@@ -68,7 +68,13 @@ export async function POST(req: NextRequest) {
   });
   if (!result.ok) {
     const status =
-      result.error === "invalid_amount" ? 400 : result.error === "duplicate" ? 409 : 500;
+      result.error === "DISABLED_FOR_NEW_PRODUCT"
+        ? 410
+        : result.error === "invalid_amount"
+          ? 400
+          : result.error === "duplicate"
+            ? 409
+            : 500;
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
   return NextResponse.json({ ok: true, request: result.row });

@@ -451,6 +451,8 @@ export const STORE_CASH_LEDGER_SOURCE_TYPES = [
   "GIFT_REDEMPTION_REVERSAL",
   "RECOVERY_CLEAR",
   "GIFT_RECOGNITION_CORRECTION",
+  "AD_SPEND",
+  "AD_REFUND",
 ] as const;
 export type StoreCashLedgerSourceType = (typeof STORE_CASH_LEDGER_SOURCE_TYPES)[number];
 

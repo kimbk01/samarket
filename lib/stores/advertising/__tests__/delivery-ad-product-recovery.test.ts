@@ -17,9 +17,9 @@ import { DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT } from "@/lib/stores/advert
 
 describe("delivery-ad product recovery", () => {
   it("locks money + SEARCH launch verdict", () => {
-    expect(DELIVERY_AD_PRODUCT_RECOVERY.canonicalAdsDebitSource).toBe(
-      "BUSINESS_CASH_SEPARATE"
-    );
+    expect(DELIVERY_AD_PRODUCT_RECOVERY.canonicalAdsDebitSource).toBe("STORE_CASH");
+    expect(DELIVERY_AD_PRODUCT_RECOVERY.paymentModel).toBe("DEBIT_REFUND");
+    expect(DELIVERY_AD_PRODUCT_RECOVERY.legacyBusinessCash).toBe("MIGRATION_SOURCE");
     expect(DELIVERY_AD_PRODUCT_RECOVERY.creditToCashTransfer).toBe(false);
     expect(STORES_SEARCH_TOP_LAUNCH.launchStatus).toBe("NOT_SELLABLE");
     expect(isLaunchSellableInventoryKey("STORES_SEARCH_TOP")).toBe(false);

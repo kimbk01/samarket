@@ -231,6 +231,25 @@ export async function adminTransitionDeliveryAdCampaign(
   // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
+  // Stage 1 — terminal REJECT → Store Cash AD_REFUND exactly once (not on request_changes)
+  if (input.action === "reject") {
+    const { refundStoreCashForRejectedDeliveryAd } = await import(
+      "@/lib/stores/advertising/delivery-ad-store-cash-writer"
+    );
+    const refund = await refundStoreCashForRejectedDeliveryAd(sb, {
+      adminUserId: input.adminUserId,
+      campaignId: input.campaignId,
+      productKind: input.productKind === "banner" ? "banner" : "store_sponsored",
+    });
+    if (!refund.ok && refund.error !== "spend_not_found") {
+      console.error(
+        "[adminTransitionDeliveryAdCampaign] store_cash_refund",
+        refund.error,
+        refund.detail ?? ""
+      );
+    }
+  }
+
   return {
     ok: true,
     campaignId: String(payload.campaign_id),

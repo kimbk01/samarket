@@ -63,6 +63,33 @@ export async function createOwnerBusinessCashChargeRequest(
   }
 ): Promise<
   | { ok: true; row: DeliveryAdCashChargeRequestRow }
+  | {
+      ok: false;
+      error:
+        | "invalid_amount"
+        | "db_error"
+        | "duplicate"
+        | "DISABLED_FOR_NEW_PRODUCT";
+    }
+> {
+  // Stage 1 — Ads Business Cash charge-request REJECTED as product authority.
+  // Historical rows preserved; no new product funding via this path.
+  void sb;
+  void input;
+  return { ok: false, error: "DISABLED_FOR_NEW_PRODUCT" };
+}
+
+/** @deprecated Stage 1 — kept for migration/admin historical readers only; do not call for new product. */
+export async function createOwnerBusinessCashChargeRequestLegacyUnrestricted(
+  sb: SupabaseClient,
+  input: {
+    ownerUserId: string;
+    amountMajor: number;
+    ownerMemo?: string | null;
+    clientRequestId?: string | null;
+  }
+): Promise<
+  | { ok: true; row: DeliveryAdCashChargeRequestRow }
   | { ok: false; error: "invalid_amount" | "db_error" | "duplicate" }
 > {
   if (!assertDeliveryAdCashChargeAmountMajor(input.amountMajor)) {
