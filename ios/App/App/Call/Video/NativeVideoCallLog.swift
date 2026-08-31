@@ -22,6 +22,17 @@ enum NativeVideoCallLog {
     NSLog("%@%@", prefix, format(marker: marker, callId: callId, details: details))
   }
 
+  /** CUT1 evidence correlation — no tokens; grep DIBAY_CALL_CORR. */
+  static func corr(_ marker: String, callId: String, details: String = "") {
+    let wall = Int(Date().timeIntervalSince1970 * 1000)
+    let extra =
+      "marker=\(marker) wall_ms=\(wall)"
+      + (details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        ? ""
+        : " \(details.trimmingCharacters(in: .whitespacesAndNewlines))")
+    NSLog("%@%@", prefix, format(marker: "DIBAY_CALL_CORR", callId: callId, details: extra))
+  }
+
   private static func format(marker: String, callId: String, details: String) -> String {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     let resolved = sid.isEmpty ? "unknown" : sid

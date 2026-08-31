@@ -25,6 +25,17 @@ public final class NativeVideoCallLog {
     Log.w(TAG, format(marker, callId, details));
   }
 
+  /** CUT1/CUT2/CUT4 evidence correlation — no tokens; grep DIBAY_CALL_CORR. */
+  public static void corr(String marker, String callId, String details) {
+    String extra =
+        "marker="
+            + (marker != null ? marker.trim() : "unknown")
+            + " wall_ms="
+            + System.currentTimeMillis()
+            + (details != null && !details.trim().isEmpty() ? " " + details.trim() : "");
+    Log.i(TAG, format("DIBAY_CALL_CORR", callId, extra));
+  }
+
   private static String format(String marker, String callId, String details) {
     String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : "unknown";
     String extra = details != null && !details.trim().isEmpty() ? " " + details.trim() : "";

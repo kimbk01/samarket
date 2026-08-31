@@ -30,7 +30,7 @@ import { joinCallV4Agora, leaveCallV4Agora } from "@/lib/community-messenger/cal
 import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
-import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { logCallCorr, logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   clearCallV4MissedTimer,
   startCallV4OutgoingMissedTimer,
@@ -453,7 +453,16 @@ export async function callV4CreateOutgoing(input: {
     useCallV4Store.getState().setPhase("creating");
     useCallV4Store.setState({ canStartNewCall: false });
 
+    const t0 = Date.now();
+    const mono0 = typeof performance !== "undefined" ? performance.now() : t0;
+    logCallCorr("A0", { callId: null, stage: "outgoing_tap", mediaType: input.mediaType });
+
     await callV4ReconcileBeforeCreate();
+    logCallCorr("LATENCY_RECONCILE", {
+      callId: null,
+      elapsed_ms: Date.now() - t0,
+      mono_elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - mono0,
+    });
 
     const roomResolved = await callV4ResolveOutgoingRoomId({
       roomId: input.roomId,
@@ -464,11 +473,23 @@ export async function callV4CreateOutgoing(input: {
       useCallV4Store.getState().resetToIdle();
       return { ok: false as const, userMessage: outgoingMissingRoomMessage() };
     }
+    logCallCorr("LATENCY_ROOM", {
+      callId: null,
+      roomId: roomResolved.roomId,
+      elapsed_ms: Date.now() - t0,
+    });
 
     logCallV4("outgoing_create_session_attempt", {
       mediaType: input.mediaType,
       roomId: roomResolved.roomId,
       peerUserId: input.peerUserId?.trim() || undefined,
+    });
+    const createStartedAt = Date.now();
+    logCallCorr("A1", {
+      callId: null,
+      stage: "create_session_request",
+      roomId: roomResolved.roomId,
+      mediaType: input.mediaType,
     });
 
     const created = await callV4CreateSession({
@@ -487,6 +508,14 @@ export async function callV4CreateOutgoing(input: {
       return { ok: false as const, userMessage: err || outgoingGenericErrorMessage() };
     }
 
+    const createWallMs = Date.now() - createStartedAt;
+    logCallCorr("A2", {
+      callId: created.session.id,
+      stage: "create_session_response",
+      create_wall_ms: createWallMs,
+      elapsed_from_tap_ms: Date.now() - t0,
+      roomId: roomResolved.roomId,
+    });
     logCallV4("outgoing_create_session_done", {
       callId: created.session.id,
       mediaType: input.mediaType,
@@ -523,6 +552,13 @@ export async function callV4CreateOutgoing(input: {
         mediaType: input.mediaType,
         roomId: roomResolved.roomId,
       });
+      const handoffStartedAt = Date.now();
+      logCallCorr("A4", {
+        callId: created.session.id,
+        stage: "native_handoff_start",
+        mediaType: input.mediaType,
+        elapsed_from_tap_ms: Date.now() - t0,
+      });
       const nativeHandoff = await startNativeOutgoingEstablishment({
         callId: created.session.id,
         roomId: roomResolved.roomId,
@@ -531,6 +567,13 @@ export async function callV4CreateOutgoing(input: {
         peerName: input.peerLabel,
       });
       if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
+        logCallCorr("LATENCY_HANDOFF", {
+          callId: created.session.id,
+          handoff_ms: Date.now() - handoffStartedAt,
+          elapsed_from_tap_ms: Date.now() - t0,
+          ok: true,
+          nativeOwned: true,
+        });
         logCallV4("native_outgoing_handoff_done", {
           callId: created.session.id,
           mediaType: input.mediaType,

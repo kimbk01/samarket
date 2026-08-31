@@ -86,6 +86,14 @@ public final class NativeOutgoingRingbackOwner {
       String stoppedId = activeCallId != null ? activeCallId : sid;
       releaseLocked(reason);
       Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_stop callId=" + safe(stoppedId) + " reason=" + safe(reason));
+      Log.i(
+          TAG,
+          "[DIBAY_NATIVE_VIDEO] DIBAY_CALL_CORR callId="
+              + safe(stoppedId)
+              + " marker=RB6 wall_ms="
+              + System.currentTimeMillis()
+              + " event=explicit_stop reason="
+              + safe(reason));
     }
   }
 
@@ -135,6 +143,13 @@ public final class NativeOutgoingRingbackOwner {
               + " mediaType="
               + mediaType
               + " source=default_synthetic deduped=false");
+      Log.i(
+          TAG,
+          "[DIBAY_NATIVE_VIDEO] DIBAY_CALL_CORR callId="
+              + callId
+              + " marker=RB1 wall_ms="
+              + System.currentTimeMillis()
+              + " event=tone_started source=default_synthetic");
       handler.post(pulse);
     } catch (Exception error) {
       Log.w(
@@ -182,6 +197,13 @@ public final class NativeOutgoingRingbackOwner {
                       + " mediaType="
                       + mediaType
                       + " source=custom_url deduped=false");
+              Log.i(
+                  TAG,
+                  "[DIBAY_NATIVE_VIDEO] DIBAY_CALL_CORR callId="
+                      + callId
+                      + " marker=RB1 wall_ms="
+                      + System.currentTimeMillis()
+                      + " event=player_started source=custom_url");
             } catch (Exception error) {
               Log.w(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + callId + " reason=start_failed mediaType=" + mediaType);
               // custom load fail → default synthetic

@@ -141,6 +141,13 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
     callKind: input.callKind,
     voip_dispatch_started_at: startedAt,
   });
+  console.info("[DIBAY_CALL_CORR]", {
+    marker: "A3",
+    callId: sessionId,
+    wall_ms: startedAt,
+    stage: "voip_dispatch_start",
+    callKind: input.callKind,
+  });
 
   let failed = false;
   let failureReason: string | undefined;
@@ -158,6 +165,13 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
         voip_dispatch_completed_at: completedAt,
         elapsed_ms: completedAt - startedAt,
       });
+      console.info("[DIBAY_CALL_CORR]", {
+        marker: "A3_DONE",
+        callId: sessionId,
+        wall_ms: completedAt,
+        stage: "voip_dispatch_completed",
+        elapsed_ms: completedAt - startedAt,
+      });
     })
     .catch((e) => {
       failed = true;
@@ -168,6 +182,13 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
         recipientUserId: input.recipientUserId,
         voip_dispatch_started_at: startedAt,
         voip_dispatch_failed_at: failedAt,
+        failureReason,
+      });
+      console.info("[DIBAY_CALL_CORR]", {
+        marker: "A3_FAIL",
+        callId: sessionId,
+        wall_ms: failedAt,
+        stage: "voip_dispatch_failed",
         failureReason,
       });
     });
@@ -185,6 +206,13 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
       recipientUserId: input.recipientUserId,
       budget_ms: DISPATCH_BUDGET_MS,
       voip_dispatch_started_at: startedAt,
+    });
+    console.info("[DIBAY_CALL_CORR]", {
+      marker: "LATENCY_DISPATCH_BUDGET",
+      callId: sessionId,
+      wall_ms: Date.now(),
+      budget_ms: DISPATCH_BUDGET_MS,
+      waited_ms: Date.now() - startedAt,
     });
     /** Keep `work` alive until settled so APNs can finish after HTTP returns. */
     void work;

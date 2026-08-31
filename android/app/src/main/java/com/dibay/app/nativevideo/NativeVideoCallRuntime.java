@@ -209,6 +209,7 @@ public final class NativeVideoCallRuntime {
         "caller_outgoing_start",
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    NativeVideoCallLog.corr("A4", sid, "stage=caller_outgoing_start");
     if (!NativeVideoCallOwner.claimNative(sid, "outgoing_start")) return;
     NativeVideoCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_video_runtime");
     if (!NativeVideoCallLane.isVideoMediaType(mediaType)) {
@@ -231,7 +232,9 @@ public final class NativeVideoCallRuntime {
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVideoCallService.startConnecting(app, sid);
     NativeOutgoingRingbackOwner.start(app, sid, "video");
+    NativeVideoCallLog.corr("RB0", sid, "event=ringback_start_request mediaType=video");
     startOutgoingDialingActivity(app, session);
+    NativeVideoCallLog.corr("LATENCY_UI", sid, "stage=dialing_activity_requested");
     startCallerAgoraJoin(app, session);
   }
 
@@ -245,6 +248,7 @@ public final class NativeVideoCallRuntime {
     }
     String sid = session.callId;
     NativeOutgoingRingbackOwner.stop(sid, "connected");
+    NativeVideoCallLog.corr("RB6", sid, "event=explicit_stop reason=connected");
     setState(app, session, State.CONNECTED);
     NativeVideoCallLog.info("state_connected", sid);
     NativeVideoCallService.startConnected(app, sid);
@@ -546,6 +550,7 @@ public final class NativeVideoCallRuntime {
     intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_OUTGOING);
     context.startActivity(intent);
     NativeVideoCallLog.info("native_dialing_surface_shown", callId);
+    NativeVideoCallLog.corr("LATENCY_UI", callId, "stage=dialing_surface_shown");
   }
 
   private static boolean prepareJoinGuard(Context app, String sid) {

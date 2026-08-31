@@ -109,8 +109,10 @@ public final class NativeVideoCallAgoraEngine {
     }
     if (caller) {
       NativeVideoCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
+      NativeVideoCallLog.corr("RB4", sid, "event=agora_join_start caller=true");
     } else {
       NativeVideoCallLog.info("agora_native_join_start", sid, "channel=" + token.channelName);
+      NativeVideoCallLog.corr("I9", sid, "event=agora_join_start caller=false");
     }
     final boolean callerJoin = caller;
     new Thread(

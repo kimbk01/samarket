@@ -31,6 +31,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     }
 
     log("ios_native_video_answer_started", sid)
+    NativeVideoCallLog.corr("I4", callId: sid, details: "event=cx_answer_begin")
 
     do {
       try NativeVideoCallRuntime.shared.beginAccept(sessionId: sid)
@@ -87,6 +88,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         return
       }
       self.log("ios_native_video_permission_granted", sid)
+      NativeVideoCallLog.corr("I5", callId: sid, details: "event=permission_ready")
       self.continueAnswerAfterPermissions(sessionId: sid, completion: completion)
     }
   }
@@ -109,6 +111,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     syncQueue.sync { answerGenerationBySession[sid] = runtimeGen }
 
     log("ios_native_video_accept_started", sid)
+    NativeVideoCallLog.corr("I6", callId: sid, details: "event=accept_api_start")
     NativeVideoCallApi.acceptAsync(callId: sid) { [weak self] ok, status, error in
       guard let self else { return }
       guard self.isCurrentAnswer(sessionId: sid, generation: runtimeGen) else {
@@ -117,6 +120,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       }
       if !ok {
         let err = error ?? ""
+        NativeVideoCallLog.corr("I6", callId: sid, details: "event=accept_api_fail status=\(status)")
         if err.contains("answered_elsewhere") {
           self.log("ios_native_video_answered_elsewhere", sid, "status=\(status)")
           CallKitProvider.shared.reportCallEnded(uuidString: sid)
@@ -149,7 +153,9 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         return
       }
 
+      NativeVideoCallLog.corr("I6", callId: sid, details: "event=accept_api_ok")
       self.log("ios_native_video_token_started", sid)
+      NativeVideoCallLog.corr("I7", callId: sid, details: "event=token_fetch_start")
       NativeVideoCallApi.fetchTokenAsync(callId: sid) { [weak self] connection, tokenError in
         guard let self else { return }
         guard self.isCurrentAnswer(sessionId: sid, generation: runtimeGen) else {
@@ -158,6 +164,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         }
         guard let connection else {
           self.log("ios_native_video_token_failed", sid, "err=\(tokenError ?? "")")
+          NativeVideoCallLog.corr("I7", callId: sid, details: "event=token_fetch_fail")
           self.failBeforeFulfill(
             sessionId: sid,
             generation: runtimeGen,
@@ -169,8 +176,10 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
           return
         }
         self.log("ios_native_video_token_ok", sid)
+        NativeVideoCallLog.corr("I7", callId: sid, details: "event=token_fetch_ok")
 
         self.log("ios_native_video_agora_join_started", sid)
+        NativeVideoCallLog.corr("I9", callId: sid, details: "event=agora_join_start")
         let join = NativeVideoCallAgoraEngine.shared.join(
           callId: sid,
           token: connection,
@@ -178,6 +187,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         )
         guard join.ok else {
           self.log("ios_native_video_accept_failed", sid, "err=\(join.error ?? "join_failed")")
+          NativeVideoCallLog.corr("I9", callId: sid, details: "event=agora_join_fail")
           self.failBeforeFulfill(
             sessionId: sid,
             generation: runtimeGen,
@@ -191,10 +201,12 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         self.syncQueue.sync { self.agoraGenerationBySession[sid] = join.generation }
 
         DibayCallAudioSessionController.shared.prepareForNativeVideoCall()
+        NativeVideoCallLog.corr("I8", callId: sid, details: "event=audio_session_prepare")
         self.scheduleConnectingTimeout(sessionId: sid, generation: runtimeGen)
 
         self.syncQueue.sync { self.callkitFulfilled.insert(sid) }
         self.log("ios_native_video_callkit_fulfilled", sid)
+        NativeVideoCallLog.corr("I_FULFILL", callId: sid, details: "event=cx_answer_fulfill")
         completion(true)
       }
     }
@@ -294,6 +306,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     do {
       try NativeVideoCallRuntime.shared.markConnected(sessionId: sid)
       log("ios_native_video_connected", sid)
+      NativeVideoCallLog.corr("I10", callId: sid, details: "event=agora_connected_promoted")
       DibayActiveCallSessionManager.shared.bindActiveCall(callId: sid, mediaType: "video", phase: "CONNECTED")
       NativeVideoCallAgoraEngine.shared.attachLocalPreviewIfUiReady(callId: sid)
       NativeVideoCallBridge.publishConnectedState(sessionId: sid, source: "incoming_agora_connected")

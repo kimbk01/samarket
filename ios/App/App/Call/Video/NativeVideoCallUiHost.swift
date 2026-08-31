@@ -75,6 +75,7 @@ enum NativeVideoCallUiHost {
     presenter.present(controller, animated: true)
     if session.initiator {
       NativeVideoCallLog.info("outgoing_activity_shown", callId: callId)
+      NativeVideoCallLog.corr("LATENCY_UI", callId: callId, details: "stage=outgoing_activity_shown")
     } else {
       NativeVideoCallLog.info("incoming_activity_shown", callId: callId)
     }

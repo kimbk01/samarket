@@ -46,6 +46,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       callId: sessionId,
       detail: "kind=\(kind ?? "incoming")"
     )
+    NativeVideoCallLog.corr("I0", callId: sessionId, details: "event=voip_push_received kind=\(kind ?? "incoming")")
 
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call"
       || kind == "call_answered_elsewhere"
@@ -211,6 +212,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         callId: sessionId,
         detail: "reason=member_event_not_eligible"
       )
+      NativeVideoCallLog.corr("I1", callId: sessionId, details: "event=eligibility ok=false reason=member_event_not_eligible")
       // PushKit requires CallKit report — reuse terminal-suppress → report → immediate end.
       callProvider.markTerminalSuppressed(sessionId: sessionId, reason: "guest_ineligible")
       let identity = IncomingCallCallerIdentity.resolve(from: data)
@@ -237,6 +239,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         callId: sessionId,
         detail: "reason=\(present.reason)"
       )
+      NativeVideoCallLog.corr("I1", callId: sessionId, details: "event=eligibility ok=false reason=\(present.reason)")
       callProvider.markTerminalSuppressed(sessionId: sessionId, reason: present.reason)
       let identity = IncomingCallCallerIdentity.resolve(from: data)
       callProvider.reportIncomingCall(
@@ -260,7 +263,9 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let iosSoundName = stringField(data, keys: ["ios_sound_name", "iosSoundName", "sound"])
     let ringtonePolicy = stringField(data, keys: ["ringtone_policy", "ringtonePolicy"])
 
+    NativeVideoCallLog.corr("I1", callId: sessionId, details: "event=eligibility ok=true")
     // CONTRACT: CallKit report first — WebView / surface owner enrich after report is initiated.
+    NativeVideoCallLog.corr("I2", callId: sessionId, details: "event=reportNewIncomingCall_start")
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       callerDisplayName: identity.displayName,
@@ -278,11 +283,14 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           owner: "error",
           reason: error.localizedDescription
         )
+        NativeVideoCallLog.corr("I3", callId: sessionId, details: "event=reportNewIncomingCall_fail err=\(error.localizedDescription)")
         CallV4SurfaceOwnerBridge.deliver(
           callId: sessionId,
           owner: "notification_fallback",
           reason: "ios_callkit_incoming_failed"
         )
+      } else {
+        NativeVideoCallLog.corr("I3", callId: sessionId, details: "event=reportNewIncomingCall_ok")
       }
       DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "incoming")
       completion()
