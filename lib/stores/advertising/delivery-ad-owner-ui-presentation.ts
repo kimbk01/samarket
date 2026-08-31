@@ -12,12 +12,13 @@ import type { OwnerAdsSummaryBucket } from "@/lib/stores/advertising/owner-store
 
 export { DELIVERY_AD_DESIGN_BOARD };
 
-/** Design board KPI row — contract kpiLabelKeys order */
+/** UI-1 action-first hub KPI — ended de-emphasized (not in above-fold row). */
 export const DELIVERY_AD_OWNER_HUB_KPI_BUCKETS: readonly OwnerAdsSummaryBucket[] = [
-  "active",
+  "changes_requested",
   "under_review",
   "scheduled",
-  "ended",
+  "active",
+  "paused",
 ] as const;
 
 void DELIVERY_AD_OWNER_HUB_CONTRACT;

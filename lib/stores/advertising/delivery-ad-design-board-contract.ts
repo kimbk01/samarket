@@ -44,12 +44,12 @@ export const DELIVERY_AD_OWNER_APPLICATION_SECTIONS = [
   { id: "payable", titleKey: "owner_ads_section_payable" },
 ] as const;
 
+/** UI-1 — 4 focused application steps (design board wins over P0-C scroll-all). */
 export const DELIVERY_AD_OWNER_APPLICATION_STEPS = [
-  { step: 1, labelKey: "owner_ads_step_store" },
-  { step: 2, labelKey: "owner_ads_step_product_placement" },
-  { step: 3, labelKey: "owner_ads_step_package_price" },
-  { step: 4, labelKey: "owner_ads_step_preview" },
-  { step: 5, labelKey: "owner_ads_step_confirm" },
+  { step: 1, labelKey: "owner_ads_step_product_placement" },
+  { step: 2, labelKey: "owner_ads_step_package_price" },
+  { step: 3, labelKey: "owner_ads_step_preview" },
+  { step: 4, labelKey: "owner_ads_step_confirm" },
 ] as const;
 
 /** Package card durations shown on board when priced */

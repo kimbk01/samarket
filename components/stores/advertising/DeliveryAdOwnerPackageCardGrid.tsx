@@ -7,11 +7,19 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
+function formatDailyAvg(minor: number, days: number): string {
+  if (days <= 0) return formatDeliveryAdPhpMinor(minor);
+  return formatDeliveryAdPhpMinor(Math.round(minor / days));
+}
+
 export type DeliveryAdOwnerPackageCardItem = {
   packageId: string;
   durationDays: number;
   finalPayableDisplay: string;
   finalPayableMinor?: number;
+  basePriceDisplay?: string;
+  partnerDiscountPercent?: number;
+  partnerActive?: boolean;
   displayName?: string;
 };
 
@@ -34,7 +42,7 @@ export function DeliveryAdOwnerPackageCardGrid({
         {[7, 15, 30].map((days) => (
           <div
             key={days}
-            className="flex min-h-[96px] flex-col items-center justify-center rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] px-2 py-3 text-center opacity-70"
+            className="flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] px-2 py-3 text-center opacity-70"
           >
             <span className="text-[12px] font-semibold text-[#757575]">
               {t("owner_ads_period_duration_days").replace("{days}", String(days))}
@@ -52,22 +60,13 @@ export function DeliveryAdOwnerPackageCardGrid({
     <div className="grid grid-cols-3 gap-2" data-owner-ads-package-grid="design-board">
       {packages.map((pkg) => {
         const selected = selectedPackageId === pkg.packageId;
-        const dailyMinor =
-          pkg.finalPayableMinor && pkg.durationDays > 0
-            ? Math.floor(pkg.finalPayableMinor / pkg.durationDays)
-            : null;
-        const dailyLabel =
-          dailyMinor != null && dailyMinor > 0
-            ? t("owner_ads_package_daily_avg").replace(
-                "{amount}",
-                formatDeliveryAdPhpMinor(dailyMinor)
-              )
-            : null;
+        const showPartner =
+          pkg.partnerActive && (pkg.partnerDiscountPercent ?? 0) > 0 && pkg.basePriceDisplay;
         return (
           <button
             key={pkg.packageId}
             type="button"
-            className={`flex min-h-[96px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition ${
+            className={`flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition ${
               selected
                 ? DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED
                 : DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE
@@ -79,15 +78,30 @@ export function DeliveryAdOwnerPackageCardGrid({
             <span className="text-[12px] font-semibold text-sam-fg">
               {t("owner_ads_period_duration_days").replace("{days}", String(pkg.durationDays))}
             </span>
+            {showPartner && pkg.basePriceDisplay ? (
+              <span className="mt-0.5 text-[10px] text-[#757575] line-through tabular-nums">
+                {pkg.basePriceDisplay}
+              </span>
+            ) : null}
             <span
-              className={`mt-1 text-[15px] font-bold tabular-nums ${
+              className={`mt-0.5 text-[15px] font-bold tabular-nums ${
                 selected ? "text-[#0A823E]" : "text-sam-fg"
               }`}
             >
               {pkg.finalPayableDisplay}
             </span>
-            {dailyLabel ? (
-              <span className="mt-0.5 text-[10px] font-medium text-[#757575]">{dailyLabel}</span>
+            {pkg.durationDays > 0 && pkg.finalPayableMinor != null && pkg.finalPayableMinor > 0 ? (
+              <span className="mt-0.5 text-[10px] text-[#757575] tabular-nums">
+                {t("owner_ads_package_daily_avg").replace(
+                  "{amount}",
+                  formatDailyAvg(pkg.finalPayableMinor, pkg.durationDays)
+                )}
+              </span>
+            ) : null}
+            {showPartner ? (
+              <span className="mt-0.5 text-[10px] font-medium text-[#0A823E]">
+                {t("owner_ads_confirm_partner_discount")} {pkg.partnerDiscountPercent}%
+              </span>
             ) : null}
           </button>
         );

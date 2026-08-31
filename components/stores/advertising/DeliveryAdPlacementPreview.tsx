@@ -46,6 +46,8 @@ export type DeliveryAdPlacementPreviewProps = {
   ctaDestinationLabel?: string | null;
   policyHref?: string | null;
   className?: string;
+  /** UI-1 — Owner application step 3: hide technical preview chrome. */
+  presentationMode?: "default" | "owner_product";
 };
 
 function OrganicMarker({ label }: { label: string }) {
@@ -79,7 +81,10 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
     ctaDestinationLabel,
     policyHref,
     className,
+    presentationMode = "default",
   } = props;
+
+  const ownerProduct = presentationMode === "owner_product";
 
   const tokenGate = assertPlacementPreviewNoExposureToken(renderContext, null);
   if (!tokenGate.ok) {
@@ -113,9 +118,12 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
       data-delivery-ad-placement-preview="true"
       data-inventory-key={inventoryKey}
       data-render-context={renderContext}
+      data-presentation-mode={presentationMode}
       data-has-exposure-token="0"
-      aria-label={t("delivery_ads_preview_aria")}
+      aria-label={ownerProduct ? undefined : t("delivery_ads_preview_aria")}
     >
+      {!ownerProduct ? (
+        <>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
@@ -131,6 +139,8 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
       <p className="mt-1 text-[12px] text-sam-muted">
         {isAdmin ? t("delivery_ads_preview_admin_note") : t("delivery_ads_preview_owner_note")}
       </p>
+        </>
+      ) : null}
 
       {!surfaceEnabled ? (
         <p className="mt-2 rounded-ui-rect border border-amber-200 bg-amber-50 px-2 py-1.5 text-[12px] text-amber-900">
@@ -151,23 +161,23 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         </p>
       ) : null}
 
-      {productKind === "store_sponsored" ? (
+      {productKind === "store_sponsored" && !ownerProduct ? (
         <p className="mt-2 text-[12px] text-sam-muted">{t("delivery_ads_preview_store_sponsored_explain")}</p>
-      ) : (
+      ) : productKind !== "store_sponsored" && !ownerProduct ? (
         <p className="mt-2 text-[12px] text-sam-muted">{t("delivery_ads_preview_banner_explain")}</p>
-      )}
+      ) : null}
 
-      {inventoryKey === "STORES_SEARCH_TOP" ? (
+      {!ownerProduct && inventoryKey === "STORES_SEARCH_TOP" ? (
         <p className="mt-2 text-[12px] text-sam-muted">{t("delivery_ads_preview_search_position")}</p>
       ) : null}
-      {inventoryKey === "STORES_SEARCH_TOP" ? (
+      {!ownerProduct && inventoryKey === "STORES_SEARCH_TOP" ? (
         <p className="mt-1 text-[12px] text-sam-muted">{t("delivery_ads_preview_search_relevance")}</p>
       ) : null}
-      {inventoryKey === "STORES_HOME_FEED" ? (
+      {!ownerProduct && inventoryKey === "STORES_HOME_FEED" ? (
         <p className="mt-2 text-[12px] text-sam-muted">{t("delivery_ads_preview_home_rest_explain")}</p>
       ) : null}
 
-      <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
+      <div className={`${ownerProduct ? "" : "mt-3"} overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app`}>
         {inventoryKey === "STORES_SEARCH_TOP" ? (
           <div className="border-b border-sam-border px-3 py-2">
             <p className="text-[12px] font-semibold text-sam-fg">{t("delivery_ads_preview_search_shell_title")}</p>
@@ -183,13 +193,19 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         ) : null}
 
         {(inventoryKey === "STORES_HOME_FEED" || inventoryKey === "STORES_CATEGORY_FEED") && (
-          <div className="space-y-2 p-3">
-            <OrganicMarker label={organicLabel} />
-            <OrganicMarker label={organicLabel} />
-            <div className="border-y border-dashed border-signature/30 py-2">
-              <p className="mb-2 text-[11px] font-semibold text-signature">
-                {t("delivery_ads_preview_ad_here")}
-              </p>
+          <div className={ownerProduct ? "p-2" : "space-y-2 p-3"}>
+            {!ownerProduct ? (
+              <>
+                <OrganicMarker label={organicLabel} />
+                <OrganicMarker label={organicLabel} />
+              </>
+            ) : null}
+            <div className={ownerProduct ? "" : "border-y border-dashed border-signature/30 py-2"}>
+              {!ownerProduct ? (
+                <p className="mb-2 text-[11px] font-semibold text-signature">
+                  {t("delivery_ads_preview_ad_here")}
+                </p>
+              ) : null}
               {storeLoadError || !store ? (
                 <p className="text-[12px] text-sam-muted">{t("delivery_ads_preview_store_missing")}</p>
               ) : inventoryKey === "STORES_HOME_FEED" ? (
@@ -200,7 +216,7 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
                       locale={locale}
                       benefit={{
                         imageBadgeLabel: t("store_insertion_sponsored"),
-                        imageBadgeClassName: "bg-amber-500/90 text-white",
+                        imageBadgeClassName: "bg-[#FF8A00]/90 text-white",
                         benefitLine: null,
                         sponsored: true,
                       }}
@@ -224,14 +240,18 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
                 </div>
               )}
             </div>
-            <OrganicMarker label={organicLabel} />
+            {!ownerProduct ? <OrganicMarker label={organicLabel} /> : null}
           </div>
         )}
 
         {(inventoryKey === "STORES_HOME_HERO" || inventoryKey === "STORES_SEARCH_TOP") && (
           <div className="p-3">
             {!bannerCreative?.assetUrl?.trim() ? (
-              <p className="text-[12px] text-sam-muted">{t("delivery_ads_preview_banner_missing")}</p>
+              <p className="text-[12px] text-sam-muted">
+                {ownerProduct
+                  ? t("owner_ads_banner_admin_creative_notice")
+                  : t("delivery_ads_preview_banner_missing")}
+              </p>
             ) : (
               <div className="pointer-events-none max-w-[430px]">
                 <DeliveryAdBanner
@@ -258,7 +278,7 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         )}
       </div>
 
-      {(ctaLabel || ctaDestinationLabel) && (
+      {!ownerProduct && (ctaLabel || ctaDestinationLabel) && (
         <p className="mt-2 text-[12px] text-sam-fg">
           {ctaLabel ? `${t("delivery_ads_preview_cta")}: ${ctaLabel}` : null}
           {ctaLabel && ctaDestinationLabel ? " · " : null}
@@ -268,7 +288,8 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         </p>
       )}
 
-      {(inventoryKey === "STORES_HOME_FEED" || inventoryKey === "STORES_CATEGORY_FEED") && (
+      {!ownerProduct &&
+      (inventoryKey === "STORES_HOME_FEED" || inventoryKey === "STORES_CATEGORY_FEED") && (
         <dl className="mt-3 grid gap-1 text-[12px] text-sam-muted sm:grid-cols-3">
           <div>
             <dt>{t("admin_delivery_ads_home_policy_enabled")}</dt>

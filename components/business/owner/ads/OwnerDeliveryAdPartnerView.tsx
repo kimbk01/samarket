@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DeliveryAdOwnerPartnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerPartnerStepProgress";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
@@ -33,7 +35,11 @@ type PartnerPayload = {
   canRequestCancel?: boolean;
 };
 
-type HubStore = { id: string; storeName: string };
+type HubStore = {
+  id: string;
+  storeName: string;
+  profileImageUrl: string | null;
+};
 
 export function OwnerDeliveryAdPartnerView() {
   const { t, safeT } = useI18n();
@@ -41,6 +47,8 @@ export function OwnerDeliveryAdPartnerView() {
   const storeIdParam = searchParams.get("storeId")?.trim() || "";
   const [stores, setStores] = useState<HubStore[]>([]);
   const [storeId, setStoreId] = useState(storeIdParam);
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
   const [data, setData] = useState<PartnerPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,14 +57,21 @@ export function OwnerDeliveryAdPartnerView() {
     const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
     const json = (await res.json()) as {
       ok?: boolean;
-      stores?: Array<{ id: string; storeName: string }>;
+      stores?: Array<{ id: string; storeName: string; profileImageUrl?: string | null }>;
     };
     if (res.ok && json.ok) {
-      const list = (json.stores ?? []).map((s) => ({ id: s.id, storeName: s.storeName }));
+      const list = (json.stores ?? []).map((s) => ({
+        id: s.id,
+        storeName: s.storeName,
+        profileImageUrl: s.profileImageUrl ?? null,
+      }));
       setStores(list);
       if (!storeId && list[0]) setStoreId(list[0].id);
+      else if (storeIdParam && list.some((s) => s.id === storeIdParam)) {
+        setStoreId(storeIdParam);
+      }
     }
-  }, [storeId]);
+  }, [storeId, storeIdParam]);
 
   const load = useCallback(async (sid: string) => {
     if (!sid) return;
@@ -85,6 +100,11 @@ export function OwnerDeliveryAdPartnerView() {
   useEffect(() => {
     if (storeId) void load(storeId);
   }, [storeId, load]);
+
+  const selectedStore = useMemo(
+    () => stores.find((s) => s.id === storeId) ?? null,
+    [stores, storeId]
+  );
 
   const statusCopy = useMemo(() => {
     const st = data?.membership?.status;
@@ -132,6 +152,11 @@ export function OwnerDeliveryAdPartnerView() {
     return 1;
   }, [data]);
 
+  const discountPercent =
+    data?.membership?.advertisingDiscountPercentSnapshot ??
+    data?.config?.advertisingDiscountPercent ??
+    0;
+
   return (
     <div
       className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pb-8 pt-4`}
@@ -151,25 +176,57 @@ export function OwnerDeliveryAdPartnerView() {
         </Link>
       </div>
 
-      {stores.length > 1 ? (
-        <label className="block text-[12px] text-sam-muted">
-          {t("owner_ads_section_store")}
-          <select
-            className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
-            value={storeId}
-            onChange={(e) => setStoreId(e.target.value)}
-          >
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.storeName}
-              </option>
-            ))}
-          </select>
-        </label>
+      {stores.length > 0 ? (
+        <button
+          type="button"
+          className="mt-3 flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left"
+          onClick={() => stores.length > 1 && setStoreSheetOpen(true)}
+          data-owner-ads-store-trigger="1"
+          disabled={stores.length <= 1}
+        >
+          {selectedStore?.profileImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={selectedStore.profileImageUrl}
+              alt=""
+              className="h-12 w-12 rounded-ui-rect object-cover"
+            />
+          ) : (
+            <div className="h-12 w-12 rounded-ui-rect bg-sam-surface" />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-semibold text-sam-fg">
+              {selectedStore?.storeName ?? t("owner_ads_select_store_hint")}
+            </p>
+          </div>
+          {stores.length > 1 ? (
+            <span className="shrink-0 text-[12px] font-medium text-signature">
+              {t("owner_ads_change_store")}
+            </span>
+          ) : null}
+        </button>
       ) : null}
 
+      <section
+        className="mt-3 rounded-ui-rect border border-[#0A823E]/30 bg-[#0A823E]/5 p-4"
+        data-owner-ads-partner-benefits="1"
+      >
+        <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_partner_benefits_title")}</p>
+        <ul className="mt-2 space-y-1.5 text-[13px] text-sam-fg">
+          <li>
+            · {t("owner_ads_partner_discount_label")}: {discountPercent}%
+          </li>
+          {data?.config?.monthlyFeeLabel ? (
+            <li>
+              · {t("owner_ads_partner_fee_label")}: {data.config.monthlyFeeLabel}
+            </li>
+          ) : null}
+          <li>· {t("owner_ads_partner_desc")}</li>
+        </ul>
+      </section>
+
       {error ? (
-        <p className="text-[13px] text-red-600" role="alert">
+        <p className="mt-3 text-[13px] text-red-600" role="alert">
           {safeT("owner_ads_error_generic", {
             fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
             fallbackEn: "Something went wrong. Please try again.",
@@ -179,30 +236,15 @@ export function OwnerDeliveryAdPartnerView() {
       ) : null}
 
       {!data ? (
-        <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
+        <p className="mt-3 text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
       ) : (
-        <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <div className="mt-3 space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div>
             <p className="text-[12px] text-sam-muted">{t("owner_ads_partner_status_label")}</p>
             <p className="mt-0.5 text-[15px] font-semibold text-sam-fg">
               {statusCopy ?? t("owner_ads_partner_status_none")}
             </p>
           </div>
-
-          {data.config ? (
-            <div className="space-y-1 text-[13px] text-sam-fg">
-              <p>
-                {t("owner_ads_partner_fee_label")}
-                {": "}
-                {data.config.monthlyFeeLabel ?? t("owner_ads_price_unset")}
-              </p>
-              <p>
-                {t("owner_ads_partner_discount_label")}
-                {": "}
-                {data.config.advertisingDiscountPercent}%
-              </p>
-            </div>
-          ) : null}
 
           {data.membership?.periodEnd ? (
             <p className="text-[12px] text-sam-muted">
@@ -245,6 +287,49 @@ export function OwnerDeliveryAdPartnerView() {
           ) : null}
         </div>
       )}
+
+      <DibayBottomSheet
+        open={storeSheetOpen}
+        onClose={() => setStoreSheetOpen(false)}
+        title={t("owner_ads_select_store")}
+        anchor="above-bottom-nav"
+        ariaLabel={t("owner_ads_select_store")}
+        panelClassName="!max-w-md"
+        contentPaddingBottomPx={contentPaddingBottomPx}
+      >
+        <ul className="mt-3 space-y-2">
+          {stores.map((s) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStoreId(s.id);
+                  setStoreSheetOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-ui-rect border p-3 text-left ${
+                  storeId === s.id
+                    ? "border-signature bg-sam-app"
+                    : "border-sam-border bg-sam-surface"
+                }`}
+              >
+                {s.profileImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={s.profileImageUrl}
+                    alt=""
+                    className="h-12 w-12 rounded-ui-rect object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-ui-rect bg-sam-app" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-semibold text-sam-fg">{s.storeName}</p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </DibayBottomSheet>
     </div>
   );
 }

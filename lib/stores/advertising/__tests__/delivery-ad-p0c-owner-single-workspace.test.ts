@@ -40,7 +40,7 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
 
   it("T2 — product selector has Store Promotion + Banner", () => {
     const src = hub();
-    expect(src).toContain('data-owner-ads-product-select="1"');
+    expect(src).toContain('data-owner-ads-product-select="design-board"');
     expect(src).toContain("owner_ads_product_store_sponsored");
     expect(src).toContain("owner_ads_product_banner");
     expect(src).toContain("DELIVERY_AD_OWNER_ROUTES.createStoreSponsored");
@@ -49,18 +49,20 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(DELIVERY_AD_OWNER_ROUTES.createBanner).toContain("banner");
   });
 
-  it("T3 — Store Promotion no wizard authority", () => {
+  it("T3 — Store Promotion step-gated wizard authority", () => {
     const src = sponsored();
-    expect(src).toContain('data-owner-ads-wizard="absent"');
+    expect(src).toContain('data-owner-ads-wizard="step-gated"');
     expect(src).toContain('data-owner-ads-workspace="store-sponsored"');
-    expect(src).not.toMatch(/setStep\(|Step\s*=\s*"|nextStep|previousStep/);
+    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
   });
 
-  it("T4 — Banner no wizard authority", () => {
+  it("T4 — Banner step-gated wizard authority", () => {
     const src = banner();
-    expect(src).toContain('data-owner-ads-wizard="absent"');
+    expect(src).toContain('data-owner-ads-wizard="step-gated"');
     expect(src).toContain('data-owner-ads-workspace="banner"');
-    expect(src).not.toMatch(/setStep\(|Step\s*=\s*"|nextStep|previousStep/);
+    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
   });
 
   it("T5 — packages loaded dynamically from commercial API", () => {
@@ -126,7 +128,9 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
 
   it("T8 — Partner discount displayed from server quote fields", () => {
     expect(sponsored()).toContain("partnerDiscountPercent");
-    expect(sponsored()).toContain("owner_ads_price_partner_discount");
+    expect(sponsored()).toContain("owner_ads_confirm_partner_discount");
+    const grid = read("components/stores/advertising/DeliveryAdOwnerPackageCardGrid.tsx");
+    expect(grid).toContain("partnerDiscountPercent");
     expect(sponsored()).not.toContain("calculateDeliveryAdCommercialQuote");
   });
 
@@ -145,7 +149,7 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
 
   it("T11 — Store preview canonical + telemetry-free", () => {
     const src = sponsored();
-    expect(src).toMatch(/DeliveryAdCampaignPlacementPreviews|PlacementPreview/);
+    expect(src).toMatch(/DeliveryAdOwnerPreviewWorkspace|PlacementPreview/);
     expect(src).not.toMatch(/recordImpression|trackClick|attribution/);
   });
 
@@ -164,11 +168,14 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
   });
 
   it("T14 — Owner footer uses canonical above-nav authority", () => {
-    for (const src of [sponsored(), banner(), detail()]) {
+    const shell = read("components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx");
+    for (const src of [sponsored(), banner()]) {
       expect(src).toContain("useOwnerAdminFormKeyboard");
       expect(src).toContain("aboveBottomNav: true");
-      expect(src).toContain('data-owner-ads-footer="owner-admin-ssot"');
+      expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
     }
+    expect(shell).toContain('data-owner-ads-footer="owner-admin-ssot"');
+    expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
 
   it("T15 — no ads-local bottom 60px geometry", () => {
@@ -211,11 +218,11 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(banner()).toContain("deliveryAdCommercialPlacementLabel");
   });
 
-  it("T22 — no hidden duplicate wizard flow", () => {
-    expect(sponsored()).not.toContain('step === "store"');
-    expect(banner()).not.toContain('step === "setup"');
-    expect(sponsored()).toContain('data-owner-ads-wizard="absent"');
-    expect(banner()).toContain('data-owner-ads-wizard="absent"');
+  it("T22 — step-gated wizard via ?step= query (no duplicate scroll flow)", () => {
+    expect(sponsored()).toContain('data-owner-ads-step-panel="1"');
+    expect(banner()).toContain('data-owner-ads-step-panel="1"');
+    expect(sponsored()).toContain('data-owner-ads-wizard="step-gated"');
+    expect(banner()).toContain('data-owner-ads-wizard="step-gated"');
   });
 
   it("schedule helper derives duration window", () => {

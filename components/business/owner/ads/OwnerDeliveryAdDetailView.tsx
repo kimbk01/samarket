@@ -51,7 +51,10 @@ import {
   type OwnerAdsOpsBackendCapability,
 } from "@/lib/stores/advertising/owner-delivery-ad-r2-operations";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
-import { Sam } from "@/lib/ui/css-vars";
+import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+
+const OWNER_DETAIL_SECONDARY_BTN_CLASS =
+  "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg";
 
 type HistoryItem = { action: string; reason: string | null; createdAt: string };
 
@@ -432,7 +435,52 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       style={actionCtas.length ? formPadStyle : { paddingBottom: 24 }}
       data-owner-ads-detail="r1"
       data-owner-ads-lifecycle={campaign.lifecycleStatus}
+      data-owner-ads-detail-layout="lifecycle-native"
     >
+      {panels.has("required_action") && requiredAction ? (
+        <section
+          className={`rounded-ui-rect border p-4 ${requiredActionToneClass(requiredAction.tone)}`}
+          data-owner-ads-detail-section="required-action"
+        >
+          <p className="text-[16px] font-bold">{t(requiredAction.titleKey)}</p>
+          <p className="mt-2 text-[13px] leading-snug">{t(requiredAction.bodyKey)}</p>
+          {requiredAction.primaryHref ? (
+            <Link
+              href={requiredAction.primaryHref.href}
+              className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+              data-owner-ads-required-cta="edit"
+            >
+              {t(requiredAction.primaryHref.labelKey)}
+            </Link>
+          ) : null}
+          {requiredAction.guidanceHref ? (
+            <Link
+              href={requiredAction.guidanceHref.href}
+              className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3`}
+            >
+              {t(requiredAction.guidanceHref.labelKey)}
+            </Link>
+          ) : null}
+          {showContactAdmin && !campaign.reviewNotes ? (
+            <button
+              type="button"
+              className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3`}
+              data-owner-ads-contact-admin="1"
+              onClick={() => {
+                setFocusOperations(true);
+                const el = document.getElementById("delivery-ad-operations");
+                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {safeT("owner_ads_contact_admin_cta", {
+                fallbackKo: "관리자에게 문의",
+                fallbackEn: "Contact admin",
+              })}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
       <h1 className="text-[18px] font-bold text-sam-fg">
         {t(ownerLifecycleStatusI18nKey(campaign.lifecycleStatus))}
       </h1>
@@ -466,50 +514,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         </section>
       ) : null}
 
-      {panels.has("required_action") && requiredAction ? (
-        <section
-          className={`rounded-ui-rect border p-4 ${requiredActionToneClass(requiredAction.tone)}`}
-          data-owner-ads-detail-section="required-action"
-        >
-          <p className="text-[16px] font-bold">{t(requiredAction.titleKey)}</p>
-          <p className="mt-2 text-[13px] leading-snug">{t(requiredAction.bodyKey)}</p>
-          {requiredAction.primaryHref ? (
-            <Link
-              href={requiredAction.primaryHref.href}
-              className={`${Sam.btn.primary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
-              data-owner-ads-required-cta="edit"
-            >
-              {t(requiredAction.primaryHref.labelKey)}
-            </Link>
-          ) : null}
-          {requiredAction.guidanceHref ? (
-            <Link
-              href={requiredAction.guidanceHref.href}
-              className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
-            >
-              {t(requiredAction.guidanceHref.labelKey)}
-            </Link>
-          ) : null}
-          {showContactAdmin && !campaign.reviewNotes ? (
-            <button
-              type="button"
-              className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
-              data-owner-ads-contact-admin="1"
-              onClick={() => {
-                setFocusOperations(true);
-                const el = document.getElementById("delivery-ad-operations");
-                el?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-            >
-              {safeT("owner_ads_contact_admin_cta", {
-                fallbackKo: "관리자에게 문의",
-                fallbackEn: "Contact admin",
-              })}
-            </button>
-          ) : null}
-        </section>
-      ) : null}
-
       {panels.has("admin_reason") && campaign.reviewNotes ? (
         <OwnerStoreAdminDashSection title={t("owner_ads_admin_response")}>
           <div data-owner-ads-detail-section="admin-reason">
@@ -519,7 +523,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
             {showContactAdmin ? (
               <button
                 type="button"
-                className={`${Sam.btn.secondary} mt-3 flex min-h-[44px] w-full items-center justify-center px-4 text-[14px] font-semibold`}
+                className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3`}
                 data-owner-ads-contact-admin="1"
                 onClick={() => {
                   setFocusOperations(true);
@@ -629,7 +633,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 )}
                 <button
                   type="button"
-                  className={`${Sam.btn.primary} mt-3`}
+                  className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} mt-3`}
                   disabled={fundBusy}
                   data-owner-ads-fund-cta="1"
                   onClick={() => {

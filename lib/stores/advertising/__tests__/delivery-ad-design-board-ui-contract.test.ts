@@ -26,19 +26,21 @@ describe("Delivery Ads design board UI contract", () => {
     expect(hub).toContain(DELIVERY_AD_OWNER_HUB_CONTRACT.recentAdsTitleKey);
     expect(hub).toContain("data-owner-ads-hub-greeting");
     expect(hub).toContain("data-owner-ads-partner-card");
-    expect(hub).toContain("grid-cols-4");
+    expect(hub).toContain("grid-cols-5");
     expect(hub).toContain("data-owner-ads-hub-card-title");
     expect(hub.indexOf("data-owner-ads-recent-title")).toBeLessThan(
       hub.indexOf("data-owner-ads-partner-card")
     );
   });
 
-  it("DB-O3 — application workspace has 5-step progress + confirm section", () => {
+  it("DB-O3 — application workspace has 4-step progress + confirm section", () => {
     const create = read("components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx");
-    expect(create).toContain("DeliveryAdOwnerStepProgress");
-    expect(create).toContain('data-owner-ads-wizard="design-board"');
+    const shell = read("components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx");
+    expect(create).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(shell).toContain("DeliveryAdOwnerStepProgress");
+    expect(shell).toContain('data-owner-ads-wizard="step-gated"');
     expect(create).toContain("DeliveryAdOwnerApplicationConfirm");
-    expect(create).toContain("owner_ads_section_confirm");
+    expect(create).toContain('data-owner-ads-step-panel="4"');
     for (const s of ["store", "placement", "packages", "preview", "confirm"]) {
       expect(
         DELIVERY_AD_OWNER_APPLICATION_SECTIONS.some((x) => x.id === s)
@@ -91,19 +93,20 @@ describe("Delivery Ads design board UI contract", () => {
     expect(i18n).toContain('owner_ads_apply_primary_cta: "+ 새 광고 신청하기"');
   });
 
-  it("DB-O7 — banner application mirrors store sponsored design-board wizard", () => {
+  it("DB-O7 — banner application mirrors store sponsored step-gated wizard", () => {
     const banner = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
-    expect(banner).toContain("DeliveryAdOwnerStepProgress");
-    expect(banner).toContain('data-owner-ads-wizard="design-board"');
+    expect(banner).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(banner).toContain('data-owner-ads-wizard="step-gated"');
     expect(banner).toContain("DeliveryAdOwnerPlacementChipGrid");
     expect(banner).toContain("DeliveryAdOwnerPreviewWorkspace");
     expect(banner).toContain("DeliveryAdOwnerApplicationConfirm");
   });
 
-  it("DB-O8 — owner partner view 4-step progress", () => {
+  it("DB-O8 — owner partner view 4-step progress + benefits", () => {
     const partner = read("components/business/owner/ads/OwnerDeliveryAdPartnerView.tsx");
     expect(partner).toContain("DeliveryAdOwnerPartnerStepProgress");
     expect(partner).toContain('data-owner-ads-partner="design-board"');
+    expect(partner).toContain("data-owner-ads-partner-benefits");
   });
 
   it("DB-A1 — admin hub today summary + action queue design board", () => {

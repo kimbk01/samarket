@@ -77,6 +77,14 @@ function hubCampaignSortRank(status: HubCampaign["lifecycleStatus"]): number {
   }
 }
 
+const ENDED_HUB_CAMPAIGN_STATUSES = new Set<HubCampaign["lifecycleStatus"]>([
+  "ENDED",
+  "TERMINATED",
+  "ARCHIVED",
+  "REJECTED",
+  "EXHAUSTED",
+]);
+
 export function OwnerDeliveryAdsHubView() {
   const { t, safeT } = useI18n();
   const [loaded, setLoaded] = useState(false);
@@ -158,6 +166,8 @@ export function OwnerDeliveryAdsHubView() {
     };
   }, []);
 
+  const endedStatuses = ENDED_HUB_CAMPAIGN_STATUSES;
+
   const sortedCampaigns = useMemo(() => {
     return [...campaigns].sort((a, b) => {
       const rank = hubCampaignSortRank(a.lifecycleStatus) - hubCampaignSortRank(b.lifecycleStatus);
@@ -167,6 +177,22 @@ export function OwnerDeliveryAdsHubView() {
       return bTs - aTs;
     });
   }, [campaigns]);
+
+  const activeCampaigns = useMemo(
+    () => sortedCampaigns.filter((c) => !endedStatuses.has(c.lifecycleStatus)),
+    [sortedCampaigns]
+  );
+
+  const endedCampaigns = useMemo(
+    () => sortedCampaigns.filter((c) => endedStatuses.has(c.lifecycleStatus)),
+    [sortedCampaigns]
+  );
+
+  const storeNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of stores) map.set(s.id, s.storeName);
+    return map;
+  }, [stores]);
 
   const summaryItems: Array<{
     key: OwnerAdsSummaryBucket;
@@ -200,7 +226,7 @@ export function OwnerDeliveryAdsHubView() {
       {loaded && !error ? (
         <>
         <div
-          className="grid grid-cols-4 gap-1 rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm"
+          className="grid grid-cols-5 gap-0.5 rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm"
           data-owner-ads-summary-kpi="design-board"
         >
           {summaryItems.map((item) => (
@@ -243,53 +269,106 @@ export function OwnerDeliveryAdsHubView() {
                 {t("owner_ads_hub_recent_ads")}
               </h2>
               <ul className="space-y-2" data-owner-ads-campaign-list="1">
-              {sortedCampaigns.map((c) => {
-                const productKind: DeliveryAdOwnerProductKind =
-                  c.productKind === "banner" ? "banner" : "store_sponsored";
-                const invLabels = deliveryAdPlacementI18nKeys(c.inventoryKeys ?? [])
-                  .map((k) => t(k as MessageKey))
-                  .join(" · ");
-                const cta = ownerAdsHubCardPrimaryCta({
-                  lifecycleStatus: c.lifecycleStatus,
-                  productKind,
-                  storeId: c.storeId,
-                  campaignId: c.id,
-                });
-                const productLabel =
-                  productKind === "banner"
-                    ? t("owner_ads_product_banner")
-                    : t("owner_ads_product_store_sponsored");
-                const firstPlacement = invLabels.split(" · ")[0]?.trim() || "—";
-                const cardTitle = `${productLabel} - ${firstPlacement}`;
-                return (
-                  <li key={c.id}>
-                    <div className="rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p
-                            className="truncate text-[15px] font-semibold text-sam-fg"
-                            data-owner-ads-hub-card-title="design-board"
-                          >
-                            {cardTitle}
-                          </p>
-                          <p className="mt-1 text-[12px] text-[#757575]">
-                            {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
-                          </p>
+                {activeCampaigns.map((c) => {
+                  const productKind: DeliveryAdOwnerProductKind =
+                    c.productKind === "banner" ? "banner" : "store_sponsored";
+                  const invLabels = deliveryAdPlacementI18nKeys(c.inventoryKeys ?? [])
+                    .map((k) => t(k as MessageKey))
+                    .join(" · ");
+                  const cta = ownerAdsHubCardPrimaryCta({
+                    lifecycleStatus: c.lifecycleStatus,
+                    productKind,
+                    storeId: c.storeId,
+                    campaignId: c.id,
+                  });
+                  const productLabel =
+                    productKind === "banner"
+                      ? t("owner_ads_product_banner")
+                      : t("owner_ads_product_store_sponsored");
+                  const storeLabel = storeNameById.get(c.storeId) ?? c.title?.trim() ?? "—";
+                  const firstPlacement = invLabels.split(" · ")[0]?.trim() || "—";
+                  const cardTitle = `${storeLabel} · ${productLabel} · ${firstPlacement}`;
+                  return (
+                    <li key={c.id}>
+                      <div className="rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p
+                              className="truncate text-[15px] font-semibold text-sam-fg"
+                              data-owner-ads-hub-card-title="design-board"
+                              data-owner-ads-hub-card-store={c.storeId}
+                            >
+                              {cardTitle}
+                            </p>
+                            <p className="mt-1 text-[12px] text-[#757575]">
+                              {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
+                            </p>
+                          </div>
+                          <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
                         </div>
-                        <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
+                        <Link
+                          href={cta.href}
+                          className="mt-3 inline-flex min-h-[40px] items-center text-[13px] font-semibold text-[#0A823E]"
+                          data-owner-ads-card-cta={c.lifecycleStatus}
+                        >
+                          {t(cta.labelKey)}
+                        </Link>
                       </div>
-                      <Link
-                        href={cta.href}
-                        className="mt-3 inline-flex min-h-[40px] items-center text-[13px] font-semibold text-[#0A823E]"
-                        data-owner-ads-card-cta={c.lifecycleStatus}
-                      >
-                        {t(cta.labelKey)}
-                      </Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+              {endedCampaigns.length > 0 ? (
+                <div
+                  className="mt-4 space-y-2 opacity-70"
+                  data-owner-ads-ended-campaigns="1"
+                >
+                  <h3 className="text-[13px] font-semibold text-[#757575]">
+                    {t("owner_ads_summary_ended")} ({endedCampaigns.length})
+                  </h3>
+                  <ul className="space-y-2">
+                    {endedCampaigns.map((c) => {
+                      const productKind: DeliveryAdOwnerProductKind =
+                        c.productKind === "banner" ? "banner" : "store_sponsored";
+                      const cta = ownerAdsHubCardPrimaryCta({
+                        lifecycleStatus: c.lifecycleStatus,
+                        productKind,
+                        storeId: c.storeId,
+                        campaignId: c.id,
+                      });
+                      const productLabel =
+                        productKind === "banner"
+                          ? t("owner_ads_product_banner")
+                          : t("owner_ads_product_store_sponsored");
+                      const storeLabel = storeNameById.get(c.storeId) ?? c.title?.trim() ?? "—";
+                      return (
+                        <li key={c.id}>
+                          <div className="rounded-ui-rect border border-[#E0E0E0] bg-[#FAFAFA] p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-medium text-[#757575]">
+                                  {storeLabel} · {productLabel}
+                                </p>
+                                <p className="mt-1 text-[11px] text-[#9E9E9E]">
+                                  {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
+                                </p>
+                              </div>
+                              <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
+                            </div>
+                            <Link
+                              href={cta.href}
+                              className="mt-2 inline-flex min-h-[36px] items-center text-[12px] font-medium text-[#757575]"
+                              data-owner-ads-card-cta={c.lifecycleStatus}
+                            >
+                              {t(cta.labelKey)}
+                            </Link>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
             </>
           )}
 

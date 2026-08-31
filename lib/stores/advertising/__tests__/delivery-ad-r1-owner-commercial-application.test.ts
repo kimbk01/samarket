@@ -113,7 +113,12 @@ describe("R1 Owner Commercial Application Recovery", () => {
         "utf8"
       )
     ).toContain('data-owner-ads-packages="preparing"');
-    expect(createSp()).toContain("owner_ads_cta_sale_preparing");
+    expect(
+      readFileSync(
+        join(root, "components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx"),
+        "utf8"
+      )
+    ).toContain("owner_ads_cta_sale_preparing");
   });
 
   it("R1-T16 unpriced package never shows ₱0", () => {
@@ -124,7 +129,7 @@ describe("R1 Owner Commercial Application Recovery", () => {
   });
 
   it("R1-T17 application submit disabled without valid package/quote", () => {
-    expect(createSp()).toContain("!canSubmit");
+    expect(createSp()).toContain("footerMode === \"blocked\"");
     expect(createSp()).toMatch(/noSellablePackages \|\| !quote/);
   });
 
@@ -143,7 +148,12 @@ describe("R1 Owner Commercial Application Recovery", () => {
   });
 
   it("R1-T20 one contextual fixed footer only", () => {
-    expect(createSp()).toContain('data-owner-ads-footer="owner-admin-ssot"');
+    expect(
+      readFileSync(
+        join(root, "components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx"),
+        "utf8"
+      )
+    ).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
 

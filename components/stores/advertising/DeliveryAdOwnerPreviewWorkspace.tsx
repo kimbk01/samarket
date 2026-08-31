@@ -6,6 +6,7 @@ import { DeliveryAdPlacementPreview } from "@/components/stores/advertising/Deli
 import { DeliveryAdOwnerPhoneFrame } from "@/components/stores/advertising/DeliveryAdOwnerPhoneFrame";
 import type { DeliveryAdProductKey } from "@/lib/stores/advertising/delivery-ad-product-registry";
 import type { DeliveryAdBannerCreativeView } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { DELIVERY_AD_DESIGN_BOARD } from "@/lib/stores/advertising/delivery-ad-design-board-contract";
 
 type PreviewTab = {
@@ -31,6 +32,9 @@ export function DeliveryAdOwnerPreviewWorkspace({
   bannerCreative,
   ctaLabel,
   ctaDestinationLabel,
+  store,
+  storeLoadError,
+  presentationMode = "default",
 }: {
   productKind: DeliveryAdProductKey;
   selectedInventoryKey: string;
@@ -38,9 +42,16 @@ export function DeliveryAdOwnerPreviewWorkspace({
   bannerCreative?: DeliveryAdBannerCreativeView | null;
   ctaLabel?: string | null;
   ctaDestinationLabel?: string | null;
+  store?: StoreHomeFeedItem | null;
+  storeLoadError?: boolean;
+  presentationMode?: "default" | "owner_product";
 }) {
   const { t } = useI18n();
-  const tabs = productKind === "banner" ? BANNER_TABS : STORE_SPONSORED_TABS;
+  const ownerProduct = presentationMode === "owner_product";
+  const tabs =
+    productKind === "banner"
+      ? BANNER_TABS
+      : STORE_SPONSORED_TABS.filter((tab) => tab.inventoryKey === selectedInventoryKey);
   const defaultTab =
     tabs.find((tab) => tab.inventoryKey === selectedInventoryKey)?.id ?? tabs[0]?.id ?? "home";
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -54,6 +65,61 @@ export function DeliveryAdOwnerPreviewWorkspace({
   const activeInventoryKey = useMemo(() => {
     return tabs.find((tab) => tab.id === activeTab)?.inventoryKey ?? selectedInventoryKey;
   }, [activeTab, selectedInventoryKey, tabs]);
+
+  const previewBody = (
+    <DeliveryAdOwnerPhoneFrame>
+      <DeliveryAdPlacementPreview
+        productKind={productKind}
+        inventoryKey={activeInventoryKey}
+        renderContext="owner_preview"
+        presentationMode={ownerProduct ? "owner_product" : "default"}
+        surfaceEnabled={surfaceEnabled}
+        store={store ?? null}
+        storeLoadError={storeLoadError ?? false}
+        bannerCreative={bannerCreative ?? null}
+        ctaLabel={ctaLabel ?? null}
+        ctaDestinationLabel={ctaDestinationLabel ?? null}
+      />
+    </DeliveryAdOwnerPhoneFrame>
+  );
+
+  if (ownerProduct) {
+    return (
+      <div data-owner-ads-preview-workspace="owner-product">
+        <p className="mb-3 text-[15px] font-bold text-sam-fg">
+          {t("owner_ads_preview_customer_headline")}
+        </p>
+        {productKind === "banner" ? (
+          <p className="mb-3 text-[13px] text-sam-muted">{t("owner_ads_banner_admin_creative_notice")}</p>
+        ) : null}
+        {tabs.length > 1 ? (
+          <div
+            className="mb-3 flex gap-1 rounded-ui-rect border border-[#BDBDBD] bg-[#F5F5F5] p-1"
+            role="tablist"
+          >
+            {tabs.map((tab) => {
+              const active = tab.id === activeTab;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`flex-1 rounded-ui-rect px-2 py-2 text-[11px] font-semibold ${
+                    active ? "bg-[#0A823E] text-white" : "bg-transparent text-[#757575]"
+                  }`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {t(tab.labelKey as never)}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {previewBody}
+      </div>
+    );
+  }
 
   return (
     <div data-owner-ads-preview-workspace="design-board">
@@ -97,19 +163,7 @@ export function DeliveryAdOwnerPreviewWorkspace({
           <p className="mb-2 text-center text-[10px] font-semibold text-[#0A823E]">
             {t("owner_ads_preview_compare_ad")}
           </p>
-          <DeliveryAdOwnerPhoneFrame>
-            <DeliveryAdPlacementPreview
-              productKind={productKind}
-              inventoryKey={activeInventoryKey}
-              renderContext="owner_preview"
-              surfaceEnabled={surfaceEnabled}
-              store={null}
-              storeLoadError={productKind === "store_sponsored"}
-              bannerCreative={bannerCreative ?? null}
-              ctaLabel={ctaLabel ?? null}
-              ctaDestinationLabel={ctaDestinationLabel ?? null}
-            />
-          </DeliveryAdOwnerPhoneFrame>
+          {previewBody}
         </div>
       </div>
     </div>

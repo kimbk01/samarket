@@ -6,7 +6,7 @@ import {
   DELIVERY_AD_OWNER_APPLICATION_STEPS,
 } from "@/lib/stores/advertising/delivery-ad-design-board-contract";
 
-export function DeliveryAdOwnerStepProgress({ activeStep }: { activeStep: 1 | 2 | 3 | 4 | 5 }) {
+export function DeliveryAdOwnerStepProgress({ activeStep }: { activeStep: 1 | 2 | 3 | 4 }) {
   const { t } = useI18n();
   return (
     <ol
