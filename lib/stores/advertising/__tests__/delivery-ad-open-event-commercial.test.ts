@@ -82,7 +82,7 @@ describe("Delivery ads open-event commercial CUT", () => {
       "app/api/me/stores/[storeId]/delivery-ads/upload-banner-image/route.ts"
     );
     expect(route).toContain("_owner/delivery-ads/banner");
-    expect(route).toContain("validateOwnerBannerCreativeAspect");
+    expect(route).toContain("validateBannerCreativeGeometry");
     const nav = read("components/admin/stores/AdminDeliveryAdsSectionNav.tsx");
     expect(nav).toContain('data-admin-delivery-ads-nav-layout="tabs-plus-primary"');
   });

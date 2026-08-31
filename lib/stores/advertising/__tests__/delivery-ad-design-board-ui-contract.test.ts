@@ -33,14 +33,12 @@ describe("Delivery Ads design board UI contract", () => {
     );
   });
 
-  it("DB-O3 — application workspace has 4-step progress + confirm section", () => {
+  it("DB-O3 — application workspace is single-page with confirm", () => {
     const create = read("components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx");
-    const shell = read("components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx");
-    expect(create).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(shell).toContain("DeliveryAdOwnerStepProgress");
-    expect(shell).toContain('data-owner-ads-wizard="step-gated"');
+    expect(create).toContain('data-owner-ads-wizard="single-page"');
+    expect(create).not.toContain("OwnerDeliveryAdApplicationWizardShell");
     expect(create).toContain("DeliveryAdOwnerApplicationConfirm");
-    expect(create).toContain('data-owner-ads-step-panel="4"');
+    expect(create).toContain("DeliveryAdOwnerInsufficientCashSubmitModal");
     for (const s of ["store", "placement", "packages", "preview", "confirm"]) {
       expect(
         DELIVERY_AD_OWNER_APPLICATION_SECTIONS.some((x) => x.id === s)
@@ -88,7 +86,7 @@ describe("Delivery Ads design board UI contract", () => {
 
   it("DB-O6 — i18n section titles match board (ko)", () => {
     const i18n = read("lib/i18n/catalog/owner-delivery-ads.ts");
-    expect(i18n).toContain('owner_ads_section_packages: "기간/패키지/가격 선택"');
+    expect(i18n).toContain('owner_ads_section_packages: "광고 기간 선택"');
     expect(i18n).toContain('owner_ads_section_confirm: "신청 확인"');
     expect(i18n).toContain('owner_ads_apply_primary_cta: "+ 새 광고 신청하기"');
   });
@@ -125,14 +123,15 @@ describe("Delivery Ads design board UI contract", () => {
     expect(queue).toContain("data-queue-commercial-summary");
   });
 
-  it("DB-A4 — admin partner table + first-party 4-step", () => {
+  it("DB-A4 — admin partner table + first-party single-page", () => {
     const partner = read("components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx");
     expect(partner).toContain("data-admin-partner-memberships-table");
     expect(partner).toContain("AdminDeliveryAdPartnerConfigForm");
     const firstParty = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(firstParty).toContain("DeliveryAdAdminFirstPartyStepProgress");
-    expect(firstParty).toContain('data-admin-first-party-wizard="step-gated"');
-    expect(firstParty).toContain('data-admin-first-party-panel="1"');
+    expect(firstParty).toContain('data-admin-first-party-wizard="single-page"');
+    expect(firstParty).toContain("data-admin-fp-pixel-guide");
+    expect(firstParty).toContain("bannerGeometryRejectMessage");
+    expect(firstParty).not.toContain("DeliveryAdAdminFirstPartyStepProgress");
   });
 
   it("DB-A3b — standalone banner creative studio route", () => {

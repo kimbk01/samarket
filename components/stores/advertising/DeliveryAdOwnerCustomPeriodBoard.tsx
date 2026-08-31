@@ -37,7 +37,7 @@ export function DeliveryAdOwnerCustomPeriodBoard({
         <p className="text-[14px] font-bold text-sam-fg">{t("owner_ads_custom_period_title")}</p>
         {durationDays ? (
           <p className="mt-1 text-[12px] text-[#757575]">
-            {t("owner_ads_custom_period_selected").replace("{days}", String(durationDays))}
+            {t("owner_ads_custom_period_selected", { days: durationDays })}
           </p>
         ) : (
           <p className="mt-1 text-[12px] text-[#757575]">{t("owner_ads_custom_period_hint")}</p>

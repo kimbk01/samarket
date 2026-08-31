@@ -73,14 +73,13 @@ describe("UI-1 Owner step-gated application flow", () => {
     ).toBe(false);
   });
 
-  it("UI1-T4 — store-sponsored uses step-gated wizard shell", () => {
+  it("UI1-T4 — store-sponsored uses single-page workspace", () => {
     const src = read("components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx");
-    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(src).toContain('data-owner-ads-wizard="step-gated"');
-    expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
-    expect(src).toContain('data-owner-ads-step-panel="1"');
+    expect(src).toContain('data-owner-ads-wizard="single-page"');
+    expect(src).not.toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(src).not.toContain("parseOwnerDeliveryAdApplicationStep");
+    expect(src).toContain("DeliveryAdOwnerInsufficientCashSubmitModal");
     expect(src).toContain("/api/me/delivery-ads/placement-preview");
-    expect(src).not.toContain('data-owner-ads-wizard="absent"');
   });
 
   it("UI1-T5 — banner uses single-page workspace with creative mode A/B", () => {
@@ -91,8 +90,8 @@ describe("UI-1 Owner step-gated application flow", () => {
     expect(src).toContain("admin_produce");
     expect(src).toContain("upload-banner-image");
     expect(src).toContain("adminProducesCreative");
+    expect(src).toContain("DeliveryAdOwnerInsufficientCashSubmitModal");
     expect(src).not.toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(src).not.toContain('data-owner-ads-wizard="step-gated"');
   });
 
   it("UI1-T6 — hub 5-col action KPI + store on cards", () => {

@@ -55,6 +55,9 @@ export function OwnerStorePointWarningCard({
             {balance.toLocaleString(locale)}P
           </p>
           <p className="mt-0.5 text-xs text-sam-muted">{t("store_owner_point_balance_label")}</p>
+          <p className="mt-1 text-[11px] leading-snug text-sam-muted" data-owner-credit-vs-cash="1">
+            {t("store_owner_point_not_ad_cash")}
+          </p>
         </div>
         {blocked ? (
           <span className="rounded-full bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white">

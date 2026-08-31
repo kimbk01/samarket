@@ -1381,6 +1381,8 @@ export const storeCommerceUiMessages = {
     store_owner_mobile_kpi_preparing: "준비(조리)중",
     store_owner_point_title: "Business Credit",
     store_owner_point_balance_label: "보유 Business Credit",
+    store_owner_point_not_ad_cash:
+      "매장 운영용 크레딧입니다. 광고 결제에는 사용할 수 없습니다.",
     store_owner_point_blocked_badge: "주문 차단",
     store_owner_point_blocked_message:
       "Business Credit가 부족해 지금은 새 주문을 받을 수 없습니다. 고객 화면에는 준비중으로 표시됩니다.",
@@ -3125,6 +3127,8 @@ export const storeCommerceUiMessages = {
     store_owner_mobile_kpi_preparing: "Preparing",
     store_owner_point_title: "Business Credit",
     store_owner_point_balance_label: "Business Credit balance",
+    store_owner_point_not_ad_cash:
+      "Store-operations credit. Cannot be used to pay for ads.",
     store_owner_point_blocked_badge: "Orders blocked",
     store_owner_point_blocked_message:
       "Business Credit is too low to accept new orders. Customers will see your store as preparing.",

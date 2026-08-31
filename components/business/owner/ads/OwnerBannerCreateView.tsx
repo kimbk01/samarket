@@ -28,8 +28,12 @@ import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/
 import { DeliveryAdOwnerPlacementVisualGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
 import type { OwnerPlacementVisualOption } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
 import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
+import { DeliveryAdOwnerInsufficientCashSubmitModal } from "@/components/stores/advertising/DeliveryAdOwnerInsufficientCashSubmitModal";
 import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
-import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+import {
+  DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS,
+  DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS,
+} from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import { deliveryAdCommercialPlacementLabel } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import {
@@ -38,6 +42,7 @@ import {
   isOwnerBannerCreativePrepMode,
   type OwnerBannerCreativePrepMode,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
+import { bannerGeometryRejectMessage } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 import {
   OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET,
 } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
@@ -129,6 +134,8 @@ export function OwnerBannerCreateView() {
   const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [shortageModalOpen, setShortageModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneCampaign, setDoneCampaign] = useState<OwnerBannerCampaignRow | null>(null);
   const [existingCampaign, setExistingCampaign] = useState<OwnerBannerCampaignRow | null>(null);
@@ -360,11 +367,23 @@ export function OwnerBannerCreateView() {
         height?: number;
       };
       if (!res.ok || !json.ok || !json.path || !json.url) {
-        setError(
-          json.error === "aspect_mismatch" || json.error === "below_min_pixels"
-            ? "image_spec"
-            : json.error || "generic"
-        );
+        if (
+          json.error === "aspect_mismatch" ||
+          json.error === "below_min_pixels" ||
+          json.error === "invalid_dimensions"
+        ) {
+          const placementLabel = deliveryAdCommercialPlacementLabel(inventoryKey, lang);
+          setError(
+            `__geom__${bannerGeometryRejectMessage({
+              error: json.error as "aspect_mismatch" | "below_min_pixels" | "invalid_dimensions",
+              guide: DELIVERY_AD_BANNER_PIXEL_GUIDE[inventoryKey],
+              lang,
+              placementLabel,
+            })}`
+          );
+          return;
+        }
+        setError(json.error || "generic");
         return;
       }
       setUploaded({
@@ -392,11 +411,81 @@ export function OwnerBannerCreateView() {
         (creativeMode === "owner_upload" && uploaded?.path))
   );
 
-  const submit = useCallback(async () => {
-    if (!storeId || !inventoryKey || !packageId) {
+  const canSaveDraft = Boolean(
+    storeId && inventoryKey && packageId && quote && !noSellablePackages && acceptingApplications
+  );
+
+  const persistBannerDraft = useCallback(async (): Promise<OwnerBannerCampaignRow | null> => {
+    if (!storeId || !inventoryKey || !packageId || !quote) {
       setError(!storeId ? "store" : "inventory");
-      return;
+      return null;
     }
+    if (creativeMode === "owner_upload" && !uploaded?.path) {
+      setError("image_required");
+      return null;
+    }
+    const adminProducesCreative = creativeMode === "admin_produce";
+    const createRes = await fetch(
+      `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/banner`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inventoryKey,
+          packageId,
+          ctaType,
+          adminProducesCreative,
+          assetPath: adminProducesCreative ? "" : uploaded?.path,
+          sourceWidth: adminProducesCreative ? undefined : uploaded?.width,
+          sourceHeight: adminProducesCreative ? undefined : uploaded?.height,
+          requestMemo: requestMemo.trim() || null,
+          clientRequestId,
+          campaignId: existingCampaign?.id ?? null,
+          supersedeCreativeId: existingCampaign?.creativeId ?? null,
+        }),
+      }
+    );
+    const createJson = (await createRes.json()) as {
+      ok?: boolean;
+      error?: string;
+      campaign?: OwnerBannerCampaignRow;
+    };
+    if (!createRes.ok || !createJson.ok || !createJson.campaign) {
+      setError(createJson.error || "generic");
+      return null;
+    }
+    setExistingCampaign(createJson.campaign);
+    return createJson.campaign;
+  }, [
+    clientRequestId,
+    creativeMode,
+    ctaType,
+    existingCampaign?.creativeId,
+    existingCampaign?.id,
+    inventoryKey,
+    packageId,
+    quote,
+    requestMemo,
+    storeId,
+    uploaded,
+  ]);
+
+  const saveDraftOnly = useCallback(async () => {
+    setDraftBusy(true);
+    setError(null);
+    try {
+      const saved = await persistBannerDraft();
+      if (!saved) return;
+      router.push(DELIVERY_AD_OWNER_ROUTES.hub);
+    } catch {
+      setError("generic");
+    } finally {
+      setDraftBusy(false);
+    }
+  }, [persistBannerDraft, router]);
+
+  const submit = useCallback(async () => {
     if (!acceptingApplications) {
       setError("applications_paused");
       return;
@@ -405,45 +494,12 @@ export function OwnerBannerCreateView() {
       setError("no_packages");
       return;
     }
-    if (creativeMode === "owner_upload" && !uploaded?.path) {
-      setError("image_required");
-      return;
-    }
     setBusy(true);
     setError(null);
+    setShortageModalOpen(false);
     try {
-      const adminProducesCreative = creativeMode === "admin_produce";
-      const createRes = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/banner`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            inventoryKey,
-            packageId,
-            ctaType,
-            adminProducesCreative,
-            assetPath: adminProducesCreative ? "" : uploaded?.path,
-            sourceWidth: adminProducesCreative ? undefined : uploaded?.width,
-            sourceHeight: adminProducesCreative ? undefined : uploaded?.height,
-            requestMemo: requestMemo.trim() || null,
-            clientRequestId,
-            campaignId: existingCampaign?.id ?? null,
-            supersedeCreativeId: existingCampaign?.creativeId ?? null,
-          }),
-        }
-      );
-      const createJson = (await createRes.json()) as {
-        ok?: boolean;
-        error?: string;
-        campaign?: OwnerBannerCampaignRow;
-      };
-      if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-        setError(createJson.error || "generic");
-        return;
-      }
-      const draft = createJson.campaign;
+      const draft = await persistBannerDraft();
+      if (!draft || !quote) return;
       const actionRes = await fetch(
         `/api/me/stores/${encodeURIComponent(draft.storeId)}/delivery-ads/${encodeURIComponent(draft.id)}/actions`,
         {
@@ -487,23 +543,26 @@ export function OwnerBannerCreateView() {
     }
   }, [
     acceptingApplications,
-    clientRequestId,
-    creativeMode,
-    ctaType,
-    existingCampaign?.creativeId,
-    existingCampaign?.id,
-    inventoryKey,
     noSellablePackages,
     packageId,
+    persistBannerDraft,
     quote,
     refetchCommercial,
-    requestMemo,
-    storeId,
-    uploaded,
   ]);
 
+  const requestSubmit = useCallback(() => {
+    if (!canSubmit || !quote || cashBalanceMinor == null) return;
+    if (cashBalanceMinor < quote.finalPayableMinor) {
+      setShortageModalOpen(true);
+      return;
+    }
+    void submit();
+  }, [canSubmit, cashBalanceMinor, quote, submit]);
+
   const errorText =
-    error === "inventory"
+    error?.startsWith("__geom__")
+      ? error.slice("__geom__".length)
+      : error === "inventory"
       ? t("owner_ads_error_inventory")
       : error === "store"
         ? t("owner_ads_error_store")
@@ -693,8 +752,10 @@ export function OwnerBannerCreateView() {
                         fallbackEn: "Delivery home top banner",
                       }),
                       help: `${safeT("owner_ads_launch_home_hero_help", {
-                        fallbackKo: "배달 홈 상단에서 여러 배너가 슬라이드로 노출됩니다.",
-                        fallbackEn: "Appears in the Delivery Home top banner carousel.",
+                        fallbackKo:
+                          "배달 홈 맨 위 큰 배너 영역에 표시됩니다. 여러 광고가 함께 운영되면 5초 간격으로 슬라이드됩니다(스와이프·dots).",
+                        fallbackEn:
+                          "Top of Delivery Home. Multiple ads slide every 5s with swipe and dots.",
                       })} · ${formatBannerPixelGuideLine(
                         DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO,
                         lang
@@ -708,8 +769,10 @@ export function OwnerBannerCreateView() {
                         fallbackEn: "Search results top banner",
                       }),
                       help: `${safeT("owner_ads_launch_search_top_help", {
-                        fallbackKo: "고객이 검색했을 때 매장 목록 위에 배너가 표시됩니다.",
-                        fallbackEn: "Shown above store results when a search has matches.",
+                        fallbackKo:
+                          "고객이 검색했을 때 매장 목록 위에 배너 1개가 표시됩니다.",
+                        fallbackEn:
+                          "One banner above store results when a search has matches.",
                       })} · ${formatBannerPixelGuideLine(
                         DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_SEARCH_TOP,
                         lang
@@ -910,27 +973,56 @@ export function OwnerBannerCreateView() {
               </div>
               {creativeMode === "owner_upload" ? (
                 <div className="mt-3 space-y-2" data-owner-ads-owner-upload="1">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    disabled={uploadBusy || !inventoryKey || !storeId}
-                    className="block w-full text-[12px]"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] ?? null;
-                      void onUploadFile(f);
-                      e.target.value = "";
-                    }}
-                  />
+                  <label className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[44px] w-full cursor-pointer`}>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      disabled={uploadBusy || !inventoryKey || !storeId}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] ?? null;
+                        void onUploadFile(f);
+                        e.target.value = "";
+                      }}
+                    />
+                    {uploadBusy
+                      ? t("owner_ads_loading")
+                      : uploaded
+                        ? safeT("owner_ads_banner_image_change", {
+                            fallbackKo: "이미지 변경",
+                            fallbackEn: "Change image",
+                          })
+                        : safeT("owner_ads_banner_image_pick", {
+                            fallbackKo: "이미지 선택",
+                            fallbackEn: "Choose image",
+                          })}
+                  </label>
                   {uploaded?.url ? (
-                    <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={uploaded.url}
-                        alt=""
-                        className={`w-full object-cover ${
-                          inventoryKey === "STORES_SEARCH_TOP" ? "aspect-[3/1]" : "aspect-[39/16]"
-                        }`}
-                      />
+                    <div className="space-y-2">
+                      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={uploaded.url}
+                          alt=""
+                          className={`w-full object-cover ${
+                            inventoryKey === "STORES_SEARCH_TOP" ? "aspect-[3/1]" : "aspect-[39/16]"
+                          }`}
+                        />
+                      </div>
+                      <p className="text-[11px] text-sam-muted tabular-nums" data-owner-ads-upload-dims="1">
+                        {uploaded.width}×{uploaded.height}px
+                      </p>
+                      <button
+                        type="button"
+                        className="text-[13px] font-semibold text-red-600 underline-offset-2 hover:underline"
+                        data-owner-ads-image-remove="1"
+                        onClick={() => setUploaded(null)}
+                      >
+                        {safeT("owner_ads_banner_image_remove", {
+                          fallbackKo: "이미지 삭제",
+                          fallbackEn: "Remove image",
+                        })}
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -1037,20 +1129,31 @@ export function OwnerBannerCreateView() {
         style={footerPadStyle}
         data-owner-ads-footer="owner-admin-ssot"
       >
-        <button
-          type="button"
-          className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[48px] w-full`}
-          disabled={!canSubmit || busy}
-          data-owner-ads-submit-cta="apply"
-          onClick={() => void submit()}
-        >
-          {busy
-            ? t("owner_ads_loading")
-            : safeT("owner_ads_apply_submit_cta", {
-                fallbackKo: "광고 신청",
-                fallbackEn: "Submit ad application",
-              })}
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[48px] w-full sm:w-auto sm:min-w-[120px]`}
+            disabled={!canSaveDraft || draftBusy || busy}
+            data-owner-ads-draft-cta="save"
+            onClick={() => void saveDraftOnly()}
+          >
+            {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
+          </button>
+          <button
+            type="button"
+            className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[48px] w-full flex-1`}
+            disabled={!canSubmit || busy || draftBusy}
+            data-owner-ads-submit-cta="apply"
+            onClick={() => requestSubmit()}
+          >
+            {busy
+              ? t("owner_ads_loading")
+              : safeT("owner_ads_apply_submit_cta", {
+                  fallbackKo: "광고 신청",
+                  fallbackEn: "Submit ad application",
+                })}
+          </button>
+        </div>
         <p className="mt-2 text-center text-[11px] text-sam-muted">
           {safeT("owner_ads_confirm_business_cash_model_b", {
             fallbackKo: "관리자 승인 후 Business Cash로 결제합니다.",
@@ -1058,6 +1161,15 @@ export function OwnerBannerCreateView() {
           })}
         </p>
       </div>
+
+      <DeliveryAdOwnerInsufficientCashSubmitModal
+        open={shortageModalOpen}
+        adAmountMinor={quote?.finalPayableMinor ?? 0}
+        balanceMinor={cashBalanceMinor ?? 0}
+        busy={busy}
+        onCancel={() => setShortageModalOpen(false)}
+        onSubmitAnyway={() => void submit()}
+      />
 
       <DibayBottomSheet
         open={storeSheetOpen}

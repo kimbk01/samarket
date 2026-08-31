@@ -12,9 +12,10 @@ export type DeliveryAdOwnerApplicationConfirmRow = {
 type CashBreakdown = {
   adAmountMinor: number;
   balanceMinor: number;
+  operationsCreditDisplay?: string | null;
 };
 
-/** Design board screen 5 — 신청 확인 summary + Business Cash numbers + timeline */
+/** Application confirm + Business Cash (shortage framing when underfunded). */
 export function DeliveryAdOwnerApplicationConfirm({
   rows,
   totalDisplay,
@@ -29,8 +30,13 @@ export function DeliveryAdOwnerApplicationConfirm({
   const { t, safeT } = useI18n();
   if (!totalDisplay) return null;
 
-  const afterPayMinor =
+  const shortageMinor =
     cashBreakdown != null
+      ? Math.max(0, cashBreakdown.adAmountMinor - cashBreakdown.balanceMinor)
+      : 0;
+  const insufficient = cashBreakdown != null && shortageMinor > 0;
+  const afterPayMinor =
+    cashBreakdown != null && !insufficient
       ? cashBreakdown.balanceMinor - cashBreakdown.adAmountMinor
       : null;
 
@@ -53,23 +59,23 @@ export function DeliveryAdOwnerApplicationConfirm({
         <dl
           className="mt-3 space-y-2 rounded-ui-rect border border-[#BDBDBD] bg-white p-3 text-[13px]"
           data-owner-ads-confirm-cash="numeric"
+          data-owner-ads-cash-wallet="ad-only"
+          data-owner-ads-cash-insufficient={insufficient ? "1" : "0"}
         >
+          <p className="text-[13px] font-bold text-sam-fg">
+            {t("owner_ads_confirm_cash_wallet_title")}
+          </p>
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-[#757575]">
-              {safeT("owner_ads_confirm_ad_amount", {
-                fallbackKo: "광고 금액",
-                fallbackEn: "Ad amount",
-              })}
-            </dt>
+            <dt className="text-[#757575]">{t("owner_ads_confirm_ad_amount")}</dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
               {formatDeliveryAdPhpMinor(cashBreakdown.adAmountMinor)}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-[#757575]">
-              {safeT("owner_ads_confirm_cash_balance", {
-                fallbackKo: "현재 Business Cash",
-                fallbackEn: "Current Business Cash",
+              {safeT("owner_ads_confirm_cash_balance_ad", {
+                fallbackKo: "광고 Business Cash",
+                fallbackEn: "Ad Business Cash",
               })}
             </dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
@@ -78,37 +84,51 @@ export function DeliveryAdOwnerApplicationConfirm({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-[#757575]">
-              {safeT("owner_ads_confirm_pay_after_approval", {
-                fallbackKo: "승인 후 결제 예정",
-                fallbackEn: "Due after approval",
+              {safeT("owner_ads_confirm_amount_needed", {
+                fallbackKo: "승인 후 필요한 금액",
+                fallbackEn: "Amount needed after approval",
               })}
             </dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
               {formatDeliveryAdPhpMinor(cashBreakdown.adAmountMinor)}
             </dd>
           </div>
-          {afterPayMinor != null ? (
-            <div className="flex items-center justify-between gap-3 border-t border-[#BDBDBD] pt-2">
-              <dt className="text-[#757575]">
-                {safeT("owner_ads_confirm_cash_after_pay", {
-                  fallbackKo: "결제 후 예상 잔액",
-                  fallbackEn: "Balance after payment",
+          {insufficient ? (
+            <>
+              <div className="flex items-center justify-between gap-3 border-t border-[#BDBDBD] pt-2">
+                <dt className="text-[#757575]">
+                  {safeT("owner_ads_cash_shortage_amount", {
+                    fallbackKo: "현재 부족 금액",
+                    fallbackEn: "Current shortfall",
+                  })}
+                </dt>
+                <dd className="font-bold tabular-nums text-red-600">
+                  {formatDeliveryAdPhpMinor(shortageMinor)}
+                </dd>
+              </div>
+              <p className="text-[12px] font-medium text-red-600" role="status">
+                {t("owner_ads_funding_insufficient")}
+              </p>
+              <p className="text-[12px] leading-relaxed text-[#757575]">
+                {safeT("owner_ads_cash_shortage_prep_copy", {
+                  fallbackKo:
+                    "광고 신청은 관리자 검수 후 결제가 필요합니다. 현재 광고 Business Cash가 부족하므로 승인 후 결제 전에 잔액을 준비해야 합니다.",
+                  fallbackEn:
+                    "Payment is due after admin approval. Your ad Business Cash is short, so prepare balance before funding after approval.",
                 })}
-              </dt>
-              <dd
-                className={`font-bold tabular-nums ${
-                  afterPayMinor < 0 ? "text-red-600" : "text-sam-fg"
-                }`}
-              >
+              </p>
+            </>
+          ) : afterPayMinor != null ? (
+            <div className="flex items-center justify-between gap-3 border-t border-[#BDBDBD] pt-2">
+              <dt className="text-[#757575]">{t("owner_ads_confirm_cash_after_pay")}</dt>
+              <dd className="font-bold tabular-nums text-sam-fg">
                 {formatDeliveryAdPhpMinor(afterPayMinor)}
               </dd>
             </div>
           ) : null}
-          {afterPayMinor != null && afterPayMinor < 0 ? (
-            <p className="text-[12px] font-medium text-red-600" role="status">
-              {t("owner_ads_funding_insufficient")}
-            </p>
-          ) : null}
+          <p className="text-[12px] leading-relaxed text-[#757575]" data-owner-ads-cash-vs-credit="1">
+            {t("owner_ads_business_cash_vs_credit")}
+          </p>
         </dl>
       ) : null}
 

@@ -10,13 +10,8 @@ import {
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import {
-  bannerPixelGuideForInventory,
-} from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
-import {
-  isOwnerBannerInventoryKey,
-  validateOwnerBannerCreativeAspect,
-} from "@/lib/stores/advertising/owner-banner-contract";
+import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
+import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,23 +85,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
   }
 
-  const aspect = validateOwnerBannerCreativeAspect({
+  const geom = validateBannerCreativeGeometry({
     inventoryKey: inventoryRaw,
-    sourceWidth: width,
-    sourceHeight: height,
+    width,
+    height,
   });
-  if (!aspect.ok) {
-    return NextResponse.json({ ok: false, error: aspect.error }, { status: 400 });
-  }
-
-  const guide = bannerPixelGuideForInventory(inventoryRaw);
-  if (guide && (width < guide.minWidth || height < guide.minHeight)) {
+  if (!geom.ok) {
     return NextResponse.json(
       {
         ok: false,
-        error: "below_min_pixels",
-        minWidth: guide.minWidth,
-        minHeight: guide.minHeight,
+        error: geom.error,
+        minWidth: geom.guide?.minWidth,
+        minHeight: geom.guide?.minHeight,
+        ratio: geom.guide?.ratioLabel,
         width,
         height,
       },

@@ -260,7 +260,7 @@ describe("R4 DIBAY first-party Banner", () => {
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
     expect(view).toContain("DeliveryAdBanner");
     expect(view).toContain('data-admin-first-party-create="design-board"');
-    expect(view).toContain('data-admin-first-party-wizard="step-gated"');
+    expect(view).toContain('data-admin-first-party-wizard="single-page"');
     expect(view).toContain("NOT_IMPLEMENTED_MODEL_BLOCKED");
   });
 

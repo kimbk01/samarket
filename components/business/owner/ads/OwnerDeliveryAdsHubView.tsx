@@ -443,40 +443,66 @@ export function OwnerDeliveryAdsHubView() {
         </>
       )}
 
-      <div
-        className="rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
-        data-owner-ads-business-cash="card"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[13px] font-semibold text-sam-fg">
-              {t("owner_ads_business_cash_label")}
-            </p>
-            <p className="mt-1 text-[22px] font-bold tabular-nums text-sam-fg">
-              {cashBalanceMinor != null ? formatDeliveryAdPhpMinor(cashBalanceMinor) : "—"}
-            </p>
+        <div
+          className="rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
+          data-owner-ads-business-cash="card"
+          data-owner-ads-cash-wallet="ad-only"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-semibold text-sam-fg">
+                {t("owner_ads_business_cash_label")}
+              </p>
+              <p className="mt-1 text-[22px] font-bold tabular-nums text-sam-fg">
+                {cashBalanceMinor != null ? formatDeliveryAdPhpMinor(cashBalanceMinor) : "—"}
+              </p>
+              <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_business_cash_ad_only")}</p>
+              {cashBalanceMinor != null && cashBalanceMinor <= 0 ? (
+                <p className="mt-1 text-[12px] font-medium text-red-600" data-owner-ads-cash-empty="1">
+                  {safeT("owner_ads_cash_status_empty", {
+                    fallbackKo: "잔액 없음",
+                    fallbackEn: "No balance",
+                  })}
+                </p>
+              ) : cashBalanceMinor != null && cashBalanceMinor > 0 ? (
+                <p className="mt-1 text-[12px] font-medium text-[#0A823E]" data-owner-ads-cash-ready="1">
+                  {safeT("owner_ads_cash_status_ready", {
+                    fallbackKo: "사용 가능",
+                    fallbackEn: "Available",
+                  })}
+                </p>
+              ) : null}
+              <p className="mt-1 text-[11px] leading-snug text-sam-muted">
+                {t("owner_ads_business_cash_vs_credit")}
+              </p>
+              <p className="mt-1 text-[11px] text-sam-muted">
+                {safeT("owner_ads_cash_grant_ask_admin", {
+                  fallbackKo: "Business Cash 지급이 필요한 경우 관리자에게 문의해 주세요.",
+                  fallbackEn: "Ask admin for a Business Cash grant if needed.",
+                })}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]"
+              data-owner-ads-cash-history="1"
+              onClick={() => setCashHistoryOpen((v) => !v)}
+            >
+              {safeT("owner_ads_cash_history", {
+                fallbackKo: "이용 내역",
+                fallbackEn: "History",
+              })}
+            </button>
           </div>
-          <button
-            type="button"
-            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg"
-            data-owner-ads-cash-history="1"
-            onClick={() => setCashHistoryOpen((v) => !v)}
-          >
-            {safeT("owner_ads_cash_history", {
-              fallbackKo: "이용 내역",
-              fallbackEn: "History",
-            })}
-          </button>
+          {cashHistoryOpen ? (
+            <p className="mt-3 text-[12px] text-sam-muted" data-owner-ads-cash-history-empty="1">
+              {safeT("owner_ads_cash_history_empty", {
+                fallbackKo: "아직 이용 내역이 없습니다.",
+                fallbackEn: "No cash history yet.",
+              })}
+            </p>
+          ) : null}
         </div>
-        {cashHistoryOpen ? (
-          <p className="mt-3 text-[12px] text-sam-muted" data-owner-ads-cash-history-empty="1">
-            {safeT("owner_ads_cash_history_empty", {
-              fallbackKo: "아직 이용 내역이 없습니다.",
-              fallbackEn: "No cash history yet.",
-            })}
-          </p>
-        ) : null}
-      </div>
 
       <DibayBottomSheet
         open={productSelectOpen}

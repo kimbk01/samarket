@@ -21,6 +21,8 @@ export type DeliveryAdOwnerPackageCardItem = {
   partnerDiscountPercent?: number;
   partnerActive?: boolean;
   displayName?: string;
+  /** Server quote: partner discount amount display (optional). */
+  partnerDiscountDisplay?: string;
 };
 
 export function DeliveryAdOwnerPackageCardGrid({
@@ -45,7 +47,7 @@ export function DeliveryAdOwnerPackageCardGrid({
             className="flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] px-2 py-3 text-center opacity-70"
           >
             <span className="text-[12px] font-semibold text-[#757575]">
-              {t("owner_ads_period_duration_days").replace("{days}", String(days))}
+              {t("owner_ads_period_duration_days", { days })}
             </span>
             <span className="mt-1 text-[11px] font-medium text-[#757575]">
               {t("owner_ads_package_sale_preparing")}
@@ -66,7 +68,7 @@ export function DeliveryAdOwnerPackageCardGrid({
           <button
             key={pkg.packageId}
             type="button"
-            className={`flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition ${
+            className={`flex min-h-[110px] flex-col items-center justify-center rounded-ui-rect border px-2 py-3 text-center transition hover:border-[#0A823E]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
               selected
                 ? DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED
                 : DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE
@@ -74,9 +76,10 @@ export function DeliveryAdOwnerPackageCardGrid({
             onClick={() => onSelect(pkg.packageId)}
             aria-pressed={selected}
             data-owner-ads-package-id={pkg.packageId}
+            data-owner-ads-period-card="1"
           >
             <span className="text-[12px] font-semibold text-sam-fg">
-              {t("owner_ads_period_duration_days").replace("{days}", String(pkg.durationDays))}
+              {t("owner_ads_period_duration_days", { days: pkg.durationDays })}
             </span>
             {showPartner && pkg.basePriceDisplay ? (
               <span className="mt-0.5 text-[10px] text-[#757575] line-through tabular-nums">
@@ -92,10 +95,9 @@ export function DeliveryAdOwnerPackageCardGrid({
             </span>
             {pkg.durationDays > 0 && pkg.finalPayableMinor != null && pkg.finalPayableMinor > 0 ? (
               <span className="mt-0.5 text-[10px] text-[#757575] tabular-nums">
-                {t("owner_ads_package_daily_avg").replace(
-                  "{amount}",
-                  formatDailyAvg(pkg.finalPayableMinor, pkg.durationDays)
-                )}
+                {t("owner_ads_package_daily_avg", {
+                  amount: formatDailyAvg(pkg.finalPayableMinor, pkg.durationDays),
+                })}
               </span>
             ) : null}
             {showPartner ? (

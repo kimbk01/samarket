@@ -1,22 +1,23 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { randomUUID } from "crypto";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
   extForCampaignImageMime,
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isOwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
+import { validateBannerCreativeGeometry } from "@/lib/stores/advertising/validate-banner-creative-geometry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Reuse admin image bucket — path prefix isolates Delivery Banner finals. */
 const BUCKET = "admin-notification-campaign-images";
 
 /**
- * POST multipart `file` — Admin-only Banner final creative upload.
- * Returns public URL + decoded dimensions for aspect validation on replace.
+ * POST multipart `file` + optional `inventoryKey` — Admin Banner creative upload.
+ * When inventoryKey present, shares Owner geometry validator (aspect + min pixels).
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -60,6 +61,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
   }
 
+  const inventoryRaw = String(form.get("inventoryKey") ?? form.get("inventory_key") ?? "").trim();
+  if (inventoryRaw) {
+    if (!isOwnerBannerInventoryKey(inventoryRaw)) {
+      return NextResponse.json({ ok: false, error: "invalid_inventory" }, { status: 400 });
+    }
+    const geom = validateBannerCreativeGeometry({
+      inventoryKey: inventoryRaw,
+      width,
+      height,
+    });
+    if (!geom.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: geom.error,
+          minWidth: geom.guide?.minWidth,
+          minHeight: geom.guide?.minHeight,
+          ratio: geom.guide?.ratioLabel,
+          width,
+          height,
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const ext = extForCampaignImageMime(validated.mime);
   const campaignId = String(form.get("campaignId") ?? "").trim() || "unbound";
   const path = `_admin/delivery-ads/banner/${campaignId}/${admin.userId}/${randomUUID()}.${ext}`;
@@ -87,5 +114,6 @@ export async function POST(req: NextRequest) {
     path,
     width,
     height,
+    inventoryKey: inventoryRaw || null,
   });
 }

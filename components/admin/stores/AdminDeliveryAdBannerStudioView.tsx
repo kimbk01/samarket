@@ -22,6 +22,10 @@ import {
   adminDeliveryAdInventoryAspectLabel,
   adminDeliveryAdInventoryHumanLabel,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
+import {
+  DELIVERY_AD_BANNER_PIXEL_GUIDE,
+  formatBannerPixelGuideLine,
+} from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 import type { DeliveryAdPlacementPreviewPayload } from "@/lib/stores/advertising/load-delivery-ad-placement-preview-bundle";
 
 type Props = {
@@ -114,6 +118,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       const form = new FormData();
       form.append("file", file);
       form.append("campaignId", campaignId);
+      form.append("inventoryKey", inventoryKey);
       const upRes = await fetch("/api/admin/delivery-ads/upload-banner-image", {
         method: "POST",
         credentials: "include",
@@ -268,13 +273,21 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           </AdminCard>
           <div className="grid gap-4 lg:grid-cols-2">
             <AdminCard titleKey="admin_delivery_ads_section_creative_produce">
+              {(() => {
+                const g = DELIVERY_AD_BANNER_PIXEL_GUIDE[
+                  inventoryKey === "STORES_SEARCH_TOP" ? "STORES_SEARCH_TOP" : "STORES_HOME_HERO"
+                ];
+                return (
+                  <p className="text-[12px] text-sam-muted" data-admin-banner-pixel-guide="1">
+                    {formatBannerPixelGuideLine(g, lang)}
+                    <br />
+                    {lang === "en" ? g.safeAreaNoteEn : g.safeAreaNoteKo}
+                  </p>
+                );
+              })()}
               {aspect ? (
-                <p className="text-[12px] text-sam-muted" data-admin-banner-aspect={aspect}>
-                  {safeT("admin_delivery_ads_creative_aspect_hint", {
-                    fallbackKo: `업로드 전 확인 · JPEG/PNG/WebP · 권장 비율 ${aspect}`,
-                    fallbackEn: `Before upload · JPEG/PNG/WebP · recommended ${aspect}`,
-                    vars: { ratio: aspect },
-                  })}
+                <p className="sr-only" data-admin-banner-aspect={aspect}>
+                  {aspect}
                 </p>
               ) : null}
               <p className="mt-2 text-[13px] font-medium">

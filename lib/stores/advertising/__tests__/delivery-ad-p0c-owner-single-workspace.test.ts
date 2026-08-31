@@ -49,12 +49,13 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(DELIVERY_AD_OWNER_ROUTES.createBanner).toContain("banner");
   });
 
-  it("T3 — Store Promotion step-gated wizard authority", () => {
+  it("T3 — Store Promotion single-page workspace authority", () => {
     const src = sponsored();
-    expect(src).toContain('data-owner-ads-wizard="step-gated"');
+    expect(src).toContain('data-owner-ads-wizard="single-page"');
     expect(src).toContain('data-owner-ads-workspace="store-sponsored"');
-    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
+    expect(src).not.toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(src).not.toContain("parseOwnerDeliveryAdApplicationStep");
+    expect(src).toContain("DeliveryAdOwnerInsufficientCashSubmitModal");
   });
 
   it("T4 — Banner single-page workspace authority", () => {
@@ -169,14 +170,12 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
   });
 
   it("T14 — Owner footer uses canonical above-nav authority", () => {
-    const shell = read("components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx");
     expect(sponsored()).toContain("useOwnerAdminFormKeyboard");
     expect(sponsored()).toContain("aboveBottomNav: true");
-    expect(sponsored()).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(sponsored()).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(banner()).toContain("useOwnerAdminFormKeyboard");
     expect(banner()).toContain("aboveBottomNav: true");
     expect(banner()).toContain('data-owner-ads-footer="owner-admin-ssot"');
-    expect(shell).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
 
@@ -222,9 +221,9 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(banner()).toContain("deliveryAdCommercialPlacementLabel");
   });
 
-  it("T22 — store-sponsored keeps step wizard; banner is single-page", () => {
-    expect(sponsored()).toContain('data-owner-ads-step-panel="1"');
-    expect(sponsored()).toContain('data-owner-ads-wizard="step-gated"');
+  it("T22 — store-sponsored and banner are both single-page", () => {
+    expect(sponsored()).toContain('data-owner-ads-wizard="single-page"');
+    expect(sponsored()).not.toContain('data-owner-ads-step-panel="1"');
     expect(banner()).toContain('data-owner-ads-wizard="single-page"');
     expect(banner()).not.toContain('data-owner-ads-step-panel="1"');
   });

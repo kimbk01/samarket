@@ -1,10 +1,9 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
-import { OwnerDeliveryAdApplicationWizardShell } from "@/components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
@@ -20,18 +19,15 @@ import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner
 import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/DeliveryAdOwnerPackageCardGrid";
 import { DeliveryAdOwnerPlacementVisualGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
 import type { OwnerPlacementVisualOption } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
-import {
-  ownerCategoryPlacementTitle,
-} from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
+import { ownerCategoryPlacementTitle } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
+import { DeliveryAdOwnerInsufficientCashSubmitModal } from "@/components/stores/advertising/DeliveryAdOwnerInsufficientCashSubmitModal";
 import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
-import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
-import { deliveryAdCommercialPlacementLabel } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import {
-  canAdvanceOwnerApplicationStep,
-  parseOwnerDeliveryAdApplicationStep,
-  type OwnerDeliveryAdApplicationStep,
-} from "@/lib/stores/advertising/owner-delivery-ad-application-step";
+  DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS,
+  DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS,
+} from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
+import { deliveryAdCommercialPlacementLabel } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 
 type EligibleStore = {
@@ -74,18 +70,18 @@ type CommercialPlacement = {
   labels: { ko: string; en: string } | null;
 };
 
+/**
+ * Owner Store Promotion — single-page workspace (no step wizard).
+ */
 export function OwnerStoreSponsoredCreateView() {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const lang = language === "en" ? "en" : "ko";
-  const step = parseOwnerDeliveryAdApplicationStep(searchParams.get("step"));
   const {
     formPadStyle,
     footerPadStyle,
     footerFixedClassName,
-    keyboardOpen,
   } = useOwnerAdminFormKeyboard({ aboveBottomNav: true });
 
   const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
@@ -109,6 +105,8 @@ export function OwnerStoreSponsoredCreateView() {
   const [productLabel, setProductLabel] = useState<string | null>(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [shortageModalOpen, setShortageModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneCampaign, setDoneCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
   const [existingCampaign, setExistingCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
@@ -118,17 +116,6 @@ export function OwnerStoreSponsoredCreateView() {
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `req_${Date.now()}`
-  );
-
-  const goToStep = useCallback(
-    (next: OwnerDeliveryAdApplicationStep) => {
-      const qs = new URLSearchParams(searchParams.toString());
-      qs.set("step", String(next));
-      if (storeId) qs.set("storeId", storeId);
-      if (inventoryKey) qs.set("inventoryKey", inventoryKey);
-      router.push(`${pathname}?${qs.toString()}`);
-    },
-    [pathname, router, searchParams, storeId, inventoryKey]
   );
 
   useEffect(() => {
@@ -199,39 +186,33 @@ export function OwnerStoreSponsoredCreateView() {
   }, [preloadCampaignId, preloadStoreId]);
 
   useEffect(() => {
-    if (step === 1 || !loaded) return;
-    if (!storeId || !inventoryKey) goToStep(1);
-  }, [step, storeId, inventoryKey, goToStep, loaded]);
-
-  useEffect(() => {
-    if ((step === 3 || step === 4) && storeId) {
-      let cancelled = false;
-      void fetch(
-        `/api/me/delivery-ads/placement-preview?storeId=${encodeURIComponent(storeId)}&lang=${lang}`,
-        { credentials: "include" }
-      )
-        .then(async (res) => {
-          const json = (await res.json()) as { ok?: boolean; store?: StoreHomeFeedItem };
-          if (cancelled) return;
-          if (res.ok && json.ok && json.store) {
-            setPreviewStore(json.store);
-            setPreviewStoreError(false);
-          } else {
-            setPreviewStore(null);
-            setPreviewStoreError(true);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setPreviewStore(null);
-            setPreviewStoreError(true);
-          }
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [step, storeId, lang]);
+    if (!storeId) return;
+    let cancelled = false;
+    void fetch(
+      `/api/me/delivery-ads/placement-preview?storeId=${encodeURIComponent(storeId)}&lang=${lang}`,
+      { credentials: "include" }
+    )
+      .then(async (res) => {
+        const json = (await res.json()) as { ok?: boolean; store?: StoreHomeFeedItem };
+        if (cancelled) return;
+        if (res.ok && json.ok && json.store) {
+          setPreviewStore(json.store);
+          setPreviewStoreError(false);
+        } else {
+          setPreviewStore(null);
+          setPreviewStoreError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewStore(null);
+          setPreviewStoreError(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, lang]);
 
   const selectedStore = useMemo(
     () => stores.find((s) => s.id === storeId) ?? null,
@@ -345,68 +326,97 @@ export function OwnerStoreSponsoredCreateView() {
     setError(null);
   };
 
-  const submit = useCallback(async () => {
+  const persistDraft = useCallback(async (): Promise<OwnerSponsoredCampaignRow | null> => {
     if (!storeId || !inventoryKey || !packageId) {
       setError(!storeId ? "store" : "inventory");
-      return;
+      return null;
     }
     if (!acceptingApplications) {
       setError("applications_paused");
-      return;
+      return null;
     }
     if (noSellablePackages || !quote) {
       setError("no_packages");
-      return;
+      return null;
     }
-    setBusy(true);
+    let saved = existingCampaign;
+    if (saved) {
+      const patchRes = await fetch(
+        `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(saved.id)}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inventoryKeys: [inventoryKey], packageId }),
+        }
+      );
+      const patchJson = (await patchRes.json()) as {
+        ok?: boolean;
+        error?: string;
+        campaign?: OwnerSponsoredCampaignRow;
+      };
+      if (!patchRes.ok || !patchJson.ok || !patchJson.campaign) {
+        setError(patchJson.error || "generic");
+        return null;
+      }
+      saved = patchJson.campaign;
+      setExistingCampaign(saved);
+      return saved;
+    }
+    const createRes = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        inventoryKeys: [inventoryKey],
+        packageId,
+        clientRequestId,
+      }),
+    });
+    const createJson = (await createRes.json()) as {
+      ok?: boolean;
+      error?: string;
+      campaign?: OwnerSponsoredCampaignRow;
+    };
+    if (!createRes.ok || !createJson.ok || !createJson.campaign) {
+      setError(createJson.error || "generic");
+      return null;
+    }
+    saved = createJson.campaign;
+    setExistingCampaign(saved);
+    return saved;
+  }, [
+    acceptingApplications,
+    clientRequestId,
+    existingCampaign,
+    inventoryKey,
+    noSellablePackages,
+    packageId,
+    quote,
+    storeId,
+  ]);
+
+  const saveDraftOnly = useCallback(async () => {
+    setDraftBusy(true);
     setError(null);
     try {
-      let saved = existingCampaign;
-      if (saved) {
-        const patchRes = await fetch(
-          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads/${encodeURIComponent(saved.id)}`,
-          {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ inventoryKeys: [inventoryKey] }),
-          }
-        );
-        const patchJson = (await patchRes.json()) as {
-          ok?: boolean;
-          error?: string;
-          campaign?: OwnerSponsoredCampaignRow;
-        };
-        if (!patchRes.ok || !patchJson.ok || !patchJson.campaign) {
-          setError(patchJson.error || "generic");
-          return;
-        }
-        saved = patchJson.campaign;
-      } else {
-        const createRes = await fetch(
-          `/api/me/stores/${encodeURIComponent(storeId)}/delivery-ads`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              inventoryKeys: [inventoryKey],
-              packageId,
-              clientRequestId,
-            }),
-          }
-        );
-        const createJson = (await createRes.json()) as {
-          ok?: boolean;
-          error?: string;
-          campaign?: OwnerSponsoredCampaignRow;
-        };
-        if (!createRes.ok || !createJson.ok || !createJson.campaign) {
-          setError(createJson.error || "generic");
-          return;
-        }
-        saved = createJson.campaign;
-      }
+      const saved = await persistDraft();
+      if (!saved) return;
+      router.push(DELIVERY_AD_OWNER_ROUTES.hub);
+    } catch {
+      setError("generic");
+    } finally {
+      setDraftBusy(false);
+    }
+  }, [persistDraft, router]);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    setShortageModalOpen(false);
+    try {
+      const saved = await persistDraft();
+      if (!saved || !quote) return;
       const actionRes = await fetch(
         `/api/me/stores/${encodeURIComponent(saved.storeId)}/delivery-ads/${encodeURIComponent(saved.id)}/actions`,
         {
@@ -446,17 +456,7 @@ export function OwnerStoreSponsoredCreateView() {
     } finally {
       setBusy(false);
     }
-  }, [
-    acceptingApplications,
-    clientRequestId,
-    existingCampaign,
-    inventoryKey,
-    noSellablePackages,
-    packageId,
-    quote,
-    refetchCommercial,
-    storeId,
-  ]);
+  }, [packageId, persistDraft, quote, refetchCommercial]);
 
   const errorText =
     error === "inventory"
@@ -476,9 +476,24 @@ export function OwnerStoreSponsoredCreateView() {
                   })
                 : null;
 
-  const canAdvanceStep1 = Boolean(storeId && inventoryKey);
-  /** Preview (step 3) does not require a sellable package — only confirm/submit does. */
-  const canAdvanceStep2 = Boolean(storeId && inventoryKey && !commercialLoading);
+  const canSubmit = Boolean(
+    storeId &&
+      inventoryKey &&
+      packageId &&
+      quote &&
+      !noSellablePackages &&
+      acceptingApplications &&
+      !commercialLoading
+  );
+
+  const requestSubmit = useCallback(() => {
+    if (!canSubmit || !quote || cashBalanceMinor == null) return;
+    if (cashBalanceMinor < quote.finalPayableMinor) {
+      setShortageModalOpen(true);
+      return;
+    }
+    void submit();
+  }, [canSubmit, cashBalanceMinor, quote, submit]);
 
   const confirmRows = useMemo(() => {
     if (!selectedStore) return [];
@@ -494,7 +509,7 @@ export function OwnerStoreSponsoredCreateView() {
       rows.push(
         {
           labelKey: "owner_ads_confirm_package",
-          value: quote.packageDisplayName || `${quote.durationDays}일`,
+          value: t("owner_ads_period_duration_days", { days: quote.durationDays }),
         },
         {
           labelKey: "owner_ads_confirm_period",
@@ -515,26 +530,12 @@ export function OwnerStoreSponsoredCreateView() {
     return rows;
   }, [quote, selectedStore, inventoryKey, lang, t]);
 
-  const footerMode =
-    step === 4
-      ? quote && !noSellablePackages
-        ? "submit"
-        : "blocked"
-      : "next";
-
-  const handlePrimary = () => {
-    if (step === 1 && canAdvanceStep1) goToStep(2);
-    else if (step === 2 && canAdvanceStep2) goToStep(3);
-    else if (step === 3) goToStep(4);
-    else if (step === 4) void submit();
-  };
-
   if (doneCampaign) {
     return (
       <div
         className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4 pb-8`}
         data-owner-ads-workspace="store-sponsored"
-        data-owner-ads-wizard="step-gated"
+        data-owner-ads-wizard="single-page"
       >
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
           <p className="text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
@@ -553,7 +554,7 @@ export function OwnerStoreSponsoredCreateView() {
             </button>
             <button
               type="button"
-              className="inline-flex min-h-[48px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg"
+              className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[48px] w-full`}
               onClick={() => router.push(DELIVERY_AD_OWNER_ROUTES.hub)}
             >
               {t("owner_ads_back_hub")}
@@ -564,218 +565,233 @@ export function OwnerStoreSponsoredCreateView() {
     );
   }
 
-  const stepContent = (() => {
-    if (!loaded) {
-      return <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>;
-    }
-    if (step === 1) {
-      return (
-        <div className="space-y-3" data-owner-ads-step-panel="1">
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_store")}>
-            {stores.length === 0 ? (
-              <p className="text-[13px] text-sam-muted">{t("owner_ads_no_eligible_store")}</p>
-            ) : (
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left"
-                onClick={() => setStoreSheetOpen(true)}
-                data-owner-ads-store-trigger="1"
-              >
-                {selectedStore?.profileImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selectedStore.profileImageUrl}
-                    alt=""
-                    className="h-12 w-12 rounded-ui-rect object-cover"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-ui-rect bg-sam-surface" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-semibold text-sam-fg">
-                    {selectedStore?.storeName ?? t("owner_ads_select_store_hint")}
-                  </p>
-                  {selectedStore?.categoryLabel ? (
-                    <p className="text-[12px] text-sam-muted">{selectedStore.categoryLabel}</p>
-                  ) : null}
-                </div>
-                <span className="shrink-0 text-[12px] font-medium text-signature">
-                  {t("owner_ads_change_store")}
-                </span>
-              </button>
-            )}
-          </OwnerStoreAdminDashSection>
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_product")}>
-            <p className="text-[14px] font-semibold text-sam-fg">
-              {productLabel || t("owner_ads_product_store_sponsored")}
-            </p>
-            <p className="mt-1 text-[12px] text-sam-muted">
-              {t("owner_ads_product_store_sponsored_desc")}
-            </p>
-          </OwnerStoreAdminDashSection>
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_placement")}>
-            <DeliveryAdOwnerPlacementVisualGrid
-              options={
-                ([
-                  {
-                    key: "STORES_HOME_FEED" as const,
-                    title: t("owner_ads_launch_home_store_title"),
-                    help: t("owner_ads_launch_home_store_help"),
-                    miniature: "home_interleave" as const,
-                  },
-                  {
-                    key: "STORES_CATEGORY_FEED" as const,
-                    title: ownerCategoryPlacementTitle({
-                      primaryCategoryLabel: selectedStore?.categoryLabel,
-                      fallbackKo: t("owner_ads_launch_category_store_title"),
-                      fallbackEn: t("owner_ads_launch_category_store_title"),
-                      lang,
-                    }),
-                    help: t("owner_ads_launch_category_store_help"),
-                    miniature: "category_interleave" as const,
-                  },
-                ] satisfies OwnerPlacementVisualOption<OwnerStoreSponsoredInventoryKey>[])
-              }
-              selected={inventoryKey}
-              onSelect={onSelectPlacement}
-              adTagLabel={safeT("owner_ads_customer_ad_tag", {
-                fallbackKo: "광고",
-                fallbackEn: "Ad",
-              })}
-            />
-          </OwnerStoreAdminDashSection>
-        </div>
-      );
-    }
-    if (step === 2) {
-      return (
-        <div className="space-y-3" data-owner-ads-step-panel="2">
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
-            {commercialLoading ? (
-              <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
-            ) : (
-              <>
-                <DeliveryAdOwnerPackageCardGrid
-                  packages={packages.map((pkg) => ({
-                    packageId: pkg.packageId,
-                    durationDays: pkg.durationDays,
-                    finalPayableDisplay: pkg.finalPayableDisplay,
-                    finalPayableMinor: pkg.finalPayableMinor,
-                    basePriceDisplay: pkg.basePriceDisplay,
-                    partnerDiscountPercent: pkg.partnerDiscountPercent,
-                    partnerActive: pkg.partnerActive,
-                    displayName: pkg.displayName,
-                  }))}
-                  selectedPackageId={packageId}
-                  onSelect={onSelectPackage}
-                  preparing={noSellablePackages || packages.length === 0}
-                />
-                {noSellablePackages || packages.length === 0 ? (
-                  <div
-                    className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2"
-                    data-owner-ads-price-unset="1"
-                  >
-                    <p className="text-[13px] font-semibold text-amber-950">
-                      {t("owner_ads_no_sellable_packages")}
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </OwnerStoreAdminDashSection>
-        </div>
-      );
-    }
-    if (step === 3) {
-      return (
-        <div data-owner-ads-step-panel="3">
-          <DeliveryAdOwnerPreviewWorkspace
-            productKind="store_sponsored"
-            selectedInventoryKey={inventoryKey}
-            surfaceEnabled
-            store={previewStore}
-            storeLoadError={previewStoreError}
-            presentationMode="owner_product"
-          />
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-3" data-owner-ads-step-panel="4">
-        {quote ? (
-          <DeliveryAdOwnerApplicationConfirm
-            rows={confirmRows}
-            totalDisplay={quote.finalPayableDisplay}
-            businessCashNoteKey="owner_ads_confirm_business_cash_model_b"
-            cashBreakdown={
-              cashBalanceMinor != null
-                ? {
-                    adAmountMinor: quote.finalPayableMinor,
-                    balanceMinor: cashBalanceMinor,
-                  }
-                : null
-            }
-          />
-        ) : (
-          <div
-            className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3"
-            data-owner-ads-price-unset="confirm"
-          >
-            <p className="text-[13px] font-semibold text-amber-950">
-              {t("owner_ads_sale_preparing_body")}
-            </p>
-          </div>
-        )}
-        {inventoryKey && previewStore ? (
-          <div className="mt-3 scale-[0.85] origin-top">
-            <DeliveryAdOwnerPreviewWorkspace
-              productKind="store_sponsored"
-              selectedInventoryKey={inventoryKey}
-              surfaceEnabled
-              store={previewStore}
-              storeLoadError={false}
-              presentationMode="owner_product"
-            />
-          </div>
-        ) : null}
-      </div>
-    );
-  })();
-
-  void canAdvanceOwnerApplicationStep;
-
   return (
     <>
-      <OwnerDeliveryAdApplicationWizardShell
-        activeStep={step}
-        workspace="store-sponsored"
-        title={t("owner_ads_workspace_store_sponsored_title")}
-        formPadStyle={formPadStyle}
-        footerPadStyle={footerPadStyle}
-        footerFixedClassName={footerFixedClassName}
-        keyboardOpen={keyboardOpen}
-        footerMode={footerMode}
-        primaryBusy={busy}
-        primaryDisabled={
-          step === 1
-            ? !canAdvanceStep1
-            : step === 2
-              ? !canAdvanceStep2
-              : step === 4
-                ? footerMode === "blocked"
-                : false
-        }
-        showBack={step > 1}
-        onBack={() => goToStep((step - 1) as OwnerDeliveryAdApplicationStep)}
-        onPrimary={handlePrimary}
+      <div
+        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,56rem)] px-4 pt-4`}
+        style={formPadStyle}
+        data-owner-ads-workspace="store-sponsored"
+        data-owner-ads-wizard="single-page"
       >
+        <h1 className="text-[18px] font-bold text-sam-fg">
+          {t("owner_ads_workspace_store_sponsored_title")}
+        </h1>
+        <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_store_promo_subcopy")}</p>
+
         {errorText ? (
-          <p className="mb-3 text-[13px] text-red-600" role="alert">
+          <p className="mt-3 text-[13px] text-red-600" role="alert">
             {errorText}
           </p>
         ) : null}
-        {stepContent}
-      </OwnerDeliveryAdApplicationWizardShell>
+
+        {!loaded ? (
+          <p className="mt-4 text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
+        ) : (
+          <div className="mt-4 grid gap-4 pb-28 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)] md:items-start">
+            <div className="space-y-4 min-w-0">
+              <OwnerStoreAdminDashSection title={t("owner_ads_section_store")}>
+                {stores.length === 0 ? (
+                  <p className="text-[13px] text-sam-muted">{t("owner_ads_no_eligible_store")}</p>
+                ) : (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-left transition hover:border-[#0A823E]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]"
+                    onClick={() => setStoreSheetOpen(true)}
+                    data-owner-ads-store-trigger="1"
+                  >
+                    {selectedStore?.profileImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedStore.profileImageUrl}
+                        alt=""
+                        className="h-12 w-12 rounded-ui-rect object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 rounded-ui-rect bg-sam-surface" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-semibold text-sam-fg">
+                        {selectedStore?.storeName ?? t("owner_ads_select_store_hint")}
+                      </p>
+                      {selectedStore?.categoryLabel ? (
+                        <p className="text-[12px] text-sam-muted">{selectedStore.categoryLabel}</p>
+                      ) : null}
+                    </div>
+                    <span className="shrink-0 text-[12px] font-medium text-signature">
+                      {t("owner_ads_change_store")}
+                    </span>
+                  </button>
+                )}
+              </OwnerStoreAdminDashSection>
+
+              <OwnerStoreAdminDashSection title={t("owner_ads_where_to_promote")}>
+                <p className="mb-2 text-[12px] text-sam-muted">
+                  {productLabel || t("owner_ads_product_store_sponsored")}
+                </p>
+                <DeliveryAdOwnerPlacementVisualGrid
+                  options={
+                    ([
+                      {
+                        key: "STORES_HOME_FEED" as const,
+                        title: t("owner_ads_launch_home_store_title"),
+                        help: t("owner_ads_launch_home_store_help"),
+                        miniature: "home_interleave" as const,
+                      },
+                      {
+                        key: "STORES_CATEGORY_FEED" as const,
+                        title: ownerCategoryPlacementTitle({
+                          primaryCategoryLabel: selectedStore?.categoryLabel,
+                          fallbackKo: t("owner_ads_launch_category_store_title"),
+                          fallbackEn: t("owner_ads_launch_category_store_title"),
+                          lang,
+                        }),
+                        help: t("owner_ads_launch_category_store_help"),
+                        miniature: "category_interleave" as const,
+                      },
+                    ] satisfies OwnerPlacementVisualOption<OwnerStoreSponsoredInventoryKey>[])
+                  }
+                  selected={inventoryKey}
+                  onSelect={onSelectPlacement}
+                  adTagLabel={safeT("owner_ads_customer_ad_tag", {
+                    fallbackKo: "광고",
+                    fallbackEn: "Ad",
+                  })}
+                />
+              </OwnerStoreAdminDashSection>
+
+              <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
+                {!inventoryKey ? (
+                  <p className="text-[13px] text-sam-muted">
+                    {safeT("owner_ads_pick_placement_first_store", {
+                      fallbackKo: "먼저 홍보 위치를 선택해 주세요.",
+                      fallbackEn: "Select a placement first.",
+                    })}
+                  </p>
+                ) : commercialLoading ? (
+                  <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
+                ) : (
+                  <>
+                    <DeliveryAdOwnerPackageCardGrid
+                      packages={packages.map((pkg) => ({
+                        packageId: pkg.packageId,
+                        durationDays: pkg.durationDays,
+                        finalPayableDisplay: pkg.finalPayableDisplay,
+                        finalPayableMinor: pkg.finalPayableMinor,
+                        basePriceDisplay: pkg.basePriceDisplay,
+                        partnerDiscountPercent: pkg.partnerDiscountPercent,
+                        partnerActive: pkg.partnerActive,
+                        displayName: pkg.displayName,
+                      }))}
+                      selectedPackageId={packageId}
+                      onSelect={onSelectPackage}
+                      preparing={noSellablePackages || packages.length === 0}
+                    />
+                    {noSellablePackages || packages.length === 0 ? (
+                      <div
+                        className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2"
+                        data-owner-ads-price-unset="1"
+                      >
+                        <p className="text-[13px] font-semibold text-amber-950">
+                          {t("owner_ads_no_sellable_packages")}
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </OwnerStoreAdminDashSection>
+
+              <OwnerStoreAdminDashSection title={t("owner_ads_ad_cost_section")}>
+                {quote ? (
+                  <DeliveryAdOwnerApplicationConfirm
+                    rows={confirmRows}
+                    totalDisplay={quote.finalPayableDisplay}
+                    businessCashNoteKey="owner_ads_confirm_business_cash_model_b"
+                    cashBreakdown={
+                      cashBalanceMinor != null
+                        ? {
+                            adAmountMinor: quote.finalPayableMinor,
+                            balanceMinor: cashBalanceMinor,
+                          }
+                        : null
+                    }
+                  />
+                ) : (
+                  <div
+                    className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3"
+                    data-owner-ads-price-unset="confirm"
+                  >
+                    <p className="text-[13px] font-semibold text-amber-950">
+                      {t("owner_ads_sale_preparing_body")}
+                    </p>
+                  </div>
+                )}
+                <p className="mt-2 text-[12px] text-sam-muted" data-owner-ads-cash-pays="1">
+                  {t("owner_ads_business_cash_pays_ads")}
+                </p>
+              </OwnerStoreAdminDashSection>
+            </div>
+
+            <div className="space-y-4 min-w-0 md:sticky md:top-4">
+              {inventoryKey ? (
+                <OwnerStoreAdminDashSection title={t("owner_ads_section_preview")}>
+                  <DeliveryAdOwnerPreviewWorkspace
+                    productKind="store_sponsored"
+                    selectedInventoryKey={inventoryKey}
+                    surfaceEnabled
+                    store={previewStore}
+                    storeLoadError={previewStoreError}
+                    presentationMode="owner_product"
+                  />
+                </OwnerStoreAdminDashSection>
+              ) : null}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={`${footerFixedClassName} border-t border-sam-border bg-sam-surface px-4 py-3`}
+        style={footerPadStyle}
+        data-owner-ads-footer="owner-admin-ssot"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[48px] w-full sm:w-auto sm:min-w-[120px]`}
+            disabled={!canSubmit || draftBusy || busy}
+            data-owner-ads-draft-cta="save"
+            onClick={() => void saveDraftOnly()}
+          >
+            {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
+          </button>
+          <button
+            type="button"
+            className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[48px] w-full flex-1`}
+            disabled={!canSubmit || busy || draftBusy}
+            data-owner-ads-submit-cta="apply"
+            onClick={() => requestSubmit()}
+          >
+            {busy
+              ? t("owner_ads_loading")
+              : safeT("owner_ads_apply_submit_cta", {
+                  fallbackKo: "광고 신청",
+                  fallbackEn: "Submit ad application",
+                })}
+          </button>
+        </div>
+        <p className="mt-2 text-center text-[11px] text-sam-muted">
+          {t("owner_ads_confirm_business_cash_model_b")}
+        </p>
+      </div>
+
+      <DeliveryAdOwnerInsufficientCashSubmitModal
+        open={shortageModalOpen}
+        adAmountMinor={quote?.finalPayableMinor ?? 0}
+        balanceMinor={cashBalanceMinor ?? 0}
+        busy={busy}
+        onCancel={() => setShortageModalOpen(false)}
+        onSubmitAnyway={() => void submit()}
+      />
 
       <DibayBottomSheet
         open={storeSheetOpen}
