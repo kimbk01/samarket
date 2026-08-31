@@ -643,7 +643,8 @@ export async function deleteOwnerSponsoredDraft(
   });
   if (!deletable) return { ok: false, error: "delete_not_allowed" };
 
-  // Soft-check: block if any non-draft audit action exists
+  // Soft-check: block if any non-draft audit action exists.
+  // RPC writes owner_sponsored_create_draft / owner_sponsored_update_draft (not draft_*).
   const { data: audits } = await sb
     .from(DELIVERY_AD_AUDIT_LOG_TABLE)
     .select("action")
@@ -651,16 +652,22 @@ export async function deleteOwnerSponsoredDraft(
     .eq("product_kind", "store_sponsored");
   const blocking = (audits ?? []).some((a) => {
     const action = String((a as { action?: string }).action ?? "");
-    return action && !action.startsWith("draft_");
+    if (!action) return false;
+    return (
+      !action.startsWith("draft_") &&
+      !action.startsWith("owner_sponsored_create_draft") &&
+      !action.startsWith("owner_sponsored_update_draft") &&
+      action !== "deleted_draft"
+    );
   });
   if (blocking) return { ok: false, error: "delete_not_allowed" };
 
-  await writeAudit(sb, {
-    campaignId: loaded.row.id,
-    actorUserId: input.ownerUserId,
-    action: "deleted_draft",
-    before: { id: loaded.row.id, lifecycle_status: loaded.row.lifecycleStatus },
-  });
+  // Remove inventory links before campaign row (no orphan junctions).
+  const { error: junctionErr } = await sb
+    .from(JUNCTION_TABLE)
+    .delete()
+    .eq("campaign_id", loaded.row.id);
+  if (junctionErr) return { ok: false, error: "db_error" };
 
   const { error } = await sb
     .from(STORE_SPONSORED_CAMPAIGN_TABLE)
@@ -669,6 +676,14 @@ export async function deleteOwnerSponsoredDraft(
     .eq("owner_user_id", input.ownerUserId)
     .eq("lifecycle_status", "DRAFT");
   if (error) return { ok: false, error: "db_error" };
+
+  // Audit after successful delete so a failed delete does not poison retries.
+  await writeAudit(sb, {
+    campaignId: loaded.row.id,
+    actorUserId: input.ownerUserId,
+    action: "deleted_draft",
+    before: { id: loaded.row.id, lifecycle_status: loaded.row.lifecycleStatus },
+  });
   return { ok: true };
 }
 

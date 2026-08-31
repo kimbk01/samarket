@@ -388,7 +388,10 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         : confirm === "end"
           ? { title: t("owner_ads_end_confirm_title"), body: t("owner_ads_end_confirm_body") }
           : confirm === "delete"
-            ? { title: t("owner_ads_delete_confirm_title"), body: t("owner_ads_delete_confirm_body") }
+            ? {
+                title: t("owner_ads_delete_confirm_title"),
+                body: t("owner_ads_delete_confirm_body"),
+              }
             : null;
 
   const productTitle =
@@ -796,9 +799,12 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
           titleId="owner-ads-confirm"
           title={confirmCopy.title}
           description={confirmCopy.body}
-          confirmLabel={t("owner_ads_confirm")}
+          confirmLabel={
+            confirm === "delete" ? t("common_delete") : t("owner_ads_confirm")
+          }
           cancelLabel={t("owner_ads_cancel")}
           busy={busy}
+          confirmTone={confirm === "delete" ? "danger" : "primary"}
           onCancel={() => setConfirm(null)}
           onConfirm={() => void runAction(confirm)}
         />

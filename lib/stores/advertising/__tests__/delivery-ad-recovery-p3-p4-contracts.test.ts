@@ -91,4 +91,19 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
     expect(hub).toContain("md:max-w-[min(100%,52rem)]");
     expect(hub).not.toMatch(/max-w-lg/);
   });
+
+  it("DRAFT delete allows owner_sponsored_*_draft audits and uses Dibay Owner confirm modal", () => {
+    const writer = read("lib/stores/advertising/owner-store-sponsored-writer.ts");
+    const fnStart = writer.indexOf("export async function deleteOwnerSponsoredDraft");
+    expect(fnStart).toBeGreaterThan(-1);
+    const body = writer.slice(fnStart, fnStart + 2500);
+    expect(body).toContain("owner_sponsored_create_draft");
+    expect(body).toContain("owner_sponsored_update_draft");
+    expect(body).not.toMatch(/return action && !action\.startsWith\("draft_"\);/);
+    const hub = read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
+    expect(hub).toContain("OwnerStoreAdminConfirmModal");
+    expect(hub).not.toContain("window.confirm");
+    expect(hub).toContain("common_delete");
+    expect(hub).toContain('confirmTone="danger"');
+  });
 });

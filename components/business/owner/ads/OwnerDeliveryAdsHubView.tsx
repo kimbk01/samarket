@@ -9,6 +9,7 @@ import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-a
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { ownerAdsHubCardPrimaryCta } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
@@ -103,6 +104,9 @@ export function OwnerDeliveryAdsHubView() {
   const [productSelectOpen, setProductSelectOpen] = useState(false);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [ownerDisplayName, setOwnerDisplayName] = useState<string | null>(null);
+  const [draftDeleteTarget, setDraftDeleteTarget] = useState<HubCampaign | null>(null);
+  const [draftDeleteBusy, setDraftDeleteBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(productSelectOpen);
 
   const load = useCallback(async () => {
@@ -194,6 +198,32 @@ export function OwnerDeliveryAdsHubView() {
     return map;
   }, [stores]);
 
+  const deleteDraftCampaign = useCallback(async (c: HubCampaign) => {
+    setDraftDeleteBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(
+        `/api/me/stores/${encodeURIComponent(c.storeId)}/delivery-ads/${encodeURIComponent(c.id)}`,
+        { method: "DELETE", credentials: "include" }
+      );
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setActionError(json.error || "delete_failed");
+        return;
+      }
+      setCampaigns((prev) => prev.filter((x) => x.id !== c.id));
+      setSummary((prev) => ({
+        ...prev,
+        draft: Math.max(0, (prev.draft ?? 0) - 1),
+      }));
+      setDraftDeleteTarget(null);
+    } catch {
+      setActionError("network");
+    } finally {
+      setDraftDeleteBusy(false);
+    }
+  }, []);
+
   const summaryItems: Array<{
     key: OwnerAdsSummaryBucket;
     labelKey: MessageKey;
@@ -258,6 +288,14 @@ export function OwnerDeliveryAdsHubView() {
         </p>
       ) : (
         <>
+          {actionError ? (
+            <p className="text-[13px] text-red-600" role="alert" data-owner-ads-action-error="1">
+              {safeT("owner_ads_error_generic", {
+                fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
+                fallbackEn: "Something went wrong. Please try again.",
+              })}
+            </p>
+          ) : null}
           {sortedCampaigns.length === 0 ? (
             <div className="rounded-ui-rect border border-dashed border-[#BDBDBD] bg-[#F5F5F5] p-6 text-center">
               <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
@@ -320,19 +358,8 @@ export function OwnerDeliveryAdsHubView() {
                               type="button"
                               className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 active:scale-[0.99]"
                               data-owner-ads-card-cta-secondary="delete-draft"
-                              onClick={async () => {
-                                const ok = window.confirm(
-                                  `${t("owner_ads_delete_draft_sheet_title")}\n${t("owner_ads_delete_draft_confirm_body")}`
-                                );
-                                if (!ok) return;
-                                const res = await fetch(
-                                  `/api/me/stores/${encodeURIComponent(c.storeId)}/delivery-ads/${encodeURIComponent(c.id)}`,
-                                  { method: "DELETE", credentials: "include" }
-                                );
-                                if (res.ok) {
-                                  setCampaigns((prev) => prev.filter((x) => x.id !== c.id));
-                                }
-                              }}
+                              disabled={draftDeleteBusy}
+                              onClick={() => setDraftDeleteTarget(c)}
                             >
                               {t("owner_ads_delete_draft_menu")}
                             </button>
@@ -451,6 +478,23 @@ export function OwnerDeliveryAdsHubView() {
           />
         </div>
       </DibayBottomSheet>
+
+      <OwnerStoreAdminConfirmModal
+        open={Boolean(draftDeleteTarget)}
+        titleId="owner-ads-hub-delete-draft"
+        title={t("owner_ads_delete_draft_sheet_title")}
+        description={t("owner_ads_delete_draft_confirm_body")}
+        cancelLabel={t("owner_ads_cancel")}
+        confirmLabel={t("common_delete")}
+        busy={draftDeleteBusy}
+        confirmTone="danger"
+        onCancel={() => {
+          if (!draftDeleteBusy) setDraftDeleteTarget(null);
+        }}
+        onConfirm={() => {
+          if (draftDeleteTarget) void deleteDraftCampaign(draftDeleteTarget);
+        }}
+      />
     </div>
   );
 }
