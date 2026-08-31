@@ -184,3 +184,103 @@ export async function loadCampaignStoreCashSpendRow(
     refundLedgerId: raw.refund_ledger_id == null ? null : String(raw.refund_ledger_id),
   };
 }
+
+const STORE_CASH_ACCOUNTS_TABLE = "store_cash_accounts" as const;
+const STORES_TABLE = "stores" as const;
+
+/**
+ * Stage 1 ads payment wallet = Store Cash (`balance` PHP major).
+ * UI still formats via minor (×100) for existing `formatDeliveryAdPhpMinor`.
+ */
+export async function loadOwnerStoreCashBalanceForAds(
+  sb: SupabaseClient,
+  input: { ownerUserId: string; storeIds?: readonly string[] | null }
+): Promise<{
+  balancePhp: number;
+  balanceMinor: number;
+  currency: "PHP";
+  authority: "STORE_CASH";
+  storeCount: number;
+}> {
+  const ownerUserId = String(input.ownerUserId ?? "").trim();
+  let storeIds = [...new Set((input.storeIds ?? []).map((id) => String(id ?? "").trim()).filter(Boolean))];
+  if (!storeIds.length && ownerUserId) {
+    const { data: stores, error: storesErr } = await sb
+      .from(STORES_TABLE)
+      .select("id")
+      .eq("owner_user_id", ownerUserId);
+    if (storesErr) {
+      console.error("[loadOwnerStoreCashBalanceForAds] stores", storesErr.message);
+      return {
+        balancePhp: 0,
+        balanceMinor: 0,
+        currency: "PHP",
+        authority: "STORE_CASH",
+        storeCount: 0,
+      };
+    }
+    storeIds = (stores ?? []).map((r) => String((r as { id?: string }).id ?? "").trim()).filter(Boolean);
+  }
+  if (!storeIds.length) {
+    return {
+      balancePhp: 0,
+      balanceMinor: 0,
+      currency: "PHP",
+      authority: "STORE_CASH",
+      storeCount: 0,
+    };
+  }
+
+  const { data, error } = await sb
+    .from(STORE_CASH_ACCOUNTS_TABLE)
+    .select("store_id, balance")
+    .in("store_id", storeIds);
+  if (error) {
+    console.error("[loadOwnerStoreCashBalanceForAds]", error.message);
+    return {
+      balancePhp: 0,
+      balanceMinor: 0,
+      currency: "PHP",
+      authority: "STORE_CASH",
+      storeCount: storeIds.length,
+    };
+  }
+
+  let balancePhp = 0;
+  for (const row of data ?? []) {
+    balancePhp += Math.max(0, Math.trunc(Number((row as { balance?: number }).balance ?? 0) || 0));
+  }
+  return {
+    balancePhp,
+    balanceMinor: balancePhp * 100,
+    currency: "PHP",
+    authority: "STORE_CASH",
+    storeCount: storeIds.length,
+  };
+}
+
+export async function loadStoreCashBalanceForStore(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<{ balancePhp: number; balanceMinor: number; currency: "PHP"; authority: "STORE_CASH" }> {
+  const sid = String(storeId ?? "").trim();
+  if (!sid) {
+    return { balancePhp: 0, balanceMinor: 0, currency: "PHP", authority: "STORE_CASH" };
+  }
+  const { data, error } = await sb
+    .from(STORE_CASH_ACCOUNTS_TABLE)
+    .select("balance")
+    .eq("store_id", sid)
+    .maybeSingle();
+  if (error) {
+    console.error("[loadStoreCashBalanceForStore]", error.message);
+    return { balancePhp: 0, balanceMinor: 0, currency: "PHP", authority: "STORE_CASH" };
+  }
+  const balancePhp = Math.max(0, Math.trunc(Number((data as { balance?: number } | null)?.balance ?? 0) || 0));
+  return {
+    balancePhp,
+    balanceMinor: balancePhp * 100,
+    currency: "PHP",
+    authority: "STORE_CASH",
+  };
+}

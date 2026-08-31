@@ -309,8 +309,8 @@ export function OwnerDeliveryAdsHubView() {
                 onClick={() => setCashChargeOpen(true)}
               >
                 {safeT("owner_ads_cash_charge_cta", {
-                  fallbackKo: "충전 신청",
-                  fallbackEn: "Top up",
+                  fallbackKo: "Store Cash 안내",
+                  fallbackEn: "Store Cash info",
                 })}
               </button>
               <button
@@ -574,9 +574,6 @@ export function OwnerDeliveryAdsHubView() {
       <OwnerDeliveryAdCashChargeSheet
         open={cashChargeOpen}
         onClose={() => setCashChargeOpen(false)}
-        onSubmitted={() => {
-          void load();
-        }}
       />
 
       <DibayBottomSheet

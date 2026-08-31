@@ -123,9 +123,6 @@ export function AdminDeliveryAdDetailWorkspace({
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [fundingExpanded, setFundingExpanded] = useState(false);
   const [ownerCashBalanceMinor, setOwnerCashBalanceMinor] = useState<number | null>(null);
-  const [creditAmountMajor, setCreditAmountMajor] = useState("");
-  const [creditReason, setCreditReason] = useState("");
-  const [creditConfirm, setCreditConfirm] = useState(false);
   const [opsExpanded, setOpsExpanded] = useState(false);
   const [perfExpanded, setPerfExpanded] = useState(false);
   const [decisionActionsExpanded, setDecisionActionsExpanded] = useState(false);
@@ -164,6 +161,7 @@ export function AdminDeliveryAdDetailWorkspace({
           product: json.campaign.productKind,
         });
         if (json.campaign.ownerUserId) fQs.set("ownerUserId", json.campaign.ownerUserId);
+        if (json.campaign.storeId) fQs.set("storeId", json.campaign.storeId);
         const fRes = await fetch(`/api/admin/delivery-ads/business-cash?${fQs.toString()}`, {
           credentials: "include",
           cache: "no-store",
@@ -172,6 +170,7 @@ export function AdminDeliveryAdDetailWorkspace({
           ok?: boolean;
           businessCash?: { balanceMinor?: number } | null;
           funding?: {
+            status?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             amountMinor?: number | null;
             fundedAt?: string | null;
@@ -179,7 +178,9 @@ export function AdminDeliveryAdDetailWorkspace({
         };
         if (fRes.ok && fJson.ok) {
           if (fJson.funding) {
-            setFundingStatus(fJson.funding.fundingStatus ?? "UNFUNDED");
+            setFundingStatus(
+              fJson.funding.status ?? fJson.funding.fundingStatus ?? "UNFUNDED"
+            );
             setFundingPayable(
               typeof fJson.funding.amountMinor === "number" ? fJson.funding.amountMinor : null
             );
@@ -787,8 +788,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "Owner Business Cash 잔액",
-                      fallbackEn: "Owner Business Cash balance",
+                      fallbackKo: "Owner Store Cash 잔액",
+                      fallbackEn: "Owner Store Cash balance",
                     })}
                     :{" "}
                     {ownerCashBalanceMinor == null
@@ -800,115 +801,26 @@ export function AdminDeliveryAdDetailWorkspace({
                       {t("admin_delivery_ad_funding_required")}
                     </p>
                   ) : null}
-                  {campaign.ownerUserId ? (
-                    <div
-                      className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
-                      data-admin-business-cash-credit="1"
-                    >
-                      <p className="text-[12px] font-semibold text-sam-fg">
-                        {safeT("admin_delivery_ads_cash_credit_title", {
-                          fallbackKo: "Business Cash 지급",
-                          fallbackEn: "Grant Business Cash",
-                        })}
-                      </p>
-                      <p className="mt-1 text-[11px] text-sam-muted">
-                        {safeT("admin_delivery_ads_cash_credit_note", {
-                          fallbackKo:
-                            "외부 충전은 없습니다. Admin 지급은 감사 로그에 남습니다. ‘충전’이 아닙니다.",
-                          fallbackEn:
-                            "No external top-up. Admin grants are audited. This is not ‘top-up’.",
-                        })}
-                      </p>
-                      <label className="mt-2 block text-[12px]">
-                        {lang === "en" ? "Amount (PHP)" : "금액 (PHP)"}
-                        <input
-                          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 text-[13px]"
-                          value={creditAmountMajor}
-                          disabled={busy}
-                          onChange={(e) => setCreditAmountMajor(e.target.value)}
-                          inputMode="decimal"
-                        />
-                      </label>
-                      <label className="mt-2 block text-[12px]">
-                        {lang === "en" ? "Reason (required)" : "사유 (필수)"}
-                        <input
-                          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 text-[13px]"
-                          value={creditReason}
-                          disabled={busy}
-                          onChange={(e) => setCreditReason(e.target.value)}
-                        />
-                      </label>
-                      <label className="mt-2 flex items-center gap-2 text-[12px]">
-                        <input
-                          type="checkbox"
-                          checked={creditConfirm}
-                          disabled={busy}
-                          onChange={(e) => setCreditConfirm(e.target.checked)}
-                        />
-                        {lang === "en"
-                          ? "I confirm this grant and audit trail"
-                          : "지급 및 감사 기록을 확인했습니다"}
-                      </label>
-                      <button
-                        type="button"
-                        disabled={busy || !creditConfirm}
-                        className="mt-3 inline-flex min-h-[40px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
-                        onClick={() => {
-                          void (async () => {
-                            if (!campaign.ownerUserId || busy) return;
-                            const major = Number(creditAmountMajor.replace(/,/g, ""));
-                            if (!Number.isFinite(major) || major <= 0) {
-                              setError(lang === "en" ? "Invalid amount" : "금액이 올바르지 않습니다");
-                              return;
-                            }
-                            if (!creditReason.trim()) {
-                              setError(lang === "en" ? "Reason required" : "사유가 필요합니다");
-                              return;
-                            }
-                            setBusy(true);
-                            setError(null);
-                            try {
-                              const res = await fetch("/api/admin/delivery-ads/business-cash", {
-                                method: "POST",
-                                credentials: "include",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  ownerUserId: campaign.ownerUserId,
-                                  amountMinor: Math.round(major * 100),
-                                  reason: creditReason.trim(),
-                                  nonce: crypto.randomUUID(),
-                                }),
-                              });
-                              const json = (await res.json()) as {
-                                ok?: boolean;
-                                error?: string;
-                                detail?: string;
-                              };
-                              if (!res.ok || !json.ok) {
-                                setError(
-                                  json.detail
-                                    ? `${json.error}:${json.detail}`
-                                    : json.error || "credit_failed"
-                                );
-                                return;
-                              }
-                              setCreditAmountMajor("");
-                              setCreditReason("");
-                              setCreditConfirm(false);
-                              await load();
-                            } finally {
-                              setBusy(false);
-                            }
-                          })();
-                        }}
-                      >
-                        {safeT("admin_delivery_ads_cash_credit_cta", {
-                          fallbackKo: "Business Cash 지급",
-                          fallbackEn: "Grant Business Cash",
-                        })}
-                      </button>
-                    </div>
-                  ) : null}
+                  <div
+                    className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
+                    data-admin-business-cash-credit="1"
+                    data-admin-store-cash-authority="1"
+                  >
+                    <p className="text-[12px] font-semibold text-sam-fg">
+                      {safeT("admin_delivery_ads_cash_credit_title", {
+                        fallbackKo: "광고 결제 = Store Cash",
+                        fallbackEn: "Ads payment = Store Cash",
+                      })}
+                    </p>
+                    <p className="mt-1 text-[11px] text-sam-muted">
+                      {safeT("admin_delivery_ads_cash_credit_note", {
+                        fallbackKo:
+                          "광고비는 매장 Store Cash에서 차감됩니다. 레거시 Business Cash 지급은 광고 잔액에 반영되지 않습니다.",
+                        fallbackEn:
+                          "Ad fees debit store Store Cash. Legacy Business Cash grants do not fund ads.",
+                      })}
+                    </p>
+                  </div>
                 </div>
               </AdminCard>
               ) : null}

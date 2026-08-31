@@ -150,6 +150,19 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
     );
   });
 
+  it("Owner/Admin balance APIs read Store Cash (not legacy delivery_ad_accounts)", () => {
+    const hub = read("app/api/me/delivery-ads/route.ts");
+    const funding = read("app/api/me/delivery-ads/[campaignId]/funding/route.ts");
+    const adminCash = read("app/api/admin/delivery-ads/business-cash/route.ts");
+    expect(hub).toContain("loadOwnerStoreCashBalanceForAds");
+    expect(hub).not.toContain("loadOwnerBusinessCashBalance");
+    expect(funding).toContain("loadStoreCashBalanceForStore");
+    expect(funding).toContain("fundingStatus");
+    expect(adminCash).toContain("loadCampaignStoreCashSpendRow");
+    expect(adminCash).toContain("loadOwnerStoreCashBalanceForAds");
+    expect(adminCash).toContain("DISABLED_FOR_NEW_PRODUCT");
+  });
+
   it("T16 — activation/exposure uses Store Cash secured mark", () => {
     expect(mig).toMatch(/delivery_ad_store_cash_spends s/);
     expect(mig).toMatch(/s\.status = 'SECURED'/);

@@ -41,7 +41,6 @@ import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-c
 import {
   OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED,
   ownerAdsDetailPanelsForLifecycle,
-  ownerAdsFundingErrorI18nKey,
   ownerAdsShouldShowFundingPanel,
 } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 import {
@@ -127,8 +126,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
   >(null);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [fundedAt, setFundedAt] = useState<string | null>(null);
-  const [fundBusy, setFundBusy] = useState(false);
-  const [fundError, setFundError] = useState<string | null>(null);
   const [opsCapability, setOpsCapability] =
     useState<OwnerAdsOpsBackendCapability>("unknown");
   const [focusOperations, setFocusOperations] = useState(false);
@@ -255,7 +252,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     if (!showFunding || !loaded) return;
     let cancelled = false;
     const run = async () => {
-      setFundError(null);
       try {
         const res = await fetch(
           `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding?product=${encodeURIComponent(productKind)}`,
@@ -264,13 +260,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         const json = (await res.json()) as {
           ok?: boolean;
           funding?: {
+            status?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             fundedAt?: string | null;
           };
           businessCash?: { balanceMinor?: number };
         };
         if (cancelled || !res.ok || !json.ok) return;
-        setFundingStatus(json.funding?.fundingStatus ?? "UNFUNDED");
+        setFundingStatus(json.funding?.status ?? json.funding?.fundingStatus ?? "UNFUNDED");
         setFundedAt(json.funding?.fundedAt ?? null);
         setCashBalanceMinor(
           typeof json.businessCash?.balanceMinor === "number"
@@ -632,7 +629,6 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                 {(() => {
                   const need = snap?.finalPayableMinor ?? 0;
                   const bal = cashBalanceMinor ?? 0;
-                  const canPay = need > 0 && bal >= need;
                   const shortage = Math.max(0, need - bal);
                   return (
                     <>
@@ -649,9 +645,9 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                           <p className="mt-1 text-[12px] text-sam-muted">
                             {safeT("owner_ads_cash_grant_ask_admin", {
                               fallbackKo:
-                                "Business Cash 지급이 필요한 경우 관리자에게 문의해 주세요. (외부 충전 없음)",
+                                "Store Cash는 상품권·정산에서 확인·전환하세요. 별도 Business Cash 충전은 없습니다.",
                               fallbackEn:
-                                "Ask admin for a Business Cash grant if needed. (No external top-up.)",
+                                "Manage Store Cash in gift certificates / settlements. There is no separate Business Cash top-up.",
                             })}
                           </p>
                           {showContactAdmin ? (
@@ -673,57 +669,14 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                             </button>
                           ) : null}
                         </>
-                      ) : null}
-                      {fundError ? (
-                        <p className="mt-1 text-[12px] text-red-600" data-owner-ads-fund-error="mapped">
-                          {t(ownerAdsFundingErrorI18nKey(fundError))}
+                      ) : (
+                        <p className="mt-1 text-[12px] text-sam-muted" data-owner-ads-fund-store-cash="1">
+                          {safeT("owner_ads_business_cash_pays_ads", {
+                            fallbackKo: "광고 결제에는 Store Cash를 사용합니다.",
+                            fallbackEn: "Ad payments use Store Cash.",
+                          })}
                         </p>
-                      ) : null}
-                      {canPay ? (
-                        <button
-                          type="button"
-                          className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} mt-3`}
-                          disabled={fundBusy}
-                          data-owner-ads-fund-cta="1"
-                          onClick={() => {
-                            void (async () => {
-                              setFundBusy(true);
-                              setFundError(null);
-                              try {
-                                const res = await fetch(
-                                  `/api/me/delivery-ads/${encodeURIComponent(campaignId)}/funding`,
-                                  {
-                                    method: "POST",
-                                    credentials: "include",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ productKind }),
-                                  }
-                                );
-                                const json = (await res.json()) as {
-                                  ok?: boolean;
-                                  error?: string;
-                                  result?: { balanceMinor?: number };
-                                };
-                                if (!res.ok || !json.ok) {
-                                  setFundError(json.error || "fund_failed");
-                                  return;
-                                }
-                                setFundingStatus("FUNDED");
-                                if (typeof json.result?.balanceMinor === "number") {
-                                  setCashBalanceMinor(json.result.balanceMinor);
-                                }
-                                setFundedAt(new Date().toISOString());
-                              } catch {
-                                setFundError("network");
-                              } finally {
-                                setFundBusy(false);
-                              }
-                            })();
-                          }}
-                        >
-                          {t("owner_ads_funding_pay_cta")}
-                        </button>
-                      ) : null}
+                      )}
                     </>
                   );
                 })()}

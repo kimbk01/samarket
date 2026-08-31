@@ -308,11 +308,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "확인이 필요한 광고 가격이 {count}개 있습니다.",
     admin_delivery_ads_creative_pc_load: "내 PC에서 이미지 불러오기",
     admin_delivery_ads_creative_req_before: "업로드 전 확인 · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Business Cash 잔액",
-    admin_delivery_ads_cash_credit_title: "Business Cash 지급",
+    admin_delivery_ads_owner_cash_balance: "Owner Store Cash 잔액",
+    admin_delivery_ads_cash_credit_title: "광고 결제 = Store Cash",
     admin_delivery_ads_cash_credit_note:
-      "외부 충전은 없습니다. Admin 지급은 감사 로그에 남습니다. ‘충전’이 아닙니다.",
-    admin_delivery_ads_cash_credit_cta: "Business Cash 지급",
+      "광고비는 매장 Store Cash에서 차감됩니다. 레거시 Business Cash 지급은 광고 잔액에 반영되지 않습니다.",
+    admin_delivery_ads_cash_credit_cta: "Business Cash 지급 (비활성)",
   },
   en: {
     admin_delivery_ads_title: "Delivery ads",
@@ -627,10 +627,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "{count} ad prices need attention.",
     admin_delivery_ads_creative_pc_load: "Load image from PC",
     admin_delivery_ads_creative_req_before: "Before upload · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Business Cash balance",
-    admin_delivery_ads_cash_credit_title: "Grant Business Cash",
+    admin_delivery_ads_owner_cash_balance: "Owner Store Cash balance",
+    admin_delivery_ads_cash_credit_title: "Ads payment = Store Cash",
     admin_delivery_ads_cash_credit_note:
-      "No external top-up. Admin grants are audited. This is not ‘top-up’.",
-    admin_delivery_ads_cash_credit_cta: "Grant Business Cash",
+      "Ad fees debit store Store Cash. Legacy Business Cash grants do not fund ads.",
+    admin_delivery_ads_cash_credit_cta: "Grant Business Cash (disabled)",
   },
 } as const;

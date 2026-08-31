@@ -11,8 +11,7 @@ import {
   isStoreEligibleForOwnerAdApplication,
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { listOwnerDeliveryAdOperationsUnreadByCampaignIds } from "@/lib/stores/advertising/delivery-ad-operations-unread";
-import { loadOwnerBusinessCashBalance } from "@/lib/stores/advertising/delivery-ad-business-cash-writer";
-import { DELIVERY_AD_BUSINESS_CASH_PLATFORM } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { loadOwnerStoreCashBalanceForAds } from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +55,10 @@ export async function GET() {
       productKind: c.productKind,
     })),
   });
-  const businessCash = await loadOwnerBusinessCashBalance(sb, userId, "PHP");
+  const storeCash = await loadOwnerStoreCashBalanceForAds(sb, {
+    ownerUserId: userId,
+    storeIds,
+  });
 
   const summary = {
     changes_requested: 0,
@@ -109,10 +111,13 @@ export async function GET() {
     eligibleStoreCount: eligibleStores.length,
     summary,
     unreadByCampaignId,
+    /** Product ads wallet — Stage 1 Store Cash (key kept for Owner Hub). */
     businessCash: {
-      balanceMinor: businessCash?.balanceMinor ?? 0,
-      currency: businessCash?.currency ?? "PHP",
-      externalTopUp: DELIVERY_AD_BUSINESS_CASH_PLATFORM.externalTopUp,
+      balanceMinor: storeCash.balanceMinor,
+      balancePhp: storeCash.balancePhp,
+      currency: storeCash.currency,
+      authority: storeCash.authority,
+      externalTopUp: false,
     },
     meta: { pricing: DELIVERY_AD_OWNER_PRICING_PRODUCT },
   });
