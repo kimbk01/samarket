@@ -190,6 +190,13 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_cash_shortage_submit_anyway: "그래도 광고 신청",
     owner_ads_cash_grant_ask_admin:
       "Business Cash 지급이 필요한 경우 관리자에게 문의해 주세요. (외부 충전 없음)",
+    owner_ads_cash_charge_cta: "충전 신청",
+    owner_ads_cash_charge_title: "Business Cash 충전 신청",
+    owner_ads_cash_charge_help:
+      "입금 후 관리자가 확인하면 광고 Business Cash에 적립됩니다. Business Credit과는 별도입니다.",
+    owner_ads_cash_charge_memo: "메모 (선택)",
+    owner_ads_cash_charge_submit: "충전 신청",
+    owner_ads_hub_unread_ops: "새 운영 메시지",
     owner_ads_cash_status_empty: "잔액 없음",
     owner_ads_cash_status_ready: "사용 가능",
     owner_ads_pick_placement_first_store: "먼저 홍보 위치를 선택해 주세요.",
@@ -592,6 +599,13 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_cash_shortage_submit_anyway: "Submit anyway",
     owner_ads_cash_grant_ask_admin:
       "Ask admin for a Business Cash grant if needed. (No external top-up.)",
+    owner_ads_cash_charge_cta: "Top up",
+    owner_ads_cash_charge_title: "Request Business Cash top-up",
+    owner_ads_cash_charge_help:
+      "After deposit, admin confirms and credits ads Business Cash. Separate from Business Credit.",
+    owner_ads_cash_charge_memo: "Memo (optional)",
+    owner_ads_cash_charge_submit: "Submit top-up request",
+    owner_ads_hub_unread_ops: "New ops message",
     owner_ads_cash_status_empty: "No balance",
     owner_ads_cash_status_ready: "Available",
     owner_ads_pick_placement_first_store: "Select a placement first.",

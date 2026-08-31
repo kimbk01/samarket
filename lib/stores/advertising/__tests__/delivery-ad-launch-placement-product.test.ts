@@ -27,7 +27,6 @@ describe("delivery-ad-launch-placement-product P1", () => {
     ]);
     expect(LAUNCH_BANNER_INVENTORY_KEYS).toEqual([
       "STORES_HOME_HERO",
-      "STORES_SEARCH_TOP",
     ]);
     for (const k of FUTURE_DELIVERY_AD_INVENTORY_KEYS) {
       expect(isFutureDeliveryAdInventoryKey(k)).toBe(true);

@@ -162,6 +162,26 @@ export async function PATCH(
           : undefined,
     title: typeof body.title === "string" ? body.title : undefined,
     headline: typeof body.headline === "string" ? body.headline : undefined,
+    browseTargetKind:
+      body.browseTargetKind === "primary" || body.browseTargetKind === "secondary"
+        ? body.browseTargetKind
+        : body.browse_target_kind === "primary" || body.browse_target_kind === "secondary"
+          ? body.browse_target_kind
+          : body.browseTargetKind === null || body.browse_target_kind === null
+            ? null
+            : undefined,
+    browsePrimarySlug:
+      typeof body.browsePrimarySlug === "string"
+        ? body.browsePrimarySlug
+        : typeof body.browse_primary_slug === "string"
+          ? body.browse_primary_slug
+          : undefined,
+    browseSecondarySlug:
+      typeof body.browseSecondarySlug === "string"
+        ? body.browseSecondarySlug
+        : typeof body.browse_secondary_slug === "string"
+          ? body.browse_secondary_slug
+          : undefined,
   });
 
   if (!result.ok) {

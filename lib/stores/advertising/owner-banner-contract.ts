@@ -24,13 +24,20 @@ import {
   type BannerAdDbSurface,
 } from "@/lib/stores/advertising/delivery-ad-placement";
 
-/** Owner-selectable banner inventories (ACTIVE only). */
+/**
+ * Owner-selectable banner inventories (launch sellable only).
+ * SEARCH_TOP removed from sale — see delivery-ad-product-recovery-contract.
+ */
 export const OWNER_BANNER_INVENTORY_KEYS = [
   "STORES_HOME_HERO",
-  "STORES_SEARCH_TOP",
 ] as const satisfies ReadonlyArray<DeliveryAdInventoryKey>;
 
 export type OwnerBannerInventoryKey = (typeof OWNER_BANNER_INVENTORY_KEYS)[number];
+
+/** Historical / runtime-loaded banner keys (may include unsellable SEARCH_TOP). */
+export type OwnerBannerInventoryKeyLoaded =
+  | OwnerBannerInventoryKey
+  | "STORES_SEARCH_TOP";
 
 export const OWNER_BANNER_CTA_LABEL_KEYS = [
   "owner_ads_banner_cta_store",
@@ -138,7 +145,7 @@ export function resolveOwnerBannerCtaHref(input: {
 }
 
 export function ownerBannerInventoryToLegacySurface(
-  key: OwnerBannerInventoryKey
+  key: OwnerBannerInventoryKeyLoaded
 ): BannerAdDbSurface {
   if (key === "STORES_SEARCH_TOP") return "stores_search";
   return BANNER_AD_DB_SURFACE;
@@ -146,7 +153,7 @@ export function ownerBannerInventoryToLegacySurface(
 
 /** Owner/Admin UX label key — never expose technical inventory keys. */
 export function ownerBannerInventoryLabelKey(
-  key: OwnerBannerInventoryKey
+  key: OwnerBannerInventoryKeyLoaded
 ): "owner_ads_inventory_home_hero" | "owner_ads_inventory_search_top" {
   if (key === "STORES_SEARCH_TOP") return "owner_ads_inventory_search_top";
   return "owner_ads_inventory_home_hero";

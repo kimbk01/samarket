@@ -80,11 +80,16 @@ export async function GET() {
     ok: true,
     campaigns,
     stores: storesResult.stores.map((s) => {
-      const cat = (s as { store_categories?: { name?: string } | { name?: string }[] | null })
+      const cat = (s as { store_categories?: { name?: string; slug?: string } | { name?: string; slug?: string }[] | null })
         .store_categories;
-      const categoryLabel = Array.isArray(cat)
-        ? cat[0]?.name ?? null
-        : cat?.name ?? null;
+      const topic = (s as { store_topics?: { name?: string; slug?: string } | { name?: string; slug?: string }[] | null })
+        .store_topics;
+      const catRow = Array.isArray(cat) ? cat[0] ?? null : cat ?? null;
+      const topicRow = Array.isArray(topic) ? topic[0] ?? null : topic ?? null;
+      const categoryLabel = catRow?.name ?? null;
+      const categorySlug = catRow?.slug ?? null;
+      const topicLabel = topicRow?.name ?? null;
+      const topicSlug = topicRow?.slug ?? null;
       return {
         id: s.id,
         storeName: s.store_name,
@@ -96,6 +101,9 @@ export async function GET() {
           isVisible: s.is_visible === true,
         }),
         categoryLabel,
+        categorySlug,
+        topicLabel,
+        topicSlug,
       };
     }),
     eligibleStoreCount: eligibleStores.length,

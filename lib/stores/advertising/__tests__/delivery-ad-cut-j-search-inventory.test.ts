@@ -19,7 +19,6 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-placement";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
-  ownerBannerInventoryToLegacySurface,
   validateOwnerBannerInventory,
 } from "@/lib/stores/advertising/owner-banner-contract";
 import { validateOwnerInventorySelection } from "@/lib/stores/advertising/owner-store-sponsored-contract";
@@ -117,18 +116,18 @@ describe("CUT J Search / Detail inventory", () => {
     expect(picked).toBeNull();
   });
 
-  it("J5 Owner can select newly active SEARCH inventory", () => {
-    expect(OWNER_BANNER_INVENTORY_KEYS).toContain("STORES_SEARCH_TOP");
+  it("J5 Owner cannot sell SEARCH at launch (schema/runtime may remain)", () => {
+    expect(OWNER_BANNER_INVENTORY_KEYS).not.toContain("STORES_SEARCH_TOP");
     expect(validateOwnerBannerInventory("STORES_SEARCH_TOP")).toEqual({
-      ok: true,
-      key: "STORES_SEARCH_TOP",
+      ok: false,
+      error: "invalid_inventory",
     });
-    expect(ownerBannerInventoryToLegacySurface("STORES_SEARCH_TOP")).toBe("stores_search");
+    expect(isRuntimeActiveInventory("STORES_SEARCH_TOP")).toBe(true);
   });
 
-  it("J6 Admin can assign SEARCH via banner inventory validator + surface map", () => {
+  it("J6 Admin surface map still knows SEARCH; Owner sell validator rejects", () => {
     expect(BANNER_AD_DB_SURFACES).toEqual(["stores_home_hero", "stores_search"]);
-    expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(true);
+    expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(false);
     const adminSrc = readFileSync(
       join(root, "lib/stores/advertising/admin-delivery-ad-writer.ts"),
       "utf8"

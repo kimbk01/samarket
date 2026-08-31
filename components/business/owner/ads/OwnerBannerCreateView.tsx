@@ -763,23 +763,6 @@ export function OwnerBannerCreateView() {
                       )}`,
                       miniature: "home_hero_carousel" as const,
                     },
-                    {
-                      key: "STORES_SEARCH_TOP" as const,
-                      title: safeT("owner_ads_launch_search_top_title", {
-                        fallbackKo: "검색 결과 상단 배너",
-                        fallbackEn: "Search results top banner",
-                      }),
-                      help: `${safeT("owner_ads_launch_search_top_help", {
-                        fallbackKo:
-                          "고객이 검색했을 때 매장 목록 위에 배너 1개가 표시됩니다.",
-                        fallbackEn:
-                          "One banner above store results when a search has matches.",
-                      })} · ${formatBannerPixelGuideLine(
-                        DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_SEARCH_TOP,
-                        lang
-                      )}`,
-                      miniature: "search_top_single" as const,
-                    },
                   ] satisfies OwnerPlacementVisualOption<OwnerBannerInventoryKey>[])
                 }
                 selected={inventoryKey}
@@ -1006,7 +989,7 @@ export function OwnerBannerCreateView() {
                           src={uploaded.url}
                           alt=""
                           className={`w-full object-cover ${
-                            inventoryKey === "STORES_SEARCH_TOP" ? "aspect-[3/1]" : "aspect-[39/16]"
+                            "aspect-[39/16]"
                           }`}
                         />
                       </div>

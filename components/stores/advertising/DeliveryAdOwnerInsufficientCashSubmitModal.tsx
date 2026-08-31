@@ -41,8 +41,10 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
     }),
     "",
     safeT("owner_ads_cash_grant_ask_admin", {
-      fallbackKo: "Business Cash 지급이 필요한 경우 관리자에게 문의해 주세요. (외부 충전 없음)",
-      fallbackEn: "Ask admin for a Business Cash grant if needed. (No external top-up.)",
+      fallbackKo:
+        "잔액이 부족하면 광고 허브에서 Business Cash 충전 신청을 해 주세요. (외부 카드·GCash 충전 없음)",
+      fallbackEn:
+        "If short, request a Business Cash top-up from the ads hub. (No external card/GCash top-up.)",
     }),
   ].join("\n");
 

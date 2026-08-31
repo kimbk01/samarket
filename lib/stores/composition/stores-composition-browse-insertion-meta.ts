@@ -29,6 +29,7 @@ import {
   resolveStoresBrowseScopeCustomerMeta,
   type StoresBrowseScopeCustomerMeta,
 } from "@/lib/stores/product/stores-browse-scope-customer-meta";
+import { browseTargetMatchesCustomerScope } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
 import { selectExposureEligibleStorePaidAds } from "@/lib/stores/store-paid-ad-exposure";
 import { buildStoreSponsoredEligibilityMapFromOrganicPool } from "@/lib/stores/advertising/store-sponsored-exposure-eligibility";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
@@ -213,8 +214,19 @@ export async function attachStoresBrowseInsertionMeta(
     const surfaceAllowed = adPolicy?.enabled === true;
     const taxonomyMatchedStoreIds = new Set(organicIds);
     const storeEligibleById = buildStoreSponsoredEligibilityMapFromOrganicPool(organicIds);
+    const scopedByBrowseTarget = scope
+      ? paidAdsRaw.filter((c) =>
+          browseTargetMatchesCustomerScope({
+            browseTargetKind: c.browseTargetKind,
+            browsePrimarySlug: c.browsePrimarySlug,
+            browseSecondarySlug: c.browseSecondarySlug,
+            customerPrimarySlug: scope.primarySlug,
+            customerSubSlug: scope.subSlug,
+          })
+        )
+      : paidAdsRaw;
     const exposure = selectExposureEligibleStorePaidAds({
-      campaigns: paidAdsRaw,
+      campaigns: scopedByBrowseTarget,
       targetPlacement: "stores_browse",
       surfaceAllowed,
       taxonomyMatchedStoreIds,

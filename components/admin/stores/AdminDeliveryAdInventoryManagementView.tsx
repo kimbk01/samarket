@@ -9,11 +9,13 @@ import { DeliveryAdPlacementMiniature } from "@/components/stores/advertising/De
 import {
   LAUNCH_BANNER_PLACEMENTS,
   LAUNCH_STORE_PROMOTION_PLACEMENTS,
+  LEGACY_SEARCH_TOP_BANNER_PLACEMENT,
   launchBannerByInventory,
 } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DELIVERY_AD_INVENTORY_SEEDS } from "@/lib/stores/advertising/delivery-ad-inventory";
 import { STORES_SEARCH_TOP_SLOT_POLICY } from "@/lib/stores/advertising/banner-search-top-exposure";
+import { STORES_SEARCH_TOP_LAUNCH } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
 import { deliveryAdsAdminHubHref } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import {
   DELIVERY_AD_BANNER_PIXEL_GUIDE,
@@ -42,7 +44,7 @@ export function AdminDeliveryAdInventoryManagementView() {
   const categoryFeed = LAUNCH_STORE_PROMOTION_PLACEMENTS.find(
     (p) => p.inventoryKey === "STORES_CATEGORY_FEED"
   )!;
-  const searchTop = LAUNCH_BANNER_PLACEMENTS.find((p) => p.inventoryKey === "STORES_SEARCH_TOP")!;
+  const searchTop = LEGACY_SEARCH_TOP_BANNER_PLACEMENT;
   const searchSeed = seedFor(searchTop.inventoryKey);
   const heroPolicy = launchBannerByInventory("STORES_HOME_HERO");
   const searchMax = STORES_SEARCH_TOP_SLOT_POLICY.maxBanners;
@@ -180,29 +182,29 @@ export function AdminDeliveryAdInventoryManagementView() {
           <AdminCard
             title={lang === "en" ? "Search results top banner" : "검색 결과 상단 배너"}
           >
-            <div data-admin-inventory-card={searchTop.inventoryKey}>
-                <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-search-max={searchMax}>
-                  <li>
-                    {safeT("admin_ads_form_single", {
-                      fallbackKo: `형태: 단일 배너 · 동시 노출 ${searchMax}개 · carousel 아님`,
-                      fallbackEn: `Form: single banner · max ${searchMax} · not a carousel`,
-                    })}
-                  </li>
-                  <li>
-                    {safeT("admin_ads_search_customer", {
-                      fallbackKo: "고객이 검색했을 때 매장 목록 위에 배너가 표시됩니다.",
-                      fallbackEn: "Shown above the store list when customers search.",
-                    })}
-                  </li>
-                  <li>
-                    {safeT("admin_ads_search_resolver", {
-                      fallbackKo:
-                        "여러 캠페인이 겹치면 기존 resolver 정책으로 1개를 선택합니다. 정책은 노출 SSOT에서 확인하세요.",
-                      fallbackEn:
-                        "When campaigns overlap, the existing resolver picks one. See exposure SSOT for the policy.",
-                    })}
-                  </li>
-                </ul>
+            <div data-admin-inventory-card={searchTop.inventoryKey} data-admin-inventory-sellable="0">
+              <p className="mb-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] font-semibold text-amber-950">
+                {safeT("admin_ads_search_not_sellable", {
+                  fallbackKo: `런치 판매 중지 (${STORES_SEARCH_TOP_LAUNCH.launchStatus}). 스키마·런타임 호환은 유지합니다.`,
+                  fallbackEn: `Not sellable at launch (${STORES_SEARCH_TOP_LAUNCH.launchStatus}). Schema/runtime kept for compat.`,
+                })}
+              </p>
+              <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-search-max={searchMax}>
+                <li>
+                  {safeT("admin_ads_form_single", {
+                    fallbackKo: `형태: 단일 배너 · 동시 노출 ${searchMax}개 · carousel 아님`,
+                    fallbackEn: `Form: single banner · max ${searchMax} · not a carousel`,
+                  })}
+                </li>
+                <li>
+                  {safeT("admin_ads_search_customer", {
+                    fallbackKo:
+                      "주요 고객 탐색은 HOME → 1차/2차 업종입니다. 검색 상단은 런치 Owner 상품에서 제외됩니다.",
+                    fallbackEn:
+                      "Primary discovery is HOME → 1st/2nd category. Search top is excluded from launch Owner products.",
+                  })}
+                </li>
+              </ul>
               <DeliveryAdPlacementMiniature kind={searchTop.miniature} adLabel={adTag} />
               <p className="mt-2 text-[12px] text-sam-muted">
                 {formatBannerPixelGuideLine(DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_SEARCH_TOP, lang)}
@@ -212,12 +214,6 @@ export function AdminDeliveryAdInventoryManagementView() {
                   ? `ratio seed ${searchSeed.aspectRatioWidth}:${searchSeed.aspectRatioHeight}`
                   : "3:1"}
               </p>
-              <Link
-                href={deliveryAdsAdminHubHref({ inventory: searchTop.inventoryKey })}
-                className={MANAGE_BTN}
-              >
-                {safeT("admin_ads_manage", { fallbackKo: "관리", fallbackEn: "Manage" })}
-              </Link>
             </div>
           </AdminCard>
         </section>

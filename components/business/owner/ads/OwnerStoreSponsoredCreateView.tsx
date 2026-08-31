@@ -20,7 +20,7 @@ import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner
 import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/DeliveryAdOwnerPackageCardGrid";
 import { DeliveryAdOwnerPlacementVisualGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
 import type { OwnerPlacementVisualOption } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
-import { ownerCategoryPlacementTitle } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
+import { ownerPrimaryBrowsePlacementTitle, ownerSecondaryBrowsePlacementTitle } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
 import { DeliveryAdOwnerInsufficientCashSubmitModal } from "@/components/stores/advertising/DeliveryAdOwnerInsufficientCashSubmitModal";
 import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
@@ -30,6 +30,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import { deliveryAdCommercialPlacementLabel } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
+import type { DeliveryAdBrowseTargetKind } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
 
 type EligibleStore = {
   id: string;
@@ -37,7 +38,42 @@ type EligibleStore = {
   profileImageUrl: string | null;
   eligible: boolean;
   categoryLabel: string | null;
+  categorySlug?: string | null;
+  topicLabel?: string | null;
+  topicSlug?: string | null;
 };
+
+type PlacementChoiceId = "home" | "primary" | "secondary";
+
+function inventoryKeyFromPlacementChoice(choice: PlacementChoiceId): OwnerStoreSponsoredInventoryKey {
+  return choice === "home" ? "STORES_HOME_FEED" : "STORES_CATEGORY_FEED";
+}
+
+function browseTargetFromPlacementChoice(
+  choice: PlacementChoiceId,
+  store: EligibleStore | null
+): {
+  browseTargetKind: DeliveryAdBrowseTargetKind | null;
+  browsePrimarySlug: string | null;
+  browseSecondarySlug: string | null;
+} {
+  if (choice === "home") {
+    return { browseTargetKind: null, browsePrimarySlug: null, browseSecondarySlug: null };
+  }
+  const primary = store?.categorySlug?.trim() || null;
+  if (choice === "primary") {
+    return {
+      browseTargetKind: "primary",
+      browsePrimarySlug: primary,
+      browseSecondarySlug: null,
+    };
+  }
+  return {
+    browseTargetKind: "secondary",
+    browsePrimarySlug: primary,
+    browseSecondarySlug: store?.topicSlug?.trim() || null,
+  };
+}
 
 type CommercialPackage = {
   packageId: string;
@@ -96,6 +132,11 @@ export function OwnerStoreSponsoredCreateView() {
   const [inventoryKey, setInventoryKey] = useState<OwnerStoreSponsoredInventoryKey | "">(() =>
     isOwnerStoreSponsoredInventoryKey(preloadInventoryKeyRaw) ? preloadInventoryKeyRaw : ""
   );
+  const [placementChoice, setPlacementChoice] = useState<PlacementChoiceId | "">(() => {
+    if (preloadInventoryKeyRaw === "STORES_HOME_FEED") return "home";
+    if (preloadInventoryKeyRaw === "STORES_CATEGORY_FEED") return "primary";
+    return "";
+  });
   const [packageId, setPackageId] = useState("");
   const [packages, setPackages] = useState<CommercialPackage[]>([]);
   const [placements, setPlacements] = useState<CommercialPlacement[]>([]);
@@ -305,6 +346,7 @@ export function OwnerStoreSponsoredCreateView() {
   const onSelectStore = (id: string) => {
     setStoreId(id);
     setInventoryKey("");
+    setPlacementChoice("");
     setPackageId("");
     setPackages([]);
     setQuote(null);
@@ -313,8 +355,9 @@ export function OwnerStoreSponsoredCreateView() {
     setStoreSheetOpen(false);
   };
 
-  const onSelectPlacement = (key: OwnerStoreSponsoredInventoryKey) => {
-    setInventoryKey(key);
+  const onSelectPlacementChoice = (choice: PlacementChoiceId) => {
+    setPlacementChoice(choice);
+    setInventoryKey(inventoryKeyFromPlacementChoice(choice));
     setPackageId("");
     setPackages([]);
     setQuote(null);
@@ -328,7 +371,7 @@ export function OwnerStoreSponsoredCreateView() {
   };
 
   const persistDraft = useCallback(async (): Promise<OwnerSponsoredCampaignRow | null> => {
-    if (!storeId || !inventoryKey || !packageId) {
+    if (!storeId || !inventoryKey || !packageId || !placementChoice) {
       setError(!storeId ? "store" : "inventory");
       return null;
     }
@@ -340,6 +383,7 @@ export function OwnerStoreSponsoredCreateView() {
       setError("no_packages");
       return null;
     }
+    const browse = browseTargetFromPlacementChoice(placementChoice, selectedStore);
     let saved = existingCampaign;
     if (saved) {
       const patchRes = await fetch(
@@ -348,7 +392,13 @@ export function OwnerStoreSponsoredCreateView() {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ inventoryKeys: [inventoryKey], packageId }),
+          body: JSON.stringify({
+            inventoryKeys: [inventoryKey],
+            packageId,
+            browseTargetKind: browse.browseTargetKind,
+            browsePrimarySlug: browse.browsePrimarySlug,
+            browseSecondarySlug: browse.browseSecondarySlug,
+          }),
         }
       );
       const patchJson = (await patchRes.json()) as {
@@ -372,6 +422,9 @@ export function OwnerStoreSponsoredCreateView() {
         inventoryKeys: [inventoryKey],
         packageId,
         clientRequestId,
+        browseTargetKind: browse.browseTargetKind,
+        browsePrimarySlug: browse.browsePrimarySlug,
+        browseSecondarySlug: browse.browseSecondarySlug,
       }),
     });
     const createJson = (await createRes.json()) as {
@@ -393,7 +446,9 @@ export function OwnerStoreSponsoredCreateView() {
     inventoryKey,
     noSellablePackages,
     packageId,
+    placementChoice,
     quote,
+    selectedStore,
     storeId,
   ]);
 
@@ -633,26 +688,37 @@ export function OwnerStoreSponsoredCreateView() {
                   options={
                     ([
                       {
-                        key: "STORES_HOME_FEED" as const,
+                        key: "home" as const,
                         title: t("owner_ads_launch_home_store_title"),
                         help: t("owner_ads_launch_home_store_help"),
                         miniature: "home_interleave" as const,
                       },
                       {
-                        key: "STORES_CATEGORY_FEED" as const,
-                        title: ownerCategoryPlacementTitle({
+                        key: "primary" as const,
+                        title: ownerPrimaryBrowsePlacementTitle({
                           primaryCategoryLabel: selectedStore?.categoryLabel,
-                          fallbackKo: t("owner_ads_launch_category_store_title"),
-                          fallbackEn: t("owner_ads_launch_category_store_title"),
                           lang,
                         }),
                         help: t("owner_ads_launch_category_store_help"),
                         miniature: "category_interleave" as const,
                       },
-                    ] satisfies OwnerPlacementVisualOption<OwnerStoreSponsoredInventoryKey>[])
+                      ...(selectedStore?.topicSlug
+                        ? [
+                            {
+                              key: "secondary" as const,
+                              title: ownerSecondaryBrowsePlacementTitle({
+                                secondaryCategoryLabel: selectedStore.topicLabel,
+                                lang,
+                              }),
+                              help: t("owner_ads_launch_category_store_help"),
+                              miniature: "category_interleave" as const,
+                            },
+                          ]
+                        : []),
+                    ] satisfies OwnerPlacementVisualOption<PlacementChoiceId>[])
                   }
-                  selected={inventoryKey}
-                  onSelect={onSelectPlacement}
+                  selected={placementChoice}
+                  onSelect={onSelectPlacementChoice}
                   adTagLabel={safeT("owner_ads_customer_ad_tag", {
                     fallbackKo: "광고",
                     fallbackEn: "Ad",

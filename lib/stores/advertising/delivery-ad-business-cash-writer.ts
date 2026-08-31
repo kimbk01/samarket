@@ -157,7 +157,13 @@ export async function adminCreditBusinessCash(
     nonce: string;
   }
 ): Promise<
-  | { ok: true; balanceMinor: number; currency: string; idempotent: boolean }
+  | {
+      ok: true;
+      balanceMinor: number;
+      currency: string;
+      idempotent: boolean;
+      ledgerId: string | null;
+    }
   | { ok: false; error: string; detail?: string }
 > {
   const idem = buildAdminCashCreditIdempotencyKey({
@@ -188,6 +194,10 @@ export async function adminCreditBusinessCash(
     balanceMinor: Number(payload.balance_minor ?? 0),
     currency: String(payload.currency ?? "PHP"),
     idempotent: payload.idempotent === true,
+    ledgerId:
+      typeof payload.ledger_id === "string" && payload.ledger_id.trim()
+        ? payload.ledger_id.trim()
+        : null,
   };
 }
 

@@ -24,7 +24,7 @@ const JUNCTION_TABLE = "delivery_store_sponsored_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
 
 const PAID_SELECT =
-  "id, store_id, placement, title, headline, body_copy, image_url, start_at, end_at, is_active, lifecycle_status, review_status, campaign_source";
+  "id, store_id, placement, title, headline, body_copy, image_url, start_at, end_at, is_active, lifecycle_status, review_status, campaign_source, browse_target_kind, browse_primary_slug, browse_secondary_slug";
 
 function mapPaidAd(
   raw: Record<string, unknown>,
@@ -51,6 +51,10 @@ function mapPaidAd(
       ? lifecycleImpliesIsActive(lifecycleStatus) && reviewStatus === "APPROVED"
       : raw.is_active === true;
 
+  const browseKindRaw = String(raw.browse_target_kind ?? "").trim();
+  const browseTargetKind =
+    browseKindRaw === "primary" || browseKindRaw === "secondary" ? browseKindRaw : null;
+
   return {
     id,
     storeId,
@@ -67,6 +71,11 @@ function mapPaidAd(
     inventoryKeys,
     campaignSource: raw.campaign_source == null ? "OWNER_PAID" : String(raw.campaign_source),
     fundingStatus,
+    browseTargetKind,
+    browsePrimarySlug:
+      raw.browse_primary_slug == null ? null : String(raw.browse_primary_slug).trim() || null,
+    browseSecondarySlug:
+      raw.browse_secondary_slug == null ? null : String(raw.browse_secondary_slug).trim() || null,
   };
 }
 
@@ -155,12 +164,15 @@ export async function loadActiveStorePaidAdCampaigns(
       if (/lifecycle_status|review_status|column/i.test(String(error.message))) {
         return loadActiveStorePaidAdCampaignsLegacy(sb, placement, nowMs);
       }
+      if (/browse_target_kind|browse_primary_slug|browse_secondary_slug/i.test(String(error.message))) {
+        return loadActiveStorePaidAdCampaignsWithoutBrowseTarget(sb, placement, nowMs);
+      }
       if (error.message?.includes(STORE_PAID_AD_CAMPAIGN_TABLE)) return [];
       console.error("[loadActiveStorePaidAdCampaigns]", error.message);
       return [];
     }
 
-    const rows = (data ?? []) as Record<string, unknown>[];
+    const rows = (data ?? []) as unknown as Record<string, unknown>[];
     const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
     const [invMap, fundingMap] = await Promise.all([
       loadInventoryKeysByCampaignId(sb, ids),
@@ -181,6 +193,52 @@ export async function loadActiveStorePaidAdCampaigns(
     return selectActiveStorePaidAdCampaigns(parsed, placement, nowMs);
   } catch (e) {
     console.error("[loadActiveStorePaidAdCampaigns]", e instanceof Error ? e.message : e);
+    return [];
+  }
+}
+
+/** Pre-browse-target recovery fallback. */
+async function loadActiveStorePaidAdCampaignsWithoutBrowseTarget(
+  sb: SupabaseClient,
+  placement: StorePaidAdPlacement,
+  nowMs: number
+): Promise<StorePaidAdCampaignRow[]> {
+  const selectWithoutBrowse = PAID_SELECT.replace(
+    /, browse_target_kind, browse_primary_slug, browse_secondary_slug/,
+    ""
+  );
+  try {
+    const { data, error } = await sb
+      .from(STORE_PAID_AD_CAMPAIGN_TABLE)
+      .select(selectWithoutBrowse)
+      .eq("placement", placement)
+      .eq("lifecycle_status", "ACTIVE")
+      .eq("review_status", "APPROVED");
+    if (error) {
+      if (/lifecycle_status|review_status|column/i.test(String(error.message))) {
+        return loadActiveStorePaidAdCampaignsLegacy(sb, placement, nowMs);
+      }
+      return [];
+    }
+    const rows = (data ?? []) as unknown as Record<string, unknown>[];
+    const ids = rows.map((r) => String(r.id ?? "")).filter(Boolean);
+    const [invMap, fundingMap] = await Promise.all([
+      loadInventoryKeysByCampaignId(sb, ids),
+      loadDeliveryAdFundingStatusByCampaignIds(sb, {
+        productKind: "store_sponsored",
+        campaignIds: ids,
+      }),
+    ]);
+    const parsed: StorePaidAdCampaignRow[] = [];
+    for (const raw of rows) {
+      const id = String(raw.id ?? "");
+      const mapped = mapPaidAd(raw, invMap.get(id) ?? [], fundingMap.get(id) ?? "UNFUNDED");
+      if (!mapped) continue;
+      if (!isSponsoredScheduleActive(mapped.startAt, mapped.endAt, nowMs)) continue;
+      parsed.push(mapped);
+    }
+    return selectActiveStorePaidAdCampaigns(parsed, placement, nowMs);
+  } catch {
     return [];
   }
 }

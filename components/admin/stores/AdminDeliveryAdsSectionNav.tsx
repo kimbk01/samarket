@@ -36,6 +36,13 @@ const NAV_ITEMS = [
     labelEn: "Partner",
     dataAttr: "data-admin-delivery-ads-partner-link",
   },
+  {
+    href: DELIVERY_AD_ADMIN_ROUTES.cashCharges,
+    match: (p: string) => p.startsWith(DELIVERY_AD_ADMIN_ROUTES.cashCharges),
+    labelKo: "Cash 충전",
+    labelEn: "Cash top-up",
+    dataAttr: "data-admin-delivery-ads-cash-charges-link",
+  },
 ] as const;
 
 /**

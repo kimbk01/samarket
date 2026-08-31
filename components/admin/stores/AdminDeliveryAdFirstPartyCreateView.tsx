@@ -308,9 +308,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
                     <img
                       src={assetPath}
                       alt=""
-                      className={`w-full object-cover ${
-                        inventoryKey === "STORES_SEARCH_TOP" ? "aspect-[3/1]" : "aspect-[39/16]"
-                      }`}
+                      className="w-full object-cover aspect-[39/16]"
                     />
                   </div>
                   <p className="text-[11px] tabular-nums text-sam-muted">

@@ -153,6 +153,16 @@ export function AdminDeliveryAdHomePolicyPanel({
           fallbackEn: "Configure ad integration on home shelves",
         })}
       </Link>
+      <Link
+        href="/admin/stores-category-policy"
+        className="mt-1 block text-[12px] font-medium text-signature underline"
+        data-admin-ads-crossnav-category-policy="1"
+      >
+        {safeT("admin_delivery_ads_open_category_policy", {
+          fallbackKo: "업종(BROWSE) 광고 정책",
+          fallbackEn: "BROWSE category ad policy",
+        })}
+      </Link>
     </div>
   );
 }

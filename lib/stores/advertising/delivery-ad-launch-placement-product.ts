@@ -32,7 +32,11 @@ export const LAUNCH_STORE_PROMOTION_PLACEMENTS = [
   },
 ] as const;
 
-/** Launch sellable banner placements. */
+/**
+ * Launch sellable banner placements.
+ * SEARCH_TOP is NOT_SELLABLE for launch (schema/runtime may remain) — see
+ * `STORES_SEARCH_TOP_LAUNCH` in delivery-ad-product-recovery-contract.ts.
+ */
 export const LAUNCH_BANNER_PLACEMENTS = [
   {
     inventoryKey: "STORES_HOME_HERO",
@@ -47,20 +51,15 @@ export const LAUNCH_BANNER_PLACEMENTS = [
     loop: true,
     dotsRequired: true,
   },
-  {
-    inventoryKey: "STORES_SEARCH_TOP",
-    productId: "search_top_single",
-    ownerTitleKey: "owner_ads_launch_search_top_title",
-    ownerHelpKey: "owner_ads_launch_search_top_help",
-    adminTitleKey: "admin_ads_launch_search_top_title",
-    miniature: "search_top_single" as const,
-    multiAd: "single" as const,
-    visibleAtOnce: 1,
-    autoSlideMs: null,
-    loop: false,
-    dotsRequired: false,
-  },
 ] as const;
+
+/** Historical / compat banner product — not Owner/Admin launch-sellable. */
+export const LEGACY_SEARCH_TOP_BANNER_PLACEMENT = {
+  inventoryKey: "STORES_SEARCH_TOP" as const,
+  productId: "search_top_single" as const,
+  launchStatus: "NOT_SELLABLE" as const,
+  miniature: "search_top_single" as const,
+};
 
 export type LaunchStorePromotionInventoryKey =
   (typeof LAUNCH_STORE_PROMOTION_PLACEMENTS)[number]["inventoryKey"];
@@ -140,6 +139,30 @@ export function ownerCategoryPlacementTitle(input: {
     return input.lang === "en" ? `${label} store ads` : `${label} 매장 광고`;
   }
   return input.lang === "en" ? input.fallbackEn : input.fallbackKo;
+}
+
+/** 1st-level browse placement title from store taxonomy. */
+export function ownerPrimaryBrowsePlacementTitle(input: {
+  primaryCategoryLabel: string | null | undefined;
+  lang: "ko" | "en";
+}): string {
+  const label = String(input.primaryCategoryLabel ?? "").trim();
+  if (label) {
+    return input.lang === "en" ? `${label} (1st category)` : `${label} (1차 업종)`;
+  }
+  return input.lang === "en" ? "1st category list" : "1차 업종 목록";
+}
+
+/** 2nd-level browse placement title from store taxonomy. */
+export function ownerSecondaryBrowsePlacementTitle(input: {
+  secondaryCategoryLabel: string | null | undefined;
+  lang: "ko" | "en";
+}): string {
+  const label = String(input.secondaryCategoryLabel ?? "").trim();
+  if (label) {
+    return input.lang === "en" ? `${label} (2nd category)` : `${label} (2차 업종)`;
+  }
+  return input.lang === "en" ? "2nd category list" : "2차 업종 목록";
 }
 
 /** Primary UI must never show raw inventory keys as the main label. */

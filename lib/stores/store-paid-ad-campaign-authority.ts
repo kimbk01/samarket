@@ -40,6 +40,13 @@ export type StorePaidAdCampaignRow = {
   /** P0-A / Business Cash — default OWNER_PAID when absent. */
   campaignSource?: string | null;
   fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED" | null;
+  /**
+   * Product recovery — CATEGORY_FEED browse target.
+   * null = legacy unscoped (compat).
+   */
+  browseTargetKind?: "primary" | "secondary" | null;
+  browsePrimarySlug?: string | null;
+  browseSecondarySlug?: string | null;
 };
 
 export function isStorePaidAdPlacement(value: unknown): value is StorePaidAdPlacement {

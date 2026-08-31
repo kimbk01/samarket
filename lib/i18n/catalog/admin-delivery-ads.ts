@@ -273,6 +273,15 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_end: "종료",
     admin_delivery_ads_section_nav_aria: "배달 광고 관리 메뉴",
     admin_delivery_ads_inventory_title: "광고 지면 관리",
+    admin_ads_search_not_sellable:
+      "검색 상단 배너는 런치에서 판매하지 않습니다. 스키마·런타임만 유지합니다.",
+    admin_delivery_ads_cash_charges_title: "Business Cash 충전 신청",
+    admin_delivery_ads_cash_charges_help:
+      "확인 후 적립하면 광고 Business Cash ledger에만 반영됩니다. Business Credit과 분리됩니다.",
+    admin_delivery_ads_cash_charges_empty: "대기 중인 충전 신청이 없습니다.",
+    admin_delivery_ads_cash_charges_complete: "적립 확인",
+    admin_delivery_ads_cash_charges_reject: "거절",
+    admin_delivery_ads_open_category_policy: "업종(BROWSE) 광고 정책",
     admin_delivery_ads_inventory_desc:
       "고객 화면에 실제로 팔리는 광고 위치를 관리합니다. 내부 inventory key는 보조 정보입니다.",
     admin_ads_surface_home: "배달 홈",
@@ -578,6 +587,15 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_partner_end: "End",
     admin_delivery_ads_section_nav_aria: "Delivery ads admin menu",
     admin_delivery_ads_inventory_title: "Ad placement management",
+    admin_ads_search_not_sellable:
+      "Search top banner is not sellable at launch. Schema/runtime only.",
+    admin_delivery_ads_cash_charges_title: "Business Cash top-up requests",
+    admin_delivery_ads_cash_charges_help:
+      "Confirm credits ads Business Cash ledger only. Separate from Business Credit.",
+    admin_delivery_ads_cash_charges_empty: "No open top-up requests.",
+    admin_delivery_ads_cash_charges_complete: "Credit",
+    admin_delivery_ads_cash_charges_reject: "Reject",
+    admin_delivery_ads_open_category_policy: "BROWSE category ad policy",
     admin_delivery_ads_inventory_desc:
       "Manage sellable customer placements. Internal inventory keys are secondary metadata only.",
     admin_ads_surface_home: "Delivery Home",

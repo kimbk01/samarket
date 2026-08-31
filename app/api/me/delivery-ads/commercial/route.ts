@@ -14,6 +14,8 @@ import {
   DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS,
   formatDeliveryAdPhpMinor,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { isLaunchSellableInventoryKey } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
+import { STORES_SEARCH_TOP_LAUNCH } from "@/lib/stores/advertising/delivery-ad-product-recovery-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +54,13 @@ export async function GET(req: NextRequest) {
   const partner = await loadActivePartnerMembershipForStore(sb, storeId);
 
   const placements = catalog.placements
-    .filter((p) => p.productKind === productKindRaw && p.sellable)
+    .filter(
+      (p) =>
+        p.productKind === productKindRaw &&
+        p.sellable &&
+        isLaunchSellableInventoryKey(p.inventoryKey) &&
+        p.inventoryKey !== STORES_SEARCH_TOP_LAUNCH.inventoryKey
+    )
     .map((p) => ({
       inventoryKey: p.inventoryKey,
       sellable: p.sellable,

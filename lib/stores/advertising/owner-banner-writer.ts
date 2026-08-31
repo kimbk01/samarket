@@ -27,6 +27,7 @@ import {
   validateOwnerBannerInventory,
   validateOwnerBannerSchedule,
   type OwnerBannerInventoryKey,
+  type OwnerBannerInventoryKeyLoaded,
 } from "@/lib/stores/advertising/owner-banner-contract";
 import { assertOwnerStoreEligibleForAds } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
@@ -100,7 +101,7 @@ export type OwnerBannerCampaignRow = {
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  inventoryKeys: OwnerBannerInventoryKey[];
+  inventoryKeys: OwnerBannerInventoryKeyLoaded[];
   creative: OwnerBannerCreativeSnapshot | null;
 };
 
@@ -145,7 +146,7 @@ function isReview(v: unknown): v is DeliveryAdReviewStatus {
 async function loadInventoryKeys(
   sb: SupabaseClient,
   campaignId: string
-): Promise<OwnerBannerInventoryKey[]> {
+): Promise<OwnerBannerInventoryKeyLoaded[]> {
   const { data: links } = await sb
     .from(BANNER_JUNCTION)
     .select("inventory_id")
@@ -153,7 +154,7 @@ async function loadInventoryKeys(
   if (!links?.length) return [];
   const ids = links.map((r) => String((r as { inventory_id: string }).inventory_id));
   const { data: invs } = await sb.from(INVENTORY_TABLE).select("key").in("id", ids);
-  const keys: OwnerBannerInventoryKey[] = [];
+  const keys: OwnerBannerInventoryKeyLoaded[] = [];
   for (const row of invs ?? []) {
     if (String((row as { key?: string }).key) === "STORES_HOME_HERO") {
       keys.push("STORES_HOME_HERO");
@@ -202,7 +203,7 @@ async function loadCreative(
 
 function mapRow(
   raw: Record<string, unknown>,
-  inventoryKeys: OwnerBannerInventoryKey[],
+  inventoryKeys: OwnerBannerInventoryKeyLoaded[],
   creative: OwnerBannerCreativeSnapshot | null
 ): OwnerBannerCampaignRow | null {
   const id = String(raw.id ?? "").trim();

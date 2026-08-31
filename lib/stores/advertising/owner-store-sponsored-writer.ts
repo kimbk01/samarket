@@ -101,7 +101,9 @@ export type OwnerSponsoredWriterError =
   | "duplicate_submit"
   | "db_error"
   | "inventory_lookup_failed"
-  | "pricing_not_configured_ok";
+  | "pricing_not_configured_ok"
+  | "category_ads_disabled"
+  | "taxonomy_required";
 
 export type OwnerSponsoredWriterResult<T> =
   | { ok: true; row: T; auditId?: string }
@@ -314,6 +316,10 @@ export type OwnerCreateDraftInput = {
   headline?: string;
   clientRequestId?: string | null;
   nowMs?: number;
+  /** Product recovery — CATEGORY_FEED 1st/2nd target. */
+  browseTargetKind?: "primary" | "secondary" | null;
+  browsePrimarySlug?: string | null;
+  browseSecondarySlug?: string | null;
 };
 
 export async function createOwnerSponsoredDraft(
@@ -356,6 +362,46 @@ export async function createOwnerSponsoredDraft(
     startAtIso = window.startAtIso;
     endAtIso = window.endAtIso;
     packagePricingModel = encodeOwnerAdPackagePricingModel(packageId);
+  }
+
+  let browseTargetKind = input.browseTargetKind ?? null;
+  let browsePrimarySlug = input.browsePrimarySlug?.trim() || null;
+  let browseSecondarySlug = input.browseSecondarySlug?.trim() || null;
+
+  const wantsCategory = inv.keys.includes("STORES_CATEGORY_FEED");
+  if (wantsCategory) {
+    const { assertCategoryFeedSellableByPolicy } = await import(
+      "@/lib/stores/advertising/delivery-ad-category-policy-sell-gate"
+    );
+    const kind =
+      browseTargetKind === "primary" || browseTargetKind === "secondary"
+        ? browseTargetKind
+        : "primary";
+    if (!browsePrimarySlug) {
+      const { data: storeTax } = await sb
+        .from("stores")
+        .select("store_categories ( slug ), store_topics ( slug )")
+        .eq("id", input.storeId)
+        .maybeSingle();
+      const cat = (storeTax as { store_categories?: { slug?: string } | { slug?: string }[] | null } | null)
+        ?.store_categories;
+      const topic = (storeTax as { store_topics?: { slug?: string } | { slug?: string }[] | null } | null)
+        ?.store_topics;
+      const catRow = Array.isArray(cat) ? cat[0] : cat;
+      const topicRow = Array.isArray(topic) ? topic[0] : topic;
+      browsePrimarySlug = catRow?.slug?.trim() || null;
+      if (kind === "secondary") browseSecondarySlug = topicRow?.slug?.trim() || null;
+    }
+    const policyGate = await assertCategoryFeedSellableByPolicy(sb, {
+      primarySlug: browsePrimarySlug,
+      secondarySlug: browseSecondarySlug,
+      browseTargetKind: kind,
+    });
+    if (!policyGate.ok) {
+      return { ok: false, error: policyGate.error };
+    }
+    browseTargetKind = kind;
+    if (kind !== "secondary") browseSecondarySlug = null;
   }
 
   const schedule = validateOwnerStoreSponsoredSchedule({
@@ -420,6 +466,31 @@ export async function createOwnerSponsoredDraft(
       })
       .eq("id", payload.campaign_id);
   }
+
+  if (wantsCategory && (browseTargetKind === "primary" || browseTargetKind === "secondary")) {
+    await sb
+      .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+      .update({
+        browse_target_kind: browseTargetKind,
+        browse_primary_slug: browsePrimarySlug,
+        browse_secondary_slug:
+          browseTargetKind === "secondary" ? browseSecondarySlug : null,
+        updated_by_user_id: input.ownerUserId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.campaign_id);
+  } else if (!wantsCategory) {
+    await sb
+      .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+      .update({
+        browse_target_kind: null,
+        browse_primary_slug: null,
+        browse_secondary_slug: null,
+        updated_by_user_id: input.ownerUserId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", payload.campaign_id);
+  }
   return loadOwnerSponsoredCampaign(sb, payload.campaign_id, input.ownerUserId);
 }
 
@@ -432,6 +503,9 @@ export type OwnerUpdateDraftInput = {
   title?: string;
   headline?: string;
   nowMs?: number;
+  browseTargetKind?: "primary" | "secondary" | null;
+  browsePrimarySlug?: string | null;
+  browseSecondarySlug?: string | null;
 };
 
 export async function updateOwnerSponsoredDraft(
@@ -510,6 +584,40 @@ export async function updateOwnerSponsoredDraft(
       error: (payload?.error ?? "db_error") as OwnerSponsoredWriterError,
     };
   }
+
+  if (input.browseTargetKind !== undefined || input.inventoryKeys !== undefined) {
+    const wantsCategory = nextKeys.includes("STORES_CATEGORY_FEED");
+    if (
+      wantsCategory &&
+      (input.browseTargetKind === "primary" || input.browseTargetKind === "secondary")
+    ) {
+      await sb
+        .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+        .update({
+          browse_target_kind: input.browseTargetKind,
+          browse_primary_slug: input.browsePrimarySlug?.trim() || null,
+          browse_secondary_slug:
+            input.browseTargetKind === "secondary"
+              ? input.browseSecondarySlug?.trim() || null
+              : null,
+          updated_by_user_id: input.ownerUserId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payload.campaign_id);
+    } else if (!wantsCategory) {
+      await sb
+        .from(STORE_SPONSORED_CAMPAIGN_TABLE)
+        .update({
+          browse_target_kind: null,
+          browse_primary_slug: null,
+          browse_secondary_slug: null,
+          updated_by_user_id: input.ownerUserId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payload.campaign_id);
+    }
+  }
+
   return loadOwnerSponsoredCampaign(sb, payload.campaign_id, input.ownerUserId);
 }
 

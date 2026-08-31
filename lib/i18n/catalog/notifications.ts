@@ -230,6 +230,12 @@ export const notificationMessages = {
     notify_delivery_ad_terminated_body: "관리자가 배달 광고를 중단했습니다.",
     notify_delivery_ad_admin_message_title: "광고 운영 메시지",
     notify_delivery_ad_admin_message_body: "관리자가 배달 광고 운영 메시지를 남겼습니다.",
+    notify_delivery_ad_cash_charge_completed_title: "Business Cash 충전 완료",
+    notify_delivery_ad_cash_charge_completed_body:
+      "{amount}이(가) 광고 Business Cash에 적립되었습니다.",
+    notify_delivery_ad_cash_charge_rejected_title: "Business Cash 충전 신청 거절",
+    notify_delivery_ad_cash_charge_rejected_body:
+      "충전 신청이 거절되었습니다. 광고 허브에서 확인해 주세요.",
   },
   en: {
     notify_chat_new_message_title: "New message",
@@ -463,5 +469,11 @@ export const notificationMessages = {
     notify_delivery_ad_terminated_body: "An admin terminated your Delivery ad.",
     notify_delivery_ad_admin_message_title: "Ad operations message",
     notify_delivery_ad_admin_message_body: "An admin left an operations message on your Delivery ad.",
+    notify_delivery_ad_cash_charge_completed_title: "Business Cash top-up completed",
+    notify_delivery_ad_cash_charge_completed_body:
+      "{amount} was credited to your ads Business Cash.",
+    notify_delivery_ad_cash_charge_rejected_title: "Business Cash top-up rejected",
+    notify_delivery_ad_cash_charge_rejected_body:
+      "Your top-up request was rejected. Check the ads hub.",
   },
 } as const;

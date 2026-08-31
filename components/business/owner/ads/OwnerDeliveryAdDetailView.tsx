@@ -133,6 +133,13 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
     useState<OwnerAdsOpsBackendCapability>("unknown");
   const [focusOperations, setFocusOperations] = useState(false);
 
+  useEffect(() => {
+    const focus = sp.get("focus")?.trim() ?? "";
+    if (focus === "operations" || focus === "ops") {
+      setFocusOperations(true);
+    }
+  }, [sp]);
+
   const load = useCallback(async () => {
     if (!storeId) {
       const hub = await fetch("/api/me/delivery-ads", { credentials: "include" });

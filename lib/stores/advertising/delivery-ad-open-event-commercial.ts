@@ -4,8 +4,6 @@
  * Catalog edits must not mutate existing campaign commercial snapshots.
  */
 
-import type { OwnerBannerInventoryKey } from "@/lib/stores/advertising/owner-banner-contract";
-
 export const DELIVERY_AD_OPEN_EVENT_COMMERCIAL = {
   labelKo: "오픈 이벤트 가격",
   labelEn: "Open-event pricing",
@@ -34,7 +32,7 @@ export const DELIVERY_AD_OPEN_EVENT_PARTNER = {
 } as const;
 
 export type BannerCreativePixelGuide = {
-  inventoryKey: OwnerBannerInventoryKey;
+  inventoryKey: "STORES_HOME_HERO" | "STORES_SEARCH_TOP";
   ratioLabel: string;
   recommendedWidth: number;
   recommendedHeight: number;
@@ -50,7 +48,7 @@ export type BannerCreativePixelGuide = {
  * Aspect matches inventory SSOT (39:16 / 3:1); pixels are launch recommendations.
  */
 export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
-  OwnerBannerInventoryKey,
+  "STORES_HOME_HERO" | "STORES_SEARCH_TOP",
   BannerCreativePixelGuide
 > = {
   STORES_HOME_HERO: {

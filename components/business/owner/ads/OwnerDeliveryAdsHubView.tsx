@@ -19,6 +19,7 @@ import { DeliveryAdOwnerStatusBadge } from "@/components/stores/advertising/Deli
 import { DeliveryAdOwnerProductSelectCard } from "@/components/stores/advertising/DeliveryAdOwnerProductSelectCard";
 import type { OwnerAdsSummaryBucket } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { OwnerDeliveryAdCashChargeSheet } from "@/components/business/owner/ads/OwnerDeliveryAdCashChargeSheet";
 
 type HubStore = {
   id: string;
@@ -104,6 +105,8 @@ export function OwnerDeliveryAdsHubView() {
   const [productSelectOpen, setProductSelectOpen] = useState(false);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [cashHistoryOpen, setCashHistoryOpen] = useState(false);
+  const [cashChargeOpen, setCashChargeOpen] = useState(false);
+  const [unreadByCampaignId, setUnreadByCampaignId] = useState<Record<string, number>>({});
   const [ownerDisplayName, setOwnerDisplayName] = useState<string | null>(null);
   const [draftDeleteTarget, setDraftDeleteTarget] = useState<HubCampaign | null>(null);
   const [draftDeleteBusy, setDraftDeleteBusy] = useState(false);
@@ -121,6 +124,7 @@ export function OwnerDeliveryAdsHubView() {
         stores?: HubStore[];
         summary?: HubSummary;
         businessCash?: { balanceMinor?: number };
+        unreadByCampaignId?: Record<string, number>;
       };
       if (!res.ok || !json.ok) {
         setError(json.error || "load_failed");
@@ -140,6 +144,7 @@ export function OwnerDeliveryAdsHubView() {
           draft: json.summary.draft ?? 0,
         });
       }
+      setUnreadByCampaignId(json.unreadByCampaignId ?? {});
       setCashBalanceMinor(
         typeof json.businessCash?.balanceMinor === "number"
           ? json.businessCash.balanceMinor
@@ -235,6 +240,13 @@ export function OwnerDeliveryAdsHubView() {
     count: summary[key],
   }));
 
+  const todoCampaigns = useMemo(() => {
+    return sortedCampaigns.filter((c) => {
+      if (c.lifecycleStatus === "CHANGES_REQUESTED") return true;
+      return (unreadByCampaignId[c.id] ?? 0) > 0;
+    });
+  }, [sortedCampaigns, unreadByCampaignId]);
+
   const greetingText = ownerDisplayName
     ? t("owner_ads_hub_greeting").replace("{name}", ownerDisplayName)
     : t("owner_ads_hub_greeting_fallback");
@@ -256,6 +268,112 @@ export function OwnerDeliveryAdsHubView() {
 
       {loaded && !error ? (
         <>
+        <div
+          className="rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
+          data-owner-ads-business-cash="card"
+          data-owner-ads-cash-wallet="ad-only"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-semibold text-sam-fg">
+                {t("owner_ads_business_cash_label")}
+              </p>
+              <p className="mt-1 text-[22px] font-bold tabular-nums text-sam-fg">
+                {cashBalanceMinor != null ? formatDeliveryAdPhpMinor(cashBalanceMinor) : "—"}
+              </p>
+              <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_business_cash_ad_only")}</p>
+              {cashBalanceMinor != null && cashBalanceMinor <= 0 ? (
+                <p className="mt-1 text-[12px] font-medium text-red-600" data-owner-ads-cash-empty="1">
+                  {safeT("owner_ads_cash_status_empty", {
+                    fallbackKo: "잔액 없음",
+                    fallbackEn: "No balance",
+                  })}
+                </p>
+              ) : cashBalanceMinor != null && cashBalanceMinor > 0 ? (
+                <p className="mt-1 text-[12px] font-medium text-[#0A823E]" data-owner-ads-cash-ready="1">
+                  {safeT("owner_ads_cash_status_ready", {
+                    fallbackKo: "사용 가능",
+                    fallbackEn: "Available",
+                  })}
+                </p>
+              ) : null}
+              <p className="mt-1 text-[11px] leading-snug text-sam-muted">
+                {t("owner_ads_business_cash_vs_credit")}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2">
+              <button
+                type="button"
+                className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect bg-[#0A823E] px-3 text-[12px] font-semibold text-white"
+                data-owner-ads-cash-charge="1"
+                onClick={() => setCashChargeOpen(true)}
+              >
+                {safeT("owner_ads_cash_charge_cta", {
+                  fallbackKo: "충전 신청",
+                  fallbackEn: "Top up",
+                })}
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg"
+                data-owner-ads-cash-history="1"
+                onClick={() => setCashHistoryOpen((v) => !v)}
+              >
+                {safeT("owner_ads_cash_history", {
+                  fallbackKo: "이용 내역",
+                  fallbackEn: "History",
+                })}
+              </button>
+            </div>
+          </div>
+          {cashHistoryOpen ? (
+            <p className="mt-3 text-[12px] text-sam-muted" data-owner-ads-cash-history-empty="1">
+              {safeT("owner_ads_cash_history_empty", {
+                fallbackKo: "아직 이용 내역이 없습니다.",
+                fallbackEn: "No cash history yet.",
+              })}
+            </p>
+          ) : null}
+        </div>
+
+        {todoCampaigns.length > 0 ? (
+          <div
+            className="rounded-ui-rect border border-amber-300 bg-amber-50 p-4"
+            data-owner-ads-hub-todo="1"
+          >
+            <p className="text-[14px] font-bold text-amber-950">{t("owner_ads_required_action_section")}</p>
+            <ul className="mt-2 space-y-2">
+              {todoCampaigns.map((c) => {
+                const unread = unreadByCampaignId[c.id] ?? 0;
+                return (
+                  <li key={c.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium text-amber-950">
+                        {c.title || c.id.slice(0, 8)}
+                      </p>
+                      <p className="text-[11px] text-amber-900">
+                        {c.lifecycleStatus === "CHANGES_REQUESTED"
+                          ? t("owner_ads_ra_changes_requested_title")
+                          : safeT("owner_ads_hub_unread_ops", {
+                              fallbackKo: `새 메시지 ${unread}`,
+                              fallbackEn: `${unread} new message(s)`,
+                            })}
+                      </p>
+                    </div>
+                    <Link
+                      href={`${DELIVERY_AD_OWNER_ROUTES.detail(c.id)}?focus=operations`}
+                      className="shrink-0 text-[12px] font-semibold text-[#0A823E]"
+                      data-owner-ads-hub-todo-cta={c.id}
+                    >
+                      {t("owner_ads_next_action_label")}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
         <div
           className="grid grid-cols-5 gap-0.5 rounded-ui-rect border border-[#BDBDBD] bg-white p-3 shadow-sm"
           data-owner-ads-summary-kpi="design-board"
@@ -343,7 +461,17 @@ export function OwnerDeliveryAdsHubView() {
                               {c.startAt.slice(0, 10)} ~ {c.endAt.slice(0, 10)}
                             </p>
                           </div>
-                          <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
+                            {(unreadByCampaignId[c.id] ?? 0) > 0 ? (
+                              <span
+                                className="rounded-full bg-[#0A823E] px-2 py-0.5 text-[10px] font-bold text-white"
+                                data-owner-ads-hub-unread={c.id}
+                              >
+                                {unreadByCampaignId[c.id]}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
                           <Link
@@ -443,66 +571,13 @@ export function OwnerDeliveryAdsHubView() {
         </>
       )}
 
-        <div
-          className="rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
-          data-owner-ads-business-cash="card"
-          data-owner-ads-cash-wallet="ad-only"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-semibold text-sam-fg">
-                {t("owner_ads_business_cash_label")}
-              </p>
-              <p className="mt-1 text-[22px] font-bold tabular-nums text-sam-fg">
-                {cashBalanceMinor != null ? formatDeliveryAdPhpMinor(cashBalanceMinor) : "—"}
-              </p>
-              <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_business_cash_ad_only")}</p>
-              {cashBalanceMinor != null && cashBalanceMinor <= 0 ? (
-                <p className="mt-1 text-[12px] font-medium text-red-600" data-owner-ads-cash-empty="1">
-                  {safeT("owner_ads_cash_status_empty", {
-                    fallbackKo: "잔액 없음",
-                    fallbackEn: "No balance",
-                  })}
-                </p>
-              ) : cashBalanceMinor != null && cashBalanceMinor > 0 ? (
-                <p className="mt-1 text-[12px] font-medium text-[#0A823E]" data-owner-ads-cash-ready="1">
-                  {safeT("owner_ads_cash_status_ready", {
-                    fallbackKo: "사용 가능",
-                    fallbackEn: "Available",
-                  })}
-                </p>
-              ) : null}
-              <p className="mt-1 text-[11px] leading-snug text-sam-muted">
-                {t("owner_ads_business_cash_vs_credit")}
-              </p>
-              <p className="mt-1 text-[11px] text-sam-muted">
-                {safeT("owner_ads_cash_grant_ask_admin", {
-                  fallbackKo: "Business Cash 지급이 필요한 경우 관리자에게 문의해 주세요.",
-                  fallbackEn: "Ask admin for a Business Cash grant if needed.",
-                })}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]"
-              data-owner-ads-cash-history="1"
-              onClick={() => setCashHistoryOpen((v) => !v)}
-            >
-              {safeT("owner_ads_cash_history", {
-                fallbackKo: "이용 내역",
-                fallbackEn: "History",
-              })}
-            </button>
-          </div>
-          {cashHistoryOpen ? (
-            <p className="mt-3 text-[12px] text-sam-muted" data-owner-ads-cash-history-empty="1">
-              {safeT("owner_ads_cash_history_empty", {
-                fallbackKo: "아직 이용 내역이 없습니다.",
-                fallbackEn: "No cash history yet.",
-              })}
-            </p>
-          ) : null}
-        </div>
+      <OwnerDeliveryAdCashChargeSheet
+        open={cashChargeOpen}
+        onClose={() => setCashChargeOpen(false)}
+        onSubmitted={() => {
+          void load();
+        }}
+      />
 
       <DibayBottomSheet
         open={productSelectOpen}

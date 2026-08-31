@@ -38,10 +38,13 @@ export const DELIVERY_AD_EXTENSION_KINDS = [
 ] as const;
 export type DeliveryAdExtensionKind = (typeof DELIVERY_AD_EXTENSION_KINDS)[number];
 
-/** Proven sellable inventory keys for launch commercial catalog. */
+/**
+ * Proven sellable inventory keys for launch commercial catalog.
+ * SEARCH_TOP kept in schema/runtime but NOT launch-sellable (product recovery).
+ */
 export const DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT = {
   store_sponsored: ["STORES_HOME_FEED", "STORES_CATEGORY_FEED"],
-  banner: ["STORES_HOME_HERO", "STORES_SEARCH_TOP"],
+  banner: ["STORES_HOME_HERO"],
 } as const satisfies Record<DeliveryAdProductKey, readonly string[]>;
 
 /** Seed structure codes only — NOT price authority. */
