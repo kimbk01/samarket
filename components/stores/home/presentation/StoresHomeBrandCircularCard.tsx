@@ -6,8 +6,10 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
@@ -23,6 +25,7 @@ function StoresHomeBrandCircularCardInner({
   loadingImage: boolean;
   benefit?: StoresHomeShelfCardBenefit;
 }) {
+  const { t } = useI18n();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}`;
   const warm = () => deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
   const subtitle = benefit?.benefitLine ?? entry.campaignTitle ?? entry.name;
@@ -62,6 +65,9 @@ function StoresHomeBrandCircularCardInner({
       </p>
       {subtitle ?
         <p className={`line-clamp-2 text-[10.5px] leading-tight text-signature ${STORES_HOME_META}`}>{subtitle}</p>
+      : null}
+      {benefit?.sponsored ?
+        <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
       : null}
     </Link>
   );
