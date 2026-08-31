@@ -98,17 +98,19 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     );
   });
 
-  it("R3-T6 — hub header has 배달 광고 + section nav (commercial / first-party)", () => {
+  it("R3-T6 — hub header has 배달 광고 + SectionNav owns commercial/first-party CTAs", () => {
     const src = hub();
     expect(src).toContain("admin_delivery_ads_title");
     expect(src).toContain("AdminDeliveryAdsSectionNav");
-    expect(src).toContain("data-admin-delivery-ads-commercial-link");
-    expect(src).toContain("data-admin-delivery-ads-first-party-cta");
     expect(src).not.toContain("AdminStoreBannerAdWriterPanel");
+    expect(src).not.toMatch(/data-admin-delivery-ads-commercial-link|data-admin-delivery-ads-first-party-cta/);
     expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(false);
     const nav = read("components/admin/stores/AdminDeliveryAdsSectionNav.tsx");
     expect(nav).toContain("DELIVERY_AD_ADMIN_ROUTES.commercialSettings");
     expect(nav).toContain("DELIVERY_AD_ADMIN_ROUTES.firstPartyNew");
+    expect(nav).toContain('data-admin-delivery-ads-commercial-link');
+    expect(nav).toContain('data-admin-delivery-ads-first-party-cta="1"');
+    expect(nav).toContain('data-admin-ads-nav-primary-create="1"');
   });
 
   it("R3-T7 — Store Promotion never needs creative", () => {
@@ -151,15 +153,18 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(queue()).toMatch(/focus=\$\{focus\}/);
   });
 
-  it("R3-T10 — NULL price ≠ ₱0", () => {
+  it("R3-T10 — NULL price ≠ ₱0; matrix shows unset guide (not placeholder-only)", () => {
     expect(formatAdminDeliveryAdPriceOrUnset(null, "ko")).toBe("미설정");
     expect(formatAdminDeliveryAdPriceOrUnset(undefined, "en")).toBe("Not set");
     expect(formatAdminDeliveryAdPriceOrUnset(null, "ko")).not.toContain("₱0");
     expect(isAdminDeliveryAdPriceUnset(null)).toBe(true);
     expect(formatDeliveryAdPhpMinor(null)).toBe("—");
     expect(formatAdminDeliveryAdPriceOrUnset(0, "ko")).toBe(formatDeliveryAdPhpMinor(0));
-    expect(commercial()).toContain('placeholder={lang === "en" ? "Not set" : "미설정"}');
     expect(commercial()).toContain("data-price-null-safe");
+    expect(commercial()).toContain('data-commercial-price-unset-guide="1"');
+    expect(commercial()).toContain("가격 미설정");
+    expect(commercial()).toContain("판매 불가");
+    expect(commercial()).toContain("data-commercial-unset-warning-count");
   });
 
   it("R3-T11 — human product/placement labels", () => {

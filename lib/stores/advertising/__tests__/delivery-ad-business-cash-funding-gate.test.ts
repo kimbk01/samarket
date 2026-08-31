@@ -260,7 +260,7 @@ describe("Business Cash funding gate P1", () => {
   it("T31–T36 — Owner funding UI contract (no giant hero, no fake top-up)", () => {
     const hub = readFileSync(OWNER_UI, "utf8");
     const detail = readFileSync(OWNER_DETAIL, "utf8");
-    expect(hub).toContain('data-owner-ads-business-cash="summary"');
+    expect(hub).toContain('data-owner-ads-business-cash="card"');
     expect(hub).not.toContain('data-owner-ads-business-cash="stub"');
     expect(hub).not.toMatch(/text-\[3[2-9]px\].*Business Cash|hero.*Business Cash/i);
     expect(hub).not.toContain("owner_ads_business_cash_topup_unavailable");

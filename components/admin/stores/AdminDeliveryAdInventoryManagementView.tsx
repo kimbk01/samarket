@@ -15,6 +15,10 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { DELIVERY_AD_INVENTORY_SEEDS } from "@/lib/stores/advertising/delivery-ad-inventory";
 import { STORES_SEARCH_TOP_SLOT_POLICY } from "@/lib/stores/advertising/banner-search-top-exposure";
 import { deliveryAdsAdminHubHref } from "@/lib/stores/advertising/delivery-ad-placement-language";
+import {
+  DELIVERY_AD_BANNER_PIXEL_GUIDE,
+  formatBannerPixelGuideLine,
+} from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 
 function seedFor(key: string) {
   return DELIVERY_AD_INVENTORY_SEEDS.find((s) => s.key === key) ?? null;
@@ -39,7 +43,6 @@ export function AdminDeliveryAdInventoryManagementView() {
     (p) => p.inventoryKey === "STORES_CATEGORY_FEED"
   )!;
   const searchTop = LAUNCH_BANNER_PLACEMENTS.find((p) => p.inventoryKey === "STORES_SEARCH_TOP")!;
-  const heroSeed = seedFor(homeHero.inventoryKey);
   const searchSeed = seedFor(searchTop.inventoryKey);
   const heroPolicy = launchBannerByInventory("STORES_HOME_HERO");
   const searchMax = STORES_SEARCH_TOP_SLOT_POLICY.maxBanners;
@@ -72,22 +75,46 @@ export function AdminDeliveryAdInventoryManagementView() {
             {safeT("admin_ads_surface_home", { fallbackKo: "배달 홈", fallbackEn: "Delivery Home" })}
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
-            <AdminCard title={lang === "en" ? "Top hero banner" : "상단 히어로 배너"}>
+            <AdminCard title={lang === "en" ? "Top hero banner" : "배달 홈 상단 배너"}>
               <div data-admin-inventory-card={homeHero.inventoryKey}>
-                <p className="text-[12px] text-sam-muted">
-                  {safeT("admin_ads_form_carousel", {
-                    fallbackKo: `형태: 슬라이드 배너 · 동시 ${heroPolicy?.visibleAtOnce ?? 1}장 · 자동 ${(heroPolicy?.autoSlideMs ?? 5000) / 1000}초 · 루프 · 도트 ${heroPolicy?.dotsRequired ? "필수" : "없음"}`,
-                    fallbackEn: `Form: carousel · ${heroPolicy?.visibleAtOnce ?? 1} visible · auto ${(heroPolicy?.autoSlideMs ?? 5000) / 1000}s · loop · dots ${heroPolicy?.dotsRequired ? "required" : "off"}`,
-                  })}
-                </p>
+                <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-hero-ops="carousel">
+                  <li>
+                    {safeT("admin_ads_form_carousel", {
+                      fallbackKo: "형태: 슬라이드 배너",
+                      fallbackEn: "Form: slide carousel",
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_hero_visible", {
+                      fallbackKo: `한 번에 ${(heroPolicy?.visibleAtOnce ?? 1)}장 · 여러 광고 동시 등록 가능`,
+                      fallbackEn: `${heroPolicy?.visibleAtOnce ?? 1} visible at once · multiple campaigns can be active`,
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_hero_auto", {
+                      fallbackKo: `자동 전환: ${(heroPolicy?.autoSlideMs ?? 5000) / 1000}초 · 무한 루프 · 좌우 swipe · 하단 dots`,
+                      fallbackEn: `Auto: ${(heroPolicy?.autoSlideMs ?? 5000) / 1000}s · loop · swipe · dots`,
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_hero_order", {
+                      fallbackKo: "표시 순서·일정 편입/제외는 광고 목록에서 관리",
+                      fallbackEn: "Order and schedule inclusion are managed in the ad list",
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_sellable", { fallbackKo: "판매 상태", fallbackEn: "Sellable" })}
+                    : ON
+                  </li>
+                </ul>
                 <DeliveryAdPlacementMiniature kind={homeHero.miniature} adLabel={adTag} />
                 <p className="mt-2 text-[12px] text-sam-muted">
-                  {safeT("admin_ads_aspect", { fallbackKo: "비율", fallbackEn: "Aspect" })}:{" "}
-                  {heroSeed
-                    ? `${heroSeed.aspectRatioWidth}:${heroSeed.aspectRatioHeight}`
-                    : "39:16"}{" "}
-                  ·{" "}
-                  {safeT("admin_ads_sellable", { fallbackKo: "판매", fallbackEn: "Sellable" })}: ON
+                  {formatBannerPixelGuideLine(DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO, lang)}
+                </p>
+                <p className="mt-1 text-[11px] text-sam-muted">
+                  {DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_HOME_HERO[
+                    lang === "en" ? "safeAreaNoteEn" : "safeAreaNoteKo"
+                  ]}
                 </p>
                 <p className="mt-1 text-[11px] text-sam-muted">key: {homeHero.inventoryKey}</p>
                 <Link
@@ -154,17 +181,35 @@ export function AdminDeliveryAdInventoryManagementView() {
             title={lang === "en" ? "Search results top banner" : "검색 결과 상단 배너"}
           >
             <div data-admin-inventory-card={searchTop.inventoryKey}>
-                <p className="text-[12px] text-sam-muted" data-admin-search-max={searchMax}>
-                  {safeT("admin_ads_form_single", {
-                    fallbackKo: `형태: 단일 배너 · 동시 노출 ${searchMax} · carousel 아님 · 검색 결과가 있을 때 매장 목록 위에 표시`,
-                    fallbackEn: `Form: single banner · max ${searchMax} · not a carousel · shown above store list when search has results`,
-                  })}
-                </p>
+                <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-search-max={searchMax}>
+                  <li>
+                    {safeT("admin_ads_form_single", {
+                      fallbackKo: `형태: 단일 배너 · 동시 노출 ${searchMax}개 · carousel 아님`,
+                      fallbackEn: `Form: single banner · max ${searchMax} · not a carousel`,
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_search_customer", {
+                      fallbackKo: "고객이 검색했을 때 매장 목록 위에 배너가 표시됩니다.",
+                      fallbackEn: "Shown above the store list when customers search.",
+                    })}
+                  </li>
+                  <li>
+                    {safeT("admin_ads_search_resolver", {
+                      fallbackKo:
+                        "여러 캠페인이 겹치면 기존 resolver 정책으로 1개를 선택합니다. 정책은 노출 SSOT에서 확인하세요.",
+                      fallbackEn:
+                        "When campaigns overlap, the existing resolver picks one. See exposure SSOT for the policy.",
+                    })}
+                  </li>
+                </ul>
               <DeliveryAdPlacementMiniature kind={searchTop.miniature} adLabel={adTag} />
               <p className="mt-2 text-[12px] text-sam-muted">
-                {safeT("admin_ads_aspect", { fallbackKo: "비율", fallbackEn: "Aspect" })}:{" "}
+                {formatBannerPixelGuideLine(DELIVERY_AD_BANNER_PIXEL_GUIDE.STORES_SEARCH_TOP, lang)}
+              </p>
+              <p className="mt-1 text-[11px] text-sam-muted">
                 {searchSeed
-                  ? `${searchSeed.aspectRatioWidth}:${searchSeed.aspectRatioHeight}`
+                  ? `ratio seed ${searchSeed.aspectRatioWidth}:${searchSeed.aspectRatioHeight}`
                   : "3:1"}
               </p>
               <Link

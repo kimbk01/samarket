@@ -57,12 +57,12 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
   });
 
-  it("T4 — Banner step-gated wizard authority", () => {
+  it("T4 — Banner single-page workspace authority", () => {
     const src = banner();
-    expect(src).toContain('data-owner-ads-wizard="step-gated"');
+    expect(src).toContain('data-owner-ads-wizard="single-page"');
     expect(src).toContain('data-owner-ads-workspace="banner"');
-    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(src).toContain("parseOwnerDeliveryAdApplicationStep");
+    expect(src).toContain('data-owner-ads-creative-mode="choice"');
+    expect(src).not.toContain("OwnerDeliveryAdApplicationWizardShell");
   });
 
   it("T5 — packages loaded dynamically from commercial API", () => {
@@ -153,27 +153,29 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(src).not.toMatch(/recordImpression|trackClick|attribution/);
   });
 
-  it("T12 — Banner Owner creative upload absent", () => {
+  it("T12 — Banner Owner creative mode A/B (upload or admin produce)", () => {
     const src = banner();
-    expect(src).not.toMatch(/type=["']file["']/);
-    expect(src).not.toMatch(/input.*accept=["']image/);
-    expect(src).not.toMatch(/crop|Cropper|ImageCrop/);
-    expect(src).toContain("adminProducesCreative: true");
+    expect(src).toMatch(/type=["']file["']/);
+    expect(src).toContain("upload-banner-image");
+    expect(src).toContain("owner_upload");
+    expect(src).toContain("admin_produce");
+    expect(src).toContain("adminProducesCreative");
   });
 
-  it("T13 — Banner Admin-production copy present", () => {
-    expect(banner()).toContain('data-owner-ads-admin-creative="true"');
-    expect(banner()).toContain("owner_ads_banner_admin_creative_notice");
+  it("T13 — Banner Admin-production option present", () => {
+    expect(banner()).toContain('data-owner-ads-creative-mode-option="admin_produce"');
+    expect(banner()).toContain("owner_ads_banner_mode_admin");
     expect(OWNER_BANNER_ADMIN_PRODUCTION_PENDING_ASSET).toContain("admin-production");
   });
 
   it("T14 — Owner footer uses canonical above-nav authority", () => {
     const shell = read("components/business/owner/ads/OwnerDeliveryAdApplicationWizardShell.tsx");
-    for (const src of [sponsored(), banner()]) {
-      expect(src).toContain("useOwnerAdminFormKeyboard");
-      expect(src).toContain("aboveBottomNav: true");
-      expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
-    }
+    expect(sponsored()).toContain("useOwnerAdminFormKeyboard");
+    expect(sponsored()).toContain("aboveBottomNav: true");
+    expect(sponsored()).toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(banner()).toContain("useOwnerAdminFormKeyboard");
+    expect(banner()).toContain("aboveBottomNav: true");
+    expect(banner()).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(shell).toContain('data-owner-ads-footer="owner-admin-ssot"');
     expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
@@ -206,11 +208,13 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(DELIVERY_AD_PARTNER_ORGANIC_EFFECT.altersOrganicEligibility).toBe(false);
   });
 
-  it("T20 — Business Cash is summary only; no fake top-up or charge copy on create", () => {
-    expect(hub()).toContain('data-owner-ads-business-cash="summary"');
+  it("T20 — Business Cash card numeric; no fake top-up or charge copy on create", () => {
+    expect(hub()).toContain('data-owner-ads-business-cash="card"');
     expect(hub()).not.toContain('data-owner-ads-business-cash="stub"');
+    expect(hub()).not.toMatch(/가짜 충전|\[충전\]/);
     expect(sponsored()).not.toMatch(/결제 완료|Business Cash 차감|광고비 결제됨/);
     expect(banner()).not.toMatch(/결제 완료|Business Cash 차감/);
+    expect(banner()).toContain("owner_ads_confirm_business_cash_model_b");
   });
 
   it("T21 — Owner create UI does not expose raw inventory enums as primary labels", () => {
@@ -218,11 +222,11 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(banner()).toContain("deliveryAdCommercialPlacementLabel");
   });
 
-  it("T22 — step-gated wizard via ?step= query (no duplicate scroll flow)", () => {
+  it("T22 — store-sponsored keeps step wizard; banner is single-page", () => {
     expect(sponsored()).toContain('data-owner-ads-step-panel="1"');
-    expect(banner()).toContain('data-owner-ads-step-panel="1"');
     expect(sponsored()).toContain('data-owner-ads-wizard="step-gated"');
-    expect(banner()).toContain('data-owner-ads-wizard="step-gated"');
+    expect(banner()).toContain('data-owner-ads-wizard="single-page"');
+    expect(banner()).not.toContain('data-owner-ads-step-panel="1"');
   });
 
   it("schedule helper derives duration window", () => {

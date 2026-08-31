@@ -83,13 +83,16 @@ describe("UI-1 Owner step-gated application flow", () => {
     expect(src).not.toContain('data-owner-ads-wizard="absent"');
   });
 
-  it("UI1-T5 — banner uses step-gated wizard shell", () => {
+  it("UI1-T5 — banner uses single-page workspace with creative mode A/B", () => {
     const src = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
-    expect(src).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(src).toContain('data-owner-ads-wizard="step-gated"');
-    expect(src).toContain('data-owner-ads-admin-creative="true"');
-    expect(src).toContain("adminProducesCreative: true");
-    expect(src).not.toContain('data-owner-ads-wizard="absent"');
+    expect(src).toContain('data-owner-ads-wizard="single-page"');
+    expect(src).toContain('data-owner-ads-creative-mode="choice"');
+    expect(src).toContain("owner_upload");
+    expect(src).toContain("admin_produce");
+    expect(src).toContain("upload-banner-image");
+    expect(src).toContain("adminProducesCreative");
+    expect(src).not.toContain("OwnerDeliveryAdApplicationWizardShell");
+    expect(src).not.toContain('data-owner-ads-wizard="step-gated"');
   });
 
   it("UI1-T6 — hub 5-col action KPI + store on cards", () => {

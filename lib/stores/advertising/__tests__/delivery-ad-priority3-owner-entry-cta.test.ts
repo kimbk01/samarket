@@ -111,7 +111,7 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
 
   it("T9 — Business Cash is muted summary only; no fake top-up CTA", () => {
     const src = hubSrc();
-    expect(src).toContain('data-owner-ads-business-cash="summary"');
+    expect(src).toContain('data-owner-ads-business-cash="card"');
     expect(src).not.toContain('data-owner-ads-business-cash="stub"');
     expect(src).not.toMatch(/BusinessCashBalance|chargeBusinessCash|walletBalance/);
     expect(src).not.toContain("owner_ads_business_cash_topup_unavailable");

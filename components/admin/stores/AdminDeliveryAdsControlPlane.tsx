@@ -231,10 +231,6 @@ export function AdminDeliveryAdsControlPlane() {
             })}
           </p>
           <AdminDeliveryAdsSectionNav />
-          {/* Contract markers for existing Admin hub link tests */}
-          <span className="sr-only" data-admin-delivery-ads-commercial-link="1" />
-          <span className="sr-only" data-admin-delivery-ads-first-party-cta="1" />
-          <span className="sr-only" data-admin-delivery-ads-partner-link="1" />
           {inventoryFilter ? (
             <p className="mt-2 text-[12px] text-sam-fg">
               {t("admin_delivery_ads_filter_inventory")}:{" "}

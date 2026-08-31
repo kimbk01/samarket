@@ -26,6 +26,10 @@ import {
   formatAdminDeliveryAdPriceOrUnset,
   isAdminDeliveryAdPriceUnset,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
+import {
+  DELIVERY_AD_OPEN_EVENT_COMMERCIAL,
+  countUnsetSellablePackageSlots,
+} from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
 
 type Catalog = DeliveryAdCommercialCatalogReadModel;
 
@@ -102,6 +106,30 @@ export function AdminDeliveryAdCommercialSettingsView() {
     return map;
   }, [catalog]);
 
+  const unsetMatrixSlotCount = useMemo(() => {
+    if (!catalog) return 0;
+    const packages: Array<{ priceAmountMinor: number | null; enabled: boolean }> = [];
+    for (const product of R3_COMMERCIAL_MATRIX_PRODUCTS) {
+      const placements = DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT[product];
+      for (const inv of placements) {
+        for (let i = 0; i < R3_COMMERCIAL_MATRIX_DURATIONS.length; i++) {
+          const days = R3_COMMERCIAL_MATRIX_DURATIONS[i]!;
+          const code = R3_COMMERCIAL_MATRIX_SEED_CODES[i]!;
+          const pkg =
+            packageIndex.get(`${product}:${inv}:${days}`) ??
+            packageIndex.get(`${product}:${inv}:${code}`) ??
+            null;
+          packages.push(
+            pkg
+              ? { priceAmountMinor: pkg.priceAmountMinor, enabled: pkg.enabled }
+              : { priceAmountMinor: null, enabled: false }
+          );
+        }
+      }
+    }
+    return countUnsetSellablePackageSlots({ packages });
+  }, [catalog, packageIndex]);
+
   return (
     <AdminDeliveryCmsChrome>
       <div
@@ -153,14 +181,50 @@ export function AdminDeliveryAdCommercialSettingsView() {
           </p>
         ) : (
           <div className="space-y-4">
+            <div
+              className="rounded-ui-rect border border-[#0A823E]/35 bg-[#0A823E]/5 px-3 py-3"
+              data-commercial-open-event-notice="1"
+            >
+              <p className="text-[14px] font-bold text-sam-fg">
+                {lang === "en"
+                  ? DELIVERY_AD_OPEN_EVENT_COMMERCIAL.labelEn
+                  : DELIVERY_AD_OPEN_EVENT_COMMERCIAL.labelKo}
+              </p>
+              <p className="mt-1 text-[12px] text-sam-muted">
+                {lang === "en"
+                  ? DELIVERY_AD_OPEN_EVENT_COMMERCIAL.changeableEn
+                  : DELIVERY_AD_OPEN_EVENT_COMMERCIAL.changeableKo}
+              </p>
+              <p className="mt-1 text-[12px] font-medium text-sam-fg">
+                {lang === "en"
+                  ? DELIVERY_AD_OPEN_EVENT_COMMERCIAL.grandfatherEn
+                  : DELIVERY_AD_OPEN_EVENT_COMMERCIAL.grandfatherKo}
+              </p>
+            </div>
+
+            {unsetMatrixSlotCount > 0 ? (
+              <p
+                className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-900"
+                role="status"
+                data-commercial-unset-warning-count={unsetMatrixSlotCount}
+              >
+                {safeT("admin_delivery_ads_unset_price_summary", {
+                  vars: { count: unsetMatrixSlotCount },
+                  fallbackKo: `확인이 필요한 광고 가격이 ${unsetMatrixSlotCount}개 있습니다.`,
+                  fallbackEn: `${unsetMatrixSlotCount} ad prices need attention.`,
+                })}
+              </p>
+            ) : null}
+
             {/* UI-2 — price matrix primary */}
             <AdminCard titleKey="admin_delivery_ads_commercial_matrix_title">
               <div data-commercial-matrix="1">
               <p className="mb-3 text-[12px] text-amber-800">
                 {safeT("admin_delivery_ads_commercial_price_warn", {
-                  fallbackKo: "가격 변경은 기존 신청/구매 금액에 소급 적용되지 않습니다.",
+                  fallbackKo:
+                    "가격 변경은 이미 승인된 광고의 commercial snapshot에 소급 적용되지 않습니다. 신규 신청부터 새 가격이 적용됩니다.",
                   fallbackEn:
-                    "Price changes do not apply retroactively to existing applications or purchases.",
+                    "Price changes do not retroactively change approved campaign commercial snapshots. New applications use the new price.",
                 })}
               </p>
               {R3_COMMERCIAL_MATRIX_PRODUCTS.map((product) => {
@@ -474,6 +538,8 @@ function MatrixCell(props: {
   onSave: (body: Record<string, unknown>) => void;
 }) {
   const { pkg, busy, lang, onSave } = props;
+  const unset =
+    pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor) || !pkg.enabled;
   const [price, setPrice] = useState(
     pkg == null || isAdminDeliveryAdPriceUnset(pkg.priceAmountMinor)
       ? ""
@@ -491,17 +557,51 @@ function MatrixCell(props: {
 
   if (!pkg) {
     return (
-      <span className="text-sam-muted">
-        {formatAdminDeliveryAdPriceOrUnset(null, lang)}
-      </span>
+      <div
+        className="space-y-1 rounded-ui-rect border border-amber-300 bg-amber-50 px-1.5 py-1.5"
+        data-commercial-matrix-cell="missing"
+      >
+        <p className="text-[11px] font-bold text-amber-900">
+          {lang === "en" ? "Price unset" : "가격 미설정"}
+        </p>
+        <p className="text-[11px] text-amber-900">
+          {lang === "en" ? "Not for sale" : "판매 불가"}
+        </p>
+        <p className="text-[10px] leading-snug text-amber-800">
+          {lang === "en"
+            ? "Set this price so Owners can apply."
+            : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
+        </p>
+        <span className="sr-only">{formatAdminDeliveryAdPriceOrUnset(null, lang)}</span>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-1">
+    <div
+      className={`space-y-1 ${
+        unset ? "rounded-ui-rect border border-amber-300 bg-amber-50 px-1.5 py-1.5" : ""
+      }`}
+      data-commercial-matrix-cell={unset ? "unset" : "set"}
+    >
+      {unset ? (
+        <div className="mb-1 space-y-0.5" data-commercial-price-unset-guide="1">
+          <p className="text-[11px] font-bold text-amber-900">
+            {lang === "en" ? "Price unset" : "가격 미설정"}
+          </p>
+          <p className="text-[11px] text-amber-900">
+            {lang === "en" ? "Not for sale" : "판매 불가"}
+          </p>
+          <p className="text-[10px] leading-snug text-amber-800">
+            {lang === "en"
+              ? "Set this price so Owners can apply."
+              : "이 가격을 설정해야 Owner가 신청할 수 있습니다"}
+          </p>
+        </div>
+      ) : null}
       <input
         className="w-full rounded-ui-rect border border-sam-border px-1.5 py-1 text-[12px]"
-        placeholder={lang === "en" ? "Not set" : "미설정"}
+        placeholder={lang === "en" ? "PHP major" : "PHP 금액"}
         value={price}
         disabled={busy}
         onChange={(e) => setPrice(e.target.value)}

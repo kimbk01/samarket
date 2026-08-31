@@ -19,10 +19,13 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
     );
   });
 
-  it("Admin section nav is tab-style and wired into hub/partner/inventory", () => {
+  it("Admin section nav is tab-style with separated primary create", () => {
     const nav = read("components/admin/stores/AdminDeliveryAdsSectionNav.tsx");
     expect(nav).toContain("data-admin-delivery-ads-section-nav");
-    expect(nav).toContain("광고 지면 관리");
+    expect(nav).toContain('data-admin-delivery-ads-nav-layout="tabs-plus-primary"');
+    expect(nav).toContain("지면 관리");
+    expect(nav).toContain("data-admin-ads-nav-primary-create");
+    expect(nav).toContain("디바이 광고 만들기");
     expect(nav).not.toMatch(/className=.*underline/);
     expect(nav).toContain("focus-visible:ring");
     for (const f of [

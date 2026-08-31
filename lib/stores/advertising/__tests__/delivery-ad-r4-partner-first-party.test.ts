@@ -242,9 +242,14 @@ describe("R4 DIBAY first-party Banner", () => {
     expect(api).toContain("store_sponsored");
   });
 
-  it("R4-F6 — Hub CTA 디바이 광고 만들기", () => {
-    expect(adminHub()).toContain("data-admin-delivery-ads-first-party-cta");
-    expect(adminHub()).toContain("DELIVERY_AD_ADMIN_ROUTES.firstPartyNew");
+  it("R4-F6 — Hub mounts SectionNav; first-party CTA is real primary Link", () => {
+    expect(adminHub()).toContain("AdminDeliveryAdsSectionNav");
+    expect(adminHub()).not.toContain('data-admin-delivery-ads-first-party-cta="1"');
+    const nav = read("components/admin/stores/AdminDeliveryAdsSectionNav.tsx");
+    expect(nav).toContain("DELIVERY_AD_ADMIN_ROUTES.firstPartyNew");
+    expect(nav).toContain('data-admin-ads-nav-primary-create="1"');
+    expect(nav).toContain('data-admin-delivery-ads-first-party-cta="1"');
+    expect(nav).toContain("디바이 광고 만들기");
     expect(DELIVERY_AD_ADMIN_ROUTES.firstPartyNew).toBe("/admin/delivery-ads/first-party/new");
   });
 

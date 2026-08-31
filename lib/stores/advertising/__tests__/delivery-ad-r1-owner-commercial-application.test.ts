@@ -183,7 +183,7 @@ describe("R1 Owner Commercial Application Recovery", () => {
   });
 
   it("R1-T25 existing Business Cash authority preserved", () => {
-    expect(hub()).toContain('data-owner-ads-business-cash="summary"');
+    expect(hub()).toContain('data-owner-ads-business-cash="card"');
     expect(detail()).toContain("/api/me/delivery-ads/");
     expect(detail()).toContain("/funding");
   });

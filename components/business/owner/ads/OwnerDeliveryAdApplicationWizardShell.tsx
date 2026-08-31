@@ -47,13 +47,16 @@ export function OwnerDeliveryAdApplicationWizardShell({
   onPrimary,
   onBack,
 }: Props) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
 
   const primaryLabel =
     footerMode === "submit"
       ? primaryBusy
         ? t("owner_ads_submitting")
-        : t("owner_ads_apply_request_cta")
+        : safeT("owner_ads_apply_submit_cta", {
+            fallbackKo: "광고 신청",
+            fallbackEn: "Submit ad application",
+          })
       : footerMode === "blocked"
         ? t("owner_ads_cta_sale_preparing")
         : t("owner_ads_wizard_next");

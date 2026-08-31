@@ -59,7 +59,9 @@ export function DeliveryAdOwnerProductSelectCard({
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-bold text-sam-fg">{title}</p>
         <p className="mt-2 text-[13px] text-[#757575]">{description}</p>
-        <p className="mt-3 text-[13px] font-semibold text-[#0A823E]">{ctaLabel}</p>
+        <span className="mt-3 inline-flex min-h-[40px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white">
+          {ctaLabel}
+        </span>
       </div>
     </Link>
   );

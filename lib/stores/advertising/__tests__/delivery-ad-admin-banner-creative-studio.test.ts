@@ -236,10 +236,12 @@ describe("Boundary preservation", () => {
     expect(writer).not.toMatch(/export async function adminCreateBannerCreative/);
   });
 
-  it("T22 — no Owner Banner upload reintroduced", () => {
+  it("T22 — Owner Banner supports upload (A) or admin produce (B)", () => {
     const ownerUi = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
-    expect(ownerUi).toContain("adminProducesCreative: true");
-    expect(ownerUi).not.toMatch(/type=\"file\"/);
+    expect(ownerUi).toContain("adminProducesCreative");
+    expect(ownerUi).toMatch(/type=["']file["']/);
+    expect(ownerUi).toContain("upload-banner-image");
+    expect(ownerUi).toContain("admin_produce");
   });
 
   it("T23 — organic ranking unchanged (no organic files in this cut)", () => {

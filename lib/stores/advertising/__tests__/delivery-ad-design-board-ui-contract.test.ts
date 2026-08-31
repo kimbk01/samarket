@@ -93,13 +93,14 @@ describe("Delivery Ads design board UI contract", () => {
     expect(i18n).toContain('owner_ads_apply_primary_cta: "+ 새 광고 신청하기"');
   });
 
-  it("DB-O7 — banner application mirrors store sponsored step-gated wizard", () => {
+  it("DB-O7 — banner application is single-page workspace with creative A/B", () => {
     const banner = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
-    expect(banner).toContain("OwnerDeliveryAdApplicationWizardShell");
-    expect(banner).toContain('data-owner-ads-wizard="step-gated"');
+    expect(banner).toContain('data-owner-ads-wizard="single-page"');
+    expect(banner).toContain('data-owner-ads-creative-mode="choice"');
     expect(banner).toContain("DeliveryAdOwnerPlacementVisualGrid");
     expect(banner).toContain("DeliveryAdOwnerPreviewWorkspace");
     expect(banner).toContain("DeliveryAdOwnerApplicationConfirm");
+    expect(banner).not.toContain("OwnerDeliveryAdApplicationWizardShell");
   });
 
   it("DB-O8 — owner partner view 4-step progress + benefits", () => {

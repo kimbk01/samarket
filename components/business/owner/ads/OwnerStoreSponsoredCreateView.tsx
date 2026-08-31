@@ -107,6 +107,7 @@ export function OwnerStoreSponsoredCreateView() {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [commercialLoading, setCommercialLoading] = useState(false);
   const [productLabel, setProductLabel] = useState<string | null>(null);
+  const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneCampaign, setDoneCampaign] = useState<OwnerSponsoredCampaignRow | null>(null);
@@ -135,10 +136,19 @@ export function OwnerStoreSponsoredCreateView() {
     (async () => {
       try {
         const res = await fetch("/api/me/delivery-ads", { credentials: "include" });
-        const json = (await res.json()) as { ok?: boolean; stores?: EligibleStore[] };
+        const json = (await res.json()) as {
+          ok?: boolean;
+          stores?: EligibleStore[];
+          businessCash?: { balanceMinor?: number };
+        };
         if (cancelled) return;
         const list = (json.stores ?? []).filter((s) => s.eligible);
         setStores(list);
+        if (typeof json.businessCash?.balanceMinor === "number") {
+          setCashBalanceMinor(json.businessCash.balanceMinor);
+        } else {
+          setCashBalanceMinor(0);
+        }
         if (preloadStoreId && list.some((s) => s.id === preloadStoreId)) {
           setStoreId(preloadStoreId);
         } else if (list.length === 1) {
@@ -661,9 +671,14 @@ export function OwnerStoreSponsoredCreateView() {
                   preparing={noSellablePackages || packages.length === 0}
                 />
                 {noSellablePackages || packages.length === 0 ? (
-                  <p className="mt-2 text-[12px] text-sam-muted">
-                    {t("owner_ads_no_sellable_packages")}
-                  </p>
+                  <div
+                    className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2"
+                    data-owner-ads-price-unset="1"
+                  >
+                    <p className="text-[13px] font-semibold text-amber-950">
+                      {t("owner_ads_no_sellable_packages")}
+                    </p>
+                  </div>
                 ) : null}
               </>
             )}
@@ -691,11 +706,25 @@ export function OwnerStoreSponsoredCreateView() {
           <DeliveryAdOwnerApplicationConfirm
             rows={confirmRows}
             totalDisplay={quote.finalPayableDisplay}
+            businessCashNoteKey="owner_ads_confirm_business_cash_model_b"
+            cashBreakdown={
+              cashBalanceMinor != null
+                ? {
+                    adAmountMinor: quote.finalPayableMinor,
+                    balanceMinor: cashBalanceMinor,
+                  }
+                : null
+            }
           />
         ) : (
-          <p className="rounded-ui-rect border border-[#BDBDBD] bg-[#F5F5F5] px-3 py-4 text-[13px] text-sam-muted">
-            {t("owner_ads_sale_preparing_body")}
-          </p>
+          <div
+            className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-3"
+            data-owner-ads-price-unset="confirm"
+          >
+            <p className="text-[13px] font-semibold text-amber-950">
+              {t("owner_ads_sale_preparing_body")}
+            </p>
+          </div>
         )}
         {inventoryKey && previewStore ? (
           <div className="mt-3 scale-[0.85] origin-top">
