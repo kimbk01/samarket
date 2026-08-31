@@ -168,10 +168,14 @@ describe("CUT A Delivery Ad domain contract", () => {
       "stores_category_feed",
       "stores_home_hero",
       "stores_search",
+      "stores_home_inline",
+      "stores_browse_top",
     ]);
     expect(FUTURE_DELIVERY_AD_PLACEMENTS).toContain("store_detail_recommendation");
     expect(FUTURE_DELIVERY_AD_PLACEMENTS).not.toContain("stores_search");
     expect(isRuntimeDeliveryAdPlacement("stores_search")).toBe(true);
+    expect(isRuntimeDeliveryAdPlacement("stores_home_inline")).toBe(true);
+    expect(isRuntimeDeliveryAdPlacement("stores_browse_top")).toBe(true);
     expect(isFutureDeliveryAdPlacement("stores_search")).toBe(false);
     expect(isFutureDeliveryAdPlacement("store_detail_recommendation")).toBe(true);
     expect(isRuntimeDeliveryAdPlacement("stores_home_feed")).toBe(true);

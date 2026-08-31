@@ -70,9 +70,11 @@ describe("stores-composition-invariants — section policy", () => {
   it("presentation section order is independent from discovery ranking indices", () => {
     const home = sortSectionsByPresentationOrder([...STORES_HOME_COMPOSITION_DEFAULT_POLICY]);
     const orders = home.map((s) => s.order);
-    // 0–9 composer shelves + Stores A home insertion slots (10, 11; default disabled)
-    expect(orders).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    // 0–8 purpose shelves + nearby(8) + Stage2 homeBannerBeforeRest(9) + rest(10) + paid(11) + coupon(12)
+    expect(orders).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(new Set(orders).size).toBe(orders.length);
+    expect(home.find((s) => s.slot === "homeBannerBeforeRest")?.contentType).toBe("banner");
+    expect(home.find((s) => s.slot === "homeBannerBeforeRest")?.enabled).toBe(false);
     expect(home.find((s) => s.slot === "homePaidAdInsertion")?.enabled).toBe(false);
     expect(home.find((s) => s.slot === "homeCouponInsertion")?.enabled).toBe(false);
   });

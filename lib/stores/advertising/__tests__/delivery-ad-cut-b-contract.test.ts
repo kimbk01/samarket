@@ -112,11 +112,14 @@ describe("CUT B Delivery Ad SSOT", () => {
       "STORES_HOME_HERO",
       "STORES_HOME_FEED",
       "STORES_CATEGORY_FEED",
+      "STORES_HOME_INLINE_1",
+      "STORES_CATEGORY_TOP",
       "STORES_SEARCH_TOP",
     ]);
     for (const key of ACTIVE_DELIVERY_AD_INVENTORY_KEYS) {
       expect(isRuntimeActiveInventory(key)).toBe(true);
     }
+    expect(isRuntimeActiveInventory("STORES_CATEGORY_INLINE")).toBe(false);
   });
 
   it("T4 banner creative incompatible ratio rejected", () => {
