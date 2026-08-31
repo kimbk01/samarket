@@ -99,8 +99,9 @@ describe("R1 Owner Commercial Application Recovery", () => {
       "STORES_CATEGORY_FEED",
       "STORES_HOME_FEED",
     ]);
-    expect(createSp()).toContain("owner_ads_placement_home_help");
-    expect(createSp()).toContain("owner_ads_placement_category_help");
+    expect(createSp()).toContain("DeliveryAdOwnerPlacementVisualGrid");
+    expect(createSp()).toContain("owner_ads_launch_home_store_help");
+    expect(createSp()).toContain("owner_ads_launch_category_store_help");
   });
 
   it("R1-T15 disabled/unpriced package shows 판매 준비 중", () => {
@@ -159,9 +160,10 @@ describe("R1 Owner Commercial Application Recovery", () => {
     expect(detail()).toContain('data-owner-ads-footer="owner-admin-ssot"');
   });
 
-  it("R1-T21 giant red sticky delete absent", () => {
+  it("R1-T21 giant red sticky delete absent; DRAFT delete via confirmed action", () => {
     expect(detail()).not.toMatch(/bg-red-600|Sam\.btn\.danger.*w-full/);
-    expect(detail()).toContain('.filter((a) => !(a.kind === "action" && a.action === "delete"))');
+    expect(detail()).toContain('action === "delete"');
+    expect(hub()).toContain('data-owner-ads-card-cta-secondary="delete-draft"');
   });
 
   it("R1-T22 delete uses confirmation flow for DRAFT only (via editor redirect)", () => {
@@ -258,6 +260,6 @@ describe("R1 Owner Commercial Application Recovery", () => {
         storeId: "s1",
         campaignId: "c1",
       }).labelKey
-    ).toBe("owner_ads_hub_cta_view_performance");
+    ).toBe("owner_ads_hub_cta_manage_active");
   });
 });

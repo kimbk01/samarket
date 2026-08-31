@@ -63,7 +63,7 @@ export function OwnerDeliveryAdApplicationWizardShell({
 
   return (
     <div
-      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4`}
+      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4`}
       style={formPadStyle}
       data-owner-ads-workspace={workspace}
       data-owner-ads-wizard="step-gated"

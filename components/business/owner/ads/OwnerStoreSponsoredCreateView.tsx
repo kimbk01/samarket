@@ -18,7 +18,11 @@ import {
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/DeliveryAdOwnerPackageCardGrid";
-import { DeliveryAdOwnerPlacementChipGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementChipGrid";
+import { DeliveryAdOwnerPlacementVisualGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
+import type { OwnerPlacementVisualOption } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
+import {
+  ownerCategoryPlacementTitle,
+} from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
 import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
@@ -518,7 +522,7 @@ export function OwnerStoreSponsoredCreateView() {
   if (doneCampaign) {
     return (
       <div
-        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4 pb-8`}
+        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4 pb-8`}
         data-owner-ads-workspace="store-sponsored"
         data-owner-ads-wizard="step-gated"
       >
@@ -600,16 +604,34 @@ export function OwnerStoreSponsoredCreateView() {
             </p>
           </OwnerStoreAdminDashSection>
           <OwnerStoreAdminDashSection title={t("owner_ads_section_placement")}>
-            <DeliveryAdOwnerPlacementChipGrid
-              options={placementOptions}
+            <DeliveryAdOwnerPlacementVisualGrid
+              options={
+                ([
+                  {
+                    key: "STORES_HOME_FEED" as const,
+                    title: t("owner_ads_launch_home_store_title"),
+                    help: t("owner_ads_launch_home_store_help"),
+                    miniature: "home_interleave" as const,
+                  },
+                  {
+                    key: "STORES_CATEGORY_FEED" as const,
+                    title: ownerCategoryPlacementTitle({
+                      primaryCategoryLabel: selectedStore?.categoryLabel,
+                      fallbackKo: t("owner_ads_launch_category_store_title"),
+                      fallbackEn: t("owner_ads_launch_category_store_title"),
+                      lang,
+                    }),
+                    help: t("owner_ads_launch_category_store_help"),
+                    miniature: "category_interleave" as const,
+                  },
+                ] satisfies OwnerPlacementVisualOption<OwnerStoreSponsoredInventoryKey>[])
+              }
               selected={inventoryKey}
               onSelect={onSelectPlacement}
-              labelFor={(key) => deliveryAdCommercialPlacementLabel(key, lang)}
-              helpFor={(key) =>
-                key === "STORES_HOME_FEED"
-                  ? t("owner_ads_placement_home_help")
-                  : t("owner_ads_placement_category_help")
-              }
+              adTagLabel={safeT("owner_ads_customer_ad_tag", {
+                fallbackKo: "광고",
+                fallbackEn: "Ad",
+              })}
             />
           </OwnerStoreAdminDashSection>
         </div>

@@ -210,7 +210,7 @@ export function OwnerDeliveryAdsHubView() {
 
   return (
     <div
-      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pb-8 pt-4`}
+      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pb-8 pt-4`}
       data-owner-ads-hub="design-board"
     >
       <div className="min-w-0">
@@ -306,13 +306,38 @@ export function OwnerDeliveryAdsHubView() {
                           </div>
                           <DeliveryAdOwnerStatusBadge status={c.lifecycleStatus} />
                         </div>
-                        <Link
-                          href={cta.href}
-                          className="mt-3 inline-flex min-h-[40px] items-center text-[13px] font-semibold text-[#0A823E]"
-                          data-owner-ads-card-cta={c.lifecycleStatus}
-                        >
-                          {t(cta.labelKey)}
-                        </Link>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <Link
+                            href={cta.href}
+                            className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} inline-flex min-h-[40px] px-4 text-[13px]`}
+                            data-owner-ads-card-cta={c.lifecycleStatus}
+                            data-owner-ads-card-cta-primary="1"
+                          >
+                            {t(cta.labelKey)}
+                          </Link>
+                          {c.lifecycleStatus === "DRAFT" ? (
+                            <button
+                              type="button"
+                              className="inline-flex min-h-[40px] items-center rounded-ui-rect border border-sam-border px-3 text-[13px] font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 active:scale-[0.99]"
+                              data-owner-ads-card-cta-secondary="delete-draft"
+                              onClick={async () => {
+                                const ok = window.confirm(
+                                  `${t("owner_ads_delete_draft_sheet_title")}\n${t("owner_ads_delete_draft_confirm_body")}`
+                                );
+                                if (!ok) return;
+                                const res = await fetch(
+                                  `/api/me/stores/${encodeURIComponent(c.storeId)}/delivery-ads/${encodeURIComponent(c.id)}`,
+                                  { method: "DELETE", credentials: "include" }
+                                );
+                                if (res.ok) {
+                                  setCampaigns((prev) => prev.filter((x) => x.id !== c.id));
+                                }
+                              }}
+                            >
+                              {t("owner_ads_delete_draft_menu")}
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
                     </li>
                   );

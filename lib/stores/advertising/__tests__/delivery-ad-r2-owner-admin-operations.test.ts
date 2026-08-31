@@ -148,13 +148,25 @@ describe("R2 Owner↔Admin Operations UI wiring", () => {
     expect(sql.includes("audit_id")).toBe(true);
   });
 
-  it("CHANGES_REQUESTED contact CTA only when ops available", () => {
+  it("non-DRAFT contact CTA when ops available (not CHANGES_REQUESTED-only)", () => {
     expect(
       ownerAdsShouldShowContactAdminCta({
         lifecycleStatus: "CHANGES_REQUESTED",
         opsCapability: "available",
       })
     ).toBe(true);
+    expect(
+      ownerAdsShouldShowContactAdminCta({
+        lifecycleStatus: "SUBMITTED",
+        opsCapability: "available",
+      })
+    ).toBe(true);
+    expect(
+      ownerAdsShouldShowContactAdminCta({
+        lifecycleStatus: "DRAFT",
+        opsCapability: "available",
+      })
+    ).toBe(false);
     expect(
       ownerAdsShouldShowContactAdminCta({
         lifecycleStatus: "CHANGES_REQUESTED",

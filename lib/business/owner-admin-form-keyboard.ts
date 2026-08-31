@@ -17,17 +17,22 @@ import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 /** Matches `BOTTOM_NAV_SHELL.heightClass` (60px) — cancel/save bar content row. */
 export const OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX = 60;
 
-/**
- * Nav lift only (no safe in `bottom`) — safe/keyboard live in `effectiveBottomInset`.
- * Full string for Tailwind JIT.
- */
-export const OWNER_ADMIN_FORM_FOOTER_ABOVE_NAV_BOTTOM_CLASS = "bottom-[60px]" as const;
+/** Visible separation between action footer and OwnerMobileBottomNav (shell gap, not ads-local). */
+export const OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX = 8;
 
-/** Form / edit-scroll body — reserve footer bar + keyboard/safe inset (no second safe-bottom). */
+/**
+ * Nav lift + gap only (no safe in `bottom`) — safe/keyboard live in `effectiveBottomInset`.
+ * 60 nav + 8 gap = 68. Full string for Tailwind JIT.
+ */
+export const OWNER_ADMIN_FORM_FOOTER_ABOVE_NAV_BOTTOM_CLASS = "bottom-[68px]" as const;
+
+/** Form / edit-scroll body — reserve footer bar + nav gap + keyboard/safe inset. */
 export function ownerAdminFormBodyPadStyle(effectiveBottomInsetPx: number): CSSProperties {
   const inset = Math.max(0, Math.round(effectiveBottomInsetPx));
+  const reserve =
+    OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX + OWNER_ADMIN_FORM_FOOTER_NAV_GAP_PX;
   return {
-    paddingBottom: `calc(${OWNER_ADMIN_FORM_FOOTER_BAR_HEIGHT_PX}px + ${inset}px)`,
+    paddingBottom: `calc(${reserve}px + ${inset}px)`,
   };
 }
 

@@ -27,7 +27,8 @@ import type { DeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-c
 import { isDeliveryAdCtaTarget } from "@/lib/stores/advertising/delivery-ad-creative";
 import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
 import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/DeliveryAdOwnerPackageCardGrid";
-import { DeliveryAdOwnerPlacementChipGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementChipGrid";
+import { DeliveryAdOwnerPlacementVisualGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
+import type { OwnerPlacementVisualOption } from "@/components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid";
 import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
 import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
@@ -499,7 +500,7 @@ export function OwnerBannerCreateView() {
   if (doneCampaign) {
     return (
       <div
-        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4 pb-8`}
+        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4 pb-8`}
         data-owner-ads-workspace="banner"
         data-owner-ads-wizard="step-gated"
       >
@@ -584,23 +585,86 @@ export function OwnerBannerCreateView() {
             </p>
           </div>
           <OwnerStoreAdminDashSection title={t("owner_ads_section_placement")}>
-            <DeliveryAdOwnerPlacementChipGrid
-              options={placementOptions}
+            <DeliveryAdOwnerPlacementVisualGrid
+              options={
+                ([
+                  {
+                    key: "STORES_HOME_HERO" as const,
+                    title: safeT("owner_ads_launch_home_hero_title", {
+                      fallbackKo: "배달 홈 상단 배너",
+                      fallbackEn: "Delivery home top banner",
+                    }),
+                    help: safeT("owner_ads_launch_home_hero_help", {
+                      fallbackKo: "배달 홈 상단에서 여러 배너가 슬라이드로 노출됩니다.",
+                      fallbackEn: "Appears in the Delivery Home top banner carousel.",
+                    }),
+                    miniature: "home_hero_carousel" as const,
+                  },
+                  {
+                    key: "STORES_SEARCH_TOP" as const,
+                    title: safeT("owner_ads_launch_search_top_title", {
+                      fallbackKo: "검색 결과 상단 배너",
+                      fallbackEn: "Search results top banner",
+                    }),
+                    help: safeT("owner_ads_launch_search_top_help", {
+                      fallbackKo: "검색 결과가 있을 때 매장 목록 위에 배너가 표시됩니다.",
+                      fallbackEn: "Shown above store results when a search has matches.",
+                    }),
+                    miniature: "search_top_single" as const,
+                  },
+                ] satisfies OwnerPlacementVisualOption<OwnerBannerInventoryKey>[])
+              }
               selected={inventoryKey}
               onSelect={onSelectPlacement}
-              labelFor={(key) => deliveryAdCommercialPlacementLabel(key, lang)}
+              adTagLabel={safeT("owner_ads_customer_ad_tag", {
+                fallbackKo: "광고",
+                fallbackEn: "Ad",
+              })}
             />
           </OwnerStoreAdminDashSection>
-          <OwnerStoreAdminDashSection title={t("owner_ads_section_destination")}>
-            <select
-              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
-              value={ctaType}
-              onChange={(e) => setCtaType(e.target.value as DeliveryAdCtaTarget)}
-            >
-              <option value="store_detail">{t("owner_ads_banner_cta_store")}</option>
-              <option value="store_menu">{t("owner_ads_banner_cta_menu")}</option>
-              <option value="store_promotion">{t("owner_ads_banner_cta_promo")}</option>
-            </select>
+          <OwnerStoreAdminDashSection title={t("owner_ads_banner_destination_question")}>
+            <div className="space-y-2" data-owner-ads-banner-destination="human">
+              {(
+                [
+                  {
+                    value: "store_detail" as const,
+                    label: t("owner_ads_banner_cta_store"),
+                    help: t("owner_ads_banner_dest_store_help"),
+                  },
+                  {
+                    value: "store_menu" as const,
+                    label: t("owner_ads_banner_cta_menu"),
+                    help: t("owner_ads_banner_dest_menu_help"),
+                  },
+                  {
+                    value: "store_promotion" as const,
+                    label: t("owner_ads_banner_cta_promo"),
+                    help: t("owner_ads_banner_dest_promo_help"),
+                  },
+                ] as const
+              ).map((opt) => {
+                const selected = ctaType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`flex w-full flex-col items-start rounded-ui-rect border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 ${
+                      selected
+                        ? "border-[#0A823E] bg-[#0A823E]/5"
+                        : "border-sam-border bg-sam-surface hover:border-[#0A823E]/40"
+                    }`}
+                    aria-pressed={selected}
+                    onClick={() => setCtaType(opt.value)}
+                  >
+                    <span className="text-[14px] font-semibold text-sam-fg">
+                      {selected ? "● " : "○ "}
+                      {opt.label}
+                    </span>
+                    <span className="mt-0.5 text-[12px] text-sam-muted">{opt.help}</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className={`${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} mt-3`}>
               <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} htmlFor="owner-banner-memo">
                 {t("owner_ads_request_memo_label")}

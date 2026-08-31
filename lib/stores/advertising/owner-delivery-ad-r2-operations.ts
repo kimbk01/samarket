@@ -66,12 +66,12 @@ export function ownerAdsShouldMountOperationsPanel(
   );
 }
 
-/** Secondary "문의" CTA only when panel mounted AND backend capability available. */
+/** Secondary "문의" CTA when panel mounted AND backend available (not DRAFT). */
 export function ownerAdsShouldShowContactAdminCta(input: {
   lifecycleStatus: DeliveryAdLifecycleStatus;
   opsCapability: OwnerAdsOpsBackendCapability;
 }): boolean {
-  if (input.lifecycleStatus !== "CHANGES_REQUESTED") return false;
+  if (input.lifecycleStatus === "DRAFT") return false;
   if (!ownerAdsShouldMountOperationsPanel(input.lifecycleStatus)) return false;
   return input.opsCapability === "available";
 }

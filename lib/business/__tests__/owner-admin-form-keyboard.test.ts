@@ -13,12 +13,12 @@ describe("owner admin form keyboard SSOT", () => {
     expect(ownerAdminFormFooterBarHeightMatchesNavShell()).toBe(true);
   });
 
-  it("body pad uses bar height + effectiveBottomInset only", () => {
+  it("body pad uses bar height + nav gap + effectiveBottomInset", () => {
     expect(ownerAdminFormBodyPadStyle(34)).toEqual({
-      paddingBottom: "calc(60px + 34px)",
+      paddingBottom: "calc(68px + 34px)",
     });
     expect(ownerAdminFormBodyPadStyle(-4)).toEqual({
-      paddingBottom: "calc(60px + 0px)",
+      paddingBottom: "calc(68px + 0px)",
     });
   });
 
@@ -31,7 +31,7 @@ describe("owner admin form keyboard SSOT", () => {
     expect(base).toContain("bottom-0");
     expect(base).not.toContain("safe-bottom");
     const above = ownerStoreAdminFooterFixedClass({ aboveBottomNav: true });
-    expect(above).toContain("bottom-[60px]");
+    expect(above).toContain("bottom-[68px]");
     expect(above).not.toContain("safe-bottom");
   });
 });

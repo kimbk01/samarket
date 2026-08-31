@@ -5,7 +5,10 @@
 
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
-import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import {
+  ownerCampaignHubPrimaryCta,
+  type OwnerCampaignPrimaryCtaKey,
+} from "@/lib/stores/advertising/owner-campaign-action-policy";
 
 export type OwnerAdsDetailPanel =
   | "identity"
@@ -90,49 +93,17 @@ export function ownerAdsFundingErrorI18nKey(
   return "owner_ads_funding_err_generic";
 }
 
-export type OwnerHubCardCtaKey =
-  | "owner_ads_hub_cta_continue_draft"
-  | "owner_ads_hub_cta_edit"
-  | "owner_ads_hub_cta_view_detail"
-  | "owner_ads_hub_cta_view_performance"
-  | "owner_ads_hub_cta_view_result";
+export type OwnerHubCardCtaKey = OwnerCampaignPrimaryCtaKey;
 
 export function ownerAdsHubCardPrimaryCta(input: {
   lifecycleStatus: DeliveryAdLifecycleStatus;
   productKind: DeliveryAdOwnerProductKind;
   storeId: string;
   campaignId: string;
+  fundingRequired?: boolean;
 }): { labelKey: OwnerHubCardCtaKey; href: string } {
-  const detailQs = new URLSearchParams({
-    storeId: input.storeId,
-    product: input.productKind === "banner" ? "banner" : "store_sponsored",
-  });
-  const detailHref = `${DELIVERY_AD_OWNER_ROUTES.detail(input.campaignId)}?${detailQs.toString()}`;
-  const editBase =
-    input.productKind === "banner"
-      ? DELIVERY_AD_OWNER_ROUTES.createBanner
-      : DELIVERY_AD_OWNER_ROUTES.createStoreSponsored;
-  const editHref = `${editBase}?${new URLSearchParams({
-    storeId: input.storeId,
-    campaignId: input.campaignId,
-  }).toString()}`;
-
-  switch (input.lifecycleStatus) {
-    case "DRAFT":
-      return { labelKey: "owner_ads_hub_cta_continue_draft", href: editHref };
-    case "CHANGES_REQUESTED":
-      return { labelKey: "owner_ads_hub_cta_edit", href: editHref };
-    case "ACTIVE":
-      return { labelKey: "owner_ads_hub_cta_view_performance", href: detailHref };
-    case "ENDED":
-    case "TERMINATED":
-    case "EXHAUSTED":
-    case "ARCHIVED":
-    case "REJECTED":
-      return { labelKey: "owner_ads_hub_cta_view_result", href: detailHref };
-    default:
-      return { labelKey: "owner_ads_hub_cta_view_detail", href: detailHref };
-  }
+  const primary = ownerCampaignHubPrimaryCta(input);
+  return { labelKey: primary.labelKey, href: primary.href };
 }
 
 /** R1: Owner ops UI must not mount while CUT3 is paused/unavailable. */

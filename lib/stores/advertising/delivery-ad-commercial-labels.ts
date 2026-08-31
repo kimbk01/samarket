@@ -3,14 +3,15 @@
  * Maps inventory_key → human copy. Does not own exposure max/interval.
  */
 
+/** Launch human labels (Recovery Audit) — never expose inventory keys as primary copy. */
 export const DELIVERY_AD_COMMERCIAL_PLACEMENT_LABELS = {
   STORES_HOME_FEED: {
-    ko: "배달 홈 매장 목록",
-    en: "Delivery home store list",
+    ko: "배달 홈 매장 광고",
+    en: "Delivery home store ads",
   },
   STORES_CATEGORY_FEED: {
-    ko: "업종별 매장 목록",
-    en: "Category store list",
+    ko: "업종 매장 광고",
+    en: "Category store ads",
   },
   STORES_HOME_HERO: {
     ko: "배달 홈 상단 배너",

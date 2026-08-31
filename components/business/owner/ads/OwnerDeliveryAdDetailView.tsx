@@ -315,7 +315,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
       productKind,
       storeId,
       campaignId: campaign.id,
-    }).filter((a) => !(a.kind === "action" && a.action === "delete"));
+    });
   }, [campaign, productKind, storeId]);
 
   const requiredAction = useMemo(() => {
@@ -431,7 +431,7 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
 
   return (
     <div
-      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4`}
+      className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4`}
       style={actionCtas.length ? formPadStyle : { paddingBottom: 24 }}
       data-owner-ads-detail="r1"
       data-owner-ads-lifecycle={campaign.lifecycleStatus}

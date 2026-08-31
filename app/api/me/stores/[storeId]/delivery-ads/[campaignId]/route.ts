@@ -191,14 +191,28 @@ export async function DELETE(
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
   const loaded = await loadOwnerSponsoredCampaign(sb, cid, userId);
-  if (!loaded.ok) {
-    return NextResponse.json({ ok: false, error: loaded.error }, { status: statusForError(loaded.error) });
-  }
-  if (loaded.row.storeId !== sid) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  if (loaded.ok) {
+    if (loaded.row.storeId !== sid) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
+    const result = await deleteOwnerSponsoredDraft(sb, { campaignId: cid, ownerUserId: userId });
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: statusForError(result.error) });
+    }
+    return NextResponse.json({ ok: true });
   }
 
-  const result = await deleteOwnerSponsoredDraft(sb, { campaignId: cid, ownerUserId: userId });
+  const { deleteOwnerBannerDraft, loadOwnerBannerCampaign } = await import(
+    "@/lib/stores/advertising/owner-banner-writer"
+  );
+  const banner = await loadOwnerBannerCampaign(sb, cid, userId);
+  if (!banner.ok) {
+    return NextResponse.json({ ok: false, error: loaded.error }, { status: statusForError(loaded.error) });
+  }
+  if (banner.row.storeId !== sid) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+  const result = await deleteOwnerBannerDraft(sb, { campaignId: cid, ownerUserId: userId });
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: statusForError(result.error) });
   }
