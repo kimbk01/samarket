@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
@@ -228,6 +229,8 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
           ) : null}
         </div>
 
+        <AdminDeliveryAdsSectionNav />
+
         {loading ? (
           <p className="text-[13px] text-sam-muted">{safeT("admin_delivery_ads_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>
         ) : null}
@@ -238,13 +241,38 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         ) : null}
 
         {campaign ? (
+          <>
+          <AdminCard title={lang === "en" ? "Request summary" : "요청 요약"}>
+            <dl className="grid gap-2 text-[13px] sm:grid-cols-2" data-admin-banner-request-summary="1">
+              <div>
+                <dt className="text-sam-muted">Owner</dt>
+                <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-sam-muted">{lang === "en" ? "Store" : "매장"}</dt>
+                <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-sam-muted">{lang === "en" ? "Placement" : "요청 위치"}</dt>
+                <dd>{adminDeliveryAdInventoryHumanLabel(inventoryKey, lang)}</dd>
+              </div>
+              <div>
+                <dt className="text-sam-muted">{lang === "en" ? "Period" : "기간"}</dt>
+                <dd className="text-sam-muted">{campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-sam-muted">{lang === "en" ? "Requested copy" : "요청 문구"}</dt>
+                <dd className="whitespace-pre-wrap">{campaign.headline || campaign.title || "—"}</dd>
+              </div>
+            </dl>
+          </AdminCard>
           <div className="grid gap-4 lg:grid-cols-2">
             <AdminCard titleKey="admin_delivery_ads_section_creative_produce">
               {aspect ? (
-                <p className="text-[12px] text-sam-muted">
+                <p className="text-[12px] text-sam-muted" data-admin-banner-aspect={aspect}>
                   {safeT("admin_delivery_ads_creative_aspect_hint", {
-                    fallbackKo: `권장 비율 ${aspect}`,
-                    fallbackEn: `Recommended ratio ${aspect}`,
+                    fallbackKo: `업로드 전 확인 · JPEG/PNG/WebP · 권장 비율 ${aspect}`,
+                    fallbackEn: `Before upload · JPEG/PNG/WebP · recommended ${aspect}`,
                     vars: { ratio: aspect },
                   })}
                 </p>
@@ -280,11 +308,19 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <label className="inline-flex cursor-pointer items-center rounded-ui-rect bg-[#0A823E] px-3 py-2 text-[12px] font-semibold text-white">
-                  {safeT("admin_delivery_ads_creative_produce_cta", {
-                    fallbackKo: "배너 제작하기",
-                    fallbackEn: "Produce banner",
-                  })}
+                <label
+                  className="inline-flex min-h-[40px] cursor-pointer items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-within:ring-2 focus-within:ring-[#0A823E]/40 active:scale-[0.99]"
+                  data-admin-banner-pc-upload="1"
+                >
+                  {bannerCreative
+                    ? safeT("admin_delivery_ads_creative_replace", {
+                        fallbackKo: "이미지 변경",
+                        fallbackEn: "Replace image",
+                      })
+                    : safeT("admin_delivery_ads_creative_pc_load", {
+                        fallbackKo: "내 PC에서 이미지 불러오기",
+                        fallbackEn: "Load image from PC",
+                      })}
                   <input
                     key={fileInputKey}
                     type="file"
@@ -385,6 +421,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
               />
             </div>
           </div>
+          </>
         ) : null}
       </div>
     </AdminDeliveryCmsChrome>

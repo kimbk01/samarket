@@ -72,7 +72,7 @@ export function AdminDeliveryAdPartnerConfigForm({ config, busy, lang, onSave }:
       <button
         type="button"
         disabled={busy}
-        className="rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 py-2 text-[12px] font-semibold text-white sm:col-span-2"
+        className="inline-flex min-h-[40px] items-center justify-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50 sm:col-span-2 sm:w-auto sm:justify-self-start"
         onClick={() => {
           const monthlyFeeMinor = fee.trim() === "" ? null : parseDeliveryAdPhpMajorToMinor(fee);
           if (fee.trim() !== "" && monthlyFeeMinor == null) return;

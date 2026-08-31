@@ -55,7 +55,7 @@ import {
   formatAdminDeliveryAdPriceOrUnset,
   isAdminDeliveryAdPerformanceLifecycle,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
-
+import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
   "request_changes",
@@ -122,6 +122,10 @@ export function AdminDeliveryAdDetailWorkspace({
   const [fundedAt, setFundedAt] = useState<string | null>(null);
   const [auditExpanded, setAuditExpanded] = useState(false);
   const [fundingExpanded, setFundingExpanded] = useState(false);
+  const [ownerCashBalanceMinor, setOwnerCashBalanceMinor] = useState<number | null>(null);
+  const [creditAmountMajor, setCreditAmountMajor] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditConfirm, setCreditConfirm] = useState(false);
   const [opsExpanded, setOpsExpanded] = useState(false);
   const [perfExpanded, setPerfExpanded] = useState(false);
   const [decisionActionsExpanded, setDecisionActionsExpanded] = useState(false);
@@ -166,25 +170,39 @@ export function AdminDeliveryAdDetailWorkspace({
         });
         const fJson = (await fRes.json()) as {
           ok?: boolean;
+          businessCash?: { balanceMinor?: number } | null;
           funding?: {
             fundingStatus?: "UNFUNDED" | "FUNDED" | "REFUNDED";
             amountMinor?: number | null;
             fundedAt?: string | null;
           };
         };
-        if (fRes.ok && fJson.ok && fJson.funding) {
-          setFundingStatus(fJson.funding.fundingStatus ?? "UNFUNDED");
-          setFundingPayable(
-            typeof fJson.funding.amountMinor === "number" ? fJson.funding.amountMinor : null
+        if (fRes.ok && fJson.ok) {
+          if (fJson.funding) {
+            setFundingStatus(fJson.funding.fundingStatus ?? "UNFUNDED");
+            setFundingPayable(
+              typeof fJson.funding.amountMinor === "number" ? fJson.funding.amountMinor : null
+            );
+            setFundedAt(fJson.funding.fundedAt ?? null);
+          } else {
+            setFundingStatus("UNFUNDED");
+            setFundingPayable(null);
+            setFundedAt(null);
+          }
+          setOwnerCashBalanceMinor(
+            typeof fJson.businessCash?.balanceMinor === "number"
+              ? fJson.businessCash.balanceMinor
+              : null
           );
-          setFundedAt(fJson.funding.fundedAt ?? null);
         } else {
           setFundingStatus("UNFUNDED");
           setFundingPayable(null);
           setFundedAt(null);
+          setOwnerCashBalanceMinor(null);
         }
       } catch {
         setFundingStatus("UNFUNDED");
+        setOwnerCashBalanceMinor(null);
       }
       const inv0 = json.campaign.inventoryKeys[0];
       if (
@@ -555,6 +573,8 @@ export function AdminDeliveryAdDetailWorkspace({
           </h1>
         </div>
 
+        <AdminDeliveryAdsSectionNav />
+
         {loading ? (
           <p className="text-[13px] text-sam-muted" role="status">
             {safeT("admin_delivery_ads_loading", {
@@ -756,19 +776,140 @@ export function AdminDeliveryAdDetailWorkspace({
               </button>
               {fundingExpanded ? (
               <AdminCard titleKey="admin_delivery_ads_section_funding_title">
-                <p className="text-[13px] text-sam-fg" data-admin-delivery-ads-funding="1">
-                  {t("admin_delivery_ads_funding_status")}:{" "}
-                  {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
-                  {" · "}
-                  {t("admin_delivery_ads_funding_payable")}:{" "}
-                  {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
-                  {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
-                </p>
-                {fundingStatus !== "FUNDED" ? (
-                  <p className="mt-1 text-[12px] text-amber-800">
-                    {t("admin_delivery_ad_funding_required")}
+                <div data-admin-delivery-ads-funding="1" className="space-y-2 text-[13px] text-sam-fg">
+                  <p>
+                    {t("admin_delivery_ads_funding_status")}:{" "}
+                    {t(adminDeliveryAdFundingStatusLabelKey(fundingStatus))}
+                    {" · "}
+                    {t("admin_delivery_ads_funding_payable")}:{" "}
+                    {formatAdminDeliveryAdPriceOrUnset(fundingPayable, lang)}
+                    {fundedAt ? ` · ${fundedAt.slice(0, 16)}` : ""}
                   </p>
-                ) : null}
+                  <p data-admin-business-cash-balance="1">
+                    {safeT("admin_delivery_ads_owner_cash_balance", {
+                      fallbackKo: "Owner Business Cash 잔액",
+                      fallbackEn: "Owner Business Cash balance",
+                    })}
+                    :{" "}
+                    {ownerCashBalanceMinor == null
+                      ? "—"
+                      : formatAdminDeliveryAdPriceOrUnset(ownerCashBalanceMinor, lang)}
+                  </p>
+                  {fundingStatus !== "FUNDED" ? (
+                    <p className="text-[12px] text-amber-800">
+                      {t("admin_delivery_ad_funding_required")}
+                    </p>
+                  ) : null}
+                  {campaign.ownerUserId ? (
+                    <div
+                      className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
+                      data-admin-business-cash-credit="1"
+                    >
+                      <p className="text-[12px] font-semibold text-sam-fg">
+                        {safeT("admin_delivery_ads_cash_credit_title", {
+                          fallbackKo: "Business Cash 지급",
+                          fallbackEn: "Grant Business Cash",
+                        })}
+                      </p>
+                      <p className="mt-1 text-[11px] text-sam-muted">
+                        {safeT("admin_delivery_ads_cash_credit_note", {
+                          fallbackKo:
+                            "외부 충전은 없습니다. Admin 지급은 감사 로그에 남습니다. ‘충전’이 아닙니다.",
+                          fallbackEn:
+                            "No external top-up. Admin grants are audited. This is not ‘top-up’.",
+                        })}
+                      </p>
+                      <label className="mt-2 block text-[12px]">
+                        {lang === "en" ? "Amount (PHP)" : "금액 (PHP)"}
+                        <input
+                          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 text-[13px]"
+                          value={creditAmountMajor}
+                          disabled={busy}
+                          onChange={(e) => setCreditAmountMajor(e.target.value)}
+                          inputMode="decimal"
+                        />
+                      </label>
+                      <label className="mt-2 block text-[12px]">
+                        {lang === "en" ? "Reason (required)" : "사유 (필수)"}
+                        <input
+                          className="mt-1 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 text-[13px]"
+                          value={creditReason}
+                          disabled={busy}
+                          onChange={(e) => setCreditReason(e.target.value)}
+                        />
+                      </label>
+                      <label className="mt-2 flex items-center gap-2 text-[12px]">
+                        <input
+                          type="checkbox"
+                          checked={creditConfirm}
+                          disabled={busy}
+                          onChange={(e) => setCreditConfirm(e.target.checked)}
+                        />
+                        {lang === "en"
+                          ? "I confirm this grant and audit trail"
+                          : "지급 및 감사 기록을 확인했습니다"}
+                      </label>
+                      <button
+                        type="button"
+                        disabled={busy || !creditConfirm}
+                        className="mt-3 inline-flex min-h-[40px] items-center rounded-ui-rect bg-[#0A823E] px-4 text-[13px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
+                        onClick={() => {
+                          void (async () => {
+                            if (!campaign.ownerUserId || busy) return;
+                            const major = Number(creditAmountMajor.replace(/,/g, ""));
+                            if (!Number.isFinite(major) || major <= 0) {
+                              setError(lang === "en" ? "Invalid amount" : "금액이 올바르지 않습니다");
+                              return;
+                            }
+                            if (!creditReason.trim()) {
+                              setError(lang === "en" ? "Reason required" : "사유가 필요합니다");
+                              return;
+                            }
+                            setBusy(true);
+                            setError(null);
+                            try {
+                              const res = await fetch("/api/admin/delivery-ads/business-cash", {
+                                method: "POST",
+                                credentials: "include",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  ownerUserId: campaign.ownerUserId,
+                                  amountMinor: Math.round(major * 100),
+                                  reason: creditReason.trim(),
+                                  nonce: crypto.randomUUID(),
+                                }),
+                              });
+                              const json = (await res.json()) as {
+                                ok?: boolean;
+                                error?: string;
+                                detail?: string;
+                              };
+                              if (!res.ok || !json.ok) {
+                                setError(
+                                  json.detail
+                                    ? `${json.error}:${json.detail}`
+                                    : json.error || "credit_failed"
+                                );
+                                return;
+                              }
+                              setCreditAmountMajor("");
+                              setCreditReason("");
+                              setCreditConfirm(false);
+                              await load();
+                            } finally {
+                              setBusy(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {safeT("admin_delivery_ads_cash_credit_cta", {
+                          fallbackKo: "Business Cash 지급",
+                          fallbackEn: "Grant Business Cash",
+                        })}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </AdminCard>
               ) : null}
             </div>

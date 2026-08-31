@@ -70,10 +70,13 @@ export const DELIVERY_AD_OWNER_STATUS_BADGE_CLASS: Record<
 };
 
 export const DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS =
-  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#087a38] disabled:opacity-50";
+  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect bg-[#0A823E] px-4 text-[14px] font-semibold text-white shadow-sm transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
+
+export const DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS =
+  "inline-flex min-h-[44px] items-center justify-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 text-[14px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const DELIVERY_AD_OWNER_PACKAGE_CARD_SELECTED =
   "border-[#0A823E] bg-[#0A823E]/8 ring-1 ring-[#0A823E]/40";
 
 export const DELIVERY_AD_OWNER_PACKAGE_CARD_IDLE =
-  "border-[#BDBDBD] bg-white hover:border-[#0A823E]/50";
+  "border-[#BDBDBD] bg-white transition hover:border-[#0A823E]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99]";

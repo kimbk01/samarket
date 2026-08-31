@@ -16,6 +16,8 @@ export const DELIVERY_AD_OWNER_ROUTES = {
 export const DELIVERY_AD_ADMIN_ROUTES = {
   hub: "/admin/delivery-ads",
   commercialSettings: "/admin/delivery-ads/commercial-settings",
+  /** Launch placement inventory management (human language). */
+  inventory: "/admin/delivery-ads/inventory",
   /** R4 DIBAY first-party Banner create workspace. */
   firstPartyNew: "/admin/delivery-ads/first-party/new",
   partnerMemberships: "/admin/delivery-ads/partner",

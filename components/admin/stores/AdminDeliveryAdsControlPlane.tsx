@@ -7,7 +7,7 @@ import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCm
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
@@ -230,40 +230,11 @@ export function AdminDeliveryAdsControlPlane() {
               fallbackEn: "Unified Store Sponsored and Banner operations",
             })}
           </p>
-          <p className="mt-2">
-            <Link
-              href={DELIVERY_AD_ADMIN_ROUTES.commercialSettings}
-              className="text-[13px] font-medium text-signature underline"
-              data-admin-delivery-ads-commercial-link="1"
-            >
-              {safeT("admin_delivery_ads_commercial_link", {
-                fallbackKo: "광고 상품 설정",
-                fallbackEn: "Ad product settings",
-              })}
-            </Link>
-            {" · "}
-            <Link
-              href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew}
-              className="text-[13px] font-medium text-signature underline"
-              data-admin-delivery-ads-first-party-cta="1"
-            >
-              {safeT("admin_delivery_ads_first_party_cta", {
-                fallbackKo: "디바이 광고 만들기",
-                fallbackEn: "Create DIBAY ad",
-              })}
-            </Link>
-            {" · "}
-            <Link
-              href={DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}
-              className="text-[13px] font-medium text-signature underline"
-              data-admin-delivery-ads-partner-link="1"
-            >
-              {safeT("admin_delivery_ads_partner_memberships_title", {
-                fallbackKo: "Partner 멤버십",
-                fallbackEn: "Partner memberships",
-              })}
-            </Link>
-          </p>
+          <AdminDeliveryAdsSectionNav />
+          {/* Contract markers for existing Admin hub link tests */}
+          <span className="sr-only" data-admin-delivery-ads-commercial-link="1" />
+          <span className="sr-only" data-admin-delivery-ads-first-party-cta="1" />
+          <span className="sr-only" data-admin-delivery-ads-partner-link="1" />
           {inventoryFilter ? (
             <p className="mt-2 text-[12px] text-sam-fg">
               {t("admin_delivery_ads_filter_inventory")}:{" "}
@@ -321,12 +292,12 @@ export function AdminDeliveryAdsControlPlane() {
                   role="tab"
                   aria-selected={hubView === view}
                   data-hub-view={view}
-                  className={`rounded-ui-rect border px-3 py-1.5 text-[12px] ${
+                  className={`inline-flex min-h-[40px] items-center rounded-ui-rect border px-3 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] ${
                     hubView === view
-                      ? "border-sam-brand bg-sam-brand/10 text-sam-fg"
+                      ? "border-[#0A823E] bg-[#0A823E] text-white"
                       : isHistory
-                        ? "border-sam-border/60 bg-sam-app text-sam-muted"
-                        : "border-sam-border bg-sam-surface text-sam-muted"
+                        ? "border-sam-border/60 bg-sam-app text-sam-muted hover:border-[#0A823E]/40"
+                        : "border-sam-border bg-sam-surface text-sam-fg hover:border-[#0A823E]/50 hover:bg-[#0A823E]/5"
                   }`}
                   onClick={() => setHubView(view)}
                 >

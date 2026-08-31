@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
+import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -147,10 +147,9 @@ export function AdminDeliveryAdFirstPartyCreateView() {
               fallbackEn: `Store promotion first-party: ${R4_STORE_PROMOTION_FIRST_PARTY.status}`,
             })}
           </p>
-          <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="mt-2 inline-block text-[13px] text-signature underline">
-            {safeT("admin_delivery_ads_back", { fallbackKo: "광고 운영", fallbackEn: "Ad ops" })}
-          </Link>
         </div>
+
+        <AdminDeliveryAdsSectionNav />
 
         {error ? (
           <p className="text-[13px] text-red-600" role="alert">

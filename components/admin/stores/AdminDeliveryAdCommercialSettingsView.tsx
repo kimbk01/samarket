@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -123,17 +124,18 @@ export function AdminDeliveryAdCommercialSettingsView() {
           </p>
         </div>
 
-        <div className="mb-1 flex flex-wrap items-center gap-3 text-[13px]">
-          <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="text-signature underline">
-            {safeT("admin_delivery_ads_back", { fallbackKo: "광고 운영", fallbackEn: "Ad ops" })}
-          </Link>
-          <Link href="/admin/stores-home-shelves" className="text-sam-muted underline">
+        <AdminDeliveryAdsSectionNav />
+        <p className="mb-1 text-[12px]">
+          <Link
+            href="/admin/stores-home-shelves"
+            className="font-medium text-sam-muted hover:text-[#0A823E]"
+          >
             {safeT("admin_delivery_ads_exposure_policy_link", {
               fallbackKo: "노출(max/interval) 정책 — 별도 SSOT",
               fallbackEn: "Exposure (max/interval) policy — separate SSOT",
             })}
           </Link>
-        </div>
+        </p>
 
         {error ? (
           <p className="mb-3 text-[13px] text-red-600" role="alert">
