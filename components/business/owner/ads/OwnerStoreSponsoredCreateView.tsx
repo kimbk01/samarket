@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OWNER_STORE_ADMIN_FOOTER_INNER_CLASS } from "@/lib/business/owner-admin-footer-actions";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
@@ -750,38 +751,41 @@ export function OwnerStoreSponsoredCreateView() {
       </div>
 
       <div
-        className={`${footerFixedClassName} border-t border-sam-border bg-sam-surface px-4 py-3`}
+        className={`${footerFixedClassName} border-t border-sam-border bg-sam-surface`}
         style={footerPadStyle}
         data-owner-ads-footer="owner-admin-ssot"
       >
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            type="button"
-            className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[48px] w-full sm:w-auto sm:min-w-[120px]`}
-            disabled={!canSubmit || draftBusy || busy}
-            data-owner-ads-draft-cta="save"
-            onClick={() => void saveDraftOnly()}
-          >
-            {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
-          </button>
-          <button
-            type="button"
-            className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[48px] w-full flex-1`}
-            disabled={!canSubmit || busy || draftBusy}
-            data-owner-ads-submit-cta="apply"
-            onClick={() => requestSubmit()}
-          >
-            {busy
-              ? t("owner_ads_loading")
-              : safeT("owner_ads_apply_submit_cta", {
-                  fallbackKo: "광고 신청",
-                  fallbackEn: "Submit ad application",
-                })}
-          </button>
+        {/* pointer-events-auto: fixed shell is pointer-events-none (Owner Admin footer SSOT). */}
+        <div className={`${OWNER_STORE_ADMIN_FOOTER_INNER_CLASS} !h-auto flex flex-col gap-2 px-4 py-3`}>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className={`${DELIVERY_AD_OWNER_SECONDARY_BTN_CLASS} min-h-[48px] w-full sm:w-auto sm:min-w-[120px]`}
+              disabled={!canSubmit || draftBusy || busy}
+              data-owner-ads-draft-cta="save"
+              onClick={() => void saveDraftOnly()}
+            >
+              {draftBusy ? t("owner_ads_loading") : t("owner_ads_save_draft")}
+            </button>
+            <button
+              type="button"
+              className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[48px] w-full flex-1`}
+              disabled={!canSubmit || busy || draftBusy}
+              data-owner-ads-submit-cta="apply"
+              onClick={() => requestSubmit()}
+            >
+              {busy
+                ? t("owner_ads_loading")
+                : safeT("owner_ads_apply_submit_cta", {
+                    fallbackKo: "광고 신청",
+                    fallbackEn: "Submit ad application",
+                  })}
+            </button>
+          </div>
+          <p className="text-center text-[11px] text-sam-muted">
+            {t("owner_ads_confirm_business_cash_model_b")}
+          </p>
         </div>
-        <p className="mt-2 text-center text-[11px] text-sam-muted">
-          {t("owner_ads_confirm_business_cash_model_b")}
-        </p>
       </div>
 
       <DeliveryAdOwnerInsufficientCashSubmitModal

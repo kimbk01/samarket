@@ -62,6 +62,7 @@ describe("Delivery Ads product reconstruction contracts", () => {
       const src = read(f);
       expect(src).toContain("DeliveryAdOwnerInsufficientCashSubmitModal");
       expect(src).toContain("shortageModalOpen");
+      expect(src).toContain("OWNER_STORE_ADMIN_FOOTER_INNER_CLASS");
       expect(src).not.toContain("충전하기");
     }
   });
