@@ -781,9 +781,9 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     if enabled { cancelConnectedChromeHide(reason: "pip_enter") }
     inPipMode = enabled
     overlayRoot.isHidden = enabled
-    connectedChromeContainer.isHidden = enabled || !isChromeVisible
     activeActions.isHidden = enabled
     localContainer.isHidden = enabled
+    syncPersistentCallStatusVisibility()
     if !enabled {
       if currentState == .connected {
         syncOutgoingFlagsForConnectedLayoutRestore()
@@ -1074,10 +1074,15 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     infoStack.spacing = 4
     infoStack.translatesAutoresizingMaskIntoConstraints = false
     connectedChromeContainer.addSubview(infoStack)
+    connectedPeerNameLabel.textAlignment = .center
+    connectedDurationLabel.textAlignment = .center
+    connectedSignalLabel.textAlignment = .center
+    infoStack.alignment = .center
     NSLayoutConstraint.activate([
       infoStack.topAnchor.constraint(equalTo: connectedChromeContainer.safeAreaLayoutGuide.topAnchor, constant: 8),
-      infoStack.leadingAnchor.constraint(equalTo: connectedChromeContainer.safeAreaLayoutGuide.leadingAnchor, constant: 20),
-      infoStack.trailingAnchor.constraint(lessThanOrEqualTo: connectedChromeContainer.safeAreaLayoutGuide.trailingAnchor, constant: -96),
+      infoStack.centerXAnchor.constraint(equalTo: connectedChromeContainer.safeAreaLayoutGuide.centerXAnchor),
+      infoStack.leadingAnchor.constraint(greaterThanOrEqualTo: connectedChromeContainer.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+      infoStack.trailingAnchor.constraint(lessThanOrEqualTo: connectedChromeContainer.safeAreaLayoutGuide.trailingAnchor, constant: -16),
     ])
     updateNetworkSignalUi()
   }
@@ -1190,7 +1195,18 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     connectedControls.alpha = 1
     connectedControls.isHidden = !visible
     connectedControls.isUserInteractionEnabled = visible
-    connectedChromeContainer.isHidden = !visible
+    // CUT5: PersistentCallStatus is independent of controls auto-hide.
+    syncPersistentCallStatusVisibility()
+  }
+
+  /** CONNECTED + fullscreen only — not tied to isChromeVisible. */
+  private func syncPersistentCallStatusVisibility() {
+    let show = currentState == .connected && !inPipMode
+    connectedChromeContainer.isHidden = !show
+    if show {
+      view.bringSubviewToFront(connectedChromeContainer)
+      view.bringSubviewToFront(activeActions)
+    }
   }
 
   private func scheduleConnectedChromeHide(source: String) {
@@ -1493,8 +1509,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   private func updateConnectedInfoPanel(_ model: NativeVideoCallUiPresenter.Model) {
+    syncPersistentCallStatusVisibility()
     guard model.showConnectedControls, model.showVideoSurfaces else {
-      if !isChromeVisible { connectedChromeContainer.isHidden = true }
       return
     }
     connectedPeerNameLabel.text = model.peerName

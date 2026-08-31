@@ -868,6 +868,7 @@ public class NativeVideoCallActivity extends Activity {
     } else {
       cancelConnectedChromeHide("state_not_connected");
       chromeVisible = false;
+      syncPersistentCallStatusVisibility();
     }
     wasConnectedFullscreen = connectedFullscreenNow;
   }
@@ -1480,8 +1481,23 @@ public class NativeVideoCallActivity extends Activity {
       connectedControls.setEnabled(visible);
       connectedControls.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
-    if (connectedChromeOverlay != null) {
-      connectedChromeOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
+    // CUT5: PersistentCallStatus (connectedChromeOverlay) is NOT tied to auto-hide controls.
+    syncPersistentCallStatusVisibility();
+  }
+
+  /** CONNECTED + fullscreen only — independent of chromeVisible / controls auto-hide. */
+  private void syncPersistentCallStatusVisibility() {
+    if (connectedChromeOverlay == null) return;
+    boolean show =
+        currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode && !isFinishing();
+    connectedChromeOverlay.setVisibility(show ? View.VISIBLE : View.GONE);
+    if (show) {
+      connectedChromeOverlay.bringToFront();
+      connectedChromeOverlay.setTranslationZ(20f);
+      if (activeActions != null) {
+        activeActions.bringToFront();
+        activeActions.setTranslationZ(32f);
+      }
     }
   }
 
@@ -1747,12 +1763,10 @@ public class NativeVideoCallActivity extends Activity {
     }
     if (enabled && dockMode) hideDock("pip_enter");
     if (overlayRoot != null) overlayRoot.setVisibility(enabled ? View.GONE : View.VISIBLE);
-    if (connectedChromeOverlay != null) {
-      connectedChromeOverlay.setVisibility(enabled || !chromeVisible ? View.GONE : View.VISIBLE);
-    }
     if (activeActions != null) activeActions.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (localContainer != null) localContainer.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (dockRoot != null) dockRoot.setVisibility(enabled || !dockMode ? View.GONE : View.VISIBLE);
+    syncPersistentCallStatusVisibility();
     if (!enabled && currentState != null) {
       if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
         wasConnectedFullscreen = true;
@@ -1974,10 +1988,8 @@ public class NativeVideoCallActivity extends Activity {
 
   private void updateConnectedInfoPanel(NativeVideoCallUiPresenter.Model model) {
     if (connectedPeerNameView == null) return;
+    syncPersistentCallStatusVisibility();
     if (!model.showConnectedControls || !model.showVideoSurfaces) {
-      if (connectedChromeOverlay != null && !chromeVisible) {
-        connectedChromeOverlay.setVisibility(View.GONE);
-      }
       return;
     }
     connectedPeerNameView.setText(model.peerName);
