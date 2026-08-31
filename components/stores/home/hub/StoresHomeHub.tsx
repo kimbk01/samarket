@@ -36,6 +36,7 @@ import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-n
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
+import { StoresHomeBeforeRestBanner } from "@/components/stores/home/hub/StoresHomeBeforeRestBanner";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
 import { StoresHomePerfBoot } from "@/components/stores/home/hub/StoresHomePerfBoot";
 import type {
@@ -385,7 +386,18 @@ export function StoresHomeHub({
   const renderDeferredSections = useCallback(
     () => (
       <>
-        {deferredSlots.map((slot) => renderCompositionSlot(slot))}
+        {deferredSlots.map((slot) => {
+          if (slot === "slot6RestStores") {
+            return (
+              <div key={slot} className="contents">
+                {/* Stage 2 — composition-owned Banner boundary before rest_stores native */}
+                <StoresHomeBeforeRestBanner />
+                {renderCompositionSlot(slot)}
+              </div>
+            );
+          }
+          return renderCompositionSlot(slot);
+        })}
         {meta?.source === "supabase_unconfigured" ?
           <p className="rounded-[var(--delivery-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             {t("store_supabase_unconfigured_hint")}
@@ -417,11 +429,21 @@ export function StoresHomeHub({
         {showBlockingFeedSkeleton ?
           <StoresHomeFeedPendingBlank />
         : <>
-            {eagerSlots.map((slot) =>
-              renderCompositionSlot(slot, {
+            {eagerSlots.map((slot) => {
+              if (slot === "slot6RestStores") {
+                return (
+                  <div key={slot} className="contents">
+                    <StoresHomeBeforeRestBanner />
+                    {renderCompositionSlot(slot, {
+                      markFirstFoodCardPerf: slot === firstFoodPerfSlot,
+                    })}
+                  </div>
+                );
+              }
+              return renderCompositionSlot(slot, {
                 markFirstFoodCardPerf: slot === firstFoodPerfSlot,
-              })
-            )}
+              });
+            })}
 
             {stores.length === 0 && orderedVisibleSlots.length === 0 ? emptyFallback : null}
 

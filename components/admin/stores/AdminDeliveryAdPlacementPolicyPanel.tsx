@@ -23,12 +23,15 @@ export function AdminDeliveryAdHomePolicyPanel({
   const { t, safeT } = useI18n();
   const [summary, setSummary] = useState<HomePaidPlacementPolicySummary | null>(null);
   const [counts, setCounts] = useState<PolicyCampaignCounts | null>(null);
+  const [bannerEnabled, setBannerEnabled] = useState<boolean | null>(null);
+  const [bannerRevision, setBannerRevision] = useState<number | null>(null);
+  const [bannerSaving, setBannerSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [compRes, adsRes] = await Promise.all([
+        const [compRes, adsRes, bannerRes] = await Promise.all([
           fetch("/api/admin/stores-composition-policy?surface=home", {
             credentials: "include",
             cache: "no-store",
@@ -42,6 +45,10 @@ export function AdminDeliveryAdHomePolicyPanel({
             }).toString()}`,
             { credentials: "include", cache: "no-store" }
           ),
+          fetch("/api/admin/stores-home-before-rest-banner", {
+            credentials: "include",
+            cache: "no-store",
+          }),
         ]);
         const compJson = (await compRes.json()) as {
           ok?: boolean;
@@ -50,6 +57,11 @@ export function AdminDeliveryAdHomePolicyPanel({
         const adsJson = (await adsRes.json()) as {
           ok?: boolean;
           policyCounts?: PolicyCampaignCounts | null;
+        };
+        const bannerJson = (await bannerRes.json()) as {
+          ok?: boolean;
+          enabled?: boolean;
+          revision?: number;
         };
         if (cancelled) return;
         if (compRes.ok && compJson.ok && compJson.rows) {
@@ -63,10 +75,15 @@ export function AdminDeliveryAdHomePolicyPanel({
         if (adsRes.ok && adsJson.ok && adsJson.policyCounts) {
           setCounts(adsJson.policyCounts);
         }
+        if (bannerRes.ok && bannerJson.ok) {
+          setBannerEnabled(bannerJson.enabled === true);
+          setBannerRevision(typeof bannerJson.revision === "number" ? bannerJson.revision : null);
+        }
       } catch {
         if (!cancelled) {
           setSummary(null);
           setCounts(null);
+          setBannerEnabled(null);
         }
       }
     })();
@@ -76,6 +93,27 @@ export function AdminDeliveryAdHomePolicyPanel({
   }, [restShelfAdIntegration]);
 
   const hubHref = deliveryAdsAdminHubHref({ inventory: "STORES_HOME_FEED" });
+  const bannerHubHref = deliveryAdsAdminHubHref({ inventory: "STORES_HOME_INLINE_1" });
+
+  const onToggleBanner = async (next: boolean) => {
+    if (bannerRevision == null || bannerSaving) return;
+    setBannerSaving(true);
+    try {
+      const res = await fetch("/api/admin/stores-home-before-rest-banner", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next, expectedRevision: bannerRevision }),
+      });
+      const json = (await res.json()) as { ok?: boolean; enabled?: boolean; revision?: number };
+      if (res.ok && json.ok) {
+        setBannerEnabled(json.enabled === true);
+        if (typeof json.revision === "number") setBannerRevision(json.revision);
+      }
+    } finally {
+      setBannerSaving(false);
+    }
+  };
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
@@ -132,15 +170,53 @@ export function AdminDeliveryAdHomePolicyPanel({
           </li>
         </ul>
       ) : null}
+      <div className="mt-4 rounded-ui-rect border border-dashed border-sam-border p-3">
+        <p className="text-[13px] font-bold text-sam-fg">
+          {safeT("admin_delivery_ads_home_banner_slot_title", {
+            fallbackKo: "매장 목록 위 배너 (HOME 구성)",
+            fallbackEn: "Before-rest banner (HOME composition)",
+          })}
+        </p>
+        <p className="mt-1 text-[11px] text-sam-muted">
+          {safeT("admin_delivery_ads_home_banner_slot_hint", {
+            fallbackKo:
+              "네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. HOME 구성이 물리 지면을 소유합니다.",
+            fallbackEn:
+              "Separate from native store promotion (rest_stores insertion). HOME composition owns this physical slot.",
+          })}
+        </p>
+        <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+          <span className="font-medium text-sam-fg">
+            {safeT("admin_delivery_ads_home_banner_slot_enable", {
+              fallbackKo: "배너 지면 사용",
+              fallbackEn: "Enable banner slot",
+            })}
+          </span>
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            disabled={bannerEnabled == null || bannerSaving || bannerRevision == null}
+            checked={bannerEnabled === true}
+            onChange={(e) => void onToggleBanner(e.target.checked)}
+            data-admin-home-before-rest-banner-toggle="1"
+          />
+        </label>
+        <Link href={bannerHubHref} className="mt-2 inline-block text-[12px] font-semibold text-signature underline">
+          {safeT("admin_delivery_ads_open_banner_campaigns", {
+            fallbackKo: "배너 캠페인 관리",
+            fallbackEn: "Manage banner campaigns",
+          })}
+        </Link>
+      </div>
       <Link href={hubHref} className="mt-3 inline-block text-[13px] font-semibold text-signature underline">
         {t("admin_delivery_ads_open_campaigns")}
       </Link>
       <p className="mt-2 text-[11px] text-sam-muted">
         {safeT("admin_delivery_ads_home_policy_switch_hint", {
           fallbackKo:
-            "HOME 유료 삽입 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
+            "HOME 네이티브 매장 홍보 ON/OFF는 매장 홈 선반(rest_stores)의 광고 연동 또는 composition homePaidAdInsertion으로 제어합니다. 코드 기본값은 OFF입니다.",
           fallbackEn:
-            "HOME paid insertion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
+            "HOME native store promotion is Admin-controlled via rest_stores ad integration or composition homePaidAdInsertion. Code default remains OFF.",
         })}
       </p>
       <Link

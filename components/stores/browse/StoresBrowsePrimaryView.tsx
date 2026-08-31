@@ -34,6 +34,7 @@ import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBr
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { StoresBrowseDiscoveryShelf } from "./StoresBrowseDiscoveryShelf";
+import { StoresBrowseTopBanner } from "./StoresBrowseTopBanner";
 import type { StoresBrowseDiscoveryShelfPayload } from "@/lib/stores/stores-browse-discovery-shelf";
 import {
   insertDiscoveryShelfIntoMixedItems,
@@ -864,6 +865,10 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
       <section className={`${STORES_DELIVERY_CONTENT_INNER_CLASS} space-y-4 pt-2`}>
+        <StoresBrowseTopBanner
+          primarySlug={primarySlug}
+          subSlug={activeSub === "all" || !activeSub ? null : activeSub}
+        />
         {remoteRows === undefined ?
           <StoreDeliveryListLoading />
         : useRemoteList ?

@@ -139,6 +139,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_home_policy_enabled_off: "끔",
     admin_delivery_ads_home_policy_interval: "간격: 일반 매장 {n}개마다",
     admin_delivery_ads_home_policy_max: "최대: {n}개",
+    admin_delivery_ads_home_banner_slot_title: "매장 목록 위 배너 (HOME 구성)",
+    admin_delivery_ads_home_banner_slot_hint:
+      "네이티브 매장 홍보(rest_stores 삽입)와 별개입니다. HOME 구성이 물리 지면을 소유합니다.",
+    admin_delivery_ads_home_banner_slot_enable: "배너 지면 사용",
+    admin_delivery_ads_open_banner_campaigns: "배너 캠페인 관리",
     admin_delivery_ads_browse_policy_title: "이 업종 광고 정책",
     admin_delivery_ads_browse_policy_enabled: "광고 노출",
     admin_delivery_ads_browse_policy_max: "최대 광고 수",
@@ -448,6 +453,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_home_policy_enabled_off: "Off",
     admin_delivery_ads_home_policy_interval: "Interval: every {n} organic stores",
     admin_delivery_ads_home_policy_max: "Max: {n}",
+    admin_delivery_ads_home_banner_slot_title: "Before-rest banner (HOME composition)",
+    admin_delivery_ads_home_banner_slot_hint:
+      "Separate from native store promotion (rest_stores insertion). HOME composition owns this physical slot.",
+    admin_delivery_ads_home_banner_slot_enable: "Enable banner slot",
+    admin_delivery_ads_open_banner_campaigns: "Manage banner campaigns",
     admin_delivery_ads_browse_policy_title: "Category ad policy",
     admin_delivery_ads_browse_policy_enabled: "Ad exposure",
     admin_delivery_ads_browse_policy_max: "Max ads",

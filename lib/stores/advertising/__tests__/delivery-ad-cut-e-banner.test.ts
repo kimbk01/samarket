@@ -50,10 +50,14 @@ describe("CUT E Owner Banner + renderer", () => {
     expect(bad.ok).toBe(false);
   });
 
-  it("E3 future inventory rejected", () => {
+  it("E3 physical ACTIVE but not Owner-sellable inventories rejected", () => {
     expect(validateOwnerBannerInventory("STORES_HOME_INLINE_1")).toEqual({
       ok: false,
-      error: "future_inventory",
+      error: "invalid_inventory",
+    });
+    expect(validateOwnerBannerInventory("STORES_CATEGORY_TOP")).toEqual({
+      ok: false,
+      error: "invalid_inventory",
     });
     expect(validateOwnerBannerInventory("STORE_DETAIL_RECOMMENDATION_BANNER").ok).toBe(false);
   });

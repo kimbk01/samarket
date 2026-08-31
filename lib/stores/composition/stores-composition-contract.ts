@@ -21,6 +21,7 @@ export const STORES_COMPOSITION_CONTENT_TYPES = [
   "campaign_food",
   "ad",
   "coupon",
+  "banner",
 ] as const;
 export type StoresCompositionContentType = (typeof STORES_COMPOSITION_CONTENT_TYPES)[number];
 
@@ -64,8 +65,12 @@ export const STORES_BROWSE_COMPOSITION_SLOTS = [
 ] as const;
 export type StoresBrowseCompositionSlotId = (typeof STORES_BROWSE_COMPOSITION_SLOTS)[number];
 
-/** Stores A — HOME paid insertion rails (composition policy gated). */
-export const STORES_HOME_A_INSERTION_SLOTS = ["homePaidAdInsertion", "homeCouponInsertion"] as const;
+/** Stores A — HOME paid insertion rails + Stage 2 Banner boundary (composition policy gated). */
+export const STORES_HOME_A_INSERTION_SLOTS = [
+  "homePaidAdInsertion",
+  "homeCouponInsertion",
+  "homeBannerBeforeRest",
+] as const;
 export type StoresHomeAInsertionSlotId = (typeof STORES_HOME_A_INSERTION_SLOTS)[number];
 
 /**

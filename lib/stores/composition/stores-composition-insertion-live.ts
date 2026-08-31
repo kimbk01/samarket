@@ -274,3 +274,16 @@ export function homePaidAdInsertionPolicyEnabled(
   );
   return row?.enabled === true;
 }
+
+/** Stage 2 — HOME Banner before rest_stores (composition-owned; ≠ native rest insertion). */
+export function homeBannerBeforeRestPolicyEnabled(
+  policy: readonly StoresCompositionSectionContract[]
+): boolean {
+  const row = policy.find(
+    (r) =>
+      r.surface === "home" &&
+      r.contentType === "banner" &&
+      r.slot === "homeBannerBeforeRest"
+  );
+  return row?.enabled === true;
+}

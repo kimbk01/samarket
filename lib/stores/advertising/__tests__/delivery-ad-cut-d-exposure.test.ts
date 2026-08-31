@@ -220,7 +220,8 @@ describe("CUT D store sponsored exposure eligibility", () => {
 
   it("D8 inventory inactive / mismatch → not eligible", () => {
     expect(isRuntimeActiveInventory("STORE_DETAIL_RECOMMENDATION_BANNER")).toBe(false);
-    expect(isRuntimeActiveInventory("STORES_HOME_INLINE_1")).toBe(false);
+    expect(isRuntimeActiveInventory("STORES_HOME_INLINE_1")).toBe(true);
+    expect(isRuntimeActiveInventory("STORES_CATEGORY_TOP")).toBe(true);
     const mismatch = evaluateStoreSponsoredCampaignGates({
       campaign: runtimeCampaign({
         id: "c1",

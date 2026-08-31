@@ -18,6 +18,11 @@ import {
   resolveStoresBrowseDiscoveryShelfConfig,
   type StoresBrowseDiscoveryShelfConfig,
 } from "@/lib/stores/stores-browse-discovery-shelf";
+import {
+  bannerAdsFromProductConfig,
+  type Stage2BannerAdsPolicy,
+  STAGE2_BANNER_ADS_DEFAULT,
+} from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 
 export const STORES_BROWSE_DEFAULT_SORT_IDS: readonly StoreBrowseServerSortId[] = [
   "default",
@@ -80,6 +85,11 @@ export type StoresBrowseScopePolicyResolved = {
   rankingCriteria: StoresBrowseAdminRankingCriterionId[];
   customerSortAvailability: StoresBrowseCustomerSortAvailability;
   discoveryShelf: StoresBrowseDiscoveryShelfConfig;
+  /**
+   * Stage 2 — Banner ads (separate from native `adEnabled` insertion).
+   * Secondary inherits primary unless override productConfig.bannerAds is present.
+   */
+  bannerAds: Stage2BannerAdsPolicy;
 };
 
 export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
@@ -101,6 +111,7 @@ export const STORES_BROWSE_PLATFORM_DEFAULT_POLICY: Omit<
   rankingCriteria: resolveStoresBrowseRankingCriteria(null),
   customerSortAvailability: resolveStoresBrowseCustomerSortAvailability(null),
   discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(null),
+  bannerAds: STAGE2_BANNER_ADS_DEFAULT,
 };
 
 export function buildBrowsePrimaryScopeKey(primarySlug: string): string {
@@ -223,6 +234,7 @@ export function resolveBrowseScopePolicy(input: {
     discoveryShelf: resolveStoresBrowseDiscoveryShelfConfig(
       discoveryShelfFromProductConfig(input.primaryRow?.productConfig ?? null)
     ),
+    bannerAds: bannerAdsFromProductConfig(input.primaryRow?.productConfig ?? null),
   };
 
   const sub = input.subSlug?.trim().toLowerCase();
@@ -234,6 +246,13 @@ export function resolveBrowseScopePolicy(input: {
   if (!effectiveSub) {
     return { ...primaryResolved, scopeKey: buildBrowseSubScopeKey(input.primarySlug, sub) };
   }
+
+  const subCfg = effectiveSub.productConfig;
+  const subHasBannerAds =
+    subCfg &&
+    typeof subCfg === "object" &&
+    !Array.isArray(subCfg) &&
+    "bannerAds" in subCfg;
 
   return {
     scopeKey: buildBrowseSubScopeKey(input.primarySlug, sub),
@@ -254,5 +273,8 @@ export function resolveBrowseScopePolicy(input: {
     rankingCriteria: primaryResolved.rankingCriteria,
     customerSortAvailability: primaryResolved.customerSortAvailability,
     discoveryShelf: primaryResolved.discoveryShelf,
+    bannerAds: subHasBannerAds
+      ? bannerAdsFromProductConfig(subCfg)
+      : primaryResolved.bannerAds,
   };
 }

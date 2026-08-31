@@ -63,6 +63,8 @@ type DraftPrimary = {
   draftTitleKo: string;
   draftTitleEn: string;
   adEnabled: boolean;
+  bannerAdsEnabled: boolean;
+  bannerAdsCapacity: string;
   couponEnabled: boolean;
   draftMax: string;
   draftInterval: string;
@@ -82,6 +84,8 @@ type DraftSecondary = {
   draftTitleKo: string;
   draftTitleEn: string;
   adEnabled: boolean;
+  bannerAdsEnabled: boolean;
+  bannerAdsCapacity: string;
   couponEnabled: boolean;
   draftMax: string;
   draftInterval: string;
@@ -107,7 +111,7 @@ type PolicyWriteRow = {
 const CAT_TABS: Array<{ id: CatTab; labelKo: string; labelEn: string }> = [
   { id: "basic", labelKo: "기본", labelEn: "Basic" },
   { id: "shelf", labelKo: "탐색 선반", labelEn: "Discovery shelf" },
-  { id: "ad", labelKo: "매장 광고 허용", labelEn: "Allow store ads" },
+  { id: "ad", labelKo: "광고(네이티브·배너)", labelEn: "Ads (native · banner)" },
   { id: "coupon", labelKo: "쿠폰 배지 허용", labelEn: "Allow coupon badges" },
   { id: "exposure", labelKo: "노출", labelEn: "Exposure" },
   { id: "hours", labelKo: "시간", labelEn: "Hours" },
@@ -163,6 +167,8 @@ function primaryDraftFrom(row: PrimaryRow): DraftPrimary {
     draftTitleKo: row.resolved.displayTitleKo ?? row.nameKo,
     draftTitleEn: row.resolved.displayTitleEn ?? row.nameEn,
     adEnabled: row.resolved.adEnabled,
+    bannerAdsEnabled: row.resolved.bannerAds.enabled,
+    bannerAdsCapacity: String(row.resolved.bannerAds.capacity),
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
     draftInterval: String(row.resolved.intervalEveryN),
@@ -191,6 +197,8 @@ function secondaryDraftFrom(row: SecondaryRow): DraftSecondary {
     draftTitleKo: row.resolved.displayTitleKo ?? row.nameKo,
     draftTitleEn: row.resolved.displayTitleEn ?? row.nameEn,
     adEnabled: row.resolved.adEnabled,
+    bannerAdsEnabled: row.resolved.bannerAds.enabled,
+    bannerAdsCapacity: String(row.resolved.bannerAds.capacity),
     couponEnabled: row.resolved.couponEnabled,
     draftMax: row.resolved.maxInsertion == null ? "" : String(row.resolved.maxInsertion),
     draftInterval: String(row.resolved.intervalEveryN),
@@ -547,6 +555,14 @@ export function AdminStoresCategoryPolicyPage() {
               draftPrimary.customerSortAvailability
             ),
             browseShelf: { ...draftPrimary.discoveryShelf },
+            bannerAds: {
+              enabled: draftPrimary.bannerAdsEnabled,
+              position: "top_context",
+              capacity: Math.max(
+                1,
+                Math.min(3, Math.trunc(Number(draftPrimary.bannerAdsCapacity) || 1))
+              ),
+            },
           },
         },
       ];
@@ -573,7 +589,16 @@ export function AdminStoresCategoryPolicyPage() {
             presentationMode: "card_benefit_integrated",
             scheduleStart: null,
             scheduleEnd: null,
-            productConfig: {},
+            productConfig: {
+              bannerAds: {
+                enabled: draft.bannerAdsEnabled,
+                position: "top_context",
+                capacity: Math.max(
+                  1,
+                  Math.min(3, Math.trunc(Number(draft.bannerAdsCapacity) || 1))
+                ),
+              },
+            },
           });
         }
       }
@@ -1084,7 +1109,7 @@ export function AdminStoresCategoryPolicyPage() {
       case "ad":
         if (!draftPrimary) return null;
         return (
-          <Panel title={label(ko, "매장 광고 허용", "Allow store ads")}>
+          <Panel title={label(ko, "광고 (네이티브 · 배너)", "Ads (native · banner)")}>
             {selectedPrimary ? (
               <div className="mb-3">
                 <AdminDeliveryAdBrowsePolicyPanel
@@ -1102,14 +1127,50 @@ export function AdminStoresCategoryPolicyPage() {
             ) : null}
             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
               <div>
-                <p className="text-[13px] font-bold">{label(ko, "이 카테고리에서 매장 광고 허용", "Allow store ads in this category")}</p>
-                <p className="text-[11px] text-sam-muted">{t("admin_delivery_ads_browse_policy_authority")}</p>
+                <p className="text-[13px] font-bold">{label(ko, "네이티브 매장 홍보 허용", "Allow native store promotion")}</p>
+                <p className="text-[11px] text-sam-muted">
+                  {label(
+                    ko,
+                    "목록 카드 삽입(광고 라벨). max/interval은 「노출」탭. 배너와 별개입니다.",
+                    "List card insertion with ad label. max/interval on Exposure tab. Separate from banners."
+                  )}
+                </p>
               </div>
               <Toggle
                 checked={draftPrimary.adEnabled}
-                labelText={label(ko, "매장 광고 허용", "Allow store ads")}
+                labelText={label(ko, "네이티브 매장 홍보 허용", "Allow native store promotion")}
                 onChange={(adEnabled) => setDraftPrimary({ ...draftPrimary, adEnabled })}
               />
+            </div>
+            <div className="mt-3 space-y-3 rounded-ui-rect border border-dashed border-sam-border px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-bold">{label(ko, "업종 상단 배너 허용", "Allow category top banner")}</p>
+                  <p className="text-[11px] text-sam-muted">
+                    {label(
+                      ko,
+                      "이미지 배너 지면(top_context). 네이티브 삽입 플래너와 무관합니다.",
+                      "Image banner slot (top_context). Independent of the native insertion planner."
+                    )}
+                  </p>
+                </div>
+                <Toggle
+                  checked={draftPrimary.bannerAdsEnabled}
+                  labelText={label(ko, "업종 상단 배너 허용", "Allow category top banner")}
+                  onChange={(bannerAdsEnabled) =>
+                    setDraftPrimary({ ...draftPrimary, bannerAdsEnabled })
+                  }
+                />
+              </div>
+              <FieldLabel labelText={label(ko, "배너 슬롯 용량", "Banner capacity")}>
+                <NumberInput
+                  min={1}
+                  value={draftPrimary.bannerAdsCapacity}
+                  onChange={(bannerAdsCapacity) =>
+                    setDraftPrimary({ ...draftPrimary, bannerAdsCapacity })
+                  }
+                />
+              </FieldLabel>
             </div>
           </Panel>
         );
@@ -1550,10 +1611,10 @@ export function AdminStoresCategoryPolicyPage() {
                           </FieldLabel>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="flex items-center justify-between rounded-ui-rect border border-sam-border px-2 py-2">
-                              <span className="text-[12px] font-bold">{label(ko, "광고", "Ads")}</span>
+                              <span className="text-[12px] font-bold">{label(ko, "네이티브", "Native")}</span>
                               <Toggle
                                 checked={selectedSubDraft.adEnabled}
-                                labelText={label(ko, "2차 광고", "Secondary ads")}
+                                labelText={label(ko, "2차 네이티브 광고", "Secondary native ads")}
                                 onChange={(adEnabled) => updateSubDraft(selectedSubMeta.subSlug, { adEnabled })}
                               />
                             </div>
@@ -1566,6 +1627,25 @@ export function AdminStoresCategoryPolicyPage() {
                               />
                             </div>
                           </div>
+                          <div className="flex items-center justify-between rounded-ui-rect border border-dashed border-sam-border px-2 py-2">
+                            <span className="text-[12px] font-bold">{label(ko, "상단 배너", "Top banner")}</span>
+                            <Toggle
+                              checked={selectedSubDraft.bannerAdsEnabled}
+                              labelText={label(ko, "2차 상단 배너", "Secondary top banner")}
+                              onChange={(bannerAdsEnabled) =>
+                                updateSubDraft(selectedSubMeta.subSlug, { bannerAdsEnabled })
+                              }
+                            />
+                          </div>
+                          <FieldLabel labelText={label(ko, "배너 용량", "Banner capacity")}>
+                            <NumberInput
+                              min={1}
+                              value={selectedSubDraft.bannerAdsCapacity}
+                              onChange={(bannerAdsCapacity) =>
+                                updateSubDraft(selectedSubMeta.subSlug, { bannerAdsCapacity })
+                              }
+                            />
+                          </FieldLabel>
                           <div className="grid grid-cols-2 gap-2">
                             <FieldLabel labelText={label(ko, "최대", "Max")}>
                               <NumberInput

@@ -93,9 +93,13 @@ describe("CUT J Search / Detail inventory", () => {
       "STORES_HOME_HERO",
       "STORES_HOME_FEED",
       "STORES_CATEGORY_FEED",
+      "STORES_HOME_INLINE_1",
+      "STORES_CATEGORY_TOP",
       "STORES_SEARCH_TOP",
     ]);
     expect(ACTIVE_DELIVERY_AD_PLACEMENTS).toContain("stores_search");
+    expect(ACTIVE_DELIVERY_AD_PLACEMENTS).toContain("stores_home_inline");
+    expect(ACTIVE_DELIVERY_AD_PLACEMENTS).toContain("stores_browse_top");
     expect(FUTURE_DELIVERY_AD_PLACEMENTS).toEqual(["store_detail_recommendation"]);
   });
 
@@ -125,14 +129,19 @@ describe("CUT J Search / Detail inventory", () => {
     expect(isRuntimeActiveInventory("STORES_SEARCH_TOP")).toBe(true);
   });
 
-  it("J6 Admin surface map still knows SEARCH; Owner sell validator rejects", () => {
-    expect(BANNER_AD_DB_SURFACES).toEqual(["stores_home_hero", "stores_search"]);
+  it("J6 Admin surface map includes Stage 2 physical Banner surfaces; Owner sell validator rejects SEARCH", () => {
+    expect(BANNER_AD_DB_SURFACES).toEqual([
+      "stores_home_hero",
+      "stores_search",
+      "stores_home_inline",
+      "stores_browse_top",
+    ]);
     expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(false);
     const adminSrc = readFileSync(
       join(root, "lib/stores/advertising/admin-delivery-ad-writer.ts"),
       "utf8"
     );
-    expect(adminSrc).toContain('STORES_SEARCH_TOP" ? "stores_search"');
+    expect(adminSrc).toContain("INVENTORY_KEY_TO_BANNER_DB_SURFACE");
   });
 
   it("J7 existing campaigns are not silently backfilled", () => {

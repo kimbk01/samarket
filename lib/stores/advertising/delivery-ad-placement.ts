@@ -3,7 +3,7 @@
  *
  * DB enum values stay migration-free:
  *   store_paid_ad_campaigns.placement: stores_home | stores_browse
- *   store_banner_ad_campaigns.surface: stores_home_hero | stores_search
+ *   store_banner_ad_campaigns.surface: stores_home_hero | stores_search | stores_home_inline | stores_browse_top
  *
  * Application layer uses ActiveDeliveryAdPlacement. Future values are NOT
  * runtime-valid — DETAIL recommendation remains FUTURE (CUT J blocked).
@@ -16,6 +16,8 @@ export const ACTIVE_DELIVERY_AD_PLACEMENTS = [
   "stores_category_feed",
   "stores_home_hero",
   "stores_search",
+  "stores_home_inline",
+  "stores_browse_top",
 ] as const;
 export type ActiveDeliveryAdPlacement = (typeof ACTIVE_DELIVERY_AD_PLACEMENTS)[number];
 
@@ -40,7 +42,12 @@ export const ACTIVE_TO_STORE_PAID_AD_DB_PLACEMENT = {
 >;
 
 export const BANNER_AD_DB_SURFACE = "stores_home_hero" as const;
-export const BANNER_AD_DB_SURFACES = ["stores_home_hero", "stores_search"] as const;
+export const BANNER_AD_DB_SURFACES = [
+  "stores_home_hero",
+  "stores_search",
+  "stores_home_inline",
+  "stores_browse_top",
+] as const;
 export type BannerAdDbSurface = (typeof BANNER_AD_DB_SURFACES)[number];
 
 export const ACTIVE_PLACEMENT_PRODUCT: Record<ActiveDeliveryAdPlacement, DeliveryAdProductKind> = {
@@ -48,6 +55,17 @@ export const ACTIVE_PLACEMENT_PRODUCT: Record<ActiveDeliveryAdPlacement, Deliver
   stores_category_feed: "store_sponsored",
   stores_home_hero: "banner",
   stores_search: "banner",
+  stores_home_inline: "banner",
+  stores_browse_top: "banner",
+};
+
+export const INVENTORY_KEY_TO_BANNER_DB_SURFACE: Partial<
+  Record<string, BannerAdDbSurface>
+> = {
+  STORES_HOME_HERO: "stores_home_hero",
+  STORES_SEARCH_TOP: "stores_search",
+  STORES_HOME_INLINE_1: "stores_home_inline",
+  STORES_CATEGORY_TOP: "stores_browse_top",
 };
 
 export function isActiveDeliveryAdPlacement(value: unknown): value is ActiveDeliveryAdPlacement {

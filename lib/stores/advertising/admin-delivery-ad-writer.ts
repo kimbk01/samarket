@@ -19,6 +19,10 @@ import {
   STORE_SPONSORED_CAMPAIGN_TABLE,
 } from "@/lib/stores/advertising/delivery-ad-domain";
 import {
+  BANNER_AD_DB_SURFACE,
+  INVENTORY_KEY_TO_BANNER_DB_SURFACE,
+} from "@/lib/stores/advertising/delivery-ad-placement";
+import {
   DELIVERY_AD_AUDIT_LOG_TABLE,
   canPhysicallyDeleteDeliveryAdCampaign,
   type DeliveryAdHistoryFlags,
@@ -445,7 +449,7 @@ export async function adminUpdateDeliveryAdInventory(
 
   if (input.productKind === "banner") {
     const surface =
-      input.inventoryKey === "STORES_SEARCH_TOP" ? "stores_search" : "stores_home_hero";
+      INVENTORY_KEY_TO_BANNER_DB_SURFACE[input.inventoryKey] ?? BANNER_AD_DB_SURFACE;
     await sb
       .from(table)
       .update({
