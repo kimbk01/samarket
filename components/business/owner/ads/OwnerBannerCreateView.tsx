@@ -91,14 +91,14 @@ export function OwnerBannerCreateView() {
     keyboardOpen,
   } = useOwnerAdminFormKeyboard({ aboveBottomNav: true });
 
-  const [stores, setStores] = useState<EligibleStore[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [storeId, setStoreId] = useState("");
-  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
-  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
   const preloadStoreId = searchParams.get("storeId")?.trim() ?? "";
   const preloadCampaignId = searchParams.get("campaignId")?.trim() ?? "";
   const preloadInventoryKeyRaw = searchParams.get("inventoryKey")?.trim() ?? "";
+  const [stores, setStores] = useState<EligibleStore[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [storeId, setStoreId] = useState(preloadStoreId);
+  const [storeSheetOpen, setStoreSheetOpen] = useState(false);
+  const { contentPaddingBottomPx } = useOwnerAdminBottomSheetKeyboard(storeSheetOpen);
   const [inventoryKey, setInventoryKey] = useState<OwnerBannerInventoryKey | "">(() =>
     isOwnerBannerInventoryKey(preloadInventoryKeyRaw) ? preloadInventoryKeyRaw : ""
   );
@@ -195,9 +195,9 @@ export function OwnerBannerCreateView() {
   }, [preloadCampaignId, preloadStoreId]);
 
   useEffect(() => {
-    if (step === 1) return;
+    if (step === 1 || !loaded) return;
     if (!storeId || !inventoryKey) goToStep(1);
-  }, [step, storeId, inventoryKey, goToStep]);
+  }, [step, storeId, inventoryKey, goToStep, loaded]);
 
   const selectedStore = useMemo(
     () => stores.find((s) => s.id === storeId) ?? null,
