@@ -9,6 +9,7 @@ import { DELIVERY_AD_AUDIT_LOG_TABLE } from "@/lib/stores/advertising/delivery-a
 import {
   DELIVERY_AD_INVENTORY_TABLE,
   inventorySeedByKey,
+  isRuntimeActiveInventory,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
 import {
@@ -18,12 +19,9 @@ import {
   type DeliveryAdCtaTarget,
 } from "@/lib/stores/advertising/delivery-ad-creative";
 import {
-  ownerBannerInventoryToLegacySurface,
   validateOwnerBannerCreativeAspect,
-  validateOwnerBannerInventory,
   validateOwnerBannerSchedule,
   resolveOwnerBannerCtaHref,
-  type OwnerBannerInventoryKey,
 } from "@/lib/stores/advertising/owner-banner-contract";
 import {
   insertCampaignCommercialSnapshot,
@@ -38,8 +36,43 @@ import {
   R4_STORE_PROMOTION_FIRST_PARTY,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { isDeliveryBannerDestinationReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import {
+  BANNER_AD_DB_SURFACE,
+  INVENTORY_KEY_TO_BANNER_DB_SURFACE,
+} from "@/lib/stores/advertising/delivery-ad-placement";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories" as const;
+
+/**
+ * Admin DIBAY first-party Banner inventories (QA / ops).
+ * Owner sell remains HERO-only — do not use this for Owner purchase.
+ * Stage 2 physical ACTIVE Banner inventories are included for fixture authority.
+ */
+export const ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS = [
+  "STORES_HOME_HERO",
+  "STORES_HOME_INLINE_1",
+  "STORES_CATEGORY_TOP",
+] as const satisfies ReadonlyArray<DeliveryAdInventoryKey>;
+
+export type AdminFirstPartyBannerInventoryKey =
+  (typeof ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS)[number];
+
+export function validateAdminFirstPartyBannerInventory(
+  raw: unknown
+):
+  | { ok: true; key: AdminFirstPartyBannerInventoryKey }
+  | { ok: false; error: "no_inventory" | "invalid_inventory" | "future_inventory" } {
+  if (raw == null || raw === "") return { ok: false, error: "no_inventory" };
+  if (
+    typeof raw !== "string" ||
+    !(ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS as readonly string[]).includes(raw)
+  ) {
+    return { ok: false, error: "invalid_inventory" };
+  }
+  const key = raw as AdminFirstPartyBannerInventoryKey;
+  if (!isRuntimeActiveInventory(key)) return { ok: false, error: "future_inventory" };
+  return { ok: true, key };
+}
 
 export type AdminFirstPartyBannerCreateError =
   | "first_party_disabled"
@@ -103,7 +136,7 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
     return { ok: false, error: "first_party_disabled" };
   }
 
-  const inv = validateOwnerBannerInventory(input.inventoryKey);
+  const inv = validateAdminFirstPartyBannerInventory(input.inventoryKey);
   if (!inv.ok) return { ok: false, error: "invalid_inventory", detail: inv.error };
 
   const schedule = validateOwnerBannerSchedule({
@@ -148,9 +181,10 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
   }
   const inventoryId = String((invRow as { id: string }).id);
 
-  const seed = inventorySeedByKey(inv.key as DeliveryAdInventoryKey);
+  const seed = inventorySeedByKey(inv.key);
   const aspectRatio = simplifyAspectRatio(input.sourceWidth, input.sourceHeight);
-  const surface = ownerBannerInventoryToLegacySurface(inv.key as OwnerBannerInventoryKey);
+  const surface =
+    INVENTORY_KEY_TO_BANNER_DB_SURFACE[inv.key] ?? BANNER_AD_DB_SURFACE;
   const nowMs = Date.now();
   const startMs = Date.parse(schedule.startAt);
   const endMs = Date.parse(schedule.endAt);
