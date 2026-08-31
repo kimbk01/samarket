@@ -98,14 +98,17 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     );
   });
 
-  it("R3-T6 — hub header has 배달 광고 + commercial settings link; R4 first-party CTA", () => {
+  it("R3-T6 — hub header has 배달 광고 + section nav (commercial / first-party)", () => {
     const src = hub();
     expect(src).toContain("admin_delivery_ads_title");
-    expect(src).toContain("DELIVERY_AD_ADMIN_ROUTES.commercialSettings");
+    expect(src).toContain("AdminDeliveryAdsSectionNav");
     expect(src).toContain("data-admin-delivery-ads-commercial-link");
     expect(src).toContain("data-admin-delivery-ads-first-party-cta");
     expect(src).not.toContain("AdminStoreBannerAdWriterPanel");
     expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(false);
+    const nav = read("components/admin/stores/AdminDeliveryAdsSectionNav.tsx");
+    expect(nav).toContain("DELIVERY_AD_ADMIN_ROUTES.commercialSettings");
+    expect(nav).toContain("DELIVERY_AD_ADMIN_ROUTES.firstPartyNew");
   });
 
   it("R3-T7 — Store Promotion never needs creative", () => {
@@ -163,7 +166,7 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(adminDeliveryAdProductHumanLabel("store_sponsored", "ko")).toBe("매장 홍보");
     expect(adminDeliveryAdProductHumanLabel("banner", "ko")).toBe("배너 광고");
     expect(adminDeliveryAdInventoryHumanLabel("STORES_HOME_FEED", "ko")).toBe(
-      "배달 홈 매장 목록"
+      "배달 홈 매장 광고"
     );
     expect(adminDeliveryAdInventoryHumanLabel("STORES_HOME_HERO", "ko")).toContain("배너");
     expect(i18n()).toContain("매장 홍보");

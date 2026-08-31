@@ -48,15 +48,15 @@ describe("Delivery Ads design board UI contract", () => {
     }
   });
 
-  it("DB-O4 — package grid 3-column + placement chip grid", () => {
+  it("DB-O4 — package grid 3-column + placement visual grid", () => {
     expect(read("components/stores/advertising/DeliveryAdOwnerPackageCardGrid.tsx")).toContain(
       "grid-cols-3"
     );
-    expect(read("components/stores/advertising/DeliveryAdOwnerPlacementChipGrid.tsx")).toContain(
-      "data-owner-ads-placement-grid"
+    expect(read("components/stores/advertising/DeliveryAdOwnerPlacementVisualGrid.tsx")).toContain(
+      'data-owner-ads-placement-grid="visual-launch"'
     );
     expect(read("components/business/owner/ads/OwnerStoreSponsoredCreateView.tsx")).toContain(
-      "DeliveryAdOwnerPlacementChipGrid"
+      "DeliveryAdOwnerPlacementVisualGrid"
     );
   });
 
@@ -97,7 +97,7 @@ describe("Delivery Ads design board UI contract", () => {
     const banner = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
     expect(banner).toContain("OwnerDeliveryAdApplicationWizardShell");
     expect(banner).toContain('data-owner-ads-wizard="step-gated"');
-    expect(banner).toContain("DeliveryAdOwnerPlacementChipGrid");
+    expect(banner).toContain("DeliveryAdOwnerPlacementVisualGrid");
     expect(banner).toContain("DeliveryAdOwnerPreviewWorkspace");
     expect(banner).toContain("DeliveryAdOwnerApplicationConfirm");
   });
