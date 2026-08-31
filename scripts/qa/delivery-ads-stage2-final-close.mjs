@@ -16,7 +16,7 @@ const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL ?? "https://samarket.vercel.app"
 );
 const OUT = path.join(process.cwd(), "docs/perf/delivery-ads-r5-runtime/s2-final-close");
 const WIDTHS = [375, 390, 430, 768, 820];
-const QA_PRIMARY = (process.env.S2_QA_PRIMARY || "food").trim();
+const QA_PRIMARY = (process.env.S2_QA_PRIMARY || "restaurant").trim();
 const ASPECT_TOL = 0.08;
 
 const FIXTURE_META = {
@@ -71,6 +71,7 @@ async function injectAdminSession(context) {
   loadEnvLocal();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !anon) return { ok: false, reason: "missing_supabase_env" };
   const ref = url.match(/https:\/\/([^.]+)\./)?.[1] ?? "";
   if (!ref) return { ok: false, reason: "bad_supabase_url" };
@@ -84,38 +85,73 @@ async function injectAdminSession(context) {
     : [`${username}@manual.local`, `${username}@samarket.local`];
   const sb = createClient(url, anon, { auth: { persistSession: false } });
 
+  let session = null;
+  let emailUsed = null;
   for (const password of passwordCandidates()) {
     for (const email of emails) {
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error || !data.session) continue;
-      const session = data.session;
-      const cookieValue = encodeURIComponent(
-        JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at,
-          expires_in: session.expires_in,
-          token_type: session.token_type,
-          user: session.user,
-        })
-      );
-      const origin = new URL(ORIGIN);
-      await context.addCookies([
-        {
-          name: `sb-${ref}-auth-token`,
-          value: cookieValue,
-          domain: origin.hostname,
-          path: "/",
-          expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
-          httpOnly: false,
-          secure: true,
-          sameSite: "Lax",
-        },
-      ]);
-      return { ok: true, email, userId: session.user?.id ?? null };
+      session = data.session;
+      emailUsed = email;
+      break;
     }
+    if (session) break;
   }
-  return { ok: false, reason: "sign_in_failed" };
+  if (!session) return { ok: false, reason: "sign_in_failed" };
+
+  let activeSessionId = null;
+  if (serviceKey) {
+    const adminSb = createClient(url, serviceKey, { auth: { persistSession: false } });
+    const { data: pr } = await adminSb
+      .from("profiles")
+      .select("active_session_id")
+      .eq("id", session.user.id)
+      .maybeSingle();
+    activeSessionId = String(pr?.active_session_id ?? "").trim() || null;
+  }
+  if (!activeSessionId) {
+    return { ok: false, reason: "active_session_id_unavailable" };
+  }
+
+  const origin = new URL(ORIGIN);
+  const encoded = encodeURIComponent(
+    JSON.stringify({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
+      expires_in: session.expires_in,
+      token_type: session.token_type,
+      user: session.user,
+    })
+  );
+  const CHUNK = 3180;
+  const parts = [];
+  for (let i = 0; i < encoded.length; i += CHUNK) parts.push(encoded.slice(i, i + CHUNK));
+  const base = {
+    domain: origin.hostname,
+    path: "/",
+    expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+    httpOnly: false,
+    secure: true,
+    sameSite: "Lax",
+  };
+  const cookies =
+    parts.length === 1
+      ? [{ ...base, name: `sb-${ref}-auth-token`, value: parts[0] }]
+      : parts.map((value, i) => ({ ...base, name: `sb-${ref}-auth-token.${i}`, value }));
+  cookies.push({
+    ...base,
+    name: "samarket_active_session_id",
+    value: activeSessionId,
+    expires: Math.floor(Date.now() / 1000) + 86400 * 7,
+  });
+  await context.addCookies(cookies);
+  return {
+    ok: true,
+    email: emailUsed,
+    userId: session.user?.id ?? null,
+    activeSessionId,
+  };
 }
 
 function ratioPass(w, h, expected) {
@@ -272,7 +308,7 @@ function relativeOrderPreserved(before, after) {
 async function createFirstParty(page, inventoryKey) {
   const meta = FIXTURE_META[inventoryKey];
   const now = Date.now();
-  const startAt = new Date(now - 60_000).toISOString();
+  const startAt = new Date(now - 30_000).toISOString();
   const endAt = new Date(now + 6 * 60 * 60 * 1000).toISOString();
   const res = await page.request.post(`${ORIGIN}/api/admin/delivery-ads/first-party`, {
     data: {
@@ -328,6 +364,15 @@ async function endCampaign(page, campaignId) {
 async function resolveSecondary(page) {
   const forced = (process.env.S2_QA_SECONDARY || "").trim();
   if (forced) return forced;
+
+  const cat = await page.request.get(
+    `${ORIGIN}/api/admin/stores-category-policy?primary=${encodeURIComponent(QA_PRIMARY)}`
+  );
+  const json = await cat.json().catch(() => null);
+  const list = Array.isArray(json?.secondary) ? json.secondary : [];
+  const first = list.find((s) => String(s?.subSlug ?? "").trim() && s.subSlug !== "all");
+  if (first?.subSlug) return String(first.subSlug).trim();
+
   await page.goto(`${ORIGIN}/stores/browse/${QA_PRIMARY}?sub=all`, {
     waitUntil: "domcontentloaded",
     timeout: 60_000,
@@ -338,16 +383,7 @@ async function resolveSecondary(page) {
     .first()
     .getAttribute("href")
     .catch(() => null);
-  if (!href) {
-    // Admin taxonomy
-    const cat = await page.request.get(
-      `${ORIGIN}/api/admin/stores-category-policy?primary=${encodeURIComponent(QA_PRIMARY)}`
-    );
-    const json = await cat.json().catch(() => null);
-    const subs = json?.secondaries || json?.subs || json?.primary?.secondaries || [];
-    if (Array.isArray(subs) && subs[0]?.subSlug) return String(subs[0].subSlug);
-    return null;
-  }
+  if (!href) return null;
   try {
     const u = new URL(href, ORIGIN);
     const sub = u.searchParams.get("sub");

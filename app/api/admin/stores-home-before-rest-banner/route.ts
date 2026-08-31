@@ -10,9 +10,22 @@ import { validateCompositionPolicyBatch } from "@/lib/stores/composition/stores-
 import { homeBannerBeforeRestPolicyEnabled } from "@/lib/stores/composition/stores-composition-insertion-live";
 import { STAGE2_HOME_BANNER_BEFORE_REST_SLOT } from "@/lib/stores/advertising/delivery-ad-stage2-surface-contract";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { getCanonicalCompositionRows } from "@/lib/stores/composition/stores-composition-canonical-registry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * Pre–Stage-2 Production overrides kept rest/paid/coupon at 9/10/11.
+ * Stage 2 inserts homeBannerBeforeRest at canonical 9 and shifts rest→10+.
+ * Realign only this tail so PUT does not fail duplicate_order.
+ */
+const STAGE2_HOME_ORDER_REALIGN_SLOTS = new Set([
+  "homeBannerBeforeRest",
+  "slot6RestStores",
+  "homePaidAdInsertion",
+  "homeCouponInsertion",
+]);
 
 /** GET — Stage 2 HOME before-rest Banner physical enable (composition-owned). */
 export async function GET() {
@@ -40,7 +53,7 @@ export async function GET() {
 
 /**
  * PUT — toggle HOME physical Banner slot only.
- * Does not touch native rest_stores / homePaidAdInsertion.
+ * Does not touch native rest_stores / homePaidAdInsertion enable flags.
  */
 export async function PUT(req: NextRequest) {
   if (!(await isRouteAdmin())) {
@@ -73,13 +86,18 @@ export async function PUT(req: NextRequest) {
 
   try {
     const current = await loadResolvedCompositionPolicy(sb, "home");
+    const canonicalOrderBySlot = new Map(
+      getCanonicalCompositionRows("home").map((r) => [r.slot, r.order])
+    );
     const compositionRows = current.rows.map((r) => ({
       surface: "home" as const,
       slot: r.slot,
       contentType: r.contentType,
       enabled:
         r.slot === STAGE2_HOME_BANNER_BEFORE_REST_SLOT ? body.enabled === true : r.enabled,
-      order: r.order,
+      order: STAGE2_HOME_ORDER_REALIGN_SLOTS.has(r.slot)
+        ? (canonicalOrderBySlot.get(r.slot) ?? r.order)
+        : r.order,
       max: r.max,
       interval: { consumed: false as const, reason: "NOT_CONSUMED" as const },
     }));

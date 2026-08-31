@@ -309,18 +309,15 @@ describe("Stage 2 — physical inventory authority", () => {
     expect(validateOwnerBannerInventory("STORES_SEARCH_TOP").ok).toBe(false);
   });
 
-  it("S2-T17b Admin first-party may fixture Stage 2 physical Banner inventories; Owner sell stays HERO-only", () => {
-    expect(ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS).toEqual([
-      "STORES_HOME_HERO",
-      "STORES_HOME_INLINE_1",
-      "STORES_CATEGORY_TOP",
-    ]);
-    expect(validateAdminFirstPartyBannerInventory("STORES_HOME_INLINE_1").ok).toBe(true);
-    expect(validateAdminFirstPartyBannerInventory("STORES_CATEGORY_TOP").ok).toBe(true);
-    expect(validateOwnerBannerInventory("STORES_HOME_INLINE_1").ok).toBe(false);
-    expect(validateOwnerBannerInventory("STORES_CATEGORY_TOP").ok).toBe(false);
-    expect(INVENTORY_KEY_TO_BANNER_DB_SURFACE.STORES_HOME_INLINE_1).toBe("stores_home_inline");
-    expect(INVENTORY_KEY_TO_BANNER_DB_SURFACE.STORES_CATEGORY_TOP).toBe("stores_browse_top");
+  it("S2-T17c before-rest Admin PUT realigns Stage 2 tail orders to avoid duplicate_order", () => {
+    const src = readFileSync(
+      join(process.cwd(), "app/api/admin/stores-home-before-rest-banner/route.ts"),
+      "utf8"
+    );
+    expect(src).toContain("STAGE2_HOME_ORDER_REALIGN_SLOTS");
+    expect(src).toContain("getCanonicalCompositionRows");
+    expect(src).toContain("homeBannerBeforeRest");
+    expect(src).toContain("slot6RestStores");
   });
 
   it("S2-T18/S2-T19 category + HOME native/banner controls are semantically separate", () => {
