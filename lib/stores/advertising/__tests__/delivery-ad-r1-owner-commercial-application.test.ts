@@ -37,7 +37,9 @@ describe("R1 Owner Commercial Application Recovery", () => {
 
   it("R1-T2 DRAFT without snapshot never renders snapshot_missing", () => {
     expect(detail()).not.toMatch(/\{fundError\}/);
-    expect(detail()).toContain("ownerAdsFundingErrorI18nKey");
+    // Stage 1: no post-approval Business Cash fund CTA — error mapper stays for helpers/tests.
+    expect(detail()).not.toContain("owner_ads_funding_pay_cta");
+    expect(detail()).not.toContain("data-owner-ads-fund-cta");
     expect(ownerAdsFundingErrorI18nKey("snapshot_missing")).toBe("owner_ads_funding_err_snapshot");
   });
 

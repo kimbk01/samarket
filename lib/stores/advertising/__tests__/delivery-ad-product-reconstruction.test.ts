@@ -101,10 +101,12 @@ describe("Delivery Ads product reconstruction contracts", () => {
     expect(msg).toContain("1560");
   });
 
-  it("T9 fund CTA gated on sufficient cash", () => {
+  it("T9 fund shortage shown; Stage 1 has no post-approval pay CTA", () => {
     const detail = read("components/business/owner/ads/OwnerDeliveryAdDetailView.tsx");
     expect(detail).toContain("data-owner-ads-fund-shortage");
-    expect(detail).toContain("canPay");
+    expect(detail).not.toContain("canPay");
+    expect(detail).not.toContain("data-owner-ads-fund-cta");
+    expect(detail).not.toContain("owner_ads_funding_pay_cta");
   });
 
   it("T10 pixel guide constants locked", () => {

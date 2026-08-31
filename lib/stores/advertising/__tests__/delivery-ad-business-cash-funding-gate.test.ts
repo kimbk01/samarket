@@ -257,7 +257,7 @@ describe("Business Cash funding gate P1", () => {
     ).toBe(false);
   });
 
-  it("T31–T36 — Owner funding UI contract (no giant hero, no fake top-up)", () => {
+  it("T31–T36 — Owner funding UI contract (Store Cash authority, no legacy pay CTA)", () => {
     const hub = readFileSync(OWNER_UI, "utf8");
     const detail = readFileSync(OWNER_DETAIL, "utf8");
     expect(hub).toContain('data-owner-ads-business-cash="card"');
@@ -265,9 +265,11 @@ describe("Business Cash funding gate P1", () => {
     expect(hub).not.toMatch(/text-\[3[2-9]px\].*Business Cash|hero.*Business Cash/i);
     expect(hub).not.toContain("owner_ads_business_cash_topup_unavailable");
     expect(detail).toContain('data-owner-ads-detail-section="funding"');
-    expect(detail).toContain("owner_ads_funding_pay_cta");
-    expect(detail).toContain("ownerAdsFundingErrorI18nKey");
     expect(detail).toContain("ownerAdsShouldShowFundingPanel");
+    // Stage 1 DEBIT_REFUND at submit — legacy post-approval Business Cash pay CTA removed.
+    expect(detail).not.toContain("owner_ads_funding_pay_cta");
+    expect(detail).not.toContain("data-owner-ads-fund-cta");
+    expect(detail).toContain("data-owner-ads-fund-store-cash");
   });
 
   it("money minor helpers + idempotency key", () => {
