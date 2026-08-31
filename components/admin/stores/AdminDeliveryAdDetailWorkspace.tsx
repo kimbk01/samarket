@@ -41,6 +41,7 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
+import { DeliveryAdOwnerPhoneFrame } from "@/components/stores/advertising/DeliveryAdOwnerPhoneFrame";
 import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
@@ -529,7 +530,7 @@ export function AdminDeliveryAdDetailWorkspace({
 
   return (
     <AdminDeliveryCmsChrome help="home">
-      <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="1">
+      <div className="space-y-4 pb-10" data-admin-delivery-ads-detail="design-board">
         <div>
           <Link
             href={DELIVERY_AD_ADMIN_ROUTES.hub}
@@ -668,10 +669,14 @@ export function AdminDeliveryAdDetailWorkspace({
               </label>
             </section>
 
-            {/* B — 신청 내용 (compact) */}
-            <div data-admin-delivery-ads-detail-section="application">
-              <AdminCard titleKey="admin_delivery_ads_section_application">
-                <dl className="grid gap-2 text-[13px] sm:grid-cols-2" data-admin-delivery-ads-detail-section="facts">
+            {/* B + E — 신청 요약 | 고객 노출 미리보기 (design board split) */}
+            <div
+              className="grid gap-4 lg:grid-cols-2"
+              data-admin-delivery-ads-detail-split="design-board"
+            >
+              <div data-admin-delivery-ads-detail-section="application">
+                <AdminCard titleKey="admin_delivery_ads_section_application">
+                  <dl className="grid gap-2 text-[13px]" data-admin-delivery-ads-detail-section="facts">
                   <div>
                     <dt className="text-sam-muted">
                       {safeT("admin_delivery_ads_product_label", {
@@ -728,6 +733,50 @@ export function AdminDeliveryAdDetailWorkspace({
                 </dl>
                 <p className="mt-2 break-all font-mono text-[11px] text-sam-muted">ID {campaign.id}</p>
               </AdminCard>
+              </div>
+
+              <div data-admin-delivery-ads-detail-section="preview">
+                <AdminCard titleKey="admin_delivery_ads_section_preview">
+                  <DeliveryAdOwnerPhoneFrame
+                    label={safeT("admin_delivery_ads_section_preview", {
+                      fallbackKo: "고객 노출 미리보기",
+                      fallbackEn: "Customer preview",
+                    })}
+                  >
+                    <DeliveryAdCampaignPlacementPreviews
+                      productKind={campaign.productKind}
+                      inventoryKeys={campaign.inventoryKeys}
+                      renderContext="admin_preview"
+                      placementPreview={placementPreview}
+                      bannerCreative={
+                        campaign.productKind === "banner"
+                          ? {
+                              assetUrl: creative?.assetPath || campaign.imageUrl || "",
+                              headline: creative?.headline ?? campaign.title,
+                              subcopy: creative?.subcopy ?? campaign.headline,
+                              alt: campaign.title || "banner",
+                            }
+                          : null
+                      }
+                      ctaLabel={creative?.ctaLabel ?? null}
+                      destinationHref={campaign.ctaHref}
+                    />
+                  </DeliveryAdOwnerPhoneFrame>
+                  {bannerPublishReady ? (
+                    <p className="mt-2 text-[12px] text-sam-muted">
+                      {bannerPublishReady.ok
+                        ? safeT("admin_delivery_ads_publish_ready", {
+                            fallbackKo: "승인 가능: 제작·목적지 준비됨",
+                            fallbackEn: "Approve-ready: creative & destination OK",
+                          })
+                        : safeT("admin_delivery_ads_publish_blocked", {
+                            fallbackKo: `승인 차단: ${bannerPublishReady.reasons.join(", ")}`,
+                            fallbackEn: `Approve blocked: ${bannerPublishReady.reasons.join(", ")}`,
+                          })}
+                    </p>
+                  ) : null}
+                </AdminCard>
+              </div>
             </div>
 
             {/* C — 결제 */}
@@ -943,48 +992,6 @@ export function AdminDeliveryAdDetailWorkspace({
                 </AdminCard>
               </div>
             ) : null}
-
-            {/* E — preview */}
-            <div data-admin-delivery-ads-detail-section="preview">
-              <AdminCard titleKey="admin_delivery_ads_section_preview">
-                <DeliveryAdCampaignPlacementPreviews
-                  productKind={campaign.productKind}
-                  inventoryKeys={campaign.inventoryKeys}
-                  renderContext="admin_preview"
-                  placementPreview={placementPreview}
-                  bannerCreative={
-                    campaign.productKind === "banner"
-                      ? {
-                          assetUrl: creative?.assetPath || campaign.imageUrl || "",
-                          headline: creative?.headline ?? campaign.title,
-                          subcopy: creative?.subcopy ?? campaign.headline,
-                          alt: campaign.title || "banner",
-                        }
-                      : null
-                  }
-                  ctaLabel={creative?.ctaLabel ?? null}
-                  destinationHref={campaign.ctaHref}
-                />
-                {bannerPublishReady ? (
-                  <p className="mt-2 text-[12px] text-sam-muted">
-                    {bannerPublishReady.ok
-                      ? safeT("admin_delivery_ads_publish_ready", {
-                          fallbackKo: "승인 가능: 제작·목적지 준비됨",
-                          fallbackEn: "Approve-ready: creative & destination OK",
-                        })
-                      : safeT("admin_delivery_ads_publish_blocked", {
-                          fallbackKo: `승인 차단: ${bannerPublishReady.reasons.join(", ")}`,
-                          fallbackEn: `Approve blocked: ${bannerPublishReady.reasons.join(", ")}`,
-                        })}
-                  </p>
-                ) : null}
-                {creative ? (
-                  <p className="mt-2 text-[11px] text-sam-muted">
-                    creative v{creative.version} · {creative.id.slice(0, 8)}
-                  </p>
-                ) : null}
-              </AdminCard>
-            </div>
 
             {/* F — decision actions (secondary ops) */}
             <div data-admin-delivery-ads-detail-section="decision-actions">

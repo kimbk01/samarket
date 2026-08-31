@@ -9,6 +9,7 @@ import { memo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
@@ -83,7 +84,7 @@ function StoresHomeStoreHorizontalCardInner({
           <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.etaLabel}</p>
         : null}
         {benefit?.sponsored ?
-          <p className="text-[10px] font-medium text-amber-700">{t("store_insertion_sponsored")}</p>
+          <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
         : null}
       </div>
     </Link>

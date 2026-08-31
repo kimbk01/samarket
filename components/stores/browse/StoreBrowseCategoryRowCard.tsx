@@ -18,6 +18,7 @@ import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/Stor
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import {
   deliveryShellEntryBeginNavigation,
   deliveryShellEntryMark,
@@ -429,9 +430,7 @@ function StoreBrowseCategoryRowCardInner({
               </span>
             : null}
             {campaignBenefit?.sponsored ?
-              <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                {t("store_insertion_sponsored")}
-              </span>
+              <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
             : null}
             {campaignBenefit?.sponsored && timeLabel ?
               <span className={FB.metaDot}>·</span>

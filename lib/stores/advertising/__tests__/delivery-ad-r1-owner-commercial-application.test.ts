@@ -105,7 +105,14 @@ describe("R1 Owner Commercial Application Recovery", () => {
 
   it("R1-T15 disabled/unpriced package shows 판매 준비 중", () => {
     expect(createSp()).toContain("owner_ads_no_sellable_packages");
-    expect(createSp()).toContain('data-owner-ads-packages="preparing"');
+    expect(createSp()).toContain("DeliveryAdOwnerPackageCardGrid");
+    expect(createSp()).toContain("preparing={noSellablePackages || packages.length === 0}");
+    expect(
+      readFileSync(
+        join(root, "components/stores/advertising/DeliveryAdOwnerPackageCardGrid.tsx"),
+        "utf8"
+      )
+    ).toContain('data-owner-ads-packages="preparing"');
     expect(createSp()).toContain("owner_ads_cta_sale_preparing");
   });
 
@@ -122,8 +129,13 @@ describe("R1 Owner Commercial Application Recovery", () => {
   });
 
   it("R1-T18 preview uses canonical placement preview", () => {
-    expect(createSp()).toContain("DeliveryAdPlacementPreview");
-    expect(createSp()).toContain('renderContext="owner_preview"');
+    expect(createSp()).toContain("DeliveryAdOwnerPreviewWorkspace");
+    const previewWs = readFileSync(
+      join(root, "components/stores/advertising/DeliveryAdOwnerPreviewWorkspace.tsx"),
+      "utf8"
+    );
+    expect(previewWs).toContain("DeliveryAdPlacementPreview");
+    expect(previewWs).toContain('renderContext="owner_preview"');
   });
 
   it("R1-T19 preview emits no telemetry", () => {

@@ -9,6 +9,7 @@ import {
   deliveryAdBannerObjectFit,
   type DeliveryAdBannerProps,
 } from "@/lib/stores/advertising/delivery-ad-banner-contract";
+import { DELIVERY_AD_CUSTOMER_AD_TAG_CLASS } from "@/lib/stores/advertising/delivery-ad-design-board-contract";
 import {
   reportDeliveryAdClick,
   useDeliveryAdImpressionObserver,
@@ -90,8 +91,13 @@ export function DeliveryAdBanner(props: DeliveryAdBannerProps) {
         />
       </div>
       <span
-        className="absolute left-2 top-2 z-[2] rounded-sm bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white"
+        className={
+          isCustomer
+            ? `absolute left-2 top-2 z-[2] ${DELIVERY_AD_CUSTOMER_AD_TAG_CLASS}`
+            : "absolute left-2 top-2 z-[2] rounded-sm bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white"
+        }
         data-delivery-ad-label="true"
+        data-delivery-ad-label-context={isCustomer ? "customer" : renderContext}
       >
         {adLabel}
       </span>

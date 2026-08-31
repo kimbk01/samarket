@@ -8,7 +8,6 @@ import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
   OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
   OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
-  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
 } from "@/lib/business/owner-admin-footer-actions";
 import { useOwnerAdminFormKeyboard } from "@/lib/business/use-owner-admin-form-keyboard";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -22,10 +21,15 @@ import {
 } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { decodeOwnerAdPackagePricingModel } from "@/lib/stores/advertising/owner-delivery-ad-commercial-bind";
-import { DeliveryAdPlacementPreview } from "@/components/stores/advertising/DeliveryAdPlacementPreview";
+import { DeliveryAdOwnerPackageCardGrid } from "@/components/stores/advertising/DeliveryAdOwnerPackageCardGrid";
+import { DeliveryAdOwnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerStepProgress";
+import { DeliveryAdOwnerPlacementChipGrid } from "@/components/stores/advertising/DeliveryAdOwnerPlacementChipGrid";
+import { DeliveryAdOwnerApplicationConfirm } from "@/components/stores/advertising/DeliveryAdOwnerApplicationConfirm";
+import { DeliveryAdOwnerPreviewWorkspace } from "@/components/stores/advertising/DeliveryAdOwnerPreviewWorkspace";
+import { DeliveryAdOwnerCustomPeriodBoard } from "@/components/stores/advertising/DeliveryAdOwnerCustomPeriodBoard";
+import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import {
   deliveryAdCommercialPlacementLabel,
-  formatDeliveryAdPhpMinor,
 } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -417,6 +421,34 @@ export function OwnerStoreSponsoredCreateView() {
     !busy &&
     !commercialLoading;
 
+  const activeStep = useMemo((): 1 | 2 | 3 | 4 | 5 => {
+    if (!storeId) return 1;
+    if (!inventoryKey) return 2;
+    if (!packageId) return 3;
+    if (!quote) return 4;
+    return 5;
+  }, [storeId, inventoryKey, packageId, quote]);
+
+  const confirmRows = useMemo(() => {
+    if (!quote || !selectedStore) return [];
+    return [
+      { labelKey: "owner_ads_confirm_store", value: selectedStore.storeName },
+      { labelKey: "owner_ads_confirm_product", value: t("owner_ads_product_store_sponsored") },
+      {
+        labelKey: "owner_ads_confirm_placement",
+        value: inventoryKey ? deliveryAdCommercialPlacementLabel(inventoryKey, lang) : "—",
+      },
+      {
+        labelKey: "owner_ads_confirm_package",
+        value: quote.packageDisplayName || `${quote.durationDays}일`,
+      },
+      {
+        labelKey: "owner_ads_confirm_period",
+        value: t("owner_ads_period_pending_start_r1"),
+      },
+    ];
+  }, [quote, selectedStore, inventoryKey, lang, t]);
+
   if (doneCampaign) {
     return (
       <div
@@ -457,9 +489,10 @@ export function OwnerStoreSponsoredCreateView() {
       className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pt-4`}
       style={formPadStyle}
       data-owner-ads-workspace="store-sponsored"
-      data-owner-ads-wizard="absent"
+      data-owner-ads-wizard="design-board"
     >
-      <h1 className="text-[18px] font-bold text-sam-fg">
+      <DeliveryAdOwnerStepProgress activeStep={activeStep} />
+      <h1 className="mt-3 text-[18px] font-bold text-sam-fg">
         {t("owner_ads_workspace_store_sponsored_title")}
       </h1>
 
@@ -517,37 +550,18 @@ export function OwnerStoreSponsoredCreateView() {
             </p>
           </OwnerStoreAdminDashSection>
 
-          <OwnerStoreAdminDashSection title={t("owner_ads_placement_surface_title")}>
-            <div className="space-y-2">
-              {placementOptions.map((key) => (
-                <label
-                  key={key}
-                  className={`flex min-h-[44px] flex-col gap-1 rounded-ui-rect border px-3 py-2 ${
-                    inventoryKey === key
-                      ? "border-signature bg-sam-app"
-                      : "border-sam-border bg-sam-surface"
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name={`${formId}-placement`}
-                      checked={inventoryKey === key}
-                      onChange={() => onSelectPlacement(key)}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-[14px] font-semibold text-sam-fg">
-                      {deliveryAdCommercialPlacementLabel(key, lang)}
-                    </span>
-                  </span>
-                  <span className="pl-7 text-[12px] text-sam-muted">
-                    {key === "STORES_HOME_FEED"
-                      ? t("owner_ads_placement_home_help")
-                      : t("owner_ads_placement_category_help")}
-                  </span>
-                </label>
-              ))}
-            </div>
+          <OwnerStoreAdminDashSection title={t("owner_ads_section_placement")}>
+            <DeliveryAdOwnerPlacementChipGrid
+              options={placementOptions}
+              selected={inventoryKey}
+              onSelect={onSelectPlacement}
+              labelFor={(key) => deliveryAdCommercialPlacementLabel(key, lang)}
+              helpFor={(key) =>
+                key === "STORES_HOME_FEED"
+                  ? t("owner_ads_placement_home_help")
+                  : t("owner_ads_placement_category_help")
+              }
+            />
           </OwnerStoreAdminDashSection>
 
           <OwnerStoreAdminDashSection title={t("owner_ads_section_packages")}>
@@ -555,91 +569,36 @@ export function OwnerStoreSponsoredCreateView() {
               <p className="text-[13px] text-sam-muted">{t("owner_ads_select_store_hint")}</p>
             ) : commercialLoading ? (
               <p className="text-[13px] text-sam-muted">{t("owner_ads_loading")}</p>
-            ) : noSellablePackages || packages.length === 0 ? (
-              <p
-                className="text-[13px] text-sam-muted"
-                role="status"
-                data-owner-ads-packages="preparing"
-              >
-                {t("owner_ads_no_sellable_packages")}
-              </p>
             ) : (
-              <div className="space-y-2">
-                {packages.map((pkg) => (
-                  <label
-                    key={pkg.packageId}
-                    className={`flex min-h-[44px] flex-col gap-1 rounded-ui-rect border px-3 py-2 ${
-                      packageId === pkg.packageId
-                        ? "border-signature bg-sam-app"
-                        : "border-sam-border bg-sam-surface"
-                    }`}
-                  >
-                    <span className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name={`${formId}-package`}
-                        checked={packageId === pkg.packageId}
-                        onChange={() => onSelectPackage(pkg.packageId)}
-                        className="h-4 w-4"
-                      />
-                      <span className="text-[14px] font-semibold text-sam-fg">
-                        {pkg.displayName}
-                      </span>
-                    </span>
-                    <span className="pl-7 text-[12px] text-sam-muted">
-                      {t("owner_ads_period_duration_days").replace(
-                        "{days}",
-                        String(pkg.durationDays)
-                      )}{" "}
-                      · {pkg.finalPayableDisplay}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <>
+                <DeliveryAdOwnerPackageCardGrid
+                  packages={packages.map((pkg) => ({
+                    packageId: pkg.packageId,
+                    durationDays: pkg.durationDays,
+                    finalPayableDisplay: pkg.finalPayableDisplay,
+                    finalPayableMinor: pkg.finalPayableMinor,
+                    displayName: pkg.displayName,
+                  }))}
+                  selectedPackageId={packageId}
+                  onSelect={onSelectPackage}
+                  preparing={noSellablePackages || packages.length === 0}
+                />
+                <DeliveryAdOwnerCustomPeriodBoard
+                  durationDays={
+                    quote?.durationDays ??
+                    packages.find((p) => p.packageId === packageId)?.durationDays ??
+                    null
+                  }
+                  selected={Boolean(packageId)}
+                />
+                {noSellablePackages || packages.length === 0 ? (
+                  <p className="mt-2 text-[12px] text-sam-muted">
+                    {t("owner_ads_no_sellable_packages")}
+                  </p>
+                ) : null}
+              </>
             )}
           </OwnerStoreAdminDashSection>
-
-          {quote ? (
-            <OwnerStoreAdminDashSection title={t("owner_ads_section_payable")}>
-              <dl className="space-y-2 text-[13px]">
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="text-sam-muted">{t("owner_ads_section_product")}</dt>
-                  <dd className="text-sam-fg">{t("owner_ads_product_store_sponsored")}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <dt className="text-sam-muted">{t("owner_ads_price_base")}</dt>
-                  <dd className="tabular-nums text-sam-fg">{quote.basePriceDisplay}</dd>
-                </div>
-                {quote.partnerActive && quote.partnerDiscountPercent > 0 ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <dt className="text-sam-muted">
-                      {t("owner_ads_price_partner_discount")} ({quote.partnerDiscountPercent}%)
-                    </dt>
-                    <dd className="tabular-nums text-sam-fg">
-                      −
-                      {formatDeliveryAdPhpMinor(
-                        Math.max(0, quote.basePriceMinor - quote.finalPayableMinor)
-                      )}
-                    </dd>
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-2 border-t border-sam-border pt-2">
-                  <dt className="text-[15px] font-bold text-sam-fg">
-                    {t("owner_ads_price_total")}
-                  </dt>
-                  <dd
-                    className="text-[18px] font-bold tabular-nums text-sam-fg"
-                    data-owner-ads-price-total="1"
-                  >
-                    {quote.finalPayableDisplay}
-                  </dd>
-                </div>
-              </dl>
-              <p className="mt-3 text-[12px] text-sam-muted">
-                {t("owner_ads_billing_application_note")}
-              </p>
-            </OwnerStoreAdminDashSection>
-          ) : null}
 
           {quote ? (
             <OwnerStoreAdminDashSection title={t("owner_ads_section_period")}>
@@ -657,13 +616,19 @@ export function OwnerStoreSponsoredCreateView() {
 
           {inventoryKey ? (
             <OwnerStoreAdminDashSection title={t("owner_ads_section_preview")}>
-              <DeliveryAdPlacementPreview
+              <DeliveryAdOwnerPreviewWorkspace
                 productKind="store_sponsored"
-                inventoryKey={inventoryKey}
-                renderContext="owner_preview"
+                selectedInventoryKey={inventoryKey}
                 surfaceEnabled
-                store={null}
-                storeLoadError
+              />
+            </OwnerStoreAdminDashSection>
+          ) : null}
+
+          {quote ? (
+            <OwnerStoreAdminDashSection title={t("owner_ads_section_confirm")}>
+              <DeliveryAdOwnerApplicationConfirm
+                rows={confirmRows}
+                totalDisplay={quote.finalPayableDisplay}
               />
             </OwnerStoreAdminDashSection>
           ) : null}
@@ -682,7 +647,7 @@ export function OwnerStoreSponsoredCreateView() {
             <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
-                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} w-full min-h-[48px]`}
                 disabled={!canSubmit}
                 data-owner-ads-submit-cta={canSubmit ? "ready" : "blocked"}
                 onClick={() => void submit()}

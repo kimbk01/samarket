@@ -8,6 +8,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
+import { DeliveryAdAdminFirstPartyStepProgress } from "@/components/stores/advertising/DeliveryAdAdminFirstPartyStepProgress";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import {
   OWNER_BANNER_INVENTORY_KEYS,
@@ -39,6 +40,13 @@ export function AdminDeliveryAdFirstPartyCreateView() {
   const [error, setError] = useState<string | null>(null);
 
   const inventory = useMemo(() => inventoryViewFromKey(inventoryKey), [inventoryKey]);
+
+  const activeFirstPartyStep = useMemo((): 1 | 2 | 3 | 4 => {
+    if (busy) return 4;
+    if (!assetPath.trim()) return 2;
+    if (!headline.trim() || !startAt || !endAt) return 1;
+    return 3;
+  }, [assetPath, headline, startAt, endAt, busy]);
 
   const upload = async (file: File) => {
     setError(null);
@@ -105,7 +113,7 @@ export function AdminDeliveryAdFirstPartyCreateView() {
 
   return (
     <AdminDeliveryCmsChrome>
-      <div className="space-y-4 pb-10" data-admin-first-party-create="banner">
+      <div className="space-y-4 pb-10" data-admin-first-party-create="design-board">
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › First-party</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
@@ -136,6 +144,8 @@ export function AdminDeliveryAdFirstPartyCreateView() {
             {error}
           </p>
         ) : null}
+
+        <DeliveryAdAdminFirstPartyStepProgress activeStep={activeFirstPartyStep} />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">

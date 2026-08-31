@@ -43,6 +43,7 @@ import type {
   StoresHomeShelfBenefitLineMode,
 } from "@/lib/stores/product/stores-home-shelf-product-config";
 import { DeliveryAdSponsoredBeacon } from "@/components/stores/advertising/DeliveryAdSponsoredBeacon";
+import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 
 const TIMESALE_SPEC = STORES_HOME_PRESENTATION_SPEC.patterns.timesaleVertical;
 
@@ -249,9 +250,7 @@ function StoresHomeTimesaleRowCardInner({
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
             {benefit?.sponsored ?
-              <span className="inline-flex h-[19px] items-center rounded-[5px] bg-amber-100 px-1.5 text-[10px] font-semibold leading-none text-amber-800">
-                {t("store_insertion_sponsored")}
-              </span>
+              <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
             : null}
             {badgeLabels.map((b) => (
               <span

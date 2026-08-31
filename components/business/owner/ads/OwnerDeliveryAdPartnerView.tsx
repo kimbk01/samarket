@@ -6,7 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
-import { Sam } from "@/lib/ui/css-vars";
+import { DeliveryAdOwnerPartnerStepProgress } from "@/components/stores/advertising/DeliveryAdOwnerPartnerStepProgress";
+import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 
 type PartnerPayload = {
   ok?: boolean;
@@ -123,11 +124,20 @@ export function OwnerDeliveryAdPartnerView() {
     }
   };
 
+  const activePartnerStep = useMemo((): 1 | 2 | 3 | 4 => {
+    const st = data?.membership?.status;
+    if (st === "ACTIVE") return 4;
+    if (st === "PENDING_REVIEW" || st === "CANCEL_PENDING") return 3;
+    if (data?.canApply) return 2;
+    return 1;
+  }, [data]);
+
   return (
     <div
       className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-lg px-4 pb-8 pt-4`}
-      data-owner-ads-partner="r4"
+      data-owner-ads-partner="design-board"
     >
+      <DeliveryAdOwnerPartnerStepProgress activeStep={activePartnerStep} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[18px] font-bold text-sam-fg">{t("owner_ads_partner_title")}</h1>
@@ -214,7 +224,7 @@ export function OwnerDeliveryAdPartnerView() {
             <button
               type="button"
               disabled={busy}
-              className={`${Sam.btn.primary} min-h-[44px] w-full text-[14px] font-semibold`}
+              className={`${DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS} min-h-[44px] w-full text-[14px] font-semibold`}
               data-owner-partner-apply="1"
               onClick={() => void run("apply")}
             >
@@ -226,7 +236,7 @@ export function OwnerDeliveryAdPartnerView() {
             <button
               type="button"
               disabled={busy}
-              className={`${Sam.btn.secondary} min-h-[44px] w-full text-[14px] font-semibold`}
+              className="inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg"
               data-owner-partner-cancel="1"
               onClick={() => void run("cancel_request")}
             >

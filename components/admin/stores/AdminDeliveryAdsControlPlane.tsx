@@ -11,6 +11,7 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
+import { DeliveryAdAdminTodaySummary } from "@/components/stores/advertising/DeliveryAdAdminTodaySummary";
 import { AdminDeliveryAdActionQueuePanel } from "@/components/admin/stores/AdminDeliveryAdActionQueuePanel";
 import type {
   DeliveryAdAnalyticsDateRange,
@@ -165,9 +166,19 @@ export function AdminDeliveryAdsControlPlane() {
     [campaigns, hubView]
   );
 
+  const todaySummaryCounts = useMemo(
+    () => ({
+      new: policyCounts?.under_review ?? summary.review,
+      pending_review: summary.review,
+      pending_payment: summary.held,
+      active: summary.active,
+    }),
+    [policyCounts, summary]
+  );
+
   return (
     <AdminDeliveryCmsChrome help="home">
-      <div className="space-y-4 pb-10" data-admin-delivery-ads-hub="1" data-hub-default-view="actionable">
+      <div className="space-y-4 pb-10" data-admin-delivery-ads-hub="design-board" data-hub-default-view="actionable">
         {/* 1 — Page identity / summary */}
         <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">Delivery › Ads</p>
@@ -243,38 +254,7 @@ export function AdminDeliveryAdsControlPlane() {
           ) : null}
         </div>
 
-        {/* Canonical summary counts from server — not invented from Korean strings */}
-        <div
-          className="grid grid-cols-2 gap-2 sm:grid-cols-5"
-          data-admin-delivery-ads-section="summary"
-        >
-          {(
-            [
-              ["total", summary.total],
-              ["review", summary.review],
-              ["active", summary.active],
-              ["held", summary.held],
-              ["ended", summary.ended],
-            ] as const
-          ).map(([k, v]) => (
-            <AdminCard
-              key={k}
-              titleKey={
-                (
-                  {
-                    total: "admin_delivery_ads_summary_total",
-                    review: "admin_delivery_ads_summary_review",
-                    active: "admin_delivery_ads_summary_active",
-                    held: "admin_delivery_ads_summary_held",
-                    ended: "admin_delivery_ads_summary_ended",
-                  } as const
-                )[k]
-              }
-            >
-              <p className="text-[22px] font-semibold tabular-nums text-sam-fg">{v}</p>
-            </AdminCard>
-          ))}
-        </div>
+        <DeliveryAdAdminTodaySummary counts={todaySummaryCounts} />
 
         {/* 2 — Action Queue ahead of passive browsing */}
         <div data-admin-delivery-ads-section="action-queue">

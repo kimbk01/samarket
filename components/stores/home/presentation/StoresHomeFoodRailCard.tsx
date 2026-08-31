@@ -12,6 +12,7 @@ import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prew
 import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-delivery-store-product";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
@@ -143,7 +144,7 @@ function StoresHomeFoodRailCardInner({
           </p>
         : null}
         {benefit?.sponsored ?
-          <p className="text-[10px] font-medium text-amber-700">{t("store_insertion_sponsored")}</p>
+          <DeliveryAdCustomerAdTag label={t("store_insertion_sponsored")} />
         : null}
       </div>
     </Link>

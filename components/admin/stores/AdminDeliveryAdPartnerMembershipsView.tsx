@@ -82,7 +82,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
 
   return (
     <AdminDeliveryCmsChrome>
-      <div className="space-y-4 pb-10" data-admin-partner-memberships="r4">
+      <div className="space-y-4 pb-10" data-admin-partner-memberships="design-board">
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Partner</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
@@ -168,37 +168,64 @@ export function AdminDeliveryAdPartnerMembershipsView() {
               })}
             </p>
           ) : (
-            <ul className="space-y-2">
+            <div className="overflow-x-auto">
+              <table
+                className="w-full min-w-[560px] border-collapse text-[12px]"
+                data-admin-partner-memberships-table="design-board"
+              >
+                <thead>
+                  <tr className="bg-[#F5F5F5] text-left text-[#757575]">
+                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                      {safeT("admin_delivery_ads_partner_col_store", {
+                        fallbackKo: "매장",
+                        fallbackEn: "Store",
+                      })}
+                    </th>
+                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                      {safeT("admin_delivery_ads_partner_col_status", {
+                        fallbackKo: "상태",
+                        fallbackEn: "Status",
+                      })}
+                    </th>
+                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                      {safeT("admin_delivery_ads_partner_col_period", {
+                        fallbackKo: "기간",
+                        fallbackEn: "Period",
+                      })}
+                    </th>
+                    <th className="border border-[#BDBDBD] p-2 font-semibold">
+                      {safeT("admin_delivery_ads_queue_col_action", {
+                        fallbackKo: "처리",
+                        fallbackEn: "Action",
+                      })}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
               {items.map((m) => (
-                <li
+                <tr
                   key={m.id}
-                  className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
+                  className="bg-white"
                   data-partner-membership-row={m.status}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-semibold text-sam-fg">
-                        {m.storeName ?? m.storeId}
-                      </p>
-                      <p className="text-[12px] text-sam-muted">
-                        {lang === "en" ? m.statusLabelEn : m.statusLabelKo}
-                        {m.feeSnapshotLabel ? ` · ${m.feeSnapshotLabel}` : ""}
-                        {m.advertisingDiscountPercentSnapshot
-                          ? ` · -${m.advertisingDiscountPercentSnapshot}%`
-                          : ""}
-                      </p>
-                      {m.periodEnd ? (
-                        <p className="text-[11px] text-sam-muted">
-                          {(m.periodStart ?? "").slice(0, 10)} ~ {m.periodEnd.slice(0, 10)}
-                        </p>
-                      ) : null}
-                    </div>
+                  <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
+                    {m.storeName ?? m.storeId}
+                  </td>
+                  <td className="border border-[#BDBDBD] p-2 text-sam-fg">
+                    {lang === "en" ? m.statusLabelEn : m.statusLabelKo}
+                  </td>
+                  <td className="border border-[#BDBDBD] p-2 text-[#757575]">
+                    {m.periodEnd
+                      ? `${(m.periodStart ?? "").slice(0, 10)} ~ ${m.periodEnd.slice(0, 10)}`
+                      : "—"}
+                  </td>
+                  <td className="border border-[#BDBDBD] p-2">
                     <div className="flex flex-wrap gap-2">
                       {m.status === "PENDING_REVIEW" ? (
                         <button
                           type="button"
                           disabled={busy}
-                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1 text-[12px]"
+                          className="rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 py-1 text-[12px] font-semibold text-white"
                           onClick={() => void act("approve", m.id)}
                         >
                           {safeT("admin_delivery_ads_partner_approve", {
@@ -213,7 +240,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                         <button
                           type="button"
                           disabled={busy}
-                          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1 text-[12px]"
+                          className="rounded-ui-rect border border-[#BDBDBD] bg-white px-3 py-1 text-[12px]"
                           onClick={() => void act("end", m.id)}
                         >
                           {safeT("admin_delivery_ads_partner_end", {
@@ -223,10 +250,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                         </button>
                       ) : null}
                     </div>
-                  </div>
-                </li>
+                  </td>
+                </tr>
               ))}
-            </ul>
+                </tbody>
+              </table>
+            </div>
           )}
         </AdminCard>
       </div>

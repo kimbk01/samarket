@@ -104,7 +104,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
     <AdminDeliveryCmsChrome>
       <div
         className="space-y-4 pb-10"
-        data-admin-delivery-ads-commercial="1"
+        data-admin-delivery-ads-commercial="design-board"
       >
         <div>
           <p className="text-[12px] text-sam-muted">Delivery › Ads › Settings</p>
@@ -255,14 +255,14 @@ export function AdminDeliveryAdCommercialSettingsView() {
                       {adminDeliveryAdProductHumanLabel(product, lang)}
                     </h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[480px] border-collapse text-[12px]">
+                      <table className="w-full min-w-[480px] border-collapse text-[12px]" data-commercial-matrix-table="design-board">
                         <thead>
-                          <tr className="text-left text-sam-muted">
-                            <th className="border-b border-sam-border p-2 font-medium">
+                          <tr className="bg-[#F5F5F5] text-left text-[#757575]">
+                            <th className="border border-[#BDBDBD] p-2 font-semibold">
                               {lang === "en" ? "Placement" : "지면"}
                             </th>
                             {R3_COMMERCIAL_MATRIX_DURATIONS.map((d, i) => (
-                              <th key={d} className="border-b border-sam-border p-2 font-medium">
+                              <th key={d} className="border border-[#BDBDBD] p-2 font-semibold">
                                 {safeT("admin_delivery_ads_commercial_days_suffix", {
                                   fallbackKo: `${d}일`,
                                   fallbackEn: `${d} days`,
@@ -273,12 +273,22 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 </span>
                               </th>
                             ))}
+                            <th className="border border-[#BDBDBD] p-2 font-semibold">
+                              {safeT("admin_delivery_ads_commercial_col_active", {
+                                fallbackKo: "활성",
+                                fallbackEn: "Active",
+                              })}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {placements.map((inventory) => (
+                          {placements.map((inventory) => {
+                            const placementRow = catalog.placements.find(
+                              (p) => p.productKind === product && p.inventoryKey === inventory
+                            );
+                            return (
                             <tr key={inventory}>
-                              <td className="border-b border-sam-border p-2 align-top font-medium text-sam-fg">
+                              <td className="border border-[#BDBDBD] p-2 align-top font-medium text-sam-fg">
                                 {deliveryAdCommercialPlacementLabel(inventory, lang)}
                               </td>
                               {R3_COMMERCIAL_MATRIX_DURATIONS.map((days) => {
@@ -287,7 +297,7 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                 return (
                                   <td
                                     key={days}
-                                    className="border-b border-sam-border p-2 align-top"
+                                    className="border border-[#BDBDBD] p-2 align-top"
                                     data-matrix-cell={`${product}:${inventory}:${days}`}
                                   >
                                     <MatrixCell
@@ -307,8 +317,32 @@ export function AdminDeliveryAdCommercialSettingsView() {
                                   </td>
                                 );
                               })}
+                              <td className="border border-[#BDBDBD] p-2 align-top">
+                                <label className="flex items-center gap-2 text-[12px] font-medium text-sam-fg">
+                                  <input
+                                    type="checkbox"
+                                    checked={placementRow?.sellable ?? false}
+                                    disabled={busy || !placementRow}
+                                    onChange={(e) => {
+                                      if (!placementRow) return;
+                                      void patch({
+                                        op: "update_placement",
+                                        productKey: product,
+                                        inventoryKey: inventory,
+                                        sellable: e.target.checked,
+                                        reason: "admin_placement_sellable",
+                                      });
+                                    }}
+                                  />
+                                  {safeT("admin_delivery_ads_commercial_col_active", {
+                                    fallbackKo: "활성",
+                                    fallbackEn: "Active",
+                                  })}
+                                </label>
+                              </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -521,7 +555,7 @@ function MatrixCell(props: {
           disabled={busy}
           onChange={(e) => setEnabled(e.target.checked)}
         />
-        {lang === "en" ? "On" : "판매"}
+        {lang === "en" ? "Active" : "활성"}
       </label>
       <button
         type="button"
