@@ -77,11 +77,62 @@ export type DeliveryAdPartnerConfigRow = {
   version: number;
 };
 
+/** R4 membership lifecycle — PENDING_REVIEW added for Owner apply / Admin approve. */
+export const DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES = [
+  "NONE",
+  "PENDING_REVIEW",
+  "ACTIVE",
+  "PAST_DUE",
+  "CANCEL_PENDING",
+  "ENDED",
+] as const;
+export type DeliveryAdPartnerMembershipStatus =
+  (typeof DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES)[number];
+
+/** Open = blocks a new Owner apply for the same store. */
+export const DELIVERY_AD_PARTNER_OPEN_STATUSES = [
+  "PENDING_REVIEW",
+  "ACTIVE",
+  "CANCEL_PENDING",
+  "PAST_DUE",
+] as const satisfies ReadonlyArray<DeliveryAdPartnerMembershipStatus>;
+
+/** Ad package discount — PENDING_REVIEW must never qualify. */
+export const DELIVERY_AD_PARTNER_DISCOUNT_ELIGIBLE_STATUSES = [
+  "ACTIVE",
+  "CANCEL_PENDING",
+] as const satisfies ReadonlyArray<DeliveryAdPartnerMembershipStatus>;
+
+export const DELIVERY_AD_PARTNER_PERIOD_DAYS_DEFAULT = 30 as const;
+
+/** Partner monthly fee payment path — membership apply/state only in R4. */
+export const DELIVERY_AD_PARTNER_PAYMENT = {
+  status: "NOT_IMPLEMENTED",
+  businessCashCharge: false,
+} as const;
+
+export type DeliveryAdPartnerMembershipRow = {
+  id: string;
+  storeId: string;
+  status: DeliveryAdPartnerMembershipStatus;
+  periodStart: string | null;
+  periodEnd: string | null;
+  feeSnapshotMinor: number | null;
+  currency: string;
+  benefitSnapshot: Record<string, unknown>;
+  advertisingDiscountPercentSnapshot: number;
+  configVersionSnapshot: number | null;
+  cancelRequestedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type DeliveryAdPartnerMembershipEligibility = {
   membershipId: string | null;
   active: boolean;
   advertisingDiscountPercent: number;
   benefitSnapshot: Record<string, unknown>;
+  status?: DeliveryAdPartnerMembershipStatus | null;
 };
 
 export type DeliveryAdExtensionPolicyRow = {
@@ -439,6 +490,41 @@ export const DELIVERY_AD_PARTNER_ORGANIC_EFFECT = {
   bypassSponsoredLabel: false,
   altersOrganicEligibility: false,
 } as const;
+
+export function mapDeliveryAdPartnerMembershipRow(
+  raw: Record<string, unknown>
+): DeliveryAdPartnerMembershipRow | null {
+  const id = String(raw.id ?? "").trim();
+  const storeId = String(raw.store_id ?? "").trim();
+  const statusRaw = String(raw.status ?? "").trim();
+  if (!id || !storeId) return null;
+  if (!(DELIVERY_AD_PARTNER_MEMBERSHIP_STATUSES as readonly string[]).includes(statusRaw)) {
+    return null;
+  }
+  const benefit =
+    raw.benefit_snapshot && typeof raw.benefit_snapshot === "object"
+      ? (raw.benefit_snapshot as Record<string, unknown>)
+      : {};
+  return {
+    id,
+    storeId,
+    status: statusRaw as DeliveryAdPartnerMembershipStatus,
+    periodStart: raw.period_start == null ? null : String(raw.period_start),
+    periodEnd: raw.period_end == null ? null : String(raw.period_end),
+    feeSnapshotMinor: raw.fee_snapshot_minor == null ? null : Number(raw.fee_snapshot_minor),
+    currency: String(raw.currency ?? "PHP"),
+    benefitSnapshot: benefit,
+    advertisingDiscountPercentSnapshot: Number(
+      raw.advertising_discount_percent_snapshot ?? 0
+    ),
+    configVersionSnapshot:
+      raw.config_version_snapshot == null ? null : Number(raw.config_version_snapshot),
+    cancelRequestedAt:
+      raw.cancel_requested_at == null ? null : String(raw.cancel_requested_at),
+    createdAt: String(raw.created_at ?? ""),
+    updatedAt: String(raw.updated_at ?? ""),
+  };
+}
 
 export function mapDeliveryAdPackageRow(raw: Record<string, unknown>): DeliveryAdPackageRow | null {
   const productKind = String(raw.product_kind ?? "");

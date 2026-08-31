@@ -98,14 +98,14 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     );
   });
 
-  it("R3-T6 — hub header has 배달 광고 + commercial settings link; no first-party create", () => {
+  it("R3-T6 — hub header has 배달 광고 + commercial settings link; R4 first-party CTA", () => {
     const src = hub();
     expect(src).toContain("admin_delivery_ads_title");
     expect(src).toContain("DELIVERY_AD_ADMIN_ROUTES.commercialSettings");
     expect(src).toContain("data-admin-delivery-ads-commercial-link");
-    expect(src).not.toMatch(/first.?party|FirstParty|직접 등록|AdminDirectCreate/i);
+    expect(src).toContain("data-admin-delivery-ads-first-party-cta");
     expect(src).not.toContain("AdminStoreBannerAdWriterPanel");
-    expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(true);
+    expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(false);
   });
 
   it("R3-T7 — Store Promotion never needs creative", () => {
@@ -247,20 +247,19 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(src).toContain('op: "update_placement"');
   });
 
-  it("R3-T20 — custom package via sheet/panel; extension+partner collapsed", () => {
+  it("R3-T20 — custom package via sheet/panel; extension collapsed; Partner live R4", () => {
     const src = commercial();
     expect(src).toContain("data-commercial-custom-package");
     expect(src).toContain("admin_delivery_ads_commercial_custom_package");
     expect(src).toContain("data-commercial-extension-collapsed");
-    expect(src).toContain("data-commercial-partner-collapsed");
-    expect(src).toContain("준비 중");
+    expect(src).toContain('data-commercial-partner="r4"');
+    expect(src).not.toContain("data-commercial-partner-collapsed");
   });
 
-  it("R3-T21 — Partner not fabricated as ad product / Owner apply", () => {
+  it("R3-T21 — Partner not fabricated as ad product (membership separate)", () => {
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
-    expect(commercial()).toContain("admin_delivery_ads_commercial_partner_prep");
+    expect(commercial()).toContain("admin_delivery_ads_commercial_partner_note");
     expect(commercial()).toContain("organic ranking");
-    expect(commercial()).not.toMatch(/Owner apply.*Partner|Partner.*Owner apply/i);
   });
 
   it("R3-T22 — hub campaign row has one primary CTA", () => {
@@ -377,7 +376,7 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
   it("R3-T37 — export constants available for tests", () => {
     expect(ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW).toBeTruthy();
     expect(R3_COMMERCIAL_MATRIX_EXPECTED_CELLS).toBe(12);
-    expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(true);
+    expect(R3_ADMIN_NO_FIRST_PARTY_CREATE).toBe(false);
     expect(R3_ADMIN_PARTNER_NOT_PRODUCT).toBe(true);
   });
 });

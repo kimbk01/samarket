@@ -181,8 +181,9 @@ describe("R1 Owner Commercial Application Recovery", () => {
     expect(OWNER_ADS_R1_OPERATIONS_PANEL_ENABLED).toBe(false);
   });
 
-  it("R1-T30 Partner not implemented/reopened", () => {
-    expect(hub()).not.toMatch(/Partner 신청|partner.?apply|membership.?apply/i);
+  it("R1-T30 Partner membership product available via hub secondary card (R4)", () => {
+    expect(hub()).toContain("data-owner-ads-partner-card");
+    expect(hub()).toContain("DELIVERY_AD_OWNER_ROUTES.partner");
   });
 
   it("funding gate helper requires priced snapshot", () => {

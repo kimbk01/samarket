@@ -7,6 +7,8 @@ export const DELIVERY_AD_OWNER_ROUTES = {
   createStoreSponsored: "/stores/owner/ads/new/store-sponsored",
   /** Banner Owner create — CUT E. */
   createBanner: "/stores/owner/ads/new/banner",
+  /** R4 Partner membership apply / status. */
+  partner: "/stores/owner/ads/partner",
   detail: (campaignId: string) =>
     `/stores/owner/ads/${encodeURIComponent(campaignId)}`,
 } as const;
@@ -14,6 +16,9 @@ export const DELIVERY_AD_OWNER_ROUTES = {
 export const DELIVERY_AD_ADMIN_ROUTES = {
   hub: "/admin/delivery-ads",
   commercialSettings: "/admin/delivery-ads/commercial-settings",
+  /** R4 DIBAY first-party Banner create workspace. */
+  firstPartyNew: "/admin/delivery-ads/first-party/new",
+  partnerMemberships: "/admin/delivery-ads/partner",
   detail: (campaignId: string) =>
     `/admin/delivery-ads/${encodeURIComponent(campaignId)}`,
 } as const;

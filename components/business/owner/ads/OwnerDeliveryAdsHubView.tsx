@@ -223,71 +223,91 @@ export function OwnerDeliveryAdsHubView() {
             fallbackEn: "Something went wrong. Please try again.",
           })}
         </p>
-      ) : sortedCampaigns.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
-          <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
-          <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_empty_body")}</p>
-        </div>
       ) : (
-        <ul className="space-y-2" data-owner-ads-campaign-list="1">
-          {sortedCampaigns.map((c) => {
-            const productKind: DeliveryAdOwnerProductKind =
-              c.productKind === "banner" ? "banner" : "store_sponsored";
-            const invLabels = deliveryAdPlacementI18nKeys(c.inventoryKeys ?? [])
-              .map((k) => t(k as MessageKey))
-              .join(" · ");
-            const hasPackage = Boolean(decodeOwnerAdPackagePricingModel(c.pricingModel));
-            const cta = ownerAdsHubCardPrimaryCta({
-              lifecycleStatus: c.lifecycleStatus,
-              productKind,
-              storeId: c.storeId,
-              campaignId: c.id,
-            });
-            return (
-              <li key={c.id}>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
-                        {productKind === "banner"
-                          ? t("owner_ads_product_banner")
-                          : t("owner_ads_product_store_sponsored")}
-                      </p>
-                      <p className="mt-0.5 truncate text-[15px] font-semibold text-sam-fg">
-                        {storeNameById.get(c.storeId) ?? c.title ?? t("owner_ads_store")}
-                      </p>
-                      {invLabels ? (
-                        <p className="mt-1 text-[12px] text-sam-muted">{invLabels}</p>
-                      ) : c.lifecycleStatus === "DRAFT" ? null : (
-                        <p className="mt-1 text-[12px] text-sam-muted">—</p>
-                      )}
-                      {c.lifecycleStatus === "DRAFT" && !hasPackage ? (
-                        <p className="mt-1 text-[12px] text-sam-muted">
-                          {t("owner_ads_price_unset")}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-[12px] text-sam-muted">
-                          {t("owner_ads_period")}: {c.startAt.slice(0, 10)} ~{" "}
-                          {c.endAt.slice(0, 10)}
-                        </p>
-                      )}
+        <>
+          <Link
+            href={
+              stores[0]
+                ? `${DELIVERY_AD_OWNER_ROUTES.partner}?storeId=${encodeURIComponent(stores[0].id)}`
+                : DELIVERY_AD_OWNER_ROUTES.partner
+            }
+            className="block rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+            data-owner-ads-partner-card="1"
+          >
+            <p className="text-[15px] font-bold text-sam-fg">{t("owner_ads_partner_card_title")}</p>
+            <p className="mt-1 text-[13px] text-sam-muted">{t("owner_ads_partner_card_desc")}</p>
+            <p className="mt-3 text-[13px] font-semibold text-signature">
+              {t("owner_ads_partner_card_cta")}
+            </p>
+          </Link>
+
+          {sortedCampaigns.length === 0 ? (
+            <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
+              <p className="text-[15px] font-semibold text-sam-fg">{t("owner_ads_empty_title")}</p>
+              <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_empty_body")}</p>
+            </div>
+          ) : (
+            <ul className="space-y-2" data-owner-ads-campaign-list="1">
+              {sortedCampaigns.map((c) => {
+                const productKind: DeliveryAdOwnerProductKind =
+                  c.productKind === "banner" ? "banner" : "store_sponsored";
+                const invLabels = deliveryAdPlacementI18nKeys(c.inventoryKeys ?? [])
+                  .map((k) => t(k as MessageKey))
+                  .join(" · ");
+                const hasPackage = Boolean(decodeOwnerAdPackagePricingModel(c.pricingModel));
+                const cta = ownerAdsHubCardPrimaryCta({
+                  lifecycleStatus: c.lifecycleStatus,
+                  productKind,
+                  storeId: c.storeId,
+                  campaignId: c.id,
+                });
+                return (
+                  <li key={c.id}>
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
+                            {productKind === "banner"
+                              ? t("owner_ads_product_banner")
+                              : t("owner_ads_product_store_sponsored")}
+                          </p>
+                          <p className="mt-0.5 truncate text-[15px] font-semibold text-sam-fg">
+                            {storeNameById.get(c.storeId) ?? c.title ?? t("owner_ads_store")}
+                          </p>
+                          {invLabels ? (
+                            <p className="mt-1 text-[12px] text-sam-muted">{invLabels}</p>
+                          ) : c.lifecycleStatus === "DRAFT" ? null : (
+                            <p className="mt-1 text-[12px] text-sam-muted">—</p>
+                          )}
+                          {c.lifecycleStatus === "DRAFT" && !hasPackage ? (
+                            <p className="mt-1 text-[12px] text-sam-muted">
+                              {t("owner_ads_price_unset")}
+                            </p>
+                          ) : (
+                            <p className="mt-1 text-[12px] text-sam-muted">
+                              {t("owner_ads_period")}: {c.startAt.slice(0, 10)} ~{" "}
+                              {c.endAt.slice(0, 10)}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-ui-rect bg-sam-app px-2 py-1 text-[11px] font-medium text-sam-fg">
+                          {t(ownerLifecycleStatusI18nKey(c.lifecycleStatus))}
+                        </span>
+                      </div>
+                      <Link
+                        href={cta.href}
+                        className="mt-3 inline-flex min-h-[40px] items-center text-[13px] font-semibold text-signature"
+                        data-owner-ads-card-cta={c.lifecycleStatus}
+                      >
+                        {t(cta.labelKey)}
+                      </Link>
                     </div>
-                    <span className="shrink-0 rounded-ui-rect bg-sam-app px-2 py-1 text-[11px] font-medium text-sam-fg">
-                      {t(ownerLifecycleStatusI18nKey(c.lifecycleStatus))}
-                    </span>
-                  </div>
-                  <Link
-                    href={cta.href}
-                    className="mt-3 inline-flex min-h-[40px] items-center text-[13px] font-semibold text-signature"
-                    data-owner-ads-card-cta={c.lifecycleStatus}
-                  >
-                    {t(cta.labelKey)}
-                  </Link>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
 
       <p

@@ -52,6 +52,7 @@ const SPONSORED_SELECT = [
   "submitted_at",
   "created_at",
   "updated_at",
+  "campaign_source",
 ].join(", ");
 
 const BANNER_SELECT = [
@@ -74,6 +75,7 @@ const BANNER_SELECT = [
   "submitted_at",
   "created_at",
   "updated_at",
+  "campaign_source",
 ].join(", ");
 
 export type AdminDeliveryAdListItem = {
@@ -108,6 +110,8 @@ export type AdminDeliveryAdListItem = {
   updatedAt: string;
   listBucket: Exclude<AdminDeliveryAdListBucket, "all"> | null;
   scheduleHint: "in_window" | "not_started" | "ended" | "invalid";
+  /** OWNER_PAID | DIBAY_FIRST_PARTY */
+  campaignSource: "OWNER_PAID" | "DIBAY_FIRST_PARTY";
 };
 
 export type AdminDeliveryAdSummary = {
@@ -356,6 +360,10 @@ export async function loadAdminDeliveryAdCampaignList(
       updatedAt: String(raw.updated_at),
       listBucket: needsCreative ? "needs_creative" : lifecycleBucket,
       scheduleHint: display.scheduleHint,
+      campaignSource:
+        String(raw.campaign_source ?? "OWNER_PAID") === "DIBAY_FIRST_PARTY"
+          ? "DIBAY_FIRST_PARTY"
+          : "OWNER_PAID",
     };
   };
 

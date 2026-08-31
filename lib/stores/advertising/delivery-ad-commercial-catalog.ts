@@ -135,16 +135,21 @@ export async function loadActivePartnerMembershipForStore(
     active: false,
     advertisingDiscountPercent: 0,
     benefitSnapshot: {},
+    status: null,
   };
+  // ACTIVE + CANCEL_PENDING (해지 예정) keep discount in-period.
+  // PENDING_REVIEW must never discount.
   const { data, error } = await sb
     .from(DELIVERY_AD_PARTNER_MEMBERSHIP_TABLE)
     .select("*")
     .eq("store_id", storeId)
-    .eq("status", "ACTIVE")
+    .in("status", ["ACTIVE", "CANCEL_PENDING"])
     .order("period_end", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error || !data) return empty;
+  const status = String((data as { status?: string }).status ?? "");
+  if (status !== "ACTIVE" && status !== "CANCEL_PENDING") return empty;
   const end = data.period_end ? Date.parse(String(data.period_end)) : NaN;
   const start = data.period_start ? Date.parse(String(data.period_start)) : NaN;
   if (!Number.isFinite(end) || end < nowMs) return empty;
@@ -158,6 +163,7 @@ export async function loadActivePartnerMembershipForStore(
     active: true,
     advertisingDiscountPercent: Number(data.advertising_discount_percent_snapshot ?? 0),
     benefitSnapshot: benefit,
+    status: status as "ACTIVE" | "CANCEL_PENDING",
   };
 }
 

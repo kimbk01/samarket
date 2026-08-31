@@ -36,7 +36,6 @@ export function AdminDeliveryAdCommercialSettingsView() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [extensionOpen, setExtensionOpen] = useState(false);
-  const [partnerOpen, setPartnerOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [customProduct, setCustomProduct] = useState<DeliveryAdProductKey>("store_sponsored");
   const [customInventory, setCustomInventory] = useState("STORES_HOME_FEED");
@@ -423,45 +422,50 @@ export function AdminDeliveryAdCommercialSettingsView() {
               ) : null}
             </div>
 
-            {/* Partner collapsed — not a product; 준비 중 */}
+            {/* Partner membership config — R4 live (not campaign product) */}
             <div
-              className="rounded-ui-rect border border-sam-border bg-sam-app p-3"
-              data-commercial-partner-collapsed="1"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+              data-commercial-partner="r4"
             >
-              <button
-                type="button"
-                className="text-[13px] font-semibold text-sam-muted"
-                onClick={() => setPartnerOpen((v) => !v)}
-              >
-                {safeT("admin_delivery_ads_commercial_partner_collapsed", {
-                  fallbackKo: "Partner (준비 중)",
-                  fallbackEn: "Partner (coming soon)",
-                })}
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-[13px] font-semibold text-sam-fg">
+                  {safeT("admin_delivery_ads_commercial_partner", {
+                    fallbackKo: "Partner 멤버십",
+                    fallbackEn: "Partner membership",
+                  })}
+                </h2>
+                <Link
+                  href={DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}
+                  className="text-[12px] font-medium text-signature underline"
+                >
+                  {safeT("admin_delivery_ads_partner_manage_link", {
+                    fallbackKo: "가입 관리",
+                    fallbackEn: "Manage memberships",
+                  })}
+                </Link>
+              </div>
               <p className="mt-1 text-[12px] text-sam-muted">
-                {safeT("admin_delivery_ads_commercial_partner_prep", {
+                {safeT("admin_delivery_ads_commercial_partner_note", {
                   fallbackKo:
-                    "Partner는 별도 멤버십입니다. 광고 캠페인·organic ranking과 분리되며 아직 준비 중입니다.",
+                    "광고 패키지 할인용 멤버십입니다. organic ranking과 분리 · 월 회비 결제는 미구현.",
                   fallbackEn:
-                    "Partner is a separate membership — separate from ad campaigns and organic ranking. Still in preparation.",
+                    "Membership for ad package discounts. Separate from organic ranking · monthly fee payment not implemented.",
                 })}
               </p>
-              {partnerOpen ? (
-                <div className="mt-3">
-                  <PartnerForm
-                    config={catalog.partnerConfig}
-                    busy={busy}
-                    lang={lang}
-                    onSave={(body) =>
-                      void patch({
-                        op: "update_partner",
-                        reason: "admin_partner_settings",
-                        ...body,
-                      })
-                    }
-                  />
-                </div>
-              ) : null}
+              <div className="mt-3">
+                <PartnerForm
+                  config={catalog.partnerConfig}
+                  busy={busy}
+                  lang={lang}
+                  onSave={(body) =>
+                    void patch({
+                      op: "update_partner",
+                      reason: "admin_partner_settings",
+                      ...body,
+                    })
+                  }
+                />
+              </div>
             </div>
           </div>
         )}

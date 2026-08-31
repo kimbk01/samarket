@@ -59,8 +59,44 @@ export const R3_COMMERCIAL_MATRIX_DURATIONS = [7, 15, 30] as const;
 export const R3_COMMERCIAL_MATRIX_SEED_CODES = DELIVERY_AD_PACKAGE_SEED_CODES;
 export const R3_COMMERCIAL_MATRIX_EXPECTED_CELLS = 12 as const;
 
-export const R3_ADMIN_NO_FIRST_PARTY_CREATE = true as const;
+/**
+ * R3 locked Admin first-party create. R4 flips this off and enables Banner-only create.
+ * Store Promotion first-party remains NOT_IMPLEMENTED_MODEL_BLOCKED.
+ */
+export const R3_ADMIN_NO_FIRST_PARTY_CREATE = false as const;
+/** Partner is a membership product, not a campaign product matrix cell. */
 export const R3_ADMIN_PARTNER_NOT_PRODUCT = true as const;
+/** R4 — Admin may create DIBAY_FIRST_PARTY Banner (no fake Owner). */
+export const R4_ADMIN_FIRST_PARTY_BANNER_CREATE_ENABLED = true as const;
+/** R4 — Partner membership apply/Admin manage enabled (payment still NOT_IMPLEMENTED). */
+export const R4_PARTNER_MEMBERSHIP_PRODUCT_ENABLED = true as const;
+/** Store Promotion (`store_sponsored`) first-party create — model blocked in R4. */
+export const R4_STORE_PROMOTION_FIRST_PARTY = {
+  status: "NOT_IMPLEMENTED_MODEL_BLOCKED",
+  reason: "store_sponsored is store-bound Owner-paid only; Banner first-party only in R4",
+} as const;
+
+export type AdminDeliveryAdCampaignSourceLabelKey =
+  | "admin_delivery_ads_source_owner_paid"
+  | "admin_delivery_ads_source_dibay_first_party";
+
+export function adminDeliveryAdCampaignSourceLabelKey(
+  source: "OWNER_PAID" | "DIBAY_FIRST_PARTY" | string | null | undefined
+): AdminDeliveryAdCampaignSourceLabelKey {
+  return source === "DIBAY_FIRST_PARTY"
+    ? "admin_delivery_ads_source_dibay_first_party"
+    : "admin_delivery_ads_source_owner_paid";
+}
+
+export function adminDeliveryAdCampaignSourceHumanLabel(
+  source: "OWNER_PAID" | "DIBAY_FIRST_PARTY" | string | null | undefined,
+  lang: "ko" | "en"
+): string {
+  if (source === "DIBAY_FIRST_PARTY") {
+    return lang === "en" ? "DIBAY ad" : "디바이 광고";
+  }
+  return lang === "en" ? "Advertiser ad" : "광고주 광고";
+}
 
 export type AdminDeliveryAdProductLabelKey =
   | "admin_delivery_ads_product_store_sponsored"
@@ -273,4 +309,7 @@ export function r3CommercialMatrixExpectedCellCount(): number {
 
 void R3_ADMIN_NO_FIRST_PARTY_CREATE;
 void R3_ADMIN_PARTNER_NOT_PRODUCT;
+void R4_ADMIN_FIRST_PARTY_BANNER_CREATE_ENABLED;
+void R4_PARTNER_MEMBERSHIP_PRODUCT_ENABLED;
+void R4_STORE_PROMOTION_FIRST_PARTY;
 void R3_COMMERCIAL_MATRIX_EXPECTED_CELLS;

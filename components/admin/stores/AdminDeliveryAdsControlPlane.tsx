@@ -24,6 +24,7 @@ import {
   adminDeliveryAdHubRowPrimaryCta,
   adminDeliveryAdInventoryHumanLabel,
   adminDeliveryAdProductLabelKey,
+  adminDeliveryAdCampaignSourceLabelKey,
   isAdminDeliveryAdHubListItemVisible,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
@@ -191,6 +192,28 @@ export function AdminDeliveryAdsControlPlane() {
               {safeT("admin_delivery_ads_commercial_link", {
                 fallbackKo: "광고 상품 설정",
                 fallbackEn: "Ad product settings",
+              })}
+            </Link>
+            {" · "}
+            <Link
+              href={DELIVERY_AD_ADMIN_ROUTES.firstPartyNew}
+              className="text-[13px] font-medium text-signature underline"
+              data-admin-delivery-ads-first-party-cta="1"
+            >
+              {safeT("admin_delivery_ads_first_party_cta", {
+                fallbackKo: "디바이 광고 만들기",
+                fallbackEn: "Create DIBAY ad",
+              })}
+            </Link>
+            {" · "}
+            <Link
+              href={DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}
+              className="text-[13px] font-medium text-signature underline"
+              data-admin-delivery-ads-partner-link="1"
+            >
+              {safeT("admin_delivery_ads_partner_memberships_title", {
+                fallbackKo: "Partner 멤버십",
+                fallbackEn: "Partner memberships",
               })}
             </Link>
           </p>
@@ -404,6 +427,21 @@ export function AdminDeliveryAdsControlPlane() {
                           {safeT(adminDeliveryAdProductLabelKey(c.productKind), {
                             fallbackKo: c.productKind,
                             fallbackEn: c.productKind,
+                          })}
+                        </span>
+                        <span
+                          className="rounded-sm bg-sam-app px-1.5 py-0.5 text-[10px] font-medium text-sam-muted"
+                          data-campaign-source={c.campaignSource}
+                        >
+                          {safeT(adminDeliveryAdCampaignSourceLabelKey(c.campaignSource), {
+                            fallbackKo:
+                              c.campaignSource === "DIBAY_FIRST_PARTY"
+                                ? "디바이 광고"
+                                : "광고주 광고",
+                            fallbackEn:
+                              c.campaignSource === "DIBAY_FIRST_PARTY"
+                                ? "DIBAY ad"
+                                : "Advertiser ad",
                           })}
                         </span>
                         <span className="text-[12px] font-medium text-sam-fg">
