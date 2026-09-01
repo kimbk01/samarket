@@ -31,7 +31,7 @@ describe("call-v3-caller-poll-api", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("/api/community-messenger/calls/sessions/call-1");
     expect(url).toContain("ts=");
-    expect(url).toContain("reconcile=1");
+    expect(url).not.toContain("reconcile=1");
     expect(init.cache).toBe("no-store");
   });
 

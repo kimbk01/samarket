@@ -1171,21 +1171,12 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       )
     }
     isChromeVisible = true
-    if isConnectedFullscreenPresentation {
-      scheduleConnectedChromeHide(source: source)
-    }
+    // Option A: CONNECTED fullscreen keeps status + right FAB persistent (no auto-hide).
   }
 
   private func hideConnectedChrome(source: String) {
+    // Option A: do not auto-hide connected status/FAB.
     cancelConnectedChromeHide(reason: "hide_\(source)")
-    guard isConnectedFullscreenPresentation else { return }
-    setConnectedChromeViewsVisible(false)
-    isChromeVisible = false
-    NativeVideoCallLog.info(
-      "native_video_chrome_hidden",
-      callId: boundCallId,
-      details: "source=\(source) connected=true presentation=fullscreen"
-    )
   }
 
   private func setConnectedChromeViewsVisible(_ visible: Bool) {
@@ -1195,28 +1186,28 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     connectedControls.alpha = 1
     connectedControls.isHidden = !visible
     connectedControls.isUserInteractionEnabled = visible
-    // CUT5: PersistentCallStatus is independent of controls auto-hide.
+    // Option A: status + FAB stay visible together while CONNECTED fullscreen.
     syncPersistentCallStatusVisibility()
   }
 
-  /** CONNECTED + fullscreen only — not tied to isChromeVisible. */
+  /** CONNECTED + fullscreen — status and right FAB both persistent. */
   private func syncPersistentCallStatusVisibility() {
     let show = currentState == .connected && !inPipMode
     connectedChromeContainer.isHidden = !show
     if show {
+      activeActions.isHidden = false
+      activeActions.isUserInteractionEnabled = true
+      connectedControls.isHidden = false
+      connectedControls.isUserInteractionEnabled = true
+      isChromeVisible = true
       view.bringSubviewToFront(connectedChromeContainer)
       view.bringSubviewToFront(activeActions)
     }
   }
 
   private func scheduleConnectedChromeHide(source: String) {
-    cancelConnectedChromeHide(reason: "reschedule_\(source)")
-    guard isConnectedFullscreenPresentation else { return }
-    let work = DispatchWorkItem { [weak self] in
-      self?.hideConnectedChrome(source: "timeout")
-    }
-    chromeHideWorkItem = work
-    DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+    // Option A: auto-hide disabled for connected chrome / FAB.
+    cancelConnectedChromeHide(reason: "schedule_disabled_\(source)")
   }
 
   private func cancelConnectedChromeHide(reason: String) {

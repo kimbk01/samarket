@@ -71,7 +71,7 @@ export async function callV4FetchSessionForCallerPoll(
     return { session: null, httpStatus: 0, notFound: false };
   }
   const res = await fetch(
-    `/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}?ts=${Date.now()}&reconcile=1`,
+    `/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}?ts=${Date.now()}`,
     {
       credentials: "include",
       cache: "no-store",

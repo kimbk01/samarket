@@ -1452,21 +1452,12 @@ public class NativeVideoCallActivity extends Activity {
               + " nicknameSource=session_callerName_sanitized");
     }
     chromeVisible = true;
-    if (isConnectedFullscreenPresentation()) {
-      scheduleConnectedChromeHide(source);
-    }
+    // Option A: CONNECTED fullscreen keeps status + right FAB persistent (no auto-hide).
   }
 
   private void hideConnectedChrome(String source) {
+    // Option A: do not auto-hide connected status/FAB. Keep cancel path for pending work only.
     cancelConnectedChromeHide("hide_" + source);
-    if (!isConnectedFullscreenPresentation()) return;
-    if (!chromeVisible) return;
-    setConnectedChromeViewsVisible(false);
-    chromeVisible = false;
-    NativeVideoCallLog.info(
-        "native_video_chrome_hidden",
-        callId,
-        "source=" + source + " connected=true presentation=fullscreen");
   }
 
   private void setConnectedChromeViewsVisible(boolean visible) {
@@ -1481,11 +1472,11 @@ public class NativeVideoCallActivity extends Activity {
       connectedControls.setEnabled(visible);
       connectedControls.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
-    // CUT5: PersistentCallStatus (connectedChromeOverlay) is NOT tied to auto-hide controls.
+    // Option A: status + FAB stay visible together while CONNECTED fullscreen.
     syncPersistentCallStatusVisibility();
   }
 
-  /** CONNECTED + fullscreen only — independent of chromeVisible / controls auto-hide. */
+  /** CONNECTED + fullscreen — status and right FAB both persistent. */
   private void syncPersistentCallStatusVisibility() {
     if (connectedChromeOverlay == null) return;
     boolean show =
@@ -1495,17 +1486,22 @@ public class NativeVideoCallActivity extends Activity {
       connectedChromeOverlay.bringToFront();
       connectedChromeOverlay.setTranslationZ(20f);
       if (activeActions != null) {
+        activeActions.setVisibility(View.VISIBLE);
+        activeActions.setEnabled(true);
         activeActions.bringToFront();
         activeActions.setTranslationZ(32f);
       }
+      if (connectedControls != null) {
+        connectedControls.setVisibility(View.VISIBLE);
+        connectedControls.setEnabled(true);
+      }
+      chromeVisible = true;
     }
   }
 
   private void scheduleConnectedChromeHide(String source) {
-    mainHandler.removeCallbacks(chromeHideRunnable);
-    if (isConnectedFullscreenPresentation()) {
-      mainHandler.postDelayed(chromeHideRunnable, CONNECTED_CHROME_HIDE_DELAY_MS);
-    }
+    // Option A: auto-hide disabled for connected chrome / FAB.
+    cancelConnectedChromeHide("schedule_disabled_" + source);
   }
 
   private void cancelConnectedChromeHide(String reason) {

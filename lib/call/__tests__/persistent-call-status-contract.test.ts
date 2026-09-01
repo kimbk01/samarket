@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = join(__dirname, "../../..");
 
-describe("persistent call status CUT5 contract", () => {
-  it("Android/iOS keep status visibility independent of controls auto-hide", () => {
+describe("persistent call status + FAB Option A contract", () => {
+  it("Android/iOS keep status and right FAB visible together (no auto-hide)", () => {
     const androidActivity = readFileSync(
       join(ROOT, "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java"),
       "utf8",
@@ -20,15 +20,15 @@ describe("persistent call status CUT5 contract", () => {
     );
 
     expect(androidActivity).toContain("syncPersistentCallStatusVisibility");
+    expect(androidActivity).toContain("Option A: auto-hide disabled");
     expect(androidActivity).toMatch(
-      /setConnectedChromeViewsVisible[\s\S]*syncPersistentCallStatusVisibility/,
+      /syncPersistentCallStatusVisibility[\s\S]*activeActions\.setVisibility\(View\.VISIBLE\)/,
     );
     expect(androidLayout).toContain('android:layout_gravity="top|center_horizontal"');
 
     expect(iosVc).toContain("syncPersistentCallStatusVisibility");
+    expect(iosVc).toContain("Option A: auto-hide disabled");
     expect(iosVc).toContain("infoStack.centerXAnchor.constraint");
-    expect(iosVc).toMatch(
-      /setConnectedChromeViewsVisible[\s\S]*syncPersistentCallStatusVisibility/,
-    );
+    expect(iosVc).toMatch(/syncPersistentCallStatusVisibility[\s\S]*activeActions\.isHidden = false/);
   });
 });

@@ -2,9 +2,9 @@ import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-sup
 import {
   CALL_SERVER_HEARTBEAT_ENDED_REASON,
   CALL_SERVER_HEARTBEAT_STALE_MS,
-  isCallSessionOneSidedHeartbeatStale,
   type CallSessionHeartbeatRow,
 } from "@/lib/call/call-server-heartbeat";
+import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -82,7 +82,7 @@ async function endStaleCallSessionWithPeerNotify(row: CallSessionHeartbeatRow): 
   return result.ok;
 }
 
-/** Cron/job — end active sessions when either peer heartbeat is stale (one-sided) */
+/** Cron/job — end active sessions only when Presence SSOT = STALE (both peers stale). */
 export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promise<{ ended: number }> {
   const sb = resolveServiceSupabaseForApi();
   if (!sb) return { ended: 0 };
@@ -90,7 +90,7 @@ export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promis
   const { data: rows } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, initiator_user_id, recipient_user_id, answered_at, caller_last_heartbeat_at, callee_last_heartbeat_at",
+      "id, status, initiator_user_id, recipient_user_id, answered_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at",
     )
     .eq("status", "active")
     .not("caller_last_heartbeat_at", "is", null)
@@ -98,8 +98,23 @@ export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promis
 
   let ended = 0;
   const nowMs = Date.now();
-  for (const row of (rows ?? []) as CallSessionHeartbeatRow[]) {
-    if (!isCallSessionOneSidedHeartbeatStale(row, nowMs)) continue;
+  for (const row of (rows ?? []) as Array<
+    CallSessionHeartbeatRow & { status?: string | null; ended_at?: string | null }
+  >) {
+    if (
+      !canEndActiveCallForPresenceStale(
+        {
+          status: row.status ?? "active",
+          answered_at: row.answered_at,
+          ended_at: row.ended_at ?? null,
+          caller_last_heartbeat_at: row.caller_last_heartbeat_at,
+          callee_last_heartbeat_at: row.callee_last_heartbeat_at,
+        },
+        nowMs,
+      )
+    ) {
+      continue;
+    }
     const ok = await endStaleCallSessionWithPeerNotify(row);
     if (ok) ended += 1;
   }

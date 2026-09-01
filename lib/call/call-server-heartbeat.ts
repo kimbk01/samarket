@@ -1,8 +1,13 @@
-/** Server-side active call heartbeat — stale timeout must exceed native FGS (35s). */
+/** Server-side active call heartbeat — stale timeout must exceed native FGS (35s).
+ *
+ * HEARTBEAT_SEMANTICS = B: server HB is WebView-JS presence, not media connectivity.
+ * One-sided stale MUST NOT be used as session-end authority — use
+ * `evaluateActiveCallPresence` / `canEndActiveCallForPresenceStale` (both-stale only).
+ */
 
 export const CALL_SERVER_HEARTBEAT_STALE_MS = 90_000;
 
-/** After accept, wait before one-sided stale can fire */
+/** After accept, wait before both-stale can fire */
 export const CALL_SERVER_HEARTBEAT_GRACE_AFTER_ANSWER_MS = 30_000;
 
 export const CALL_SERVER_HEARTBEAT_ENDED_REASON = "heartbeat_timeout";
@@ -18,7 +23,10 @@ export type CallSessionHeartbeatRow = {
   callee_last_heartbeat_at: string | null;
 };
 
-/** One-sided stale: either peer silent > stale window after grace + both have heartbeated once */
+/**
+ * @deprecated Do not use for session end. One-sided stale is NOT end authority
+ * (2026-09-01). Prefer `canEndActiveCallForPresenceStale`.
+ */
 export function isCallSessionOneSidedHeartbeatStale(
   row: CallSessionHeartbeatRow,
   nowMs: number = Date.now(),
