@@ -246,6 +246,8 @@ $$;
 
 REVOKE ALL ON FUNCTION public.ensure_store_economic_point_account(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.ensure_business_cash_account(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.ensure_store_economic_point_account(uuid) FROM anon, authenticated;
+REVOKE ALL ON FUNCTION public.ensure_business_cash_account(uuid) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ensure_store_economic_point_account(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.ensure_business_cash_account(uuid) TO service_role;
 
