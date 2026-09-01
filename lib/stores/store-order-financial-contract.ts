@@ -51,6 +51,14 @@ export const STORE_ORDER_FINANCIAL_CONTRACT = {
   /** PRODUCT LOCK — Delivery supports full refund only */
   partialRefundSupported: false as const,
   partialRefundProductPath: false as const,
+  /** CUT A/C — confirmed store-attributed sale revenue field derivation (FIN-11). */
+  confirmedSaleRevenueFields: [
+    "payment_amount",
+    "gift_redemption_amount",
+    "platform_funded_amount",
+  ] as const,
+  confirmedSaleRevenueForbiddenWholesaleAdd: "discount_amount" as const,
+  coinMintIdempotencyPattern: "sale_coin:{orderId}" as const,
 } as const;
 
 export type StoreOrderFinancialLifecycleState =

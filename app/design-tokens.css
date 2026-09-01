@@ -151,6 +151,17 @@
   /* ----- Radius (8~16만 사용; pill 만 full) ----- */
   --sam-radius-xs: 4px;
   --sam-radius-sm: 4px;
+
+  /* ----- DIBAY Currency visual tokens (CUT F) ----- */
+  --currency-point-accent: var(--sam-primary);
+  --currency-point-bg: color-mix(in srgb, var(--sam-primary) 8%, var(--sam-app));
+  --currency-point-border: color-mix(in srgb, var(--sam-primary) 18%, var(--sam-border));
+  --currency-coin-accent: var(--dibay-gold);
+  --currency-coin-bg: color-mix(in srgb, var(--dibay-gold) 14%, var(--sam-app));
+  --currency-coin-border: color-mix(in srgb, var(--dibay-gold) 28%, var(--sam-border));
+  --currency-cash-accent: var(--sm-color-success);
+  --currency-cash-bg: color-mix(in srgb, var(--sm-color-success) 10%, var(--sam-app));
+  --currency-cash-border: color-mix(in srgb, var(--sm-color-success) 22%, var(--sam-border));
   --sam-radius-md: 4px;
   --sam-radius-lg: 4px;
   --sam-radius-xl: 4px;

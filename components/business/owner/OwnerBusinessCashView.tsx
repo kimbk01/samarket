@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
@@ -250,22 +251,19 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}
 
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_bc_title", {
-          fallbackKo: "Business Cash",
-          fallbackEn: "Business Cash",
-        })}
-      >
-        <p className="text-2xl font-semibold text-sam-fg">
-          {formatDeliveryAdPhpMinor(bcBalanceMinor)}
-        </p>
-        <p className="mt-1 text-sm text-sam-muted">
-          {safeT("owner_bc_balance_hint", {
-            fallbackKo: "광고·파트너 결제용 (이 매장)",
-            fallbackEn: "For ads & partner spend (this store)",
-          })}
-        </p>
-      </OwnerStoreAdminDashSection>
+      <CurrencyBalanceCard
+        currency="cash"
+        amount={bcBalanceMinor}
+        isMinor
+        footer={
+          <p className="text-sm text-sam-muted">
+            {safeT("owner_bc_balance_hint", {
+              fallbackKo: "광고·파트너 결제용 (이 매장)",
+              fallbackEn: "For ads & partner spend (this store)",
+            })}
+          </p>
+        }
+      />
 
       <OwnerStoreAdminDashSection
         title={safeT("owner_sp_economic_title", {
@@ -428,16 +426,16 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
             })}
           </p>
         ) : (
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-2">
             {ledger.map((row) => (
-              <li key={row.id} className="flex justify-between gap-2 border-b border-sam-border pb-2">
-                <span>
-                  {row.entryKind} · {row.direction}
-                </span>
-                <span>
-                  {formatDeliveryAdPhpMinor(Math.trunc(Number(row.amountMinor) || 0))}
-                </span>
-              </li>
+              <CurrencyHistoryRow
+                key={row.id}
+                currency="cash"
+                title={row.entryKind}
+                amount={Math.trunc(Number(row.amountMinor) || 0)}
+                isMinor
+                createdAt={row.createdAt}
+              />
             ))}
           </ul>
         )}

@@ -36,6 +36,9 @@ import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-confi
 import { chargeStorePointsOnOrderAccept } from "@/lib/stores/charge-store-order-points";
 import { notifyStoreOwnerPointDeducted, notifyStoreOwnerPointBlocked } from "@/lib/notifications/notify-store-points";
 import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
+import { reverseSaleFeeForOrder } from "@/lib/currency/sale-fee-writer";
+import { isAst002AcceptFeeRetired } from "@/lib/currency/currency-cutover-flags";
+import { recognizeOrderCurrencyOnCompleted } from "@/lib/currency/recognize-order-currency-on-completed";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
 export type ApplyOrderStatusResult =
@@ -144,7 +147,7 @@ export async function applyStoreOrderStatusTransition(
     }
   }
 
-  if (current === "pending" && nextStatus === "accepted") {
+  if (current === "pending" && nextStatus === "accepted" && !isAst002AcceptFeeRetired()) {
     const gross = Math.max(0, Math.floor(Number(order.payment_amount) || 0));
     const charged = await chargeStorePointsOnOrderAccept(sb, {
       storeId: sid,
@@ -392,6 +395,10 @@ export async function applyStoreOrderStatusTransition(
     if (!coinReversal.ok && coinReversal.error !== "rpc_missing") {
       console.error("[applyStoreOrderStatusTransition] coin_reversal", coinReversal.error);
     }
+    const saleFeeReversal = await reverseSaleFeeForOrder(sb, oid);
+    if (!saleFeeReversal.ok && saleFeeReversal.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] sale_fee_reversal", saleFeeReversal.error);
+    }
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,
       p_allow_after_completed: true,
@@ -408,6 +415,10 @@ export async function applyStoreOrderStatusTransition(
   }
   if (nextStatus === "completed") {
     await ensureStoreSettlementForCompletedOrder(sb, oid);
+    const currencyRec = await recognizeOrderCurrencyOnCompleted(sb, oid);
+    if (!currencyRec.ok) {
+      console.error("[applyStoreOrderStatusTransition] currency_recognition", currencyRec.error);
+    }
     const createdAt = String(order.created_at ?? "").trim();
     if (createdAt) {
       void applyStoreOrderPopularityProjectionOnCompleted(sb, {

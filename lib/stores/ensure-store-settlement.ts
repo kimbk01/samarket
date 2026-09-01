@@ -6,6 +6,7 @@ import {
   isMissingStoreFeePolicy,
   resolveEffectiveStoreFeePolicy,
 } from "@/lib/stores/store-fee-policy-resolve";
+import { confirmedSaleRevenuePhp } from "@/lib/stores/confirmed-sale-revenue";
 
 /**
  * 결제 완료 주문에 대해 정산 1건을 만든다. order_id UNIQUE로 멱등.
@@ -35,7 +36,7 @@ export async function ensureStoreSettlementForCompletedOrder(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, store_id, order_status, payment_amount, delivery_fee_amount, commission_base_amount, store_funded_amount, platform_funded_amount"
+      "id, store_id, order_status, payment_amount, gift_redemption_amount, platform_funded_amount, store_funded_amount, discount_amount, delivery_fee_amount, commission_base_amount"
     )
     .eq("id", oid)
     .maybeSingle();
@@ -43,11 +44,12 @@ export async function ensureStoreSettlementForCompletedOrder(
   if (oErr || !order) return;
   if ((order.order_status as string) !== "completed") return;
 
+  const confirmedRevenue = confirmedSaleRevenuePhp(order);
   const paymentAmount = Math.round(Number(order.payment_amount) || 0);
   const commissionBaseRaw = (order as { commission_base_amount?: unknown }).commission_base_amount;
   const hasNewBase =
     commissionBaseRaw != null && Number.isFinite(Number(commissionBaseRaw)) && Number(commissionBaseRaw) > 0;
-  const gross = hasNewBase ? Math.round(Number(commissionBaseRaw)) : paymentAmount;
+  const gross = confirmedRevenue > 0 ? confirmedRevenue : hasNewBase ? Math.round(Number(commissionBaseRaw)) : paymentAmount;
   if (!Number.isFinite(gross) || gross <= 0) return;
 
   const sid = String(order.store_id ?? "").trim();

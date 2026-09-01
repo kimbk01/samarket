@@ -3,6 +3,7 @@
  * Owner Admin and Platform Admin MUST read these fields — no independent UI math as authority.
  */
 import { STORE_ORDER_FINANCIAL_CONTRACT } from "@/lib/stores/store-order-financial-contract";
+import { confirmedSaleRevenuePhp } from "@/lib/stores/confirmed-sale-revenue";
 
 export type StoreOrderFinancialFact = {
   settlement_id: string;
@@ -23,6 +24,8 @@ export type StoreOrderFinancialFact = {
 
   /** Ledger gross = commission base at recognition (= payment_amount). */
   gross_amount: number;
+  /** CUT A/C — store-attributed confirmed sale revenue at completed (FIN-11). */
+  confirmed_sale_revenue_php: number;
   discount_amount: number;
   point_amount: number;
   delivery_fee_amount: number;
@@ -270,6 +273,16 @@ export function projectStoreOrderFinancialFact(opts: {
     paid_at: s.paid_at ?? null,
 
     gross_amount: gross,
+    confirmed_sale_revenue_php: o
+      ? confirmedSaleRevenuePhp({
+          payment_amount: o.payment_amount,
+          gift_redemption_amount: (o as { gift_redemption_amount?: unknown }).gift_redemption_amount,
+          platform_funded_amount: o.platform_funded_amount,
+          store_funded_amount: o.store_funded_amount,
+          discount_amount: o.discount_amount,
+          order_status: o.order_status,
+        })
+      : gross,
     discount_amount: discount,
     point_amount: 0,
     delivery_fee_amount: deliveryFee,

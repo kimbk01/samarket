@@ -2369,4 +2369,51 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
+
+  /* DIBAY Currency balance cards (CUT F) */
+  .currency-badge--point {
+    background: var(--currency-point-bg);
+    border: 1px solid var(--currency-point-border);
+    color: var(--currency-point-accent);
+  }
+
+  .currency-badge--coin {
+    background: var(--currency-coin-bg);
+    border: 1px solid var(--currency-coin-border);
+    color: var(--currency-coin-accent);
+  }
+
+  .currency-badge--cash {
+    background: var(--currency-cash-bg);
+    border: 1px solid var(--currency-cash-border);
+    color: var(--currency-cash-accent);
+  }
+
+  .currency-card--point {
+    background: var(--currency-point-bg);
+    border-color: var(--currency-point-border);
+    color: var(--sam-fg);
+  }
+
+  .currency-card--coin {
+    background: var(--currency-coin-bg);
+    border-color: var(--currency-coin-border);
+    color: var(--sam-fg);
+  }
+
+  .currency-card--coin [data-currency-badge="coin"],
+  .currency-card--coin [data-currency-amount="coin"] {
+    color: var(--currency-coin-accent);
+  }
+
+  .currency-card--cash {
+    background: var(--currency-cash-bg);
+    border-color: var(--currency-cash-border);
+    color: var(--sam-fg);
+  }
+
+  .currency-card--cash [data-currency-badge="cash"],
+  .currency-card--cash [data-currency-amount="cash"] {
+    color: var(--currency-cash-accent);
+  }
 }
