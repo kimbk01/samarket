@@ -16,6 +16,8 @@ REVOKE ALL ON FUNCTION public.gift_certificate_conversion_request(uuid, uuid, in
   FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.gift_certificate_conversion_approve(uuid, uuid)
   FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.credit_coin_from_gift_revenue(uuid, uuid, integer, text)
+  FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.gift_certificate_cash_out_request(
   uuid, uuid, integer, text, text, text, text, text
 ) FROM PUBLIC, anon, authenticated, service_role;

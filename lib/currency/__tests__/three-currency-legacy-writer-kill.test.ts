@@ -16,6 +16,7 @@ describe("three-currency legacy product kill", () => {
     "adjust_store_point_balance",
     "gift_certificate_conversion_request",
     "gift_certificate_conversion_approve",
+    "credit_coin_from_gift_revenue",
     "gift_certificate_cash_out_request",
     "gift_certificate_cash_out_cancel",
     "gift_certificate_cash_out_reject",
