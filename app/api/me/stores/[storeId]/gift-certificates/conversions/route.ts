@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { giftCertificateConversionRequest } from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -83,17 +82,13 @@ export async function POST(
     );
   }
 
-  const result = await giftCertificateConversionRequest(sb, {
-    ownerUserId: userId,
-    storeId: sid,
-    amount,
-    idempotencyKey,
-  });
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, ...(result.data ?? {}) },
-      { status: 400 }
-    );
-  }
-  return NextResponse.json({ ok: true, ...result.data }, { status: 201 });
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "gift_store_cash_conversion_frozen",
+      message:
+        "Gift Store Cash conversion is frozen. Use canonical Coin withdrawal or Finance.",
+    },
+    { status: 410 }
+  );
 }

@@ -35,6 +35,7 @@ import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
 import { chargeStorePointsOnOrderAccept } from "@/lib/stores/charge-store-order-points";
 import { notifyStoreOwnerPointDeducted, notifyStoreOwnerPointBlocked } from "@/lib/notifications/notify-store-points";
+import { reverseCoinCreditsForOrder } from "@/lib/currency/coin-reversal-writer";
 import { applyStoreOrderPopularityProjectionOnCompleted } from "@/lib/stores/discovery/store-order-popularity-projection";
 
 export type ApplyOrderStatusResult =
@@ -384,6 +385,13 @@ export async function applyStoreOrderStatusTransition(
       refundAmount: undefined,
       note: "admin_refund_completed",
     });
+    const coinReversal = await reverseCoinCreditsForOrder(sb, {
+      orderId: oid,
+      reason: "order_refund",
+    });
+    if (!coinReversal.ok && coinReversal.error !== "rpc_missing") {
+      console.error("[applyStoreOrderStatusTransition] coin_reversal", coinReversal.error);
+    }
     await sb.rpc("restore_store_coupon_entitlement", {
       p_order_id: oid,
       p_allow_after_completed: true,

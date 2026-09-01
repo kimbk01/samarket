@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { giftCertificateConversionApprove } from "@/lib/gift-certificate/gift-certificate-rpc";
-import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,22 +18,13 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
   }
 
-  const result = await giftCertificateConversionApprove(gate.sb, {
-    adminUserId: gate.actor.userId,
-    requestId,
-  });
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, ...(result.data ?? {}) },
-      { status: 400 }
-    );
-  }
-  await recordGiftAdminEvent(gate.sb, {
-    entityType: "conversion",
-    entityId: requestId,
-    eventType: "CONVERSION_APPROVED",
-    operatorId: gate.actor.userId,
-    after: result.data ?? null,
-  });
-  return NextResponse.json({ ok: true, ...result.data });
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "gift_store_cash_conversion_frozen",
+      message:
+        "Gift Store Cash conversion approve is frozen. Historical requests remain readable.",
+    },
+    { status: 410 }
+  );
 }
