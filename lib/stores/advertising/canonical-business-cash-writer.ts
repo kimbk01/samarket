@@ -440,14 +440,13 @@ export async function hasCanonicalBcFundingSecured(
 ): Promise<boolean> {
   const id = String(input.applicationId ?? "").trim();
   if (!id) return false;
-  let q = sb
+  const { data, error } = await sb
     .from(DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE)
     .select("id, store_id, status")
     .eq("product_kind", input.productKind)
     .eq("application_id", id)
     .eq("status", "SECURED")
     .maybeSingle();
-  const { data, error } = await q;
   if (error || !data) return false;
   if (input.storeId && String((data as { store_id?: string }).store_id) !== input.storeId) {
     return false;
