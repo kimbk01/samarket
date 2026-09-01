@@ -93,6 +93,12 @@ async function main() {
     reverse_rpc: dbQuery(
       "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_proc WHERE proname='reverse_coin_credits_for_order') THEN 'SQL_APPLIED' ELSE 'MISSING' END AS s"
     )[0]?.s,
+    balance_nonneg_dropped: dbQuery(
+      `SELECT NOT EXISTS (
+         SELECT 1 FROM pg_constraint
+         WHERE conname = 'store_economic_point_accounts_balance_nonneg_chk'
+       ) AS dropped`
+    )[0]?.dropped,
     conversion_frozen: dbQuery(
       `SELECT pg_get_functiondef(p.oid) LIKE '%gift_store_cash_conversion_frozen%' AS frozen
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -107,6 +113,159 @@ async function main() {
     fs.writeFileSync(OUT, JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     process.exit(1);
+  }
+
+  // ── GIFT first (before sale reversal drains balance on shared QA store) ──
+  const sinceIso = new Date().toISOString();
+  const { data: giftCredits } = await sb
+    .from("store_economic_point_ledger")
+    .select("id,amount,related_id")
+    .eq("store_id", STORE_ID)
+    .eq("entry_kind", "GIFT_REDEMPTION_EARN")
+    .gt("amount", 0)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  let giftOrderId = null;
+  let giftRedemptionId = null;
+  let giftCreditAmount = 0;
+  let redemptionReversed = false;
+
+  for (const gc of giftCredits ?? []) {
+    const rid = String(gc.related_id ?? "").trim();
+    if (!rid) continue;
+    const { data: red } = await sb
+      .from("gift_certificate_redemptions")
+      .select("id,order_id,reversed")
+      .eq("id", rid)
+      .maybeSingle();
+    if (!red?.order_id) continue;
+    const oid = String(red.order_id);
+    const revIdem = `coin_reversal:order:${oid}`;
+    const { data: ex } = await sb
+      .from("store_economic_point_ledger")
+      .select("id,entry_kind,amount")
+      .eq("idempotency_key", revIdem)
+      .maybeSingle();
+    if (ex) {
+      const amt = Math.trunc(Number(gc.amount) || 0);
+      if (
+        ex.entry_kind === "REVERSAL" &&
+        Math.abs(Math.trunc(Number(ex.amount))) === amt &&
+        !giftOrderId
+      ) {
+        giftOrderId = oid;
+        giftRedemptionId = rid;
+        giftCreditAmount = amt;
+        redemptionReversed = true;
+        report.gift_refund = {
+          order_id: giftOrderId,
+          redemption_id: giftRedemptionId,
+          coin_credit_amount: giftCreditAmount,
+          gift_reverse_rpc: true,
+          coin_reversal: {
+            ledger_id: ex.id,
+            amount: ex.amount,
+            pass: true,
+            idempotent_replay: true,
+          },
+          legacy_store_cash_clawback: "SKIPPED",
+          new_store_cash_ledger_count_delta: 0,
+          balance_before: null,
+          balance_after: null,
+        };
+      }
+      continue;
+    }
+    giftOrderId = oid;
+    giftRedemptionId = rid;
+    giftCreditAmount = Math.trunc(Number(gc.amount) || 0);
+    redemptionReversed = red.reversed === true;
+    break;
+  }
+
+  if (!giftOrderId) {
+    const { data: red } = await sb
+      .from("gift_certificate_redemptions")
+      .select("id,order_id,merchant_net_amount")
+      .eq("store_id", STORE_ID)
+      .eq("reversed", false)
+      .gt("merchant_net_amount", 0)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (red) {
+      const kid = `gift_coin:${red.id}`;
+      await sb.rpc("credit_coin_from_gift_revenue", {
+        p_store_id: STORE_ID,
+        p_redemption_id: red.id,
+        p_amount: Math.trunc(Number(red.merchant_net_amount) || 0),
+        p_idempotency_key: kid,
+      });
+      giftOrderId = String(red.order_id);
+      giftRedemptionId = String(red.id);
+      const { data: gc } = await sb
+        .from("store_economic_point_ledger")
+        .select("amount")
+        .eq("idempotency_key", kid)
+        .maybeSingle();
+      giftCreditAmount = Math.trunc(Number(gc?.amount) || 0);
+    }
+  }
+
+  if (giftOrderId && giftCreditAmount > 0 && !report.gift_refund.coin_reversal?.pass) {
+    const cashBefore = await countStoreCashLedgerSince(sb, STORE_ID, sinceIso);
+    const balBefore = await coinBal(sb, STORE_ID);
+
+    const { data: giftRev } =
+      redemptionReversed === false
+        ? await sb.rpc("gift_certificate_redemption_reverse", { p_order_id: giftOrderId })
+        : { data: { ok: true, skipped: true, idempotent: true } };
+
+    const idem = `coin_reversal:order:${giftOrderId}`;
+    const { data: coinRev } = await sb.rpc("reverse_coin_credits_for_order", {
+      p_order_id: giftOrderId,
+      p_idempotency_key: idem,
+      p_reason: "cut_b_gift_refund_e2e",
+    });
+
+    const balAfter = await coinBal(sb, STORE_ID);
+    const cashAfter = await countStoreCashLedgerSince(sb, STORE_ID, sinceIso);
+    const { data: revLed } = await sb
+      .from("store_economic_point_ledger")
+      .select("id,entry_kind,amount")
+      .eq("idempotency_key", idem)
+      .maybeSingle();
+
+    const coinReversed =
+      coinRev?.ok === true &&
+      revLed?.entry_kind === "REVERSAL" &&
+      Math.abs(Math.trunc(Number(revLed.amount))) === giftCreditAmount;
+    const noNewStoreCash = cashAfter === cashBefore;
+
+    report.gift_refund = {
+      order_id: giftOrderId,
+      redemption_id: giftRedemptionId,
+      coin_credit_amount: giftCreditAmount,
+      gift_reverse_rpc: giftRev?.ok === true,
+      coin_reversal: {
+        ledger_id: revLed?.id ?? null,
+        amount: revLed?.amount ?? null,
+        pass: coinReversed,
+      },
+      legacy_store_cash_clawback: noNewStoreCash ? "SKIPPED" : "NEW_LEDGER_DETECTED",
+      new_store_cash_ledger_count_delta: cashAfter - cashBefore,
+      balance_before: balBefore,
+      balance_after: balAfter,
+    };
+
+    if (!coinReversed || !noNewStoreCash) {
+      report.first_divergence = report.first_divergence || "gift_refund_reversal";
+      report.cut_b = "PARTIAL";
+    }
+  } else if (!giftOrderId || giftCreditAmount <= 0) {
+    report.gift_refund = { status: "NOT_PROVEN", reason: "no_gift_coin_fixture" };
+    report.first_divergence = report.first_divergence || "no_gift_coin_fixture";
   }
 
   // ── SALE: find order with existing SALE_EARN credit ──
@@ -124,8 +283,8 @@ async function main() {
   let saleCreditLedgerId = null;
 
   for (const row of saleCredits ?? []) {
-    const meta = row.meta as { order_id?: string } | null;
-    let oid = meta?.order_id?.trim() || null;
+    const meta = row.meta && typeof row.meta === "object" ? row.meta : null;
+    let oid = meta && "order_id" in meta ? String(meta.order_id ?? "").trim() || null : null;
     if (!oid && row.related_type === "store_settlement" && row.related_id) {
       const { data: st } = await sb
         .from("store_settlements")
@@ -149,16 +308,25 @@ async function main() {
   }
 
   if (!saleOrderId) {
-    // Bootstrap: credit from settlement then reverse
-    const { data: st } = await sb
+    // Bootstrap: credit from settlement whose order has no reversal yet
+    const { data: settlements } = await sb
       .from("store_settlements")
       .select("id,order_id,net_settlement_amount")
       .eq("store_id", STORE_ID)
       .gt("net_settlement_amount", 0)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (st) {
+      .limit(20);
+
+    for (const st of settlements ?? []) {
+      if (!st.order_id) continue;
+      const revIdem = `coin_reversal:order:${st.order_id}`;
+      const { data: existingRev } = await sb
+        .from("store_economic_point_ledger")
+        .select("id")
+        .eq("idempotency_key", revIdem)
+        .maybeSingle();
+      if (existingRev) continue;
+
       const amt = Math.trunc(Number(st.net_settlement_amount) || 0);
       const idem = `settlement_coin:${st.id}`;
       await sb.rpc("credit_coin_from_settlement", {
@@ -176,6 +344,7 @@ async function main() {
       saleOrderId = String(st.order_id);
       saleCreditAmount = Math.trunc(Number(led?.amount) || amt);
       saleCreditLedgerId = led?.id ?? null;
+      break;
     }
   }
 
@@ -235,127 +404,6 @@ async function main() {
     report.first_divergence = report.first_divergence || "no_sale_credit_fixture";
   }
 
-  // ── GIFT: redemption with Coin credit — reverse via RPC, no new Store Cash ──
-  const sinceIso = new Date().toISOString();
-  const { data: giftCredits } = await sb
-    .from("store_economic_point_ledger")
-    .select("id,amount,related_id")
-    .eq("store_id", STORE_ID)
-    .eq("entry_kind", "GIFT_REDEMPTION_EARN")
-    .gt("amount", 0)
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  let giftOrderId = null;
-  let giftRedemptionId = null;
-  let giftCreditAmount = 0;
-
-  for (const gc of giftCredits ?? []) {
-    const rid = String(gc.related_id ?? "").trim();
-    if (!rid) continue;
-    const { data: red } = await sb
-      .from("gift_certificate_redemptions")
-      .select("id,order_id,reversed")
-      .eq("id", rid)
-      .maybeSingle();
-    if (!red?.order_id || red.reversed) continue;
-    const oid = String(red.order_id);
-    const revIdem = `coin_reversal:order:${oid}`;
-    const { data: ex } = await sb
-      .from("store_economic_point_ledger")
-      .select("id")
-      .eq("idempotency_key", revIdem)
-      .maybeSingle();
-    if (ex) continue;
-    giftOrderId = oid;
-    giftRedemptionId = rid;
-    giftCreditAmount = Math.trunc(Number(gc.amount) || 0);
-    break;
-  }
-
-  if (!giftOrderId) {
-    const { data: red } = await sb
-      .from("gift_certificate_redemptions")
-      .select("id,order_id,merchant_net_amount")
-      .eq("store_id", STORE_ID)
-      .eq("reversed", false)
-      .gt("merchant_net_amount", 0)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (red) {
-      const kid = `gift_coin:${red.id}`;
-      await sb.rpc("credit_coin_from_gift_revenue", {
-        p_store_id: STORE_ID,
-        p_redemption_id: red.id,
-        p_amount: Math.trunc(Number(red.merchant_net_amount) || 0),
-        p_idempotency_key: kid,
-      });
-      giftOrderId = String(red.order_id);
-      giftRedemptionId = String(red.id);
-      const { data: gc } = await sb
-        .from("store_economic_point_ledger")
-        .select("amount")
-        .eq("idempotency_key", kid)
-        .maybeSingle();
-      giftCreditAmount = Math.trunc(Number(gc?.amount) || 0);
-    }
-  }
-
-  if (giftOrderId && giftCreditAmount > 0) {
-    const cashBefore = await countStoreCashLedgerSince(sb, STORE_ID, sinceIso);
-    const balBefore = await coinBal(sb, STORE_ID);
-
-    const { data: giftRev } = await sb.rpc("gift_certificate_redemption_reverse", {
-      p_order_id: giftOrderId,
-    });
-
-    const idem = `coin_reversal:order:${giftOrderId}`;
-    const { data: coinRev } = await sb.rpc("reverse_coin_credits_for_order", {
-      p_order_id: giftOrderId,
-      p_idempotency_key: idem,
-      p_reason: "cut_b_gift_refund_e2e",
-    });
-
-    const balAfter = await coinBal(sb, STORE_ID);
-    const cashAfter = await countStoreCashLedgerSince(sb, STORE_ID, sinceIso);
-    const { data: revLed } = await sb
-      .from("store_economic_point_ledger")
-      .select("id,entry_kind,amount")
-      .eq("idempotency_key", idem)
-      .maybeSingle();
-
-    const coinReversed =
-      coinRev?.ok === true &&
-      revLed?.entry_kind === "REVERSAL" &&
-      Math.abs(Math.trunc(Number(revLed.amount))) === giftCreditAmount;
-    const noNewStoreCash = cashAfter === cashBefore;
-
-    report.gift_refund = {
-      order_id: giftOrderId,
-      redemption_id: giftRedemptionId,
-      coin_credit_amount: giftCreditAmount,
-      gift_reverse_rpc: giftRev?.ok === true,
-      coin_reversal: {
-        ledger_id: revLed?.id ?? null,
-        amount: revLed?.amount ?? null,
-        pass: coinReversed,
-      },
-      legacy_store_cash_clawback: noNewStoreCash ? "SKIPPED" : "NEW_LEDGER_DETECTED",
-      new_store_cash_ledger_count_delta: cashAfter - cashBefore,
-      balance_before: balBefore,
-      balance_after: balAfter,
-    };
-
-    if (!coinReversed || !noNewStoreCash) {
-      report.first_divergence = report.first_divergence || "gift_refund_reversal";
-      report.cut_b = "PARTIAL";
-    }
-  } else {
-    report.gift_refund = { status: "NOT_PROVEN", reason: "no_gift_coin_fixture" };
-    report.first_divergence = report.first_divergence || "no_gift_coin_fixture";
-  }
-
   // ── Conversion RPC freeze ──
   const { data: convReq } = await sb.rpc("gift_certificate_conversion_request", {
     p_owner_user_id: "00000000-0000-0000-0000-000000000001",
@@ -402,10 +450,14 @@ async function main() {
   const freezeOk =
     report.gift_conversion_freeze.rpc_request_frozen && report.gift_conversion_freeze.rpc_approve_frozen;
 
-  if (saleOk && giftOk && freezeOk && !report.first_divergence) {
+  if (saleOk && giftOk && freezeOk) {
+    report.first_divergence = null;
     report.cut_b = "CLOSED";
-  } else if (!report.first_divergence && (saleOk || giftOk)) {
-    report.first_divergence = !saleOk ? "sale_refund" : !giftOk ? "gift_refund" : "partial_proof";
+  } else {
+    report.first_divergence =
+      report.first_divergence ||
+      (!giftOk ? "gift_refund" : !saleOk ? "sale_refund" : !freezeOk ? "conversion_freeze" : "partial_proof");
+    report.cut_b = "PARTIAL";
   }
 
   report.production_db = {

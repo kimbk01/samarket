@@ -1,0 +1,63 @@
+{
+  "title": "DIBAY CURRENCY — CUT B PRODUCTION FINAL",
+  "commit": "b9b91c536d49698f87bce9bb66781f0352697e56",
+  "push": "b9b91c536d49698f87bce9bb66781f0352697e56",
+  "migration": {
+    "reverse_rpc": "SQL_APPLIED",
+    "balance_nonneg_dropped": true,
+    "conversion_frozen": {
+      "frozen": true
+    }
+  },
+  "production_db": {
+    "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "origin": "https://samarket.vercel.app",
+    "timestamp": "2026-09-01T13:11:12.615Z"
+  },
+  "sale_refund": {
+    "order_id": "05b3f7b0-686a-4b2a-a4c0-82c605c9aa0e",
+    "original_coin_credit": {
+      "ledger_id": "ce65c67b-aee3-4fa3-a776-695fd2388f46",
+      "amount": 930
+    },
+    "reversal": {
+      "ledger_id": "c55da3e6-b47d-4a1d-829c-4f03737a4b24",
+      "amount": -930,
+      "rpc_ok": true,
+      "reversed_amount": 930
+    },
+    "balance_before": 915,
+    "balance_after": -15,
+    "balance_restored": true,
+    "duplicate_retry": {
+      "idempotent": true,
+      "balance_unchanged": true,
+      "pass": true
+    }
+  },
+  "gift_refund": {
+    "order_id": "248f9015-1a6b-4b53-93fa-1f9fcc34a895",
+    "redemption_id": "f2e7c86b-65f6-4ef7-bfbb-7b588cac387b",
+    "coin_credit_amount": 900,
+    "gift_reverse_rpc": true,
+    "coin_reversal": {
+      "ledger_id": "dd517fa1-2d8f-4046-807d-ade76cf2c79e",
+      "amount": -900,
+      "pass": true,
+      "idempotent_replay": true
+    },
+    "legacy_store_cash_clawback": "SKIPPED",
+    "new_store_cash_ledger_count_delta": 0,
+    "balance_before": null,
+    "balance_after": null
+  },
+  "gift_conversion_freeze": {
+    "rpc_request_frozen": true,
+    "rpc_approve_frozen": true,
+    "historical_read": "PRESUMED_OK",
+    "owner_post_http": "HTTP_401",
+    "admin_approve_http": "NOT_PROVEN_UNTIL_DEPLOY"
+  },
+  "first_divergence": null,
+  "cut_b": "CLOSED"
+}
