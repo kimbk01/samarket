@@ -25,6 +25,10 @@ const OUT = resolve(
 const CONFIRM = "I_UNDERSTAND_BOUNDED_PRODUCTION_WRITES";
 const RUN_ID = `currency-prod-e2e-${Date.now()}`;
 const MAX_POINT_CREDIT = 10_000;
+const SKIP_POINT_ADMIN = process.env.CURRENCY_PROD_E2E_SKIP_POINT_ADMIN === "1";
+const EXISTING_GIFT_INSTANCE_ID = String(
+  process.env.CURRENCY_QA_EXISTING_GIFT_INSTANCE_ID || ""
+).trim();
 const MAX_AD_SPEND_MINOR = Math.max(
   1,
   Math.trunc(Number(process.env.CURRENCY_PROD_E2E_MAX_AD_SPEND_MINOR || 50_000))
@@ -301,6 +305,45 @@ async function placeOrder(cookie, address, { product, giftInstanceId = null, suf
   });
 }
 
+async function placeSale900WithTemporaryMinimum(sb, buyerCookie, address) {
+  const store = await row(sb, "stores", "business_hours_json", "id", QA.store.id);
+  const original =
+    store?.business_hours_json &&
+    typeof store.business_hours_json === "object" &&
+    !Array.isArray(store.business_hours_json)
+      ? store.business_hours_json
+      : {};
+  const originalMinimum = Number(original.min_order_php ?? original.minOrderPhp);
+  const needsOverride = Number.isFinite(originalMinimum) && originalMinimum > 900;
+
+  if (needsOverride) {
+    const { error } = await sb
+      .from("stores")
+      .update({ business_hours_json: { ...original, min_order_php: 900 } })
+      .eq("id", QA.store.id);
+    if (error) fail("SALE_900_MIN_ORDER_FIXTURE", error.message);
+  }
+
+  try {
+    return await placeOrder(buyerCookie, address, {
+      product: QA.orderProduct,
+      suffix: "sale900",
+    });
+  } finally {
+    if (needsOverride) {
+      const { error } = await sb
+        .from("stores")
+        .update({ business_hours_json: original })
+        .eq("id", QA.store.id);
+      if (error) fail("SALE_900_MIN_ORDER_RESTORE", error.message);
+      pass("SALE_900_MIN_ORDER_FIXTURE", {
+        temporaryMinimumPhp: 900,
+        restoredMinimumPhp: originalMinimum,
+      });
+    }
+  }
+}
+
 async function completeOrder(ownerCookie, orderId) {
   for (const [status, extra] of [
     ["accepted", { estimated_prep_minutes: 15 }],
@@ -323,7 +366,7 @@ async function confirmedRevenue(sb, orderId) {
   const order = await row(
     sb,
     "store_orders",
-    "payment_amount,gift_redemption_amount,platform_funded_amount,refund_amount,order_status",
+    "payment_amount,gift_redemption_amount,platform_funded_amount,order_status",
     "id",
     orderId
   );
@@ -331,8 +374,7 @@ async function confirmedRevenue(sb, orderId) {
     0,
     Math.trunc(Number(order?.payment_amount) || 0) +
       Math.trunc(Number(order?.gift_redemption_amount) || 0) +
-      Math.trunc(Number(order?.platform_funded_amount) || 0) -
-      Math.trunc(Number(order?.refund_amount) || 0)
+      Math.trunc(Number(order?.platform_funded_amount) || 0)
   );
   return { order, revenue };
 }
@@ -376,7 +418,7 @@ async function pointAndGiftPurchase(sb, buyerCookie, adminCookie, buyerId) {
     .from("gift_certificate_products")
     .select("id,purchase_price,face_value,store_id,gift_scope,active")
     .eq("active", true)
-    .eq("store_id", QA.store.id)
+    .or(`store_id.eq.${QA.store.id},gift_scope.eq.PLATFORM`)
     .gt("purchase_price", 0)
     .order("purchase_price", { ascending: true })
     .limit(20);
@@ -475,10 +517,7 @@ async function pointAndGiftPurchase(sb, buyerCookie, adminCookie, buyerId) {
 async function saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, address) {
   await ensureCashExactlyTwenty(sb, ownerCookie, adminCookie);
   const coinBefore = await coinBalance(sb);
-  const placed = await placeOrder(buyerCookie, address, {
-    product: QA.orderProduct,
-    suffix: "sale900",
-  });
+  const placed = await placeSale900WithTemporaryMinimum(sb, buyerCookie, address);
   const orderId = String(placed.json?.order?.id || "");
   if (!placed.ok || !orderId) fail("SALE_900_PLACE", placed);
   report.artifacts.saleOrderId = orderId;
@@ -781,7 +820,12 @@ async function giftCompletedOrderScenario(sb, buyerCookie, ownerCookie, address,
   });
 }
 
-async function adsCanonicalCashScenario(sb, ownerCookie, adminCookie) {
+async function adsCanonicalCashScenario(
+  sb,
+  ownerCookie,
+  adminCookie,
+  { reserveCashMinor = 0 } = {}
+) {
   const commercial = await request(
     ownerCookie,
     "GET",
@@ -801,10 +845,11 @@ async function adsCanonicalCashScenario(sb, ownerCookie, adminCookie) {
   }
 
   const cash = await cashBalanceMinor(sb);
-  if (cash < payable) {
+  const requiredCash = payable + Math.max(0, Math.trunc(reserveCashMinor));
+  if (cash < requiredCash) {
     const topUp = await request(ownerCookie, "POST", `/api/me/stores/${QA.store.id}/business-cash`, {
       op: "topup_request",
-      amountMinor: payable - cash,
+      amountMinor: requiredCash - cash,
       idempotencyKey: `${RUN_ID}:ads-topup`,
     });
     if (!topUp.ok || !topUp.json?.requestId) fail("ADS_CASH_TOPUP_REQUEST", topUp);
@@ -871,6 +916,7 @@ async function adsCanonicalCashScenario(sb, ownerCookie, adminCookie) {
   pass("ADS_CANONICAL_CASH_DEBIT", {
     campaignId,
     payableMinor: payable,
+    reserveCashMinor,
     cashDeltaMinor: cashAfter - cashBefore,
     spendLedgerId: spend.id,
     fundingId: funding.id,
@@ -1005,18 +1051,52 @@ async function main() {
   });
 
   const address = await ensureAddress(sb, buyerSession.user.id);
-  const gift = await pointAndGiftPurchase(
-    sb,
-    buyerCookie,
-    adminCookie,
-    buyerSession.user.id
-  );
+  let gift;
+  if (SKIP_POINT_ADMIN) {
+    if (!EXISTING_GIFT_INSTANCE_ID) {
+      fail("GIFT_EXISTING_FIXTURE", "missing_CURRENCY_QA_EXISTING_GIFT_INSTANCE_ID");
+    }
+    const instance = await row(
+      sb,
+      "gift_certificate_instances",
+      "id,current_owner_user_id,remaining_balance,status",
+      "id",
+      EXISTING_GIFT_INSTANCE_ID
+    );
+    if (
+      instance?.current_owner_user_id !== buyerSession.user.id ||
+      Math.trunc(Number(instance?.remaining_balance) || 0) <= 0 ||
+      !["ACTIVE", "PARTIALLY_REDEEMED"].includes(String(instance?.status || ""))
+    ) {
+      fail("GIFT_EXISTING_FIXTURE", instance);
+    }
+    report.steps.POINT_ADMIN_AUTH = {
+      status: "BLOCKED_BY_CREDENTIAL",
+      detail: "authorized Point Admin credential unavailable",
+    };
+    report.steps.POINT_CHARGE_APPROVE_SPEND_HISTORY = {
+      status: "NOT_PROVEN",
+      detail: "Point approval smoke requires an authorized Point Admin credential",
+    };
+    report.artifacts.giftInstanceId = instance.id;
+    gift = { instanceId: instance.id };
+    writeReport();
+  } else {
+    gift = await pointAndGiftPurchase(
+      sb,
+      buyerCookie,
+      adminCookie,
+      buyerSession.user.id
+    );
+  }
+  await adsCanonicalCashScenario(sb, ownerCookie, adminCookie, {
+    reserveCashMinor: 2_000,
+  });
   await saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, address);
   await giftCompletedOrderScenario(sb, buyerCookie, ownerCookie, address, gift.instanceId);
-  await adsCanonicalCashScenario(sb, ownerCookie, adminCookie);
   await uiHttpSmoke(ownerCookie, adminCookie);
 
-  report.verdict = "PASS";
+  report.verdict = SKIP_POINT_ADMIN ? "PARTIAL" : "PASS";
   report.firstDivergence = null;
   writeReport();
   console.log(JSON.stringify(report, null, 2));

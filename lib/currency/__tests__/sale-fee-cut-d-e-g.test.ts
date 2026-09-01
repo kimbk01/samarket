@@ -45,6 +45,10 @@ describe("three-currency order boundary", () => {
     join(process.cwd(), "lib/stores/apply-store-order-status-transition.ts"),
     "utf8"
   );
+  const RECOGNITION_SRC = readFileSync(
+    join(process.cwd(), "lib/currency/recognize-order-currency-on-completed.ts"),
+    "utf8"
+  );
 
   it("does not debit a historical store-credit product on accept", () => {
     expect(SRC).not.toContain("chargeStorePointsOnOrderAccept");
@@ -55,6 +59,9 @@ describe("three-currency order boundary", () => {
     expect(SRC).toContain("reverseSaleFeeForOrder");
   });
 
+  it("reads only deployed store_orders revenue columns", () => {
+    expect(RECOGNITION_SRC).not.toContain("refund_amount");
+  });
 });
 
 const CUT_G_MIG = readFileSync(

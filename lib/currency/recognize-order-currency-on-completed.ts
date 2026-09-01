@@ -30,7 +30,7 @@ export async function recognizeOrderCurrencyOnCompleted(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, store_id, order_status, payment_amount, gift_redemption_amount, platform_funded_amount, store_funded_amount, discount_amount, delivery_fee_amount, refund_amount"
+      "id, store_id, order_status, payment_amount, gift_redemption_amount, platform_funded_amount, store_funded_amount, discount_amount, delivery_fee_amount"
     )
     .eq("id", oid)
     .maybeSingle();
