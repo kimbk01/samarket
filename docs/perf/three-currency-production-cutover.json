@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-09-02T07:02:05+08:00",
+  "migration": {
+    "version": "20261202140000",
+    "status": "APPLIED",
+    "legacy_runtime_roles_execute": false
+  },
+  "production_env": {
+    "DIBAY_CURRENCY_SALE_RECOGNITION_LIVE": true,
+    "DIBAY_CURRENCY_AST002_RETIRED": true
+  },
+  "runtime_proof": "PENDING_NEW_GIT_DEPLOYMENT"
+}
