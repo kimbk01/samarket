@@ -257,7 +257,7 @@ describe("Business Cash funding gate P1", () => {
     ).toBe(false);
   });
 
-  it("T31–T36 — Owner funding UI contract (Store Cash authority, no legacy pay CTA)", () => {
+  it("T31–T36 — Owner funding UI contract (AST-005 Business Cash, no legacy pay CTA)", () => {
     const hub = readFileSync(OWNER_UI, "utf8");
     const detail = readFileSync(OWNER_DETAIL, "utf8");
     expect(hub).toContain('data-owner-ads-business-cash="card"');
@@ -266,10 +266,14 @@ describe("Business Cash funding gate P1", () => {
     expect(hub).not.toContain("owner_ads_business_cash_topup_unavailable");
     expect(detail).toContain('data-owner-ads-detail-section="funding"');
     expect(detail).toContain("ownerAdsShouldShowFundingPanel");
-    // Stage 1 DEBIT_REFUND at submit — legacy post-approval Business Cash pay CTA removed.
+    // Stage 1/2 DEBIT_REFUND at submit — legacy post-approval pay CTA removed.
     expect(detail).not.toContain("owner_ads_funding_pay_cta");
     expect(detail).not.toContain("data-owner-ads-fund-cta");
-    expect(detail).toContain("data-owner-ads-fund-store-cash");
+    // Stage 2: ads pay = Business Cash (AST-005), not Store Cash fund marker.
+    expect(detail).not.toContain("data-owner-ads-fund-store-cash");
+    expect(detail).toContain("data-owner-ads-fund-business-cash");
+    expect(detail).toContain("data-owner-ads-fund-bc-link");
+    expect(detail).toContain("/stores/owner/business-cash");
   });
 
   it("money minor helpers + idempotency key", () => {
