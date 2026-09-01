@@ -10,6 +10,7 @@ import {
   prepareOwnerPaidCampaignSnapshotFromQuote,
   quoteDeliveryAdApplicationCommercial,
 } from "@/lib/stores/advertising/delivery-ad-commercial-catalog";
+import { DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 import type { DeliveryAdProductKey } from "@/lib/stores/advertising/delivery-ad-product-registry";
 
 export const OWNER_AD_PACKAGE_PRICING_MODEL_PREFIX = "pkg:" as const;
@@ -116,6 +117,44 @@ export async function attachOwnerPaidCommercialSnapshotOnSubmit(
 
   const inserted = await insertCampaignCommercialSnapshot(sb, snapshot);
   if (!inserted.ok) {
+    // Resubmit / duplicate-submit: snapshot is unique per (campaign_id, product_kind).
+    // Reuse the existing bound price when package + payable still match.
+    const uniqueHit = /duplicate|unique|23505/i.test(inserted.error);
+    if (uniqueHit) {
+      const { data: existing, error: loadErr } = await sb
+        .from(DELIVERY_AD_CAMPAIGN_COMMERCIAL_SNAPSHOT_TABLE)
+        .select("package_id, final_payable_minor, currency")
+        .eq("campaign_id", input.campaignId)
+        .eq("product_kind", input.productKind)
+        .maybeSingle();
+      if (loadErr) {
+        return { ok: false, error: "commercial_snapshot_failed", quoteError: loadErr.message };
+      }
+      const existingPackageId =
+        existing && typeof (existing as { package_id?: unknown }).package_id === "string"
+          ? String((existing as { package_id: string }).package_id)
+          : "";
+      const existingPayable = Math.trunc(
+        Number((existing as { final_payable_minor?: unknown } | null)?.final_payable_minor ?? NaN)
+      );
+      if (
+        existingPackageId === packageId &&
+        Number.isFinite(existingPayable) &&
+        existingPayable === quote.finalPayableMinor
+      ) {
+        return {
+          ok: true,
+          finalPayableMinor: quote.finalPayableMinor,
+          currency: quote.currency,
+          packageId,
+        };
+      }
+      return {
+        ok: false,
+        error: "quote_stale",
+        quoteError: "existing_snapshot_mismatch",
+      };
+    }
     return { ok: false, error: "commercial_snapshot_failed", quoteError: inserted.error };
   }
 

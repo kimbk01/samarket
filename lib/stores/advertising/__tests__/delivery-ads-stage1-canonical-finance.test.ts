@@ -151,6 +151,14 @@ describe("Stage1 Ads product path uses BC", () => {
     expect(mig).toContain("CHANGES_REQUESTED");
     expect(adminWriter).toContain('input.action === "reject"');
     expect(adminWriter).not.toMatch(/request_changes[\s\S]{0,80}refundBusinessCash/);
+    const bind = readFileSync(
+      join(root, "lib/stores/advertising/owner-delivery-ad-commercial-bind.ts"),
+      "utf8"
+    );
+    expect(bind).toMatch(/duplicate\|unique\|23505/);
+    expect(bind).toContain("existing_snapshot_mismatch");
+    expect(actions).toContain("resubmit");
+    expect(actions).toContain("debitBusinessCashForDeliveryAd");
   });
 
   it("T16/T17 reject refunds BC exactly once", () => {
@@ -159,8 +167,10 @@ describe("Stage1 Ads product path uses BC", () => {
     expect(mig).toContain("already_refunded");
   });
 
-  it("Admin funded queue requires canonical funding", () => {
-    expect(queue).toContain("hasCanonicalBcFundingSecured");
+  it("Admin funded queue requires canonical funding authority", () => {
+    expect(queue).toContain("loadDeliveryAdFundingStatusByCampaignIds");
+    expect(queue).toContain("deliveryAdAdminQueueFundingAllowsIntake");
+    expect(queue).toContain("isDeliveryAdFundingReadyForGoLive");
   });
 });
 

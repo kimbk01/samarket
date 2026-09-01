@@ -1,6 +1,8 @@
 /**
  * PRODUCT CUT 3-D — Admin Action Queue read model for Delivery Ads ops Cases.
  * Derived from delivery_ad_operations_cases.status = WAITING_ADMIN.
+ * Owner-paid intake also requires canonical funding readiness (Stage 1 AST-005),
+ * using the same FUNDED / first-party authority as customer go-live.
  * No queue table · no lifecycle mutation · no UI.
  */
 
@@ -16,8 +18,9 @@ import {
   isDeliveryAdProductKind,
   type DeliveryAdProductKind,
 } from "@/lib/stores/advertising/delivery-ad-domain";
-import { hasCanonicalBcFundingSecured } from "@/lib/stores/advertising/canonical-business-cash-writer";
-import { loadCampaignStoreCashSpendRow } from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
+import { isDeliveryAdFundingReadyForGoLive } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
+import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
+import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_DEFAULT_LIMIT = 50 as const;
 export const DELIVERY_AD_ADMIN_ACTION_QUEUE_MAX_LIMIT = 100 as const;
@@ -44,7 +47,20 @@ export type ListDeliveryAdAdminActionQueueResult =
   | { ok: false; error: "forbidden" | "db_error" };
 
 /**
+ * Admin funded-review intake gate — same funding authority as customer go-live.
+ * First-party: always allowed. Owner-paid: FUNDED only (canonical BC SECURED → FUNDED,
+ * or legacy Store Cash FUNDED for history).
+ */
+export function deliveryAdAdminQueueFundingAllowsIntake(input: {
+  campaignSource: string | null | undefined;
+  fundingStatus: DeliveryAdFundingStatus | null | undefined;
+}): boolean {
+  return isDeliveryAdFundingReadyForGoLive(input);
+}
+
+/**
  * Count WAITING_ADMIN Delivery Ads ops cases (Admin Action Queue SSOT fragment).
+ * Note: badge count is status-only; list filters unfunded Owner-paid rows at read time.
  */
 export async function countDeliveryAdAdminActionQueue(
   sb: SupabaseClient
@@ -85,18 +101,15 @@ export async function listDeliveryAdAdminActionQueue(
   const { data, error } = await q;
   if (error) return { ok: false, error: "db_error" };
 
-  let totalQ = sb
-    .from(DELIVERY_AD_OPERATIONS_CASE_TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("status", "WAITING_ADMIN");
-  if (isDeliveryAdProductKind(input?.productKind)) {
-    totalQ = totalQ.eq("product_kind", input.productKind);
-  }
-  const totalRes = await totalQ;
-  const total = Math.max(0, Math.floor(Number(totalRes.count) || 0));
-
   const rows = (data ?? []) as Record<string, unknown>[];
-  const items: DeliveryAdAdminActionQueueItem[] = [];
+  type Pending = {
+    caseId: string;
+    productKind: DeliveryAdProductKind;
+    campaignId: string;
+    ownerUserId: string;
+    updatedAt: string;
+  };
+  const pending: Pending[] = [];
 
   for (const row of rows) {
     const productKind = row.product_kind;
@@ -112,15 +125,46 @@ export async function listDeliveryAdAdminActionQueue(
     if (!campaignId) continue;
     const caseId = String(row.id ?? "");
     if (!caseId) continue;
+    pending.push({
+      caseId,
+      productKind,
+      campaignId,
+      ownerUserId: String(row.owner_user_id ?? ""),
+      updatedAt: String(row.updated_at ?? ""),
+    });
+  }
 
+  const sponsoredIds = [
+    ...new Set(
+      pending.filter((p) => p.productKind === "store_sponsored").map((p) => p.campaignId)
+    ),
+  ];
+  const bannerIds = [
+    ...new Set(pending.filter((p) => p.productKind === "banner").map((p) => p.campaignId)),
+  ];
+
+  const [sponsoredFunding, bannerFunding] = await Promise.all([
+    loadDeliveryAdFundingStatusByCampaignIds(sb, {
+      productKind: "store_sponsored",
+      campaignIds: sponsoredIds,
+    }),
+    loadDeliveryAdFundingStatusByCampaignIds(sb, {
+      productKind: "banner",
+      campaignIds: bannerIds,
+    }),
+  ]);
+
+  const items: DeliveryAdAdminActionQueueItem[] = [];
+
+  for (const row of pending) {
     const table =
-      productKind === "store_sponsored"
+      row.productKind === "store_sponsored"
         ? STORE_SPONSORED_CAMPAIGN_TABLE
         : BANNER_AD_CAMPAIGN_TABLE;
     const { data: camp } = await sb
       .from(table)
       .select("id, title, lifecycle_status, image_url, review_notes, campaign_source, store_id")
-      .eq("id", campaignId)
+      .eq("id", row.campaignId)
       .maybeSingle();
 
     const campRow = camp as {
@@ -132,42 +176,34 @@ export async function listDeliveryAdAdminActionQueue(
       store_id?: string | null;
     } | null;
 
-    const campaignSource = String(campRow?.campaign_source ?? "OWNER_PAID").trim();
-    if (campaignSource !== "DIBAY_FIRST_PARTY") {
-      const storeId = String(campRow?.store_id ?? "").trim();
-      const canonicalFunded = await hasCanonicalBcFundingSecured(sb, {
-        productKind,
-        applicationId: campaignId,
-        storeId: storeId || undefined,
-      });
-      if (!canonicalFunded) {
-        // Legacy historical Store Cash SECURED may remain visible for audit continuity.
-        const legacy = await loadCampaignStoreCashSpendRow(sb, {
-          productKind,
-          campaignId,
-        });
-        if (!legacy || legacy.status !== "FUNDED") {
-          continue;
-        }
-      }
+    const fundingMap =
+      row.productKind === "store_sponsored" ? sponsoredFunding : bannerFunding;
+    const fundingStatus = fundingMap.get(row.campaignId) ?? "UNFUNDED";
+    if (
+      !deliveryAdAdminQueueFundingAllowsIntake({
+        campaignSource: campRow?.campaign_source,
+        fundingStatus,
+      })
+    ) {
+      continue;
     }
 
     const { data: thread } = await sb
       .from("delivery_ad_operations_threads")
       .select("id")
-      .eq("case_id", caseId)
+      .eq("case_id", row.caseId)
       .maybeSingle();
 
     const reviewNotes =
       campRow?.review_notes == null ? "" : String(campRow.review_notes).trim();
 
     items.push({
-      caseId,
+      caseId: row.caseId,
       threadId: thread?.id == null ? null : String(thread.id),
-      productKind,
-      campaignId,
+      productKind: row.productKind,
+      campaignId: row.campaignId,
       caseStatus: "WAITING_ADMIN",
-      ownerUserId: String(row.owner_user_id ?? ""),
+      ownerUserId: row.ownerUserId,
       campaignTitle:
         campRow && typeof campRow.title === "string" ? String(campRow.title) : null,
       campaignLifecycle:
@@ -175,12 +211,12 @@ export async function listDeliveryAdAdminActionQueue(
           ? String(campRow.lifecycle_status)
           : null,
       creativeAssetPath:
-        productKind === "banner" && campRow?.image_url != null
+        row.productKind === "banner" && campRow?.image_url != null
           ? String(campRow.image_url)
           : null,
       hadChangesRequested: reviewNotes.length > 0,
-      updatedAt: String(row.updated_at ?? ""),
-      destination: DELIVERY_AD_ADMIN_ROUTES.detail(campaignId),
+      updatedAt: row.updatedAt,
+      destination: DELIVERY_AD_ADMIN_ROUTES.detail(row.campaignId),
     });
   }
 

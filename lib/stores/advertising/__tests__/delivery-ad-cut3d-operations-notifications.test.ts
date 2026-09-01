@@ -16,7 +16,11 @@ import {
   DELIVERY_AD_ADMIN_ROUTES,
   DELIVERY_AD_OWNER_ROUTES,
 } from "@/lib/stores/advertising/delivery-ad-routes";
-import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import {
+  deliveryAdAdminQueueFundingAllowsIntake,
+  listDeliveryAdAdminActionQueue,
+} from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import { DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import { notificationMessages } from "@/lib/i18n/catalog/notifications";
 import {
@@ -32,6 +36,89 @@ vi.mock("@/lib/notifications/append-user-notification", () => ({
 vi.mock("@/lib/notifications/notification-user-language", () => ({
   loadNotificationUserLanguage: vi.fn(async () => "ko"),
 }));
+
+/** Minimal chainable Supabase mock for Action Queue + Stage 1 funding batch loader. */
+function createActionQueueSb(input: {
+  cases: Array<Record<string, unknown>>;
+  campaigns: Record<string, Record<string, unknown>>;
+  threads: Record<string, { id: string }>;
+  /** application_id → SECURED/other */
+  canonicalFundingByApplicationId?: Record<string, string>;
+  /** campaign_id → legacy spend status */
+  legacySpendByCampaignId?: Record<string, string>;
+}) {
+  const canonical = input.canonicalFundingByApplicationId ?? {};
+  const legacy = input.legacySpendByCampaignId ?? {};
+
+  return {
+    from(table: string) {
+      const state: {
+        filters: Record<string, unknown>;
+        inIds: string[] | null;
+        head?: boolean;
+      } = { filters: {}, inIds: null };
+      const api: Record<string, unknown> = {};
+      const self = () => api;
+
+      api.select = (_cols?: string, opts?: { head?: boolean; count?: string }) => {
+        state.head = Boolean(opts?.head);
+        return self();
+      };
+      api.eq = (col: string, val: unknown) => {
+        state.filters[col] = val;
+        if (state.head && table === "delivery_ad_operations_cases") {
+          const status = state.filters.status;
+          const count = status === "WAITING_ADMIN" ? input.cases.length : 0;
+          return Promise.resolve({ count, error: null });
+        }
+        return self();
+      };
+      api.in = (col: string, vals: unknown[]) => {
+        state.inIds = (vals ?? []).map((v) => String(v));
+        state.filters[`in:${col}`] = state.inIds;
+        return self();
+      };
+      api.order = () => self();
+      api.limit = async () => {
+        if (table === "delivery_ad_operations_cases") {
+          expect(state.filters.status).toBe("WAITING_ADMIN");
+          return { data: input.cases, error: null };
+        }
+        return { data: [], error: null };
+      };
+      // Batch funding loaders await the builder after .in() (thenable).
+      api.then = (resolve: (v: unknown) => unknown) => {
+        if (table === DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE) {
+          const ids = state.inIds ?? [];
+          const data = ids
+            .filter((id) => canonical[id])
+            .map((id) => ({ application_id: id, status: canonical[id] }));
+          return Promise.resolve(resolve({ data, error: null }));
+        }
+        if (table === "delivery_ad_store_cash_spends") {
+          const ids = state.inIds ?? [];
+          const data = ids
+            .filter((id) => legacy[id])
+            .map((id) => ({ campaign_id: id, status: legacy[id] }));
+          return Promise.resolve(resolve({ data, error: null }));
+        }
+        return Promise.resolve(resolve({ data: [], error: null }));
+      };
+      api.maybeSingle = async () => {
+        if (table === "store_paid_ad_campaigns" || table === "store_banner_ad_campaigns") {
+          const id = String(state.filters.id ?? "");
+          return { data: input.campaigns[id] ?? null, error: null };
+        }
+        if (table === "delivery_ad_operations_threads") {
+          const caseId = String(state.filters.case_id ?? "");
+          return { data: input.threads[caseId] ?? null, error: null };
+        }
+        return { data: null, error: null };
+      };
+      return api;
+    },
+  } as never;
+}
 
 describe("CUT 3-D notification mapper", () => {
   it("maps adverse/review lifecycle events to Owner notify; skips submit/owner-pause", () => {
@@ -184,6 +271,27 @@ describe("CUT 3-D safe notify failure isolation", () => {
 });
 
 describe("CUT 3-D Action Queue", () => {
+  it("funding intake gate matches go-live funding authority", () => {
+    expect(
+      deliveryAdAdminQueueFundingAllowsIntake({
+        campaignSource: "OWNER_PAID",
+        fundingStatus: "FUNDED",
+      })
+    ).toBe(true);
+    expect(
+      deliveryAdAdminQueueFundingAllowsIntake({
+        campaignSource: "OWNER_PAID",
+        fundingStatus: "UNFUNDED",
+      })
+    ).toBe(false);
+    expect(
+      deliveryAdAdminQueueFundingAllowsIntake({
+        campaignSource: "DIBAY_FIRST_PARTY",
+        fundingStatus: "UNFUNDED",
+      })
+    ).toBe(true);
+  });
+
   it("WAITING_ADMIN listed; WAITING_OWNER/RESOLVED not queried into queue", async () => {
     const waitAdmin = {
       id: "case-wait-admin",
@@ -195,49 +303,22 @@ describe("CUT 3-D Action Queue", () => {
       updated_at: "2026-08-30T12:00:00.000Z",
     };
 
-    const sb = {
-      from(table: string) {
-        const state: { filters: Record<string, unknown>; head?: boolean } = {
-          filters: {},
-        };
-        const api: Record<string, unknown> = {};
-        const self = () => api;
-        api.select = (_cols?: string, opts?: { head?: boolean; count?: string }) => {
-          state.head = Boolean(opts?.head);
-          return self();
-        };
-        api.eq = (col: string, val: unknown) => {
-          state.filters[col] = val;
-          if (state.head) {
-            const status = state.filters.status;
-            const count = status === "WAITING_ADMIN" ? 1 : 0;
-            return Promise.resolve({ count, error: null });
-          }
-          return self();
-        };
-        api.order = () => self();
-        api.limit = async () => {
-          if (table === "delivery_ad_operations_cases") {
-            expect(state.filters.status).toBe("WAITING_ADMIN");
-            return { data: [waitAdmin], error: null };
-          }
-          return { data: [], error: null };
-        };
-        api.maybeSingle = async () => {
-          if (table === "store_paid_ad_campaigns" || table === "store_banner_ad_campaigns") {
-            return {
-              data: { id: "camp-1", title: "T", lifecycle_status: "SUBMITTED" },
-              error: null,
-            };
-          }
-          if (table === "delivery_ad_operations_threads") {
-            return { data: { id: "th1" }, error: null };
-          }
-          return { data: null, error: null };
-        };
-        return api;
+    const sb = createActionQueueSb({
+      cases: [waitAdmin],
+      campaigns: {
+        "camp-1": {
+          id: "camp-1",
+          title: "T",
+          lifecycle_status: "SUBMITTED",
+          campaign_source: "OWNER_PAID",
+          store_id: "store-1",
+          review_notes: null,
+          image_url: null,
+        },
       },
-    } as never;
+      threads: { "case-wait-admin": { id: "th1" } },
+      canonicalFundingByApplicationId: { "camp-1": "SECURED" },
+    });
 
     const res = await listDeliveryAdAdminActionQueue(sb, {});
     expect(res.ok).toBe(true);
@@ -247,6 +328,41 @@ describe("CUT 3-D Action Queue", () => {
     expect(res.items[0]?.caseStatus).toBe("WAITING_ADMIN");
     expect(res.items[0]?.destination).toBe(DELIVERY_AD_ADMIN_ROUTES.detail("camp-1"));
     expect(res.total).toBe(1);
+  });
+
+  it("unfunded Owner-paid WAITING_ADMIN is excluded from funded review intake", async () => {
+    const waitAdmin = {
+      id: "case-unfunded",
+      product_kind: "store_sponsored",
+      store_sponsored_campaign_id: "camp-unfunded",
+      banner_campaign_id: null,
+      owner_user_id: "o1",
+      status: "WAITING_ADMIN",
+      updated_at: "2026-08-30T12:00:00.000Z",
+    };
+
+    const sb = createActionQueueSb({
+      cases: [waitAdmin],
+      campaigns: {
+        "camp-unfunded": {
+          id: "camp-unfunded",
+          title: "U",
+          lifecycle_status: "SUBMITTED",
+          campaign_source: "OWNER_PAID",
+          store_id: "store-1",
+          review_notes: null,
+          image_url: null,
+        },
+      },
+      threads: { "case-unfunded": { id: "th-u" } },
+      canonicalFundingByApplicationId: {},
+    });
+
+    const res = await listDeliveryAdAdminActionQueue(sb, {});
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.items).toHaveLength(0);
+    expect(res.total).toBe(0);
   });
 });
 
