@@ -100,7 +100,7 @@ export const philifeMessages = {
     philife_write_payment_bank: "계좌 입금",
     philife_write_points_short_full:
       "포인트가 {amount}P 부족합니다. 충전해 주세요.",
-    philife_write_promo_immediate_hint: "D-Point로 결제하면 승인 없이 바로 피드 상단에 노출됩니다.",
+    philife_write_promo_immediate_hint: "포인트로 결제하면 승인 없이 바로 피드 상단에 노출됩니다.",
     philife_write_promo_failed: "게시물은 등록됐지만 상위 노출 결제에 실패했습니다. 글 상세에서 다시 홍보해 주세요.",
     philife_write_depositor_placeholder: "입금자명 (필수)",
     philife_write_memo_placeholder: "메모 (선택)",
@@ -241,7 +241,7 @@ export const philifeMessages = {
     philife_write_payment_bank: "Bank transfer",
     philife_write_points_short_full:
       "You need {amount} more points. Please top up.",
-    philife_write_promo_immediate_hint: "Pays with D-Point and goes live at the top of the feed immediately — no admin review.",
+    philife_write_promo_immediate_hint: "Pays with Point and goes live at the top of the feed immediately — no admin review.",
     philife_write_promo_failed: "Post was created, but top exposure payment failed. Promote again from the post detail.",
     philife_write_depositor_placeholder: "Depositor name (required)",
     philife_write_memo_placeholder: "Memo (optional)",

@@ -1,4 +1,4 @@
-/** Store point charge UI state (account inquiry is independent — not a pipeline step). */
+/** Historical store operations charge state (account inquiry is independent — not a pipeline step). */
 
 export type OwnerPointChargeUiState = "ready" | "charge_pending";
 

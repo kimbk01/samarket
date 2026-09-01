@@ -1,6 +1,6 @@
 /**
  * Level 2 — REWARD ELIGIBILITY.
- * Content may already be accepted. This only decides D-Point.
+ * Content may already be accepted. This only decides Point.
  */
 import { communityTextContentHash, type NormalizedCommunityText } from "@/lib/community-points/content-normalize";
 

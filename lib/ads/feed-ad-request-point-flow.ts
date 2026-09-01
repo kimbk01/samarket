@@ -1,5 +1,5 @@
 /**
- * Feed Ad Request D-Point HOLD / CAPTURE / RELEASE.
+ * Feed Ad Request Point HOLD / CAPTURE / RELEASE.
  * Pattern mirrors trade_ad_point_holds (spend as hold, credit as release, finalize as capture).
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md §2
  */

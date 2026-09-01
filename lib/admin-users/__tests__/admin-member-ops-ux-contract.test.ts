@@ -7,7 +7,7 @@ import {
   authEvidenceBadges,
 } from "@/lib/admin-users/admin-member-identity";
 import { displayNameForDetailUser, publicIdFromParts } from "@/components/admin/users/admin-user-lite-display";
-import { memberBusinessCreditHref, memberStoresAdminHref } from "@/lib/admin-users/member-deep-links";
+import { memberStoresAdminHref } from "@/lib/admin-users/member-deep-links";
 
 function src(rel: string): string {
   return readFileSync(join(process.cwd(), rel), "utf8");
@@ -65,9 +65,7 @@ describe("admin member ops UX identity contract", () => {
     expect(detail).not.toMatch(/username: prof\.username \?\? prof\.dibay_id/);
   });
 
-  it("store admin CTA uses existing query surface and Business Credit is store-points", () => {
-    expect(memberBusinessCreditHref()).toBe("/admin/store-points");
-    expect(memberBusinessCreditHref("Cafe Manila")).toBe("/admin/store-points?q=Cafe%20Manila");
+  it("store admin CTA uses the store surface without legacy currency navigation", () => {
     expect(memberStoresAdminHref("my-slug")).toBe("/admin/stores?q=my-slug");
     const panel = src("components/admin/users/AdminMemberStorePanel.tsx");
     expect(panel).toMatch(/memberStorePublicHref/);

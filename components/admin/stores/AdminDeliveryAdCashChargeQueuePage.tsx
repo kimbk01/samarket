@@ -15,7 +15,7 @@ type ChargeRequest = {
 };
 
 export function AdminDeliveryAdCashChargeQueuePage() {
-  const { t, safeT } = useI18n();
+  const { safeT } = useI18n();
   const [rows, setRows] = useState<ChargeRequest[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,23 +80,23 @@ export function AdminDeliveryAdCashChargeQueuePage() {
       <div>
         <h1 className="text-[20px] font-bold text-sam-fg">
           {safeT("admin_delivery_ads_cash_charges_title", {
-            fallbackKo: "Business Cash 충전 신청",
-            fallbackEn: "Business Cash top-up requests",
+            fallbackKo: "Cash 충전 신청",
+            fallbackEn: "Cash top-up requests",
           })}
         </h1>
         <p className="mt-1 text-[13px] text-sam-muted">
           {safeT("admin_delivery_ads_cash_charges_help", {
             fallbackKo:
-              "확인 후 적립하면 광고 Business Cash ledger에만 반영됩니다. Business Credit과 분리됩니다.",
+              "확인 후 적립하면 Cash 원장에만 반영됩니다. Coin과 분리됩니다.",
             fallbackEn:
-              "Confirm credits ads Business Cash ledger only. Separate from Business Credit.",
+              "Confirmation credits the Cash ledger only. It remains separate from Coin.",
           })}
         </p>
       </div>
       <AdminCard
         title={safeT("admin_delivery_ads_cash_charges_title", {
-          fallbackKo: "Business Cash 충전 신청",
-          fallbackEn: "Business Cash top-up requests",
+          fallbackKo: "Cash 충전 신청",
+          fallbackEn: "Cash top-up requests",
         })}
       >        {!loaded ? (
           <p className="text-[13px] text-sam-muted">

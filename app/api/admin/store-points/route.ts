@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-/** GET /api/admin/store-points — 매장 포인트 목록(검색·페이지) */
+/** GET /api/admin/store-points — 이전 매장 운영 원장 보관 조회 */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

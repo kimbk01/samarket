@@ -134,8 +134,8 @@ describe("Stage1 BC top-up", () => {
   });
 });
 
-describe("Stage1 Ads product path uses BC", () => {
-  it("T11/T12 actions route uses Business Cash not Store Cash debit", () => {
+describe("Stage1 Ads product path uses canonical Cash", () => {
+  it("T11/T12 actions route uses canonical Cash, not legacy Store Cash debit", () => {
     expect(actions).toContain("debitBusinessCashForDeliveryAd");
     expect(actions).toContain("INSUFFICIENT_BUSINESS_CASH");
     expect(actions).not.toContain("debitStoreCashForDeliveryAd");

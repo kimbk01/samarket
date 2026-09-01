@@ -12,7 +12,7 @@ function read(rel: string): string {
 }
 
 describe("Stage 2 Owner/Admin Delivery Ads product UX", () => {
-  it("funding GET routes use AST-005 canonical BC (not Store Cash)", () => {
+  it("funding GET routes use canonical Cash authority, not legacy Store Cash", () => {
     const owner = read("app/api/me/delivery-ads/[campaignId]/funding/route.ts");
     const admin = read("app/api/admin/delivery-ads/business-cash/route.ts");
     expect(owner).toContain("AST_005_BUSINESS_CASH");
@@ -23,13 +23,14 @@ describe("Stage 2 Owner/Admin Delivery Ads product UX", () => {
     expect(admin).not.toContain("loadCampaignStoreCashSpendRow");
   });
 
-  it("insufficient BC modal navigates to Business Cash with returnTo / convert", () => {
+  it("insufficient Cash modal navigates to canonical Finance with returnTo", () => {
     const modal = read(
       "components/stores/advertising/DeliveryAdOwnerInsufficientCashSubmitModal.tsx"
     );
     expect(modal).toContain("returnTo");
-    expect(modal).toContain("/stores/owner/business-cash");
-    expect(modal).toContain("#convert");
+    expect(modal).toContain("OwnerRoutes.finance");
+    expect(modal).toContain("#cash-manage");
+    expect(modal).not.toContain("/stores/owner/business-cash");
     expect(modal).not.toContain("onSubmitAnyway()");
   });
 
@@ -38,9 +39,10 @@ describe("Stage 2 Owner/Admin Delivery Ads product UX", () => {
     const sheet = read("components/business/owner/ads/OwnerDeliveryAdCashChargeSheet.tsx");
     expect(hub).not.toMatch(/gift-certificates/);
     expect(sheet).not.toMatch(/gift-certificates/);
-    expect(sheet).toContain("/stores/owner/business-cash");
-    expect(hub).toContain("/stores/owner/business-cash");
-    expect(hub).toContain("#ledger");
+    expect(sheet).toContain("OwnerRoutes.finance");
+    expect(hub).toContain("OwnerRoutes.finance");
+    expect(hub).toContain("#cash-history");
+    expect(hub).not.toContain("/stores/owner/business-cash");
   });
 
   it("detail panels include history for SUBMITTED+ / CHANGES_REQUESTED", () => {
@@ -58,19 +60,18 @@ describe("Stage 2 Owner/Admin Delivery Ads product UX", () => {
     expect(view).toContain('data-partner-reject="1"');
   });
 
-  it("Admin detail funding copy uses Business Cash AST-005 (no Store Cash ad pay)", () => {
+  it("Admin detail funding copy uses canonical Cash terminology", () => {
     const detail = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
     expect(detail).toContain("data-admin-ast005-authority");
     expect(detail).not.toContain("data-admin-store-cash-authority");
-    expect(detail).toMatch(/Business Cash \(AST-005\)/);
+    expect(detail).toContain("Ads payment = Cash");
+    expect(detail).not.toMatch(/Business Cash \(AST-005\)/);
   });
 
-  it("BC page honors returnTo + convert/ledger anchors", () => {
-    const page = read("app/(main)/stores/owner/business-cash/page.tsx");
-    const view = read("components/business/owner/OwnerBusinessCashView.tsx");
-    expect(page).toContain("returnTo");
-    expect(page).toContain("data-owner-bc-return-to");
-    expect(view).toContain('id="convert"');
-    expect(view).toContain('id="ledger"');
+  it("Owner Finance owns canonical Cash manage and history anchors", () => {
+    const view = read("components/business/owner/OwnerStoreFinanceView.tsx");
+    expect(view).toContain('currency="cash"');
+    expect(view).toContain('id="cash-manage"');
+    expect(view).toContain('id="cash-history"');
   });
 });

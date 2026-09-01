@@ -1,5 +1,5 @@
 /**
- * Community D-Point Level 1/2 shared normalization.
+ * Community Point Level 1/2 shared normalization.
  * CONTRACT: server authority. No AI. Deterministic.
  */
 

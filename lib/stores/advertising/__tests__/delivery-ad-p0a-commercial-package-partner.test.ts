@@ -332,7 +332,7 @@ describe("P0-A delivery ad commercial SSOT", () => {
     expect(sql).toContain("delivery_ad_placement_commercial");
   });
 
-  it("T15 — Trade/Feed/D-Point tables not used as Delivery authority", () => {
+  it("T15 — Trade/Feed/Point tables not used as Delivery authority", () => {
     const src = contractSrc() + catalogSrc() + adminSrc() + mig();
     expect(src).not.toMatch(/\bfeed_ad_products\b/);
     expect(src).not.toMatch(/\bpoint_promotion_orders\b/);

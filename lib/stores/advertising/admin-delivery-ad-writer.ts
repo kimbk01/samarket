@@ -235,8 +235,7 @@ export async function adminTransitionDeliveryAdCampaign(
   // CUT 3-B — after durable audit; fan-out failure must not imply campaign rollback
   await safeFanOutDeliveryAdLifecycleAudit(sb, auditId);
 
-  // Stage 1 — terminal REJECT → AST-005 BC refund exactly once (not on request_changes).
-  // Legacy Store Cash spends remain refundable for historical rows only.
+  // Terminal REJECT refunds canonical Cash exactly once (not on request_changes).
   if (input.action === "reject") {
     const productKind = input.productKind === "banner" ? "banner" : "store_sponsored";
     const { refundBusinessCashForRejectedDeliveryAd } = await import(
@@ -252,21 +251,6 @@ export async function adminTransitionDeliveryAdCampaign(
         "[adminTransitionDeliveryAdCampaign] business_cash_refund",
         bcRefund.error,
         bcRefund.detail ?? ""
-      );
-    }
-    const { refundStoreCashForRejectedDeliveryAd } = await import(
-      "@/lib/stores/advertising/delivery-ad-store-cash-writer"
-    );
-    const legacyRefund = await refundStoreCashForRejectedDeliveryAd(sb, {
-      adminUserId: input.adminUserId,
-      campaignId: input.campaignId,
-      productKind,
-    });
-    if (!legacyRefund.ok && legacyRefund.error !== "spend_not_found") {
-      console.error(
-        "[adminTransitionDeliveryAdCampaign] legacy_store_cash_refund",
-        legacyRefund.error,
-        legacyRefund.detail ?? ""
       );
     }
   }

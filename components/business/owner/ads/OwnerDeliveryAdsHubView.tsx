@@ -10,8 +10,9 @@ import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delive
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { CurrencyBalanceCard } from "@/components/currency";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { useOwnerAdminBottomSheetKeyboard } from "@/lib/business/use-owner-admin-bottom-sheet-keyboard";
-import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { ownerAdsHubCardPrimaryCta } from "@/lib/stores/advertising/owner-delivery-ad-r1-presentation";
 import { DELIVERY_AD_OWNER_HUB_KPI_BUCKETS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
 import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/delivery-ad-owner-ui-presentation";
@@ -267,62 +268,31 @@ export function OwnerDeliveryAdsHubView() {
 
       {loaded && !error ? (
         <>
-        <div
-          className="rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
-          data-owner-ads-business-cash="card"
-          data-owner-ads-cash-wallet="ad-only"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-semibold text-sam-fg">
-                {t("owner_ads_business_cash_label")}
-              </p>
-              <p className="mt-1 text-[22px] font-bold tabular-nums text-sam-fg">
-                {cashBalanceMinor != null ? formatDeliveryAdPhpMinor(cashBalanceMinor) : "—"}
-              </p>
-              <p className="mt-1 text-[12px] text-sam-muted">{t("owner_ads_business_cash_ad_only")}</p>
-              {cashBalanceMinor != null && cashBalanceMinor <= 0 ? (
-                <p className="mt-1 text-[12px] font-medium text-red-600" data-owner-ads-cash-empty="1">
-                  {safeT("owner_ads_cash_status_empty", {
-                    fallbackKo: "잔액 없음",
-                    fallbackEn: "No balance",
-                  })}
-                </p>
-              ) : cashBalanceMinor != null && cashBalanceMinor > 0 ? (
-                <p className="mt-1 text-[12px] font-medium text-[#0A823E]" data-owner-ads-cash-ready="1">
-                  {safeT("owner_ads_cash_status_ready", {
-                    fallbackKo: "사용 가능",
-                    fallbackEn: "Available",
-                  })}
-                </p>
-              ) : null}
-              <p className="mt-1 text-[11px] leading-snug text-sam-muted">
-                {t("owner_ads_business_cash_vs_credit")}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-col gap-2">
-              <Link
-                href={`/stores/owner/business-cash?storeId=${encodeURIComponent(stores[0]?.id || "")}`}
-                className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect bg-[#0A823E] px-3 text-[12px] font-semibold text-white"
-                data-owner-ads-cash-charge="1"
-              >
-                {safeT("owner_ads_cash_charge_cta", {
-                  fallbackKo: "Business Cash 관리",
-                  fallbackEn: "Manage Business Cash",
+        <div data-owner-ads-cash-consumer="1">
+          <CurrencyBalanceCard
+            currency="cash"
+            amount={cashBalanceMinor ?? 0}
+            isMinor
+            actions={[
+              {
+                id: "top_up",
+                href: `${OwnerRoutes.finance(stores[0]?.id || "")}#cash-manage`,
+                primary: true,
+              },
+              {
+                id: "history",
+                href: `${OwnerRoutes.finance(stores[0]?.id || "")}#cash-history`,
+              },
+            ]}
+            footer={
+              <p className="text-[12px] text-sam-muted">
+                {safeT("owner_ads_business_cash_ad_only", {
+                  fallbackKo: "광고·프로모션·배너·파트너 결제에 Cash를 사용합니다.",
+                  fallbackEn: "Cash pays for ads, promotions, banners, and partner products.",
                 })}
-              </Link>
-              <Link
-                href={`/stores/owner/business-cash?storeId=${encodeURIComponent(stores[0]?.id || "")}#ledger`}
-                className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg"
-                data-owner-ads-cash-history="1"
-              >
-                {safeT("owner_ads_cash_history", {
-                  fallbackKo: "이용 내역",
-                  fallbackEn: "History",
-                })}
-              </Link>
-            </div>
-          </div>
+              </p>
+            }
+          />
         </div>
 
         {todoCampaigns.length > 0 ? (

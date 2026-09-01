@@ -3,14 +3,11 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
-import { buildStorePointAccountInquiryCopy } from "@/lib/stores/store-point-account-inquiry-defaults";
-import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage } from "@/lib/i18n/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const INQUIRY_TYPES = new Set(["general", "store_ops", "store_point", "settlement", "ad"]);
-const INQUIRY_KINDS = new Set(["general", "account_request", "charge_followup"]);
+const INQUIRY_TYPES = new Set(["general", "store_ops", "settlement", "ad"]);
 
 type PostBody = {
   inquiry_type?: string;
@@ -50,17 +47,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const rawKind = String(body.inquiry_kind ?? "general").trim();
-  const inquiry_kind = INQUIRY_KINDS.has(rawKind) ? rawKind : "general";
-
   const rawType = String(body.inquiry_type ?? "store_ops").trim();
-  let inquiry_type = INQUIRY_TYPES.has(rawType) ? rawType : "store_ops";
-  if (inquiry_kind === "account_request") {
-    inquiry_type = "store_point";
-  }
+  const inquiry_type = INQUIRY_TYPES.has(rawType) ? rawType : "store_ops";
 
-  let subject = String(body.subject ?? "").trim();
-  let content = String(body.content ?? "").trim();
+  const subject = String(body.subject ?? "").trim();
+  const content = String(body.content ?? "").trim();
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -72,37 +63,7 @@ export async function POST(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  if (inquiry_kind === "account_request") {
-    const { data: profile } = await sb
-      .from("profiles")
-      .select("preferred_language")
-      .eq("id", userId)
-      .maybeSingle();
-    const language = normalizeAppLanguage(
-      (profile as { preferred_language?: unknown } | null)?.preferred_language
-    );
-    const copy = buildStorePointAccountInquiryCopy(language ?? DEFAULT_APP_LANGUAGE);
-    subject = copy.subject;
-    content = copy.content;
-
-    const { data: existingOpen, error: openErr } = await sb
-      .from("platform_admin_inquiries")
-      .select("id")
-      .eq("store_id", sid)
-      .eq("inquiry_type", "store_point")
-      .eq("inquiry_kind", "account_request")
-      .eq("status", "open")
-      .limit(1)
-      .maybeSingle();
-
-    if (openErr && !isMissingInquiryKindColumn(openErr.message ?? "")) {
-      if (/platform_admin_inquiries/i.test(openErr.message) && /does not exist/i.test(openErr.message)) {
-        return NextResponse.json({ ok: false, error: "platform_inquiries_table_missing" }, { status: 503 });
-      }
-    } else if (existingOpen?.id) {
-      return NextResponse.json({ ok: false, error: "account_inquiry_already_open" }, { status: 409 });
-    }
-  } else if (!subject || !content) {
+  if (!subject || !content) {
     return NextResponse.json({ ok: false, error: "subject_and_content_required" }, { status: 400 });
   }
 
@@ -120,10 +81,6 @@ export async function POST(
     status: "open",
     related_charge_request_id: body.related_charge_request_id?.trim() || null,
   };
-  if (inquiry_kind !== "general") {
-    insertPayload.inquiry_kind = inquiry_kind;
-  }
-
   let { data, error } = await sb
     .from("platform_admin_inquiries")
     .insert(insertPayload)

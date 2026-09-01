@@ -8,7 +8,7 @@ export const DELIVERY_AD_PRODUCT_RECOVERY = {
   id: "stage1_store_finance_authority" as const,
   productClosedBaseline: false as const,
   midDeploys: ["55ac2e0d7", "89829c378", "80301671f", "2d90e3278"] as const,
-  /** Stage 1 — Ads spend = Store Cash. Legacy Business Cash = MIGRATE. */
+  /** Archived Stage 1 finance values retained for migration-history compatibility only. */
   canonicalAdsDebitSource: "STORE_CASH" as const,
   cashAcquisition: "GIFT_REVENUE_CONVERSION_TO_STORE_CASH" as const,
   creditAdsSpend: false as const,

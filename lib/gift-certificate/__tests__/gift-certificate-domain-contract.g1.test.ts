@@ -254,7 +254,7 @@ describe("G1 Paid Gift domain contract", () => {
   });
 
   // T13
-  it("T13 Checkout D-Point remains false", () => {
+  it("T13 Checkout Point remains false", () => {
     expect(STORE_ORDER_FINANCIAL_CONTRACT.customerDPointSupported).toBe(false);
     expect(giftContractKeepsCheckoutDpointFalse()).toBe(true);
     expect(GIFT_PURCHASE_PAYMENT_RAIL).toBe("d_point");

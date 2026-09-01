@@ -248,8 +248,8 @@ export function MyProductsView({
       fallbackEn: "View all listings",
     });
     const clearPromoLabel = safeT("marketplace_seller_cta_clear_promoted_only", {
-      fallbackKo: "D-Point 홍보 해제",
-      fallbackEn: "Clear D-Point filter",
+      fallbackKo: "포인트 홍보 해제",
+      fallbackEn: "Clear Point filter",
     });
 
     if (filter === "all" && !promotedOnly) {

@@ -7,7 +7,7 @@ import type { FeedAdCampaignView, FeedAdPlacement } from "@/lib/ads/feed-ad-plac
 import { feedAdPlacementHumanLabel } from "@/lib/ads/feed-ad-placement";
 
 /**
- * Admin Feed Advertisement list — Campaign authority (no D-Point/Business Credit debit).
+ * Admin Feed Advertisement list — campaign authority without currency debits.
  */
 export function AdminFeedAdsListPage() {
   const { t, safeT, language } = useI18n();
@@ -58,9 +58,9 @@ export function AdminFeedAdsListPage() {
       <p className="sam-text-body-secondary text-sam-muted">
         {safeT("admin_feed_ads_hint", {
           fallbackKo:
-            "Trade / Community 피드 배너 캠페인입니다. 회원 D-Point·매장 Business Credit을 차감하지 않습니다.",
+            "Trade / Community 피드 배너 캠페인입니다. 회원 Point·매장 Coin·Cash를 차감하지 않습니다.",
           fallbackEn:
-            "Trade/Community feed banner campaigns. Does not debit member D-Point or store Business Credit.",
+            "Trade/Community feed banner campaigns. Does not debit member Point, store Coin, or Cash.",
         })}
       </p>
       {loading ? (

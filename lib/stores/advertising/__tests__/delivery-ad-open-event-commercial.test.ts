@@ -66,7 +66,7 @@ describe("Delivery ads open-event commercial CUT", () => {
     );
   });
 
-  it("Owner banner single-page + Business Cash numeric confirm", () => {
+  it("Owner banner single-page + canonical Cash numeric confirm", () => {
     const banner = read("components/business/owner/ads/OwnerBannerCreateView.tsx");
     expect(banner).toContain('data-owner-ads-wizard="single-page"');
     expect(banner).toContain("cashBreakdown");
@@ -74,7 +74,7 @@ describe("Delivery ads open-event commercial CUT", () => {
     const confirm = read("components/stores/advertising/DeliveryAdOwnerApplicationConfirm.tsx");
     expect(confirm).toContain('data-owner-ads-confirm-cash="numeric"');
     const hub = read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
-    expect(hub).toContain('data-owner-ads-business-cash="card"');
+    expect(hub).toContain('data-owner-ads-cash-consumer="1"');
   });
 
   it("Owner upload route exists and Admin nav separates primary create", () => {

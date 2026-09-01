@@ -5,7 +5,6 @@ import {
   CHARGE_SALE_FEE_FOR_ORDER_RPC,
   SETTLE_SALE_FEE_OBLIGATIONS_RPC,
 } from "@/lib/currency/sale-fee-writer";
-import { isAst002AcceptFeeRetired } from "@/lib/currency/currency-cutover-flags";
 
 const CUT_D_MIG = readFileSync(
   join(process.cwd(), "supabase/migrations/20261202120000_currency_cut_d_sale_fee_obligation.sql"),
@@ -41,24 +40,21 @@ describe("CUT D — sale fee + obligation migration", () => {
   });
 });
 
-describe("CUT E — AST-002 retire gate", () => {
+describe("three-currency order boundary", () => {
   const SRC = readFileSync(
     join(process.cwd(), "lib/stores/apply-store-order-status-transition.ts"),
     "utf8"
   );
 
-  it("gates chargeStorePointsOnOrderAccept behind isAst002AcceptFeeRetired", () => {
-    expect(SRC).toContain("isAst002AcceptFeeRetired");
-    expect(SRC).toContain("chargeStorePointsOnOrderAccept");
+  it("does not debit a historical store-credit product on accept", () => {
+    expect(SRC).not.toContain("chargeStorePointsOnOrderAccept");
+    expect(SRC).not.toContain("charge_store_points_on_order_accept");
   });
 
   it("calls reverseSaleFeeForOrder on refunded path", () => {
     expect(SRC).toContain("reverseSaleFeeForOrder");
   });
 
-  it("exports cutover flag helper", () => {
-    expect(typeof isAst002AcceptFeeRetired()).toBe("boolean");
-  });
 });
 
 const CUT_G_MIG = readFileSync(

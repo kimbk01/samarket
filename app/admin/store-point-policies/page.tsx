@@ -1,5 +1,5 @@
-import { AdminStorePointPoliciesPage } from "@/components/admin/store-points/AdminStorePointPoliciesPage";
+import { redirect } from "next/navigation";
 
 export default function AdminStorePointPoliciesRoute() {
-  return <AdminStorePointPoliciesPage />;
+  redirect("/admin/store-point-ledger");
 }

@@ -788,8 +788,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "Owner Business Cash 잔액",
-                      fallbackEn: "Owner Business Cash balance",
+                      fallbackKo: "Owner Cash 잔액",
+                      fallbackEn: "Owner Cash balance",
                     })}
                     :{" "}
                     {ownerCashBalanceMinor == null
@@ -808,16 +808,16 @@ export function AdminDeliveryAdDetailWorkspace({
                   >
                     <p className="text-[12px] font-semibold text-sam-fg">
                       {safeT("admin_delivery_ads_cash_credit_title", {
-                        fallbackKo: "광고 결제 = Business Cash (AST-005)",
-                        fallbackEn: "Ads payment = Business Cash (AST-005)",
+                        fallbackKo: "광고 결제 = Cash",
+                        fallbackEn: "Ads payment = Cash",
                       })}
                     </p>
                     <p className="mt-1 text-[11px] text-sam-muted">
                       {safeT("admin_delivery_ads_cash_credit_note", {
                         fallbackKo:
-                          "광고비는 신청 시 Business Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
+                          "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
                         fallbackEn:
-                          "Ad fees are secured from Business Cash at submit. Admins cannot edit the amount.",
+                          "Ad fees are secured from Cash at submit. Admins cannot edit the amount.",
                       })}
                     </p>
                   </div>

@@ -1,4 +1,4 @@
-# DIBAY Community D-Point Financial HARD LOCK
+# DIBAY Community Point Financial HARD LOCK
 
 **Status:** PRODUCT OPEN until Slice 8 runtime gate  
 **Locked at:** 2026-08-11  
@@ -6,6 +6,8 @@
 **Gate:** `npm run verify:community-dpoint-financial-hard-lock`
 
 포인트는 금전성 자산이다. UI debounce · client validation · `Math.random` · fire-and-forget credit · reclaim skip은 금융 방어가 아니다.
+
+Canonical terminology is **Point / 포인트**. “D-Point” and Business Credit are historical names only and must never appear as a product, writer authority, CTA, navigation item, notification term, or balance surface.
 
 ---
 
@@ -49,7 +51,7 @@ CONTENT → VALIDATION → ELIGIBILITY → POLICY RESOLUTION
 | Admin history | same `point_ledger` row (+ execution snapshot join) | executions as a second truth |
 | Comment report writer | **HOLD** | new comment-report authority |
 | Community report → sanction | **HOLD** | sanction writer from this work |
-| Business Credit | untouched | mixing store/business ledger |
+| Retired Business Credit archive | untouched | any product exposure or mixing with Point |
 
 ---
 
@@ -167,12 +169,12 @@ Comment `report_confirmed` policy **row may exist**. Comment report **writer sta
 
 ## 8. DO NOT (without reopen)
 
-- `Math.random` for awarded D-Point
+- `Math.random` for awarded Point
 - void/fire-and-forget as the credit writer
 - SELECT-before-INSERT as the only idempotency
 - 0-clamp to hide reversal debt
 - Community-only balance table
-- Business Credit
+- Retired Business Credit product exposure or writer
 - New answer entity
 - New comment-report or sanction writers
 - Probability-bucket random as product

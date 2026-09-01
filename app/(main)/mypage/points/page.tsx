@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { PointBalanceCard } from "@/components/points/PointBalanceCard";
+import { CurrencyAmount } from "@/components/currency";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
 import {
   PointFinancialDetailSheet,
@@ -187,8 +188,8 @@ function MypagePointsPageInner() {
           {loadError ? (
             <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
               {safeT("common_content_unavailable", {
-                fallbackKo: "D-Point 정보를 불러오지 못했습니다.",
-                fallbackEn: "Could not load D-Point information.",
+                fallbackKo: "포인트 정보를 불러오지 못했습니다.",
+                fallbackEn: "Could not load Point information.",
               })}
             </div>
           ) : null}
@@ -229,17 +230,25 @@ function MypagePointsPageInner() {
                 <p className="sam-text-helper text-sam-muted">
                   {safeT("point_fin_sum_credit", { fallbackKo: "총 충전/지급", fallbackEn: "Total in" })}
                 </p>
-                <p className="sam-text-body font-semibold text-emerald-700">
-                  +{summary.totalCredit.toLocaleString()}P
-                </p>
+                <CurrencyAmount
+                  currency="point"
+                  amount={summary.totalCredit}
+                  compactPoint
+                  signed
+                  className="sam-text-body"
+                />
               </div>
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
                 <p className="sam-text-helper text-sam-muted">
                   {safeT("point_fin_sum_debit", { fallbackKo: "총 사용/차감", fallbackEn: "Total out" })}
                 </p>
-                <p className="sam-text-body font-semibold text-red-600">
-                  -{summary.totalDebit.toLocaleString()}P
-                </p>
+                <CurrencyAmount
+                  currency="point"
+                  amount={-summary.totalDebit}
+                  compactPoint
+                  signed
+                  className="sam-text-body"
+                />
               </div>
             </div>
           ) : null}
@@ -265,9 +274,9 @@ function MypagePointsPageInner() {
               </div>
               <p className="mb-3 sam-text-helper text-sam-muted">
                 {safeT("point_fin_charges_hint", {
-                  fallbackKo: "입금 신청 상태입니다. 실제 D-Point 지급은 승인 후 내역에 표시됩니다.",
+                  fallbackKo: "입금 신청 상태입니다. 실제 포인트 지급은 승인 후 내역에 표시됩니다.",
                   fallbackEn:
-                    "These are deposit requests. D-Point credits appear in history after approval.",
+                    "These are deposit requests. Point credits appear in history after approval.",
                 })}
               </p>
               <PointChargeRequestList

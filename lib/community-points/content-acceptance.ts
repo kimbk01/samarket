@@ -1,6 +1,6 @@
 /**
  * Level 1 — CONTENT ACCEPTANCE.
- * BLOCK register. Does not decide D-Point.
+ * BLOCK register. Does not decide Point.
  */
 import {
   normalizeCommunityText,

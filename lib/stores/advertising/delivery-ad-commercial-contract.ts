@@ -1,7 +1,7 @@
 /**
  * P0-A — Delivery Ads commercial package / Partner SSOT (server authority).
  * Launch pricing = FIXED DURATION PACKAGE (PRODUCT × PLACEMENT × PACKAGE).
- * No charge collection. No D-Point. No organic ranking effects.
+ * No charge collection. No Point. No organic ranking effects.
  */
 
 import { assertDeliveryAdMoneyMinor } from "@/lib/stores/advertising/delivery-ad-billing-contract";
@@ -109,7 +109,7 @@ export const DELIVERY_AD_PARTNER_DISCOUNT_ELIGIBLE_STATUSES = [
 
 export const DELIVERY_AD_PARTNER_PERIOD_DAYS_DEFAULT = 30 as const;
 
-/** Partner monthly fee — AST-005 Business Cash secure before PENDING_REVIEW. */
+/** Partner monthly fee — canonical Cash secure before PENDING_REVIEW. */
 export const DELIVERY_AD_PARTNER_PAYMENT = {
   status: "BUSINESS_CASH_SECURE_REQUIRED",
   businessCashCharge: true,

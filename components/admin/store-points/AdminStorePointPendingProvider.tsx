@@ -285,8 +285,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           : "";
       const label = [
         safeT("admin_store_point_charge_toast_title", {
-          fallbackKo: "매장 포인트 입금 신청",
-          fallbackEn: "Store point deposit request",
+          fallbackKo: "과거 매장 운영 입금 기록",
+          fallbackEn: "Historical store operations deposit",
         }),
         amount || null,
       ]

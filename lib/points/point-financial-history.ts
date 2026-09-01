@@ -1,7 +1,7 @@
 /**
- * D-Point Financial History Projection SSOT.
+ * Point Financial History Projection SSOT.
  * CONTRACT: UI reads projected facts from point_ledger (+ joins). DO NOT invent writers.
- * DO NOT mix Business Credit (AST-002). DO NOT mutate purchase_member_content_promotion.
+ * DO NOT mix archived store-credit schema (AST-002). DO NOT mutate purchase_member_content_promotion.
  */
 import type {
   PointLedgerActorType,
@@ -160,8 +160,8 @@ export function pointFinancialCategoryTitle(category: PointFinancialCategory): {
     case "CHARGE":
       return {
         titleKey: "point_fin_cat_charge",
-        fallbackTitleKo: "D-Point 충전",
-        fallbackTitleEn: "D-Point top-up",
+        fallbackTitleKo: "포인트 충전",
+        fallbackTitleEn: "Point top-up",
       };
     case "PROMOTION":
       return {

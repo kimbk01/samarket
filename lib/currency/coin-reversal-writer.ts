@@ -1,6 +1,6 @@
 /**
  * Coin reversal writers — CUT B integrity (refund/cancel only).
- * DO NOT write Business Credit, Gift Store Cash, or delivery_ad_accounts.
+ * DO NOT write archived store-credit/store-cash schemas or delivery_ad_accounts.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 

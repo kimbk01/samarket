@@ -36,7 +36,7 @@ export function resolveMemberCareInquiryHref(threadId: string): string {
   return buildMemberAdminNoteRoute(threadId, "member");
 }
 
-/** Owner platform inquiry answer lands on store points (account / deposit surface). */
+/** Owner platform inquiry answer lands on the historical operations record surface. */
 export function resolveOwnerPlatformInquiryHref(
   storeId: string,
   inquiryId: string

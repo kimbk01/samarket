@@ -148,7 +148,7 @@ describe("R4 Partner membership", () => {
     }
   });
 
-  it("R4-P9 — Partner PAYMENT requires AST-005 Business Cash secure", () => {
+  it("R4-P9 — Partner PAYMENT requires canonical Cash secure", () => {
     expect(DELIVERY_AD_PARTNER_PAYMENT.status).toBe("BUSINESS_CASH_SECURE_REQUIRED");
     expect(DELIVERY_AD_PARTNER_PAYMENT.businessCashCharge).toBe(true);
     expect(partnerWriter()).toContain('payment: "BUSINESS_CASH_SECURED"');

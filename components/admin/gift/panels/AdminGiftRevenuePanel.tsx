@@ -238,7 +238,7 @@ export function AdminGiftRevenuePanel({ storeId }: { storeId: string }) {
                 <th className="px-2 py-2">Recognized Net</th>
                 <th className="px-2 py-2">Available</th>
                 <th className="px-2 py-2">Cash-out</th>
-                <th className="px-2 py-2">Store Cash</th>
+                <th className="px-2 py-2">Historical converted amount</th>
                 <th className="px-2 py-2">Recovery</th>
                 <th className="px-2 py-2" />
               </tr>

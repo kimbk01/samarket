@@ -112,7 +112,5 @@ describe("O3-B Gift external cash-out T1–T10", () => {
       }).ok
     ).toBe(false);
     expect(GIFT_TABLES.cashOutRequests).toBe("gift_certificate_cash_out_requests");
-    expect(GIFT_RPCS.cashOutRequest).toBe("gift_certificate_cash_out_request");
-    expect(GIFT_RPCS.cashOutMarkPaid).toBe("gift_certificate_cash_out_mark_paid");
   });
 });

@@ -57,13 +57,13 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
     expect(studio).toContain("이미지 삭제");
   });
 
-  it("Admin campaign funding exposes AST-005 Business Cash authority (not Store Cash / fake top-up)", () => {
+  it("Admin campaign funding exposes canonical Cash authority without legacy wallet copy", () => {
     const detail = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
     expect(detail).toContain("data-admin-business-cash-credit");
     expect(detail).toContain("data-admin-ast005-authority");
-    expect(detail).toContain("Business Cash (AST-005)");
+    expect(detail).toContain("Ads payment = Cash");
     expect(detail).not.toContain("data-admin-store-cash-authority");
-    expect(detail).not.toContain("Business Cash 지급");
+    expect(detail).not.toContain("Business Cash (AST-005)");
     expect(detail).not.toMatch(/가짜 충전|\[충전\]/);
   });
 

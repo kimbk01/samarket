@@ -147,10 +147,10 @@ describe("owner admin scroll shell contract", () => {
     expect(src).toContain('data-owner-scroll-host="orders-list"');
   });
 
-  it("points page pads for owner bottom nav", () => {
+  it("legacy points page redirects to canonical Owner finance", () => {
     const src = readRepo("app/(main)/stores/owner/points/page.tsx");
-    expect(src).toContain("OwnerAdminPageScrollShell");
-    expect(src).not.toMatch(/padForOwnerBottomNav=\{false\}/);
+    expect(src).toContain("redirect(OwnerRoutes.finance(storeId))");
+    expect(src).not.toContain("OwnerStorePointsView");
   });
 
   it("owner form keyboard SSOT reuses Form viewport (no parallel authority)", () => {

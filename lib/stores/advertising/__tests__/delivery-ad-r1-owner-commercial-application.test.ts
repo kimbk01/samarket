@@ -187,8 +187,9 @@ describe("R1 Owner Commercial Application Recovery", () => {
     expect(createSp()).not.toMatch(/>STORES_HOME_FEED</);
   });
 
-  it("R1-T25 existing Business Cash authority preserved", () => {
-    expect(hub()).toContain('data-owner-ads-business-cash="card"');
+  it("R1-T25 canonical Cash remains a Finance-owned ads consumer", () => {
+    expect(hub()).toContain('data-owner-ads-cash-consumer="1"');
+    expect(hub()).toContain("OwnerRoutes.finance");
     expect(detail()).toContain("/api/me/delivery-ads/");
     expect(detail()).toContain("/funding");
   });

@@ -36,7 +36,7 @@ const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
   ops_review: ClipboardCheck,
   public_store: ExternalLink,
   settlements: Wallet,
-  store_points: Wallet,
+  finance: Wallet,
   ads: Sparkles,
   coupons: TicketPercent,
   gift_certificates: Gift,

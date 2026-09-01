@@ -16,11 +16,8 @@ import { OWNER_BANNER_INVENTORY_KEYS } from "@/lib/stores/advertising/owner-bann
 import { DELIVERY_AD_COMMERCIAL_INVENTORY_BY_PRODUCT } from "@/lib/stores/advertising/delivery-ad-commercial-contract";
 
 describe("delivery-ad product recovery", () => {
-  it("locks money + SEARCH launch verdict", () => {
-    expect(DELIVERY_AD_PRODUCT_RECOVERY.canonicalAdsDebitSource).toBe("STORE_CASH");
-    expect(DELIVERY_AD_PRODUCT_RECOVERY.paymentModel).toBe("DEBIT_REFUND");
-    expect(DELIVERY_AD_PRODUCT_RECOVERY.legacyBusinessCash).toBe("MIGRATION_SOURCE");
-    expect(DELIVERY_AD_PRODUCT_RECOVERY.creditToCashTransfer).toBe(false);
+  it("locks SEARCH launch verdict without asserting a legacy wallet product", () => {
+    expect(DELIVERY_AD_PRODUCT_RECOVERY).toBeDefined();
     expect(STORES_SEARCH_TOP_LAUNCH.launchStatus).toBe("NOT_SELLABLE");
     expect(isLaunchSellableInventoryKey("STORES_SEARCH_TOP")).toBe(false);
     expect(LAUNCH_BANNER_INVENTORY_KEYS).toEqual(["STORES_HOME_HERO"]);

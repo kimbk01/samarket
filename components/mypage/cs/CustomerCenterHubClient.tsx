@@ -120,8 +120,8 @@ export function CustomerCenterHubClient() {
     {
       href: customerCenterChildHref("/mypage/points"),
       titleKey: "mypage_comp_stat_points",
-      titleKo: "D-Point",
-      titleEn: "D-Point",
+      titleKo: "포인트",
+      titleEn: "Point",
       icon: <Coins className="h-5 w-5" aria-hidden />,
       accessory: pointsAccessory,
     },

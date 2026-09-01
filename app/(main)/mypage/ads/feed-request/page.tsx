@@ -543,9 +543,9 @@ export default function MemberFeedAdRequestPage() {
         })}
         subtitle={safeT("feed_ad_req_subtitle", {
           fallbackKo:
-            "신청 시 D-Point가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 D-Point가 반환됩니다.",
+            "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
           fallbackEn:
-            "D-Point is held on submit and captured on approval. Rejected requests return D-Point.",
+            "Point is held on submit and captured on approval. Rejected requests return Point.",
         })}
         backHref="/mypage/ads"
         hideCtaStrip
@@ -966,14 +966,14 @@ export default function MemberFeedAdRequestPage() {
         <section className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold">
             {safeT("feed_ad_req_product", {
-              fallbackKo: "5. 기간 / D-Point",
-              fallbackEn: "5. Period / D-Point",
+              fallbackKo: "5. 기간 / 포인트",
+              fallbackEn: "5. Period / Point",
             })}
           </h2>
           <p className="sam-text-body font-medium" data-testid="feed-ad-balance">
             {safeT("feed_ad_req_my_points", {
-              fallbackKo: "내 D-Point",
-              fallbackEn: "My D-Point",
+              fallbackKo: "내 포인트",
+              fallbackEn: "My Point",
             })}
             {": "}
             {balance == null ? "—" : `${balance.toLocaleString()}P`}
@@ -1039,8 +1039,8 @@ export default function MemberFeedAdRequestPage() {
             <div className="space-y-2 rounded-ui-rect border border-sam-border-soft p-3">
               <p className="sam-text-helper text-sam-muted">
                 {safeT("feed_ad_req_need_charge", {
-                  fallbackKo: "D-Point가 부족합니다.",
-                  fallbackEn: "Not enough D-Point.",
+                  fallbackKo: "포인트가 부족합니다.",
+                  fallbackEn: "Not enough Point.",
                 })}
               </p>
               <Link
@@ -1049,8 +1049,8 @@ export default function MemberFeedAdRequestPage() {
                 data-testid="feed-ad-charge-cta"
               >
                 {safeT("feed_ad_req_charge_cta", {
-                  fallbackKo: "D-Point 충전",
-                  fallbackEn: "Charge D-Point",
+                  fallbackKo: "포인트 충전",
+                  fallbackEn: "Charge Point",
                 })}
               </Link>
               <Link
@@ -1144,13 +1144,13 @@ export default function MemberFeedAdRequestPage() {
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Use D-Point" : "사용 D-Point"}</dt>
+              <dt className="text-sam-muted">{en ? "Use Point" : "사용 포인트"}</dt>
               <dd className="font-medium">
                 {selected ? `${selected.pointCost.toLocaleString()}P` : "—"}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">{en ? "Current D-Point" : "현재 D-Point"}</dt>
+              <dt className="text-sam-muted">{en ? "Current Point" : "현재 포인트"}</dt>
               <dd className="font-medium">
                 {balance == null ? "—" : `${balance.toLocaleString()}P`}
               </dd>
@@ -1169,9 +1169,9 @@ export default function MemberFeedAdRequestPage() {
           <p className="sam-text-helper text-sam-muted">
             {safeT("feed_ad_req_hold_note", {
               fallbackKo:
-                "신청 시 D-Point가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 D-Point가 반환됩니다.",
+                "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
               fallbackEn:
-                "D-Point is held on submit, captured on approval, and returned if rejected.",
+                "Point is held on submit, captured on approval, and returned if rejected.",
             })}
           </p>
         </section>

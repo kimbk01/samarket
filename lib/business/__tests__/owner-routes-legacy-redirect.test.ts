@@ -25,4 +25,9 @@ describe("legacy owner path mapping", () => {
       "/stores/owner/products/p1/edit?storeId=s1"
     );
   });
+
+  it("uses Finance as the canonical Owner Coin and Cash route", () => {
+    expect(OwnerRoutes.finance("s1")).toBe("/stores/owner/finance?storeId=s1");
+    expect(OwnerRoutes.points("s1")).toBe(OwnerRoutes.finance("s1"));
+  });
 });

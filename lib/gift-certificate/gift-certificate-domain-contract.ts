@@ -2,15 +2,15 @@
  * PAID GIFT CERTIFICATE — G1 Domain Contract (DESIGN_LOCKED from G0).
  *
  * CODE CHANGE SCOPE (G1): types · constants · pure validators · pure calculators.
- * FORBIDDEN in G1: migrations · tables · RPC · API · UI · Messenger · Checkout prod · Store Cash DB.
+ * FORBIDDEN in G1: migrations · tables · RPC · API · UI · Messenger · Checkout prod · archived store-cash DB.
  *
  * HARD BOUNDARIES:
  * - Free Coupon = discount entitlement (store-coupon-ssot) — never merge.
  * - Paid Gift = scope-aware stored-value payment asset (STORE | PLATFORM).
- * - Member D-Point = Gift Mall purchase rail only (not delivery checkout).
- * - Business Credit (stores.point_balance) ≠ Gift Revenue ≠ Store Cash.
+ * - Member Point = Gift Mall purchase rail only (not delivery checkout).
+ * - Archived store-credit schema (`stores.point_balance`) is not Gift Revenue.
  * - store_settlements = order accounting ≠ Gift Revenue.
- * - Store Cash = future separate ledger (logical contract only here).
+ * - `STORE_CASH_*` names below preserve archived schema compatibility only; they do not define a product.
  */
 
 import { STORE_ORDER_FINANCIAL_CONTRACT } from "@/lib/stores/store-order-financial-contract";
@@ -175,7 +175,7 @@ export const GIFT_PURCHASE_PAYMENT_RAIL = "d_point" as const;
 export const GIFT_DIRECT_GCASH_BANK_PURCHASE_DISABLED = true as const;
 export const GIFT_POINT_P2P_DISABLED = true as const;
 
-/** Delivery checkout must not gain D-Point because of Gift. */
+/** Delivery checkout must not gain Point because of Gift. */
 export const GIFT_DELIVERY_CHECKOUT_DPOINT_REMAINS =
   STORE_ORDER_FINANCIAL_CONTRACT.customerDPointSupported === false;
 
@@ -187,7 +187,7 @@ export const GIFT_PLATFORM_FEE_RECOGNITION = "order_completion" as const;
 export const GIFT_REDEEM_TIME_OWNER_AVAILABLE_FORBIDDEN = true as const;
 export const GIFT_SALE_TIME_OWNER_REVENUE_FORBIDDEN = true as const;
 
-/** Foreign authorities Gift must never treat as Gift Revenue / Store Cash. */
+/** Gift must never treat foreign or archived balance authorities as Gift Revenue. */
 export const GIFT_FORBIDDEN_BALANCE_AUTHORITIES = [
   "stores.point_balance",
   "store_settlements",
@@ -444,7 +444,7 @@ export type GiftRevenueStatus = (typeof GIFT_REVENUE_STATUSES)[number];
 
 export const GIFT_REVENUE_STATUS_IS_LEDGER_PROJECTION = true as const;
 
-// ─── Store Cash (logical only — no DB in G1) ────────────────────────────────
+// ─── Archived store-cash schema identifiers (compatibility only) ────────────
 
 export const STORE_CASH_LEDGER_SOURCE_TYPES = [
   "GIFT_REVENUE_CONVERSION",

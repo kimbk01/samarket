@@ -2,7 +2,7 @@
  * CONTRACT (Phase 4 Slice 3 — Member Rates SSOT):
  * - SSOT = point_plans
  * - rate_version bumps only when payment/point/bonus/currency change
- * - DO NOT mutate Store Point rates here
+ * - DO NOT mutate archived store operations rates here
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppLanguageCode } from "@/lib/i18n/config";

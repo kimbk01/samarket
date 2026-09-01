@@ -1,5 +1,5 @@
 /**
- * Feed banner D-Point product SSOT — DB AUTHORITY (`feed_ad_products`).
+ * Feed banner Point product SSOT — DB AUTHORITY (`feed_ad_products`).
  *
  * Runtime Member catalog / create HOLD / renewal MUST read via Supabase
  * `feed_ad_products`. Admin PATCH is the sole price/period writer.

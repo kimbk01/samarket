@@ -13,8 +13,8 @@ export type CurrencyDisplayLabels = {
 
 export const CURRENCY_DISPLAY_LABELS: Record<CurrencyVisualVariant, CurrencyDisplayLabels> = {
   point: { en: "Point", ko: "포인트" },
-  coin: { en: "Coin", ko: "매장 포인트" },
-  cash: { en: "Cash", ko: "비즈니스 캐시" },
+  coin: { en: "Coin", ko: "Coin" },
+  cash: { en: "Cash", ko: "캐시" },
 };
 
 export const CURRENCY_DISPLAY_DESCRIPTIONS: Record<CurrencyVisualVariant, CurrencyDisplayLabels> = {

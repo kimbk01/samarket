@@ -48,8 +48,8 @@ export type ListDeliveryAdAdminActionQueueResult =
 
 /**
  * Admin funded-review intake gate — same funding authority as customer go-live.
- * First-party: always allowed. Owner-paid: FUNDED only (canonical BC SECURED → FUNDED,
- * or legacy Store Cash FUNDED for history).
+ * First-party: always allowed. Owner-paid: FUNDED only (canonical Cash SECURED → FUNDED,
+ * or a migrated historical funding record).
  */
 export function deliveryAdAdminQueueFundingAllowsIntake(input: {
   campaignSource: string | null | undefined;

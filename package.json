@@ -126,6 +126,7 @@
     "verify:gift-certificate-hard-lock": "node scripts/verify-gift-certificate-hard-lock.mjs",
     "verify:currency-ssot-hard-lock": "node scripts/verify-currency-ssot-hard-lock.mjs",
     "verify:currency-visual-ssot-contract": "node scripts/verify-currency-visual-ssot-contract.mjs",
+    "verify:three-currency-product": "node scripts/verify-three-currency-product.mjs",
     "verify:phone-otp-contract": "node scripts/verify-phone-otp-contract.mjs",
     "verify:owner-products-perf": "node scripts/verify-owner-products-perf.mjs",
     "verify:store-cart-sheet-contract": "node scripts/verify-store-cart-sheet-contract.cjs",

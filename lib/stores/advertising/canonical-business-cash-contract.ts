@@ -1,6 +1,6 @@
 /**
- * AST-005 Business Cash + AST-004 Store Points (Economic) — Stage 1 finance SSOT.
- * New Delivery Ads / Partner payment authority. Not Gift Store Cash. Not delivery_ad_accounts.
+ * Canonical Cash (AST-005) + Coin (AST-004) — Stage 1 finance SSOT.
+ * New Delivery Ads / Partner payment authority. Never use archived store-cash records or delivery_ad_accounts.
  */
 
 export const AST_004_STORE_POINTS_ECONOMIC = "AST-004" as const;

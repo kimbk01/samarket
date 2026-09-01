@@ -157,7 +157,7 @@ export async function applyCommunityPaidExposurePending(
 }
 
 /**
- * A2 — Community top exposure: atomic D-Point spend + active entitlement.
+ * A2 — Community top exposure: atomic Point spend + active entitlement.
  * Authority: RPC purchase_member_community_promotion (one DB TX).
  * No HOLD, no admin approve/reject on this path.
  * DO NOT app-layer spend→insert→compensate (partial failure window).

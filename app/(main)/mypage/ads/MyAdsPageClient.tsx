@@ -273,8 +273,8 @@ export default function MyAdsPageClient() {
           </h2>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {safeT("revenue_hub_promo_desc", {
-              fallbackKo: "내 게시물을 목록 위쪽에 더 잘 보이게 합니다. D-Point를 사용합니다.",
-              fallbackEn: "Boost your own post in the list with D-Point.",
+              fallbackKo: "내 게시물을 목록 위쪽에 더 잘 보이게 합니다. 포인트를 사용합니다.",
+              fallbackEn: "Boost your own post in the list with Point.",
             })}
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -283,8 +283,8 @@ export default function MyAdsPageClient() {
               className="flex-1 rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-white"
             >
               {safeT("revenue_hub_promo_cta", {
-                fallbackKo: "D-Point로 홍보하기",
-                fallbackEn: "Promote with D-Point",
+                fallbackKo: "포인트로 홍보하기",
+                fallbackEn: "Promote with Point",
               })}
             </Link>
             <Link
@@ -309,9 +309,9 @@ export default function MyAdsPageClient() {
           <p className="mt-1 sam-text-helper text-sam-muted">
             {safeT("revenue_hub_banner_desc", {
               fallbackKo:
-                "이미지 광고를 게시글 사이에 노출합니다. 관리자 승인 후 게시되며, 신청 시 D-Point가 보류됩니다.",
+                "이미지 광고를 게시글 사이에 노출합니다. 관리자 승인 후 게시되며, 신청 시 포인트가 보류됩니다.",
               fallbackEn:
-                "Show an image ad between posts. D-Point is held until admin approval.",
+                "Show an image ad between posts. Point is held until admin approval.",
             })}
           </p>
           {canCreateBanner ? (
@@ -582,8 +582,8 @@ export default function MyAdsPageClient() {
         <div data-testid="feed-ad-renew-sheet">
           <p className={`mb-3 ${OverlayUi.bodySecondary}`}>
             {safeT("feed_ad_renew_hint", {
-              fallbackKo: "동일 이미지·연결로 기간을 연장합니다. D-Point가 즉시 사용됩니다.",
-              fallbackEn: "Extends the same creative and destination. D-Point is charged now.",
+              fallbackKo: "동일 이미지·연결로 기간을 연장합니다. 포인트가 즉시 사용됩니다.",
+              fallbackEn: "Extends the same creative and destination. Point is charged now.",
             })}
           </p>
           <div className="space-y-2">

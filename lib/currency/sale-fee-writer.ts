@@ -144,7 +144,7 @@ export async function reverseSaleFeeForOrder(
   };
 }
 
-/** PHP whole pesos → business_cash minor (centavos). */
+/** PHP whole pesos → canonical Cash minor units (centavos). */
 export function phpMajorToCashMinor(php: number): number {
   return Math.max(0, Math.trunc(php)) * 100;
 }

@@ -47,7 +47,6 @@ describe("admin member Control Center Slice 6–10", () => {
   it("store tab uses owner_user_id payload and does not invent staff", () => {
     const panel = src("components/admin/users/AdminMemberStorePanel.tsx");
     expect(panel).toMatch(/approval_status/);
-    expect(panel).toMatch(/memberBusinessCreditHref/);
     expect(panel).not.toMatch(/store_staff/);
     expect(panel).not.toMatch(/staff membership/);
   });

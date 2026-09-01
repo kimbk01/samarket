@@ -19,7 +19,7 @@ export type BusinessAdminNavItemId =
   | "ops_review"
   | "public_store"
   | "settlements"
-  | "store_points"
+  | "finance"
   | "ads"
   | "notifications";
 
@@ -230,10 +230,10 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
       titleKey: "biz_nav_section_settlement",
       items: [
         {
-          id: "store_points",
-          labelKey: "biz_nav_store_points",
-          href: OwnerRoutes.points(storeId),
-          descriptionKey: "biz_nav_store_points_desc",
+          id: "finance",
+          labelKey: "biz_nav_finance",
+          href: OwnerRoutes.finance(storeId),
+          descriptionKey: "biz_nav_finance_desc",
         },
         {
           id: "settlements",

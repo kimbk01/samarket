@@ -1,17 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import {
   adminGiftProfileLabel,
   loadAdminGiftProfileMap,
 } from "@/lib/gift-certificate/admin-gift-ops-profile";
-import {
-  giftCertificateCashOutApprove,
-  giftCertificateCashOutMarkPaid,
-  giftCertificateCashOutReject,
-} from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
-import { validateGiftCashOutMarkPaid } from "@/lib/gift-certificate/gift-cash-out-ops";
-import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,103 +71,15 @@ export async function GET(
   });
 }
 
-/** POST /api/admin/gift-certificates/cash-outs/[id] — action=approve|reject|mark_paid */
+/** Historical parallel cash-out requests are immutable after Coin withdrawal convergence. */
 export async function POST(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  _req: Request,
+  _context: { params: Promise<{ id: string }> }
 ) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
-
-  const { id } = await context.params;
-  const requestId = typeof id === "string" ? id.trim() : "";
-  if (!requestId) {
-    return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
-  }
-
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    body = {};
-  }
-  const action = String(body.action ?? "").trim().toLowerCase();
-  const adminUserId = gate.actor.userId;
-
-  if (action === "approve") {
-    const result = await giftCertificateCashOutApprove(gate.sb, { adminUserId, requestId });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error, ...(result.data ?? {}) },
-        { status: 400 }
-      );
-    }
-    await recordGiftAdminEvent(gate.sb, {
-      entityType: "cash_out",
-      entityId: requestId,
-      eventType: "CASH_OUT_APPROVED",
-      operatorId: adminUserId,
-      after: result.data ?? null,
-    });
-    return NextResponse.json({ ok: true, ...result.data });
-  }
-
-  if (action === "reject") {
-    const result = await giftCertificateCashOutReject(gate.sb, {
-      adminUserId,
-      requestId,
-      reason: body.reason == null ? null : String(body.reason),
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error, ...(result.data ?? {}) },
-        { status: 400 }
-      );
-    }
-    await recordGiftAdminEvent(gate.sb, {
-      entityType: "cash_out",
-      entityId: requestId,
-      eventType: "CASH_OUT_REJECTED",
-      operatorId: adminUserId,
-      reason: body.reason == null ? null : String(body.reason),
-      after: result.data ?? null,
-    });
-    return NextResponse.json({ ok: true, ...result.data });
-  }
-
-  if (action === "mark_paid" || action === "mark-paid") {
-    const payoutMethod = String(body.payoutMethod ?? body.payout_method ?? "").trim();
-    const payoutReference = String(body.payoutReference ?? body.payout_reference ?? "").trim();
-    const payoutNote =
-      body.payoutNote == null && body.payout_note == null
-        ? null
-        : String(body.payoutNote ?? body.payout_note ?? "");
-    const validated = validateGiftCashOutMarkPaid({ payoutMethod, payoutReference });
-    if (!validated.ok) {
-      return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
-    }
-    const result = await giftCertificateCashOutMarkPaid(gate.sb, {
-      adminUserId,
-      requestId,
-      payoutMethod,
-      payoutReference,
-      payoutNote,
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: result.error, ...(result.data ?? {}) },
-        { status: 400 }
-      );
-    }
-    await recordGiftAdminEvent(gate.sb, {
-      entityType: "cash_out",
-      entityId: requestId,
-      eventType: "CASH_OUT_MARK_PAID",
-      operatorId: adminUserId,
-      after: result.data ?? null,
-    });
-    return NextResponse.json({ ok: true, ...result.data });
-  }
-
-  return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });
+  return NextResponse.json(
+    { ok: false, error: "historical_gift_cash_out_read_only" },
+    { status: 410 }
+  );
 }

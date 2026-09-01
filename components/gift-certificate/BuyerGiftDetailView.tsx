@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount } from "@/components/currency";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import { useCommerceChildChrome } from "@/lib/delivery/customer/commerce-child-chrome";
@@ -327,13 +328,15 @@ export function BuyerGiftDetailView({
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="text-sam-muted">
             {safeT("gift_u2_detail_balance_label", {
-              fallbackKo: "보유 D-Point",
-              fallbackEn: "Your D-Point",
+              fallbackKo: "보유 포인트",
+              fallbackEn: "Your Point",
             })}
           </span>
-          <span className="tabular-nums font-semibold text-sam-fg">
-            {balanceLoading ? "…" : balance.toLocaleString()}
-          </span>
+          {balanceLoading ? (
+            <span className="tabular-nums font-semibold text-sam-fg">…</span>
+          ) : (
+            <CurrencyAmount currency="point" amount={balance} compactPoint className="text-sm" />
+          )}
         </div>
         <div className="mt-1 flex items-center justify-between gap-2 text-sm">
           <span className="text-sam-muted">
@@ -342,9 +345,12 @@ export function BuyerGiftDetailView({
               fallbackEn: "Required",
             })}
           </span>
-          <span className="tabular-nums font-semibold text-sam-fg">
-            {product.purchasePrice.toLocaleString()}
-          </span>
+          <CurrencyAmount
+            currency="point"
+            amount={product.purchasePrice}
+            compactPoint
+            className="text-sm"
+          />
         </div>
         {!enough && authed ? (
           <p className="mt-2 text-sm text-sam-danger">
@@ -411,9 +417,9 @@ export function BuyerGiftDetailView({
         <p className="text-xs text-sam-muted">
           {safeT("gift_u2_detail_terms", {
             fallbackKo:
-              "상품권은 D-Point로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
+              "상품권은 포인트로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
             fallbackEn:
-              "Gift certificates can only be purchased with D-Point. Remaining balance can be used at this store’s orders.",
+              "Gift certificates can only be purchased with Point. Remaining balance can be used at this store’s orders.",
           })}
         </p>
       </div>

@@ -1,6 +1,6 @@
 /**
  * Admin Member Control Center — overview lightweight aggregates.
- * CONTRACT: source counts only; error ≠ 0; no chat body; D-Point = ledger sum.
+ * CONTRACT: source counts only; error ≠ 0; no chat body; Point = ledger sum.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

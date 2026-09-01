@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
-import { storeCashRecoveryClear } from "@/lib/gift-certificate/gift-certificate-rpc";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
-import { recordGiftAdminEvent } from "@/lib/gift-certificate/record-gift-admin-event";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,40 +121,12 @@ export async function GET() {
   });
 }
 
-/** POST /api/admin/gift-certificates/recovery — clear obligation (canonical RPC) */
-export async function POST(req: Request) {
+/** Historical recovery obligations are immutable after Coin convergence. */
+export async function POST(_req: Request) {
   const gate = await requireAdminPermission("business");
   if (!gate.ok) return gate.response;
-
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const obligationId = String(body.obligationId ?? body.obligation_id ?? "").trim();
-  const amount = Math.trunc(Number(body.amount));
-  if (!obligationId || !Number.isFinite(amount) || amount <= 0) {
-    return NextResponse.json({ ok: false, error: "obligationId_and_amount_required" }, { status: 400 });
-  }
-
-  const result = await storeCashRecoveryClear(gate.sb, {
-    adminUserId: gate.actor.userId,
-    obligationId,
-    amount,
-  });
-  if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, error: result.error, ...(result.data ?? {}) },
-      { status: 400 }
-    );
-  }
-  await recordGiftAdminEvent(gate.sb, {
-    entityType: "recovery",
-    entityId: obligationId,
-    eventType: "RECOVERY_CLEARED",
-    operatorId: gate.actor.userId,
-    after: { amount, ...(result.data ?? {}) },
-  });
-  return NextResponse.json({ ok: true, ...result.data });
+  return NextResponse.json(
+    { ok: false, error: "historical_gift_recovery_read_only" },
+    { status: 410 }
+  );
 }

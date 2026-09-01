@@ -1,6 +1,5 @@
 export { CurrencyAmount } from "@/components/currency/CurrencyAmount";
 export { CurrencyBadge } from "@/components/currency/CurrencyBadge";
-export { LegacyCreditBadge } from "@/components/currency/LegacyCreditBadge";
 export { CurrencyBalanceCard } from "@/components/currency/CurrencyBalanceCard";
 export { CurrencyActionGroup } from "@/components/currency/CurrencyActionGroup";
 export type { CurrencyActionSpec } from "@/components/currency/CurrencyActionGroup";

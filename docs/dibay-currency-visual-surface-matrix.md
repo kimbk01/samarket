@@ -5,28 +5,26 @@ Companion to `docs/dibay-currency-ssot-hard-lock.md`.
 
 | Route | Component | Current label | Current visual | Current authority | Target currency | Target variant | Action |
 |---|---|---|---|---|---|---|---|
-| `/mypage/points` | `PointBalanceCard` | D-Point | neutral + `P` | POINT | point | Blue | REPLACE |
+| `/mypage/points` | `PointBalanceCard` | Point | Blue | POINT | point | Blue | KEEP |
 | `/mypage` | `MyPointCard` | points card | signature purple `P` | POINT | point | Blue | REPLACE |
-| `/stores/owner/points` | `OwnerStorePointsView` | Business Credit | green + `P` | AST-002 | legacy | legacy | LEGACY_PRESERVE |
-| `/stores/owner/points` | `OwnerStorePointWarningCard` | Business Credit | green + `P` | AST-002 | legacy | legacy | LEGACY_PRESERVE |
-| `/stores/owner/business-cash` | `OwnerBusinessCashView` | Business Cash / Store Points `P` | generic sections | AST-005 + AST-004 | cash + coin | Green + Gold | REPLACE → Finance |
+| `/stores/owner/points` | historical route tombstone | none | none | historical only | none | none | NO UI / NAV |
+| `/stores/owner/business-cash` | compatibility route only | none | none | canonical Cash + Coin | cash + coin | Green + Gold | NO LEGACY LABEL / NAV; Finance only |
 | `/stores/owner/finance` | `OwnerStoreFinanceView` | Coin / Cash | currency cards | AST-004 + AST-005 | coin + cash | Gold + Green | KEEP (CUT 4) |
-| `/stores/owner/ads` | `OwnerDeliveryAdsHubView` | Business Cash | white ads card | AST-005 | cash consumer | Green snippet | REPLACE |
+| `/stores/owner/ads` | `OwnerDeliveryAdsHubView` | Cash | Green cash context | AST-005 | cash consumer | Green snippet | KEEP AS CONSUMER |
 | `/stores/owner/settlements` | `OwnerStoreSettlementsView` | settlement PHP | neutral list | settlement | coin source | context | RENAME |
 | `/stores/owner/gift-certificates` | gift revenue UI | gift revenue | separate card | gift ledger | coin inflow | Gold | REPLACE |
-| `/admin/store-points` | Admin store points | Business Credit | admin tables | AST-002 | legacy | legacy badge | LEGACY_PRESERVE |
-| `/admin/business-cash-charges` | Admin BC charges | Business Cash | admin queue | AST-005 | cash | Green badge | REPLACE |
+| `/admin/store-points` | historical route tombstone | none | none | historical only | none | none | NO UI / NAV |
+| `/admin/business-cash-charges` | compatibility route | Cash | admin queue | AST-005 | cash | Green badge | NO LEGACY LABEL / NAV |
 | `/admin/gift-certificates/cash-outs` | `AdminGiftMoneyPanel` | external cash-out | gift ops | gift rail | coin withdrawal | Gold | MERGE CUT 3 |
 | Admin settlements | `AdminStoreSettlementsPage` | settlement | tables | settlement | coin + cash sections | paired | REPLACE CUT 5 |
 
-## Legacy label protection
+## Historical data protection
 
-| Legacy label | Must NOT become (visually) |
+| Historical authority | Product rule |
 |---|---|
-| Business Credit | Coin (Gold) |
-| Store Cash / Gift Store Cash | Cash (Green) |
-| D-Point | Coin or Cash |
-| delivery_ad_accounts balance | canonical Cash |
+| `stores.point_balance` / `store_point_ledger` | Archive evidence only; no UI, reader/writer, mutation, nav, or product terminology |
+| `store_cash_accounts` / `store_cash_ledger` | Archive evidence only; no UI, reader/writer, conversion, CTA, or nav |
+| `delivery_ad_accounts` | Archive evidence only; no active reader/writer, UI, CTA, or nav |
 
 ## Final invariant
 

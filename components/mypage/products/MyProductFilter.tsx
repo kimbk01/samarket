@@ -40,7 +40,7 @@ interface MyProductFilterProps {
 
 /**
  * STATUS FILTER — single 44px `DibaySecondaryTabRow` (sell hub chrome height SSOT).
- * D-Point promoted overlay = trailing pill (not a second row — avoids sell↔products stutter).
+ * Point-promoted overlay = trailing pill (not a second row — avoids sell↔products stutter).
  */
 export function MyProductFilter({
   value,
@@ -50,12 +50,12 @@ export function MyProductFilter({
 }: MyProductFilterProps) {
   const { safeT } = useI18n();
   const promotedLabel = safeT("marketplace_seller_promoted_only", {
-    fallbackKo: "D-Point 홍보",
-    fallbackEn: "D-Point promoted",
+    fallbackKo: "포인트 홍보",
+    fallbackEn: "Point promoted",
   });
   const promotedAria = safeT("marketplace_seller_promoted_only_aria", {
-    fallbackKo: "D-Point로 목록에 노출 중인 홍보 매물만 보기",
-    fallbackEn: "Show only listings promoted with D-Point",
+    fallbackKo: "포인트로 목록에 노출 중인 홍보 매물만 보기",
+    fallbackEn: "Show only listings promoted with Point",
   });
 
   return (

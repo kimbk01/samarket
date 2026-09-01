@@ -4,12 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
 import {
   buildAdminGiftOpsHref,
   type AdminGiftOpsMoneySubtab,
 } from "@/lib/gift-certificate/admin-gift-ops-tabs";
-import { canApproveGiftConversion } from "@/lib/gift-certificate/admin-gift-money-ops";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/css-vars";
 
@@ -74,6 +72,26 @@ export function AdminGiftMoneyPanel({
 
   return (
     <div className="space-y-4" data-admin-gift-money="1">
+      <div className="rounded-ui-rect border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+        <p className="font-semibold">
+          {safeT("gift_ops_legacy_money_archive_title", {
+            fallbackKo: "Gift 정산 과거 기록 보관함",
+            fallbackEn: "Historical Gift settlement archive",
+          })}
+        </p>
+        <p className="mt-1">
+          {safeT("gift_ops_legacy_money_archive_desc", {
+            fallbackKo: "비제품 과거 기록만 제공합니다. 신규 현금화는 Admin 재무의 Coin 출금을 사용하세요.",
+            fallbackEn: "Non-product historical records only. Use Coin withdrawal in Admin Finance for new payouts.",
+          })}
+        </p>
+        <Link href="/admin/finance#coin-withdrawals" className="mt-2 inline-block font-semibold underline">
+          {safeT("gift_ops_go_coin_withdrawal", {
+            fallbackKo: "Coin 출금으로 이동",
+            fallbackEn: "Go to Coin withdrawal",
+          })}
+        </Link>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Link
           href={buildAdminGiftOpsHref({ tab: "finance", money: "external" })}
@@ -94,8 +112,8 @@ export function AdminGiftMoneyPanel({
           data-money-sub="store-cash"
         >
           {safeT("gift_ops_money_store_cash", {
-            fallbackKo: "Store Cash 전환",
-            fallbackEn: "Store Cash conversion",
+            fallbackKo: "과거 전환 기록",
+            fallbackEn: "Historical conversion records",
           })}
         </Link>
       </div>
@@ -121,11 +139,6 @@ function ExternalCashOuts({
   const [rows, setRows] = useState<CashOutRow[]>([]);
   const [detail, setDetail] = useState<CashOutRow | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [payoutMethod, setPayoutMethod] = useState("");
-  const [payoutReference, setPayoutReference] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
 
   const loadList = useCallback(async () => {
     setState("loading");
@@ -168,46 +181,6 @@ function ExternalCashOuts({
     if (id) void loadDetail(id);
     else setDetail(null);
   }, [id, loadDetail]);
-
-  const postAction = async (action: string, extra?: Record<string, string>) => {
-    if (!id || busy) return;
-    const ok = await dibayConfirm({
-      title: safeT("gift_ops_finance_confirm_title", {
-        fallbackKo: "이 환전 조치를 진행할까요?",
-        fallbackEn: "Proceed with this cash-out action?",
-      }),
-      description: safeT("gift_ops_finance_confirm_body", {
-        fallbackKo: "확인 후 상태가 갱신됩니다.",
-        fallbackEn: "Status will refresh after confirm.",
-      }),
-      confirmLabel: safeT("gift_ops_finance_confirm_ok", { fallbackKo: "확인", fallbackEn: "Confirm" }),
-      cancelLabel: safeT("gift_ops_finance_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-    });
-    if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/gift-certificates/cash-outs/${encodeURIComponent(id)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...extra }),
-      });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setError(
-          safeT("gift_ops_cash_action_fail", {
-            fallbackKo: "처리에 실패했습니다.",
-            fallbackEn: "Action failed.",
-          })
-        );
-        return;
-      }
-      await Promise.all([loadList(), loadDetail(id)]);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <div className="space-y-4" data-admin-gift-cash-outs-ops="1">
@@ -305,7 +278,6 @@ function ExternalCashOuts({
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
           </button>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <p className="text-lg font-semibold tabular-nums">{formatMoneyPhp(detail.amount)}</p>
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
@@ -315,61 +287,12 @@ function ExternalCashOuts({
             {detail.destinationType}
             {detail.bankName ? ` · ${detail.bankName}` : ""} · {detail.accountNumber} · {detail.accountName}
           </p>
-          {detail.status.toUpperCase() === "REQUESTED" ? (
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                className={`${Sam.btn.primary} min-h-[44px]`}
-                disabled={busy}
-                onClick={() => void postAction("approve")}
-              >
-                {safeT("gift_admin_cash_out_approve", { fallbackKo: "승인", fallbackEn: "Approve" })}
-              </button>
-              <input
-                className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Reject reason"
-              />
-              <button
-                type="button"
-                className={`${Sam.btn.secondary} min-h-[44px]`}
-                disabled={busy}
-                onClick={() => void postAction("reject", { reason: rejectReason })}
-              >
-                {safeT("gift_admin_cash_out_reject", { fallbackKo: "거절", fallbackEn: "Reject" })}
-              </button>
-            </div>
-          ) : null}
-          {detail.status.toUpperCase() === "APPROVED" ? (
-            <div className="space-y-2">
-              <input
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-                value={payoutMethod}
-                onChange={(e) => setPayoutMethod(e.target.value)}
-                placeholder="payout_method"
-              />
-              <input
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-                value={payoutReference}
-                onChange={(e) => setPayoutReference(e.target.value)}
-                placeholder="payout_reference"
-              />
-              <button
-                type="button"
-                className={`${Sam.btn.primary} min-h-[44px] w-full`}
-                disabled={busy}
-                onClick={() =>
-                  void postAction("mark_paid", { payoutMethod, payoutReference })
-                }
-              >
-                {safeT("gift_admin_cash_out_mark_paid", {
-                  fallbackKo: "지급 완료 처리",
-                  fallbackEn: "Mark paid",
-                })}
-              </button>
-            </div>
-          ) : null}
+          <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
+            {safeT("gift_ops_legacy_read_only", {
+              fallbackKo: "읽기 전용 과거 기록입니다.",
+              fallbackEn: "Read-only historical record.",
+            })}
+          </p>
         </section>
       ) : null}
     </div>
@@ -387,8 +310,6 @@ function StoreCashConversions({
   const [rows, setRows] = useState<ConversionRow[]>([]);
   const [detail, setDetail] = useState<ConversionRow | null>(null);
   const [state, setState] = useState<"loading" | "error" | "empty" | "data">("loading");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const loadList = useCallback(async () => {
     setState("loading");
@@ -428,44 +349,6 @@ function StoreCashConversions({
     else setDetail(null);
   }, [id, loadDetail]);
 
-  const approve = async () => {
-    if (!id || busy || !detail) return;
-    const ok = await dibayConfirm({
-      title: safeT("gift_ops_conversion_confirm_title", {
-        fallbackKo: "Store Cash 전환을 승인할까요?",
-        fallbackEn: "Approve this Store Cash conversion?",
-      }),
-      description: safeT("gift_ops_finance_confirm_body", {
-        fallbackKo: "확인 후 상태가 갱신됩니다.",
-        fallbackEn: "Status will refresh after confirm.",
-      }),
-      confirmLabel: safeT("gift_ops_finance_confirm_ok", { fallbackKo: "확인", fallbackEn: "Confirm" }),
-      cancelLabel: safeT("gift_ops_finance_confirm_cancel", { fallbackKo: "취소", fallbackEn: "Cancel" }),
-    });
-    if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/gift-certificates/conversions/${encodeURIComponent(id)}/approve`,
-        { method: "POST", credentials: "include" }
-      );
-      const json = (await res.json()) as { ok?: boolean };
-      if (!res.ok || !json.ok) {
-        setError(
-          safeT("gift_u6_err_generic", {
-            fallbackKo: "전환 승인에 실패했습니다.",
-            fallbackEn: "Couldn’t approve conversion.",
-          })
-        );
-        return;
-      }
-      await Promise.all([loadList(), loadDetail(id)]);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="space-y-4" data-admin-gift-conversions-ops="1">
       {state === "loading" ? <p className="text-sm text-sam-muted">…</p> : null}
@@ -473,8 +356,8 @@ function StoreCashConversions({
         <div className="space-y-2">
           <p className="text-sm text-red-600">
             {safeT("gift_ops_conv_error", {
-              fallbackKo: "Store Cash 전환 요청을 불러오지 못했습니다.",
-              fallbackEn: "Couldn’t load Store Cash conversions.",
+              fallbackKo: "과거 전환 요청을 불러오지 못했습니다.",
+              fallbackEn: "Couldn’t load historical conversions.",
             })}
           </p>
           <button type="button" className={Sam.btn.secondary} onClick={() => void loadList()}>
@@ -485,8 +368,8 @@ function StoreCashConversions({
       {state === "empty" ? (
         <p className="text-sm text-sam-muted">
           {safeT("gift_ops_conv_empty", {
-            fallbackKo: "현재 Store Cash 전환 요청이 없습니다.",
-            fallbackEn: "No Store Cash conversion requests.",
+            fallbackKo: "현재 과거 전환 요청이 없습니다.",
+            fallbackEn: "No historical conversion requests.",
           })}
         </p>
       ) : null}
@@ -541,32 +424,21 @@ function StoreCashConversions({
           >
             ← {safeT("gift_ops_close_detail", { fallbackKo: "목록으로", fallbackEn: "Back to list" })}
           </button>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <p className="text-lg font-semibold tabular-nums">{formatMoneyPhp(detail.amount)}</p>
           <p className="text-sm">
             {detail.storeName} · {detail.ownerLabel || "—"}
           </p>
           <p className="text-sm">{detail.status}</p>
           <p className="text-xs text-sam-muted">
-            Available {formatMoneyPhp(detail.availableRevenue)} · Store Cash{" "}
+            Available {formatMoneyPhp(detail.availableRevenue)} · Historical converted amount{" "}
             {formatMoneyPhp(detail.storeCashBalance)}
           </p>
-          {canApproveGiftConversion({
-            status: detail.status,
-            openRecoveryAmount: detail.openRecoveryAmount ?? 0,
-          }).ok ? (
-            <button
-              type="button"
-              className={`${Sam.btn.primary} min-h-[44px] w-full`}
-              disabled={busy}
-              onClick={() => void approve()}
-            >
-              {safeT("gift_u6_conversion_approve", {
-                fallbackKo: "전환 승인",
-                fallbackEn: "Approve conversion",
-              })}
-            </button>
-          ) : null}
+          <p className="rounded-ui-rect bg-sam-surface-muted p-3 text-sm text-sam-muted">
+            {safeT("gift_ops_legacy_read_only", {
+              fallbackKo: "읽기 전용 과거 기록입니다.",
+              fallbackEn: "Read-only historical record.",
+            })}
+          </p>
         </section>
       ) : null}
     </div>

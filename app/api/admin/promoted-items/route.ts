@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/promoted-items
- * Admin: Member D-Point Promotion entitlements (`point_promotion_orders`).
+ * Admin: Member Point promotion entitlements (`point_promotion_orders`).
  * NOT post_ads / NOT feed banner campaigns.
  */
 export async function GET(): Promise<NextResponse> {

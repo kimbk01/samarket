@@ -79,8 +79,8 @@ export function AdminOrderNotificationsPageClient() {
     {
       href: "/admin/store-point-charges",
       count: c?.store_charges ?? 0,
-      titleKo: "매장 Business Credit 입금",
-      titleEn: "Store Business Credit charges",
+      titleKo: "과거 매장 운영 입금 기록",
+      titleEn: "Historical store operations deposits",
     },
     {
       href: "/admin/point-charges",

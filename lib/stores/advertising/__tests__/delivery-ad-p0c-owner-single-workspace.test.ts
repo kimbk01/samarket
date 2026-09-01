@@ -207,9 +207,9 @@ describe("P0-C Owner Ad Center + single-workspace", () => {
     expect(DELIVERY_AD_PARTNER_ORGANIC_EFFECT.altersOrganicEligibility).toBe(false);
   });
 
-  it("T20 — Business Cash card numeric; no fake top-up or charge copy on create", () => {
-    expect(hub()).toContain('data-owner-ads-business-cash="card"');
-    expect(hub()).not.toContain('data-owner-ads-business-cash="stub"');
+  it("T20 — canonical Cash summary links to Finance; no ads wallet or charge copy", () => {
+    expect(hub()).toContain('data-owner-ads-cash-consumer="1"');
+    expect(hub()).toContain("OwnerRoutes.finance");
     expect(hub()).not.toMatch(/가짜 충전|\[충전\]/);
     expect(sponsored()).not.toMatch(/결제 완료|Business Cash 차감|광고비 결제됨/);
     expect(banner()).not.toMatch(/결제 완료|Business Cash 차감/);

@@ -10,6 +10,7 @@ import { MemberOrderChatList } from "@/components/member-orders/MemberOrderChatL
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 type Props = Pick<MyPageConsoleProps, "hasOwnerStore" | "ownerHubStoreId" | "storeAttentionSummary">;
 
@@ -52,10 +53,10 @@ export function StoreTab({
   }
 
   if (section === "payment") {
-    const businessCreditHref = ownerHubStoreId?.trim()
-      ? `/stores/owner/points?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+    const financeHref = ownerHubStoreId?.trim()
+      ? OwnerRoutes.finance(ownerHubStoreId.trim())
       : hasOwnerStore
-        ? "/stores/owner/points"
+        ? OwnerRoutes.finance()
         : "/stores/owner/apply";
     return (
       <TabShell
@@ -66,11 +67,11 @@ export function StoreTab({
           items={[
             {
               label: hasOwnerStore
-                ? t("biz_nav_store_points")
+                ? t("biz_nav_finance")
                 : t("mypage_comp_store_owner_cta_apply"),
-              href: businessCreditHref,
+              href: financeHref,
               caption: hasOwnerStore
-                ? t("biz_nav_store_points_desc")
+                ? t("biz_nav_finance_desc")
                 : t("mypage_comp_store_owner_intro"),
             },
             {

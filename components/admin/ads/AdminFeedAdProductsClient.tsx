@@ -14,7 +14,7 @@ type Row = FeedAdProduct & {
 };
 
 /**
- * Admin Feed Banner product CMS — duration / D-Point / active / sort.
+ * Admin Feed Banner product CMS — duration / Point / active / sort.
  * Writer: PATCH /api/admin/feed-ad-products → feed_ad_products (DB SSOT).
  */
 export function AdminFeedAdProductsClient() {
@@ -106,9 +106,9 @@ export function AdminFeedAdProductsClient() {
       <p className="sam-text-helper text-sam-muted">
         {safeT("admin_feed_ad_products_hint", {
           fallbackKo:
-            "기간·D-Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
+            "기간·Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
           fallbackEn:
-            "Duration and D-Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
+            "Duration and Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
         })}
       </p>
       {err ? <p className="sam-text-helper text-sam-warning">{err}</p> : null}
@@ -119,7 +119,7 @@ export function AdminFeedAdProductsClient() {
               <th className="px-3 py-2">{en ? "Product" : "상품"}</th>
               <th className="px-3 py-2">{en ? "Domain" : "영역"}</th>
               <th className="px-3 py-2">{en ? "Days" : "기간"}</th>
-              <th className="px-3 py-2">D-Point</th>
+              <th className="px-3 py-2">Point</th>
               <th className="px-3 py-2">{en ? "Sort" : "정렬"}</th>
               <th className="px-3 py-2">{en ? "Active" : "활성"}</th>
               <th className="px-3 py-2" />

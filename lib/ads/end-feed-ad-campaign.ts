@@ -5,7 +5,7 @@
  * - campaign → ended (end_at = now)
  * - linked request → ended (always, including already-ended campaign repair)
  * - Feed eligibility drops immediately (status !== active)
- * - NO automatic D-Point refund (CAPTURE already settled)
+ * - NO automatic Point refund (CAPTURE already settled)
  *
  * ADMIN_END_REFUND_POLICY_REQUIRED: refund is intentionally NOT implemented.
  * Product must reopen financial LOCK before any credit-on-end path.

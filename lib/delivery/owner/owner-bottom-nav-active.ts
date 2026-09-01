@@ -53,7 +53,9 @@ export function resolveOwnerBottomNavActiveTabId(
     p.includes("/stores/owner/ops-status") ||
     p.includes("/stores/owner/edit") ||
     p.includes("/stores/owner/settlements") ||
+    p.includes("/stores/owner/finance") ||
     p.includes("/stores/owner/points") ||
+    p.includes("/stores/owner/business-cash") ||
     p.includes("/stores/owner/inquiries")
   ) {
     return "settings";

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
@@ -45,7 +45,7 @@ export async function GET(
 }
 
 export async function POST(
-  req: NextRequest,
+  _req: Request,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -66,28 +66,12 @@ export async function POST(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await req.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-
-  const amount = Math.trunc(Number(body.amount));
-  const idempotencyKey = String(body.idempotencyKey ?? "").trim();
-  if (!Number.isFinite(amount) || amount <= 0 || !idempotencyKey) {
-    return NextResponse.json(
-      { ok: false, error: "amount_and_idempotencyKey_required" },
-      { status: 400 }
-    );
-  }
-
   return NextResponse.json(
     {
       ok: false,
-      error: "gift_store_cash_conversion_frozen",
+      error: "historical_gift_conversion_read_only",
       message:
-        "Gift Store Cash conversion is frozen. Use canonical Coin withdrawal or Finance.",
+        "Historical gift conversions are read-only. Use canonical Coin finance.",
     },
     { status: 410 }
   );

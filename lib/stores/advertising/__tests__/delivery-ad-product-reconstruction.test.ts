@@ -73,13 +73,11 @@ describe("Delivery Ads product reconstruction contracts", () => {
     expect(confirm).toContain("data-owner-ads-cash-insufficient");
   });
 
-  it("T6 credit vs cash copy present", () => {
-    expect(read("components/business/owner/OwnerStorePointWarningCard.tsx")).toContain(
-      "data-owner-credit-vs-cash"
-    );
-    expect(read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx")).toContain(
-      "data-owner-ads-cash-wallet"
-    );
+  it("T6 exposes canonical Cash without a fourth-currency explainer", () => {
+    const hub = read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
+    expect(hub).toContain('currency="cash"');
+    expect(hub).not.toContain("data-owner-credit-vs-cash");
+    expect(hub).not.toContain("data-owner-ads-cash-wallet");
   });
 
   it("T7 Admin first-party single-page + schedule + pixels", () => {

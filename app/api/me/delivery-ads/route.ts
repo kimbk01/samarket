@@ -114,7 +114,7 @@ export async function GET() {
     eligibleStoreCount: eligibleStores.length,
     summary,
     unreadByCampaignId,
-    /** Product ads wallet — AST-005 Business Cash (store-scoped; hub shows owned-store sum). */
+    /** Canonical Cash balance (store-scoped; hub shows owned-store sum). */
     businessCash: {
       balanceMinor,
       balancePhp: Math.floor(balanceMinor / 100),

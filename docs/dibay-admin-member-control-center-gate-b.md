@@ -14,7 +14,7 @@ Admin Member Control Center is an **orchestration surface**. It is not a new mem
 | Person | `auth.users.id` ≡ `profiles.id` |
 | Store owner | `stores.owner_user_id` |
 | Admin / Super Admin | active `admin_memberships` only |
-| D-Point | `point_ledger` via `adjustUserPoints` / existing readers |
+| Point | `point_ledger` via `adjustUserPoints` / existing readers |
 | Trust | `member_trust_snapshots` + `trust_events` |
 | Delivery order | `store_orders` + financial-fact + apply transition |
 | Community | `community_posts` / `community_comments` / `community_reports` |
@@ -22,7 +22,7 @@ Admin Member Control Center is an **orchestration surface**. It is not a new mem
 | Messenger | 4-domain freeze (`general_direct` / `group` / `trade` / `store_order`) |
 | Audit | `audit_logs` + `user_moderation_events` |
 
-**DO NOT:** new `member_type` enum · Admin shadow table · store staff/employee role · `profiles.role` as admin allow/deny · `profiles.points` as balance SSOT · chat-body duplicate API · mix Business Credit into member D-Point · `test_users` Phase H cleanup in this track.
+**DO NOT:** new `member_type` enum · Admin shadow table · store staff/employee role · `profiles.role` as admin allow/deny · `profiles.points` as balance SSOT · chat-body duplicate API · expose retired Business Credit or mix any archive ledger into Point · `test_users` Phase H cleanup in this track.
 
 ## Role model (additive)
 
@@ -85,4 +85,4 @@ Exclusive `admin > store_owner > member` overwrite is forbidden.
 | Member list last login | unused / aliased | `profiles.last_login_at` | profile session sync | — | `users` |
 | Detail clocks | phone_verified as activity | joined + last login | `created_at` / `last_login_at` | — | `users` |
 | Moderation | `profiles.role` SA guard | membership guard | `admin_memberships` | warn/suspend/ban/restore | `users` |
-| D-Point detail | ledger + fake 0 on error | ledger; error ≠ 0 | `point_ledger` | adjust | `point` |
+| Point detail | ledger + fake 0 on error | ledger; error ≠ 0 | `point_ledger` | adjust | `point` |

@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import { AdminStorePointChargeListPage } from "@/components/admin/store-points/AdminStorePointChargeListPage";
+import { redirect } from "next/navigation";
 
 export default function AdminStorePointChargesRoute() {
-  return (
-    <Suspense fallback={<p className="p-4 text-sm text-sam-muted">…</p>}>
-      <AdminStorePointChargeListPage />
-    </Suspense>
-  );
+  redirect("/admin/store-point-ledger");
 }

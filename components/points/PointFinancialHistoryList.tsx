@@ -5,12 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointFinancialHistoryItem } from "@/lib/points/point-financial-history";
 import { pointFinancialDayKey } from "@/lib/points/point-financial-history";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-
-function formatSignedAmount(signed: number): string {
-  const abs = Math.abs(signed).toLocaleString();
-  return signed < 0 ? `-${abs} P` : `+${abs} P`;
-}
 
 function formatRange(startAt: string, endAt: string, locale: string): string {
   const s = startAt ? new Date(startAt) : null;
@@ -64,8 +60,8 @@ export function PointFinancialHistoryList({
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         {emptyLabel ??
           safeT("point_fin_empty", {
-            fallbackKo: "D-Point 내역이 없습니다.",
-            fallbackEn: "No D-Point history yet.",
+            fallbackKo: "포인트 내역이 없습니다.",
+            fallbackEn: "No Point history yet.",
           })}
       </div>
     );
@@ -129,13 +125,13 @@ export function PointFinancialHistoryList({
                         })}
                       </p>
                     </div>
-                    <p
-                      className={`shrink-0 sam-text-body font-bold ${
-                        item.direction === "credit" ? "text-emerald-700" : "text-red-600"
-                      }`}
-                    >
-                      {formatSignedAmount(item.signedAmount)}
-                    </p>
+                    <CurrencyAmount
+                      currency="point"
+                      amount={item.signedAmount}
+                      compactPoint
+                      signed
+                      className="shrink-0 sam-text-body"
+                    />
                   </button>
                 </li>
               );
@@ -162,13 +158,13 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
 
   return (
     <DibayBottomSheet open={Boolean(item)} onClose={onClose} title={title} anchor="above-bottom-nav">
-      <p
-        className={`mb-4 text-[length:var(--overlay-title-1-size,20px)] font-bold ${
-          item.direction === "credit" ? "text-emerald-700" : "text-[color:var(--overlay-danger)]"
-        }`}
-      >
-        {formatSignedAmount(item.signedAmount)}
-      </p>
+      <CurrencyAmount
+        currency="point"
+        amount={item.signedAmount}
+        compactPoint
+        signed
+        className="mb-4 text-[length:var(--overlay-title-1-size,20px)]"
+      />
       <dl className={`space-y-2 ${OverlayUi.body}`}>
         <div className="flex justify-between gap-3">
           <dt className={OverlayUi.bodySecondary}>
@@ -180,7 +176,14 @@ export function PointFinancialDetailSheet({ item, onClose }: SheetProps) {
           <dt className={OverlayUi.bodySecondary}>
             {safeT("point_fin_detail_balance", { fallbackKo: "이후 잔액", fallbackEn: "Balance after" })}
           </dt>
-          <dd>{item.balanceAfter.toLocaleString()}P</dd>
+          <dd>
+            <CurrencyAmount
+              currency="point"
+              amount={item.balanceAfter}
+              compactPoint
+              className="font-medium"
+            />
+          </dd>
         </div>
         {item.subtitle ? (
           <div className="flex justify-between gap-3">

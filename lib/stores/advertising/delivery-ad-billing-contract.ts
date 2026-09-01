@@ -4,7 +4,6 @@
  * No fake CPC/CPA/window defaults.
  */
 
-export const DELIVERY_AD_ACCOUNT_TABLE = "delivery_ad_accounts" as const;
 export const DELIVERY_AD_CAMPAIGN_BUDGET_TABLE = "delivery_ad_campaign_budgets" as const;
 export const DELIVERY_AD_PRICING_POLICY_TABLE = "delivery_ad_pricing_policies" as const;
 export const DELIVERY_AD_BILLING_POLICY_TABLE = "delivery_ad_billing_policy" as const;

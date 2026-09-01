@@ -12,7 +12,6 @@ import {
   loadBusinessCcKpiSummary,
   type BusinessCcKpiSummary,
 } from "@/lib/admin-business/load-business-cc-kpi";
-import { loadStorePointSummary } from "@/lib/stores/load-store-point-summary";
 import {
   presentSettlementKind,
   presentStoreOpenKind,
@@ -200,7 +199,6 @@ export async function loadBusinessControlCenterDetail(
     storeFeeOverrideRes,
     svcCtx,
     auditRes,
-    pointSummary,
     todayOrdersRes,
     productActiveRes,
     productSoldOutRes,
@@ -251,11 +249,6 @@ export async function loadBusinessControlCenterDetail(
         .eq("target_id", id)
         .order("created_at", { ascending: false })
         .limit(50),
-      loadStorePointSummary(sb, {
-        storeId: id,
-        storeCategoryId:
-          typeof row.store_category_id === "string" ? row.store_category_id : null,
-      }),
       sb
         .from("store_orders")
         .select("id, payment_amount, created_at")
@@ -514,9 +507,8 @@ export async function loadBusinessControlCenterDetail(
     }),
     ratingAvg: asFiniteNumber(row.rating_avg),
     reviewCountFromStore: Math.max(0, Math.floor(Number(row.review_count) || reviewCount)),
-    pointBalance: pointSummary ? pointSummary.pointBalance : asFiniteNumber(row.point_balance),
-    pointCommerceBlocked:
-      pointSummary?.pointCommerceBlocked === true || row.point_commerce_blocked === true,
+    pointBalance: 0,
+    pointCommerceBlocked: false,
     recentPointCredit,
     recentPointDebit,
     todayOrderCount,

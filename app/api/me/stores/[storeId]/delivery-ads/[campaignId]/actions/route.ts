@@ -47,7 +47,7 @@ function statusForError(error: string): number {
   }
 }
 
-/** Stage 1 canonical: AST-005 Business Cash secure (not Gift Store Cash). */
+/** Canonical Cash is secured for commercial spend. */
 async function secureBusinessCashBeforeSubmit(input: {
   sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>;
   ownerUserId: string;

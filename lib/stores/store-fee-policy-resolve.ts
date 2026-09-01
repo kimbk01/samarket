@@ -12,7 +12,7 @@
  * Settlement ledger (`store_settlements.applied_fee_policy_snapshot`) is the
  * immutable financial fact after first write. DO NOT re-resolve on settlement update.
  *
- * Point fees (`store_point_policies`) are a separate product path — not this resolver.
+ * The archived `store_point_policies` table is not an authority for this resolver.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 

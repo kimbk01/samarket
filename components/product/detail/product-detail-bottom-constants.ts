@@ -81,7 +81,7 @@ export const TRADE_POST_DETAIL_SCROLL_PAD_BUYER =
 export const TRADE_POST_DETAIL_SCROLL_PAD_SELLER =
   "pb-[calc(4.75rem+max(10px,var(--safe-bottom)))]";
 
-/** Seller band 실렌더 — D-Point 홍보만 (빈 밴드 금지) */
+/** Seller band 실렌더 — 포인트 홍보만 (빈 밴드 금지) */
 export function tradePostDetailSellerBandVisible(opts: { canApplyTradeAd: boolean }): boolean {
   return Boolean(opts.canApplyTradeAd);
 }

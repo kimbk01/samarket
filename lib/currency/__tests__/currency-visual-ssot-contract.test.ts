@@ -29,12 +29,6 @@ describe("currency-visual-ssot-contract", () => {
     expect(finance).toContain("CurrencyBalanceCard");
   });
 
-  it("Owner Business Cash manage uses currency components", () => {
-    const bc = read("components/business/owner/OwnerBusinessCashView.tsx");
-    expect(bc).toContain("CurrencyBalanceCard");
-    expect(bc).toContain("CurrencyHistoryRow");
-  });
-
   it("Ads hub is Cash consumer not wallet owner", () => {
     const hub = read("components/business/owner/ads/OwnerDeliveryAdsHubView.tsx");
     expect(hub).toContain("data-owner-ads-cash-consumer");
@@ -42,6 +36,12 @@ describe("currency-visual-ssot-contract", () => {
   });
 
   it("Point member card uses blue family", () => {
-    expect(read("components/mypage/MyPointCard.tsx")).toContain("--currency-point");
+    expect(read("components/mypage/MyPointCard.tsx")).toContain("currency-card--point");
+  });
+
+  it("active docs forbid legacy currency UI and writers", () => {
+    const lock = read("docs/dibay-currency-ssot-hard-lock.md");
+    expect(lock).toContain("no historical currency may remain reachable through an active UI/reader");
+    expect(lock).toContain("Any new writer to `delivery_ad_accounts` or `store_cash_accounts`");
   });
 });

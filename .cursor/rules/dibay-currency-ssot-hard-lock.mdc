@@ -1,0 +1,61 @@
+---
+description: HARD LOCK — DIBAY Point / Coin / Cash financial + visual SSOT
+alwaysApply: false
+globs:
+  - lib/currency/**
+  - components/currency/**
+  - lib/stores/advertising/canonical-business-cash*
+  - lib/stores/ensure-store-settlement.ts
+  - lib/stores/credit-coin-inflow.ts
+  - lib/currency/coin-inflow-writer.ts
+  - lib/stores/coin-withdrawal*
+  - components/business/owner/OwnerStoreFinance*
+  - components/stores/owner/dashboard/**
+  - components/business/owner/ads/**
+  - app/(main)/stores/owner/finance/**
+  - app/(main)/stores/owner/**
+  - app/(main)/mypage/points/**
+  - docs/dibay-currency*
+---
+
+# DIBAY Currency SSOT HARD LOCK
+
+**HARD LOCK (CUT 1+).** Full doc: `docs/dibay-currency-ssot-hard-lock.md`.
+
+## Canonical currencies
+
+| ID | Owner | Recharge | Withdraw |
+|---|---|---|---|
+| POINT | Member | YES | NO |
+| COIN | Store | NO | YES |
+| CASH | Store | YES | NO |
+
+## Financial authority
+
+- POINT → `point_ledger` / `profiles.points` cache
+- COIN → `store_economic_point_accounts` / `store_economic_point_ledger`
+- CASH → `business_cash_accounts` / `business_cash_ledger` (AST-005)
+
+## Visual SSOT
+
+- Components: `components/currency/*` with `currency="point"|"coin"|"cash"`
+- Tokens: `--currency-point-*`, `--currency-coin-*`, `--currency-cash-*`
+- Display: `lib/currency/currency-display-contract.ts` — **no UI balance math**
+
+## DO NOT
+
+- Expose any fourth user-facing currency beyond Point, Coin, Cash
+- Expose historical `stores.point_balance`, `store_cash_accounts`, or `delivery_ad_accounts` as a product
+- Preserve a historical currency as an active UI/reader, balance, writer, recharge/adjust/convert path, mutation CTA, navigation item, notification term, or product card
+- Reopen a legacy wallet writer for refund/reversal; corrections must use canonical Point/Coin/Cash authority
+- Display D-Point, Business Credit, Business Cash, Store Point(s), Economic Point, Store Cash, or Gift Store Cash on reachable product surfaces
+- Coin recharge CTA · Cash withdraw CTA
+- Page-local currency cards
+- Merge Coin + Cash balances in UI
+
+## Gate
+
+```bash
+npm run verify:currency-ssot-hard-lock
+npm run verify:currency-visual-ssot-contract
+```

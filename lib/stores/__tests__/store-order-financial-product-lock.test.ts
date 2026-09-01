@@ -4,10 +4,10 @@ import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlem
 
 /**
  * PRODUCT LOCK — Delivery financial product paths (not aspirational).
- * HELPER ONLY states are forbidden for Discount / D-Point / Partial Refund.
+ * HELPER ONLY states are forbidden for Discount / Point / Partial Refund.
  */
 describe("STORE_ORDER_FINANCIAL_CONTRACT product lock", () => {
-  it("locks coupon checkout authority and forbids D-Point / partial refund", () => {
+  it("locks coupon checkout authority and forbids Point / partial refund", () => {
     expect(STORE_ORDER_FINANCIAL_CONTRACT.storeCheckoutDiscountSupported).toBe(true);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.discountAtCreateAlwaysZero).toBe(false);
     expect(STORE_ORDER_FINANCIAL_CONTRACT.customerCouponSupported).toBe(true);

@@ -21,7 +21,7 @@ import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/ca
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET — selected-store Business Cash + Store Points (Economic) finance surface. */
+/** GET — selected-store canonical Cash + Coin finance surface. */
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ storeId: string }> }

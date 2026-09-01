@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount } from "@/components/currency";
 import {
   listActiveMemberPromotionProducts,
   type MemberPromotionProductId,
@@ -123,7 +124,12 @@ export function PointPromotionOrderForm({
             >
               <div className="flex justify-between gap-2">
                 <span className="font-semibold text-sam-fg">{title}</span>
-                <span className="font-semibold text-sam-fg">{item.pointCost.toLocaleString()}P</span>
+                <CurrencyAmount
+                  currency="point"
+                  amount={item.pointCost}
+                  compactPoint
+                  className="font-semibold"
+                />
               </div>
               <p className="mt-1 sam-text-helper text-sam-muted">{desc}</p>
             </button>
@@ -133,9 +139,12 @@ export function PointPromotionOrderForm({
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
         <p className="sam-text-body-secondary text-sam-muted">{t("points_ui_estimated_cost")}</p>
-        <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">
-          {cost.toLocaleString()}P
-        </p>
+        <CurrencyAmount
+          currency="point"
+          amount={cost}
+          compactPoint
+          className="mt-1 sam-text-page-title font-semibold"
+        />
         <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
           {t("points_ui_owned", { balance: balance.toLocaleString() })}
         </p>
@@ -156,8 +165,8 @@ export function PointPromotionOrderForm({
       {!canSubmit && insufficient ? (
         <a href="/mypage/points" className="block text-center sam-text-body text-sam-primary">
           {safeT("promo_sheet_go_points", {
-            fallbackKo: "D-Point 충전",
-            fallbackEn: "Add D-Point",
+            fallbackKo: "포인트 충전",
+            fallbackEn: "Add Point",
           })}
         </a>
       ) : null}

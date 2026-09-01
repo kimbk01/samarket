@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST — Legacy Admin cash credit DISABLED.
- * Ads payment authority is AST-005 Business Cash at Owner submit.
+ * Ads payment authority is canonical Cash at Owner submit.
  */
 export async function POST(_req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -81,7 +81,7 @@ export async function POST(_req: NextRequest) {
       ok: false,
       error: "DISABLED_FOR_NEW_PRODUCT",
       detail:
-        "Delivery Ads payments use Business Cash. Use Admin Business Cash charge approve for top-ups, not this credit path.",
+        "Delivery Ads payments use Cash. Use the canonical Cash top-up queue.",
       authority: AST_005_BUSINESS_CASH,
     },
     { status: 410 }

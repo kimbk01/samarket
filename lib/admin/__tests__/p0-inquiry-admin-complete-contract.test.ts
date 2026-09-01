@@ -91,16 +91,15 @@ describe("P0-C Admin → Member Care reply preserved (T8/T9)", () => {
   });
 });
 
-describe("P0-C Owner platform reply + account special (T11/T12)", () => {
-  it("general platform reply notifies; account_request writer preserved", () => {
+describe("P0-C Owner platform reply", () => {
+  it("uses one generic inquiry notification without a legacy finance product", () => {
     const route = read("app/api/admin/platform-inquiries/[id]/route.ts");
     const writer = read("lib/notifications/notify-store-points.ts");
     expect(writer).toContain("notifyStoreOwnerPlatformInquiryReplied");
-    expect(writer).toContain("notifyStoreOwnerPointAccountReplied");
+    expect(writer).not.toContain("notifyStoreOwnerPointAccountReplied");
     expect(writer).toContain('type: "inquiry_answered"');
     expect(route).toContain("notifyStoreOwnerPlatformInquiryReplied");
-    expect(route).toContain("notifyStoreOwnerPointAccountReplied");
-    expect(route).toContain("account_request");
+    expect(route).not.toContain("notifyStoreOwnerPointAccountReplied");
   });
 });
 

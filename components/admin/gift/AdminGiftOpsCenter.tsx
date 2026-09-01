@@ -181,8 +181,8 @@ export function AdminGiftOpsCenter() {
           <div className="flex flex-wrap gap-2">
             {(
               [
-                { id: "external" as const, ko: "외부 환전", en: "External cash-out" },
-                { id: "store-cash" as const, ko: "Store Cash 전환", en: "Store Cash" },
+                { id: "external" as const, ko: "과거 외부 환전", en: "Historical cash-out" },
+                { id: "store-cash" as const, ko: "과거 전환 기록", en: "Historical conversion records" },
                 { id: "recovery" as const, ko: "Recovery", en: "Recovery" },
               ] as const
             ).map((s) => (

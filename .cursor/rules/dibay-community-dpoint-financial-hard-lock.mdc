@@ -1,5 +1,5 @@
 ---
-description: HARD LOCK — Community D-Point financial reward / reversal / ledger
+description: HARD LOCK — Community Point financial reward / reversal / ledger
 alwaysApply: false
 globs:
   - lib/community-points/**
@@ -8,7 +8,7 @@ globs:
   - scripts/**/community-dpoint*
 ---
 
-# DIBAY Community D-Point Financial HARD LOCK
+# DIBAY Community Point Financial HARD LOCK
 
 **HARD LOCK (2026-08-11).** Full doc: `docs/dibay-community-dpoint-financial-hard-lock.md`.
 
@@ -29,7 +29,7 @@ globs:
 - `Math.random` / client amount / probability-bucket product random
 - Skip reversal on insufficient balance; 0-clamp to hide debt
 - Negative spend for member purchases (reversal-only negative)
-- Community-only balance; Business Credit mix
+- Community-only balance; retired Business Credit product exposure or ledger mix
 - New comment-report writer; community_reports → sanctions
 - Hidden policy fallback; treat feed `max_posts_per_day` as reward cap
 
@@ -38,3 +38,5 @@ globs:
 ```bash
 npm run verify:community-dpoint-financial-hard-lock
 ```
+
+Product terminology is **Point / 포인트** only. D-Point and Business Credit are historical names and may appear only in immutable identifiers or archive evidence, never in UI, writers, CTA, navigation, notifications, or product cards.

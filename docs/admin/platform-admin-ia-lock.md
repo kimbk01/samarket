@@ -204,16 +204,13 @@ Support
   Platform Inquiries             /admin/platform-inquiries
 Member Assets
   Deposit Requests               /admin/point-charges
-  D-Point Ledger                 /admin/points/ledger
+  Point Ledger                   /admin/points/ledger
   Plans / Rates                  /admin/point-plans
   Policies                       /admin/point-policies
   Executions                     /admin/point-executions
   Expire                         /admin/points/expire
-Store Assets
-  Deposit Requests               /admin/store-point-charges
-  Business Credit Ledger         /admin/store-point-ledger
-  Plans / Rates                  /admin/store-point-policies
-  Store Points Hub               /admin/store-points
+Store Finance
+  Coin / Cash Operations         /admin/finance
 Content
   Notices                        /admin/app/notices
   FAQ                            /admin/customer-platform/faq (pending)
@@ -221,6 +218,8 @@ Content
   Business Information           /admin/app/business
 Notification Engine              /admin/notifications
 ```
+
+Currency IA invariant: Point, Coin, and Cash are the only product currencies. Business Credit, Store Points, Business Cash, Store Cash, Gift Store Cash, ads wallets, and settlement-as-wallet are archive-only historical concepts and must not have Admin navigation, mutation CTA, writer, notification terminology, or product UI.
 
 ### Delivery Orders roles
 

@@ -54,9 +54,8 @@ export function businessCcDeliveryDistanceHref(): string {
   return "/admin/delivery-distance";
 }
 
-export function businessCcPointsHref(query?: string): string {
-  const q = String(query ?? "").trim();
-  return q ? `/admin/store-points?q=${encodeURIComponent(q)}` : "/admin/store-points";
+export function businessCcPointsHref(_query?: string): string {
+  return "/admin/store-point-ledger";
 }
 
 export function businessCcOwnerMemberHref(ownerUserId: string): string {

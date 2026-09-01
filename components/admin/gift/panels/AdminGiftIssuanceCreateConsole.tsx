@@ -695,8 +695,8 @@ export function AdminGiftIssuanceCreateConsole({ mode, subTabs, onCreated }: Pro
               <input className={Sam.input.base} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} />
               <span className="text-xs text-sam-muted">
                 {safeT("gift_ops_purchase_help", {
-                  fallbackKo: "고객이 D-Point로 구매할 가격",
-                  fallbackEn: "Price paid with D-Point",
+                  fallbackKo: "고객이 Point로 구매할 가격",
+                  fallbackEn: "Price paid with Point",
                 })}
               </span>
             </label>

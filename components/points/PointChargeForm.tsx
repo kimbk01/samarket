@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointPlan, PointPaymentMethod } from "@/lib/types/point";
 import { CUSTOMER_CENTER_FORM_COLUMN_CLASS } from "@/lib/mypage/customer-center-layout";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { CurrencyAmount } from "@/components/currency";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
 interface PointChargeFormProps {
@@ -92,7 +93,12 @@ export function PointChargeForm({
                       ) : null}
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="sam-text-body font-bold text-sky-700">{total.toLocaleString()}P</p>
+                      <CurrencyAmount
+                        currency="point"
+                        amount={total}
+                        compactPoint
+                        className="sam-text-body"
+                      />
                       <p className="sam-text-helper text-sam-muted">₱{plan.paymentAmount.toLocaleString()}</p>
                       {(plan.bonusPointAmount ?? 0) > 0 && (
                         <p className="sam-text-xxs text-emerald-600">
@@ -151,7 +157,12 @@ export function PointChargeForm({
           {selectedPlan && (
             <div className="mb-4 flex items-center justify-between rounded-[length:var(--overlay-radius-md)] bg-[color:var(--overlay-secondary)] px-3 py-2.5">
               <span className="text-[color:var(--overlay-text-primary)]">{t("points_ui_charge_points_label")}</span>
-              <span className="font-bold text-[color:var(--overlay-primary)]">{totalPoint.toLocaleString()}P</span>
+              <CurrencyAmount
+                currency="point"
+                amount={totalPoint}
+                compactPoint
+                className="font-bold"
+              />
             </div>
           )}
 

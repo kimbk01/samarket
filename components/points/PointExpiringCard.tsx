@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount } from "@/components/currency";
 import type { PointExpireUpcomingSummary } from "@/lib/types/point-expire";
 
 interface PointExpiringCardProps {
@@ -17,19 +18,22 @@ export function PointExpiringCard({ summary, className = "" }: PointExpiringCard
   return (
     <Link
       href="/mypage/points/expiring"
-      className={`block rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4 ${className}`}
+      className={`currency-card--point block rounded-ui-rect border p-4 ${className}`}
     >
-      <p className="sam-text-body-secondary text-amber-800">{t("points_ui_expiring_label")}</p>
-      <p className="mt-1 sam-text-page-title font-bold text-amber-900">
-        {summary.totalExpiringPoint.toLocaleString()}P
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("points_ui_expiring_label")}</p>
+      <CurrencyAmount
+        currency="point"
+        amount={summary.totalExpiringPoint}
+        compactPoint
+        className="mt-1 sam-text-page-title"
+      />
       {summary.nearestExpireAt && (
-        <p className="mt-1 sam-text-helper text-amber-700">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           {t("points_ui_nearest_expire")}{" "}
           {new Date(summary.nearestExpireAt).toLocaleDateString("ko-KR")}
         </p>
       )}
-      <p className="mt-2 sam-text-helper text-amber-600">{t("points_ui_view_details")}</p>
+      <p className="currency-amount--point mt-2 sam-text-helper">{t("points_ui_view_details")}</p>
     </Link>
   );
 }

@@ -58,11 +58,6 @@ export function BusinessAdminDashboard({
   const [opsSnapshot, setOpsSnapshot] = useState<OwnerStoreOpsSnapshot | null>(() =>
     peekOwnerStoreOpsSnapshotFromHubCache(row.id)
   );
-  const [pointSummary, setPointSummary] = useState<{
-    pointBalance: number;
-    pointCommerceBlocked: boolean;
-    estimatedAcceptCount: number;
-  } | null>(null);
   const [opsLoaded, setOpsLoaded] = useState(() => peekOwnerStoreOpsSnapshotFromHubCache(row.id) != null);
   const [offline, setOffline] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
@@ -191,37 +186,13 @@ export function BusinessAdminDashboard({
     return () => window.clearInterval(id);
   }, [hubRuntime]);
 
-  const loadPointSummary = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(row.id)}/points`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json()) as {
-        summary?: {
-          pointBalance: number;
-          pointCommerceBlocked: boolean;
-          estimatedAcceptCount: number;
-        };
-      };
-      if (j.summary) setPointSummary(j.summary);
-    } catch {
-      /* optional card */
-    }
-  }, [row.id]);
-
-  useEffect(() => {
-    void loadPointSummary();
-  }, [loadPointSummary]);
-
   const handlePullRefresh = useCallback(async () => {
     invalidateOwnerHubOrderCountsCache(row.id);
     await Promise.all([
       loadRemote(),
       loadOpsSnapshot({ force: true }),
-      loadPointSummary(),
     ]);
-  }, [loadRemote, loadOpsSnapshot, loadPointSummary, row.id]);
+  }, [loadRemote, loadOpsSnapshot, row.id]);
 
   const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
 
@@ -279,7 +250,6 @@ export function BusinessAdminDashboard({
           onRefresh={() => void loadOpsSnapshot({ force: true })}
           refreshing={opsRefreshing}
           snapshotUpdatedAt={snapshotUpdatedAt}
-          pointSummary={pointSummary}
         />
       </div>
     </div>

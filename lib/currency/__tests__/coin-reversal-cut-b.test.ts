@@ -77,13 +77,13 @@ describe("CUT B — Gift conversion API freeze", () => {
   );
 
   it("blocks owner POST with frozen error but keeps GET historical read", () => {
-    expect(OWNER_POST).toContain("gift_store_cash_conversion_frozen");
+    expect(OWNER_POST).toContain("historical_gift_conversion_read_only");
     expect(OWNER_POST).toContain("export async function GET");
     expect(OWNER_POST).not.toContain("giftCertificateConversionRequest");
   });
 
   it("blocks admin approve with frozen error", () => {
-    expect(ADMIN_APPROVE).toContain("gift_store_cash_conversion_frozen");
+    expect(ADMIN_APPROVE).toContain("historical_gift_conversion_read_only");
     expect(ADMIN_APPROVE).not.toContain("giftCertificateConversionApprove");
   });
 });

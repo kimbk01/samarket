@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronRight, Coins, Megaphone, Ticket, Wallet } from "lucide-react";
+import { CurrencyAmount } from "@/components/currency";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import {
@@ -17,15 +18,12 @@ import {
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
 /**
- * Logged-in /mypage — Member D-Point SSOT asset strip (no Business Credit balance, no fake metrics).
+ * Logged-in /mypage — canonical Member Point SSOT asset strip.
  * Includes Revenue Hub entry: 「내 홍보 / 광고」 (/mypage/ads).
  */
 export function MypagePointsAssetSummary() {
-  const { safeT, language } = useI18n();
+  const { safeT } = useI18n();
   const { balance, loading } = useUserPointBalance();
-  const value = loading
-    ? "…"
-    : balance.toLocaleString(language === "ko" ? "ko-KR" : "en-US");
 
   return (
     <section className={MYPAGE_HOME_CARD_CLASS} data-testid="mypage-points-asset-summary">
@@ -39,15 +37,24 @@ export function MypagePointsAssetSummary() {
       </div>
       <Link href="/mypage/points" className={MYPAGE_HOME_ROW_CLASS}>
         <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>
-          <Coins className="h-5 w-5" aria-hidden />
+          <Coins className="currency-amount--point h-5 w-5" aria-hidden />
         </span>
         <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>
           {safeT("mypage_comp_stat_points", {
-            fallbackKo: "D-Point",
-            fallbackEn: "D-Point",
+            fallbackKo: "포인트",
+            fallbackEn: "Point",
           })}
         </span>
-        <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{value}</span>
+        {loading ? (
+          <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>…</span>
+        ) : (
+          <CurrencyAmount
+            currency="point"
+            amount={balance}
+            compactPoint
+            className={`shrink-0 ${MYPAGE_HOME_META_TEXT_CLASS}`}
+          />
+        )}
         <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} aria-hidden />
       </Link>
       <Link href="/mypage/coupons" className={`${MYPAGE_HOME_ROW_CLASS} ${MYPAGE_HOME_ROW_DIVIDER_CLASS}`}>

@@ -60,7 +60,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_review: "검수",
     admin_delivery_ads_section_history: "이력",
     admin_delivery_ads_pricing_not_configured: "과금: NOT_CONFIGURED (CUT H 이전)",
-    admin_delivery_ad_funding_required: "Business Cash 결제가 필요합니다.",
+    admin_delivery_ad_funding_required: "Cash 결제가 필요합니다.",
     admin_delivery_ads_funding_section: "결제·펀딩",
     admin_delivery_ads_funding_source: "소스",
     admin_delivery_ads_funding_payable: "최종 결제액",
@@ -241,7 +241,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_first_party_title: "디바이 광고 만들기",
     admin_delivery_ads_first_party_desc: "배너 전용 · Owner 없이 DIBAY_FIRST_PARTY 캠페인 생성",
     admin_delivery_ads_first_party_single_desc:
-      "DIBAY가 직접 운영하는 배너 광고입니다. Owner 결제와 Business Cash를 사용하지 않습니다.",
+      "DIBAY가 직접 운영하는 배너 광고입니다. Owner 결제와 Cash를 사용하지 않습니다.",
     admin_delivery_ads_first_party_store_promo_blocked: "매장 홍보 first-party는 모델상 불가합니다.",
     admin_delivery_ads_first_party_placement: "노출 위치",
     admin_delivery_ads_first_party_schedule: "일정",
@@ -283,9 +283,9 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_inventory_title: "광고 지면 관리",
     admin_ads_search_not_sellable:
       "검색 상단 배너는 런치에서 판매하지 않습니다. 스키마·런타임만 유지합니다.",
-    admin_delivery_ads_cash_charges_title: "Business Cash 충전 신청",
+    admin_delivery_ads_cash_charges_title: "Cash 충전 신청",
     admin_delivery_ads_cash_charges_help:
-      "확인 후 적립하면 광고 Business Cash ledger에만 반영됩니다. Business Credit과 분리됩니다.",
+      "확인 후 적립하면 Cash 원장에만 반영됩니다. Coin과 분리됩니다.",
     admin_delivery_ads_cash_charges_empty: "대기 중인 충전 신청이 없습니다.",
     admin_delivery_ads_cash_charges_complete: "적립 확인",
     admin_delivery_ads_cash_charges_reject: "거절",
@@ -311,11 +311,11 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "확인이 필요한 광고 가격이 {count}개 있습니다.",
     admin_delivery_ads_creative_pc_load: "내 PC에서 이미지 불러오기",
     admin_delivery_ads_creative_req_before: "업로드 전 확인 · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Business Cash 잔액",
-    admin_delivery_ads_cash_credit_title: "광고 결제 = Business Cash (AST-005)",
+    admin_delivery_ads_owner_cash_balance: "Owner Cash 잔액",
+    admin_delivery_ads_cash_credit_title: "광고 결제 = Cash",
     admin_delivery_ads_cash_credit_note:
-      "광고비는 신청 시 Business Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
-    admin_delivery_ads_cash_credit_cta: "Business Cash 지급 (비활성)",
+      "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
+    admin_delivery_ads_cash_credit_cta: "Cash 지급 (비활성)",
   },
   en: {
     admin_delivery_ads_title: "Delivery ads",
@@ -377,7 +377,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_review: "Review",
     admin_delivery_ads_section_history: "History",
     admin_delivery_ads_pricing_not_configured: "Pricing: NOT_CONFIGURED (before CUT H)",
-    admin_delivery_ad_funding_required: "Business Cash payment is required.",
+    admin_delivery_ad_funding_required: "Cash payment is required.",
     admin_delivery_ads_funding_section: "Funding",
     admin_delivery_ads_funding_source: "Source",
     admin_delivery_ads_funding_payable: "Final payable",
@@ -562,7 +562,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_first_party_desc:
       "Banner only · create DIBAY_FIRST_PARTY without a fake Owner",
     admin_delivery_ads_first_party_single_desc:
-      "DIBAY-operated banner. No Owner payment and no Business Cash.",
+      "DIBAY-operated banner. No Owner payment and no Cash.",
     admin_delivery_ads_first_party_store_promo_blocked:
       "Store promotion first-party is model-blocked.",
     admin_delivery_ads_first_party_placement: "Placement",
@@ -605,9 +605,9 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_inventory_title: "Ad placement management",
     admin_ads_search_not_sellable:
       "Search top banner is not sellable at launch. Schema/runtime only.",
-    admin_delivery_ads_cash_charges_title: "Business Cash top-up requests",
+    admin_delivery_ads_cash_charges_title: "Cash top-up requests",
     admin_delivery_ads_cash_charges_help:
-      "Confirm credits ads Business Cash ledger only. Separate from Business Credit.",
+      "Confirmation credits the Cash ledger only. It remains separate from Coin.",
     admin_delivery_ads_cash_charges_empty: "No open top-up requests.",
     admin_delivery_ads_cash_charges_complete: "Credit",
     admin_delivery_ads_cash_charges_reject: "Reject",
@@ -633,10 +633,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "{count} ad prices need attention.",
     admin_delivery_ads_creative_pc_load: "Load image from PC",
     admin_delivery_ads_creative_req_before: "Before upload · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Business Cash balance",
-    admin_delivery_ads_cash_credit_title: "Ads payment = Business Cash (AST-005)",
+    admin_delivery_ads_owner_cash_balance: "Owner Cash balance",
+    admin_delivery_ads_cash_credit_title: "Ads payment = Cash",
     admin_delivery_ads_cash_credit_note:
-      "Ad fees are secured from Business Cash at submit. Admins cannot edit the amount.",
-    admin_delivery_ads_cash_credit_cta: "Grant Business Cash (disabled)",
+      "Ad fees are secured from Cash at submit. Admins cannot edit the amount.",
+    admin_delivery_ads_cash_credit_cta: "Grant Cash (disabled)",
   },
 } as const;

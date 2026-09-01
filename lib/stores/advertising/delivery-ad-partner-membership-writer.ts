@@ -1,7 +1,7 @@
 /**
  * Partner membership apply / Admin approve / reject / cancel / end.
  * Membership product only — NOT a campaign product.
- * Partner monthly fee: AST-005 Business Cash secure before PENDING_REVIEW.
+ * Partner monthly fee: canonical Cash secure before PENDING_REVIEW.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -144,8 +144,8 @@ export async function listPartnerMembershipsForAdmin(
 }
 
 /**
- * Owner apply — BC secure exactly once, then PENDING_REVIEW.
- * Insufficient BC → no PENDING_REVIEW intake (row deleted).
+ * Owner apply — Cash secure exactly once, then PENDING_REVIEW.
+ * Insufficient Cash → no PENDING_REVIEW intake (row deleted).
  */
 export async function ownerApplyPartnerMembership(
   sb: SupabaseClient,
@@ -297,7 +297,7 @@ export async function ownerRequestPartnerMembershipCancel(
   return { ok: true, membership };
 }
 
-/** Admin approve PENDING_REVIEW → ACTIVE; requires canonical BC funding SECURED. */
+/** Admin approve PENDING_REVIEW → ACTIVE; requires canonical Cash funding SECURED. */
 export async function adminApprovePartnerMembership(
   sb: SupabaseClient,
   input: {
@@ -380,7 +380,7 @@ export async function adminApprovePartnerMembership(
 }
 
 /**
- * Admin reject PENDING_REVIEW → REJECTED + exactly-once BC refund.
+ * Admin reject PENDING_REVIEW → REJECTED + exactly-once Cash refund.
  * REJECTED ≠ ENDED (application outcome vs membership end).
  */
 export async function adminRejectPartnerMembership(

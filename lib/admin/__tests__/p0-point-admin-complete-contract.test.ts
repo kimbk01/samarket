@@ -80,23 +80,21 @@ describe("P0-B exact deeplink (T7)", () => {
   });
 });
 
-describe("P0-B store hold notify wiring (T8)", () => {
-  it("store charge PATCH calls on_hold notify writer", () => {
+describe("three-currency Admin mutation boundary", () => {
+  it("makes historical store-credit requests read-only", () => {
     const route = read("app/api/admin/store-point-charges/[id]/route.ts");
-    const writer = read("lib/notifications/notify-store-points.ts");
-    expect(writer).toContain("notifyStoreOwnerPointChargeOnHold");
-    expect(writer).toContain('kind: "store_point_charge_on_hold"');
-    expect(route).toContain("notifyStoreOwnerPointChargeOnHold");
-    expect(route).toMatch(/action === "hold"[\s\S]*notifyStoreOwnerPointChargeOnHold/);
+    expect(route).toContain("historical_store_credit_read_only");
+    expect(route).toContain("status: 410");
+    expect(route).not.toContain("approve_store_point_charge_request");
   });
 
-  it("preserves approve/reject member + store notify (T9)", () => {
+  it("preserves canonical member Point approval notifications only", () => {
     const memberRoute = read("app/api/admin/point-charges/[id]/route.ts");
     const storeRoute = read("app/api/admin/store-point-charges/[id]/route.ts");
     expect(memberRoute).toContain("notifyUserPointChargeApproved");
     expect(memberRoute).toContain("notifyUserPointChargeRejected");
     expect(memberRoute).toContain("notifyUserPointChargeOnHold");
-    expect(storeRoute).toContain("notifyStoreOwnerPointChargeApproved");
-    expect(storeRoute).toContain("notifyStoreOwnerPointChargeRejected");
+    expect(storeRoute).not.toContain("notifyStoreOwnerPointChargeApproved");
+    expect(storeRoute).not.toContain("notifyStoreOwnerPointChargeRejected");
   });
 });

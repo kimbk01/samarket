@@ -46,7 +46,7 @@ async function loadOwnedCampaignStoreId(
   return storeId || null;
 }
 
-/** GET — AST-005 Business Cash funding status for Owner campaign. */
+/** GET — canonical Cash funding status for Owner campaign. */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
 /**
  * POST — Manual fund path DISABLED.
- * Stage 1 secures AST-005 at Owner submit/resubmit (DEBIT_REFUND_BUSINESS_CASH).
+ * Owner submit/resubmit secures canonical Cash.
  */
 export async function POST(_req: NextRequest, _ctx: Ctx) {
   const userId = await getRouteUserId();
@@ -121,7 +121,7 @@ export async function POST(_req: NextRequest, _ctx: Ctx) {
       ok: false,
       error: "DISABLED_FOR_NEW_PRODUCT",
       detail:
-        "Delivery Ads payments use Business Cash at submit. Use Business Cash top-up or Store Points conversion, then submit.",
+        "Delivery Ads payments use Cash at submit. Use Cash top-up or Coin conversion, then submit.",
       authority: AST_005_BUSINESS_CASH,
     },
     { status: 410 }

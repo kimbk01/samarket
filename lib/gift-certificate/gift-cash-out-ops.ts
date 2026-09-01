@@ -1,6 +1,6 @@
 /**
  * Gift Revenue → External cash-out (O3-B).
- * Separate from Store Cash conversion. Source = recognized available Gift Revenue only.
+ * Separate from archived conversion records. Source = recognized available Gift Revenue only.
  */
 
 export const GIFT_CASH_OUT_STATUSES = [

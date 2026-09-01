@@ -21,7 +21,7 @@ ORDER VOLUME != MEMBER MANNER
 
 DIBAY Manner Battery is a **0–100%** member trust indicator based on verified trust-related behavior across Trade, Community, and Delivery member surfaces.
 
-It is **not** popularity, post/like volume, order volume, D-Point, Business Credit, store/food ratings, or ad spend.
+It is **not** popularity, post/like volume, order volume, Point, Coin, Cash, store/food ratings, or ad spend.
 
 - **Neutral (no evidence):** `50`
 - **Range:** `0..100`

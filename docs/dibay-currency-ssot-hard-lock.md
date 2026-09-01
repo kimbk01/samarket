@@ -20,8 +20,8 @@ It does **not** authorize unbounded financial data migration without bounded CUT
 | ID | User-facing (en) | User-facing (ko) | Owner |
 |---|---|---|---|
 | **POINT** | Point | 포인트 | General member |
-| **COIN** | Coin | 매장 포인트 | Store (`store_id`) |
-| **CASH** | Cash | 비즈니스 캐시 | Store (`store_id`) |
+| **COIN** | Coin | Coin | Store (`store_id`) |
+| **CASH** | Cash | 캐시 | Store (`store_id`) |
 
 **Invariant:** `POINT ≠ COIN ≠ CASH` — separate balance, ledger, writers, readers, UI variants.
 
@@ -65,13 +65,15 @@ It does **not** authorize unbounded financial data migration without bounded CUT
 | Ads/Partner spend | AST-005 RPCs only |
 | Module | `lib/stores/advertising/canonical-business-cash-contract.ts` |
 
-### Legacy (preserve history — no new product writers)
+### Historical data (not a product)
 
 | System | Field / table | Classification |
 |---|---|---|
-| Business Credit | `stores.point_balance`, `store_point_ledger` | LEGACY — AST-002 accept fee (**retire at CUT E cutover** via `DIBAY_CURRENCY_AST002_RETIRED`) |
-| Gift Store Cash | `store_cash_accounts` | LEGACY — historical gift conversion |
-| Owner ad wallet | `delivery_ad_accounts` | LEGACY — owner-scoped shadow |
+| Former store credit | `stores.point_balance`, `store_point_ledger` | Historical accounting evidence only |
+| Former gift cash wallet | `store_cash_accounts`, `store_cash_ledger` | Historical accounting evidence only |
+| Former owner ad wallet | `delivery_ad_accounts` | Historical accounting evidence only |
+
+Historical data may remain for accounting evidence, but no historical currency may remain reachable through an active UI/reader, balance, writer, recharge/adjust/convert path, Owner/Admin mutation CTA, navigation item, notification terminology, or product card. Historical correction and reversal records must be produced through canonical Point/Coin/Cash authorities, not by reopening a legacy wallet writer.
 
 ### Gift cash-out merge (owner decision)
 
@@ -109,7 +111,6 @@ Color alone is insufficient. Each currency differs by:
 Selected Store → /stores/owner/finance
   [COIN card — Gold]
   [CASH card — Green]
-  [Business Credit — legacy, separate styling]
 ```
 
 Ads Hub reads Cash as **consumer** only — links to Finance.
@@ -118,12 +119,12 @@ Ads Hub reads Cash as **consumer** only — links to Finance.
 
 ## 5. DO NOT (without reopen)
 
-- Rename Business Credit UI to Coin without writer cutover  
-- Recolor legacy systems as canonical currency  
-- New writers to `delivery_ad_accounts`, `store_cash_accounts` (except historical refund)  
-- Coin card with recharge CTA or `P` suffix  
-- Cash card with withdraw CTA  
-- Merge Coin + Cash into one “store balance”  
+- Expose historical currency names or balances as products
+- Keep historical recharge, adjustment, conversion, navigation, notification, or mutation paths
+- Any new writer to `delivery_ad_accounts` or `store_cash_accounts`
+- Coin card with recharge CTA or `P` suffix
+- Cash card with withdraw CTA
+- Merge Coin + Cash into one “store balance”
 - Page-local currency card styling outside `components/currency/`  
 
 ---

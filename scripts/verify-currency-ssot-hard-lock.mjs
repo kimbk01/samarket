@@ -27,13 +27,19 @@ if (!anchor.includes("store_economic_point_accounts")) {
 if (!anchor.includes("business_cash_accounts")) {
   fail("CASH authority must reference business_cash_accounts");
 }
-if (!anchor.includes("CURRENCY_LEGACY_WRITER_ALLOWLIST")) {
-  fail("hard-lock must define legacy writer allowlist");
+if (!anchor.includes("LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT = true")) {
+  fail("hard-lock must separate historical evidence from active products");
 }
 
 const display = read("lib/currency/currency-display-contract.ts");
 if (!display.includes("formatCurrencyAmount")) {
   fail("currency-display-contract must export formatCurrencyAmount");
+}
+if (!display.includes('coin: { en: "Coin", ko: "Coin" }')) {
+  fail("Coin must use the canonical Coin label in all languages");
+}
+if (!display.includes('cash: { en: "Cash", ko: "캐시" }')) {
+  fail("Cash must use the canonical Cash/캐시 label");
 }
 if (!display.includes('coin: ["convert_to_cash", "withdraw", "history"]')) {
   fail("Coin actions must exclude recharge");
@@ -48,6 +54,9 @@ if (!doc.includes("POINT ≠ COIN ≠ CASH")) {
 }
 if (!doc.includes("components/currency")) {
   fail("hard-lock doc must reference currency components");
+}
+if (!doc.includes("Historical data may remain for accounting evidence")) {
+  fail("hard-lock must forbid historical data from preserving a product");
 }
 
 const matrix = read("docs/dibay-currency-visual-surface-matrix.md");
@@ -82,11 +91,29 @@ if (!canonicalCash.includes("business_cash_accounts")) {
   fail("canonical-business-cash-contract must anchor AST-005");
 }
 
-// Forbidden legacy writers outside allowlist
-const allowlist = [
-  "lib/stores/advertising/delivery-ad-store-cash-writer.ts",
-  "lib/gift-certificate/gift-certificate-rpc.ts",
-];
+const writerKill = read(
+  "supabase/migrations/20261202140000_three_currency_legacy_writer_kill.sql"
+);
+for (const name of [
+  "charge_store_points_on_order_accept",
+  "approve_store_point_charge_request",
+  "adjust_store_point_balance",
+  "gift_certificate_conversion_request",
+  "gift_certificate_cash_out_request",
+  "store_cash_delivery_ad_spend",
+  "owner_fund_delivery_ad_campaign",
+]) {
+  if (!writerKill.includes(name)) fail(`legacy writer kill migration missing ${name}`);
+}
+
+const transition = read("lib/stores/apply-store-order-status-transition.ts");
+if (
+  transition.includes("chargeStorePointsOnOrderAccept") ||
+  transition.includes("charge_store_points_on_order_accept")
+) {
+  fail("order accept must not debit a historical store-credit product");
+}
+
 const forbiddenPatterns = [
   /\.from\(["']delivery_ad_accounts["']\)[\s\S]{0,240}\.(insert|update|upsert)\(/,
   /\.from\(["']store_cash_accounts["']\)[\s\S]{0,240}\.(insert|update|upsert)\(/,
@@ -110,7 +137,6 @@ function walkTs(dir, out = []) {
 for (const abs of walkTs(root)) {
   const rel = abs.slice(root.length + 1);
   if (rel.startsWith("supabase/")) continue;
-  if (allowlist.some((a) => rel === a || rel.endsWith(a))) continue;
   const src = readFileSync(abs, "utf8");
   for (const pat of forbiddenPatterns) {
     if (pat.test(src)) {

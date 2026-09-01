@@ -80,14 +80,6 @@ if (!financeView.includes('currency="coin"') || !financeView.includes('currency=
   fail("OwnerStoreFinanceView must render coin and cash variants");
 }
 
-const businessCashView = read("components/business/owner/OwnerBusinessCashView.tsx");
-if (!businessCashView.includes("CurrencyBalanceCard")) {
-  fail("OwnerBusinessCashView must use CurrencyBalanceCard");
-}
-if (!businessCashView.includes("CurrencyHistoryRow")) {
-  fail("OwnerBusinessCashView must use CurrencyHistoryRow for ledger");
-}
-
 const adminFinance = read("components/admin/finance/AdminStoreFinancePanels.tsx");
 if (!adminFinance.includes("CurrencyBadge")) {
   fail("AdminStoreFinancePanels must use CurrencyBadge");

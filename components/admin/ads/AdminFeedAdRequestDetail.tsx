@@ -163,9 +163,9 @@ export function AdminFeedAdRequestDetail({
     if (action === "end") {
       const ok = await dibayConfirm({ title: safeT("admin_feed_req_end_confirm", {
           fallbackKo:
-            "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 D-Point는 자동 환불되지 않습니다.",
+            "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 Point는 자동 환불되지 않습니다.",
           fallbackEn:
-            "End this ad? It leaves the feed immediately. Captured D-Points are not auto-refunded.",
+            "End this ad? It leaves the feed immediately. Captured Points are not auto-refunded.",
         }), confirmTone: "destructive" });
       if (!ok) return;
       reason = "admin_ended";

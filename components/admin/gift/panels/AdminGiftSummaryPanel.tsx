@@ -322,8 +322,8 @@ export function AdminGiftSummaryPanel({ range }: { range: string }) {
             )}
             {kpi(
               safeT("gift_ops_kpi_conversion_pending", {
-                fallbackKo: "Store Cash 전환 대기",
-                fallbackEn: "Store cash conversion pending",
+                fallbackKo: "과거 전환 처리 대기",
+                fallbackEn: "Historical conversion pending",
               }),
               fmtCount(data.storeCashConversionPendingCount),
               "storeCashConversionPendingCount",

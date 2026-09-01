@@ -21,9 +21,9 @@ export async function POST(
   return NextResponse.json(
     {
       ok: false,
-      error: "gift_store_cash_conversion_frozen",
+      error: "historical_gift_conversion_read_only",
       message:
-        "Gift Store Cash conversion approve is frozen. Historical requests remain readable.",
+        "Historical gift conversion requests are read-only. Use canonical Coin finance.",
     },
     { status: 410 }
   );

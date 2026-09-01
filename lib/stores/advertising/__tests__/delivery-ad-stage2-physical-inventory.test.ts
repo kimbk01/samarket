@@ -94,9 +94,9 @@ function browseTopSrc() {
 function browseViewSrc() {
   return readFileSync(join(root, "components/stores/browse/StoresBrowsePrimaryView.tsx"), "utf8");
 }
-function storeCashSrc() {
+function canonicalCashSrc() {
   return readFileSync(
-    join(root, "lib/stores/advertising/delivery-ad-store-cash-contract.ts"),
+    join(root, "lib/stores/advertising/canonical-business-cash-contract.ts"),
     "utf8"
   );
 }
@@ -347,8 +347,8 @@ describe("Stage 2 — physical inventory authority", () => {
   });
 
   it("S2-T23 Stage 1 finance authority unchanged", () => {
-    expect(storeCashSrc()).toContain("AD_SPEND");
-    expect(storeCashSrc()).toContain("AD_REFUND");
+    expect(canonicalCashSrc()).toContain("AD_SPEND");
+    expect(canonicalCashSrc()).toContain("AD_REFUND");
     expect(DELIVERY_AD_STAGE2_SURFACE_CONTRACT.stage1Finance).toBe("HARD_LOCKED");
   });
 

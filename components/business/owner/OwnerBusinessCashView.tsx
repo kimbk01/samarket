@@ -1,9 +1,6 @@
 "use client";
 
-/**
- * Stage 1 — minimal Owner finance surface for AST-005 Business Cash + SP→BC conversion.
- * Not a full Ads Hub rebuild.
- */
+/** Canonical Owner Cash top-up and Coin → Cash conversion controls. */
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -36,7 +33,15 @@ type LedgerRow = {
   createdAt: string;
 };
 
-export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
+export function OwnerBusinessCashView({
+  storeId,
+  manageOnly = false,
+  onChanged,
+}: {
+  storeId: string;
+  manageOnly?: boolean;
+  onChanged?: () => void | Promise<void>;
+}) {
   const { t, safeT, language } = useI18n();
   const locale = catalogDateLocale(language);
 
@@ -169,13 +174,14 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
         return;
       }
       setNotice(
-        safeT("owner_bc_topup_pending", {
-          fallbackKo: "Business Cash 충전 신청이 접수되었습니다. 관리자 승인 후 반영됩니다.",
-          fallbackEn: "Business Cash top-up requested. It applies after admin approval.",
+        safeT("owner_finance_cash_topup_pending", {
+          fallbackKo: "캐시 충전 신청이 접수되었습니다. 관리자 승인 후 반영됩니다.",
+          fallbackEn: "Cash top-up requested. It applies after admin approval.",
         })
       );
       setTopUpAmountPhp("");
       await load();
+      await onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -190,9 +196,9 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
       const q = quote ?? (await refreshQuote(points));
       if (!q || points <= 0) {
         setError(
-          safeT("owner_bc_convert_invalid_points", {
-            fallbackKo: "전환할 매장 포인트를 입력해 주세요",
-            fallbackEn: "Enter Store Points to convert",
+          safeT("owner_finance_cash_convert_invalid", {
+            fallbackKo: "전환할 Coin을 입력해 주세요.",
+            fallbackEn: "Enter Coin to convert.",
           })
         );
         return;
@@ -229,14 +235,15 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
         return;
       }
       setNotice(
-        safeT("owner_bc_convert_success", {
-          fallbackKo: "매장 포인트가 Business Cash로 전환되었습니다.",
-          fallbackEn: "Store Points converted to Business Cash.",
+        safeT("owner_finance_cash_convert_success", {
+          fallbackKo: "Coin이 캐시로 전환되었습니다.",
+          fallbackEn: "Coin converted to Cash.",
         })
       );
       setConvertPoints("");
       setQuote(null);
       await load();
+      await onChanged?.();
     } finally {
       setBusy(false);
     }
@@ -251,36 +258,26 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
       {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}
 
-      <CurrencyBalanceCard
-        currency="cash"
-        amount={bcBalanceMinor}
-        isMinor
-        footer={
-          <p className="text-sm text-sam-muted">
-            {safeT("owner_bc_balance_hint", {
-              fallbackKo: "광고·파트너 결제용 (이 매장)",
-              fallbackEn: "For ads & partner spend (this store)",
+      {!manageOnly ? (
+        <>
+          <CurrencyBalanceCard currency="cash" amount={bcBalanceMinor} isMinor />
+          <OwnerStoreAdminDashSection
+            title={safeT("owner_finance_coin_balance", {
+              fallbackKo: "Coin 잔액",
+              fallbackEn: "Coin balance",
             })}
-          </p>
-        }
-      />
+          >
+            <p className="text-xl font-semibold text-sam-fg">
+              {spBalance.toLocaleString(locale)} Coin
+            </p>
+          </OwnerStoreAdminDashSection>
+        </>
+      ) : null}
 
       <OwnerStoreAdminDashSection
-        title={safeT("owner_sp_economic_title", {
-          fallbackKo: "매장 포인트",
-          fallbackEn: "Store Points",
-        })}
-      >
-        <p className="text-xl font-semibold text-sam-fg">
-          {spBalance.toLocaleString(locale)}
-          {safeT("owner_sp_unit", { fallbackKo: "P", fallbackEn: "P" })}
-        </p>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_bc_topup_title", {
-          fallbackKo: "Business Cash 충전",
-          fallbackEn: "Top up Business Cash",
+        title={safeT("owner_finance_cash_topup_title", {
+          fallbackKo: "캐시 충전",
+          fallbackEn: "Top up Cash",
         })}
       >
         <div className="flex gap-2">
@@ -310,9 +307,9 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
 
       <div id="convert" data-owner-bc-convert="1">
       <OwnerStoreAdminDashSection
-        title={safeT("owner_bc_convert_title", {
-          fallbackKo: "매장 포인트 → Business Cash",
-          fallbackEn: "Store Points → Business Cash",
+        title={safeT("owner_finance_cash_convert_title", {
+          fallbackKo: "Coin → 캐시",
+          fallbackEn: "Coin → Cash",
         })}
       >
         <p className="mb-2 text-sm text-sam-muted">
@@ -347,9 +344,9 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
               const p = Math.trunc(Number(convertPoints) || 0);
               if (p > 0) void refreshQuote(p);
             }}
-            placeholder={safeT("owner_bc_convert_points_placeholder", {
-              fallbackKo: "전환할 포인트",
-              fallbackEn: "Points to convert",
+            placeholder={safeT("owner_finance_cash_convert_placeholder", {
+              fallbackKo: "전환할 Coin",
+              fallbackEn: "Coin to convert",
             })}
           />
           <button
@@ -364,34 +361,34 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
         {quote ? (
           <div className="mt-3 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-sm">
             <p>
-              {safeT("owner_bc_held_sp", {
-                fallbackKo: "보유 매장 포인트",
-                fallbackEn: "Store Points balance",
+              {safeT("owner_finance_coin_held", {
+                fallbackKo: "보유 Coin",
+                fallbackEn: "Coin balance",
               })}
               {": "}
               {quote.storePointsBalance.toLocaleString(locale)}
             </p>
             <p>
-              {safeT("owner_bc_convert_amount_sp", {
-                fallbackKo: "전환할 매장 포인트",
-                fallbackEn: "Points to convert",
+              {safeT("owner_finance_cash_convert_amount", {
+                fallbackKo: "전환할 Coin",
+                fallbackEn: "Coin to convert",
               })}
               {": "}
               {quote.requestedPoints.toLocaleString(locale)}
             </p>
             <p>
-              {safeT("owner_bc_expected_bc", {
-                fallbackKo: "받을 Business Cash",
-                fallbackEn: "Business Cash to receive",
+              {safeT("owner_finance_cash_expected", {
+                fallbackKo: "받을 캐시",
+                fallbackEn: "Cash to receive",
               })}
               {": "}
               {formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor)}
             </p>
             {quote.rateChangedNoticeRequired ? (
               <p className="font-medium text-sam-danger" role="status">
-                {safeT("owner_bc_rate_changed_notice", {
-                  fallbackKo: `현재 전환율이 변경되었습니다. ${quote.requestedPoints} 매장 포인트를 전환하면 Business Cash ${formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor)}이 충전됩니다.`,
-                  fallbackEn: `The conversion rate changed. Converting ${quote.requestedPoints} Store Points credits ${formatDeliveryAdPhpMinor(quote.expectedBusinessCashMinor)} Business Cash.`,
+                {safeT("owner_finance_cash_rate_changed", {
+                  fallbackKo: "현재 전환율이 변경되었습니다. 새 전환율을 확인해 주세요.",
+                  fallbackEn: "The conversion rate changed. Review the new rate.",
                 })}
               </p>
             ) : null}
@@ -411,12 +408,13 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
       </OwnerStoreAdminDashSection>
       </div>
 
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_bc_history_title", {
-          fallbackKo: "Business Cash 내역",
-          fallbackEn: "Business Cash history",
-        })}
-      >
+      {!manageOnly ? (
+        <OwnerStoreAdminDashSection
+          title={safeT("owner_finance_cash_history_title", {
+            fallbackKo: "캐시 내역",
+            fallbackEn: "Cash history",
+          })}
+        >
         <div id="ledger" data-owner-bc-ledger="1">
         {ledger.length === 0 ? (
           <p className="text-sm text-sam-muted">
@@ -440,7 +438,8 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
           </ul>
         )}
         </div>
-      </OwnerStoreAdminDashSection>
+        </OwnerStoreAdminDashSection>
+      ) : null}
 
       {topUps.length > 0 ? (
         <OwnerStoreAdminDashSection
@@ -453,7 +452,22 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
             {topUps.map((r) => (
               <li key={r.id} className="flex justify-between gap-2">
                 <span>{formatDeliveryAdPhpMinor(r.amountMinor)}</span>
-                <span className="text-sam-muted">{r.status}</span>
+                <span className="text-sam-muted">
+                  {r.status === "approved"
+                    ? safeT("owner_finance_cash_topup_status_approved", {
+                        fallbackKo: "충전 완료",
+                        fallbackEn: "Completed",
+                      })
+                    : r.status === "rejected"
+                      ? safeT("owner_finance_cash_topup_status_rejected", {
+                          fallbackKo: "거절",
+                          fallbackEn: "Rejected",
+                        })
+                      : safeT("owner_finance_cash_topup_status_pending", {
+                          fallbackKo: "처리 중",
+                          fallbackEn: "Processing",
+                        })}
+                </span>
               </li>
             ))}
           </ul>

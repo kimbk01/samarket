@@ -83,13 +83,7 @@ describe("G2 gift certificate schema migration", () => {
       GIFT_RPCS.redemptionRecognizedNet,
       GIFT_RPCS.correctLegacyRecognition,
     ]);
-    const cashOutRpcs = new Set<string>([
-      GIFT_RPCS.cashOutRequest,
-      GIFT_RPCS.cashOutCancel,
-      GIFT_RPCS.cashOutReject,
-      GIFT_RPCS.cashOutApprove,
-      GIFT_RPCS.cashOutMarkPaid,
-    ]);
+    const cashOutRpcs = new Set<string>();
     const promoRpcs = new Set<string>([
       GIFT_RPCS.promoAccrueForInstance,
       GIFT_RPCS.promoRecognizeForRedemption,

@@ -8,15 +8,19 @@
 **Cleanup:** `phase1.5-cleanup-contract.md`  
 **Exit Gates:** `phase-exit-gates.md`
 
+## Three-currency reconstruction amendment (2026-09-02)
+
+Currency authority is superseded by `docs/dibay-currency-ssot-hard-lock.md`: **Point, Coin, and Cash** are the only product currencies. References below to personal/store points are historical Phase 1 terminology. Former store-point/Business Credit data is archive-only and must never authorize UI, readers/writers, mutation CTA, navigation, notifications, or a product card. Customer Platform may operate member Point only; store Coin/Cash operations belong to canonical Store Finance.
+
 ## LOCK (Authority) — frozen
 
-1. **P1–P10** Product Principles  
-2. **App IA:** 내정보 > 고객센터 (공지·FAQ·1:1 문의·받은 쪽지·이벤트?/약관) · 개인 포인트 · 매장 포인트; Bell → 원본만  
-3. **Admin IA:** Customer Platform → Dashboard (Action|Monitoring) → Content / Support / Points(Member|Store) / Promotion(Events?) / Notification Engine / Analytics / Settings  
+1. **P1–P10** Product Principles
+2. **App IA:** 내정보 > 고객센터 (공지·FAQ·1:1 문의·받은 쪽지·이벤트?/약관) · Point; Bell → 원본만
+3. **Admin IA:** Customer Platform → Dashboard (Action|Monitoring) → Content / Support / Point / Promotion(Events?) / Notification Engine / Analytics / Settings. Store Coin/Cash is under Store Finance.
 4. **Notice:** `app_notices` SSOT; Campaign = Engine send; Settings push merge **제거 = Phase 2**  
 5. **Inquiry vs Inbox:** product split; Inbox = Admin → **1 member**; segment = Notice/Marketing + Engine  
 6. **Physical:** notes = Inquiry **candidate**; Inbox schema **deferred**  
-7. **Points:** Member | Store first; ops verbs inside; no balance merge  
+7. **Currency:** Customer Platform operates member Point only; no historical store-credit product or balance merge
 8. **Event:** no participatory SSOT until need proven  
 9. **Engine:** CP push via Campaign or `createAndDispatchNotificationEvent` only  
 10. **Cleanup / gates:** no opportunistic deletes in 2–6; 7 / 7.5 / 7.8 → RRR; six Exit Gates per Phase  

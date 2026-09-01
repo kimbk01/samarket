@@ -146,7 +146,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2">Recovered</th>
                   <th className="px-2 py-2">Remaining</th>
-                  <th className="px-2 py-2">Store Cash</th>
+                  <th className="px-2 py-2">Historical converted amount</th>
                   <th className="px-2 py-2">Created</th>
                   <th className="px-2 py-2" />
                 </tr>
@@ -215,7 +215,7 @@ export function AdminGiftRecoveryPanel({ id }: { id: string }) {
             {selected.status}
           </p>
           <p className="text-sm tabular-nums">
-            Remaining {formatMoneyPhp(selected.amountRemaining)} · Store Cash{" "}
+            Remaining {formatMoneyPhp(selected.amountRemaining)} · Historical converted amount{" "}
             {formatMoneyPhp(selected.storeCashBalance)}
           </p>
           <input

@@ -7,6 +7,8 @@
 
 Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may apply authority merge-remove marked below.
 
+**Currency amendment (2026-09-02):** Point is the only Customer Platform currency. Store-point/Business Credit paths and menu entries are retired archive references, never active UI, readers/writers, CTA, navigation, notifications, or product authority. Store Coin/Cash operations belong to canonical Store Finance.
+
 ## Tags
 
 | Tag | Meaning |
@@ -64,7 +66,7 @@ Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may 
 | Asset | Tag | Note |
 |-------|-----|------|
 | Member point Admin/APIs | KEEP | |
-| Store point Admin/APIs | KEEP | |
+| Historical store-point Admin/APIs | REMOVE / ARCHIVE ONLY | No product reader/writer, mutation, CTA, or nav |
 | Dual-write `profiles.points` UPDATE paths | REPLACE완료 | Phase 4 Slice 1–2 — ledger-only + project cache |
 | `STORE_POINT_CHARGE_PAYMENT_RATIO` | REPLACE완료 | Phase 4 Slice 4 — local Store charge SSOT (const=1); not Member `point_plans` |
 | `point_plans` | KEEP | Phase 4 Slice 3 Member Rates SSOT |
@@ -76,7 +78,7 @@ Reserve paths for Phase **7**. Phase **7.5** audits duplicates. Phase **2** may 
 | `community-notices` → `/admin/app/notices` | MERGE예정 | CP Content |
 | `dibay-notification-campaigns` | MERGE예정 | Notification Engine |
 | `points-*` under common | MERGE예정 | Points > Member |
-| `store-point-*` under delivery | MERGE예정 | Points > Store |
+| `store-point-*` under delivery | REMOVE / ARCHIVE ONLY | No active Admin navigation |
 | `member-notes-admin` under delivery | MERGE예정 | Support |
 | `admin-bell` API | KEEP | Dashboard Action seed |
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount, CurrencyBadge } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export function MyPointCard() {
@@ -28,16 +29,16 @@ export function MyPointCard() {
 
   return (
     <Link href="/mypage/points" className="block">
-      <div className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3.5">
+      <div className="currency-card--point flex items-center justify-between rounded-ui-rect border px-4 py-3.5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-signature/10">
-            <span className="sam-text-body font-bold text-signature">P</span>
-          </div>
+          <CurrencyBadge currency="point" />
           <div>
             <p className="sam-text-xxs font-medium text-muted">{t("mypage_comp_points_card_title")}</p>
-            <p className="sam-text-section-title font-bold text-foreground">
-              {balance === null ? "…" : `${balance.toLocaleString()}P`}
-            </p>
+            {balance === null ? (
+              <p className="sam-text-section-title font-bold text-foreground">…</p>
+            ) : (
+              <CurrencyAmount currency="point" amount={balance} compactPoint className="sam-text-section-title" />
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1.5">

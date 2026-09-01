@@ -70,7 +70,7 @@ DIBAY는 이용 기능에 따라 다음 정보를 처리할 수 있습니다.
 - 제3자 광고 SDK·분석 SDK(예: AdMob, Google Analytics 등)는 본 방침 작성 기준 앱 의존성에서 확인되지 않았습니다.
 
 (10) 포인트·정산성 정보
-- D-Point 및 Business Credit(매장 포인트) 충전·사용·원장 기록
+- Point·Coin·Cash 충전·사용·원장 기록
 - 외부 카드 결제 PSP SDK를 통한 카드번호 직접 수집은 본 방침 작성 기준 코드에서 확인되지 않았습니다. 주문·충전 화면의 GCash/Maya 등은 결제·정산 수단 표시/절차로 사용될 수 있습니다.
 
 (11) 기기·기술 정보
@@ -241,7 +241,7 @@ Depending on features you use, DIBAY may process:
 - Third-party advertising/analytics SDKs (e.g. AdMob, Google Analytics) were not found in app dependencies at the time of writing.
 
 (10) Points / ledger
-- D-Point and store Business Credit charge/use/ledger records
+- Point, Coin, and Cash charge/use/ledger records
 - Direct card-number collection via an embedded card PSP SDK was not evidenced; GCash/Maya and similar labels may appear as payment/settlement methods.
 
 (11) Device / technical data

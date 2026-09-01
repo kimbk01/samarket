@@ -35,7 +35,9 @@ export function getBusinessAdminPageTitleI18n(
   if (matchAny("/orders") || matchAny("/store-orders")) return ownerAdminTitle("biz_title_orders");
   if (matchAny("/inquiries")) return ownerAdminTitle("biz_title_inquiries");
   if (matchAny("/settlements")) return ownerAdminTitle("biz_title_settlements");
-  if (matchAny("/points")) return ownerAdminTitle("biz_title_points");
+  if (matchAny("/finance") || matchAny("/points") || matchAny("/business-cash")) {
+    return ownerAdminTitle("biz_title_finance");
+  }
   if (matchAny("/menu-categories")) return ownerAdminTitle("biz_title_menu_categories");
   if (
     p === "/stores/owner/products/new" ||

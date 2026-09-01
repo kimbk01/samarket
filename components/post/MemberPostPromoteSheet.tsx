@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount } from "@/components/currency";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { MemberPromotionProductId } from "@/lib/points/promotion-products";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
@@ -155,8 +156,8 @@ export function MemberPostPromoteSheet({
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
           setErr(
             safeT("points_ui_insufficient", {
-              fallbackKo: "D-Point가 부족합니다.",
-              fallbackEn: "Not enough D-Point.",
+              fallbackKo: "포인트가 부족합니다.",
+              fallbackEn: "Not enough Point.",
             })
           );
         } else if (j.error === "already_active_promotion") {
@@ -216,8 +217,8 @@ export function MemberPostPromoteSheet({
         {insufficient ? (
           <a href="/mypage/points" className={`${OverlayUi.btn.secondary} text-center`}>
             {safeT("promo_sheet_go_points", {
-              fallbackKo: "D-Point 충전",
-              fallbackEn: "Add D-Point",
+              fallbackKo: "포인트 충전",
+              fallbackEn: "Add Point",
             })}
           </a>
         ) : null}
@@ -230,8 +231,8 @@ export function MemberPostPromoteSheet({
           {busy
             ? t("common_loading")
             : safeT("promo_sheet_cta", {
-                fallbackKo: `${cost.toLocaleString()} D-Point로 신청`,
-                fallbackEn: `Apply with ${cost.toLocaleString()} D-Point`,
+                fallbackKo: `${cost.toLocaleString()} 포인트로 신청`,
+                fallbackEn: `Apply with ${cost.toLocaleString()} Point`,
               })}
         </DibayOverlayButton>
       </div>
@@ -288,7 +289,7 @@ export function MemberPostPromoteSheet({
                 fallbackEn: "Balance after",
               })}
               {": "}
-              {balance.toLocaleString()}P
+              <CurrencyAmount currency="point" amount={balance} compactPoint className="font-medium" />
             </p>
           ) : null}
         </div>
@@ -344,9 +345,12 @@ export function MemberPostPromoteSheet({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">{title}</span>
-                    <span className="text-sm font-semibold text-[color:var(--overlay-text-primary)]">
-                      {item.pointCost.toLocaleString()}P
-                    </span>
+                    <CurrencyAmount
+                      currency="point"
+                      amount={item.pointCost}
+                      compactPoint
+                      className="text-sm"
+                    />
                   </div>
                   <p className={`mt-1 ${OverlayUi.caption}`}>{desc}</p>
                 </button>
@@ -381,8 +385,8 @@ export function MemberPostPromoteSheet({
                 </li>
                 <li className="pt-1 opacity-80">
                   {safeT("promo_sheet_community_immediate_note", {
-                    fallbackKo: "D-Point 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
-                    fallbackEn: "Goes live at the top of the feed immediately with D-Point. No admin approval.",
+                    fallbackKo: "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
+                    fallbackEn: "Goes live at the top of the feed immediately with Point. No admin approval.",
                   })}
                 </li>
               </>
@@ -415,13 +419,15 @@ export function MemberPostPromoteSheet({
           <div className="mt-4 rounded-[length:var(--overlay-radius-md)] border border-[color:var(--overlay-border)] bg-[color:var(--overlay-secondary)] p-3">
             <p className={OverlayUi.bodySecondary}>
               {safeT("promo_sheet_balance", {
-                fallbackKo: "보유 D-Point",
-                fallbackEn: "Your D-Point",
+                fallbackKo: "보유 포인트",
+                fallbackEn: "Your Point",
               })}
               {": "}
-              <span className="font-semibold text-[color:var(--overlay-text-primary)]">
-                {balance == null ? "—" : `${balance.toLocaleString()}P`}
-              </span>
+              {balance == null ? (
+                <span className="font-semibold text-[color:var(--overlay-text-primary)]">—</span>
+              ) : (
+                <CurrencyAmount currency="point" amount={balance} compactPoint className="font-semibold" />
+              )}
             </p>
             {selected && balance != null && !insufficient ? (
               <p className={`mt-1 ${OverlayUi.caption}`}>
@@ -430,14 +436,19 @@ export function MemberPostPromoteSheet({
                   fallbackEn: "Estimated balance after",
                 })}
                 {": "}
-                {(balance - cost).toLocaleString()}P
+                <CurrencyAmount
+                  currency="point"
+                  amount={balance - cost}
+                  compactPoint
+                  className="font-medium"
+                />
               </p>
             ) : null}
             {insufficient ? (
               <p className="mt-2 text-sm font-medium text-[color:var(--overlay-danger)]">
                 {safeT("points_ui_insufficient", {
-                  fallbackKo: "D-Point가 부족합니다.",
-                  fallbackEn: "Not enough D-Point.",
+                  fallbackKo: "포인트가 부족합니다.",
+                  fallbackEn: "Not enough Point.",
                 })}
               </p>
             ) : null}

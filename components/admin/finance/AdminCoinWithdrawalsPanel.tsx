@@ -19,17 +19,32 @@ export function AdminCoinWithdrawalsPanel() {
   const [rows, setRows] = useState<WithdrawalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/admin/coin-withdrawals?status=REQUESTED", { cache: "no-store" });
       const json = (await res.json()) as { ok?: boolean; requests?: WithdrawalRow[] };
-      if (json.ok) setRows(json.requests ?? []);
+      if (res.ok && json.ok) setRows(json.requests ?? []);
+      else setError(
+        safeT("admin_store_finance_withdrawals_load_failed", {
+          fallbackKo: "Coin 출금 요청을 불러오지 못했습니다.",
+          fallbackEn: "Couldn’t load Coin withdrawal requests.",
+        })
+      );
+    } catch {
+      setError(
+        safeT("common_network_error", {
+          fallbackKo: "네트워크 오류가 발생했습니다.",
+          fallbackEn: "A network error occurred.",
+        })
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [safeT]);
 
   useEffect(() => {
     void load();
@@ -37,13 +52,30 @@ export function AdminCoinWithdrawalsPanel() {
 
   const act = async (requestId: string, action: "reject" | "mark_paid") => {
     setBusyId(requestId);
+    setError("");
     try {
-      await fetch("/api/admin/coin-withdrawals", {
+      const res = await fetch("/api/admin/coin-withdrawals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, requestId }),
       });
+      if (!res.ok) {
+        setError(
+          safeT("admin_store_finance_withdrawals_action_failed", {
+            fallbackKo: "Coin 출금 요청 처리에 실패했습니다.",
+            fallbackEn: "Couldn’t process the Coin withdrawal.",
+          })
+        );
+        return;
+      }
       await load();
+    } catch {
+      setError(
+        safeT("common_network_error", {
+          fallbackKo: "네트워크 오류가 발생했습니다.",
+          fallbackEn: "A network error occurred.",
+        })
+      );
     } finally {
       setBusyId(null);
     }
@@ -54,14 +86,21 @@ export function AdminCoinWithdrawalsPanel() {
       <div className="mb-3 flex items-center gap-2">
         <CurrencyBadge currency="coin" />
         <h2 className="text-base font-semibold text-sam-fg">
-          Coin withdrawal requests
+          {safeT("admin_store_finance_withdrawals", {
+            fallbackKo: "Coin 출금 요청",
+            fallbackEn: "Coin withdrawal requests",
+          })}
         </h2>
       </div>
+      {error ? <p className="mb-2 text-sm text-red-600">{error}</p> : null}
       {loading ? (
         <p className="text-sm text-sam-muted">…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-sam-muted">
-          No pending withdrawal requests.
+          {safeT("admin_store_finance_withdrawals_empty", {
+            fallbackKo: "대기 중인 출금 요청이 없습니다.",
+            fallbackEn: "No pending withdrawal requests.",
+          })}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -83,7 +122,10 @@ export function AdminCoinWithdrawalsPanel() {
                   className="rounded-ui-rect border border-sam-border px-2 py-1 text-xs font-semibold"
                   onClick={() => void act(r.id, "reject")}
                 >
-                  Reject
+                  {safeT("admin_store_finance_withdrawals_reject", {
+                    fallbackKo: "거절",
+                    fallbackEn: "Reject",
+                  })}
                 </button>
                 <button
                   type="button"
@@ -91,7 +133,10 @@ export function AdminCoinWithdrawalsPanel() {
                   className="rounded-ui-rect bg-[var(--currency-coin-accent)] px-2 py-1 text-xs font-semibold text-white"
                   onClick={() => void act(r.id, "mark_paid")}
                 >
-                  Mark paid
+                  {safeT("admin_store_finance_withdrawals_paid", {
+                    fallbackKo: "지급 완료",
+                    fallbackEn: "Mark paid",
+                  })}
                 </button>
               </div>
             </li>

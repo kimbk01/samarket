@@ -60,7 +60,6 @@ import { loadNotificationUserLanguage } from "@/lib/notifications/notification-u
 import { translate } from "@/lib/i18n/messages";
 import { createStoreOrderAtomic } from "@/lib/stores/create-store-order-atomic";
 import { reconcileDeliveryAdAttributionForOrder } from "@/lib/stores/advertising/delivery-ad-event-writer";
-import { reconcileDeliveryAdChargeForOrderSafe } from "@/lib/stores/advertising/delivery-ad-billing-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -883,17 +882,6 @@ export async function POST(req: NextRequest) {
     if (!r.ok) {
       console.error("[POST /api/me/store-orders] delivery-ad attribution", r.error);
       return;
-    }
-    // CUT H — billing reconcile (Production DISABLED); never fails the order.
-    if (r.attributed && r.id && r.campaignId && r.productKind) {
-      void reconcileDeliveryAdChargeForOrderSafe(sb, {
-        orderId,
-        storeId,
-        ownerUserId: ownerUserId || null,
-        attributionId: String(r.id),
-        campaignId: String(r.campaignId),
-        productKind: r.productKind,
-      });
     }
   });
 

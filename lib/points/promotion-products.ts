@@ -1,7 +1,7 @@
 /**
- * Member content Promotion product SSOT (AST-001 D-Point only).
+ * Member content Promotion product SSOT (AST-001 Point only).
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
- * DO NOT: Business Credit (AST-002), client-trusted prices, placement keys as user CTA.
+ * DO NOT: archived store-credit schema (AST-002), client-trusted prices, placement keys as user CTA.
  * Community prices from ad_products plife top_fixed seed (10000/20000) — not Trade copy.
  */
 
@@ -92,9 +92,9 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     fallbackTitleKo: "커뮤니티 3일 상위 노출",
     fallbackTitleEn: "Community top exposure · 3 days",
     fallbackDescKo:
-      "커뮤니티 피드 상단에 3일간 우선 노출됩니다. D-Point 결제 즉시 적용됩니다. (기존 상단고정 요금)",
+      "커뮤니티 피드 상단에 3일간 우선 노출됩니다. 포인트 결제 즉시 적용됩니다. (기존 상단고정 요금)",
     fallbackDescEn:
-      "Priority at top of the community feed for 3 days. Applies immediately with D-Point. (Legacy top-pin price)",
+      "Priority at top of the community feed for 3 days. Applies immediately with Point. (Legacy top-pin price)",
   },
   {
     id: "community_promote_7",
@@ -111,9 +111,9 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     fallbackTitleKo: "커뮤니티 7일 상위 노출",
     fallbackTitleEn: "Community top exposure · 7 days",
     fallbackDescKo:
-      "커뮤니티 피드 상단에 7일간 우선 노출됩니다. D-Point 결제 즉시 적용됩니다. (기존 상단고정 요금)",
+      "커뮤니티 피드 상단에 7일간 우선 노출됩니다. 포인트 결제 즉시 적용됩니다. (기존 상단고정 요금)",
     fallbackDescEn:
-      "Priority at top of the community feed for 7 days. Applies immediately with D-Point. (Legacy top-pin price)",
+      "Priority at top of the community feed for 7 days. Applies immediately with Point. (Legacy top-pin price)",
   },
 ];
 

@@ -60,11 +60,4 @@ describe("member point rates SSOT", () => {
     expect(src).toContain("Math.max(1, Number(cur.rate_version");
   });
 
-  it("Store charge ratio file unchanged by Slice 3 contract", () => {
-    const store = readFileSync(
-      resolve(process.cwd(), "lib/stores/store-point-charge-amount.ts"),
-      "utf8"
-    );
-    expect(store).toContain("STORE_POINT_CHARGE_PAYMENT_RATIO = 1");
-  });
 });

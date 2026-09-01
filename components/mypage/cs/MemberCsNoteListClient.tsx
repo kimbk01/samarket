@@ -194,8 +194,8 @@ export function MemberCsNoteListClient({
     },
     {
       label: safeT("mypage_cs_inquiry_type_points", {
-        fallbackKo: "D-Point/충전",
-        fallbackEn: "D-Point / charge",
+        fallbackKo: "포인트/충전",
+        fallbackEn: "Point / top-up",
       }),
     },
     {

@@ -1,6 +1,6 @@
 /**
- * Load + project D-Point financial history from point_ledger SSOT.
- * DO NOT: invent balances, recompute promotion prices from catalog, touch Business Credit.
+ * Load + project Point financial history from point_ledger SSOT.
+ * DO NOT: invent balances, recompute promotion prices from catalog, or touch archived store-credit schema.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
@@ -328,7 +328,7 @@ function enrichItem(
       item.relatedObject = {
         kind: "charge",
         id: dep.chargeRequestId,
-        label: dep.planName || "D-Point 충전",
+        label: dep.planName || "포인트 충전",
         missing: false,
       };
       item.subtitle =

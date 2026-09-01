@@ -1,5 +1,5 @@
 /**
- * Notify Owner when Admin completes a Business Cash charge request.
+ * Notify Owner when Admin completes a Cash charge request.
  * Distinct from CUT3 campaign ops thread.
  */
 

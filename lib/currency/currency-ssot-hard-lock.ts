@@ -37,7 +37,10 @@ export const CURRENCY_AUTHORITY = {
   },
 } as const;
 
-/** Legacy authorities — preserve history; no new product writers. */
+/**
+ * Historical authorities only. They may remain as accounting evidence but must
+ * not be reachable as product balances, writers, mutations, navigation, or UI.
+ */
 export const CURRENCY_LEGACY_AUTHORITIES = [
   "stores.point_balance",
   "store_point_ledger",
@@ -47,21 +50,13 @@ export const CURRENCY_LEGACY_AUTHORITIES = [
   "delivery_ad_business_cash_ledger",
 ] as const;
 
-/**
- * TS files allowed to reference legacy write surfaces (frozen list).
- * New writers must not be added outside this allowlist.
- */
-export const CURRENCY_LEGACY_WRITER_ALLOWLIST = [
-  "lib/stores/advertising/delivery-ad-store-cash-writer.ts",
-  "lib/gift-certificate/gift-certificate-rpc.ts",
-  "supabase/migrations/",
-] as const;
-
 /** Patterns that indicate a forbidden legacy balance write in TS (not in allowlisted paths). */
 export const CURRENCY_FORBIDDEN_WRITER_PATTERNS = [
   /\.from\(["']delivery_ad_accounts["']\)[\s\S]{0,200}\.(insert|update|upsert)\(/,
   /\.from\(["']store_cash_accounts["']\)[\s\S]{0,200}\.(insert|update|upsert)\(/,
 ] as const;
+
+export const LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT = true as const;
 
 /** Gift cash-out merges into canonical Coin withdrawal rail (owner decision). */
 export const GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL = true as const;
@@ -77,6 +72,7 @@ export function assertCurrencySsotHardLockAnchors(): boolean {
     CURRENCY_AUTHORITY.CASH.owner === "STORE" &&
     CURRENCY_AUTHORITY.COIN.recharge === false &&
     CURRENCY_AUTHORITY.CASH.withdraw === false &&
+    LEGACY_HISTORICAL_DATA_IS_NOT_PRODUCT === true &&
     GIFT_CASH_OUT_MERGED_INTO_COIN_WITHDRAWAL === true
   );
 }

@@ -109,10 +109,10 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     ]);
   });
 
-  it("T9 — Business Cash is muted summary only; no fake top-up CTA", () => {
+  it("T9 — Cash is a Finance-linked consumer summary, not an ads wallet", () => {
     const src = hubSrc();
-    expect(src).toContain('data-owner-ads-business-cash="card"');
-    expect(src).not.toContain('data-owner-ads-business-cash="stub"');
+    expect(src).toContain('data-owner-ads-cash-consumer="1"');
+    expect(src).toContain("OwnerRoutes.finance");
     expect(src).not.toMatch(/BusinessCashBalance|chargeBusinessCash|walletBalance/);
     expect(src).not.toContain("owner_ads_business_cash_topup_unavailable");
   });

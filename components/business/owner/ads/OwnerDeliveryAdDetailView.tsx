@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -645,19 +646,19 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                           <p className="mt-1 text-[12px] text-sam-muted">
                             {safeT("owner_ads_cash_grant_ask_admin", {
                               fallbackKo:
-                                "Business Cash를 충전하거나 매장 포인트를 전환한 뒤 다시 신청하세요.",
+                                "Cash를 충전하거나 Coin을 전환한 뒤 다시 신청하세요.",
                               fallbackEn:
-                                "Top up Business Cash or convert Store Points, then submit again.",
+                                "Top up Cash or convert Coin, then submit again.",
                             })}
                           </p>
                           <Link
-                            href={`/stores/owner/business-cash?storeId=${encodeURIComponent(campaign.storeId || "")}`}
+                            href={`${OwnerRoutes.finance(campaign.storeId || "")}#cash-manage`}
                             className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3 inline-flex items-center justify-center`}
                             data-owner-ads-fund-bc-link="1"
                           >
                             {safeT("owner_bc_go_finance", {
-                              fallbackKo: "Business Cash 관리",
-                              fallbackEn: "Manage Business Cash",
+                              fallbackKo: "Cash 관리",
+                              fallbackEn: "Manage Cash",
                             })}
                           </Link>
                           {showContactAdmin ? (
@@ -682,8 +683,8 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                       ) : (
                         <p className="mt-1 text-[12px] text-sam-muted" data-owner-ads-fund-business-cash="1">
                           {safeT("owner_ads_business_cash_pays_ads", {
-                            fallbackKo: "광고 결제에는 Business Cash를 사용합니다.",
-                            fallbackEn: "Ad payments use Business Cash.",
+                            fallbackKo: "광고 결제에는 Cash를 사용합니다.",
+                            fallbackEn: "Ad payments use Cash.",
                           })}
                         </p>
                       )}

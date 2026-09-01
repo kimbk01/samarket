@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Community D-Point financial HARD LOCK gate.
+ * Community Point financial HARD LOCK gate.
  * @see docs/dibay-community-dpoint-financial-hard-lock.md
  */
 import { spawnSync } from "node:child_process";

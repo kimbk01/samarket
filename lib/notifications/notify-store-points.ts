@@ -1,212 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
+import {
+  DEFAULT_APP_LANGUAGE,
+  normalizeAppLanguage,
+  type AppLanguageCode,
+} from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerPlatformInquiryHref } from "@/lib/admin/admin-inquiry-deeplink";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 
-async function loadUserLanguage(sb: SupabaseClient, userId: string): Promise<AppLanguageCode> {
-  const uid = userId.trim();
-  if (!uid) return DEFAULT_APP_LANGUAGE;
+async function loadUserLanguage(
+  sb: SupabaseClient,
+  userId: string
+): Promise<AppLanguageCode> {
+  const userIdValue = userId.trim();
+  if (!userIdValue) return DEFAULT_APP_LANGUAGE;
   const { data } = await sb
     .from("profiles")
     .select("preferred_language")
-    .eq("id", uid)
+    .eq("id", userIdValue)
     .maybeSingle();
-  return normalizeAppLanguage((data as { preferred_language?: unknown } | null)?.preferred_language);
+  return normalizeAppLanguage(
+    (data as { preferred_language?: unknown } | null)?.preferred_language
+  );
 }
 
-function nt(
-  language: AppLanguageCode,
-  key: Parameters<typeof notifySafeT>[1],
-  vars?: Record<string, string | number>
-): string {
-  return notifySafeT(language, key, { vars });
-}
-
-export async function notifyStoreOwnerPointBlocked(
-  sb: SupabaseClient,
-  opts: {
-    storeId: string;
-    ownerUserId: string;
-    balance: number;
-    required: number;
-  }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  const sid = opts.storeId.trim();
-  if (!ownerId || !sid) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: sid,
-    dedupe_key: `store_point_blocked:${sid}`,
-    title: nt(language, "notify_store_point_blocked_title"),
-    body: nt(language, "notify_store_point_blocked_body", {
-      balance: opts.balance,
-      required: opts.required,
-    }),
-    link_url: OwnerRoutes.points(sid),
-    meta: { kind: "store_point_blocked", store_id: sid, balance: opts.balance, required: opts.required },
-  });
-}
-
-export async function notifyStoreOwnerPointDeducted(
-  sb: SupabaseClient,
-  opts: {
-    storeId: string;
-    ownerUserId: string;
-    orderId: string;
-    feeAmount: number;
-    balanceAfter: number;
-  }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  if (!ownerId) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: opts.orderId,
-    dedupe_key: `store_point_deduct:${opts.orderId}`,
-    title: nt(language, "notify_store_point_deducted_title"),
-    body: nt(language, "notify_store_point_deducted_body", {
-      fee: opts.feeAmount,
-      balance: opts.balanceAfter,
-    }),
-    link_url: OwnerRoutes.orders(opts.storeId),
-    meta: {
-      kind: "store_point_deducted",
-      store_id: opts.storeId,
-      order_id: opts.orderId,
-      fee_amount: opts.feeAmount,
-      balance_after: opts.balanceAfter,
-    },
-  });
-}
-
-export async function notifyStoreOwnerPointLowWarning(
-  sb: SupabaseClient,
-  opts: { storeId: string; ownerUserId: string; balance: number }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  const sid = opts.storeId.trim();
-  if (!ownerId || !sid) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: sid,
-    dedupe_key: `store_point_low:${sid}`,
-    title: nt(language, "notify_store_point_low_title"),
-    body: nt(language, "notify_store_point_low_body", { balance: opts.balance }),
-    link_url: OwnerRoutes.points(sid),
-    meta: { kind: "store_point_low", store_id: sid, balance: opts.balance },
-  });
-}
-
-export async function notifyStoreOwnerPointChargeApproved(
-  sb: SupabaseClient,
-  opts: { storeId: string; ownerUserId: string; pointAmount: number; balanceAfter: number; requestId: string }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  if (!ownerId) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: opts.requestId,
-    dedupe_key: `store_point_charge_ok:${opts.requestId}`,
-    title: nt(language, "notify_store_point_charge_approved_title"),
-    body: nt(language, "notify_store_point_charge_approved_body", {
-      points: opts.pointAmount,
-      balance: opts.balanceAfter,
-    }),
-    link_url: OwnerRoutes.points(opts.storeId),
-    meta: {
-      kind: "store_point_charge_approved",
-      store_id: opts.storeId,
-      point_amount: opts.pointAmount,
-      balance_after: opts.balanceAfter,
-    },
-  });
-}
-
-export async function notifyStoreOwnerPointChargeRejected(
-  sb: SupabaseClient,
-  opts: { storeId: string; ownerUserId: string; requestId: string }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  if (!ownerId) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: opts.requestId,
-    dedupe_key: `store_point_charge_reject:${opts.requestId}`,
-    title: nt(language, "notify_store_point_charge_rejected_title"),
-    body: nt(language, "notify_store_point_charge_rejected_body"),
-    link_url: OwnerRoutes.points(opts.storeId),
-    meta: { kind: "store_point_charge_rejected", store_id: opts.storeId, request_id: opts.requestId },
-  });
-}
-
-export async function notifyStoreOwnerPointChargeOnHold(
-  sb: SupabaseClient,
-  opts: { storeId: string; ownerUserId: string; requestId: string }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  if (!ownerId) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: opts.requestId,
-    dedupe_key: `store_point_charge_hold:${opts.requestId}`,
-    title: nt(language, "notify_store_point_charge_on_hold_title"),
-    body: nt(language, "notify_store_point_charge_on_hold_body"),
-    link_url: OwnerRoutes.points(opts.storeId),
-    meta: { kind: "store_point_charge_on_hold", store_id: opts.storeId, request_id: opts.requestId },
-  });
-}
-
-export async function notifyStoreOwnerPointAccountReplied(
-  sb: SupabaseClient,
-  opts: { storeId: string; ownerUserId: string; inquiryId: string }
-): Promise<void> {
-  const ownerId = opts.ownerUserId.trim();
-  const sid = opts.storeId.trim();
-  if (!ownerId || !sid) return;
-  const language = await loadUserLanguage(sb, ownerId);
-  await appendUserNotification(sb, {
-    user_id: ownerId,
-    notification_type: "commerce",
-    domain: "store",
-    ref_id: opts.inquiryId,
-    dedupe_key: `store_point_account_replied:${opts.inquiryId}`,
-    title: nt(language, "notify_store_point_account_replied_title"),
-    body: nt(language, "notify_store_point_account_replied_body"),
-    link_url: OwnerRoutes.points(sid),
-    meta: {
-      kind: "store_point_account_replied",
-      store_id: sid,
-      inquiry_id: opts.inquiryId,
-    },
-  });
-}
-
-/**
- * General platform_admin_inquiries Admin reply → owner notification_events (inquiry_answered).
- * account_request keeps notifyStoreOwnerPointAccountReplied (deposit-account business copy).
- */
 export async function notifyStoreOwnerPlatformInquiryReplied(
   sb: SupabaseClient,
   opts: {
@@ -218,22 +35,24 @@ export async function notifyStoreOwnerPlatformInquiryReplied(
   }
 ): Promise<void> {
   const ownerId = opts.ownerUserId.trim();
-  const sid = opts.storeId.trim();
+  const storeId = opts.storeId.trim();
   const inquiryId = opts.inquiryId.trim();
-  if (!ownerId || !sid || !inquiryId) return;
+  if (!ownerId || !storeId || !inquiryId) return;
   const language = await loadUserLanguage(sb, ownerId);
   const subject =
     String(opts.subject ?? "").trim() ||
-    nt(language, "notify_store_platform_inquiry_replied_title");
+    notifySafeT(language, "notify_store_platform_inquiry_replied_title");
   const answer = String(opts.answer ?? "").trim().slice(0, 500);
   await createAndDispatchNotificationEvent(sb, {
     userId: ownerId,
     type: "inquiry_answered",
     category: "inquiry_answered",
     title: subject.slice(0, 120),
-    body: answer || nt(language, "notify_store_platform_inquiry_replied_body"),
+    body:
+      answer ||
+      notifySafeT(language, "notify_store_platform_inquiry_replied_body"),
     displayPayload: {
-      routeUrl: resolveOwnerPlatformInquiryHref(sid, inquiryId),
+      routeUrl: resolveOwnerPlatformInquiryHref(storeId, inquiryId),
       platformInquiryId: inquiryId,
       previewKind: "platform_admin_inquiry",
       supportKind: "inquiry",

@@ -18,8 +18,6 @@ import { OwnerGiftMoneyOpsPanel } from "@/components/business/owner/OwnerGiftMon
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
 import {
   aggregateOwnerRedemptionKpis,
-  conversionPendingAmount,
-  type OwnerGiftConversionRow,
   type OwnerGiftRedemptionRow,
 } from "@/lib/gift-certificate/owner-gift-money-ops";
 import { formatGiftProductExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
@@ -128,11 +126,7 @@ function OwnerGiftCertificatesInner() {
   const [resolvedStoreId, setResolvedStoreId] = useState(storeIdQ);
   const [apps, setApps] = useState<GiftApp[]>([]);
   const [products, setProducts] = useState<GiftProduct[]>([]);
-  const [availableRevenue, setAvailableRevenue] = useState(0);
-  const [storeCashBalance, setStoreCashBalance] = useState(0);
-  const [cashOutPendingAmt, setCashOutPendingAmt] = useState(0);
   const [redemptions, setRedemptions] = useState<OwnerGiftRedemptionRow[]>([]);
-  const [conversions, setConversions] = useState<OwnerGiftConversionRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
@@ -157,7 +151,7 @@ function OwnerGiftCertificatesInner() {
     const sid = resolvedStoreId.trim();
     if (!sid) return;
     setLoaded(false);
-    const [aRes, pRes, rRes, redRes, cRes, cashOutRes] = await Promise.all([
+    const [aRes, pRes, redRes] = await Promise.all([
       fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/applications`, {
         credentials: "include",
         cache: "no-store",
@@ -166,65 +160,17 @@ function OwnerGiftCertificatesInner() {
         credentials: "include",
         cache: "no-store",
       }),
-      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/revenue`, {
-        credentials: "include",
-        cache: "no-store",
-      }),
       fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/redemptions`, {
         credentials: "include",
         cache: "no-store",
       }),
-      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/conversions`, {
-        credentials: "include",
-        cache: "no-store",
-      }),
-      fetch(`/api/me/stores/${encodeURIComponent(sid)}/gift-certificates/cash-outs`, {
-        credentials: "include",
-        cache: "no-store",
-      }).catch(() => null),
     ]);
     const aJson = (await aRes.json()) as { ok?: boolean; applications?: GiftApp[] };
     const pJson = (await pRes.json()) as { ok?: boolean; products?: GiftProduct[] };
-    const rJson = (await rRes.json()) as {
-      ok?: boolean;
-      availableRevenue?: number;
-      storeCashBalance?: number;
-    };
     const redJson = (await redRes.json()) as { ok?: boolean; redemptions?: OwnerGiftRedemptionRow[] };
-    const cJson = (await cRes.json()) as { ok?: boolean; conversions?: Record<string, unknown>[] };
-    const cashOutJson =
-      cashOutRes && cashOutRes.ok
-        ? ((await cashOutRes.json()) as {
-            ok?: boolean;
-            cashOuts?: { status?: string; amount?: number }[];
-            pendingAmount?: number;
-          })
-        : null;
     setApps(aJson.ok ? aJson.applications ?? [] : []);
     setProducts(pJson.ok ? pJson.products ?? [] : []);
-    setAvailableRevenue(rJson.ok ? Math.trunc(Number(rJson.availableRevenue) || 0) : 0);
-    setStoreCashBalance(rJson.ok ? Math.trunc(Number(rJson.storeCashBalance) || 0) : 0);
     setRedemptions(redJson.ok ? redJson.redemptions ?? [] : []);
-    setConversions(
-      cJson.ok
-        ? (cJson.conversions ?? []).map((raw) => ({
-            id: String(raw.id),
-            amount: Math.trunc(Number(raw.amount) || 0),
-            status: String(raw.status ?? ""),
-            createdAt: String(raw.created_at ?? ""),
-            approvedAt: raw.approved_at == null ? null : String(raw.approved_at),
-          }))
-        : []
-    );
-    if (cashOutJson?.ok && Array.isArray(cashOutJson.cashOuts)) {
-      setCashOutPendingAmt(
-        cashOutJson.cashOuts
-          .filter((r) => String(r.status).toUpperCase() === "REQUESTED")
-          .reduce((s, r) => s + Math.max(0, Math.trunc(Number(r.amount) || 0)), 0)
-      );
-    } else {
-      setCashOutPendingAmt(Math.trunc(Number(cashOutJson?.pendingAmount) || 0));
-    }
     setLoaded(true);
   }, [resolvedStoreId]);
 
@@ -249,7 +195,6 @@ function OwnerGiftCertificatesInner() {
   );
   const activeProducts = useMemo(() => products.filter((p) => p.active), [products]);
   const redeemKpis = useMemo(() => aggregateOwnerRedemptionKpis(redemptions), [redemptions]);
-  const pendingConvAmt = useMemo(() => conversionPendingAmount(conversions), [conversions]);
 
   const moneyViews = new Set([
     "money",
@@ -267,19 +212,8 @@ function OwnerGiftCertificatesInner() {
       <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-gift-certificates="1" data-view={view}>
         <OwnerGiftMoneyOpsPanel
           storeId={resolvedStoreId.trim()}
-          view={
-            view as
-              | "money"
-              | "history"
-              | "redemptions"
-              | "convert"
-              | "convert-success"
-              | "convert-history"
-              | "cash-out"
-              | "cash-out-success"
-              | "cash-out-history"
-          }
-          onGo={(next, extra) => go(next, extra)}
+          view={view === "redemptions" ? "redemptions" : view === "history" ? "history" : "money"}
+          onGo={(next) => go(next)}
           onBackHome={() => go("home")}
         />
       </div>
@@ -405,49 +339,14 @@ function OwnerGiftCertificatesInner() {
                     {formatMoneyPhp(redeemKpis.recognizedMerchantNet)}
                   </p>
                 </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="available">
+                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="coin-authority">
                   <p className="text-xs text-sam-muted">
                     {safeT("gift_owner_kpi_revenue", {
-                      fallbackKo: "전환 가능 수익",
-                      fallbackEn: "Available gift revenue",
+                      fallbackKo: "수익 자산",
+                      fallbackEn: "Revenue asset",
                     })}
                   </p>
-                  <p className="mt-1 text-base font-semibold tabular-nums break-words">
-                    {formatMoneyPhp(availableRevenue)}
-                  </p>
-                </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="cash-out-pending">
-                  <p className="text-xs text-sam-muted">
-                    {safeT("gift_owner_kpi_cash_out_pending", {
-                      fallbackKo: "환전 신청 중",
-                      fallbackEn: "Cash-out requested",
-                    })}
-                  </p>
-                  <p className="mt-1 text-base font-semibold tabular-nums break-words">
-                    {formatMoneyPhp(cashOutPendingAmt)}
-                  </p>
-                </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3" data-owner-gift-kpi="cash-pending">
-                  <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_cash_pending", {
-                      fallbackKo: "Store Cash 전환 대기",
-                      fallbackEn: "Store Cash conversion pending",
-                    })}
-                  </p>
-                  <p className="mt-1 text-base font-semibold tabular-nums break-words">
-                    {formatMoneyPhp(pendingConvAmt)}
-                  </p>
-                </div>
-                <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 col-span-2" data-owner-gift-kpi="store-cash">
-                  <p className="text-xs text-sam-muted">
-                    {safeT("gift_u5_kpi_store_cash", {
-                      fallbackKo: "매장 Cash",
-                      fallbackEn: "Store Cash",
-                    })}
-                  </p>
-                  <p className="mt-1 text-base font-semibold tabular-nums break-words">
-                    {formatMoneyPhp(storeCashBalance)}
-                  </p>
+                  <p className="mt-1 text-base font-semibold">Coin</p>
                 </div>
               </div>
             )}
@@ -455,12 +354,12 @@ function OwnerGiftCertificatesInner() {
               <button
                 type="button"
                 className={`${Sam.btn.primary} min-h-[48px] w-full`}
-                onClick={() => go("money")}
+                onClick={() => router.push(OwnerRoutes.finance(resolvedStoreId))}
                 data-owner-gift-money-cta="1"
               >
                 {safeT("gift_owner_cta_money", {
-                  fallbackKo: "수익 관리",
-                  fallbackEn: "Revenue management",
+                  fallbackKo: "Coin 재무에서 수익 관리",
+                  fallbackEn: "Manage revenue in Coin Finance",
                 })}
               </button>
               <button type="button" className={OWNER_ADMIN_OUTLINE_BTN_CLASS} onClick={() => go("redemptions")}>

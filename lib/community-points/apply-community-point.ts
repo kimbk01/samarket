@@ -1,5 +1,5 @@
 /**
- * Community D-Point application (TS orchestrator → RPC TX).
+ * Community Point application (TS orchestrator → RPC TX).
  * Eligibility is decided here; uniqueness/ledger in apply_community_point_reward.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";

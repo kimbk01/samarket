@@ -1,4 +1,4 @@
-/** 매장 포인트 — 사용자 point.ts 와 분리 */
+/** 이전 매장 운영 원장 타입 — 사용자 Point 타입과 분리 */
 
 export type StorePointLedgerEntryType =
   | "store_order_fee"

@@ -505,7 +505,7 @@ export function AdminGiftInstanceDetailConsole({
                 ))}
                 {(detail.settlement?.conversions ?? []).map((c) => (
                   <li key={c.id}>
-                    {safeT("gift_ops_store_cash", { fallbackKo: "Store Cash 전환", fallbackEn: "Store Cash" })}{" "}
+                    {safeT("gift_ops_store_cash", { fallbackKo: "과거 전환 기록", fallbackEn: "Historical conversion" })}{" "}
                     {formatMoneyPhp(c.amount)} · {c.status} · {dt(c.createdAt)}
                   </li>
                 ))}

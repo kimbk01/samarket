@@ -159,9 +159,9 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_first_party_single_desc", {
               fallbackKo:
-                "DIBAY가 직접 운영하는 배너 광고입니다. Owner 결제와 Business Cash를 사용하지 않습니다.",
+                "DIBAY가 직접 운영하는 배너 광고입니다. Owner 결제와 Cash를 사용하지 않습니다.",
               fallbackEn:
-                "DIBAY-operated banner. No Owner payment and no Business Cash.",
+                "DIBAY-operated banner. No Owner payment and no Cash.",
             })}
           </p>
           <p className="mt-2 text-[12px] text-sam-muted" data-store-promotion-fp="NOT_IMPLEMENTED_MODEL_BLOCKED">

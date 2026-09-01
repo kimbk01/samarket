@@ -122,7 +122,7 @@ export function evaluateStoreSponsoredCampaignGates(input: {
   // Budget gate = BILLING_NOT_LAUNCHED — not enforced on exposure yet
   void STORE_SPONSORED_BUDGET_GATE;
 
-  // Business Cash MODEL B defense-in-depth (CUT H usage billing still off)
+  // Cash MODEL B defense-in-depth (CUT H usage billing still off)
   if (
     !isDeliveryAdFundingReadyForGoLive({
       campaignSource: campaign.campaignSource,

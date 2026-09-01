@@ -9,7 +9,7 @@ export const giftCertificateU2Messages = {
     gift_u2_store_view_cta: "상품권 보기",
 
     gift_u2_mall_title: "상품권 몰",
-    gift_u2_mall_desc: "D-Point로 매장·DIBAY 상품권을 구매할 수 있습니다. 유효기간은 상품권마다 다를 수 있습니다.",
+    gift_u2_mall_desc: "포인트로 매장·DIBAY 상품권을 구매할 수 있습니다. 유효기간은 상품권마다 다를 수 있습니다.",
     gift_u2_mall_wallet_cta: "내 상품권",
     gift_u2_mall_empty: "현재 판매 중인 상품권이 없습니다.",
     gift_u2_mall_error: "상품권을 불러오지 못했습니다.",
@@ -38,8 +38,8 @@ export const giftCertificateU2Messages = {
     gift_u2_detail_no_expiry: "상품권 잔액은 만료되지 않습니다.",
     gift_u2_detail_sales_ends: "판매 종료",
     gift_u2_detail_terms:
-      "상품권은 D-Point로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
-    gift_u2_detail_balance_label: "보유 D-Point",
+      "상품권은 포인트로만 구매할 수 있습니다. 구매 후 잔액은 해당 매장 주문에서 사용할 수 있습니다.",
+    gift_u2_detail_balance_label: "보유 포인트",
     gift_u2_detail_need_label: "구매 필요",
     gift_u2_detail_buy_with_points: "{price} Point로 구매",
     gift_u2_detail_insufficient_title: "Point가 부족합니다",
@@ -101,7 +101,7 @@ export const giftCertificateU2Messages = {
 
     gift_u2_mall_title: "Gift mall",
     gift_u2_mall_desc:
-      "Buy store and DIBAY gift certificates with D-Point. Validity may vary by product.",
+      "Buy store and DIBAY gift certificates with Point. Validity may vary by product.",
     gift_u2_mall_wallet_cta: "My gifts",
     gift_u2_mall_empty: "No gift certificates are currently on sale.",
     gift_u2_mall_error: "Could not load gift certificates.",
@@ -130,8 +130,8 @@ export const giftCertificateU2Messages = {
     gift_u2_detail_no_expiry: "Gift certificate balances never expire.",
     gift_u2_detail_sales_ends: "Sales end",
     gift_u2_detail_terms:
-      "Gift certificates can only be purchased with D-Point. Remaining balance can be used at this store’s orders.",
-    gift_u2_detail_balance_label: "Your D-Point",
+      "Gift certificates can only be purchased with Point. Remaining balance can be used at this store’s orders.",
+    gift_u2_detail_balance_label: "Your Point",
     gift_u2_detail_need_label: "Required",
     gift_u2_detail_buy_with_points: "Buy for {price} Point",
     gift_u2_detail_insufficient_title: "Not enough Point",

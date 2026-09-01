@@ -18,7 +18,7 @@ export const DELIVERY_AD_ADMIN_ROUTES = {
   commercialSettings: "/admin/delivery-ads/commercial-settings",
   /** Launch placement inventory management (human language). */
   inventory: "/admin/delivery-ads/inventory",
-  /** Business Cash structured charge-request queue (≠ CUT3 campaign thread). */
+  /** Cash structured charge-request queue (≠ CUT3 campaign thread). */
   cashCharges: "/admin/delivery-ads/cash-charges",
   /** R4 DIBAY first-party Banner create workspace. */
   firstPartyNew: "/admin/delivery-ads/first-party/new",

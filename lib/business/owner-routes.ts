@@ -93,7 +93,7 @@ export const OwnerRoutes = {
     if (!id) return base;
     return `${base}${base.includes("?") ? "&" : "?"}campaign=${encodeURIComponent(id)}`;
   },
-  /** Paid Gift Certificate — separate from free coupons / business credit */
+  /** Paid Gift Certificate — separate from free coupons and archived store-credit schema */
   giftCertificates: (storeId?: string | null) =>
     withStoreId(`${OWNER_ROUTES_BASE}/gift-certificates`, storeId),
   giftCertificatesApply: (storeId?: string | null) => {
@@ -106,7 +106,9 @@ export const OwnerRoutes = {
   },
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
-  points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),
+  finance: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/finance`, storeId),
+  /** @deprecated Owner 자산은 Finance의 Coin/Cash만 사용한다. */
+  points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/finance`, storeId),
   /** Delivery Ads Owner hub — canonical entry (not /my/ads /mypage feed ads). */
   ads: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/ads`, storeId),
 } as const;

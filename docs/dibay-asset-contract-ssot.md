@@ -2,11 +2,11 @@
 
 | Field | Value |
 |-------|--------|
-| Version | **v1.1** |
-| Status | **FROZEN SSOT** (v1.1 Amendment: AST-004 / AST-005) |
+| Version | **v2.0** |
+| Status | **FROZEN SSOT — THREE-CURRENCY RECONSTRUCTION** |
 | Type | Asset Definition (최상위 계약) |
-| Effective | 2026-08-07 |
-| Supersedes | Phase 1 drafts v1.1–v1.3 |
+| Effective | 2026-09-02 |
+| Supersedes | v1.1 and Phase 1 drafts v1.1–v1.3 |
 | Code changes in this doc | 0 (definition only) |
 
 ---
@@ -33,6 +33,19 @@
 이후 내용은 Usage Contract / Implementation Contract 에서만 늘어난다.
 모든 기능·구현은 이 SSOT를 참조하고 우회하지 않는다.
 ```
+
+## v2.0 authority amendment
+
+The only product currencies are **Point, Coin, and Cash**.
+
+- AST-001 is the canonical **Point** identity.
+- AST-004 is the canonical **Coin** identity.
+- AST-005 is the canonical **Cash** identity.
+- AST-002 Business Credit is retired historical accounting evidence.
+- AST-003 Settlement is an operational settlement record, not a currency, balance, or wallet.
+- Former Store Points, Business Cash, Store Cash, Gift Store Cash, and ads-wallet terminology is historical naming only.
+
+Retired and historical identities may remain in migrations, ledgers, audit reports, and read-only archive views. They must never authorize a UI balance, writer, recharge/adjust/convert path, mutation CTA, navigation item, notification term, or product card. This amendment has precedence over older wording retained for identity and audit traceability.
 
 ---
 
@@ -91,9 +104,9 @@ DIBAY PLATFORM
 
 ```text
 Asset
-├── AST-001  D-Point
-├── AST-002  Business Credit
-└── AST-003  Settlement
+├── AST-001  Point
+├── AST-004  Coin
+└── AST-005  Cash
 ```
 
 | 규칙 | 내용 |
@@ -108,14 +121,14 @@ Asset
 
 | Asset ID | 명칭 (현행) | Authority | 상태 |
 |----------|-------------|-----------|------|
-| **AST-001** | D-Point | `user_id` (member_id) | Active |
-| **AST-002** | Business Credit | `store_id` | Active |
-| **AST-003** | Settlement | `store_id` (+ settlement keys) | Active |
-| **AST-004** | Store Points (Economic) | `store_id` | Active |
-| **AST-005** | Business Cash | `store_id` | Active |
+| **AST-001** | Point | `user_id` (member_id) | Active product currency |
+| **AST-002** | Business Credit (historical name) | `store_id` | Retired; archive only |
+| **AST-003** | Settlement | `store_id` (+ settlement keys) | Non-currency operational record |
+| **AST-004** | Coin | `store_id` | Active product currency |
+| **AST-005** | Cash | `store_id` | Active product currency |
 
 - 다음 신규 ID: `AST-006`부터 순번.
-- **Amendment 2026-09-01 (Delivery Ads Stage 1):** AST-004 / AST-005 발급. AST-002·Gift Store Cash·`delivery_ad_accounts`와 혼동·재사용 금지.
+- **Amendment 2026-09-02 (three-currency reconstruction):** AST-004 / AST-005의 제품명은 Coin / Cash로 고정. AST-002·Gift Store Cash·`delivery_ad_accounts`는 archive-only이며 제품 권위로 재사용 금지.
 - Retired ID도 Registry에 영구 유지. **재발급·재사용 금지.**
 
 ### ARTICLE — Immutable Identity
@@ -140,47 +153,47 @@ AST-002는 영구적으로 동일 Asset을 의미한다.
 
 ## 3. 확정 Asset 정의
 
-### AST-001 D-Point
+### AST-001 Point
 
 | 항목 | 계약 |
 |------|------|
 | 의미 | 일반 회원 **개인 자산** |
 | Authority | `user_id` (= member_id) |
-| 앱 | 내정보 → D-Point |
-| Admin | 회원 / 고객 플랫폼 → D-Point 관리 |
+| 앱 | 내정보 → Point |
+| Admin | 회원 / 고객 플랫폼 → Point 관리 |
 
-### AST-002 Business Credit
+### AST-002 Business Credit (retired archive identity)
 
 | 항목 | 계약 |
 |------|------|
-| 의미 | 개별 매장 **운영 자산** |
+| 의미 | 과거 개별 매장 운영 자산의 회계 이력 식별자 |
 | Authority | `store_id` |
-| 성격 | 오너 개인 자산 아님 · 다매장 시 매장별 분리 |
-| 앱 | 매장 관리 → Business Credit |
-| Admin | 매장 → Business Credit 관리 (AST-003과 형제, 동일 잔액 아님) |
+| 성격 | Retired · archive-only · active balance/writer 없음 |
+| 앱 | 노출 금지 |
+| Admin | 읽기 전용 감사 이력만 허용; mutation CTA/nav 금지 |
 
-### AST-003 Settlement
+### AST-003 Settlement (non-currency)
 
 | 항목 | 계약 |
 |------|------|
-| 의미 | 매장 매출 **정산금** |
+| 의미 | 매장 매출 정산의 운영 기록; 지갑·통화·충전 잔액 아님 |
 | Authority | `store_id` (+ settlement keys) |
 | 본 문서 | 정산 정책 전체는 다루지 않음. AST-001 / AST-002와 **비혼합**만 고정 |
 
-### AST-004 Store Points (Economic)
+### AST-004 Coin
 
 | 항목 | 계약 |
 |------|------|
-| 의미 | 매장 경제/매출 파생 **매장 포인트** (임의 충전 금지 · Business Cash 전환 가능) |
+| 의미 | 매장 경제/매출 파생 **Coin** (임의 충전 금지 · Cash 전환 가능) |
 | Authority | `store_id` |
 | 금지 | AST-002로 동일시 · member points · 임의 Owner recharge를 잔액 authority로 사용 |
 | 비고 | Gift/Settlement 유입 writer는 별도 Usage/Impl. Asset 정의만 본 조항. |
 
-### AST-005 Business Cash
+### AST-005 Cash
 
 | 항목 | 계약 |
 |------|------|
-| 의미 | 매장 운영 **소비 잔액** (직접 충전 · SP 전환 입금 · 출금 금지 · Ads/Partner 결제) |
+| 의미 | 매장 운영 **Cash 잔액** (직접 충전 · Coin 전환 입금 · 출금 금지 · Ads/Partner 결제) |
 | Authority | `store_id` (selected store; owner-wide 합산 금지) |
 | 금지 | Gift `store_cash_accounts`로 동일시 · `delivery_ad_accounts`(owner_user_id) · AST-002 |
 
@@ -189,28 +202,25 @@ AST-002는 영구적으로 동일 Asset을 의미한다.
 ## 4. Authority
 
 ```text
-AST-001 D-Point
+AST-001 Point
   owner key : user_id (member_id)
-  금지      : store_id를 D-Point 소유자로 삼기
+  금지      : store_id를 Point 소유자로 삼기
 
-AST-002 Business Credit
+AST-002 Business Credit (retired archive)
   owner key : store_id
-  금지      : owner_user_id 단위로 여러 매장 Credit 합산
-              member_id만으로 Credit mutate
-              “오너 포인트”로 Credit 대체 표기
-              AST-004 / AST-005와 합산·동일시
+  금지      : active reader/writer · mutate · UI · CTA · nav · notification
 
 AST-003 Settlement
   owner key : store_id (+ settlement keys)
-  금지      : AST-001 / AST-002 / AST-004 / AST-005 잔액과 합산·동일시
+  금지      : 지갑/통화/잔액 제품화 · AST-001 / AST-004 / AST-005와 합산·동일시
 
-AST-004 Store Points (Economic)
+AST-004 Coin
   owner key : store_id
   금지      : AST-002 잔액·원장 재사용
               owner_user_id 합산
               임의 충전을 제품 유입으로 위장
 
-AST-005 Business Cash
+AST-005 Cash
   owner key : store_id
   금지      : Gift Store Cash / delivery_ad_accounts / AST-002 잔액 재사용
               owner_user_id 지갑
@@ -238,8 +248,9 @@ AST-001 ≠ AST-002 ≠ AST-003 ≠ AST-004 ≠ AST-005
 
 표면:
 
-- 무매장 회원: AST-002 잔액(가짜 0 포함) 미노출  
-- 매장 보유: 내정보 = AST-001만 · AST-002 = 매장 관리(`store_id`)만  
+- 무매장 회원: store currency 잔액(가짜 0 포함) 미노출
+- 매장 보유: 내정보 = AST-001 Point만 · 매장 Finance = AST-004 Coin + AST-005 Cash만
+- AST-002 및 과거 wallet authority는 일반 UI/Admin mutation/nav에서 미노출
 
 **사용처 목록은 본 문서에 두지 않는다.** → Usage Contract.
 
@@ -250,11 +261,11 @@ AST-001 ≠ AST-002 ≠ AST-003 ≠ AST-004 ≠ AST-005
 | 개념 | 권장 용어 | 참조 키 |
 |------|-----------|---------|
 | 최상위 | Asset | — |
-| 회원 개인 자산 | D-Point | **AST-001** |
-| 매장 운영 자산 | Business Credit (비즈니스 크레딧) | **AST-002** |
-| 매출 정산 | Settlement / 정산금 | **AST-003** |
-| 매장 경제 포인트 | Store Points (Economic) | **AST-004** |
-| 매장 소비 Cash | Business Cash | **AST-005** |
+| 회원 개인 자산 | Point (포인트) | **AST-001** |
+| 과거 매장 운영 자산 | Business Credit (historical/archive only) | **AST-002** |
+| 매출 정산 기록 | Settlement (non-currency) | **AST-003** |
+| 매장 매출 자산 | Coin | **AST-004** |
+| 매장 운영 자산 | Cash (캐시) | **AST-005** |
 | 입금 PHP 금액 | 입금 신청액 (잔액 Asset 아님) | — |
 
 「포인트」만으로 복수 Asset을 지칭하는 것은 용어 위반 후보.  
@@ -362,11 +373,11 @@ Status: FROZEN SSOT
 ════════════════════════════════════════
 
 Registry
-  AST-001 D-Point                  (user_id)
-  AST-002 Business Credit          (store_id)
-  AST-003 Settlement               (store_id + settlement keys)
-  AST-004 Store Points (Economic)  (store_id)
-  AST-005 Business Cash            (store_id)
+  AST-001 Point                    (user_id; active)
+  AST-002 Business Credit          (store_id; retired archive)
+  AST-003 Settlement               (store_id; non-currency record)
+  AST-004 Coin                     (store_id; active)
+  AST-005 Cash                     (store_id; active)
 
 Lifecycle
   Creation   — 확장 금지 · Contract→Usage→Impl
@@ -391,3 +402,4 @@ Do not grow this document with Usage or policy.
 | Version | Date | Note |
 |---------|------|------|
 | v1.0 | 2026-08-07 | FROZEN SSOT. Drafts v1.1–v1.3 수렴. Creation / Retirement / Amendment / Immutable Identity 포함. |
+| v2.0 | 2026-09-02 | Point / Coin / Cash만 제품 통화로 재구성. AST-002 및 과거 wallet은 archive-only, AST-003은 non-currency 운영 기록으로 고정. |

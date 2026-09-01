@@ -15,7 +15,7 @@ export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
   "store_order_buyer_cancelled",
   "store_order_sold_out",
   "store_order_refund_requested",
-  // Owner Business Credit — was orphan (Member exclude + Owner inbox exclude)
+  // Historical store-operation notifications (Member exclude + Owner inbox exclude)
   "store_point_blocked",
   "store_point_deducted",
   "store_point_low",

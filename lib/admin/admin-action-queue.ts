@@ -23,7 +23,7 @@ import {
   TRADE_REPORT_ADMIN_ACTIONABLE,
 } from "@/lib/admin/admin-ops-actionable-status";
 
-/** Member D-Point charge rows that still need Admin action. */
+/** Member Point charge rows that still need Admin action. */
 export const USER_CHARGE_ACTIONABLE_STATUSES = [
   "pending",
   "waiting_confirm",
@@ -31,7 +31,7 @@ export const USER_CHARGE_ACTIONABLE_STATUSES = [
 ] as const;
 
 /**
- * Owner/store Business Credit charge rows that still need Admin action.
+ * Archived store-credit charge rows that still need Admin action.
  * Must stay aligned with PENDING_CHARGE_STATUSES (owner deposit UI).
  */
 export const STORE_CHARGE_ACTIONABLE_STATUSES = [

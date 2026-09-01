@@ -175,7 +175,7 @@ function PostDetailSellerProfileRow({
   );
 }
 
-/** 거래 상세 본문 — 본인 글 D-Point 홍보 CTA (sticky 하단 바 금지 · 홍보 시트와 겹침 방지) */
+/** 거래 상세 본문 — 본인 글 포인트 홍보 CTA (sticky 하단 바 금지 · 홍보 시트와 겹침 방지) */
 function TradePostDetailInlinePromoteCta({ onTradeAdOpen }: { onTradeAdOpen: () => void }) {
   const { safeT } = useI18n();
   const promoteLabel = safeT("trade_promo_detail_cta", {

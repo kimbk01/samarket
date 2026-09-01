@@ -454,7 +454,7 @@ export async function hasCanonicalBcFundingSecured(
   return true;
 }
 
-/** Owner/Admin funding visibility — AST-005 canonical binding (not Gift Store Cash). */
+/** Owner/Admin funding visibility — canonical Cash binding, never an archived store-cash record. */
 export async function loadCanonicalBcFundingDetailForApplication(
   sb: SupabaseClient,
   input: {

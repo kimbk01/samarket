@@ -75,6 +75,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-point-charges-admin": "admin_menu_store_point_charges",
   "store-point-ledger-admin": "admin_menu_store_point_ledger",
   "store-point-policies-admin": "admin_menu_store_point_policies",
+  "store-finance-admin": "admin_menu_store_finance",
 
   // Members
   users: "admin_menu_users",
@@ -785,9 +786,9 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
             children: [
               {
-                key: "store-point-charges-admin",
+                key: "store-finance-admin",
                 title: "",
-                path: "/admin/store-point-charges",
+                path: "/admin/finance",
                 status: "done",
               },
               {
@@ -796,13 +797,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
                 path: "/admin/store-point-ledger",
                 status: "done",
               },
-              {
-                key: "store-point-policies-admin",
-                title: "",
-                path: "/admin/store-point-policies",
-                status: "done",
-              },
-              { key: "store-points-admin", title: "", path: "/admin/store-points", status: "done" },
             ],
           },
           {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CurrencyAmount } from "@/components/currency";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
 
@@ -59,9 +60,15 @@ export function PointChargeRequestList({
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
           <p className="font-medium text-sam-fg">{r.planName}</p>
-          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            ₱{r.paymentAmount.toLocaleString()} → {r.pointAmount.toLocaleString()}P
-          </p>
+          <div className="mt-0.5 flex items-center gap-1 sam-text-body-secondary text-sam-muted">
+            <span>₱{r.paymentAmount.toLocaleString()} →</span>
+            <CurrencyAmount
+              currency="point"
+              amount={r.pointAmount}
+              compactPoint
+              className="sam-text-body-secondary"
+            />
+          </div>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {r.paymentMethod === "gcash" ? "GCash" : t(PAYMENT_KEYS[r.paymentMethod])}
           </p>

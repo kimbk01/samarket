@@ -1,8 +1,22 @@
 # DIBAY Delivery Ads — Finance + Admin Approval Authority Design
 
-**Document type:** Technical authority design SSOT (Delivery Ads boundary only)  
-**Status:** DESIGNED_PENDING_IMPL · **IMPLEMENTATION_ALLOWED = FALSE**  
+**Document type:** Historical technical authority design (Delivery Ads boundary only)
+**Status:** **SUPERSEDED — ARCHIVE EVIDENCE ONLY** · **IMPLEMENTATION_ALLOWED = FALSE**
 **Not:** physical schema lock · migration · RPC signatures · runtime QA
+
+## Three-currency reconstruction amendment (2026-09-02)
+
+This document no longer authorizes a finance product or implementation. Its Store Points / Business Cash / Business Credit / Store Cash / Gift Store Cash / ads-wallet language records the superseded design only.
+
+Current product authority is `docs/dibay-currency-ssot-hard-lock.md`:
+
+- Delivery Ads may consume canonical **Cash** only.
+- **Point, Coin, and Cash** are the only product currencies.
+- Settlement is an operational record, never a wallet or currency.
+- Legacy balances, ledgers, migrations, and spend/refund records are accounting evidence only.
+- No legacy authority may have an active reader/writer, recharge/adjust/convert path, Owner/Admin mutation CTA, navigation item, notification term, or product card.
+
+All sections below are retained solely for historical decision traceability and must not be used as current product or implementation authority.
 
 Evidence tags used below: `OWNER_LOCKED` · `CODE_CONFIRMED` · `CONFLICT` · `MISSING` · `REWORK` · `NOT_PROVEN` · `DESIGN_PENDING`
 

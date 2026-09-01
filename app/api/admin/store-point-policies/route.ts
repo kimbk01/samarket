@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -32,59 +32,13 @@ export async function GET() {
   return NextResponse.json({ ok: true, policies: data ?? [] });
 }
 
-type PostBody = {
-  policy_name?: string;
-  store_id?: string | null;
-  category_id?: string | null;
-  fee_mode?: string;
-  fixed_point?: number;
-  percent_rate?: number;
-  minimum_point?: number;
-  maximum_point?: number;
-  is_active?: boolean;
-  priority?: number;
-};
-
-/** POST /api/admin/store-point-policies */
-export async function POST(req: NextRequest) {
+/** Historical fee policies are immutable after the three-currency cutover. */
+export async function POST(_req: Request) {
   if (!(await isRouteAdmin())) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
-  const sb = tryGetSupabaseForStores();
-  if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-
-  let body: PostBody;
-  try {
-    body = (await req.json()) as PostBody;
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-
-  const name = String(body.policy_name ?? "").trim();
-  if (!name) {
-    return NextResponse.json({ ok: false, error: "policy_name_required" }, { status: 400 });
-  }
-
-  const { data, error } = await sb
-    .from("store_point_policies")
-    .insert({
-      policy_name: name,
-      store_id: body.store_id?.trim() || null,
-      category_id: body.category_id?.trim() || null,
-      fee_mode: String(body.fee_mode ?? "fixed"),
-      fixed_point: Math.max(0, Math.floor(Number(body.fixed_point) || 0)),
-      percent_rate: Number(body.percent_rate) || 0,
-      minimum_point: Math.max(0, Math.floor(Number(body.minimum_point) || 0)),
-      maximum_point: Math.max(0, Math.floor(Number(body.maximum_point) || 0)),
-      is_active: body.is_active !== false,
-      priority: Math.floor(Number(body.priority) || 100),
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, id: data?.id });
+  return NextResponse.json(
+    { ok: false, error: "historical_store_credit_read_only" },
+    { status: 410 }
+  );
 }

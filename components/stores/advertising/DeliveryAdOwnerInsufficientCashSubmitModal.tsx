@@ -5,10 +5,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog } from "@/components/ui/dibay-overlay";
 import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 /**
- * Stage 1 hard block: insufficient Business Cash cannot submit.
- * Primary CTA → Business Cash page; secondary → convert section (#convert).
+ * hard block: insufficient canonical Cash cannot submit.
+ * Actions route to canonical Store Finance Cash management.
  */
 export function DeliveryAdOwnerInsufficientCashSubmitModal({
   open,
@@ -37,8 +38,8 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   const description = [
     `${t("owner_ads_confirm_ad_amount")}: ${formatDeliveryAdPhpMinor(adAmountMinor)}`,
     `${safeT("owner_bc_balance_label", {
-      fallbackKo: "Business Cash 잔액",
-      fallbackEn: "Business Cash balance",
+      fallbackKo: "Cash 잔액",
+      fallbackEn: "Cash balance",
     })}: ${formatDeliveryAdPhpMinor(balanceMinor)}`,
     `${safeT("owner_ads_cash_shortage_amount", {
       fallbackKo: "부족 금액",
@@ -47,20 +48,19 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
     "",
     safeT("owner_bc_insufficient_hard_block", {
       fallbackKo:
-        "Business Cash 잔액이 부족해 광고를 신청할 수 없습니다. 충전 또는 매장 포인트 전환 후 다시 시도해 주세요.",
+        "Cash 잔액이 부족해 광고를 신청할 수 없습니다. 충전 또는 Coin 전환 후 다시 시도해 주세요.",
       fallbackEn:
-        "Insufficient Business Cash — you cannot submit this ad. Top up or convert Store Points, then try again.",
+        "Insufficient Cash — you cannot submit this ad. Top up or convert Coin, then try again.",
     }),
   ].join("\n");
 
   const sid = String(storeId ?? "").trim();
   const ret = String(returnTo ?? "").trim();
-  const qs = new URLSearchParams();
-  if (sid) qs.set("storeId", sid);
-  if (ret) qs.set("returnTo", ret);
-  const base = `/stores/owner/business-cash${qs.toString() ? `?${qs.toString()}` : ""}`;
-  const bcHref = base;
-  const convertHref = `${base}#convert`;
+  const base = OwnerRoutes.finance(sid);
+  const financeHref = ret
+    ? `${base}${base.includes("?") ? "&" : "?"}returnTo=${encodeURIComponent(ret)}`
+    : base;
+  const cashHref = `${financeHref}#cash-manage`;
 
   const disabled = Boolean(busy);
   const actions: DibayOverlayAction[] = [
@@ -74,13 +74,13 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
     {
       key: "convert",
       label: safeT("owner_bc_convert_cta", {
-        fallbackKo: "매장 포인트 전환",
-        fallbackEn: "Convert Store Points",
+        fallbackKo: "Coin 전환",
+        fallbackEn: "Convert Coin",
       }),
       roleTone: "secondary",
       onClick: () => {
         onCancel();
-        router.push(convertHref);
+        router.push(cashHref);
       },
       disabled,
     },
@@ -89,13 +89,13 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
       label: busy
         ? t("common_processing")
         : safeT("owner_bc_go_finance", {
-            fallbackKo: "Business Cash 관리",
-            fallbackEn: "Manage Business Cash",
+            fallbackKo: "Cash 관리",
+            fallbackEn: "Manage Cash",
           }),
       roleTone: "primary",
       onClick: () => {
         onCancel();
-        router.push(bcHref);
+        router.push(cashHref);
       },
       disabled,
     },
@@ -108,8 +108,8 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
         onClose={disabled ? undefined : onCancel}
         dismissible={!disabled}
         title={safeT("owner_ads_cash_shortage_modal_title", {
-          fallbackKo: "Business Cash 잔액이 부족합니다",
-          fallbackEn: "Insufficient Business Cash",
+          fallbackKo: "Cash 잔액이 부족합니다",
+          fallbackEn: "Insufficient Cash",
         })}
         description={description}
         actions={actions}

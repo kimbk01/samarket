@@ -1,16 +1,16 @@
-# DIBAY D-Point Paid Exposure / Member Feed Ad Request
+# DIBAY Point Paid Exposure / Member Feed Ad Request
 
 **MASTER IMPLEMENTATION CONTRACT**
 Status: **IN FORCE** (2026-08-08) — replaces prior “Feed Ad = Admin free CMS only” product surface lock.  
 **Product B (Feed Banner):** **CLOSED / PASS** (2026-08-09) — HARD LOCK `docs/dibay-feed-banner-product-hard-lock.md` · commit `e04be170d` · prod `dpl_2cborGNhuh9A9tCn1SoUQyvLjMzB`.  
-Ledger KEEP: D-Point Ledger SSOT · Financial Surface · Business Credit separation.
+Currency authority: canonical Point ledger only. Retired Business Credit data is archive-only and must not appear as a product, writer, CTA, or navigation item.
 
 ## 0. Two revenue axes (+ admin ops)
 
 | ID | Product | Member | Asset | Admin |
 |----|---------|--------|-------|-------|
-| **A** | Paid content exposure | Own Trade/Community post | D-Point | Trade: none · Community: approve |
-| **B** | Member feed banner | Creative 1–3 mid-slot | D-Point HOLD→CAPTURE | Approve / Reject |
+| **A** | Paid content exposure | Own Trade/Community post | Point | Trade: none · Community: approve |
+| **B** | Member feed banner | Creative 1–3 mid-slot | Point HOLD→CAPTURE | Approve / Reject |
 | **C** | Admin direct campaign | — | 0 | Create/activate |
 
 ## 1. Product A — PaidContentPromotion family
