@@ -6,8 +6,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
-
 const STORE_ID = process.env.STORE_ID?.trim() || "19085860-52d2-4183-b033-e71fcb58bcec";
 const OUT = path.join(process.cwd(), "docs/perf/currency-cut-g-production-close-report.json");
 
@@ -43,6 +41,34 @@ function gitHead() {
   } catch {
     return "unknown";
   }
+}
+
+async function pickOrderWithoutObligation(sb, storeId) {
+  const { data: orders } = await sb
+    .from("store_orders")
+    .select("id")
+    .eq("store_id", storeId)
+    .eq("order_status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  for (const row of orders ?? []) {
+    const oid = String(row.id);
+    const { data: ob } = await sb
+      .from("store_sale_fee_obligations")
+      .select("id")
+      .eq("order_id", oid)
+      .maybeSingle();
+    if (!ob) return oid;
+  }
+  return null;
+}
+
+async function setCashBalanceMinor(sb, storeId, balanceMinor) {
+  await sb.from("business_cash_accounts").upsert(
+    { store_id: storeId, balance_minor: balanceMinor, updated_at: new Date().toISOString() },
+    { onConflict: "store_id" }
+  );
 }
 
 async function main() {
@@ -116,16 +142,17 @@ async function main() {
   }
 
   // ── SALE FEE REFUND CONTRACT ──
-  const testOrderId = randomUUID();
+  const testOrderId = await pickOrderWithoutObligation(sb, STORE_ID);
+  if (!testOrderId) {
+    report.sale_fee_refund = { status: "NOT_PROVEN", reason: "no_order_fixture" };
+    report.first_divergence = report.first_divergence || "no_order_fixture";
+  } else {
   const feeKey = `sale_fee:order:${testOrderId}`;
   const revKey = `sale_fee_reversal:order:${testOrderId}`;
 
-  await sb.from("business_cash_accounts").upsert(
-    { store_id: STORE_ID, balance_minor: 2000, updated_at: new Date().toISOString() },
-    { onConflict: "store_id" }
-  );
+  await setCashBalanceMinor(sb, STORE_ID, 2000);
 
-  const { data: charge1 } = await sb.rpc("charge_sale_fee_for_order", {
+  const { data: charge1, error: chargeErr } = await sb.rpc("charge_sale_fee_for_order", {
     p_store_id: STORE_ID,
     p_order_id: testOrderId,
     p_settlement_id: null,
@@ -175,6 +202,7 @@ async function main() {
 
   report.sale_fee_refund = {
     order_id: testOrderId,
+    charge_error: chargeErr?.message ?? null,
     charge: charge1,
     obligation_before: obBefore,
     reversal: rev1,
@@ -186,6 +214,7 @@ async function main() {
 
   if (!feeRefundOk) {
     report.first_divergence = report.first_divergence || "sale_fee_refund_contract";
+  }
   }
 
   // ── Coin reversal idempotent replay (CUT B regression) ──
@@ -220,7 +249,12 @@ async function main() {
   }
 
   // ── Obligation settle on inflow ──
-  const settleOrderId = randomUUID();
+  const settleOrderId = await pickOrderWithoutObligation(sb, STORE_ID);
+  if (!settleOrderId) {
+    report.obligation_settle = { status: "NOT_PROVEN", reason: "no_order_fixture" };
+    report.first_divergence = report.first_divergence || "no_order_fixture_settle";
+  } else {
+  await setCashBalanceMinor(sb, STORE_ID, 2000);
   await sb.rpc("charge_sale_fee_for_order", {
     p_store_id: STORE_ID,
     p_order_id: settleOrderId,
@@ -230,10 +264,7 @@ async function main() {
     p_idempotency_key: `sale_fee:order:${settleOrderId}`,
   });
 
-  await sb.from("business_cash_accounts").upsert(
-    { store_id: STORE_ID, balance_minor: 10000, updated_at: new Date().toISOString() },
-    { onConflict: "store_id" }
-  );
+  await setCashBalanceMinor(sb, STORE_ID, 10000);
 
   const { data: settle } = await sb.rpc("settle_store_sale_fee_obligations", {
     p_store_id: STORE_ID,
@@ -261,8 +292,11 @@ async function main() {
   if (!settleOk) {
     report.first_divergence = report.first_divergence || "obligation_settle_on_inflow";
   }
+  }
 
-  const allOk = feeRefundOk && settleOk && (coinRevPass || report.coin_reversal.status === "NOT_PROVEN");
+  const feeOk = report.sale_fee_refund.pass === true;
+  const settlePass = report.obligation_settle.pass === true;
+  const allOk = feeOk && settlePass && coinRevPass;
   if (allOk && !report.first_divergence) {
     report.currency_ssot = "CLOSED";
   }

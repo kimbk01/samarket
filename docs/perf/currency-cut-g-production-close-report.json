@@ -1,0 +1,99 @@
+{
+  "title": "DIBAY CURRENCY SSOT — PRODUCTION CLOSE",
+  "commit": "a7dbdae19a2977364ba71677555c01c587469a1f",
+  "migrations": {
+    "cut_c_sale_coin": true,
+    "cut_d_sale_fee": true,
+    "cut_d_obligations": true,
+    "cut_d_sale_fee_reversal": true
+  },
+  "rpc_acl": {
+    "clients_revoked": true
+  },
+  "env_flags": {
+    "sale_recognition_live": "unset",
+    "ast002_retired": "unset"
+  },
+  "sale_fee_refund": {
+    "order_id": "a11bac5e-49e0-4a84-9e79-b05810b70905",
+    "charge_error": null,
+    "charge": {
+      "ok": true,
+      "idempotent": false,
+      "fee_due_minor": 4500,
+      "obligation_id": "8367992f-113f-4902-b663-007de1d15652",
+      "cash_ledger_id": "b875951d-2550-4ed9-83d7-92ae45a6a13f",
+      "fee_paid_minor": 2000,
+      "fee_outstanding_minor": 2500
+    },
+    "obligation_before": {
+      "id": "8367992f-113f-4902-b663-007de1d15652",
+      "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+      "order_id": "a11bac5e-49e0-4a84-9e79-b05810b70905",
+      "settlement_id": null,
+      "confirmed_revenue_php": 900,
+      "fee_due_minor": 4500,
+      "fee_paid_minor": 2000,
+      "fee_outstanding_minor": 2500,
+      "status": "open",
+      "idempotency_key": "sale_fee:order:a11bac5e-49e0-4a84-9e79-b05810b70905",
+      "created_at": "2026-09-01T13:40:16.61418+00:00",
+      "settled_at": null
+    },
+    "reversal": {
+      "ok": true,
+      "order_id": "a11bac5e-49e0-4a84-9e79-b05810b70905",
+      "idempotent": false,
+      "obligation_id": "8367992f-113f-4902-b663-007de1d15652",
+      "reversal_ledger_id": "4d133d16-e886-4ea4-9d06-cf838a8865c6",
+      "cash_credited_minor": 2000,
+      "outstanding_cancelled_minor": 2500
+    },
+    "obligation_after": {
+      "id": "8367992f-113f-4902-b663-007de1d15652",
+      "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+      "order_id": "a11bac5e-49e0-4a84-9e79-b05810b70905",
+      "settlement_id": null,
+      "confirmed_revenue_php": 900,
+      "fee_due_minor": 0,
+      "fee_paid_minor": 0,
+      "fee_outstanding_minor": 0,
+      "status": "waived",
+      "idempotency_key": "sale_fee:order:a11bac5e-49e0-4a84-9e79-b05810b70905",
+      "created_at": "2026-09-01T13:40:16.61418+00:00",
+      "settled_at": "2026-09-01T13:40:16.954979+00:00"
+    },
+    "reversal_ledger": {
+      "id": "4d133d16-e886-4ea4-9d06-cf838a8865c6",
+      "entry_kind": "SALE_FEE_REVERSAL",
+      "amount_minor": 2000,
+      "direction": "credit"
+    },
+    "duplicate_retry_idempotent": true,
+    "pass": true
+  },
+  "coin_reversal": {
+    "order_id": "7b64cd15-009c-42f0-aa9f-23839d4b3c33",
+    "ledger_id": "c8aaaa16-2e7a-4543-902f-e17414562c11",
+    "pass": true,
+    "idempotent_replay": true
+  },
+  "obligation_settle": {
+    "order_id": "63652c9d-57f9-4b03-9a67-49ecdde72f69",
+    "settle": {
+      "ok": true,
+      "settled_count": 1
+    },
+    "obligation_after": {
+      "status": "settled",
+      "fee_outstanding_minor": 0
+    },
+    "pass": true
+  },
+  "first_divergence": null,
+  "currency_ssot": "CLOSED",
+  "production_db": {
+    "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "timestamp": "2026-09-01T13:40:19.530Z"
+  }
+}
