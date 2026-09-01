@@ -311,10 +311,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "확인이 필요한 광고 가격이 {count}개 있습니다.",
     admin_delivery_ads_creative_pc_load: "내 PC에서 이미지 불러오기",
     admin_delivery_ads_creative_req_before: "업로드 전 확인 · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Store Cash 잔액",
-    admin_delivery_ads_cash_credit_title: "광고 결제 = Store Cash",
+    admin_delivery_ads_owner_cash_balance: "Owner Business Cash 잔액",
+    admin_delivery_ads_cash_credit_title: "광고 결제 = Business Cash (AST-005)",
     admin_delivery_ads_cash_credit_note:
-      "광고비는 매장 Store Cash에서 차감됩니다. 레거시 Business Cash 지급은 광고 잔액에 반영되지 않습니다.",
+      "광고비는 신청 시 Business Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
     admin_delivery_ads_cash_credit_cta: "Business Cash 지급 (비활성)",
   },
   en: {
@@ -633,10 +633,10 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_unset_price_summary: "{count} ad prices need attention.",
     admin_delivery_ads_creative_pc_load: "Load image from PC",
     admin_delivery_ads_creative_req_before: "Before upload · JPEG/PNG/WebP",
-    admin_delivery_ads_owner_cash_balance: "Owner Store Cash balance",
-    admin_delivery_ads_cash_credit_title: "Ads payment = Store Cash",
+    admin_delivery_ads_owner_cash_balance: "Owner Business Cash balance",
+    admin_delivery_ads_cash_credit_title: "Ads payment = Business Cash (AST-005)",
     admin_delivery_ads_cash_credit_note:
-      "Ad fees debit store Store Cash. Legacy Business Cash grants do not fund ads.",
+      "Ad fees are secured from Business Cash at submit. Admins cannot edit the amount.",
     admin_delivery_ads_cash_credit_cta: "Grant Business Cash (disabled)",
   },
 } as const;
