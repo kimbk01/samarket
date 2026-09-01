@@ -7,10 +7,13 @@ import {
   STORE_SPONSORED_CAMPAIGN_TABLE,
 } from "@/lib/stores/advertising/delivery-ad-domain";
 import {
-  loadCampaignStoreCashSpendRow,
-  loadStoreCashBalanceForStore,
-} from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
-import { DELIVERY_AD_BUSINESS_CASH_LEGACY } from "@/lib/stores/advertising/delivery-ad-store-cash-contract";
+  AST_005_BUSINESS_CASH,
+  DELIVERY_AD_CANONICAL_PAYMENT_MODEL,
+} from "@/lib/stores/advertising/canonical-business-cash-contract";
+import {
+  loadCanonicalBcFundingDetailForApplication,
+  loadStoreBusinessCashBalance,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +46,7 @@ async function loadOwnedCampaignStoreId(
   return storeId || null;
 }
 
-/** GET — Store Cash funds-secured status for Owner campaign (Stage 1 authority). */
+/** GET — AST-005 Business Cash funding status for Owner campaign. */
 export async function GET(req: NextRequest, ctx: Ctx) {
   const userId = await getRouteUserId();
   if (!userId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -67,48 +70,45 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
-  const [spend, storeCash] = await Promise.all([
-    loadCampaignStoreCashSpendRow(sb, {
+  const [funding, bc] = await Promise.all([
+    loadCanonicalBcFundingDetailForApplication(sb, {
       productKind: product,
-      campaignId,
+      applicationId: campaignId,
     }),
-    loadStoreCashBalanceForStore(sb, storeId),
+    loadStoreBusinessCashBalance(sb, storeId),
   ]);
 
-  const status = spend?.status ?? "UNFUNDED";
-  const amountPhp = spend?.amountPhp ?? null;
-  const amountMinor = amountPhp == null ? null : amountPhp * 100;
+  const status = funding?.status ?? "UNFUNDED";
+  const amountMinor = funding?.amountMinor ?? null;
 
   return NextResponse.json({
     ok: true,
+    authority: AST_005_BUSINESS_CASH,
+    paymentModel: DELIVERY_AD_CANONICAL_PAYMENT_MODEL.id,
     funding: {
       status,
-      /** Alias for Owner detail UI that still reads fundingStatus. */
       fundingStatus: status,
-      amountPhp,
+      amountPhp: amountMinor == null ? null : Math.trunc(amountMinor / 100),
       amountMinor,
-      spendLedgerId: spend?.spendLedgerId ?? null,
-      refundLedgerId: spend?.refundLedgerId ?? null,
-      authority: "STORE_CASH",
+      spendLedgerId: funding?.spendLedgerId ?? null,
+      refundLedgerId: funding?.refundLedgerId ?? null,
+      fundingId: funding?.fundingId ?? null,
+      fundedAt: funding?.fundedAt ?? null,
+      authority: AST_005_BUSINESS_CASH,
     },
-    /** Product ads wallet — Stage 1 Store Cash (key kept for Owner detail). */
     businessCash: {
-      balanceMinor: storeCash.balanceMinor,
-      balancePhp: storeCash.balancePhp,
-      currency: storeCash.currency,
-      authority: storeCash.authority,
+      balanceMinor: bc.balanceMinor,
+      balancePhp: Math.trunc(bc.balanceMinor / 100),
+      currency: bc.currency,
+      authority: AST_005_BUSINESS_CASH,
       storeId,
-    },
-    legacyBusinessCash: {
-      classification: DELIVERY_AD_BUSINESS_CASH_LEGACY.classification,
-      ownerFund: DELIVERY_AD_BUSINESS_CASH_LEGACY.ownerFundRpc,
     },
   });
 }
 
 /**
- * POST — Legacy Business Cash fund path DISABLED for new product.
- * Stage 1 secures funds via Store Cash at submit (DEBIT_REFUND).
+ * POST — Manual fund path DISABLED.
+ * Stage 1 secures AST-005 at Owner submit/resubmit (DEBIT_REFUND_BUSINESS_CASH).
  */
 export async function POST(_req: NextRequest, _ctx: Ctx) {
   const userId = await getRouteUserId();
@@ -121,8 +121,8 @@ export async function POST(_req: NextRequest, _ctx: Ctx) {
       ok: false,
       error: "DISABLED_FOR_NEW_PRODUCT",
       detail:
-        "Delivery Ads payments use Store Cash at submit. Post-approval Business Cash fund is legacy.",
-      authority: "STORE_CASH",
+        "Delivery Ads payments use Business Cash at submit. Use Business Cash top-up or Store Points conversion, then submit.",
+      authority: AST_005_BUSINESS_CASH,
     },
     { status: 410 }
   );

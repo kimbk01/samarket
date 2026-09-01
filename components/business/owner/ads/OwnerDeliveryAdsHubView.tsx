@@ -104,7 +104,6 @@ export function OwnerDeliveryAdsHubView() {
   });
   const [productSelectOpen, setProductSelectOpen] = useState(false);
   const [cashBalanceMinor, setCashBalanceMinor] = useState<number | null>(null);
-  const [cashHistoryOpen, setCashHistoryOpen] = useState(false);
   const [cashChargeOpen, setCashChargeOpen] = useState(false);
   const [unreadByCampaignId, setUnreadByCampaignId] = useState<Record<string, number>>({});
   const [ownerDisplayName, setOwnerDisplayName] = useState<string | null>(null);
@@ -312,27 +311,18 @@ export function OwnerDeliveryAdsHubView() {
                   fallbackEn: "Manage Business Cash",
                 })}
               </Link>
-              <button
-                type="button"
+              <Link
+                href={`/stores/owner/business-cash?storeId=${encodeURIComponent(stores[0]?.id || "")}#ledger`}
                 className="inline-flex min-h-[36px] items-center justify-center rounded-ui-rect border border-[#BDBDBD] px-3 text-[12px] font-semibold text-sam-fg"
                 data-owner-ads-cash-history="1"
-                onClick={() => setCashHistoryOpen((v) => !v)}
               >
                 {safeT("owner_ads_cash_history", {
                   fallbackKo: "이용 내역",
                   fallbackEn: "History",
                 })}
-              </button>
+              </Link>
             </div>
           </div>
-          {cashHistoryOpen ? (
-            <p className="mt-3 text-[12px] text-sam-muted" data-owner-ads-cash-history-empty="1">
-              {safeT("owner_ads_cash_history_empty", {
-                fallbackKo: "아직 이용 내역이 없습니다.",
-                fallbackEn: "No cash history yet.",
-              })}
-            </p>
-          ) : null}
         </div>
 
         {todoCampaigns.length > 0 ? (
@@ -573,6 +563,7 @@ export function OwnerDeliveryAdsHubView() {
       <OwnerDeliveryAdCashChargeSheet
         open={cashChargeOpen}
         onClose={() => setCashChargeOpen(false)}
+        storeId={stores[0]?.id ?? null}
       />
 
       <DibayBottomSheet

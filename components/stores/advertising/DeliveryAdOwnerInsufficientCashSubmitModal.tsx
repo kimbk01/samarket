@@ -1,18 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { DibayDialog } from "@/components/ui/dibay-overlay";
+import type { DibayOverlayAction } from "@/components/ui/dibay-overlay";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 
 /**
  * Stage 1 hard block: insufficient Business Cash cannot submit.
- * No "submit anyway" path.
+ * Primary CTA → Business Cash page; secondary → convert section (#convert).
  */
 export function DeliveryAdOwnerInsufficientCashSubmitModal({
   open,
   adAmountMinor,
   balanceMinor,
   busy,
+  storeId,
+  returnTo,
   onCancel,
   onSubmitAnyway: _onSubmitAnyway,
 }: {
@@ -20,11 +24,15 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
   adAmountMinor: number;
   balanceMinor: number;
   busy?: boolean;
+  storeId?: string | null;
+  /** Absolute or app path to resume draft after funding. */
+  returnTo?: string | null;
   onCancel: () => void;
   /** @deprecated Stage 1 — ignored; insufficient balance is hard-blocked. */
   onSubmitAnyway?: () => void;
 }) {
   const { t, safeT } = useI18n();
+  const router = useRouter();
   const shortage = Math.max(0, adAmountMinor - balanceMinor);
   const description = [
     `${t("owner_ads_confirm_ad_amount")}: ${formatDeliveryAdPhpMinor(adAmountMinor)}`,
@@ -45,24 +53,67 @@ export function DeliveryAdOwnerInsufficientCashSubmitModal({
     }),
   ].join("\n");
 
+  const sid = String(storeId ?? "").trim();
+  const ret = String(returnTo ?? "").trim();
+  const qs = new URLSearchParams();
+  if (sid) qs.set("storeId", sid);
+  if (ret) qs.set("returnTo", ret);
+  const base = `/stores/owner/business-cash${qs.toString() ? `?${qs.toString()}` : ""}`;
+  const bcHref = base;
+  const convertHref = `${base}#convert`;
+
+  const disabled = Boolean(busy);
+  const actions: DibayOverlayAction[] = [
+    {
+      key: "cancel",
+      label: t("owner_ads_cancel"),
+      roleTone: "secondary",
+      onClick: onCancel,
+      disabled,
+    },
+    {
+      key: "convert",
+      label: safeT("owner_bc_convert_cta", {
+        fallbackKo: "매장 포인트 전환",
+        fallbackEn: "Convert Store Points",
+      }),
+      roleTone: "secondary",
+      onClick: () => {
+        onCancel();
+        router.push(convertHref);
+      },
+      disabled,
+    },
+    {
+      key: "confirm",
+      label: busy
+        ? t("common_processing")
+        : safeT("owner_bc_go_finance", {
+            fallbackKo: "Business Cash 관리",
+            fallbackEn: "Manage Business Cash",
+          }),
+      roleTone: "primary",
+      onClick: () => {
+        onCancel();
+        router.push(bcHref);
+      },
+      disabled,
+    },
+  ];
+
   return (
     <div data-owner-ads-cash-shortage-modal={open ? "1" : "0"}>
-      <OwnerStoreAdminConfirmModal
+      <DibayDialog
         open={open}
-        titleId="owner-ads-insufficient-cash-submit"
+        onClose={disabled ? undefined : onCancel}
+        dismissible={!disabled}
         title={safeT("owner_ads_cash_shortage_modal_title", {
           fallbackKo: "Business Cash 잔액이 부족합니다",
           fallbackEn: "Insufficient Business Cash",
         })}
         description={description}
-        cancelLabel={t("owner_ads_cancel")}
-        confirmLabel={safeT("owner_bc_go_finance", {
-          fallbackKo: "Business Cash 관리",
-          fallbackEn: "Manage Business Cash",
-        })}
-        busy={busy}
-        onCancel={onCancel}
-        onConfirm={onCancel}
+        actions={actions}
+        actionsLayout="stack"
       />
     </div>
   );

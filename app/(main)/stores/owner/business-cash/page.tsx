@@ -11,6 +11,7 @@ function OwnerBusinessCashPageInner() {
   const { t, safeT } = useI18n();
   const searchParams = useOwnerAdminUrlSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
+  const returnTo = searchParams.get("returnTo")?.trim() ?? "";
 
   if (!storeId) {
     return <p className="text-sm text-sam-muted">{t("store_owner_settlement_pick_store_body")}</p>;
@@ -24,6 +25,18 @@ function OwnerBusinessCashPageInner() {
           fallbackEn: "Business Cash",
         })}
       </h1>
+      {returnTo.startsWith("/") && !returnTo.startsWith("//") ? (
+        <a
+          href={returnTo}
+          className="inline-flex min-h-[40px] items-center text-sm font-semibold text-[#0A823E] underline-offset-2 hover:underline"
+          data-owner-bc-return-to="1"
+        >
+          {safeT("owner_bc_return_to_draft", {
+            fallbackKo: "광고 신청으로 돌아가기",
+            fallbackEn: "Return to ad application",
+          })}
+        </a>
+      ) : null}
       <OwnerBusinessCashView storeId={storeId} />
     </div>
   );

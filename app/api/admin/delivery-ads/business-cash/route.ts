@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
-  loadCampaignStoreCashSpendRow,
-  loadOwnerStoreCashBalanceForAds,
-  loadStoreCashBalanceForStore,
-} from "@/lib/stores/advertising/delivery-ad-store-cash-writer";
+  AST_005_BUSINESS_CASH,
+  DELIVERY_AD_CANONICAL_PAYMENT_MODEL,
+} from "@/lib/stores/advertising/canonical-business-cash-contract";
+import {
+  loadCanonicalBcFundingDetailForApplication,
+  loadStoreBusinessCashBalance,
+} from "@/lib/stores/advertising/canonical-business-cash-writer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET ?ownerUserId=&storeId=&campaignId=&product= — Admin Store Cash funding visibility. */
+/** GET ?storeId=&campaignId=&product= — Admin AST-005 funding visibility. */
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -19,56 +22,55 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const ownerUserId = req.nextUrl.searchParams.get("ownerUserId")?.trim() ?? "";
   const storeId = req.nextUrl.searchParams.get("storeId")?.trim() ?? "";
   const campaignId = req.nextUrl.searchParams.get("campaignId")?.trim() ?? "";
   const productRaw = req.nextUrl.searchParams.get("product");
   const product =
     productRaw === "banner" || productRaw === "store_sponsored" ? productRaw : null;
 
-  const out: Record<string, unknown> = { ok: true, authority: "STORE_CASH" };
+  const out: Record<string, unknown> = {
+    ok: true,
+    authority: AST_005_BUSINESS_CASH,
+    paymentModel: DELIVERY_AD_CANONICAL_PAYMENT_MODEL.id,
+  };
+
   if (storeId) {
-    const one = await loadStoreCashBalanceForStore(sb, storeId);
+    const one = await loadStoreBusinessCashBalance(sb, storeId);
     out.businessCash = {
       balanceMinor: one.balanceMinor,
-      balancePhp: one.balancePhp,
+      balancePhp: Math.trunc(one.balanceMinor / 100),
       currency: one.currency,
-      authority: one.authority,
+      authority: AST_005_BUSINESS_CASH,
       storeId,
     };
-  } else if (ownerUserId) {
-    const sum = await loadOwnerStoreCashBalanceForAds(sb, { ownerUserId });
-    out.businessCash = {
-      balanceMinor: sum.balanceMinor,
-      balancePhp: sum.balancePhp,
-      currency: sum.currency,
-      authority: sum.authority,
-      storeCount: sum.storeCount,
-    };
   }
+
   if (campaignId && product) {
-    const spend = await loadCampaignStoreCashSpendRow(sb, {
+    const funding = await loadCanonicalBcFundingDetailForApplication(sb, {
       productKind: product,
-      campaignId,
+      applicationId: campaignId,
     });
-    const status = spend?.status ?? "UNFUNDED";
-    const amountPhp = spend?.amountPhp ?? null;
+    const status = funding?.status ?? "UNFUNDED";
+    const amountMinor = funding?.amountMinor ?? null;
     out.funding = {
       status,
       fundingStatus: status,
-      amountPhp,
-      amountMinor: amountPhp == null ? null : amountPhp * 100,
-      spendLedgerId: spend?.spendLedgerId ?? null,
-      refundLedgerId: spend?.refundLedgerId ?? null,
-      authority: "STORE_CASH",
+      amountPhp: amountMinor == null ? null : Math.trunc(amountMinor / 100),
+      amountMinor,
+      spendLedgerId: funding?.spendLedgerId ?? null,
+      refundLedgerId: funding?.refundLedgerId ?? null,
+      fundingId: funding?.fundingId ?? null,
+      fundedAt: funding?.fundedAt ?? null,
+      authority: AST_005_BUSINESS_CASH,
     };
   }
+
   return NextResponse.json(out);
 }
 
 /**
- * POST — Legacy Admin Business Cash credit DISABLED for new product.
- * Ads payment authority is Store Cash (Stage 1).
+ * POST — Legacy Admin cash credit DISABLED.
+ * Ads payment authority is AST-005 Business Cash at Owner submit.
  */
 export async function POST(_req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -79,8 +81,8 @@ export async function POST(_req: NextRequest) {
       ok: false,
       error: "DISABLED_FOR_NEW_PRODUCT",
       detail:
-        "Delivery Ads payments use Store Cash. Legacy Admin Business Cash credit does not fund ads.",
-      authority: "STORE_CASH",
+        "Delivery Ads payments use Business Cash. Use Admin Business Cash charge approve for top-ups, not this credit path.",
+      authority: AST_005_BUSINESS_CASH,
     },
     { status: 410 }
   );

@@ -176,6 +176,15 @@ export function AdminDeliveryAdActionQueuePanel() {
                             })}
                           </span>
                         ) : null}
+                        <span
+                          className="ml-1 inline-flex rounded-full bg-[#E8F5E9] px-1.5 py-0.5 text-[10px] font-semibold text-[#0A823E]"
+                          data-admin-queue-funding-verified="1"
+                        >
+                          {safeT("admin_delivery_ads_funding_verified", {
+                            fallbackKo: "BC 확보",
+                            fallbackEn: "BC secured",
+                          })}
+                        </span>
                         {item.caseStatus ? (
                           <span className="sr-only">
                             {safeT(

@@ -151,17 +151,23 @@ describe("Stage 1 Store Cash Delivery Ads finance", () => {
     );
   });
 
-  it("Owner hub balance APIs read AST-005 Business Cash (Store Cash legacy retained)", () => {
+  it("Owner hub balance APIs read AST-005 Business Cash (funding GET retargeted)", () => {
     const hub = read("app/api/me/delivery-ads/route.ts");
     const funding = read("app/api/me/delivery-ads/[campaignId]/funding/route.ts");
     const adminCash = read("app/api/admin/delivery-ads/business-cash/route.ts");
     expect(hub).toContain("loadStoreBusinessCashBalance");
     expect(hub).toContain("AST_005_BUSINESS_CASH");
     expect(hub).not.toContain("loadOwnerBusinessCashBalance");
-    expect(funding).toContain("loadStoreCashBalanceForStore");
-    expect(funding).toContain("fundingStatus");
-    expect(adminCash).toContain("loadCampaignStoreCashSpendRow");
-    expect(adminCash).toContain("loadOwnerStoreCashBalanceForAds");
+    expect(funding).toContain("loadCanonicalBcFundingDetailForApplication");
+    expect(funding).toContain("loadStoreBusinessCashBalance");
+    expect(funding).toContain("AST_005_BUSINESS_CASH");
+    expect(funding).not.toContain("loadStoreCashBalanceForStore");
+    expect(funding).not.toContain("loadCampaignStoreCashSpendRow");
+    expect(adminCash).toContain("loadCanonicalBcFundingDetailForApplication");
+    expect(adminCash).toContain("loadStoreBusinessCashBalance");
+    expect(adminCash).toContain("AST_005_BUSINESS_CASH");
+    expect(adminCash).not.toContain("loadCampaignStoreCashSpendRow");
+    expect(adminCash).not.toContain("loadOwnerStoreCashBalanceForAds");
     expect(adminCash).toContain("DISABLED_FOR_NEW_PRODUCT");
   });
 

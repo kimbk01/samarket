@@ -645,11 +645,21 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                           <p className="mt-1 text-[12px] text-sam-muted">
                             {safeT("owner_ads_cash_grant_ask_admin", {
                               fallbackKo:
-                                "Store Cash는 상품권·정산에서 확인·전환하세요. 별도 Business Cash 충전은 없습니다.",
+                                "Business Cash를 충전하거나 매장 포인트를 전환한 뒤 다시 신청하세요.",
                               fallbackEn:
-                                "Manage Store Cash in gift certificates / settlements. There is no separate Business Cash top-up.",
+                                "Top up Business Cash or convert Store Points, then submit again.",
                             })}
                           </p>
+                          <Link
+                            href={`/stores/owner/business-cash?storeId=${encodeURIComponent(campaign.storeId || "")}`}
+                            className={`${OWNER_DETAIL_SECONDARY_BTN_CLASS} mt-3 inline-flex items-center justify-center`}
+                            data-owner-ads-fund-bc-link="1"
+                          >
+                            {safeT("owner_bc_go_finance", {
+                              fallbackKo: "Business Cash 관리",
+                              fallbackEn: "Manage Business Cash",
+                            })}
+                          </Link>
                           {showContactAdmin ? (
                             <button
                               type="button"
@@ -670,10 +680,10 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
                           ) : null}
                         </>
                       ) : (
-                        <p className="mt-1 text-[12px] text-sam-muted" data-owner-ads-fund-store-cash="1">
+                        <p className="mt-1 text-[12px] text-sam-muted" data-owner-ads-fund-business-cash="1">
                           {safeT("owner_ads_business_cash_pays_ads", {
-                            fallbackKo: "광고 결제에는 Store Cash를 사용합니다.",
-                            fallbackEn: "Ad payments use Store Cash.",
+                            fallbackKo: "광고 결제에는 Business Cash를 사용합니다.",
+                            fallbackEn: "Ad payments use Business Cash.",
                           })}
                         </p>
                       )}

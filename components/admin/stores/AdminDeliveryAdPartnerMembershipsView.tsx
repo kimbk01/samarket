@@ -37,7 +37,13 @@ export function AdminDeliveryAdPartnerMembershipsView() {
   const partnerCatalog = useAdminPartnerCatalogConfig();
   const [items, setItems] = useState<MembershipRow[]>([]);
   const [filter, setFilter] = useState<
-    "open" | "PENDING_REVIEW" | "ACTIVE" | "CANCEL_PENDING" | "ENDED" | "all"
+    | "open"
+    | "PENDING_REVIEW"
+    | "ACTIVE"
+    | "CANCEL_PENDING"
+    | "REJECTED"
+    | "ENDED"
+    | "all"
   >("open");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,7 +75,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     void load();
   }, [load]);
 
-  const act = async (op: "approve" | "end", membershipId: string) => {
+  const act = async (op: "approve" | "reject" | "end", membershipId: string) => {
     setBusy(true);
     setError(null);
     try {
@@ -80,7 +86,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
         body: JSON.stringify({
           op,
           membershipId,
-          reason: op === "approve" ? "admin_partner_approve" : "admin_partner_end",
+          reason:
+            op === "approve"
+              ? "admin_partner_approve"
+              : op === "reject"
+                ? "admin_partner_reject"
+                : "admin_partner_end",
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -99,6 +110,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     ["PENDING_REVIEW", "pending", "가입 대기", "Pending"],
     ["ACTIVE", "active", "이용 중", "Active"],
     ["CANCEL_PENDING", "cancel", "해지 예정", "Cancel pending"],
+    ["REJECTED", "rejected", "거절", "Rejected"],
     ["ENDED", "ended", "종료", "Ended"],
     ["all", "all", "전체", "All"],
   ] as const;
@@ -272,26 +284,40 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       <td className="border border-[#BDBDBD] p-2">
                         <div className="flex flex-wrap gap-2">
                           {m.status === "PENDING_REVIEW" ? (
-                            <button
-                              type="button"
-                              disabled={busy}
-                              className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 text-[12px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
-                              onClick={() => void act("approve", m.id)}
-                            >
-                              {safeT("admin_delivery_ads_partner_approve", {
-                                fallbackKo: "승인",
-                                fallbackEn: "Approve",
-                              })}
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-[#0A823E] bg-[#0A823E] px-3 text-[12px] font-semibold text-white transition hover:bg-[#087a38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
+                                onClick={() => void act("approve", m.id)}
+                                data-partner-approve="1"
+                              >
+                                {safeT("admin_delivery_ads_partner_approve", {
+                                  fallbackKo: "승인",
+                                  fallbackEn: "Approve",
+                                })}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-red-600 bg-white px-3 text-[12px] font-semibold text-red-700 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30 active:scale-[0.99] disabled:opacity-50"
+                                onClick={() => void act("reject", m.id)}
+                                data-partner-reject="1"
+                              >
+                                {safeT("admin_delivery_ads_partner_reject", {
+                                  fallbackKo: "거절",
+                                  fallbackEn: "Reject",
+                                })}
+                              </button>
+                            </>
                           ) : null}
-                          {m.status === "PENDING_REVIEW" ||
-                          m.status === "ACTIVE" ||
-                          m.status === "CANCEL_PENDING" ? (
+                          {m.status === "ACTIVE" || m.status === "CANCEL_PENDING" ? (
                             <button
                               type="button"
                               disabled={busy}
                               className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-3 text-[12px] font-semibold text-sam-fg transition hover:bg-sam-app focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A823E]/40 active:scale-[0.99] disabled:opacity-50"
                               onClick={() => void act("end", m.id)}
+                              data-partner-end="1"
                             >
                               {safeT("admin_delivery_ads_partner_end", {
                                 fallbackKo: "종료",

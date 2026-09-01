@@ -226,6 +226,8 @@ export const ownerDeliveryAdsMessages = {
     owner_bc_insufficient_hard_block:
       "Business Cash 잔액이 부족해 광고를 신청할 수 없습니다. 충전 또는 매장 포인트 전환 후 다시 시도해 주세요.",
     owner_bc_go_finance: "Business Cash 관리",
+    owner_bc_convert_cta: "매장 포인트 전환",
+    owner_bc_return_to_draft: "광고 신청으로 돌아가기",
     owner_bc_history_title: "Business Cash 내역",
     owner_bc_history_empty: "내역이 없습니다",
     owner_bc_topup_history_title: "충전 신청",
@@ -671,6 +673,8 @@ export const ownerDeliveryAdsMessages = {
     owner_bc_insufficient_hard_block:
       "Insufficient Business Cash — you cannot submit this ad. Top up or convert Store Points, then try again.",
     owner_bc_go_finance: "Manage Business Cash",
+    owner_bc_convert_cta: "Convert Store Points",
+    owner_bc_return_to_draft: "Return to ad application",
     owner_bc_history_title: "Business Cash history",
     owner_bc_history_empty: "No history yet",
     owner_bc_topup_history_title: "Top-up requests",

@@ -21,7 +21,7 @@ export type OwnerAdsDetailPanel =
   | "history"
   | "operations";
 
-/** Lifecycle → which detail panels may mount. Operations never in R1 (CUT3 fail-closed). */
+/** Lifecycle → which detail panels may mount. */
 export function ownerAdsDetailPanelsForLifecycle(
   status: DeliveryAdLifecycleStatus
 ): ReadonlySet<OwnerAdsDetailPanel> {
@@ -30,7 +30,15 @@ export function ownerAdsDetailPanelsForLifecycle(
       return new Set(["identity", "required_action"]);
     case "SUBMITTED":
     case "UNDER_REVIEW":
-      return new Set(["identity", "required_action", "commercial_summary", "preview"]);
+      return new Set([
+        "identity",
+        "required_action",
+        "commercial_summary",
+        "preview",
+        "funding",
+        "history",
+        "operations",
+      ]);
     case "CHANGES_REQUESTED":
       return new Set([
         "identity",
@@ -38,10 +46,21 @@ export function ownerAdsDetailPanelsForLifecycle(
         "admin_reason",
         "commercial_summary",
         "preview",
+        "funding",
+        "history",
+        "operations",
       ]);
     case "APPROVED":
     case "SCHEDULED":
-      return new Set(["identity", "required_action", "commercial_summary", "preview", "funding"]);
+      return new Set([
+        "identity",
+        "required_action",
+        "commercial_summary",
+        "preview",
+        "funding",
+        "history",
+        "operations",
+      ]);
     case "ACTIVE":
       return new Set([
         "identity",
@@ -50,17 +69,40 @@ export function ownerAdsDetailPanelsForLifecycle(
         "preview",
         "funding",
         "performance",
+        "history",
+        "operations",
       ]);
     case "PAUSED_OWNER":
     case "PAUSED_ADMIN":
-      return new Set(["identity", "required_action", "commercial_summary", "preview", "funding"]);
+      return new Set([
+        "identity",
+        "required_action",
+        "commercial_summary",
+        "preview",
+        "funding",
+        "history",
+        "operations",
+      ]);
     case "ENDED":
     case "TERMINATED":
     case "EXHAUSTED":
     case "ARCHIVED":
-      return new Set(["identity", "required_action", "commercial_summary", "performance"]);
+      return new Set([
+        "identity",
+        "required_action",
+        "commercial_summary",
+        "performance",
+        "history",
+      ]);
     case "REJECTED":
-      return new Set(["identity", "required_action", "admin_reason", "commercial_summary"]);
+      return new Set([
+        "identity",
+        "required_action",
+        "admin_reason",
+        "commercial_summary",
+        "funding",
+        "history",
+      ]);
     default:
       return new Set(["identity", "required_action"]);
   }

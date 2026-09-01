@@ -454,6 +454,65 @@ export async function hasCanonicalBcFundingSecured(
   return true;
 }
 
+/** Owner/Admin funding visibility — AST-005 canonical binding (not Gift Store Cash). */
+export async function loadCanonicalBcFundingDetailForApplication(
+  sb: SupabaseClient,
+  input: {
+    productKind: "store_sponsored" | "banner" | "partner";
+    applicationId: string;
+  }
+): Promise<{
+  fundingId: string;
+  status: DeliveryAdFundingStatus;
+  amountMinor: number;
+  spendLedgerId: string | null;
+  refundLedgerId: string | null;
+  fundedAt: string | null;
+  storeId: string;
+} | null> {
+  const id = String(input.applicationId ?? "").trim();
+  if (!id) return null;
+  const { data, error } = await sb
+    .from(DELIVERY_AD_CANONICAL_BC_FUNDINGS_TABLE)
+    .select(
+      "id, store_id, status, amount_minor, spend_ledger_id, refund_ledger_id, secured_at"
+    )
+    .eq("product_kind", input.productKind)
+    .eq("application_id", id)
+    .maybeSingle();
+  if (error) {
+    if (
+      /delivery_ad_canonical_bc_fundings|schema cache|does not exist/i.test(String(error.message))
+    ) {
+      return null;
+    }
+    console.error("[loadCanonicalBcFundingDetailForApplication]", error.message);
+    return null;
+  }
+  if (!data) return null;
+  const row = data as {
+    id?: string;
+    store_id?: string;
+    status?: string;
+    amount_minor?: number;
+    spend_ledger_id?: string | null;
+    refund_ledger_id?: string | null;
+    secured_at?: string | null;
+  };
+  const fundingId = String(row.id ?? "").trim();
+  const storeId = String(row.store_id ?? "").trim();
+  if (!fundingId || !storeId) return null;
+  return {
+    fundingId,
+    status: resolveFundingStatusFromCanonicalBc(row.status),
+    amountMinor: Math.trunc(Number(row.amount_minor) || 0),
+    spendLedgerId: row.spend_ledger_id == null ? null : String(row.spend_ledger_id),
+    refundLedgerId: row.refund_ledger_id == null ? null : String(row.refund_ledger_id),
+    fundedAt: row.secured_at == null ? null : String(row.secured_at),
+    storeId,
+  };
+}
+
 export async function listBusinessCashLedgerForStore(
   sb: SupabaseClient,
   storeId: string,

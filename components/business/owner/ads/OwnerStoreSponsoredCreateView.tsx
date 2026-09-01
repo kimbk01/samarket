@@ -859,8 +859,13 @@ export function OwnerStoreSponsoredCreateView() {
         adAmountMinor={quote?.finalPayableMinor ?? 0}
         balanceMinor={cashBalanceMinor ?? 0}
         busy={busy}
+        storeId={storeId}
+        returnTo={
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : null
+        }
         onCancel={() => setShortageModalOpen(false)}
-        onSubmitAnyway={() => void submit()}
       />
 
       <DibayBottomSheet

@@ -788,8 +788,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "Owner Store Cash 잔액",
-                      fallbackEn: "Owner Store Cash balance",
+                      fallbackKo: "Owner Business Cash 잔액",
+                      fallbackEn: "Owner Business Cash balance",
                     })}
                     :{" "}
                     {ownerCashBalanceMinor == null
@@ -804,20 +804,20 @@ export function AdminDeliveryAdDetailWorkspace({
                   <div
                     className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
                     data-admin-business-cash-credit="1"
-                    data-admin-store-cash-authority="1"
+                    data-admin-ast005-authority="1"
                   >
                     <p className="text-[12px] font-semibold text-sam-fg">
                       {safeT("admin_delivery_ads_cash_credit_title", {
-                        fallbackKo: "광고 결제 = Store Cash",
-                        fallbackEn: "Ads payment = Store Cash",
+                        fallbackKo: "광고 결제 = Business Cash (AST-005)",
+                        fallbackEn: "Ads payment = Business Cash (AST-005)",
                       })}
                     </p>
                     <p className="mt-1 text-[11px] text-sam-muted">
                       {safeT("admin_delivery_ads_cash_credit_note", {
                         fallbackKo:
-                          "광고비는 매장 Store Cash에서 차감됩니다. 레거시 Business Cash 지급은 광고 잔액에 반영되지 않습니다.",
+                          "광고비는 신청 시 Business Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
                         fallbackEn:
-                          "Ad fees debit store Store Cash. Legacy Business Cash grants do not fund ads.",
+                          "Ad fees are secured from Business Cash at submit. Admins cannot edit the amount.",
                       })}
                     </p>
                   </div>

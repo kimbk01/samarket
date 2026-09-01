@@ -310,6 +310,7 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
         </div>
       </OwnerStoreAdminDashSection>
 
+      <div id="convert" data-owner-bc-convert="1">
       <OwnerStoreAdminDashSection
         title={safeT("owner_bc_convert_title", {
           fallbackKo: "매장 포인트 → Business Cash",
@@ -410,6 +411,7 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
           </div>
         ) : null}
       </OwnerStoreAdminDashSection>
+      </div>
 
       <OwnerStoreAdminDashSection
         title={safeT("owner_bc_history_title", {
@@ -417,6 +419,7 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
           fallbackEn: "Business Cash history",
         })}
       >
+        <div id="ledger" data-owner-bc-ledger="1">
         {ledger.length === 0 ? (
           <p className="text-sm text-sam-muted">
             {safeT("owner_bc_history_empty", {
@@ -438,6 +441,7 @@ export function OwnerBusinessCashView({ storeId }: { storeId: string }) {
             ))}
           </ul>
         )}
+        </div>
       </OwnerStoreAdminDashSection>
 
       {topUps.length > 0 ? (
