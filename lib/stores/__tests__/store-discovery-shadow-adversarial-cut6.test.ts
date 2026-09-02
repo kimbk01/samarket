@@ -13,11 +13,14 @@ import {
   autoHoursClosed,
   autoHoursInBreakAtCut6Now,
   autoHoursOpenAllDay,
+  buildAdversarialShadowCandidates,
   coverageMembershipParity,
   CUT6_NOW_MS,
   CUT6_ORIGIN,
   districtTierParitySamples,
   mulberry32,
+  newBrowseShadowFromCandidates,
+  newHomeShadowFromCandidates,
   newBrowseShadow,
   newHomeShadow,
   offsetPoint,
@@ -886,13 +889,11 @@ describe("CASE X — missing projection", () => {
 
 /**
  * Dense-pool parity for CI unit vitest.
- * Vitest birpc worker RPC defaults to 60s — a single sync CPU block longer than
- * that surfaces as `[vitest-worker]: Timeout calling "onTaskUpdate"` (exit 1)
- * even when every test assertion passed. Keep M small and yield between sorts.
+ * Wave ranking must bucket + sort with one browse context per wave (not per compare).
  * 50k/100k DB scale remains CUT7 bench authority — not this file.
  */
 describe("CASE dense pool — harness parity", () => {
-  it("dense same-taxonomy pool: visible slice parity + bounded wave work", async () => {
+  it("dense same-taxonomy pool: visible slice parity + bounded wave work", () => {
     const M = 2_000;
     const stores: AdversarialFixtureStore[] = new Array(M);
     for (let i = 0; i < M; i += 1) {
@@ -913,6 +914,11 @@ describe("CASE dense pool — harness parity", () => {
       });
     }
     const policy = { ...DEFAULT_DELIVERY_DISTANCE_POLICY, enabled: true, defaultMaxKm: 5 };
+    const shadowPrep = buildAdversarialShadowCandidates(stores, {
+      distanceAxisEnabled: true,
+      policy,
+      taxonomyCategoryId: "cat-dense",
+    });
     const sorts = ["default", "distance", "rating", "reviews", "popular"] as const;
     for (const sort of sorts) {
       const old = oldBrowseOracle(stores, {
@@ -924,30 +930,29 @@ describe("CASE dense pool — harness parity", () => {
         policy,
         taxonomyCategoryId: "cat-dense",
       });
-      const neu = newBrowseShadow(stores, {
+      const neu = newBrowseShadowFromCandidates(shadowPrep.candidates, {
         sort,
         district: "Makati",
         distanceAxisEnabled: true,
         page: 1,
         limit: 60,
         policy,
-        taxonomyCategoryId: "cat-dense",
+        origin: shadowPrep.origin,
       });
       assertParityOrDetail(`dense-${sort}`, old.rows, neu.rows, stores);
       expect(neu.telemetry.rowsReturned).toBeLessThan(M / 10);
       expect(neu.telemetry.rowsReturned).toBeLessThanOrEqual(60 + 20);
-      // Let birpc/timers flush so full-suite workers do not trip onTaskUpdate.
-      await new Promise<void>((resolve) => setImmediate(resolve));
     }
     const oldH = oldHomeOracle(stores, {
       district: "Makati",
       distanceAxisEnabled: true,
       policy,
     });
-    const neuH = newHomeShadow(stores, {
+    const neuH = newHomeShadowFromCandidates(shadowPrep.candidates, {
       district: "Makati",
       distanceAxisEnabled: true,
       policy,
+      origin: shadowPrep.origin,
     });
     assertParityOrDetail("dense-home", oldH.rows, neuH.rows, stores);
     record({
@@ -958,7 +963,7 @@ describe("CASE dense pool — harness parity", () => {
       orderDiff: 0,
       notes: "visible slice only; wave rowsReturned << M (CI-safe density; CUT7 owns 50k/100k)",
     });
-  }, 30_000);
+  });
 });
 
 describe("CASE randomized parity", () => {

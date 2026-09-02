@@ -8,6 +8,7 @@ import { haversineKm } from "@/lib/geo/haversine-km";
 import {
   compareStoreDiscoveryBrowseRows,
   type StoreBrowseServerSortId,
+  type StoreDiscoverySortContext,
   type StoreDiscoverySortRow,
 } from "@/lib/stores/store-discovery-browse-sort";
 import {
@@ -132,47 +133,55 @@ function stableSlugCmp(a: StoreDiscoveryShadowRankedRow, b: StoreDiscoveryShadow
   return String(a.id).localeCompare(String(b.id));
 }
 
-/** Within-wave comparator. Browse sorts use the same function as production list sort. HOME keeps recommended. */
-export function compareShadowWaveRows(
+/** Build browse-sort context once per wave — never per comparator invocation. */
+function buildBrowseSortContextFromEnrichedRows(
+  rows: readonly StoreDiscoveryShadowRankedRow[],
+  sort: StoreBrowseServerSortId,
+  district: string | null,
+  hasGeo: boolean
+): StoreDiscoverySortContext {
+  const eligibilityRankById = new Map<string, number>();
+  const distanceKmById = new Map<string, number | null>();
+  const outOfRangeById = new Map<string, boolean>();
+  const completedOrderCount30dById = new Map<string, number>();
+  for (const row of rows) {
+    eligibilityRankById.set(row.id, row.eligibilityRank);
+    distanceKmById.set(row.id, row.distanceKm);
+    outOfRangeById.set(row.id, row.outOfRange);
+    completedOrderCount30dById.set(row.id, row.completedOrders30d);
+  }
+  const needsOrders = sort === "default" || sort === "popular";
+  return {
+    district,
+    sort,
+    eligibilityRankById,
+    distanceKmById: hasGeo ? distanceKmById : null,
+    outOfRangeById: hasGeo ? outOfRangeById : null,
+    hasGeo,
+    completedOrderCount30dById: needsOrders ? completedOrderCount30dById : null,
+    completedOrderCountStatus: "ok",
+  };
+}
+
+function sortShadowWaveRowsInPlace(
+  rows: StoreDiscoveryShadowRankedRow[],
   sort: StoreBrowseServerSortId | "home",
   hasGeo: boolean,
-  a: StoreDiscoveryShadowRankedRow,
-  b: StoreDiscoveryShadowRankedRow,
-  district: string | null = null
-): number {
-  if (sort !== "home") {
-    const eligibilityRankById = new Map<string, number>([
-      [a.id, a.eligibilityRank],
-      [b.id, b.eligibilityRank],
-    ]);
-    const distanceKmById = new Map<string, number | null>([
-      [a.id, a.distanceKm],
-      [b.id, b.distanceKm],
-    ]);
-    const outOfRangeById = new Map<string, boolean>([
-      [a.id, a.outOfRange],
-      [b.id, b.outOfRange],
-    ]);
-    const completedOrderCount30dById = new Map<string, number>([
-      [a.id, a.completedOrders30d],
-      [b.id, b.completedOrders30d],
-    ]);
-    return compareStoreDiscoveryBrowseRows(
-      {
-        district,
-        sort,
-        eligibilityRankById,
-        distanceKmById: hasGeo ? distanceKmById : null,
-        outOfRangeById: hasGeo ? outOfRangeById : null,
-        hasGeo,
-        completedOrderCount30dById,
-        completedOrderCountStatus: "ok",
-      },
-      a,
-      b
-    );
+  district: string | null
+): void {
+  if (sort === "home") {
+    rows.sort((a, b) => compareShadowHomeWaveRows(hasGeo, a, b));
+    return;
   }
+  const ctx = buildBrowseSortContextFromEnrichedRows(rows, sort, district, hasGeo);
+  rows.sort((a, b) => compareStoreDiscoveryBrowseRows(ctx, a, b));
+}
 
+function compareShadowHomeWaveRows(
+  hasGeo: boolean,
+  a: StoreDiscoveryShadowRankedRow,
+  b: StoreDiscoveryShadowRankedRow
+): number {
   // HOME recommended within Gi×Dj — not browse default.
   // Parity with compareStoreDiscoveryRecommendedRows:
   // eligibility (fixed) → outOfRange → district → distance → orders → ...
@@ -204,6 +213,20 @@ export function compareShadowWaveRows(
   return stableSlugCmp(a, b);
 }
 
+export function compareShadowWaveRows(
+  sort: StoreBrowseServerSortId | "home",
+  hasGeo: boolean,
+  a: StoreDiscoveryShadowRankedRow,
+  b: StoreDiscoveryShadowRankedRow,
+  district: string | null = null
+): number {
+  if (sort === "home") {
+    return compareShadowHomeWaveRows(hasGeo, a, b);
+  }
+  const ctx = buildBrowseSortContextFromEnrichedRows([a, b], sort, district, hasGeo);
+  return compareStoreDiscoveryBrowseRows(ctx, a, b);
+}
+
 export type ShadowWaveFetchFn = (input: {
   eligibilityRank: number;
   districtTier: number;
@@ -228,15 +251,28 @@ export function createInMemoryShadowWaveFetcher(
   const enriched = pool.map((c) => enrichCandidate(c, opts));
   const useDj = waveUsesDistrictTier(opts.sort, hasGeo, opts.district);
 
+  const buckets = new Map<string, StoreDiscoveryShadowRankedRow[]>();
+  for (const row of enriched) {
+    const key = useDj ? `${row.eligibilityRank}:${row.districtTier}` : `${row.eligibilityRank}`;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  }
+
+  const sortedCache = new Map<string, StoreDiscoveryShadowRankedRow[]>();
+  const bucketKey = (eligibilityRank: number, districtTier: number) =>
+    useDj ? `${eligibilityRank}:${districtTier}` : `${eligibilityRank}`;
+
   return ({ eligibilityRank, districtTier, limit }) => {
-    const wave = enriched.filter((r) => {
-      if (r.eligibilityRank !== eligibilityRank) return false;
-      if (useDj && r.districtTier !== districtTier) return false;
-      return true;
-    });
-    // Sort ONLY this Gi (×Dj) subset — never the full pool.
-    wave.sort((a, b) => compareShadowWaveRows(opts.sort, hasGeo, a, b, opts.district));
-    return wave.slice(0, Math.max(0, limit));
+    const key = bucketKey(eligibilityRank, districtTier);
+    let sorted = sortedCache.get(key);
+    if (!sorted) {
+      sorted = [...(buckets.get(key) ?? [])];
+      // Sort ONLY this Gi (×Dj) bucket — never the full pool.
+      sortShadowWaveRowsInPlace(sorted, opts.sort, hasGeo, opts.district);
+      sortedCache.set(key, sorted);
+    }
+    return sorted.slice(0, Math.max(0, limit));
   };
 }
 
@@ -355,7 +391,7 @@ export async function fillShadowRankedViaWaves(input: {
     }
 
     if (mergeCustomerGroup) {
-      groupBuf.sort((a, b) => compareShadowWaveRows(input.sort, hasGeo, a, b, input.district));
+      sortShadowWaveRowsInPlace(groupBuf, input.sort, hasGeo, input.district);
     }
 
     telemetry.groupCounts[giBatch[0] ?? 0] = groupBuf.length;
@@ -567,7 +603,7 @@ export function rankStoreDiscoveryBrowseShadow(input: {
       }
     }
     if (mergeCustomerGroup) {
-      groupBuf.sort((a, b) => compareShadowWaveRows(input.sort, hasGeo, a, b, input.district));
+      sortShadowWaveRowsInPlace(groupBuf, input.sort, hasGeo, input.district);
     }
     telemetry.groupCounts[giBatch[0] ?? 0] = (telemetry.groupCounts[giBatch[0] ?? 0] ?? 0) + groupBuf.length;
     if (groupBuf.length === 0) continue;

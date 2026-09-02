@@ -412,41 +412,8 @@ export function newHomeShadow(
     limit?: number;
   }
 ) {
-  const nowMs = opts.nowMs ?? CUT6_NOW_MS;
-  const origin = opts.origin ?? CUT6_ORIGIN;
-  const { policy, overrides } = resolvePolicyBundle(
-    {
-      ...opts,
-      policy: {
-        ...(opts.policy ?? DEFAULT_DELIVERY_DISTANCE_POLICY),
-        enabled: opts.distanceAxisEnabled && (opts.policy?.enabled ?? true),
-      },
-    },
-    stores
-  );
-  const list = filterSearch(stores, opts.searchQ);
-  const candidates = list.map((s) =>
-    toShadowCandidate(s, { distanceAxisEnabled: opts.distanceAxisEnabled, origin, policy, overrides })
-  );
-  const exposureScope = buildStoreDiscoveryHomeExposureScope({
-    region: null,
-    district: opts.district,
-    searchQ: opts.searchQ ?? null,
-    originKey: `${origin.lat},${origin.lng}`,
-    hasGeo: opts.distanceAxisEnabled,
-    geoKey: "g",
-  });
-  const ranked = rankStoreDiscoveryHomeShadow({
-    candidates,
-    district: opts.district,
-    originLat: origin.lat,
-    originLng: origin.lng,
-    distanceAxisEnabled: opts.distanceAxisEnabled,
-    exposureScope,
-    nowMs,
-    limit: opts.limit,
-  });
-  return { ...ranked, exposureScope, candidates };
+  const { origin, candidates } = buildAdversarialShadowCandidates(stores, opts);
+  return newHomeShadowFromCandidates(candidates, { ...opts, origin });
 }
 
 export function oldBrowseOracle(
@@ -555,24 +522,22 @@ export function oldBrowseOracle(
   };
 }
 
-export function newBrowseShadow(
-  stores: AdversarialFixtureStore[],
-  opts: HarnessPolicyOpts & {
-    sort: StoreBrowseServerSortId;
-    district: string | null;
-    distanceAxisEnabled: boolean;
-    page: number;
-    limit: number;
-    searchQ?: string | null;
-    taxonomyCategoryId?: string | null;
+function filterTaxonomyStores(
+  stores: readonly AdversarialFixtureStore[],
+  searchQ: string | null | undefined,
+  taxonomyCategoryId: string | null | undefined
+): AdversarialFixtureStore[] {
+  let list = filterSearch([...stores], searchQ);
+  if (taxonomyCategoryId) {
+    list = list.filter((s) => s.store_category_id === taxonomyCategoryId);
   }
-): {
-  rows: StoreDiscoveryShadowRankedRow[];
-  telemetry: ShadowWaveTelemetry;
-  exposureScope: string;
-  candidates: StoreDiscoveryShadowCandidate[];
-} {
-  const nowMs = opts.nowMs ?? CUT6_NOW_MS;
+  return list;
+}
+
+function resolveHarnessOriginAndPolicy(
+  stores: readonly AdversarialFixtureStore[],
+  opts: HarnessPolicyOpts & { distanceAxisEnabled: boolean }
+) {
   const origin = opts.origin ?? CUT6_ORIGIN;
   const { policy, overrides } = resolvePolicyBundle(
     {
@@ -582,15 +547,51 @@ export function newBrowseShadow(
         enabled: opts.distanceAxisEnabled && (opts.policy?.enabled ?? true),
       },
     },
-    stores
+    [...stores]
   );
-  let list = filterSearch(stores, opts.searchQ);
-  if (opts.taxonomyCategoryId) {
-    list = list.filter((s) => s.store_category_id === opts.taxonomyCategoryId);
+  return { origin, policy, overrides };
+}
+
+/** Build shadow candidates once — reuse across sort/page probes in dense parity tests. */
+export function buildAdversarialShadowCandidates(
+  stores: readonly AdversarialFixtureStore[],
+  opts: HarnessPolicyOpts & {
+    distanceAxisEnabled: boolean;
+    searchQ?: string | null;
+    taxonomyCategoryId?: string | null;
   }
+): { origin: { lat: number; lng: number }; candidates: StoreDiscoveryShadowCandidate[] } {
+  const list = filterTaxonomyStores(stores, opts.searchQ, opts.taxonomyCategoryId);
+  const { origin, policy, overrides } = resolveHarnessOriginAndPolicy(list, opts);
   const candidates = list.map((s) =>
-    toShadowCandidate(s, { distanceAxisEnabled: opts.distanceAxisEnabled, origin, policy, overrides })
+    toShadowCandidate(s, {
+      distanceAxisEnabled: opts.distanceAxisEnabled,
+      origin,
+      policy,
+      overrides,
+    })
   );
+  return { origin, candidates };
+}
+
+export function newBrowseShadowFromCandidates(
+  candidates: readonly StoreDiscoveryShadowCandidate[],
+  opts: HarnessPolicyOpts & {
+    sort: StoreBrowseServerSortId;
+    district: string | null;
+    distanceAxisEnabled: boolean;
+    page: number;
+    limit: number;
+    origin?: { lat: number; lng: number };
+  }
+): {
+  rows: StoreDiscoveryShadowRankedRow[];
+  telemetry: ShadowWaveTelemetry;
+  exposureScope: string;
+  candidates: StoreDiscoveryShadowCandidate[];
+} {
+  const nowMs = opts.nowMs ?? CUT6_NOW_MS;
+  const origin = opts.origin ?? CUT6_ORIGIN;
   const exposureScope = buildStoreDiscoveryBrowseExposureScope({
     primary: "food",
     sub: "all",
@@ -611,7 +612,66 @@ export function newBrowseShadow(
     exposureScope,
     nowMs,
   });
-  return { rows: ranked.rows, telemetry: ranked.telemetry, exposureScope, candidates };
+  return {
+    rows: ranked.rows,
+    telemetry: ranked.telemetry,
+    exposureScope,
+    candidates: [...candidates],
+  };
+}
+
+export function newHomeShadowFromCandidates(
+  candidates: readonly StoreDiscoveryShadowCandidate[],
+  opts: HarnessPolicyOpts & {
+    district: string | null;
+    distanceAxisEnabled: boolean;
+    searchQ?: string | null;
+    limit?: number;
+    origin?: { lat: number; lng: number };
+  }
+) {
+  const nowMs = opts.nowMs ?? CUT6_NOW_MS;
+  const origin = opts.origin ?? CUT6_ORIGIN;
+  const exposureScope = buildStoreDiscoveryHomeExposureScope({
+    region: null,
+    district: opts.district,
+    searchQ: opts.searchQ ?? null,
+    originKey: `${origin.lat},${origin.lng}`,
+    hasGeo: opts.distanceAxisEnabled,
+    geoKey: "g",
+  });
+  const ranked = rankStoreDiscoveryHomeShadow({
+    candidates,
+    district: opts.district,
+    originLat: origin.lat,
+    originLng: origin.lng,
+    distanceAxisEnabled: opts.distanceAxisEnabled,
+    exposureScope,
+    nowMs,
+    limit: opts.limit,
+  });
+  return { ...ranked, exposureScope, candidates: [...candidates] };
+}
+
+export function newBrowseShadow(
+  stores: AdversarialFixtureStore[],
+  opts: HarnessPolicyOpts & {
+    sort: StoreBrowseServerSortId;
+    district: string | null;
+    distanceAxisEnabled: boolean;
+    page: number;
+    limit: number;
+    searchQ?: string | null;
+    taxonomyCategoryId?: string | null;
+  }
+): {
+  rows: StoreDiscoveryShadowRankedRow[];
+  telemetry: ShadowWaveTelemetry;
+  exposureScope: string;
+  candidates: StoreDiscoveryShadowCandidate[];
+} {
+  const { origin, candidates } = buildAdversarialShadowCandidates(stores, opts);
+  return newBrowseShadowFromCandidates(candidates, { ...opts, origin });
 }
 
 export function assertParityOrDetail(
