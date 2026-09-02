@@ -28,6 +28,10 @@ import {
 import { useBrowseScrollChromeHidden } from "@/lib/stores/use-browse-scroll-chrome-hidden";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import { shouldRenderMainBottomNav } from "@/lib/navigation/bottom-nav-route-policy";
+import {
+  getSupportModalMainBottomNavSuppressed,
+  subscribeSupportModalMainBottomNavSuppressed,
+} from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import {
@@ -178,6 +182,11 @@ export function ConditionalAppShell({
     getMessengerCallMainBottomNavSuppressed,
     () => false
   );
+  const supportModalSuppressesBottomNav = useSyncExternalStore(
+    subscribeSupportModalMainBottomNavSuppressed,
+    getSupportModalMainBottomNavSuppressed,
+    () => false
+  );
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const { pendingMenuIntent, isPendingMenuBlockingContent } = useLatestMenuNavigation();
   const { isOpen: philifeWriteSheetOpen } = usePhilifeWriteSheet();
@@ -204,6 +213,7 @@ export function ConditionalAppShell({
     headerMessengerFromPhilife,
     storeOwnerFlyoutSuppressesBottomNav,
     messengerCallSuppressesBottomNav,
+    supportModalSuppressesBottomNav,
     messengerSplitViewport: isMessengerSplitViewport,
   });
   const showBottomNavMounted = showBottomNavEffective;
@@ -389,7 +399,9 @@ export function ConditionalAppShell({
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
         <HomeTradeHubFloatingBarLazy />
       ) : null}
-      {f.showMainBottomNavFabSector && !messengerCallSuppressesBottomNav ? (
+      {f.showMainBottomNavFabSector &&
+      !messengerCallSuppressesBottomNav &&
+      !supportModalSuppressesBottomNav ? (
         <MainBottomNavFabSectorLazy />
       ) : null}
       <SupportFabHostLazy />

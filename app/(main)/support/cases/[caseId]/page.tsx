@@ -1,4 +1,4 @@
-import { SupportCaseConversationClient } from "@/components/support/SupportCaseConversationClient";
+import { SupportCaseBootstrapClient } from "@/components/support/SupportCaseBootstrapClient";
 
 export default async function SupportCasePage({
   params,
@@ -6,5 +6,5 @@ export default async function SupportCasePage({
   params: Promise<{ caseId: string }>;
 }) {
   const { caseId } = await params;
-  return <SupportCaseConversationClient caseId={caseId} />;
+  return <SupportCaseBootstrapClient caseId={caseId} />;
 }

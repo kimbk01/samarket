@@ -13,6 +13,8 @@ export type BottomNavSuppressionInput = {
   headerMessengerFromPhilife?: boolean;
   storeOwnerFlyoutSuppressesBottomNav?: boolean;
   messengerCallSuppressesBottomNav?: boolean;
+  /** Support Sheet open — unmount main BottomNav (composer / CTA focus). */
+  supportModalSuppressesBottomNav?: boolean;
   /** 768px+ 메신저 split — room route 에서도 BottomNav 유지 */
   messengerSplitViewport?: boolean;
 };
@@ -121,5 +123,6 @@ export function shouldRenderMainBottomNav(input: BottomNavSuppressionInput): boo
   if (input.isMessengerStackSurface && input.headerMessengerFromPhilife) return false;
   if (input.storeOwnerFlyoutSuppressesBottomNav) return false;
   if (input.messengerCallSuppressesBottomNav) return false;
+  if (input.supportModalSuppressesBottomNav) return false;
   return true;
 }

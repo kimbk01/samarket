@@ -1,0 +1,39 @@
+{
+  "cut": "A",
+  "title": "Support Sheet Modal UX Hard Lock",
+  "OVERLAY_SSOT": "KEEP — DibayOverlayRoot + DibayBottomSheet (components/ui/dibay-overlay)",
+  "BOTTOM_NAV_OWNER": "EXTEND — ConditionalAppShell + shouldRenderMainBottomNav + support-modal-main-bottom-nav-suppress",
+  "SUPPORT_MODAL_HEIGHT": "~80dvh via DibayBottomSheet heightRatio={0.8}, anchor=device-bottom",
+  "OPEN_ANIMATION": "PASS — overlay sheet bottom→up (dibay-overlay.css)",
+  "CLOSE_ANIMATION": "PASS — overlay sheet up→bottom",
+  "BOTTOM_NAV_HIDE": "PASS — shell unmount via supportModalSuppressesBottomNav (unit)",
+  "BOTTOM_NAV_RESTORE": "PASS — suppress count release on modal close (unit/contract)",
+  "FAB_HIDE": "PASS — SupportFabHost hides FAB while modal open",
+  "PRESS_FEEDBACK": {
+    "FAB": "PASS — active:scale-[0.98]",
+    "문의하기": "PASS — DibayOverlayButton / --overlay-press-scale 0.98",
+    "전송": "PASS — DibayOverlayButton + loading lock",
+    "닫기": "PASS — OverlayUi.btn.text min 44×44",
+    "새_문의하기": "PASS — DibayOverlayButton"
+  },
+  "KEYBOARD": "NOT_PROVEN — wired useFormKeyboardViewport + contentPaddingBottomPx; device matrix not run",
+  "IOS_SAFE_AREA": "NOT_PROVEN",
+  "ANDROID_GESTURE": "NOT_PROVEN",
+  "ANDROID_3BUTTON": "NOT_PROVEN",
+  "PHANTOM_BOTTOM_GAP": "NONE — contract: device-bottom + nav unmounted (unit asserts device-bottom)",
+  "UNDERLAY_SCROLL_RESTORE": "PASS — DibayOverlayRoot body overflow lock (web); device NOT_PROVEN",
+  "SERVER_IDEMPOTENCY": "MISSING — CUT B/C blocker; CUT A UI loading lock only",
+  "UNIT_QA": {
+    "support-modal-cut-a-contract": "PASS (8)",
+    "support-fab-visibility-contract": "PASS (6)"
+  },
+  "RUNTIME_A1_A20": "NOT_PROVEN — no browser/device matrix this cut",
+  "CUT_A_MODAL_UX": "CLOSED",
+  "PRODUCTION_SUPPORT_CENTER": "NOT_PROVEN",
+  "notes": [
+    "Dismiss: X only (showHandle=false); START backdrop dismissible; ACTIVE not dismissible until RESOLVED",
+    "Close ≠ resolve/revoke",
+    "Case create only on 문의하기 CTA",
+    "Cold-start /support/enter and /support/cases/[id] bootstrap → modal + router.replace(/)"
+  ]
+}
