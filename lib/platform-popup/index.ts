@@ -1,5 +1,5 @@
 /**
- * Platform Popup CUT 1 — public barrel (SSOT foundation only; no UI).
+ * Platform Popup — public barrel (CUT 1–5).
  */
 
 export * from "@/lib/platform-popup/types";
@@ -24,3 +24,9 @@ export * from "@/lib/platform-popup/admin-campaign-writer";
 export * from "@/lib/platform-popup/popup-presentation-types";
 export * from "@/lib/platform-popup/popup-geometry-tokens";
 export * from "@/lib/platform-popup/record-popup-event-client";
+export * from "@/lib/platform-popup/owner-request-types";
+export * from "@/lib/platform-popup/owner-request-lifecycle";
+export * from "@/lib/platform-popup/owner-request-loader";
+export * from "@/lib/platform-popup/owner-request-writer";
+export * from "@/lib/platform-popup/owner-request-approve";
+export * from "@/lib/platform-popup/platform-popup-owner-routes";

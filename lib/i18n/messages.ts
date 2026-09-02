@@ -68,6 +68,7 @@ import { permissionEducationMessages } from "./catalog/permission-education";
 import { tradeLocationScopeMessages } from "./catalog/trade-location-scope";
 import { supportUiMessages } from "./catalog/support-ui";
 import { platformPopupUiMessages } from "./catalog/platform-popup-ui";
+import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -141,6 +142,7 @@ const KO_MESSAGES = {
   ...tradeLocationScopeMessages.ko,
   ...supportUiMessages.ko,
   ...platformPopupUiMessages.ko,
+  ...platformPopupOwnerMessages.ko,
   ...adminMessages.ko,
   ...koJson,
 } as const;
@@ -214,6 +216,7 @@ const EN_MESSAGES = {
   ...tradeLocationScopeMessages.en,
   ...supportUiMessages.en,
   ...platformPopupUiMessages.en,
+  ...platformPopupOwnerMessages.en,
   ...adminMessages.en,
   ...enJson,
 } as const;

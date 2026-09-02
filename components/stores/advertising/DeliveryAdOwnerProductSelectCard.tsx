@@ -29,6 +29,16 @@ function BannerIcon() {
   );
 }
 
+function PopupIcon() {
+  return (
+    <svg className="h-10 w-10 shrink-0" viewBox="0 0 40 40" fill="none" aria-hidden>
+      <rect x="6" y="6" width="28" height="28" rx="4" fill="#E3F2FD" stroke="#1565C0" strokeWidth="1.5" />
+      <rect x="10" y="12" width="20" height="14" rx="2" fill="#1565C0" opacity="0.35" />
+      <circle cx="30" cy="10" r="4" fill="#1565C0" />
+    </svg>
+  );
+}
+
 export function DeliveryAdOwnerProductSelectCard({
   href,
   productKind,
@@ -38,14 +48,20 @@ export function DeliveryAdOwnerProductSelectCard({
   onNavigate,
 }: {
   href: string;
-  productKind: "store_sponsored" | "banner";
+  productKind: "store_sponsored" | "banner" | "platform_popup";
   title: string;
   description: string;
   ctaLabel: string;
   onNavigate?: () => void;
 }) {
   const icon: ReactNode =
-    productKind === "banner" ? <BannerIcon /> : <StoreSponsoredIcon />;
+    productKind === "banner" ? (
+      <BannerIcon />
+    ) : productKind === "platform_popup" ? (
+      <PopupIcon />
+    ) : (
+      <StoreSponsoredIcon />
+    );
 
   return (
     <Link

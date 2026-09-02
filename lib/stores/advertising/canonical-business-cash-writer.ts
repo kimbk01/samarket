@@ -315,7 +315,7 @@ export async function debitBusinessCashForDeliveryAd(
     ownerUserId: string;
     storeId: string;
     applicationId: string;
-    productKind: "store_sponsored" | "banner" | "partner";
+    productKind: "store_sponsored" | "banner" | "partner" | "platform_popup";
     amountMinor?: number | null;
   }
 ): Promise<SecureCanonicalBcResult> {
@@ -357,7 +357,7 @@ export async function refundBusinessCashForRejectedDeliveryAd(
   input: {
     adminUserId: string;
     applicationId: string;
-    productKind: "store_sponsored" | "banner" | "partner";
+    productKind: "store_sponsored" | "banner" | "partner" | "platform_popup";
   }
 ): Promise<
   | { ok: true; idempotent: boolean; fundingId: string; refundLedgerId: string | null; amountMinor: number }

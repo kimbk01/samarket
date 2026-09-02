@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { PLATFORM_POPUP_OWNER_ROUTES } from "@/lib/platform-popup/platform-popup-owner-routes";
 import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
@@ -559,6 +560,22 @@ export function OwnerDeliveryAdsHubView() {
             productKind="banner"
             title={t("owner_ads_product_banner")}
             description={t("owner_ads_product_banner_desc")}
+            ctaLabel={t("owner_ads_product_select_apply")}
+            onNavigate={() => setProductSelectOpen(false)}
+          />
+          <DeliveryAdOwnerProductSelectCard
+            href={PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}
+            productKind="platform_popup"
+            title={safeT("owner_platform_popup_product_title", {
+              fallbackKo: "글로벌 팝업 광고",
+              fallbackEn: "Global Popup Ad",
+            })}
+            description={safeT("owner_platform_popup_product_desc", {
+              fallbackKo:
+                "앱 전역에 뜨는 팝업 광고를 신청합니다. 결제 후에도 관리자 승인 전까지는 노출되지 않습니다.",
+              fallbackEn:
+                "Apply for a platform-wide popup. Payment alone does not start delivery — admin approval is required.",
+            })}
             ctaLabel={t("owner_ads_product_select_apply")}
             onNavigate={() => setProductSelectOpen(false)}
           />
