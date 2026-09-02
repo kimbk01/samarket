@@ -3,7 +3,7 @@
  * CUT 5 — Owner Paid Platform Popup request bridge contracts.
  */
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   assertOwnerCannotApproveOrActivatePlatformPopup,
@@ -171,13 +171,16 @@ describe("CUT5 routes + UI contracts", () => {
     expect(mig).toContain("'platform_popup'");
   });
 
-  it("barrel exports CUT5 modules", () => {
+  it("barrel exports client-safe CUT5 modules (server writers stay out of barrel)", () => {
     const index = readRepo("lib/platform-popup/index.ts");
     expect(index).toContain("owner-request-types");
     expect(index).toContain("owner-request-lifecycle");
-    expect(index).toContain("owner-request-writer");
-    expect(index).toContain("owner-request-loader");
-    expect(index).toContain("owner-request-approve");
     expect(index).toContain("platform-popup-owner-routes");
+    expect(index).not.toContain("owner-request-writer");
+    expect(index).not.toContain("owner-request-loader");
+    expect(index).not.toContain("owner-request-approve");
+    expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-writer.ts"))).toBe(true);
+    expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-loader.ts"))).toBe(true);
+    expect(existsSync(join(ROOT, "lib/platform-popup/owner-request-approve.ts"))).toBe(true);
   });
 });
