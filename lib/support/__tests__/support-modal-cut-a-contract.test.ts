@@ -106,13 +106,14 @@ describe("support modal CUT A contracts", () => {
     expect(host).toContain("showHandle={false}");
     expect(host).toContain("heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
     expect(host).toContain("0.8");
+    expect(host).toContain("heightPx={activeSheetHeightPx}");
+    expect(host).toContain("stageStyle={keyboardStageStyle}");
+    expect(host).toContain("load({ silent: true })");
+    expect(host).toContain("json.message");
+    expect(host).toContain("el.scrollTop = el.scrollHeight");
+    expect(host).not.toContain("scrollIntoView");
     expect(host).not.toContain("above-bottom-nav");
-  });
-
-  it("navigateToSupportCenter opens modal (no hard assign as primary)", () => {
-    const openSrc = readFileSync(join(ROOT, "lib/support/open-support-center.ts"), "utf8");
-    expect(openSrc).toContain("openSupportModal");
-    expect(openSrc).toContain("navigateToSupportCenter");
+    expect(host).not.toContain("contentPaddingBottomPx={keyboardInset");
   });
 
   it("DibayBottomSheet exposes heightRatio and dismissible", () => {
@@ -121,6 +122,25 @@ describe("support modal CUT A contracts", () => {
       "utf8"
     );
     expect(sheet).toContain("heightRatio");
+    expect(sheet).toContain("heightPx");
     expect(sheet).toContain("dismissible");
+    expect(sheet).toContain("stageStyle");
+  });
+
+  it("overlay root gates 하→상 enter on mounted + double rAF", () => {
+    const root = readFileSync(
+      join(ROOT, "components/ui/dibay-overlay/DibayOverlayRoot.tsx"),
+      "utf8"
+    );
+    expect(root).toContain("if (!mounted) return");
+    expect(root).toContain("requestAnimationFrame(() => setEntered(true))");
+    expect(root).toMatch(/requestAnimationFrame\(\(\) => \{\s*raf2 = requestAnimationFrame/);
+    expect(root).toContain("[open, mounted]");
+  });
+
+  it("navigateToSupportCenter opens modal (no hard assign as primary)", () => {
+    const openSrc = readFileSync(join(ROOT, "lib/support/open-support-center.ts"), "utf8");
+    expect(openSrc).toContain("openSupportModal");
+    expect(openSrc).toContain("navigateToSupportCenter");
   });
 });

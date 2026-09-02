@@ -36,6 +36,24 @@ import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-ca
 
 const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
 const HISTORY_KEY = "dibaySupportModal";
+/** Min visible band (px) before falling back to ratio height. */
+const SUPPORT_SHEET_KB_MIN_HEIGHT_PX = 280;
+
+/** Keep previous array identity when silent refresh has the same message ids/bodies. */
+function sameSupportMessages(
+  prev: SupportMessageRow[],
+  next: SupportMessageRow[]
+): boolean {
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i += 1) {
+    const a = prev[i];
+    const b = next[i];
+    if (!a || !b || a.id !== b.id || a.body !== b.body || a.created_at !== b.created_at) {
+      return false;
+    }
+  }
+  return true;
+}
 
 function statusLabelMeta(status: SupportCaseRow["status"] | null): {
   key: "support_status_active" | "support_status_resolved" | "support_status_waiting_admin";
@@ -140,7 +158,6 @@ function SupportActiveConversation({
   onClose,
   onRequestNewInquiry,
   onDismissibleChange,
-  onKeyboardInset,
 }: {
   caseId: string;
   titleId: string;
@@ -149,7 +166,6 @@ function SupportActiveConversation({
   onClose: () => void;
   onRequestNewInquiry: () => void;
   onDismissibleChange: (dismissible: boolean) => void;
-  onKeyboardInset: (px: number) => void;
 }) {
   const { safeT } = useI18n();
   const [supportCase, setSupportCase] = useState<SupportCaseRow | null>(null);
@@ -161,61 +177,68 @@ function SupportActiveConversation({
   const [offline, setOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const kb = useFormKeyboardViewport({ enabled: true });
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedOnceRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const fetchCase = () =>
-        fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
-          credentials: "include",
-        });
-      let res = await fetchCase();
-      // Cold-start race: session may still be restoring — heal once then retry.
-      if (res.status === 401) {
-        const { ensureSessionHealthy } = await import("@/lib/auth/dibay-session-manager");
-        await ensureSessionHealthy("support_modal_case_load");
-        res = await fetchCase();
-      }
-      const json = (await res.json()) as {
-        ok?: boolean;
-        case?: SupportCaseRow;
-        messages?: SupportMessageRow[];
-        error?: string;
-      };
-      if (!res.ok || !json.ok || !json.case) {
-        // Fail-closed: do not fall back to legacy inquiry / messenger routes.
-        setError(
-          res.status === 401
-            ? "unauthorized"
-            : res.status === 403 || res.status === 404
-              ? "forbidden"
-              : (json.error ?? "load_failed")
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent === true && hasLoadedOnceRef.current;
+      if (!silent) setLoading(true);
+      if (!silent) setError(null);
+      try {
+        const fetchCase = () =>
+          fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
+            credentials: "include",
+          });
+        let res = await fetchCase();
+        // Cold-start race: session may still be restoring — heal once then retry.
+        if (res.status === 401) {
+          const { ensureSessionHealthy } = await import("@/lib/auth/dibay-session-manager");
+          await ensureSessionHealthy("support_modal_case_load");
+          res = await fetchCase();
+        }
+        const json = (await res.json()) as {
+          ok?: boolean;
+          case?: SupportCaseRow;
+          messages?: SupportMessageRow[];
+          error?: string;
+        };
+        if (!res.ok || !json.ok || !json.case) {
+          // Fail-closed: do not fall back to legacy inquiry / messenger routes.
+          setError(
+            res.status === 401
+              ? "unauthorized"
+              : res.status === 403 || res.status === 404
+                ? "forbidden"
+                : (json.error ?? "load_failed")
+          );
+          if (!silent) {
+            setSupportCase(null);
+            setMessages([]);
+          }
+          onDismissibleChange(true);
+          return;
+        }
+        setSupportCase(json.case);
+        const nextMessages = json.messages ?? [];
+        setMessages((prev) =>
+          silent && sameSupportMessages(prev, nextMessages) ? prev : nextMessages
         );
-        setSupportCase(null);
-        setMessages([]);
-        onDismissibleChange(true);
-        return;
+        hasLoadedOnceRef.current = true;
+        const closed =
+          json.case.status === "RESOLVED" || json.case.status === "ARCHIVED";
+        onDismissibleChange(closed);
+      } finally {
+        if (!silent) setLoading(false);
       }
-      setSupportCase(json.case);
-      setMessages(json.messages ?? []);
-      const closed =
-        json.case.status === "RESOLVED" || json.case.status === "ARCHIVED";
-      onDismissibleChange(closed);
-    } finally {
-      setLoading(false);
-    }
-  }, [caseId, onDismissibleChange]);
+    },
+    [caseId, onDismissibleChange]
+  );
 
   useEffect(() => {
+    hasLoadedOnceRef.current = false;
     void load();
   }, [load]);
-
-  useEffect(() => {
-    onKeyboardInset(kb.effectiveBottomInset);
-  }, [kb.effectiveBottomInset, onKeyboardInset]);
 
   useEffect(() => {
     const onOff = () => setOffline(true);
@@ -229,9 +252,11 @@ function SupportActiveConversation({
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Container scroll only — avoid viewport-panning scroll helpers on iOS keyboard.
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages.length]);
-
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
@@ -246,7 +271,7 @@ function SupportActiveConversation({
           filter: `case_id=eq.${caseId}`,
         },
         () => {
-          void load();
+          void load({ silent: true });
         }
       )
       .on(
@@ -258,7 +283,7 @@ function SupportActiveConversation({
           filter: `id=eq.${caseId}`,
         },
         () => {
-          void load();
+          void load({ silent: true });
         }
       )
       .subscribe();
@@ -279,13 +304,24 @@ function SupportActiveConversation({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        message?: SupportMessageRow;
+        error?: string;
+      };
       if (!res.ok || !json.ok) {
         setError(json.error ?? "send_failed");
         return;
       }
       setDraft("");
-      await load();
+      // POST already returns the row — append locally. Full reload was the send flicker root.
+      if (json.message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === json.message!.id) ? prev : [...prev, json.message!]
+        );
+      } else {
+        await load({ silent: true });
+      }
     } catch {
       setError("network_error");
     } finally {
@@ -339,7 +375,10 @@ function SupportActiveConversation({
           ) : null}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
+        <div
+          ref={listRef}
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain"
+        >
           {messages.map((m) => {
             const mine = m.sender_type === "MEMBER" || m.sender_type === "OWNER";
             return (
@@ -371,7 +410,6 @@ function SupportActiveConversation({
               </div>
             );
           })}
-          <div ref={bottomRef} />
         </div>
       )}
 
@@ -543,9 +581,23 @@ export function SupportModalHost() {
   const [openingCase, setOpeningCase] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [activeDismissible, setActiveDismissible] = useState(false);
-  const [keyboardInset, setKeyboardInset] = useState(0);
   const historyPushed = useRef(false);
   const closingFromPop = useRef(false);
+  const kb = useFormKeyboardViewport({ enabled: open });
+  const keyboardBandActive =
+    kb.keyboardOpen && kb.visualViewportHeight >= SUPPORT_SHEET_KB_MIN_HEIGHT_PX;
+  const activeSheetHeightPx = keyboardBandActive
+    ? Math.round(kb.visualViewportHeight)
+    : null;
+  const keyboardStageStyle = keyboardBandActive
+    ? {
+        top: Math.max(0, Math.round(kb.visualViewportOffsetTop)),
+        height: Math.round(kb.visualViewportHeight),
+        left: 0,
+        right: 0,
+        bottom: "auto" as const,
+      }
+    : undefined;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -567,7 +619,6 @@ export function SupportModalHost() {
       setOpeningCase(false);
       setStartError(null);
       setActiveDismissible(false);
-      setKeyboardInset(0);
       if (historyPushed.current && !closingFromPop.current) {
         historyPushed.current = false;
         try {
@@ -693,9 +744,11 @@ export function SupportModalHost() {
         anchor="device-bottom"
         showHandle={false}
         heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
+        heightPx={activeSheetHeightPx}
         ariaLabel={title}
         panelClassName="mx-auto w-full max-w-[560px]"
-        contentPaddingBottomPx={keyboardInset > 0 ? keyboardInset : undefined}
+        stageStyle={keyboardStageStyle}
+        contentPaddingBottomPx={keyboardBandActive ? 8 : undefined}
       >
         {modal.caseId ? (
           <SupportActiveConversation
@@ -706,7 +759,6 @@ export function SupportModalHost() {
             onClose={handleClose}
             onRequestNewInquiry={handleNewInquiry}
             onDismissibleChange={setActiveDismissible}
-            onKeyboardInset={setKeyboardInset}
           />
         ) : null}
       </DibayBottomSheet>

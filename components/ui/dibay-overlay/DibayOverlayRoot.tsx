@@ -72,11 +72,20 @@ export function DibayOverlayRoot({
       setEntered(false);
       return;
     }
+    // Portal must be mounted before enter — otherwise entered=true paints with no 하→상 frame.
+    if (!mounted) return;
     previouslyFocused.current =
       typeof document !== "undefined" ? (document.activeElement as HTMLElement | null) : null;
-    const id = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(id);
-  }, [open]);
+    // Double rAF so translateY(100%) paints, then enter to translateY(0).
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setEntered(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [open, mounted]);
 
   useEffect(() => {
     if (!open || !dismissible || !onClose) return;
