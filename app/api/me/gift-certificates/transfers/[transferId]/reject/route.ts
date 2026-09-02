@@ -41,6 +41,7 @@ export async function POST(
   await projectGiftTransferMessengerStatus(sb, {
     transferId: tid,
     transferStatus: "REJECTED",
+    actorUserId: userId,
   }).catch(() => {});
 
   const { data: transferRow } = await sb

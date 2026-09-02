@@ -55,6 +55,8 @@ describe("gift offer accept status propagation", () => {
     const projection = source("lib/gift-certificate/project-gift-transfer-messenger-status.ts");
     expect(projection).toContain("transfer_status: args.transferStatus");
     expect(projection).toContain("community_messenger_messages");
+    expect(projection).toContain("publishMessengerRoomBumpAfterMutation");
+    expect(projection).toContain("actorUserId");
   });
 
   it("T4: same messageId UPDATE merge replaces status on one card", () => {

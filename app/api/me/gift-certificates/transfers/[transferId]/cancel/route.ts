@@ -47,6 +47,7 @@ export async function POST(
   await projectGiftTransferMessengerStatus(sb, {
     transferId: tid,
     transferStatus: "CANCELLED",
+    actorUserId: userId,
   }).catch(() => {});
   const transfer = transferBeforeCancel as {
     sender_user_id?: string | null;
