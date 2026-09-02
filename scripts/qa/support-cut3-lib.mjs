@@ -138,7 +138,12 @@ export async function loginSession(email) {
   throw new Error(`login_failed:${email}`);
 }
 
-export function cookieHeader(session) {
+/**
+ * Canonical Production QA cookie contract (gift-cut1 / currency-ssot):
+ * - sb-{ref}-auth-token = encoded session JSON (access + refresh)
+ * - samarket_active_session_id = profiles.active_session_id for THIS user only
+ */
+export async function cookieHeader(session) {
   const ref = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
   const token = encodeURIComponent(
     JSON.stringify({
@@ -150,14 +155,25 @@ export function cookieHeader(session) {
       user: session.user,
     })
   );
-  return `sb-${ref}-auth-token=${token}`;
+  let cookie = `sb-${ref}-auth-token=${token}`;
+  const uid = session?.user?.id ? String(session.user.id) : "";
+  if (uid) {
+    const { data: pr } = await sbService()
+      .from("profiles")
+      .select("active_session_id")
+      .eq("id", uid)
+      .maybeSingle();
+    const sid = String(pr?.active_session_id ?? "").trim();
+    if (sid) cookie += `; samarket_active_session_id=${encodeURIComponent(sid)}`;
+  }
+  return cookie;
 }
 
 export async function apiJson(session, method, path, body) {
   const res = await fetch(`${ORIGIN}${path}`, {
     method,
     headers: {
-      Cookie: cookieHeader(session),
+      Cookie: await cookieHeader(session),
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,

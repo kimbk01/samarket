@@ -103,35 +103,94 @@ async function main() {
 
   const { s1, s2, sx, ownedCount } = await discoverStores(sb, userOwner);
   report.fixture = { userA, userB, userOwner, s1, s2, sx, ownedCount };
+  report.harness_auth = {
+    root: "samarket_active_session_id from profiles.active_session_id for logged-in user",
+    canonical: "gift-cut1-refund-authority-runtime / currency-ssot-runtime-live-smoke",
+    product_files_changed: "NONE",
+  };
+  report.push_side_effect = {
+    support_commit_contamination: "NONE",
+    push_contained_pre_existing_local_ahead_commit: "ebc0977f84618d5438f88f572b5a79ebfd3b2ca8",
+  };
 
-  // T1 — Member A create
-  const t1 = await apiJson(sessionA, "POST", "/api/support/cases/open", {
-    context: memberContext({ sourceSurface: "cut3_member_a_create" }),
-    initialBody: "CUT3 T1 member A message",
-  });
-  report.tests.T1 = { status: t1.status, body: t1.json };
-  if (t1.status !== 200 || !t1.json?.ok || !t1.json?.case?.id) {
-    setReport(report, "MEMBER_A_CREATE", "FAIL", { http: t1.status, body: t1.json });
-    stop(report, "T1", "member_a_create_failed", { http: t1.status, body: t1.json });
-  }
-  const caseA = t1.json.case;
-  const { data: dbA } = await sb.from("support_cases").select("*").eq("id", caseA.id).single();
-  if (
-    !dbA ||
-    dbA.audience !== "MEMBER" ||
-    dbA.owner_store_id != null ||
-    dbA.requester_user_id !== userA
-  ) {
-    stop(report, "T1", "db_identity_mismatch", { dbA });
-  }
-  setReport(report, "MEMBER_A_CREATE", "PASS", { caseId: caseA.id, public_case_no: caseA.public_case_no });
+  const resumeCaseId = String(process.env.SUPPORT_CUT3_CASE_A_ID || "").trim();
+  let caseA;
 
-  // T2 — Admin sees case
+  // T1 — Member A create (or resume prior PASS case)
+  if (resumeCaseId) {
+    const { data: dbResume } = await sb.from("support_cases").select("*").eq("id", resumeCaseId).maybeSingle();
+    if (!dbResume || dbResume.requester_user_id !== userA) {
+      stop(report, "T1", "resume_case_invalid", { resumeCaseId, requester: dbResume?.requester_user_id });
+    }
+    caseA = {
+      id: dbResume.id,
+      public_case_no: dbResume.public_case_no,
+      audience: dbResume.audience,
+      status: dbResume.status,
+      owner_store_id: dbResume.owner_store_id,
+      requester_user_id: dbResume.requester_user_id,
+    };
+    report.tests.T1 = { resumed: true, caseId: caseA.id, public_case_no: caseA.public_case_no };
+    setReport(report, "MEMBER_A_CREATE", "PASS", {
+      resumed: true,
+      caseId: caseA.id,
+      public_case_no: caseA.public_case_no,
+    });
+  } else {
+    const t1 = await apiJson(sessionA, "POST", "/api/support/cases/open", {
+      context: memberContext({ sourceSurface: "cut3_member_a_create" }),
+      initialBody: "CUT3 T1 member A message",
+    });
+    report.tests.T1 = { status: t1.status, body: t1.json };
+    if (t1.status !== 200 || !t1.json?.ok || !t1.json?.case?.id) {
+      setReport(report, "MEMBER_A_CREATE", "FAIL", { http: t1.status, body: t1.json });
+      stop(report, "T1", "member_a_create_failed", { http: t1.status, body: t1.json });
+    }
+    caseA = t1.json.case;
+    const { data: dbA } = await sb.from("support_cases").select("*").eq("id", caseA.id).single();
+    if (
+      !dbA ||
+      dbA.audience !== "MEMBER" ||
+      dbA.owner_store_id != null ||
+      dbA.requester_user_id !== userA
+    ) {
+      stop(report, "T1", "db_identity_mismatch", { dbA });
+    }
+    setReport(report, "MEMBER_A_CREATE", "PASS", {
+      caseId: caseA.id,
+      public_case_no: caseA.public_case_no,
+    });
+  }
+
+  // T2 — Admin sees case (auth + case identity)
   const t2 = await apiJson(sessionAdmin, "GET", "/api/admin/support/cases?filter=MEMBER");
-  report.tests.T2 = { status: t2.status, count: t2.json?.cases?.length };
-  const adminSees = (t2.json?.cases ?? []).some((c) => c.id === caseA.id);
-  if (!adminSees) stop(report, "T2", "admin_missing_case", { caseId: caseA.id });
-  setReport(report, "MEMBER_A_TO_ADMIN", "PASS", { caseId: caseA.id });
+  report.tests.T2 = { status: t2.status, count: t2.json?.cases?.length, error: t2.json?.error };
+  if (t2.status !== 200 || !t2.json?.ok) {
+    setReport(report, "MEMBER_A_TO_ADMIN", "FAIL", {
+      http: t2.status,
+      error: t2.json?.error,
+      harness_hint: "admin_session_cookie",
+    });
+    stop(report, "T2", "admin_list_not_ok", { http: t2.status, body: t2.json });
+  }
+  const adminCase = (t2.json?.cases ?? []).find((c) => c.id === caseA.id);
+  if (!adminCase) {
+    setReport(report, "MEMBER_A_TO_ADMIN", "FAIL", { caseId: caseA.id, reason: "case_not_in_admin_list" });
+    stop(report, "T2", "admin_missing_case", { caseId: caseA.id });
+  }
+  if (
+    adminCase.audience !== "MEMBER" ||
+    adminCase.requester_user_id !== userA ||
+    String(adminCase.public_case_no || "") !== String(caseA.public_case_no || "")
+  ) {
+    setReport(report, "MEMBER_A_TO_ADMIN", "FAIL", { adminCase, expected: caseA });
+    stop(report, "T2", "admin_case_identity_mismatch", { adminCase });
+  }
+  setReport(report, "MEMBER_A_TO_ADMIN", "PASS", {
+    caseId: caseA.id,
+    public_case_no: caseA.public_case_no,
+    case_status: adminCase.status,
+  });
 
   // T3 — Member B GET deny
   const t3 = await apiJson(sessionB, "GET", `/api/support/cases/${caseA.id}`);

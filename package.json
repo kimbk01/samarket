@@ -98,6 +98,7 @@
     "qa:support-cut3-fab-surface-smoke": "node --env-file=.env.local scripts/qa/support-cut3-fab-surface-smoke.mjs",
     "qa:support-cut3-final-report": "node scripts/qa/support-cut3-final-report.mjs",
     "qa:support-cut3-run-pipeline": "node --env-file=.env.local scripts/qa/support-cut3-run-pipeline.mjs",
+    "qa:support-cut3b-reference-authority": "node --env-file=.env.local scripts/qa/support-cut3b-reference-authority-runtime.mjs",
     "verify:owner-badge-boundary": "node scripts/verify-owner-badge-boundary.cjs",
     "verify:global-runtime-allowlist": "node scripts/verify-global-runtime-allowlist.cjs",
     "verify:messenger-legacy-route-ban": "node scripts/verify-messenger-legacy-route-ban.cjs",

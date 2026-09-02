@@ -47,4 +47,12 @@ describe("support identity / case SSOT contract", () => {
     expect(svc).toContain('sender_type: senderType');
     expect(svc).not.toMatch(/sender_type.*req\.body/);
   });
+
+  it("reference authority is fail-closed — no default pass-through", () => {
+    const ref = readRepo("lib/support/support-reference-authority.ts");
+    expect(ref).toContain("STORE_SETTLEMENT");
+    expect(ref).toContain("reference_type_not_allowed");
+    expect(ref).not.toMatch(/default:\s*\{\s*[\s\S]*?return \{\s*ok:\s*true/);
+    expect(ref).toMatch(/default:\s*[\s\S]*reference_type_not_allowed/);
+  });
 });

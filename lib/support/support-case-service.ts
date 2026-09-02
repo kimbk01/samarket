@@ -79,12 +79,15 @@ async function notifySupportEvent(
     storeId?: string | null;
     dedupeKey: string;
     actorUserId?: string;
+    /** Override canonical deeplink (e.g. admin detail for support_customer_replied). */
+    routeUrl?: string;
   }
 ): Promise<void> {
   const routeUrl =
-    input.audience === "OWNER" && input.storeId
+    input.routeUrl ??
+    (input.audience === "OWNER" && input.storeId
       ? `${buildSupportCaseRoute(input.caseId)}?storeId=${encodeURIComponent(input.storeId)}`
-      : buildSupportCaseRoute(input.caseId);
+      : buildSupportCaseRoute(input.caseId));
   await createAndDispatchNotificationEvent(sb, {
     userId: input.userId,
     type: input.type,
@@ -423,6 +426,25 @@ export async function postRequesterSupportMessage(
     messageType: "PUBLIC",
   });
   if (!res.ok) return res;
+
+  // CUT2 contract: support_customer_replied notifies assigned admin (admin deeplink).
+  // Unassigned cases rely on admin_unread_count + Support Admin list wake-up only.
+  const assignee = gate.case.assigned_admin_id ? String(gate.case.assigned_admin_id) : "";
+  if (assignee) {
+    await notifySupportEvent(sb, {
+      userId: assignee,
+      type: "support_customer_replied",
+      title: `문의 ${gate.case.public_case_no}`,
+      body: input.body,
+      caseId: gate.case.id,
+      publicCaseNo: gate.case.public_case_no,
+      audience: gate.case.audience,
+      storeId: gate.case.owner_store_id,
+      dedupeKey: `support_customer_replied:${res.message.id}`,
+      actorUserId: input.userId,
+      routeUrl: buildAdminSupportCaseRoute(gate.case.id),
+    });
+  }
 
   return res;
 }
