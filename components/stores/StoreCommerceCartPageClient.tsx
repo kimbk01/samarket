@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
+import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
 import { dibayCartFlowV2Log, dibayCartFlowWorstStage } from "@/lib/dibay/dibay-cart-flow-v2";
 import { fetchMeCheckoutContactDeduped, peekMeCheckoutContactCached } from "@/lib/me/fetch-me-checkout-contact-deduped";
@@ -1081,6 +1082,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (!checkoutConfirmOpen) return;
     scrollAppShellForStoreCheckoutConfirm(checkoutFooterRef.current);
   }, [checkoutConfirmOpen]);
+
+  useEffect(() => {
+    patchPlatformPopupCriticalRuntimeFlags({
+      paymentCritical: checkoutConfirmOpen,
+      orderSubmitCritical: busy,
+      orderConfirmationCritical: checkoutConfirmOpen,
+    });
+    return () =>
+      patchPlatformPopupCriticalRuntimeFlags({
+        paymentCritical: false,
+        orderSubmitCritical: false,
+        orderConfirmationCritical: false,
+      });
+  }, [checkoutConfirmOpen, busy]);
 
   useEffect(() => {
     const onAddressesUpdated = () => {

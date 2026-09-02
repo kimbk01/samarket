@@ -89,6 +89,11 @@ const SupportFabHostLazy = dynamic(
   () => import("@/components/support/SupportFabHost").then((m) => m.SupportFabHost),
   { ssr: false }
 );
+/** CUT 2 — exactly one GlobalPopupHost in (main) shell; no route-local hosts. */
+const GlobalPopupHostLazy = dynamic(
+  () => import("@/components/platform-popup/GlobalPopupHost").then((m) => m.GlobalPopupHost),
+  { ssr: false }
+);
 const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
   () =>
     import("@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost").then(
@@ -405,6 +410,7 @@ export function ConditionalAppShell({
         <MainBottomNavFabSectorLazy />
       ) : null}
       <SupportFabHostLazy />
+      <GlobalPopupHostLazy />
       <BootThumbnailObserver />
     </div>
     </SupportFabRegistryProvider>

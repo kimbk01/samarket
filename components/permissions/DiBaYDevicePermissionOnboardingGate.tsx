@@ -17,6 +17,7 @@ import { syncNotificationState } from "@/lib/permissions/permission-manager/noti
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
+import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 
 /** 로그인 후 notification OS flow 완료 전 NativePushRegistration 대기용 */
 let notificationOnboardingSettled = false;
@@ -66,6 +67,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
   const runPostLoginNotificationFlow = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
+    patchPlatformPopupCriticalRuntimeFlags({ permissionGate: true });
     try {
       await syncNotificationState();
       if (isCapacitorNativePlatform()) {
@@ -76,6 +78,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
       }
     } finally {
       runningRef.current = false;
+      patchPlatformPopupCriticalRuntimeFlags({ permissionGate: false });
       markNotificationOnboardingSettled();
     }
   }, []);

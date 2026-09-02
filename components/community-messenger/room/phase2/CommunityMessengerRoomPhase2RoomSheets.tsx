@@ -64,6 +64,7 @@ import { GroupMemberRoleBadge } from "@/components/community-messenger/group/Gro
 import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
+import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -93,6 +94,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     setGiftPreselectInstanceId(iid || null);
     setGiftOfferOpen(true);
   }, [giftEligible]);
+
+  useEffect(() => {
+    patchPlatformPopupCriticalRuntimeFlags({ giftTransferCritical: giftOfferOpen });
+    return () => patchPlatformPopupCriticalRuntimeFlags({ giftTransferCritical: false });
+  }, [giftOfferOpen]);
 
   const dismissSheet = () => {
     if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();

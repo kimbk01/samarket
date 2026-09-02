@@ -12,6 +12,7 @@ import {
 } from "@/lib/addresses/mandatory-address-gate-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
+import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
@@ -55,6 +56,11 @@ export function MandatoryAddressGate() {
   const prevPathForGateRef = useRef<string | null>(null);
   const redirectTargetRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    patchPlatformPopupCriticalRuntimeFlags({ addressGate: blocked });
+    return () => patchPlatformPopupCriticalRuntimeFlags({ addressGate: false });
+  }, [blocked]);
 
   const maybeRedirectToSetup = useCallback(
     (needsBlock: boolean) => {
