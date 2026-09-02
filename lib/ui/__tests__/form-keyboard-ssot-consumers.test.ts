@@ -78,10 +78,14 @@ describe("form-keyboard-ssot consumer contract", () => {
     expect(src).not.toMatch(/safe-area-pb/);
   });
 
-  it("CS thread sticky composer uses Form SSOT", () => {
+  it("CS legacy thread is archive-only — not a Form keyboard sticky-composer consumer", () => {
+    // A2-1: member reply composer removed; Form SSOT applies only while a sticky composer exists.
     const src = read("components/mypage/cs/MemberCsNoteThreadClient.tsx");
-    expect(src).toContain("useFormKeyboardViewport");
-    expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("support_legacy_archive");
+    expect(src).not.toContain("useFormKeyboardViewport");
+    expect(src).not.toContain("effectiveBottomInset");
+    expect(src).not.toMatch(/method:\s*["']POST["']/);
+    expect(src).not.toMatch(/<textarea\b/);
     expect(src).not.toMatch(/env\(safe-area-inset-bottom\)/);
   });
 

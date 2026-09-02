@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = join(__dirname, "..", "..", "..");
-
 function readRepo(rel: string): string {
-  return readFileSync(join(ROOT, rel), "utf8");
+  return readFileSync(join(process.cwd(), rel), "utf8");
 }
 
 describe("support identity / case SSOT contract", () => {
