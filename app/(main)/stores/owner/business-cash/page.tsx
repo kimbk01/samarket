@@ -9,5 +9,5 @@ export default async function OwnerBusinessCashLegacyPage({
   const params = await searchParams;
   const rawStoreId = params.storeId;
   const storeId = (Array.isArray(rawStoreId) ? rawStoreId[0] : rawStoreId)?.trim() ?? "";
-  redirect(`${OwnerRoutes.finance(storeId)}#cash-manage`);
+  redirect(OwnerRoutes.finance(storeId));
 }
