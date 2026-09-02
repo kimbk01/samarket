@@ -9,6 +9,10 @@ import {
   runAuthRequiredExit,
   runAuthSessionExpiredExit,
 } from "@/lib/auth/auth-exit-coordinator";
+import {
+  isMessengerRoomOrCallPath,
+  shouldBlockPrivateTreeForAuthSession,
+} from "@/lib/auth/auth-session-boundary-gate";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isRecoveringPhase } from "@/lib/auth/dibay-session-policy";
@@ -24,6 +28,9 @@ type Props = {
  * account-dependent 경로 — membership resolve 완료 전까지 private UI 렌더 금지.
  * guest 는 auth_required, corrupt 만 session_expired.
  * recovering/loading ≠ guest — login exit 금지.
+ *
+ * SSOT: `/api/auth/session` (or supabase getSession) already authenticated ⇒
+ * never pin standalone Loading… forever (messenger dual-context hang root).
  */
 export function AuthSessionBoundary({ children }: Props) {
   const { t } = useI18n();
@@ -61,6 +68,8 @@ export function AuthSessionBoundary({ children }: Props) {
     }
 
     if (membership.status === "guest") {
+      // Session cookie still valid — do not force login exit; fail-open renders children.
+      if (sessionApiAuthenticated) return;
       void runAuthRequiredExit();
       return;
     }
@@ -70,7 +79,7 @@ export function AuthSessionBoundary({ children }: Props) {
       void runAuthAccountSwitchExit();
     }
     lastUserIdRef.current = userId;
-  }, [dependent, membership]);
+  }, [dependent, membership, sessionApiAuthenticated]);
 
   useEffect(() => {
     if (!dependent) {
@@ -136,20 +145,36 @@ export function AuthSessionBoundary({ children }: Props) {
     return <>{children}</>;
   }
 
+  /**
+   * Messenger room/call — middleware already requires auth. Same fail-open as owner shell:
+   * never replace with Loading… once session cookie/API says authenticated.
+   */
+  if (
+    isMessengerRoomOrCallPath(pathForOwnerGate) &&
+    sessionApiAuthenticated &&
+    !isAuthExitNavigateStarted()
+  ) {
+    return <>{children}</>;
+  }
+
   const holdForRecovery =
     membership.status === "checking" ||
     isRecoveringPhase(phase) ||
     (membership.status === "guest" && phase !== "terminal_guest" && phase !== "corrupt");
 
-  /** Session cookie already valid — do not pin messenger/private trees on Loading… during membership race. */
-  const failOpenAuthenticatedWhileResolving =
-    sessionApiAuthenticated &&
-    (membership.status === "checking" ||
-      (membership.status === "guest" && isRecoveringPhase(phase)));
+  const membershipStatus =
+    membership.status === "member"
+      ? ("member" as const)
+      : membership.status === "guest"
+        ? ("guest" as const)
+        : ("checking" as const);
 
-  const blockPrivateTree =
-    !failOpenAuthenticatedWhileResolving &&
-    (holdForRecovery || membership.status === "guest" || isAuthExitNavigateStarted());
+  const blockPrivateTree = shouldBlockPrivateTreeForAuthSession({
+    sessionApiAuthenticated,
+    membershipStatus,
+    holdForRecovery,
+    authExitStarted: isAuthExitNavigateStarted(),
+  });
 
   if (blockPrivateTree) {
     return (

@@ -137,6 +137,11 @@ function scheduleMembershipRetry(source: string): void {
   if (recoveryAttempt >= MEMBERSHIP_MAX_RETRY_ATTEMPTS) {
     recoveryTerminal = true;
     logMembershipRecovery("auth_membership_recovery_terminal", { source });
+    // Never leave UI on permanent "checking" — settle guest; AuthSessionBoundary
+    // fail-opens when session API/cookies still prove authenticated.
+    if (storeSnapshot.state.status === "checking") {
+      publish({ status: "guest" });
+    }
     return;
   }
   const delayMs =
@@ -165,7 +170,13 @@ function ensureMembershipResolved(source: string): Promise<ClientMembershipState
   if (inflight) return inflight;
 
   // terminal(auth-recovery-failed) — mount/remount 로는 새 resolve 를 시작하지 않는다.
-  if (recoveryTerminal) return Promise.resolve(storeSnapshot.state);
+  // Still settle checking → guest so Loading… cannot hang forever.
+  if (recoveryTerminal) {
+    if (storeSnapshot.state.status === "checking") {
+      publish({ status: "guest" });
+    }
+    return Promise.resolve(storeSnapshot.state);
+  }
   // backoff 대기 중 remount — timer 가 예정한 재시도를 기다린다 (즉시 재호출 금지).
   if (retryTimer) return Promise.resolve(storeSnapshot.state);
 
