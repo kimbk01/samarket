@@ -38,8 +38,8 @@ import {
 } from "@/lib/mypage/customer-center-ui";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
-import { buildMemberSupportContext } from "@/lib/support/support-context";
-import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
+import { DISABLED_SUPPORT_CONTEXT } from "@/lib/support/support-context";
 
 const BOARD_TABS: {
   type: CustomerCenterContentType;
@@ -89,14 +89,11 @@ function HubRow({
   );
 }
 
-const MEMBER_CC_CONTEXT = buildMemberSupportContext({
-  enabled: true,
-  category: "OTHER",
-  sourceSurface: "mypage_customer_center",
-});
+const MEMBER_CC_CONTEXT = DISABLED_SUPPORT_CONTEXT;
 
 /**
  * `/mypage/customer-center` — A2-1: Support Modal entry SSOT (no legacy 1:1/쪽지 compose).
+ * PHASE 3-A: generic hub must not hardcode OTHER; inquire uses category gate.
  */
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
@@ -163,19 +160,13 @@ export function CustomerCenterHubClient() {
                 <Headphones className="h-7 w-7" strokeWidth={2} aria-hidden />
               </span>
               <p className={`mt-3 ${CC_TITLE_CLASS}`}>{greeting}</p>
-              <button
-                type="button"
-                className={`${CC_PRIMARY_BTN_CLASS} mt-4 w-full min-h-11`}
-                data-support-hub-inquire="1"
-                onClick={() => {
-                  navigateToSupportCenter(MEMBER_CC_CONTEXT);
-                }}
-              >
-                {safeT("support_enter_cta", {
-                  fallbackKo: "문의하기",
-                  fallbackEn: "Contact us",
-                })}
-              </button>
+              <SupportGenericHubInquireGate
+                audience="MEMBER"
+                sourceSurface="mypage_customer_center"
+                className="mt-4 w-full"
+                buttonClassName={`${CC_PRIMARY_BTN_CLASS} w-full min-h-11`}
+                inquireDataAttr="data-support-hub-inquire"
+              />
             </section>
 
             <section

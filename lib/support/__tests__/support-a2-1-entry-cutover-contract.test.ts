@@ -23,9 +23,10 @@ describe("A2-1 support entry cutover contract", () => {
 
   it("Member customer center inquire CTA opens Support Modal SSOT", () => {
     const hub = read("components/mypage/cs/CustomerCenterHubClient.tsx");
-    expect(hub).toContain("navigateToSupportCenter");
+    expect(hub).toContain("SupportGenericHubInquireGate");
     expect(hub).toContain("data-support-entry-ssot");
     expect(hub).toContain("data-support-hub-inquire");
+    expect(hub).not.toMatch(/category:\s*["']OTHER["']/);
     expect(hub).not.toMatch(/href=\{[^}]*\/mypage\/inquiries[^}]*\}.*문의하기/);
   });
 
@@ -38,17 +39,18 @@ describe("A2-1 support entry cutover contract", () => {
 
   it("Owner customer center inquire CTA opens Support Modal with store context", () => {
     const view = read("components/business/owner/OwnerCustomerCenterView.tsx");
-    expect(view).toContain("navigateToSupportCenter");
-    expect(view).toContain("buildOwnerSupportContext");
+    expect(view).toContain("SupportGenericHubInquireGate");
     expect(view).toContain("data-owner-support-inquire");
     expect(view).toContain("SupportCasesHistoryList");
+    expect(view).not.toMatch(/category:\s*["']OTHER["']/);
   });
 
   it("Owner care card customer-center cell opens Support Modal", () => {
     const card = read("components/stores/owner/dashboard/OwnerCustomerCareCard.tsx");
-    expect(card).toContain("navigateToSupportCenter");
     expect(card).toContain('data-owner-home-care-entry="customer-center"');
-    expect(card).toContain("buildOwnerSupportContext");
+    expect(card).not.toMatch(/category:\s*["']OTHER["']/);
+    expect(card).not.toContain("navigateToSupportCenter");
+    expect(card).toContain("customerCareCenter");
   });
 
   it("Support Modal host does not dual-write legacy note/platform tables", () => {

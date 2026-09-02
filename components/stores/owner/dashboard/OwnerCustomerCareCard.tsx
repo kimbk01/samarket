@@ -5,8 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Headphones, HelpCircle, MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { buildOwnerSupportContext } from "@/lib/support/support-context";
-import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { ownerDashCardClass, ownerDashTypography } from "./owner-dashboard-ui";
 
@@ -68,17 +66,6 @@ export function OwnerCustomerCareCard({
     const base = OwnerRoutes.customerCareCenter(storeId);
     return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
   })();
-
-  const openOwnerSupport = () => {
-    navigateToSupportCenter(
-      buildOwnerSupportContext({
-        enabled: true,
-        category: "OTHER",
-        sourceSurface: "owner_care_card",
-        storeId,
-      })
-    );
-  };
 
   const cellClass =
     "flex min-h-[88px] w-full items-start gap-2 rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 text-left active:bg-[var(--biz-primary-soft)]";
@@ -160,11 +147,11 @@ export function OwnerCustomerCareCard({
           </span>
         </Link>
 
-        <button
-          type="button"
+        <Link
+          href={customerCenterHref}
+          prefetch={false}
           data-owner-home-care-entry="customer-center"
           className={cellClass}
-          onClick={openOwnerSupport}
         >
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
             <Headphones className="h-4 w-4" aria-hidden />
@@ -190,7 +177,7 @@ export function OwnerCustomerCareCard({
               })}
             </span>
           </span>
-        </button>
+        </Link>
       </div>
       <Link
         href={customerCenterHref}

@@ -166,6 +166,7 @@ export async function assertSupportReferenceAuthority(
 
 export function normalizeSupportContextForCase(context: SupportContext): {
   audience: "MEMBER" | "OWNER";
+  /** Raw category candidate — empty string if missing (never invent OTHER). */
   category: string;
   sourceSurface: string;
   referenceType?: string;
@@ -177,7 +178,7 @@ export function normalizeSupportContextForCase(context: SupportContext): {
     audience === "OWNER" ? (context.storeId?.trim() || undefined) : undefined;
   return {
     audience,
-    category: context.category.trim() || "OTHER",
+    category: typeof context.category === "string" ? context.category.trim() : "",
     sourceSurface: context.sourceSurface.trim() || "unknown",
     referenceType: context.referenceType?.trim() || undefined,
     referenceId: context.referenceId?.trim() || undefined,

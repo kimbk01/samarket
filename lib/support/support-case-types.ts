@@ -33,10 +33,16 @@ export type SupportCaseRow = {
   requester_user_id: string;
   owner_store_id: string | null;
   category: string;
+  /** PHASE 3-A — null for historical / contextual-compat opens. */
+  issue_type: string | null;
   subject: string;
   source_surface: string;
   reference_type: string | null;
   reference_id: string | null;
+  initial_summary: string | null;
+  guidance_key: string | null;
+  guidance_revision: number | null;
+  guidance_outcome: string | null;
   status: SupportCaseStatus;
   priority: SupportCasePriority;
   assigned_admin_id: string | null;

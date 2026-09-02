@@ -16,6 +16,11 @@ import {
   assertSupportReferenceAuthority,
   normalizeSupportContextForCase,
 } from "@/lib/support/support-reference-authority";
+import { validateSupportCategoryForOpen } from "@/lib/support/support-category-registry";
+import { assertSupportGuidanceForCaseOpen } from "@/lib/support/support-guidance-service";
+import { shouldStampFirstAdminResponseAt } from "@/lib/support/support-first-admin-response";
+import { assertSupportGenericHubCategoryPolicy } from "@/lib/support/support-generic-hub-policy";
+import type { SupportGuidanceOutcome } from "@/lib/support/support-guidance-authority";
 
 function isMissingSupportTable(message: string): boolean {
   const m = message.toLowerCase();
@@ -38,10 +43,36 @@ async function allocatePublicCaseNo(sb: SupabaseClient): Promise<string> {
 }
 
 function defaultSubject(category: string, sourceSurface: string): string {
-  const cat = category.trim() || "OTHER";
+  const cat = category.trim();
   const surface = sourceSurface.trim();
+  if (!cat) return surface || "SUPPORT";
   return surface ? `${cat} · ${surface}` : cat;
 }
+
+/**
+ * PHASE 3-A open payload.
+ *
+ * Existing contextual callers (FAB / hubs / shells) omit issueType →
+ * centralized allowMissingIssue path (NULL issue_type).
+ * New structured triage later must pass allowMissingIssue: false.
+ */
+export type OpenSupportCaseInput = {
+  userId: string;
+  context: SupportContext;
+  initialBody?: string;
+  issueType?: string | null;
+  initialSummary?: string | null;
+  guidanceKey?: string | null;
+  guidanceRevision?: number | null;
+  guidanceOutcome?: SupportGuidanceOutcome | string | null;
+  /**
+   * Default true for Production contextual callers.
+   * Structured triage must set false so issue_type is required.
+   */
+  allowMissingIssue?: boolean;
+  /** Required when generic hub opens with OTHER after user picked 기타. */
+  explicitOtherSelection?: boolean;
+};
 
 async function recordCaseEvent(
   sb: SupabaseClient,
@@ -110,7 +141,7 @@ async function notifySupportEvent(
 
 export async function openSupportCaseFromContext(
   sb: SupabaseClient,
-  input: { userId: string; context: SupportContext; initialBody?: string }
+  input: OpenSupportCaseInput
 ): Promise<
   | { ok: true; case: SupportCaseRow; sessionId: string; created: boolean }
   | { ok: false; error: string }
@@ -120,6 +151,8 @@ export async function openSupportCaseFromContext(
   }
 
   const norm = normalizeSupportContextForCase(input.context);
+
+  // AUTH already done by API; then audience → store → category → issue → ref → guidance
   if (norm.audience === "OWNER") {
     const storeId = norm.ownerStoreId ?? "";
     if (!storeId) return { ok: false, error: "missing_store_id" };
@@ -128,6 +161,24 @@ export async function openSupportCaseFromContext(
   } else if (norm.ownerStoreId) {
     return { ok: false, error: "member_case_must_not_have_store" };
   }
+
+  const allowMissingIssue = input.allowMissingIssue !== false;
+  const cat = validateSupportCategoryForOpen({
+    audience: norm.audience,
+    category: norm.category,
+    issueType: input.issueType,
+    allowMissingIssue,
+  });
+  if (!cat.ok) return { ok: false, error: cat.error };
+
+  const hubPolicy = assertSupportGenericHubCategoryPolicy({
+    sourceSurface: norm.sourceSurface,
+    canonicalCategory: cat.category,
+    explicitOtherSelection:
+      input.explicitOtherSelection === true ||
+      input.context.explicitOtherSelection === true,
+  });
+  if (!hubPolicy.ok) return { ok: false, error: hubPolicy.error };
 
   const ref = await assertSupportReferenceAuthority(sb, {
     userId: input.userId,
@@ -138,12 +189,31 @@ export async function openSupportCaseFromContext(
   });
   if (!ref.ok) return { ok: false, error: ref.error };
 
+  const guidance = await assertSupportGuidanceForCaseOpen(sb, {
+    audience: norm.audience,
+    category: cat.category,
+    issueType: cat.issueType,
+    guidanceKey: input.guidanceKey,
+    guidanceRevision: input.guidanceRevision,
+    guidanceOutcome: input.guidanceOutcome,
+  });
+  if (!guidance.ok) return { ok: false, error: guidance.error };
+
+  const initialSummary =
+    typeof input.initialSummary === "string"
+      ? input.initialSummary.trim().slice(0, 2000) || null
+      : null;
+  const guidanceKey = input.guidanceKey?.trim() || null;
+  const guidanceRevision =
+    input.guidanceRevision == null ? null : Number(input.guidanceRevision);
+  const guidanceOutcome = input.guidanceOutcome?.trim() || null;
+
   let existingQuery = sb
     .from("support_cases")
     .select("*")
     .eq("requester_user_id", input.userId)
     .eq("audience", norm.audience)
-    .eq("category", norm.category)
+    .eq("category", cat.category)
     .in("status", Array.from(ACTIVE_SUPPORT_CASE_STATUSES));
 
   if (norm.audience === "OWNER") {
@@ -187,7 +257,7 @@ export async function openSupportCaseFromContext(
 
   const now = new Date().toISOString();
   const publicCaseNo = await allocatePublicCaseNo(sb);
-  const subject = defaultSubject(norm.category, norm.sourceSurface);
+  const subject = defaultSubject(cat.category, norm.sourceSurface);
 
   const { data: created, error: createErr } = await sb
     .from("support_cases")
@@ -196,11 +266,18 @@ export async function openSupportCaseFromContext(
       audience: norm.audience,
       requester_user_id: input.userId,
       owner_store_id: norm.audience === "OWNER" ? norm.ownerStoreId : null,
-      category: norm.category,
+      category: cat.category,
+      issue_type: cat.issueType,
       subject,
       source_surface: norm.sourceSurface,
       reference_type: norm.referenceType ?? null,
       reference_id: norm.referenceId ?? null,
+      initial_summary: initialSummary,
+      guidance_key: guidanceKey,
+      guidance_revision: Number.isFinite(guidanceRevision as number)
+        ? guidanceRevision
+        : null,
+      guidance_outcome: guidanceOutcome,
       status: "OPEN",
       priority: "NORMAL",
       admin_unread_count: 0,
@@ -249,10 +326,15 @@ export async function openSupportCaseFromContext(
     eventType: "case_created",
     actorUserId: input.userId,
     payload: {
-      category: norm.category,
+      category: cat.category,
+      issue_type: cat.issueType,
+      issue_compatibility: cat.issueCompatibility,
       source_surface: norm.sourceSurface,
       reference_type: norm.referenceType ?? null,
       reference_id: norm.referenceId ?? null,
+      guidance_key: guidanceKey,
+      guidance_revision: guidanceRevision,
+      guidance_outcome: guidanceOutcome,
     },
   });
 
@@ -429,7 +511,15 @@ export async function appendSupportMessage(
     if (senderType === "ADMIN" && input.messageType === "PUBLIC") {
       patch.status = "WAITING_USER";
       patch.requester_unread_count = Number(caseRow.requester_unread_count ?? 0) + 1;
-      if (!caseRow.first_admin_response_at) patch.first_admin_response_at = now;
+      if (
+        shouldStampFirstAdminResponseAt({
+          existingFirstAdminResponseAt: caseRow.first_admin_response_at,
+          senderType,
+          messageType: input.messageType,
+        })
+      ) {
+        patch.first_admin_response_at = now;
+      }
     } else if ((senderType === "MEMBER" || senderType === "OWNER") && !input.systemSeed) {
       patch.status = "WAITING_ADMIN";
       patch.admin_unread_count = Number(caseRow.admin_unread_count ?? 0) + 1;

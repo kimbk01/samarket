@@ -1,56 +1,42 @@
 /**
- * DIBAY Support Center — FAB / entry context SSOT.
+ * DIBAY Support Center — FAB / entry context TRANSPORT ONLY.
+ * Category semantic authority: support-category-registry.ts
  * Visibility is opt-in per screen (`enabled: true`). No pathname inference.
  */
 
-export type SupportAudience = "MEMBER" | "OWNER";
+export type { SupportAudience, SupportCategory, MemberSupportCategory, OwnerSupportCategory } from "@/lib/support/support-category-registry";
+export {
+  MEMBER_SUPPORT_CATEGORIES,
+  OWNER_SUPPORT_CATEGORIES,
+} from "@/lib/support/support-category-registry";
 
-export const MEMBER_SUPPORT_CATEGORIES = [
-  "ACCOUNT",
-  "PAYMENT_RECHARGE",
-  "ORDER",
-  "DELIVERY",
-  "GIFT_CERTIFICATE",
-  "COUPON",
-  "REFUND",
-  "REPORT",
-  "AD",
-  "TECHNICAL",
-  "OTHER",
-] as const;
-
-export const OWNER_SUPPORT_CATEGORIES = [
-  "STORE",
-  "STORE_APPROVAL",
-  "CASH_COIN",
-  "RECHARGE",
-  "BANK_ACCOUNT",
-  "SETTLEMENT",
-  "DELIVERY_AD",
-  "CAMPAIGN",
-  "PRODUCT_MENU",
-  "COUPON",
-  "GIFT_CERTIFICATE",
-  "ORDER_DELIVERY",
-  "ACCOUNT",
-  "TECHNICAL",
-  "OTHER",
-] as const;
-
-export type MemberSupportCategory = (typeof MEMBER_SUPPORT_CATEGORIES)[number];
-export type OwnerSupportCategory = (typeof OWNER_SUPPORT_CATEGORIES)[number];
-export type SupportCategory = MemberSupportCategory | OwnerSupportCategory;
+import type {
+  SupportAudience,
+  SupportCategory,
+  MemberSupportCategory,
+  OwnerSupportCategory,
+} from "@/lib/support/support-category-registry";
 
 export type SupportContext = {
   enabled: boolean;
   audience: SupportAudience;
+  /** Category candidate (may be legacy alias; server maps to canonical). */
   category: SupportCategory;
   sourceSurface: string;
   referenceType?: string;
   referenceId?: string;
   storeId?: string;
+  /**
+   * Set only when the user explicitly picked 기타 on a generic hub gate.
+   * Required for generic hub + OTHER (server fail-closed otherwise).
+   */
+  explicitOtherSelection?: boolean;
 };
 
+/**
+ * Disabled placeholder — category OTHER is inert while enabled=false.
+ * Must never be used as an implicit open default (open path rejects disabled).
+ */
 export const DISABLED_SUPPORT_CONTEXT: SupportContext = {
   enabled: false,
   audience: "MEMBER",
@@ -64,6 +50,7 @@ export type MemberSupportContextInput = {
   sourceSurface: string;
   referenceType?: string;
   referenceId?: string;
+  explicitOtherSelection?: boolean;
 };
 
 export type OwnerSupportContextInput = {
@@ -73,6 +60,7 @@ export type OwnerSupportContextInput = {
   storeId?: string;
   referenceType?: string;
   referenceId?: string;
+  explicitOtherSelection?: boolean;
 };
 
 export function buildMemberSupportContext(input: MemberSupportContextInput): SupportContext {
@@ -83,6 +71,7 @@ export function buildMemberSupportContext(input: MemberSupportContextInput): Sup
     sourceSurface: input.sourceSurface.trim() || "unknown",
     referenceType: input.referenceType?.trim() || undefined,
     referenceId: input.referenceId?.trim() || undefined,
+    ...(input.explicitOtherSelection === true ? { explicitOtherSelection: true } : {}),
   };
 }
 
@@ -96,6 +85,7 @@ export function buildOwnerSupportContext(input: OwnerSupportContextInput): Suppo
     storeId,
     referenceType: input.referenceType?.trim() || undefined,
     referenceId: input.referenceId?.trim() || undefined,
+    ...(input.explicitOtherSelection === true ? { explicitOtherSelection: true } : {}),
   };
 }
 

@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerCareAdminNotesList } from "@/components/business/owner/OwnerCareAdminNotesList";
+import { SupportGenericHubInquireGate } from "@/components/support/SupportGenericHubInquireGate";
 import { SupportCasesHistoryList } from "@/components/support/SupportCasesHistoryList";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import { buildOwnerSupportContext } from "@/lib/support/support-context";
-import { navigateToSupportCenter } from "@/lib/support/open-support-center";
+import { DISABLED_SUPPORT_CONTEXT, buildOwnerSupportContext } from "@/lib/support/support-context";
 import { OWNER_ADMIN_PRIMARY_BTN_CLASS } from "@/lib/business/owner-admin-list-ui";
 
 type CareTab = "history" | "archive";
@@ -34,12 +34,14 @@ export function OwnerCustomerCenterView({
   const tab = parseTab(sp.get("tab"));
   const archiveBadge = inboxUnread + inquiryUnread;
 
-  const supportCtx = buildOwnerSupportContext({
-    enabled: Boolean(storeId),
-    category: "OTHER",
-    sourceSurface: "owner_customer_center",
-    storeId: storeId ?? undefined,
-  });
+  const supportCtx = storeId
+    ? buildOwnerSupportContext({
+        enabled: false,
+        category: "STORE",
+        sourceSurface: "owner_customer_center",
+        storeId,
+      })
+    : DISABLED_SUPPORT_CONTEXT;
 
   const historyHref = (() => {
     const base = OwnerRoutes.customerCareCenter(storeId, "messages");
@@ -98,19 +100,14 @@ export function OwnerCustomerCenterView({
           })}
         </p>
       ) : (
-        <button
-          type="button"
-          className={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} mb-3 w-full min-h-11`}
-          data-owner-support-inquire="1"
-          onClick={() => {
-            navigateToSupportCenter(supportCtx);
-          }}
-        >
-          {safeT("support_enter_cta", {
-            fallbackKo: "문의하기",
-            fallbackEn: "Contact us",
-          })}
-        </button>
+        <SupportGenericHubInquireGate
+          audience="OWNER"
+          sourceSurface="owner_customer_center"
+          storeId={storeId}
+          className="mb-3 w-full"
+          buttonClassName={`${OWNER_ADMIN_PRIMARY_BTN_CLASS} w-full min-h-11`}
+          inquireDataAttr="data-owner-support-inquire"
+        />
       )}
 
       <div className="mb-3 grid min-w-0 grid-cols-2 gap-2" data-owner-customer-center-tabs="1">

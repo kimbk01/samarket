@@ -11,6 +11,14 @@ export const dynamic = "force-dynamic";
 type OpenBody = {
   context?: SupportContext;
   initialBody?: string;
+  issueType?: string | null;
+  initialSummary?: string | null;
+  guidanceKey?: string | null;
+  guidanceRevision?: number | null;
+  guidanceOutcome?: string | null;
+  /** Structured triage: when true, issueType is required. */
+  requireIssueType?: boolean;
+  explicitOtherSelection?: boolean;
 };
 
 /** POST /api/support/cases/open — server-validated case open/create */
@@ -39,6 +47,14 @@ export async function POST(req: NextRequest) {
     userId: auth.userId,
     context,
     initialBody: body.initialBody,
+    issueType: body.issueType,
+    initialSummary: body.initialSummary,
+    guidanceKey: body.guidanceKey,
+    guidanceRevision: body.guidanceRevision,
+    guidanceOutcome: body.guidanceOutcome,
+    // Contextual Production callers omit issueType — centralized compat.
+    allowMissingIssue: body.requireIssueType === true ? false : true,
+    explicitOtherSelection: body.explicitOtherSelection === true,
   });
 
   if (!res.ok) {
@@ -47,13 +63,25 @@ export async function POST(req: NextRequest) {
       res.error === "missing_store_id" ||
       res.error === "member_case_must_not_have_store" ||
       res.error === "reference_incomplete" ||
-      res.error === "invalid_reference_id"
+      res.error === "invalid_reference_id" ||
+      res.error === "missing_category" ||
+      res.error === "invalid_category" ||
+      res.error === "missing_issue_type" ||
+      res.error === "invalid_issue_type" ||
+      res.error === "generic_other_forbidden" ||
+      res.error === "guidance_not_found" ||
+      res.error === "guidance_disabled" ||
+      res.error === "guidance_audience_mismatch" ||
+      res.error === "guidance_category_mismatch" ||
+      res.error === "guidance_issue_mismatch" ||
+      res.error === "guidance_revision_mismatch" ||
+      res.error === "invalid_guidance_outcome"
         ? 400
         : res.error === "store_forbidden" ||
             res.error === "reference_forbidden" ||
             res.error === "reference_type_not_allowed"
           ? 403
-          : res.error === "missing_table"
+          : res.error === "missing_table" || res.error === "missing_guidance_table"
             ? 503
             : 500;
     return NextResponse.json({ ok: false, error: res.error }, { status });

@@ -661,7 +661,10 @@ export function SupportModalHost() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context: ctx }),
+        body: JSON.stringify({
+          context: ctx,
+          explicitOtherSelection: ctx.explicitOtherSelection === true,
+        }),
       });
       const json = (await res.json()) as {
         ok?: boolean;
