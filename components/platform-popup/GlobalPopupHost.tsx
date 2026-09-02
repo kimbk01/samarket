@@ -26,10 +26,8 @@ import {
   isPopupRuntimeEligible,
   type PopupRuntimeContext,
 } from "@/lib/platform-popup/popup-runtime-context";
-import {
-  resolveDibaySurface,
-  toResolveDibaySurfaceContext,
-} from "@/lib/platform-popup";
+import { resolveDibaySurface } from "@/lib/platform-popup/resolve-dibay-surface";
+import { toResolveDibaySurfaceContext } from "@/lib/platform-popup/critical-ui-context";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { canAcceptPlatformPopupWinner } from "@/lib/platform-popup/popup-stale-guard";
 import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
