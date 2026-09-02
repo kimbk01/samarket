@@ -2,12 +2,12 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 
 const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
 const SUPPORT_SHEET_MAX_W_CLASS = "max-w-[560px]";
-const SUPPORT_SHEET_Z_CLASS = "z-[var(--z-overlay-sheet,80)]";
 
 export type SupportSheetShellProps = {
   open: boolean;
@@ -114,7 +114,7 @@ export function SupportSheetShell({
 
   return createPortal(
     <div
-      className={`fixed inset-0 flex items-end justify-center ${SUPPORT_SHEET_Z_CLASS}`}
+      className={`fixed inset-0 flex items-end justify-center ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
       style={stageStyle}
       role="presentation"
       data-support-sheet-shell="1"

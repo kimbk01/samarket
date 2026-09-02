@@ -5,7 +5,7 @@
 
 import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
-import { stashSupportModalRestoreCaseId } from "@/lib/support/open-support-center";
+import { stashSupportModalRestoreCaseId } from "@/lib/support/support-modal-restore-stash";
 import { openSupportModal } from "@/lib/support/support-modal-controller";
 
 export type DeliverSupportOpenSource =

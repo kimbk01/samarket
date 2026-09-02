@@ -30,13 +30,14 @@ describe("support identity / case SSOT contract", () => {
   it("sessionStorage is UX handoff only — case open deferred to modal 문의하기", () => {
     const enter = readRepo("components/support/SupportCenterEnterClient.tsx");
     expect(enter).toContain("readPendingSupportContext");
-    expect(enter).toContain("openSupportModal");
+    expect(enter).toContain("deliverSupportOpen");
     expect(enter).not.toContain("/api/support/cases/open");
-    expect(enter).toMatch(/Does not create a case|Cold-start bootstrap only/i);
+    expect(enter).toMatch(/Cold-start bootstrap alias only/i);
 
     const open = readRepo("lib/support/open-support-center.ts");
-    expect(open).toContain("sessionStorage stashes UX context only");
-    expect(open).toContain("/api/support/cases/open");
+    expect(open).toContain("SUPPORT_CONTEXT_SESSION_KEY");
+    expect(open).toContain("deliverSupportOpen");
+    expect(open).not.toContain("/api/support/cases/open");
 
     const modal = readRepo("components/support/SupportModalHost.tsx");
     expect(modal).toContain("/api/support/cases/open");
