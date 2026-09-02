@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GiftArtwork } from "@/components/gift-certificate/GiftArtwork";
 import { DibayBottomSheet } from "@/components/ui/dibay-overlay";
+import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import type { GiftWalletInstance, GiftWalletPayload } from "@/lib/gift-certificate/load-gift-wallet";
 import {
   giftTransferErrorFallbacks,
@@ -41,7 +42,7 @@ export function MessengerGiftOfferFlow({
   recipientUserId: string;
   recipientLabel?: string;
   preselectedInstanceId?: string | null;
-  onOffered?: (transferId: string) => void;
+  onOffered?: (result: { transferId: string; message: CommunityMessengerMessage }) => void;
 }) {
   const { safeT } = useI18n();
   const [phase, setPhase] = useState<Phase>("select");
@@ -117,14 +118,30 @@ export function MessengerGiftOfferFlow({
           idempotencyKey,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string; transfer_id?: string; id?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        transfer_id?: string;
+        id?: string;
+        message?: CommunityMessengerMessage;
+      };
       if (!json.ok) {
         const key = mapGiftTransferErrorKey(json.error);
         setErrorMsg(safeT(key, giftTransferErrorFallbacks(key)));
         return;
       }
       const transferId = String(json.transfer_id ?? json.id ?? "").trim();
-      onOffered?.(transferId);
+      const message = json.message;
+      if (!transferId || !message?.id) {
+        setErrorMsg(
+          safeT("gift_u3_err_generic", {
+            fallbackKo: "상품권을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
+            fallbackEn: "Could not send the gift certificate. Please try again.",
+          })
+        );
+        return;
+      }
+      onOffered?.({ transferId, message });
       onClose();
     } catch {
       const key = mapGiftTransferErrorKey("generic");

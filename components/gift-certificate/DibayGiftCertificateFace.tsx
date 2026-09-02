@@ -47,7 +47,10 @@ export const GIFT_PORTRAIT_LANDMARKS = {
   perforationY: 770,
   issuerY: 840,
   expiryY: 914,
-  numberY: 988,
+  /** @deprecated use numberLabelY */
+  numberY: 960,
+  numberLabelY: 960,
+  numberValueY: 1018,
   footerY: 1072,
 } as const;
 
@@ -458,6 +461,40 @@ function MetaIcon({
   );
 }
 
+function NumberMetaRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <g data-gift-landmark="number" data-gift-cert-number-row="stacked">
+      <MetaIcon kind="number" y={GIFT_PORTRAIT_LANDMARKS.numberLabelY} />
+      <text
+        x={112}
+        y={GIFT_PORTRAIT_LANDMARKS.numberLabelY}
+        fontSize={GIFT_PORTRAIT_TYPE.metaLabel}
+        fill={MUTED}
+        fontFamily="system-ui,sans-serif"
+      >
+        {label}
+      </text>
+      <text
+        data-gift-public-number="1"
+        x={112}
+        y={GIFT_PORTRAIT_LANDMARKS.numberValueY}
+        fontSize={GIFT_PORTRAIT_TYPE.metaValue}
+        fill={INK}
+        fontFamily="system-ui,sans-serif"
+        fontWeight={650}
+      >
+        {value}
+      </text>
+    </g>
+  );
+}
+
 function MetaRow({
   kind,
   label,
@@ -490,7 +527,7 @@ function MetaRow({
         fontWeight={650}
         textAnchor="end"
       >
-        {value.length > 17 ? `${value.slice(0, 16)}…` : value}
+        {value}
       </text>
     </g>
   );
@@ -641,12 +678,7 @@ export function DibayGiftCertificateFace({
             value={expiryValue}
             y={GIFT_PORTRAIT_LANDMARKS.expiryY}
           />
-          <MetaRow
-            kind="number"
-            label={labels.numberLabel}
-            value={numberValue}
-            y={GIFT_PORTRAIT_LANDMARKS.numberY}
-          />
+          <NumberMetaRow label={labels.numberLabel} value={numberValue} />
 
           <text
             x={400}

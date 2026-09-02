@@ -12,6 +12,7 @@ export type GiftCertificateMessageMetadata = {
   image_url?: string | null;
   face_value?: number;
   remaining_balance?: number;
+  public_gift_number?: string | null;
   transfer_status?: "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
 };
 
@@ -41,6 +42,10 @@ export function parseGiftCertificateMessageMetadata(
     remaining_balance: Number.isFinite(Number(row.remaining_balance))
       ? Math.trunc(Number(row.remaining_balance))
       : undefined,
+    public_gift_number:
+      row.public_gift_number == null || String(row.public_gift_number).trim() === ""
+        ? undefined
+        : String(row.public_gift_number).trim(),
     transfer_status,
   };
 }

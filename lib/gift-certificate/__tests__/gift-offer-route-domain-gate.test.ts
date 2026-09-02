@@ -12,7 +12,7 @@ describe("gift transfer offer route domain gate", () => {
     expect(source).toContain('error: "not_general_direct"');
     expect(source).toContain("isMessengerGeneralFriendDirectKey");
     expect(source.indexOf('error: "not_general_direct"')).toBeLessThan(
-      source.indexOf("giftCertificateOffer(sb")
+      source.indexOf("await executeGiftTransferOffer")
     );
   });
 });

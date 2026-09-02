@@ -1861,20 +1861,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           recipientUserId={peerUserId}
           recipientLabel={vm.snapshot.room.title?.trim() || undefined}
           preselectedInstanceId={giftPreselectInstanceId}
-          onOffered={() => {
-            void (async () => {
-              try {
-                await vm.refresh?.(true);
-              } catch {
-                /* ignore */
-              }
-              // Ensure gift card projection appears even if soft refresh races insert.
-              if (typeof window !== "undefined") {
-                window.setTimeout(() => {
-                  void vm.refresh?.(true);
-                }, 400);
-              }
-            })();
+          onOffered={({ message }) => {
+            vm.mergeCanonicalRoomMessage(message);
           }}
         />
       ) : null}

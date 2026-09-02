@@ -28,10 +28,14 @@ const timelineSrc = readFileSync(
 );
 
 describe("gift messenger cold-load contract", () => {
-  it("T1: offer route publishes room bump with gift_certificate snapshot", () => {
-    expect(offerRouteSrc).toContain("publishMessengerRoomBumpAfterMutation");
-    expect(offerRouteSrc).toContain('messageType: "gift_certificate"');
-    expect(offerRouteSrc).toContain("messageForBump");
+  it("T1: offer execution publishes room bump with gift_certificate snapshot", () => {
+    const execSrc = readFileSync(
+      join(process.cwd(), "lib/gift-certificate/execute-gift-transfer-offer.ts"),
+      "utf8"
+    );
+    expect(execSrc).toContain("publishMessengerRoomBumpAfterMutation");
+    expect(execSrc).toContain("messageForBump");
+    expect(execSrc).toContain("buildGiftOfferCommunityMessengerMessage");
   });
 
   it("T2: room bump invalidates bootstrap snapshot cache for participants", () => {

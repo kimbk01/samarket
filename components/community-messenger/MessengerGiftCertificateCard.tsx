@@ -74,7 +74,10 @@ export function MessengerGiftCertificateCard(props: {
         }),
       })
     : null;
-  const publicGiftNumber = presentation?.publicGiftNumber ?? null;
+  const publicGiftNumber =
+    presentation?.publicGiftNumber ??
+    meta.public_gift_number?.trim() ??
+    null;
   const senderName =
     presentation?.senderDisplayName?.trim() ||
     safeT("commerce_hub_gift_chat_sender_fallback", {

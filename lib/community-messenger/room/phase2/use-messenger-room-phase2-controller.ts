@@ -2541,6 +2541,25 @@ export function useMessengerRoomPhase2Controller() {
     voiceRecording,
   ]);
 
+  const mergeCanonicalRoomMessage = useCallback(
+    (message: CommunityMessengerMessage) => {
+      const rid = streamRoomId.trim();
+      const mid = String(message.id ?? "").trim();
+      if (!rid || !mid) return;
+      if (String(message.roomId ?? "").trim().toLowerCase() !== rid.toLowerCase()) return;
+      const row: CommunityMessengerMessage = {
+        ...message,
+        roomId: rid,
+        isMine: messengerUserIdsEqual(message.senderId, snapshot?.viewerUserId),
+        pending: false,
+      };
+      setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom({ reason: "own_message_append" });
+    },
+    [scrollMessengerToBottom, setRoomMessages, snapshot?.viewerUserId, stickToBottomRef, streamRoomId]
+  );
+
   return {
     ...phase1,
     call,
@@ -2658,5 +2677,6 @@ export function useMessengerRoomPhase2Controller() {
     shareMessageCopyDeepLink,
     shareMessageToOtherRoom,
     hideCallStubLocally,
+    mergeCanonicalRoomMessage,
   };
 }
