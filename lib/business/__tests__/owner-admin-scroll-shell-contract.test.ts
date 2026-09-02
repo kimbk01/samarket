@@ -204,4 +204,20 @@ describe("owner admin scroll shell contract", () => {
     expect(src).toContain("/stores/owner/order-chat/");
     expect(src).not.toContain("/my/business/store-order-chat/");
   });
+
+  it("owner compact shell main offset includes fixed header border (SSOT)", () => {
+    const css = readRepo("app/owner-compact-shell.css");
+    expect(css).toContain("--owner-shell-header-border: 1px");
+    expect(css).toMatch(
+      /--owner-shell-main-pt:\s*calc\([\s\S]*--owner-shell-header-border/
+    );
+    expect(css).toMatch(/\.owner-compact-shell__header[\s\S]*overflow-y:\s*hidden/);
+    expect(css).toMatch(/\.owner-compact-shell__header-inner[\s\S]*overflow:\s*hidden/);
+  });
+
+  it("owner hub dashboard uses OwnerAdminPageScrollShell scroll host", () => {
+    const src = readRepo("components/stores/owner/dashboard/OwnerOperationsDashboard.tsx");
+    expect(src).toContain("OwnerAdminPageScrollShell");
+    expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
+  });
 });

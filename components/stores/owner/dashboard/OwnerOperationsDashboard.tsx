@@ -7,19 +7,16 @@ import {
   parseOwnerStoreOpsSnapshotFromJson,
   type OwnerStoreOpsSnapshot,
 } from "@/lib/stores/owner-store-ops-snapshot";
-import {
-  OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS,
-  OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
-} from "@/lib/stores/owner-mobile-ui-tokens";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
+import { useOwnerHubSubroutePrefetch } from "@/components/business/owner/useOwnerHubSubroutePrefetch";
+import { OWNER_DASH_PAGE_CLASS } from "./owner-dashboard-ui";
+import { OwnerDashOfflineBanner, OwnerDashSkeleton } from "./owner-dashboard-primitives";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
 import { OwnerFinanceHomeCards } from "./OwnerFinanceHomeCards";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
 import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
 import { OwnerCustomerCareCard } from "./OwnerCustomerCareCard";
 import { OwnerInventoryIssueCard } from "./OwnerInventoryIssueCard";
-import { useOwnerHubSubroutePrefetch } from "@/components/business/owner/useOwnerHubSubroutePrefetch";
-import { OWNER_DASH_PAGE_CLASS } from "./owner-dashboard-ui";
-import { OwnerDashOfflineBanner, OwnerDashSkeleton } from "./owner-dashboard-primitives";
 
 /** 모바일 전용 — 헤더·하단 네비 고정, 카드만 스크롤 */
 export function OwnerOperationsDashboard({
@@ -52,40 +49,33 @@ export function OwnerOperationsDashboard({
   useOwnerHubSubroutePrefetch(row.id);
 
   return (
-    <div className={`flex h-full min-h-0 w-full flex-col ${OWNER_DASH_PAGE_CLASS}`}>
-      <main
-        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS} min-h-0 flex-1`}
-      >
-        <div className="space-y-2.5 pb-2">
-          {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}
-          {loading && !snapshot ? (
-            <>
-              <OwnerDashSkeleton lines={4} />
-              <OwnerDashSkeleton lines={2} />
-            </>
-          ) : (
-            <>
-              <OwnerFinanceHomeCards storeId={row.id} />
-              <OwnerUrgentOrdersCard
-                storeId={row.id}
-                snapshot={data}
-                pulseNew={pulseNew}
-                updatedAt={snapshotUpdatedAt ?? null}
-                onRefresh={onRefresh}
-                refreshing={refreshing}
-              />
-              <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
-              <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
-              <OwnerCustomerCareCard
-                storeId={row.id}
-                orderChatUnread={orderChatUnread}
-              />
-              <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
-            </>
-          )}
-        </div>
-      </main>
-    </div>
+    <OwnerAdminPageScrollShell className={OWNER_DASH_PAGE_CLASS}>
+      <div className="space-y-2.5 pb-2">
+        {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}
+        {loading && !snapshot ? (
+          <>
+            <OwnerDashSkeleton lines={4} />
+            <OwnerDashSkeleton lines={2} />
+          </>
+        ) : (
+          <>
+            <OwnerFinanceHomeCards storeId={row.id} />
+            <OwnerUrgentOrdersCard
+              storeId={row.id}
+              snapshot={data}
+              pulseNew={pulseNew}
+              updatedAt={snapshotUpdatedAt ?? null}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+            />
+            <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
+            <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
+            <OwnerCustomerCareCard storeId={row.id} orderChatUnread={orderChatUnread} />
+            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
+          </>
+        )}
+      </div>
+    </OwnerAdminPageScrollShell>
   );
 }
 

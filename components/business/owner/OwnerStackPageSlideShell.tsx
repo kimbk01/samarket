@@ -89,7 +89,7 @@ export function OwnerStackPageSlideShell({ children }: { children: ReactNode }) 
   return (
     <div
       ref={hostRef}
-      className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onAnimationEnd={(e) => {
         if (e.target !== e.currentTarget) return;
         stripOwnerStackTransitionClasses(hostRef.current);

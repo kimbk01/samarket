@@ -105,6 +105,22 @@ if (!orderChatSurface.includes("/stores/owner/order-chat/")) {
   errors.push("storeOrderChatEnsureRedirectHref must use /stores/owner/order-chat/");
 }
 
+const ownerCompactShellCss = readFileSync("app/owner-compact-shell.css", "utf8");
+if (!ownerCompactShellCss.includes("--owner-shell-header-border: 1px")) {
+  errors.push("owner-compact-shell.css: --owner-shell-main-pt must include header border token");
+}
+if (!/--owner-shell-main-pt:\s*calc\([\s\S]*--owner-shell-header-border/.test(ownerCompactShellCss)) {
+  errors.push("owner-compact-shell.css: --owner-shell-main-pt must add --owner-shell-header-border");
+}
+
+const ownerOpsDashboard = readFileSync(
+  "components/stores/owner/dashboard/OwnerOperationsDashboard.tsx",
+  "utf8"
+);
+if (!ownerOpsDashboard.includes("OwnerAdminPageScrollShell")) {
+  errors.push("OwnerOperationsDashboard: must use OwnerAdminPageScrollShell (hub scroll SSOT)");
+}
+
 const ownerRoutes = readFileSync("lib/business/owner-routes.ts", "utf8");
 if (!/menu:\s*\(storeId[\s\S]*?\/products/.test(ownerRoutes)) {
   errors.push("OwnerRoutes.menu must canonical to /products (no /menu tab hop)");

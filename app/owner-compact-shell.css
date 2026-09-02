@@ -19,7 +19,11 @@ body[data-owner-compact-shell] {
   --owner-shell-pad-right: max(0.5rem, var(--owner-shell-safe-right));
   /** phone — `APP_MAIN_COLUMN` 32rem(512) 대신 읽기 폭 42rem 과 맞춤 */
   --owner-shell-content-max: 42rem;
-  --owner-shell-main-pt: calc(var(--owner-shell-safe-top) + var(--owner-shell-toolbar-h));
+  /** `.owner-compact-shell__header` `border-bottom` — main offset must include it or first scroll row clips */
+  --owner-shell-header-border: 1px;
+  --owner-shell-main-pt: calc(
+    var(--owner-shell-safe-top) + var(--owner-shell-toolbar-h) + var(--owner-shell-header-border)
+  );
   /** 메인 배달 탭 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS` 와 동일 식 */
   --owner-shell-main-pb: calc(
     76px + var(--delivery-home-overhang, 0px) + var(--owner-shell-safe-bottom)
@@ -67,6 +71,7 @@ body[data-owner-compact-shell] {
   background-color: #fff;
   padding-top: var(--owner-shell-safe-top, var(--safe-top));
   overflow-x: clip;
+  overflow-y: hidden;
 }
 
 .owner-compact-shell__header-inner {
@@ -76,6 +81,9 @@ body[data-owner-compact-shell] {
   min-width: 0;
   max-width: min(var(--owner-shell-content-max, 42rem), 100%);
   height: var(--owner-shell-toolbar-h, 3.5rem);
+  min-height: var(--owner-shell-toolbar-h, 3.5rem);
+  max-height: var(--owner-shell-toolbar-h, 3.5rem);
+  overflow: hidden;
   margin-inline: auto;
   padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
   padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
@@ -88,7 +96,10 @@ body[data-owner-compact-shell] {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  padding-top: var(--owner-shell-main-pt, calc(var(--safe-top) + 3.5rem));
+  padding-top: var(
+    --owner-shell-main-pt,
+    calc(var(--safe-top) + 3.5rem + var(--owner-shell-header-border, 1px))
+  );
 }
 
 .owner-compact-shell__column {

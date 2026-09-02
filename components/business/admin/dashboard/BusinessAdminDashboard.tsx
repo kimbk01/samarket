@@ -203,7 +203,7 @@ export function BusinessAdminDashboard({
     <div
       className={
         isOwnerCompactShell
-          ? "relative flex h-full min-h-0 flex-1 flex-col"
+          ? "relative flex min-h-0 flex-1 flex-col"
           : "relative flex w-full min-w-0 flex-col"
       }
     >
