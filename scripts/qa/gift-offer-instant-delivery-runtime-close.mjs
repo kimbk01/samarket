@@ -505,15 +505,22 @@ try {
   report.pendingAccept = "PASS";
   await shot(pageB, "accepted");
 
+  // Canonical wallet DOM: data-customer-gift-wallet (not legacy data-customer-gift-certificate-wallet).
+  // Cards use GiftVisualCard + ownedGiftInstanceHref — not data-gift-instance.
   await pageB.goto(`${ORIGIN}/mypage/gift-certificates`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await pageB.waitForSelector('[data-customer-gift-certificate-wallet="1"][data-wallet-ready="1"]', { timeout: 30000 });
-  if ((await pageB.locator(`[data-gift-instance="${GIFT_ID}"]`).count()) < 1) {
+  await pageB.waitForSelector('[data-customer-gift-wallet="1"][data-wallet-ready="1"]', { timeout: 30000 });
+  const walletCard = pageB.locator(
+    `a[href*="/mypage/gift-certificates/${encodeURIComponent(GIFT_ID)}"]`,
+  );
+  if ((await walletCard.count()) < 1) {
     fail("WALLET", "instance_missing_after_accept");
   }
   report.walletNumber = await assertVisualNumber(pageB, "wallet-number");
 
-  await pageB.locator(`[data-gift-instance="${GIFT_ID}"]`).first().click();
-  await pageB.waitForTimeout(1500);
+  await walletCard.first().click();
+  await pageB.waitForSelector(`[data-owned-gift-instance-detail="1"][data-instance-id="${GIFT_ID}"], [data-instance-id="${GIFT_ID}"]`, {
+    timeout: 30000,
+  });
   report.detailNumber = await assertVisualNumber(pageB, "detail-number");
 
   writeReport();

@@ -253,9 +253,15 @@ export function GiftVisualCard({
       ) : null}
 
       {footer ? (
-        <div className="border-t border-sam-border/60 px-3 py-2.5">{footer}</div>
-      ) : detailBtn || sendBtn ? (
-        <div className="flex gap-2 border-t border-sam-border/60 px-3 py-2.5">
+        <div className="border-t border-sam-border/60 px-3 py-2.5" data-gift-card-footer="1">
+          {footer}
+        </div>
+      ) : null}
+      {detailBtn || sendBtn ? (
+        <div
+          className="flex gap-2 border-t border-sam-border/60 px-3 py-2.5"
+          data-gift-card-actions="1"
+        >
           {detailBtn}
           {sendBtn}
         </div>
