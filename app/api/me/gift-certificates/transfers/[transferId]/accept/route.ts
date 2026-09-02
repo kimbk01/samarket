@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { giftCertificateAccept } from "@/lib/gift-certificate/gift-certificate-rpc";
-import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
-import { notifyGiftTransferAccepted } from "@/lib/gift-certificate/notify-gift-transfer";
-import { projectGiftTransferMessengerStatus } from "@/lib/gift-certificate/project-gift-transfer-messenger-status";
+import { executeGiftTransferTransition } from "@/lib/gift-certificate/execute-gift-transfer-transition";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -28,36 +25,23 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const result = await giftCertificateAccept(sb, {
-    recipientUserId: userId,
+  const result = await executeGiftTransferTransition(sb, {
+    kind: "accept",
+    actorUserId: userId,
     transferId: tid,
   });
   if (!result.ok) {
+    const status = result.error === "mutation_projection_missing" ? 500 : 400;
     return NextResponse.json(
       { ok: false, error: result.error, ...(result.data ?? {}) },
-      { status: 400 }
+      { status }
     );
   }
-  await projectGiftTransferMessengerStatus(sb, {
-    transferId: tid,
-    transferStatus: "ACCEPTED",
-    actorUserId: userId,
-  }).catch(() => {});
 
-  const { data: transferRow } = await sb
-    .from(GIFT_TABLES.transfers)
-    .select("sender_user_id, recipient_user_id, room_id, instance_id")
-    .eq("id", tid)
-    .maybeSingle();
-  if (transferRow) {
-    await notifyGiftTransferAccepted(sb, {
-      senderUserId: String((transferRow as { sender_user_id?: string }).sender_user_id ?? ""),
-      recipientUserId: userId,
-      transferId: tid,
-      roomId: (transferRow as { room_id?: string | null }).room_id ?? null,
-      instanceId: String((transferRow as { instance_id?: string }).instance_id ?? ""),
-    }).catch(() => {});
-  }
-
-  return NextResponse.json({ ok: true, ...result.data });
+  return NextResponse.json({
+    ok: true,
+    transfer: result.transfer,
+    message: result.message,
+    idempotent: result.idempotent ?? false,
+  });
 }

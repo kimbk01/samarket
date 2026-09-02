@@ -3,13 +3,13 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { giftCertificateOffer } from "@/lib/gift-certificate/gift-certificate-rpc";
 import {
-  buildGiftOfferCommunityMessengerMessage,
-  parseGiftOfferRpcSuccess,
-} from "@/lib/gift-certificate/gift-offer-canonical-message";
+  parseGiftTransferMutationResponse,
+  type GiftTransferMutationError,
+  type GiftTransferMutationResponse,
+} from "@/lib/gift-certificate/gift-transfer-mutation-response";
 import { notifyGiftTransferOffered } from "@/lib/gift-certificate/notify-gift-transfer";
 
 export type GiftTransferOfferInput = {
@@ -21,22 +21,10 @@ export type GiftTransferOfferInput = {
   senderLabel?: string;
 };
 
-export type GiftTransferOfferResult =
-  | {
-      ok: true;
-      transferId: string;
-      messageId: string;
-      roomId: string;
-      recipientUserId: string;
-      message: CommunityMessengerMessage;
-      idempotent?: boolean;
-    }
-  | { ok: false; error: string; data?: Record<string, unknown> };
-
 export async function executeGiftTransferOffer(
   sb: SupabaseClient,
   input: GiftTransferOfferInput
-): Promise<GiftTransferOfferResult> {
+): Promise<GiftTransferMutationResponse | GiftTransferMutationError> {
   const roomId = input.roomId.trim();
   const instanceId = input.instanceId.trim();
   const recipientUserId = input.recipientUserId.trim();
@@ -56,19 +44,16 @@ export async function executeGiftTransferOffer(
     return { ok: false, error: result.error, data: result.data };
   }
 
-  const parsed = parseGiftOfferRpcSuccess(result.data);
-  if (!parsed) {
+  const parsed = parseGiftTransferMutationResponse(result.data, {
+    viewerUserId: input.senderUserId,
+    senderLabel: input.senderLabel?.trim() || "",
+  });
+  if (!parsed.ok) {
     return { ok: false, error: "message_projection_missing", data: result.data };
   }
 
-  const message = buildGiftOfferCommunityMessengerMessage({
-    offer: parsed,
-    senderUserId: input.senderUserId,
-    senderLabel: input.senderLabel?.trim() || "",
-  });
-
-  const transferId = parsed.transfer_id;
-  const messageId = parsed.message_id;
+  const transferId = parsed.transfer.id;
+  const message = { ...parsed.message, isMine: true };
 
   await notifyGiftTransferOffered(sb, {
     recipientUserId,
@@ -83,7 +68,7 @@ export async function executeGiftTransferOffer(
       rawRouteRoomId: roomId,
       canonicalRoomId: roomId,
       fromUserId: input.senderUserId,
-      messageId,
+      messageId: message.id,
       messageCreatedAt: message.createdAt,
       messageForBump: {
         ...message,
@@ -96,11 +81,8 @@ export async function executeGiftTransferOffer(
 
   return {
     ok: true,
-    transferId,
-    messageId,
-    roomId,
-    recipientUserId,
+    transfer: parsed.transfer,
     message,
-    idempotent: result.data.idempotent === true,
+    idempotent: parsed.idempotent,
   };
 }

@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { giftCertificateCancel } from "@/lib/gift-certificate/gift-certificate-rpc";
-import { GIFT_TABLES } from "@/lib/gift-certificate/gift-certificate-schema";
-import { notifyGiftTransferCancelled } from "@/lib/gift-certificate/notify-gift-transfer";
-import { projectGiftTransferMessengerStatus } from "@/lib/gift-certificate/project-gift-transfer-messenger-status";
+import { executeGiftTransferTransition } from "@/lib/gift-certificate/execute-gift-transfer-transition";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -28,39 +25,23 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: transferBeforeCancel } = await sb
-    .from(GIFT_TABLES.transfers)
-    .select("id, sender_user_id, recipient_user_id, room_id, instance_id")
-    .eq("id", tid)
-    .maybeSingle();
-
-  const result = await giftCertificateCancel(sb, {
-    senderUserId: userId,
+  const result = await executeGiftTransferTransition(sb, {
+    kind: "cancel",
+    actorUserId: userId,
     transferId: tid,
   });
   if (!result.ok) {
+    const status = result.error === "mutation_projection_missing" ? 500 : 400;
     return NextResponse.json(
       { ok: false, error: result.error, ...(result.data ?? {}) },
-      { status: 400 }
+      { status }
     );
   }
-  await projectGiftTransferMessengerStatus(sb, {
-    transferId: tid,
-    transferStatus: "CANCELLED",
-    actorUserId: userId,
-  }).catch(() => {});
-  const transfer = transferBeforeCancel as {
-    sender_user_id?: string | null;
-    recipient_user_id?: string | null;
-    room_id?: string | null;
-    instance_id?: string | null;
-  } | null;
-  await notifyGiftTransferCancelled(sb, {
-    senderUserId: String(transfer?.sender_user_id ?? userId),
-    recipientUserId: String(transfer?.recipient_user_id ?? ""),
-    transferId: tid,
-    roomId: transfer?.room_id ?? null,
-    instanceId: String(transfer?.instance_id ?? ""),
-  }).catch(() => {});
-  return NextResponse.json({ ok: true, ...result.data });
+
+  return NextResponse.json({
+    ok: true,
+    transfer: result.transfer,
+    message: result.message,
+    idempotent: result.idempotent ?? false,
+  });
 }

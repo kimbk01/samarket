@@ -154,13 +154,15 @@ function mergeCommunityMessageMetadata(
     return incoming;
   }
   const merged: Record<string, unknown> = { ...existingObj, ...incomingObj };
+  const existingStatus = String(existingObj.transfer_status ?? "").toUpperCase();
   const incomingStatus = String(incomingObj.transfer_status ?? "").toUpperCase();
-  if (
-    incomingStatus === "ACCEPTED" ||
-    incomingStatus === "REJECTED" ||
-    incomingStatus === "CANCELLED"
-  ) {
+  const terminal = (s: string) =>
+    s === "ACCEPTED" || s === "REJECTED" || s === "CANCELLED";
+  /** Terminal projection never downgrades to PENDING on stale catch-up. */
+  if (terminal(incomingStatus)) {
     merged.transfer_status = incomingStatus;
+  } else if (terminal(existingStatus)) {
+    merged.transfer_status = existingStatus;
   }
   return merged as CommunityMessengerMessage["metadata"];
 }

@@ -118,30 +118,21 @@ export function MessengerGiftOfferFlow({
           idempotencyKey,
         }),
       });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        transfer_id?: string;
-        id?: string;
-        message?: CommunityMessengerMessage;
-      };
-      if (!json.ok) {
-        const key = mapGiftTransferErrorKey(json.error);
+      const json = (await res.json().catch(() => null)) as unknown;
+      const { parseGiftTransferMutationResponse } = await import(
+        "@/lib/gift-certificate/gift-transfer-mutation-response"
+      );
+      const parsed = parseGiftTransferMutationResponse(json);
+      if (!parsed.ok) {
+        const key = mapGiftTransferErrorKey(
+          typeof (json as { error?: string } | null)?.error === "string"
+            ? (json as { error: string }).error
+            : parsed.error
+        );
         setErrorMsg(safeT(key, giftTransferErrorFallbacks(key)));
         return;
       }
-      const transferId = String(json.transfer_id ?? json.id ?? "").trim();
-      const message = json.message;
-      if (!transferId || !message?.id) {
-        setErrorMsg(
-          safeT("gift_u3_err_generic", {
-            fallbackKo: "상품권을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.",
-            fallbackEn: "Could not send the gift certificate. Please try again.",
-          })
-        );
-        return;
-      }
-      onOffered?.({ transferId, message });
+      onOffered?.({ transferId: parsed.transfer.id, message: parsed.message });
       onClose();
     } catch {
       const key = mapGiftTransferErrorKey("generic");

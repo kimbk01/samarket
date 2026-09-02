@@ -13,11 +13,8 @@ import {
   giftTransferErrorFallbacks,
   mapGiftTransferErrorKey,
 } from "@/lib/gift-certificate/map-gift-transfer-error";
-import {
-  rememberGiftTransferUiStatus,
-  resolveGiftTransferUiStatus,
-  type GiftTransferUiStatus,
-} from "@/lib/gift-certificate/gift-transfer-ui-status";
+import { parseGiftTransferMutationResponse } from "@/lib/gift-certificate/gift-transfer-mutation-response";
+import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
 import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
@@ -26,11 +23,12 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 
 /**
  * Chat presentation for gift_certificate messages — one system gift event per transfer.
+ * Status SSOT = message.metadata.transfer_status (projection of gift_certificate_transfers).
  */
 export function MessengerGiftCertificateCard(props: {
   metadata: unknown;
   isRecipient: boolean;
-  onStatusChange?: (next: GiftCertificateMessageMetadata["transfer_status"]) => void;
+  onMessageMerge?: (message: CommunityMessengerMessage) => void;
 }) {
   const { safeT } = useI18n();
   const meta = parseGiftCertificateMessageMetadata(props.metadata);
@@ -50,8 +48,7 @@ export function MessengerGiftCertificateCard(props: {
     );
   }
 
-  /** Canonical projection: message.metadata.transfer_status (+ session remember after local accept). */
-  const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status);
+  const displayStatus = meta.transfer_status ?? "PENDING";
 
   const giftScope = presentation?.giftScope ?? "STORE";
   const resolvedScope = giftScope === "PLATFORM" ? "PLATFORM" : "STORE";
@@ -91,15 +88,19 @@ export function MessengerGiftCertificateCard(props: {
         `/api/me/gift-certificates/transfers/${encodeURIComponent(meta!.gift_transfer_id)}/${kind}`,
         { method: "POST", credentials: "include" }
       );
-      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-      if (res.ok && json?.ok) {
-        const next: GiftTransferUiStatus =
-          kind === "accept" ? "ACCEPTED" : kind === "reject" ? "REJECTED" : "CANCELLED";
-        rememberGiftTransferUiStatus(meta!.gift_transfer_id, next);
-        props.onStatusChange?.(next);
+      const json = (await res.json().catch(() => null)) as unknown;
+      const parsed = parseGiftTransferMutationResponse(json);
+      if (res.ok && parsed.ok) {
+        props.onMessageMerge?.(parsed.message);
         setConfirmKind(null);
       } else {
-        const key = mapGiftTransferErrorKey(json?.error);
+        const err =
+          !parsed.ok
+            ? parsed.error
+            : typeof (json as { error?: string } | null)?.error === "string"
+              ? (json as { error: string }).error
+              : "generic";
+        const key = mapGiftTransferErrorKey(err);
         setErrorMsg(safeT(key, giftTransferErrorFallbacks(key)));
       }
     } finally {

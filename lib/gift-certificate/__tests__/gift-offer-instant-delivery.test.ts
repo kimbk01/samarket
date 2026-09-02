@@ -1,11 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-  buildGiftOfferCommunityMessengerMessage,
-  parseGiftOfferRpcSuccess,
-} from "@/lib/gift-certificate/gift-offer-canonical-message";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { parseGiftTransferMutationResponse } from "@/lib/gift-certificate/gift-transfer-mutation-response";
 
 function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
@@ -20,70 +17,110 @@ describe("gift offer instant delivery contract", () => {
     expect(mig).toContain("'transfer_status', 'PENDING'");
   });
 
-  it("T2 offer route requires roomId and returns canonical message on success", () => {
+  it("T2 offer route requires roomId and returns canonical nested transfer+message", () => {
     const route = source("app/api/me/gift-certificates/transfers/offer/route.ts");
     const exec = source("lib/gift-certificate/execute-gift-transfer-offer.ts");
     expect(route).toContain('error: "roomId_required"');
     expect(route).toContain("executeGiftTransferOffer");
     expect(route).toContain("message: result.message");
+    expect(route).toContain("transfer: result.transfer");
     expect(exec).toContain("message_projection_missing");
-    expect(exec).not.toMatch(/return NextResponse\.json\(\{ ok: true[^}]*\}\)[\s\S]*msgErr/);
+    expect(exec).toContain("parseGiftTransferMutationResponse");
   });
 
-  it("T3 RPC success without messageId is API failure (no silent ok:true)", () => {
-    const parsed = parseGiftOfferRpcSuccess({ ok: true, transfer_id: "t1" });
-    expect(parsed).toBeNull();
+  it("T3 nested response without message is API failure (no silent ok:true)", () => {
+    const parsed = parseGiftTransferMutationResponse({ ok: true, transfer: { id: "t1", status: "PENDING" } });
+    expect(parsed.ok).toBe(false);
   });
 
   it("T5 API success payload includes real messageId for timeline merge", () => {
-    const offer = parseGiftOfferRpcSuccess({
-      transfer_id: "11111111-1111-4111-8111-111111111111",
-      message_id: "22222222-2222-4222-8222-222222222222",
-      room_id: "33333333-3333-4333-8333-333333333333",
-      created_at: "2026-09-02T02:00:00.000Z",
-      metadata: { gift_transfer_id: "11111111-1111-4111-8111-111111111111", transfer_status: "PENDING" },
+    const parsed = parseGiftTransferMutationResponse({
+      ok: true,
+      transfer: {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "PENDING",
+        instance_id: "44444444-4444-4444-8444-444444444444",
+        room_id: "33333333-3333-4333-8333-333333333333",
+        messenger_message_id: "22222222-2222-4222-8222-222222222222",
+      },
+      message: {
+        id: "22222222-2222-4222-8222-222222222222",
+        room_id: "33333333-3333-4333-8333-333333333333",
+        sender_id: "sender",
+        message_type: "gift_certificate",
+        content: "Gift certificate",
+        created_at: "2026-09-02T02:00:00.000Z",
+        metadata: {
+          gift_transfer_id: "11111111-1111-4111-8111-111111111111",
+          transfer_status: "PENDING",
+        },
+      },
     });
-    expect(offer?.message_id).toBe("22222222-2222-4222-8222-222222222222");
-    const msg = buildGiftOfferCommunityMessengerMessage({
-      offer: offer!,
-      senderUserId: "sender",
-      senderLabel: "Me",
-    });
-    expect(msg.id).toBe("22222222-2222-4222-8222-222222222222");
-    expect(msg.messageType).toBe("gift_certificate");
-    expect(msg.isMine).toBe(true);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.message.id).toBe("22222222-2222-4222-8222-222222222222");
+      expect(parsed.message.messageType).toBe("gift_certificate");
+    }
   });
 
   it("T7 realtime echo dedupes by messageId (no duplicate cards)", () => {
-    const canonical = buildGiftOfferCommunityMessengerMessage({
-      offer: parseGiftOfferRpcSuccess({
-        transfer_id: "11111111-1111-4111-8111-111111111111",
-        message_id: "22222222-2222-4222-8222-222222222222",
+    const parsed = parseGiftTransferMutationResponse({
+      ok: true,
+      transfer: {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "PENDING",
+        instance_id: "44444444-4444-4444-8444-444444444444",
         room_id: "33333333-3333-4333-8333-333333333333",
+        messenger_message_id: "22222222-2222-4222-8222-222222222222",
+      },
+      message: {
+        id: "22222222-2222-4222-8222-222222222222",
+        room_id: "33333333-3333-4333-8333-333333333333",
+        sender_id: "sender",
+        message_type: "gift_certificate",
+        content: "Gift certificate",
         created_at: "2026-09-02T02:00:00.000Z",
-        metadata: { gift_transfer_id: "11111111-1111-4111-8111-111111111111", transfer_status: "PENDING" },
-      })!,
-      senderUserId: "sender",
-      senderLabel: "Me",
+        metadata: {
+          gift_transfer_id: "11111111-1111-4111-8111-111111111111",
+          transfer_status: "PENDING",
+        },
+      },
     });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const canonical = { ...parsed.message, senderLabel: "Me", isMine: true };
     const echo = { ...canonical, senderLabel: "Peer echo" };
     const merged = mergeRoomMessages([canonical], [echo]);
     expect(merged.filter((m) => m.id === canonical.id)).toHaveLength(1);
   });
 
   it("T10 initial card stays PENDING — not auto ACCEPTED", () => {
-    const msg = buildGiftOfferCommunityMessengerMessage({
-      offer: parseGiftOfferRpcSuccess({
-        transfer_id: "11111111-1111-4111-8111-111111111111",
-        message_id: "22222222-2222-4222-8222-222222222222",
+    const parsed = parseGiftTransferMutationResponse({
+      ok: true,
+      transfer: {
+        id: "11111111-1111-4111-8111-111111111111",
+        status: "PENDING",
+        instance_id: "44444444-4444-4444-8444-444444444444",
         room_id: "33333333-3333-4333-8333-333333333333",
-        metadata: { gift_transfer_id: "11111111-1111-4111-8111-111111111111", transfer_status: "PENDING" },
-      })!,
-      senderUserId: "sender",
-      senderLabel: "Me",
+        messenger_message_id: "22222222-2222-4222-8222-222222222222",
+      },
+      message: {
+        id: "22222222-2222-4222-8222-222222222222",
+        room_id: "33333333-3333-4333-8333-333333333333",
+        sender_id: "sender",
+        message_type: "gift_certificate",
+        content: "Gift certificate",
+        created_at: "2026-09-02T02:00:00.000Z",
+        metadata: {
+          gift_transfer_id: "11111111-1111-4111-8111-111111111111",
+          transfer_status: "PENDING",
+        },
+      },
     });
-    const meta = msg.metadata as { transfer_status?: string };
-    expect(meta.transfer_status).toBe("PENDING");
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.message.metadata?.transfer_status).toBe("PENDING");
+    }
   });
 
   it("T6 sender merge uses canonical server message — no gift refresh race", () => {

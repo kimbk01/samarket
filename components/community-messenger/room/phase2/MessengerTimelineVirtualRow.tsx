@@ -123,6 +123,7 @@ export type MessengerTimelineVirtualRowProps = {
   focusTimelineMessage: (messageId: string) => void | Promise<void>;
   tt: MessengerRoomPhase2ViewModel["tt"];
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+  onGiftMessageMerge?: (message: import("@/lib/community-messenger/types").CommunityMessengerMessage) => void;
 };
 
 function messengerTimelineVirtualRowPropsAreEqual(
@@ -165,6 +166,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.messageLongPressTimerRef === b.messageLongPressTimerRef &&
     a.messageLongPressItemRef === b.messageLongPressItemRef &&
     a.focusTimelineMessage === b.focusTimelineMessage &&
+    a.onGiftMessageMerge === b.onGiftMessageMerge &&
     a.tt === b.tt &&
     a.t === b.t
   );
@@ -209,6 +211,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   focusTimelineMessage,
   tt,
   t,
+  onGiftMessageMerge,
 }: MessengerTimelineVirtualRowProps) {
   if (entryLightRow && item.messageType === "text") {
     bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
@@ -467,7 +470,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     ) : item.messageType === "community_post_share" && communityPostShareCard ? (
       <CommunityPostShareMessageCard card={communityPostShareCard} />
     ) : item.messageType === "gift_certificate" ? (
-      <MessengerGiftCertificateCard metadata={metadata} isRecipient={!item.isMine} />
+      <MessengerGiftCertificateCard
+        metadata={metadata}
+        isRecipient={!item.isMine}
+        onMessageMerge={onGiftMessageMerge}
+      />
     ) : (
       <TimelineViberInnerTextDefault
         item={item}

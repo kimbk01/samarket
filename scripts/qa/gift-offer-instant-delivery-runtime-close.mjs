@@ -317,8 +317,8 @@ try {
       `http=${offerRes.status()} ok=${offerJson?.ok} error=${offerJson?.error || "none"} keys=${(report.offerResponseKeys || []).join(",")}`
     );
   }
-  const transferId = String(offerJson.transfer_id ?? "").trim();
-  const messageId = String(offerJson.message_id ?? "").trim();
+  const transferId = String(offerJson?.transfer?.id ?? "").trim();
+  const messageId = String(offerJson?.message?.id ?? "").trim();
   if (!transferId) fail("OFFER", `no_transfer_id_from_api:keys=${(report.offerResponseKeys || []).join(",")}`);
   if (!messageId) fail("OFFER", `no_message_id_from_api:keys=${(report.offerResponseKeys || []).join(",")}`);
   offerCapture.transferId = transferId;

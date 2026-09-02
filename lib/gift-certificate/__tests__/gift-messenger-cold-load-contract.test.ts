@@ -14,10 +14,6 @@ const snapshotCacheSrc = readFileSync(
   join(process.cwd(), "lib/community-messenger/room-bootstrap-snapshot-cache.ts"),
   "utf8"
 );
-const projectStatusSrc = readFileSync(
-  join(process.cwd(), "lib/gift-certificate/project-gift-transfer-messenger-status.ts"),
-  "utf8"
-);
 const serviceSrc = readFileSync(join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
 const timelineSrc = readFileSync(
   join(
@@ -35,7 +31,7 @@ describe("gift messenger cold-load contract", () => {
     );
     expect(execSrc).toContain("publishMessengerRoomBumpAfterMutation");
     expect(execSrc).toContain("messageForBump");
-    expect(execSrc).toContain("buildGiftOfferCommunityMessengerMessage");
+    expect(execSrc).toContain("parseGiftTransferMutationResponse");
   });
 
   it("T2: room bump invalidates bootstrap snapshot cache for participants", () => {
@@ -48,8 +44,13 @@ describe("gift messenger cold-load contract", () => {
     expect(snapshotCacheSrc).toContain(".delete()");
   });
 
-  it("T4: transfer status projection invalidates room bootstrap snapshot", () => {
-    expect(projectStatusSrc).toContain("invalidateRoomBootstrapSnapshotCache");
+  it("T4: transition owner publishes bump after TX (bootstrap invalidate via bump)", () => {
+    const transition = readFileSync(
+      join(process.cwd(), "lib/gift-certificate/execute-gift-transfer-transition.ts"),
+      "utf8"
+    );
+    expect(transition).toContain("publishMessengerRoomBumpAfterMutation");
+    expect(publishBumpSrc).toContain("invalidateRoomBootstrapSnapshotCache");
   });
 
   it("T5: bootstrap mapper keeps gift_certificate message type", () => {

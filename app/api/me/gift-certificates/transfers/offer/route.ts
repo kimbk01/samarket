@@ -84,11 +84,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    transfer_id: result.transferId,
-    id: result.transferId,
-    message_id: result.messageId,
-    room_id: result.roomId,
-    recipient_user_id: result.recipientUserId,
+    transfer: result.transfer,
     message: result.message,
     idempotent: result.idempotent ?? false,
   });

@@ -2108,6 +2108,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     focusTimelineMessage={vm.focusTimelineMessage}
                     tt={vm.tt}
                     t={vm.t}
+                    onGiftMessageMerge={vm.mergeCanonicalRoomMessage}
                   />
                 );
               })}

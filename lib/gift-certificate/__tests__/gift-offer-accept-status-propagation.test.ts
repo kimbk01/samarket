@@ -2,11 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import {
-  __resetGiftTransferUiStatusForTests,
-  rememberGiftTransferUiStatus,
-  resolveGiftTransferUiStatus,
-} from "@/lib/gift-certificate/gift-transfer-ui-status";
+import { parseGiftTransferMutationResponse } from "@/lib/gift-certificate/gift-transfer-mutation-response";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 function source(path: string): string {
@@ -40,64 +36,73 @@ function giftMessage(transferStatus: "PENDING" | "ACCEPTED"): CommunityMessenger
 
 describe("gift offer accept status propagation", () => {
   it("T1: offer message starts PENDING", () => {
-    const msg = giftMessage("PENDING");
-    expect(msg.metadata?.transfer_status).toBe("PENDING");
+    expect(giftMessage("PENDING").metadata?.transfer_status).toBe("PENDING");
   });
 
-  it("T2: accept route projects messenger status after RPC", () => {
+  it("T2: accept route runs transactional transition owner", () => {
     const acceptRoute = source("app/api/me/gift-certificates/transfers/[transferId]/accept/route.ts");
-    expect(acceptRoute).toContain("giftCertificateAccept(sb");
-    expect(acceptRoute).toContain("projectGiftTransferMessengerStatus(sb");
-    expect(acceptRoute).toContain('transferStatus: "ACCEPTED"');
+    expect(acceptRoute).toContain("executeGiftTransferTransition");
+    expect(acceptRoute).toContain('kind: "accept"');
+    expect(acceptRoute).not.toContain("projectGiftTransferMessengerStatus");
   });
 
-  it("T3: accept projection updates metadata.transfer_status to ACCEPTED", () => {
-    const projection = source("lib/gift-certificate/project-gift-transfer-messenger-status.ts");
-    expect(projection).toContain("transfer_status: args.transferStatus");
-    expect(projection).toContain("community_messenger_messages");
-    expect(projection).toContain("publishMessengerRoomBumpAfterMutation");
-    expect(projection).toContain("actorUserId");
+  it("T3: accept mutation returns ACCEPTED projection on same message", () => {
+    const parsed = parseGiftTransferMutationResponse({
+      ok: true,
+      transfer: {
+        id: TRANSFER_ID,
+        status: "ACCEPTED",
+        instance_id: "44444444-4444-4444-8444-444444444444",
+        room_id: ROOM_ID,
+        messenger_message_id: MESSAGE_ID,
+      },
+      message: {
+        id: MESSAGE_ID,
+        room_id: ROOM_ID,
+        sender_id: SENDER,
+        message_type: "gift_certificate",
+        content: "Gift certificate",
+        created_at: "2026-09-02T03:00:00.000Z",
+        metadata: { gift_transfer_id: TRANSFER_ID, transfer_status: "ACCEPTED" },
+      },
+    });
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.transfer.status).toBe("ACCEPTED");
+      expect(parsed.message.id).toBe(MESSAGE_ID);
+      expect(parsed.message.metadata?.transfer_status).toBe("ACCEPTED");
+    }
   });
 
   it("T4: same messageId UPDATE merge replaces status on one card", () => {
-    const pending = giftMessage("PENDING");
-    const updated: CommunityMessengerMessage = {
-      ...pending,
-      metadata: {
-        ...(pending.metadata as Record<string, unknown>),
-        transfer_status: "ACCEPTED",
-      },
-    };
-    const merged = mergeRoomMessages([pending], [updated]);
+    const merged = mergeRoomMessages([giftMessage("PENDING")], [giftMessage("ACCEPTED")]);
     expect(merged).toHaveLength(1);
-    expect(merged[0]?.id).toBe(MESSAGE_ID);
     expect(merged[0]?.metadata?.transfer_status).toBe("ACCEPTED");
   });
 
-  it("T5: sender card display follows metadata.transfer_status (not stale local state)", () => {
+  it("T5: sender card display follows metadata.transfer_status", () => {
     const card = source("components/community-messenger/MessengerGiftCertificateCard.tsx");
-    expect(card).toContain("resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status)");
-    expect(card).not.toMatch(/resolveGiftTransferUiStatus\(meta\.gift_transfer_id,\s*status\)/);
+    expect(card).toContain("meta.transfer_status ?? \"PENDING\"");
+    expect(card).not.toContain("rememberGiftTransferUiStatus");
   });
 
-  it("T6: recipient remembered ACCEPTED survives stale metadata", () => {
-    __resetGiftTransferUiStatusForTests();
-    rememberGiftTransferUiStatus(TRANSFER_ID, "ACCEPTED");
-    expect(resolveGiftTransferUiStatus(TRANSFER_ID, "PENDING")).toBe("ACCEPTED");
+  it("T6: recipient merges API message after accept", () => {
+    const card = source("components/community-messenger/MessengerGiftCertificateCard.tsx");
+    expect(card).toContain("onMessageMerge?.(parsed.message)");
   });
 
   it("T7: duplicate card stays one after status UPDATE merge", () => {
-    const pending = giftMessage("PENDING");
-    const accepted = giftMessage("ACCEPTED");
-    const merged = mergeRoomMessages([pending], [accepted]);
+    const merged = mergeRoomMessages([giftMessage("PENDING")], [giftMessage("ACCEPTED")]);
     expect(merged.filter((m) => m.id === MESSAGE_ID)).toHaveLength(1);
   });
 
-  it("T8: accept failure path keeps PENDING metadata projection contract", () => {
-    const acceptRoute = source("app/api/me/gift-certificates/transfers/[transferId]/accept/route.ts");
-    const failIdx = acceptRoute.indexOf("if (!result.ok)");
-    const projectIdx = acceptRoute.indexOf("await projectGiftTransferMessengerStatus");
-    expect(failIdx).toBeGreaterThan(-1);
-    expect(projectIdx).toBeGreaterThan(failIdx);
+  it("T8: accept failure path does not project before RPC ok", () => {
+    const transition = source("lib/gift-certificate/execute-gift-transfer-transition.ts");
+    const rpcCallIdx = transition.indexOf("await giftCertificateAccept");
+    const failIdx = transition.indexOf("if (!rpc.ok)");
+    const parseIdx = transition.lastIndexOf("parseGiftTransferMutationResponse");
+    expect(rpcCallIdx).toBeGreaterThan(-1);
+    expect(failIdx).toBeGreaterThan(rpcCallIdx);
+    expect(parseIdx).toBeGreaterThan(failIdx);
   });
 });
