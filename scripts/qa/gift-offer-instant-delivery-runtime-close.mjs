@@ -36,6 +36,8 @@ const report = {
   publicNumberSample: null,
   messageId: null,
   transferId: null,
+  offerHttpStatus: null,
+  offerResponseKeys: null,
   shots: {},
   firstFail: null,
 };
@@ -285,19 +287,6 @@ try {
   await openRoom(pageA, roomId);
   await openRoom(pageB, roomId);
 
-  pageA.on("response", async (res) => {
-    if (!res.url().includes("/api/me/gift-certificates/transfers/offer")) return;
-    try {
-      const json = await res.json();
-      if (json?.ok && json.message_id) {
-        offerCapture.messageId = String(json.message_id);
-        offerCapture.transferId = String(json.transfer_id || json.id || "");
-      }
-    } catch {
-      /* ignore */
-    }
-  });
-
   await pageA.locator("[data-delivery-composer-attach]").first().click();
   await pageA.locator('[data-messenger-gift-attach-cta="1"]').waitFor({ state: "visible", timeout: 15000 });
   await pageA.locator('[data-messenger-gift-attach-cta="1"]').click();
@@ -305,20 +294,38 @@ try {
   await pageA.locator(`[data-gift-offer-pick="${GIFT_ID}"]`).click();
   await pageA.waitForSelector('[data-gift-offer-confirm="1"]', { timeout: 15000 });
   const t0 = Date.now();
+  /** Await the single offer POST — fire-and-forget page.on('response') raced bump-delayed JSON. */
+  const offerResponsePromise = pageA.waitForResponse(
+    (res) =>
+      res.url().includes("/api/me/gift-certificates/transfers/offer") &&
+      res.request().method() === "POST",
+    { timeout: 30000 }
+  );
   await pageA.locator('[data-gift-offer-submit="1"]').click();
-
-  let transferId = "";
-  for (let i = 0; i < 20; i++) {
-    if (offerCapture.transferId) {
-      transferId = offerCapture.transferId;
-      break;
-    }
-    await pageA.waitForTimeout(200);
+  const offerRes = await offerResponsePromise;
+  report.offerHttpStatus = offerRes.status();
+  let offerJson = null;
+  try {
+    offerJson = await offerRes.json();
+  } catch (e) {
+    fail("OFFER", `response_json_unreadable:${String(e?.message || e)}`);
   }
-  if (!transferId) fail("OFFER", "no_transfer_id_from_api");
+  report.offerResponseKeys = offerJson && typeof offerJson === "object" ? Object.keys(offerJson).sort() : [];
+  if (!offerRes.ok() || !offerJson?.ok) {
+    fail(
+      "OFFER",
+      `http=${offerRes.status()} ok=${offerJson?.ok} error=${offerJson?.error || "none"} keys=${(report.offerResponseKeys || []).join(",")}`
+    );
+  }
+  const transferId = String(offerJson.transfer_id ?? "").trim();
+  const messageId = String(offerJson.message_id ?? "").trim();
+  if (!transferId) fail("OFFER", `no_transfer_id_from_api:keys=${(report.offerResponseKeys || []).join(",")}`);
+  if (!messageId) fail("OFFER", `no_message_id_from_api:keys=${(report.offerResponseKeys || []).join(",")}`);
+  offerCapture.transferId = transferId;
+  offerCapture.messageId = messageId;
 
   report.transferId = transferId;
-  report.messageId = offerCapture.messageId || null;
+  report.messageId = messageId;
 
   let senderSeenMs = null;
   for (let i = 0; i < 25; i++) {
