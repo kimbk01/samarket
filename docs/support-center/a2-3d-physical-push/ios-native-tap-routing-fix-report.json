@@ -1,0 +1,51 @@
+{
+  "generatedAt": "2026-09-02T12:46:00.000Z",
+  "phase": "A2-3D_IOS_NATIVE_TAP_ROUTING_FIX",
+  "IMPLEMENTATION": "MINIMAL_NATIVE_BRIDGE_ONLY",
+  "CUT_B": "DO_NOT_START",
+  "A2_1": "CLOSED_PRODUCTION",
+  "A2_2": "CLOSED_PRODUCTION",
+  "A2_3_WEB": "CLOSED_PRODUCTION",
+  "A2_3_FULL": "NOT_CLOSED",
+  "IOS_PUSH_DELIVERY": "PASS",
+  "IOS_TAP": "PASS",
+  "ACTUAL_TAP_DESTINATION_BEFORE": "/notifications (notification list)",
+  "FIRST_DIVERGENCE": "NATIVE_TAP_ROUTING / NOTIFICATION_CLICK_ROUTING",
+  "ROOT_CAUSE_CLASS": "C+E hybrid — cold-start presentation gate DROPPED tap before route resolve/hold; /support was not auth-hold eligible so unsettled session could not pending-replay exact case; missing route fields fell through to PUSH_SAFE_FALLBACK_ROUTE=/notifications?fallback=origin_unavailable",
+  "ROOT_CAUSE_FILE": "components/push/PushRouteListener.tsx",
+  "ROOT_CAUSE_FUNCTION": "PushNotifications.addListener(pushNotificationActionPerformed)",
+  "WEB_VS_NATIVE": {
+    "WEB_CLICK_OWNER": "activateNotificationDestination / resolveNotificationDestination",
+    "WEB_ROUTE_SOURCE": "inbox row link_url + display_payload.routeUrl",
+    "WEB_RESOLVER": "lib/notifications/resolve-notification-destination.ts",
+    "WEB_DESTINATION": "/support/cases/{caseId} → SupportCaseBootstrapClient → Support Modal",
+    "IOS_TAP_OWNER": "components/push/PushRouteListener.tsx pushNotificationActionPerformed",
+    "IOS_PAYLOAD_SOURCE": "APNS userInfo via Cap notification.data (buildApnsAlertBody spreads FCM data fields)",
+    "IOS_RESOLVER": "lib/push/resolve-push-route-from-fcm-data.ts",
+    "IOS_DESTINATION_BEFORE": "/notifications (fallback)",
+    "FIRST_DIFFERENT_FUNCTION": "PushRouteListener canPresentAuthenticatedNotification(phase===authenticated only) DROP before resolve/hold — web inbox click never hits this gate"
+  },
+  "ACTUAL_APNS_TARGET_DATA": {
+    "routeUrl": "/support/cases/{caseId} (server build + APNS body contract)",
+    "url": "/support/cases/{caseId}",
+    "supportCaseId": "now also flat on wire",
+    "deeplinkResolverKey": "display_route",
+    "RAW_TOKEN": "NONE",
+    "note": "DB display_payload.routeUrl alone is not proof; APNS serialization verified via buildApnsAlertBody + buildFcmDataFields contract test"
+  },
+  "FIX_FILES": [
+    "components/push/PushRouteListener.tsx",
+    "lib/push/normalize-native-push-tap-data.ts",
+    "lib/push/resolve-push-route-from-fcm-data.ts",
+    "lib/push/dispatch/fcm-data-payload-contract.ts",
+    "lib/push/__tests__/native-push-tap-target-resolution.test.ts",
+    "lib/push/__tests__/ios-push-tap-route-contract.test.ts"
+  ],
+  "NATIVE_ROUTE_AFTER_FIX": "APNS tap → normalizeNativePushTapData → resolvePushRouteFromFcmData → /support/cases/{caseId} → auth hold if recovering → Support Modal bootstrap",
+  "CONTRACT_TESTS": "PASS (native-push-tap-target-resolution + ios-push-tap-route-contract + resolve-push-route + logout fail-closed)",
+  "IOS_REAL_TAP_EXACT_SUPPORT_CASE": "AWAITING_PRODUCTION_RETEST",
+  "IOS_NOTIFICATION_LIST_FALLBACK": "AWAITING_PRODUCTION_RETEST",
+  "IOS_ADMIN_REPLY_VISIBLE": "AWAITING_PRODUCTION_RETEST",
+  "ANDROID": "BLOCKED until iOS PASS",
+  "CUT_B_STATUS": "DO_NOT_START"
+}

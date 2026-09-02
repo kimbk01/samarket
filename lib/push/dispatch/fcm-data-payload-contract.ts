@@ -167,6 +167,9 @@ function appendMessageDisplayFields(
   const previewKind = trimText(meta.preview_kind ?? meta.previewKind ?? display?.previewKind);
   const contextLabel = trimText(meta.context_label ?? meta.contextLabel ?? display?.contextLabel);
   const routeUrl = trimText(display?.routeUrl ?? meta.route_url ?? meta.routeUrl);
+  const supportCaseId = trimText(
+    display?.supportCaseId ?? display?.support_case_id ?? meta.supportCaseId ?? meta.support_case_id
+  );
   const category = trimText(meta.category ?? display?.category);
   const campaignId = trimText(meta.campaign_id ?? meta.campaignId ?? display?.campaignId);
   const resolverKey = trimText(
@@ -186,6 +189,10 @@ function appendMessageDisplayFields(
   if (previewKind) fields.previewKind = previewKind;
   if (contextLabel) fields.contextLabel = contextLabel;
   if (routeUrl) fields.routeUrl = routeUrl;
+  if (supportCaseId) {
+    fields.supportCaseId = supportCaseId;
+    fields.support_case_id = supportCaseId;
+  }
   if (category) fields.category = category;
   if (campaignId) fields.campaignId = campaignId;
   if (resolverKey) {

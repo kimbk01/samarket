@@ -1,0 +1,8 @@
+browserType.connectOverCDP: Unexpected status 404 when connecting to http://127.0.0.1:9223/json/version/.
+This does not look like a DevTools server, try connecting via ws://.
+Call log:
+  - <ws preparing> retrieving websocket url from http://127.0.0.1:9223
+
+    at main (/Users/bkkim/projects/samarket/scripts/qa/support-a2-3d-physical-push-close.mjs:362:33) {
+  name: 'Error'
+}

@@ -12,6 +12,7 @@ import {
   isAuthRequiredPushRoute,
   resolvePushRouteFromFcmData,
 } from "@/lib/push/resolve-push-route-from-fcm-data";
+import { normalizeNativePushTapData } from "@/lib/push/normalize-native-push-tap-data";
 import {
   clearPendingPushRoute,
   readPendingPushRoute,
@@ -381,13 +382,17 @@ export function PushRouteListener() {
       try {
         const { PushNotifications } = await import("@capacitor/push-notifications");
         const sub = await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          const data = action.notification?.data as Record<string, string | undefined> | undefined;
+          const rawData =
+            action.notification?.data && typeof action.notification.data === "object"
+              ? (action.notification.data as Record<string, unknown>)
+              : null;
+          if (!rawData) return;
+          const data = normalizeNativePushTapData(rawData);
           const notificationId =
-            (typeof data?.notificationId === "string" && data.notificationId.trim()) ||
-            (typeof data?.notificationEventId === "string" && data.notificationEventId.trim()) ||
+            (typeof data.notificationId === "string" && data.notificationId.trim()) ||
+            (typeof data.notificationEventId === "string" && data.notificationEventId.trim()) ||
             action.notification?.id?.trim() ||
             undefined;
-          if (!data) return;
 
           void (async () => {
             const { getBoundAuthUserId } = await import("@/lib/auth/client-instance-id");
@@ -396,26 +401,38 @@ export function PushRouteListener() {
               resolvePushPayloadRecipientUserId,
             } = await import("@/lib/push/native/can-present-authenticated-notification");
             const phase = sessionPhaseRef.current;
-            const decision = canPresentAuthenticatedNotification({
-              memberEventEligible: phase === "authenticated",
-              boundUserId: getBoundAuthUserId(),
-              payloadRecipientUserId: resolvePushPayloadRecipientUserId(data),
-            });
-            if (!decision.ok) {
-              console.info("[push-route] notification_tap_dropped", {
-                reason: decision.reason,
-                phase,
-                notificationId: notificationId ?? null,
-              });
-              return;
-            }
 
+            // Resolve target first — never lose a valid support/canonical route to auth race.
             const path = resolvePushRouteFromFcmData(data);
             if (!path) return;
+
+            /**
+             * Fail-closed identity only on settled phases.
+             * loading/recovering must HOLD via resolvePushAuthGate (pending replay),
+             * not DROP — otherwise cold-start APNS tap falls through to inbox fallback UX.
+             */
+            if (!isRecoveringPhase(phase)) {
+              const decision = canPresentAuthenticatedNotification({
+                memberEventEligible: phase === "authenticated",
+                boundUserId: getBoundAuthUserId(),
+                payloadRecipientUserId: resolvePushPayloadRecipientUserId(data),
+              });
+              if (!decision.ok) {
+                console.info("[push-route] notification_tap_dropped", {
+                  reason: decision.reason,
+                  phase,
+                  notificationId: notificationId ?? null,
+                  path,
+                });
+                return;
+              }
+            }
+
             console.info("[push-route] notification_tap_received", {
               path,
               notificationId: notificationId ?? null,
               via: "capacitor_push_action",
+              phase,
             });
             navigate(path, notificationId, {
               recipientScope: data.recipientScope,

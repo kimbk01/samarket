@@ -155,6 +155,10 @@ export function resolvePushRouteDecisionFromFcmData(data: FcmRouteData): PushRou
   const displayRoute = firstNonEmpty(
     data.routeUrl,
     data.route_url,
+    data.targetApprovedRoute,
+    data.target_approved_route,
+    data.targetRoute,
+    data.target_route,
     data.url,
     data.link_url,
     data.link_url_absolute
@@ -168,6 +172,25 @@ export function resolvePushRouteDecisionFromFcmData(data: FcmRouteData): PushRou
       displayRoute: displayRoute || null,
       fallbackHref: PUSH_SAFE_FALLBACK_ROUTE,
     }).href;
+    // display_route with no usable displayRoute → try supportCaseId before inbox fallback.
+    if (
+      resolverKey === "display_route" &&
+      (href === PUSH_SAFE_FALLBACK_ROUTE || isBareNotificationsCenterHref(href))
+    ) {
+      const supportCaseId = firstNonEmpty(
+        data.supportCaseId,
+        data.support_case_id,
+        data.caseId,
+        data.case_id
+      );
+      if (supportCaseId && /^[A-Za-z0-9_-]{8,128}$/.test(supportCaseId)) {
+        const supportPath = `/support/cases/${encodeURIComponent(supportCaseId)}`;
+        const safeSupport = resolveSafeNotificationInternalRoute(supportPath);
+        if (safeSupport) {
+          return { path: safeSupport, source: "legacy_url" };
+        }
+      }
+    }
     return { path: href, source: "legacy_resolver_key" };
   }
 
@@ -186,6 +209,21 @@ export function resolvePushRouteDecisionFromFcmData(data: FcmRouteData): PushRou
 
   const legacyType = resolveLegacyTypeRoute(data);
   if (legacyType) return { path: legacyType, source: "legacy_type" };
+
+  // Support case id wire fallback when route string was stripped but case id survived.
+  const supportCaseId = firstNonEmpty(
+    data.supportCaseId,
+    data.support_case_id,
+    data.caseId,
+    data.case_id
+  );
+  if (supportCaseId && /^[A-Za-z0-9_-]{8,128}$/.test(supportCaseId)) {
+    const supportPath = `/support/cases/${encodeURIComponent(supportCaseId)}`;
+    const safeSupport = resolveSafeNotificationInternalRoute(supportPath);
+    if (safeSupport) {
+      return { path: safeSupport, source: "legacy_url" };
+    }
+  }
 
   return {
     path: PUSH_SAFE_FALLBACK_ROUTE,
@@ -213,6 +251,7 @@ export function isAuthRequiredPushRoute(path: string): boolean {
     p.startsWith("/mypage") ||
     p.startsWith("/my") ||
     p.startsWith("/notifications") ||
+    p.startsWith("/support") ||
     p.startsWith("/stores/owner")
   );
 }

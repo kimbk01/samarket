@@ -10,10 +10,12 @@ describe("iOS push tap route contract", () => {
   it("routes Capacitor pushNotificationActionPerformed through the shared FCM/APNS resolver", () => {
     const source = read("components/push/PushRouteListener.tsx");
     expect(source).toContain('PushNotifications.addListener("pushNotificationActionPerformed"');
+    expect(source).toContain("normalizeNativePushTapData");
     expect(source).toContain("resolvePushRouteFromFcmData(data)");
     expect(source).toContain("shouldApplyMemberNotificationReadOnPushTap");
     expect(source).toContain("maybeMarkMemberAOnPushTap");
     expect(source).toContain("postNotificationEventOpenedRead");
+    expect(source).toContain("isRecoveringPhase(phase)");
   });
 
   it("keeps appUrlOpen and native pending route replay for cold-start restores", () => {

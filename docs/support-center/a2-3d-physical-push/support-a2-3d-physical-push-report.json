@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-09-02T12:35:00.000Z",
+  "origin": "https://samarket.vercel.app",
+  "productCodeChange": "NONE",
+  "CUT_B": "DO_NOT_START",
+  "BASE_LOCK": {
+    "A2_1": "CLOSED — PRODUCTION",
+    "A2_2": "CLOSED — PRODUCTION",
+    "A2_3_WEB": "CLOSED — PRODUCTION"
+  },
+  "IOS_DEVICE": "iPhonebk (connected)",
+  "ANDROID_DEVICE": "SM_M156S RFCY40PY2CA (connected)",
+  "CUSTOMER_FIXTURE": "qqqq@manual.local (active iOS apns + Android fcm)",
+  "IOS_PUSH_RECEIVED": "NOT_PROVEN",
+  "IOS_EXACT_CASE": "NOT_PROVEN",
+  "IOS_COLD": "NOT_PROVEN",
+  "IOS_RESOLVED": "NOT_PROVEN",
+  "ANDROID_PUSH_RECEIVED": "NOT_PROVEN",
+  "ANDROID_EXACT_CASE": "NOT_PROVEN",
+  "ANDROID_COLD": "NOT_PROVEN",
+  "ANDROID_RESOLVED": "NOT_PROVEN",
+  "DUPLICATE_TAP": "NOT_PROVEN",
+  "RAW_TOKEN": "NOT_PROVEN",
+  "LEGACY_FALLBACK": "NOT_PROVEN",
+  "STOP_CATEGORY": "NATIVE_TAP_ROUTING",
+  "STOP_REASON": "iOS OS notification-center tap cannot be automated without XCUITest; Cap launch URL / Support bootstrap is explicitly NOT accepted as OS push tap PASS. First-divergence rule: stop before Android.",
+  "ATTEMPTED": {
+    "ios_device_present": true,
+    "android_device_present": true,
+    "customer_ios_apns_active": true,
+    "customer_android_fcm_active": true,
+    "ios_webkit_cdp_playwright": "FAIL (ios_webkit_debug_proxy requires Target.sendMessageToTarget, not connectOverCDP)",
+    "ios_os_tray_tap_automation": "UNAVAILABLE"
+  },
+  "A2_3": "WEB_CLOSED",
+  "A2_3_FULL": "NOT_CLOSED",
+  "NOTE": "To FULL_CLOSE: run human-in-the-loop iOS tray tap while harness waits, or add XCUITest notification-tap driver; then resume Android uiautomator OS tap path."
+}

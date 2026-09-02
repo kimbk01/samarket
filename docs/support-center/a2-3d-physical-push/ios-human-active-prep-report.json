@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-09-02T12:33:51.652Z",
+  "origin": "https://samarket.vercel.app",
+  "phase": "IOS_HUMAN_ACTIVE_PREP",
+  "CUSTOMER": "qqqq@manual.local",
+  "customerId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+  "IOS_DEVICE": "iPhonebk",
+  "IMPLEMENTATION": "NONE",
+  "CUT_B": "DO_NOT_START",
+  "A2_3": "WEB_CLOSED",
+  "A2_3_FULL": "NOT_CLOSED",
+  "WAITING_FOR": "HUMAN_PHYSICAL_TAP_ON_IPHONEBK",
+  "detail": {
+    "apnsBindings": [
+      {
+        "provider": "apns",
+        "updated_at": "2026-09-02T11:35:42.755873+00:00",
+        "device_id_prefix": "4071cc92"
+      }
+    ],
+    "adminReply": {
+      "status": 200,
+      "ok": true,
+      "replyBody": "A2-3D-iOS-HUMAN-REPLY-1788352436444"
+    },
+    "notificationEvent": {
+      "id": "98c4d1b3-6a28-4283-9c77-6ca5300330ab",
+      "type": "support_admin_replied",
+      "category": "inquiry_answered",
+      "routeUrl": "/support/cases/b17d0642-80fd-4a5e-9c0d-97ccb727876b",
+      "supportCaseId": "b17d0642-80fd-4a5e-9c0d-97ccb727876b",
+      "publicCaseNo": "SC-100015",
+      "rawToken": false,
+      "legacyRoute": false
+    },
+    "deliveryProbe": {
+      "table": "notification_deliveries",
+      "count": 2,
+      "note": "table_readable"
+    }
+  },
+  "C1": {
+    "id": "b17d0642-80fd-4a5e-9c0d-97ccb727876b",
+    "public_case_no": "SC-100015",
+    "status": "OPEN",
+    "audience": "MEMBER"
+  },
+  "IOS_PUSH_DELIVERY": "SERVER_EVENT_PASS_AWAITING_DEVICE",
+  "RAW_TOKEN": "NONE",
+  "LEGACY_FALLBACK": "NONE",
+  "IOS_HUMAN_TAP": "AWAITING_HUMAN",
+  "IOS_ACTIVE_EXACT_CASE": "AWAITING_HUMAN",
+  "IOS_RESOLVED": "NOT_STARTED",
+  "ANDROID_PUSH_DELIVERY": "NOT_RUN",
+  "ANDROID_REAL_TAP": "NOT_RUN",
+  "ANDROID_ACTIVE_EXACT_CASE": "NOT_RUN",
+  "ANDROID_RESOLVED": "NOT_RUN",
+  "DUPLICATE_TAP": "NOT_PROVEN",
+  "FIRST_DIVERGENCE": "iOS NATIVE_TAP_ROUTING — awaiting human physical tap"
+}
