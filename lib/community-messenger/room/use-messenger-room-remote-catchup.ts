@@ -151,22 +151,14 @@ export function useMessengerRoomRemoteCatchup({
     return false;
   }, [streamRoomId]);
 
-  /** 원격 bump 직후: 단건 병합 → 실패 시 `after` 증분 → 마지막에 스냅샷 refresh */
+  /**
+   * Remote bump = invalidation signal (not status authority).
+   * Always reconcile by message id when hinted — `after=` only finds newer INSERTs, never
+   * same-id metadata UPDATEs. Snapshot merge (if any) is acceleration only.
+   */
   const catchUpAfterRemoteBump = useCallback(
-    async (hintMessageId?: string | null, opts?: { alreadyMergedSnapshot?: boolean }) => {
+    async (hintMessageId?: string | null, _opts?: { alreadyMergedSnapshot?: boolean }) => {
       const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
-      const mergedBySnapshot = Boolean(opts?.alreadyMergedSnapshot && hint);
-      if (mergedBySnapshot) {
-        const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
-        const meta =
-          merged?.metadata && typeof merged.metadata === "object"
-            ? (merged.metadata as { domain?: unknown; orderStatus?: unknown })
-            : null;
-        if (meta?.domain === "store_order" && meta.orderStatus) {
-          void refresh(true, { triggerReason: "store_order_status_bump" });
-        }
-        return;
-      }
       if (hint && (await tryMergeSingleMessageFromBump(hint))) {
         const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
         const meta =

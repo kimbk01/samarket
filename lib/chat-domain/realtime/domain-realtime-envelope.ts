@@ -127,10 +127,22 @@ export function parseDomainRealtimeEnvelopeFromBumpPayload(
   });
 }
 
-/** Prefer domain dedupe; else legacy. */
+/**
+ * Prefer domain dedupe; else legacy.
+ *
+ * Same `messageId` can be bumped twice (INSERT then metadata UPDATE). Domain eventId often
+ * equals messageId only — always fold wire `at` (or eventIdentity) so UPDATE is not dropped.
+ */
 export function resolveRoomBumpDedupeKey(payload: Record<string, unknown>): string {
+  const at = typeof payload.at === "string" ? payload.at.trim() : "";
+  const eventIdentity =
+    typeof payload.eventIdentity === "string" ? payload.eventIdentity.trim() : "";
+  const revision = at || eventIdentity;
   const env = parseDomainRealtimeEnvelopeFromBumpPayload(payload);
-  if (env) return buildDomainRealtimeDedupeKey(env);
+  if (env) {
+    const base = buildDomainRealtimeDedupeKey(env);
+    return revision ? `${base}\0${revision}` : base;
+  }
   const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
   const messageId =
     typeof payload.messageId === "string"
@@ -138,6 +150,5 @@ export function resolveRoomBumpDedupeKey(payload: Record<string, unknown>): stri
       : typeof payload.message_id === "string"
         ? payload.message_id.trim()
         : "";
-  const at = typeof payload.at === "string" ? payload.at.trim() : "";
-  return buildLegacyRoomBumpDedupeKey({ fromUserId: from, messageId, at });
+  return buildLegacyRoomBumpDedupeKey({ fromUserId: from, messageId, at: revision });
 }

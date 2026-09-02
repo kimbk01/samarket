@@ -56,7 +56,7 @@ describe("Phase E domain realtime envelope", () => {
       chatDomain: "group",
       domainIdentity: "group:r1",
       roomId: "r1",
-    })).toBe(["group", "group:r1", "m9"].join("\0"));
+    })).toBe(["group", "group:r1", "m9", "t1"].join("\0"));
 
     expect(parseDomainRealtimeEnvelopeFromBumpPayload({
       v: 2,

@@ -178,15 +178,27 @@ export function useMessengerRoomBumpBroadcastSubscription({
         messageMetadata &&
         typeof messageMetadata === "object" &&
         (messageMetadata as { domain?: unknown }).domain === "store_order";
-      // 내 일반 채팅 bump는 optimistic/confirm 처리되지만, 주문 system line은 catch-up까지 받아야 한다.
-      if (from && from === viewer && !isStoreOrderSystemBump) return;
-
+      const rawSenderId =
+        rawMessage && typeof rawMessage === "object" && rawMessage !== null
+          ? typeof (rawMessage as { senderId?: unknown }).senderId === "string"
+            ? String((rawMessage as { senderId: string }).senderId).trim()
+            : ""
+          : "";
       const hint =
         typeof payload.messageId === "string"
           ? payload.messageId.trim()
           : typeof (payload as { message_id?: unknown }).message_id === "string"
             ? String((payload as { message_id: string }).message_id).trim()
             : "";
+      /**
+       * Own authored INSERT bumps: optimistic/ACK already applied — skip.
+       * Peer-mutated same-id UPDATE (fromUserId !== message.senderId), e.g. gift accept
+       * projection by recipient on sender's message: must NOT skip — HTTP reconcile SSOT.
+       */
+      if (from && from === viewer && !isStoreOrderSystemBump && (!rawSenderId || rawSenderId === from)) {
+        return;
+      }
+
       const dedupeKey = resolveRoomBumpDedupeKey(payload);
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
       lastRemoteBumpDedupeRef.current = dedupeKey;
@@ -196,6 +208,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
       }
       remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
         remoteBumpCatchUpRafRef.current = null;
+        /**
+         * Snapshot acceleration only when parse validates (message.senderId === fromUserId).
+         * Peer-mutated rows fail parse by design — canonical GET reconcile is authority.
+         */
         const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
         let mergedSnapshot = false;
         let catchUpHint = hint;
@@ -204,11 +220,6 @@ export function useMessengerRoomBumpBroadcastSubscription({
           const enriched =
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
           setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
-          /**
-           * S2: bump snapshot merge is the in-room canonical receive path.
-           * Tip SSOT lives in applyIncomingMessageEvent → projectRoomActivityToHomeList
-           * (same eventId from postgres/ACK/bus → no-op).
-           */
           const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
           if (tipRoomId) {
             applyIncomingMessageEvent({

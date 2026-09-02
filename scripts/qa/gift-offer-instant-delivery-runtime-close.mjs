@@ -22,9 +22,19 @@ const RECIPIENT = {
 };
 const VP = { width: 390, height: 844 };
 
+const ROOM_ENTRY_ONLY = process.env.GIFT_ROOM_ENTRY_ONLY === "1";
+
 const report = {
   origin: ORIGIN,
   giftInstanceId: GIFT_ID,
+  roomEntryOnly: ROOM_ENTRY_ONLY,
+  auth: "NOT_PROVEN",
+  roomResolve: "NOT_PROVEN",
+  roomType: "NOT_PROVEN",
+  roomShell: "NOT_PROVEN",
+  composer: "NOT_PROVEN",
+  giftAttach: "NOT_PROVEN",
+  roomId: null,
   webSenderImmediate: "NOT_PROVEN",
   webReceiverImmediate: "NOT_PROVEN",
   messageIdSame: "NOT_PROVEN",
@@ -217,12 +227,83 @@ async function unlockPendingIfLocked() {
   return readInstance();
 }
 
-async function openRoom(page, roomId) {
-  await page.goto(`${ORIGIN}/community-messenger/rooms/${encodeURIComponent(roomId)}`, {
-    waitUntil: "domcontentloaded",
-    timeout: 90000,
+async function captureRoomDom(page) {
+  return page.evaluate(() => {
+    const q = (s) => document.querySelector(s);
+    const count = (s) => document.querySelectorAll(s).length;
+    const visible = (el) => {
+      if (!el) return false;
+      const st = getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden") return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const attach = q("[data-delivery-composer-attach]");
+    return {
+      url: location.href,
+      path: location.pathname,
+      body: (document.body?.innerText || "").replace(/\s+/g, " ").slice(0, 240),
+      counts: {
+        attach: count("[data-delivery-composer-attach]"),
+        composerRow: count("[data-delivery-composer-row]"),
+        cmRoom: count("[data-cm-room]"),
+        roomId: count("[data-cm-room-id]"),
+        entryPass: count("[data-cm-room-entry-pass]"),
+        entryEmpty: count("[data-cm-room-entry-empty]"),
+        password: count('input[type="password"]'),
+      },
+      visible: {
+        attach: visible(attach),
+        composerRow: visible(q("[data-delivery-composer-row]")),
+        cmRoom: visible(q("[data-cm-room]")),
+      },
+      roomIdAttr: q("[data-cm-room-id]")?.getAttribute("data-cm-room-id") || null,
+      attachDisabled: attach ? attach.disabled : null,
+    };
   });
-  await page.locator("[data-delivery-composer-attach]").first().waitFor({ state: "visible", timeout: 60000 });
+}
+
+/**
+ * Canonical room entry: auth already on context → room URL → shell → composer → gift attach CTA.
+ * Attach alone is not treated as room-ready; each stage fails with DOM evidence.
+ */
+async function openRoom(page, roomId, label) {
+  const target = `${ORIGIN}/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+  await page.goto(target, { waitUntil: "domcontentloaded", timeout: 90000 });
+  const finalUrl = page.url();
+  if (/\/login|\/signin|\/auth/i.test(finalUrl) || finalUrl.includes("redirect=")) {
+    const dom = await captureRoomDom(page).catch(() => null);
+    await shot(page, `${label}-auth-redirect`);
+    fail("AUTH", `redirect_after_room_goto:${finalUrl}:dom=${JSON.stringify(dom)}`);
+  }
+
+  try {
+    await page.locator(`[data-cm-room-id="${roomId}"]`).first().waitFor({ state: "attached", timeout: 45000 });
+  } catch (e) {
+    const dom = await captureRoomDom(page).catch(() => null);
+    await shot(page, `${label}-shell-miss`);
+    fail("ROOM_SHELL", `room_id_marker_missing:${String(e?.message || e).slice(0, 120)}:dom=${JSON.stringify(dom)}`);
+  }
+  report.roomShell = "PASS";
+
+  try {
+    await page.locator("[data-delivery-composer-row]").first().waitFor({ state: "visible", timeout: 30000 });
+  } catch (e) {
+    const dom = await captureRoomDom(page).catch(() => null);
+    await shot(page, `${label}-composer-miss`);
+    fail("COMPOSER", `composer_row_missing:${String(e?.message || e).slice(0, 120)}:dom=${JSON.stringify(dom)}`);
+  }
+  report.composer = "PASS";
+
+  try {
+    // Product canonical gift attach entry (MessengerComposerSector).
+    await page.locator("[data-delivery-composer-attach]").first().waitFor({ state: "visible", timeout: 15000 });
+  } catch (e) {
+    const dom = await captureRoomDom(page).catch(() => null);
+    await shot(page, `${label}-attach-miss`);
+    fail("GIFT_ATTACH", `attach_not_visible:${String(e?.message || e).slice(0, 120)}:dom=${JSON.stringify(dom)}`);
+  }
+  report.giftAttach = "PASS";
 }
 
 function cardLocator(page, transferId) {
@@ -248,6 +329,7 @@ async function assertVisualNumber(page, label) {
 loadEnv();
 writeReport();
 
+async function main() {
 const browser = await chromium.launch({ headless: true });
 const ctxA = await browser.newContext({ viewport: VP });
 const ctxB = await browser.newContext({ viewport: VP });
@@ -257,24 +339,39 @@ const pageB = await ctxB.newPage();
 let offerCapture = { messageId: "", transferId: "" };
 
 try {
-  const inst = await unlockPendingIfLocked();
-  report.publicNumberSample = String(inst.public_gift_number || "").trim() || null;
-  if (inst.current_owner_user_id !== SENDER.userId) {
-    fail("FIXTURE", `owner_not_sender:${inst.current_owner_user_id}`);
-  }
-  if (String(inst.status).toUpperCase() !== "ACTIVE" && String(inst.status).toUpperCase() !== "PARTIALLY_REDEEMED") {
-    fail("FIXTURE", `status:${inst.status}`);
+  if (!ROOM_ENTRY_ONLY) {
+    const inst = await unlockPendingIfLocked();
+    report.publicNumberSample = String(inst.public_gift_number || "").trim() || null;
+    if (inst.current_owner_user_id !== SENDER.userId) {
+      fail("FIXTURE", `owner_not_sender:${inst.current_owner_user_id}`);
+    }
+    if (String(inst.status).toUpperCase() !== "ACTIVE" && String(inst.status).toUpperCase() !== "PARTIALLY_REDEEMED") {
+      fail("FIXTURE", `status:${inst.status}`);
+    }
   }
 
   await ensureContact(SENDER.userId, RECIPIENT.userId);
 
   const sessA = await loginSession(SENDER.email);
   const sessB = await loginSession(RECIPIENT.email);
+  if (String(sessA.user?.id || "") !== SENDER.userId) {
+    fail("AUTH", `sender_session_user_mismatch:${sessA.user?.id}`);
+  }
+  if (String(sessB.user?.id || "") !== RECIPIENT.userId) {
+    fail("AUTH", `recipient_session_user_mismatch:${sessB.user?.id}`);
+  }
   const sb = sbService();
   const { data: prA } = await sb.from("profiles").select("active_session_id").eq("id", SENDER.userId).maybeSingle();
   const { data: prB } = await sb.from("profiles").select("active_session_id").eq("id", RECIPIENT.userId).maybeSingle();
   await ctxA.addCookies(playwrightCookies(sessA, prA?.active_session_id ? String(prA.active_session_id) : ""));
   await ctxB.addCookies(playwrightCookies(sessB, prB?.active_session_id ? String(prB.active_session_id) : ""));
+
+  const sessCheck = await pageA.request.get(`${ORIGIN}/api/auth/session`);
+  const sessCheckJson = await sessCheck.json().catch(() => ({}));
+  if (!sessCheck.ok() || sessCheckJson?.authenticated !== true) {
+    fail("AUTH", `session_api_not_ready:${sessCheck.status()}:${JSON.stringify(sessCheckJson).slice(0, 200)}`);
+  }
+  report.auth = "PASS";
 
   const roomRes = await pageA.request.post(`${ORIGIN}/api/community-messenger/rooms`, {
     data: { roomType: "direct", peerUserId: RECIPIENT.userId },
@@ -283,9 +380,26 @@ try {
   const roomJson = await roomRes.json().catch(() => ({}));
   const roomId = String(roomJson?.roomId || "").trim();
   if (!roomId) fail("ROOM", JSON.stringify(roomJson));
+  const resolvedType = String(roomJson?.snapshot?.room?.roomType || "").trim();
+  const viewerId = String(roomJson?.snapshot?.viewerUserId || "").trim();
+  if (resolvedType !== "direct") {
+    fail("ROOM_TYPE", `expected_direct_got:${resolvedType || "missing"}`);
+  }
+  if (viewerId && viewerId !== SENDER.userId) {
+    fail("AUTH", `room_viewer_mismatch:${viewerId}`);
+  }
+  report.roomResolve = "PASS";
+  report.roomType = "FRIEND_1_TO_1";
+  report.roomId = roomId;
 
-  await openRoom(pageA, roomId);
-  await openRoom(pageB, roomId);
+  await openRoom(pageA, roomId, "sender");
+  await openRoom(pageB, roomId, "recipient");
+
+  if (ROOM_ENTRY_ONLY) {
+    writeReport();
+    console.log(JSON.stringify({ ...report, final: "ROOM_ENTRY_PASS" }, null, 2));
+    return;
+  }
 
   await pageA.locator("[data-delivery-composer-attach]").first().click();
   await pageA.locator('[data-messenger-gift-attach-cta="1"]').waitFor({ state: "visible", timeout: 15000 });
@@ -407,7 +521,10 @@ try {
 } catch (e) {
   writeReport();
   console.error(String(e?.message || e));
-  process.exit(1);
+  process.exitCode = 1;
 } finally {
   await browser.close();
 }
+}
+
+await main();
