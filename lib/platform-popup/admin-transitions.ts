@@ -10,6 +10,10 @@ import {
   canSetPlatformPopupApproval,
   canTransitionPlatformPopupStatus,
 } from "@/lib/platform-popup/campaign-lifecycle";
+import {
+  loadSnapshotForApproval,
+  validatePlatformPopupCampaignForApproval,
+} from "@/lib/platform-popup/admin-campaign-writer";
 import type {
   PlatformPopupActorRole,
   PlatformPopupApprovalStatus,
@@ -82,6 +86,29 @@ export async function transitionPlatformPopupCampaign(
   // Only admin may write approval=approved and approved_by.
   if (nextApproval === "approved" && input.actorRole !== "admin") {
     return { ok: false, error: "owner_cannot_approve", httpStatus: 403 };
+  }
+
+  // CUT 4 — approve / schedule / active require complete campaign authority.
+  if (
+    nextApproval === "approved" ||
+    nextStatus === "approved" ||
+    nextStatus === "scheduled" ||
+    nextStatus === "active"
+  ) {
+    const snap = await loadSnapshotForApproval(sb, campaignId);
+    if (!snap) return { ok: false, error: "not_found", httpStatus: 404 };
+    const gate = validatePlatformPopupCampaignForApproval({
+      ...snap,
+      status: nextStatus,
+      approvalStatus: nextApproval,
+    });
+    if (!gate.ok) {
+      return {
+        ok: false,
+        error: `approval_validation_failed:${gate.errors.join(",")}`,
+        httpStatus: 400,
+      };
+    }
   }
 
   const patch: Record<string, unknown> = {

@@ -28,6 +28,7 @@ import { adminStoreInsertionsMessages } from "./admin-store-insertions";
 import { adminStoresCompositionMessages } from "./admin-stores-composition";
 import { adminStoresProductRecoveryMessages } from "./admin-stores-product-recovery";
 import { adminDeliveryAdsMessages } from "./admin-delivery-ads";
+import { adminPlatformPopupMessages } from "./admin-platform-popup";
 import { deliveryAdsPerformanceMessages } from "./delivery-ads-performance";
 
 export const adminMessages = {
@@ -567,6 +568,7 @@ export const adminMessages = {
     admin_menu_ads_paid: "게시물 상위 노출",
     admin_menu_ads_paid_legacy: "게시물 상위 노출 (레거시·비 Feed)",
     admin_menu_ads_feed: "피드 광고 캠페인",
+    admin_menu_ads_platform_popup: "글로벌 팝업 광고",
     admin_menu_trade_audit: "거래 게시물 감사 로그",
     admin_users_staff_page_title: "스태프 (SYSTEM)",
     admin_users_staff_privilege_banner:
@@ -2759,6 +2761,7 @@ export const adminMessages = {
     ...adminStoresCompositionMessages.ko,
     ...adminStoresProductRecoveryMessages.ko,
     ...adminDeliveryAdsMessages.ko,
+    ...adminPlatformPopupMessages.ko,
     ...deliveryAdsPerformanceMessages.ko,
   },
   en: {
@@ -3297,6 +3300,7 @@ export const adminMessages = {
     admin_menu_ads_paid: "Post paid exposure",
     admin_menu_ads_paid_legacy: "Post paid exposure (legacy · not Feed)",
     admin_menu_ads_feed: "Feed ad campaigns",
+    admin_menu_ads_platform_popup: "Global Popup Ads",
     admin_menu_trade_audit: "Trade post audit log",
     admin_users_staff_page_title: "Staff (SYSTEM)",
     admin_users_staff_privilege_banner:
@@ -5463,6 +5467,7 @@ export const adminMessages = {
     ...adminStoresCompositionMessages.en,
     ...adminStoresProductRecoveryMessages.en,
     ...adminDeliveryAdsMessages.en,
+    ...adminPlatformPopupMessages.en,
     ...deliveryAdsPerformanceMessages.en,
   },
   

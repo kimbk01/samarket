@@ -206,6 +206,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-home-feed": "admin_menu_ads_home_feed",
   "ads-recommendation": "admin_menu_ads_recommendation",
   "ads-banners": "admin_menu_ads_banners",
+  "ads-platform-popup": "admin_menu_ads_platform_popup",
   "growth-rec": "admin_menu_growth_recommendation",
   "manage-ab": "admin_menu_manage_ab",
   "rec-analytics": "admin_menu_rec_analytics",
@@ -840,6 +841,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             children: [
               { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
               { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+              {
+                key: "ads-platform-popup",
+                title: "",
+                path: "/admin/platform-popup",
+                status: "done",
+                matchPaths: ["/admin/platform-popup/"],
+              },
               {
                 key: "ads-feed-applications",
                 title: "",

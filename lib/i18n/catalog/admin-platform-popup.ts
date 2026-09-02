@@ -1,0 +1,54 @@
+/**
+ * CUT 4 — Admin Platform Popup Control Center i18n (spread into adminMessages).
+ */
+
+export const adminPlatformPopupMessages = {
+  ko: {
+    admin_platform_popup_title: "글로벌 팝업 광고",
+    admin_platform_popup_list_desc: "플랫폼 팝업 캠페인 목록 · 승인 · 미리보기",
+    admin_platform_popup_detail_desc: "캠페인 편집 · 승인 · 프로덕션 렌더러 미리보기",
+    admin_platform_popup_create: "캠페인 만들기",
+    admin_platform_popup_untitled: "새 팝업 캠페인",
+    admin_platform_popup_filter_status: "상태",
+    admin_platform_popup_filter_all: "전체",
+    admin_platform_popup_loading: "불러오는 중…",
+    admin_platform_popup_empty: "캠페인이 없습니다.",
+    admin_platform_popup_save: "저장",
+    admin_platform_popup_section_basic: "기본 정보",
+    admin_platform_popup_section_creative: "크리에이티브 (36:25)",
+    admin_platform_popup_section_preview: "프로덕션 미리보기",
+    admin_platform_popup_creative_ratio_help:
+      "최종 제작물은 반드시 36:25 입니다. 비율이 다르면 중앙 크롭을 명시적으로 적용해야 합니다.",
+    admin_platform_popup_apply_center_crop: "36:25 중앙 크롭 적용 후 업로드",
+    admin_platform_popup_preview_unsaved: "저장되지 않은 미리보기",
+    admin_platform_popup_preview_saved: "저장된 데이터 미리보기",
+    admin_platform_popup_preview_landscape: "가로 모드에서는 팝업이 표시되지 않습니다 — v1 정책",
+    admin_platform_popup_preview_empty: "미리볼 크리에이티브가 없습니다.",
+    admin_platform_popup_preview_renderer_note:
+      "미리보기는 프로덕션 DibayPopupAd 렌더러를 그대로 사용합니다. 분석 이벤트는 기록되지 않습니다.",
+  },
+  en: {
+    admin_platform_popup_title: "Global Popup Ads",
+    admin_platform_popup_list_desc: "Platform popup campaigns — list, approve, preview",
+    admin_platform_popup_detail_desc: "Edit, approve, and preview with production renderer",
+    admin_platform_popup_create: "Create campaign",
+    admin_platform_popup_untitled: "New popup campaign",
+    admin_platform_popup_filter_status: "Status",
+    admin_platform_popup_filter_all: "All",
+    admin_platform_popup_loading: "Loading…",
+    admin_platform_popup_empty: "No campaigns yet.",
+    admin_platform_popup_save: "Save",
+    admin_platform_popup_section_basic: "Basic info",
+    admin_platform_popup_section_creative: "Creative (36:25)",
+    admin_platform_popup_section_preview: "Production preview",
+    admin_platform_popup_creative_ratio_help:
+      "Final creative must be 36:25. Non-matching images require explicit center crop.",
+    admin_platform_popup_apply_center_crop: "Upload with 36:25 center crop",
+    admin_platform_popup_preview_unsaved: "UNSAVED PREVIEW DATA",
+    admin_platform_popup_preview_saved: "SAVED PRODUCTION DATA preview",
+    admin_platform_popup_preview_landscape: "Popup not displayed in landscape — v1 policy",
+    admin_platform_popup_preview_empty: "No creative to preview.",
+    admin_platform_popup_preview_renderer_note:
+      "Preview uses the exact production DibayPopupAd renderer. Analytics events are not written.",
+  },
+} as const;
