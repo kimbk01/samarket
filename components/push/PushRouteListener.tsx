@@ -39,7 +39,8 @@ import {
 import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
 import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal-entry";
-import { openSupportModal } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
+import { buildSupportCaseRoute } from "@/lib/support/support-case-types";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -113,7 +114,7 @@ function writeNotificationDedupe(map: Map<string, number>): void {
   sessionStorage.setItem(NOTIFICATION_DEDUPE_KEY, JSON.stringify(pruned));
 }
 
-function shouldIgnoreNotification(notificationId: string | undefined): boolean {
+function isDuplicateNotification(notificationId: string | undefined): boolean {
   const id = notificationId?.trim();
   if (!id) return false;
   const map = readNotificationDedupe();
@@ -123,9 +124,15 @@ function shouldIgnoreNotification(notificationId: string | undefined): boolean {
     console.info("[push-route] duplicate_ignored", { notificationId: id });
     return true;
   }
-  map.set(id, now);
-  writeNotificationDedupe(map);
   return false;
+}
+
+function markNotificationConsumed(notificationId: string | undefined): void {
+  const id = notificationId?.trim();
+  if (!id) return;
+  const map = readNotificationDedupe();
+  map.set(id, Date.now());
+  writeNotificationDedupe(map);
 }
 
 /**
@@ -169,7 +176,25 @@ export function PushRouteListener() {
       if (phase !== "authenticated") return;
       const pending = readPendingPushRoute();
       if (!pending?.path) return;
-      console.info("[push-route] auth_resolved_replay", { path: pending.path, phase });
+      console.info("[push-route] auth_resolved_replay", {
+        path: pending.path,
+        phase,
+        kind: pending.kind ?? null,
+        caseId: pending.caseId ?? null,
+      });
+      if (pending.kind === "support_modal" && pending.caseId) {
+        const delivered = deliverSupportOpen({
+          caseId: pending.caseId,
+          notificationId: pending.notificationId,
+          source: "push",
+        });
+        if (delivered.ok) {
+          markNotificationConsumed(pending.notificationId ?? undefined);
+          clearPendingPushRoute();
+          void clearNativePersistedPendingPushRoute();
+        }
+        return;
+      }
       navigateRef.current?.(pending.path, pending.notificationId ?? undefined, undefined, {
         skipNotificationDedupe: true,
       });
@@ -187,7 +212,7 @@ export function PushRouteListener() {
     ) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
-      if (!opts?.skipNotificationDedupe && shouldIgnoreNotification(notificationId)) return;
+      if (!opts?.skipNotificationDedupe && isDuplicateNotification(notificationId)) return;
 
       suppressCmRoomEntryNotificationSound(path);
 
@@ -210,9 +235,12 @@ export function PushRouteListener() {
       });
 
       const authGate = resolvePushAuthGate(sessionPhaseRef.current, path);
+      const supportCaseIdForHold = parseSupportCaseIdFromPushPath(path);
       if (authGate === "hold") {
         writePendingPushRoute({
           path,
+          kind: supportCaseIdForHold ? "support_modal" : null,
+          caseId: supportCaseIdForHold,
           notificationId: notificationId ?? null,
           at: Date.now(),
           source: "auth_resolution_hold",
@@ -221,12 +249,15 @@ export function PushRouteListener() {
         console.info("[push-route] auth_resolution_hold", {
           path,
           phase: sessionPhaseRef.current,
+          kind: supportCaseIdForHold ? "support_modal" : null,
         });
         return;
       }
       if (authGate === "login") {
         writePendingPushRoute({
           path,
+          kind: supportCaseIdForHold ? "support_modal" : null,
+          caseId: supportCaseIdForHold,
           notificationId: notificationId ?? null,
           at: Date.now(),
           source: "auth_required_login",
@@ -305,13 +336,24 @@ export function PushRouteListener() {
       }
 
       /**
-       * Support exact-case restore — open modal in place.
-       * Do NOT push /support/cases/{id} (bootstrap page → replace("/") bounce causes
-       * slow entry + conversation remount flicker on iOS APNS tap).
+       * Support exact-case restore — deliverSupportOpen only (no bootstrap bounce).
        */
       const supportCaseId = parseSupportCaseIdFromPushPath(path);
       if (supportCaseId) {
-        const opened = openSupportModal({ caseId: supportCaseId });
+        const delivered = deliverSupportOpen({
+          caseId: supportCaseId,
+          notificationId: notificationId ?? null,
+          source: "push",
+        });
+        if (!delivered.ok) {
+          console.info("[push-route] support_delivery_failed", {
+            path,
+            caseId: supportCaseId,
+            error: delivered.error,
+          });
+          return;
+        }
+        markNotificationConsumed(notificationId);
         maybeMarkMemberAOnPushTap(path, notificationId, transport);
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
@@ -322,13 +364,15 @@ export function PushRouteListener() {
           router.replace("/");
         }
         console.info("[push-route] webview_route_delivered", {
-          path,
+          path: buildSupportCaseRoute(supportCaseId),
           via: "support_modal_direct",
-          opened,
+          opened: true,
           caseId: supportCaseId,
         });
         return;
       }
+
+      markNotificationConsumed(notificationId);
 
       if (isCallRoute(path) && shouldReplaceRoute(path)) {
         const sid = readCalleeAcceptSessionIdFromPath(path);

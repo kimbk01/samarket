@@ -5,9 +5,12 @@ export const PENDING_PUSH_ROUTE_TTL_MS = 60_000;
 
 /**
  * Canonical pending only — never store title/body/full FCM payload.
+ * Support modal holds use kind=support_modal + caseId (not URL-only authority).
  */
 export type PendingPushRoute = {
   path: string;
+  kind?: "support_modal" | null;
+  caseId?: string | null;
   notificationId?: string | null;
   at: number;
   /** Optional resolve metadata (not product copy). */
@@ -43,8 +46,12 @@ export function readPendingPushRoute(now = Date.now()): PendingPushRoute | null 
     const source = typeof parsed.source === "string" ? parsed.source : null;
     const fallbackReason =
       typeof parsed.fallbackReason === "string" ? parsed.fallbackReason : null;
+    const kind = parsed.kind === "support_modal" ? "support_modal" : null;
+    const caseId = typeof parsed.caseId === "string" ? parsed.caseId.trim() : null;
     return {
       path,
+      kind,
+      caseId: caseId || null,
       notificationId,
       at: at || now,
       source,
@@ -70,6 +77,8 @@ export function writePendingPushRoute(route: PendingPushRoute): void {
     const safe: PendingPushRoute = {
       path: route.path.trim(),
       at: route.at || Date.now(),
+      kind: route.kind === "support_modal" ? "support_modal" : null,
+      caseId: route.caseId?.trim() || null,
       notificationId: route.notificationId ?? null,
       source: route.source ?? null,
       fallbackReason: route.fallbackReason ?? null,

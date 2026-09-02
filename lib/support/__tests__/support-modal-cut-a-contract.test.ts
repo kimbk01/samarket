@@ -7,13 +7,14 @@ import {
   resetSupportModalToStart,
   setSupportModalCaseId,
 } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = join(__dirname, "..", "..", "..");
 
-describe("support modal CUT A contracts", () => {
+describe("support modal CUT A / reconstruction contracts", () => {
   beforeEach(() => {
     closeSupportModal();
   });
@@ -39,6 +40,29 @@ describe("support modal CUT A contracts", () => {
     ).toBe(true);
     expect(getSupportModalState().phase).toBe("open");
     expect(getSupportModalState().caseId).toBeNull();
+  });
+
+  it("deliverSupportOpen is the single entry for case and context", () => {
+    const miss = deliverSupportOpen({ source: "cta" });
+    expect(miss.ok).toBe(false);
+
+    const ctx = buildMemberSupportContext({
+      enabled: true,
+      category: "ORDER",
+      sourceSurface: "order_detail",
+    });
+    const start = deliverSupportOpen({ context: ctx, source: "fab" });
+    expect(start.ok).toBe(true);
+    expect(getSupportModalState().phase).toBe("open");
+    expect(getSupportModalState().caseId).toBeNull();
+
+    closeSupportModal();
+    const active = deliverSupportOpen({
+      caseId: "case-recon-1",
+      source: "push",
+    });
+    expect(active.ok).toBe(true);
+    expect(getSupportModalState().caseId).toBe("case-recon-1");
   });
 
   it("문의하기 path does not invent caseId until setSupportModalCaseId", () => {
@@ -97,50 +121,76 @@ describe("support modal CUT A contracts", () => {
     ).toBe(true);
   });
 
-  it("Support sheet wiring uses device-bottom and heightRatio 0.8 (no fake handle)", () => {
+  it("ONE geometry owner SupportSheetShell — no Support heightPx/keyboard dual", () => {
     const host = readFileSync(
       join(ROOT, "components/support/SupportModalHost.tsx"),
       "utf8"
     );
-    expect(host).toContain('anchor="device-bottom"');
-    expect(host).toContain("showHandle={false}");
-    expect(host).toContain("heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
-    expect(host).toContain("0.8");
-    expect(host).toContain("heightPx={activeSheetHeightPx}");
-    expect(host).toContain("stageStyle={keyboardStageStyle}");
-    expect(host).toContain("load({ silent: true })");
+    const shell = readFileSync(
+      join(ROOT, "components/support/SupportSheetShell.tsx"),
+      "utf8"
+    );
+    expect(host).toContain("SupportSheetShell");
+    expect(host).not.toContain("DibayBottomSheet");
+    expect(host).not.toContain("SUPPORT_SHEET_KB_MIN_HEIGHT_PX");
+    expect(host).not.toContain("keyboardBandActive");
+    expect(host).not.toContain("activeSheetHeightPx");
+    expect(host).not.toContain("keyboardStageStyle");
+    expect(host).not.toContain("heightPx=");
+    expect(host).not.toContain("scrollIntoView");
     expect(host).toContain("json.message");
     expect(host).toContain("el.scrollTop = el.scrollHeight");
-    expect(host).not.toContain("scrollIntoView");
-    expect(host).not.toContain("above-bottom-nav");
-    expect(host).not.toContain("contentPaddingBottomPx={keyboardInset");
+    expect(shell).toContain("useFormKeyboardViewport");
+    expect(shell).toContain("effectiveBottomInset");
+    expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO");
+    expect(shell).toContain("0.8");
+    expect(shell).not.toContain("heightPx = vv");
   });
 
-  it("DibayBottomSheet exposes heightRatio and dismissible", () => {
+  it("eager SupportModalHost independent of FAB lazy host", () => {
+    const shell = readFileSync(
+      join(ROOT, "components/layout/ConditionalAppShell.tsx"),
+      "utf8"
+    );
+    const fabHost = readFileSync(
+      join(ROOT, "components/support/SupportFabHost.tsx"),
+      "utf8"
+    );
+    expect(shell).toContain("SupportModalHost");
+    expect(shell).toContain("<SupportModalHost />");
+    expect(shell).toContain("SupportFabHostLazy");
+    expect(fabHost).not.toContain("SupportModalHost");
+  });
+
+  it("push uses deliverSupportOpen and marks after success", () => {
+    const listener = readFileSync(
+      join(ROOT, "components/push/PushRouteListener.tsx"),
+      "utf8"
+    );
+    expect(listener).toContain("deliverSupportOpen");
+    expect(listener).toContain('source: "push"');
+    expect(listener).toContain("markNotificationConsumed");
+    expect(listener).toContain("isDuplicateNotification");
+    expect(listener).toContain('"support_modal"');
+    expect(listener).toContain("markNotificationConsumed(notificationId)");
+    expect(listener).not.toContain("shouldIgnoreNotification");
+    expect(listener).not.toContain("openSupportModal({ caseId: supportCaseId })");
+  });
+
+  it("navigateToSupportCenter opens via deliverSupportOpen", () => {
+    const openSrc = readFileSync(join(ROOT, "lib/support/open-support-center.ts"), "utf8");
+    expect(openSrc).toContain("deliverSupportOpen");
+    expect(openSrc).toContain("navigateToSupportCenter");
+    expect(openSrc).not.toContain("window.location.assign");
+  });
+
+  it("DibayBottomSheet no longer exposes Support heightPx dual mode", () => {
     const sheet = readFileSync(
       join(ROOT, "components/ui/dibay-overlay/DibayBottomSheet.tsx"),
       "utf8"
     );
     expect(sheet).toContain("heightRatio");
-    expect(sheet).toContain("heightPx");
-    expect(sheet).toContain("dismissible");
-    expect(sheet).toContain("stageStyle");
-  });
-
-  it("overlay root gates 하→상 enter on mounted + double rAF", () => {
-    const root = readFileSync(
-      join(ROOT, "components/ui/dibay-overlay/DibayOverlayRoot.tsx"),
-      "utf8"
-    );
-    expect(root).toContain("if (!mounted) return");
-    expect(root).toContain("requestAnimationFrame(() => setEntered(true))");
-    expect(root).toMatch(/requestAnimationFrame\(\(\) => \{\s*raf2 = requestAnimationFrame/);
-    expect(root).toContain("[open, mounted]");
-  });
-
-  it("navigateToSupportCenter opens modal (no hard assign as primary)", () => {
-    const openSrc = readFileSync(join(ROOT, "lib/support/open-support-center.ts"), "utf8");
-    expect(openSrc).toContain("openSupportModal");
-    expect(openSrc).toContain("navigateToSupportCenter");
+    expect(sheet).not.toContain("heightPx");
+    expect(sheet).toContain("Support Modal does not use this component");
   });
 });

@@ -113,9 +113,10 @@ describe("support fab visibility contract", () => {
     }
   });
 
-  it("ConditionalAppShell mounts SupportFabHost without pathname gate", () => {
+  it("ConditionalAppShell mounts eager SupportModalHost and lazy FAB host", () => {
     const shell = readRepo("components/layout/ConditionalAppShell.tsx");
     expect(shell).toContain("SupportFabHostLazy");
+    expect(shell).toContain("<SupportModalHost />");
     expect(shell).toContain("SupportFabRegistryProvider");
     expect(shell).not.toMatch(/SupportFabHost[\s\S]{0,200}usePathname/);
   });

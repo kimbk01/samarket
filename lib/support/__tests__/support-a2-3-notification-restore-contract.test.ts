@@ -45,22 +45,38 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(svc).not.toContain("/mypage/inbox");
   });
 
-  it("bootstrap waits for auth then opens modal and replaces full-page", () => {
+  it("bootstrap alias delivers modal then replaces full-page", () => {
     const boot = read("components/support/SupportCaseBootstrapClient.tsx");
     expect(boot).toContain("ensureSessionHealthy");
-    expect(boot).toContain("openSupportModal");
+    expect(boot).toContain("deliverSupportOpen");
+    expect(boot).toContain('source: "bootstrap"');
     expect(boot).toContain('router.replace("/")');
     expect(boot).toContain('getSessionPhase() === "authenticated"');
     expect(boot).not.toContain("token_hash");
     expect(boot).not.toContain("revoke");
   });
 
-  it("push tap opens Support Modal directly without /support/cases bounce", () => {
+  it("push tap delivers Support Modal without /support/cases router bounce", () => {
     const entry = read("lib/support/support-push-modal-entry.ts");
     expect(entry).toContain("parseSupportCaseIdFromPushPath");
     const listener = read("components/push/PushRouteListener.tsx");
     expect(listener).toContain("support_modal_direct");
+    expect(listener).toContain("deliverSupportOpen");
     expect(listener).toContain("parseSupportCaseIdFromPushPath");
+    expect(listener).not.toContain('router.push(`/support/cases');
+  });
+
+  it("inbox activation uses deliverSupportOpen for support cases", () => {
+    const nav = read("lib/notifications/navigate-notification-destination.ts");
+    expect(nav).toContain("deliverSupportOpen");
+    expect(nav).toContain("parseSupportCaseIdFromPushPath");
+    expect(nav).toContain('source: "inbox"');
+  });
+
+  it("support push notification_type is notification not chat", () => {
+    const dispatcher = read("lib/notifications/pipeline/notify-push-dispatcher.ts");
+    expect(dispatcher).toContain('row.type.startsWith("support_")');
+    expect(dispatcher).toContain('? "notification"');
   });
 
   it("sheet close button does not use full-width overlay text btn (title crush)", () => {

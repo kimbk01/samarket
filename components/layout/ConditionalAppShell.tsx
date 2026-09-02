@@ -67,6 +67,7 @@ import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { BottomNav } from "./BottomNav";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
+import { SupportModalHost } from "@/components/support/SupportModalHost";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -409,6 +410,7 @@ export function ConditionalAppShell({
       !supportModalSuppressesBottomNav ? (
         <MainBottomNavFabSectorLazy />
       ) : null}
+      <SupportModalHost />
       <SupportFabHostLazy />
       <GlobalPopupHostLazy />
       <BootThumbnailObserver />

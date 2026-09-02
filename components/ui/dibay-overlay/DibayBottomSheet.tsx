@@ -19,27 +19,23 @@ export type DibayBottomSheetProps = {
   dismissible?: boolean;
   /**
    * Fixed sheet height as a fraction of dvh (e.g. 0.8 = ~80% usable viewport).
-   * When set, overrides default max-height caps (Support Sheet contract).
+   * When set, overrides default max-height caps.
    */
   heightRatio?: number;
-  /**
-   * Absolute panel height in CSS px (keyboard-visible band).
-   * When set, wins over heightRatio — avoids 80dvh + keyboard padding double push.
-   */
-  heightPx?: number | null;
   children: ReactNode;
   footer?: ReactNode;
   zIndexClass?: string;
   ariaLabel?: string;
   panelClassName?: string;
-  /** Extra bottom padding inside panel (e.g. safe area). Do not pass keyboard occlusion when heightPx already fits the visual band. */
+  /** Extra bottom padding inside panel (e.g. safe area). */
   contentPaddingBottomPx?: number;
-  /** Forwarded to overlay root — pin sheet stage to visualViewport while keyboard open. */
+  /** Forwarded to overlay root (non-Support consumers). */
   stageStyle?: CSSProperties;
 };
 
 /**
  * Bottom sheet — default ABOVE_BOTTOM_NAV using MAIN_BOTTOM_NAV_SHEET_* authority.
+ * Support Modal does not use this component for geometry (see SupportSheetShell).
  */
 export function DibayBottomSheet({
   open,
@@ -49,7 +45,6 @@ export function DibayBottomSheet({
   showHandle = true,
   dismissible = true,
   heightRatio,
-  heightPx,
   children,
   footer,
   zIndexClass,
@@ -61,20 +56,13 @@ export function DibayBottomSheet({
   const { titleId } = useOverlayTitleIds("sheet");
   const aboveNav = anchor === "above-bottom-nav";
   const hasFooter = footer != null;
-  const absoluteHeightPx =
-    typeof heightPx === "number" && Number.isFinite(heightPx) && heightPx > 0
-      ? Math.round(heightPx)
-      : null;
   const ratio =
-    absoluteHeightPx == null &&
-    typeof heightRatio === "number" &&
-    heightRatio > 0 &&
-    heightRatio <= 1
+    typeof heightRatio === "number" && heightRatio > 0 && heightRatio <= 1
       ? heightRatio
       : null;
 
   const stageClassName = "items-end";
-  const usesFixedHeight = absoluteHeightPx != null || ratio != null;
+  const usesFixedHeight = ratio != null;
 
   const panelStyle: CSSProperties = {
     ...(contentPaddingBottomPx != null
@@ -82,26 +70,17 @@ export function DibayBottomSheet({
       : aboveNav
         ? {}
         : { paddingBottom: "max(1rem, var(--safe-bottom))" }),
-    ...(absoluteHeightPx != null
+    ...(ratio != null
       ? {
-          height: absoluteHeightPx,
-          maxHeight: absoluteHeightPx,
-          minHeight: absoluteHeightPx,
+          height: `${Math.round(ratio * 100)}dvh`,
+          maxHeight: `${Math.round(ratio * 100)}dvh`,
+          minHeight: `${Math.round(ratio * 100)}dvh`,
         }
-      : ratio != null
-        ? {
-            // Fixed usable height — do NOT use min(Ndvh, 100%) (parent % collapses to content).
-            height: `${Math.round(ratio * 100)}dvh`,
-            maxHeight: `${Math.round(ratio * 100)}dvh`,
-            minHeight: `${Math.round(ratio * 100)}dvh`,
-          }
-        : {}),
+      : {}),
   };
 
-  // Footer present: outer must not scroll — body scrolls, footer stays as flex sibling.
-  // heightRatio / heightPx (Support sheet): fixed panel height — flex column so chrome/composer layout.
-  // Footer absent + no ratio: panel scrolls; do not wrap children in overflow-hidden (clips last actions).
-  const overflowClass = usesFixedHeight || hasFooter
+  const overflowClass =
+    hasFooter || usesFixedHeight
       ? "flex flex-col overflow-hidden overscroll-contain"
       : "overflow-y-auto overscroll-contain";
 
@@ -131,7 +110,6 @@ export function DibayBottomSheet({
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}
         data-sheet-height-ratio={ratio != null ? String(ratio) : undefined}
-        data-sheet-height-px={absoluteHeightPx != null ? String(absoluteHeightPx) : undefined}
         data-form-keyboard-surface={usesFixedHeight ? "1" : undefined}
       >
         {showHandle ? <div className={OverlayUi.sheetHandle} aria-hidden /> : null}

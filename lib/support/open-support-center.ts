@@ -3,7 +3,7 @@ import {
   isSupportContextEnabled,
   SUPPORT_CONTEXT_SESSION_KEY,
 } from "@/lib/support/support-context";
-import { openSupportModal } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 
 export const SUPPORT_CENTER_ENTER_PATH = "/support/enter";
 
@@ -15,9 +15,8 @@ export type OpenSupportCenterResult =
   | { ok: false; error: "disabled" | "storage_unavailable" };
 
 /**
- * Canonical Support Center entry — FAB and inline CTAs must use this only.
- * sessionStorage stashes UX context only; authorization happens on POST /api/support/cases/open.
- * Daily path: opens Support Modal (does not hard-navigate).
+ * Persist START context for cold enter alias only.
+ * Daily FAB/CTA must use navigateToSupportCenter → deliverSupportOpen.
  */
 export function openSupportCenter(context: SupportContext): OpenSupportCenterResult {
   if (!isSupportContextEnabled(context)) {
@@ -77,15 +76,10 @@ export function consumeSupportModalRestoreCaseId(): string | null {
 }
 
 /**
- * Daily FAB/CTA entry — Support Modal on current shell (no hard navigation).
- * Falls back to /support/enter only if modal open fails (e.g. disabled).
+ * Daily FAB/CTA entry — deliverSupportOpen only (no hard navigation).
  */
 export function navigateToSupportCenter(context: SupportContext): boolean {
-  const res = openSupportCenter(context);
-  if (!res.ok) return false;
-  if (openSupportModal({ context })) {
-    return true;
-  }
-  window.location.assign(res.href);
-  return true;
+  if (!isSupportContextEnabled(context)) return false;
+  const delivered = deliverSupportOpen({ context, source: "fab" });
+  return delivered.ok;
 }

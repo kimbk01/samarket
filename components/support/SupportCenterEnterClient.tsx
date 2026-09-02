@@ -7,11 +7,10 @@ import {
   clearPendingSupportContext,
   readPendingSupportContext,
 } from "@/lib/support/open-support-center";
-import { openSupportModal } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 
 /**
- * Cold-start bootstrap only — opens Support Modal on shell, then leaves enter route.
- * Does not create a case until user taps 문의하기 in the modal.
+ * Cold-start bootstrap alias only — opens Support Modal, then leaves enter route.
  */
 export function SupportCenterEnterClient() {
   const { safeT } = useI18n();
@@ -24,9 +23,9 @@ export function SupportCenterEnterClient() {
       setError("missing_context");
       return;
     }
-    const ok = openSupportModal({ context });
+    const delivered = deliverSupportOpen({ context, source: "enter" });
     clearPendingSupportContext();
-    if (!ok) {
+    if (!delivered.ok) {
       setError("open_failed");
       return;
     }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { openSupportModal } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import type { SupportCaseRow } from "@/lib/support/support-case-types";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 
@@ -89,7 +89,7 @@ export function SupportCasesHistoryList({
             type="button"
             className="flex w-full min-h-11 items-start gap-3 px-4 py-3 text-left transition active:bg-sam-surface-muted"
             onClick={() => {
-              openSupportModal({ caseId: c.id });
+              deliverSupportOpen({ caseId: c.id, source: "history" });
             }}
           >
             <div className="min-w-0 flex-1">

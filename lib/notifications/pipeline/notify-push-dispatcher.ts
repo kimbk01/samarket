@@ -61,13 +61,15 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
           ? "marketing"
           : communityPushType
             ? communityPushType
-            : row.type === "admin_notice" ||
-                row.type === "trade_status" ||
-                row.type === "order_status" ||
-                row.type === "delivery_status" ||
-                row.type === "admin_test"
-              ? "system"
-              : "chat",
+            : row.type.startsWith("support_")
+              ? "notification"
+              : row.type === "admin_notice" ||
+                  row.type === "trade_status" ||
+                  row.type === "order_status" ||
+                  row.type === "delivery_status" ||
+                  row.type === "admin_test"
+                ? "system"
+                : "chat",
     title: row.title,
     body: row.body,
     link_url,

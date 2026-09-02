@@ -1,9 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { SupportFab } from "@/components/support/SupportFab";
-import { SupportModalHost } from "@/components/support/SupportModalHost";
 import { useSupportFabVisible } from "@/lib/support/use-support-context";
 import { useSupportFabRegistry } from "@/lib/support/support-fab-registry";
 import {
@@ -16,11 +14,10 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { useBottomNavOccupiesClearance } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { useSyncExternalStore } from "react";
 
 /**
- * Global Support FAB host — renders only when a screen published `enabled: true`.
- * DO NOT use pathname or role for visibility.
- * Support Modal Host is always mounted (cold-start restore / controller).
+ * Support FAB only — modal host is mounted eagerly by ConditionalAppShell.
  */
 export function SupportFabHost() {
   const visible = useSupportFabVisible();
@@ -37,20 +34,18 @@ export function SupportFabHost() {
     : "bottom-[calc(var(--safe-bottom)+16px)]";
 
   const showFab = visible && !modalOpen;
+  if (!showFab) return null;
 
   return (
     <BodyPortal>
-      <SupportModalHost />
-      {showFab ? (
-        <div
-          className={`pointer-events-none fixed inset-x-0 ${bottomClass} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS}`}
-          data-support-fab-host="1"
-        >
-          <div className={`${APP_MAIN_COLUMN_CLASS} flex justify-end px-4`}>
-            <SupportFab context={context} />
-          </div>
+      <div
+        className={`pointer-events-none fixed inset-x-0 ${bottomClass} ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS}`}
+        data-support-fab-host="1"
+      >
+        <div className={`${APP_MAIN_COLUMN_CLASS} flex justify-end px-4`}>
+          <SupportFab context={context} />
         </div>
-      ) : null}
+      </div>
     </BodyPortal>
   );
 }

@@ -7,16 +7,11 @@ import {
   ensureSessionHealthy,
   getSessionPhase,
 } from "@/lib/auth/dibay-session-manager";
-import { stashSupportModalRestoreCaseId } from "@/lib/support/open-support-center";
-import { openSupportModal } from "@/lib/support/support-modal-controller";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 
 /**
- * A2-3 cold-start / deeplink bootstrap —
- * auth restore first, then Support Modal for exact case, leave full-page route.
- * Session token lifecycle / CUT B is out of scope.
- *
- * When session is already authenticated (warm push / in-app), open the modal
- * immediately — do not wait on a second ensureSessionHealthy round-trip.
+ * Compatibility deep-link alias only — not primary product entry.
+ * Auth restore → deliverSupportOpen → leave full-page route.
  */
 export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
   const { safeT } = useI18n();
@@ -27,27 +22,22 @@ export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
     const id = caseId.trim();
     if (!id) return;
 
-    const finish = (opened: boolean) => {
+    const finish = () => {
       if (cancelled) return;
-      if (!opened) {
-        stashSupportModalRestoreCaseId(id);
-      }
-      // Leave bootstrap URL so back does not re-enter full-page residue.
       router.replace("/");
     };
 
-    // Warm path: modal first, then leave the bootstrap page (no auth wait).
     if (getSessionPhase() === "authenticated") {
-      const opened = openSupportModal({ caseId: id });
-      finish(opened);
+      deliverSupportOpen({ caseId: id, source: "bootstrap" });
+      finish();
       return;
     }
 
     void (async () => {
       await ensureSessionHealthy("support_case_bootstrap");
       if (cancelled) return;
-      const opened = openSupportModal({ caseId: id });
-      finish(opened);
+      deliverSupportOpen({ caseId: id, source: "bootstrap" });
+      finish();
     })();
 
     return () => {

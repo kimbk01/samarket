@@ -11,12 +11,13 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
+import { SupportSheetShell } from "@/components/support/SupportSheetShell";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
-import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupportContext } from "@/lib/support/support-context";
 import { isSupportContextEnabled } from "@/lib/support/support-context";
+import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import {
   clearPendingSupportContext,
   consumeSupportModalRestoreCaseId,
@@ -25,7 +26,6 @@ import {
 import {
   closeSupportModal,
   getSupportModalState,
-  openSupportModal,
   resetSupportModalToStart,
   setSupportModalCaseId,
   subscribeSupportModalState,
@@ -34,12 +34,8 @@ import {
 import { useSupportModalMainBottomNavSuppress } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
 
-const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
 const HISTORY_KEY = "dibaySupportModal";
-/** Min visible band (px) before falling back to ratio height. */
-const SUPPORT_SHEET_KB_MIN_HEIGHT_PX = 280;
 
-/** Keep previous array identity when silent refresh has the same message ids/bodies. */
 function sameSupportMessages(
   prev: SupportMessageRow[],
   next: SupportMessageRow[]
@@ -53,6 +49,14 @@ function sameSupportMessages(
     }
   }
   return true;
+}
+
+function mergeSupportMessage(
+  prev: SupportMessageRow[],
+  message: SupportMessageRow
+): SupportMessageRow[] {
+  if (prev.some((m) => m.id === message.id)) return prev;
+  return [...prev, message];
 }
 
 function statusLabelMeta(status: SupportCaseRow["status"] | null): {
@@ -95,7 +99,7 @@ function SupportSheetChrome({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-3 flex shrink-0 items-start gap-2">
+      <div className="mb-2 flex shrink-0 items-start gap-2">
         <div className="min-w-0 flex-1 pr-1">
           <h2
             id={titleId}
@@ -191,7 +195,6 @@ function SupportActiveConversation({
             credentials: "include",
           });
         let res = await fetchCase();
-        // Cold-start race: session may still be restoring — heal once then retry.
         if (res.status === 401) {
           const { ensureSessionHealthy } = await import("@/lib/auth/dibay-session-manager");
           await ensureSessionHealthy("support_modal_case_load");
@@ -204,7 +207,6 @@ function SupportActiveConversation({
           error?: string;
         };
         if (!res.ok || !json.ok || !json.case) {
-          // Fail-closed: do not fall back to legacy inquiry / messenger routes.
           setError(
             res.status === 401
               ? "unauthorized"
@@ -252,11 +254,11 @@ function SupportActiveConversation({
   }, []);
 
   useEffect(() => {
-    // Container scroll only — avoid viewport-panning scroll helpers on iOS keyboard.
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
+
   useEffect(() => {
     const sb = getSupabaseClient();
     if (!sb) return;
@@ -314,11 +316,8 @@ function SupportActiveConversation({
         return;
       }
       setDraft("");
-      // POST already returns the row — append locally. Full reload was the send flicker root.
       if (json.message) {
-        setMessages((prev) =>
-          prev.some((m) => m.id === json.message!.id) ? prev : [...prev, json.message!]
-        );
+        setMessages((prev) => mergeSupportMessage(prev, json.message!));
       } else {
         await load({ silent: true });
       }
@@ -378,6 +377,7 @@ function SupportActiveConversation({
         <div
           ref={listRef}
           className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain"
+          data-support-message-list="1"
         >
           {messages.map((m) => {
             const mine = m.sender_type === "MEMBER" || m.sender_type === "OWNER";
@@ -413,9 +413,9 @@ function SupportActiveConversation({
         </div>
       )}
 
-      <div className="shrink-0 space-y-2 pt-3" data-form-keyboard-footer="1">
+      <div className="shrink-0 pt-2" data-form-keyboard-footer="1" data-support-composer="1">
         {closed ? (
-          <>
+          <div className="space-y-2">
             <p className={`${OverlayUi.bodySecondary} !mb-0`}>
               {safeT("support_case_closed_hint", {
                 fallbackKo: "이 문의는 종료되었습니다.",
@@ -432,9 +432,9 @@ function SupportActiveConversation({
                 fallbackEn: "New inquiry",
               })}
             </DibayOverlayButton>
-          </>
+          </div>
         ) : (
-          <>
+          <div className="space-y-1.5">
             {offline ? (
               <p className={`${OverlayUi.caption} !mb-0 text-amber-700`}>
                 {safeT("support_offline_hint", {
@@ -446,31 +446,33 @@ function SupportActiveConversation({
             {error ? (
               <p className={`${OverlayUi.caption} !mb-0 text-red-600`}>{error}</p>
             ) : null}
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={2}
-              data-form-keyboard-field="1"
-              disabled={sending || offline}
-              className={`${OverlayUi.input} w-full resize-none !min-h-[44px]`}
-              placeholder={safeT("support_message_placeholder", {
-                fallbackKo: "메시지를 입력하세요",
-                fallbackEn: "Type your message",
-              })}
-            />
-            <DibayOverlayButton
-              roleTone="primary"
-              className="w-full !min-h-11"
-              disabled={sending || offline || !draft.trim()}
-              loading={sending}
-              onClick={() => void send()}
-            >
-              {safeT("support_send_cta", {
-                fallbackKo: "전송",
-                fallbackEn: "Send",
-              })}
-            </DibayOverlayButton>
-          </>
+            <div className="flex items-end gap-2">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={1}
+                data-form-keyboard-field="1"
+                disabled={sending || offline}
+                className={`${OverlayUi.input} min-h-11 flex-1 resize-none !py-2.5`}
+                placeholder={safeT("support_message_placeholder", {
+                  fallbackKo: "메시지를 입력하세요",
+                  fallbackEn: "Type your message",
+                })}
+              />
+              <DibayOverlayButton
+                roleTone="primary"
+                className="!min-h-11 !min-w-[4.5rem] shrink-0 !px-3"
+                disabled={sending || offline || !draft.trim()}
+                loading={sending}
+                onClick={() => void send()}
+              >
+                {safeT("support_send_cta", {
+                  fallbackKo: "전송",
+                  fallbackEn: "Send",
+                })}
+              </DibayOverlayButton>
+            </div>
+          </div>
         )}
       </div>
     </SupportSheetChrome>
@@ -542,7 +544,7 @@ function SupportStartBody({
         ) : null}
       </div>
       {context ? (
-        <div className="shrink-0 pt-3">
+        <div className="shrink-0 pt-2">
           <DibayOverlayButton
             roleTone="primary"
             className="w-full !min-h-11"
@@ -583,33 +585,18 @@ export function SupportModalHost() {
   const [activeDismissible, setActiveDismissible] = useState(false);
   const historyPushed = useRef(false);
   const closingFromPop = useRef(false);
-  const kb = useFormKeyboardViewport({ enabled: open });
-  const keyboardBandActive =
-    kb.keyboardOpen && kb.visualViewportHeight >= SUPPORT_SHEET_KB_MIN_HEIGHT_PX;
-  const activeSheetHeightPx = keyboardBandActive
-    ? Math.round(kb.visualViewportHeight)
-    : null;
-  const keyboardStageStyle = keyboardBandActive
-    ? {
-        top: Math.max(0, Math.round(kb.visualViewportOffsetTop)),
-        height: Math.round(kb.visualViewportHeight),
-        left: 0,
-        right: 0,
-        bottom: "auto" as const,
-      }
-    : undefined;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (getSupportModalState().phase === "open") return;
     const restoreId = consumeSupportModalRestoreCaseId();
     if (restoreId) {
-      openSupportModal({ caseId: restoreId });
+      deliverSupportOpen({ caseId: restoreId, source: "restore" });
       return;
     }
     const pending = readPendingSupportContext();
     if (pending) {
-      openSupportModal({ context: pending });
+      deliverSupportOpen({ context: pending, source: "enter" });
       clearPendingSupportContext();
     }
   }, []);
@@ -711,20 +698,16 @@ export function SupportModalHost() {
 
   const showStart = open && !modal.caseId;
   const showActive = open && Boolean(modal.caseId);
-  const startDismissible = true;
+  const dismissible = showStart ? true : activeDismissible;
 
   return (
-    <>
-      <DibayBottomSheet
-        open={showStart}
-        onClose={handleClose}
-        dismissible={startDismissible}
-        anchor="device-bottom"
-        showHandle={false}
-        heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
-        ariaLabel={title}
-        panelClassName="mx-auto w-full max-w-[560px]"
-      >
+    <SupportSheetShell
+      open={open}
+      onClose={handleClose}
+      dismissible={dismissible}
+      ariaLabel={title}
+    >
+      {showStart ? (
         <SupportStartBody
           titleId={titleId}
           title={title}
@@ -735,33 +718,18 @@ export function SupportModalHost() {
           onClose={handleClose}
           onStart={() => void handleStartInquiry()}
         />
-      </DibayBottomSheet>
-
-      <DibayBottomSheet
-        open={showActive}
-        onClose={handleClose}
-        dismissible={activeDismissible}
-        anchor="device-bottom"
-        showHandle={false}
-        heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
-        heightPx={activeSheetHeightPx}
-        ariaLabel={title}
-        panelClassName="mx-auto w-full max-w-[560px]"
-        stageStyle={keyboardStageStyle}
-        contentPaddingBottomPx={keyboardBandActive ? 8 : undefined}
-      >
-        {modal.caseId ? (
-          <SupportActiveConversation
-            caseId={modal.caseId}
-            titleId={activeTitleId}
-            title={title}
-            closeLabel={closeLabel}
-            onClose={handleClose}
-            onRequestNewInquiry={handleNewInquiry}
-            onDismissibleChange={setActiveDismissible}
-          />
-        ) : null}
-      </DibayBottomSheet>
-    </>
+      ) : null}
+      {showActive && modal.caseId ? (
+        <SupportActiveConversation
+          caseId={modal.caseId}
+          titleId={activeTitleId}
+          title={title}
+          closeLabel={closeLabel}
+          onClose={handleClose}
+          onRequestNewInquiry={handleNewInquiry}
+          onDismissibleChange={setActiveDismissible}
+        />
+      ) : null}
+    </SupportSheetShell>
   );
 }

@@ -87,6 +87,20 @@ describe("pending-push-route", () => {
     expect(consumePendingPushRoute()).toBeNull();
   });
 
+  it("round-trips support_modal kind and caseId", () => {
+    writePendingPushRoute({
+      path: "/support/cases/case-1",
+      kind: "support_modal",
+      caseId: "case-1",
+      notificationId: "n-support",
+      at: Date.now(),
+    });
+    const pending = readPendingPushRoute();
+    expect(pending?.kind).toBe("support_modal");
+    expect(pending?.caseId).toBe("case-1");
+    expect(pending?.notificationId).toBe("n-support");
+  });
+
   it("rejects pending payloads that include title/body", () => {
     sessionStorage.setItem(
       PENDING_PUSH_ROUTE_STORAGE_KEY,
