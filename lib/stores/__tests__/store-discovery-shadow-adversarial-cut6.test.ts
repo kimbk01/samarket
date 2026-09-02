@@ -325,8 +325,6 @@ describe("CASE G — schedule G0–G5", () => {
       adversarialStore({
         id: "g4",
         slug: "g4",
-        schedule: "PREPARING",
-        point_commerce_blocked: true,
         hours: autoHoursOpenAllDay(),
         rating_avg: 5,
         completed_orders_30d: 100,
@@ -981,7 +979,6 @@ describe("CASE randomized parity", () => {
         let schedule: AdversarialFixtureStore["schedule"] = "ORDERABLE";
         let hours: unknown = autoHoursOpenAllDay();
         let is_open = true;
-        let point_commerce_blocked = false;
         let delivery_available = true;
         if (roll < 0.08) {
           schedule = "CLOSED";
@@ -990,9 +987,6 @@ describe("CASE randomized parity", () => {
         } else if (roll < 0.12) {
           schedule = "IN_BREAK";
           hours = autoHoursInBreakAtCut6Now();
-        } else if (roll < 0.15) {
-          schedule = "PREPARING";
-          point_commerce_blocked = true;
         } else if (roll < 0.2) {
           delivery_available = false;
         }
@@ -1007,7 +1001,6 @@ describe("CASE randomized parity", () => {
             schedule,
             hours,
             is_open,
-            point_commerce_blocked,
             delivery_available,
             lat: hasCoords ? pt.lat : null,
             lng: hasCoords ? pt.lng : null,

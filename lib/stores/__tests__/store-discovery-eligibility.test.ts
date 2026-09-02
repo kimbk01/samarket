@@ -68,10 +68,11 @@ describe("resolveStoreDiscoveryEligibility", () => {
     expect(r.rank).toBeGreaterThan(2);
   });
 
-  it("E5: preparing (point commerce blocked) → lower band", () => {
-    const r = resolveStoreDiscoveryEligibility(baseInput({ point_commerce_blocked: true }));
-    expect(r.state).toBe("preparing");
-    expect(r.rank).toBeGreaterThan(2);
+  it("E5: retired point_commerce_blocked does not change eligibility", () => {
+    const blocked = resolveStoreDiscoveryEligibility(baseInput({ point_commerce_blocked: true }));
+    const open = resolveStoreDiscoveryEligibility(baseInput({ point_commerce_blocked: false }));
+    expect(blocked.state).toBe(open.state);
+    expect(blocked.rank).toBe(open.rank);
   });
 
   it("E6: closed → lowest operational band among visible stores", () => {

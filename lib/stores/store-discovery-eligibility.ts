@@ -58,7 +58,7 @@ export function resolveStoreDiscoveryBrowseDisplayStatus(
   const { commerceState, orderable } = resolveCommerce(input);
   if (orderable) return "open";
   if (commerceState.inBreak) return "resting";
-  if (!commerceState.isOpenForCommerce && input.point_commerce_blocked !== true) return "closed";
+  if (!commerceState.isOpenForCommerce) return "closed";
   return "preparing";
 }
 
@@ -68,7 +68,7 @@ export function resolveStoreDiscoveryHomeDisplayStatus(
   const { commerceState, orderable } = resolveCommerce(input);
   if (orderable) return "open";
   if (commerceState.inBreak) return "preparing";
-  if (!commerceState.isOpenForCommerce && input.point_commerce_blocked !== true) return "closed";
+  if (!commerceState.isOpenForCommerce) return "closed";
   return "preparing";
 }
 
@@ -94,7 +94,7 @@ export function resolveStoreDiscoveryEligibility(
     state = "open_out_of_range";
   } else if (commerceState.inBreak) {
     state = "resting";
-  } else if (!commerceState.isOpenForCommerce && input.point_commerce_blocked !== true) {
+  } else if (!commerceState.isOpenForCommerce) {
     state = "closed";
   } else {
     state = "preparing";

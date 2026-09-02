@@ -236,11 +236,11 @@ describe("G1 Paid Gift domain contract", () => {
   });
 
   // T11
-  it("T11 Business Credit boundary", () => {
+  it("T11 archived store-credit boundary", () => {
     expect(GIFT_BUSINESS_CREDIT_FIELD).toBe("stores.point_balance");
     expect(GIFT_FORBIDDEN_BALANCE_AUTHORITIES).toContain("stores.point_balance");
     expect(CONTRACT_SRC).toMatch(/stores\.point_balance/);
-    expect(CONTRACT_SRC).toMatch(/Business Credit/);
+    expect(CONTRACT_SRC).toMatch(/Archived store-credit schema/);
     expect(CONTRACT_SRC).not.toMatch(/stores\.point_balance.*=.*[Gg]ift/);
   });
 

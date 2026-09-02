@@ -59,14 +59,14 @@ describe("computeDiscoveryScheduleProjection", () => {
     expect(projection.discoveryScheduleState).toBe("IN_BREAK");
   });
 
-  it("point commerce blocked → PREPARING", () => {
+  it("retired point_commerce_blocked follows schedule only", () => {
     const projection = computeDiscoveryScheduleProjection({
       business_hours_json: autoHoursJson({ open: "00:00", close: "23:59" }),
       is_open: true,
       point_commerce_blocked: true,
       now: new Date("2026-08-23T05:00:00.000Z"),
     });
-    expect(projection.discoveryScheduleState).toBe("PREPARING");
+    expect(projection.discoveryScheduleState).toBe("ORDERABLE");
   });
 
   it("sets next_schedule_transition_at in the future when boundaries exist", () => {

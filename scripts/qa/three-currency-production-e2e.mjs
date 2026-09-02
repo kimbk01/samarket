@@ -15,6 +15,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { chromium } from "playwright";
 
 const ORIGIN = (process.env.PLAYWRIGHT_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
 const OUT = resolve(
@@ -26,9 +27,11 @@ const CONFIRM = "I_UNDERSTAND_BOUNDED_PRODUCTION_WRITES";
 const RUN_ID = `currency-prod-e2e-${Date.now()}`;
 const MAX_POINT_CREDIT = 10_000;
 const SKIP_POINT_ADMIN = process.env.CURRENCY_PROD_E2E_SKIP_POINT_ADMIN === "1";
+const UI_ONLY = process.env.CURRENCY_PROD_E2E_UI_ONLY === "1";
 const EXISTING_GIFT_INSTANCE_ID = String(
   process.env.CURRENCY_QA_EXISTING_GIFT_INSTANCE_ID || ""
 ).trim();
+const CLEANUP_ORDER_ID = String(process.env.CURRENCY_QA_CLEANUP_ORDER_ID || "").trim();
 const MAX_AD_SPEND_MINOR = Math.max(
   1,
   Math.trunc(Number(process.env.CURRENCY_PROD_E2E_MAX_AD_SPEND_MINOR || 50_000))
@@ -362,6 +365,41 @@ async function completeOrder(ownerCookie, orderId) {
   }
 }
 
+async function cleanupPreviousSaleFixture(sb, adminCookie) {
+  if (!CLEANUP_ORDER_ID) return;
+  const refundRequest = await request(
+    adminCookie,
+    "PATCH",
+    `/api/admin/store-orders/${CLEANUP_ORDER_ID}`,
+    { set_order_status: "refund_requested" }
+  );
+  if (!refundRequest.ok) fail("CLEANUP_REFUND_REQUEST", refundRequest);
+  const refundComplete = await request(
+    adminCookie,
+    "PATCH",
+    `/api/admin/store-orders/${CLEANUP_ORDER_ID}`,
+    { complete_refund: true }
+  );
+  if (!refundComplete.ok) fail("CLEANUP_REFUND_COMPLETE", refundComplete);
+  const obligation = await row(
+    sb,
+    "store_sale_fee_obligations",
+    "status,fee_outstanding_minor",
+    "order_id",
+    CLEANUP_ORDER_ID
+  );
+  if (
+    obligation?.status !== "waived" ||
+    Math.trunc(Number(obligation?.fee_outstanding_minor) || 0) !== 0
+  ) {
+    fail("CLEANUP_REFUND_REVERSAL", obligation);
+  }
+  pass("CLEANUP_REFUND_REVERSAL", {
+    orderId: CLEANUP_ORDER_ID,
+    obligationStatus: obligation.status,
+  });
+}
+
 async function confirmedRevenue(sb, orderId) {
   const order = await row(
     sb,
@@ -517,12 +555,49 @@ async function pointAndGiftPurchase(sb, buyerCookie, adminCookie, buyerId) {
 async function saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, address) {
   await ensureCashExactlyTwenty(sb, ownerCookie, adminCookie);
   const coinBefore = await coinBalance(sb);
-  const placed = await placeSale900WithTemporaryMinimum(sb, buyerCookie, address);
-  const orderId = String(placed.json?.order?.id || "");
-  if (!placed.ok || !orderId) fail("SALE_900_PLACE", placed);
-  report.artifacts.saleOrderId = orderId;
+  const { data: feePolicy, error: feePolicyError } = await sb
+    .from("store_fee_policies")
+    .insert({
+      policy_name: `[QA] ${RUN_ID}`,
+      store_id: QA.store.id,
+      fee_percent: 5,
+      fixed_fee: 0,
+      delivery_fee_mode: "none",
+      delivery_fee_percent: 0,
+      priority: 1,
+      memo: "Bounded three-currency Production fee fixture",
+    })
+    .select("id")
+    .single();
+  if (feePolicyError || !feePolicy?.id) {
+    fail("SALE_900_FEE_POLICY_FIXTURE", feePolicyError?.message || feePolicy);
+  }
 
-  await completeOrder(ownerCookie, orderId);
+  let placed;
+  let orderId = "";
+  try {
+    placed = await placeSale900WithTemporaryMinimum(sb, buyerCookie, address);
+    orderId = String(placed.json?.order?.id || "");
+    if (!placed.ok || !orderId) fail("SALE_900_PLACE", placed);
+    report.artifacts.saleOrderId = orderId;
+    await completeOrder(ownerCookie, orderId);
+  } finally {
+    const { error } = await sb
+      .from("store_fee_policies")
+      .update({
+        is_active: false,
+        is_archived: true,
+        archived_at: new Date().toISOString(),
+        archive_reason: "bounded_currency_qa_complete",
+      })
+      .eq("id", feePolicy.id);
+    if (error) fail("SALE_900_FEE_POLICY_RESTORE", error.message);
+    pass("SALE_900_FEE_POLICY_FIXTURE", {
+      policyId: feePolicy.id,
+      feePercent: 5,
+      archived: true,
+    });
+  }
   const { order, revenue } = await confirmedRevenue(sb, orderId);
   if (order?.order_status !== "completed" || revenue !== 900) {
     fail("SALE_900_CONFIRMED_REVENUE", { order, expected: 900, actual: revenue });
@@ -571,7 +646,7 @@ async function saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, a
     "business_cash_ledger",
     "id,entry_kind,direction,amount_minor,balance_after_minor,idempotency_key",
     "idempotency_key",
-    `sale_fee:order:${orderId}`
+    `sale_fee:order:${orderId}:cash`
   );
   const obligation = await row(sb, "store_sale_fee_obligations", "*", "order_id", orderId);
   const cashAfter = await cashBalanceMinor(sb);
@@ -649,10 +724,10 @@ async function saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, a
   });
 
   const refundRequest = await request(
-    buyerCookie,
+    adminCookie,
     "PATCH",
-    `/api/me/store-orders/${orderId}`,
-    { request_refund: true, refund_reason: RUN_ID }
+    `/api/admin/store-orders/${orderId}`,
+    { set_order_status: "refund_requested" }
   );
   if (!refundRequest.ok) fail("REFUND_REQUEST", refundRequest);
   const refundComplete = await request(
@@ -923,73 +998,107 @@ async function adsCanonicalCashScenario(
   });
 }
 
-function visibleHtmlText(html) {
-  return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
-    .trim();
+function browserCookies(header) {
+  return header.split("; ").map((part) => {
+    const separator = part.indexOf("=");
+    return {
+      name: part.slice(0, separator),
+      value: part.slice(separator + 1),
+      domain: new URL(ORIGIN).hostname,
+      path: "/",
+      secure: true,
+      sameSite: "Lax",
+    };
+  });
 }
 
-async function uiHttpSmoke(ownerCookie, adminCookie) {
+async function uiBrowserSmoke(ownerCookie, adminCookie) {
   const probes = [
     {
       name: "ownerHome",
       cookie: ownerCookie,
       path: `/stores/owner?storeId=${encodeURIComponent(QA.store.id)}`,
-      requiredMarkers: ['data-owner-finance-home-cards="1"', 'data-currency-balance-card="coin"', 'data-currency-balance-card="cash"'],
+      requiredSelectors: [
+        '[data-owner-finance-home-cards="1"]',
+        '[data-currency-balance-card="coin"]',
+        '[data-currency-balance-card="cash"]',
+      ],
     },
     {
       name: "ownerFinance",
       cookie: ownerCookie,
       path: `/stores/owner/finance?storeId=${encodeURIComponent(QA.store.id)}`,
-      requiredMarkers: ['data-currency-balance-card="coin"', 'data-currency-balance-card="cash"'],
+      requiredSelectors: [
+        '[data-currency-balance-card="coin"]',
+        '[data-currency-balance-card="cash"]',
+      ],
     },
     {
       name: "adminFinance",
       cookie: adminCookie,
       path: "/admin/finance",
-      requiredMarkers: ['data-admin-store-finance-panels="1"', 'data-admin-coin-finance-panel="1"', 'data-admin-cash-finance-panel="1"'],
+      requiredSelectors: [
+        '[data-admin-store-finance-panels="1"]',
+        '[data-admin-coin-finance-panel="1"]',
+        '[data-admin-cash-finance-panel="1"]',
+      ],
     },
   ];
   const forbidden =
     /\b(?:D-Point|Business Credit|Business Cash|Store Points?|Economic Points?|Store Cash|Gift Store Cash)\b/i;
   const evidence = {};
-  for (const probe of probes) {
-    const response = await request(probe.cookie, "GET", probe.path);
-    const text = visibleHtmlText(response.text);
-    const currencyValues = [
-      ...response.text.matchAll(/data-currency-balance-card="([^"]+)"/g),
-    ].map((match) => match[1]);
-    const foreignCurrency = currencyValues.find(
-      (value) => !["point", "coin", "cash"].includes(value)
-    );
-    const missingMarkers = probe.requiredMarkers.filter(
-      (marker) => !response.text.includes(marker)
-    );
-    const forbiddenMatch = text.match(forbidden)?.[0] || null;
-    evidence[probe.name] = {
-      path: probe.path,
-      status: response.status,
-      location: response.location,
-      currencyValues: [...new Set(currencyValues)],
-      missingMarkers,
-      forbiddenMatch,
-    };
-    if (
-      !response.ok ||
-      response.location ||
-      missingMarkers.length ||
-      foreignCurrency ||
-      forbiddenMatch
-    ) {
-      fail(`UI_HTTP_${probe.name.toUpperCase()}`, evidence[probe.name]);
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const probe of probes) {
+      const context = await browser.newContext();
+      await context.addCookies(browserCookies(probe.cookie));
+      const page = await context.newPage();
+      const response = await page.goto(`${ORIGIN}${probe.path}`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      });
+      const missingSelectors = [];
+      for (const selector of probe.requiredSelectors) {
+        try {
+          await page.locator(selector).first().waitFor({ state: "visible", timeout: 20_000 });
+        } catch {
+          missingSelectors.push(selector);
+        }
+      }
+      const text = await page.locator("body").innerText();
+      const currencyValues = await page
+        .locator("[data-currency-balance-card]")
+        .evaluateAll((nodes) =>
+          nodes.map((node) => node.getAttribute("data-currency-balance-card") || "")
+        );
+      const foreignCurrency = currencyValues.find(
+        (value) => !["point", "coin", "cash"].includes(value)
+      );
+      const forbiddenMatch = text.match(forbidden)?.[0] || null;
+      const finalUrl = page.url();
+      evidence[probe.name] = {
+        path: probe.path,
+        status: response?.status() ?? null,
+        finalUrl,
+        currencyValues: [...new Set(currencyValues)],
+        missingSelectors,
+        forbiddenMatch,
+      };
+      await context.close();
+      if (
+        !response?.ok() ||
+        finalUrl !== `${ORIGIN}${probe.path}` ||
+        missingSelectors.length ||
+        foreignCurrency ||
+        forbiddenMatch
+      ) {
+        fail(`UI_BROWSER_${probe.name.toUpperCase()}`, evidence[probe.name]);
+      }
     }
+  } finally {
+    await browser.close();
   }
-  pass("UI_HTTP_THREE_CURRENCIES_ONLY", evidence);
+  pass("UI_BROWSER_THREE_CURRENCIES_ONLY", evidence);
 }
 
 async function main() {
@@ -1050,7 +1159,27 @@ async function main() {
     adminId: adminSession.user.id,
   });
 
+  if (UI_ONLY) {
+    if (SKIP_POINT_ADMIN) {
+      report.steps.POINT_ADMIN_AUTH = {
+        status: "BLOCKED_BY_CREDENTIAL",
+        detail: "authorized Point Admin credential unavailable",
+      };
+      report.steps.POINT_CHARGE_APPROVE_SPEND_HISTORY = {
+        status: "NOT_PROVEN",
+        detail: "Point approval smoke requires an authorized Point Admin credential",
+      };
+    }
+    await uiBrowserSmoke(ownerCookie, adminCookie);
+    report.verdict = SKIP_POINT_ADMIN ? "PARTIAL" : "PASS";
+    report.firstDivergence = null;
+    writeReport();
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
   const address = await ensureAddress(sb, buyerSession.user.id);
+  await cleanupPreviousSaleFixture(sb, adminCookie);
   let gift;
   if (SKIP_POINT_ADMIN) {
     if (!EXISTING_GIFT_INSTANCE_ID) {
@@ -1094,7 +1223,7 @@ async function main() {
   });
   await saleCashCoinScenario(sb, buyerCookie, ownerCookie, adminCookie, address);
   await giftCompletedOrderScenario(sb, buyerCookie, ownerCookie, address, gift.instanceId);
-  await uiHttpSmoke(ownerCookie, adminCookie);
+  await uiBrowserSmoke(ownerCookie, adminCookie);
 
   report.verdict = SKIP_POINT_ADMIN ? "PARTIAL" : "PASS";
   report.firstDivergence = null;

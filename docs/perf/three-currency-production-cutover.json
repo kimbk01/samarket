@@ -1,13 +1,65 @@
 {
-  "recorded_at": "2026-09-02T07:02:05+08:00",
+  "recorded_at": "2026-09-02T07:45:10+08:00",
+  "production": {
+    "sha": "46a0aaaa9efb4823403c34d0044e0bd76b3b5f90",
+    "deployment": "https://samarket-5pkhd2yww-kimbk01s-projects.vercel.app",
+    "state": "READY",
+    "promoted": true
+  },
   "migration": {
     "version": "20261202140000",
     "status": "APPLIED",
-    "legacy_runtime_roles_execute": false
+    "legacy_writer_function_count": 20,
+    "anon_execute": false,
+    "authenticated_execute": false,
+    "service_role_execute": false
   },
   "production_env": {
     "DIBAY_CURRENCY_SALE_RECOGNITION_LIVE": true,
     "DIBAY_CURRENCY_AST002_RETIRED": true
   },
-  "runtime_proof": "PENDING_NEW_GIT_DEPLOYMENT"
+  "point": {
+    "admin_auth": "BLOCKED_BY_CREDENTIAL",
+    "charge_approve_spend_history": "NOT_PROVEN"
+  },
+  "sale": {
+    "order_id": "f022737f-ad89-4123-bd71-3aad8aaa1686",
+    "confirmed_revenue_php": 900,
+    "coin_credit": 900,
+    "coin_credit_count": 1,
+    "legacy_accept_debit_count": 0,
+    "cash_before_minor": 2000,
+    "fee_due_minor": 4500,
+    "cash_debit_minor": 2000,
+    "outstanding_minor": 2500
+  },
+  "coin_to_cash": {
+    "coin_debit": 100,
+    "outstanding_settled_minor": 2500,
+    "usable_cash_credit_minor": 7500
+  },
+  "refund": {
+    "coin_reversal": -900,
+    "sale_fee_reversal_minor": 4500,
+    "outstanding_minor": 0,
+    "duplicate_retry_idempotent": true
+  },
+  "gift": {
+    "order_id": "cf98537d-27fd-4c2b-b86b-9f92d6572f12",
+    "confirmed_revenue_php": 2000,
+    "coin_credit": 2000,
+    "new_store_cash_writes": 0
+  },
+  "ads": {
+    "campaign_id": "560b09c5-ade8-431c-81a5-eae1f6dcfb61",
+    "cash_debit_minor": 12000,
+    "canonical_cash": true
+  },
+  "ui": {
+    "owner_home": ["coin", "cash"],
+    "owner_finance": ["coin", "cash"],
+    "admin_finance": "PASS",
+    "forbidden_terminology": null
+  },
+  "three_currency_product": "PARTIAL"
 }

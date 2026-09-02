@@ -35,6 +35,7 @@ import {
   buildStoreDiscoveryBrowseExposureScope,
   buildStoreDiscoveryHomeExposureScope,
 } from "@/lib/stores/store-discovery-exposure";
+import { computeDiscoveryScheduleProjection } from "@/lib/stores/discovery/compute-discovery-schedule-projection";
 import { STORE_AUTO_SCHEDULE_ENFORCED_KEY } from "@/lib/stores/serialize-store-business-hours-json";
 
 export const CUT6_ORIGIN = { lat: 14.5995, lng: 120.9842 };
@@ -191,8 +192,16 @@ function toShadowCandidate(
     overrides: DeliveryStoreDistanceOverrides;
   }
 ): StoreDiscoveryShadowCandidate {
-  const schedule = (s.forceSchedule !== undefined ? s.forceSchedule : s.schedule) as
-    | StoreDiscoveryShadowCandidate["discovery_schedule_state"];
+  const schedule = (
+    s.forceSchedule !== undefined
+      ? s.forceSchedule
+      : computeDiscoveryScheduleProjection({
+          business_hours_json: s.hours,
+          is_open: s.is_open,
+          point_commerce_blocked: s.point_commerce_blocked ?? false,
+          now: new Date(CUT6_NOW_MS),
+        }).discoveryScheduleState
+  ) as StoreDiscoveryShadowCandidate["discovery_schedule_state"];
 
   let coverage: StoreDiscoveryShadowCandidate["coverage"] = {
     distanceApplies: false,

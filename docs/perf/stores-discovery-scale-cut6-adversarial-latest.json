@@ -1,6 +1,6 @@
 {
   "cut": 6,
-  "generatedAt": "2026-08-23T10:50:54.411Z",
+  "generatedAt": "2026-09-01T23:59:34.769Z",
   "mode": "ADVERSARIAL_PARITY_HARDENING",
   "userVisibleAuthority": "OLD",
   "cutover": false,
@@ -174,13 +174,13 @@
       "fixtureSize": 2,
       "notes": "missing coverage→G2 OOR; no crash"
     },
-    "50K": {
-      "caseId": "50K",
+    "DENSE": {
+      "caseId": "DENSE",
       "status": "PASS",
-      "fixtureSize": 50000,
+      "fixtureSize": 2000,
       "membershipDiff": 0,
       "orderDiff": 0,
-      "notes": "visible slice only; wave rowsReturned << M"
+      "notes": "visible slice only; wave rowsReturned << M (CI-safe density; CUT7 owns 50k/100k)"
     },
     "RAND": {
       "caseId": "RAND",
