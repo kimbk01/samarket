@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
 import {
   FEED_AD_SLOT_GAP_MIN,
   FEED_AD_SLOT_GAP_MAX,
@@ -535,6 +537,13 @@ export default function MemberFeedAdRequestPage() {
   }
 
   return (
+    <SupportContextProvider
+      value={buildMemberSupportContext({
+        enabled: true,
+        category: "AD",
+        sourceSurface: "mypage_feed_ad_request",
+      })}
+    >
     <div className="min-h-screen bg-background">
       <MySubpageHeader
         title={safeT("feed_ad_req_title", {
@@ -1194,5 +1203,6 @@ export default function MemberFeedAdRequestPage() {
         </button>
       </div>
     </div>
+    </SupportContextProvider>
   );
 }

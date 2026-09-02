@@ -13,6 +13,7 @@ import {
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { OwnerSupportContextBridge } from "@/components/support/OwnerSupportContextBridge";
 import {
   StoresOwnerApplyHeaderChrome,
   STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS,
@@ -266,6 +267,11 @@ export default function BusinessApplyRoute() {
   };
 
   return (
+    <OwnerSupportContextBridge
+      enabled
+      category="STORE_APPROVAL"
+      sourceSurface="owner_store_apply"
+    >
     <div className="min-w-0 w-full max-w-full bg-[var(--biz-app-bg)]">
       <StoresOwnerApplyHeaderChrome />
       <div
@@ -347,5 +353,6 @@ export default function BusinessApplyRoute() {
         ) : null}
       </div>
     </div>
+    </OwnerSupportContextBridge>
   );
 }

@@ -53,6 +53,10 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "cp-action-queue": "admin_menu_cp_action_queue",
   "cp-monitoring": "admin_menu_cp_monitoring",
   "cp-support": "admin_menu_cp_support",
+  "cp-support-center": "admin_menu_cp_support_center",
+  "cp-support-center-member": "admin_menu_cp_support_center_member",
+  "cp-support-center-owner": "admin_menu_cp_support_center_owner",
+  "cp-support-center-unassigned": "admin_menu_cp_support_center_unassigned",
   "cp-member-inquiry": "admin_menu_cp_member_inquiry",
   "cp-member-inbox": "admin_menu_cp_member_inbox",
   "cp-store-inquiry": "admin_menu_store_inquiries",
@@ -751,6 +755,30 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             status: "done",
             children: [
+              {
+                key: "cp-support-center",
+                title: "",
+                path: "/admin/support",
+                status: "done",
+              },
+              {
+                key: "cp-support-center-member",
+                title: "",
+                path: "/admin/support?filter=MEMBER",
+                status: "done",
+              },
+              {
+                key: "cp-support-center-owner",
+                title: "",
+                path: "/admin/support?filter=OWNER",
+                status: "done",
+              },
+              {
+                key: "cp-support-center-unassigned",
+                title: "",
+                path: "/admin/support?filter=UNASSIGNED",
+                status: "done",
+              },
               {
                 key: "cp-member-inquiry",
                 title: "",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
-import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
+import { OwnerProductEditSupportShell } from "@/components/support/OwnerProductEditSupportShell";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 
@@ -47,5 +47,5 @@ async function OwnerEditProductPageBody({
     );
   }
 
-  return <OwnerProductForm mode="edit" storeId={storeId} productId={pid} />;
+  return <OwnerProductEditSupportShell storeId={storeId} productId={pid} />;
 }

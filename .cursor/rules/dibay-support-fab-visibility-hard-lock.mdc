@@ -1,0 +1,31 @@
+---
+description: Support FAB visibility is per-screen opt-in only. No global FAB, no pathname resolver.
+globs:
+  - lib/support/**
+  - components/support/**
+  - app/(main)/mypage/**
+  - app/(main)/stores/owner/**
+  - components/layout/ConditionalAppShell.tsx
+---
+
+# DIBAY Support FAB Visibility HARD LOCK
+
+Full spec: `docs/support-center/support-fab-visibility-owner-lock.md`.
+
+## DO
+
+- Enable Support FAB only via `SupportContextProvider` / `OwnerSupportContextBridge` with `enabled: true`.
+- Use `openSupportCenter(context)` as the single entry from FAB and inline CTAs.
+- Register new candidate routes in `lib/support/support-fab-route-registry.ts`.
+- Run `npm run verify:support-fab-visibility-contract` when touching support FAB wiring.
+
+## DO NOT
+
+- Mount a global Support FAB without per-screen `enabled` context.
+- Add `resolveSupportContextFromPathname()` or URL-prefix tables for FAB visibility.
+- Infer FAB visibility from user role or pathname in `SupportFabHost`.
+- Open `/mypage/inquiries` directly from `SupportFab` (use `openSupportCenter`).
+
+## Global mount
+
+`SupportFabHost` lives in `ConditionalAppShell` and reads the FAB registry only. Page providers publish context on mount and reset to `DISABLED_SUPPORT_CONTEXT` on unmount.

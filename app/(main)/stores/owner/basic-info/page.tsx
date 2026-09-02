@@ -19,6 +19,7 @@ import {
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
@@ -149,6 +150,7 @@ function MyBusinessBasicInfoPageInner() {
 
 
   return (
+    <OwnerStoreSupportShell category="BANK_ACCOUNT" sourceSurface="owner_basic_info">
     <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>
       <div className="mx-auto min-w-0 max-w-4xl py-1">
 
@@ -176,6 +178,7 @@ function MyBusinessBasicInfoPageInner() {
 
       </div>
     </OwnerAdminPageScrollShell>
+    </OwnerStoreSupportShell>
 
   );
 

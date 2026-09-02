@@ -1,4 +1,4 @@
-import { OwnedGiftInstanceDetailView } from "@/components/gift-certificate/OwnedGiftInstanceDetailView";
+import { OwnedGiftInstanceSupportShell } from "@/components/support/OwnedGiftInstanceSupportShell";
 
 export default async function OwnedGiftInstancePage({
   params,
@@ -6,5 +6,5 @@ export default async function OwnedGiftInstancePage({
   params: Promise<{ instanceId: string }>;
 }) {
   const { instanceId } = await params;
-  return <OwnedGiftInstanceDetailView instanceId={instanceId} />;
+  return <OwnedGiftInstanceSupportShell instanceId={instanceId} />;
 }

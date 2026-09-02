@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { RouteLoadingInline } from "@/components/i18n/RouteLoadingInline";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerStoreSettlementsView } from "@/components/business/owner/OwnerStoreSettlementsView";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 
 export default function OwnerStoreSettlementsPage() {
   return (
@@ -15,7 +16,9 @@ export default function OwnerStoreSettlementsPage() {
       }
     >
       <OwnerAdminPageScrollShell className="pt-1">
-        <OwnerStoreSettlementsView />
+        <OwnerStoreSupportShell category="SETTLEMENT" sourceSurface="owner_settlements">
+          <OwnerStoreSettlementsView />
+        </OwnerStoreSupportShell>
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

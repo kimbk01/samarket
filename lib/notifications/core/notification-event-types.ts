@@ -17,6 +17,12 @@ export const NOTIFICATION_EVENT_TYPES = [
   "inquiry_answered",
   /** Phase 5 Slice 1 — Inbox admin message (was admin_notice collision). */
   "inbox_message_received",
+  "support_case_created",
+  "support_admin_replied",
+  "support_customer_replied",
+  "support_case_assigned",
+  "support_case_resolved",
+  "support_case_reopened",
   "admin_test",
   "missed_call",
   "incoming_call_signal",

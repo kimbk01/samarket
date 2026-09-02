@@ -6,6 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { PointChargeForm } from "@/components/points/PointChargeForm";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
 import { resolveCustomerCenterBackHref } from "@/lib/mypage/customer-center-paths";
 import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
@@ -74,6 +76,13 @@ function MyPointsChargePageInner() {
   }, [loadPlans]);
 
   return (
+    <SupportContextProvider
+      value={buildMemberSupportContext({
+        enabled: true,
+        category: "PAYMENT_RECHARGE",
+        sourceSurface: "mypage_points_charge",
+      })}
+    >
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
       <MySubpageHeader
         title={t("mypage_points_charge_title")}
@@ -108,5 +117,6 @@ function MyPointsChargePageInner() {
         )}
       </div>
     </div>
+    </SupportContextProvider>
   );
 }

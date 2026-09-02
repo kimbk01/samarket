@@ -28,6 +28,9 @@ import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
+import { shouldEnableStoreOrderSupportFab } from "@/lib/support/store-order-support-fab";
 import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
@@ -510,7 +513,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const dash = t("mypage_comp_placeholder_dash");
   const storeProfileImageUrl = order.store_profile_image_url?.trim() || "";
 
+  const supportContext = buildMemberSupportContext({
+    enabled:
+      shouldEnableStoreOrderSupportFab(order) ||
+      refundPending ||
+      canRefundRequest ||
+      canBuyerCancel,
+    category: "ORDER",
+    sourceSurface: "mypage_store_order_detail",
+    referenceType: "STORE_ORDER",
+    referenceId: String(order.id ?? orderId),
+  });
+
   return (
+    <SupportContextProvider value={supportContext}>
     <div className="space-y-4">
       <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
@@ -1035,5 +1051,6 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </Link>
       </div>
     </div>
+    </SupportContextProvider>
   );
 }

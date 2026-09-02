@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OwnerStoreOpsStatusBody } from "@/components/business/owner/OwnerStoreOpsStatusBody";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 import {
   OwnerStorePagePhaseGate,
   type OwnerStorePagePhase,
@@ -83,6 +84,7 @@ function MyBusinessOpsStatusPageInner() {
   }, [phase]);
 
   return (
+    <OwnerStoreSupportShell category="STORE" sourceSurface="owner_ops_status">
     <OwnerAdminPageScrollShell>
       <div className="mx-auto min-w-0 max-w-4xl py-1">
         <OwnerStorePagePhaseGate phase={toGatePhase(phase)} onRetry={() => void load()}>
@@ -96,6 +98,7 @@ function MyBusinessOpsStatusPageInner() {
         </OwnerStorePagePhaseGate>
       </div>
     </OwnerAdminPageScrollShell>
+    </OwnerStoreSupportShell>
   );
 }
 

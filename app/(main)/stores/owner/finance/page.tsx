@@ -5,6 +5,7 @@ import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerStoreFinanceView } from "@/components/business/owner/OwnerStoreFinanceView";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function OwnerStoreFinancePageInner() {
@@ -29,7 +30,9 @@ export default function OwnerStoreFinancePage() {
       }
     >
       <OwnerAdminPageScrollShell className="pt-1">
-        <OwnerStoreFinancePageInner />
+        <OwnerStoreSupportShell category="CASH_COIN" sourceSurface="owner_finance">
+          <OwnerStoreFinancePageInner />
+        </OwnerStoreSupportShell>
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

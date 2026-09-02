@@ -62,6 +62,7 @@ import { RegionBar } from "./RegionBar";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { BottomNav } from "./BottomNav";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import { SupportFabRegistryProvider } from "@/lib/support/support-fab-registry";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -78,6 +79,10 @@ const HomeTradeHubFloatingBarLazy = dynamic(
 );
 const MainBottomNavFabSectorLazy = dynamic(
   () => import("@/components/layout/MainBottomNavFabSector").then((m) => m.MainBottomNavFabSector),
+  { ssr: false }
+);
+const SupportFabHostLazy = dynamic(
+  () => import("@/components/support/SupportFabHost").then((m) => m.SupportFabHost),
   { ssr: false }
 );
 const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
@@ -334,6 +339,7 @@ export function ConditionalAppShell({
       hidden={bottomNavScrollHidden}
       occupiesClearance={bottomNavOccupiesClearance}
     >
+    <SupportFabRegistryProvider>
     {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${
@@ -386,8 +392,10 @@ export function ConditionalAppShell({
       {f.showMainBottomNavFabSector && !messengerCallSuppressesBottomNav ? (
         <MainBottomNavFabSectorLazy />
       ) : null}
+      <SupportFabHostLazy />
       <BootThumbnailObserver />
     </div>
+    </SupportFabRegistryProvider>
     </BottomNavScrollChromeProvider>
   );
 }

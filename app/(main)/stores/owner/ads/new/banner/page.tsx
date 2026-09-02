@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerBannerCreateView } from "@/components/business/owner/ads/OwnerBannerCreateView";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 
 export default function OwnerBannerCreatePage() {
   return (
@@ -15,7 +16,12 @@ export default function OwnerBannerCreatePage() {
       }
     >
       <OwnerAdminPageScrollShell>
-        <OwnerBannerCreateView />
+        <OwnerStoreSupportShell
+          category="DELIVERY_AD"
+          sourceSurface="owner_delivery_ad_compose"
+        >
+          <OwnerBannerCreateView />
+        </OwnerStoreSupportShell>
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

@@ -66,6 +66,7 @@ import { addressesUiMessages } from "./catalog/addresses-ui";
 import { pointsUiMessages } from "./catalog/points-ui";
 import { permissionEducationMessages } from "./catalog/permission-education";
 import { tradeLocationScopeMessages } from "./catalog/trade-location-scope";
+import { supportUiMessages } from "./catalog/support-ui";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -137,6 +138,7 @@ const KO_MESSAGES = {
   ...pointsUiMessages.ko,
   ...permissionEducationMessages.ko,
   ...tradeLocationScopeMessages.ko,
+  ...supportUiMessages.ko,
   ...adminMessages.ko,
   ...koJson,
 } as const;
@@ -208,6 +210,7 @@ const EN_MESSAGES = {
   ...pointsUiMessages.en,
   ...permissionEducationMessages.en,
   ...tradeLocationScopeMessages.en,
+  ...supportUiMessages.en,
   ...adminMessages.en,
   ...enJson,
 } as const;

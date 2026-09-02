@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerStoreCouponsView } from "@/components/business/owner/OwnerStoreCouponsView";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+import { OwnerStoreSupportShell } from "@/components/support/OwnerStoreSupportShell";
 
 export default function OwnerStoreCouponsPage() {
   return (
@@ -15,7 +16,9 @@ export default function OwnerStoreCouponsPage() {
       }
     >
       <OwnerAdminPageScrollShell>
-        <OwnerStoreCouponsView />
+        <OwnerStoreSupportShell category="COUPON" sourceSurface="owner_coupons">
+          <OwnerStoreCouponsView />
+        </OwnerStoreSupportShell>
       </OwnerAdminPageScrollShell>
     </Suspense>
   );

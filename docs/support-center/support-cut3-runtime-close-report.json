@@ -1,0 +1,100 @@
+{
+  "run_id": "cut3-1788336427208",
+  "origin": "https://samarket.vercel.app",
+  "at": "2026-09-02T08:07:07.208Z",
+  "checklist": {
+    "MEMBER_A_CREATE": {
+      "status": "FAIL",
+      "http": 404,
+      "note": "api_not_on_samarket.vercel.app"
+    },
+    "MIGRATION": {
+      "status": "PASS",
+      "at": "2026-09-02T08:06:47.389Z"
+    },
+    "DB_TABLES": {
+      "status": "PASS"
+    },
+    "RLS": {
+      "status": "PASS"
+    },
+    "REALTIME_PUBLICATION": {
+      "status": "PASS"
+    }
+  },
+  "tests": {
+    "T1": {
+      "status": 404,
+      "body": {
+        "raw": ""
+      }
+    }
+  },
+  "SUPPORT_AUTHORITY": "NOT_CLOSED",
+  "PRODUCTION": "NOT_PROVEN",
+  "fixture": {
+    "userA": "edc8c2f0-2673-4ca8-9d63-92a609d556f4",
+    "userB": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+    "userOwner": "f00de57c-27d1-495c-824e-e39eab3227aa",
+    "s1": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "s2": null,
+    "sx": "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+    "ownedCount": 1
+  },
+  "stopped_at": "T1",
+  "stop_reason": "member_a_create_failed",
+  "stop_evidence": {
+    "http": 404,
+    "body": {
+      "raw": ""
+    }
+  },
+  "deploy_blocker": "support_api_not_deployed_to_production",
+  "final": {
+    "at": "2026-09-02T08:07:16.774Z",
+    "items": {
+      "MIGRATION": "PASS",
+      "DB_TABLES": "PASS",
+      "RLS": "PASS",
+      "REALTIME_PUBLICATION": "PASS",
+      "MEMBER_A_CREATE": "FAIL",
+      "MEMBER_A_TO_ADMIN": "NOT_PROVEN",
+      "MEMBER_B_CROSS_GET": "NOT_PROVEN",
+      "MEMBER_B_CROSS_MESSAGE": "NOT_PROVEN",
+      "OWNER_S1_CREATE": "NOT_PROVEN",
+      "OWNER_S2_CREATE": "NOT_PROVEN",
+      "UNAUTHORIZED_STORE": "NOT_PROVEN",
+      "MULTI_STORE_ISOLATION": "NOT_PROVEN",
+      "REFERENCE_TAMPER": "NOT_PROVEN",
+      "ADMIN_SENDER_SPOOF": "NOT_PROVEN",
+      "ADMIN_MEMBER_QUEUE": "NOT_PROVEN",
+      "ADMIN_OWNER_QUEUE": "NOT_PROVEN",
+      "ADMIN_STORE_CONTEXT": "NOT_PROVEN",
+      "CUSTOMER_TO_ADMIN_REALTIME": "NOT_PROVEN",
+      "ADMIN_TO_CUSTOMER_REALTIME": "NOT_PROVEN",
+      "RESOLVE": "NOT_PROVEN",
+      "SESSION_CLOSED": "NOT_PROVEN",
+      "CASE_PRESERVED": "NOT_PROVEN",
+      "MESSAGES_PRESERVED": "NOT_PROVEN",
+      "EVENT_HISTORY_PRESERVED": "NOT_PROVEN",
+      "SUPPORT_NOTIFICATION": "NOT_PROVEN",
+      "DEEPLINK": "NOT_PROVEN",
+      "FAB_ALLOWED_SURFACE": "NOT_PROVEN",
+      "FAB_FORBIDDEN_SURFACE": "NOT_PROVEN",
+      "CONTEXT_DELIVERY": "NOT_PROVEN",
+      "IOS": "NOT_PROVEN",
+      "ANDROID_GESTURE": "NOT_PROVEN",
+      "ANDROID_3_BUTTON": "NOT_PROVEN",
+      "MOBILE_WEB": "NOT_PROVEN",
+      "ADMIN_DESKTOP": "NOT_PROVEN",
+      "PRODUCTION": "NOT_PROVEN"
+    }
+  },
+  "REALTIME": "NOT_PROVEN",
+  "MIGRATION": "PASS",
+  "DB_TABLES": "PASS",
+  "RLS": "PASS",
+  "REALTIME_PUBLICATION": "PASS",
+  "DB_APPLIED": "PASS",
+  "next_step": "commit_and_git_push_origin_main_then_rerun_authority_runtime"
+}

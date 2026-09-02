@@ -2,6 +2,8 @@
 
 import { Suspense } from "react";
 import { CustomerCommerceHubPage } from "@/components/orders/customer-commerce/CustomerCommerceHubPage";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
 
 function CouponsFallback() {
   return (
@@ -11,8 +13,16 @@ function CouponsFallback() {
 
 export default function MypageCouponsPage() {
   return (
-    <Suspense fallback={<CouponsFallback />}>
-      <CustomerCommerceHubPage legacyAlias="coupons" />
-    </Suspense>
+    <SupportContextProvider
+      value={buildMemberSupportContext({
+        enabled: true,
+        category: "COUPON",
+        sourceSurface: "mypage_coupons",
+      })}
+    >
+      <Suspense fallback={<CouponsFallback />}>
+        <CustomerCommerceHubPage legacyAlias="coupons" />
+      </Suspense>
+    </SupportContextProvider>
   );
 }
