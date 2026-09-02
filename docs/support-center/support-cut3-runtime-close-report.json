@@ -1,33 +1,261 @@
 {
-  "run_id": "cut3-1788336427208",
+  "run_id": "cut3-1788337492433",
   "origin": "https://samarket.vercel.app",
-  "at": "2026-09-02T08:07:07.208Z",
+  "at": "2026-09-02T08:24:52.433Z",
   "checklist": {
     "MEMBER_A_CREATE": {
-      "status": "FAIL",
-      "http": 404,
-      "note": "api_not_on_samarket.vercel.app"
-    },
-    "MIGRATION": {
       "status": "PASS",
-      "at": "2026-09-02T08:06:47.389Z"
+      "resumed": true,
+      "caseId": "79ec2180-e722-455f-969a-b322ed981485",
+      "public_case_no": "SC-100001",
+      "at": "2026-09-02T08:24:54.326Z"
     },
-    "DB_TABLES": {
+    "MEMBER_A_TO_ADMIN": {
+      "status": "PASS",
+      "caseId": "79ec2180-e722-455f-969a-b322ed981485",
+      "public_case_no": "SC-100001",
+      "at": "2026-09-02T08:24:54.779Z",
+      "case_status": "WAITING_ADMIN"
+    },
+    "MEMBER_B_CROSS_GET": {
+      "status": "BLOCKED",
+      "at": "2026-09-02T08:24:55.131Z"
+    },
+    "MEMBER_B_CROSS_MESSAGE": {
+      "status": "BLOCKED",
+      "at": "2026-09-02T08:24:55.411Z"
+    },
+    "OWNER_S1_CREATE": {
+      "status": "PASS",
+      "caseId": "828be2a7-bd14-4e26-9971-c74992a78ffc",
+      "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+      "at": "2026-09-02T08:24:56.092Z"
+    },
+    "OWNER_S2_CREATE": {
+      "status": "NOT_PROVEN",
+      "blocker": "owner_has_single_store_only",
+      "ownedCount": 1,
+      "at": "2026-09-02T08:24:56.092Z"
+    },
+    "UNAUTHORIZED_STORE": {
+      "status": "BLOCKED",
+      "storeId": "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
+      "at": "2026-09-02T08:24:56.385Z"
+    },
+    "REFERENCE_TAMPER": {
+      "status": "BLOCKED",
+      "foreignGift": "e37125a8-2f8e-4e23-95f0-023b6f6156c5",
+      "at": "2026-09-02T08:24:56.778Z"
+    },
+    "REFERENCE_TAMPER_UNIMPLEMENTED_TYPE": {
+      "status": "BLOCKED"
+    },
+    "ADMIN_SENDER_SPOOF": {
+      "status": "BLOCKED",
+      "sender_type": "MEMBER",
+      "at": "2026-09-02T08:24:57.782Z"
+    },
+    "ADMIN_MEMBER_QUEUE": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:01.243Z"
+    },
+    "ADMIN_OWNER_QUEUE": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:01.243Z"
+    },
+    "ADMIN_STORE_CONTEXT": {
+      "status": "PASS",
+      "caseS1": "828be2a7-bd14-4e26-9971-c74992a78ffc",
+      "s1": "19085860-52d2-4183-b033-e71fcb58bcec",
+      "at": "2026-09-02T08:25:01.243Z"
+    },
+    "RESOLVE": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:03.013Z"
+    },
+    "SESSION_CLOSED": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:03.013Z"
+    },
+    "CASE_PRESERVED": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:03.013Z"
+    },
+    "MESSAGES_PRESERVED": {
+      "status": "PASS",
+      "msgCount": 3,
+      "at": "2026-09-02T08:25:03.013Z"
+    },
+    "EVENT_HISTORY_PRESERVED": {
+      "status": "PASS",
+      "evtCount": 2,
+      "at": "2026-09-02T08:25:03.013Z"
+    },
+    "SUPPORT_NOTIFICATION": {
+      "status": "FAIL",
+      "types": [],
+      "at": "2026-09-02T08:25:03.135Z"
+    },
+    "SUPPORT_ADMIN_REPLIED_NOTIFICATION": {
       "status": "PASS"
     },
-    "RLS": {
+    "SUPPORT_CASE_RESOLVED_NOTIFICATION": {
       "status": "PASS"
     },
-    "REALTIME_PUBLICATION": {
+    "SUPPORT_CUSTOMER_REPLIED_NOTIFICATION": {
       "status": "PASS"
+    },
+    "NOTIFICATION_NO_CHAT_POLLUTION": {
+      "status": "PASS",
+      "at": "2026-09-02T08:25:03.135Z"
+    },
+    "DEEPLINK": {
+      "status": "PASS"
+    },
+    "ADMIN_DEEPLINK": {
+      "status": "PASS"
+    },
+    "CUSTOMER_TO_ADMIN_REALTIME": {
+      "status": "PASS",
+      "message": "CUT3-RT-MEMBER-1788339781847"
+    },
+    "ADMIN_TO_CUSTOMER_REALTIME": {
+      "status": "PASS",
+      "message": "CUT3-RT-ADMIN-1788339781847"
+    },
+    "REALTIME_RECONNECT": {
+      "status": "NOT_PROVEN",
+      "note": "out_of_cut3_scope"
     }
   },
   "tests": {
     "T1": {
-      "status": 404,
+      "resumed": true,
+      "caseId": "79ec2180-e722-455f-969a-b322ed981485",
+      "public_case_no": "SC-100001"
+    },
+    "T2": {
+      "status": 200,
+      "count": 1
+    },
+    "T3": {
+      "status": 403,
+      "error": "forbidden"
+    },
+    "T4": {
+      "status": 403,
+      "error": "forbidden"
+    },
+    "T5": {
+      "status": 200,
       "body": {
-        "raw": ""
+        "ok": true,
+        "case": {
+          "id": "828be2a7-bd14-4e26-9971-c74992a78ffc",
+          "public_case_no": "SC-100002",
+          "audience": "OWNER",
+          "requester_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+          "owner_store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+          "category": "CASH_COIN",
+          "subject": "CASH_COIN · cut3_owner_s1",
+          "source_surface": "cut3_owner_s1",
+          "reference_type": null,
+          "reference_id": null,
+          "status": "OPEN",
+          "priority": "NORMAL",
+          "assigned_admin_id": null,
+          "previous_case_id": null,
+          "requester_unread_count": 0,
+          "admin_unread_count": 0,
+          "created_at": "2026-09-02T08:24:55.796567+00:00",
+          "updated_at": "2026-09-02T08:24:55.74+00:00",
+          "last_message_at": "2026-09-02T08:24:55.74+00:00",
+          "first_admin_response_at": null,
+          "resolved_at": null,
+          "archived_at": null
+        },
+        "sessionId": "b0063f32-3e09-4ed7-b803-9a5024e8d103",
+        "created": true,
+        "href": "/support/cases/828be2a7-bd14-4e26-9971-c74992a78ffc"
       }
+    },
+    "T7": {
+      "status": 403,
+      "error": "store_forbidden"
+    },
+    "T8": {
+      "status": 403,
+      "error": "reference_forbidden"
+    },
+    "T8b": {
+      "status": 200,
+      "body": {
+        "ok": true,
+        "case": {
+          "id": "42a5a555-83f0-425d-81e6-b6427dbdd57e",
+          "public_case_no": "SC-100003",
+          "audience": "MEMBER",
+          "requester_user_id": "edc8c2f0-2673-4ca8-9d63-92a609d556f4",
+          "owner_store_id": null,
+          "category": "SETTLEMENT",
+          "subject": "SETTLEMENT · cut3_tamper_settlement",
+          "source_surface": "cut3_tamper_settlement",
+          "reference_type": "STORE_SETTLEMENT",
+          "reference_id": "00000000-0000-4000-8000-000000000099",
+          "status": "OPEN",
+          "priority": "NORMAL",
+          "assigned_admin_id": null,
+          "previous_case_id": null,
+          "requester_unread_count": 0,
+          "admin_unread_count": 0,
+          "created_at": "2026-09-02T08:24:57.114844+00:00",
+          "updated_at": "2026-09-02T08:24:57.08+00:00",
+          "last_message_at": "2026-09-02T08:24:57.08+00:00",
+          "first_admin_response_at": null,
+          "resolved_at": null,
+          "archived_at": null
+        },
+        "sessionId": "0772435d-6047-46ab-91f5-d4a6cdb99d42",
+        "created": true,
+        "href": "/support/cases/42a5a555-83f0-425d-81e6-b6427dbdd57e"
+      }
+    },
+    "T9": {
+      "status": 200
+    },
+    "T10": {
+      "ALL": {
+        "status": 200,
+        "count": 3
+      },
+      "MEMBER": {
+        "status": 200,
+        "count": 2
+      },
+      "OWNER": {
+        "status": 200,
+        "count": 1
+      },
+      "UNASSIGNED": {
+        "status": 200,
+        "count": 3
+      },
+      "WAITING_ADMIN": {
+        "status": 200,
+        "count": 1
+      },
+      "WAITING_USER": {
+        "status": 200,
+        "count": 0
+      },
+      "RESOLVED": {
+        "status": 200,
+        "count": 0
+      }
+    },
+    "T11": {
+      "reply": 200,
+      "resolve": 200
     }
   },
   "SUPPORT_AUTHORITY": "NOT_CLOSED",
@@ -41,60 +269,120 @@
     "sx": "6af48b07-8d30-4b5d-adb1-6814b8e9d813",
     "ownedCount": 1
   },
-  "stopped_at": "T1",
-  "stop_reason": "member_a_create_failed",
-  "stop_evidence": {
-    "http": 404,
-    "body": {
-      "raw": ""
-    }
+  "harness_auth": {
+    "root": "samarket_active_session_id from profiles.active_session_id for logged-in user",
+    "canonical": "gift-cut1-refund-authority-runtime / currency-ssot-runtime-live-smoke",
+    "product_files_changed": "NONE"
   },
-  "deploy_blocker": "support_api_not_deployed_to_production",
-  "final": {
-    "at": "2026-09-02T08:07:16.774Z",
-    "items": {
-      "MIGRATION": "PASS",
-      "DB_TABLES": "PASS",
-      "RLS": "PASS",
-      "REALTIME_PUBLICATION": "PASS",
-      "MEMBER_A_CREATE": "FAIL",
-      "MEMBER_A_TO_ADMIN": "NOT_PROVEN",
-      "MEMBER_B_CROSS_GET": "NOT_PROVEN",
-      "MEMBER_B_CROSS_MESSAGE": "NOT_PROVEN",
-      "OWNER_S1_CREATE": "NOT_PROVEN",
-      "OWNER_S2_CREATE": "NOT_PROVEN",
-      "UNAUTHORIZED_STORE": "NOT_PROVEN",
-      "MULTI_STORE_ISOLATION": "NOT_PROVEN",
-      "REFERENCE_TAMPER": "NOT_PROVEN",
-      "ADMIN_SENDER_SPOOF": "NOT_PROVEN",
-      "ADMIN_MEMBER_QUEUE": "NOT_PROVEN",
-      "ADMIN_OWNER_QUEUE": "NOT_PROVEN",
-      "ADMIN_STORE_CONTEXT": "NOT_PROVEN",
-      "CUSTOMER_TO_ADMIN_REALTIME": "NOT_PROVEN",
-      "ADMIN_TO_CUSTOMER_REALTIME": "NOT_PROVEN",
-      "RESOLVE": "NOT_PROVEN",
-      "SESSION_CLOSED": "NOT_PROVEN",
-      "CASE_PRESERVED": "NOT_PROVEN",
-      "MESSAGES_PRESERVED": "NOT_PROVEN",
-      "EVENT_HISTORY_PRESERVED": "NOT_PROVEN",
-      "SUPPORT_NOTIFICATION": "NOT_PROVEN",
-      "DEEPLINK": "NOT_PROVEN",
-      "FAB_ALLOWED_SURFACE": "NOT_PROVEN",
-      "FAB_FORBIDDEN_SURFACE": "NOT_PROVEN",
-      "CONTEXT_DELIVERY": "NOT_PROVEN",
-      "IOS": "NOT_PROVEN",
-      "ANDROID_GESTURE": "NOT_PROVEN",
-      "ANDROID_3_BUTTON": "NOT_PROVEN",
-      "MOBILE_WEB": "NOT_PROVEN",
-      "ADMIN_DESKTOP": "NOT_PROVEN",
-      "PRODUCTION": "NOT_PROVEN"
-    }
+  "push_side_effect": {
+    "support_commit_contamination": "NONE",
+    "push_contained_pre_existing_local_ahead_commit": "ebc0977f84618d5438f88f572b5a79ebfd3b2ca8"
   },
-  "REALTIME": "NOT_PROVEN",
-  "MIGRATION": "PASS",
-  "DB_TABLES": "PASS",
-  "RLS": "PASS",
-  "REALTIME_PUBLICATION": "PASS",
-  "DB_APPLIED": "PASS",
-  "next_step": "commit_and_git_push_origin_main_then_rerun_authority_runtime"
+  "t2_close": {
+    "T2_ADMIN_AUTH": "PASS",
+    "T2_CASE_FOUND": "PASS",
+    "NEXT_TEST_START": "T3",
+    "HARNESS_AUTH_ROOT": "profiles.active_session_id → samarket_active_session_id",
+    "CANONICAL_ADMIN_SESSION_PATTERN": "gift-cut1-refund-authority-runtime / currency-ssot-runtime-live-smoke",
+    "HARNESS_FILE_CHANGED": [
+      "scripts/qa/support-cut3-lib.mjs",
+      "scripts/qa/support-cut3-authority-runtime.mjs"
+    ],
+    "PRODUCT_FILES_CHANGED": "NONE",
+    "SUPPORT_COMMIT_CONTAMINATION": "NONE",
+    "PUSH_CONTAINED_PRE_EXISTING_LOCAL_AHEAD_COMMIT": "ebc0977f84618d5438f88f572b5a79ebfd3b2ca8"
+  },
+  "cut3b": {
+    "reference_inventory": [
+      {
+        "TYPE": "GIFT_INSTANCE",
+        "VALIDATOR": "gift_certificate_instances.current_owner_user_id",
+        "AUTHORITY_KEY": "requester",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "STORE_ORDER",
+        "VALIDATOR": "store_orders.buyer_user_id",
+        "AUTHORITY_KEY": "requester",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "STORE_PRODUCT",
+        "VALIDATOR": "store_products.store_id + owner gate",
+        "AUTHORITY_KEY": "owner_store",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "AD_CAMPAIGN",
+        "VALIDATOR": "store_*_ad_campaigns.store_id + owner gate",
+        "AUTHORITY_KEY": "owner_store",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "DELIVERY_AD_CAMPAIGN",
+        "VALIDATOR": "alias AD_CAMPAIGN",
+        "AUTHORITY_KEY": "owner_store",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "STORE_SETTLEMENT",
+        "VALIDATOR": "store_settlements.store_id + OWNER + owner gate",
+        "AUTHORITY_KEY": "owner_store",
+        "FAIL_CLOSED": "ACTIVE"
+      },
+      {
+        "TYPE": "*",
+        "VALIDATOR": "none",
+        "AUTHORITY_KEY": "deny",
+        "FAIL_CLOSED": "DENY"
+      }
+    ],
+    "reference_results": {
+      "R1_SAME_STORE": {
+        "status": "PASS",
+        "caseId": "d61b7001-0400-40c8-9869-f06a04db8083"
+      },
+      "R2_CROSS_STORE": {
+        "status": "BLOCKED"
+      },
+      "R3_UNAUTHORIZED_STORE": {
+        "status": "BLOCKED",
+        "error": "store_forbidden"
+      },
+      "R4_MEMBER_SETTLEMENT": {
+        "status": "BLOCKED"
+      },
+      "R5_UNKNOWN_TYPE": {
+        "status": "BLOCKED",
+        "error": "reference_type_not_allowed"
+      },
+      "R6_UNIMPLEMENTED_KNOWN": {
+        "status": "BLOCKED",
+        "error": "reference_type_not_allowed"
+      }
+    },
+    "REFERENCE_AUTHORITY": "CLOSED",
+    "notification_results": {
+      "assign_http": 200,
+      "reply_http": 200,
+      "customer_http": 200,
+      "resolve_http": 200,
+      "SUPPORT_ADMIN_REPLIED": "PASS",
+      "SUPPORT_CASE_RESOLVED": "PASS",
+      "SUPPORT_CUSTOMER_REPLIED": "PASS",
+      "CUSTOMER_DEEPLINK": "PASS",
+      "ADMIN_DEEPLINK": "PASS",
+      "NO_CHAT_POLLUTION": "PASS",
+      "NO_CROSS_USER_LEAK": "PASS",
+      "customer_route": "/support/cases/6056cc9a-f586-4da3-a6f1-765530e9e107",
+      "admin_route": "/admin/support/6056cc9a-f586-4da3-a6f1-765530e9e107",
+      "caseId": "6056cc9a-f586-4da3-a6f1-765530e9e107",
+      "public_case_no": "SC-100007",
+      "MEMBER_B_DEEPLINK_DENY": "BLOCKED"
+    },
+    "NOTIFICATION": "PASS"
+  },
+  "REFERENCE_AUTHORITY": "CLOSED",
+  "CASE_IDENTITY_AUTHORITY": "CLOSED",
+  "REALTIME": "PASS"
 }

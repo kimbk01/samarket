@@ -12,6 +12,7 @@ import {
   apiJson,
   loginSession,
   memberContext,
+  cookieHeader,
   sbService,
   loadEnvLocal,
 } from "./support-cut3-lib.mjs";
@@ -27,30 +28,25 @@ function saveReport(report) {
   writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2));
 }
 
-function cookies(session) {
-  const ref = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0];
+async function playwrightCookies(session) {
+  const header = await cookieHeader(session);
   const origin = new URL(ORIGIN);
-  return [
-    {
-      name: `sb-${ref}-auth-token`,
-      value: encodeURIComponent(
-        JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          expires_at: session.expires_at,
-          expires_in: session.expires_in,
-          token_type: session.token_type,
-          user: session.user,
-        })
-      ),
+  const expires = session.expires_at ?? Math.floor(Date.now() / 1000) + 3600;
+  return header.split("; ").filter(Boolean).map((part) => {
+    const eq = part.indexOf("=");
+    const name = part.slice(0, eq);
+    const value = part.slice(eq + 1);
+    return {
+      name,
+      value,
       domain: origin.hostname,
       path: "/",
-      expires: session.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+      expires,
       httpOnly: false,
       secure: origin.protocol === "https:",
       sameSite: "Lax",
-    },
-  ];
+    };
+  });
 }
 
 async function main() {
@@ -82,8 +78,8 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const memberCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  await memberCtx.addCookies(cookies(sessionA));
-  await adminCtx.addCookies(cookies(sessionAdmin));
+  await memberCtx.addCookies(await playwrightCookies(sessionA));
+  await adminCtx.addCookies(await playwrightCookies(sessionAdmin));
 
   const memberPage = await memberCtx.newPage();
   const adminPage = await adminCtx.newPage();
