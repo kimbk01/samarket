@@ -797,4 +797,76 @@ export async function markSupportCaseReadForAdmin(
   return { ok: true };
 }
 
+export type AdminSupportSummary = {
+  totalOpen: number;
+  unassigned: number;
+  waitingAdmin: number;
+  waitingCustomer: number;
+  unreadCustomerReplies: number;
+  /** Sidebar/ops badge — cases needing admin action (OPEN + WAITING_ADMIN). */
+  actionable: number;
+};
+
+/**
+ * A2-2 badge/dashboard SSOT. Actionable = OPEN | WAITING_ADMIN
+ * (customer reply → WAITING_ADMIN; new case → OPEN). WAITING_USER is not actionable.
+ */
+export async function getAdminSupportSummary(
+  sb: SupabaseClient
+): Promise<{ ok: true; summary: AdminSupportSummary } | { ok: false; error: string }> {
+  const active = ["OPEN", "WAITING_ADMIN", "WAITING_USER"] as const;
+
+  const [
+    totalOpenRes,
+    unassignedRes,
+    waitingAdminRes,
+    waitingCustomerRes,
+    unreadRes,
+    actionableRes,
+  ] = await Promise.all([
+    sb.from("support_cases").select("id", { count: "exact", head: true }).in("status", [...active]),
+    sb
+      .from("support_cases")
+      .select("id", { count: "exact", head: true })
+      .in("status", [...active])
+      .is("assigned_admin_id", null),
+    sb.from("support_cases").select("id", { count: "exact", head: true }).eq("status", "WAITING_ADMIN"),
+    sb.from("support_cases").select("id", { count: "exact", head: true }).eq("status", "WAITING_USER"),
+    sb
+      .from("support_cases")
+      .select("id", { count: "exact", head: true })
+      .in("status", [...active])
+      .gt("admin_unread_count", 0),
+    sb
+      .from("support_cases")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["OPEN", "WAITING_ADMIN"]),
+  ]);
+
+  const err =
+    totalOpenRes.error ||
+    unassignedRes.error ||
+    waitingAdminRes.error ||
+    waitingCustomerRes.error ||
+    unreadRes.error ||
+    actionableRes.error;
+  if (err) {
+    if (isMissingSupportTable(err.message ?? "")) return { ok: false, error: "missing_table" };
+    return { ok: false, error: err.message };
+  }
+
+  const n = (c: number | null | undefined) => Math.max(0, Math.floor(Number(c) || 0));
+  return {
+    ok: true,
+    summary: {
+      totalOpen: n(totalOpenRes.count),
+      unassigned: n(unassignedRes.count),
+      waitingAdmin: n(waitingAdminRes.count),
+      waitingCustomer: n(waitingCustomerRes.count),
+      unreadCustomerReplies: n(unreadRes.count),
+      actionable: n(actionableRes.count),
+    },
+  };
+}
+
 export { buildAdminSupportCaseRoute, buildSupportCaseRoute };

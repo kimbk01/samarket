@@ -9,6 +9,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type OverviewPayload = {
   ok?: boolean;
   action_queue?: {
+    support_actionable?: number;
     member_inquiry_open: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
@@ -73,11 +74,11 @@ export function CustomerPlatformDashboardPage() {
 
   const queueCards: QueueCard[] = [
     {
-      href: "/admin/member-notes?kind=inquiry",
-      count: aq?.member_inquiry_open ?? 0,
-      titleKey: "admin_cp_queue_member_inquiry",
-      titleKo: "회원 문의 (미답변)",
-      titleEn: "Member inquiry (open)",
+      href: "/admin/support?filter=WAITING_ADMIN",
+      count: aq?.support_actionable ?? 0,
+      titleKey: "admin_cp_queue_support_actionable",
+      titleKo: "고객센터 조치 필요",
+      titleEn: "Support actionable",
       domain: "member",
     },
     {
@@ -86,14 +87,6 @@ export function CustomerPlatformDashboardPage() {
       titleKey: "admin_cp_queue_store_inquiry",
       titleKo: "매장 문의 (open)",
       titleEn: "Store inquiry (open)",
-      domain: "store",
-    },
-    {
-      href: "/admin/platform-inquiries",
-      count: aq?.platform_inquiry_open ?? 0,
-      titleKey: "admin_cp_queue_store_inbox",
-      titleKo: "스토어 쪽지/플랫폼 문의",
-      titleEn: "Store inbox / platform inquiry",
       domain: "store",
     },
     {

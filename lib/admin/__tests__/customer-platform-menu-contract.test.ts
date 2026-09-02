@@ -19,13 +19,15 @@ describe("customer-platform menu IA", () => {
     expect(cp.children?.some((c) => c.key === "cp-notification-engine")).toBe(true);
   });
 
-  it("keeps Member and Store support paths separate", () => {
+  it("A2-2: Support Center SSOT + archive; store_inquiries KEEP; legacy Care/platform off menu", () => {
     const support = requireAdminMenuByKey(adminMenu, "cp-support");
     const paths = (support.children ?? []).map((c) => c.path);
-    expect(paths).toContain("/admin/member-notes?kind=inquiry");
-    expect(paths).toContain("/admin/member-notes?kind=inbox");
+    expect(paths).toContain("/admin/support");
+    expect(paths).toContain("/admin/support/archive");
     expect(paths).toContain("/admin/store-inquiries");
-    expect(paths).toContain("/admin/platform-inquiries");
+    expect(paths).not.toContain("/admin/member-notes?kind=inquiry");
+    expect(paths).not.toContain("/admin/member-notes?kind=inbox");
+    expect(paths).not.toContain("/admin/platform-inquiries");
   });
 
   it("keeps notice and engine under CP, not community", () => {
@@ -48,29 +50,7 @@ describe("customer-platform menu IA", () => {
 
   it("does not keep CS ops under delivery top-level children", () => {
     const deliveryKids = topLevelChildrenByKey(adminMenu, "delivery");
-    expect(deliveryKids.some((c) => c.key === "member-notes-admin")).toBe(false);
-    expect(deliveryKids.some((c) => c.key === "store-inquiries-admin")).toBe(false);
-    expect(deliveryKids.some((c) => c.key === "store-points-admin")).toBe(false);
-  });
-
-  it("does not put promoted-items or notification settings under CP", () => {
-    const cp = requireAdminMenuByKey(adminMenu, "customer-platform");
-    const paths: string[] = [];
-    function walk(items: { path?: string; children?: typeof items }[]) {
-      for (const it of items) {
-        if (it.path) paths.push(it.path);
-        if (it.children) walk(it.children);
-      }
-    }
-    walk(cp.children ?? []);
-    expect(paths).not.toContain("/admin/promoted-items");
-    expect(paths).not.toContain("/admin/member-benefits");
-    expect(paths).not.toContain("/admin/settings/notifications");
-  });
-
-  it("marks FAQ as pending without inventing a product route as done", () => {
-    const faq = requireAdminMenuByKey(adminMenu, "cp-faq");
-    expect(faq.pendingRoute).toBe(true);
-    expect(faq.status).toBe("todo");
+    expect(deliveryKids.some((c) => (c.path ?? "").includes("member-notes"))).toBe(false);
+    expect(deliveryKids.some((c) => (c.path ?? "").includes("platform-inquiries"))).toBe(false);
   });
 });

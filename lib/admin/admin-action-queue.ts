@@ -50,6 +50,7 @@ export type AdminActionQueueCategory =
   | "store_reports"
   | "delivery_alerts"
   | "member_inquiry_open"
+  | "support_actionable"
   | "store_inquiry_open"
   | "platform_inquiry_open"
   | "community_reports"
@@ -78,8 +79,11 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   store_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   member_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  /** A2-2: support_cases OPEN|WAITING_ADMIN — canonical Admin Support workload */
+  support_actionable: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   store_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
-  platform_inquiry_open: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  /** Legacy platform inbox — archive only (A2-2); not ops workload */
+  platform_inquiry_open: { priority: "P3_SILENT", rt: "POLL_SUFFICIENT", soundEligible: false },
   community_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   /** stores.approval_status — Admin next-action only (pending|under_review; not revision_requested). */
   store_applications: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
@@ -96,6 +100,8 @@ export type AdminActionQueueCounts = {
   store_reports: number;
   delivery_alerts: number;
   member_inquiry_open: number;
+  /** A2-2 support_cases actionable (OPEN|WAITING_ADMIN) */
+  support_actionable: number;
   store_inquiry_open: number;
   platform_inquiry_open: number;
   community_reports: number;
@@ -120,6 +126,7 @@ export type AdminActionQueueCounts = {
     delivery_ad_ops: number;
     trade_promo_pending: number;
     member_inquiry_open: number;
+    support_actionable: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
   };
@@ -148,6 +155,7 @@ export async function loadAdminActionQueueCounts(input: {
     store_reports: 0,
     delivery_alerts: 0,
     member_inquiry_open: 0,
+    support_actionable: 0,
     store_inquiry_open: 0,
     platform_inquiry_open: 0,
     community_reports: 0,
@@ -168,6 +176,7 @@ export async function loadAdminActionQueueCounts(input: {
       delivery_ad_ops: 0,
       trade_promo_pending: 0,
       member_inquiry_open: 0,
+      support_actionable: 0,
       store_inquiry_open: 0,
       platform_inquiry_open: 0,
     },
@@ -183,9 +192,8 @@ export async function loadAdminActionQueueCounts(input: {
     alertsRes,
     feedAdRes,
     tradePromoRes,
-    memberInquiryRes,
     storeInquiryRes,
-    platformInquiryRes,
+    supportActionableRes,
     communityReportsRes,
     storeApplicationsRes,
     deliveryAdOpsRes,
@@ -231,21 +239,14 @@ export async function loadAdminActionQueueCounts(input: {
           .eq("domain", "trade")
           .eq("order_status", "pending_review")
       : Promise.resolve({ count: 0, error: null }),
-    notesSb
-      ? notesSb
-          .from("member_admin_note_threads")
-          .select("id", { count: "exact", head: true })
-          .eq("started_by", "member")
-          .eq("status", "open")
-      : Promise.resolve({ count: 0, error: null }),
     storesSb
       ? storesSb.from("store_inquiries").select("id", { count: "exact", head: true }).eq("status", "open")
       : Promise.resolve({ count: 0, error: null }),
-    storesSb
-      ? storesSb
-          .from("platform_admin_inquiries")
+    notesSb
+      ? notesSb
+          .from("support_cases")
           .select("id", { count: "exact", head: true })
-          .eq("status", "open")
+          .in("status", ["OPEN", "WAITING_ADMIN"])
       : Promise.resolve({ count: 0, error: null }),
     notesSb
       ? notesSb
@@ -304,9 +305,14 @@ export async function loadAdminActionQueueCounts(input: {
   const reports = safeCount(reportsRes);
   const store_reports = safeCount(storeReportsRes);
   const delivery_alerts = safeCount(alertsRes);
-  const member_inquiry_open = safeCount(memberInquiryRes);
+  const member_inquiry_open = 0; // A2-2: legacy Care removed from actionable queue
   const store_inquiry_open = safeCount(storeInquiryRes);
-  const platform_inquiry_open = safeCount(platformInquiryRes);
+  const platform_inquiry_open = 0; // A2-2: legacy platform inbox archive only
+  const support_actionable =
+    supportActionableRes.error &&
+    /support_cases|schema cache|does not exist/i.test(supportActionableRes.error.message ?? "")
+      ? 0
+      : safeCount(supportActionableRes);
   const community_reports =
     communityReportsRes.error &&
     /community_reports|schema cache|does not exist/i.test(communityReportsRes.error.message ?? "")
@@ -336,6 +342,7 @@ export async function loadAdminActionQueueCounts(input: {
     reportsCombined +
     delivery_alerts +
     member_inquiry_open +
+    support_actionable +
     store_inquiry_open +
     platform_inquiry_open +
     community_reports +
@@ -351,6 +358,7 @@ export async function loadAdminActionQueueCounts(input: {
     store_reports,
     delivery_alerts,
     member_inquiry_open,
+    support_actionable,
     store_inquiry_open,
     platform_inquiry_open,
     community_reports,
@@ -371,6 +379,7 @@ export async function loadAdminActionQueueCounts(input: {
       delivery_ad_ops,
       trade_promo_pending,
       member_inquiry_open,
+      support_actionable,
       store_inquiry_open,
       platform_inquiry_open,
     },

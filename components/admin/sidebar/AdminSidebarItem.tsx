@@ -41,7 +41,7 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, memberInquiryOpenCount, platformInquiryOpenCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
+  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
     useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
   /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
@@ -54,21 +54,19 @@ export function AdminSidebarItem({
           ? tradePromoPendingCount
           : item.key === "ads-feed-applications" && feedAdPendingCount > 0
             ? feedAdPendingCount
-            : item.key === "cp-member-inquiry" && memberInquiryOpenCount > 0
-              ? memberInquiryOpenCount
-              : item.key === "cp-store-inbox" && platformInquiryOpenCount > 0
-                ? platformInquiryOpenCount
-                : item.key === "global-reports" && globalReportsCount > 0
-                  ? globalReportsCount
-                  : item.key === "reports-posts" && tradeReportsCount > 0
-                    ? tradeReportsCount
-                    : item.key === "community-feed-reports" && communityReportsCount > 0
-                      ? communityReportsCount
-                      : item.key === "store-reports-admin" && storeReportsCount > 0
-                        ? storeReportsCount
-                        : item.key === "stores-commerce" && storeApplicationsCount > 0
-                          ? storeApplicationsCount
-                          : 0;
+            : item.key === "cp-support-center" && supportActionableCount > 0
+              ? supportActionableCount
+              : item.key === "global-reports" && globalReportsCount > 0
+                ? globalReportsCount
+                : item.key === "reports-posts" && tradeReportsCount > 0
+                  ? tradeReportsCount
+                  : item.key === "community-feed-reports" && communityReportsCount > 0
+                    ? communityReportsCount
+                    : item.key === "store-reports-admin" && storeReportsCount > 0
+                      ? storeReportsCount
+                      : item.key === "stores-commerce" && storeApplicationsCount > 0
+                        ? storeApplicationsCount
+                        : 0;
 
   const childActive = hasChildren
     ? hasActiveDescendantInMenu(item.children ?? [], currentPath)

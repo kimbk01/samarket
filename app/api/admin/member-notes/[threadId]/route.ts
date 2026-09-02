@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
   getNoteThreadWithMessages,
   markAdminNoteThreadRead,
-  postNoteMessage,
 } from "@/lib/notifications/member-admin-notes-service";
 
 export const runtime = "nodejs";
@@ -38,26 +36,15 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  if (!(await isRouteAdmin())) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  const { threadId: raw } = await ctx.params;
-  const threadId = String(raw ?? "").trim();
-  if (!threadId) return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  const body = (await req.json().catch(() => ({}))) as { body?: string };
-  const res = await postNoteMessage(sb, {
-    threadId,
-    senderRole: "admin",
-    senderUserId: auth.userId,
-    body: String(body.body ?? ""),
-  });
-  if (!res.ok) {
-    const status = res.notFound ? 404 : res.error === "invalid_input" ? 400 : 500;
-    return NextResponse.json({ ok: false, error: res.error }, { status });
-  }
-  return NextResponse.json({ ok: true, message: res.message });
+  // A2-2: legacy Care write disabled — Support Center is SSOT.
+  void req;
+  void ctx;
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      message: "Use /admin/support for new admin support replies.",
+    },
+    { status: 410 }
+  );
 }

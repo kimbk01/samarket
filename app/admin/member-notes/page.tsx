@@ -1,5 +1,6 @@
-import { AdminMemberNotesPage } from "@/components/admin/member-notes/AdminMemberNotesPage";
+import { redirect } from "next/navigation";
 
+/** A2-2: legacy Care queue demoted to Support archive. */
 export default function AdminMemberNotesRoutePage() {
-  return <AdminMemberNotesPage />;
+  redirect("/admin/support/archive");
 }

@@ -6,7 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { SupportCaseRow, SupportMessageRow } from "@/lib/support/support-case-types";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type {
+  SupportCasePriority,
+  SupportCaseRow,
+  SupportMessageRow,
+} from "@/lib/support/support-case-types";
 import type { AdminSupportListFilter } from "@/lib/support/support-case-service";
 
 const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] = [
@@ -17,6 +22,12 @@ const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[
   { id: "WAITING_ADMIN", labelKo: "답변 대기", labelEn: "Waiting admin" },
   { id: "WAITING_USER", labelKo: "사용자 답변 대기", labelEn: "Waiting user" },
   { id: "RESOLVED", labelKo: "종료", labelEn: "Resolved" },
+];
+
+const PRIORITIES: { id: SupportCasePriority; labelKo: string; labelEn: string }[] = [
+  { id: "NORMAL", labelKo: "일반", labelEn: "Normal" },
+  { id: "HIGH", labelKo: "높음", labelEn: "High" },
+  { id: "URGENT", labelKo: "긴급", labelEn: "Urgent" },
 ];
 
 function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
@@ -38,6 +49,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const selfAdminId = getCurrentUser()?.id?.trim() || "";
 
   const loadList = useCallback(async () => {
     setListLoading(true);
@@ -86,6 +98,12 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   useEffect(() => {
     if (initialCaseId) setActiveId(initialCaseId);
   }, [initialCaseId]);
+
+  useEffect(() => {
+    const next = (searchParams.get("filter")?.trim().toUpperCase() ??
+      "ALL") as AdminSupportListFilter;
+    if (FILTERS.some((f) => f.id === next)) setFilter(next);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!activeId) {
@@ -146,7 +164,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-admin-support-ssot="1">
       <AdminPageHeader
         title={safeT("admin_support_title", {
           fallbackKo: "고객센터",
@@ -197,7 +215,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
         </button>
       </div>
 
-      <div className="grid min-h-[32rem] flex-1 gap-3 lg:grid-cols-[320px_1fr]">
+      <div className="grid min-h-[32rem] flex-1 gap-3 lg:grid-cols-[340px_1fr]">
         <div className="overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           {listLoading ? (
             <p className="p-4 text-sm text-sam-muted">…</p>
@@ -213,6 +231,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     className={`w-full px-3 py-3 text-left hover:bg-sam-surface-muted ${
                       activeId === c.id ? "bg-sam-surface-muted" : ""
                     }`}
+                    data-admin-support-row={c.id}
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-sam-primary">
@@ -221,10 +240,26 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                       <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-bold">
                         {c.audience}
                       </span>
+                      {Number(c.admin_unread_count) > 0 ? (
+                        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          {c.admin_unread_count}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 line-clamp-1 text-sm font-medium">{c.subject}</p>
                     <p className="text-[11px] text-sam-muted">
-                      {c.category} · {c.status}
+                      {c.category}
+                      {c.audience === "OWNER" && c.owner_store_id
+                        ? ` · Store ${c.owner_store_id.slice(0, 8)}…`
+                        : ""}
+                      {" · "}
+                      {c.priority}
+                      {" · "}
+                      {c.status}
+                      {!c.assigned_admin_id ? " · 미배정" : ""}
+                    </p>
+                    <p className="text-[10px] text-sam-muted">
+                      {c.last_message_at ? new Date(c.last_message_at).toLocaleString() : ""}
                     </p>
                   </button>
                 </li>
@@ -247,7 +282,33 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   {activeCase.public_case_no} · {activeCase.subject}
                 </h2>
                 <p className="text-xs text-sam-muted">
-                  {activeCase.audience} · {activeCase.category} · {activeCase.status}
+                  {activeCase.audience} · {activeCase.category} · {activeCase.status} ·{" "}
+                  {activeCase.priority}
+                  {activeCase.reference_type
+                    ? ` · ${activeCase.reference_type}${
+                        activeCase.reference_id
+                          ? `:${String(activeCase.reference_id).slice(0, 8)}`
+                          : ""
+                      }`
+                    : ""}
+                </p>
+                <p className="mt-1 text-xs text-sam-muted">
+                  {safeT("admin_support_assignee_label", {
+                    fallbackKo: "담당자",
+                    fallbackEn: "Assignee",
+                  })}
+                  {": "}
+                  {activeCase.assigned_admin_id
+                    ? activeCase.assigned_admin_id === selfAdminId
+                      ? safeT("admin_support_assignee_self", {
+                          fallbackKo: "나",
+                          fallbackEn: "Me",
+                        })
+                      : `${activeCase.assigned_admin_id.slice(0, 8)}…`
+                    : safeT("admin_support_unassigned", {
+                        fallbackKo: "미배정",
+                        fallbackEn: "Unassigned",
+                      })}
                 </p>
                 {activeCase.owner_store_id ? (
                   <Link
@@ -260,19 +321,84 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                     })}
                   </Link>
                 ) : null}
+                {error ? <p className="mt-1 text-sm text-red-600">{error}</p> : null}
+              </div>
+
+              <div className="my-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy || !selfAdminId}
+                  className="min-h-9 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                  data-admin-support-assign-self="1"
+                  onClick={() =>
+                    void patchCase({ action: "assign", assigneeAdminId: selfAdminId })
+                  }
+                >
+                  {safeT("admin_support_assign_self", {
+                    fallbackKo: "나에게 배정",
+                    fallbackEn: "Assign to me",
+                  })}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !activeCase.assigned_admin_id}
+                  className="min-h-9 rounded-ui-rect border border-sam-border px-3 text-sm disabled:opacity-50"
+                  onClick={() => void patchCase({ action: "assign", assigneeAdminId: null })}
+                >
+                  {safeT("admin_support_unassign", {
+                    fallbackKo: "배정 해제",
+                    fallbackEn: "Unassign",
+                  })}
+                </button>
+                <label className="flex items-center gap-1 text-xs text-sam-muted">
+                  {safeT("admin_support_priority_label", {
+                    fallbackKo: "우선순위",
+                    fallbackEn: "Priority",
+                  })}
+                  <select
+                    className="min-h-9 rounded-ui-rect border border-sam-border bg-sam-surface px-2 text-sm text-sam-fg"
+                    value={activeCase.priority}
+                    disabled={busy}
+                    data-admin-support-priority="1"
+                    onChange={(e) => {
+                      void patchCase({
+                        action: "priority",
+                        priority: e.target.value,
+                      });
+                    }}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.labelKo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
               <div className="my-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
-                {messages
-                  .filter((m) => m.message_type === "PUBLIC")
-                  .map((m) => (
-                    <div key={m.id} className="rounded-ui-rect bg-sam-surface-muted p-2 text-sm">
-                      <p className="text-[11px] text-sam-muted">
-                        {m.sender_type} · {new Date(m.created_at).toLocaleString()}
-                      </p>
-                      <p className="whitespace-pre-wrap">{m.body}</p>
-                    </div>
-                  ))}
+                {messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`rounded-ui-rect p-2 text-sm ${
+                      m.message_type === "INTERNAL_NOTE"
+                        ? "border border-dashed border-amber-300 bg-amber-50"
+                        : "bg-sam-surface-muted"
+                    }`}
+                    data-admin-support-msg-type={m.message_type}
+                  >
+                    <p className="text-[11px] text-sam-muted">
+                      {m.message_type === "INTERNAL_NOTE"
+                        ? safeT("admin_support_internal_note", {
+                            fallbackKo: "내부 메모",
+                            fallbackEn: "Internal note",
+                          })
+                        : m.sender_type}{" "}
+                      · {new Date(m.created_at).toLocaleString()}
+                    </p>
+                    <p className="whitespace-pre-wrap">{m.body}</p>
+                  </div>
+                ))}
               </div>
 
               <textarea
@@ -280,6 +406,10 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                 onChange={(e) => setReply(e.target.value)}
                 rows={3}
                 className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
+                placeholder={safeT("admin_support_reply_placeholder", {
+                  fallbackKo: "답변 입력",
+                  fallbackEn: "Reply",
+                })}
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -297,9 +427,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   type="button"
                   disabled={busy}
                   className="min-h-9 rounded-ui-rect border border-sam-border px-3 text-sm"
+                  data-admin-support-resolve="1"
                   onClick={() => void patchCase({ action: "status", status: "RESOLVED" })}
                 >
-                  {safeT("admin_support_resolve", { fallbackKo: "종료", fallbackEn: "Resolve" })}
+                  {safeT("admin_support_resolve", {
+                    fallbackKo: "상담 종료",
+                    fallbackEn: "End consultation",
+                  })}
                 </button>
               </div>
               <textarea
@@ -308,8 +442,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                 rows={2}
                 className="mt-2 w-full resize-none rounded-ui-rect border border-dashed border-sam-border px-3 py-2 text-sm"
                 placeholder={safeT("admin_support_internal_note", {
-                  fallbackKo: "내부 메모",
-                  fallbackEn: "Internal note",
+                  fallbackKo: "내부 메모 (회원 비노출)",
+                  fallbackEn: "Internal note (hidden from user)",
                 })}
               />
               <button

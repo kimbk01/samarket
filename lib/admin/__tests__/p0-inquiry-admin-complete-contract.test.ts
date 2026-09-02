@@ -15,21 +15,21 @@ import { ADMIN_ACTION_QUEUE_META } from "@/lib/admin/admin-action-queue";
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 describe("P0-C inquiry domain inventory (source)", () => {
-  it("Care uses member_admin_note_threads; platform uses platform_admin_inquiries", () => {
+  it("A2-2: Support actionable from support_cases; legacy Care/platform off actionable Q", () => {
     const queue = read("lib/admin/admin-action-queue.ts");
-    expect(queue).toContain('from("member_admin_note_threads")');
-    expect(queue).toContain('.eq("started_by", "member")');
-    expect(queue).toContain('.eq("status", "open")');
-    expect(queue).toContain('from("platform_admin_inquiries")');
+    expect(queue).toContain('from("support_cases")');
+    expect(queue).toContain("support_actionable");
+    expect(queue).toMatch(/member_inquiry_open\s*=\s*0/);
+    expect(queue).toMatch(/platform_inquiry_open\s*=\s*0/);
   });
 });
 
 describe("P0-C ADMIN_Q inquiry semantic (T1–T3)", () => {
-  it("actionable = open / unanswered; meta RT+sound for Care + platform", () => {
-    expect(ADMIN_ACTION_QUEUE_META.member_inquiry_open.rt).toBe("RT_REQUIRED");
-    expect(ADMIN_ACTION_QUEUE_META.member_inquiry_open.soundEligible).toBe(true);
-    expect(ADMIN_ACTION_QUEUE_META.platform_inquiry_open.rt).toBe("RT_REQUIRED");
-    expect(ADMIN_ACTION_QUEUE_META.platform_inquiry_open.soundEligible).toBe(true);
+  it("A2-2: support_actionable is RT+sound; legacy Care/platform silent", () => {
+    expect(ADMIN_ACTION_QUEUE_META.support_actionable.rt).toBe("RT_REQUIRED");
+    expect(ADMIN_ACTION_QUEUE_META.support_actionable.soundEligible).toBe(true);
+    expect(ADMIN_ACTION_QUEUE_META.platform_inquiry_open.rt).toBe("POLL_SUFFICIENT");
+    expect(ADMIN_ACTION_QUEUE_META.platform_inquiry_open.soundEligible).toBe(false);
     expect(ADMIN_ACTION_QUEUE_META.store_inquiry_open.soundEligible).toBe(false);
   });
 
@@ -92,24 +92,24 @@ describe("P0-C Admin → Member Care reply preserved (T8/T9)", () => {
 });
 
 describe("P0-C Owner platform reply", () => {
-  it("uses one generic inquiry notification without a legacy finance product", () => {
+  it("A2-2: platform answer API disabled; notify helper kept for archive history", () => {
     const route = read("app/api/admin/platform-inquiries/[id]/route.ts");
     const writer = read("lib/notifications/notify-store-points.ts");
     expect(writer).toContain("notifyStoreOwnerPlatformInquiryReplied");
     expect(writer).not.toContain("notifyStoreOwnerPointAccountReplied");
     expect(writer).toContain('type: "inquiry_answered"');
-    expect(route).toContain("notifyStoreOwnerPlatformInquiryReplied");
-    expect(route).not.toContain("notifyStoreOwnerPointAccountReplied");
+    expect(route).toContain("legacy_writer_disabled");
+    expect(route).not.toContain("notifyStoreOwnerPlatformInquiryReplied");
   });
 });
 
 describe("P0-C sidebar section badge from Q (T1)", () => {
-  it("cp-member-inquiry + cp-store-inbox use Admin Q projections", () => {
+  it("A2-2: cp-support-center uses supportActionableCount", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "cp-member-inquiry"');
-    expect(sidebar).toContain("memberInquiryOpenCount");
-    expect(sidebar).toContain('item.key === "cp-store-inbox"');
-    expect(sidebar).toContain("platformInquiryOpenCount");
+    expect(sidebar).toContain('item.key === "cp-support-center"');
+    expect(sidebar).toContain("supportActionableCount");
+    expect(sidebar).not.toContain('item.key === "cp-member-inquiry"');
+    expect(sidebar).not.toContain('item.key === "cp-store-inbox"');
   });
 });
 

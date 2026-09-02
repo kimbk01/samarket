@@ -42,6 +42,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     action_queue: {
+      support_actionable: counts.support_actionable,
       member_inquiry_open: counts.member_inquiry_open,
       store_inquiry_open: counts.store_inquiry_open,
       platform_inquiry_open: counts.platform_inquiry_open,
