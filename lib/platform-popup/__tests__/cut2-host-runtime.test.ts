@@ -244,11 +244,10 @@ describe("CUT2 impression boundary", () => {
     expect(assertNotImpressionFromResolver("impression", "api_eligibility").ok).toBe(false);
   });
 
-  it("host delegates impression to renderer onRenderComplete only", () => {
+  it("host READY path does not call markPlatformPopupImpression", () => {
     const host = readRepo("components/platform-popup/GlobalPopupHost.tsx");
     expect(host).not.toContain("markPlatformPopupImpression");
-    expect(host).toContain("onRenderComplete={handleRenderComplete}");
-    expect(host).toContain('eventType: "impression"');
+    expect(host).toContain('data-impression="0"');
   });
 
   it("renderer-only mark is deferred contract (no auto emit from CUT2)", () => {

@@ -38,6 +38,12 @@ import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 
 type ResolveWinner = PlatformPopupPresentationWinner;
 
+const SSR_CALL_RUNTIME_SNAPSHOT = {
+  incomingCall: false,
+  activeCall: false,
+  nativeCallTransition: false,
+} as const;
+
 function subscribeVisibility(onStore: () => void): () => void {
   if (typeof document === "undefined") return () => {};
   const handler = () => onStore();
@@ -105,7 +111,7 @@ export function GlobalPopupHost() {
   const call = useSyncExternalStore(
     subscribePlatformPopupCallRuntime,
     readPlatformPopupCallRuntimeSnapshot,
-    () => ({ incomingCall: false, activeCall: false, nativeCallTransition: false })
+    () => SSR_CALL_RUNTIME_SNAPSHOT
   );
 
   const storesLcpDeferred = useStoresHomeOverlayDeferUntilInput();
@@ -321,9 +327,7 @@ export function GlobalPopupHost() {
         setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
       });
 
-    return () => {
-      controller.abort();
-    };
+    // Do not abort on IDLE→RESOLVING re-run — generation + surface guards handle staleness.
   }, [
     eligible,
     hostState,

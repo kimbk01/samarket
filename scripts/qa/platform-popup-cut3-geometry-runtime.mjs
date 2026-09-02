@@ -38,73 +38,84 @@ const MOCK_WINNER = {
   suppressionDurationSeconds: null,
 };
 
-async function measureViewport(page, label, width, height, landscape = false) {
-  await page.setViewportSize(
-    landscape ? { width: height, height: width } : { width, height }
-  );
-  await page.goto(`${BASE_URL}/market`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(1200);
+async function measureViewport(context, label, width, height, landscape = false) {
+  const page = await context.newPage();
+  try {
+    await page.setViewportSize(
+      landscape ? { width: height, height: width } : { width, height }
+    );
+    await page.goto(`${BASE_URL}/market`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    try {
+      await page.waitForSelector("[data-platform-popup-card]", { timeout: 25_000 });
+    } catch {
+      await page.waitForTimeout(1500);
+    }
 
-  const hasCard = await page.locator("[data-platform-popup-card]").count();
-  const contentWidth = await page.evaluate(() => {
-    const col = document.querySelector(".app-shell") ?? document.documentElement;
-    return col.getBoundingClientRect().width;
-  });
+    const hasCard = await page.locator("[data-platform-popup-card]").count();
+    const contentWidth = await page.evaluate(() => {
+      const col = document.querySelector(".app-shell") ?? document.documentElement;
+      return col.getBoundingClientRect().width;
+    });
 
-  if (!hasCard) {
+    if (!hasCard) {
+      return {
+        label,
+        viewport: `${landscape ? height : width}x${landscape ? width : height}`,
+        landscape,
+        rendered: false,
+        contentWidth,
+      };
+    }
+
+    await page.waitForSelector("[data-platform-popup-creative] img", { timeout: 5000 });
+
+    const rects = await page.evaluate(() => {
+      const card = document.querySelector("[data-platform-popup-card]");
+      const creative = document.querySelector("[data-platform-popup-creative]");
+      const dismiss = document.querySelector("[data-platform-popup-dismiss-row]");
+      if (!card || !creative || !dismiss) return null;
+      const cr = card.getBoundingClientRect();
+      const cv = creative.getBoundingClientRect();
+      const dr = dismiss.getBoundingClientRect();
+      const style = getComputedStyle(card);
+      return {
+        popup: { w: cr.width, h: cr.height, bottom: cr.bottom },
+        creative: { w: cv.width, h: cv.height },
+        dismiss: { w: dr.width, h: dr.height },
+        radiusTopLeft: style.borderTopLeftRadius,
+      };
+    });
+
+    if (!rects) {
+      return { label, viewport: `${width}x${height}`, landscape, rendered: false, contentWidth };
+    }
+
+    const popupH = rects.popup.h;
     return {
       label,
       viewport: `${landscape ? height : width}x${landscape ? width : height}`,
       landscape,
-      rendered: false,
+      rendered: true,
       contentWidth,
+      popup: rects.popup,
+      creative: rects.creative,
+      dismiss: rects.dismiss,
+      widthRatio: rects.popup.w / contentWidth,
+      creativeAspect: rects.creative.w / rects.creative.h,
+      creativeShare: rects.creative.h / popupH,
+      dismissShare: rects.dismiss.h / popupH,
+      heightEnvelopeVh: (popupH / (landscape ? width : height)) * 100,
+      radiusTopLeft: rects.radiusTopLeft,
     };
+  } finally {
+    await page.close();
   }
-
-  await page.waitForSelector("[data-platform-popup-creative] img", { timeout: 5000 });
-
-  const rects = await page.evaluate(() => {
-    const card = document.querySelector("[data-platform-popup-card]");
-    const creative = document.querySelector("[data-platform-popup-creative]");
-    const dismiss = document.querySelector("[data-platform-popup-dismiss-row]");
-    if (!card || !creative || !dismiss) return null;
-    const cr = card.getBoundingClientRect();
-    const cv = creative.getBoundingClientRect();
-    const dr = dismiss.getBoundingClientRect();
-    return {
-      popup: { w: cr.width, h: cr.height, bottom: cr.bottom },
-      creative: { w: cv.width, h: cv.height },
-      dismiss: { w: dr.width, h: dr.height },
-    };
-  });
-
-  if (!rects) {
-    return { label, viewport: `${width}x${height}`, landscape, rendered: false, contentWidth };
-  }
-
-  const popupH = rects.popup.h;
-  return {
-    label,
-    viewport: `${landscape ? height : width}x${landscape ? width : height}`,
-    landscape,
-    rendered: true,
-    contentWidth,
-    popup: rects.popup,
-    creative: rects.creative,
-    dismiss: rects.dismiss,
-    widthRatio: rects.popup.w / contentWidth,
-    creativeAspect: rects.creative.w / rects.creative.h,
-    creativeShare: rects.creative.h / popupH,
-    dismissShare: rects.dismiss.h / popupH,
-    heightEnvelopeVh: (popupH / (landscape ? width : height)) * 100,
-  };
 }
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
-const page = await context.newPage();
 
-await page.route("**/api/platform-popup/resolve**", async (route) => {
+await context.route("**/api/platform-popup/resolve**", async (route) => {
   await route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -117,23 +128,25 @@ await page.route("**/api/platform-popup/resolve**", async (route) => {
   });
 });
 
-await page.route("**/api/platform-popup/events**", async (route) => {
+await context.route("**/api/platform-popup/events**", async (route) => {
   await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
 });
 
-await page.route("**/api/platform-popup/suppress**", async (route) => {
+await context.route("**/api/platform-popup/suppress**", async (route) => {
   await route.fulfill({ status: 200, contentType: "application/json", body: '{"ok":true}' });
 });
 
 const results = [];
-results.push(await measureViewport(page, "phone_portrait", 390, 844));
-results.push(await measureViewport(page, "tablet_portrait", 768, 1024));
-results.push(await measureViewport(page, "phone_landscape", 390, 844, true));
+results.push(await measureViewport(context, "phone_portrait", 390, 844));
+results.push(await measureViewport(context, "tablet_portrait", 768, 1024));
+results.push(await measureViewport(context, "phone_landscape", 390, 844, true));
 
-await page.setViewportSize({ width: 390, height: 844 });
-await page.goto(`${BASE_URL}/market`, { waitUntil: "networkidle" });
-await page.waitForTimeout(800);
-await page.screenshot({ path: join(OUT_DIR, "phone-portrait-390.png"), fullPage: false });
+const shotPage = await context.newPage();
+await shotPage.setViewportSize({ width: 390, height: 844 });
+await shotPage.goto(`${BASE_URL}/market`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+await shotPage.waitForTimeout(800);
+await shotPage.screenshot({ path: join(OUT_DIR, "phone-portrait-390.png"), fullPage: false });
+await shotPage.close();
 
 const report = {
   generatedAt: new Date().toISOString(),

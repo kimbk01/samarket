@@ -34,7 +34,15 @@ export type PlatformPopupCallRuntimeSnapshot = {
   nativeCallTransition: boolean;
 };
 
-export function readPlatformPopupCallRuntimeSnapshot(): PlatformPopupCallRuntimeSnapshot {
+const EMPTY_CALL_SNAPSHOT: PlatformPopupCallRuntimeSnapshot = {
+  incomingCall: false,
+  activeCall: false,
+  nativeCallTransition: false,
+};
+
+let cachedCallSnapshot: PlatformPopupCallRuntimeSnapshot = EMPTY_CALL_SNAPSHOT;
+
+function buildPlatformPopupCallRuntimeSnapshot(): PlatformPopupCallRuntimeSnapshot {
   const phase = readCallV4Phase();
   const session = readActiveCallSessionSnapshot();
   const sessionLive =
@@ -59,6 +67,20 @@ export function readPlatformPopupCallRuntimeSnapshot(): PlatformPopupCallRuntime
     activeCall: Boolean(activeCall),
     nativeCallTransition: Boolean(nativeCallTransition),
   };
+}
+
+export function readPlatformPopupCallRuntimeSnapshot(): PlatformPopupCallRuntimeSnapshot {
+  const next = buildPlatformPopupCallRuntimeSnapshot();
+  const prev = cachedCallSnapshot;
+  if (
+    prev.incomingCall === next.incomingCall &&
+    prev.activeCall === next.activeCall &&
+    prev.nativeCallTransition === next.nativeCallTransition
+  ) {
+    return prev;
+  }
+  cachedCallSnapshot = next;
+  return next;
 }
 
 /** Event-driven call gate — no campaign polling; zustand + session + chrome suppress. */

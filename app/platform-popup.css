@@ -16,8 +16,9 @@
 .dibay-platform-popup-card {
   container-type: inline-size;
   display: grid;
-  grid-template-rows: minmax(0, 825fr) minmax(44px, 175fr);
+  grid-template-rows: auto auto;
   width: 100%;
+  height: auto;
   max-width: var(--platform-popup-tablet-max-width, 480px);
   max-height: min(45vh, calc(100dvh - var(--safe-top, 0px)));
   margin-inline: auto;

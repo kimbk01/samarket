@@ -1,0 +1,70 @@
+{
+  "generatedAt": "2026-09-02T14:50:35.928Z",
+  "baseUrl": "http://localhost:3000",
+  "classification": "DIBAY_IMPLEMENTATION_CALIBRATION",
+  "backdrop": "rgba(0, 0, 0, 0.45)",
+  "tabletMaxWidthPx": 480,
+  "radiusToken": "clamp(8px, 3cqi, 16px)",
+  "measurements": [
+    {
+      "label": "phone_portrait",
+      "viewport": "390x844",
+      "landscape": false,
+      "rendered": true,
+      "contentWidth": 390,
+      "popup": {
+        "w": 390,
+        "h": 362.625,
+        "bottom": 844
+      },
+      "creative": {
+        "w": 390,
+        "h": 270.828125
+      },
+      "dismiss": {
+        "w": 390,
+        "h": 91.796875
+      },
+      "widthRatio": 1,
+      "creativeAspect": 1.440027692840247,
+      "creativeShare": 0.7468545329196828,
+      "dismissShare": 0.25314546708031715,
+      "heightEnvelopeVh": 42.96504739336493,
+      "radiusTopLeft": "11.7px"
+    },
+    {
+      "label": "tablet_portrait",
+      "viewport": "768x1024",
+      "landscape": false,
+      "rendered": true,
+      "contentWidth": 768,
+      "popup": {
+        "w": 480,
+        "h": 425.125,
+        "bottom": 1024
+      },
+      "creative": {
+        "w": 480,
+        "h": 333.328125
+      },
+      "dismiss": {
+        "w": 480,
+        "h": 91.796875
+      },
+      "widthRatio": 0.625,
+      "creativeAspect": 1.440022500351568,
+      "creativeShare": 0.7840708615113202,
+      "dismissShare": 0.2159291384886798,
+      "heightEnvelopeVh": 41.51611328125,
+      "radiusTopLeft": "16px"
+    },
+    {
+      "label": "phone_landscape",
+      "viewport": "844x390",
+      "landscape": true,
+      "rendered": false,
+      "contentWidth": 844
+    }
+  ],
+  "webOrientationSimulation": true
+}

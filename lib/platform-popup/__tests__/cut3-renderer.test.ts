@@ -100,8 +100,8 @@ describe("CUT3 geometry contract", () => {
   it("CSS uses 36/25 creative aspect and dismiss row grid", () => {
     const css = readRepo("app/platform-popup.css");
     expect(css).toContain("aspect-ratio: 36 / 25");
-    expect(css).toContain("825fr");
-    expect(css).toContain("175fr");
+    expect(css).toContain("grid-template-rows: auto auto");
+    expect(css).toContain(".dibay-platform-popup-dismiss");
     expect(css).not.toContain("position: fixed"); // card not floating X
   });
 
