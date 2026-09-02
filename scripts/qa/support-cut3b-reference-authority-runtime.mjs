@@ -73,30 +73,15 @@ async function main() {
     .select("id, store_id")
     .eq("store_id", s1)
     .limit(1);
-  let settlementS1 = s1Settlements?.[0]?.id ? String(s1Settlements[0].id) : null;
+  const settlementS1 = s1Settlements?.[0]?.id ? String(s1Settlements[0].id) : null;
 
-  let settlementS2 = null;
-  if (s2) {
-    const { data: rows } = await sb
-      .from("store_settlements")
-      .select("id, store_id")
-      .eq("store_id", s2)
-      .limit(1);
-    settlementS2 = rows?.[0]?.id ? String(rows[0].id) : null;
-  }
-  if (!settlementS2 && sx) {
-    const { data: rows } = await sb
-      .from("store_settlements")
-      .select("id, store_id")
-      .eq("store_id", sx)
-      .limit(1);
-    settlementS2 = rows?.[0]?.id ? String(rows[0].id) : null;
-  }
-
-  const { data: sxSettlementRows } = sx
-    ? await sb.from("store_settlements").select("id, store_id").eq("store_id", sx).limit(1)
-    : { data: [] };
-  const settlementSx = sxSettlementRows?.[0]?.id ? String(sxSettlementRows[0].id) : null;
+  const { data: foreignSettlements } = await sb
+    .from("store_settlements")
+    .select("id, store_id")
+    .neq("store_id", s1)
+    .limit(5);
+  const otherSettlement = foreignSettlements?.[0] ?? null;
+  const settlementOtherStore = otherSettlement?.id ? String(otherSettlement.id) : null;
 
   const results = {};
 
@@ -119,7 +104,7 @@ async function main() {
   }
 
   // R2 different-store settlement while claiming S1
-  if (!settlementS2) {
+  if (!settlementOtherStore) {
     results.R2_CROSS_STORE = { status: "NOT_PROVEN", blocker: "no_other_store_settlement" };
   } else {
     const r2 = await apiJson(sessionOwner, "POST", "/api/support/cases/open", {
@@ -127,7 +112,7 @@ async function main() {
         category: "SETTLEMENT",
         sourceSurface: "cut3b_r2_cross",
         referenceType: "STORE_SETTLEMENT",
-        referenceId: settlementS2,
+        referenceId: settlementOtherStore,
       }),
     });
     results.R2_CROSS_STORE =
@@ -136,27 +121,28 @@ async function main() {
         : { status: "FAIL", http: r2.status, error: r2.json?.error };
   }
 
-  // R3 unauthorized store SX settlement with SX context (owner does not own SX)
-  if (!settlementSx || !sx) {
-    results.R3_UNAUTHORIZED_STORE = { status: "NOT_PROVEN", blocker: "no_sx_settlement" };
+  // R3 unauthorized store SX (owner does not own SX) — store gate DENY
+  if (!sx) {
+    results.R3_UNAUTHORIZED_STORE = { status: "NOT_PROVEN", blocker: "no_foreign_store" };
   } else {
+    const refId = settlementOtherStore || settlementS1 || "00000000-0000-4000-8000-000000000099";
     const r3 = await apiJson(sessionOwner, "POST", "/api/support/cases/open", {
       context: ownerContext(sx, {
         category: "SETTLEMENT",
         sourceSurface: "cut3b_r3_sx",
         referenceType: "STORE_SETTLEMENT",
-        referenceId: settlementSx,
+        referenceId: refId,
       }),
     });
-    // store_forbidden (ownership) OR reference_forbidden — both DENY
     results.R3_UNAUTHORIZED_STORE =
-      r3.status === 403 && (r3.json?.error === "store_forbidden" || r3.json?.error === "reference_forbidden")
+      r3.status === 403 &&
+      (r3.json?.error === "store_forbidden" || r3.json?.error === "reference_forbidden")
         ? { status: "BLOCKED", error: r3.json?.error }
         : { status: "FAIL", http: r3.status, error: r3.json?.error };
   }
 
   // R4 MEMBER + settlement
-  const settlementForMember = settlementS1 || settlementSx || "00000000-0000-4000-8000-000000000099";
+  const settlementForMember = settlementS1 || settlementOtherStore || "00000000-0000-4000-8000-000000000099";
   const r4 = await apiJson(sessionMember, "POST", "/api/support/cases/open", {
     context: memberContext({
       category: "OTHER",
@@ -200,12 +186,20 @@ async function main() {
       ? { status: "BLOCKED", error: r6.json?.error }
       : { status: "FAIL", http: r6.status, error: r6.json?.error };
 
-  const critical = ["R1_SAME_STORE", "R2_CROSS_STORE", "R4_MEMBER_SETTLEMENT", "R5_UNKNOWN_TYPE", "R6_UNIMPLEMENTED_KNOWN"];
+  const critical = [
+    "R1_SAME_STORE",
+    "R2_CROSS_STORE",
+    "R3_UNAUTHORIZED_STORE",
+    "R4_MEMBER_SETTLEMENT",
+    "R5_UNKNOWN_TYPE",
+    "R6_UNIMPLEMENTED_KNOWN",
+  ];
   const fail = critical.find((k) => results[k]?.status === "FAIL");
   const closed =
     !fail &&
     results.R1_SAME_STORE?.status === "PASS" &&
     results.R2_CROSS_STORE?.status === "BLOCKED" &&
+    results.R3_UNAUTHORIZED_STORE?.status === "BLOCKED" &&
     results.R4_MEMBER_SETTLEMENT?.status === "BLOCKED" &&
     results.R5_UNKNOWN_TYPE?.status === "BLOCKED" &&
     results.R6_UNIMPLEMENTED_KNOWN?.status === "BLOCKED";

@@ -45,9 +45,13 @@ export async function POST(req: NextRequest) {
     const status =
       res.error === "disabled_context" ||
       res.error === "missing_store_id" ||
-      res.error === "member_case_must_not_have_store"
+      res.error === "member_case_must_not_have_store" ||
+      res.error === "reference_incomplete" ||
+      res.error === "invalid_reference_id"
         ? 400
-        : res.error === "store_forbidden" || res.error === "reference_forbidden"
+        : res.error === "store_forbidden" ||
+            res.error === "reference_forbidden" ||
+            res.error === "reference_type_not_allowed"
           ? 403
           : res.error === "missing_table"
             ? 503
