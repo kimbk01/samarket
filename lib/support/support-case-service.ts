@@ -322,6 +322,37 @@ export async function getSupportCaseForUser(
   return { ok: true, case: row };
 }
 
+export async function listSupportCasesForRequester(
+  sb: SupabaseClient,
+  input: {
+    userId: string;
+    audience?: "MEMBER" | "OWNER";
+    storeId?: string | null;
+    limit?: number;
+  }
+): Promise<{ ok: true; cases: SupportCaseRow[] } | { ok: false; error: string }> {
+  let query = sb
+    .from("support_cases")
+    .select("*")
+    .eq("requester_user_id", input.userId)
+    .order("last_message_at", { ascending: false })
+    .limit(Math.min(Math.max(input.limit ?? 50, 1), 100));
+
+  if (input.audience) {
+    query = query.eq("audience", input.audience);
+  }
+  if (input.audience === "OWNER" && input.storeId) {
+    query = query.eq("owner_store_id", input.storeId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingSupportTable(error.message ?? "")) return { ok: false, error: "missing_table" };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, cases: (data ?? []) as SupportCaseRow[] };
+}
+
 export async function listSupportMessages(
   sb: SupabaseClient,
   input: { caseId: string; includeInternal?: boolean }

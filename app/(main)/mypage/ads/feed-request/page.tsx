@@ -8,6 +8,7 @@ import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { buildMemberSupportContext } from "@/lib/support/support-context";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 import {
   FEED_AD_SLOT_GAP_MIN,
   FEED_AD_SLOT_GAP_MAX,
@@ -1062,16 +1063,25 @@ export default function MemberFeedAdRequestPage() {
                   fallbackEn: "Charge Point",
                 })}
               </Link>
-              <Link
-                href="/mypage/inquiries"
+              <button
+                type="button"
                 className="inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border px-4 py-2 sam-text-helper text-sam-fg"
                 data-testid="feed-ad-inquiry-cta"
+                onClick={() => {
+                  navigateToSupportCenter(
+                    buildMemberSupportContext({
+                      enabled: true,
+                      category: "AD",
+                      sourceSurface: "mypage_ads_feed_request",
+                    })
+                  );
+                }}
               >
                 {safeT("feed_ad_req_ask_admin", {
                   fallbackKo: "광고 문의",
                   fallbackEn: "Ad inquiry",
                 })}
-              </Link>
+              </button>
             </div>
           ) : null}
         </section>

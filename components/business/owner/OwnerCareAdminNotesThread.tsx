@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  OWNER_ADMIN_PRIMARY_BTN_CLASS,
-  OWNER_ADMIN_LIST_CARD_CLASS,
-} from "@/lib/business/owner-admin-list-ui";
-import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
+import { OWNER_ADMIN_LIST_CARD_CLASS } from "@/lib/business/owner-admin-list-ui";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 
 type Message = {
@@ -23,15 +19,13 @@ type Thread = {
   status?: string;
 };
 
+/** A2-1: legacy Care thread = read-only archive (no reply composer). */
 export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind }) {
   const { safeT, language } = useI18n();
   const params = useParams();
   const threadId = String(params?.threadId ?? "").trim();
-  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -63,28 +57,6 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
     void load();
   }, [load]);
 
-  const send = async () => {
-    if (busy || !body.trim() || !threadId) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/me/admin-notes/${encodeURIComponent(threadId)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: body.trim() }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setError(j.error ?? "send_failed");
-        return;
-      }
-      setBody("");
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const locale = language === "ko" ? "ko-KR" : "en-US";
 
   return (
@@ -92,25 +64,17 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
       <div className="mb-3 min-w-0">
         <p className="truncate text-base font-semibold text-sam-fg" data-owner-care-thread-subject>
           {thread?.subject ||
-            safeT("biz_care_thread_fallback", {
-              fallbackKo: "관리자 대화",
-              fallbackEn: "Admin conversation",
+            safeT("support_legacy_archive_title", {
+              fallbackKo: "이전 문의 기록",
+              fallbackEn: "Previous inquiry archive",
             })}
         </p>
         <p className="mt-0.5 text-xs text-sam-muted">
-          {kind === "inbox"
-            ? safeT("biz_care_tab_admin_messages", {
-                fallbackKo: "관리자 쪽지",
-                fallbackEn: "Admin messages",
-              })
-            : safeT("biz_care_tab_1on1", {
-                fallbackKo: "1:1 문의",
-                fallbackEn: "1:1 Inquiry",
-              })}
-          {" · "}
-          {safeT("biz_care_thread_hint", {
-            fallbackKo: "같은 대화에서 계속 답장합니다",
-            fallbackEn: "Keep replying in this same thread",
+          {safeT("support_legacy_archive_hint", {
+            fallbackKo:
+              "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
+            fallbackEn:
+              "Archive of past notes and 1:1 inquiries. For new help, use Contact us.",
           })}
         </p>
       </div>
@@ -147,37 +111,6 @@ export function OwnerCareAdminNotesThread({ kind }: { kind: MemberAdminNoteKind 
           ))
         )}
       </ul>
-
-      <div
-        className="sticky bottom-0 mt-3 border-t border-sam-border bg-sam-app pt-2"
-        data-form-keyboard-footer="1"
-        data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-        style={{ paddingBottom: `${Math.max(8, effectiveBottomInset)}px` }}
-      >
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          placeholder={safeT("biz_care_reply_ph", {
-            fallbackKo: "답장 입력",
-            fallbackEn: "Write a reply",
-          })}
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-          data-owner-care-reply-body
-        />
-        <button
-          type="button"
-          disabled={busy || !body.trim()}
-          onClick={() => void send()}
-          className={`mt-2 w-full ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}
-          data-owner-care-reply-send
-        >
-          {safeT("biz_care_reply_send", {
-            fallbackKo: "답장 보내기",
-            fallbackEn: "Send reply",
-          })}
-        </button>
-      </div>
     </div>
   );
 }

@@ -24,6 +24,17 @@ export const supportUiMessages = {
     support_status_resolved: "상담 종료",
     support_agent_identity: "DIBAY 고객센터",
     support_offline_hint: "오프라인입니다. 연결 후 다시 시도해 주세요.",
+    support_history_title: "상담 내역",
+    support_history_empty: "상담 내역이 없습니다.",
+    support_legacy_archive_title: "이전 문의 기록",
+    support_legacy_archive_hint:
+      "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
+    support_legacy_archive_empty: "이전 기록이 없습니다.",
+    support_owner_store_required: "문의하려면 매장을 선택해 주세요.",
+    support_owner_center_intro:
+      "DIBAY 고객센터로 문의합니다. 매장 문맥이 상담에 포함됩니다.",
+    support_owner_care_home_hint:
+      "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
     admin_support_title: "고객센터",
     admin_support_desc: "회원·매장 Owner 문의 SSOT",
     admin_support_filter_all: "전체",
@@ -69,6 +80,17 @@ export const supportUiMessages = {
     support_status_resolved: "Closed",
     support_agent_identity: "DIBAY Support",
     support_offline_hint: "You are offline. Retry when connected.",
+    support_history_title: "Support history",
+    support_history_empty: "No support conversations yet.",
+    support_legacy_archive_title: "Previous inquiry archive",
+    support_legacy_archive_hint:
+      "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
+    support_legacy_archive_empty: "No archived items.",
+    support_owner_store_required: "Select a store before contacting support.",
+    support_owner_center_intro:
+      "Contact DIBAY Support. Your store context is included.",
+    support_owner_care_home_hint:
+      "Contact DIBAY admin via Customer Center → Support.",
     admin_support_title: "Support Center",
     admin_support_desc: "Canonical member and owner support inbox",
     admin_support_filter_all: "All",

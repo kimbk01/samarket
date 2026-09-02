@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import type { MessageKey } from "@/lib/i18n/messages";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 import { withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
@@ -12,10 +11,6 @@ import {
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
 } from "@/lib/mypage/customer-center-layout";
-import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
-import { FORM_INTERACTIVE_PRESS_CLASS } from "@/lib/ui/form-keyboard-viewport-contract";
-import { triggerInteractionFeedback } from "@/lib/ui/light-tap-feedback";
 
 type Message = {
   id: string;
@@ -29,6 +24,7 @@ type Thread = {
   subject: string;
 };
 
+/** A2-1: legacy note thread = read-only archive (no reply composer). */
 export function MemberCsNoteThreadClient({
   kind,
   listBasePath,
@@ -39,8 +35,6 @@ export function MemberCsNoteThreadClient({
   hideChrome?: boolean;
 }) {
   const { t, language, safeT } = useI18n();
-  const { effectiveBottomInset, effectiveViewportBottom, keyboardOpen } = useFormKeyboardViewport();
-  useFormKeyboardFocusVisibility({ effectiveViewportBottom });
   const params = useParams();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? (listBasePath ? "owner-care" : null);
@@ -49,8 +43,6 @@ export function MemberCsNoteThreadClient({
   const listHref = withCustomerCenterFrom(listBasePath?.trim() || defaultList, from);
   const [thread, setThread] = useState<Thread | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -82,41 +74,16 @@ export function MemberCsNoteThreadClient({
     void load();
   }, [load]);
 
-  const send = async () => {
-    if (busy || !body.trim()) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/me/admin-notes/${encodeURIComponent(threadId)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: body.trim() }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setError(j.error ?? t("common_content_unavailable"));
-        return;
-      }
-      setBody("");
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className={CUSTOMER_CENTER_PAGE_SHELL_CLASS}>
       {hideChrome ? null : (
         <MySubpageHeader
           title={
             thread?.subject ??
-            safeT(
-              (kind === "inbox" ? "mypage_cs_inbox_title" : "mypage_cs_inquiries_title") as MessageKey,
-              {
-                fallbackKo: kind === "inbox" ? "받은 쪽지" : "1:1 문의",
-                fallbackEn: kind === "inbox" ? "Inbox" : "1:1 Inquiry",
-              },
-            )
+            safeT("support_legacy_archive_title", {
+              fallbackKo: "이전 문의 기록",
+              fallbackEn: "Previous inquiry archive",
+            })
           }
           backHref={listHref}
           preferHistoryBack={false}
@@ -147,30 +114,13 @@ export function MemberCsNoteThreadClient({
               </li>
             ))}
           </ul>
-          <div
-            data-form-keyboard-footer="1"
-            data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-            className="sticky bottom-0 border-t border-sam-border bg-sam-app pt-2"
-            style={{ paddingBottom: `${Math.max(8, effectiveBottomInset)}px` }}
-          >
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={3}
-              placeholder={t("notif_admin_notes_reply_ph")}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
-            />
-            <button
-              type="button"
-              disabled={busy || !body.trim()}
-              onClick={() => void send()}
-              onPointerDown={(e) => {
-                if (!(busy || !body.trim())) triggerInteractionFeedback("light", e);
-              }}
-              className={`mt-2 min-h-11 w-full rounded-ui-rect bg-signature px-3 py-2.5 text-[14px] font-semibold text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
-            >
-              {t("notif_admin_notes_send")}
-            </button>
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-3 text-sm text-sam-muted">
+            {safeT("support_legacy_archive_hint", {
+              fallbackKo:
+                "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
+              fallbackEn:
+                "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
+            })}
           </div>
         </div>
       </div>

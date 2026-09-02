@@ -37,8 +37,8 @@ export const OwnerRoutes = {
   /** Owner Care Hub — order chat / store inquiry / customer center */
   customerCare: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/customer-care`, storeId),
   /**
-   * Owner Customer Center — 관리자 쪽지 + 1:1 문의 tabs.
-   * `tab`: messages | inquiries
+   * Owner Customer Center — Support Modal entry + history/archive tabs (A2-1).
+   * `tab`: messages|inquiries (legacy aliases → archive) or omit for history default.
    */
   customerCareCenter: (storeId?: string | null, tab?: "messages" | "inquiries" | null) => {
     const base = withStoreId(`${OWNER_ROUTES_BASE}/customer-care/customer-center`, storeId);

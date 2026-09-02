@@ -5,7 +5,6 @@ import {
   archiveMemberNoteThread,
   getNoteThreadWithMessages,
   markMemberNoteThreadRead,
-  postNoteMessage,
 } from "@/lib/notifications/member-admin-notes-service";
 
 export const runtime = "nodejs";
@@ -40,26 +39,17 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 }
 
 export async function POST(req: NextRequest, ctx: Ctx) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  const { threadId: raw } = await ctx.params;
-  const threadId = String(raw ?? "").trim();
-  if (!threadId) return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  const body = (await req.json().catch(() => ({}))) as { body?: string };
-  const res = await postNoteMessage(sb, {
-    threadId,
-    senderRole: "member",
-    senderUserId: auth.userId,
-    body: String(body.body ?? ""),
-  });
-  if (!res.ok) {
-    const status =
-      res.error === "forbidden" ? 403 : res.notFound ? 404 : res.error === "invalid_input" ? 400 : 500;
-    return NextResponse.json({ ok: false, error: res.error }, { status });
-  }
-  return NextResponse.json({ ok: true, message: res.message });
+  // A2-1: member reply composer disabled — legacy threads are read-only archive.
+  void req;
+  void ctx;
+  return NextResponse.json(
+    {
+      ok: false,
+      error: "legacy_writer_disabled",
+      message: "Legacy note threads are read-only. Use Support Center for new messages.",
+    },
+    { status: 410 }
+  );
 }
 
 /** Soft-archive (member hide). Body `{ archive: true }` or DELETE. */

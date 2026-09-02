@@ -5,12 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Headphones, HelpCircle, MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { buildOwnerSupportContext } from "@/lib/support/support-context";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { ownerDashCardClass, ownerDashTypography } from "./owner-dashboard-ui";
 
 /**
- * Owner Home 「고객 응대」 — Care Hub와 동일 3 entry (주문 채팅 / 매장 문의 / 고객센터).
- * 고객센터 = DIBAY 관리자 쪽지 + 1:1 문의 (member_admin_note).
+ * Owner Home 「고객 응대」 — 주문 채팅 / 매장 문의 KEEP; 고객센터 → Support Modal (A2-1).
  */
 export function OwnerCustomerCareCard({
   storeId,
@@ -19,7 +20,6 @@ export function OwnerCustomerCareCard({
 }: {
   storeId: string;
   orderChatUnread: number;
-  /** optional; if omitted, card fetches open store inquiries */
   storeInquiryUnread?: number;
 }) {
   const { safeT } = useI18n();
@@ -69,53 +69,19 @@ export function OwnerCustomerCareCard({
     return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
   })();
 
-  const cells = [
-    {
-      id: "order-chat",
-      href: OwnerRoutes.orderChats(storeId),
-      icon: MessageCircle,
-      label: safeT("biz_care_order_chat", {
-        fallbackKo: "주문 채팅",
-        fallbackEn: "Order chat",
-      }),
-      sub: safeT("biz_care_order_chat_desc", {
-        fallbackKo: "배달·매장 주문 대화",
-        fallbackEn: "Delivery and store order conversations",
-      }),
-      count: orderChatUnread,
-      danger: orderChatUnread > 0,
-    },
-    {
-      id: "store-inquiry",
-      href: OwnerRoutes.inquiries(storeId),
-      icon: HelpCircle,
-      label: safeT("biz_care_store_inquiry", {
-        fallbackKo: "매장 문의",
-        fallbackEn: "Store inquiry",
-      }),
-      sub: safeT("biz_care_store_inquiry_desc", {
-        fallbackKo: "이 매장으로 온 문의",
-        fallbackEn: "Inquiries sent to this store",
-      }),
-      count: storeOpen,
-      danger: storeOpen > 0,
-    },
-    {
-      id: "customer-center",
-      href: customerCenterHref,
-      icon: Headphones,
-      label: safeT("biz_care_customer_center", {
-        fallbackKo: "고객센터",
-        fallbackEn: "Customer center",
-      }),
-      sub: safeT("biz_care_customer_center_desc", {
-        fallbackKo: "관리자 쪽지 · 1:1 문의",
-        fallbackEn: "Admin messages and 1:1 support",
-      }),
-      count: adminUnread,
-      danger: adminUnread > 0,
-    },
-  ];
+  const openOwnerSupport = () => {
+    navigateToSupportCenter(
+      buildOwnerSupportContext({
+        enabled: true,
+        category: "OTHER",
+        sourceSurface: "owner_care_card",
+        storeId,
+      })
+    );
+  };
+
+  const cellClass =
+    "flex min-h-[88px] w-full items-start gap-2 rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 text-left active:bg-[var(--biz-primary-soft)]";
 
   return (
     <section className={ownerDashCardClass("space-y-3")} aria-labelledby="owner-care-title" data-owner-home-care-card="1">
@@ -128,44 +94,114 @@ export function OwnerCustomerCareCard({
         href={careHubHref}
       />
       <p className={`${ownerDashTypography.helper}`}>
-        {safeT("biz_care_home_hint", {
-          fallbackKo: "관리자 쪽지·1:1 문의는 「고객센터」에서 받고 답장합니다.",
-          fallbackEn: "Receive and reply to admin notes in Customer Center.",
+        {safeT("support_owner_care_home_hint", {
+          fallbackKo: "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
+          fallbackEn: "Contact DIBAY admin via Customer Center → Support.",
         })}
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {cells.map((c) => {
-          const Icon = c.icon;
-          return (
-            <Link
-              key={c.id}
-              href={c.href}
-              prefetch={false}
-              data-owner-home-care-entry={c.id}
-              className="flex min-h-[88px] items-start gap-2 rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 active:bg-[var(--biz-primary-soft)]"
+        <Link
+          href={OwnerRoutes.orderChats(storeId)}
+          prefetch={false}
+          data-owner-home-care-entry="order-chat"
+          className={cellClass}
+        >
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
+            <MessageCircle className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
+              <span className="truncate">
+                {safeT("biz_care_order_chat", { fallbackKo: "주문 채팅", fallbackEn: "Order chat" })}
+              </span>
+              {orderChatUnread > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {orderChatUnread > 99 ? "99+" : orderChatUnread}
+                </span>
+              ) : null}
+            </span>
+            <span className={`mt-0.5 block ${ownerDashTypography.helper}`}>
+              {safeT("biz_care_order_chat_desc", {
+                fallbackKo: "배달·매장 주문 대화",
+                fallbackEn: "Delivery and store order conversations",
+              })}
+            </span>
+          </span>
+        </Link>
+
+        <Link
+          href={OwnerRoutes.inquiries(storeId)}
+          prefetch={false}
+          data-owner-home-care-entry="store-inquiry"
+          className={cellClass}
+        >
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
+            <HelpCircle className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
+              <span className="truncate">
+                {safeT("biz_care_store_inquiry", { fallbackKo: "매장 문의", fallbackEn: "Store inquiry" })}
+              </span>
+              {storeOpen > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {storeOpen > 99 ? "99+" : storeOpen}
+                </span>
+              ) : null}
+            </span>
+            <span
+              className={`mt-0.5 block ${ownerDashTypography.helper} ${storeOpen > 0 ? "font-medium text-[#DC2626]" : ""}`}
             >
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
-                <Icon className="h-4 w-4" aria-hidden />
+              {safeT("biz_care_store_inquiry_desc", {
+                fallbackKo: "이 매장으로 온 문의",
+                fallbackEn: "Inquiries sent to this store",
+              })}
+            </span>
+          </span>
+        </Link>
+
+        <button
+          type="button"
+          data-owner-home-care-entry="customer-center"
+          className={cellClass}
+          onClick={openOwnerSupport}
+        >
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[var(--biz-app-bg)]">
+            <Headphones className="h-4 w-4" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
+              <span className="truncate">
+                {safeT("biz_care_customer_center", {
+                  fallbackKo: "고객센터",
+                  fallbackEn: "Customer center",
+                })}
               </span>
-              <span className="min-w-0 flex-1">
-                <span className={`flex items-center justify-between gap-1 ${ownerDashTypography.cellTitle}`}>
-                  <span className="truncate">{c.label}</span>
-                  {c.count > 0 ? (
-                    <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      {c.count > 99 ? "99+" : c.count}
-                    </span>
-                  ) : null}
+              {adminUnread > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {adminUnread > 99 ? "99+" : adminUnread}
                 </span>
-                <span
-                  className={`mt-0.5 block ${ownerDashTypography.helper} ${c.danger ? "font-medium text-[#DC2626]" : ""}`}
-                >
-                  {c.sub}
-                </span>
-              </span>
-            </Link>
-          );
-        })}
+              ) : null}
+            </span>
+            <span className={`mt-0.5 block ${ownerDashTypography.helper}`}>
+              {safeT("biz_care_customer_center_desc", {
+                fallbackKo: "DIBAY 고객센터 문의",
+                fallbackEn: "Contact DIBAY Support",
+              })}
+            </span>
+          </span>
+        </button>
       </div>
+      <Link
+        href={customerCenterHref}
+        className="text-xs font-medium text-sam-muted underline"
+        data-owner-care-history-link="1"
+      >
+        {safeT("support_history_title", {
+          fallbackKo: "상담 내역 · 이전 문의 기록",
+          fallbackEn: "History & archive",
+        })}
+      </Link>
     </section>
   );
 }

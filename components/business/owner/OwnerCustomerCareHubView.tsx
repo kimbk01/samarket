@@ -81,7 +81,9 @@ export function OwnerCustomerCareHubView() {
   const customerCenterUnread = unread.adminInbox + unread.adminInquiry;
 
   const customerCenterHref = (() => {
-    const base = OwnerRoutes.customerCareCenter(storeId);
+    // A2-1: do not invent first-store for Support entry when store context is unclear.
+    const sid = (storeIdParam ?? "").trim() || null;
+    const base = OwnerRoutes.customerCareCenter(sid);
     return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
   })();
 
@@ -123,8 +125,8 @@ export function OwnerCustomerCareHubView() {
         fallbackEn: "Customer center",
       }),
       desc: safeT("biz_care_customer_center_desc", {
-        fallbackKo: "관리자 쪽지 · 1:1 문의",
-        fallbackEn: "Admin messages and 1:1 support",
+        fallbackKo: "DIBAY 고객센터 · 상담 내역",
+        fallbackEn: "DIBAY Support and history",
       }),
       badge: customerCenterUnread,
     },

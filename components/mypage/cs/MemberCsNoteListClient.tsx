@@ -9,7 +9,6 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
 import { resolveCustomerCenterBackHref, withCustomerCenterFrom } from "@/lib/mypage/customer-center-paths";
 import {
-  CUSTOMER_CENTER_FORM_COLUMN_CLASS,
   CUSTOMER_CENTER_LIST_COLUMN_CLASS,
   CUSTOMER_CENTER_PAGE_SHELL_CLASS,
   CUSTOMER_CENTER_SCROLL_BODY_CLASS,
@@ -19,11 +18,9 @@ import {
   CC_CARD_CLASS,
   CC_HEADER_CLASS,
   CC_NOTE_CLASS,
-  CC_PRIMARY_BTN_CLASS,
   CC_SURFACE_PAGE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { DibayActionSheet } from "@/components/ui/dibay-overlay";
 
 type Thread = {
   id: string;
@@ -39,23 +36,21 @@ const KIND_META: Record<
     listHref: string;
     titleKey: MessageKey;
     subtitleKey: MessageKey;
-    allowCreate: boolean;
   }
 > = {
   inquiry: {
     listHref: "/mypage/inquiries",
-    titleKey: "mypage_cs_inquiries_title",
-    subtitleKey: "mypage_cs_inquiries_subtitle",
-    allowCreate: true,
+    titleKey: "support_legacy_archive_title",
+    subtitleKey: "support_legacy_archive_hint",
   },
   inbox: {
     listHref: "/mypage/inbox",
-    titleKey: "mypage_cs_inbox_title",
-    subtitleKey: "mypage_cs_inbox_subtitle",
-    allowCreate: false,
+    titleKey: "support_legacy_archive_title",
+    subtitleKey: "support_legacy_archive_hint",
   },
 };
 
+/** A2-1: legacy list = read-only archive (no compose). */
 export function MemberCsNoteListClient({
   kind,
   listBasePath,
@@ -76,26 +71,18 @@ export function MemberCsNoteListClient({
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [archiveId, setArchiveId] = useState<string | null>(null);
-  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const title = safeT(meta.titleKey, {
-    fallbackKo: kind === "inquiry" ? "1:1 문의" : "받은 쪽지",
-    fallbackEn: kind === "inquiry" ? "1:1 Inquiry" : "Inbox",
+    fallbackKo: "이전 문의 기록",
+    fallbackEn: "Previous inquiry archive",
   });
   const subtitle = safeT(meta.subtitleKey, {
     fallbackKo:
-      kind === "inquiry"
-        ? "관리자에게 1:1로 문의합니다"
-        : "관리자가 보낸 쪽지를 확인합니다",
+      "이전 쪽지·1:1 문의 기록입니다. 새 문의는 고객센터 문의하기를 이용해 주세요.",
     fallbackEn:
-      kind === "inquiry"
-        ? "Send a one-to-one inquiry to admin"
-        : "Messages sent to you by admin",
+      "Archive of past notes and 1:1 inquiries. For new help, use Contact us in Customer support.",
   });
 
   const load = useCallback(async () => {
@@ -128,41 +115,6 @@ export function MemberCsNoteListClient({
     void load();
   }, [load]);
 
-  const submit = async () => {
-    if (busy || !meta.allowCreate || !subject.trim() || !body.trim()) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/me/admin-notes", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: subject.trim(), body: body.trim() }),
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        thread?: { id?: string };
-      };
-      if (!res.ok || !j.ok) {
-        setError(j.error ?? t("common_content_unavailable"));
-        return;
-      }
-      const createdId = String(j.thread?.id ?? "").trim();
-      setSubject("");
-      setBody("");
-      setSubmitSuccess(true);
-      await load();
-      if (createdId && !hideChrome) {
-        window.location.assign(
-          withCustomerCenterFrom(`${listHref}/${encodeURIComponent(createdId)}`, from),
-        );
-        return;
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const archive = async (threadId: string) => {
     if (busy) return;
     setBusy(true);
@@ -185,36 +137,6 @@ export function MemberCsNoteListClient({
     }
   };
 
-  const inquiryTypes = [
-    {
-      label: safeT("mypage_cs_inquiry_type_account", {
-        fallbackKo: "계정/로그인",
-        fallbackEn: "Account / login",
-      }),
-    },
-    {
-      label: safeT("mypage_cs_inquiry_type_points", {
-        fallbackKo: "포인트/충전",
-        fallbackEn: "Point / top-up",
-      }),
-    },
-    {
-      label: safeT("mypage_cs_inquiry_type_trade", {
-        fallbackKo: "거래/주문",
-        fallbackEn: "Trade / order",
-      }),
-    },
-    {
-      label: safeT("mypage_cs_inquiry_type_other", {
-        fallbackKo: "기타",
-        fallbackEn: "Other",
-      }),
-    },
-  ];
-
-  const fieldClass =
-    "mt-2 min-h-11 w-full rounded-xl border border-[rgba(14,92,58,0.14)] bg-[#F5F7F6] px-3.5 py-2.5 text-[14px] text-[#1A2E24] outline-none ring-[#0E5C3A]/25 focus:ring-2";
-
   return (
     <div className={`${CUSTOMER_CENTER_PAGE_SHELL_CLASS} ${CC_SURFACE_PAGE_CLASS}`}>
       {hideChrome ? null : (
@@ -222,82 +144,6 @@ export function MemberCsNoteListClient({
       )}
       <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
         <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} gap-4 px-3 sm:px-4`}>
-          {meta.allowCreate ? (
-            <section className={`${CUSTOMER_CENTER_FORM_COLUMN_CLASS} ${CC_CARD_CLASS} space-y-1 p-4 !px-4`}>
-              {submitSuccess ? (
-                <div className="space-y-3" data-owner-cs-inquiry-success="1">
-                  <p className={CC_HEADER_CLASS}>
-                    {safeT("mypage_cs_inquiry_submitted", {
-                      fallbackKo: "문의가 접수되었습니다.",
-                      fallbackEn: "Your inquiry was submitted.",
-                    })}
-                  </p>
-                  <button
-                    type="button"
-                    className={CC_PRIMARY_BTN_CLASS}
-                    onClick={() => setSubmitSuccess(false)}
-                  >
-                    {safeT("mypage_cs_inquiry_view_list", {
-                      fallbackKo: "문의 내역 보기",
-                      fallbackEn: "View inquiries",
-                    })}
-                  </button>
-                </div>
-              ) : (
-                <>
-              <h2 className={CC_HEADER_CLASS}>
-                {safeT("mypage_cs_inquiry_new", {
-                  fallbackKo: "1:1 문의 작성",
-                  fallbackEn: "Write 1:1 inquiry",
-                })}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setTypeSheetOpen(true)}
-                className={`${fieldClass} text-left ${subject.trim() ? "text-[#1A2E24]" : "text-[#8F9D95]"}`}
-              >
-                {subject.trim()
-                  ? subject
-                  : safeT("mypage_cs_inquiry_pick_type", {
-                      fallbackKo: "문의 유형 선택",
-                      fallbackEn: "Choose inquiry type",
-                    })}
-              </button>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder={safeT("notif_admin_notes_subject_ph", {
-                  fallbackKo: "제목",
-                  fallbackEn: "Title",
-                })}
-                className={fieldClass}
-              />
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder={safeT("notif_admin_notes_body_ph", {
-                  fallbackKo: "문의 내용을 입력하세요",
-                  fallbackEn: "Enter your inquiry",
-                })}
-                rows={6}
-                className={`${fieldClass} min-h-[9rem] resize-y`}
-              />
-              <button
-                type="button"
-                disabled={busy || !subject.trim() || !body.trim()}
-                onClick={() => void submit()}
-                className={`mt-3 ${CC_PRIMARY_BTN_CLASS}`}
-              >
-                {safeT("notif_admin_notes_send", {
-                  fallbackKo: "보내기",
-                  fallbackEn: "Send",
-                })}
-              </button>
-                </>
-              )}
-            </section>
-          ) : null}
-
           {error ? <p className={`${CC_BODY_CLASS} text-red-600`}>{error}</p> : null}
           {loading ? (
             <p className={CC_NOTE_CLASS}>{t("common_loading")}</p>
@@ -393,26 +239,6 @@ export function MemberCsNoteListClient({
           if (archiveId) void archive(archiveId);
         }}
       />
-
-      {meta.allowCreate ? (
-        <DibayActionSheet
-          open={typeSheetOpen}
-          onClose={() => setTypeSheetOpen(false)}
-          title={safeT("mypage_cs_inquiry_pick_type", {
-            fallbackKo: "문의 유형 선택",
-            fallbackEn: "Choose inquiry type",
-          })}
-          cancelLabel={t("common_close")}
-          anchor="above-bottom-nav"
-          items={inquiryTypes.map((item) => ({
-            key: item.label,
-            label: item.label,
-            onClick: () => {
-              setSubject(item.label);
-            },
-          }))}
-        />
-      ) : null}
     </div>
   );
 }

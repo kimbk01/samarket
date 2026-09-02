@@ -7,14 +7,15 @@ import {
   Coins,
   Gift,
   Headphones,
+  History,
   Megaphone,
-  MessageCircle,
   MessageSquare,
   Settings2,
   Wallet,
 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { SupportContextProvider } from "@/components/support/SupportContextProvider";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -32,10 +33,13 @@ import {
   CC_ICON_WELL_CLASS,
   CC_NOTE_CLASS,
   CC_PAGE_WHITE_CLASS,
+  CC_PRIMARY_BTN_CLASS,
   CC_TITLE_CLASS,
 } from "@/lib/mypage/customer-center-ui";
 import { BOARD_LABEL, type CustomerCenterContentType } from "@/lib/notices/customer-center-content";
 import { buildCustomerCenterBoardListPath } from "@/lib/notices/customer-center-content-paths";
+import { buildMemberSupportContext } from "@/lib/support/support-context";
+import { navigateToSupportCenter } from "@/lib/support/open-support-center";
 
 const BOARD_TABS: {
   type: CustomerCenterContentType;
@@ -85,8 +89,14 @@ function HubRow({
   );
 }
 
+const MEMBER_CC_CONTEXT = buildMemberSupportContext({
+  enabled: true,
+  category: "OTHER",
+  sourceSurface: "mypage_customer_center",
+});
+
 /**
- * `/mypage/customer-center` — DIBAY CC hub (design board parity).
+ * `/mypage/customer-center` — A2-1: Support Modal entry SSOT (no legacy 1:1/쪽지 compose).
  */
 export function CustomerCenterHubClient() {
   const { safeT, language } = useI18n();
@@ -97,25 +107,21 @@ export function CustomerCenterHubClient() {
     fallbackKo: "무엇이 궁금하신가요?",
     fallbackEn: "How can we help?",
   });
-  const historyTitle = safeT("mypage_cs_hub_history", {
-    fallbackKo: "이전 대화",
-    fallbackEn: "Previous conversations",
-  });
 
   const entries: HubEntry[] = [
     {
-      href: customerCenterChildHref("/mypage/inquiries"),
-      titleKey: "mypage_comp_menu_support_inquiries_title",
-      titleKo: "1:1 문의",
-      titleEn: "1:1 Inquiry",
+      href: customerCenterChildHref("/mypage/support-history"),
+      titleKey: "support_history_title",
+      titleKo: "상담 내역",
+      titleEn: "Support history",
       icon: <MessageSquare className="h-5 w-5" aria-hidden />,
     },
     {
-      href: customerCenterChildHref("/mypage/inbox"),
-      titleKey: "mypage_comp_menu_support_inbox_title",
-      titleKo: "받은 쪽지",
-      titleEn: "Inbox",
-      icon: <MessageCircle className="h-5 w-5" aria-hidden />,
+      href: customerCenterChildHref("/mypage/inquiries"),
+      titleKey: "support_legacy_archive_title",
+      titleKo: "이전 문의 기록",
+      titleEn: "Previous inquiry archive",
+      icon: <History className="h-5 w-5" aria-hidden />,
     },
     {
       href: customerCenterChildHref("/mypage/points"),
@@ -135,76 +141,84 @@ export function CustomerCenterHubClient() {
   ];
 
   return (
-    <div
-      className={`flex min-h-screen min-w-0 flex-col ${CC_PAGE_WHITE_CLASS}`}
-      data-testid="customer-center-hub"
-    >
-      <MySubpageHeader
-        title={safeT("mypage_comp_menu_support_cs_title", {
-          fallbackKo: "고객센터",
-          fallbackEn: "Customer support",
-        })}
-        backHref="/mypage"
-        preferHistoryBack={false}
-        hideCtaStrip
-        rightSlot={
-          <Link
-            href={customerCenterChildHref("/mypage/inquiries")}
-            className="text-[13px] font-semibold text-[#0E5C3A]"
-          >
-            {historyTitle}
-          </Link>
-        }
-      />
-      <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
-        <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} px-3 sm:px-4`}>
-          <section className={CC_HERO_SECTION_CLASS}>
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-[0_1px_0_rgba(14,92,58,0.06)]">
-              <Headphones className="h-7 w-7" strokeWidth={2} aria-hidden />
-            </span>
-            <p className={`mt-3 ${CC_TITLE_CLASS}`}>{greeting}</p>
-          </section>
-
-          <section
-            className="grid grid-cols-3 gap-2 sm:gap-3"
-            data-testid="customer-center-boards"
-            data-route={CUSTOMER_CENTER_HREF}
-          >
-            {BOARD_TABS.map(({ type, icon }) => {
-              const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
-              return (
-                <Link
-                  key={type}
-                  href={buildCustomerCenterBoardListPath(type)}
-                  className="flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-2xl border border-[rgba(14,92,58,0.12)] bg-white px-2 py-3 text-center shadow-[0_1px_0_rgba(14,92,58,0.04)] transition active:scale-[0.98] sm:min-h-[6.25rem]"
-                  data-testid={`cc-board-tab-${type}`}
-                >
-                  <span className="text-[#0E5C3A]">{icon}</span>
-                  <span className="text-[13px] font-semibold text-[#0E5C3A] sm:text-[14px]">
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
-          </section>
-
-          <section className={`${CC_CARD_CLASS} mb-4`}>
-            {entries.map((entry, index) => (
-              <HubRow
-                key={entry.href}
-                first={index === 0}
-                href={entry.href}
-                title={safeT(entry.titleKey, {
-                  fallbackKo: entry.titleKo,
-                  fallbackEn: entry.titleEn,
+    <SupportContextProvider value={MEMBER_CC_CONTEXT}>
+      <div
+        className={`flex min-h-screen min-w-0 flex-col ${CC_PAGE_WHITE_CLASS}`}
+        data-testid="customer-center-hub"
+        data-support-entry-ssot="1"
+      >
+        <MySubpageHeader
+          title={safeT("mypage_comp_menu_support_cs_title", {
+            fallbackKo: "고객센터",
+            fallbackEn: "Customer support",
+          })}
+          backHref="/mypage"
+          preferHistoryBack={false}
+          hideCtaStrip
+        />
+        <div className={CUSTOMER_CENTER_SCROLL_BODY_CLASS}>
+          <div className={`${CUSTOMER_CENTER_LIST_COLUMN_CLASS} px-3 sm:px-4`}>
+            <section className={CC_HERO_SECTION_CLASS}>
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-[0_1px_0_rgba(14,92,58,0.06)]">
+                <Headphones className="h-7 w-7" strokeWidth={2} aria-hidden />
+              </span>
+              <p className={`mt-3 ${CC_TITLE_CLASS}`}>{greeting}</p>
+              <button
+                type="button"
+                className={`${CC_PRIMARY_BTN_CLASS} mt-4 w-full min-h-11`}
+                data-support-hub-inquire="1"
+                onClick={() => {
+                  navigateToSupportCenter(MEMBER_CC_CONTEXT);
+                }}
+              >
+                {safeT("support_enter_cta", {
+                  fallbackKo: "문의하기",
+                  fallbackEn: "Contact us",
                 })}
-                icon={entry.icon}
-                accessory={entry.accessory}
-              />
-            ))}
-          </section>
+              </button>
+            </section>
+
+            <section
+              className="grid grid-cols-3 gap-2 sm:gap-3"
+              data-testid="customer-center-boards"
+              data-route={CUSTOMER_CENTER_HREF}
+            >
+              {BOARD_TABS.map(({ type, icon }) => {
+                const label = BOARD_LABEL[type][language === "en" ? "en" : "ko"];
+                return (
+                  <Link
+                    key={type}
+                    href={buildCustomerCenterBoardListPath(type)}
+                    className="flex min-h-[5.75rem] flex-col items-center justify-center gap-2 rounded-2xl border border-[rgba(14,92,58,0.12)] bg-white px-2 py-3 text-center shadow-[0_1px_0_rgba(14,92,58,0.04)] transition active:scale-[0.98] sm:min-h-[6.25rem]"
+                    data-testid={`cc-board-tab-${type}`}
+                  >
+                    <span className="text-[#0E5C3A]">{icon}</span>
+                    <span className="text-[13px] font-semibold text-[#0E5C3A] sm:text-[14px]">
+                      {label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </section>
+
+            <section className={`${CC_CARD_CLASS} mb-4`}>
+              {entries.map((entry, index) => (
+                <HubRow
+                  key={entry.href}
+                  first={index === 0}
+                  href={entry.href}
+                  title={safeT(entry.titleKey, {
+                    fallbackKo: entry.titleKo,
+                    fallbackEn: entry.titleEn,
+                  })}
+                  icon={entry.icon}
+                  accessory={entry.accessory}
+                />
+              ))}
+            </section>
+          </div>
         </div>
       </div>
-    </div>
+    </SupportContextProvider>
   );
 }

@@ -29,11 +29,20 @@ describe("support identity / case SSOT contract", () => {
     expect(svc).toContain("store_forbidden");
   });
 
-  it("sessionStorage is UX handoff only in enter client", () => {
+  it("sessionStorage is UX handoff only — case open deferred to modal 문의하기", () => {
     const enter = readRepo("components/support/SupportCenterEnterClient.tsx");
     expect(enter).toContain("readPendingSupportContext");
-    expect(enter).toContain("/api/support/cases/open");
-    expect(enter).toMatch(/NOT authorization|server validates/i);
+    expect(enter).toContain("openSupportModal");
+    expect(enter).not.toContain("/api/support/cases/open");
+    expect(enter).toMatch(/Does not create a case|Cold-start bootstrap only/i);
+
+    const open = readRepo("lib/support/open-support-center.ts");
+    expect(open).toContain("sessionStorage stashes UX context only");
+    expect(open).toContain("/api/support/cases/open");
+
+    const modal = readRepo("components/support/SupportModalHost.tsx");
+    expect(modal).toContain("/api/support/cases/open");
+    expect(modal).toContain("handleStartInquiry");
   });
 
   it("admin canonical inbox route exists", () => {

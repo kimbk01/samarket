@@ -7,8 +7,6 @@ import { ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OWNER_ADMIN_LIST_CARD_CLASS,
-  OWNER_ADMIN_PRIMARY_BTN_CLASS,
-  OWNER_ADMIN_OUTLINE_BTN_CLASS,
 } from "@/lib/business/owner-admin-list-ui";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import type { MemberAdminNoteKind } from "@/lib/notifications/member-admin-notes";
@@ -57,10 +55,13 @@ function withQuery(path: string, storeId: string | null, from: string) {
 export function OwnerCareAdminNotesList({
   kind,
   threadBasePath,
+  readOnly = true,
 }: {
   kind: MemberAdminNoteKind;
   /** e.g. /stores/owner/customer-care/messages */
   threadBasePath: string;
+  /** A2-1: compose disabled — legacy archive only. */
+  readOnly?: boolean;
 }) {
   const { safeT, language } = useI18n();
   const sp = useSearchParams();
@@ -68,10 +69,6 @@ export function OwnerCareAdminNotesList({
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -104,121 +101,21 @@ export function OwnerCareAdminNotesList({
     void load();
   }, [load]);
 
-  const submit = async () => {
-    if (kind !== "inquiry" || busy || !subject.trim() || !body.trim()) return;
-    setBusy(true);
-    try {
-      const res = await fetch("/api/me/admin-notes", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject: subject.trim(), body: body.trim() }),
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        thread?: { id?: string };
-      };
-      if (!res.ok || !j.ok) {
-        setError(j.error ?? "send_failed");
-        return;
-      }
-      setSubject("");
-      setBody("");
-      setSuccess(true);
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const locale = language === "ko" ? "ko-KR" : "en-US";
   const isInquiry = kind === "inquiry";
 
   return (
-    <div className="space-y-4" data-owner-care-notes-list={kind}>
-      {isInquiry ? (
-        <OwnerStoreAdminDashSection
-          title={safeT("biz_care_inquiry_compose_title", {
-            fallbackKo: "1:1 문의하기",
-            fallbackEn: "Write 1:1 inquiry",
-          })}
-        >
-          {success ? (
-            <div className="space-y-3" data-owner-care-inquiry-success="1">
-              <p className="text-sm font-semibold text-sam-fg">
-                {safeT("mypage_cs_inquiry_submitted", {
-                  fallbackKo: "문의가 접수되었습니다.",
-                  fallbackEn: "Your inquiry was submitted.",
-                })}
-              </p>
-              <button
-                type="button"
-                className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
-                onClick={() => setSuccess(false)}
-              >
-                {safeT("mypage_cs_inquiry_view_list", {
-                  fallbackKo: "문의 내역 보기",
-                  fallbackEn: "View inquiries",
-                })}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-sam-muted">
-                {safeT("biz_care_inquiry_compose_hint", {
-                  fallbackKo: "DIBAY 관리자에게 직접 문의합니다. 같은 대화에서 답장을 이어갑니다.",
-                  fallbackEn: "Message DIBAY admin. Replies stay on the same thread.",
-                })}
-              </p>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder={safeT("notif_admin_notes_subject_ph", {
-                  fallbackKo: "문의 제목",
-                  fallbackEn: "Subject",
-                })}
-                className="min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm"
-                data-owner-care-inquiry-subject
-              />
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder={safeT("notif_admin_notes_body_ph", {
-                  fallbackKo: "문의 내용",
-                  fallbackEn: "Message",
-                })}
-                rows={5}
-                className="w-full resize-y rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-                data-owner-care-inquiry-body
-              />
-              <button
-                type="button"
-                disabled={busy || !subject.trim() || !body.trim()}
-                onClick={() => void submit()}
-                className={OWNER_ADMIN_PRIMARY_BTN_CLASS}
-                data-owner-care-inquiry-submit
-              >
-                {safeT("biz_care_inquiry_submit", {
-                  fallbackKo: "1:1 문의하기",
-                  fallbackEn: "Submit inquiry",
-                })}
-              </button>
-            </div>
-          )}
-        </OwnerStoreAdminDashSection>
-      ) : null}
-
+    <div className="space-y-4" data-owner-care-notes-list={kind} data-owner-care-readonly={readOnly ? "1" : "0"}>
       <OwnerStoreAdminDashSection
         title={
           isInquiry
             ? safeT("biz_care_inquiry_list_title", {
-                fallbackKo: "내 1:1 문의",
-                fallbackEn: "My inquiries",
+                fallbackKo: "이전 1:1 문의",
+                fallbackEn: "Past inquiries",
               })
             : safeT("biz_care_admin_message_list_title", {
-                fallbackKo: "관리자 쪽지",
-                fallbackEn: "Admin messages",
+                fallbackKo: "이전 관리자 쪽지",
+                fallbackEn: "Past admin messages",
               })
         }
       >
@@ -227,15 +124,10 @@ export function OwnerCareAdminNotesList({
           <p className="text-sm text-sam-muted">…</p>
         ) : threads.length === 0 ? (
           <p className="text-sm text-sam-muted" data-owner-care-notes-empty="1">
-            {isInquiry
-              ? safeT("biz_care_inquiry_empty", {
-                  fallbackKo: "아직 문의가 없습니다. 위에서 관리자에게 문의하세요.",
-                  fallbackEn: "No inquiries yet. Write to admin above.",
-                })
-              : safeT("biz_care_admin_message_empty", {
-                  fallbackKo: "아직 받은 관리자 쪽지가 없습니다.",
-                  fallbackEn: "No admin messages yet.",
-                })}
+            {safeT("support_legacy_archive_empty", {
+              fallbackKo: "이전 기록이 없습니다.",
+              fallbackEn: "No archived items.",
+            })}
           </p>
         ) : (
           <ul className="space-y-2">
