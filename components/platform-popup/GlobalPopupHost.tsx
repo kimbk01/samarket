@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { DibayPopupAd } from "@/components/platform-popup/DibayPopupAd";
+import { usePathname } from "next/navigation";
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { isAppShellReady, whenAppShellReady } from "@/lib/startup/startup-metrics";
@@ -32,17 +31,13 @@ import {
 } from "@/lib/platform-popup";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
 import { canAcceptPlatformPopupWinner } from "@/lib/platform-popup/popup-stale-guard";
-import type { PlatformPopupPresentationWinner } from "@/lib/platform-popup/popup-presentation-types";
-import { recordPlatformPopupEvent } from "@/lib/platform-popup/record-popup-event-client";
-import type { PlatformPopupSuppressionMode } from "@/lib/platform-popup/types";
 
-type ResolveWinner = PlatformPopupPresentationWinner;
-
-const SSR_CALL_RUNTIME_SNAPSHOT = {
-  incomingCall: false,
-  activeCall: false,
-  nativeCallTransition: false,
-} as const;
+type ResolveWinner = {
+  campaignId: string;
+  creativeId: string;
+  surface: string;
+  href: string;
+};
 
 function subscribeVisibility(onStore: () => void): () => void {
   if (typeof document === "undefined") return () => {};
@@ -94,7 +89,6 @@ function validateWinnerHref(href: string): boolean {
  */
 export function GlobalPopupHost() {
   const pathname = usePathname() ?? "/";
-  const router = useRouter();
   const membership = useClientMembershipState("platform-popup-host");
   const criticalFlags = useSyncExternalStore(
     subscribePlatformPopupCriticalRuntimeFlags,
@@ -111,7 +105,7 @@ export function GlobalPopupHost() {
   const call = useSyncExternalStore(
     subscribePlatformPopupCallRuntime,
     readPlatformPopupCallRuntimeSnapshot,
-    () => SSR_CALL_RUNTIME_SNAPSHOT
+    () => ({ incomingCall: false, activeCall: false, nativeCallTransition: false })
   );
 
   const storesLcpDeferred = useStoresHomeOverlayDeferUntilInput();
@@ -188,7 +182,6 @@ export function GlobalPopupHost() {
 
   const [hostState, setHostState] = useState<PlatformPopupHostState>("IDLE");
   const [winner, setWinner] = useState<ResolveWinner | null>(null);
-  const [exposureId, setExposureId] = useState<string | null>(null);
   const generationRef = useRef(0);
   const identityRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -266,7 +259,7 @@ export function GlobalPopupHost() {
       ) {
         return;
       }
-      if (!validateWinnerHref(candidate.cta.href)) return;
+      if (!validateWinnerHref(candidate.href)) return;
       setWinner(candidate);
       setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_WINNER" }));
     },
@@ -327,7 +320,9 @@ export function GlobalPopupHost() {
         setHostState((s) => reducePlatformPopupHostState(s, { type: "RESOLVE_EMPTY" }));
       });
 
-    // Do not abort on IDLE→RESOLVING re-run — generation + surface guards handle staleness.
+    return () => {
+      controller.abort();
+    };
   }, [
     eligible,
     hostState,
@@ -343,28 +338,16 @@ export function GlobalPopupHost() {
   useEffect(() => {
     if (hostState !== "READY" || !winner) return;
     if (!eligible) return;
-    setExposureId(`${winner.campaignId}:${winner.creativeId}:${generationRef.current}`);
     setHostState((s) => reducePlatformPopupHostState(s, { type: "SHOW" }));
   }, [hostState, winner, eligible]);
 
-  const invalidateVisible = useCallback(() => {
-    setWinner(null);
-    setExposureId(null);
-    generationRef.current += 1;
-    abortRef.current?.abort();
-    setHostState((s) => reducePlatformPopupHostState(s, { type: "INVALIDATE" }));
-  }, []);
-
   const suppress = useCallback(
-    async (mode: PlatformPopupSuppressionMode) => {
+    async (mode: "CLOSE" | "SESSION" | "TODAY" | "DURATION" | "CAMPAIGN") => {
       if (!winner) return;
       const campaignId = winner.campaignId;
-      const creativeId = winner.creativeId;
       const surfaceAtDismiss = runtimeCtxRef.current.surface;
-      const currentExposure = exposureId;
       chainLockSurfaceRef.current = surfaceAtDismiss;
       setWinner(null);
-      setExposureId(null);
       setHostState((s) =>
         reducePlatformPopupHostState(s, {
           type: mode === "CLOSE" ? "DISMISS" : "SUPPRESS",
@@ -372,19 +355,6 @@ export function GlobalPopupHost() {
       );
       generationRef.current += 1;
       abortRef.current?.abort();
-
-      if (currentExposure) {
-        void recordPlatformPopupEvent({
-          campaignId,
-          creativeId,
-          surface: winner.surface,
-          eventType: mode === "CLOSE" ? "dismiss" : "suppress",
-          source: "dismiss_handler",
-          exposureId: currentExposure,
-          deviceKey,
-          meta: { mode },
-        });
-      }
 
       const res = await fetch("/api/platform-popup/suppress", {
         method: "POST",
@@ -395,101 +365,15 @@ export function GlobalPopupHost() {
           mode,
           sessionKey: appSessionId,
           deviceKey,
-          durationSeconds: mode === "DURATION" ? winner.suppressionDurationSeconds : undefined,
         }),
       });
       if (!res.ok) {
+        // Fail-soft: chain lock already blocks immediate re-show; do not lie that write succeeded
         console.error("[GlobalPopupHost] suppress_write_failed", await res.text());
       }
     },
-    [winner, appSessionId, deviceKey, exposureId]
+    [winner, appSessionId, deviceKey]
   );
-
-  const handleClose = useCallback(() => {
-    void suppress("CLOSE");
-  }, [suppress]);
-
-  const handleSuppress = useCallback(
-    (mode: PlatformPopupSuppressionMode) => {
-      void suppress(mode);
-    },
-    [suppress]
-  );
-
-  const handleCta = useCallback(() => {
-    if (!winner || !exposureId) return;
-    const href = winner.cta.href.trim();
-    if (!validateWinnerHref(href)) return;
-
-    void recordPlatformPopupEvent({
-      campaignId: winner.campaignId,
-      creativeId: winner.creativeId,
-      surface: winner.surface,
-      eventType: "click",
-      source: "click_handler",
-      exposureId,
-      deviceKey,
-    });
-
-    if (href.startsWith("/")) {
-      router.push(href);
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_success",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-      handleClose();
-      return;
-    }
-
-    try {
-      window.location.assign(href);
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_success",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-      handleClose();
-    } catch {
-      void recordPlatformPopupEvent({
-        campaignId: winner.campaignId,
-        creativeId: winner.creativeId,
-        surface: winner.surface,
-        eventType: "landing_failure",
-        source: "click_handler",
-        exposureId,
-        deviceKey,
-        meta: { href },
-      });
-    }
-  }, [winner, exposureId, router, handleClose, deviceKey]);
-
-  const handleRenderComplete = useCallback(() => {
-    if (!winner || !exposureId) return;
-    void recordPlatformPopupEvent({
-      campaignId: winner.campaignId,
-      creativeId: winner.creativeId,
-      surface: winner.surface,
-      eventType: "impression",
-      source: "renderer",
-      exposureId,
-      deviceKey,
-    });
-  }, [winner, exposureId, deviceKey]);
-
-  const handleImageError = useCallback(() => {
-    invalidateVisible();
-  }, [invalidateVisible]);
 
   const showPresentation = mayMountPlatformPopupPresentation(hostState) && winner != null;
 
@@ -502,20 +386,30 @@ export function GlobalPopupHost() {
       data-winner={winner?.campaignId ?? ""}
       hidden={!showPresentation}
     >
-      {showPresentation && winner && exposureId ? (
-        <DibayPopupAd
-          campaignId={winner.campaignId}
-          surface={winner.surface}
-          creative={winner.creative}
-          cta={winner.cta}
-          suppressionOptions={winner.suppressionOptions}
-          exposureId={exposureId}
-          onClose={handleClose}
-          onSuppress={handleSuppress}
-          onCta={handleCta}
-          onRenderComplete={handleRenderComplete}
-          onImageError={handleImageError}
-        />
+      {showPresentation && winner ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          data-platform-popup-presentation="cut2-lifecycle-boundary"
+          data-campaign-id={winner.campaignId}
+          data-creative-id={winner.creativeId}
+          data-impression="0"
+        >
+          {/* CUT 2: lifecycle boundary only — final visual is CUT 3 */}
+          <button type="button" data-platform-popup-dismiss="close" onClick={() => void suppress("CLOSE")}>
+            close
+          </button>
+          <button
+            type="button"
+            data-platform-popup-dismiss="session"
+            onClick={() => void suppress("SESSION")}
+          >
+            session
+          </button>
+          <button type="button" data-platform-popup-dismiss="today" onClick={() => void suppress("TODAY")}>
+            today
+          </button>
+        </div>
       ) : null}
     </div>
   );
