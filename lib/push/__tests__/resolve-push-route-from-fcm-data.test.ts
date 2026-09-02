@@ -299,6 +299,15 @@ describe("P0 URL security", () => {
   it("empty FAIL", () => {
     expect(resolveSafeNotificationInternalRoute("")).toBeNull();
   });
+
+  it("A2-3 Support case route PASS", () => {
+    expect(
+      resolveSafeNotificationInternalRoute("/support/cases/76a6e805-e62c-4198-9a53-44e15c0a758f")
+    ).toBe("/support/cases/76a6e805-e62c-4198-9a53-44e15c0a758f");
+    expect(resolveSafeNotificationInternalRoute("/support/enter")).toBe("/support/enter");
+    expect(resolveSafeNotificationInternalRoute("/support")).toBeNull();
+    expect(resolveSafeNotificationInternalRoute("/support/cases")).toBeNull();
+  });
 });
 
 describe("P0 authority open/read", () => {

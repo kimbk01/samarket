@@ -17,6 +17,28 @@ const SAFE_NOTIFICATION_ROUTE_PREFIXES = [
   "/admin",
 ] as const;
 
+/**
+ * A2-3 — Support notification/push allowlist (exact case restore).
+ * Do NOT allow arbitrary `/support/*`. Only enter + `/support/cases/{caseId}`.
+ */
+export function isAllowedSupportNotificationPath(pathname: string): boolean {
+  const path = String(pathname || "").trim();
+  if (path === "/support/enter") return true;
+  const m = /^\/support\/cases\/([^/]+)$/.exec(path);
+  if (!m) return false;
+  let id = m[1];
+  try {
+    id = decodeURIComponent(id);
+  } catch {
+    return false;
+  }
+  const trimmed = id.trim();
+  if (!trimmed) return false;
+  if (trimmed.includes("..") || trimmed.includes("/") || trimmed.includes("\\")) return false;
+  if (trimmed === "open" || trimmed === "new" || trimmed === "enter") return false;
+  return true;
+}
+
 export function resolveSafeNotificationInternalRoute(
   value: unknown,
   fallback: string | null = null
@@ -47,6 +69,9 @@ export function resolveSafeNotificationInternalRoute(
     parsed = new URL(`${healedPath}${parsed.search}${parsed.hash}`, "https://dibay.internal");
   }
   const normalized = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  if (isAllowedSupportNotificationPath(parsed.pathname)) {
+    return normalized;
+  }
   if (
     parsed.pathname !== "/" &&
     !SAFE_NOTIFICATION_ROUTE_PREFIXES.some(

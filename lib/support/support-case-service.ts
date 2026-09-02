@@ -801,6 +801,8 @@ export type AdminSupportSummary = {
   totalOpen: number;
   unassigned: number;
   waitingAdmin: number;
+  /** Canonical status WAITING_USER count (alias waitingCustomer kept for A2-2 clients). */
+  waitingUser: number;
   waitingCustomer: number;
   unreadCustomerReplies: number;
   /** Sidebar/ops badge — cases needing admin action (OPEN + WAITING_ADMIN). */
@@ -862,6 +864,7 @@ export async function getAdminSupportSummary(
       totalOpen: n(totalOpenRes.count),
       unassigned: n(unassignedRes.count),
       waitingAdmin: n(waitingAdminRes.count),
+      waitingUser: n(waitingCustomerRes.count),
       waitingCustomer: n(waitingCustomerRes.count),
       unreadCustomerReplies: n(unreadRes.count),
       actionable: n(actionableRes.count),

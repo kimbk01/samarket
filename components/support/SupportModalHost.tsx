@@ -165,9 +165,17 @@ function SupportActiveConversation({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
-        credentials: "include",
-      });
+      const fetchCase = () =>
+        fetch(`/api/support/cases/${encodeURIComponent(caseId)}`, {
+          credentials: "include",
+        });
+      let res = await fetchCase();
+      // Cold-start race: session may still be restoring — heal once then retry.
+      if (res.status === 401) {
+        const { ensureSessionHealthy } = await import("@/lib/auth/dibay-session-manager");
+        await ensureSessionHealthy("support_modal_case_load");
+        res = await fetchCase();
+      }
       const json = (await res.json()) as {
         ok?: boolean;
         case?: SupportCaseRow;
@@ -175,7 +183,17 @@ function SupportActiveConversation({
         error?: string;
       };
       if (!res.ok || !json.ok || !json.case) {
-        setError(json.error ?? "load_failed");
+        // Fail-closed: do not fall back to legacy inquiry / messenger routes.
+        setError(
+          res.status === 401
+            ? "unauthorized"
+            : res.status === 403 || res.status === 404
+              ? "forbidden"
+              : (json.error ?? "load_failed")
+        );
+        setSupportCase(null);
+        setMessages([]);
+        onDismissibleChange(true);
         return;
       }
       setSupportCase(json.case);
@@ -296,14 +314,26 @@ function SupportActiveConversation({
         </div>
       ) : error && messages.length === 0 ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {error}
-          <DibayOverlayButton
-            roleTone="secondary"
-            className="mt-3 w-full"
-            onClick={() => void load()}
-          >
-            {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
-          </DibayOverlayButton>
+          {error === "unauthorized"
+            ? safeT("support_case_auth_required", {
+                fallbackKo: "로그인이 필요합니다.",
+                fallbackEn: "Please sign in to view this case.",
+              })
+            : error === "forbidden"
+              ? safeT("support_case_unavailable", {
+                  fallbackKo: "이 문의를 열 수 없습니다.",
+                  fallbackEn: "This support case is unavailable.",
+                })
+              : error}
+          {error !== "forbidden" ? (
+            <DibayOverlayButton
+              roleTone="secondary"
+              className="mt-3 w-full"
+              onClick={() => void load()}
+            >
+              {safeT("common_retry", { fallbackKo: "다시 시도", fallbackEn: "Retry" })}
+            </DibayOverlayButton>
+          ) : null}
         </div>
       ) : (
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain">
