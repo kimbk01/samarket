@@ -135,6 +135,36 @@ export function nextOptimisticCommunityMessengerCreatedAtIso(
   return new Date(Math.max(now, maxTs + 1)).toISOString();
 }
 
+function mergeCommunityMessageMetadata(
+  existing: CommunityMessengerMessage["metadata"] | undefined,
+  incoming: CommunityMessengerMessage["metadata"] | undefined
+): CommunityMessengerMessage["metadata"] | undefined {
+  const existingObj =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? (existing as Record<string, unknown>)
+      : null;
+  const incomingObj =
+    incoming && typeof incoming === "object" && !Array.isArray(incoming)
+      ? (incoming as Record<string, unknown>)
+      : null;
+  if (!incomingObj || Object.keys(incomingObj).length === 0) {
+    return existingObj ? existing : incoming;
+  }
+  if (!existingObj || Object.keys(existingObj).length === 0) {
+    return incoming;
+  }
+  const merged: Record<string, unknown> = { ...existingObj, ...incomingObj };
+  const incomingStatus = String(incomingObj.transfer_status ?? "").toUpperCase();
+  if (
+    incomingStatus === "ACCEPTED" ||
+    incomingStatus === "REJECTED" ||
+    incomingStatus === "CANCELLED"
+  ) {
+    merged.transfer_status = incomingStatus;
+  }
+  return merged as CommunityMessengerMessage["metadata"];
+}
+
 export function mergeRoomMessages(
   prev: Array<CommunityMessengerMessage & { pending?: boolean }>,
   next: CommunityMessengerMessage[],
@@ -179,10 +209,7 @@ export function mergeRoomMessages(
       }
     }
     const existing = mergedConfirmed.get(item.id);
-    const itemMetadata =
-      item.metadata && Object.keys(item.metadata).length > 0
-        ? item.metadata
-        : existing?.metadata;
+    const itemMetadata = mergeCommunityMessageMetadata(existing?.metadata, item.metadata);
     /** Realtime postgres mapper historically demoted gift_certificate → text; never let that erase a hydrated gift card. */
     const preserveGiftCertificateType =
       existing?.messageType === "gift_certificate" && item.messageType === "text";

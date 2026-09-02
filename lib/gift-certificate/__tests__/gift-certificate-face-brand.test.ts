@@ -89,7 +89,10 @@ describe("DIBAY gift certificate portrait face SSOT", () => {
     expect(GIFT_PORTRAIT_LANDMARKS.perforationY).toBe(770);
     expect(GIFT_PORTRAIT_LANDMARKS.issuerY).toBe(840);
     expect(GIFT_PORTRAIT_LANDMARKS.expiryY).toBe(914);
-    expect(GIFT_PORTRAIT_LANDMARKS.numberY).toBe(988);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(960);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY).toBe(1018);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberY).toBe(GIFT_PORTRAIT_LANDMARKS.numberLabelY);
+    expect(GIFT_PORTRAIT_LANDMARKS.numberValueY - GIFT_PORTRAIT_LANDMARKS.numberLabelY).toBe(58);
     expect(GIFT_PORTRAIT_LANDMARKS.footerY).toBe(1072);
     expect(GIFT_PORTRAIT_LANDMARKS.heroBottomY / h).toBeCloseTo(300 / 1120, 5);
     expect(GIFT_PORTRAIT_LANDMARKS.perforationY / h).toBeCloseTo(770 / 1120, 5);

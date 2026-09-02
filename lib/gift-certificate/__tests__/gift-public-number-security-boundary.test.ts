@@ -32,11 +32,16 @@ describe("public gift number security boundary", () => {
 
   it("S3: gift transfer accepts internal instance id only", () => {
     const offerRoute = source("app/api/me/gift-certificates/transfers/offer/route.ts");
+    const executor = source("lib/gift-certificate/execute-gift-transfer-offer.ts");
 
     expect(offerRoute).toContain("const instanceId = String(body.instanceId");
     expect(offerRoute).not.toContain("publicGiftNumber");
     expect(offerRoute).not.toContain("public_gift_number");
-    expect(offerRoute).toContain("giftCertificateOffer(sb");
+    expect(offerRoute).toContain("executeGiftTransferOffer(sb");
+    expect(executor).toContain("giftCertificateOffer(sb");
+    expect(executor).not.toContain("publicGiftNumber");
+    expect(executor).not.toContain("public_gift_number");
+    expect(executor).toContain("instanceId");
   });
 
   it("S7/S8: admin tracking is admin-only and owner redemption remains owner/store gated", () => {

@@ -35,11 +35,7 @@ export function MessengerGiftCertificateCard(props: {
   const { safeT } = useI18n();
   const meta = parseGiftCertificateMessageMetadata(props.metadata);
   const presentation = useGiftTransferPresentation(meta?.gift_transfer_id);
-  const initialStatus: GiftTransferUiStatus = meta
-    ? resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status)
-    : "PENDING";
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<GiftTransferUiStatus>(initialStatus);
   const [confirmKind, setConfirmKind] = useState<null | "reject" | "cancel">(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -54,7 +50,8 @@ export function MessengerGiftCertificateCard(props: {
     );
   }
 
-  const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, status);
+  /** Canonical projection: message.metadata.transfer_status (+ session remember after local accept). */
+  const displayStatus = resolveGiftTransferUiStatus(meta.gift_transfer_id, meta.transfer_status);
 
   const giftScope = presentation?.giftScope ?? "STORE";
   const resolvedScope = giftScope === "PLATFORM" ? "PLATFORM" : "STORE";
@@ -99,7 +96,6 @@ export function MessengerGiftCertificateCard(props: {
         const next: GiftTransferUiStatus =
           kind === "accept" ? "ACCEPTED" : kind === "reject" ? "REJECTED" : "CANCELLED";
         rememberGiftTransferUiStatus(meta!.gift_transfer_id, next);
-        setStatus(next);
         props.onStatusChange?.(next);
         setConfirmKind(null);
       } else {
