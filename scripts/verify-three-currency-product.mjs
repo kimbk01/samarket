@@ -107,4 +107,23 @@ for (const path of runtimeRoots.flatMap((dir) => walk(dir))) {
   }
 }
 
+for (const rel of [
+  "components/admin/platform-inquiries/AdminPlatformInquiriesPage.tsx",
+  "components/admin/store-points/AdminStorePointLedgerByDatePage.tsx",
+]) {
+  const source = stripComments(read(rel));
+  if (/point_balance\.toLocaleString\(\)\}P|toLocaleString\(\)\}P/.test(source)) {
+    fail(`legacy currency suffix display remains in ${rel}`);
+  }
+}
+
+for (const rel of [
+  "components/admin/store-points/AdminStorePointsOverviewPage.tsx",
+  "components/admin/store-points/AdminStorePointChargeListPage.tsx",
+]) {
+  if (existsSync(resolve(root, rel))) {
+    fail(`orphan legacy store-point mutation UI still present: ${rel}`);
+  }
+}
+
 console.log("PASS: three-currency-product");

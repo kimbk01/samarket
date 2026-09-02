@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -27,6 +28,11 @@ function daysAgoIso(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
+}
+
+function formatHistoricalUnits(value: number): string {
+  const n = Math.trunc(Number(value) || 0);
+  return n > 0 ? `+${n.toLocaleString()}` : n.toLocaleString();
 }
 
 export function AdminStorePointLedgerByDatePage() {
@@ -84,9 +90,16 @@ export function AdminStorePointLedgerByDatePage() {
   const groups = useMemo(() => groupStorePointLedgerByDate(entries), [entries]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-historical-store-ledger-archive="1">
       <AdminPageHeader titleKey="admin_page_store_point_ledger" />
-      <p className="text-sm text-sam-muted">{t("admin_store_point_ledger_desc")}</p>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4 text-sm text-sam-muted">
+        <p>{t("admin_store_point_ledger_archive_notice")}</p>
+        <p className="mt-2">
+          <Link href="/admin/finance" className="font-semibold text-sam-fg underline">
+            {t("admin_store_point_ledger_current_finance_link")}
+          </Link>
+        </p>
+      </div>
 
       <div className="grid gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs text-sam-muted">
@@ -125,7 +138,7 @@ export function AdminStorePointLedgerByDatePage() {
         <div className="flex items-end sm:col-span-2 lg:col-span-4">
           <button
             type="button"
-            className="rounded-ui-rect bg-[#006241] px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-semibold text-sam-fg"
             onClick={() => void load()}
           >
             {t("admin_store_point_ledger_apply")}
@@ -152,11 +165,9 @@ export function AdminStorePointLedgerByDatePage() {
                 <h2 className="font-semibold text-sam-fg">{g.dateKey}</h2>
                 <p className="text-sm text-sam-muted">
                   {t("admin_store_point_ledger_day_total")}:{" "}
-                  <span
-                    className={`font-semibold tabular-nums ${g.totalAmount >= 0 ? "text-[#006241]" : "text-red-600"}`}
-                  >
-                    {g.totalAmount > 0 ? "+" : ""}
-                    {g.totalAmount.toLocaleString()}P
+                  <span className="font-semibold tabular-nums text-sam-fg">
+                    {formatHistoricalUnits(g.totalAmount)}{" "}
+                    <span className="font-normal">{t("admin_store_point_ledger_historical_units")}</span>
                   </span>
                 </p>
               </div>
@@ -175,11 +186,12 @@ export function AdminStorePointLedgerByDatePage() {
                         {new Date(e.createdAt).toLocaleString(locale)}
                       </span>
                     </span>
-                    <span
-                      className={`font-semibold tabular-nums ${e.amount < 0 ? "text-red-600" : "text-[#006241]"}`}
-                    >
-                      {e.amount > 0 ? "+" : ""}
-                      {e.amount}P → {e.balanceAfter}P
+                    <span className="tabular-nums text-sam-muted">
+                      {formatHistoricalUnits(e.amount)}{" "}
+                      {t("admin_store_point_ledger_historical_units")} ·{" "}
+                      {t("admin_store_point_ledger_balance_after", {
+                        balance: e.balanceAfter.toLocaleString(),
+                      })}
                     </span>
                   </li>
                 ))}

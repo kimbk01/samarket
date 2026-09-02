@@ -169,18 +169,13 @@ function AdminPlatformInquiriesPageInner() {
               </div>
               {r.store_name ? (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <p className="text-xs text-sam-muted">
-                    {r.store_name}
-                    {typeof r.point_balance === "number"
-                      ? ` · ${t("admin_store_point_charge_store_balance")}: ${r.point_balance.toLocaleString()}P`
-                      : ""}
-                  </p>
+                  <p className="text-xs text-sam-muted">{r.store_name}</p>
                   {r.store_id ? (
                     <Link
-                      href={`/admin/store-point-charges?storeId=${encodeURIComponent(r.store_id)}`}
-                      className="rounded-full border border-[#006241]/40 px-2 py-0.5 text-xs text-[#006241]"
+                      href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
+                      className="rounded-full border border-sam-border px-2 py-0.5 text-xs text-sam-fg"
                     >
-                      {t("admin_platform_inquiry_go_charges")}
+                      {t("admin_platform_inquiry_go_store_finance")}
                     </Link>
                   ) : null}
                 </div>

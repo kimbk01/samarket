@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -54,10 +55,16 @@ function php(minor: number): string {
 /** Admin finance — paired Coin (Gold) + Cash (Green) sections per CUT 3/5. */
 export function AdminStoreFinancePanels() {
   const { safeT } = useI18n();
+  const searchParams = useSearchParams();
   const [storeId, setStoreId] = useState("");
   const [data, setData] = useState<FinancePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const sid = searchParams.get("storeId")?.trim() ?? "";
+    if (sid) setStoreId(sid);
+  }, [searchParams]);
 
   const load = async (event: FormEvent) => {
     event.preventDefault();
