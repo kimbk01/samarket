@@ -20,17 +20,22 @@ import type {
 export type SupportContext = {
   enabled: boolean;
   audience: SupportAudience;
-  /** Category candidate (may be legacy alias; server maps to canonical). */
-  category: SupportCategory;
+  /**
+   * Category candidate (may be legacy alias; server maps to canonical).
+   * Empty string + needsCategorySelection → PHASE 3-B generic triage START_CATEGORY.
+   */
+  category: SupportCategory | "";
   sourceSurface: string;
   referenceType?: string;
   referenceId?: string;
   storeId?: string;
   /**
-   * Set only when the user explicitly picked 기타 on a generic hub gate.
+   * Set only when the user explicitly picked 기타 on a generic hub gate / triage.
    * Required for generic hub + OTHER (server fail-closed otherwise).
    */
   explicitOtherSelection?: boolean;
+  /** Generic START: modal shows category picker; do not invent OTHER. */
+  needsCategorySelection?: boolean;
 };
 
 /**
@@ -89,8 +94,27 @@ export function buildOwnerSupportContext(input: OwnerSupportContextInput): Suppo
   };
 }
 
+/** PHASE 3-B generic hub → modal START_CATEGORY (no OTHER invent). */
+export function buildGenericSupportTriageContext(input: {
+  audience: SupportAudience;
+  sourceSurface: string;
+  storeId?: string;
+}): SupportContext {
+  const storeId = input.storeId?.trim() || undefined;
+  return {
+    enabled: true,
+    audience: input.audience === "OWNER" ? "OWNER" : "MEMBER",
+    category: "",
+    sourceSurface: input.sourceSurface.trim() || "unknown",
+    storeId,
+    needsCategorySelection: true,
+  };
+}
+
 export function isSupportContextEnabled(ctx: SupportContext | null | undefined): ctx is SupportContext {
-  return Boolean(ctx && ctx.enabled === true);
+  if (!ctx || ctx.enabled !== true) return false;
+  if (ctx.needsCategorySelection === true) return true;
+  return Boolean(String(ctx.category ?? "").trim());
 }
 
 export const SUPPORT_CONTEXT_SESSION_KEY = "dibay:support:center:pending-context";

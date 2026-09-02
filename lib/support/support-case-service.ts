@@ -49,6 +49,12 @@ function defaultSubject(category: string, sourceSurface: string): string {
   return surface ? `${cat} · ${surface}` : cat;
 }
 
+function buildDefaultTriageSeed(category: string, issueType: string | null): string {
+  const c = category.trim() || "SUPPORT";
+  const i = (issueType ?? "").trim();
+  return i ? `문의 접수 · ${c} · ${i}` : `문의 접수 · ${c}`;
+}
+
 /**
  * PHASE 3-A open payload.
  *
@@ -302,7 +308,19 @@ export async function openSupportCaseFromContext(
   if (!session.ok) return { ok: false, error: session.error };
 
   const initialBody = (input.initialBody ?? "").trim();
-  if (initialBody) {
+  const hasStructuredSummary = Boolean(initialSummary);
+
+  if (hasStructuredSummary) {
+    const seed = initialBody || buildDefaultTriageSeed(cat.category, cat.issueType);
+    await appendSupportMessage(sb, {
+      caseId: created.id,
+      senderUserId: input.userId,
+      audience: norm.audience,
+      body: seed,
+      messageType: "PUBLIC",
+      systemSeed: true,
+    });
+  } else if (initialBody) {
     await appendSupportMessage(sb, {
       caseId: created.id,
       senderUserId: input.userId,

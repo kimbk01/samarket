@@ -59,12 +59,17 @@ export type OpenSupportModalInput = {
 export function openSupportModal(input: OpenSupportModalInput = {}): boolean {
   const context = input.context ?? null;
   const caseId = input.caseId?.trim() || null;
-  if (!caseId && (!context || !isSupportContextEnabled(context))) {
+  const enabled =
+    context &&
+    context.enabled === true &&
+    (Boolean(String(context.category ?? "").trim()) ||
+      context.needsCategorySelection === true);
+  if (!caseId && !enabled) {
     return false;
   }
   state = {
     phase: "open",
-    context: context && isSupportContextEnabled(context) ? context : null,
+    context: enabled ? context : null,
     caseId,
     restoreCaseId: caseId,
   };
@@ -85,13 +90,26 @@ export function setSupportModalCaseId(caseId: string | null): void {
   emit();
 }
 
-/** After 새 문의하기 — keep context, clear case, return to START. */
-export function resetSupportModalToStart(): void {
+/** After 새 문의하기 — return to generic triage START (no silent reopen). */
+export function resetSupportModalToStart(nextContext?: SupportContext | null): void {
   if (state.phase !== "open") return;
   state = {
     ...state,
     caseId: null,
     restoreCaseId: null,
+    context:
+      nextContext && isSupportContextEnabled(nextContext)
+        ? nextContext
+        : state.context
+          ? {
+              ...state.context,
+              category: "",
+              needsCategorySelection: true,
+              referenceType: undefined,
+              referenceId: undefined,
+              explicitOtherSelection: undefined,
+            }
+          : null,
   };
   emit();
 }

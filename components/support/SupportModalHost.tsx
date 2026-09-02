@@ -13,10 +13,11 @@ import { X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { SupportSheetShell } from "@/components/support/SupportSheetShell";
+import { SupportTriageFlow } from "@/components/support/SupportTriageFlow";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupportContext } from "@/lib/support/support-context";
-import { isSupportContextEnabled } from "@/lib/support/support-context";
+import { buildGenericSupportTriageContext, isSupportContextEnabled } from "@/lib/support/support-context";
 import { deliverSupportOpen } from "@/lib/support/deliver-support-open";
 import {
   clearPendingSupportContext,
@@ -131,23 +132,27 @@ function SupportSheetChrome({
 
 function ContextChips({ context }: { context: SupportContext }) {
   const { safeT } = useI18n();
+  if (!context.category || context.needsCategorySelection) return null;
+  const defLabel = safeT("support_enter_category_label", {
+    fallbackKo: "문의 유형",
+    fallbackEn: "Category",
+  });
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
-        {safeT("support_enter_category_label", {
-          fallbackKo: "문의 유형",
-          fallbackEn: "Category",
-        })}
-        : {context.category}
+        {defLabel}
       </span>
       {context.audience === "OWNER" && context.storeId ? (
         <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
-          Store · {context.storeId.slice(0, 8)}…
+          Store
         </span>
       ) : null}
       {context.referenceType ? (
         <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
-          {context.referenceType}
+          {safeT("support_triage_field_reference", {
+            fallbackKo: "관련 항목",
+            fallbackEn: "Related item",
+          })}
         </span>
       ) : null}
     </div>
@@ -331,10 +336,13 @@ function SupportActiveConversation({
   const closed =
     supportCase?.status === "RESOLVED" || supportCase?.status === "ARCHIVED";
   const statusMeta = statusLabelMeta(supportCase?.status ?? null);
-  const statusText = safeT(statusMeta.key, {
+  const statusLabel = safeT(statusMeta.key, {
     fallbackKo: statusMeta.fallbackKo,
     fallbackEn: statusMeta.fallbackEn,
   });
+  const statusText = supportCase?.public_case_no
+    ? `${supportCase.public_case_no} · ${statusLabel}`
+    : statusLabel;
 
   return (
     <SupportSheetChrome
@@ -461,10 +469,14 @@ function SupportActiveConversation({
               />
               <DibayOverlayButton
                 roleTone="primary"
-                className="!min-h-11 !min-w-[4.5rem] shrink-0 !px-3"
+                className="!h-10 !w-10 !min-h-10 !min-w-10 !max-w-10 shrink-0 !rounded-full !px-0"
                 disabled={sending || offline || !draft.trim()}
                 loading={sending}
                 onClick={() => void send()}
+                aria-label={safeT("support_send_cta", {
+                  fallbackKo: "전송",
+                  fallbackEn: "Send",
+                })}
               >
                 {safeT("support_send_cta", {
                   fallbackKo: "전송",
@@ -487,7 +499,8 @@ function SupportStartBody({
   openingCase,
   startError,
   onClose,
-  onStart,
+  onCreateCase,
+  onResolvedWithoutCase,
 }: {
   titleId: string;
   title: string;
@@ -496,69 +509,48 @@ function SupportStartBody({
   openingCase: boolean;
   startError: string | null;
   onClose: () => void;
-  onStart: () => void;
+  onCreateCase: (payload: {
+    context: SupportContext;
+    issueType: string;
+    initialSummary: string;
+    guidanceKey?: string;
+    guidanceRevision?: number;
+    guidanceOutcome?: string;
+    explicitOtherSelection?: boolean;
+    initialBody: string;
+  }) => void;
+  onResolvedWithoutCase: () => void;
 }) {
   const { safeT } = useI18n();
   return (
     <SupportSheetChrome
       titleId={titleId}
       title={title}
+      statusText={safeT("support_enter_greeting", {
+        fallbackKo: "무엇을 도와드릴까요?",
+        fallbackEn: "How can we help?",
+      })}
       onClose={onClose}
       closeLabel={closeLabel}
       subContext={context ? <ContextChips context={context} /> : null}
     >
-      <div className="flex min-h-0 flex-1 flex-col">
-        {context ? (
-          <>
-            <p className={OverlayUi.body}>
-              {safeT("support_enter_greeting", {
-                fallbackKo: "무엇을 도와드릴까요?",
-                fallbackEn: "How can we help?",
-              })}
-            </p>
-            <p className={OverlayUi.bodySecondary}>
-              {safeT("support_modal_start_hint", {
-                fallbackKo:
-                  "문의하기를 누르면 상담이 시작됩니다. 현재 화면 정보는 상담에 전달됩니다.",
-                fallbackEn:
-                  "Tap Contact us to start. Your current screen context is shared with support.",
-              })}
-            </p>
-          </>
-        ) : (
-          <p className={OverlayUi.bodySecondary}>
-            {safeT("support_enter_missing_context", {
-              fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
-              fallbackEn: "Could not load inquiry context. Please try again.",
-            })}
-          </p>
-        )}
-        {startError ? (
-          <p className={`${OverlayUi.caption} text-red-600`}>
-            {safeT("support_enter_missing_context", {
-              fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
-              fallbackEn: "Could not load inquiry context. Please try again.",
-            })}{" "}
-            ({startError})
-          </p>
-        ) : null}
-      </div>
-      {context ? (
-        <div className="shrink-0 pt-2">
-          <DibayOverlayButton
-            roleTone="primary"
-            className="w-full !min-h-11"
-            loading={openingCase}
-            disabled={openingCase}
-            onClick={onStart}
-          >
-            {safeT("support_enter_cta", {
-              fallbackKo: "문의하기",
-              fallbackEn: "Contact us",
-            })}
-          </DibayOverlayButton>
-        </div>
-      ) : null}
+      {context && isSupportContextEnabled(context) ? (
+        <SupportTriageFlow
+          context={context}
+          openingCase={openingCase}
+          startError={startError}
+          onClose={onClose}
+          onResolvedWithoutCase={onResolvedWithoutCase}
+          onCreateCase={onCreateCase}
+        />
+      ) : (
+        <p className={OverlayUi.bodySecondary}>
+          {safeT("support_enter_missing_context", {
+            fallbackKo: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
+            fallbackEn: "Could not load inquiry context. Please try again.",
+          })}
+        </p>
+      )}
     </SupportSheetChrome>
   );
 }
@@ -647,45 +639,73 @@ export function SupportModalHost() {
     closeSupportModal();
   }, []);
 
-  const handleStartInquiry = useCallback(async () => {
-    if (openingCase) return;
-    const ctx = modal.context;
-    if (!isSupportContextEnabled(ctx)) {
-      setStartError("missing_context");
-      return;
-    }
-    setOpeningCase(true);
-    setStartError(null);
-    try {
-      const res = await fetch("/api/support/cases/open", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          context: ctx,
-          explicitOtherSelection: ctx.explicitOtherSelection === true,
-        }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        case?: { id: string };
-        error?: string;
-      };
-      if (!res.ok || !json.ok || !json.case?.id) {
-        setStartError(json.error ?? "open_failed");
+  const handleCreateCase = useCallback(
+    async (payload: {
+      context: SupportContext;
+      issueType: string;
+      initialSummary: string;
+      guidanceKey?: string;
+      guidanceRevision?: number;
+      guidanceOutcome?: string;
+      explicitOtherSelection?: boolean;
+      initialBody: string;
+    }) => {
+      if (openingCase) return;
+      if (!isSupportContextEnabled(payload.context)) {
+        setStartError("missing_context");
         return;
       }
-      clearPendingSupportContext();
-      setSupportModalCaseId(json.case.id);
-    } catch {
-      setStartError("network_error");
-    } finally {
-      setOpeningCase(false);
-    }
-  }, [modal.context, openingCase]);
+      setOpeningCase(true);
+      setStartError(null);
+      try {
+        const res = await fetch("/api/support/cases/open", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            context: payload.context,
+            issueType: payload.issueType,
+            initialSummary: payload.initialSummary,
+            initialBody: payload.initialBody,
+            guidanceKey: payload.guidanceKey,
+            guidanceRevision: payload.guidanceRevision,
+            guidanceOutcome: payload.guidanceOutcome,
+            requireIssueType: true,
+            explicitOtherSelection: payload.explicitOtherSelection === true,
+          }),
+        });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          case?: { id: string };
+          error?: string;
+        };
+        if (!res.ok || !json.ok || !json.case?.id) {
+          setStartError(json.error ?? "open_failed");
+          return;
+        }
+        clearPendingSupportContext();
+        setSupportModalCaseId(json.case.id);
+      } catch {
+        setStartError("network_error");
+      } finally {
+        setOpeningCase(false);
+      }
+    },
+    [openingCase]
+  );
 
   const handleNewInquiry = useCallback(() => {
-    resetSupportModalToStart();
+    const prev = getSupportModalState().context;
+    const audience = prev?.audience === "OWNER" ? "OWNER" : "MEMBER";
+    const storeId = prev?.storeId;
+    resetSupportModalToStart(
+      buildGenericSupportTriageContext({
+        audience,
+        sourceSurface:
+          audience === "OWNER" ? "owner_customer_center" : "mypage_customer_center",
+        storeId,
+      })
+    );
     setActiveDismissible(false);
     setStartError(null);
   }, []);
@@ -719,7 +739,8 @@ export function SupportModalHost() {
           openingCase={openingCase}
           startError={startError}
           onClose={handleClose}
-          onStart={() => void handleStartInquiry()}
+          onCreateCase={(payload) => void handleCreateCase(payload)}
+          onResolvedWithoutCase={handleClose}
         />
       ) : null}
       {showActive && modal.caseId ? (
