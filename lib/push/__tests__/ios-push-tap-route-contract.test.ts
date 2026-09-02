@@ -16,6 +16,9 @@ describe("iOS push tap route contract", () => {
     expect(source).toContain("maybeMarkMemberAOnPushTap");
     expect(source).toContain("postNotificationEventOpenedRead");
     expect(source).toContain("isRecoveringPhase(phase)");
+    expect(source).toContain("parseSupportCaseIdFromPushPath");
+    expect(source).toContain('via: "support_modal_direct"');
+    expect(source).toContain("openSupportModal({ caseId: supportCaseId })");
   });
 
   it("keeps appUrlOpen and native pending route replay for cold-start restores", () => {

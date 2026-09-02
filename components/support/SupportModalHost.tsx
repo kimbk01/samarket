@@ -78,8 +78,11 @@ function SupportSheetChrome({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-3 flex shrink-0 items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h2 id={titleId} className={`${OverlayUi.title} ${OverlayUi.titleSheet} !mb-1`}>
+        <div className="min-w-0 flex-1 pr-1">
+          <h2
+            id={titleId}
+            className={`${OverlayUi.title} ${OverlayUi.titleSheet} !mb-1 !text-left break-keep`}
+          >
             {title}
           </h2>
           {statusText ? (
@@ -92,7 +95,7 @@ function SupportSheetChrome({
         <button
           type="button"
           data-support-modal-close="1"
-          className={`${OverlayUi.btn.text} !min-h-11 !min-w-11 !px-0 !py-0 shrink-0`}
+          className={`${OverlayUi.btn.text} !h-11 !w-11 !min-h-11 !min-w-11 !max-w-11 !flex-none !px-0 !py-0 shrink-0`}
           aria-label={closeLabel}
           onClick={onClose}
         >

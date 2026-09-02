@@ -50,8 +50,25 @@ describe("A2-3 support notification → Support Modal restore", () => {
     expect(boot).toContain("ensureSessionHealthy");
     expect(boot).toContain("openSupportModal");
     expect(boot).toContain('router.replace("/")');
+    expect(boot).toContain('getSessionPhase() === "authenticated"');
     expect(boot).not.toContain("token_hash");
     expect(boot).not.toContain("revoke");
+  });
+
+  it("push tap opens Support Modal directly without /support/cases bounce", () => {
+    const entry = read("lib/support/support-push-modal-entry.ts");
+    expect(entry).toContain("parseSupportCaseIdFromPushPath");
+    const listener = read("components/push/PushRouteListener.tsx");
+    expect(listener).toContain("support_modal_direct");
+    expect(listener).toContain("parseSupportCaseIdFromPushPath");
+  });
+
+  it("sheet close button does not use full-width overlay text btn (title crush)", () => {
+    const page = read("components/support/SupportModalHost.tsx");
+    expect(page).toContain("!w-11");
+    expect(page).toContain("!flex-none");
+    expect(page).toContain("!text-left");
+    expect(page).toContain("break-keep");
   });
 
   it("modal case load fail-closes without legacy fallback", () => {

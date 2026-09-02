@@ -38,6 +38,8 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
+import { parseSupportCaseIdFromPushPath } from "@/lib/support/support-push-modal-entry";
+import { openSupportModal } from "@/lib/support/support-modal-controller";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -300,6 +302,32 @@ export function PushRouteListener() {
           void clearNativePersistedPendingPushRoute();
           return;
         }
+      }
+
+      /**
+       * Support exact-case restore — open modal in place.
+       * Do NOT push /support/cases/{id} (bootstrap page → replace("/") bounce causes
+       * slow entry + conversation remount flicker on iOS APNS tap).
+       */
+      const supportCaseId = parseSupportCaseIdFromPushPath(path);
+      if (supportCaseId) {
+        const opened = openSupportModal({ caseId: supportCaseId });
+        maybeMarkMemberAOnPushTap(path, notificationId, transport);
+        clearPendingPushRoute();
+        void clearNativePersistedPendingPushRoute();
+        if (
+          typeof window !== "undefined" &&
+          window.location.pathname.startsWith("/support/")
+        ) {
+          router.replace("/");
+        }
+        console.info("[push-route] webview_route_delivered", {
+          path,
+          via: "support_modal_direct",
+          opened,
+          caseId: supportCaseId,
+        });
+        return;
       }
 
       if (isCallRoute(path) && shouldReplaceRoute(path)) {

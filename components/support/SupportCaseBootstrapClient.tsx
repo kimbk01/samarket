@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureSessionHealthy } from "@/lib/auth/dibay-session-manager";
+import {
+  ensureSessionHealthy,
+  getSessionPhase,
+} from "@/lib/auth/dibay-session-manager";
 import { stashSupportModalRestoreCaseId } from "@/lib/support/open-support-center";
 import { openSupportModal } from "@/lib/support/support-modal-controller";
 
@@ -11,6 +14,9 @@ import { openSupportModal } from "@/lib/support/support-modal-controller";
  * A2-3 cold-start / deeplink bootstrap —
  * auth restore first, then Support Modal for exact case, leave full-page route.
  * Session token lifecycle / CUT B is out of scope.
+ *
+ * When session is already authenticated (warm push / in-app), open the modal
+ * immediately — do not wait on a second ensureSessionHealthy round-trip.
  */
 export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
   const { safeT } = useI18n();
@@ -21,17 +27,27 @@ export function SupportCaseBootstrapClient({ caseId }: { caseId: string }) {
     const id = caseId.trim();
     if (!id) return;
 
-    void (async () => {
-      // Avoid opening modal / case fetch before session cookies are restored.
-      await ensureSessionHealthy("support_case_bootstrap");
+    const finish = (opened: boolean) => {
       if (cancelled) return;
-
-      const opened = openSupportModal({ caseId: id });
       if (!opened) {
         stashSupportModalRestoreCaseId(id);
       }
       // Leave bootstrap URL so back does not re-enter full-page residue.
       router.replace("/");
+    };
+
+    // Warm path: modal first, then leave the bootstrap page (no auth wait).
+    if (getSessionPhase() === "authenticated") {
+      const opened = openSupportModal({ caseId: id });
+      finish(opened);
+      return;
+    }
+
+    void (async () => {
+      await ensureSessionHealthy("support_case_bootstrap");
+      if (cancelled) return;
+      const opened = openSupportModal({ caseId: id });
+      finish(opened);
     })();
 
     return () => {
