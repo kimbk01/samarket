@@ -58,17 +58,17 @@ describe("admin sidebar active path authority", () => {
       expectCount: 1,
     },
     {
-      name: "inquiry query",
+      name: "support center leaf",
       workspaceKey: "system",
-      path: "/admin/member-notes?kind=inquiry",
-      expectLeaf: "/admin/member-notes?kind=inquiry",
+      path: "/admin/support",
+      expectLeaf: "/admin/support",
       expectCount: 1,
     },
     {
-      name: "inbox query sibling",
+      name: "support archive sibling",
       workspaceKey: "system",
-      path: "/admin/member-notes?kind=inbox",
-      expectLeaf: "/admin/member-notes?kind=inbox",
+      path: "/admin/support/archive",
+      expectLeaf: "/admin/support/archive",
       expectCount: 1,
     },
     {
@@ -113,14 +113,12 @@ describe("admin sidebar active path authority", () => {
     expect(isLeafMenuActive("/admin/chats/messenger", current, scope)).toBe(true);
   });
 
-  it("distinguishes inquiry vs inbox", () => {
+  it("distinguishes support center vs archive sibling", () => {
     const scope = workspacePaths("system");
-    expect(isLeafMenuActive("/admin/member-notes?kind=inquiry", "/admin/member-notes?kind=inquiry", scope)).toBe(
-      true
-    );
-    expect(isLeafMenuActive("/admin/member-notes?kind=inbox", "/admin/member-notes?kind=inquiry", scope)).toBe(
-      false
-    );
+    expect(isLeafMenuActive("/admin/support", "/admin/support", scope)).toBe(true);
+    expect(isLeafMenuActive("/admin/support/archive", "/admin/support", scope)).toBe(false);
+    expect(isLeafMenuActive("/admin/support", "/admin/support/archive", scope)).toBe(false);
+    expect(isLeafMenuActive("/admin/support/archive", "/admin/support/archive", scope)).toBe(true);
   });
 
   it("distinguishes CP hash siblings (dashboard vs action-queue vs monitoring)", () => {
@@ -149,7 +147,8 @@ describe("admin sidebar active path authority", () => {
       "/admin/reports",
       "/admin/stores",
       "/admin/chats/messenger",
-      "/admin/member-notes?kind=inquiry",
+      "/admin/support",
+      "/admin/support/archive",
       "/admin/unknown-route-xyz",
     ]) {
       const ws = resolveActiveWorkspace(path, "master");
