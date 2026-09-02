@@ -24,6 +24,8 @@ type CampaignRow = {
   cta_type: string;
   cta_target: string | null;
   external_url: string | null;
+  suppression_mode: string | null;
+  suppression_duration_seconds: number | null;
 };
 
 type CreativeRow = {
@@ -32,6 +34,9 @@ type CreativeRow = {
   status: string;
   aspect_w: number;
   aspect_h: number;
+  asset_path: string;
+  asset_url: string | null;
+  alt_text: string | null;
 };
 
 type SurfaceRow = {
@@ -59,7 +64,7 @@ export async function loadPlatformPopupCandidates(
   const { data: campaigns, error } = await sb
     .from("platform_popup_campaigns")
     .select(
-      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url"
+      "id, status, approval_status, priority, start_at, end_at, timezone, cta_type, cta_target, external_url, suppression_mode, suppression_duration_seconds"
     )
     .in("status", ["scheduled", "active"])
     .eq("approval_status", "approved")
@@ -72,7 +77,7 @@ export async function loadPlatformPopupCandidates(
   const [{ data: creatives }, { data: surfaces }, suppressions] = await Promise.all([
     sb
       .from("platform_popup_creatives")
-      .select("id, campaign_id, status, aspect_w, aspect_h")
+      .select("id, campaign_id, status, aspect_w, aspect_h, asset_path, asset_url, alt_text")
       .in("campaign_id", ids)
       .eq("status", "ready"),
     sb
@@ -125,11 +130,16 @@ export async function loadPlatformPopupCandidates(
             status: cr.status as "draft" | "ready" | "rejected",
             aspectW: cr.aspect_w,
             aspectH: cr.aspect_h,
+            assetPath: cr.asset_path,
+            assetUrl: cr.asset_url,
+            altText: cr.alt_text,
           }
         : null,
       ctaType: c.cta_type as PlatformPopupCtaType,
       ctaTarget: c.cta_target,
       externalUrl: c.external_url,
+      suppressionMode: c.suppression_mode,
+      suppressionDurationSeconds: c.suppression_duration_seconds,
       ctaLookup: { exists: true, visible: true, authorized: true },
       suppressions: suppressByCampaign.get(c.id) ?? [],
     };

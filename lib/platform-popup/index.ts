@@ -18,3 +18,6 @@ export * from "@/lib/platform-popup/popup-host-machine";
 export * from "@/lib/platform-popup/popup-stale-guard";
 export * from "@/lib/platform-popup/popup-app-session";
 export * from "@/lib/platform-popup/popup-impression-boundary";
+export * from "@/lib/platform-popup/popup-presentation-types";
+export * from "@/lib/platform-popup/popup-geometry-tokens";
+export * from "@/lib/platform-popup/record-popup-event-client";

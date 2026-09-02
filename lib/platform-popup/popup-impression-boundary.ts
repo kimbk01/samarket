@@ -1,5 +1,6 @@
 /**
- * CUT 2 — impression boundary. Resolver/API/READY must never emit impression.
+ * CUT 3 — impression boundary. Resolver/API/READY must never emit impression.
+ * Renderer calls recordPlatformPopupEvent after visible render completion.
  */
 
 import { assertNotImpressionFromResolver } from "@/lib/platform-popup/events";
@@ -13,8 +14,8 @@ export type MarkPlatformPopupImpressionInput = {
 };
 
 /**
- * Production renderer (CUT 3) calls this after on-screen render completion.
- * CUT 2 host must not call this.
+ * Gate-only check before client posts impression event.
+ * Persistence: recordPlatformPopupEvent → /api/platform-popup/events.
  */
 export function markPlatformPopupImpression(
   input: MarkPlatformPopupImpressionInput
@@ -24,7 +25,6 @@ export function markPlatformPopupImpression(
   if (!input.campaignId.trim() || !input.creativeId.trim()) {
     return { ok: false, error: "missing_ids" };
   }
-  // Persistence is CUT 3 / later analytics wire — boundary only for CUT 2.
   return { ok: true };
 }
 

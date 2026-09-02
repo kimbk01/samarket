@@ -30,6 +30,7 @@ import type {
   PlatformPopupCampaignStatus,
   PlatformPopupConsumerSurface,
   PlatformPopupCtaType,
+  PlatformPopupSuppressionMode,
   PlatformPopupTargetSurface,
 } from "@/lib/platform-popup/types";
 
@@ -47,10 +48,15 @@ export type PlatformPopupCandidate = {
     status: "draft" | "ready" | "rejected";
     aspectW: number;
     aspectH: number;
+    assetPath?: string | null;
+    assetUrl?: string | null;
+    altText?: string | null;
   } | null;
   ctaType: PlatformPopupCtaType | string;
   ctaTarget?: string | null;
   externalUrl?: string | null;
+  suppressionMode?: PlatformPopupSuppressionMode | string | null;
+  suppressionDurationSeconds?: number | null;
   ctaLookup?: PlatformPopupCtaTargetLookup | null;
   suppressions?: readonly PlatformPopupSuppressionRecord[];
   campaignRevision?: string | null;
