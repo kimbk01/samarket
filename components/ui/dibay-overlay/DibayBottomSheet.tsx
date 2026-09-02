@@ -67,8 +67,10 @@ export function DibayBottomSheet({
         : { paddingBottom: "max(1rem, var(--safe-bottom))" }),
     ...(ratio != null
       ? {
-          height: `min(${Math.round(ratio * 100)}dvh, 100%)`,
-          maxHeight: `min(${Math.round(ratio * 100)}dvh, 100%)`,
+          // Fixed usable height — do NOT use min(Ndvh, 100%) (parent % collapses to content).
+          height: `${Math.round(ratio * 100)}dvh`,
+          maxHeight: `${Math.round(ratio * 100)}dvh`,
+          minHeight: `${Math.round(ratio * 100)}dvh`,
         }
       : {}),
   };
