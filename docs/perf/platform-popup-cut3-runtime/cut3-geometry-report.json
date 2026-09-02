@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-02T14:50:35.928Z",
+  "generatedAt": "2026-09-02T15:14:10.755Z",
   "baseUrl": "http://localhost:3000",
   "classification": "DIBAY_IMPLEMENTATION_CALIBRATION",
   "backdrop": "rgba(0, 0, 0, 0.45)",
@@ -14,7 +14,7 @@
       "contentWidth": 390,
       "popup": {
         "w": 390,
-        "h": 362.625,
+        "h": 323.828125,
         "bottom": 844
       },
       "creative": {
@@ -23,13 +23,13 @@
       },
       "dismiss": {
         "w": 390,
-        "h": 91.796875
+        "h": 53
       },
       "widthRatio": 1,
       "creativeAspect": 1.440027692840247,
-      "creativeShare": 0.7468545329196828,
-      "dismissShare": 0.25314546708031715,
-      "heightEnvelopeVh": 42.96504739336493,
+      "creativeShare": 0.8363329312424608,
+      "dismissShare": 0.1636670687575392,
+      "heightEnvelopeVh": 38.36826125592417,
       "radiusTopLeft": "11.7px"
     },
     {
@@ -40,7 +40,7 @@
       "contentWidth": 768,
       "popup": {
         "w": 480,
-        "h": 425.125,
+        "h": 386.328125,
         "bottom": 1024
       },
       "creative": {
@@ -49,13 +49,13 @@
       },
       "dismiss": {
         "w": 480,
-        "h": 91.796875
+        "h": 53
       },
       "widthRatio": 0.625,
       "creativeAspect": 1.440022500351568,
-      "creativeShare": 0.7840708615113202,
-      "dismissShare": 0.2159291384886798,
-      "heightEnvelopeVh": 41.51611328125,
+      "creativeShare": 0.8628109201213346,
+      "dismissShare": 0.13718907987866533,
+      "heightEnvelopeVh": 37.72735595703125,
       "radiusTopLeft": "16px"
     },
     {

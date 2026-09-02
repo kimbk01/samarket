@@ -144,49 +144,51 @@ export function DibayPopupAd({
         />
       </button>
       <div className="dibay-platform-popup-dismiss" data-platform-popup-dismiss-row="1">
-        <button
-          type="button"
-          id={titleId}
-          className="dibay-platform-popup-dismiss__close"
-          data-platform-popup-dismiss="close"
-          onClick={onClose}
-        >
-          {closeLabel}
-        </button>
-        {suppressionOptions.length > 0 ? (
-          <div className="dibay-platform-popup-suppress-row" role="group" aria-label={closeLabel}>
-            {suppressionOptions.includes("TODAY") ? (
-              <button
-                type="button"
-                className="dibay-platform-popup-suppress-btn"
-                data-platform-popup-suppress="today"
-                onClick={() => onSuppress("TODAY")}
-              >
-                {todayLabel}
-              </button>
-            ) : null}
-            {suppressionOptions.includes("DURATION") ? (
-              <button
-                type="button"
-                className="dibay-platform-popup-suppress-btn"
-                data-platform-popup-suppress="duration"
-                onClick={() => onSuppress("DURATION")}
-              >
-                {durationLabel}
-              </button>
-            ) : null}
-            {suppressionOptions.includes("CAMPAIGN") ? (
-              <button
-                type="button"
-                className="dibay-platform-popup-suppress-btn"
-                data-platform-popup-suppress="campaign"
-                onClick={() => onSuppress("CAMPAIGN")}
-              >
-                {campaignLabel}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
+        <div className="dibay-platform-popup-dismiss__actions">
+          <button
+            type="button"
+            id={titleId}
+            className="dibay-platform-popup-dismiss__close"
+            data-platform-popup-dismiss="close"
+            onClick={onClose}
+          >
+            {closeLabel}
+          </button>
+          {suppressionOptions.length > 0 ? (
+            <div className="dibay-platform-popup-suppress-row" role="group" aria-label={closeLabel}>
+              {suppressionOptions.includes("TODAY") ? (
+                <button
+                  type="button"
+                  className="dibay-platform-popup-suppress-btn"
+                  data-platform-popup-suppress="today"
+                  onClick={() => onSuppress("TODAY")}
+                >
+                  {todayLabel}
+                </button>
+              ) : null}
+              {suppressionOptions.includes("DURATION") ? (
+                <button
+                  type="button"
+                  className="dibay-platform-popup-suppress-btn"
+                  data-platform-popup-suppress="duration"
+                  onClick={() => onSuppress("DURATION")}
+                >
+                  {durationLabel}
+                </button>
+              ) : null}
+              {suppressionOptions.includes("CAMPAIGN") ? (
+                <button
+                  type="button"
+                  className="dibay-platform-popup-suppress-btn"
+                  data-platform-popup-suppress="campaign"
+                  onClick={() => onSuppress("CAMPAIGN")}
+                >
+                  {campaignLabel}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
       <span className="sr-only" aria-hidden={false}>
         {ctaAria}: {cta.href}
