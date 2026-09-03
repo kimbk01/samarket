@@ -79,6 +79,14 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
     expect(sheet).toContain("heightRatio");
   });
 
+  it("above-bottom-nav drops nav offset and CSS max-h when keyboard is open", () => {
+    const src = read("components/ui/dibay-overlay/DibayUsableAreaSheet.tsx");
+    // bottomClass must be conditional on !keyboardOpen for aboveNav
+    expect(src).toMatch(/aboveNav && !keyboardOpen \? MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS/);
+    // heightClass must also be conditional
+    expect(src).toMatch(/aboveNav && !keyboardOpen[\s\S]*?MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS/);
+  });
+
   it("effectiveBottomInset contract remains padding-only in Form SSOT", () => {
     const contract = read("lib/ui/form-keyboard-viewport-contract.ts");
     expect(contract).toContain("resolveFormEffectiveBottomInsetPx");

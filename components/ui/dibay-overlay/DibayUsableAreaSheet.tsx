@@ -132,13 +132,16 @@ export function DibayUsableAreaSheet({
           : {}),
   };
 
+  // KB ON with bandKnown → inline maxHeight from VV; no need for CSS nav-relative max-h.
   const heightClass =
     sheetHeightPx != null || ratio != null
       ? "min-h-0"
-      : aboveNav
+      : aboveNav && !keyboardOpen
         ? MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS
         : "min-h-0";
-  const bottomClass = aboveNav ? MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS : "";
+  // KB ON → stage is VV band; bottom-nav offset meaningless (nav hidden behind keyboard).
+  const bottomClass =
+    aboveNav && !keyboardOpen ? MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS : "";
 
   return (
     <DibayOverlayRoot
