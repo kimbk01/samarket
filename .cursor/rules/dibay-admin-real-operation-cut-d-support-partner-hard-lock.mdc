@@ -1,0 +1,37 @@
+---
+description: DIBAY Admin Real Operation CUT D — Support + Partner context linkage hard lock
+globs:
+  - lib/support/**
+  - components/admin/support/**
+  - components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx
+  - components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx
+  - lib/admin/admin-real-operation-cut-d-support-partner-hard-lock.ts
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT D HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-d-support-partner-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-d-support-partner-hard-lock`
+
+## DO
+
+- Keep Support case ≠ Delivery ops thread ≠ legacy platform inquiry
+- Use `reference_type` + `reference_id` pointers; no domain snapshots on support rows
+- Deep-link Admin Support context to canonical Ads / Finance / Store / Partner screens
+- Keep Partner as Membership ≠ AdProduct; fee = Cash
+
+## DO NOT
+
+- Merge Support ↔ ops thread tables
+- Migrate legacy platform inquiries into `support_cases`
+- Invent `/admin/support-v2` or Partner-only inquiry table
+- Let Support mutate Ads lifecycle / Finance ledger / Partner membership
+- Claim Popup runtime / Finance Production E2E / Tablet as PASS from this CUT
+- Drive Support badges from admin-bell `store_charges`
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-d-support-partner-hard-lock
+```

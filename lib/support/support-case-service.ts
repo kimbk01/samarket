@@ -630,7 +630,10 @@ export async function listSupportCasesForAdmin(
   const search = (input.search ?? "").trim();
   if (search) {
     if (isUuid(search)) {
-      query = query.or(`id.eq.${search},reference_id.eq.${search}`);
+      // CUT D — match case id, business reference, or Owner store context
+      query = query.or(
+        `id.eq.${search},reference_id.eq.${search},owner_store_id.eq.${search}`
+      );
     } else if (/^SC-\d+$/i.test(search)) {
       query = query.ilike("public_case_no", search);
     } else {

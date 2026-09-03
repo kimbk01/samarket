@@ -51,9 +51,9 @@
 | Ref | Supported? |
 |---|---|
 | DELIVERY_AD / AD_CAMPAIGN | YES |
-| FEED_AD | NO |
-| POPUP | NO |
-| FINANCE ledger entry | NO |
+| FEED_AD | YES (`FEED_AD_REQUEST`, CUT D) |
+| POPUP | YES (`PLATFORM_POPUP_OWNER_REQUEST`, CUT D) |
+| FINANCE charge request | YES (Point/Cash charge pointers, CUT D; ledger mutation still Finance-only) |
 | STORE_ORDER / GIFT / PRODUCT / SETTLEMENT | YES |
 
 ## 3. Popup DOC vs CODE

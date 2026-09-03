@@ -155,11 +155,15 @@ const supportRef = read("lib/support/support-reference-authority.ts");
 if (!supportRef.includes("AD_CAMPAIGN") || !supportRef.includes("DELIVERY_AD_CAMPAIGN")) {
   fail("Support must retain Delivery ad campaign reference types");
 }
-if (supportRef.includes("FEED_AD") && supportRef.includes("SUPPORT_REFERENCE_TYPES")) {
-  // only fail if FEED_AD was added to the const array without lock update — allow absence
+// Exact token "FEED_AD" (without _REQUEST) must not be a reference type — use FEED_AD_REQUEST (CUT D).
+if (/"FEED_AD"\s*,/.test(supportRef) || /"FEED_AD"\s*\]/.test(supportRef)) {
+  fail('Bare "FEED_AD" reference type forbidden — use FEED_AD_REQUEST');
 }
-if (/SUPPORT_REFERENCE_TYPES\s*=\s*\[[^\]]*FEED_AD/.test(supportRef)) {
-  fail("FEED_AD support ref added — update CUT A lock + CUT D plan before enabling");
+if (!supportRef.includes('"FEED_AD_REQUEST"')) {
+  fail("CUT D FEED_AD_REQUEST support reference required (update CUT A capability)");
+}
+if (!read("lib/admin/admin-real-operation-cut-a-authority-hard-lock.ts").includes("FEED_AD: true")) {
+  fail("CUT A SUPPORT_REFERENCE_CAPABILITY.FEED_AD must be true after CUT D enablement");
 }
 
 // Forbidden shell pages must not appear as real product pages (operations is redirect-only OK)

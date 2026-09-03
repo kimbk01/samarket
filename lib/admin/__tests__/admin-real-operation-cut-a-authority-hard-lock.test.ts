@@ -105,10 +105,11 @@ describe("Admin Real Operation CUT A authority hard lock", () => {
   it("locks Support vs ops thread vs legacy inquiry", () => {
     expect(SUPPORT_AUTHORITY.root).toBe("lib/support/*");
     expect(SUPPORT_REFERENCE_CAPABILITY.DELIVERY_AD).toBe(true);
-    expect(SUPPORT_REFERENCE_CAPABILITY.FEED_AD).toBe(false);
-    expect(SUPPORT_REFERENCE_CAPABILITY.POPUP).toBe(false);
+    expect(SUPPORT_REFERENCE_CAPABILITY.FEED_AD).toBe(true);
+    expect(SUPPORT_REFERENCE_CAPABILITY.POPUP).toBe(true);
     expect(SUPPORT_REFERENCE_TYPES).toContain("AD_CAMPAIGN");
     expect(SUPPORT_REFERENCE_TYPES).toContain("DELIVERY_AD_CAMPAIGN");
+    expect(SUPPORT_REFERENCE_TYPES).toContain("FEED_AD_REQUEST");
     expect(SUPPORT_REFERENCE_TYPES as readonly string[]).not.toContain("FEED_AD");
     expect(LEGACY_INQUIRY_STATE.writeApiStatus).toBe(410);
     expect(OPS_THREAD_STATE.mergeIntoSupportCases).toBe(false);

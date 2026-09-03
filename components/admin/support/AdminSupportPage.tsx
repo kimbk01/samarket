@@ -14,6 +14,7 @@ import type {
 } from "@/lib/support/support-case-types";
 import type { AdminSupportListFilter } from "@/lib/support/support-case-service";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
+import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
 
 const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] = [
   { id: "ALL", labelKo: "전체", labelEn: "All" },
@@ -69,10 +70,11 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
   const searchParams = useSearchParams();
   const filterParam = (searchParams.get("filter")?.trim().toUpperCase() ??
     "ALL") as AdminSupportListFilter;
+  const searchParam = searchParams.get("search")?.trim() ?? "";
   const [filter, setFilter] = useState<AdminSupportListFilter>(
     FILTERS.some((f) => f.id === filterParam) ? filterParam : "ALL"
   );
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(searchParam);
   const [cases, setCases] = useState<SupportCaseRow[]>([]);
   const [activeId, setActiveId] = useState<string | null>(initialCaseId ?? null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
@@ -138,6 +140,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
     const next = (searchParams.get("filter")?.trim().toUpperCase() ??
       "ALL") as AdminSupportListFilter;
     if (FILTERS.some((f) => f.id === next)) setFilter(next);
+    const nextSearch = searchParams.get("search")?.trim() ?? "";
+    if (nextSearch) setSearch(nextSearch);
   }, [searchParams]);
 
   useEffect(() => {
@@ -623,15 +627,6 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   <section>
                     <h3 className="text-xs font-semibold text-sam-muted">{ko ? "매장" : "Store"}</h3>
                     <p className="mt-1 break-all text-xs">{activeCase.owner_store_id}</p>
-                    <Link
-                      href={`/admin/stores/orders/by-store/${encodeURIComponent(activeCase.owner_store_id)}`}
-                      className="text-xs text-sam-primary underline"
-                    >
-                      {safeT("admin_support_open_store", {
-                        fallbackKo: "매장 관리 열기",
-                        fallbackEn: "Open store",
-                      })}
-                    </Link>
                   </section>
                 ) : null}
                 <section>
@@ -673,7 +668,7 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         })}
                   </p>
                 </section>
-                <section>
+                <section data-admin-support-business-ref="1">
                   <h3 className="text-xs font-semibold text-sam-muted">
                     {ko ? "비즈니스 참조" : "Business reference"}
                   </h3>
@@ -689,9 +684,32 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                   )}
                   <p className="mt-1 text-[11px] text-sam-muted">
                     {ko
-                      ? "도메인 관리는 해당 업무 화면에서 처리합니다."
-                      : "Manage domain objects in their canonical screens."}
+                      ? "도메인 관리는 해당 업무 화면에서 처리합니다. Support는 상태를 직접 수정하지 않습니다."
+                      : "Manage domain objects in their canonical screens. Support does not mutate them."}
                   </p>
+                </section>
+                <section data-admin-support-context-links="1">
+                  <h3 className="text-xs font-semibold text-sam-muted">
+                    {ko ? "운영 바로가기" : "Operation links"}
+                  </h3>
+                  <ul className="mt-2 flex flex-col gap-1.5">
+                    {resolveSupportCaseContextLinks({
+                      ownerStoreId: activeCase.owner_store_id,
+                      requesterUserId: activeCase.requester_user_id,
+                      referenceType: activeCase.reference_type,
+                      referenceId: activeCase.reference_id,
+                    }).map((link) => (
+                      <li key={`${link.mutationOwner}:${link.href}`}>
+                        <Link
+                          href={link.href}
+                          className="text-xs font-semibold text-sam-primary underline underline-offset-2"
+                          data-admin-support-context-link={link.mutationOwner}
+                        >
+                          {ko ? link.labelKo : link.labelEn}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </section>
               </>
             )}

@@ -257,7 +257,7 @@ describe("PHASE 3-A support semantic authority", () => {
     expect(validateSupportGuidanceCta("ARBITRARY", "/x").ok).toBe(false);
   });
 
-  it("T12 existing reference authority preserved", () => {
+  it("T12 existing reference authority preserved + CUT D extensions", () => {
     expect([...SUPPORT_REFERENCE_TYPES]).toEqual([
       "GIFT_INSTANCE",
       "STORE_ORDER",
@@ -265,11 +265,16 @@ describe("PHASE 3-A support semantic authority", () => {
       "AD_CAMPAIGN",
       "DELIVERY_AD_CAMPAIGN",
       "STORE_SETTLEMENT",
+      "FEED_AD_REQUEST",
+      "PLATFORM_POPUP_OWNER_REQUEST",
+      "POINT_CHARGE_REQUEST",
+      "BUSINESS_CASH_CHARGE_REQUEST",
+      "PARTNER_MEMBERSHIP",
     ]);
     const src = readSrc("lib/support/support-reference-authority.ts");
-    expect(src).not.toContain("POINT_CHARGE");
-    expect(src).not.toContain("FEED_AD_REQUEST");
-    expect(src).not.toContain("CASH_CHARGE");
+    expect(src).toContain("POINT_CHARGE_REQUEST");
+    expect(src).toContain("FEED_AD_REQUEST");
+    expect(src).toContain("BUSINESS_CASH_CHARGE_REQUEST");
     expect(src).not.toContain("COIN_WITHDRAWAL");
     const allowed = new Set(SUPPORT_REFERENCE_TYPES);
     for (const cat of SUPPORT_CATEGORY_REGISTRY) {

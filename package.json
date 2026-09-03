@@ -138,6 +138,7 @@
     "verify:currency-ssot-hard-lock": "node scripts/verify-currency-ssot-hard-lock.mjs",
     "verify:admin-real-operation-cut-a-authority-hard-lock": "node scripts/verify-admin-real-operation-cut-a-authority-hard-lock.mjs",
     "verify:admin-real-operation-cut-c-ads-operation-hard-lock": "node scripts/verify-admin-real-operation-cut-c-ads-operation-hard-lock.mjs",
+    "verify:admin-real-operation-cut-d-support-partner-hard-lock": "node scripts/verify-admin-real-operation-cut-d-support-partner-hard-lock.mjs",
     "verify:currency-visual-ssot-contract": "node scripts/verify-currency-visual-ssot-contract.mjs",
     "verify:three-currency-product": "node scripts/verify-three-currency-product.mjs",
     "verify:phone-otp-contract": "node scripts/verify-phone-otp-contract.mjs",

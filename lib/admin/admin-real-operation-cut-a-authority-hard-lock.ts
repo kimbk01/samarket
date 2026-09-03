@@ -207,13 +207,18 @@ export const SUPPORT_AUTHORITY = {
 
 export const SUPPORT_REFERENCE_CAPABILITY = {
   DELIVERY_AD: true,
-  FEED_AD: false,
-  POPUP: false,
-  FINANCE_LEDGER: false,
+  /** CUT D — FEED_AD_REQUEST reference type (pointer only; not Delivery merge). */
+  FEED_AD: true,
+  /** CUT D — PLATFORM_POPUP_OWNER_REQUEST reference type. */
+  POPUP: true,
+  /** CUT D — POINT_CHARGE_REQUEST / BUSINESS_CASH_CHARGE_REQUEST pointers (not ledger mutation). */
+  FINANCE_LEDGER: true,
   STORE_ORDER: true,
   GIFT_INSTANCE: true,
   STORE_PRODUCT: true,
   STORE_SETTLEMENT: true,
+  /** CUT D — PARTNER_MEMBERSHIP reference type. */
+  PARTNER: true,
 } as const;
 
 export const LEGACY_INQUIRY_STATE = {

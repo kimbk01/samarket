@@ -22,6 +22,10 @@ import {
   deliveryAdPolicyScreenHref,
 } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import {
+  supportInboxHrefForReference,
+  supportInboxHrefForStore,
+} from "@/lib/support/support-reference-admin-href";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
 import {
   getAdminDeliveryAdRequiredDecisionPresentation,
@@ -1013,14 +1017,63 @@ export function AdminDeliveryAdDetailWorkspace({
               ) : null}
             </div>
 
-            {/* G — ops conversation (collapsed by default) */}
+            {/* G — Support cases (customer inquiries) vs Ops thread (product ops) — MUST stay separate */}
+            <div
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
+              data-admin-delivery-ads-detail-section="support"
+              data-admin-delivery-ads-support-ops-split="1"
+            >
+              <p className="text-[12px] font-semibold text-sam-fg">
+                {safeT("admin_delivery_ads_related_support_title", {
+                  fallbackKo: "관련 문의 (Support)",
+                  fallbackEn: "Related Support cases",
+                })}
+              </p>
+              <p className="mt-1 text-[11px] text-sam-muted">
+                {safeT("admin_delivery_ads_related_support_note", {
+                  fallbackKo:
+                    "고객지원 문의입니다. 광고 승인/중지는 아래 운영 대화가 아니라 Ads lifecycle에서 처리합니다.",
+                  fallbackEn:
+                    "Customer support cases. Approve/pause ads via Ads lifecycle — not this Support inbox.",
+                })}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={supportInboxHrefForReference(campaign.id)}
+                  className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg"
+                  data-admin-delivery-ads-support-link="1"
+                >
+                  {safeT("admin_delivery_ads_open_related_support", {
+                    fallbackKo: "관련 문의 열기",
+                    fallbackEn: "Open related Support",
+                  })}
+                </Link>
+                {campaign.storeId ? (
+                  <Link
+                    href={supportInboxHrefForStore(campaign.storeId)}
+                    className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg"
+                    data-admin-delivery-ads-store-support-link="1"
+                  >
+                    {safeT("admin_delivery_ads_open_store_support", {
+                      fallbackKo: "매장 Support 보기",
+                      fallbackEn: "Store Support inbox",
+                    })}
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+
+            {/* G2 — ops conversation (collapsed by default) — PRODUCT OPS THREAD ≠ Support case */}
             <div data-admin-delivery-ads-detail-section="operations">
               <button
                 type="button"
                 className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
                 onClick={() => setOpsExpanded((v) => !v)}
               >
-                {t("admin_delivery_ads_section_operations")}
+                {safeT("admin_delivery_ads_section_operations", {
+                  fallbackKo: "운영 대화 (Ops)",
+                  fallbackEn: "Ops conversation",
+                })}
                 <span>{opsExpanded ? "−" : "+"}</span>
               </button>
               {opsExpanded ? (

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -10,6 +11,8 @@ import {
   AdminDeliveryAdPartnerConfigForm,
   useAdminPartnerCatalogConfig,
 } from "@/components/admin/stores/AdminDeliveryAdPartnerConfigForm";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import { supportInboxHrefForStore } from "@/lib/support/support-reference-admin-href";
 
 type MembershipRow = {
   id: string;
@@ -256,6 +259,12 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       })}
                     </th>
                     <th className="border border-[#BDBDBD] p-2 font-semibold">
+                      {safeT("admin_delivery_ads_partner_col_context", {
+                        fallbackKo: "연결",
+                        fallbackEn: "Links",
+                      })}
+                    </th>
+                    <th className="border border-[#BDBDBD] p-2 font-semibold">
                       {safeT("admin_delivery_ads_queue_col_action", {
                         fallbackKo: "처리",
                         fallbackEn: "Action",
@@ -271,15 +280,73 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       data-partner-membership-row={m.status}
                     >
                       <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
-                        {m.storeName ?? m.storeId}
+                        <Link
+                          href={`/admin/business/${encodeURIComponent(m.storeId)}`}
+                          className="text-sam-primary underline underline-offset-2"
+                          data-partner-store-link="1"
+                        >
+                          {m.storeName ?? m.storeId}
+                        </Link>
                       </td>
                       <td className="border border-[#BDBDBD] p-2 text-sam-fg">
                         {lang === "en" ? m.statusLabelEn : m.statusLabelKo}
+                        {m.advertisingDiscountPercentSnapshot > 0 ? (
+                          <p className="mt-1 text-[11px] text-sam-muted">
+                            {safeT("admin_delivery_ads_partner_benefit_hint", {
+                              vars: { percent: m.advertisingDiscountPercentSnapshot },
+                              fallbackKo: `파트너 혜택 적용 · 광고 할인 ${m.advertisingDiscountPercentSnapshot}%`,
+                              fallbackEn: `Partner benefit · ads discount ${m.advertisingDiscountPercentSnapshot}%`,
+                            })}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="border border-[#BDBDBD] p-2 text-[#757575]">
                         {m.periodEnd
                           ? `${(m.periodStart ?? "").slice(0, 10)} ~ ${m.periodEnd.slice(0, 10)}`
                           : "—"}
+                        {m.feeSnapshotLabel ? (
+                          <p className="mt-1 text-[11px]">
+                            {safeT("admin_delivery_ads_partner_fee_cash", {
+                              vars: { label: m.feeSnapshotLabel },
+                              fallbackKo: `Cash 수수료 ${m.feeSnapshotLabel}`,
+                              fallbackEn: `Cash fee ${m.feeSnapshotLabel}`,
+                            })}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="border border-[#BDBDBD] p-2">
+                        <div className="flex flex-wrap gap-2">
+                          <Link
+                            href={`/admin/finance?storeId=${encodeURIComponent(m.storeId)}`}
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            data-partner-finance-link="1"
+                          >
+                            {safeT("admin_delivery_ads_partner_open_finance", {
+                              fallbackKo: "Finance",
+                              fallbackEn: "Finance",
+                            })}
+                          </Link>
+                          <Link
+                            href={`${DELIVERY_AD_ADMIN_ROUTES.hub}?storeId=${encodeURIComponent(m.storeId)}`}
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            data-partner-ads-link="1"
+                          >
+                            {safeT("admin_delivery_ads_partner_open_ads", {
+                              fallbackKo: "연결 광고",
+                              fallbackEn: "Related ads",
+                            })}
+                          </Link>
+                          <Link
+                            href={supportInboxHrefForStore(m.storeId)}
+                            className="inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-white px-2 text-[11px] font-semibold text-sam-fg"
+                            data-partner-support-link="1"
+                          >
+                            {safeT("admin_delivery_ads_partner_open_support", {
+                              fallbackKo: "Support",
+                              fallbackEn: "Support",
+                            })}
+                          </Link>
+                        </div>
                       </td>
                       <td className="border border-[#BDBDBD] p-2">
                         <div className="flex flex-wrap gap-2">
