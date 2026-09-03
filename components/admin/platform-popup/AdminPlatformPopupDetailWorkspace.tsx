@@ -156,7 +156,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       altText: altText || campaign.creative?.altText || "Advertisement",
       ctaHref: ctaHrefPreview || "/market",
       ctaType,
-      surface: surfaceMode === "GLOBAL" ? "TRADE" : surfaceMode,
+      surface: surfaceMode,
       suppressionMode,
       suppressionDurationSeconds:
         durationSec === "" ? null : Number(durationSec) > 0 ? Number(durationSec) : null,
@@ -337,7 +337,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               })}
             </h2>
             <label className="block text-sm">
-              Name
+              {safeT("admin_platform_popup_field_name", {
+                fallbackKo: "캠페인 이름",
+                fallbackEn: "Campaign name",
+              })}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={name}
@@ -348,8 +351,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               />
             </label>
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-sam-muted">
-              <span>status: {campaign?.status}</span>
-              <span>approval: {campaign?.approvalStatus}</span>
+              <span>
+                {safeT("admin_platform_popup_status_line", {
+                  fallbackKo: "상태",
+                  fallbackEn: "Status",
+                })}
+                : {campaign?.status}
+              </span>
+              <span>
+                {safeT("admin_platform_popup_approval_line", {
+                  fallbackKo: "승인",
+                  fallbackEn: "Approval",
+                })}
+                : {campaign?.approvalStatus}
+              </span>
               {campaign?.ownerStoreId ? <span>store: {campaign.ownerStoreId}</span> : null}
               {campaign?.ownerRequestId ? <span>request: {campaign.ownerRequestId}</span> : null}
             </div>
@@ -358,8 +373,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_creative", {
-                fallbackKo: "크리에이티브",
-                fallbackEn: "Creative",
+                fallbackKo: "소재 (1440×1000 · 36:25)",
+                fallbackEn: "Creative (1440×1000 · 36:25)",
               })}
             </h2>
             <div
@@ -451,7 +466,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             ) : null}
 
             <label className="mt-3 block text-sm">
-              Alt text
+              {safeT("admin_platform_popup_alt_text", {
+                fallbackKo: "대체 텍스트",
+                fallbackEn: "Alt text",
+              })}
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                 value={altText}
@@ -473,9 +491,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <p className="mb-3 text-xs text-sam-muted">
               {safeT("admin_platform_popup_placement_system_note", {
                 fallbackKo:
-                  "메신저·통화·관리자·오너 운영·결제·주문 Critical 화면은 시스템에서 자동 제외됩니다.",
+                  "결제·통화·위험 작업 화면은 시스템이 잠시 가립니다. 노출 위치와는 별개입니다.",
                 fallbackEn:
-                  "Messenger, Call, Admin, Owner Ops, Payment, and order-critical screens are excluded automatically.",
+                  "Payment, call, and high-risk screens are gated by the system — separate from placement.",
               })}
             </p>
             <fieldset className="space-y-2" data-admin-popup-surface-radio="1">
@@ -495,8 +513,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     }}
                   />
                   <span>
-                    <span className="font-medium">{opt.labelKo}</span>
-                    <span className="mt-0.5 block text-xs text-sam-muted">{opt.helpKo}</span>
+                    <span className="font-medium">
+                      {language === "en" ? opt.labelEn : opt.labelKo}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-sam-muted">
+                      {language === "en" ? opt.helpEn : opt.helpKo}
+                    </span>
                   </span>
                 </label>
               ))}
@@ -512,108 +534,20 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                     ?.labelEn ?? surfaceMode
                 }`,
               })}
-              {dirty ? " · unsaved" : ""}
+              {dirty
+                ? ` · ${safeT("admin_platform_popup_unsaved", {
+                    fallbackKo: "미저장",
+                    fallbackEn: "Unsaved",
+                  })}`
+                : ""}
             </p>
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">Schedule / Priority</h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              Timezone: {timezone} (default Asia/Manila). Ranking: domain-targeted &gt; GLOBAL, then
-              priority, then start_at, then id. Priority does not override call/payment gates.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-sm">
-                start_at
-                <input
-                  type="datetime-local"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={startLocal}
-                  onChange={(e) => {
-                    markDirty();
-                    setStartLocal(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                end_at
-                <input
-                  type="datetime-local"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={endLocal}
-                  onChange={(e) => {
-                    markDirty();
-                    setEndLocal(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                timezone
-                <input
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={timezone}
-                  onChange={(e) => {
-                    markDirty();
-                    setTimezone(e.target.value);
-                  }}
-                />
-              </label>
-              <label className="text-sm">
-                priority
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={priority}
-                  onChange={(e) => {
-                    markDirty();
-                    setPriority(Number(e.target.value));
-                  }}
-                />
-              </label>
-            </div>
-          </AdminCard>
-
-          <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">Suppression</h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              TODAY = until end of current calendar day in campaign timezone (not 24 hours).
-            </p>
-            <select
-              className="w-full rounded border border-sam-border px-2 py-1.5"
-              value={suppressionMode}
-              onChange={(e) => {
-                markDirty();
-                setSuppressionMode(e.target.value);
-              }}
-            >
-              {PLATFORM_POPUP_SUPPRESSION_MODES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            {(suppressionMode === "DURATION" || Number(durationSec) > 0) && (
-              <label className="mt-2 block text-sm">
-                duration seconds
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
-                  value={durationSec}
-                  onChange={(e) => {
-                    markDirty();
-                    setDurationSec(e.target.value === "" ? "" : Number(e.target.value));
-                  }}
-                />
-              </label>
-            )}
           </AdminCard>
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_cta", {
-                fallbackKo: "클릭 목적지",
-                fallbackEn: "Click destination",
+                fallbackKo: "클릭 후 이동",
+                fallbackEn: "After click",
               })}
             </h2>
             {campaign?.ownerStoreId ? (
@@ -621,8 +555,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 {(
                   [
                     ["store", "매장으로 이동", "Go to store"],
-                    ["menu", "메뉴로 이동", "Go to menu"],
-                    ["promotion", "프로모션으로 이동", "Go to promotions"],
+                    ["menu", "메뉴 섹션으로 이동", "Go to menu section"],
+                    ["promotion", "프로모 섹션으로 이동", "Go to promo section"],
                   ] as const
                 ).map(([kind, ko, en]) => (
                   <label key={kind} className="flex items-center gap-2 text-sm">
@@ -723,6 +657,134 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
 
           <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_schedule", {
+                fallbackKo: "기간",
+                fallbackEn: "Schedule",
+              })}
+            </h2>
+            <p className="mb-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_schedule_help", {
+                fallbackKo:
+                  "기본 시간대 Asia/Manila. 순위는 영역 지정 > 전체, 그다음 우선순위·시작 시각입니다.",
+                fallbackEn:
+                  "Default timezone Asia/Manila. Rank: targeted surface > All, then priority and start time.",
+              })}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-sm">
+                {language === "en" ? "Start" : "시작"}
+                <input
+                  type="datetime-local"
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                  value={startLocal}
+                  onChange={(e) => {
+                    markDirty();
+                    setStartLocal(e.target.value);
+                  }}
+                />
+              </label>
+              <label className="text-sm">
+                {language === "en" ? "End" : "종료"}
+                <input
+                  type="datetime-local"
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                  value={endLocal}
+                  onChange={(e) => {
+                    markDirty();
+                    setEndLocal(e.target.value);
+                  }}
+                />
+              </label>
+              <label className="text-sm">
+                {language === "en" ? "Timezone" : "시간대"}
+                <input
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                  value={timezone}
+                  onChange={(e) => {
+                    markDirty();
+                    setTimezone(e.target.value);
+                  }}
+                />
+              </label>
+              <label className="text-sm">
+                {language === "en" ? "Priority" : "우선순위"}
+                <input
+                  type="number"
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                  value={priority}
+                  onChange={(e) => {
+                    markDirty();
+                    setPriority(Number(e.target.value));
+                  }}
+                />
+              </label>
+            </div>
+          </AdminCard>
+
+          <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_suppression", {
+                fallbackKo: "닫은 뒤 다시 안 보기",
+                fallbackEn: "Don’t show again",
+              })}
+            </h2>
+            <p className="mb-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_suppression_help", {
+                fallbackKo:
+                  "오늘 하루 보지 않기 = 캠페인 시간대 기준 그날 끝(24시간이 아님). 닫기만으로는 세션 숨김이 아닙니다.",
+                fallbackEn:
+                  "Today = end of campaign calendar day (not 24h). Close alone is not a session hide.",
+              })}
+            </p>
+            <select
+              className="w-full rounded border border-sam-border px-2 py-1.5"
+              value={suppressionMode}
+              onChange={(e) => {
+                markDirty();
+                setSuppressionMode(e.target.value);
+              }}
+            >
+              {PLATFORM_POPUP_SUPPRESSION_MODES.map((m) => {
+                const labels: Record<string, { ko: string; en: string }> = {
+                  CLOSE: { ko: "닫기만 (다시 안 보기 없음)", en: "Close only (no suppress)" },
+                  SESSION: { ko: "이번 앱 실행 동안", en: "This app session" },
+                  TODAY: { ko: "오늘 하루 보지 않기", en: "Don’t show today" },
+                  DURATION: { ko: "일정 시간 동안", en: "For a duration" },
+                  CAMPAIGN: { ko: "이 캠페인 다시 안 보기", en: "Don’t show this campaign" },
+                };
+                const L = labels[m] ?? { ko: m, en: m };
+                return (
+                  <option key={m} value={m}>
+                    {language === "en" ? L.en : L.ko}
+                  </option>
+                );
+              })}
+            </select>
+            {(suppressionMode === "DURATION" || Number(durationSec) > 0) && (
+              <label className="mt-2 block text-sm">
+                {language === "en" ? "Duration (seconds)" : "시간(초)"}
+                <input
+                  type="number"
+                  min={1}
+                  className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
+                  value={durationSec}
+                  onChange={(e) => {
+                    markDirty();
+                    setDurationSec(e.target.value === "" ? "" : Number(e.target.value));
+                  }}
+                />
+              </label>
+            )}
+          </AdminCard>
+
+          <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_actions", {
+                fallbackKo: "저장 · 승인 · 노출",
+                fallbackEn: "Save · approve · go live",
+              })}
+            </h2>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -737,9 +799,18 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 type="button"
                 className="rounded border border-sam-border px-3 py-1.5 text-sm"
                 disabled={busy}
-                onClick={() => void transition({ action: "transition", nextStatus: "pending_review", nextApproval: "pending_review" })}
+                onClick={() =>
+                  void transition({
+                    action: "transition",
+                    nextStatus: "pending_review",
+                    nextApproval: "pending_review",
+                  })
+                }
               >
-                Submit review
+                {safeT("admin_platform_popup_action_submit_review", {
+                  fallbackKo: "검토 요청",
+                  fallbackEn: "Submit for review",
+                })}
               </button>
               <button
                 type="button"
@@ -747,7 +818,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", schedule: true })}
               >
-                Approve → scheduled
+                {safeT("admin_platform_popup_action_approve_schedule", {
+                  fallbackKo: "승인 후 예약 노출",
+                  fallbackEn: "Approve → scheduled",
+                })}
               </button>
               <button
                 type="button"
@@ -755,7 +829,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", activate: true })}
               >
-                Approve → active
+                {safeT("admin_platform_popup_action_approve_active", {
+                  fallbackKo: "승인 후 바로 노출",
+                  fallbackEn: "Approve → live now",
+                })}
               </button>
               <button
                 type="button"
@@ -763,7 +840,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 disabled={busy || status === "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
               >
-                Pause
+                {safeT("admin_platform_popup_action_pause", {
+                  fallbackKo: "일시 중지",
+                  fallbackEn: "Pause",
+                })}
               </button>
               <button
                 type="button"
@@ -771,7 +851,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 disabled={busy || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" })}
               >
-                Resume
+                {safeT("admin_platform_popup_action_resume", {
+                  fallbackKo: "다시 노출",
+                  fallbackEn: "Resume",
+                })}
               </button>
               <button
                 type="button"
@@ -779,7 +862,10 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 disabled={busy || status === "ended"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" })}
               >
-                End
+                {safeT("admin_platform_popup_action_end", {
+                  fallbackKo: "종료",
+                  fallbackEn: "End",
+                })}
               </button>
             </div>
           </AdminCard>
@@ -863,15 +949,17 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
         </div>
 
-        <AdminCard>
-          <h2 className="mb-2 text-sm font-semibold">
-            {safeT("admin_platform_popup_section_preview", {
-              fallbackKo: "프로덕션 미리보기",
-              fallbackEn: "Production preview",
-            })}
-          </h2>
-          <AdminPlatformPopupPreview source={previewSource} />
-        </AdminCard>
+        <div className="lg:sticky lg:top-4 lg:self-start" data-admin-popup-preview-sticky="1">
+          <AdminCard>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_preview", {
+                fallbackKo: "프로덕션 미리보기",
+                fallbackEn: "Production preview",
+              })}
+            </h2>
+            <AdminPlatformPopupPreview source={previewSource} />
+          </AdminCard>
+        </div>
       </div>
     </div>
   );

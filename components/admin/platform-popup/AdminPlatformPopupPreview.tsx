@@ -85,7 +85,9 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
               ? "linear-gradient(180deg,#eff6ff 0%,#dbeafe 40%,#f8fafc 100%)"
               : source?.surface === "MYPAGE"
                 ? "linear-gradient(180deg,#fdf2f8 0%,#fce7f3 40%,#f8fafc 100%)"
-                : "linear-gradient(180deg,#f1f5f9 0%,#e2e8f0 45%,#f8fafc 100%)";
+                : source?.surface === "GLOBAL"
+                  ? "linear-gradient(180deg,#ecfdf5 0%,#d1fae5 25%,#e0e7ff 55%,#f8fafc 100%)"
+                  : "linear-gradient(180deg,#f1f5f9 0%,#e2e8f0 45%,#f8fafc 100%)";
 
   return (
     <div className="space-y-3" data-admin-platform-popup-preview="1">
@@ -182,12 +184,18 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
           </div>
         )}
       </div>
+      <p className="text-xs text-sam-muted" data-admin-popup-preview-landscape-note="1">
+        {safeT("admin_platform_popup_preview_landscape", {
+          fallbackKo: "가로 모드에서는 팝업이 표시되지 않습니다.",
+          fallbackEn: "Popup is not shown in landscape.",
+        })}
+      </p>
       <p className="text-xs text-sam-muted">
         {safeT("admin_platform_popup_preview_renderer_note", {
           fallbackKo:
             "미리보기는 프로덕션 DibayPopupAd를 그대로 사용합니다. 가로 모드에서는 팝업을 가로형으로 바꾸지 않고 노출하지 않습니다.",
           fallbackEn:
-            "Preview uses exact DibayPopupAd. Landscape does not convert the popup — it suppresses it (L1).",
+            "Preview uses exact DibayPopupAd. Landscape does not convert the popup — it suppresses it.",
         })}
       </p>
     </div>

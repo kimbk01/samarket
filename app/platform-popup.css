@@ -7,6 +7,8 @@
   align-items: flex-end;
   justify-content: center;
   padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: hidden;
 }
 
 .dibay-platform-popup-root .dibay-overlay-backdrop {
@@ -20,7 +22,10 @@
   width: 100%;
   height: auto;
   max-width: var(--platform-popup-tablet-max-width, 480px);
-  max-height: min(45vh, calc(100dvh - var(--safe-top, 0px)));
+  max-height: min(
+    45vh,
+    calc(100dvh - var(--safe-top, 0px) - env(safe-area-inset-bottom, 0px) - 8px)
+  );
   margin-inline: auto;
   border-radius: var(--platform-popup-radius, clamp(8px, 3cqi, 16px))
     var(--platform-popup-radius, clamp(8px, 3cqi, 16px)) 0 0;
@@ -78,7 +83,7 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  padding: 0.25rem 0.75rem calc(0.25rem + var(--safe-bottom, 0px));
+  padding: 0.25rem 0.75rem calc(0.25rem + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   /* creative-first: dismiss is secondary chrome, not a white form footer */
   background: rgba(15, 23, 42, 0.92);
   border-top: 0;

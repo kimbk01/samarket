@@ -116,7 +116,9 @@ describe("platform popup product completion — Admin IA", () => {
     expect(leaf?.path).toBe("/admin/platform-popup");
     expect(leaf?.status).toBe("done");
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    expect(ads?.children?.[0]?.key).toBe("ads-platform-popup");
+    expect(ads?.children?.[0]?.key).toBe("ads-paid");
+    expect(ads?.children?.[1]?.key).toBe("ads-feed");
+    expect(ads?.children?.[2]?.key).toBe("ads-platform-popup");
   });
 
   it("hub page uses Control Center (not raw queue-only)", () => {
@@ -127,6 +129,26 @@ describe("platform popup product completion — Admin IA", () => {
     expect(hub).toContain("data-hub-tab=\"requests\"");
     expect(hub).toContain("data-hub-tab=\"campaigns\"");
     expect(hub).toContain("data-admin-popup-direct-create");
+    expect(hub).toContain("data-admin-popup-primary-create");
+    expect(hub).toContain("data-admin-popup-campaigns-empty");
+    expect(hub).toContain("admin_platform_popup_hub_contract_line");
+    expect(hub).not.toContain("ml-auto");
+  });
+
+  it("workspace locks section order copy and GLOBAL label", () => {
+    const detail = readRepo(
+      "components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx"
+    );
+    expect(detail).toContain("data-admin-popup-surface-radio");
+    expect(detail).toContain("admin_platform_popup_action_approve_active");
+    expect(detail).toContain("admin_platform_popup_placement_system_note");
+    expect(detail).toContain("data-admin-popup-preview-sticky");
+    expect(detail).not.toMatch(/메신저·통화·관리자·오너 운영/);
+    const surfaces = readRepo("lib/platform-popup/admin-surface-target-mode.ts");
+    expect(surfaces).toContain("전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보");
+    const preview = readRepo("components/admin/platform-popup/AdminPlatformPopupPreview.tsx");
+    expect(preview).toContain("DibayPopupAd");
+    expect(preview).toContain("data-admin-popup-preview-landscape-note");
   });
 
   it("Owner apply uses surface radio + CTA kinds + requestId recovery", () => {

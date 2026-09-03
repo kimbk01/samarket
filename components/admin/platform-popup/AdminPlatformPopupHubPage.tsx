@@ -101,8 +101,19 @@ export function AdminPlatformPopupHubPage() {
     router.replace(`/admin/platform-popup${qs}`);
   };
 
+  const createErrorMessage = (raw: string | undefined) => {
+    if (!raw || raw === "create_failed") {
+      return safeT("admin_platform_popup_create_failed", {
+        fallbackKo: "팝업 광고를 만들지 못했습니다. 권한을 확인한 뒤 다시 시도해 주세요.",
+        fallbackEn: "Could not create the popup ad. Check permissions and try again.",
+      });
+    }
+    return raw;
+  };
+
   const onCreate = async () => {
     setCreating(true);
+    setError(null);
     const res = await fetch("/api/admin/platform-popup-campaigns", {
       method: "POST",
       credentials: "same-origin",
@@ -118,11 +129,38 @@ export function AdminPlatformPopupHubPage() {
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string };
     setCreating(false);
     if (!res.ok || !json.ok || !json.id) {
-      setError(json.error || "create_failed");
+      setError(createErrorMessage(json.error));
       return;
     }
     router.push(`/admin/platform-popup/${json.id}`);
   };
+
+  const createCtaButton = (opts?: { fullWidth?: boolean; emptySlot?: boolean }) => (
+    <button
+      type="button"
+      className={`rounded bg-sam-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 ${
+        opts?.fullWidth ? "w-full sm:w-auto" : ""
+      }`}
+      disabled={creating}
+      data-admin-popup-direct-create={opts?.emptySlot ? "empty" : "1"}
+      onClick={() => void onCreate()}
+    >
+      {creating
+        ? safeT("admin_platform_popup_creating", {
+            fallbackKo: "등록 중…",
+            fallbackEn: "Creating…",
+          })
+        : safeT("admin_platform_popup_create_cta", {
+            fallbackKo: "팝업 광고 등록",
+            fallbackEn: "Create popup ad",
+          })}
+    </button>
+  );
+
+  const emptyContractLine = safeT("admin_platform_popup_hub_contract_line", {
+    fallbackKo: "소재 1440×1000(36:25) · 하단 팝업 · 노출 위치 선택",
+    fallbackEn: "Creative 1440×1000 (36:25) · bottom popup · choose placement",
+  });
 
   return (
     <div className="space-y-4" data-admin-platform-popup-hub="1">
@@ -132,51 +170,43 @@ export function AdminPlatformPopupHubPage() {
           fallbackEn: "Popup Ad Operations",
         })}
         description={safeT("admin_platform_popup_hub_desc", {
-          fallbackKo: "Owner 신청 심사 · 캠페인 등록 · 노출/중지 · 통계",
-          fallbackEn: "Owner request review · campaigns · live controls · analytics",
+          fallbackKo: "신청 심사 · 캠페인 운영 · 직접 등록",
+          fallbackEn: "Request review · campaign ops · direct create",
         })}
       />
 
       <AdminCard>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            data-hub-tab="requests"
-            className={`rounded px-3 py-1.5 text-sm font-semibold ${
-              tab === "requests" ? "bg-sam-brand text-white" : "border border-sam-border"
-            }`}
-            onClick={() => setHubTab("requests")}
-          >
-            {safeT("admin_platform_popup_tab_requests", {
-              fallbackKo: "신청 관리",
-              fallbackEn: "Requests",
-            })}
-          </button>
-          <button
-            type="button"
-            data-hub-tab="campaigns"
-            className={`rounded px-3 py-1.5 text-sm font-semibold ${
-              tab === "campaigns" ? "bg-sam-brand text-white" : "border border-sam-border"
-            }`}
-            onClick={() => setHubTab("campaigns")}
-          >
-            {safeT("admin_platform_popup_tab_campaigns", {
-              fallbackKo: "캠페인 관리",
-              fallbackEn: "Campaigns",
-            })}
-          </button>
-          <button
-            type="button"
-            className="ml-auto rounded bg-sam-brand px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-            disabled={creating}
-            data-admin-popup-direct-create="1"
-            onClick={() => void onCreate()}
-          >
-            {safeT("admin_platform_popup_create_cta", {
-              fallbackKo: "+ 팝업 광고 등록",
-              fallbackEn: "+ Create popup ad",
-            })}
-          </button>
+        <div className="space-y-3">
+          <div data-admin-popup-primary-create="1">{createCtaButton({ fullWidth: true })}</div>
+          <p className="text-xs text-sam-muted">{emptyContractLine}</p>
+          <div className="flex flex-wrap items-center gap-2 border-t border-sam-border pt-3">
+            <button
+              type="button"
+              data-hub-tab="requests"
+              className={`rounded px-3 py-1.5 text-sm font-semibold ${
+                tab === "requests" ? "bg-sam-brand text-white" : "border border-sam-border"
+              }`}
+              onClick={() => setHubTab("requests")}
+            >
+              {safeT("admin_platform_popup_tab_requests", {
+                fallbackKo: "신청",
+                fallbackEn: "Requests",
+              })}
+            </button>
+            <button
+              type="button"
+              data-hub-tab="campaigns"
+              className={`rounded px-3 py-1.5 text-sm font-semibold ${
+                tab === "campaigns" ? "bg-sam-brand text-white" : "border border-sam-border"
+              }`}
+              onClick={() => setHubTab("campaigns")}
+            >
+              {safeT("admin_platform_popup_tab_campaigns", {
+                fallbackKo: "캠페인",
+                fallbackEn: "Campaigns",
+              })}
+            </button>
+          </div>
         </div>
       </AdminCard>
 
@@ -219,12 +249,16 @@ export function AdminPlatformPopupHubPage() {
             {loading ? (
               <p className="text-sm text-sam-muted">…</p>
             ) : requests.length === 0 ? (
-              <p className="text-sm text-sam-muted">
-                {safeT("admin_platform_popup_requests_empty", {
-                  fallbackKo: "대기 중인 오너 신청이 없습니다.",
-                  fallbackEn: "No open owner requests.",
-                })}
-              </p>
+              <div className="space-y-3" data-admin-popup-requests-empty="1">
+                <p className="text-sm text-sam-muted">
+                  {safeT("admin_platform_popup_requests_empty", {
+                    fallbackKo: "대기 중인 오너 신청이 없습니다.",
+                    fallbackEn: "No open owner requests.",
+                  })}
+                </p>
+                <p className="text-xs text-sam-muted">{emptyContractLine}</p>
+                {createCtaButton({ emptySlot: true })}
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
@@ -314,12 +348,16 @@ export function AdminPlatformPopupHubPage() {
             {loading ? (
               <p className="text-sm text-sam-muted">…</p>
             ) : campaigns.length === 0 ? (
-              <p className="text-sm text-sam-muted">
-                {safeT("admin_platform_popup_empty", {
-                  fallbackKo: "캠페인이 없습니다.",
-                  fallbackEn: "No campaigns yet.",
-                })}
-              </p>
+              <div className="space-y-3" data-admin-popup-campaigns-empty="1">
+                <p className="text-sm text-sam-muted">
+                  {safeT("admin_platform_popup_empty", {
+                    fallbackKo: "아직 등록된 팝업이 없습니다.",
+                    fallbackEn: "No popup ads yet.",
+                  })}
+                </p>
+                <p className="text-xs text-sam-muted">{emptyContractLine}</p>
+                {createCtaButton({ emptySlot: true })}
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">

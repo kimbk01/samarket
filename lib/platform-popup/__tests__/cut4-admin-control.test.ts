@@ -186,8 +186,8 @@ describe("CUT4 surfaces + CTA + TODAY semantic", () => {
     const detail = readRepo(
       "components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx"
     );
-    expect(detail).toMatch(/not 24 hours/i);
-    expect(detail).toMatch(/calendar day/i);
+    expect(detail).toMatch(/24시간(이 아님|이 아닙니다)|not 24h|not 24 hours/i);
+    expect(detail).toMatch(/그날 끝|calendar day/i);
   });
 });
 

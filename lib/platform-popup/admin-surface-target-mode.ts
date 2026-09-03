@@ -17,10 +17,10 @@ function isPlatformPopupTargetSurface(value: string): value is PlatformPopupTarg
 export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
   {
     mode: "GLOBAL",
-    labelKo: "전체",
-    labelEn: "All",
-    helpKo: "커뮤니티 · 거래 · 배달 · 배달 오너 · 어드민 · 내정보에 동일 팝업이 노출됩니다.",
-    helpEn: "Same popup on Community, Trade, Delivery, Delivery Owner, Admin, and My Page.",
+    labelKo: "전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보",
+    labelEn: "All — Community, Trade, Delivery, Delivery Owner, Admin, My Page",
+    helpKo: "위 여섯 영역에 동일 팝업 1개가 노출됩니다. 결제·통화·위험 작업 화면은 시스템이 잠시 가립니다.",
+    helpEn: "One popup on those six areas. Payment, call, and high-risk screens are gated automatically.",
   },
   {
     mode: "COMMUNITY",
@@ -47,15 +47,15 @@ export const PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS = [
     mode: "DELIVERY_OWNER",
     labelKo: "배달 오너",
     labelEn: "Delivery Owner",
-    helpKo: "배달 오너 운영 화면에만 노출됩니다. 금융·정산·결제 확정 화면은 자동 제외됩니다.",
-    helpEn: "Delivery Owner ops only. Finance, settlement, and payment confirmation stay excluded.",
+    helpKo: "배달 오너 화면에 노출됩니다. 결제·정산·위험 작업 화면은 시스템이 잠시 가립니다.",
+    helpEn: "Delivery Owner screens. Payment, settlement, and high-risk flows are gated automatically.",
   },
   {
     mode: "ADMIN",
     labelKo: "어드민",
     labelEn: "Admin",
-    helpKo: "어드민 일반 화면에만 노출됩니다. 금융·승인·위험 확인 화면은 자동 제외됩니다.",
-    helpEn: "Admin general screens only. Finance, approval, and danger confirms stay excluded.",
+    helpKo: "어드민 화면에 노출됩니다. 결제·승인·위험 확인 화면은 시스템이 잠시 가립니다.",
+    helpEn: "Admin screens. Payment, approval, and danger confirms are gated automatically.",
   },
   {
     mode: "MYPAGE",

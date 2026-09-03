@@ -60,7 +60,7 @@ describe("CUT 5-R admin surface radio mapping", () => {
       "MYPAGE",
     ]);
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.labelKo)).toEqual([
-      "전체",
+      "전체 — 커뮤니티·거래·배달·배달 오너·어드민·내정보",
       "커뮤니티",
       "거래",
       "배달",
