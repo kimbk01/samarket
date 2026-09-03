@@ -155,18 +155,22 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).toContain('data-support-composer="1"');
     expect(host).toContain("data-form-keyboard-field");
     expect(host).not.toContain("keyboardOpen");
-    expect(shell).toContain("DibayBottomSheet");
+    expect(shell).toContain("DibayUsableAreaSheet");
+    expect(shell).not.toContain("DibayBottomSheet");
     expect(shell).toContain('anchor="device-bottom"');
-    expect(shell).toContain("heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
-    expect(shell).toContain("contentPaddingBottomPx");
-    expect(shell).toContain("effectiveBottomInset");
-    expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO = 0.8");
+    expect(shell).toContain("preferredHeightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
+    expect(shell).not.toContain("contentPaddingBottomPx");
+    expect(shell).not.toContain("effectiveBottomInset");
+    expect(shell).not.toContain("useFormKeyboardViewport");
+    expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO");
     expect(shell).not.toContain("resolveSupportSheetGeometry");
     expect(shell).not.toContain("visualViewportHeight");
     expect(shell).not.toContain("visualViewportOffsetTop");
     expect(shell).not.toContain("stageStyle");
     expect(shell).not.toContain("sheetLift");
     expect(shell).not.toContain("DibayOverlayRoot");
+    // Rejected debt must stay absent from Support presentation wiring
+    expect(shell).not.toMatch(/\bsheetLift\b/);
     expect(triage).toContain('data-support-triage-handoff-cta="1"');
     expect(triage).toContain("min-h-0 flex-1 overflow-y-auto");
   });

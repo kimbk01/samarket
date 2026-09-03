@@ -7,6 +7,8 @@ export { DibayConfirmDialog, DibayInfoDialog } from "./DibayConfirmDialog";
 export type { DibayConfirmDialogProps } from "./DibayConfirmDialog";
 export { DibayBottomSheet } from "./DibayBottomSheet";
 export type { DibayBottomSheetProps } from "./DibayBottomSheet";
+export { DibayUsableAreaSheet } from "./DibayUsableAreaSheet";
+export type { DibayUsableAreaSheetProps } from "./DibayUsableAreaSheet";
 export { DibayActionSheet } from "./DibayActionSheet";
 export type { DibayActionSheetProps, DibayActionSheetItem } from "./DibayActionSheet";
 export { DibayFullSheet } from "./DibayFullSheet";
