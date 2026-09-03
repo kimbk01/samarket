@@ -261,10 +261,28 @@ function SupportActiveConversation({
     };
   }, []);
 
+  const nearBottomRef = useRef(true);
+  const pendingOwnSendRef = useRef(false);
+
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    const onScroll = () => {
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+      nearBottomRef.current = gap < 80;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [loading]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    if (pendingOwnSendRef.current || nearBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+      pendingOwnSendRef.current = false;
+    }
   }, [messages.length]);
 
   useEffect(() => {
@@ -323,6 +341,7 @@ function SupportActiveConversation({
         setError(json.error ?? "send_failed");
         return;
       }
+      pendingOwnSendRef.current = true;
       setDraft("");
       if (json.message) {
         setMessages((prev) => mergeSupportMessage(prev, json.message!));
@@ -392,6 +411,19 @@ function SupportActiveConversation({
         >
           {messages.map((m) => {
             const mine = m.sender_type === "MEMBER" || m.sender_type === "OWNER";
+            const isSystem = m.sender_type === "SYSTEM";
+            if (isSystem) {
+              return (
+                <div key={m.id} className="flex justify-center">
+                  <div className="max-w-[90%] rounded-ui-rect bg-[var(--overlay-secondary)] px-3 py-1.5 text-center text-[12px] text-[var(--overlay-text-secondary)]">
+                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                    <p className="mt-0.5 text-[10px] opacity-80">
+                      {new Date(m.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
