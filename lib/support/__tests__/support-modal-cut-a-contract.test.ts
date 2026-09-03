@@ -155,8 +155,9 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(shell).toContain('data-support-apply-stage-band="0"');
     expect(shell).not.toContain("heightPx = vv");
     const geo = readFileSync(join(ROOT, "lib/support/support-sheet-geometry.ts"), "utf8");
-    expect(geo).toContain("0.8");
+    expect(geo).toContain("SUPPORT_SHEET_HEIGHT_RATIO = 1");
     expect(geo).toContain("applyStageBand: false");
+    expect(geo).toContain("sheetLiftPx");
     expect(geo).toContain("appliesOffsetTopToStage: false");
   });
 

@@ -15,6 +15,7 @@ import { DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { SupportSheetShell } from "@/components/support/SupportSheetShell";
 import { SupportTriageFlow } from "@/components/support/SupportTriageFlow";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { SupportContext } from "@/lib/support/support-context";
 import { buildGenericSupportTriageContext, isSupportContextEnabled } from "@/lib/support/support-context";
@@ -99,8 +100,11 @@ function SupportSheetChrome({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2 flex shrink-0 items-start gap-2">
+    <div className="flex min-h-0 flex-1 flex-col" data-support-sheet-chrome="1">
+      <div
+        className="mb-2 flex shrink-0 items-start gap-2"
+        data-support-sheet-header="1"
+      >
         <div className="min-w-0 flex-1 pr-1">
           <h2
             id={titleId}
@@ -177,6 +181,7 @@ function SupportActiveConversation({
   onDismissibleChange: (dismissible: boolean) => void;
 }) {
   const { safeT } = useI18n();
+  const { keyboardOpen } = useFormKeyboardViewport({ enabled: true });
   const [supportCase, setSupportCase] = useState<SupportCaseRow | null>(null);
   const [messages, setMessages] = useState<SupportMessageRow[]>([]);
   const [draft, setDraft] = useState("");
@@ -261,8 +266,9 @@ function SupportActiveConversation({
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
+    // Keep latest message parked above composer when list grows or keyboard docks.
     el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, keyboardOpen]);
 
   useEffect(() => {
     const sb = getSupabaseClient();
