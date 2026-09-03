@@ -96,7 +96,7 @@ export function AdminPlatformPopupRequestQueue() {
                   <td className="px-2 py-2">
                     <Link
                       href={PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.detail(item.id)}
-                      className="font-medium uppercase text-sam-brand underline-offset-2 hover:underline"
+                      className="font-medium uppercase text-sam-primary underline-offset-2 hover:underline"
                     >
                       {item.requestStatus}
                     </Link>

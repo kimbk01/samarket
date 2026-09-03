@@ -259,7 +259,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
               <dd>
                 <Link
                   href={`/admin/platform-popup/${item.adminCampaignId}`}
-                  className="text-sam-brand underline"
+                  className="text-sam-primary underline"
                 >
                   {lang === "en" ? "Open campaign" : "캠페인 열기"}
                 </Link>
@@ -316,7 +316,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             </button>
             <button
               type="button"
-              className="rounded bg-sam-brand px-3 py-1.5 text-sm font-semibold text-white"
+              className="rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary"
               disabled={busy}
               onClick={() => void act("approve")}
             >
@@ -362,7 +362,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
         </AdminCard>
       ) : null}
 
-      <Link href="/admin/platform-popup?tab=requests" className="text-sm text-sam-brand underline">
+      <Link href="/admin/platform-popup?tab=requests" className="text-sm text-sam-primary underline">
         {lang === "en" ? "Back to request queue" : "신청 관리로"}
       </Link>
     </div>

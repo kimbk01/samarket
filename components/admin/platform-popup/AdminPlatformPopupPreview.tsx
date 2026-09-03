@@ -97,7 +97,7 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
             key={mode}
             type="button"
             className={`rounded border px-2 py-1 text-xs ${
-              device === mode ? "border-sam-brand bg-sam-brand/10" : "border-sam-border"
+              device === mode ? "border-sam-primary bg-sam-primary/10" : "border-sam-border"
             }`}
             onClick={() => setDevice(mode)}
           >
