@@ -92,7 +92,7 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(getSupportModalState().caseId).toBeNull();
   });
 
-  it("새 문의하기 resets to START without clearing context", () => {
+  it("새 문의하기 resets to START with generic category gate (keeps audience shell)", () => {
     const ctx = buildMemberSupportContext({
       enabled: true,
       category: "ORDER",
@@ -100,10 +100,14 @@ describe("support modal CUT A / reconstruction contracts", () => {
     });
     openSupportModal({ context: ctx });
     setSupportModalCaseId("case-1");
+    // Controller default (no nextContext): clear category/ref for triage START.
     resetSupportModalToStart();
     expect(getSupportModalState().phase).toBe("open");
     expect(getSupportModalState().caseId).toBeNull();
-    expect(getSupportModalState().context?.category).toBe("ORDER");
+    expect(getSupportModalState().context?.audience).toBe("MEMBER");
+    expect(getSupportModalState().context?.sourceSurface).toBe("order_detail");
+    expect(getSupportModalState().context?.category).toBe("");
+    expect(getSupportModalState().context?.needsCategorySelection).toBe(true);
   });
 
   it("shouldRenderMainBottomNav hides when support modal suppress flag set", () => {
@@ -140,6 +144,10 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).not.toContain("scrollIntoView");
     expect(host).toContain("json.message");
     expect(host).toContain("el.scrollTop = el.scrollHeight");
+    expect(host).toContain('data-support-message-list="1"');
+    expect(host).toContain('data-support-composer="1"');
+    expect(host).toContain("data-form-keyboard-field");
+    expect(shell).toContain("keyboardOpen");
     expect(shell).toContain("useFormKeyboardViewport");
     expect(shell).toContain("effectiveBottomInset");
     expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO");

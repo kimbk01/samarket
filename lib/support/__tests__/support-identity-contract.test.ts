@@ -41,7 +41,10 @@ describe("support identity / case SSOT contract", () => {
 
     const modal = readRepo("components/support/SupportModalHost.tsx");
     expect(modal).toContain("/api/support/cases/open");
-    expect(modal).toContain("handleStartInquiry");
+    // PHASE 3-B: case open is deferred to triage handoff (handleCreateCase), not legacy handleStartInquiry.
+    expect(modal).toContain("handleCreateCase");
+    expect(modal).toContain("requireIssueType: true");
+    expect(modal).not.toContain("handleStartInquiry");
   });
 
   it("admin canonical inbox route exists", () => {
