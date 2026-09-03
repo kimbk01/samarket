@@ -58,6 +58,27 @@ export function businessCcPointsHref(_query?: string): string {
   return "/admin/store-point-ledger";
 }
 
+/** CUT E — Store ops hub cross-links (canonical screens only). */
+export function businessCcFinanceHref(storeId: string): string {
+  return `/admin/finance?storeId=${encodeURIComponent(storeId.trim())}`;
+}
+
+export function businessCcCashChargesHref(): string {
+  return "/admin/delivery-ads/cash-charges";
+}
+
+export function businessCcDeliveryAdsHref(storeId: string): string {
+  return `/admin/delivery-ads?view=actionable&storeId=${encodeURIComponent(storeId.trim())}`;
+}
+
+export function businessCcPartnerHref(): string {
+  return "/admin/delivery-ads/partner";
+}
+
+export function businessCcSupportHref(storeId: string): string {
+  return `/admin/support?filter=OWNER&search=${encodeURIComponent(storeId.trim())}`;
+}
+
 export function businessCcOwnerMemberHref(ownerUserId: string): string {
   return `/admin/users/${encodeURIComponent(ownerUserId.trim())}`;
 }

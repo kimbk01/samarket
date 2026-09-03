@@ -47,8 +47,15 @@ export async function GET() {
       store_inquiry_open: counts.store_inquiry_open,
       platform_inquiry_open: counts.platform_inquiry_open,
       member_charge_pending: counts.user_charges,
-      store_charge_pending: counts.store_charges,
+      /** CUT E — Cash top-up (AST-005). Do not map AST-002 store_charges here. */
+      cash_charge_pending: counts.cash_charges,
+      /** @deprecated alias — same as cash_charge_pending (Cash queue UI). */
+      store_charge_pending: counts.cash_charges,
+      /** AST-002 archive observability only — not Action Center Cash. */
+      legacy_store_point_charge_pending: counts.store_charges,
       feed_ad_pending: counts.feed_ad_requests,
+      delivery_ad_ops_pending: counts.delivery_ad_ops,
+      store_applications_pending: counts.store_applications,
       reports_pending: counts.by_category.reports,
       delivery_alerts: counts.delivery_alerts,
       community_reports_pending: counts.community_reports,

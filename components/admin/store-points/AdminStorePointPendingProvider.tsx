@@ -94,13 +94,18 @@ type AwarenessToast = {
 };
 
 type Ctx = {
+  /** @deprecated AST-002 archive count — not Cash. */
   pendingCount: number;
+  /** Canonical Cash top-up pending (AST-005). */
+  cashChargePendingCount: number;
   userChargePendingCount: number;
   feedAdPendingCount: number;
   /** TRADE_PROMO_PENDING — sidebar Trade ads-applications only */
   tradePromoPendingCount: number;
   /** A2-2 Support Center sidebar badge — support_cases OPEN|WAITING_ADMIN */
   supportActionableCount: number;
+  deliveryAdOpsPendingCount: number;
+  storeApplicationsCount: number;
   /** @deprecated A2-2 legacy Care — always 0 for ops badge */
   memberInquiryOpenCount: number;
   /** @deprecated A2-2 legacy platform — always 0 for ops badge */
@@ -109,24 +114,25 @@ type Ctx = {
   storeReportsCount: number;
   communityReportsCount: number;
   globalReportsCount: number;
-  storeApplicationsCount: number;
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
 
 const AdminStorePointPendingContext = createContext<Ctx>({
   pendingCount: 0,
+  cashChargePendingCount: 0,
   userChargePendingCount: 0,
   feedAdPendingCount: 0,
   tradePromoPendingCount: 0,
   supportActionableCount: 0,
+  deliveryAdOpsPendingCount: 0,
+  storeApplicationsCount: 0,
   memberInquiryOpenCount: 0,
   platformInquiryOpenCount: 0,
   tradeReportsCount: 0,
   storeReportsCount: 0,
   communityReportsCount: 0,
   globalReportsCount: 0,
-  storeApplicationsCount: 0,
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -161,10 +167,12 @@ export const useAdminOpsRealtimeBridge = useAdminStorePointPendingCount;
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
   const { safeT } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
+  const [cashChargePendingCount, setCashChargePendingCount] = useState(0);
   const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [feedAdPendingCount, setFeedAdPendingCount] = useState(0);
   const [tradePromoPendingCount, setTradePromoPendingCount] = useState(0);
   const [supportActionableCount, setSupportActionableCount] = useState(0);
+  const [deliveryAdOpsPendingCount, setDeliveryAdOpsPendingCount] = useState(0);
   const [memberInquiryOpenCount, setMemberInquiryOpenCount] = useState(0);
   const [platformInquiryOpenCount, setPlatformInquiryOpenCount] = useState(0);
   const [tradeReportsCount, setTradeReportsCount] = useState(0);
@@ -724,10 +732,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           by_category?: {
             charges?: number;
             store_charges?: number;
+            cash_charges?: number;
             user_charges?: number;
             feed_ad_requests?: number;
             trade_promo_pending?: number;
             support_actionable?: number;
+            delivery_ad_ops?: number;
             member_inquiry_open?: number;
             platform_inquiry_open?: number;
             trade_reports?: number;
@@ -742,12 +752,17 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       if (resOk && json.ok) {
         setAdminBellCount(Math.max(0, Math.floor(Number(json.total) || 0)));
         const storeCharges = Math.max(0, Math.floor(Number(json.by_category?.store_charges) || 0));
+        const cashCharges = Math.max(0, Math.floor(Number(json.by_category?.cash_charges) || 0));
         const userCharges = Math.max(0, Math.floor(Number(json.by_category?.user_charges) || 0));
         const feedAds = Math.max(0, Math.floor(Number(json.by_category?.feed_ad_requests) || 0));
         const tradePromo = Math.max(0, Math.floor(Number(json.by_category?.trade_promo_pending) || 0));
         const supportActionable = Math.max(
           0,
           Math.floor(Number(json.by_category?.support_actionable) || 0)
+        );
+        const deliveryAdOps = Math.max(
+          0,
+          Math.floor(Number(json.by_category?.delivery_ad_ops) || 0)
         );
         const memberInquiry = Math.max(
           0,
@@ -778,10 +793,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
           Math.floor(Number(json.by_category?.store_applications) || 0)
         );
         setPendingCount(storeCharges);
+        setCashChargePendingCount(cashCharges);
         setUserChargePendingCount(userCharges);
         setFeedAdPendingCount(feedAds);
         setTradePromoPendingCount(tradePromo);
         setSupportActionableCount(supportActionable);
+        setDeliveryAdOpsPendingCount(deliveryAdOps);
         setMemberInquiryOpenCount(memberInquiry);
         setPlatformInquiryOpenCount(platformInquiry);
         setTradeReportsCount(tradeReports);
@@ -1180,10 +1197,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const value = useMemo(
     () => ({
       pendingCount,
+      cashChargePendingCount,
       userChargePendingCount,
       feedAdPendingCount,
       tradePromoPendingCount,
       supportActionableCount,
+      deliveryAdOpsPendingCount,
       memberInquiryOpenCount,
       platformInquiryOpenCount,
       tradeReportsCount,
@@ -1197,10 +1216,12 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     [
       adminBellCount,
       pendingCount,
+      cashChargePendingCount,
       userChargePendingCount,
       feedAdPendingCount,
       tradePromoPendingCount,
       supportActionableCount,
+      deliveryAdOpsPendingCount,
       memberInquiryOpenCount,
       platformInquiryOpenCount,
       tradeReportsCount,

@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   businessCcAuditHref,
   businessCcCancellationsHref,
+  businessCcCashChargesHref,
+  businessCcDeliveryAdsHref,
   businessCcDeliveryDistanceHref,
   businessCcEntryReviewHref,
   businessCcFeePoliciesHref,
+  businessCcFinanceHref,
   businessCcOrdersByStoreHref,
   businessCcOwnerMemberHref,
+  businessCcPartnerHref,
   businessCcProductsHref,
   businessCcPublicStoreHref,
   businessCcRefundsHref,
@@ -14,6 +18,7 @@ import {
   businessCcReviewsHref,
   businessCcSettlementsHref,
   businessCcStoreOrdersHref,
+  businessCcSupportHref,
 } from "@/lib/admin-business/business-control-center-links";
 
 describe("business-control-center-links", () => {
@@ -24,6 +29,14 @@ describe("business-control-center-links", () => {
     expect(businessCcStoreOrdersHref("abc-123")).toBe(
       "/admin/store-orders?store_id=abc-123"
     );
+  });
+
+  it("CUT E operation hub deep-links", () => {
+    expect(businessCcFinanceHref("abc-123")).toBe("/admin/finance?storeId=abc-123");
+    expect(businessCcDeliveryAdsHref("abc-123")).toContain("view=actionable");
+    expect(businessCcSupportHref("abc-123")).toContain("search=abc-123");
+    expect(businessCcCashChargesHref()).toBe("/admin/delivery-ads/cash-charges");
+    expect(businessCcPartnerHref()).toBe("/admin/delivery-ads/partner");
   });
 
   it("deep-links products/reviews/audit/settlements with store_id", () => {

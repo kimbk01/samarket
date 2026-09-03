@@ -2,6 +2,7 @@
 
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { BusinessProfileLog, BusinessProfileLogActionType } from "@/lib/types/business";
 import type {
   BusinessCcDeliverySnapshot,
@@ -201,8 +202,25 @@ const emptyOps: BusinessCcOpsOverview = {
 
 export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPageProps) {
   const { t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [refresh, setRefresh] = useState(0);
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setTabState] = useState<TabId>(() => {
+    const raw = searchParams.get("tab")?.trim();
+    if (raw && TABS.some((x) => x.id === raw)) return raw as TabId;
+    return "overview";
+  });
+  const setTab = useCallback(
+    (next: TabId) => {
+      setTabState(next);
+      const qs = new URLSearchParams(searchParams.toString());
+      qs.set("tab", next);
+      router.replace(`/admin/business/${encodeURIComponent(profileId)}?${qs.toString()}`, {
+        scroll: false,
+      });
+    },
+    [profileId, router, searchParams]
+  );
   const [memoInput, setMemoInput] = useState("");
   const [payload, setPayload] = useState<CcPayload | null>(null);
   const [loading, setLoading] = useState(true);

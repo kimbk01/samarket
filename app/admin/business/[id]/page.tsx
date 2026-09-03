@@ -1,10 +1,15 @@
+import { Suspense } from "react";
 import { AdminBusinessDetailPage } from "@/components/admin/business/AdminBusinessDetailPage";
 
-interface PageProps {
+export default async function AdminBusinessDetailRoute({
+  params,
+}: {
   params: Promise<{ id: string }>;
-}
-
-export default async function AdminBusinessDetailRoute({ params }: PageProps) {
+}) {
   const { id } = await params;
-  return <AdminBusinessDetailPage profileId={id} />;
+  return (
+    <Suspense fallback={<p className="p-4 text-sm text-sam-muted">…</p>}>
+      <AdminBusinessDetailPage profileId={id} />
+    </Suspense>
+  );
 }

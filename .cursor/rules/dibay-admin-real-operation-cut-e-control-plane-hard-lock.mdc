@@ -1,0 +1,34 @@
+---
+description: DIBAY Admin Real Operation CUT E — Control Plane / Action Center hard lock
+globs:
+  - components/admin/dashboard/**
+  - lib/admin/admin-action-queue.ts
+  - lib/admin/admin-real-operation-cut-e-control-plane-hard-lock.ts
+  - components/admin/business/AdminBusinessOpsOverview.tsx
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT E HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-e-control-plane-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-e-control-plane-hard-lock`
+
+## DO
+
+- Keep Control Plane entry at `/admin` Action Center
+- Drive Cash UI from `cash_charges` (AST-005), never AST-002 `store_charges`
+- Deep-link to canonical Ads/Finance/Support/Store/Partner screens
+- Preserve `view` / `tab` / `returnTo` query memory
+
+## DO NOT
+
+- Invent `/admin/control-plane-v2`, ads-v2, growth-v2, unified DB
+- Make Control Plane a mutation owner
+- Sum Cash + AST-002 into one misleading count for Cash UI
+- Claim Tablet / Production E2E PASS without measurement
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-e-control-plane-hard-lock
+```

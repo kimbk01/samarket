@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminKpiCards } from "@/components/admin/dashboard/AdminKpiCards";
 import { DashboardUrgentBlock } from "@/components/admin/dashboard/DashboardUrgentBlock";
+import { AdminActionCenter } from "@/components/admin/dashboard/AdminActionCenter";
 import { DashboardQuickLinksBySection } from "@/components/admin/dashboard/DashboardQuickLinksBySection";
 import { AdminRevenueOpsStrip } from "@/components/admin/dashboard/AdminRevenueOpsStrip";
 import { AdminStatusSummaryPanels } from "@/components/admin/dashboard/AdminStatusSummaryPanels";
@@ -99,6 +100,8 @@ export function AdminDashboardPage({
           </button>
         </div>
       )}
+
+      <AdminActionCenter />
 
       <section>
         <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">

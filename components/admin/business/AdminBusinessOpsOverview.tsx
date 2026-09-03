@@ -17,14 +17,19 @@ import {
   businessOpsSettlementLabelKey,
 } from "@/lib/admin-business/business-ops-presentation";
 import {
+  businessCcCashChargesHref,
+  businessCcDeliveryAdsHref,
+  businessCcFinanceHref,
   businessCcOrdersByStoreHref,
   businessCcOwnerMemberHref,
+  businessCcPartnerHref,
   businessCcPointsHref,
   businessCcProductsHref,
   businessCcPublicStoreHref,
   businessCcReportsHref,
   businessCcReviewsHref,
   businessCcSettlementsHref,
+  businessCcSupportHref,
 } from "@/lib/admin-business/business-control-center-links";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -292,7 +297,7 @@ export function AdminBusinessOpsOverviewGrid({
   kpi: BusinessCcKpiSummary;
   onGoTab: (tab: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const oc = kpi.orderStatusCounts;
   const sc = kpi.settlementStatusCounts;
 
@@ -435,6 +440,49 @@ export function AdminBusinessOpsOverviewGrid({
           {t("admin_biz_ops_reports_open", { n: String(kpi.openReportCount) })}
         </div>
         <div>{t("admin_biz_ops_reports_total", { n: String(ops.reportTotalCount) })}</div>
+      </StatCard>
+
+      <StatCard
+        title={safeT("admin_biz_ops_card_operation_links", {
+          fallbackKo: "운영 바로가기",
+          fallbackEn: "Operation links",
+        })}
+        footer={
+          <div className="flex flex-wrap gap-2" data-admin-store-ops-hub-links="1">
+            <Link href={businessCcFinanceHref(storeId)} className={linkClass} data-store-hub-finance="1">
+              Finance
+            </Link>
+            <Link href={businessCcCashChargesHref()} className={linkClass} data-store-hub-cash="1">
+              Cash
+            </Link>
+            <Link
+              href={businessCcDeliveryAdsHref(storeId)}
+              className={linkClass}
+              data-store-hub-ads="1"
+            >
+              Ads
+            </Link>
+            <Link href={businessCcPartnerHref()} className={linkClass} data-store-hub-partner="1">
+              Partner
+            </Link>
+            <Link
+              href={businessCcSupportHref(storeId)}
+              className={linkClass}
+              data-store-hub-support="1"
+            >
+              Support
+            </Link>
+          </div>
+        }
+      >
+        <p className="text-[12px] text-sam-muted">
+          {safeT("admin_biz_ops_operation_links_note", {
+            fallbackKo:
+              "Coin / Cash / 광고 / Partner / 문의는 각 canonical 화면에서 처리합니다. 이 카드는 바로가기만 제공합니다.",
+            fallbackEn:
+              "Coin / Cash / Ads / Partner / Support are handled on their canonical screens. This card is deep-links only.",
+          })}
+        </p>
       </StatCard>
 
       <StatCard

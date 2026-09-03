@@ -42,6 +42,7 @@ export const STORE_CHARGE_ACTIONABLE_STATUSES = [
 
 export type AdminActionQueueCategory =
   | "store_charges"
+  | "cash_charges"
   | "user_charges"
   | "feed_ad_requests"
   | "delivery_ad_ops"
@@ -69,7 +70,13 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   }
 > = {
   delivery_alerts: { priority: "P0_CRITICAL", rt: "RT_REQUIRED", soundEligible: true },
-  store_charges: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  /**
+   * AST-002 archived store-credit requests — NOT Cash.
+   * CUT E: demoted from actionable Bell/Action Center total (mutations 410).
+   */
+  store_charges: { priority: "P3_SILENT", rt: "POLL_SUFFICIENT", soundEligible: false },
+  /** AST-005 Cash top-up pending — canonical Finance queue for store Cash. */
+  cash_charges: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   user_charges: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   feed_ad_requests: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   /** Delivery Ads ops Case WAITING_ADMIN — CUT 3-D */
@@ -90,7 +97,10 @@ export const ADMIN_ACTION_QUEUE_META: Record<
 };
 
 export type AdminActionQueueCounts = {
+  /** @deprecated AST-002 archive — not Cash; excluded from Action Center total (CUT E). */
   store_charges: number;
+  /** Canonical Cash top-up pending (business_cash_charge_requests). */
+  cash_charges: number;
   user_charges: number;
   feed_ad_requests: number;
   delivery_ad_ops: number;
@@ -106,12 +116,13 @@ export type AdminActionQueueCounts = {
   platform_inquiry_open: number;
   community_reports: number;
   store_applications: number;
-  /** Sum of all actionable categories */
+  /** Sum of actionable categories (excludes AST-002 store_charges + legacy platform). */
   total: number;
-  /** Legacy admin-bell shape (charges = store+user; reports = reports+store_reports) */
+  /** Legacy admin-bell shape (charges = cash+user; reports = reports+store_reports) */
   by_category: {
     charges: number;
     store_charges: number;
+    cash_charges: number;
     user_charges: number;
     /** Legacy combined trade + store delivery reports */
     reports: number;
@@ -147,6 +158,7 @@ export async function loadAdminActionQueueCounts(input: {
   const { storesSb, notesSb } = input;
   const empty = (): AdminActionQueueCounts => ({
     store_charges: 0,
+    cash_charges: 0,
     user_charges: 0,
     feed_ad_requests: 0,
     delivery_ad_ops: 0,
@@ -164,6 +176,7 @@ export async function loadAdminActionQueueCounts(input: {
     by_category: {
       charges: 0,
       store_charges: 0,
+      cash_charges: 0,
       user_charges: 0,
       reports: 0,
       trade_reports: 0,
@@ -186,6 +199,7 @@ export async function loadAdminActionQueueCounts(input: {
 
   const [
     storeChargesRes,
+    cashChargesRes,
     userChargesRes,
     reportsRes,
     storeReportsRes,
@@ -203,6 +217,12 @@ export async function loadAdminActionQueueCounts(input: {
           .from("store_point_charge_requests")
           .select("id", { count: "exact", head: true })
           .in("request_status", [...STORE_CHARGE_ACTIONABLE_STATUSES])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("business_cash_charge_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "PENDING")
       : Promise.resolve({ count: 0, error: null }),
     storesSb
       ? storesSb
@@ -273,6 +293,13 @@ export async function loadAdminActionQueueCounts(input: {
     /store_point_charge_requests|schema cache|does not exist/i.test(storeChargesRes.error.message ?? "")
       ? 0
       : safeCount(storeChargesRes);
+  const cash_charges =
+    cashChargesRes.error &&
+    /business_cash_charge_requests|schema cache|does not exist/i.test(
+      cashChargesRes.error.message ?? ""
+    )
+      ? 0
+      : safeCount(cashChargesRes);
   const user_charges =
     userChargesRes.error &&
     /point_charge_requests|schema cache|does not exist/i.test(userChargesRes.error.message ?? "")
@@ -331,7 +358,8 @@ export async function loadAdminActionQueueCounts(input: {
       ? 0
       : safeCount(deliveryAdOpsRes);
 
-  const charges = store_charges + user_charges;
+  // CUT E: actionable finance = Cash + Member Point (never AST-002 store_charges).
+  const charges = cash_charges + user_charges;
   const reportsCombined = reports + store_reports;
   const global_reports = reports + community_reports;
   const total =
@@ -350,6 +378,7 @@ export async function loadAdminActionQueueCounts(input: {
 
   return {
     store_charges,
+    cash_charges,
     user_charges,
     feed_ad_requests,
     delivery_ad_ops,
@@ -367,6 +396,7 @@ export async function loadAdminActionQueueCounts(input: {
     by_category: {
       charges,
       store_charges,
+      cash_charges,
       user_charges,
       reports: reportsCombined,
       trade_reports: reports,

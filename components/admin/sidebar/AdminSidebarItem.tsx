@@ -41,13 +41,17 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { pendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
+  const { cashChargePendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, deliveryAdOpsPendingCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
     useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
   /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
   const menuBadge =
-    item.key === STORE_POINT_CHARGES_MENU_KEY && pendingCount > 0
-      ? pendingCount
+    item.key === STORE_POINT_CHARGES_MENU_KEY && cashChargePendingCount > 0
+      ? cashChargePendingCount
+      : item.key === "store-finance-admin" && cashChargePendingCount + userChargePendingCount > 0
+        ? cashChargePendingCount + userChargePendingCount
+        : item.key === "delivery-ads-control" && deliveryAdOpsPendingCount > 0
+          ? deliveryAdOpsPendingCount
       : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
         ? userChargePendingCount
         : item.key === "ads-applications" && tradePromoPendingCount > 0

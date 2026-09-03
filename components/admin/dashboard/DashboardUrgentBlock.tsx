@@ -9,16 +9,16 @@ type UrgentLink = {
   id: string;
   href: string;
   labelKey: MessageKey;
-  countKey?: "storeCharges" | "userCharges";
+  countKey?: "cashCharges" | "userCharges";
 };
 
 const URGENT_LINKS: UrgentLink[] = [
   { id: "reports-pending", href: "/admin/reports", labelKey: "admin_dashboard_urgent_reports_pending" },
   {
-    id: "store-charges-pending",
+    id: "cash-charges-pending",
     href: "/admin/delivery-ads/cash-charges",
     labelKey: "admin_dashboard_urgent_charge_pending",
-    countKey: "storeCharges",
+    countKey: "cashCharges",
   },
   {
     id: "user-charges-pending",
@@ -33,10 +33,10 @@ const URGENT_LINKS: UrgentLink[] = [
 
 export function DashboardUrgentBlock() {
   const { t } = useI18n();
-  const { pendingCount, userChargePendingCount } = useAdminStorePointPendingCount();
+  const { cashChargePendingCount, userChargePendingCount } = useAdminStorePointPendingCount();
 
   const counts = {
-    storeCharges: pendingCount,
+    cashCharges: cashChargePendingCount,
     userCharges: userChargePendingCount,
   };
 

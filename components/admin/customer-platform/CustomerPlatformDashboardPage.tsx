@@ -15,6 +15,8 @@ type OverviewPayload = {
     platform_inquiry_open: number;
     member_charge_pending: number;
     store_charge_pending: number;
+    cash_charge_pending?: number;
+    delivery_ad_ops_pending?: number;
     feed_ad_pending?: number;
     reports_pending?: number;
     delivery_alerts?: number;
@@ -99,10 +101,18 @@ export function CustomerPlatformDashboardPage() {
     },
     {
       href: "/admin/delivery-ads/cash-charges",
-      count: aq?.store_charge_pending ?? 0,
+      count: aq?.cash_charge_pending ?? aq?.store_charge_pending ?? 0,
       titleKey: "admin_cp_queue_store_deposit",
-      titleKo: "매장 입금 승인 대기",
-      titleEn: "Store deposit pending",
+      titleKo: "Cash 충전 승인 대기",
+      titleEn: "Cash top-up pending",
+      domain: "store",
+    },
+    {
+      href: "/admin/delivery-ads?view=actionable",
+      count: aq?.delivery_ad_ops_pending ?? 0,
+      titleKey: "admin_menu_delivery_ads_control",
+      titleKo: "배달 광고 운영 대기",
+      titleEn: "Delivery ads ops waiting",
       domain: "store",
     },
     {

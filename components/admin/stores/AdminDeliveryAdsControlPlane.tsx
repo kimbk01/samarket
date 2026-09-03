@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -57,14 +57,33 @@ export function AdminDeliveryAdsControlPlane() {
   const { t, safeT, language } = useI18n();
   const lang = language === "en" ? "en" : "ko";
   const searchParams = useSearchParams();
+  const router = useRouter();
   const inventoryFilter = searchParams.get("inventory")?.trim() || "";
   const primarySlugFilter =
     searchParams.get("primarySlug")?.trim() || searchParams.get("primary")?.trim() || "";
   const subSlugFilter =
     searchParams.get("subSlug")?.trim() || searchParams.get("sub")?.trim() || "";
-  const [hubView, setHubView] = useState<AdminDeliveryAdsHubView>(
-    ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW
-  );
+  const [hubView, setHubView] = useState<AdminDeliveryAdsHubView>(() => {
+    const v = searchParams.get("view")?.trim();
+    if (v && (HUB_VIEWS as readonly string[]).includes(v)) {
+      return v as AdminDeliveryAdsHubView;
+    }
+    return ADMIN_DELIVERY_ADS_HUB_DEFAULT_VIEW;
+  });
+
+  useEffect(() => {
+    const v = searchParams.get("view")?.trim();
+    if (v && (HUB_VIEWS as readonly string[]).includes(v)) {
+      setHubView(v as AdminDeliveryAdsHubView);
+    }
+  }, [searchParams]);
+
+  const selectHubView = (view: AdminDeliveryAdsHubView) => {
+    setHubView(view);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("view", view);
+    router.replace(`/admin/delivery-ads?${next.toString()}`, { scroll: false });
+  };
   const [product, setProduct] = useState<ProductFilter>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,7 +314,7 @@ export function AdminDeliveryAdsControlPlane() {
                         ? "border-sam-border/60 bg-sam-app text-sam-muted hover:border-[#0A823E]/40"
                         : "border-sam-border bg-sam-surface text-sam-fg hover:border-[#0A823E]/50 hover:bg-[#0A823E]/5"
                   }`}
-                  onClick={() => setHubView(view)}
+                  onClick={() => selectHubView(view)}
                 >
                   {safeT(hubViewLabelKey(view), {
                     fallbackKo: view,
