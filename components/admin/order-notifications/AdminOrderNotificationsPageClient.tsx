@@ -77,7 +77,7 @@ export function AdminOrderNotificationsPageClient() {
   const c = payload?.by_category;
   const rows: QueueRow[] = [
     {
-      href: "/admin/store-point-charges",
+      href: "/admin/delivery-ads/cash-charges",
       count: c?.store_charges ?? 0,
       titleKo: "과거 매장 운영 입금 기록",
       titleEn: "Historical store operations deposits",

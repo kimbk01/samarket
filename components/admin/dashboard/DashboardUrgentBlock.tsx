@@ -16,7 +16,7 @@ const URGENT_LINKS: UrgentLink[] = [
   { id: "reports-pending", href: "/admin/reports", labelKey: "admin_dashboard_urgent_reports_pending" },
   {
     id: "store-charges-pending",
-    href: "/admin/store-point-charges",
+    href: "/admin/delivery-ads/cash-charges",
     labelKey: "admin_dashboard_urgent_charge_pending",
     countKey: "storeCharges",
   },

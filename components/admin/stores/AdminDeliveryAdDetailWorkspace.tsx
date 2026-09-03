@@ -788,8 +788,8 @@ export function AdminDeliveryAdDetailWorkspace({
                   </p>
                   <p data-admin-business-cash-balance="1">
                     {safeT("admin_delivery_ads_owner_cash_balance", {
-                      fallbackKo: "Owner Cash 잔액",
-                      fallbackEn: "Owner Cash balance",
+                      fallbackKo: "매장 Cash 잔액",
+                      fallbackEn: "Store Cash balance",
                     })}
                     :{" "}
                     {ownerCashBalanceMinor == null

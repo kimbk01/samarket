@@ -70,10 +70,11 @@ describe("P0-B exact deeplink (T7)", () => {
     expect(adminMemberPointChargeDetailHref("")).toBe("/admin/point-charges");
   });
 
-  it("store charge links to list focus query", () => {
+  it("store charge legacy focus goes to read-only archive (NO_NEW_WRITE)", () => {
     expect(adminStorePointChargeFocusHref("req-2")).toBe(
-      "/admin/store-point-charges?request=req-2"
+      "/admin/store-point-ledger?request=req-2"
     );
+    expect(adminStorePointChargeFocusHref("")).toBe("/admin/store-point-ledger");
     expect(parseAdminStorePointChargeFocusRequestId(new URLSearchParams("request=req-2"))).toBe(
       "req-2"
     );

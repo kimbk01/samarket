@@ -423,8 +423,8 @@ export function OwnerPlatformPopupApplyView() {
           </li>
           <li>
             {safeT("owner_platform_popup_what_3", {
-              fallbackKo: "Business Cash로 결제되며, 결제만으로 바로 노출되지 않습니다. 관리자 심사가 필요합니다.",
-              fallbackEn: "Paid with Business Cash. Payment alone never goes live — admin review is required.",
+                  fallbackKo: "Cash로 결제되며, 결제만으로 바로 노출되지 않습니다. 관리자 심사가 필요합니다.",
+                  fallbackEn: "Paid with Cash. Payment alone never goes live — admin review is required.",
             })}
           </li>
         </ul>
@@ -491,8 +491,8 @@ export function OwnerPlatformPopupApplyView() {
             <>
               <p>
                 {safeT("owner_platform_popup_insufficient", {
-                  fallbackKo: "Business Cash가 부족합니다.",
-                  fallbackEn: "Not enough Business Cash.",
+                  fallbackKo: "Cash가 부족합니다.",
+                  fallbackEn: "Not enough Cash.",
                 })}
               </p>
               <Link href={financeHref} className="mt-2 inline-flex font-semibold underline">
@@ -649,8 +649,8 @@ export function OwnerPlatformPopupApplyView() {
 
       <OwnerStoreAdminDashSection
         title={safeT("owner_platform_popup_section_package", {
-          fallbackKo: "요금 · Business Cash",
-          fallbackEn: "Price · Business Cash",
+          fallbackKo: "요금 · Cash",
+          fallbackEn: "Price · Cash",
         })}
       >
         {packages.length === 0 ? (
@@ -687,7 +687,7 @@ export function OwnerPlatformPopupApplyView() {
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sam-muted">{lang === "en" ? "Current Cash" : "현재 Business Cash"}</dt>
+            <dt className="text-sam-muted">{lang === "en" ? "Current Cash" : "현재 Cash"}</dt>
             <dd className="tabular-nums font-semibold">{formatDeliveryAdPhpMinor(cashBalanceMinor)}</dd>
           </div>
           <div className="flex justify-between">

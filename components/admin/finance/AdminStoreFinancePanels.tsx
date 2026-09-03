@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
+import { AdminFinanceOpsQueue } from "@/components/admin/finance/AdminFinanceOpsQueue";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -104,6 +105,8 @@ export function AdminStoreFinancePanels() {
 
   return (
     <div className="space-y-4" data-admin-store-finance-panels="1">
+      <AdminFinanceOpsQueue />
+
       <form
         onSubmit={(event) => void load(event)}
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"

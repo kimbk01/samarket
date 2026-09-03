@@ -1,8 +1,9 @@
 /**
  * Admin point-charge exact deeplinks — P0-B awareness CTA SSOT.
  *
- * DO NOT deep-link to list hubs without request identity.
- * Member detail route already exists; store charges use list + ?request= focus.
+ * Member Point → detail route.
+ * Legacy store-point charge focus → Finance hub archive path (NO_NEW_WRITE).
+ * Canonical Cash top-ups → `/admin/delivery-ads/cash-charges`.
  */
 
 export function adminMemberPointChargeDetailHref(requestId: string): string {
@@ -11,10 +12,16 @@ export function adminMemberPointChargeDetailHref(requestId: string): string {
   return `/admin/point-charges/${encodeURIComponent(id)}`;
 }
 
+/** @deprecated Historical AST-002 store credit requests — mutations disabled (410). */
 export function adminStorePointChargeFocusHref(requestId: string): string {
   const id = String(requestId ?? "").trim();
-  if (!id) return "/admin/store-point-charges";
-  return `/admin/store-point-charges?request=${encodeURIComponent(id)}`;
+  if (!id) return "/admin/store-point-ledger";
+  return `/admin/store-point-ledger?request=${encodeURIComponent(id)}`;
+}
+
+/** Canonical Cash top-up queue (AST-005). */
+export function adminCashTopUpQueueHref(): string {
+  return "/admin/delivery-ads/cash-charges";
 }
 
 export function parseAdminStorePointChargeFocusRequestId(

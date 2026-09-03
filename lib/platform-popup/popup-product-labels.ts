@@ -40,13 +40,13 @@ export function platformPopupOwnerPaymentStatusLabel(
 ): string {
   const ko: Record<PlatformPopupOwnerPaymentStatus, string> = {
     unfunded: "미결제",
-    funded: "Business Cash 결제됨",
+    funded: "Cash 결제됨",
     refunded: "환불됨",
     failed: "결제 실패",
   };
   const en: Record<PlatformPopupOwnerPaymentStatus, string> = {
     unfunded: "Unfunded",
-    funded: "Business Cash paid",
+    funded: "Cash paid",
     refunded: "Refunded",
     failed: "Payment failed",
   };

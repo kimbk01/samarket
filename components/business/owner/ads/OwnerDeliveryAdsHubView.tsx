@@ -572,9 +572,9 @@ export function OwnerDeliveryAdsHubView() {
             })}
             description={safeT("owner_platform_popup_product_desc", {
               fallbackKo:
-                "앱 화면 하단 팝업(36:25). 전체·커뮤니티·거래·배달·마이페이지에 노출. Business Cash 결제 후 관리자 심사 필요 — 결제만으로 즉시 노출되지 않습니다.",
+                "앱 화면 하단 팝업(36:25). 전체·커뮤니티·거래·배달·마이페이지에 노출. Cash 결제 후 관리자 심사 필요 — 결제만으로 즉시 노출되지 않습니다.",
               fallbackEn:
-                "Bottom popup (36:25) on All/Community/Trade/Delivery/My Page. Business Cash + admin review required — payment alone never goes live.",
+                "Bottom popup (36:25) on All/Community/Trade/Delivery/My Page. Cash + admin review required — payment alone never goes live.",
             })}
             ctaLabel={t("owner_ads_product_select_apply")}
             onNavigate={() => setProductSelectOpen(false)}

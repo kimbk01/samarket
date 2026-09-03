@@ -98,7 +98,7 @@ export function CustomerPlatformDashboardPage() {
       domain: "member",
     },
     {
-      href: "/admin/store-point-charges",
+      href: "/admin/delivery-ads/cash-charges",
       count: aq?.store_charge_pending ?? 0,
       titleKey: "admin_cp_queue_store_deposit",
       titleKo: "매장 입금 승인 대기",

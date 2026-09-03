@@ -229,7 +229,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">Business Cash</dt>
+            <dt className="text-sam-muted">Cash</dt>
             <dd>{platformPopupOwnerPaymentStatusLabel(item.paymentStatus, lang)}</dd>
           </div>
           <div>
