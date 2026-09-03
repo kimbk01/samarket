@@ -44,6 +44,8 @@ function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurfac
     if (!isPlatformPopupTargetSurface(v)) return { error: `surface_invalid:${v}` };
     if (!out.includes(v)) out.push(v);
   }
+  // GLOBAL is exclusive — never persist mixed with domain rows.
+  if (out.includes("GLOBAL")) return ["GLOBAL"];
   return out;
 }
 

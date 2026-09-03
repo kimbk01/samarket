@@ -22,9 +22,8 @@ import {
   platformPopupOwnerRequestStatusLabel,
 } from "@/lib/platform-popup/popup-product-labels";
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
-import { adminSurfaceModeLabel } from "@/lib/platform-popup/admin-surface-target-mode";
+import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
-import type { PlatformPopupTargetSurface } from "@/lib/platform-popup/types";
 
 type HubTab = "requests" | "campaigns";
 
@@ -275,7 +274,6 @@ export function AdminPlatformPopupHubPage() {
                   </thead>
                   <tbody>
                     {requests.map((item) => {
-                      const surface = (item.requestedSurfaces[0] ?? "GLOBAL") as PlatformPopupTargetSurface;
                       const cta = describePlatformPopupCtaDestination({
                         ctaType: item.ctaType,
                         ctaTarget: item.ctaTarget,
@@ -300,7 +298,9 @@ export function AdminPlatformPopupHubPage() {
                               <span className="block text-xs text-sam-muted">@{item.ownerUsername}</span>
                             ) : null}
                           </td>
-                          <td className="px-2 py-2">{adminSurfaceModeLabel(surface, lang)}</td>
+                          <td className="px-2 py-2">
+                            {adminSurfacesSelectionLabel(item.requestedSurfaces, lang)}
+                          </td>
                           <td className="px-2 py-2">{cta.readable}</td>
                           <td className="px-2 py-2">
                             {platformPopupOwnerPaymentStatusLabel(item.paymentStatus, lang)}
@@ -373,7 +373,6 @@ export function AdminPlatformPopupHubPage() {
                   </thead>
                   <tbody>
                     {campaigns.map((item) => {
-                      const surface = (item.surfaces[0] ?? "GLOBAL") as PlatformPopupTargetSurface;
                       return (
                         <tr key={item.id} className="border-b border-sam-border/60 hover:bg-sam-app/60">
                           <td className="px-2 py-2">
@@ -399,7 +398,9 @@ export function AdminPlatformPopupHubPage() {
                           <td className="px-2 py-2">
                             {platformPopupCampaignStatusLabel(item.status, lang)}
                           </td>
-                          <td className="px-2 py-2">{adminSurfaceModeLabel(surface, lang)}</td>
+                          <td className="px-2 py-2">
+                            {adminSurfacesSelectionLabel(item.surfaces, lang)}
+                          </td>
                           <td className="px-2 py-2 text-xs">
                             {(item.startAt || "—").slice(0, 10)} → {(item.endAt || "—").slice(0, 10)}
                           </td>

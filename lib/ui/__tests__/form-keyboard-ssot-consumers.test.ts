@@ -71,11 +71,13 @@ describe("form-keyboard-ssot consumer contract", () => {
     expect(src).not.toMatch(/Math\.max\(8, effectiveBottomInset\)/);
   });
 
-  it("Mypage bottom sheet shell uses Form SSOT inset, not stacked safe-area", () => {
+  it("Mypage bottom sheet shell uses usable-area sheet (Form SSOT owned by shared sheet)", () => {
     const src = read("components/mypage/profile-settings/MypageBottomSheetShell.tsx");
-    expect(src).toContain("useFormKeyboardViewport");
-    expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("DibayUsableAreaSheet");
+    expect(src).not.toContain("useFormKeyboardViewport");
+    expect(src).not.toContain("effectiveBottomInset");
     expect(src).not.toMatch(/safe-area-pb/);
+    expect(src).not.toContain("createPortal");
   });
 
   it("CS legacy thread is archive-only — not a Form keyboard sticky-composer consumer", () => {

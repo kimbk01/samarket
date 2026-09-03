@@ -15,9 +15,15 @@ import {
 } from "@/lib/platform-popup/creative-pipeline-geometry";
 import {
   PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
+  adminSurfacesFromDb,
   adminTargetModeFromSurfaces,
+  normalizeAdminSurfaceSelection,
+  surfacesFromAdminSelection,
   surfacesFromAdminTargetMode,
+  toggleAdminSurfaceSelection,
 } from "@/lib/platform-popup/admin-surface-target-mode";
+import { resolveDibaySurface } from "@/lib/platform-popup/resolve-dibay-surface";
+import { platformPopupSurfaceMatches } from "@/lib/platform-popup/surfaces";
 import { PLATFORM_POPUP_CREATIVE_ASPECT } from "@/lib/platform-popup/types";
 import { PLATFORM_POPUP_TABLET_MAX_WIDTH_PX } from "@/lib/platform-popup/popup-geometry-tokens";
 
@@ -48,8 +54,8 @@ describe("CUT 5-R creative pixel SSOT", () => {
   });
 });
 
-describe("CUT 5-R admin surface radio mapping", () => {
-  it("exposes exactly seven human modes", () => {
+describe("CUT 5-R admin surface multi-select mapping", () => {
+  it("exposes GLOBAL + six domains", () => {
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
       "GLOBAL",
       "COMMUNITY",
@@ -70,7 +76,7 @@ describe("CUT 5-R admin surface radio mapping", () => {
     ]);
   });
 
-  it("maps radio → single surface row", () => {
+  it("maps single mode → surfaces (compat)", () => {
     expect(surfacesFromAdminTargetMode("GLOBAL")).toEqual(["GLOBAL"]);
     expect(surfacesFromAdminTargetMode("DELIVERY")).toEqual(["DELIVERY"]);
     expect(surfacesFromAdminTargetMode("DELIVERY_OWNER")).toEqual(["DELIVERY_OWNER"]);
@@ -80,26 +86,71 @@ describe("CUT 5-R admin surface radio mapping", () => {
     expect(surfacesFromAdminTargetMode("MYPAGE")).toEqual(["MYPAGE"]);
   });
 
-  it("hydrates DB rows → single radio mode", () => {
-    expect(adminTargetModeFromSurfaces(["GLOBAL"])).toBe("GLOBAL");
-    expect(adminTargetModeFromSurfaces(["DELIVERY"])).toBe("DELIVERY");
-    expect(adminTargetModeFromSurfaces(["GLOBAL", "TRADE"])).toBe("GLOBAL");
+  it("multi-select keeps domains; GLOBAL is exclusive", () => {
+    expect(surfacesFromAdminSelection(["TRADE", "DELIVERY"])).toEqual(["TRADE", "DELIVERY"]);
+    expect(surfacesFromAdminSelection(["GLOBAL", "TRADE"])).toEqual(["GLOBAL"]);
+    expect(toggleAdminSurfaceSelection(["GLOBAL"], "TRADE", true)).toEqual(["TRADE"]);
+    expect(toggleAdminSurfaceSelection(["TRADE"], "COMMUNITY", true)).toEqual([
+      "COMMUNITY",
+      "TRADE",
+    ]);
+    expect(toggleAdminSurfaceSelection(["TRADE", "COMMUNITY"], "TRADE", false)).toEqual([
+      "COMMUNITY",
+    ]);
+    expect(toggleAdminSurfaceSelection(["TRADE"], "TRADE", false)).toEqual(["GLOBAL"]);
+    expect(normalizeAdminSurfaceSelection([])).toEqual(["GLOBAL"]);
+  });
+
+  it("hydrates DB rows → selection (preserves multi)", () => {
+    expect(adminSurfacesFromDb(["GLOBAL"])).toEqual(["GLOBAL"]);
+    expect(adminSurfacesFromDb(["DELIVERY"])).toEqual(["DELIVERY"]);
+    expect(adminSurfacesFromDb(["GLOBAL", "TRADE"])).toEqual(["GLOBAL"]);
+    expect(adminSurfacesFromDb(["TRADE", "DELIVERY"])).toEqual(["TRADE", "DELIVERY"]);
+    expect(adminSurfacesFromDb([])).toEqual(["GLOBAL"]);
     expect(adminTargetModeFromSurfaces(["TRADE", "DELIVERY"])).toBe("TRADE");
-    expect(adminTargetModeFromSurfaces([])).toBe("GLOBAL");
+  });
+
+  it("selected surfaces match resolveDibaySurface page paths", () => {
+    const cases: Array<{
+      surface: "COMMUNITY" | "TRADE" | "DELIVERY" | "DELIVERY_OWNER" | "ADMIN" | "MYPAGE";
+      path: string;
+    }> = [
+      { surface: "COMMUNITY", path: "/philife" },
+      { surface: "COMMUNITY", path: "/community" },
+      { surface: "TRADE", path: "/market" },
+      { surface: "TRADE", path: "/post/abc" },
+      { surface: "TRADE", path: "/write" },
+      { surface: "DELIVERY", path: "/stores" },
+      { surface: "DELIVERY", path: "/delivery" },
+      { surface: "DELIVERY_OWNER", path: "/stores/owner" },
+      { surface: "DELIVERY_OWNER", path: "/my/business" },
+      { surface: "ADMIN", path: "/admin" },
+      { surface: "ADMIN", path: "/admin/platform-popup" },
+      { surface: "MYPAGE", path: "/mypage" },
+      { surface: "MYPAGE", path: "/my" },
+    ];
+    for (const c of cases) {
+      expect(resolveDibaySurface(c.path)).toBe(c.surface);
+      expect(platformPopupSurfaceMatches([c.surface], c.surface)).toBe(true);
+      expect(platformPopupSurfaceMatches(["GLOBAL"], c.surface)).toBe(true);
+    }
+    expect(platformPopupSurfaceMatches(["TRADE", "DELIVERY"], "COMMUNITY")).toBe(false);
+    expect(platformPopupSurfaceMatches(["TRADE", "COMMUNITY"], "TRADE")).toBe(true);
+    expect(platformPopupSurfaceMatches(["TRADE", "COMMUNITY"], "DELIVERY")).toBe(false);
   });
 });
 
 describe("CUT 5-R file contracts", () => {
-  it("Admin detail uses radio + PC load + crop preview + DibayPopupAd", () => {
+  it("Admin detail uses multi-select + PC load + crop preview + DibayPopupAd", () => {
     const detail = readRepo("components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx");
     expect(detail).toContain("이미지 불러오기");
     expect(detail).toContain("data-admin-popup-creative-spec");
-    expect(detail).toContain("data-admin-popup-surface-radio");
-    expect(detail).toContain("type=\"radio\"");
-    expect(detail).not.toMatch(/PLATFORM_POPUP_TARGET_SURFACES\.map/);
+    expect(detail).toContain("data-admin-popup-surface-select");
+    expect(detail).toContain('type={isGlobal ? "radio" : "checkbox"}');
+    expect(detail).toContain("toggleAdminSurfaceSelection");
+    expect(detail).toContain("surfacesFromAdminSelection");
     expect(detail).toContain("buildPlatformPopupCenterCropPreviewUrl");
     expect(detail).toContain("DIBAY_CANONICAL_POPUP_CREATIVE_SIZE");
-    expect(detail).toContain("surfacesFromAdminTargetMode");
   });
 
   it("Admin preview phone/tablet only; uses DibayPopupAd; no landscape conversion UI", () => {

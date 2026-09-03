@@ -17,8 +17,9 @@ import {
   platformPopupOwnerRequestStatusLabel,
 } from "@/lib/platform-popup/popup-product-labels";
 import {
-  adminSurfaceModeLabel,
-  adminTargetModeFromSurfaces,
+  adminSurfacesFromDb,
+  adminSurfacesSelectionLabel,
+  previewSurfaceFromAdminSelection,
 } from "@/lib/platform-popup/admin-surface-target-mode";
 
 export function AdminPlatformPopupRequestDetailWorkspace() {
@@ -69,7 +70,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
     });
   }, [item, lang]);
 
-  const surfaceMode = item ? adminTargetModeFromSurfaces(item.requestedSurfaces) : "GLOBAL";
+  const selectedSurfaces = item ? adminSurfacesFromDb(item.requestedSurfaces) : (["GLOBAL"] as const);
 
   const act = async (
     action: PlatformPopupOwnerRequestAdminAction,
@@ -166,7 +167,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
                   altText: item.creativeAltText || "Advertisement",
                   ctaHref: cta?.href || `/stores/${item.storeId}`,
                   ctaType: item.ctaType,
-                  surface: surfaceMode === "GLOBAL" ? "TRADE" : surfaceMode,
+                  surface: previewSurfaceFromAdminSelection(selectedSurfaces),
                   suppressionMode: item.suppressionMode,
                   suppressionDurationSeconds: item.suppressionDurationSeconds,
                   timezone: item.timezone,
@@ -202,7 +203,7 @@ export function AdminPlatformPopupRequestDetailWorkspace() {
           </div>
           <div>
             <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 영역"}</dt>
-            <dd>{adminSurfaceModeLabel(surfaceMode, lang)}</dd>
+            <dd>{adminSurfacesSelectionLabel(selectedSurfaces, lang)}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{lang === "en" ? "Schedule" : "노출 기간"}</dt>

@@ -16,10 +16,15 @@ import {
 import {
   PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
   adminSurfaceModeLabel,
-  adminTargetModeFromSurfaces,
-  surfacesFromAdminTargetMode,
+  adminSurfacesFromDb,
+  adminSurfacesSelectionLabel,
+  isAdminSurfaceSelected,
+  previewSurfaceFromAdminSelection,
+  surfacesFromAdminSelection,
+  toggleAdminSurfaceSelection,
   type PlatformPopupAdminSurfaceMode,
 } from "@/lib/platform-popup/admin-surface-target-mode";
+import type { PlatformPopupTargetSurface } from "@/lib/platform-popup/types";
 import {
   decodePlatformPopupOwnerCtaDestination,
   encodePlatformPopupOwnerCtaDestination,
@@ -76,7 +81,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [timezone, setTimezone] = useState<string>(PLATFORM_POPUP_DEFAULT_TIMEZONE);
   const [startLocal, setStartLocal] = useState("");
   const [endLocal, setEndLocal] = useState("");
-  const [surfaceMode, setSurfaceMode] = useState<PlatformPopupAdminSurfaceMode>("GLOBAL");
+  const [selectedSurfaces, setSelectedSurfaces] = useState<PlatformPopupTargetSurface[]>(["GLOBAL"]);
   const [suppressionMode, setSuppressionMode] = useState("TODAY");
   const [durationSec, setDurationSec] = useState<number | "">("");
   const [ctaType, setCtaType] = useState("internal_page");
@@ -92,7 +97,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setTimezone(c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE);
     setStartLocal(toLocalInput(c.startAt));
     setEndLocal(toLocalInput(c.endAt));
-    setSurfaceMode(adminTargetModeFromSurfaces(c.surfaces));
+    setSelectedSurfaces(adminSurfacesFromDb(c.surfaces));
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
     setCtaType(c.ctaType);
@@ -156,7 +161,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       altText: altText || campaign.creative?.altText || "Advertisement",
       ctaHref: ctaHrefPreview || "/market",
       ctaType,
-      surface: surfaceMode,
+      surface: previewSurfaceFromAdminSelection(selectedSurfaces),
       suppressionMode,
       suppressionDurationSeconds:
         durationSec === "" ? null : Number(durationSec) > 0 ? Number(durationSec) : null,
@@ -169,7 +174,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     altText,
     ctaHrefPreview,
     ctaType,
-    surfaceMode,
+    selectedSurfaces,
     suppressionMode,
     durationSec,
     timezone,
@@ -191,7 +196,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         timezone,
         startAt: fromLocalInput(startLocal),
         endAt: fromLocalInput(endLocal),
-        surfaces: surfacesFromAdminTargetMode(surfaceMode),
+        surfaces: surfacesFromAdminSelection(selectedSurfaces),
         suppressionMode,
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
         ctaType,
@@ -496,43 +501,52 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   "Payment, call, and high-risk screens are gated by the system — separate from placement.",
               })}
             </p>
-            <fieldset className="space-y-2" data-admin-popup-surface-radio="1">
-              {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => (
-                <label
-                  key={opt.mode}
-                  className="flex cursor-pointer items-start gap-2 rounded border border-sam-border px-3 py-2 text-sm"
-                >
-                  <input
-                    type="radio"
-                    name="platform-popup-surface-mode"
-                    className="mt-1"
-                    checked={surfaceMode === opt.mode}
-                    onChange={() => {
-                      markDirty();
-                      setSurfaceMode(opt.mode);
-                    }}
-                  />
-                  <span>
-                    <span className="font-medium">
-                      {language === "en" ? opt.labelEn : opt.labelKo}
+            <fieldset className="space-y-2" data-admin-popup-surface-select="1">
+              {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
+                const selected = isAdminSurfaceSelected(selectedSurfaces, opt.mode);
+                const isGlobal = opt.mode === "GLOBAL";
+                return (
+                  <label
+                    key={opt.mode}
+                    className={`flex cursor-pointer items-start gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                      selected
+                        ? "border-sam-primary bg-sam-primary/10 text-sam-fg"
+                        : "border-sam-border bg-sam-surface text-sam-fg"
+                    }`}
+                    data-admin-popup-surface-option={opt.mode}
+                    data-selected={selected ? "1" : "0"}
+                  >
+                    <input
+                      type={isGlobal ? "radio" : "checkbox"}
+                      name={isGlobal ? "platform-popup-surface-global" : undefined}
+                      className="mt-1 accent-[var(--sam-primary)]"
+                      checked={selected}
+                      onChange={() => {
+                        markDirty();
+                        setSelectedSurfaces((prev) =>
+                          toggleAdminSurfaceSelection(prev, opt.mode, isGlobal ? true : !selected)
+                        );
+                      }}
+                    />
+                    <span>
+                      <span className={`font-medium ${selected ? "text-sam-primary" : ""}`}>
+                        {language === "en" ? opt.labelEn : opt.labelKo}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-sam-muted">
+                        {language === "en" ? opt.helpEn : opt.helpKo}
+                      </span>
+                      <span className="mt-0.5 block font-mono text-[11px] text-sam-muted">
+                        {language === "en" ? opt.pagesEn : opt.pagesKo}
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-xs text-sam-muted">
-                      {language === "en" ? opt.helpEn : opt.helpKo}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </fieldset>
             <p className="mt-2 text-xs text-sam-muted">
               {safeT("admin_platform_popup_placement_current", {
-                fallbackKo: `현재 선택: ${
-                  PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.find((o) => o.mode === surfaceMode)
-                    ?.labelKo ?? surfaceMode
-                }`,
-                fallbackEn: `Selected: ${
-                  PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.find((o) => o.mode === surfaceMode)
-                    ?.labelEn ?? surfaceMode
-                }`,
+                fallbackKo: `현재 선택: ${adminSurfacesSelectionLabel(selectedSurfaces, "ko")}`,
+                fallbackEn: `Selected: ${adminSurfacesSelectionLabel(selectedSurfaces, "en")}`,
               })}
               {dirty
                 ? ` · ${safeT("admin_platform_popup_unsaved", {

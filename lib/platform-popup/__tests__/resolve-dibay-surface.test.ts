@@ -62,7 +62,7 @@ describe("resolveDibaySurface — surface SSOT (Admin/Owner selectable)", () => 
     ]);
   });
 
-  it("Admin/Owner radio exposes seven modes", () => {
+  it("Admin/Owner placement exposes GLOBAL + six multi-select domains", () => {
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
       "GLOBAL",
       "COMMUNITY",

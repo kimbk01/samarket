@@ -18,7 +18,7 @@ import {
   platformPopupOwnerRequestStatusLabel,
 } from "@/lib/platform-popup/popup-product-labels";
 import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
-import { adminSurfaceModeLabel, adminTargetModeFromSurfaces } from "@/lib/platform-popup/admin-surface-target-mode";
+import { adminSurfacesSelectionLabel } from "@/lib/platform-popup/admin-surface-target-mode";
 
 export function OwnerPlatformPopupRequestDetailView() {
   const { safeT, language } = useI18n();
@@ -156,7 +156,7 @@ export function OwnerPlatformPopupRequestDetailView() {
           <div className="flex justify-between gap-2">
             <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 영역"}</dt>
             <dd>
-              {adminSurfaceModeLabel(adminTargetModeFromSurfaces(item.requestedSurfaces), lang)}
+              {adminSurfacesSelectionLabel(item.requestedSurfaces, lang)}
             </dd>
           </div>
           <div className="flex justify-between gap-2">

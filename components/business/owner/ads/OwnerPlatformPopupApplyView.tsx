@@ -2,7 +2,7 @@
 
 /**
  * Owner Platform Popup apply workspace — product UX completion.
- * Surface radio + CTA destinations + visible crop + Cash recovery with requestId.
+ * Surface multi-select + CTA destinations + visible crop + Cash recovery with requestId.
  */
 
 import Link from "next/link";
@@ -33,10 +33,13 @@ import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import {
   PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
-  adminSurfaceModeLabel,
-  surfacesFromAdminTargetMode,
-  type PlatformPopupAdminSurfaceMode,
+  adminSurfacesFromDb,
+  adminSurfacesSelectionLabel,
+  isAdminSurfaceSelected,
+  surfacesFromAdminSelection,
+  toggleAdminSurfaceSelection,
 } from "@/lib/platform-popup/admin-surface-target-mode";
+import type { PlatformPopupTargetSurface } from "@/lib/platform-popup/types";
 import {
   decodePlatformPopupOwnerCtaDestination,
   encodePlatformPopupOwnerCtaDestination,
@@ -89,7 +92,7 @@ export function OwnerPlatformPopupApplyView() {
   const [cashBalanceMinor, setCashBalanceMinor] = useState(0);
   const [storeId, setStoreId] = useState(preloadStoreId);
   const [request, setRequest] = useState<PlatformPopupOwnerRequestRow | null>(null);
-  const [surfaceMode, setSurfaceMode] = useState<PlatformPopupAdminSurfaceMode>("GLOBAL");
+  const [selectedSurfaces, setSelectedSurfaces] = useState<PlatformPopupTargetSurface[]>(["GLOBAL"]);
   const [ctaKind, setCtaKind] = useState<PlatformPopupOwnerCtaKind>("store");
   const [packageId, setPackageId] = useState("");
   const [startAt, setStartAt] = useState("");
@@ -145,11 +148,7 @@ export function OwnerPlatformPopupApplyView() {
             const item = json.item;
             setRequest(item);
             setStoreId(item.storeId);
-            setSurfaceMode(
-              (item.requestedSurfaces.includes("GLOBAL")
-                ? "GLOBAL"
-                : item.requestedSurfaces[0] || "GLOBAL") as PlatformPopupAdminSurfaceMode
-            );
+            setSelectedSurfaces(adminSurfacesFromDb(item.requestedSurfaces));
             setPackageId(item.packageId ?? "");
             setStartAt(toLocalInput(item.requestedStartAt));
             setEndAt(toLocalInput(item.requestedEndAt));
@@ -245,7 +244,7 @@ export function OwnerPlatformPopupApplyView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           packageId: packageId || null,
-          surfaces: surfacesFromAdminTargetMode(surfaceMode),
+          surfaces: surfacesFromAdminSelection(selectedSurfaces),
           startAt: fromLocalInput(startAt),
           endAt: fromLocalInput(endAt),
           ctaType: cta.value.ctaType,
@@ -266,7 +265,7 @@ export function OwnerPlatformPopupApplyView() {
     } finally {
       setBusy(false);
     }
-  }, [ensureDraft, packageId, surfaceMode, startAt, endAt, ctaKind]);
+  }, [ensureDraft, packageId, selectedSurfaces, startAt, endAt, ctaKind]);
 
   const onPickFile = async (file: File) => {
     setBusy(true);
@@ -540,26 +539,50 @@ export function OwnerPlatformPopupApplyView() {
           fallbackEn: "Placement",
         })}
       >
-        <fieldset className="space-y-2" data-owner-popup-surface-radio="1">
-          {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => (
-            <label key={opt.mode} className="flex cursor-pointer items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="owner-popup-surface"
-                checked={surfaceMode === opt.mode}
-                onChange={() => setSurfaceMode(opt.mode)}
-              />
-              <span>
-                <span className="font-medium">{lang === "en" ? opt.labelEn : opt.labelKo}</span>
-                <span className="mt-0.5 block text-[12px] text-sam-muted">
-                  {lang === "en" ? opt.helpEn : opt.helpKo}
+        <fieldset className="space-y-2" data-owner-popup-surface-select="1">
+          {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => {
+            const selected = isAdminSurfaceSelected(selectedSurfaces, opt.mode);
+            const isGlobal = opt.mode === "GLOBAL";
+            return (
+              <label
+                key={opt.mode}
+                className={`flex cursor-pointer items-start gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                  selected
+                    ? "border-sam-primary bg-sam-primary/10 text-sam-fg"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
+                }`}
+                data-owner-popup-surface-option={opt.mode}
+                data-selected={selected ? "1" : "0"}
+              >
+                <input
+                  type={isGlobal ? "radio" : "checkbox"}
+                  name={isGlobal ? "owner-popup-surface-global" : undefined}
+                  className="mt-1 accent-[var(--sam-primary)]"
+                  checked={selected}
+                  onChange={() => {
+                    setSelectedSurfaces((prev) =>
+                      toggleAdminSurfaceSelection(prev, opt.mode, isGlobal ? true : !selected)
+                    );
+                  }}
+                />
+                <span>
+                  <span className={`font-medium ${selected ? "text-sam-primary" : ""}`}>
+                    {lang === "en" ? opt.labelEn : opt.labelKo}
+                  </span>
+                  <span className="mt-0.5 block text-[12px] text-sam-muted">
+                    {lang === "en" ? opt.helpEn : opt.helpKo}
+                  </span>
+                  <span className="mt-0.5 block font-mono text-[11px] text-sam-muted">
+                    {lang === "en" ? opt.pagesEn : opt.pagesKo}
+                  </span>
                 </span>
-              </span>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </fieldset>
         <p className="mt-2 text-[12px] text-sam-muted">
-          {lang === "en" ? "Selected" : "현재 선택"}: {adminSurfaceModeLabel(surfaceMode, lang)}
+          {lang === "en" ? "Selected" : "현재 선택"}:{" "}
+          {adminSurfacesSelectionLabel(selectedSurfaces, lang)}
         </p>
       </OwnerStoreAdminDashSection>
 
@@ -810,7 +833,8 @@ export function OwnerPlatformPopupApplyView() {
                 {lang === "en" ? "Store" : "매장"}: {storeName}
               </li>
               <li>
-                {lang === "en" ? "Placement" : "노출"}: {adminSurfaceModeLabel(surfaceMode, lang)}
+                {lang === "en" ? "Placement" : "노출"}:{" "}
+                {adminSurfacesSelectionLabel(selectedSurfaces, lang)}
               </li>
               <li>
                 CTA: {platformPopupOwnerCtaKindLabel(ctaKind, lang)}

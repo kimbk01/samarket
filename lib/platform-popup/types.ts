@@ -56,7 +56,7 @@ export const PLATFORM_POPUP_EVENT_TYPES = [
 ] as const;
 export type PlatformPopupEventType = (typeof PLATFORM_POPUP_EVENT_TYPES)[number];
 
-/** Canonical advertising surfaces (Admin/Owner DB SSOT + radio). */
+/** Canonical advertising surfaces (Admin/Owner DB SSOT + placement UI). */
 export const PLATFORM_POPUP_TARGET_SURFACES = [
   "GLOBAL",
   "COMMUNITY",

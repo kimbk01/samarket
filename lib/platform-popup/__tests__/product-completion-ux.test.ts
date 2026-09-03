@@ -93,7 +93,7 @@ describe("platform popup product completion — CTA SSOT", () => {
 });
 
 describe("platform popup product completion — surface + suppression", () => {
-  it("Owner/Admin surface radio maps to single-row surfaces", () => {
+  it("Owner/Admin surface selection maps to save rows", () => {
     expect(surfacesFromAdminTargetMode("GLOBAL")).toEqual(["GLOBAL"]);
     expect(surfacesFromAdminTargetMode("TRADE")).toEqual(["TRADE"]);
   });
@@ -141,7 +141,8 @@ describe("platform popup product completion — Admin IA", () => {
     const detail = readRepo(
       "components/admin/platform-popup/AdminPlatformPopupDetailWorkspace.tsx"
     );
-    expect(detail).toContain("data-admin-popup-surface-radio");
+    expect(detail).toContain("data-admin-popup-surface-select");
+    expect(detail).toContain("toggleAdminSurfaceSelection");
     expect(detail).toContain("admin_platform_popup_action_approve_active");
     expect(detail).toContain("admin_platform_popup_placement_system_note");
     expect(detail).toContain("data-admin-popup-preview-sticky");
@@ -153,9 +154,10 @@ describe("platform popup product completion — Admin IA", () => {
     expect(preview).toContain("data-admin-popup-preview-landscape-note");
   });
 
-  it("Owner apply uses surface radio + CTA kinds + requestId recovery", () => {
+  it("Owner apply uses surface multi-select + CTA kinds + requestId recovery", () => {
     const apply = readRepo("components/business/owner/ads/OwnerPlatformPopupApplyView.tsx");
-    expect(apply).toContain("data-owner-popup-surface-radio");
+    expect(apply).toContain("data-owner-popup-surface-select");
+    expect(apply).toContain("toggleAdminSurfaceSelection");
     expect(apply).toContain("data-owner-popup-cta-radio");
     expect(apply).toContain("requestId");
     expect(apply).toContain("data-owner-popup-visible-crop");
