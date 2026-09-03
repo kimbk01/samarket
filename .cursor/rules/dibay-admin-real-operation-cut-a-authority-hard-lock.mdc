@@ -1,0 +1,44 @@
+---
+description: Admin Real Operation CUT A — authority/legacy/NO_NEW_WRITE hard lock
+globs:
+  - components/admin/**
+  - lib/admin/**
+  - lib/stores/advertising/**
+  - lib/ads/**
+  - lib/platform-popup/**
+  - lib/support/**
+  - lib/currency/**
+  - lib/points/**
+  - app/admin/**
+  - app/api/admin/**
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT A HARD LOCK
+
+Full doc: `docs/dibay-admin-real-operation-cut-a-authority-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-a-authority-hard-lock`
+
+## DO
+
+- Use canonical owners from `lib/admin/admin-real-operation-cut-a-authority-hard-lock.ts`
+- Keep HOME/CATEGORY composition as CONFIGURATION (`CROSS_LINK_ONLY` for Ads)
+- Keep Feed / Popup / Delivery placement registries **separate**
+- Keep Partner as membership (`R3_ADMIN_PARTNER_NOT_PRODUCT`), not AdProduct
+- Keep Support cases ≠ Delivery ops threads ≠ legacy `platform_admin_inquiries`
+
+## DO NOT
+
+- Create `/admin/growth`, `/admin/ads-center`, `/admin/ads-v2`, or resurrect `/admin/operations` as a product hub
+- Add writes to NO_NEW_WRITE APIs (must stay 410 / `legacy_writer_disabled`)
+- Replace redirect-only admin pages with new writers
+- Invent `unified_*` tables / parallel wallet / parallel support SSOT
+- Absorb Popup into Delivery ad tables
+- Rename `*_campaigns` tables for UX wording
+- Treat UI “Business Cash” as a fourth currency (product name = Cash)
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-a-authority-hard-lock
+```
