@@ -103,6 +103,7 @@ function SupportSheetChrome({
       <div
         className="mb-2 flex shrink-0 items-start gap-2"
         data-support-sheet-header="1"
+        data-form-keyboard-sticky-chrome="1"
       >
         <div className="min-w-0 flex-1 pr-1">
           <h2

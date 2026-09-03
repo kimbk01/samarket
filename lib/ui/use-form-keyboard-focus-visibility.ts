@@ -27,6 +27,10 @@ function isTextEntryTarget(el: EventTarget | null): el is HTMLElement {
   return el.isContentEditable;
 }
 
+function isInsideFormFooter(el: HTMLElement): boolean {
+  return Boolean(el.closest("[data-form-keyboard-footer='1']"));
+}
+
 /** Prefer caret-line height for tall textareas (CASE D) — not full box. */
 function resolveFocusedBandHeightPx(focused: HTMLElement): number {
   const rect = focused.getBoundingClientRect();
@@ -79,7 +83,8 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
       const footer = document.querySelector<HTMLElement>(
         "[data-form-keyboard-footer='1']"
       );
-      if (footer) {
+      const focused = activeFocusedRef.current;
+      if (footer && focused && !footer.contains(focused)) {
         const footerTop = Math.round(footer.getBoundingClientRect().top);
         if (Number.isFinite(footerTop) && footerTop > 0) {
           bandBottom = Math.min(bandBottom, footerTop);
@@ -149,6 +154,8 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
     const onFocusIn = (e: FocusEvent) => {
       if (!isTextEntryTarget(e.target)) return;
       const focused = e.target as HTMLElement;
+      // Sticky footer fields are kept visible by the footer/padding authority.
+      if (isInsideFormFooter(focused)) return;
       const boundRoot = scrollRootRef?.current;
       if (boundRoot && !boundRoot.contains(focused)) return;
       activeFocusedRef.current = focused;
@@ -180,6 +187,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
 
     const existing = document.activeElement;
     if (isTextEntryTarget(existing)) {
+      if (isInsideFormFooter(existing)) return;
       const boundRoot = scrollRootRef?.current;
       if (!boundRoot || boundRoot.contains(existing)) {
         activeFocusedRef.current = existing;
@@ -221,7 +229,7 @@ export function useFormKeyboardFocusVisibility(opts: Options): void {
         const footer = document.querySelector<HTMLElement>(
           "[data-form-keyboard-footer='1']"
         );
-        if (footer) {
+        if (footer && !footer.contains(focused)) {
           const footerTop = Math.round(footer.getBoundingClientRect().top);
           if (Number.isFinite(footerTop) && footerTop > 0) {
             bandBottom = Math.min(bandBottom, footerTop);

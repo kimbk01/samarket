@@ -151,9 +151,11 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).toContain("el.scrollTop = el.scrollHeight");
     expect(host).toContain('data-support-sheet-chrome="1"');
     expect(host).toContain('data-support-sheet-header="1"');
+    expect(host).toContain('data-form-keyboard-sticky-chrome="1"');
     expect(host).toContain('data-support-message-list="1"');
     expect(host).toContain('data-support-composer="1"');
     expect(host).toContain("data-form-keyboard-field");
+    expect(host).not.toContain("useFormKeyboardFocusVisibility");
     expect(host).not.toContain("keyboardOpen");
     expect(shell).toContain("DibayUsableAreaSheet");
     expect(shell).not.toContain("DibayBottomSheet");

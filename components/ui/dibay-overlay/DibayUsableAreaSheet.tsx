@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import {
   MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS,
   MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS,
@@ -12,6 +12,7 @@ import {
   type DibayUsableAreaSheetAnchor,
 } from "@/lib/ui/dibay-usable-area-sheet-contract";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { useFormKeyboardFocusVisibility } from "@/lib/ui/use-form-keyboard-focus-visibility";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { DibayOverlayRoot, useOverlayTitleIds } from "./DibayOverlayRoot";
 
@@ -66,12 +67,21 @@ export function DibayUsableAreaSheet({
   footer,
 }: DibayUsableAreaSheetProps) {
   const { titleId } = useOverlayTitleIds("usable-area-sheet");
+  const headerRef = useRef<HTMLDivElement | HTMLHeadingElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const {
     effectiveBottomInset,
+    effectiveViewportBottom,
     keyboardOpen,
     visualViewportHeight,
     visualViewportOffsetTop,
   } = useFormKeyboardViewport({ enabled: open });
+  useFormKeyboardFocusVisibility({
+    enabled: open,
+    scrollRootRef: bodyRef,
+    stickyChromeRef: headerRef,
+    effectiveViewportBottom,
+  });
 
   const aboveNav = anchor === "above-bottom-nav";
   const ratio =
@@ -157,21 +167,30 @@ export function DibayUsableAreaSheet({
       >
         {showHandle ? <div className={OverlayUi.sheetHandle} aria-hidden /> : null}
         {header != null ? (
-          <div className="shrink-0" data-dibay-usable-area-header="1">
+          <div
+            ref={headerRef}
+            className="shrink-0"
+            data-dibay-usable-area-header="1"
+            data-form-keyboard-sticky-chrome="1"
+          >
             {header}
           </div>
         ) : title != null ? (
           <h2
+            ref={headerRef}
             id={titleId}
             className={`${OverlayUi.title} ${OverlayUi.titleSheet} shrink-0`}
             data-dibay-usable-area-header="1"
+            data-form-keyboard-sticky-chrome="1"
           >
             {title}
           </h2>
         ) : null}
         <div
+          ref={bodyRef}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
           data-dibay-usable-area-body="1"
+          data-form-keyboard-scroll-root="1"
         >
           {children}
         </div>

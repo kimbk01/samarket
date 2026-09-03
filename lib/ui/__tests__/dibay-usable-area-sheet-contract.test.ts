@@ -21,12 +21,16 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
   it("DibayUsableAreaSheet owns VV band + pad-only inset; does not leak raw geometry props", () => {
     const src = read("components/ui/dibay-overlay/DibayUsableAreaSheet.tsx");
     expect(src).toContain("useFormKeyboardViewport");
+    expect(src).toContain("useFormKeyboardFocusVisibility");
     expect(src).toContain("effectiveBottomInset");
+    expect(src).toContain("effectiveViewportBottom");
     expect(src).toContain("visualViewportHeight");
     expect(src).toContain("visualViewportOffsetTop");
     expect(src).toContain("stageStyle");
     expect(src).toContain("paddingTop: \"var(--safe-top)\"");
     expect(src).toContain("paddingBottom:");
+    expect(src).toContain("data-form-keyboard-scroll-root");
+    expect(src).toContain("data-form-keyboard-sticky-chrome");
     expect(src).toContain(DIBAY_USABLE_AREA_SHEET_MARKER);
     // Semantic consumer API — no raw VV props on the public type surface
     expect(src).not.toMatch(/visualViewportHeight\?:/);
@@ -42,6 +46,22 @@ describe("Dibay usable-area sheet — OPTION B shared authority", () => {
     expect(shell).not.toContain("visualViewport");
     expect(shell).not.toContain("stageStyle");
     expect(shell).not.toContain("contentPaddingBottomPx");
+  });
+
+  it("Support exposes chrome to shared focus visibility without owning geometry", () => {
+    const host = read("components/support/SupportModalHost.tsx");
+    expect(host).toContain("data-form-keyboard-sticky-chrome");
+    expect(host).not.toContain("useFormKeyboardFocusVisibility");
+    expect(host).not.toContain("ensureFormFocusVisibleInScrollRoot");
+    expect(host).not.toContain("resolveFormEffectiveViewportTopPx");
+  });
+
+  it("Form focus visibility keeps footer fields under padding authority", () => {
+    const src = read("lib/ui/use-form-keyboard-focus-visibility.ts");
+    expect(src).toContain("isInsideFormFooter");
+    expect(src).toContain("footer.contains(focused)");
+    expect(src).toContain("Sticky footer fields are kept visible");
+    expect(src).not.toMatch(/\.scrollIntoView\(/);
   });
 
   it("MypageBottomSheetShell migrates off parallel portal onto usable-area sheet", () => {
