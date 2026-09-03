@@ -91,10 +91,10 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(adminDeliveryAdsHubApiBucket("history")).toBe("all");
   });
 
-  it("R3-T5 — Action Queue remains primary ahead of campaign list", () => {
+  it("R3-T5 — Action Queue remains primary ahead of execution list", () => {
     const src = hub();
     expect(src.indexOf('data-admin-delivery-ads-section="action-queue"')).toBeLessThan(
-      src.indexOf('data-admin-delivery-ads-section="campaign-list"')
+      src.indexOf('data-admin-delivery-ads-section="execution-list"')
     );
   });
 

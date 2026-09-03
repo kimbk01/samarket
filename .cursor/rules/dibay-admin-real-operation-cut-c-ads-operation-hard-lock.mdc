@@ -1,0 +1,37 @@
+---
+description: Admin Real Operation CUT C — Ads operation close hard lock
+globs:
+  - components/admin/stores/**
+  - lib/stores/advertising/**
+  - lib/ads/**
+  - lib/platform-popup/**
+  - lib/admin/admin-real-operation-cut-c*
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT C HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-c-ads-operation-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-c-ads-operation-hard-lock`
+
+## DO
+
+- Use Product / Application / Execution / Creative / Placement / Billing / Approval vocabulary in UI
+- Consume `delivery-ad-admin-required-decision` + `delivery-ad-admin-action-queue-presentation` for CTAs
+- Keep APPLICATION==EXECUTION as **KEEP_CURRENT** (no schema split without proven FAIL)
+- Deep-link Finance / Cash queue from Ads detail; CROSS_LINK HOME/CATEGORY config only
+
+## DO NOT
+
+- Payment → ACTIVE for OWNER_PAID
+- Merge Feed/Popup into Delivery tables
+- Treat Partner as AdProduct
+- Drive Ads/Cash queues from admin-bell `store_charges`
+- Claim CUT B Finance Production E2E / Coin earn / Tablet as PASS
+- Rename `*_campaigns` tables or invent unified Campaign SSOT
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-c-ads-operation-hard-lock
+```

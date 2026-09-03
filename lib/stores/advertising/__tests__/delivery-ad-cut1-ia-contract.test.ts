@@ -45,6 +45,10 @@ describe("deliveryAdPlacementI18nKey", () => {
     expect(deliveryAdsAdminHubHref({ inventory: "STORES_HOME_FEED" })).toBe(
       "/admin/delivery-ads?inventory=STORES_HOME_FEED"
     );
+    expect(deliveryAdPolicyScreenHref("STORES_HOME_HERO")).toBe("/admin/stores-home-shelves");
+    expect(deliveryAdPolicyScreenHref("STORES_SEARCH_TOP")).toBe(
+      "/admin/delivery-ads/inventory"
+    );
   });
 });
 

@@ -815,11 +815,35 @@ export function AdminDeliveryAdDetailWorkspace({
                     <p className="mt-1 text-[11px] text-sam-muted">
                       {safeT("admin_delivery_ads_cash_credit_note", {
                         fallbackKo:
-                          "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다.",
+                          "광고비는 신청 시 Cash에서 확보됩니다. Admin은 금액을 수정할 수 없습니다. 결제만으로 ACTIVE 되지 않습니다.",
                         fallbackEn:
-                          "Ad fees are secured from Cash at submit. Admins cannot edit the amount.",
+                          "Ad fees are secured from Cash at submit. Admins cannot edit the amount. Payment alone never goes ACTIVE.",
                       })}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {campaign.storeId ? (
+                        <Link
+                          href={`/admin/finance?storeId=${encodeURIComponent(campaign.storeId)}`}
+                          className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-[var(--currency-cash-border)] bg-sam-surface px-3 text-[12px] font-semibold text-[var(--currency-cash-accent)]"
+                          data-admin-delivery-ads-finance-link="1"
+                        >
+                          {safeT("admin_delivery_ads_open_store_finance", {
+                            fallbackKo: "매장 Cash/Coin 보기",
+                            fallbackEn: "Open store Cash/Coin",
+                          })}
+                        </Link>
+                      ) : null}
+                      <Link
+                        href="/admin/delivery-ads/cash-charges"
+                        className="min-h-[36px] inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-[12px] font-semibold text-sam-fg"
+                        data-admin-delivery-ads-cash-queue-link="1"
+                      >
+                        {safeT("admin_delivery_ads_open_cash_queue", {
+                          fallbackKo: "Cash 충전 대기열",
+                          fallbackEn: "Cash top-up queue",
+                        })}
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </AdminCard>

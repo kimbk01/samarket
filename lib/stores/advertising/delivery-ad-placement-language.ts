@@ -64,12 +64,13 @@ export function deliveryAdPolicyScreenHref(
     const q = qs.toString();
     return q ? `/admin/stores-category-policy?${q}` : "/admin/stores-category-policy";
   }
-  // Banner hero/search: no separate placement-policy editor; HOME shelves is nearest ops home.
+  // Banner hero: nearest composition config (CROSS_LINK_ONLY — Ads must not write composition).
   if (inventoryKey === "STORES_HOME_HERO") {
     return "/admin/stores-home-shelves";
   }
+  // SEARCH_TOP: no composition editor; commercial/inventory ops surface (read/config, not Ads write of shelves).
   if (inventoryKey === "STORES_SEARCH_TOP") {
-    return null;
+    return "/admin/delivery-ads/inventory";
   }
   return null;
 }

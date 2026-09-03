@@ -264,12 +264,12 @@ export function AdminDeliveryAdsControlPlane() {
           <AdminDeliveryAdActionQueuePanel />
         </div>
 
-        {/* 3 — Campaign control / actionable-first list */}
-        <div data-admin-delivery-ads-section="campaign-list">
+        {/* 3 — Ad execution list (actionable-first). UI term: 집행 — not generic Campaign. */}
+        <div data-admin-delivery-ads-section="execution-list" data-admin-delivery-ads-section-legacy="campaign-list">
           <h2 className="mb-2 text-[14px] font-semibold text-sam-fg">
-            {safeT("admin_delivery_ads_campaign_list_title", {
-              fallbackKo: "캠페인 목록",
-              fallbackEn: "Campaign list",
+            {safeT("admin_delivery_ads_execution_list_title", {
+              fallbackKo: "광고 집행 목록",
+              fallbackEn: "Ad executions",
             })}
           </h2>
 

@@ -30,13 +30,13 @@ const previewSrc = () =>
   read("components/stores/advertising/DeliveryAdCampaignPlacementPreviews.tsx");
 
 describe("Priority 5 Admin Action Queue + decision-first detail", () => {
-  it("T1 — hub places Action Queue before campaign list", () => {
+  it("T1 — hub places Action Queue before execution list", () => {
     const src = hubSrc();
     expect(src.indexOf('data-admin-delivery-ads-section="action-queue"')).toBeLessThan(
-      src.indexOf('data-admin-delivery-ads-section="campaign-list"')
+      src.indexOf('data-admin-delivery-ads-section="execution-list"')
     );
     expect(src.indexOf("<AdminDeliveryAdActionQueuePanel")).toBeLessThan(
-      src.indexOf('data-admin-delivery-ads-section="campaign-list"')
+      src.indexOf('data-admin-delivery-ads-section="execution-list"')
     );
   });
 
