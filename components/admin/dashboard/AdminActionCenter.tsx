@@ -15,6 +15,7 @@ import {
 } from "@/lib/admin/admin-operation-return-context";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { supportInboxHrefForStore } from "@/lib/support/support-reference-admin-href";
+import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
 
 type QueueCard = {
   id: string;
@@ -252,6 +253,16 @@ export function AdminActionCenter() {
           {safeT("admin_action_center_category_config", {
             fallbackKo: "업종 노출 정책 (설정)",
             fallbackEn: "Category policy",
+          })}
+        </Link>
+        <Link
+          href={withAdminReturnTo(placementMapFocusHref("STORES_HOME_HERO"), returnTo)}
+          className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 font-medium text-sam-fg"
+          data-admin-action-center-placement-map="1"
+        >
+          {safeT("admin_action_center_placement_map", {
+            fallbackKo: "앱 노출 위치 맵",
+            fallbackEn: "App placement map",
           })}
         </Link>
         <Link

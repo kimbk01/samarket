@@ -52,10 +52,13 @@ export function deliveryAdPolicyScreenHref(
   inventoryKey: string,
   opts?: { primarySlug?: string | null; subSlug?: string | null }
 ): string | null {
-  if (inventoryKey === "STORES_HOME_FEED") {
+  if (inventoryKey === "STORES_HOME_FEED" || inventoryKey === "STORES_HOME_INLINE_1") {
     return "/admin/stores-home-shelves";
   }
-  if (inventoryKey === "STORES_CATEGORY_FEED") {
+  if (
+    inventoryKey === "STORES_CATEGORY_FEED" ||
+    inventoryKey === "STORES_CATEGORY_TOP"
+  ) {
     const qs = new URLSearchParams();
     const primary = opts?.primarySlug?.trim();
     const sub = opts?.subSlug?.trim();

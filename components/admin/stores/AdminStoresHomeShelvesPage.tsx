@@ -6,10 +6,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
 import type { StoresHomePresentationPatternId } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import type {
   StoresHomeShelfAdIntegration,
@@ -808,9 +810,18 @@ export function AdminStoresHomeShelvesPage() {
             <p className="text-[12px] text-sam-muted">{ko ? "배달 › HOME 관리" : "Delivery › HOME management"}</p>
             <h1 className="text-[20px] font-bold text-sam-fg">{t("admin_stores_home_shelves_title")}</h1>
           </div>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
-            {t("admin_stores_home_shelves_reload")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={placementMapFocusHref("STORES_HOME_FEED")}
+              className={Sam.btn.secondary}
+              data-admin-home-placement-map-link="1"
+            >
+              {ko ? "앱에서 위치 보기" : "View in app map"}
+            </Link>
+            <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
+              {t("admin_stores_home_shelves_reload")}
+            </button>
+          </div>
         </div>
 
         {toast ? <p className="text-[13px] text-emerald-700">{toast}</p> : null}

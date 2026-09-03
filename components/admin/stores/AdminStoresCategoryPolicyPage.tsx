@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
@@ -13,6 +14,7 @@ import { AdminDeliveryAdBrowsePolicyPanel } from "@/components/admin/stores/Admi
 import { DibayDialog, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
 import {
   type StoresBrowseScopePolicyResolved,
   type StoresBrowseScopePolicyRow,
@@ -1276,9 +1278,18 @@ export function AdminStoresCategoryPolicyPage() {
               {label(ko, "1차 업종, 2차 상속, 광고/쿠폰/노출 정책을 한 번에 저장합니다.", "Save primary, secondary inheritance, ads, coupons, and exposure policy together.")}
             </p>
           </div>
-          <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
-            {label(ko, "새로고침", "Reload")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={placementMapFocusHref("STORES_CATEGORY_FEED")}
+              className={Sam.btn.secondary}
+              data-admin-category-placement-map-link="1"
+            >
+              {label(ko, "앱에서 위치 보기", "View in app map")}
+            </Link>
+            <button type="button" className={Sam.btn.secondary} onClick={() => void load()} disabled={loading}>
+              {label(ko, "새로고침", "Reload")}
+            </button>
+          </div>
         </div>
 
         {saveMsg ? <p className="rounded-ui-rect bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{saveMsg}</p> : null}

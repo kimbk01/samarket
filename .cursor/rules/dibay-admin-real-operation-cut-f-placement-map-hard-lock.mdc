@@ -1,0 +1,35 @@
+---
+description: CUT F Placement Map hard lock — adapter read model, no unified placement DB
+globs:
+  - lib/admin/placement-map-read-model.ts
+  - lib/admin/admin-real-operation-cut-f-placement-map-hard-lock.ts
+  - components/admin/stores/AdminPlacementMapPanel.tsx
+  - components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT F HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-f-placement-map-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-f-placement-map-hard-lock`
+
+## DO
+
+- Keep Placement Map entry on `/admin/delivery-ads/inventory#placement-map`
+- Adapter-only read model over Delivery / Feed / Popup registries
+- Keep DEFINED / SELLABLE / RUNTIME / PREVIEW flags separate
+- Deep-link Ads / HOME / CATEGORY ↔ map with `?focus=`
+
+## DO NOT
+
+- Invent `/admin/placement-map-v2` or unified placement DB
+- Merge domain registries or invent fake active counts
+- Hardcode marker pixel coordinates on screenshots
+- Claim Tablet / Production runtime PASS without measurement
+- Collapse SEARCH_TOP into “운영 가능” when not sellable
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-f-placement-map-hard-lock
+```

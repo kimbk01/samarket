@@ -21,6 +21,7 @@ import {
   DELIVERY_AD_BANNER_PIXEL_GUIDE,
   formatBannerPixelGuideLine,
 } from "@/lib/stores/advertising/delivery-ad-open-event-commercial";
+import { AdminPlacementMapPanel } from "@/components/admin/stores/AdminPlacementMapPanel";
 
 function seedFor(key: string) {
   return DELIVERY_AD_INVENTORY_SEEDS.find((s) => s.key === key) ?? null;
@@ -217,6 +218,8 @@ export function AdminDeliveryAdInventoryManagementView() {
             </div>
           </AdminCard>
         </section>
+
+        <AdminPlacementMapPanel />
 
         <p className="text-[12px] text-sam-muted">
           <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="font-semibold text-[#0A823E]">

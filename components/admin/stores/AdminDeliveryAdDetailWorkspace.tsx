@@ -21,6 +21,7 @@ import type {
 import {
   deliveryAdPolicyScreenHref,
 } from "@/lib/stores/advertising/delivery-ad-placement-language";
+import { placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   supportInboxHrefForReference,
@@ -1145,12 +1146,22 @@ export function AdminDeliveryAdDetailWorkspace({
                       return (
                         <li key={key} className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{label}</span>
+                          <Link
+                            href={placementMapFocusHref(key)}
+                            className="text-signature underline underline-offset-2"
+                            data-admin-ads-placement-map-link={key}
+                          >
+                            {safeT("admin_delivery_ads_view_app_placement", {
+                              fallbackKo: "앱 위치 보기",
+                              fallbackEn: "View app placement",
+                            })}
+                          </Link>
                           {href ? (
                             <Link
                               href={href}
                               className="text-signature underline underline-offset-2"
                             >
-                              {key === "STORES_CATEGORY_FEED"
+                              {key === "STORES_CATEGORY_FEED" || key === "STORES_CATEGORY_TOP"
                                 ? t("admin_delivery_ads_policy_view_browse")
                                 : t("admin_delivery_ads_policy_view_home")}
                             </Link>
