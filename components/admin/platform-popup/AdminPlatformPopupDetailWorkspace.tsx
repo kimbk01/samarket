@@ -788,7 +788,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                className="rounded bg-sam-brand px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary disabled:opacity-50"
                 disabled={busy || !dirty}
                 onClick={() => void save()}
               >

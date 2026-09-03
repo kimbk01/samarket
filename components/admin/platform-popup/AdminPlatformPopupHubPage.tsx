@@ -138,8 +138,8 @@ export function AdminPlatformPopupHubPage() {
   const createCtaButton = (opts?: { fullWidth?: boolean; emptySlot?: boolean }) => (
     <button
       type="button"
-      className={`rounded bg-sam-brand px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 ${
-        opts?.fullWidth ? "w-full sm:w-auto" : ""
+      className={`min-h-11 rounded-ui-rect bg-sam-primary px-5 py-3 text-base font-bold text-sam-on-primary shadow-sm disabled:opacity-50 ${
+        opts?.fullWidth !== false ? "w-full" : ""
       }`}
       disabled={creating}
       data-admin-popup-direct-create={opts?.emptySlot ? "empty" : "1"}
@@ -177,14 +177,14 @@ export function AdminPlatformPopupHubPage() {
 
       <AdminCard>
         <div className="space-y-3">
-          <div data-admin-popup-primary-create="1">{createCtaButton({ fullWidth: true })}</div>
+          <div data-admin-popup-primary-create="1">{createCtaButton()}</div>
           <p className="text-xs text-sam-muted">{emptyContractLine}</p>
           <div className="flex flex-wrap items-center gap-2 border-t border-sam-border pt-3">
             <button
               type="button"
               data-hub-tab="requests"
               className={`rounded px-3 py-1.5 text-sm font-semibold ${
-                tab === "requests" ? "bg-sam-brand text-white" : "border border-sam-border"
+                tab === "requests" ? "bg-sam-primary text-sam-on-primary" : "border border-sam-border"
               }`}
               onClick={() => setHubTab("requests")}
             >
@@ -197,7 +197,7 @@ export function AdminPlatformPopupHubPage() {
               type="button"
               data-hub-tab="campaigns"
               className={`rounded px-3 py-1.5 text-sm font-semibold ${
-                tab === "campaigns" ? "bg-sam-brand text-white" : "border border-sam-border"
+                tab === "campaigns" ? "bg-sam-primary text-sam-on-primary" : "border border-sam-border"
               }`}
               onClick={() => setHubTab("campaigns")}
             >
@@ -222,7 +222,7 @@ export function AdminPlatformPopupHubPage() {
             <button
               type="button"
               className={`rounded border px-2 py-1 text-xs ${
-                requestFilter === "open" ? "border-sam-brand bg-sam-brand/10" : "border-sam-border"
+                requestFilter === "open" ? "border-sam-primary bg-sam-primary/10" : "border-sam-border"
               }`}
               onClick={() => setRequestFilter("open")}
             >
@@ -233,7 +233,7 @@ export function AdminPlatformPopupHubPage() {
                 key={chip.key}
                 type="button"
                 className={`rounded border px-2 py-1 text-xs ${
-                  requestFilter === chip.status ? "border-sam-brand bg-sam-brand/10" : "border-sam-border"
+                  requestFilter === chip.status ? "border-sam-primary bg-sam-primary/10" : "border-sam-border"
                 }`}
                 onClick={() => setRequestFilter(chip.status)}
               >
@@ -288,7 +288,7 @@ export function AdminPlatformPopupHubPage() {
                           <td className="px-2 py-2">
                             <Link
                               href={PLATFORM_POPUP_ADMIN_REQUEST_ROUTES.detail(item.id)}
-                              className="font-semibold text-sam-brand underline-offset-2 hover:underline"
+                              className="font-semibold text-sam-primary underline-offset-2 hover:underline"
                             >
                               {platformPopupOwnerRequestStatusLabel(item.requestStatus, lang)}
                             </Link>
@@ -323,7 +323,7 @@ export function AdminPlatformPopupHubPage() {
             <button
               type="button"
               className={`rounded border px-2 py-1 text-xs ${
-                !campaignFilter ? "border-sam-brand bg-sam-brand/10" : "border-sam-border"
+                !campaignFilter ? "border-sam-primary bg-sam-primary/10" : "border-sam-border"
               }`}
               onClick={() => setCampaignFilter("")}
             >
@@ -334,7 +334,7 @@ export function AdminPlatformPopupHubPage() {
                 key={chip.key}
                 type="button"
                 className={`rounded border px-2 py-1 text-xs ${
-                  campaignFilter === chip.status ? "border-sam-brand bg-sam-brand/10" : "border-sam-border"
+                  campaignFilter === chip.status ? "border-sam-primary bg-sam-primary/10" : "border-sam-border"
                 }`}
                 onClick={() => setCampaignFilter(chip.status)}
               >
@@ -391,7 +391,7 @@ export function AdminPlatformPopupHubPage() {
                           <td className="px-2 py-2">
                             <Link
                               href={`/admin/platform-popup/${item.id}`}
-                              className="font-semibold text-sam-brand underline-offset-2 hover:underline"
+                              className="font-semibold text-sam-primary underline-offset-2 hover:underline"
                             >
                               {item.name || "—"}
                             </Link>

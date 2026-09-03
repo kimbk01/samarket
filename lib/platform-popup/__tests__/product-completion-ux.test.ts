@@ -132,6 +132,8 @@ describe("platform popup product completion — Admin IA", () => {
     expect(hub).toContain("data-admin-popup-primary-create");
     expect(hub).toContain("data-admin-popup-campaigns-empty");
     expect(hub).toContain("admin_platform_popup_hub_contract_line");
+    expect(hub).toContain("bg-sam-primary");
+    expect(hub).not.toContain("bg-sam-brand");
     expect(hub).not.toContain("ml-auto");
   });
 

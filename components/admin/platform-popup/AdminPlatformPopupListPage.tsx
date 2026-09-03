@@ -104,7 +104,7 @@ export function AdminPlatformPopupListPage() {
           </label>
           <button
             type="button"
-            className="ml-auto rounded bg-sam-brand px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="ml-auto rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary disabled:opacity-50"
             disabled={creating}
             onClick={() => void onCreate()}
           >
@@ -169,7 +169,7 @@ export function AdminPlatformPopupListPage() {
                     <td className="px-2 py-2">
                       <Link
                         href={`/admin/platform-popup/${item.id}`}
-                        className="font-medium text-sam-brand underline-offset-2 hover:underline"
+                        className="font-medium text-sam-primary underline-offset-2 hover:underline"
                       >
                         {item.name}
                       </Link>
