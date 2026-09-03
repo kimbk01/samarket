@@ -13,55 +13,16 @@ import { PLATFORM_POPUP_OWNER_ROUTES } from "@/lib/platform-popup/platform-popup
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { isOwnerEditablePlatformPopupRequest } from "@/lib/platform-popup/owner-request-lifecycle";
-import type { PlatformPopupOwnerRequestStatus } from "@/lib/platform-popup/owner-request-types";
-
-function ownerRequestStatusLabel(
-  safeT: ReturnType<typeof useI18n>["safeT"],
-  status: PlatformPopupOwnerRequestStatus
-): string {
-  switch (status) {
-    case "draft":
-      return safeT("owner_platform_popup_status_draft", {
-        fallbackKo: "작성 중",
-        fallbackEn: "Draft",
-      });
-    case "submitted":
-      return safeT("owner_platform_popup_status_submitted", {
-        fallbackKo: "제출됨",
-        fallbackEn: "Submitted",
-      });
-    case "under_review":
-      return safeT("owner_platform_popup_status_under_review", {
-        fallbackKo: "검수 중",
-        fallbackEn: "Under review",
-      });
-    case "revision_required":
-      return safeT("owner_platform_popup_status_revision_required", {
-        fallbackKo: "수정 요청",
-        fallbackEn: "Revision required",
-      });
-    case "approved":
-      return safeT("owner_platform_popup_status_approved", {
-        fallbackKo: "승인됨",
-        fallbackEn: "Approved",
-      });
-    case "rejected":
-      return safeT("owner_platform_popup_status_rejected", {
-        fallbackKo: "거절됨",
-        fallbackEn: "Rejected",
-      });
-    case "cancelled":
-      return safeT("owner_platform_popup_status_cancelled", {
-        fallbackKo: "취소됨",
-        fallbackEn: "Cancelled",
-      });
-    default:
-      return status;
-  }
-}
+import {
+  platformPopupOwnerPaymentStatusLabel,
+  platformPopupOwnerRequestStatusLabel,
+} from "@/lib/platform-popup/popup-product-labels";
+import { describePlatformPopupCtaDestination } from "@/lib/platform-popup/popup-cta-destination-ux";
+import { adminSurfaceModeLabel, adminTargetModeFromSurfaces } from "@/lib/platform-popup/admin-surface-target-mode";
 
 export function OwnerPlatformPopupRequestDetailView() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
+  const lang = language === "en" ? "en" : "ko";
   const router = useRouter();
   const params = useParams();
   const requestId = String(params?.requestId ?? "").trim();
@@ -147,8 +108,9 @@ export function OwnerPlatformPopupRequestDetailView() {
               fallbackEn: "Popup Ad Request",
             })}
           </h1>
-          <p className="mt-1 text-sm text-sam-muted uppercase">
-            {ownerRequestStatusLabel(safeT, item.requestStatus)} · {item.paymentStatus}
+          <p className="mt-1 text-sm text-sam-muted">
+            {platformPopupOwnerRequestStatusLabel(item.requestStatus, lang)} ·{" "}
+            {platformPopupOwnerPaymentStatusLabel(item.paymentStatus, lang)}
           </p>
         </div>
         <Link href={DELIVERY_AD_OWNER_ROUTES.hub} className="text-sm underline">
@@ -184,18 +146,21 @@ export function OwnerPlatformPopupRequestDetailView() {
         </OwnerStoreAdminDashSection>
       ) : null}
 
-      <OwnerStoreAdminDashSection title="Summary">
+      <OwnerStoreAdminDashSection
+        title={safeT("owner_platform_popup_section_summary", {
+          fallbackKo: "신청 요약",
+          fallbackEn: "Request summary",
+        })}
+      >
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">Store</dt>
-            <dd className="font-medium">{item.storeId}</dd>
+            <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 영역"}</dt>
+            <dd>
+              {adminSurfaceModeLabel(adminTargetModeFromSurfaces(item.requestedSurfaces), lang)}
+            </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">Surfaces</dt>
-            <dd>{item.requestedSurfaces.join(", ") || "—"}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-sam-muted">Price</dt>
+            <dt className="text-sam-muted">{lang === "en" ? "Price" : "금액"}</dt>
             <dd>
               {item.priceMinor != null ? formatDeliveryAdPhpMinor(item.priceMinor) : "—"}
             </dd>
@@ -203,14 +168,21 @@ export function OwnerPlatformPopupRequestDetailView() {
           <div className="flex justify-between gap-2">
             <dt className="text-sam-muted">CTA</dt>
             <dd>
-              {item.ctaType} · {item.ctaTarget}
+              {
+                describePlatformPopupCtaDestination({
+                  ctaType: item.ctaType,
+                  ctaTarget: item.ctaTarget,
+                  storeId: item.storeId,
+                  lang,
+                }).readable
+              }
             </dd>
           </div>
           {item.adminCampaignId ? (
-            <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">Campaign</dt>
-              <dd className="font-mono text-xs">{item.adminCampaignId}</dd>
-            </div>
+            <details className="text-xs text-sam-muted">
+              <summary>{lang === "en" ? "Campaign id" : "캠페인 ID"}</summary>
+              <p className="font-mono break-all">{item.adminCampaignId}</p>
+            </details>
           ) : null}
         </dl>
       </OwnerStoreAdminDashSection>

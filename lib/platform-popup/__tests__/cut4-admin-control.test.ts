@@ -48,7 +48,7 @@ const validSnap = {
 
 describe("CUT4 Admin routes + preview authority", () => {
   it("admin pages exist under /admin/platform-popup", () => {
-    expect(readRepo("app/admin/platform-popup/page.tsx")).toContain("AdminPlatformPopupListPage");
+    expect(readRepo("app/admin/platform-popup/page.tsx")).toContain("AdminPlatformPopupHubPage");
     expect(readRepo("app/admin/platform-popup/[campaignId]/page.tsx")).toContain(
       "AdminPlatformPopupDetailWorkspace"
     );

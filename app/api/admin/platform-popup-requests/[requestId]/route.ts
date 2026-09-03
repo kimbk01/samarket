@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { enrichPlatformPopupOwnerRequestsForAdmin } from "@/lib/platform-popup/enrich-admin-request-presentation";
 import { loadPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-loader";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -22,5 +23,6 @@ export async function GET(
   const { requestId } = await ctx.params;
   const item = await loadPlatformPopupOwnerRequest(sb, requestId);
   if (!item) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-  return NextResponse.json({ ok: true, item });
+  const [enriched] = await enrichPlatformPopupOwnerRequestsForAdmin(sb, [item]);
+  return NextResponse.json({ ok: true, item: enriched ?? item });
 }

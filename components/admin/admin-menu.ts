@@ -839,15 +839,19 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             status: "done",
             children: [
-              { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
-              { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
               {
                 key: "ads-platform-popup",
                 title: "",
                 path: "/admin/platform-popup",
                 status: "done",
-                matchPaths: ["/admin/platform-popup/"],
+                matchPaths: [
+                  "/admin/platform-popup/",
+                  "/admin/platform-popup/requests",
+                  "/admin/platform-popup/requests/",
+                ],
               },
+              { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
+              { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
               {
                 key: "ads-feed-applications",
                 title: "",

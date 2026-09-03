@@ -1,11 +1,10 @@
-import { AdminPlatformPopupListPage } from "@/components/admin/platform-popup/AdminPlatformPopupListPage";
-import { AdminPlatformPopupRequestQueue } from "@/components/admin/platform-popup/AdminPlatformPopupRequestQueue";
+import { Suspense } from "react";
+import { AdminPlatformPopupHubPage } from "@/components/admin/platform-popup/AdminPlatformPopupHubPage";
 
 export default function AdminPlatformPopupPage() {
   return (
-    <div className="space-y-6">
-      <AdminPlatformPopupRequestQueue />
-      <AdminPlatformPopupListPage />
-    </div>
+    <Suspense fallback={<p className="p-4 text-sm text-sam-muted">…</p>}>
+      <AdminPlatformPopupHubPage />
+    </Suspense>
   );
 }

@@ -4,6 +4,7 @@ import {
   isPlatformPopupOwnerRequestStatus,
   type PlatformPopupOwnerRequestStatus,
 } from "@/lib/platform-popup/owner-request-types";
+import { enrichPlatformPopupOwnerRequestsForAdmin } from "@/lib/platform-popup/enrich-admin-request-presentation";
 import { listPlatformPopupOwnerRequestsForAdmin } from "@/lib/platform-popup/owner-request-loader";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -36,5 +37,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (result.error) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, items: result.items });
+  const items = await enrichPlatformPopupOwnerRequestsForAdmin(sb, result.items);
+  return NextResponse.json({ ok: true, items });
 }

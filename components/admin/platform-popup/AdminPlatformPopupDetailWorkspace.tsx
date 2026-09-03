@@ -20,6 +20,10 @@ import {
   type PlatformPopupAdminSurfaceMode,
 } from "@/lib/platform-popup/admin-surface-target-mode";
 import {
+  decodePlatformPopupOwnerCtaDestination,
+  encodePlatformPopupOwnerCtaDestination,
+} from "@/lib/platform-popup/popup-cta-destination-ux";
+import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
   PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS,
 } from "@/lib/platform-popup/creative-pixel-ssot";
@@ -54,7 +58,7 @@ type AuditRow = {
 };
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -605,24 +609,91 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
 
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">CTA</h2>
-            <select
-              className="w-full rounded border border-sam-border px-2 py-1.5"
-              value={ctaType}
-              onChange={(e) => {
-                markDirty();
-                setCtaType(e.target.value);
-              }}
-            >
-              {PLATFORM_POPUP_CTA_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_cta", {
+                fallbackKo: "클릭 목적지",
+                fallbackEn: "Click destination",
+              })}
+            </h2>
+            {campaign?.ownerStoreId ? (
+              <fieldset className="mb-3 space-y-2" data-admin-popup-cta-product="1">
+                {(
+                  [
+                    ["store", "매장으로 이동", "Go to store"],
+                    ["menu", "메뉴로 이동", "Go to menu"],
+                    ["promotion", "프로모션으로 이동", "Go to promotions"],
+                  ] as const
+                ).map(([kind, ko, en]) => (
+                  <label key={kind} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="admin-popup-cta-product"
+                      checked={
+                        decodePlatformPopupOwnerCtaDestination({
+                          ctaType,
+                          ctaTarget,
+                          storeId: campaign.ownerStoreId || "",
+                        }) === kind &&
+                        (ctaType === "store" || ctaType === "internal_page")
+                      }
+                      onChange={() => {
+                        const enc = encodePlatformPopupOwnerCtaDestination({
+                          kind,
+                          storeId: campaign.ownerStoreId || "",
+                        });
+                        if (!enc.ok) return;
+                        markDirty();
+                        setCtaType(enc.value.ctaType);
+                        setCtaTarget(enc.value.ctaTarget);
+                        setExternalUrl("");
+                      }}
+                    />
+                    <span>{language === "en" ? en : ko}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : null}
+            <label className="block text-sm text-sam-muted">
+              {safeT("admin_platform_popup_cta_advanced", {
+                fallbackKo: "고급 유형 (필요 시)",
+                fallbackEn: "Advanced type (optional)",
+              })}
+              <select
+                className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sam-fg"
+                value={ctaType}
+                onChange={(e) => {
+                  markDirty();
+                  setCtaType(e.target.value);
+                }}
+              >
+                {PLATFORM_POPUP_CTA_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t === "store"
+                      ? language === "en"
+                        ? "Store"
+                        : "매장"
+                      : t === "internal_page"
+                        ? language === "en"
+                          ? "Internal page"
+                          : "내부 페이지"
+                        : t === "trade_listing"
+                          ? language === "en"
+                            ? "Trade listing"
+                            : "거래 글"
+                          : t === "community_post"
+                            ? language === "en"
+                              ? "Community post"
+                              : "커뮤니티 글"
+                            : language === "en"
+                              ? "External URL"
+                              : "외부 URL"}
+                  </option>
+                ))}
+              </select>
+            </label>
             {ctaType === "external_url" ? (
               <label className="mt-2 block text-sm">
-                external https URL
+                HTTPS URL
                 <input
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                   value={externalUrl}
@@ -634,7 +705,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               </label>
             ) : (
               <label className="mt-2 block text-sm">
-                target / path
+                {language === "en" ? "Target / path" : "대상 / 경로"}
                 <input
                   className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
                   value={ctaTarget}
@@ -645,7 +716,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 />
               </label>
             )}
-            <p className="mt-1 text-xs text-sam-muted">href → {ctaHrefPreview || "(invalid)"}</p>
+            <p className="mt-1 text-xs text-sam-muted">
+              {language === "en" ? "Landing" : "이동 경로"} → {ctaHrefPreview || "(invalid)"}
+            </p>
           </AdminCard>
 
           <AdminCard>
@@ -711,34 +784,41 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
 
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">Reporting</h2>
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_reporting", {
+                fallbackKo: "성과",
+                fallbackEn: "Performance",
+              })}
+            </h2>
             {campaign ? (
-              <ul className="grid grid-cols-2 gap-1 text-xs sm:grid-cols-4">
-                {Object.entries(campaign.eventSummary).map(([k, v]) => (
-                  <li key={k}>
-                    {k}: {v}
-                  </li>
-                ))}
-                <li>CTR: {campaign.derived.ctr == null ? "N/A" : campaign.derived.ctr.toFixed(3)}</li>
+              <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                 <li>
-                  dismiss rate:{" "}
-                  {campaign.derived.dismissRate == null
-                    ? "N/A"
-                    : campaign.derived.dismissRate.toFixed(3)}
+                  {language === "en" ? "Impressions" : "노출"}: {campaign.eventSummary.impression}
                 </li>
                 <li>
-                  suppress rate:{" "}
-                  {campaign.derived.suppressRate == null
-                    ? "N/A"
-                    : campaign.derived.suppressRate.toFixed(3)}
+                  {language === "en" ? "Clicks" : "클릭"}: {campaign.eventSummary.click}
                 </li>
                 <li>
-                  landing success:{" "}
-                  {campaign.derived.landingSuccessRate == null
-                    ? "N/A"
-                    : campaign.derived.landingSuccessRate.toFixed(3)}
+                  CTR:{" "}
+                  {campaign.derived.ctr == null ? "—" : `${(campaign.derived.ctr * 100).toFixed(1)}%`}
                 </li>
-                <li>spend/ROAS: {campaign.derived.spendRoas}</li>
+                <li>
+                  {language === "en" ? "Dismiss" : "닫기"}: {campaign.eventSummary.dismiss}
+                </li>
+                <li>
+                  {language === "en" ? "Suppress" : "숨김"}: {campaign.eventSummary.suppress}
+                </li>
+                <li>
+                  {language === "en" ? "Landing OK" : "랜딩 성공"}:{" "}
+                  {campaign.eventSummary.landing_success}
+                </li>
+                <li>
+                  {language === "en" ? "Landing fail" : "랜딩 실패"}:{" "}
+                  {campaign.eventSummary.landing_failure}
+                </li>
+                <li>
+                  {language === "en" ? "Eligible" : "후보"}: {campaign.eventSummary.eligible}
+                </li>
               </ul>
             ) : null}
           </AdminCard>
