@@ -1,0 +1,163 @@
+{
+  "at": "2026-09-03T11:50:34.011Z",
+  "origin": "https://samarket.vercel.app",
+  "phase": "P4_ADMIN_DIRECT_RUNTIME",
+  "verdicts": {
+    "CREATE": "PASS",
+    "CREATIVE": "PASS",
+    "SUBMIT_REVIEW": "PASS",
+    "APPROVE": "PASS",
+    "ACTIVATE": "PASS",
+    "APPROVE_ACTIVE": "PASS",
+    "RESOLVE_TRADE_WINNER": "PASS",
+    "RESOLVE_COMMUNITY_NO_CROSS": "PASS",
+    "CRITICAL_CART": "PASS",
+    "MESSENGER_EXCLUDED": "PASS",
+    "UI_POPUP_CARD": "PASS",
+    "ADMIN_HUB": "PASS",
+    "PAUSE_CLEANUP": "PASS",
+    "P4_ADMIN_DIRECT_RUNTIME": "PASS"
+  },
+  "steps": {
+    "adminLogin": {
+      "ok": true,
+      "email": "aaaa@manual.local",
+      "userId": "11111111-1111-1111-1111-111111111111"
+    },
+    "create": {
+      "status": 200,
+      "ok": true,
+      "id": "29ada2df-bee0-44ad-9414-da51c13702c2",
+      "error": null
+    },
+    "creative": {
+      "status": 200,
+      "ok": true,
+      "error": null
+    },
+    "patch": {
+      "status": 200,
+      "ok": true,
+      "error": null
+    },
+    "submitReview": {
+      "status": 200,
+      "ok": true,
+      "statusAfter": "pending_review",
+      "approvalStatus": "pending_review",
+      "error": null
+    },
+    "approveOnly": {
+      "status": 200,
+      "ok": true,
+      "statusAfter": "approved",
+      "approvalStatus": "approved",
+      "error": null
+    },
+    "activate": {
+      "status": 200,
+      "ok": true,
+      "statusAfter": "active",
+      "approvalStatus": "approved",
+      "error": null
+    },
+    "approve": {
+      "status": 200,
+      "ok": true,
+      "statusAfter": "active",
+      "approvalStatus": "approved",
+      "error": null
+    },
+    "resolve": {
+      "market": {
+        "ok": true,
+        "winner": {
+          "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
+          "creativeId": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
+          "surface": "TRADE",
+          "creative": {
+            "id": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
+            "imageUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/platform-popup-creatives/campaigns/29ada2df-bee0-44ad-9414-da51c13702c2/11111111-1111-1111-1111-111111111111/4a56255b-b546-48ea-be1e-f50e59c43908.webp",
+            "altText": "P4 Admin Direct QA",
+            "aspectW": 36,
+            "aspectH": 25
+          },
+          "cta": {
+            "type": "internal_page",
+            "href": "/market",
+            "label": null
+          },
+          "suppressionOptions": [
+            "TODAY"
+          ],
+          "timezone": "Asia/Manila",
+          "suppressionDurationSeconds": null
+        },
+        "reason": null,
+        "surface": "TRADE",
+        "generation": null,
+        "impression": false
+      },
+      "philife": {
+        "ok": true,
+        "winner": null,
+        "reason": "no_eligible_campaign",
+        "surface": "COMMUNITY",
+        "generation": null,
+        "impression": false
+      },
+      "cart": {
+        "ok": true,
+        "winner": null,
+        "reason": "surface_excluded",
+        "surface": "ORDER_CRITICAL",
+        "generation": null,
+        "impression": false
+      },
+      "messenger": {
+        "ok": true,
+        "winner": null,
+        "reason": "surface_excluded",
+        "surface": "MESSENGER",
+        "generation": null,
+        "impression": false
+      }
+    },
+    "uiMarket": {
+      "cardVisible": true,
+      "hostAttrs": [
+        "data-platform-popup-host=global",
+        "data-host-state=VISIBLE",
+        "data-eligible=1",
+        "data-surface=TRADE",
+        "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+      ],
+      "url": "https://samarket.vercel.app/market?location=city&lgu=pasay"
+    },
+    "uiCart": {
+      "cardCount": 0,
+      "url": "https://samarket.vercel.app/stores/cart"
+    },
+    "uiHub": {
+      "hubOk": true,
+      "url": "https://samarket.vercel.app/admin/platform-popup"
+    },
+    "pause": {
+      "status": 200,
+      "ok": true,
+      "error": null,
+      "after": "paused"
+    },
+    "resolveAfterPause": {
+      "ok": true,
+      "winner": null,
+      "reason": "no_eligible_campaign",
+      "surface": "TRADE",
+      "generation": null,
+      "impression": false
+    }
+  },
+  "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
+  "PRODUCT_CLOSED": "NO",
+  "note": "P4 only. P5 geometry device shots and P6 Owner BC round-trip remain NOT_PROVEN."
+}

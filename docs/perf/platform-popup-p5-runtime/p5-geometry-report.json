@@ -1,0 +1,237 @@
+{
+  "at": "2026-09-03T11:52:20.293Z",
+  "origin": "https://samarket.vercel.app",
+  "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
+  "phase": "P5_GEOMETRY",
+  "verdicts": {
+    "PHONE_390": "PASS",
+    "TABLET_768_MAX480": "PASS",
+    "TABLET_768_BOTTOM_IN_VIEW": "FAIL",
+    "LANDSCAPE_SUPPRESS": "PASS",
+    "APK_PHONE_CARD": "PASS",
+    "APK_SECOND_DEVICE_LANDSCAPE_DEFERRED": "PASS",
+    "IOS_SAFARI": "NOT_PROVEN",
+    "P5_GEOMETRY": "PARTIAL"
+  },
+  "steps": {
+    "detailBefore": {
+      "status": "paused",
+      "approval": "approved"
+    },
+    "resolveActive": {
+      "ok": true,
+      "winner": {
+        "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
+        "creativeId": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
+        "surface": "TRADE",
+        "creative": {
+          "id": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
+          "imageUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/platform-popup-creatives/campaigns/29ada2df-bee0-44ad-9414-da51c13702c2/11111111-1111-1111-1111-111111111111/4a56255b-b546-48ea-be1e-f50e59c43908.webp",
+          "altText": "P4 Admin Direct QA",
+          "aspectW": 36,
+          "aspectH": 25
+        },
+        "cta": {
+          "type": "internal_page",
+          "href": "/market",
+          "label": null
+        },
+        "suppressionOptions": [
+          "TODAY"
+        ],
+        "timezone": "Asia/Manila",
+        "suppressionDurationSeconds": null
+      },
+      "reason": null,
+      "surface": "TRADE",
+      "generation": null,
+      "impression": false
+    },
+    "phone390": {
+      "href": "https://samarket.vercel.app/market",
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "orientType": "portrait-primary",
+      "hostAttrs": [
+        "data-platform-popup-host=global",
+        "data-host-state=VISIBLE",
+        "data-eligible=1",
+        "data-surface=TRADE",
+        "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+      ],
+      "card": {
+        "x": 0,
+        "y": 525.171875,
+        "w": 390,
+        "h": 318.828125,
+        "bottom": 844,
+        "right": 390
+      },
+      "creative": {
+        "x": 0,
+        "y": 525.171875,
+        "w": 390,
+        "h": 270.828125,
+        "bottom": 796,
+        "right": 390
+      },
+      "dismiss": {
+        "x": 0,
+        "y": 796,
+        "w": 390,
+        "h": 48,
+        "bottom": 844,
+        "right": 390
+      },
+      "overflowX": false
+    },
+    "tablet768": {
+      "href": "https://samarket.vercel.app/market",
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "orientType": "landscape-primary",
+      "hostAttrs": [
+        "data-platform-popup-host=global",
+        "data-host-state=VISIBLE",
+        "data-eligible=1",
+        "data-surface=TRADE",
+        "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+      ],
+      "card": {
+        "x": 144,
+        "y": 669.224609375,
+        "w": 480,
+        "h": 381.328125,
+        "bottom": 1050.552734375,
+        "right": 624
+      },
+      "creative": {
+        "x": 144,
+        "y": 669.224609375,
+        "w": 480,
+        "h": 333.328125,
+        "bottom": 1002.552734375,
+        "right": 624
+      },
+      "dismiss": {
+        "x": 144,
+        "y": 1002.552734375,
+        "w": 480,
+        "h": 48,
+        "bottom": 1050.552734375,
+        "right": 624
+      },
+      "overflowX": false
+    },
+    "landscape": {
+      "href": "https://samarket.vercel.app/market",
+      "innerWidth": 844,
+      "innerHeight": 390,
+      "orientType": "landscape-primary",
+      "hostAttrs": [
+        "data-platform-popup-host=global",
+        "data-host-state=DEFERRED",
+        "data-eligible=0",
+        "data-surface=TRADE",
+        "data-winner=",
+        "hidden="
+      ],
+      "card": null,
+      "creative": null,
+      "dismiss": null,
+      "overflowX": false
+    },
+    "apkPhone": {
+      "ok": true,
+      "sock": "webview_devtools_remote_19420",
+      "metrics": {
+        "href": "https://samarket.vercel.app/market?location=city&lgu=quezon-city",
+        "innerWidth": 384,
+        "innerHeight": 832,
+        "orientType": "portrait-primary",
+        "hostAttrs": [
+          "data-platform-popup-host=global",
+          "data-host-state=VISIBLE",
+          "data-eligible=1",
+          "data-surface=TRADE",
+          "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+        ],
+        "card": {
+          "x": 0,
+          "y": 421.3333435058594,
+          "w": 384,
+          "h": 362.66668701171875,
+          "bottom": 784.0000305175781,
+          "right": 384
+        },
+        "creative": {
+          "x": 0,
+          "y": 421.3333435058594,
+          "w": 384,
+          "h": 266.66668701171875,
+          "bottom": 688.0000305175781,
+          "right": 384
+        },
+        "dismiss": {
+          "x": 0,
+          "y": 688,
+          "w": 384,
+          "h": 96,
+          "bottom": 784,
+          "right": 384
+        },
+        "overflowX": false
+      },
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/platform-popup-p5-runtime/p5-apk-RFCY40PY2CA.png"
+    },
+    "apkTablet": {
+      "ok": true,
+      "sock": "webview_devtools_remote_17776",
+      "metrics": {
+        "href": "https://samarket.vercel.app/market?location=city&lgu=quezon-city",
+        "innerWidth": 1006,
+        "innerHeight": 601,
+        "orientType": "landscape-primary",
+        "hostAttrs": [
+          "data-platform-popup-host=global",
+          "data-host-state=DEFERRED",
+          "data-eligible=0",
+          "data-surface=TRADE",
+          "data-winner=",
+          "hidden="
+        ],
+        "card": null,
+        "creative": null,
+        "dismiss": null,
+        "overflowX": false
+      },
+      "shot": "/Users/bkkim/projects/samarket/docs/perf/platform-popup-p5-runtime/p5-apk-8b37179f7d94.png"
+    },
+    "pause": {
+      "ok": true,
+      "status": "paused",
+      "error": null
+    }
+  },
+  "PRODUCT_CLOSED": "NO",
+  "iosSafari": "NOT_PROVEN",
+  "apkTabletMetrics": {
+    "href": "https://samarket.vercel.app/market?location=city&lgu=quezon-city",
+    "innerWidth": 1006,
+    "innerHeight": 601,
+    "orientType": "landscape-primary",
+    "hostAttrs": [
+      "data-platform-popup-host=global",
+      "data-host-state=DEFERRED",
+      "data-eligible=0",
+      "data-surface=TRADE",
+      "data-winner=",
+      "hidden="
+    ],
+    "card": null,
+    "creative": null,
+    "dismiss": null,
+    "overflowX": false
+  },
+  "note": "Tablet playwright 768: width capped at 480 PASS; card.bottom exceeds innerHeight (dismiss clip risk). iOS Safari not probed."
+}

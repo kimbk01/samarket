@@ -161,7 +161,9 @@ export async function transitionPlatformPopupCampaign(
   };
 }
 
-/** Convenience: Admin approve + optionally move to scheduled/active. */
+/** Convenience: Admin approve + optionally move to scheduled/active.
+ * Chains legal edges only: → pending_review (if needed) → approved → scheduled|active.
+ */
 export async function adminApprovePlatformPopupCampaign(
   sb: SupabaseClient,
   input: {
@@ -171,11 +173,51 @@ export async function adminApprovePlatformPopupCampaign(
     schedule?: boolean;
   }
 ): Promise<PlatformPopupAdminTransitionResult> {
-  const nextStatus: PlatformPopupCampaignStatus | undefined = input.activate
-    ? "active"
-    : input.schedule
-      ? "scheduled"
-      : "approved";
+  const { data: row, error } = await sb
+    .from("platform_popup_campaigns")
+    .select("id, status, approval_status")
+    .eq("id", input.campaignId.trim())
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message, httpStatus: 500 };
+  if (!row) return { ok: false, error: "not_found", httpStatus: 404 };
+
+  let status = (row as CampaignRow).status;
+  let approval = (row as CampaignRow).approval_status;
+
+  if (status === "draft" || status === "rejected") {
+    const toReview = await transitionPlatformPopupCampaign(sb, {
+      campaignId: input.campaignId,
+      actorUserId: input.adminUserId,
+      actorRole: "admin",
+      nextStatus: "pending_review",
+      nextApproval: "pending_review",
+    });
+    if (!toReview.ok) return toReview;
+    status = toReview.status;
+    approval = toReview.approvalStatus;
+  }
+
+  if (status === "pending_review" || approval !== "approved") {
+    const toApproved = await transitionPlatformPopupCampaign(sb, {
+      campaignId: input.campaignId,
+      actorUserId: input.adminUserId,
+      actorRole: "admin",
+      nextStatus: status === "pending_review" ? "approved" : undefined,
+      nextApproval: "approved",
+    });
+    if (!toApproved.ok) return toApproved;
+    status = toApproved.status;
+    approval = toApproved.approvalStatus;
+  }
+
+  if (!input.activate && !input.schedule) {
+    return { ok: true, status, approvalStatus: approval };
+  }
+
+  const nextStatus: PlatformPopupCampaignStatus = input.activate ? "active" : "scheduled";
+  if (status === nextStatus) {
+    return { ok: true, status, approvalStatus: approval };
+  }
 
   return transitionPlatformPopupCampaign(sb, {
     campaignId: input.campaignId,

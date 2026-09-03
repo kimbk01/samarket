@@ -1,0 +1,102 @@
+{
+  "serial": "8b37179f7d94",
+  "sock": "webview_devtools_remote_17776",
+  "cdpUrl": "https://samarket.vercel.app/market?location=city&lgu=quezon-city",
+  "title": "dibaY",
+  "metrics": {
+    "href": "https://samarket.vercel.app/market?location=city&lgu=quezon-city",
+    "origin": "https://samarket.vercel.app",
+    "pathname": "/market",
+    "innerWidth": 1006,
+    "innerHeight": 601,
+    "dpr": 1.3312500715255737,
+    "screenW": 1007,
+    "screenH": 601,
+    "orientType": "landscape-primary",
+    "orientAngle": 90,
+    "matchPortrait": false,
+    "matchLandscape": true,
+    "safeTopCss": "max(28px,27px)",
+    "safeBottomCss": "max(16px,16px)",
+    "envTop": "28px",
+    "envBottom": "16px",
+    "hostPresent": true,
+    "hostAttrs": [
+      "data-platform-popup-host=global",
+      "data-host-state=DEFERRED",
+      "data-eligible=0",
+      "data-surface=TRADE",
+      "data-winner=",
+      "hidden="
+    ],
+    "popupCardPresent": false,
+    "overlayRoot": false,
+    "hasPopupChunk": false,
+    "htmlHasPopupMarkers": true
+  },
+  "resolve": [
+    {
+      "pathname": "/market",
+      "status": 200,
+      "ok": true,
+      "surface": "TRADE",
+      "reason": "no_eligible_campaign",
+      "winner": null
+    },
+    {
+      "pathname": "/philife",
+      "status": 200,
+      "ok": true,
+      "surface": "COMMUNITY",
+      "reason": "no_eligible_campaign",
+      "winner": null
+    },
+    {
+      "pathname": "/stores",
+      "status": 200,
+      "ok": true,
+      "surface": "DELIVERY",
+      "reason": "no_eligible_campaign",
+      "winner": null
+    },
+    {
+      "pathname": "/mypage",
+      "status": 200,
+      "ok": true,
+      "surface": "MYPAGE",
+      "reason": "no_eligible_campaign",
+      "winner": null
+    },
+    {
+      "pathname": "/community-messenger",
+      "status": 200,
+      "ok": true,
+      "surface": "MESSENGER",
+      "reason": "surface_excluded",
+      "winner": null
+    },
+    {
+      "pathname": "/admin",
+      "status": 200,
+      "ok": true,
+      "surface": "ADMIN",
+      "reason": "no_eligible_campaign",
+      "winner": null
+    }
+  ],
+  "callProbe": {
+    "keys": [
+      "cancelIdleCallback",
+      "requestIdleCallback",
+      "DibayBootBridge",
+      "__dibayBootMetrics",
+      "__dibayNativeSplashDismiss",
+      "__dibayProjectionAuthority",
+      "__dibayBadgePoll",
+      "__dibayBootVerify",
+      "__dibayAppBootProbe"
+    ],
+    "callSnap": null,
+    "visibility": "visible"
+  }
+}
