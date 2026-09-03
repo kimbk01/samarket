@@ -125,13 +125,17 @@ describe("support modal CUT A / reconstruction contracts", () => {
     ).toBe(true);
   });
 
-  it("ONE geometry owner SupportSheetShell — no Support heightPx/keyboard dual", () => {
+  it("Customer presentation: one shell wiring, no Support VV/geometry module", () => {
     const host = readFileSync(
       join(ROOT, "components/support/SupportModalHost.tsx"),
       "utf8"
     );
     const shell = readFileSync(
       join(ROOT, "components/support/SupportSheetShell.tsx"),
+      "utf8"
+    );
+    const triage = readFileSync(
+      join(ROOT, "components/support/SupportTriageFlow.tsx"),
       "utf8"
     );
     expect(host).toContain("SupportSheetShell");
@@ -142,23 +146,29 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(host).not.toContain("keyboardStageStyle");
     expect(host).not.toContain("heightPx=");
     expect(host).not.toContain("scrollIntoView");
+    expect(host).not.toContain("useFormKeyboardViewport");
     expect(host).toContain("json.message");
     expect(host).toContain("el.scrollTop = el.scrollHeight");
+    expect(host).toContain('data-support-sheet-chrome="1"');
+    expect(host).toContain('data-support-sheet-header="1"');
     expect(host).toContain('data-support-message-list="1"');
     expect(host).toContain('data-support-composer="1"');
     expect(host).toContain("data-form-keyboard-field");
-    expect(shell).toContain("keyboardOpen");
-    expect(shell).toContain("useFormKeyboardViewport");
+    expect(host).not.toContain("keyboardOpen");
+    expect(shell).toContain("DibayBottomSheet");
+    expect(shell).toContain('anchor="device-bottom"');
+    expect(shell).toContain("heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}");
+    expect(shell).toContain("contentPaddingBottomPx");
     expect(shell).toContain("effectiveBottomInset");
-    expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO");
-    expect(shell).toContain("resolveSupportSheetGeometry");
-    expect(shell).toContain('data-support-apply-stage-band="0"');
-    expect(shell).not.toContain("heightPx = vv");
-    const geo = readFileSync(join(ROOT, "lib/support/support-sheet-geometry.ts"), "utf8");
-    expect(geo).toContain("SUPPORT_SHEET_HEIGHT_RATIO = 1");
-    expect(geo).toContain("applyStageBand: false");
-    expect(geo).toContain("sheetLiftPx");
-    expect(geo).toContain("appliesOffsetTopToStage: false");
+    expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO = 0.8");
+    expect(shell).not.toContain("resolveSupportSheetGeometry");
+    expect(shell).not.toContain("visualViewportHeight");
+    expect(shell).not.toContain("visualViewportOffsetTop");
+    expect(shell).not.toContain("stageStyle");
+    expect(shell).not.toContain("sheetLift");
+    expect(shell).not.toContain("DibayOverlayRoot");
+    expect(triage).toContain('data-support-triage-handoff-cta="1"');
+    expect(triage).toContain("min-h-0 flex-1 overflow-y-auto");
   });
 
   it("eager SupportModalHost independent of FAB lazy host", () => {
@@ -198,13 +208,15 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(openSrc).not.toContain("window.location.assign");
   });
 
-  it("DibayBottomSheet no longer exposes Support heightPx dual mode", () => {
+  it("DibayBottomSheet keeps heightRatio + contentPaddingBottomPx without heightPx dual", () => {
     const sheet = readFileSync(
       join(ROOT, "components/ui/dibay-overlay/DibayBottomSheet.tsx"),
       "utf8"
     );
     expect(sheet).toContain("heightRatio");
+    expect(sheet).toContain("contentPaddingBottomPx");
     expect(sheet).not.toContain("heightPx");
-    expect(sheet).toContain("Support Modal does not use this component");
+    expect(sheet).not.toContain("resolveSupportSheetGeometry");
+    expect(sheet).not.toContain("sheetLift");
   });
 });

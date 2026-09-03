@@ -1,12 +1,15 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
-import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
+import { DibayBottomSheet } from "@/components/ui/dibay-overlay/DibayBottomSheet";
 
-const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
+/**
+ * Presentation ratio only (~80% usable screen so business context stays visible).
+ * Not a keyboard / visualViewport equation.
+ */
+export const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
 const SUPPORT_SHEET_MAX_W_CLASS = "max-w-[560px]";
 
 export type SupportSheetShellProps = {
@@ -18,9 +21,9 @@ export type SupportSheetShellProps = {
 };
 
 /**
- * Sole Support modal geometry owner.
- * Proven DibayOverlayRoot portal + VV stage + 80% bottom sheet + effectiveBottomInset once.
- * Keyboard changes the band — never switches to full-band fill.
+ * Thin Support presentation wiring after CUT1 FIT GATE = PASS.
+ * Reuses DibayBottomSheet unchanged — no Support viewport/keyboard geometry module.
+ * Shared bottom inset only: Form `effectiveBottomInset` → `contentPaddingBottomPx`.
  */
 export function SupportSheetShell({
   open,
@@ -29,71 +32,29 @@ export function SupportSheetShell({
   ariaLabel,
   children,
 }: SupportSheetShellProps) {
-  const {
-    effectiveBottomInset,
-    keyboardOpen,
-    visualViewportHeight,
-    visualViewportOffsetTop,
-  } = useFormKeyboardViewport({ enabled: open });
-
-  const bandKnown = visualViewportHeight > 0;
-  const bandHeight = bandKnown ? Math.round(visualViewportHeight) : 0;
-  const bandTop = bandKnown ? Math.max(0, Math.round(visualViewportOffsetTop)) : 0;
-  const sheetHeightPx = bandKnown
-    ? Math.max(1, Math.min(Math.round(bandHeight * SUPPORT_SHEET_HEIGHT_RATIO), bandHeight))
-    : null;
-
-  const stageStyle: CSSProperties | undefined = bandKnown
-    ? {
-        top: bandTop,
-        height: bandHeight,
-        left: 0,
-        right: 0,
-        bottom: "auto",
-      }
-    : undefined;
-
-  const panelStyle: CSSProperties = {
-    paddingBottom: Math.max(0, Math.round(effectiveBottomInset)),
-    ...(sheetHeightPx != null
-      ? {
-          height: sheetHeightPx,
-          maxHeight: sheetHeightPx,
-          minHeight: sheetHeightPx,
-        }
-      : {
-          height: `${Math.round(SUPPORT_SHEET_HEIGHT_RATIO * 100)}dvh`,
-          maxHeight: `${Math.round(SUPPORT_SHEET_HEIGHT_RATIO * 100)}dvh`,
-          minHeight: `${Math.round(SUPPORT_SHEET_HEIGHT_RATIO * 100)}dvh`,
-        }),
-  };
+  const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport({ enabled: open });
 
   return (
-    <DibayOverlayRoot
+    <DibayBottomSheet
       open={open}
       onClose={onClose}
       dismissible={dismissible}
-      placement="sheet"
-      zRole="sheet"
-      zIndexClass={MAIN_BOTTOM_NAV_SHEET_Z_CLASS}
-      sheetAnchor="device-bottom"
-      stageClassName="items-end justify-center"
-      stageStyle={stageStyle}
       ariaLabel={ariaLabel}
-      lockScroll
+      anchor="device-bottom"
+      heightRatio={SUPPORT_SHEET_HEIGHT_RATIO}
+      showHandle={false}
+      zIndexClass={MAIN_BOTTOM_NAV_SHEET_Z_CLASS}
+      contentPaddingBottomPx={Math.max(0, Math.round(effectiveBottomInset))}
+      panelClassName={`mx-auto w-full ${SUPPORT_SHEET_MAX_W_CLASS}`}
     >
       <div
         data-support-sheet-shell="1"
-        data-form-keyboard-open={keyboardOpen ? "true" : "false"}
-        data-sheet-height-ratio={String(SUPPORT_SHEET_HEIGHT_RATIO)}
-        data-form-keyboard-surface="1"
         data-support-sheet-panel="1"
-        className={`${OverlayUi.sheetPanel} relative z-[1] mx-auto flex w-full ${SUPPORT_SHEET_MAX_W_CLASS} min-h-0 flex-col overflow-hidden`}
-        style={panelStyle}
-        onClick={(e) => e.stopPropagation()}
+        data-form-keyboard-open={keyboardOpen ? "true" : "false"}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         {children}
       </div>
-    </DibayOverlayRoot>
+    </DibayBottomSheet>
   );
 }

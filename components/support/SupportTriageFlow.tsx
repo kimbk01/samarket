@@ -209,6 +209,8 @@ export function SupportTriageFlow({
     ? validateSupportGuidanceCta(state.guidance.cta_kind, state.guidance.cta_target)
     : null;
 
+  const summaryOk = state.initialSummary.trim().length > 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-support-triage-step={state.step}>
       {statusLine ? (
@@ -372,12 +374,9 @@ export function SupportTriageFlow({
         ) : null}
 
         {state.step === "HANDOFF_SUMMARY" ? (
-          <HandoffSummary
+          <HandoffSummaryBody
             state={state}
-            openingCase={openingCase}
-            startError={startError}
             onSummaryChange={(value) => dispatch({ type: "SET_SUMMARY", value })}
-            onSubmit={submitHandoff}
             labelCategory={state.category ? labelForCategory(safeT, state.category) : ""}
             labelIssue={
               state.category && state.issueType
@@ -409,29 +408,46 @@ export function SupportTriageFlow({
           </DibayOverlayButton>
         </div>
       ) : null}
+
+      {state.step === "HANDOFF_SUMMARY" ? (
+        <div
+          className="shrink-0 space-y-2 border-t border-[var(--overlay-border)] pt-2"
+          data-support-triage-handoff-cta="1"
+        >
+          {startError ? (
+            <p className={`${OverlayUi.caption} text-red-600`}>{startError}</p>
+          ) : null}
+          <DibayOverlayButton
+            roleTone="primary"
+            className="w-full !min-h-11"
+            loading={openingCase}
+            disabled={openingCase || !summaryOk}
+            data-support-triage-create="1"
+            onClick={submitHandoff}
+          >
+            {safeT("support_triage_ask_human", {
+              fallbackKo: "상담사에게 문의",
+              fallbackEn: "Talk to support",
+            })}
+          </DibayOverlayButton>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function HandoffSummary({
+function HandoffSummaryBody({
   state,
-  openingCase,
-  startError,
   onSummaryChange,
-  onSubmit,
   labelCategory,
   labelIssue,
 }: {
   state: SupportTriageState;
-  openingCase: boolean;
-  startError: string | null;
   onSummaryChange: (value: string) => void;
-  onSubmit: () => void;
   labelCategory: string;
   labelIssue: string;
 }) {
   const { safeT } = useI18n();
-  const summaryOk = state.initialSummary.trim().length > 0;
 
   return (
     <div className="grid gap-3" data-support-triage-handoff="1">
@@ -487,24 +503,6 @@ function HandoffSummary({
           })}
         />
       </label>
-
-      {startError ? (
-        <p className={`${OverlayUi.caption} text-red-600`}>{startError}</p>
-      ) : null}
-
-      <DibayOverlayButton
-        roleTone="primary"
-        className="w-full !min-h-11"
-        loading={openingCase}
-        disabled={openingCase || !summaryOk}
-        data-support-triage-create="1"
-        onClick={onSubmit}
-      >
-        {safeT("support_triage_ask_human", {
-          fallbackKo: "상담사에게 문의",
-          fallbackEn: "Talk to support",
-        })}
-      </DibayOverlayButton>
     </div>
   );
 }

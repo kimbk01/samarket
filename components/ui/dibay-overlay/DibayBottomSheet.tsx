@@ -35,7 +35,8 @@ export type DibayBottomSheetProps = {
 
 /**
  * Bottom sheet — default ABOVE_BOTTOM_NAV using MAIN_BOTTOM_NAV_SHEET_* authority.
- * Support Modal does not use this component for geometry (see SupportSheetShell).
+ * Optional: `heightRatio`, `anchor`, `contentPaddingBottomPx` (Form inset consumers).
+ * Do not add Support-specific or keyboard-formula behavior here.
  */
 export function DibayBottomSheet({
   open,
