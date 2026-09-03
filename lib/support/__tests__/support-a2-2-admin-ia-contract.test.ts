@@ -39,6 +39,12 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     expect(page).toContain("data-admin-support-priority");
     expect(page).toContain("상담 종료");
     expect(page).toContain("INTERNAL_NOTE");
+    expect(page).toContain('data-admin-support-console="3col"');
+    expect(page).toContain("data-admin-support-queue");
+    expect(page).toContain("data-admin-support-center");
+    expect(page).toContain("data-admin-support-context");
+    expect(page).toContain("data-admin-support-composer");
+    expect(page).toContain("lg:grid-cols-[300px_minmax(0,1fr)_280px]");
   });
 
   it("legacy admin writers return 410", () => {
