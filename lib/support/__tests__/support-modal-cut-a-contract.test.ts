@@ -151,8 +151,12 @@ describe("support modal CUT A / reconstruction contracts", () => {
     expect(shell).toContain("useFormKeyboardViewport");
     expect(shell).toContain("effectiveBottomInset");
     expect(shell).toContain("SUPPORT_SHEET_HEIGHT_RATIO");
-    expect(shell).toContain("0.8");
+    expect(shell).toContain("resolveSupportSheetGeometry");
+    expect(shell).toContain("stageTopPx");
     expect(shell).not.toContain("heightPx = vv");
+    const geo = readFileSync(join(ROOT, "lib/support/support-sheet-geometry.ts"), "utf8");
+    expect(geo).toContain("0.8");
+    expect(geo).toContain("appliesOffsetTopToStage: false");
   });
 
   it("eager SupportModalHost independent of FAB lazy host", () => {

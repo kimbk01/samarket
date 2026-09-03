@@ -27,5 +27,8 @@ export * from "@/lib/platform-popup/record-popup-event-client";
 export * from "@/lib/platform-popup/owner-request-types";
 export * from "@/lib/platform-popup/owner-request-lifecycle";
 export * from "@/lib/platform-popup/platform-popup-owner-routes";
-// Server-only CUT 5 modules (loader/writer/approve) — import directly from file paths,
-// never from this barrel (keeps GlobalPopupHost / client graph free of BC/push).
+export * from "@/lib/platform-popup/creative-pixel-ssot";
+export * from "@/lib/platform-popup/creative-pipeline-geometry";
+export * from "@/lib/platform-popup/admin-surface-target-mode";
+// Server-only CUT 5 modules (loader/writer/approve) + sharp creative-pipeline —
+// import directly from file paths, never from this barrel.

@@ -2,11 +2,14 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import {
+  resolveSupportSheetGeometry,
+  SUPPORT_SHEET_HEIGHT_RATIO,
+} from "@/lib/support/support-sheet-geometry";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import { useFormKeyboardViewport } from "@/lib/ui/use-form-keyboard-viewport";
 import { DibayOverlayRoot } from "@/components/ui/dibay-overlay/DibayOverlayRoot";
 
-const SUPPORT_SHEET_HEIGHT_RATIO = 0.8;
 const SUPPORT_SHEET_MAX_W_CLASS = "max-w-[560px]";
 
 export type SupportSheetShellProps = {
@@ -18,9 +21,9 @@ export type SupportSheetShellProps = {
 };
 
 /**
- * Sole Support modal geometry owner.
- * Proven DibayOverlayRoot portal + VV stage + 80% bottom sheet + effectiveBottomInset once.
- * Keyboard changes the band — never switches to full-band fill.
+ * Sole Support modal geometry owner (HANDOFF + ACTIVE).
+ * VV height shrinks the band; stage top stays 0 so Cap focus pan is not double-counted.
+ * Keyboard changes usable height — never relocates the whole sheet via offsetTop.
  */
 export function SupportSheetShell({
   open,
@@ -29,24 +32,20 @@ export function SupportSheetShell({
   ariaLabel,
   children,
 }: SupportSheetShellProps) {
-  const {
-    effectiveBottomInset,
-    keyboardOpen,
+  const { effectiveBottomInset, keyboardOpen, visualViewportHeight, visualViewportOffsetTop } =
+    useFormKeyboardViewport({ enabled: open });
+
+  const geo = resolveSupportSheetGeometry({
     visualViewportHeight,
     visualViewportOffsetTop,
-  } = useFormKeyboardViewport({ enabled: open });
+    layoutHeight: 0,
+    heightRatio: SUPPORT_SHEET_HEIGHT_RATIO,
+  });
 
-  const bandKnown = visualViewportHeight > 0;
-  const bandHeight = bandKnown ? Math.round(visualViewportHeight) : 0;
-  const bandTop = bandKnown ? Math.max(0, Math.round(visualViewportOffsetTop)) : 0;
-  const sheetHeightPx = bandKnown
-    ? Math.max(1, Math.min(Math.round(bandHeight * SUPPORT_SHEET_HEIGHT_RATIO), bandHeight))
-    : null;
-
-  const stageStyle: CSSProperties | undefined = bandKnown
+  const stageStyle: CSSProperties | undefined = geo.bandKnown
     ? {
-        top: bandTop,
-        height: bandHeight,
+        top: geo.stageTopPx,
+        height: geo.stageHeightPx,
         left: 0,
         right: 0,
         bottom: "auto",
@@ -55,11 +54,11 @@ export function SupportSheetShell({
 
   const panelStyle: CSSProperties = {
     paddingBottom: Math.max(0, Math.round(effectiveBottomInset)),
-    ...(sheetHeightPx != null
+    ...(geo.bandKnown
       ? {
-          height: sheetHeightPx,
-          maxHeight: sheetHeightPx,
-          minHeight: sheetHeightPx,
+          height: geo.sheetHeightPx,
+          maxHeight: geo.sheetHeightPx,
+          minHeight: geo.sheetHeightPx,
         }
       : {
           height: `${Math.round(SUPPORT_SHEET_HEIGHT_RATIO * 100)}dvh`,
@@ -88,6 +87,8 @@ export function SupportSheetShell({
         data-sheet-height-ratio={String(SUPPORT_SHEET_HEIGHT_RATIO)}
         data-form-keyboard-surface="1"
         data-support-sheet-panel="1"
+        data-support-stage-top={String(geo.stageTopPx)}
+        data-support-applies-offset-top={geo.appliesOffsetTopToStage ? "1" : "0"}
         className={`${OverlayUi.sheetPanel} relative z-[1] mx-auto flex w-full ${SUPPORT_SHEET_MAX_W_CLASS} min-h-0 flex-col overflow-hidden`}
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}

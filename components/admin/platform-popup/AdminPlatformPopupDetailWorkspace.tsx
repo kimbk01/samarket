@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
@@ -11,9 +11,24 @@ import {
   PLATFORM_POPUP_CTA_TYPES,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
   PLATFORM_POPUP_SUPPRESSION_MODES,
-  PLATFORM_POPUP_TARGET_SURFACES,
   type PlatformPopupCampaignStatus,
 } from "@/lib/platform-popup/types";
+import {
+  PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
+  adminTargetModeFromSurfaces,
+  surfacesFromAdminTargetMode,
+  type PlatformPopupAdminSurfaceMode,
+} from "@/lib/platform-popup/admin-surface-target-mode";
+import {
+  DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
+  PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS,
+} from "@/lib/platform-popup/creative-pixel-ssot";
+import {
+  buildPlatformPopupCenterCropPreviewUrl,
+  readPlatformPopupImageMeta,
+  type PlatformPopupClientImageMeta,
+} from "@/lib/platform-popup/client-creative-crop-preview";
+import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -47,13 +62,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [dirty, setDirty] = useState(false);
   const [needsCrop, setNeedsCrop] = useState(false);
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+  const [fileMeta, setFileMeta] = useState<PlatformPopupClientImageMeta | null>(null);
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [name, setName] = useState("");
   const [priority, setPriority] = useState(0);
   const [timezone, setTimezone] = useState<string>(PLATFORM_POPUP_DEFAULT_TIMEZONE);
   const [startLocal, setStartLocal] = useState("");
   const [endLocal, setEndLocal] = useState("");
-  const [surfaces, setSurfaces] = useState<string[]>(["GLOBAL"]);
+  const [surfaceMode, setSurfaceMode] = useState<PlatformPopupAdminSurfaceMode>("GLOBAL");
   const [suppressionMode, setSuppressionMode] = useState("TODAY");
   const [durationSec, setDurationSec] = useState<number | "">("");
   const [ctaType, setCtaType] = useState("internal_page");
@@ -69,7 +87,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setTimezone(c.timezone || PLATFORM_POPUP_DEFAULT_TIMEZONE);
     setStartLocal(toLocalInput(c.startAt));
     setEndLocal(toLocalInput(c.endAt));
-    setSurfaces(c.surfaces.length ? c.surfaces : ["GLOBAL"]);
+    setSurfaceMode(adminTargetModeFromSurfaces(c.surfaces));
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
     setCtaType(c.ctaType);
@@ -80,6 +98,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setDirty(false);
     setNeedsCrop(false);
     setPendingCropFile(null);
+    setFileMeta(null);
+    setCropPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
   }, []);
 
   const load = useCallback(async () => {
@@ -128,11 +151,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       altText: altText || campaign.creative?.altText || "Advertisement",
       ctaHref: ctaHrefPreview || "/market",
       ctaType,
-      surface: surfaces.includes("TRADE")
-        ? "TRADE"
-        : surfaces.includes("GLOBAL")
-          ? "TRADE"
-          : surfaces[0] || "TRADE",
+      surface: surfaceMode === "GLOBAL" ? "TRADE" : surfaceMode,
       suppressionMode,
       suppressionDurationSeconds:
         durationSec === "" ? null : Number(durationSec) > 0 ? Number(durationSec) : null,
@@ -145,7 +164,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     altText,
     ctaHrefPreview,
     ctaType,
-    surfaces,
+    surfaceMode,
     suppressionMode,
     durationSec,
     timezone,
@@ -153,17 +172,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   ]);
 
   const markDirty = () => setDirty(true);
-
-  const toggleSurface = (s: string) => {
-    markDirty();
-    setSurfaces((prev) => {
-      if (prev.includes(s)) {
-        const next = prev.filter((x) => x !== s);
-        return next.length ? next : prev;
-      }
-      return [...prev, s];
-    });
-  };
 
   const save = async () => {
     setBusy(true);
@@ -178,7 +186,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         timezone,
         startAt: fromLocalInput(startLocal),
         endAt: fromLocalInput(endLocal),
-        surfaces,
+        surfaces: surfacesFromAdminTargetMode(surfaceMode),
         suppressionMode,
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
         ctaType,
@@ -216,7 +224,6 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const uploadCreative = async (file: File, applyCrop: boolean) => {
     setBusy(true);
     setError(null);
-    setNeedsCrop(false);
     const fd = new FormData();
     fd.set("file", file);
     if (applyCrop) fd.set("applyCrop", "center");
@@ -236,17 +243,64 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     if (json.error === "needs_crop") {
       setNeedsCrop(true);
       setPendingCropFile(file);
-      setError(json.message || "needs_crop");
-      setPreviewOverrideUrl(URL.createObjectURL(file));
+      setError(json.message || "36:25 비율의 이미지를 사용해 주세요.");
       return;
     }
     if (!res.ok || !json.ok) {
-      setError(json.error || "upload_failed");
+      setError(json.message || json.error || "upload_failed");
       return;
     }
-    setPreviewOverrideUrl(null);
+    setNeedsCrop(false);
     setPendingCropFile(null);
+    setFileMeta(null);
+    setPreviewOverrideUrl(null);
+    setCropPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     await load();
+  };
+
+  const onPickFile = async (file: File | null) => {
+    if (!file) return;
+    setError(null);
+    setNeedsCrop(false);
+    setPendingCropFile(null);
+    setCropPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setPreviewOverrideUrl(null);
+
+    if (file.size > CAMPAIGN_IMAGE_MAX_BYTES) {
+      setError("이미지 용량이 너무 큽니다. 2MB 이하로 올려 주세요.");
+      setFileMeta(null);
+      return;
+    }
+    const mime = (file.type || "").toLowerCase();
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
+      setError("JPG, PNG, WEBP 이미지만 사용할 수 있습니다.");
+      setFileMeta(null);
+      return;
+    }
+
+    try {
+      const meta = await readPlatformPopupImageMeta(file);
+      setFileMeta(meta);
+      if (!meta.ratioOk) {
+        const preview = await buildPlatformPopupCenterCropPreviewUrl(file);
+        setCropPreviewUrl(preview.objectUrl);
+        setPreviewOverrideUrl(preview.objectUrl);
+        setNeedsCrop(true);
+        setPendingCropFile(file);
+        setError("36:25 비율이 아닙니다. 아래 크롭 결과를 확인한 뒤 적용해 주세요.");
+        return;
+      }
+      await uploadCreative(file, false);
+    } catch {
+      setError("이미지를 읽을 수 없습니다.");
+      setFileMeta(null);
+    }
   };
 
   const status = campaign?.status as PlatformPopupCampaignStatus | undefined;
@@ -299,38 +353,99 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
               {safeT("admin_platform_popup_section_creative", {
-                fallbackKo: "크리에이티브 (36:25)",
-                fallbackEn: "Creative (36:25)",
+                fallbackKo: "크리에이티브",
+                fallbackEn: "Creative",
               })}
             </h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              {safeT("admin_platform_popup_creative_ratio_help", {
-                fallbackKo: "최종 제작물은 반드시 36:25 입니다. 비율이 다르면 중앙 크롭을 명시적으로 적용해야 합니다.",
-                fallbackEn: "Final creative must be 36:25. Non-matching images require explicit center crop.",
-              })}
-            </p>
+            <div
+              className="mb-3 rounded border border-sam-border bg-sam-app/60 px-3 py-2 text-sm"
+              data-admin-popup-creative-spec="1"
+            >
+              <p>
+                {safeT("admin_platform_popup_creative_spec_size", {
+                  fallbackKo: `필수 이미지 규격  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
+                  fallbackEn: `Required size  ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width} × ${DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height} px`,
+                })}
+              </p>
+              <p>
+                {safeT("admin_platform_popup_creative_spec_ratio", {
+                  fallbackKo: "비율  36 : 25",
+                  fallbackEn: "Aspect  36 : 25",
+                })}
+              </p>
+              <p className="text-xs text-sam-muted">
+                {safeT("admin_platform_popup_creative_spec_formats", {
+                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 최대 2MB`,
+                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · max 2MB`,
+                })}
+              </p>
+            </div>
+
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadCreative(f, false);
+                const f = e.target.files?.[0] ?? null;
+                e.target.value = "";
+                void onPickFile(f);
               }}
             />
-            {needsCrop && pendingCropFile ? (
-              <button
-                type="button"
-                className="mt-2 rounded border border-amber-500 px-2 py-1 text-xs text-amber-800"
-                disabled={busy}
-                onClick={() => void uploadCreative(pendingCropFile, true)}
-              >
-                {safeT("admin_platform_popup_apply_center_crop", {
-                  fallbackKo: "36:25 중앙 크롭 적용 후 업로드",
-                  fallbackEn: "Upload with 36:25 center crop",
-                })}
-              </button>
+            <button
+              type="button"
+              className="rounded border border-sam-border bg-white px-3 py-1.5 text-sm font-medium"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {safeT("admin_platform_popup_load_image", {
+                fallbackKo: "이미지 불러오기",
+                fallbackEn: "Load image",
+              })}
+            </button>
+
+            {fileMeta ? (
+              <ul className="mt-3 space-y-0.5 text-xs text-sam-muted" data-admin-popup-file-meta="1">
+                <li>
+                  {fileMeta.fileName} · {(fileMeta.fileSize / 1024).toFixed(1)} KB
+                </li>
+                <li>
+                  {fileMeta.width} × {fileMeta.height} px · ratio {fileMeta.ratio.toFixed(3)}
+                  {fileMeta.ratioOk ? " · 36:25 OK" : " · needs crop"}
+                </li>
+              </ul>
             ) : null}
-            <label className="mt-2 block text-sm">
+
+            {needsCrop && pendingCropFile && cropPreviewUrl ? (
+              <div className="mt-3 space-y-2 rounded border border-amber-300 bg-amber-50/80 p-3">
+                <p className="text-xs font-medium text-amber-900">
+                  {safeT("admin_platform_popup_crop_confirm", {
+                    fallbackKo: "중앙 크롭 결과 (저장될 최종 이미지)",
+                    fallbackEn: "Center-crop result (final asset to save)",
+                  })}
+                </p>
+                {/* Admin crop confirm uses blob URL — raw img OK for ephemeral object URL */}
+                <img
+                  src={cropPreviewUrl}
+                  alt="36:25 crop preview"
+                  className="w-full max-w-md border border-sam-border bg-white"
+                  style={{ aspectRatio: "36 / 25" }}
+                />
+                <button
+                  type="button"
+                  className="rounded border border-amber-600 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-950 disabled:opacity-50"
+                  disabled={busy}
+                  onClick={() => void uploadCreative(pendingCropFile, true)}
+                >
+                  {safeT("admin_platform_popup_apply_center_crop", {
+                    fallbackKo: "이 결과로 저장",
+                    fallbackEn: "Save this crop",
+                  })}
+                </button>
+              </div>
+            ) : null}
+
+            <label className="mt-3 block text-sm">
               Alt text
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5"
@@ -344,22 +459,56 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
           </AdminCard>
 
           <AdminCard>
-            <h2 className="mb-2 text-sm font-semibold">Surfaces</h2>
-            <p className="mb-2 text-xs text-sam-muted">
-              GLOBAL = COMMUNITY + TRADE + DELIVERY + MYPAGE
+            <h2 className="mb-2 text-sm font-semibold">
+              {safeT("admin_platform_popup_section_placement", {
+                fallbackKo: "이 팝업을 어디에 노출할까요?",
+                fallbackEn: "Where should this popup appear?",
+              })}
+            </h2>
+            <p className="mb-3 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_placement_system_note", {
+                fallbackKo:
+                  "메신저·통화·관리자·오너 운영·결제·주문 Critical 화면은 시스템에서 자동 제외됩니다.",
+                fallbackEn:
+                  "Messenger, Call, Admin, Owner Ops, Payment, and order-critical screens are excluded automatically.",
+              })}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {PLATFORM_POPUP_TARGET_SURFACES.map((s) => (
-                <label key={s} className="flex items-center gap-1 text-sm">
+            <fieldset className="space-y-2" data-admin-popup-surface-radio="1">
+              {PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((opt) => (
+                <label
+                  key={opt.mode}
+                  className="flex cursor-pointer items-start gap-2 rounded border border-sam-border px-3 py-2 text-sm"
+                >
                   <input
-                    type="checkbox"
-                    checked={surfaces.includes(s)}
-                    onChange={() => toggleSurface(s)}
+                    type="radio"
+                    name="platform-popup-surface-mode"
+                    className="mt-1"
+                    checked={surfaceMode === opt.mode}
+                    onChange={() => {
+                      markDirty();
+                      setSurfaceMode(opt.mode);
+                    }}
                   />
-                  {s}
+                  <span>
+                    <span className="font-medium">{opt.labelKo}</span>
+                    <span className="mt-0.5 block text-xs text-sam-muted">{opt.helpKo}</span>
+                  </span>
                 </label>
               ))}
-            </div>
+            </fieldset>
+            <p className="mt-2 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_placement_current", {
+                fallbackKo: `현재 선택: ${
+                  PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.find((o) => o.mode === surfaceMode)
+                    ?.labelKo ?? surfaceMode
+                }`,
+                fallbackEn: `Selected: ${
+                  PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.find((o) => o.mode === surfaceMode)
+                    ?.labelEn ?? surfaceMode
+                }`,
+              })}
+              {dirty ? " · unsaved" : ""}
+            </p>
           </AdminCard>
 
           <AdminCard>

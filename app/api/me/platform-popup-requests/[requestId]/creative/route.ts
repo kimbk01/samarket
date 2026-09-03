@@ -3,42 +3,20 @@ import sharp from "sharp";
 import { randomUUID } from "crypto";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
-import {
-  extForCampaignImageMime,
-  validateCampaignImageFile,
-} from "@/lib/admin/notification-campaigns/validate-campaign-image";
+import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { loadPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-request-loader";
 import { isOwnerEditablePlatformPopupRequest } from "@/lib/platform-popup/owner-request-lifecycle";
 import { updatePlatformPopupOwnerDraft } from "@/lib/platform-popup/owner-request-writer";
-import { PLATFORM_POPUP_CREATIVE_ASPECT } from "@/lib/platform-popup/types";
+import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
+import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BUCKET = "platform-popup-creatives";
-const TARGET_RATIO = PLATFORM_POPUP_CREATIVE_ASPECT.w / PLATFORM_POPUP_CREATIVE_ASPECT.h;
-const RATIO_EPS = 0.01;
 
-function centerCropTo3625(width: number, height: number): {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-} {
-  const current = width / height;
-  if (current > TARGET_RATIO) {
-    const cropW = Math.round(height * TARGET_RATIO);
-    return { left: Math.floor((width - cropW) / 2), top: 0, width: cropW, height };
-  }
-  const cropH = Math.round(width / TARGET_RATIO);
-  return { left: 0, top: Math.floor((height - cropH) / 2), width, height: cropH };
-}
-
-/**
- * POST multipart `file` (+ optional applyCrop=center, altText)
- * Owner creative upload — bucket platform-popup-creatives.
- */
+/** POST multipart `file` (+ optional applyCrop=center, altText) — canonical 1440×1000 @ 36:25 */
 export async function POST(
   req: NextRequest,
   ctx: { params: Promise<{ requestId: string }> }
@@ -95,59 +73,35 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_dimensions" }, { status: 400 });
   }
 
-  const ratio = width / height;
-  const ratioOk = Math.abs(ratio - TARGET_RATIO) <= RATIO_EPS;
-
-  if (!ratioOk && !applyCrop) {
-    const crop = centerCropTo3625(width, height);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "needs_crop",
-        requiredAspect: "36:25",
-        width,
-        height,
-        ratio,
-        proposedCrop: crop,
-      },
-      { status: 400 }
-    );
+  const processed = await processPlatformPopupCreativeToCanonical({
+    buffer: buf,
+    width,
+    height,
+    applyCenterCrop: applyCrop,
+  });
+  if (!processed.ok) {
+    if (processed.error === "needs_crop") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "needs_crop",
+          requiredAspect: "36:25",
+          canonicalWidth: DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.width,
+          canonicalHeight: DIBAY_CANONICAL_POPUP_CREATIVE_SIZE.height,
+          width,
+          height,
+          ratio: width / height,
+          proposedCrop: processed.proposedCrop,
+        },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: "crop_failed" }, { status: 400 });
   }
 
-  let outBuf: Buffer = buf;
-  let outW = width;
-  let outH = height;
-  if (!ratioOk && applyCrop) {
-    const crop = centerCropTo3625(width, height);
-    try {
-      outBuf = await sharp(buf, { failOn: "none", limitInputPixels: false })
-        .rotate()
-        .extract(crop)
-        .webp({ quality: 88 })
-        .toBuffer();
-      outW = crop.width;
-      outH = crop.height;
-    } catch {
-      return NextResponse.json({ ok: false, error: "crop_failed" }, { status: 400 });
-    }
-  } else {
-    try {
-      outBuf = await sharp(buf, { failOn: "none", limitInputPixels: false })
-        .rotate()
-        .webp({ quality: 88 })
-        .toBuffer();
-    } catch {
-      outBuf = buf;
-    }
-  }
-
-  const ext = ratioOk && !applyCrop ? extForCampaignImageMime(validated.mime) : "webp";
-  const path = `owner-requests/${requestId}/${userId}/${randomUUID()}.${ext}`;
-  const contentType =
-    ext === "webp" ? "image/webp" : validated.mime === "image/jpg" ? "image/jpeg" : validated.mime;
-
-  const { error: upErr } = await sb.storage.from(BUCKET).upload(path, outBuf, {
-    contentType,
+  const path = `owner-requests/${requestId}/${userId}/${randomUUID()}.webp`;
+  const { error: upErr } = await sb.storage.from(BUCKET).upload(path, processed.buffer, {
+    contentType: "image/webp",
     upsert: false,
   });
   if (upErr) {
@@ -183,9 +137,10 @@ export async function POST(
     item: updated.row,
     path,
     url: publicUrl,
-    width: outW,
-    height: outH,
+    width: processed.width,
+    height: processed.height,
     aspect: "36:25",
-    cropped: !ratioOk && applyCrop,
+    canonical: true,
+    cropped: processed.cropped,
   });
 }
