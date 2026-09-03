@@ -22,8 +22,10 @@ export type SupportSheetShellProps = {
 
 /**
  * Sole Support modal geometry owner (HANDOFF + ACTIVE).
- * VV height shrinks the band; stage top stays 0 so Cap focus pan is not double-counted.
- * Keyboard changes usable height — never relocates the whole sheet via offsetTop.
+ *
+ * Layout-anchored overlay (CSS fixed inset-0). Keyboard shrinks sheet height
+ * via vv.height and lifts the footer via effectiveBottomInset — never relocates
+ * the stage with visualViewport.offsetTop (C5 CUSTOMER_VIEWPORT).
  */
 export function SupportSheetShell({
   open,
@@ -42,15 +44,8 @@ export function SupportSheetShell({
     heightRatio: SUPPORT_SHEET_HEIGHT_RATIO,
   });
 
-  const stageStyle: CSSProperties | undefined = geo.bandKnown
-    ? {
-        top: geo.stageTopPx,
-        height: geo.stageHeightPx,
-        left: 0,
-        right: 0,
-        bottom: "auto",
-      }
-    : undefined;
+  // Authority A: never pass a VV band stageStyle (that set top=offsetTop / height=vvH).
+  const stageStyle: CSSProperties | undefined = undefined;
 
   const panelStyle: CSSProperties = {
     paddingBottom: Math.max(0, Math.round(effectiveBottomInset)),
@@ -87,8 +82,9 @@ export function SupportSheetShell({
         data-sheet-height-ratio={String(SUPPORT_SHEET_HEIGHT_RATIO)}
         data-form-keyboard-surface="1"
         data-support-sheet-panel="1"
-        data-support-stage-top={String(geo.stageTopPx)}
-        data-support-applies-offset-top={geo.appliesOffsetTopToStage ? "1" : "0"}
+        data-support-stage-top="0"
+        data-support-apply-stage-band="0"
+        data-support-applies-offset-top="0"
         className={`${OverlayUi.sheetPanel} relative z-[1] mx-auto flex w-full ${SUPPORT_SHEET_MAX_W_CLASS} min-h-0 flex-col overflow-hidden`}
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}
