@@ -1,17 +1,17 @@
 {
-  "at": "2026-09-03T11:52:20.293Z",
+  "at": "2026-09-03T12:23:47.162Z",
   "origin": "https://samarket.vercel.app",
-  "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
+  "campaignId": "2a54eb8a-11fb-410f-8c3f-14d4c0790cac",
   "phase": "P5_GEOMETRY",
   "verdicts": {
     "PHONE_390": "PASS",
     "TABLET_768_MAX480": "PASS",
-    "TABLET_768_BOTTOM_IN_VIEW": "FAIL",
+    "TABLET_768_BOTTOM_IN_VIEW": "PASS",
     "LANDSCAPE_SUPPRESS": "PASS",
     "APK_PHONE_CARD": "PASS",
     "APK_SECOND_DEVICE_LANDSCAPE_DEFERRED": "PASS",
     "IOS_SAFARI": "NOT_PROVEN",
-    "P5_GEOMETRY": "PARTIAL"
+    "P5_GEOMETRY": "PASS"
   },
   "steps": {
     "detailBefore": {
@@ -21,13 +21,13 @@
     "resolveActive": {
       "ok": true,
       "winner": {
-        "campaignId": "29ada2df-bee0-44ad-9414-da51c13702c2",
-        "creativeId": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
+        "campaignId": "2a54eb8a-11fb-410f-8c3f-14d4c0790cac",
+        "creativeId": "1009f2a2-e69f-4a7b-8bea-7df9e4ad8958",
         "surface": "TRADE",
         "creative": {
-          "id": "eff7049c-e659-48d7-8f2c-da7e861eaea1",
-          "imageUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/platform-popup-creatives/campaigns/29ada2df-bee0-44ad-9414-da51c13702c2/11111111-1111-1111-1111-111111111111/4a56255b-b546-48ea-be1e-f50e59c43908.webp",
-          "altText": "P4 Admin Direct QA",
+          "id": "1009f2a2-e69f-4a7b-8bea-7df9e4ad8958",
+          "imageUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/platform-popup-creatives/campaigns/2a54eb8a-11fb-410f-8c3f-14d4c0790cac/11111111-1111-1111-1111-111111111111/b24a0108-e4ce-4856-846f-ffaa93da1279.webp",
+          "altText": "P4 approve chain retest",
           "aspectW": 36,
           "aspectH": 25
         },
@@ -57,7 +57,7 @@
         "data-host-state=VISIBLE",
         "data-eligible=1",
         "data-surface=TRADE",
-        "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+        "data-winner=2a54eb8a-11fb-410f-8c3f-14d4c0790cac"
       ],
       "card": {
         "x": 0,
@@ -95,30 +95,30 @@
         "data-host-state=VISIBLE",
         "data-eligible=1",
         "data-surface=TRADE",
-        "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+        "data-winner=2a54eb8a-11fb-410f-8c3f-14d4c0790cac"
       ],
       "card": {
         "x": 144,
-        "y": 669.224609375,
+        "y": 642.671875,
         "w": 480,
         "h": 381.328125,
-        "bottom": 1050.552734375,
+        "bottom": 1024,
         "right": 624
       },
       "creative": {
         "x": 144,
-        "y": 669.224609375,
+        "y": 642.671875,
         "w": 480,
         "h": 333.328125,
-        "bottom": 1002.552734375,
+        "bottom": 976,
         "right": 624
       },
       "dismiss": {
         "x": 144,
-        "y": 1002.552734375,
+        "y": 976,
         "w": 480,
         "h": 48,
-        "bottom": 1050.552734375,
+        "bottom": 1024,
         "right": 624
       },
       "overflowX": false
@@ -154,7 +154,7 @@
           "data-host-state=VISIBLE",
           "data-eligible=1",
           "data-surface=TRADE",
-          "data-winner=29ada2df-bee0-44ad-9414-da51c13702c2"
+          "data-winner=2a54eb8a-11fb-410f-8c3f-14d4c0790cac"
         ],
         "card": {
           "x": 0,
@@ -194,7 +194,7 @@
         "orientType": "landscape-primary",
         "hostAttrs": [
           "data-platform-popup-host=global",
-          "data-host-state=DEFERRED",
+          "data-host-state=INVALIDATED",
           "data-eligible=0",
           "data-surface=TRADE",
           "data-winner=",
@@ -222,7 +222,7 @@
     "orientType": "landscape-primary",
     "hostAttrs": [
       "data-platform-popup-host=global",
-      "data-host-state=DEFERRED",
+      "data-host-state=INVALIDATED",
       "data-eligible=0",
       "data-surface=TRADE",
       "data-winner=",
@@ -233,5 +233,5 @@
     "dismiss": null,
     "overflowX": false
   },
-  "note": "Tablet playwright 768: width capped at 480 PASS; card.bottom exceeds innerHeight (dismiss clip risk). iOS Safari not probed."
+  "note": "Tablet bottom clip historical FAIL was mid enter-transform measure (card.bottom>IH). After data-entered settle wait: tablet bottom==IH PASS. No product CSS change. 36:25 / max-width 480 / bottom anchor / landscape suppress unchanged. iOS Safari device unavailable."
 }
