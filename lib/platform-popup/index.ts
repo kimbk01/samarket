@@ -30,6 +30,7 @@ export * from "@/lib/platform-popup/platform-popup-owner-routes";
 export * from "@/lib/platform-popup/creative-pixel-ssot";
 export * from "@/lib/platform-popup/creative-pipeline-geometry";
 export * from "@/lib/platform-popup/admin-surface-target-mode";
+export * from "@/lib/platform-popup/popup-critical-path-gates";
 export * from "@/lib/platform-popup/popup-cta-destination-ux";
 export * from "@/lib/platform-popup/popup-product-labels";
 export * from "@/lib/platform-popup/popup-suppression-ux-contract";

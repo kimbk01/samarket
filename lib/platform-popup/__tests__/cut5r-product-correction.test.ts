@@ -49,12 +49,14 @@ describe("CUT 5-R creative pixel SSOT", () => {
 });
 
 describe("CUT 5-R admin surface radio mapping", () => {
-  it("exposes exactly five human modes", () => {
+  it("exposes exactly seven human modes", () => {
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
       "GLOBAL",
       "COMMUNITY",
       "TRADE",
       "DELIVERY",
+      "DELIVERY_OWNER",
+      "ADMIN",
       "MYPAGE",
     ]);
     expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.labelKo)).toEqual([
@@ -62,13 +64,17 @@ describe("CUT 5-R admin surface radio mapping", () => {
       "커뮤니티",
       "거래",
       "배달",
-      "마이페이지",
+      "배달 오너",
+      "어드민",
+      "내정보",
     ]);
   });
 
   it("maps radio → single surface row", () => {
     expect(surfacesFromAdminTargetMode("GLOBAL")).toEqual(["GLOBAL"]);
     expect(surfacesFromAdminTargetMode("DELIVERY")).toEqual(["DELIVERY"]);
+    expect(surfacesFromAdminTargetMode("DELIVERY_OWNER")).toEqual(["DELIVERY_OWNER"]);
+    expect(surfacesFromAdminTargetMode("ADMIN")).toEqual(["ADMIN"]);
     expect(surfacesFromAdminTargetMode("COMMUNITY")).toEqual(["COMMUNITY"]);
     expect(surfacesFromAdminTargetMode("TRADE")).toEqual(["TRADE"]);
     expect(surfacesFromAdminTargetMode("MYPAGE")).toEqual(["MYPAGE"]);

@@ -87,8 +87,8 @@ function validateWinnerHref(href: string): boolean {
 }
 
 /**
- * CUT 2 GlobalPopupHost — ONE mount in ConditionalAppShell.
- * Runtime consumer of CUT 1 resolvers. Final visual is CUT 3.
+ * CUT 2 GlobalPopupHost — ONE mount in ConditionalAppShell (main) and AdminPlatformShell.
+ * Same DibayPopupAd renderer. No Admin-only popup UI.
  */
 export function GlobalPopupHost() {
   const pathname = usePathname() ?? "/";
@@ -114,11 +114,16 @@ export function GlobalPopupHost() {
 
   const storesLcpDeferred = useStoresHomeOverlayDeferUntilInput();
   const [shellReady, setShellReady] = useState(() => isAppShellReady());
+  const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
     if (shellReady) return;
+    if (isAdminPath) {
+      setShellReady(true);
+      return;
+    }
     return whenAppShellReady(() => setShellReady(true));
-  }, [shellReady]);
+  }, [shellReady, isAdminPath]);
 
   const authReady = membership.status !== "checking";
   const userId = membership.status === "member" ? membership.profile.id : null;
@@ -162,8 +167,8 @@ export function GlobalPopupHost() {
       permissionGate: criticalFlags.permissionGate,
       addressGate: criticalFlags.addressGate,
       criticalDialog: criticalFlags.criticalDialog || supportOpen,
-      startupDeferred: !shellReady,
-      storesLcpDeferred,
+      startupDeferred: isAdminPath ? false : !shellReady,
+      storesLcpDeferred: isAdminPath ? false : storesLcpDeferred,
       appSessionId,
     };
   }, [
@@ -178,6 +183,7 @@ export function GlobalPopupHost() {
     criticalFlags,
     supportOpen,
     shellReady,
+    isAdminPath,
     storesLcpDeferred,
     appSessionId,
   ]);

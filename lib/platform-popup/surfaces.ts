@@ -1,6 +1,6 @@
 /**
- * Platform Popup CUT 1 — surface SSOT helpers.
- * GLOBAL = COMMUNITY + TRADE + DELIVERY + MYPAGE
+ * Platform Popup surface SSOT helpers.
+ * GLOBAL = COMMUNITY + TRADE + DELIVERY + DELIVERY_OWNER + ADMIN + MYPAGE
  */
 
 import {

@@ -79,7 +79,8 @@ function normalizeSurfaces(raw: string[] | undefined): PlatformPopupTargetSurfac
   if (!raw) return [];
   const out: PlatformPopupTargetSurface[] = [];
   for (const s of raw) {
-    const v = String(s).trim().toUpperCase();
+    let v = String(s).trim().toUpperCase();
+    if (v === "OWNER_OPS") v = "DELIVERY_OWNER";
     if (!isPlatformPopupTargetSurface(v)) return { error: `surface_invalid:${v}` };
     if (!out.includes(v)) out.push(v);
   }

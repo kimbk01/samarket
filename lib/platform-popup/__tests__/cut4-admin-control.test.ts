@@ -170,6 +170,8 @@ describe("CUT4 surfaces + CTA + TODAY semantic", () => {
       "COMMUNITY",
       "TRADE",
       "DELIVERY",
+      "DELIVERY_OWNER",
+      "ADMIN",
       "MYPAGE",
     ]);
   });

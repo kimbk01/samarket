@@ -56,38 +56,51 @@ export const PLATFORM_POPUP_EVENT_TYPES = [
 ] as const;
 export type PlatformPopupEventType = (typeof PLATFORM_POPUP_EVENT_TYPES)[number];
 
-/** Canonical advertising surfaces (Admin DB SSOT). */
+/** Canonical advertising surfaces (Admin/Owner DB SSOT + radio). */
 export const PLATFORM_POPUP_TARGET_SURFACES = [
   "GLOBAL",
   "COMMUNITY",
   "TRADE",
   "DELIVERY",
+  "DELIVERY_OWNER",
+  "ADMIN",
   "MYPAGE",
 ] as const;
 export type PlatformPopupTargetSurface = (typeof PLATFORM_POPUP_TARGET_SURFACES)[number];
 
-/** Consumer-resolved surfaces (GLOBAL expands to these four). */
+/**
+ * Surfaces where a campaign may show when eligible (GLOBAL expands to these).
+ * Critical ops are NOT surfaces — they are runtime gates.
+ */
 export const PLATFORM_POPUP_CONSUMER_SURFACES = [
   "COMMUNITY",
   "TRADE",
   "DELIVERY",
+  "DELIVERY_OWNER",
+  "ADMIN",
   "MYPAGE",
 ] as const;
 export type PlatformPopupConsumerSurface = (typeof PLATFORM_POPUP_CONSUMER_SURFACES)[number];
 
+/** Always-excluded (never selectable advertising targets). */
 export const PLATFORM_POPUP_EXCLUDED_SURFACES = [
   "MESSENGER",
   "CALL",
-  "ADMIN",
-  "OWNER_OPS",
   "PAYMENT",
   "ORDER_CRITICAL",
 ] as const;
 export type PlatformPopupExcludedSurface = (typeof PLATFORM_POPUP_EXCLUDED_SURFACES)[number];
 
+/**
+ * Legacy resolver label — not a DB/target surface.
+ * Compat: map any residual OWNER_OPS meaning → DELIVERY_OWNER.
+ */
+export const PLATFORM_POPUP_LEGACY_OWNER_OPS_SURFACE = "OWNER_OPS" as const;
+
 export type PlatformPopupResolvedSurface =
   | PlatformPopupConsumerSurface
   | PlatformPopupExcludedSurface
+  | typeof PLATFORM_POPUP_LEGACY_OWNER_OPS_SURFACE
   | "UNKNOWN";
 
 export type PlatformPopupActorRole = "owner" | "admin" | "system" | "payment";

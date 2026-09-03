@@ -76,6 +76,7 @@ describe("CUT2 GlobalPopupHost authority", () => {
     const offenders: string[] = [];
     for (const f of files) {
       if (f.endsWith("ConditionalAppShell.tsx")) continue;
+      if (f.endsWith("AdminPlatformShell.tsx")) continue; // same host, Admin shell only
       if (f.endsWith("GlobalPopupHost.tsx")) continue;
       const src = readFileSync(f, "utf8");
       if (
@@ -87,6 +88,13 @@ describe("CUT2 GlobalPopupHost authority", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it("AdminPlatformShell mounts the same GlobalPopupHost (not a second renderer)", () => {
+    const shell = readRepo("components/admin/shell/AdminPlatformShell.tsx");
+    expect(shell).toContain("@/components/platform-popup/GlobalPopupHost");
+    expect(shell).toContain("<GlobalPopupHostLazy");
+    expect(shell.match(/<GlobalPopupHostLazy/g)?.length).toBe(1);
   });
 });
 

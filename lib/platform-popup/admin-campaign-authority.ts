@@ -60,7 +60,8 @@ export function platformPopupMaterialEditRequiresReview(
 }
 
 export function isPlatformPopupTargetSurface(value: string): value is PlatformPopupTargetSurface {
-  return (PLATFORM_POPUP_TARGET_SURFACES as readonly string[]).includes(value);
+  const v = value === "OWNER_OPS" ? "DELIVERY_OWNER" : value;
+  return (PLATFORM_POPUP_TARGET_SURFACES as readonly string[]).includes(v);
 }
 
 export function isPlatformPopupSuppressionMode(value: string): value is PlatformPopupSuppressionMode {

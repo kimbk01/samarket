@@ -325,6 +325,7 @@ export function AdminPlatformPopupHubPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-sam-border text-sam-muted">
                     <tr>
+                      <th className="px-2 py-2">{lang === "en" ? "Creative" : "소재"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Campaign" : "캠페인"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Status" : "상태"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Placement" : "노출"}</th>
@@ -337,6 +338,18 @@ export function AdminPlatformPopupHubPage() {
                       const surface = (item.surfaces[0] ?? "GLOBAL") as PlatformPopupTargetSurface;
                       return (
                         <tr key={item.id} className="border-b border-sam-border/60 hover:bg-sam-app/60">
+                          <td className="px-2 py-2">
+                            {item.creativeThumbUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={item.creativeThumbUrl}
+                                alt=""
+                                className="h-10 w-14 rounded-sm object-cover"
+                              />
+                            ) : (
+                              <span className="inline-block h-10 w-14 rounded-sm bg-sam-border/40" />
+                            )}
+                          </td>
                           <td className="px-2 py-2">
                             <Link
                               href={`/admin/platform-popup/${item.id}`}

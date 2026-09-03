@@ -1,21 +1,23 @@
 /**
- * Platform Popup CUT 1 — central DIBAY surface resolver.
+ * Platform Popup — central DIBAY surface resolver.
  * Pathname + context flags. CALL is not pathname-only.
+ *
+ * Advertising surfaces (selectable): COMMUNITY | TRADE | DELIVERY | DELIVERY_OWNER | ADMIN | MYPAGE
+ * Critical ops are path/flag gates — not "ADMIN always excluded".
  */
 
 import type { PlatformPopupResolvedSurface } from "@/lib/platform-popup/types";
+import { PLATFORM_POPUP_CONSUMER_SURFACES } from "@/lib/platform-popup/types";
+import { resolvePlatformPopupPathCriticalSurface } from "@/lib/platform-popup/popup-critical-path-gates";
 
 export type ResolveDibaySurfaceContext = {
-  /** Call V4 / native: incoming ring or active session. */
   callIncoming?: boolean;
   callActive?: boolean;
   nativeCallTransition?: boolean;
-  /** Checkout / order submit / confirmation in progress. */
   paymentCritical?: boolean;
   orderSubmitCritical?: boolean;
   orderConfirmationCritical?: boolean;
   giftTransferCritical?: boolean;
-  /** Auth restore / permission onboarding / address gate / critical dialog. */
   authRestoreCritical?: boolean;
   permissionOnboardingCritical?: boolean;
   addressGateCritical?: boolean;
@@ -40,8 +42,6 @@ function hasCriticalUiBlock(ctx: ResolveDibaySurfaceContext | undefined): Platfo
   ) {
     return "ORDER_CRITICAL";
   }
-  // Auth / permission / address / dialog: treat as ORDER_CRITICAL exclusion bucket for ads
-  // (default excluded set includes these under critical deferral — map to ORDER_CRITICAL).
   if (
     ctx.authRestoreCritical ||
     ctx.permissionOnboardingCritical ||
@@ -55,7 +55,6 @@ function hasCriticalUiBlock(ctx: ResolveDibaySurfaceContext | undefined): Platfo
 
 /**
  * Resolve canonical DIBAY surface for Platform Popup eligibility.
- * Excluded surfaces never receive popup ads in v1.
  */
 export function resolveDibaySurface(
   pathname: string | null | undefined,
@@ -63,6 +62,9 @@ export function resolveDibaySurface(
 ): PlatformPopupResolvedSurface {
   const critical = hasCriticalUiBlock(context);
   if (critical) return critical;
+
+  const pathCritical = resolvePlatformPopupPathCriticalSurface(pathname);
+  if (pathCritical) return pathCritical;
 
   const p = normalizePath(pathname);
 
@@ -85,10 +87,10 @@ export function resolveDibaySurface(
     p === "/my/business" ||
     p.startsWith("/my/business/")
   ) {
-    return "OWNER_OPS";
+    return "DELIVERY_OWNER";
   }
 
-  // Payment / order-critical pathnames (even without context flags)
+  // Payment / order-critical pathnames (consumer)
   if (
     p === "/stores/cart" ||
     p.startsWith("/stores/cart/") ||
@@ -138,11 +140,15 @@ export function resolveDibaySurface(
 
 export function isPlatformPopupAdvertisingSurface(
   surface: PlatformPopupResolvedSurface
-): surface is "COMMUNITY" | "TRADE" | "DELIVERY" | "MYPAGE" {
-  return (
-    surface === "COMMUNITY" ||
-    surface === "TRADE" ||
-    surface === "DELIVERY" ||
-    surface === "MYPAGE"
-  );
+): surface is (typeof PLATFORM_POPUP_CONSUMER_SURFACES)[number] {
+  return (PLATFORM_POPUP_CONSUMER_SURFACES as readonly string[]).includes(surface);
+}
+
+/** Compat: legacy OWNER_OPS label → DELIVERY_OWNER for matching. */
+export function normalizePlatformPopupResolvedSurface(
+  surface: string
+): PlatformPopupResolvedSurface {
+  const s = String(surface ?? "").trim().toUpperCase();
+  if (s === "OWNER_OPS") return "DELIVERY_OWNER";
+  return s as PlatformPopupResolvedSurface;
 }

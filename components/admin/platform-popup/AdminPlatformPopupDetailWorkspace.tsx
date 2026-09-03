@@ -15,6 +15,7 @@ import {
 } from "@/lib/platform-popup/types";
 import {
   PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS,
+  adminSurfaceModeLabel,
   adminTargetModeFromSurfaces,
   surfacesFromAdminTargetMode,
   type PlatformPopupAdminSurfaceMode,
@@ -791,6 +792,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               })}
             </h2>
             {campaign ? (
+              <>
               <ul className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                 <li>
                   {language === "en" ? "Impressions" : "노출"}: {campaign.eventSummary.impression}
@@ -820,6 +822,28 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   {language === "en" ? "Eligible" : "후보"}: {campaign.eventSummary.eligible}
                 </li>
               </ul>
+              {Object.keys(campaign.eventSummaryBySurface ?? {}).length > 0 ? (
+                <div className="mt-3 space-y-1 text-xs" data-admin-popup-surface-breakdown="1">
+                  <p className="font-semibold text-sam-fg">
+                    {language === "en" ? "By surface" : "노출 영역별"}
+                  </p>
+                  {Object.entries(campaign.eventSummaryBySurface).map(([surf, counts]) => {
+                    const label =
+                      surf === "UNKNOWN"
+                        ? language === "en"
+                          ? "Unknown"
+                          : "미상"
+                        : adminSurfaceModeLabel(surf as PlatformPopupAdminSurfaceMode, language === "en" ? "en" : "ko");
+                    return (
+                      <p key={surf} className="text-sam-muted">
+                        {label}: {language === "en" ? "imp" : "노출"} {counts.impression ?? 0} ·{" "}
+                        {language === "en" ? "clk" : "클릭"} {counts.click ?? 0}
+                      </p>
+                    );
+                  })}
+                </div>
+              ) : null}
+              </>
             ) : null}
           </AdminCard>
 

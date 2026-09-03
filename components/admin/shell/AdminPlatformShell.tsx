@@ -37,6 +37,12 @@ const AdminLanguageToggleLazy = dynamic(
   { ssr: false }
 );
 
+/** Same host + DibayPopupAd as (main) ConditionalAppShell — no Admin-only popup renderer. */
+const GlobalPopupHostLazy = dynamic(
+  () => import("@/components/platform-popup/GlobalPopupHost").then((m) => m.GlobalPopupHost),
+  { ssr: false }
+);
+
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
@@ -255,6 +261,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </div>
+      <GlobalPopupHostLazy />
     </AdminStorePointPendingProvider>
   );
 }

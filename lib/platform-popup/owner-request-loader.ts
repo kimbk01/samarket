@@ -57,7 +57,8 @@ function mapSurfaces(raw: unknown): PlatformPopupTargetSurface[] {
   if (!Array.isArray(raw)) return [];
   const out: PlatformPopupTargetSurface[] = [];
   for (const s of raw) {
-    const v = String(s ?? "").trim().toUpperCase();
+    let v = String(s ?? "").trim().toUpperCase();
+    if (v === "OWNER_OPS") v = "DELIVERY_OWNER";
     if (isPlatformPopupTargetSurface(v) && !out.includes(v)) out.push(v);
   }
   return out;

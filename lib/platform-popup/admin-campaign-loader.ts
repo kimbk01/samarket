@@ -50,6 +50,8 @@ export type PlatformPopupAdminDetail = PlatformPopupAdminListItem & {
     altText: string | null;
   } | null;
   eventSummary: Record<PlatformPopupEventType, number>;
+  /** Impression/click/… counts keyed by resolved surface (nullable → "UNKNOWN"). */
+  eventSummaryBySurface: Record<string, Partial<Record<PlatformPopupEventType, number>>>;
   derived: {
     ctr: number | null;
     dismissRate: number | null;
@@ -209,16 +211,22 @@ export async function loadPlatformPopupAdminCampaignDetail(
       .eq("campaign_id", id)
       .eq("status", "ready")
       .maybeSingle(),
-    sb.from("platform_popup_campaign_events").select("event_type").eq("campaign_id", id),
+    sb.from("platform_popup_campaign_events").select("event_type, surface").eq("campaign_id", id),
   ]);
 
   const surfaces = (surfaceRows ?? []).map(
     (s) => (s as { surface: PlatformPopupTargetSurface }).surface
   );
   const summary = emptyEventSummary();
+  const bySurface: Record<string, Partial<Record<PlatformPopupEventType, number>>> = {};
   for (const e of eventRows ?? []) {
-    const t = String((e as { event_type: string }).event_type) as PlatformPopupEventType;
+    const row = e as { event_type: string; surface: string | null };
+    const t = String(row.event_type) as PlatformPopupEventType;
     if (t in summary) summary[t] += 1;
+    const surf = (row.surface ?? "UNKNOWN").trim().toUpperCase() || "UNKNOWN";
+    const bucket = bySurface[surf] ?? {};
+    bucket[t] = (bucket[t] ?? 0) + 1;
+    bySurface[surf] = bucket;
   }
 
   let creative: PlatformPopupAdminDetail["creative"] = null;
@@ -261,6 +269,7 @@ export async function loadPlatformPopupAdminCampaignDetail(
       approvedAt: row.approved_at,
       creative,
       eventSummary: summary,
+      eventSummaryBySurface: bySurface,
       derived: {
         ctr: rate(summary.click, summary.impression),
         dismissRate: rate(summary.dismiss, summary.impression),

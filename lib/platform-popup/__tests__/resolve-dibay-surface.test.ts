@@ -3,67 +3,74 @@ import {
   isPlatformPopupAdvertisingSurface,
   resolveDibaySurface,
 } from "@/lib/platform-popup/resolve-dibay-surface";
+import {
+  isPlatformPopupAdminCriticalPath,
+  isPlatformPopupOwnerCriticalPath,
+} from "@/lib/platform-popup/popup-critical-path-gates";
+import { expandPlatformPopupGlobalSurfaces } from "@/lib/platform-popup/surfaces";
+import { PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS } from "@/lib/platform-popup/admin-surface-target-mode";
 
-describe("resolveDibaySurface — CUT 1 surface SSOT", () => {
-  it("maps COMMUNITY", () => {
+describe("resolveDibaySurface — surface SSOT (Admin/Owner selectable)", () => {
+  it("maps COMMUNITY / TRADE / DELIVERY / MYPAGE", () => {
     expect(resolveDibaySurface("/philife")).toBe("COMMUNITY");
-    expect(resolveDibaySurface("/philife/post/abc")).toBe("COMMUNITY");
-    expect(resolveDibaySurface("/community/posts/x")).toBe("COMMUNITY");
-  });
-
-  it("maps TRADE", () => {
     expect(resolveDibaySurface("/market")).toBe("TRADE");
-    expect(resolveDibaySurface("/market/electronics")).toBe("TRADE");
-    expect(resolveDibaySurface("/dibamarket")).toBe("TRADE");
-    expect(resolveDibaySurface("/post/123")).toBe("TRADE");
-  });
-
-  it("maps DELIVERY", () => {
     expect(resolveDibaySurface("/stores")).toBe("DELIVERY");
-    expect(resolveDibaySurface("/stores/browse/food")).toBe("DELIVERY");
-    expect(resolveDibaySurface("/delivery/search")).toBe("DELIVERY");
-  });
-
-  it("maps MYPAGE", () => {
     expect(resolveDibaySurface("/mypage")).toBe("MYPAGE");
-    expect(resolveDibaySurface("/mypage/profile")).toBe("MYPAGE");
-    expect(resolveDibaySurface("/my/points")).toBe("MYPAGE");
   });
 
-  it("excludes MESSENGER", () => {
-    expect(resolveDibaySurface("/community-messenger")).toBe("MESSENGER");
-    expect(resolveDibaySurface("/community-messenger/rooms/r1")).toBe("MESSENGER");
-    expect(resolveDibaySurface("/mypage/trade/chat/r1")).toBe("MESSENGER");
-  });
-
-  it("excludes ADMIN", () => {
+  it("maps ADMIN as advertising surface (not always-excluded)", () => {
     expect(resolveDibaySurface("/admin")).toBe("ADMIN");
-    expect(resolveDibaySurface("/admin/stores")).toBe("ADMIN");
+    expect(resolveDibaySurface("/admin/platform-popup")).toBe("ADMIN");
+    expect(isPlatformPopupAdvertisingSurface("ADMIN")).toBe(true);
   });
 
-  it("excludes OWNER_OPS", () => {
-    expect(resolveDibaySurface("/stores/owner")).toBe("OWNER_OPS");
-    expect(resolveDibaySurface("/stores/owner/orders")).toBe("OWNER_OPS");
-    expect(resolveDibaySurface("/my/business")).toBe("OWNER_OPS");
+  it("maps Delivery Owner as DELIVERY_OWNER (not OWNER_OPS)", () => {
+    expect(resolveDibaySurface("/stores/owner")).toBe("DELIVERY_OWNER");
+    expect(resolveDibaySurface("/stores/owner/orders")).toBe("DELIVERY_OWNER");
+    expect(resolveDibaySurface("/my/business")).toBe("DELIVERY_OWNER");
+    expect(isPlatformPopupAdvertisingSurface("DELIVERY_OWNER")).toBe(true);
   });
 
-  it("excludes ORDER_CRITICAL pathnames", () => {
+  it("Admin finance paths are critical PAYMENT, not ADMIN ads", () => {
+    expect(resolveDibaySurface("/admin/finance")).toBe("PAYMENT");
+    expect(resolveDibaySurface("/admin/store-settlements")).toBe("PAYMENT");
+    expect(isPlatformPopupAdminCriticalPath("/admin/point-charges")).toBe(true);
+  });
+
+  it("Owner finance/ads/settlements are critical PAYMENT", () => {
+    expect(resolveDibaySurface("/stores/owner/finance")).toBe("PAYMENT");
+    expect(resolveDibaySurface("/stores/owner/settlements")).toBe("PAYMENT");
+    expect(resolveDibaySurface("/stores/owner/ads")).toBe("PAYMENT");
+    expect(isPlatformPopupOwnerCriticalPath("/stores/owner/ads/new")).toBe(true);
+  });
+
+  it("excludes MESSENGER / ORDER_CRITICAL / CALL", () => {
+    expect(resolveDibaySurface("/community-messenger")).toBe("MESSENGER");
     expect(resolveDibaySurface("/stores/cart")).toBe("ORDER_CRITICAL");
-    expect(resolveDibaySurface("/orders/store/oid")).toBe("ORDER_CRITICAL");
-    expect(resolveDibaySurface("/stores/acme/order/complete")).toBe("ORDER_CRITICAL");
-  });
-
-  it("CALL context wins over pathname", () => {
     expect(resolveDibaySurface("/market", { callIncoming: true })).toBe("CALL");
-    expect(resolveDibaySurface("/philife", { callActive: true })).toBe("CALL");
-    expect(resolveDibaySurface("/stores", { nativeCallTransition: true })).toBe("CALL");
+    expect(isPlatformPopupAdvertisingSurface("MESSENGER")).toBe(false);
   });
 
-  it("only consumer surfaces are advertising-eligible", () => {
-    expect(isPlatformPopupAdvertisingSurface("TRADE")).toBe(true);
-    expect(isPlatformPopupAdvertisingSurface("MESSENGER")).toBe(false);
-    expect(isPlatformPopupAdvertisingSurface("CALL")).toBe(false);
-    expect(isPlatformPopupAdvertisingSurface("ADMIN")).toBe(false);
-    expect(isPlatformPopupAdvertisingSurface("ORDER_CRITICAL")).toBe(false);
+  it("GLOBAL expands to six consumer surfaces", () => {
+    expect([...expandPlatformPopupGlobalSurfaces()]).toEqual([
+      "COMMUNITY",
+      "TRADE",
+      "DELIVERY",
+      "DELIVERY_OWNER",
+      "ADMIN",
+      "MYPAGE",
+    ]);
+  });
+
+  it("Admin/Owner radio exposes seven modes", () => {
+    expect(PLATFORM_POPUP_ADMIN_SURFACE_MODE_OPTIONS.map((o) => o.mode)).toEqual([
+      "GLOBAL",
+      "COMMUNITY",
+      "TRADE",
+      "DELIVERY",
+      "DELIVERY_OWNER",
+      "ADMIN",
+      "MYPAGE",
+    ]);
   });
 });

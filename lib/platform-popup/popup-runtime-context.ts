@@ -69,11 +69,10 @@ export function resolvePopupRuntimeBlockReason(
   if (
     ctx.surface === "MESSENGER" ||
     ctx.surface === "CALL" ||
-    ctx.surface === "ADMIN" ||
-    ctx.surface === "OWNER_OPS" ||
     ctx.surface === "PAYMENT" ||
     ctx.surface === "ORDER_CRITICAL" ||
-    ctx.surface === "UNKNOWN"
+    ctx.surface === "UNKNOWN" ||
+    ctx.surface === "OWNER_OPS"
   ) {
     return "surface_excluded";
   }

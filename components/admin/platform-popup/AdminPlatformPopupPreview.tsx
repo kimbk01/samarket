@@ -72,6 +72,21 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
       )
     : "";
 
+  const contextTone =
+    source?.surface === "ADMIN"
+      ? "linear-gradient(180deg,#1e293b 0%,#0f172a 40%,#334155 100%)"
+      : source?.surface === "DELIVERY_OWNER"
+        ? "linear-gradient(180deg,#ecfdf5 0%,#d1fae5 35%,#f8fafc 100%)"
+        : source?.surface === "DELIVERY"
+          ? "linear-gradient(180deg,#fff7ed 0%,#ffedd5 40%,#f8fafc 100%)"
+          : source?.surface === "TRADE"
+            ? "linear-gradient(180deg,#f5f3ff 0%,#ede9fe 40%,#f8fafc 100%)"
+            : source?.surface === "COMMUNITY"
+              ? "linear-gradient(180deg,#eff6ff 0%,#dbeafe 40%,#f8fafc 100%)"
+              : source?.surface === "MYPAGE"
+                ? "linear-gradient(180deg,#fdf2f8 0%,#fce7f3 40%,#f8fafc 100%)"
+                : "linear-gradient(180deg,#f1f5f9 0%,#e2e8f0 45%,#f8fafc 100%)";
+
   return (
     <div className="space-y-3" data-admin-platform-popup-preview="1">
       <div className="flex flex-wrap items-center gap-2">
@@ -121,11 +136,17 @@ export function AdminPlatformPopupPreview({ source }: { source: AdminPlatformPop
       </div>
 
       <div
-        className="relative mx-auto overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app"
-        style={{ width: frame.w, height: frame.h, maxWidth: "100%" }}
+        className="relative mx-auto overflow-hidden rounded-ui-rect border border-sam-border"
+        style={{ width: frame.w, height: frame.h, maxWidth: "100%", background: contextTone }}
         data-preview-device={device}
+        data-preview-surface={source?.surface ?? ""}
         data-tablet-max-width={PLATFORM_POPUP_TABLET_MAX_WIDTH_PX}
       >
+        <div className="pointer-events-none absolute inset-x-3 top-3 space-y-2 opacity-40" aria-hidden>
+          <div className="h-3 w-1/3 rounded bg-black/20" />
+          <div className="h-16 rounded bg-black/10" />
+          <div className="h-16 rounded bg-black/10" />
+        </div>
         {!winner ? (
           <div className="flex h-full items-center justify-center p-6 text-sm text-sam-muted">
             {safeT("admin_platform_popup_preview_empty", {
