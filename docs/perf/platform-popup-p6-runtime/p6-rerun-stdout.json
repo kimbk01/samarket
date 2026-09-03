@@ -16,7 +16,7 @@
     "P6_ADMIN_APPROVAL": "PASS",
     "P6_POST_APPROVAL_WINNER": "PASS",
     "P6_VISIBLE_POPUP": "PASS",
-    "P6_EVENTS": "PASS",
+    "P6_EVENTS": "NOT_PROVEN",
     "P6_REJECT_REFUND": "PASS",
     "P6_OWNER_ROUNDTRIP": "PASS"
   },
@@ -235,29 +235,10 @@
     "resolveAfterReject": {
       "winner": null,
       "reason": "no_eligible_campaign"
-    },
-    "eventsProbe": {
-      "campaignId": "9d4abe32-81b6-42b9-b413-f5f222059685",
-      "impressionCount": 1,
-      "events": [
-        {
-          "event_type": "impression",
-          "created_at": "2026-09-03T13:29:26.101512+00:00",
-          "surface": "TRADE"
-        }
-      ],
-      "resolveWinner": "9d4abe32-81b6-42b9-b413-f5f222059685",
-      "at": "2026-09-03T13:29:30.064Z"
-    },
-    "firstDivergenceBcSpend": {
-      "error": "bc_debit_failed",
-      "detail": "column \"entry_type\" of relation \"business_cash_ledger\" does not exist",
-      "fixMigration": "20261203170000_platform_popup_bc_spend_ledger_column_fix.sql",
-      "appliedAt": "2026-09-03T13:24:00Z"
     }
   },
   "PRODUCT_CLOSED": "NO",
   "campaignId": "9d4abe32-81b6-42b9-b413-f5f222059685",
   "requestId": "5d130d0d-c6c9-4eeb-9f15-8a9b3ea66962",
-  "note": "P6 owner paid E2E PASS after BC spend ledger column fix. Events proven via targeted re-activate probe (impression). PRODUCT CLOSED still blocked on P5 iOS native."
+  "note": "PRODUCT CLOSED requires P5 iOS native PASS + full P6 owner paid E2E including reject/refund when required. No product code changes in this run."
 }

@@ -1,0 +1,171 @@
+{
+  "at": "2026-09-03T13:17:52.070Z",
+  "productionSha": "41ad949f4",
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "needMinor": 500000,
+  "fundedStores": {
+    "error": null,
+    "rows": []
+  },
+  "targetStoreBalanceDb": {
+    "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+    "balance_minor": 0
+  },
+  "ownerLogin": true,
+  "adminLogin": true,
+  "balanceBefore": {
+    "status": 200,
+    "balanceMinor": 0,
+    "keys": [
+      "ok",
+      "storeId",
+      "assets",
+      "conversion",
+      "businessCashLedger",
+      "storePointsLedger",
+      "topUpRequests"
+    ]
+  },
+  "method": "owner_topup_request_then_admin_approve",
+  "topupRequest": {
+    "status": 200,
+    "ok": true,
+    "requestId": "131c8e84-4f65-4cf1-8281-d76c32104b42",
+    "error": null,
+    "amountMinor": 500000
+  },
+  "topupApprove": {
+    "status": 200,
+    "ok": true,
+    "error": null,
+    "jsonKeys": [
+      "ok",
+      "idempotent",
+      "ledgerId",
+      "balanceAfterMinor"
+    ]
+  },
+  "balanceAfter": {
+    "balanceMinor": 1000000
+  },
+  "P6_BC_ACQUISITION": "PASS",
+  "topupRounds": [
+    {
+      "status": 200,
+      "ok": true,
+      "requestId": "131c8e84-4f65-4cf1-8281-d76c32104b42",
+      "error": null,
+      "amountMinor": 500000
+    },
+    {
+      "op": "read_before_topup2",
+      "balanceMinor": 498000
+    },
+    {
+      "op": "ledger_head",
+      "ledger": [
+        {
+          "id": "62ac3bb2-49c8-45ca-af16-aea9f38be2a7",
+          "entryKind": "TOP_UP",
+          "direction": "credit",
+          "amountMinor": 500000,
+          "balanceAfterMinor": 500000,
+          "createdAt": "2026-09-03T13:17:11.434616+00:00"
+        },
+        {
+          "id": "ce1d0ea7-d36f-4a6e-9dae-1f9d7ff41348",
+          "entryKind": "SALE_FEE_SETTLEMENT",
+          "direction": "debit",
+          "amountMinor": 2000,
+          "balanceAfterMinor": 498000,
+          "createdAt": "2026-09-03T13:17:11.434616+00:00"
+        },
+        {
+          "id": "44cf07df-f28a-460e-be16-5ea708a4d0ae",
+          "entryKind": "SALE_FEE",
+          "direction": "debit",
+          "amountMinor": 12000,
+          "balanceAfterMinor": 0,
+          "createdAt": "2026-09-02T00:33:57.861134+00:00"
+        },
+        {
+          "id": "56057d85-9adc-4226-8045-3189d07ecb8b",
+          "entryKind": "SALE_FEE_REVERSAL",
+          "direction": "credit",
+          "amountMinor": 4500,
+          "balanceAfterMinor": 12000,
+          "createdAt": "2026-09-02T00:33:50.266661+00:00"
+        },
+        {
+          "id": "058c522a-9c8d-4ab4-be25-8affb0e4e305",
+          "entryKind": "SALE_FEE_SETTLEMENT",
+          "direction": "debit",
+          "amountMinor": 2500,
+          "balanceAfterMinor": 7500,
+          "createdAt": "2026-09-02T00:33:48.329238+00:00"
+        },
+        {
+          "id": "bfe182ef-bf05-4aec-825a-005f6c47bc3e",
+          "entryKind": "CONVERT_FROM_STORE_POINTS",
+          "direction": "credit",
+          "amountMinor": 10000,
+          "balanceAfterMinor": 10000,
+          "createdAt": "2026-09-02T00:33:48.329238+00:00"
+        },
+        {
+          "id": "01bdc9a5-09bf-482a-b657-7430e3f7fa2d",
+          "entryKind": "SALE_FEE",
+          "direction": "debit",
+          "amountMinor": 2000,
+          "balanceAfterMinor": 0,
+          "createdAt": "2026-09-02T00:33:45.403962+00:00"
+        },
+        {
+          "id": "0b169028-cd40-40ef-b8c0-b49ec300788e",
+          "entryKind": "TOP_UP",
+          "direction": "credit",
+          "amountMinor": 2000,
+          "balanceAfterMinor": 2000,
+          "createdAt": "2026-09-02T00:33:36.272093+00:00"
+        }
+      ]
+    },
+    {
+      "op": "topup_request",
+      "status": 200,
+      "requestId": "ffe910b7-52f1-4ba6-abdd-99a63dc949f9",
+      "amountMinor": 502000,
+      "error": null
+    },
+    {
+      "op": "topup_approve",
+      "status": 200,
+      "ok": true,
+      "balanceAfterMinor": 1000000,
+      "error": null
+    },
+    {
+      "op": "read_after_topup2",
+      "balanceMinor": 1000000
+    }
+  ],
+  "balanceBeforeFirst": {
+    "status": 200,
+    "balanceMinor": 0,
+    "keys": [
+      "ok",
+      "storeId",
+      "assets",
+      "conversion",
+      "businessCashLedger",
+      "storePointsLedger",
+      "topUpRequests"
+    ]
+  },
+  "balanceAfterFirstApprove": {
+    "status": 200,
+    "balanceMinor": 498000
+  },
+  "note": "First approve credited 500000 but subsequent read was 498000 (−2000); topped up again to TARGET for P6+refund buffer."
+}

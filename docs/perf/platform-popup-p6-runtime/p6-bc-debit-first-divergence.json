@@ -1,0 +1,12 @@
+{
+  "at": "2026-09-03T13:30:16.536Z",
+  "productionShaBeforeFix": "41ad949f4",
+  "expected": "Owner submit debits BC via business_cash_delivery_ad_spend and returns funded",
+  "observed": {
+    "error": "bc_debit_failed",
+    "detail": "column \"entry_type\" of relation \"business_cash_ledger\" does not exist"
+  },
+  "rootCause": "CUT5 RPC rewrite inserted entry_type/meta/created_by; AST-005 ledger columns are entry_kind/direction/related_*/actor_*",
+  "fix": "supabase/migrations/20261203170000_platform_popup_bc_spend_ledger_column_fix.sql applied to Production DB",
+  "retest": "P6_OWNER_ROUNDTRIP PASS"
+}

@@ -1,0 +1,24 @@
+{
+  "at": "2026-09-03T13:56:52.607Z",
+  "version": "20261203170000",
+  "migration": "supabase/migrations/20261203170000_platform_popup_bc_spend_ledger_column_fix.sql",
+  "functionProbe": {
+    "spendHasEntryKind": true,
+    "spendHasEntryType": false,
+    "spendHasPlatformPopup": true,
+    "refundHasEntryKind": true,
+    "refundHasEntryType": false,
+    "refundHasPlatformPopup": true
+  },
+  "migrationHistory": {
+    "rows": [
+      {
+        "version": "20261203170000",
+        "name": "20261203170000_platform_popup_bc_spend_ledger_column_fix.sql",
+        "statements_count": 0
+      }
+    ],
+    "applied": true
+  },
+  "verdict": "PASS"
+}
