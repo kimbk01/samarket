@@ -30,15 +30,18 @@ export type DashboardQuickLink = {
  */
 export const DASHBOARD_QUICK_LINK_MENU_KEYS = {
   ops: [
-    "common",
-    "community",
-    "trade",
     "delivery",
+    "trade",
+    "community",
     "messenger",
+    "finance",
+    "ads",
+    "support",
+    "notifications",
     "system",
   ],
   manage: ["manage-ops-board", "manage-docs", "manage-kb", "manage-maturity"],
-  /** Former DEV_LINKS — system leaves (audit lives under Common). */
+  /** Former DEV_LINKS — system leaves. */
   dev: [
     "system-qa",
     "system-release-notes",

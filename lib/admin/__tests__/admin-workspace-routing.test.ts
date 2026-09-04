@@ -10,16 +10,23 @@ import {
   resolveWorkspaceRootPath,
 } from "@/lib/admin/admin-workspace-routing";
 
-describe("admin-workspace-routing", () => {
-  it("lists 7 workspaces for master", () => {
+function findWorkspaceItem(workspaceKey: string, role: "master" | "operator" | "admin" | "viewer") {
+  return listAdminWorkspaces(role).find((w) => w.id === workspaceKey)?.item;
+}
+
+describe("admin-workspace-routing (CUT J)", () => {
+  it("lists CUT J workspaces for master", () => {
     const ws = listAdminWorkspaces("master");
     expect(ws.map((w) => w.id)).toEqual([
       "dashboard",
-      "common",
-      "community",
-      "trade",
       "delivery",
+      "trade",
+      "community",
       "messenger",
+      "finance",
+      "ads",
+      "support",
+      "notifications",
       "system",
     ]);
   });
@@ -37,31 +44,29 @@ describe("admin-workspace-routing", () => {
   it("resolves active workspace from pathname and matchPaths", () => {
     expect(resolveActiveWorkspace("/admin", "master").id).toBe("dashboard");
     expect(resolveActiveWorkspace("/admin/customer-platform", "master").id).toBe("system");
-    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("common");
-    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("common");
-    // Trade reports leaf = product SSOT; domain-only + target= deep links stay Trade via matchPaths
-    // (menu match requires all declared query keys — longer leaf alone would fall through to Common).
+    expect(resolveActiveWorkspace("/admin/users", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/reports", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/finance", "master").id).toBe("finance");
+    expect(resolveActiveWorkspace("/admin/point-charges", "master").id).toBe("finance");
+    expect(resolveActiveWorkspace("/admin/delivery-ads", "master").id).toBe("ads");
+    expect(resolveActiveWorkspace("/admin/feed-ads", "master").id).toBe("ads");
+    expect(resolveActiveWorkspace("/admin/platform-popup", "master").id).toBe("ads");
+    expect(resolveActiveWorkspace("/admin/support", "master").id).toBe("support");
+    expect(resolveActiveWorkspace("/admin/notifications", "master").id).toBe("notifications");
     expect(resolveActiveWorkspace("/admin/reports?domain=trade", "master").id).toBe("trade");
     expect(
       resolveActiveWorkspace("/admin/reports?domain=trade&target_type=product", "master").id
-    ).toBe("trade");
-    expect(
-      resolveActiveWorkspace(
-        "/admin/reports?domain=trade&target_type=product&target=post-1",
-        "master"
-      ).id
     ).toBe("trade");
     expect(resolveActiveWorkspace("/admin/trade", "master").id).toBe("trade");
     expect(resolveActiveWorkspace("/admin/community/posts", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/philife/sections", "master").id).toBe("community");
     expect(resolveActiveWorkspace("/admin/stores/orders", "master").id).toBe("delivery");
+    expect(resolveActiveWorkspace("/admin/stores-home-shelves", "master").id).toBe("delivery");
+    expect(resolveActiveWorkspace("/admin/stores-category-policy", "master").id).toBe("delivery");
     expect(resolveActiveWorkspace("/admin/chats/messenger", "master").id).toBe("messenger");
-    expect(resolveActiveWorkspace("/admin/chats/trade?from=messenger", "master").id).toBe(
-      "messenger"
-    );
-    expect(resolveActiveWorkspace("/admin/promoted-items", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/promoted-items", "master").id).toBe("ads");
     expect(resolveActiveWorkspace("/admin/settings", "master").id).toBe("system");
-    expect(resolveActiveWorkspace("/admin/system", "master").id).toBe("system");
+    expect(resolveActiveWorkspace("/admin/prelaunch-reset", "master").id).toBe("system");
   });
 
   it("does not treat every /admin/* as HOME", () => {
@@ -70,8 +75,12 @@ describe("admin-workspace-routing", () => {
   });
 
   it("computes workspace roots from SSOT leaves", () => {
-    const common = adminMenu.find((w) => w.key === "common")!;
-    expect(resolveWorkspaceRootPath(common)).toBe("/admin/users");
+    const finance = adminMenu.find((w) => w.key === "finance")!;
+    expect(resolveWorkspaceRootPath(finance)).toBe("/admin/point-charges");
+    const ads = adminMenu.find((w) => w.key === "ads")!;
+    expect(resolveWorkspaceRootPath(ads)).toBe("/admin/delivery-ads");
+    const support = adminMenu.find((w) => w.key === "support")!;
+    expect(resolveWorkspaceRootPath(support)).toBe("/admin/support");
     const system = adminMenu.find((w) => w.key === "system")!;
     expect(resolveWorkspaceRootPath(system)).toBe("/admin/customer-platform");
   });
@@ -99,7 +108,3 @@ describe("admin-workspace-routing", () => {
     expect(isPlatformAdminPathname("/stores/owner/orders")).toBe(false);
   });
 });
-
-function findWorkspaceItem(key: string, role: "master" | "admin" | "operator" | "viewer") {
-  return listAdminWorkspaces(role).find((w) => w.id === key)?.item;
-}

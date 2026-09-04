@@ -59,21 +59,21 @@ describe("admin sidebar active path authority", () => {
     },
     {
       name: "support center leaf",
-      workspaceKey: "system",
+      workspaceKey: "support",
       path: "/admin/support",
       expectLeaf: "/admin/support",
       expectCount: 1,
     },
     {
       name: "support archive sibling",
-      workspaceKey: "system",
+      workspaceKey: "support",
       path: "/admin/support/archive",
       expectLeaf: "/admin/support/archive",
       expectCount: 1,
     },
     {
-      name: "common reports root",
-      workspaceKey: "common",
+      name: "system reports root",
+      workspaceKey: "system",
       path: "/admin/reports",
       expectLeaf: "/admin/reports",
       expectCount: 1,
@@ -114,7 +114,7 @@ describe("admin sidebar active path authority", () => {
   });
 
   it("distinguishes support center vs archive sibling", () => {
-    const scope = workspacePaths("system");
+    const scope = workspacePaths("support");
     expect(isLeafMenuActive("/admin/support", "/admin/support", scope)).toBe(true);
     expect(isLeafMenuActive("/admin/support/archive", "/admin/support", scope)).toBe(false);
     expect(isLeafMenuActive("/admin/support", "/admin/support/archive", scope)).toBe(false);

@@ -63,9 +63,8 @@ function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string
   return out;
 }
 
-/** Ops workspaces — derived from the 7-workspace adminMenu SSOT. */
+/** Domain ops workspaces — derived from adminMenu SSOT (CUT J: common dissolved). */
 const OPS_DOMAIN_KEYS = [
-  "common",
   "trade",
   "community",
   "delivery",
@@ -77,8 +76,8 @@ const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>
 );
 
 const ADS_ITEMS = menuChildrenAsConfigItems("ads");
-/** Member point ops live under Customer Platform (`cp-member-assets`). */
-const POINT_ITEMS = menuChildrenAsConfigItems("cp-member-assets");
+/** Member point ops live under Finance (`finance-member-point`). */
+const POINT_ITEMS = menuChildrenAsConfigItems("finance-member-point");
 const APP_CONFIG_TOP = requireAdminMenuByKey(adminMenu, "app-config");
 const SETTINGS_ITEMS = (APP_CONFIG_TOP.children ?? []).map(cloneMenuItem);
 const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "manage");

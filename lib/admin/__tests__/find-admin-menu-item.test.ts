@@ -7,18 +7,22 @@ import {
 } from "@/lib/admin/find-admin-menu-item";
 
 describe("find-admin-menu-item", () => {
-  it("finds nested growth ads by key", () => {
+  it("finds ads workspace leaves by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
-    // Cut B: Marketplace 더 알리기 (ads-applications) lives under TRADE; Feed Banner stays Growth.
     expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-applications")).toBe(false);
+    expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(true);
+    // trade promote is nested under ads-trade-promote
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
+    );
   });
 
-  it("finds Marketplace promo queue under trade", () => {
+  it("trade no longer owns ads-applications primary; keeps reports", () => {
     const trade = findAdminMenuByKey(adminMenu, "trade");
-    expect(trade?.children?.some((c) => c.key === "ads-applications")).toBe(true);
+    expect(trade?.children?.some((c) => c.key === "ads-applications")).toBe(false);
     expect(trade?.children?.some((c) => c.key === "reports-posts")).toBe(true);
+    expect(trade?.children?.some((c) => c.key === "trade-post-ads")).toBe(true);
   });
 
   it("finds manage under platform-ops", () => {
@@ -47,11 +51,22 @@ describe("find-admin-menu-item", () => {
 describe("admin-menu-config module load", () => {
   it("loads adapter sections from SSOT without inventing a second tree", async () => {
     const mod = await import("@/lib/admin-menu-config");
+    // Legacy section adapter stays 7 ids; nav workspaces live in adminMenu (CUT J = 10).
     expect(mod.ADMIN_MENU_SECTIONS).toHaveLength(7);
+    expect(adminMenu).toHaveLength(10);
     expect(mod.OPS_QUICK_LINKS_PRIORITY.length).toBeGreaterThan(0);
     expect(mod.OPS_QUICK_LINKS_PRIORITY.some((l) => l.href === "/admin/operations")).toBe(
       false
     );
     expect(mod.OPS_MENU_GROUPS.length).toBeGreaterThan(0);
+    expect(mod.OPS_MENU_GROUPS.map((g) => g.groupLabel)).toEqual([
+      "trade",
+      "community",
+      "delivery",
+      "messenger",
+    ]);
+    const point = mod.ADMIN_MENU_SECTIONS.find((s) => s.id === "point");
+    expect((point?.items ?? []).length).toBeGreaterThan(0);
+    expect(point?.items?.some((i) => i.href === "/admin/point-charges")).toBe(true);
   });
 });

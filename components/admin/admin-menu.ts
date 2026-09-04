@@ -1,6 +1,10 @@
 /**
- * 플랫폼 Admin 메뉴 SSOT (7 workspace)
+ * 플랫폼 Admin 메뉴 SSOT (CUT J workspaces)
  * LOCK: docs/admin/platform-admin-ia-lock.md
+ *
+ * Workspaces:
+ * dashboard · delivery · trade · community · messenger ·
+ * finance · ads · support · notifications · system
  *
  * Invariants:
  * - path(쿼리·hash 포함) 하나당 visible leaf 하나
@@ -43,10 +47,23 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   trade: "admin_menu_trade",
   delivery: "admin_menu_delivery",
   messenger: "admin_menu_messenger",
+  finance: "admin_menu_finance",
+  ads: "admin_menu_ads",
+  support: "admin_menu_support",
+  notifications: "admin_menu_notifications",
   system: "admin_menu_system",
   growth: "admin_menu_growth",
   "app-config": "admin_menu_app_config",
   "platform-ops": "admin_menu_platform_ops",
+
+  // CUT J sections
+  "finance-member-point": "admin_menu_cp_points_member",
+  "finance-store-currency": "admin_menu_store_finance",
+  "ads-delivery-ops": "admin_menu_ads_delivery",
+  "ads-placement-map": "admin_menu_placement_map",
+  "ads-trade-promote": "admin_menu_ads_applications",
+  "support-legacy": "admin_menu_store_inquiries",
+  "system-members": "admin_menu_members",
 
   // CP
   "cp-dashboard": "admin_menu_cp_dashboard",
@@ -191,8 +208,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "trade-users": "admin_menu_users",
   "trade-audit": "admin_menu_trade_audit",
 
-  // Growth
-  ads: "admin_menu_ads",
+  // Ads / Growth-rec
   "ads-applications": "admin_menu_ads_applications",
   "ads-paid": "admin_menu_ads_paid_legacy",
   "ads-feed": "admin_menu_ads_feed",
@@ -284,11 +300,12 @@ function attachAdminMenuTitleKeys(items: AdminMenuItem[]): AdminMenuItem[] {
 }
 
 /**
- * 7 workspace SSOT
- * DASHBOARD / COMMON / COMMUNITY / TRADE / DELIVERY / MESSENGER / SYSTEM
+ * CUT J workspace SSOT
+ * DASHBOARD / DELIVERY / TRADE / COMMUNITY / MESSENGER /
+ * FINANCE / ADS / SUPPORT / NOTIFICATIONS / SYSTEM
  */
 export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
-  // ── HOME ───────────────────────────────────────
+  // ── DASHBOARD ──────────────────────────────────
   {
     key: "dashboard",
     title: "",
@@ -296,140 +313,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     status: "done",
   },
 
-  // ── COMMON ─────────────────────────────────────
-  {
-    key: "common",
-    title: "",
-    children: [
-      { key: "users", title: "", path: "/admin/users", status: "done" },
-      { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
-      { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
-      { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
-      { key: "push-devices", title: "", path: "/admin/push-devices", status: "done" },
-    ],
-  },
-
-  // ── COMMUNITY ──────────────────────────────────
-  // App 2-tier Community IA Admin: topics / posts / comments / reports / ops / point(general|qna).
-  // Comment report authority · topic-specific point · Manner = HOLD (do not surface as supported).
-  {
-    key: "community",
-    title: "",
-    children: [
-      {
-        key: "community-home",
-        title: "",
-        path: "/admin/community",
-        status: "done",
-      },
-      {
-        key: "community-topics",
-        title: "",
-        path: "/admin/community/topics",
-        matchPaths: ["/admin/philife/topics", "/admin/philife"],
-        status: "done",
-      },
-      { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
-      {
-        key: "community-comments",
-        title: "",
-        path: "/admin/community/comments",
-        status: "done",
-      },
-      {
-        key: "community-feed-reports",
-        title: "",
-        path: "/admin/community/reports",
-        matchPaths: ["/admin/philife/reports"],
-        status: "done",
-      },
-      {
-        key: "philife-meeting-reports",
-        title: "",
-        path: "/admin/philife/meeting-reports",
-        status: "done",
-      },
-      {
-        key: "community-promotions",
-        title: "",
-        path: "/admin/community/promotions",
-        status: "done",
-      },
-      {
-        key: "community-feed-settings",
-        title: "",
-        path: "/admin/community/settings",
-        status: "done",
-      },
-      {
-        key: "community-point-policies",
-        title: "",
-        path: "/admin/community/point-policies",
-        status: "done",
-      },
-    ],
-  },
-
-  // ── TRADE ──────────────────────────────────────
-  // Admin → 거래 = Marketplace ops single entry (no Store finance; no Payment/Settlement).
-  {
-    key: "trade",
-    title: "",
-    children: [
-      { key: "trade-hub", title: "", path: "/admin/trade", status: "done" },
-      { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
-      {
-        key: "jobs-management",
-        title: "",
-        path: "/admin/posts-management?tab=jobs",
-        status: "done",
-      },
-      {
-        key: "chat-trade-flow",
-        title: "",
-        path: "/admin/trade-flow",
-        // MERGE: buyer-confirm was a duplicate leaf at /chats/trade-complete
-        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
-        status: "done",
-      },
-      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
-      {
-        key: "reports-posts",
-        title: "",
-        // SSOT leaf = product-open semantic; domain-only URL stays Trade via matchPaths.
-        path: "/admin/reports?domain=trade&target_type=product",
-        matchPaths: ["/admin/reports?domain=trade"],
-        status: "done",
-      },
-      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
-      {
-        key: "ads-applications",
-        title: "",
-        path: "/admin/ad-applications?domain=trade",
-        status: "done",
-      },
-      { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
-      { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
-      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
-      {
-        key: "trade-users",
-        title: "",
-        path: "/admin/users?from=trade",
-        status: "done",
-      },
-      {
-        key: "trade-audit",
-        title: "",
-        path: "/admin/audit-logs?target_type=post",
-        status: "done",
-      },
-      { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
-      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
-    ],
-  },
-
   // ── DELIVERY ───────────────────────────────────
-  // 상단 업체 리스트 → 정책(수수료·거리) → 매장설정 / 운영 / 관리 / 플랫폼
+  // Domain ops only — delivery-ads primary ownership moved to ads workspace.
   {
     key: "delivery",
     title: "",
@@ -515,25 +400,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
               "/admin/stores-category-policy?tier=secondary",
             ],
             status: "done",
-          },
-          {
-            key: "store-ads-section",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "delivery-ads-control",
-                title: "",
-                path: "/admin/delivery-ads",
-                status: "done",
-              },
-              {
-                key: "delivery-ads-commercial",
-                title: "",
-                path: "/admin/delivery-ads/commercial-settings",
-                status: "done",
-              },
-            ],
           },
           {
             key: "store-coupon-control-center",
@@ -681,6 +547,115 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
+  // ── TRADE ──────────────────────────────────────
+  // Marketplace ops; ads-applications moved to ads workspace.
+  {
+    key: "trade",
+    title: "",
+    children: [
+      { key: "trade-hub", title: "", path: "/admin/trade", status: "done" },
+      { key: "posts-management", title: "", path: "/admin/posts-management", status: "done" },
+      {
+        key: "jobs-management",
+        title: "",
+        path: "/admin/posts-management?tab=jobs",
+        status: "done",
+      },
+      {
+        key: "chat-trade-flow",
+        title: "",
+        path: "/admin/trade-flow",
+        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
+        status: "done",
+      },
+      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
+      {
+        key: "reports-posts",
+        title: "",
+        path: "/admin/reports?domain=trade&target_type=product",
+        matchPaths: ["/admin/reports?domain=trade"],
+        status: "done",
+      },
+      { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
+      { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
+      { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
+      { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
+      {
+        key: "trade-users",
+        title: "",
+        path: "/admin/users?from=trade",
+        status: "done",
+      },
+      {
+        key: "trade-audit",
+        title: "",
+        path: "/admin/audit-logs?target_type=post",
+        status: "done",
+      },
+      { key: "menu-trade", title: "", path: "/admin/menus/trade", status: "done" },
+      { key: "trade-settings", title: "", path: "/admin/trade/settings", status: "done" },
+    ],
+  },
+
+  // ── COMMUNITY ──────────────────────────────────
+  {
+    key: "community",
+    title: "",
+    children: [
+      {
+        key: "community-home",
+        title: "",
+        path: "/admin/community",
+        status: "done",
+      },
+      {
+        key: "community-topics",
+        title: "",
+        path: "/admin/community/topics",
+        matchPaths: ["/admin/philife/topics", "/admin/philife"],
+        status: "done",
+      },
+      { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
+      {
+        key: "community-comments",
+        title: "",
+        path: "/admin/community/comments",
+        status: "done",
+      },
+      {
+        key: "community-feed-reports",
+        title: "",
+        path: "/admin/community/reports",
+        matchPaths: ["/admin/philife/reports"],
+        status: "done",
+      },
+      {
+        key: "philife-meeting-reports",
+        title: "",
+        path: "/admin/philife/meeting-reports",
+        status: "done",
+      },
+      {
+        key: "community-promotions",
+        title: "",
+        path: "/admin/community/promotions",
+        status: "done",
+      },
+      {
+        key: "community-feed-settings",
+        title: "",
+        path: "/admin/community/settings",
+        status: "done",
+      },
+      {
+        key: "community-point-policies",
+        title: "",
+        path: "/admin/community/point-policies",
+        status: "done",
+      },
+    ],
+  },
+
   // ── MESSENGER ──────────────────────────────────
   {
     key: "messenger",
@@ -725,6 +700,185 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
+  // ── FINANCE ────────────────────────────────────
+  {
+    key: "finance",
+    title: "",
+    children: [
+      {
+        key: "finance-member-point",
+        title: "",
+        status: "done",
+        children: [
+          { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
+          { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
+          { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
+          { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
+          { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
+          { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
+        ],
+      },
+      {
+        key: "finance-store-currency",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-finance-admin",
+            title: "",
+            path: "/admin/finance",
+            status: "done",
+          },
+          {
+            key: "store-point-ledger-admin",
+            title: "",
+            path: "/admin/store-point-ledger",
+            status: "done",
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── ADS (광고/노출) ────────────────────────────
+  {
+    key: "ads",
+    title: "",
+    children: [
+      {
+        key: "ads-delivery-ops",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "delivery-ads-control",
+            title: "",
+            path: "/admin/delivery-ads",
+            status: "done",
+          },
+          {
+            key: "delivery-ads-commercial",
+            title: "",
+            path: "/admin/delivery-ads/commercial-settings",
+            status: "done",
+          },
+          {
+            key: "ads-placement-map",
+            title: "",
+            path: "/admin/delivery-ads/inventory#placement-map",
+            matchPaths: ["/admin/delivery-ads/inventory"],
+            status: "done",
+          },
+        ],
+      },
+      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+      {
+        key: "ads-feed-applications",
+        title: "",
+        path: "/admin/ad-applications?domain=feed",
+        status: "done",
+      },
+      {
+        key: "ads-feed-products",
+        title: "",
+        path: "/admin/feed-ad-products",
+        status: "done",
+      },
+      {
+        key: "ads-platform-popup",
+        title: "",
+        path: "/admin/platform-popup",
+        status: "done",
+        matchPaths: [
+          "/admin/platform-popup/",
+          "/admin/platform-popup/requests",
+          "/admin/platform-popup/requests/",
+        ],
+      },
+      {
+        key: "ads-trade-promote",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=trade",
+            status: "done",
+          },
+        ],
+      },
+      { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
+      {
+        key: "ads-legacy",
+        title: "",
+        status: "partial",
+        children: [
+          { key: "ads-products", title: "", path: "/admin/ad-products", status: "partial" },
+          { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "partial" },
+          { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
+          { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "partial" },
+          { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "partial" },
+          {
+            key: "ads-recommendation",
+            title: "",
+            path: "/admin/personalized-feed",
+            status: "partial",
+          },
+          { key: "ads-banners", title: "", path: "/admin/banners", status: "partial" },
+        ],
+      },
+    ],
+  },
+
+  // ── SUPPORT ────────────────────────────────────
+  {
+    key: "support",
+    title: "",
+    children: [
+      {
+        key: "cp-support-center",
+        title: "",
+        path: "/admin/support",
+        status: "done",
+      },
+      {
+        key: "cp-support-archive",
+        title: "",
+        path: "/admin/support/archive",
+        status: "done",
+      },
+      {
+        key: "support-legacy",
+        title: "",
+        status: "partial",
+        children: [
+          {
+            key: "cp-store-inquiry",
+            title: "",
+            path: "/admin/store-inquiries",
+            status: "partial",
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── NOTIFICATIONS ──────────────────────────────
+  {
+    key: "notifications",
+    title: "",
+    children: [
+      {
+        key: "cp-notification-engine",
+        title: "",
+        path: "/admin/notifications",
+        status: "done",
+      },
+      { key: "push-devices", title: "", path: "/admin/push-devices", status: "done" },
+    ],
+  },
+
   // ── SYSTEM ─────────────────────────────────────
   {
     key: "system",
@@ -748,63 +902,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           {
-            key: "cp-support",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "cp-support-center",
-                title: "",
-                path: "/admin/support",
-                status: "done",
-              },
-              {
-                key: "cp-support-archive",
-                title: "",
-                path: "/admin/support/archive",
-                status: "done",
-              },
-              {
-                key: "cp-store-inquiry",
-                title: "",
-                path: "/admin/store-inquiries",
-                status: "partial",
-              },
-            ],
-          },
-          {
-            key: "cp-member-assets",
-            title: "",
-            status: "done",
-            children: [
-              { key: "points-charge", title: "", path: "/admin/point-charges", status: "done" },
-              { key: "points-ledger", title: "", path: "/admin/points/ledger", status: "done" },
-              { key: "points-plans", title: "", path: "/admin/point-plans", status: "done" },
-              { key: "points-policy", title: "", path: "/admin/point-policies", status: "done" },
-              { key: "points-execute", title: "", path: "/admin/point-executions", status: "done" },
-              { key: "points-expire", title: "", path: "/admin/points/expire", status: "done" },
-            ],
-          },
-          {
-            key: "cp-store-assets",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "store-finance-admin",
-                title: "",
-                path: "/admin/finance",
-                status: "done",
-              },
-              {
-                key: "store-point-ledger-admin",
-                title: "",
-                path: "/admin/store-point-ledger",
-                status: "done",
-              },
-            ],
-          },
-          {
             key: "cp-content",
             title: "",
             status: "partial",
@@ -821,113 +918,59 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
               { key: "cp-business", title: "", path: "/admin/app/business", status: "done" },
             ],
           },
-          {
-            key: "cp-notification-engine",
-            title: "",
-            path: "/admin/notifications",
-            status: "done",
-          },
         ],
       },
       {
-        key: "growth",
+        key: "system-members",
         title: "",
+        status: "done",
+        children: [
+          { key: "users", title: "", path: "/admin/users", status: "done" },
+          { key: "global-reports", title: "", path: "/admin/reports", status: "done" },
+          { key: "reports-logs", title: "", path: "/admin/reports/log", status: "done" },
+          { key: "audit-logs", title: "", path: "/admin/audit-logs", status: "done" },
+        ],
+      },
+      {
+        key: "growth-rec",
+        title: "",
+        status: "done",
         children: [
           {
-            // CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md §5
-            // Primary leaves only — discoverability. Legacy under ads-legacy.
-            key: "ads",
+            key: "manage-ab",
             title: "",
+            path: "/admin/recommendation-experiments",
             status: "done",
-            children: [
-              { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
-              { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
-              {
-                key: "ads-platform-popup",
-                title: "",
-                path: "/admin/platform-popup",
-                status: "done",
-                matchPaths: [
-                  "/admin/platform-popup/",
-                  "/admin/platform-popup/requests",
-                  "/admin/platform-popup/requests/",
-                ],
-              },
-              {
-                key: "ads-feed-applications",
-                title: "",
-                path: "/admin/ad-applications?domain=feed",
-                status: "done",
-              },
-              {
-                key: "ads-feed-products",
-                title: "",
-                path: "/admin/feed-ad-products",
-                status: "done",
-              },
-              {
-                key: "ads-legacy",
-                title: "",
-                status: "partial",
-                children: [
-                  { key: "ads-products", title: "", path: "/admin/ad-products", status: "partial" },
-                  { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "partial" },
-                  { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
-                  { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "partial" },
-                  { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "partial" },
-                  {
-                    key: "ads-recommendation",
-                    title: "",
-                    path: "/admin/personalized-feed",
-                    status: "partial",
-                  },
-                  { key: "ads-banners", title: "", path: "/admin/banners", status: "partial" },
-                ],
-              },
-            ],
           },
           {
-            key: "growth-rec",
+            key: "rec-analytics",
             title: "",
+            path: "/admin/recommendation-analytics",
             status: "done",
-            children: [
-              {
-                key: "manage-ab",
-                title: "",
-                path: "/admin/recommendation-experiments",
-                status: "done",
-              },
-              {
-                key: "rec-analytics",
-                title: "",
-                path: "/admin/recommendation-analytics",
-                status: "done",
-              },
-              {
-                key: "rec-monitoring",
-                title: "",
-                path: "/admin/recommendation-monitoring",
-                status: "done",
-              },
-              {
-                key: "rec-deployments",
-                title: "",
-                path: "/admin/recommendation-deployments",
-                status: "done",
-              },
-              {
-                key: "rec-automation",
-                title: "",
-                path: "/admin/recommendation-automation",
-                status: "done",
-              },
-              {
-                key: "manage-reports",
-                title: "",
-                path: "/admin/recommendation-reports",
-                status: "done",
-              },
-            ],
+          },
+          {
+            key: "rec-monitoring",
+            title: "",
+            path: "/admin/recommendation-monitoring",
+            status: "done",
+          },
+          {
+            key: "rec-deployments",
+            title: "",
+            path: "/admin/recommendation-deployments",
+            status: "done",
+          },
+          {
+            key: "rec-automation",
+            title: "",
+            path: "/admin/recommendation-automation",
+            status: "done",
+          },
+          {
+            key: "manage-reports",
+            title: "",
+            path: "/admin/recommendation-reports",
+            status: "done",
           },
         ],
       },

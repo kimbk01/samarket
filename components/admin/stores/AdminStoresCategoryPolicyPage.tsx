@@ -1280,6 +1280,13 @@ export function AdminStoresCategoryPolicyPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/admin/delivery-ads"
+              className={Sam.btn.secondary}
+              data-admin-delivery-ads-ops-cross-link="1"
+            >
+              {label(ko, "광고 운영 보기", "View ads operations")}
+            </Link>
+            <Link
               href={placementMapFocusHref("STORES_CATEGORY_FEED")}
               className={Sam.btn.secondary}
               data-admin-category-placement-map-link="1"

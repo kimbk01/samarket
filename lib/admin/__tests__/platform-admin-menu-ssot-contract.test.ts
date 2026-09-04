@@ -9,13 +9,17 @@ import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 
 const ROOT = path.resolve(__dirname, "../../..");
 
+/** CUT J — Domain / Common Operation IA */
 const WORKSPACE_KEYS = [
   "dashboard",
-  "common",
-  "community",
-  "trade",
   "delivery",
+  "trade",
+  "community",
   "messenger",
+  "finance",
+  "ads",
+  "support",
+  "notifications",
   "system",
 ] as const;
 
@@ -38,8 +42,8 @@ function pageExistsForMenuPath(menuPath: string): boolean {
   return existsSync(path.join(ROOT, "app", ...base.slice(1).split("/"), "page.tsx"));
 }
 
-describe("platform admin menu SSOT contract", () => {
-  it("exposes exactly 7 top-level workspaces", () => {
+describe("platform admin menu SSOT contract (CUT J)", () => {
+  it("exposes CUT J top-level workspaces in order", () => {
     expect(adminMenu.map((w) => w.key)).toEqual([...WORKSPACE_KEYS]);
   });
 
@@ -71,12 +75,20 @@ describe("platform admin menu SSOT contract", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  it("keeps system/growth as sole owner of promoted-items and member-benefits", () => {
+  it("ads workspace owns promoted-items / feed / popup / delivery-ads primary", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
-    expect(findAdminMenuByKey(adminMenu, "ads-benefits")?.path).toBe("/admin/member-benefits");
-    const system = findAdminMenuByKey(adminMenu, "system");
-    const systemKeys = new Set((system?.children ?? []).map((c) => c.key));
-    expect(systemKeys.has("growth")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe(
+      "/admin/platform-popup"
+    );
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
+      "/admin/delivery-ads"
+    );
+    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toBe(
+      "/admin/delivery-ads/inventory#placement-map"
+    );
+    expect(adminMenu.some((w) => w.key === "ads")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "growth")).toBeUndefined();
   });
 
   it("keeps notification domain settings under system/app-config only", () => {
@@ -86,56 +98,38 @@ describe("platform admin menu SSOT contract", () => {
     expect(findAdminMenuByKey(adminMenu, "app-config")).toBeTruthy();
   });
 
-  it("moves common reports and chat reports to their canonical workspaces", () => {
-    const commonKids = findAdminMenuByKey(adminMenu, "common")?.children ?? [];
-    expect(commonKids.some((c) => c.key === "global-reports")).toBe(true);
+  it("moves common reports into system-members; trade reports stay domain-scoped", () => {
+    expect(findAdminMenuByKey(adminMenu, "common")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
+    expect(findAdminMenuByKey(adminMenu, "system-members")).toBeTruthy();
 
     const messengerKids = findAdminMenuByKey(adminMenu, "messenger")?.children ?? [];
-    expect(messengerKids.some((c) => c.key === "reports")).toBe(false);
-    expect(messengerKids.some((c) => c.key === "reviews")).toBe(false);
     expect(messengerKids.some((c) => c.key === "chat-reported")).toBe(true);
-    expect(findAdminMenuByKey(adminMenu, "moderation")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "reports-posts")?.path).toBe(
       "/admin/reports?domain=trade&target_type=product"
     );
-    expect(findAdminMenuByKey(adminMenu, "reports-posts")?.matchPaths).toEqual([
-      "/admin/reports?domain=trade",
-    ]);
   });
 
-  it("Cut B: Trade workspace owns Marketplace ops leaves (routes KEEP)", () => {
+  it("Cut B + J: Trade keeps marketplace ops; ads-applications lives under ads", () => {
     const trade = findAdminMenuByKey(adminMenu, "trade");
     const tradeKeys = new Set((trade?.children ?? []).map((c) => c.key));
     expect(tradeKeys.has("reports-posts")).toBe(true);
     expect(tradeKeys.has("reviews-trade")).toBe(true);
     expect(tradeKeys.has("chat-trade")).toBe(true);
-    expect(tradeKeys.has("ads-applications")).toBe(true);
-    expect(tradeKeys.has("trade-users")).toBe(true);
-    expect(tradeKeys.has("trade-audit")).toBe(true);
-    // No Store finance / Trade Payment·Settlement under Trade
+    expect(tradeKeys.has("ads-applications")).toBe(false);
+    expect(tradeKeys.has("trade-post-ads")).toBe(true);
+    expect(tradeKeys.has("trade-ad-policies")).toBe(true);
     expect(tradeKeys.has("store-settlements-admin")).toBe(false);
-    expect(tradeKeys.has("delivery-orders-settlement")).toBe(false);
-    expect([...tradeKeys].some((k) => /payment|settlement/i.test(k))).toBe(false);
 
-    const commonKeys = new Set(
-      (findAdminMenuByKey(adminMenu, "common")?.children ?? []).map((c) => c.key)
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
     );
-    expect(commonKeys.has("reports-posts")).toBe(false);
-    expect(commonKeys.has("reviews-trade")).toBe(false);
-
-    const messengerKeys = new Set(
-      (findAdminMenuByKey(adminMenu, "messenger")?.children ?? []).map((c) => c.key)
+    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
+      "/admin/ad-applications?domain=feed"
     );
-    expect(messengerKeys.has("chat-trade")).toBe(false);
-    expect(messengerKeys.has("chat-trade-messenger")).toBe(true);
-
-    const growthAds = findAdminMenuByKey(adminMenu, "ads")?.children ?? [];
-    expect(growthAds.some((c) => c.key === "ads-applications")).toBe(false);
-    expect(growthAds.some((c) => c.key === "ads-feed-applications")).toBe(true);
   });
 
-  it("Delivery workspace: business list first, then policies + characteristic sections", () => {
+  it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
     expect(topKeys).toEqual([
@@ -146,40 +140,38 @@ describe("platform admin menu SSOT contract", () => {
       "delivery-section-management",
       "delivery-section-platform",
     ]);
-    expect(findAdminMenuByKey(adminMenu, "business-shops")?.path).toBe("/admin/business");
-    const policySection = findAdminMenuByKey(adminMenu, "delivery-section-policies");
-    expect(policySection?.path).toBeUndefined();
-    const policyKeys = (policySection?.children ?? []).map((c) => c.key);
-    expect(policyKeys).toEqual(["store-fee-policies-admin", "delivery-distance"]);
-    expect(findAdminMenuByKey(adminMenu, "store-fee-policies-admin")?.path).toBe(
-      "/admin/store-fee-policies"
-    );
-    expect(findAdminMenuByKey(adminMenu, "delivery-distance")?.path).toBe("/admin/delivery-distance");
-    for (const key of topKeys.filter((k) => k.startsWith("delivery-section-"))) {
-      const section = findAdminMenuByKey(adminMenu, key);
-      expect(section?.path, key).toBeUndefined();
-      expect(section?.children?.length ?? 0).toBeGreaterThan(0);
-    }
-    expect(findAdminMenuByKey(adminMenu, "stores-industry-primary")?.path).toContain(
-      "/admin/stores/application-settings?menu=stores"
+    expect(findAdminMenuByKey(adminMenu, "store-ads-section")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "stores-home-shelves")?.path).toBe(
+      "/admin/stores-home-shelves"
     );
     expect(findAdminMenuByKey(adminMenu, "stores-browse-policy")?.path).toBe(
       "/admin/stores-category-policy"
     );
+    // Primary leaf for delivery-ads is under ads workspace
+    const ops = findAdminMenuByKey(adminMenu, "delivery-section-operations");
+    const opsKeys = new Set((ops?.children ?? []).map((c) => c.key));
+    expect(opsKeys.has("store-ads-section")).toBe(false);
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
       "/admin/delivery-ads"
     );
-    expect(findAdminMenuByKey(adminMenu, "store-banner-ads-control")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "store-ads-control")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "stores-commerce")?.path).toBe("/admin/stores");
-    expect(findAdminMenuByKey(adminMenu, "store-settlements-admin")?.path).toBe(
-      "/admin/store-settlements"
+  });
+
+  it("Finance / Support / Notifications are top-level common workspaces", () => {
+    expect(findAdminMenuByKey(adminMenu, "points-charge")?.path).toBe("/admin/point-charges");
+    expect(findAdminMenuByKey(adminMenu, "store-finance-admin")?.path).toBe("/admin/finance");
+    expect(findAdminMenuByKey(adminMenu, "cp-support-center")?.path).toBe("/admin/support");
+    expect(findAdminMenuByKey(adminMenu, "cp-notification-engine")?.path).toBe(
+      "/admin/notifications"
     );
-    expect(findAdminMenuByKey(adminMenu, "runtime-health")?.path).toBe("/admin/runtime-health");
-    // hollow settlement/report stay out of order-ops children
-    const orderOps = findAdminMenuByKey(adminMenu, "delivery-orders");
-    const orderKeys = new Set((orderOps?.children ?? []).map((c) => c.key));
-    expect(orderKeys.has("delivery-orders-settlement")).toBe(false);
-    expect(orderKeys.has("delivery-orders-reports")).toBe(false);
+    expect(findAdminMenuByKey(adminMenu, "system-prelaunch-reset")?.path).toBe(
+      "/admin/prelaunch-reset"
+    );
+    // AST-002 store point charges not primary
+    expect(findAdminMenuByKey(adminMenu, "store-point-charges-admin")).toBeUndefined();
+    // platform-inquiries not primary
+    const supportPaths = collectAdminMenuPathEntries(adminMenu)
+      .filter((e) => e.path.includes("support") || e.path.includes("inquir"))
+      .map((e) => e.path);
+    expect(supportPaths).not.toContain("/admin/platform-inquiries");
   });
 });

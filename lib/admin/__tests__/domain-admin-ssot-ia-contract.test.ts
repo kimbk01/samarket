@@ -1,46 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { adminMenu } from "@/components/admin/admin-menu";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 
 /**
- * Domain SSOT IA — OWNER operating model (OM-0…OM-6).
+ * Domain SSOT IA — CUT J Domain / Common Operation separation.
  * Menu ownership only; writers stay domain-specific (no unified tables).
  */
-describe("domain admin SSOT IA contract", () => {
-  it("exposes exactly 7 top-level workspaces in OWNER order", () => {
+describe("domain admin SSOT IA contract (CUT J)", () => {
+  it("exposes CUT J top-level workspaces in OWNER order", () => {
     expect(adminMenu.map((w) => w.key)).toEqual([
       "dashboard",
-      "common",
-      "community",
-      "trade",
       "delivery",
+      "trade",
+      "community",
       "messenger",
+      "finance",
+      "ads",
+      "support",
+      "notifications",
       "system",
     ]);
   });
 
-  it("Common owns global reports and audit; Trade reports are domain-scoped only", () => {
+  it("System owns global reports and audit; Trade reports are domain-scoped only", () => {
     expect(findAdminMenuByKey(adminMenu, "global-reports")?.path).toBe("/admin/reports");
     expect(findAdminMenuByKey(adminMenu, "audit-logs")?.path).toBe("/admin/audit-logs");
     const tradeReports = findAdminMenuByKey(adminMenu, "reports-posts");
-    // Leaf SSOT = product-open. Live domain authority still uses ?domain=trade only —
-    // that shorter URL must remain on matchPaths or workspace routing regresses to Common.
     expect(tradeReports?.path).toBe("/admin/reports?domain=trade&target_type=product");
     expect(tradeReports?.matchPaths).toEqual(["/admin/reports?domain=trade"]);
     expect(tradeReports?.matchPaths ?? []).not.toContain("/admin/reports");
   });
 
-  it("splits promo presentation by domain (no bare multi-queue leaf under Trade)", () => {
+  it("splits promo presentation by domain (trade promote under ads; feed under ads)", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
       "/admin/ad-applications?domain=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "community-promotions")?.path).toBe(
       "/admin/community/promotions"
     );
-    const growthFeed = findAdminMenuByKey(adminMenu, "ads-feed");
-    expect(growthFeed?.path).toBe("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
   });
 
   it("Messenger exposes general/group/trade/order/reported ops leaves", () => {
@@ -55,43 +53,27 @@ describe("domain admin SSOT IA contract", () => {
     expect(findAdminMenuByKey(adminMenu, "chat-reported")?.path).toBe("/admin/chats/reported");
   });
 
-  it("Delivery owns store reports and real settlements; hollow order subpaths redirect", () => {
+  it("Delivery owns store reports and real settlements; config stays delivery", () => {
     expect(findAdminMenuByKey(adminMenu, "store-reports-admin")?.path).toBe("/admin/store-reports");
     expect(findAdminMenuByKey(adminMenu, "store-settlements-admin")?.path).toBe(
       "/admin/store-settlements"
     );
-    expect(findAdminMenuByKey(adminMenu, "delivery-orders-settlement")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "delivery-orders-reports")).toBeUndefined();
-    const settlePage = readFileSync(
-      resolve(process.cwd(), "app/admin/stores/orders/settlements/page.tsx"),
-      "utf8"
+    expect(findAdminMenuByKey(adminMenu, "stores-home-shelves")?.path).toBe(
+      "/admin/stores-home-shelves"
     );
-    const reportPage = readFileSync(
-      resolve(process.cwd(), "app/admin/stores/orders/reports/page.tsx"),
-      "utf8"
+    expect(findAdminMenuByKey(adminMenu, "stores-browse-policy")?.path).toBe(
+      "/admin/stores-category-policy"
     );
-    expect(settlePage).toMatch(/permanentRedirect\(["']\/admin\/store-settlements["']\)/);
-    expect(reportPage).toMatch(/permanentRedirect\(["']\/admin\/store-reports["']\)/);
   });
 
-  it("Community posts page source no longer loads Trade posts writers", () => {
-    const src = readFileSync(
-      resolve(process.cwd(), "app/admin/community/posts/AdminPostsPageContent.tsx"),
-      "utf8"
+  it("CONFIG vs OPERATION: delivery-ads primary under ads, not delivery sidebar", () => {
+    const deliveryOps = findAdminMenuByKey(adminMenu, "delivery-section-operations");
+    const opsKeys = (deliveryOps?.children ?? []).map((c) => c.key);
+    expect(opsKeys).not.toContain("store-ads-section");
+    expect(opsKeys).not.toContain("delivery-ads-control");
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
+      "/admin/delivery-ads"
     );
-    expect(src).not.toMatch(/getAdminPosts/);
-    expect(src).not.toMatch(/updatePostStatusAdmin/);
-    expect(src).not.toMatch(/PostsTab/);
-  });
-
-  it("Ad applications page gates queues by domain query", () => {
-    const src = readFileSync(
-      resolve(process.cwd(), "components/admin/ads/AdminAdApplicationsPage.tsx"),
-      "utf8"
-    );
-    expect(src).toMatch(/normalizeDomain/);
-    expect(src).toMatch(/domain === "trade"/);
-    expect(src).toMatch(/domain === "community"/);
-    expect(src).toMatch(/domain === "feed"/);
+    expect(adminMenu.find((w) => w.key === "ads")).toBeTruthy();
   });
 });

@@ -812,6 +812,13 @@ export function AdminStoresHomeShelvesPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
+              href="/admin/delivery-ads"
+              className={Sam.btn.secondary}
+              data-admin-delivery-ads-ops-cross-link="1"
+            >
+              {ko ? "광고 운영 보기" : "View ads operations"}
+            </Link>
+            <Link
               href={placementMapFocusHref("STORES_HOME_FEED")}
               className={Sam.btn.secondary}
               data-admin-home-placement-map-link="1"
