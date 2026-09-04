@@ -19,6 +19,7 @@ export function StoresHomeStoreCardList({
   getPhase: _getPhase,
   registerListItem,
   homeInsertions,
+  feedStores,
   benefitMaps,
   benefitLabels,
   couponIntegration = "off",
@@ -28,6 +29,7 @@ export function StoresHomeStoreCardList({
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
   homeInsertions?: StoresHomeInsertionMeta;
+  feedStores?: readonly StoreHomeFeedItem[];
   benefitMaps?: StoresHomeInsertionBenefitMaps;
   benefitLabels?: Parameters<typeof resolveHomeShelfCardBenefit>[0]["labels"];
   couponIntegration?: StoresHomeShelfCouponIntegration;
@@ -39,6 +41,7 @@ export function StoresHomeStoreCardList({
       locale={language}
       registerListItem={registerListItem}
       homeInsertions={homeInsertions}
+      feedStores={feedStores}
       benefitMaps={benefitMaps}
       benefitLabels={benefitLabels}
       couponIntegration={couponIntegration}

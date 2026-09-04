@@ -176,6 +176,7 @@ export function StoresHomeCompositionSlotSection({
   markFirstFoodCardPerf,
   shelfProduct,
   homeInsertions,
+  feedStores,
 }: {
   slot: StoresHomeCompositionSlotKey;
   composition: StoresHomeFeedComposition;
@@ -185,6 +186,8 @@ export function StoresHomeCompositionSlotSection({
   markFirstFoodCardPerf?: boolean;
   shelfProduct?: readonly StoresHomeShelfResolvedConfig[];
   homeInsertions?: StoresHomeInsertionMeta;
+  /** Full home-feed pool for resolving paid_ad rows outside rest organics. */
+  feedStores?: readonly StoreHomeFeedItem[];
 }) {
   const { t, language } = useI18n();
   const shelf = resolveShelfConfig(slot, shelfProduct);
@@ -343,7 +346,11 @@ export function StoresHomeCompositionSlotSection({
         shelf.presentation === "store_teaser_horizontal"
       ) {
         const ordered = isRestPaidSurface
-          ? orderHomeRestStoresForPaidInsertion(stores as StoreHomeFeedItem[], homeInsertions)
+          ? orderHomeRestStoresForPaidInsertion(
+              stores as StoreHomeFeedItem[],
+              homeInsertions,
+              feedStores
+            )
           : (stores as StoreHomeFeedItem[]).map((store) => ({
               store,
               isSponsored: false as const,
@@ -446,6 +453,7 @@ export function StoresHomeCompositionSlotSection({
               badgeMode={shelf.productConfig.badgeMode}
               benefitLineMode={shelf.productConfig.benefitLineMode}
               homeInsertions={isRestPaidSurface ? homeInsertions : undefined}
+              feedStores={isRestPaidSurface ? feedStores : undefined}
             />
           </StoresHomeSectionShell>
         );
@@ -458,6 +466,7 @@ export function StoresHomeCompositionSlotSection({
             getPhase={getPhase}
             registerListItem={registerListItem}
             homeInsertions={isRestPaidSurface ? homeInsertions : undefined}
+            feedStores={isRestPaidSurface ? feedStores : undefined}
             benefitMaps={benefitMaps}
             benefitLabels={benefitLabels}
             couponIntegration={shelf.couponIntegration}

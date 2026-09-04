@@ -291,6 +291,7 @@ export function StoresHomeTimesaleRowCardList({
   badgeMode = "standard",
   benefitLineMode = "auto",
   homeInsertions,
+  feedStores,
 }: {
   stores: StoreHomeFeedItem[];
   locale: AppLanguageCode;
@@ -304,6 +305,7 @@ export function StoresHomeTimesaleRowCardList({
   benefitLineMode?: StoresHomeShelfBenefitLineMode;
   /** CUT 4 — rest_stores paid insertion order + sponsored flag */
   homeInsertions?: StoresHomeInsertionMeta;
+  feedStores?: readonly StoreHomeFeedItem[];
 }) {
   const emptyMaps: StoresHomeInsertionBenefitMaps = {
     adsByStoreId: new Map(),
@@ -318,7 +320,7 @@ export function StoresHomeTimesaleRowCardList({
     adHeadline: (h: string) => h,
   };
 
-  const ordered = orderHomeRestStoresForPaidInsertion(stores, homeInsertions);
+  const ordered = orderHomeRestStoresForPaidInsertion(stores, homeInsertions, feedStores);
 
   return (
     <ul className="space-y-0">

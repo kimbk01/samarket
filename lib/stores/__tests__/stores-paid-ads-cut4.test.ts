@@ -347,4 +347,56 @@ describe("CUT 4 store paid ads exposure + insertion", () => {
     expect(ordered.map((o) => o.store.id)).toEqual(["a", "b", "c"]);
     expect(ordered.every((o) => !o.isSponsored)).toBe(true);
   });
+
+  it("HOME rest paid_ad resolves store from full feed lookup when outside rest organics", () => {
+    const rest = [{ id: "b" }, { id: "c" }] as StoreHomeFeedItem[];
+    const feed = [{ id: "a" }, { id: "b" }, { id: "c" }] as StoreHomeFeedItem[];
+    const ordered = orderHomeRestStoresForPaidInsertion(
+      rest,
+      {
+        paidAds: [
+          {
+            id: "camp-a",
+            storeId: "a",
+            title: "t",
+            headline: "h",
+            bodyCopy: null,
+            imageUrl: null,
+            placement: "stores_home",
+          },
+        ],
+        coupons: [],
+        restInsertion: {
+          organicIds: ["b", "c"],
+          rows: [
+            {
+              kind: "paid_ad",
+              campaignId: "camp-a",
+              storeId: "a",
+              title: "t",
+              headline: "h",
+              bodyCopy: null,
+              imageUrl: null,
+              placement: "stores_home",
+              isSponsored: true,
+              exposureToken: "tok",
+            },
+            { kind: "organic", storeId: "b" },
+            { kind: "organic", storeId: "c" },
+          ],
+          adCount: 1,
+          sponsoredStoreIds: ["a"],
+          surfaceAllowed: true,
+        },
+      },
+      feed
+    );
+    expect(ordered[0]).toMatchObject({
+      store: { id: "a" },
+      isSponsored: true,
+      campaignId: "camp-a",
+      exposureToken: "tok",
+    });
+    expect(ordered.map((o) => o.store.id)).toEqual(["a", "b", "c"]);
+  });
 });

@@ -54,7 +54,13 @@ export function buildHomeRestSponsoredStoreIds(
 
 export function orderHomeRestStoresForPaidInsertion(
   stores: readonly StoreHomeFeedItem[],
-  insertions: StoresHomeInsertionMeta | undefined
+  insertions: StoresHomeInsertionMeta | undefined,
+  /**
+   * Full Delivery home-feed store pool. Paid rows may reference stores that
+   * composition placed in earlier shelves (not in rest `stores`); look them up
+   * here without appending them as organic remainder.
+   */
+  feedStoreLookup?: readonly StoreHomeFeedItem[] | ReadonlyMap<string, StoreHomeFeedItem>
 ): Array<{
   store: StoreHomeFeedItem;
   isSponsored: boolean;
@@ -62,6 +68,19 @@ export function orderHomeRestStoresForPaidInsertion(
   exposureToken?: string;
 }> {
   const byId = new Map(stores.map((s) => [s.id, s]));
+  if (feedStoreLookup) {
+    let extra: ReadonlyMap<string, StoreHomeFeedItem>;
+    if (Array.isArray(feedStoreLookup)) {
+      extra = new Map(
+        (feedStoreLookup as readonly StoreHomeFeedItem[]).map((s) => [s.id, s] as const)
+      );
+    } else {
+      extra = feedStoreLookup as ReadonlyMap<string, StoreHomeFeedItem>;
+    }
+    for (const [id, store] of extra) {
+      if (!byId.has(id)) byId.set(id, store);
+    }
+  }
   const rows = insertions?.restInsertion?.rows;
   if (!rows?.length) {
     return stores.map((store) => ({ store, isSponsored: false }));

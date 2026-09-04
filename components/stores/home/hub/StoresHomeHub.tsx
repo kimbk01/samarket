@@ -377,10 +377,11 @@ export function StoresHomeHub({
           markFirstFoodCardPerf={opts?.markFirstFoodCardPerf}
           shelfProduct={shelfProduct}
           homeInsertions={meta?.homeInsertions}
+          feedStores={stores}
         />
       );
     },
-    [composition, getPhase, hydratedByStoreId, meta?.homeInsertions, registerListItem, shelfProduct]
+    [composition, getPhase, hydratedByStoreId, meta?.homeInsertions, registerListItem, shelfProduct, stores]
   );
 
   const renderDeferredSections = useCallback(
