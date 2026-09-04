@@ -1,0 +1,35 @@
+---
+description: CUT H Pre-launch Reset — protect before delete, Production execute fail-closed
+globs:
+  - lib/admin/prelaunch-reset/**
+  - lib/admin/admin-real-operation-cut-h-prelaunch-reset-hard-lock.ts
+  - app/api/admin/prelaunch-reset/**
+  - components/admin/prelaunch-reset/**
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT H HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-h-prelaunch-reset-hard-lock.md`  
+Gate: `npm run verify:admin-real-operation-cut-h-prelaunch-reset-hard-lock`
+
+## DO
+
+- Shared `buildPrelaunchResetPlan` for dry-run and execute
+- Explicit ID selectors only
+- Block finance/gift ambiguity and Production execute
+- Typed confirmation bound to plan hash/counts
+- Keep audit_logs outside reset targets
+
+## DO NOT
+
+- Wire `wipe-all-app-data.sql` / TRUNCATE CASCADE / auth.users wipe
+- Fake Undo / fake atomicity across DB+Storage+Auth
+- Date-range mass delete without explicit IDs
+- Claim Safe Reset PASS without blockers + env gate evidence
+
+## Gate
+
+```bash
+npm run verify:admin-real-operation-cut-h-prelaunch-reset-hard-lock
+```
