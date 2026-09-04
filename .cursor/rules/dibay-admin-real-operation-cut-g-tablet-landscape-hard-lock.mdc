@@ -1,0 +1,32 @@
+---
+description: CUT G Tablet Landscape runtime hard lock — geometry evidence required
+globs:
+  - lib/admin/admin-real-operation-cut-g-tablet-landscape-hard-lock.ts
+  - scripts/qa/admin-cut-g-tablet-landscape-runtime.mjs
+  - components/admin/shell/**
+alwaysApply: false
+---
+
+# DIBAY Admin Real Operation CUT G HARD LOCK
+
+Doc: `docs/dibay-admin-real-operation-cut-g-tablet-landscape-hard-lock.md`  
+Evidence: `docs/perf/admin-cut-g-tablet-landscape-runtime/cut-g-report.json`
+
+## DO
+
+- Measure Tablet Landscape at `--sam-bp-lg-min` (1024×768) with browser geometry
+- Fix first divergence only; shared shell owner before page-local hacks
+- Keep CUT F P1 Placement Map ACTIVE/eligibility for **CUT I**
+
+## DO NOT
+
+- Claim PASS from Tailwind/`lg:` class inspection alone
+- Invent tablet-only Admin shell or broad CSS rewrite
+- Promote local probe to Production PASS
+- Drop CUT F P1 into forgotten backlog
+
+## Probe
+
+```bash
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 node scripts/qa/admin-cut-g-tablet-landscape-runtime.mjs
+```

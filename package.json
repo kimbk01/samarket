@@ -141,6 +141,7 @@
     "verify:admin-real-operation-cut-d-support-partner-hard-lock": "node scripts/verify-admin-real-operation-cut-d-support-partner-hard-lock.mjs",
     "verify:admin-real-operation-cut-e-control-plane-hard-lock": "node scripts/verify-admin-real-operation-cut-e-control-plane-hard-lock.mjs",
     "verify:admin-real-operation-cut-f-placement-map-hard-lock": "node scripts/verify-admin-real-operation-cut-f-placement-map-hard-lock.mjs",
+    "verify:admin-real-operation-cut-g-tablet-landscape-hard-lock": "node scripts/verify-admin-real-operation-cut-g-tablet-landscape-hard-lock.mjs",
     "verify:currency-visual-ssot-contract": "node scripts/verify-currency-visual-ssot-contract.mjs",
     "verify:three-currency-product": "node scripts/verify-three-currency-product.mjs",
     "verify:phone-otp-contract": "node scripts/verify-phone-otp-contract.mjs",
