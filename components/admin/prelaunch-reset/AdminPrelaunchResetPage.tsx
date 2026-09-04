@@ -167,6 +167,14 @@ export function AdminPrelaunchResetPage() {
               "Production execute is blocked. No Undo. No TRUNCATE/full wipe/auth mass delete. Explicit IDs only.",
           })}
         </p>
+        <p className="mt-2 font-semibold">
+          {safeT("admin_prelaunch_reset_scope_limit", {
+            fallbackKo:
+              "현재 실행 가능 범위: 명시 ID 기반 테스트 콘텐츠·광고(draft/ended 등)만. 회원/매장 완전 삭제·Auth·Storage cleanup은 미구현(FORBIDDEN/NOT_IMPLEMENTED).",
+            fallbackEn:
+              "Executable scope now: explicit-ID test content/ads only. Full member/store wipe, Auth, and Storage cleanup are NOT implemented.",
+          })}
+        </p>
       </div>
 
       <AdminCard

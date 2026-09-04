@@ -728,6 +728,8 @@ export const adminMessages = {
     admin_prelaunch_reset_execute: "6. 실행 (되돌리기 없음)",
     admin_prelaunch_reset_result: "결과",
     admin_prelaunch_reset_exclude: "기본 제외: {item}",
+    admin_prelaunch_reset_scope_limit:
+      "현재 실행 가능 범위: 명시 ID 기반 테스트 콘텐츠·광고(draft/ended 등)만. 회원/매장 완전 삭제·Auth·Storage cleanup은 미구현(FORBIDDEN/NOT_IMPLEMENTED).",
     admin_menu_dev_dr: "DR시나리오",
     admin_menu_dev_security: "보안점검",
     admin_menu_dev_performance: "성능",
@@ -3495,6 +3497,8 @@ export const adminMessages = {
     admin_prelaunch_reset_execute: "6. Execute (no undo)",
     admin_prelaunch_reset_result: "Result",
     admin_prelaunch_reset_exclude: "Excluded by default: {item}",
+    admin_prelaunch_reset_scope_limit:
+      "Executable scope now: explicit-ID test content/ads only. Full member/store wipe, Auth, and Storage cleanup are NOT implemented.",
     admin_menu_dev_dr: "DR scenarios",
     admin_menu_dev_security: "Security checks",
     admin_menu_dev_performance: "Performance",

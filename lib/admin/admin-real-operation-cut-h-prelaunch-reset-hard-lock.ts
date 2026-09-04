@@ -14,6 +14,7 @@ export const PRELAUNCH_RESET_HARD_LOCK = {
   protectBeforeDelete: true,
   sharedPlannerRequired: true,
   productionExecuteForbidden: true,
+  productionDryRunFailClosed: true,
   failClosedDefault: true,
   truncateCascadeForbidden: true,
   wipeAllAppDataSqlForbiddenInUi: true,

@@ -1,5 +1,10 @@
 /**
- * CUT H — environment fail-closed for Pre-launch Reset.
+ * CUT H / I — environment fail-closed for Pre-launch Reset.
+ *
+ * Production execute: ALWAYS blocked.
+ * Production dry-run: fail-closed — requires explicit
+ *   PRELAUNCH_RESET_PRODUCTION_DRY_RUN=1 (opt-in).
+ * Non-production execute: requires PRELAUNCH_RESET_ENABLED=1.
  */
 
 import type { AppDeployTier } from "@/lib/config/deploy-surface";
@@ -29,28 +34,20 @@ export type PrelaunchResetEnvGate = {
   reasons: string[];
 };
 
-/**
- * Production: execute always blocked.
- * Dry-run on Production: MASTER-only read analysis is allowed by default (no mutation),
- * but can be disabled with PRELAUNCH_RESET_PRODUCTION_DRY_RUN=0.
- *
- * Execute requires non-production + PRELAUNCH_RESET_ENABLED=1.
- */
 export function resolvePrelaunchResetEnvGate(env: NodeJS.ProcessEnv = process.env): PrelaunchResetEnvGate {
   const tier = deployTierFromEnv(env);
   const reasons: string[] = [];
   const enabled = truthy(env.PRELAUNCH_RESET_ENABLED);
 
   if (tier === "production") {
-    const prodDry =
-      env.PRELAUNCH_RESET_PRODUCTION_DRY_RUN == null
-        ? true
-        : truthy(env.PRELAUNCH_RESET_PRODUCTION_DRY_RUN);
-    if (!prodDry) reasons.push("production_dry_run_disabled");
+    const prodDryOptIn = truthy(env.PRELAUNCH_RESET_PRODUCTION_DRY_RUN);
     reasons.push("production_execute_forbidden");
+    if (!prodDryOptIn) {
+      reasons.push("production_dry_run_requires_explicit_opt_in");
+    }
     return {
       tier: "production",
-      dryRunAllowed: prodDry,
+      dryRunAllowed: prodDryOptIn,
       executeAllowed: false,
       reasons,
     };

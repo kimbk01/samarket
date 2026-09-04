@@ -305,10 +305,17 @@ export function listAllPlacementMapRows(): PlacementMapRow[] {
   ];
 }
 
-export function placementMapFocusHref(placementId: string): string {
+export function placementMapFocusHref(
+  placementId: string,
+  opts?: { campaignId?: string | null }
+): string {
   const id = placementId.trim();
-  if (!id) return `${PLACEMENT_MAP_ENTRY}#${PLACEMENT_MAP_HASH}`;
-  return `${PLACEMENT_MAP_ENTRY}?focus=${encodeURIComponent(id)}#${PLACEMENT_MAP_HASH}`;
+  const params = new URLSearchParams();
+  if (id) params.set("focus", id);
+  const campaignId = String(opts?.campaignId ?? "").trim();
+  if (campaignId) params.set("execution", campaignId);
+  const q = params.toString();
+  return `${PLACEMENT_MAP_ENTRY}${q ? `?${q}` : ""}#${PLACEMENT_MAP_HASH}`;
 }
 
 export function filterPlacementMapRows(

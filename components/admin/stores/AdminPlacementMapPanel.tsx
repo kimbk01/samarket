@@ -3,6 +3,7 @@
 /**
  * CUT F — Full App Placement Map panel (read-only).
  * Mounted on /admin/delivery-ads/inventory — not a new shell.
+ * CUT I — optional ?execution=campaignId ACTIVE/eligibility panel (domain loaders only).
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -10,6 +11,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { DeliveryAdPlacementMiniature } from "@/components/stores/advertising/DeliveryAdPlacementMiniature";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   filterPlacementMapRows,
   listAllPlacementMapRows,
@@ -18,8 +20,13 @@ import {
   type PlacementMapRow,
   type PlacementMapScreen,
 } from "@/lib/admin/placement-map-read-model";
+import {
+  buildPlacementMapExecutionSnapshot,
+  type PlacementMapExecutionSnapshot,
+} from "@/lib/admin/placement-map-execution-snapshot";
 import type { DeliveryAdInventoryKey } from "@/lib/stores/advertising/delivery-ad-inventory";
 import type { PlacementMiniatureKind } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
+import type { DeliveryAdFundingStatus } from "@/lib/stores/advertising/delivery-ad-business-cash-contract";
 
 const BTN =
   "inline-flex min-h-[36px] items-center rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[12px] font-semibold text-sam-fg hover:bg-sam-surface-muted";
@@ -84,6 +91,29 @@ function Flag({
   );
 }
 
+function Factor({
+  label,
+  value,
+  ok,
+}: {
+  label: string;
+  value: string;
+  ok?: boolean | null;
+}) {
+  const tone =
+    ok === true
+      ? "text-emerald-800"
+      : ok === false
+        ? "text-red-800"
+        : "text-sam-fg";
+  return (
+    <li className={`flex flex-wrap justify-between gap-2 ${tone}`}>
+      <span className="text-sam-muted">{label}</span>
+      <span className="font-mono text-[11px] font-semibold">{value}</span>
+    </li>
+  );
+}
+
 export function AdminPlacementMapPanel() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
@@ -91,18 +121,121 @@ export function AdminPlacementMapPanel() {
   const [domain, setDomain] = useState<PlacementMapDomain | "ALL">("DELIVERY");
   const [screen, setScreen] = useState<PlacementMapScreen | "ALL">("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [executionId, setExecutionId] = useState<string | null>(null);
+  const [executionSnap, setExecutionSnap] = useState<PlacementMapExecutionSnapshot | null>(
+    null
+  );
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [executionLoading, setExecutionLoading] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const focus = new URLSearchParams(window.location.search).get("focus")?.trim() || "";
-    if (!focus) return;
-    setSelectedId(focus);
-    const row = allRows.find((r) => r.placementId === focus);
-    if (row) {
-      setDomain(row.domain);
-      setScreen(row.screen);
+    const params = new URLSearchParams(window.location.search);
+    const focus = params.get("focus")?.trim() || "";
+    const execution = params.get("execution")?.trim() || "";
+    if (focus) {
+      setSelectedId(focus);
+      const row = allRows.find((r) => r.placementId === focus);
+      if (row) {
+        setDomain(row.domain);
+        setScreen(row.screen);
+      }
     }
+    if (execution) setExecutionId(execution);
   }, [allRows]);
+
+  useEffect(() => {
+    if (!executionId) {
+      setExecutionSnap(null);
+      setExecutionError(null);
+      return;
+    }
+    let cancelled = false;
+    setExecutionLoading(true);
+    setExecutionError(null);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/delivery-ads/${encodeURIComponent(executionId)}`,
+          { credentials: "include" }
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          campaign?: {
+            id: string;
+            productKind: string;
+            storeId: string | null;
+            lifecycleStatus: string;
+            reviewStatus: string;
+            inventoryKeys: string[];
+            creativeId: string | null;
+            imageUrl: string | null;
+            startAt: string;
+            endAt: string;
+            campaignSource?: string | null;
+            ctaHref?: string | null;
+            title?: string | null;
+            headline?: string | null;
+          };
+          creative?: { assetPath?: string | null; id?: string | null } | null;
+        };
+        if (!res.ok || !json.ok || !json.campaign) {
+          if (!cancelled) {
+            setExecutionError(json.error ?? "execution_load_failed");
+            setExecutionSnap(null);
+          }
+          return;
+        }
+        let fundingStatus: DeliveryAdFundingStatus | null = null;
+        const product =
+          json.campaign.productKind === "banner" ||
+          json.campaign.productKind === "store_sponsored"
+            ? json.campaign.productKind
+            : null;
+        if (product) {
+          try {
+            const fRes = await fetch(
+              `/api/admin/delivery-ads/business-cash?campaignId=${encodeURIComponent(executionId)}&product=${encodeURIComponent(product)}`,
+              { credentials: "include" }
+            );
+            const fJson = (await fRes.json()) as {
+              ok?: boolean;
+              funding?: {
+                status?: DeliveryAdFundingStatus;
+                fundingStatus?: DeliveryAdFundingStatus;
+              };
+            };
+            if (fRes.ok && fJson.ok) {
+              fundingStatus =
+                fJson.funding?.status ?? fJson.funding?.fundingStatus ?? null;
+            }
+          } catch {
+            fundingStatus = null;
+          }
+        }
+        if (cancelled) return;
+        setExecutionSnap(
+          buildPlacementMapExecutionSnapshot({
+            campaign: json.campaign,
+            creativeAssetPath: json.creative?.assetPath ?? null,
+            fundingStatus,
+            focusPlacementId: selectedId,
+          })
+        );
+      } catch {
+        if (!cancelled) {
+          setExecutionError("execution_load_failed");
+          setExecutionSnap(null);
+        }
+      } finally {
+        if (!cancelled) setExecutionLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [executionId, selectedId]);
 
   const rows = useMemo(
     () => filterPlacementMapRows(allRows, { domain, screen }),
@@ -131,9 +264,9 @@ export function AdminPlacementMapPanel() {
         <p className="mt-1 text-[12px] text-sam-muted">
           {safeT("admin_placement_map_desc", {
             fallbackKo:
-              "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. 활성 건수는 광고 운영 목록에서 확인하세요.",
+              "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. ACTIVE 실행은 ?execution=campaignId 로 연결합니다.",
             fallbackEn:
-              "Read-only over Delivery / Feed / Popup registries. No unified placement DB or mutation. Check active counts in ads ops lists.",
+              "Read-only over Delivery / Feed / Popup registries. No unified placement DB. ACTIVE execution via ?execution=campaignId.",
           })}
         </p>
       </div>
@@ -175,6 +308,112 @@ export function AdminPlacementMapPanel() {
         ))}
       </div>
 
+      {(executionId || executionSnap || executionError || executionLoading) && (
+        <AdminCard
+          title={safeT("admin_placement_map_active_title", {
+            fallbackKo: "ACTIVE 실행 / Eligibility",
+            fallbackEn: "ACTIVE execution / Eligibility",
+          })}
+        >
+          <div data-admin-placement-map-active="1" className="space-y-2 text-[12px]">
+            {executionLoading ? (
+              <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p>
+            ) : null}
+            {executionError ? (
+              <p className="text-red-800" data-admin-placement-map-active-error="1">
+                {executionError}
+              </p>
+            ) : null}
+            {executionSnap ? (
+              <ul className="space-y-1.5" data-admin-placement-map-eligibility="1">
+                <Factor label="execution" value={executionSnap.campaignId} />
+                <Factor label="product" value={executionSnap.productKind} />
+                <Factor
+                  label="placement"
+                  value={(selectedId ?? executionSnap.inventoryKeys.join(",")) || "—"}
+                />
+                <Factor
+                  label="creative"
+                  value={executionSnap.creativeId ?? "—"}
+                  ok={executionSnap.creativeReady}
+                />
+                <Factor
+                  label="lifecycle"
+                  value={executionSnap.lifecycleStatus}
+                  ok={executionSnap.lifecycleStatus === "ACTIVE"}
+                />
+                <Factor
+                  label="approval"
+                  value={executionSnap.reviewStatus}
+                  ok={executionSnap.reviewStatus === "APPROVED"}
+                />
+                <Factor
+                  label="funding"
+                  value={executionSnap.fundingStatus}
+                  ok={
+                    executionSnap.fundingStatus === "FUNDED" ||
+                    executionSnap.campaignSource === "DIBAY_FIRST_PARTY"
+                  }
+                />
+                <Factor
+                  label="schedule"
+                  value={executionSnap.scheduleActive ? "in_window" : "out_of_window"}
+                  ok={executionSnap.scheduleActive}
+                />
+                <Factor
+                  label="creativeReady"
+                  value={executionSnap.creativeReady ? "Y" : "N"}
+                  ok={executionSnap.creativeReady}
+                />
+                <Factor
+                  label="placementEnabled"
+                  value={executionSnap.placementEnabled ? "Y" : "N"}
+                  ok={executionSnap.placementEnabled}
+                />
+                <Factor
+                  label="campaignGate"
+                  value={
+                    executionSnap.campaignGateOk == null
+                      ? "N/A"
+                      : executionSnap.campaignGateOk
+                        ? "ELIGIBLE"
+                        : `BLOCKED:${executionSnap.campaignGateReasons.join(",")}`
+                  }
+                  ok={executionSnap.campaignGateOk}
+                />
+                <Factor label="appRoute" value={selected?.runtimeRouteHint ?? "—"} />
+                {executionSnap.notes.map((n) => (
+                  <li key={n} className="text-[11px] text-sam-muted">
+                    {n}
+                  </li>
+                ))}
+                {executionSnap.creativeAssetPath ? (
+                  <div data-admin-placement-map-creative="1">
+                    <SamarketThumbnail
+                      src={executionSnap.creativeAssetPath}
+                      alt=""
+                      size={160}
+                      className="mt-2 max-h-28 border border-sam-border"
+                      imageClassName="!object-contain"
+                    />
+                  </div>
+                ) : null}
+              </ul>
+            ) : null}
+            {!executionId ? (
+              <p className="text-sam-muted">
+                {safeT("admin_placement_map_active_hint", {
+                  fallbackKo:
+                    "광고 detail의「앱 위치 보기」로 들어오면 실행 ID가 연결됩니다.",
+                  fallbackEn:
+                    "Open「View app placement」 from ad detail to attach an execution ID.",
+                })}
+              </p>
+            ) : null}
+          </div>
+        </AdminCard>
+      )}
+
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="space-y-2" data-admin-placement-map-markers="1">
           {rows.length === 0 ? (
@@ -211,15 +450,12 @@ export function AdminPlacementMapPanel() {
                       <p className="mt-0.5 text-[14px] font-semibold text-sam-fg">
                         {ko ? row.displayNameKo : row.displayNameEn}
                       </p>
-                      <p className="mt-1 font-mono text-[11px] text-sam-muted">{row.placementId}</p>
+                      <p className="mt-1 font-mono text-[11px] text-sam-muted">
+                        {row.placementId}
+                      </p>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      <Flag
-                        on={row.flags.sellable}
-                        labelKo="판매"
-                        labelEn="Sell"
-                        ko={ko}
-                      />
+                      <Flag on={row.flags.sellable} labelKo="판매" labelEn="Sell" ko={ko} />
                       <Flag
                         on={row.flags.runtimeSupported}
                         labelKo="Runtime"
@@ -260,7 +496,9 @@ export function AdminPlacementMapPanel() {
                   <p className="font-semibold text-[14px]">
                     {ko ? selected.displayNameKo : selected.displayNameEn}
                   </p>
-                  <p className="font-mono text-[11px] text-sam-muted">{selected.placementId}</p>
+                  <p className="font-mono text-[11px] text-sam-muted">
+                    {selected.placementId}
+                  </p>
                 </div>
                 {mini ? (
                   <DeliveryAdPlacementMiniature

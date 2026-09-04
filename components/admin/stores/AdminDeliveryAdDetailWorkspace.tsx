@@ -1147,7 +1147,7 @@ export function AdminDeliveryAdDetailWorkspace({
                         <li key={key} className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{label}</span>
                           <Link
-                            href={placementMapFocusHref(key)}
+                            href={placementMapFocusHref(key, { campaignId })}
                             className="text-signature underline underline-offset-2"
                             data-admin-ads-placement-map-link={key}
                           >

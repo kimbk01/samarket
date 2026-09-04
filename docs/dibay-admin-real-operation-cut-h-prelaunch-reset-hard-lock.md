@@ -24,8 +24,9 @@ Not: TRUNCATE CASCADE, schema wipe, auth.users mass delete, Admin SQL, single â€
 ## Environment
 
 - Production **execute**: always blocked
+- Production **dry-run**: fail-closed â€” requires `PRELAUNCH_RESET_PRODUCTION_DRY_RUN=1` (explicit opt-in)
 - Execute elsewhere: requires `PRELAUNCH_RESET_ENABLED=1`
-- Dry-run: allowed (Production dry-run can be disabled via `PRELAUNCH_RESET_PRODUCTION_DRY_RUN=0`)
+- Dry-run non-production: allowed for MASTER analysis
 
 ## Carry
 

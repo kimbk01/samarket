@@ -34,6 +34,7 @@ for (const s of [
   "protectBeforeDelete: true",
   "sharedPlannerRequired: true",
   "productionExecuteForbidden: true",
+  "productionDryRunFailClosed: true",
   "authUserDeleteDefaultForbidden: true",
   "financeAmbiguousBlock: true",
   'placementActiveEligibility: "DEFERRED_TO_CUT_I"',
@@ -43,7 +44,13 @@ for (const s of [
 
 const env = read("lib/admin/prelaunch-reset/environment.ts");
 if (!env.includes("production_execute_forbidden")) fail("env gate missing production block");
+if (!env.includes("production_dry_run_requires_explicit_opt_in")) {
+  fail("env gate missing production dry-run opt-in fail-closed");
+}
 if (!env.includes("PRELAUNCH_RESET_ENABLED")) fail("env gate missing enable flag");
+if (!env.includes("PRELAUNCH_RESET_PRODUCTION_DRY_RUN")) {
+  fail("env gate missing PRODUCTION_DRY_RUN flag");
+}
 
 const planner = read("lib/admin/prelaunch-reset/planner.ts");
 if (!planner.includes("export async function buildPrelaunchResetPlan")) {
@@ -61,6 +68,9 @@ if (exec.includes("DELETE FROM auth.users") || exec.includes('from("auth.users")
 const ui = read("components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx");
 if (ui.includes("wipe-all-app-data")) fail("UI must not reference wipe-all script");
 if (!ui.includes("data-admin-prelaunch-reset")) fail("UI marker missing");
+if (!ui.includes("admin_prelaunch_reset_scope_limit")) {
+  fail("UI must declare executable scope limit (no full wipe claim)");
+}
 
 const menu = read("components/admin/admin-menu.ts");
 if (!menu.includes("/admin/prelaunch-reset")) fail("menu entry missing");

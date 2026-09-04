@@ -60,13 +60,32 @@ if (!inv.includes("AdminPlacementMapPanel")) {
 const p = read(panel);
 if (!p.includes('data-admin-placement-map="1"')) fail("panel marker missing");
 if (!p.includes("data-admin-placement-marker")) fail("placement markers missing");
+if (!p.includes("data-admin-placement-map-active")) {
+  fail("CUT I ACTIVE/eligibility panel marker missing");
+}
+if (!p.includes("buildPlacementMapExecutionSnapshot")) {
+  fail("ACTIVE panel must consume execution snapshot adapter");
+}
 if (p.includes("top: 120px") || p.includes("left: 20px")) {
   fail("hardcoded marker coordinates forbidden");
+}
+
+const snap = "lib/admin/placement-map-execution-snapshot.ts";
+if (!existsSync(resolve(root, snap))) fail(`missing ${snap}`);
+const snapSrc = read(snap);
+if (!snapSrc.includes("evaluateStoreSponsoredCampaignGates")) {
+  fail("execution snapshot must reuse sponsored campaign gates");
+}
+if (snapSrc.includes("CREATE TABLE") || snapSrc.includes('from("placement_map')) {
+  fail("execution snapshot must not invent placement DB");
 }
 
 const detail = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
 if (!detail.includes("placementMapFocusHref")) {
   fail("ads detail must deep-link placement map");
+}
+if (!detail.includes("campaignId")) {
+  fail("ads detail placement map link should pass campaignId for execution");
 }
 if (!detail.includes("admin_delivery_ads_view_app_placement")) {
   fail("ads detail CTA key missing");

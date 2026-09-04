@@ -132,10 +132,13 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_view_app_placement: "앱 위치 보기",
     admin_placement_map_title: "앱 노출 위치 맵 (Placement Map)",
     admin_placement_map_desc:
-      "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. 활성 건수는 광고 운영 목록에서 확인하세요.",
+      "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. ACTIVE 실행은 ?execution=campaignId 로 연결합니다.",
     admin_placement_map_empty: "이 화면에는 광고 지면이 없습니다.",
     admin_placement_map_detail: "지면 상세",
     admin_placement_map_select_hint: "왼쪽에서 지면을 선택하세요.",
+    admin_placement_map_active_title: "ACTIVE 실행 / Eligibility",
+    admin_placement_map_active_hint:
+      "광고 detail의「앱 위치 보기」로 들어오면 실행 ID가 연결됩니다.",
     admin_placement_map_defined_not_sellable:
       "이 지면은 정의·런타임 연결은 있으나 현재 판매 대상이 아닙니다.",
     admin_placement_map_no_runtime: "Runtime 연결 없음 또는 미래/차단 지면입니다.",
@@ -483,10 +486,13 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_view_app_placement: "View app placement",
     admin_placement_map_title: "App placement map",
     admin_placement_map_desc:
-      "Read-only over Delivery / Feed / Popup registries. No unified placement DB or mutation. Check active counts in ads ops lists.",
+      "Read-only over Delivery / Feed / Popup registries. No unified placement DB. ACTIVE execution via ?execution=campaignId.",
     admin_placement_map_empty: "No ad placements on this screen.",
     admin_placement_map_detail: "Placement detail",
     admin_placement_map_select_hint: "Select a placement on the left.",
+    admin_placement_map_active_title: "ACTIVE execution / Eligibility",
+    admin_placement_map_active_hint:
+      "Open「View app placement」 from ad detail to attach an execution ID.",
     admin_placement_map_defined_not_sellable:
       "Defined and runtime-connected, but not sellable at launch.",
     admin_placement_map_no_runtime: "No runtime consumer, or future/blocked placement.",

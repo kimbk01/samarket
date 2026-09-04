@@ -31,13 +31,22 @@ describe("CUT H Pre-launch Reset", () => {
     expect(PRELAUNCH_RESET_FORBIDDEN_OPS.truncateCascadePublic).toContain("wipe-all-app-data");
   });
 
-  it("H3 — Production execute fail-closed", () => {
+  it("H3 — Production execute fail-closed; dry-run opt-in only", () => {
     const gate = resolvePrelaunchResetEnvGate({
       NEXT_PUBLIC_APP_DEPLOY_TIER: "production",
       PRELAUNCH_RESET_ENABLED: "1",
     } as NodeJS.ProcessEnv);
     expect(gate.executeAllowed).toBe(false);
+    expect(gate.dryRunAllowed).toBe(false);
     expect(gate.reasons.join(" ")).toMatch(/production_execute_forbidden/);
+    expect(gate.reasons.join(" ")).toMatch(/production_dry_run_requires_explicit_opt_in/);
+
+    const optIn = resolvePrelaunchResetEnvGate({
+      NEXT_PUBLIC_APP_DEPLOY_TIER: "production",
+      PRELAUNCH_RESET_PRODUCTION_DRY_RUN: "1",
+    } as NodeJS.ProcessEnv);
+    expect(optIn.executeAllowed).toBe(false);
+    expect(optIn.dryRunAllowed).toBe(true);
   });
 
   it("H3b — execute requires PRELAUNCH_RESET_ENABLED on local", () => {
