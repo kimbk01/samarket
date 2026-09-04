@@ -2,6 +2,7 @@
  * Stores A — HOME insertion meta (CUT 4: rest_stores paid insertion + coupon rails).
  *
  * CUT D — storeEligibleById from organic Delivery pool (null→true REMOVED).
+ * Eligibility pool = home-feed delivery stores when provided; rest shelf ids for layout only.
  * Surface policy still COMPATIBILITY (ad_integration / homePaidAdInsertion).
  * Inventory relation is canonical for placement identity.
  */
@@ -134,10 +135,18 @@ export async function loadStoresHomeInsertionMeta(
   sb: SupabaseClient,
   input?: {
     restOrganicStoreIds?: readonly string[];
+    /**
+     * Delivery organic/serviceability universe for STORES_HOME_FEED eligibility.
+     * Defaults to rest shelf ids. Prefer full home-feed store ids so stores
+     * allocated to earlier shelves remain eligible for rest paid insertion.
+     */
+    eligibilityStoreIds?: readonly string[];
     restShelfAdIntegration?: string | null;
   }
 ): Promise<StoresHomeInsertionMeta> {
   const restOrganicStoreIds = input?.restOrganicStoreIds ?? [];
+  const eligibilityStoreIds =
+    input?.eligibilityStoreIds?.length ? input.eligibilityStoreIds : restOrganicStoreIds;
   try {
     const policyBundle = await loadRuntimeCompositionPolicy(sb, "home");
     const surfaceAllowed = resolveHomeRestPaidSurfaceAllowed({
@@ -150,9 +159,9 @@ export async function loadStoresHomeInsertionMeta(
       loadActiveStoreCouponCampaigns(sb),
     ]);
 
-    const taxonomyMatchedStoreIds = new Set(restOrganicStoreIds);
+    const taxonomyMatchedStoreIds = new Set(eligibilityStoreIds);
     const storeEligibleById =
-      buildStoreSponsoredEligibilityMapFromOrganicPool(restOrganicStoreIds);
+      buildStoreSponsoredEligibilityMapFromOrganicPool(eligibilityStoreIds);
     const exposure = selectExposureEligibleStorePaidAds({
       campaigns: paidAdsRaw,
       targetPlacement: "stores_home",

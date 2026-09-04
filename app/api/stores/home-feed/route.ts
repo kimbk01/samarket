@@ -138,9 +138,11 @@ async function finalizeHomeFeedJsonPayload(
   const compositionPolicy = await loadHomeFeedCompositionPolicyMeta(supabase).catch(() => null);
   const withPolicy = attachHomeFeedCompositionPolicyMeta(payload, compositionPolicy);
   const restOrganicStoreIds = composeLiveHomeFeed(payload.stores, compositionPolicy).slot6RestStores.map((s) => s.id);
+  const eligibilityStoreIds = payload.stores.map((s) => s.id);
   const restShelf = compositionPolicy?.shelfProduct?.shelves?.find((s) => s.shelfId === "rest_stores");
   const insertions = await loadStoresHomeInsertionMeta(supabase, {
     restOrganicStoreIds,
+    eligibilityStoreIds,
     restShelfAdIntegration: restShelf?.adIntegration ?? null,
   }).catch(() => null);
   return attachHomeFeedInsertionMeta(withPolicy, insertions);
