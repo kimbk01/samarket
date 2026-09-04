@@ -1,0 +1,38 @@
+{
+  "title": "CUT I — Pre-launch Reset safe fixture (LOCAL ONLY)",
+  "origin": "http://127.0.0.1:3000",
+  "startedAt": "2026-09-04T00:48:28.990Z",
+  "aborted": false,
+  "vitest": {
+    "status": "PASS",
+    "exitCode": 0,
+    "command": "npx vitest run lib/admin/__tests__/admin-real-operation-cut-h-prelaunch-reset.test.ts",
+    "snippet": "\n RUN  v3.2.4 /Users/bkkim/projects/samarket\n\n ✓ lib/admin/__tests__/admin-real-operation-cut-h-prelaunch-reset.test.ts (8 tests) 2ms\n\n Test Files  1 passed (1)\n      Tests  8 passed (8)\n   Start at  08:48:29\n   Duration  337ms (transform 32ms, setup 5ms, collect 30ms, tests 2ms, environment 0ms, prepare 36ms)\n\n\nnpm warn Unknown env config \"devdir\". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.\n(node:55405) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\n",
+    "covers": [
+      "resolvePrelaunchResetEnvGate — production execute fail-closed",
+      "production dry-run requires PRELAUNCH_RESET_PRODUCTION_DRY_RUN opt-in",
+      "local execute requires PRELAUNCH_RESET_ENABLED",
+      "typed confirmation plan-bound"
+    ]
+  },
+  "httpOptional": {
+    "serverReachable": true,
+    "dryRun": {
+      "status": 401,
+      "error": "로그인이 필요합니다."
+    },
+    "execute": {
+      "status": 401,
+      "error": "로그인이 필요합니다."
+    },
+    "note": "Unauthenticated local HTTP probe only — auth gate expected (401/403)."
+  },
+  "storagePhase": "NOT_IMPLEMENTED",
+  "authPhase": "NOT_IMPLEMENTED",
+  "final": "PASS",
+  "notes": [
+    "Product Storage/Auth reset phases are NOT_IMPLEMENTED — do not claim full reset success.",
+    "This fixture does not run destructive execute against real mass IDs."
+  ],
+  "finishedAt": "2026-09-04T00:48:30.206Z"
+}

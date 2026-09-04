@@ -1,0 +1,7 @@
+{
+  "reportPath": "/Users/bkkim/projects/samarket/docs/perf/admin-cut-i-production-e2e/reset-safe-fixture-local.json",
+  "final": "PASS",
+  "vitest": "PASS",
+  "storagePhase": "NOT_IMPLEMENTED",
+  "authPhase": "NOT_IMPLEMENTED"
+}

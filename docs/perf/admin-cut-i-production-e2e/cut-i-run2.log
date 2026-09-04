@@ -1,0 +1,55 @@
+{
+  "reportPath": "/Users/bkkim/projects/samarket/docs/perf/admin-cut-i-production-e2e/cut-i-report.json",
+  "matrix": {
+    "deploy": "PASS",
+    "login": "PASS",
+    "reset": "PASS",
+    "actionCenterBell": "PARTIAL",
+    "searchTop": "PASS",
+    "placementActive": "PASS",
+    "navigation": "PARTIAL",
+    "tabletBrowser": "PASS",
+    "finance": "NOT_PROVEN",
+    "saleRecognition": "PARTIAL",
+    "ads": "PARTIAL",
+    "pauseResumeEnd": "NOT_PROVEN",
+    "creativeParity": "PARTIAL",
+    "support": "PARTIAL",
+    "partner": "PARTIAL",
+    "popup": "NOT_PROVEN",
+    "feed": "PARTIAL",
+    "failurePaths": "PASS"
+  },
+  "finalVerdicts": {
+    "productReady": "NOT_CLAIMED",
+    "cutIClose": "PARTIAL",
+    "note": "PARTIAL/NOT_PROVEN/BLOCKED remaining — honest close, not PRODUCT READY PASS.",
+    "matrixSummary": {
+      "deploy": "PASS",
+      "login": "PASS",
+      "reset": "PASS",
+      "actionCenterBell": "PARTIAL",
+      "searchTop": "PASS",
+      "placementActive": "PASS",
+      "navigation": "PARTIAL",
+      "tabletBrowser": "PASS",
+      "finance": "NOT_PROVEN",
+      "saleRecognition": "PARTIAL",
+      "ads": "PARTIAL",
+      "pauseResumeEnd": "NOT_PROVEN",
+      "creativeParity": "PARTIAL",
+      "support": "PARTIAL",
+      "partner": "PARTIAL",
+      "popup": "NOT_PROVEN",
+      "feed": "PARTIAL",
+      "failurePaths": "PASS"
+    }
+  },
+  "remaining": [
+    "Ads pause/resume/end (CUT_I_ALLOW_ADS_MUTATION=1 + QA campaign)",
+    "Finance approve on safe QA pending",
+    "Sale recognition full Production LIVE proof",
+    "Support/Partner/Popup/Feed live mutations",
+    "Never claim PRODUCT READY from this close alone"
+  ]
+}

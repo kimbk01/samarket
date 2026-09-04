@@ -1,0 +1,706 @@
+{
+  "title": "DIBAY ADMIN REAL OPERATION — CUT I PRODUCTION E2E CLOSE",
+  "origin": "https://samarket.vercel.app",
+  "outDir": "/Users/bkkim/projects/samarket/docs/perf/admin-cut-i-production-e2e",
+  "targetSha": "2883f77873e3fb7f282f2476b878f39a304ccd4d",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "ownerEmail": "sadads@adsasdsa.com",
+  "adminEmail": "aaaa@manual.local",
+  "viewport": {
+    "width": 1024,
+    "height": 768,
+    "label": "lg-min landscape (--sam-bp-lg-min)"
+  },
+  "startedAt": "2026-09-04T00:51:17.283Z",
+  "deploy": {
+    "status": "PASS",
+    "evidence": {
+      "targetSha": "2883f77873e3fb7f282f2476b878f39a304ccd4d",
+      "deployUrl": "https://samarket-de94gn5q2-kimbk01s-projects.vercel.app",
+      "alias": "samarket.vercel.app",
+      "deployInspect": {
+        "deploymentId": null,
+        "statusReady": true,
+        "commitLabeled": "2883f77",
+        "commitFull": null,
+        "exitCode": 0
+      },
+      "aliasInspect": {
+        "deploymentId": null,
+        "statusReady": true,
+        "commitLabeled": "2883f77",
+        "commitFull": null,
+        "exitCode": 0,
+        "aliasHint": true
+      },
+      "PRODUCTION_SHA": {
+        "value": "2883f77",
+        "kind": "short_sha_from_logs_Commit_label",
+        "note": "Only short sha available from vercel inspect --logs — not full PRODUCTION_SHA proof"
+      },
+      "notes": [
+        "short_sha_Commit_label_plus_alias_Ready (CLI full sha meta empty)"
+      ]
+    },
+    "at": "2026-09-04T00:51:26.193Z"
+  },
+  "finance": {
+    "status": "NOT_PROVEN",
+    "evidence": {
+      "pointCharges": {
+        "status": 200,
+        "ok": true,
+        "pendingCount": 0
+      },
+      "cashCharges": {
+        "status": 200,
+        "ok": true,
+        "pendingCount": 0
+      },
+      "note": "No safe QA-store pending charge found to approve; list endpoints probed."
+    },
+    "at": "2026-09-04T00:52:10.970Z"
+  },
+  "saleRecognition": {
+    "status": "NOT_PROVEN",
+    "evidence": {
+      "envFlagLocal": null,
+      "note": "Completed QA orders exist; probed ledger rows were store Cash TOP_UP/AD_SPEND not order-linked Coin sale recognition. LIVE chain NOT_PROVEN. Env DIBAY_CURRENCY_SALE_RECOGNITION_LIVE exists on Vercel Production (encrypted) but effective runtime credit not proven.",
+      "recentCompletedOrders": [
+        {
+          "id": "6c616de0-6b66-476b-b91e-4c6e41a6ff79",
+          "order_status": "completed",
+          "payment_status": "paid",
+          "payment_amount": 1000,
+          "updated_at": "2026-09-02T08:10:22.291034+00:00"
+        },
+        {
+          "id": "cf98537d-27fd-4c2b-b86b-9f92d6572f12",
+          "order_status": "completed",
+          "payment_status": "paid",
+          "payment_amount": 1000,
+          "updated_at": "2026-09-01T23:41:05.555735+00:00"
+        },
+        {
+          "id": "9b490018-ec0a-40d0-9070-ba78f191c32f",
+          "order_status": "completed",
+          "payment_status": "paid",
+          "payment_amount": 900,
+          "updated_at": "2026-09-01T23:23:41.428646+00:00"
+        }
+      ],
+      "coinLedger": [
+        {
+          "table": "store_coin_ledger_entries",
+          "ok": false,
+          "error": "Could not find the table 'public.store_coin_ledger_entries' in the schema cache",
+          "storeRows": null,
+          "storeError": "Could not find the table 'public.store_coin_ledger_entries' in the schema cache"
+        },
+        {
+          "table": "store_business_coin_ledger",
+          "ok": false,
+          "error": "Could not find the table 'public.store_business_coin_ledger' in the schema cache",
+          "storeRows": null,
+          "storeError": "Could not find the table 'public.store_business_coin_ledger' in the schema cache"
+        },
+        {
+          "table": "business_cash_ledger",
+          "ok": true,
+          "error": "column business_cash_ledger.order_id does not exist",
+          "storeRows": [
+            {
+              "id": "d1047d29-3455-4b3f-8b3b-1860c8423bef",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "TOP_UP",
+              "direction": "credit",
+              "amount_minor": 50000,
+              "balance_after_minor": 50000,
+              "related_type": "business_cash_charge_request",
+              "related_id": "3c065225-a7e8-4155-99b0-c521b89b3eae",
+              "idempotency_key": "bc_topup:3c065225-a7e8-4155-99b0-c521b89b3eae",
+              "actor_type": "admin",
+              "actor_user_id": "11111111-1111-1111-1111-111111111111",
+              "meta": {},
+              "created_at": "2026-09-01T00:15:28.798031+00:00"
+            },
+            {
+              "id": "e01e94fa-f10b-4403-84ca-ce721cb08863",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "AD_SPEND",
+              "direction": "debit",
+              "amount_minor": 12000,
+              "balance_after_minor": 38000,
+              "related_type": "store_sponsored",
+              "related_id": "55c86b2b-2961-4358-b981-4c247e0eb701",
+              "idempotency_key": "bc_spend:store_sponsored:55c86b2b-2961-4358-b981-4c247e0eb701",
+              "actor_type": "owner",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "meta": {},
+              "created_at": "2026-09-01T00:15:31.443924+00:00"
+            },
+            {
+              "id": "e1d70e80-dd48-4bc2-a10d-6d9e5faf4808",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "CONVERT_FROM_STORE_POINTS",
+              "direction": "credit",
+              "amount_minor": 1000,
+              "balance_after_minor": 39000,
+              "related_type": "store_economic_point_ledger",
+              "related_id": "ac02f75c-c984-4fe9-81a2-0782cc15c6c1",
+              "idempotency_key": "currency_close_conv:1788263917090",
+              "actor_type": "owner",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "meta": {
+                "sp_debited": 10,
+                "rate_version": 1,
+                "sp_ledger_id": "ac02f75c-c984-4fe9-81a2-0782cc15c6c1",
+                "rate_pesos_per_point": 1
+              },
+              "created_at": "2026-09-01T11:58:37.206722+00:00"
+            }
+          ],
+          "storeError": null
+        },
+        {
+          "table": "store_economic_point_ledger",
+          "ok": true,
+          "error": "column store_economic_point_ledger.order_id does not exist",
+          "storeRows": [
+            {
+              "id": "9b8fcd72-3c8b-4beb-816a-24c59fba952a",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "SALE_EARN",
+              "amount": 2000,
+              "balance_after": 3785,
+              "related_type": "store_order",
+              "related_id": "6c616de0-6b66-476b-b91e-4c6e41a6ff79",
+              "idempotency_key": "sale_coin:6c616de0-6b66-476b-b91e-4c6e41a6ff79",
+              "actor_type": "system",
+              "actor_user_id": null,
+              "meta": {
+                "order_id": "6c616de0-6b66-476b-b91e-4c6e41a6ff79",
+                "mint_identity": "sale_coin",
+                "settlement_id": "644a6d34-a95e-4ff5-9df5-15c011f34d76"
+              },
+              "created_at": "2026-09-02T00:33:57.839775+00:00"
+            },
+            {
+              "id": "1b8889fc-9df7-4e12-8499-47e429c4f6aa",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "REVERSAL",
+              "amount": -900,
+              "balance_after": 1785,
+              "related_type": "store_order",
+              "related_id": "236b8fea-7f0a-4926-91c2-cf0963edb398",
+              "idempotency_key": "coin_reversal:order:236b8fea-7f0a-4926-91c2-cf0963edb398",
+              "actor_type": "system",
+              "actor_user_id": null,
+              "meta": {
+                "reason": "order_refund",
+                "order_id": "236b8fea-7f0a-4926-91c2-cf0963edb398",
+                "balance_after": 1785,
+                "balance_before": 2685,
+                "reversed_amount": 900,
+                "original_ledger_ids": [
+                  "367c62c6-2d91-4f17-a4a6-e0965076e90c"
+                ]
+              },
+              "created_at": "2026-09-02T00:33:50.245136+00:00"
+            },
+            {
+              "id": "7d973934-f800-4db0-be16-7a6f3be99705",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "entry_kind": "CONVERT_TO_BUSINESS_CASH",
+              "amount": -100,
+              "balance_after": 2685,
+              "related_type": "business_cash_conversion",
+              "related_id": "currency-prod-e2e-1788309208974:coin-to-cash",
+              "idempotency_key": "sp_convert:currency-prod-e2e-1788309208974:coin-to-cash",
+              "actor_type": "owner",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "meta": {
+                "rate_version": 1,
+                "bc_credit_minor": 10000,
+                "rate_pesos_per_point": 1
+              },
+              "created_at": "2026-09-02T00:33:48.329238+00:00"
+            }
+          ],
+          "storeError": null
+        },
+        {
+          "table": "store_point_ledger",
+          "ok": true,
+          "error": "column store_point_ledger.ref_id does not exist",
+          "storeRows": [
+            {
+              "id": "72762398-402b-4636-abb1-e4d9f56f57c2",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "order_id": "0f18d2f9-d80e-4645-87bd-39a99a3f3764",
+              "entry_type": "store_order_fee",
+              "amount": -10,
+              "balance_after": 10221883,
+              "policy_snapshot": {
+                "id": "7d0e8532-ca9a-4501-890a-78e5e3e28201",
+                "memo": null,
+                "ends_at": null,
+                "fee_mode": "fixed",
+                "priority": 100,
+                "store_id": null,
+                "is_active": true,
+                "starts_at": null,
+                "created_at": "2026-06-01T00:31:04.564639+00:00",
+                "updated_at": "2026-06-01T00:31:04.564639+00:00",
+                "category_id": null,
+                "fixed_point": 10,
+                "is_archived": false,
+                "policy_name": "Default store order fee (10P)",
+                "percent_rate": 0,
+                "maximum_point": 0,
+                "minimum_point": 0
+              },
+              "related_type": "store_order",
+              "related_id": "0f18d2f9-d80e-4645-87bd-39a99a3f3764",
+              "description": "Store order acceptance fee",
+              "actor_type": "user",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "created_at": "2026-08-28T01:46:21.215178+00:00"
+            },
+            {
+              "id": "882af760-cec5-4329-adad-c7db2a955f3d",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "order_id": "ee6cb962-f435-4c98-a209-29fe7b80c44c",
+              "entry_type": "store_order_fee",
+              "amount": -10,
+              "balance_after": 10221893,
+              "policy_snapshot": {
+                "id": "7d0e8532-ca9a-4501-890a-78e5e3e28201",
+                "memo": null,
+                "ends_at": null,
+                "fee_mode": "fixed",
+                "priority": 100,
+                "store_id": null,
+                "is_active": true,
+                "starts_at": null,
+                "created_at": "2026-06-01T00:31:04.564639+00:00",
+                "updated_at": "2026-06-01T00:31:04.564639+00:00",
+                "category_id": null,
+                "fixed_point": 10,
+                "is_archived": false,
+                "policy_name": "Default store order fee (10P)",
+                "percent_rate": 0,
+                "maximum_point": 0,
+                "minimum_point": 0
+              },
+              "related_type": "store_order",
+              "related_id": "ee6cb962-f435-4c98-a209-29fe7b80c44c",
+              "description": "Store order acceptance fee",
+              "actor_type": "user",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "created_at": "2026-08-28T01:44:18.711564+00:00"
+            },
+            {
+              "id": "10c30d1a-bfbb-492b-a144-facc0729fb95",
+              "store_id": "19085860-52d2-4183-b033-e71fcb58bcec",
+              "order_id": "05b3f7b0-686a-4b2a-a4c0-82c605c9aa0e",
+              "entry_type": "store_order_fee",
+              "amount": -10,
+              "balance_after": 10221903,
+              "policy_snapshot": {
+                "id": "7d0e8532-ca9a-4501-890a-78e5e3e28201",
+                "memo": null,
+                "ends_at": null,
+                "fee_mode": "fixed",
+                "priority": 100,
+                "store_id": null,
+                "is_active": true,
+                "starts_at": null,
+                "created_at": "2026-06-01T00:31:04.564639+00:00",
+                "updated_at": "2026-06-01T00:31:04.564639+00:00",
+                "category_id": null,
+                "fixed_point": 10,
+                "is_archived": false,
+                "policy_name": "Default store order fee (10P)",
+                "percent_rate": 0,
+                "maximum_point": 0,
+                "minimum_point": 0
+              },
+              "related_type": "store_order",
+              "related_id": "05b3f7b0-686a-4b2a-a4c0-82c605c9aa0e",
+              "description": "Store order acceptance fee",
+              "actor_type": "user",
+              "actor_user_id": "f00de57c-27d1-495c-824e-e39eab3227aa",
+              "created_at": "2026-08-28T01:23:18.546693+00:00"
+            }
+          ],
+          "storeError": null
+        }
+      ],
+      "commerceSettingsProbe": {
+        "status": 200,
+        "ok": true
+      }
+    },
+    "at": "2026-09-04T00:52:13.151Z"
+  },
+  "ads": {
+    "status": "PARTIAL",
+    "evidence": {
+      "status": 200,
+      "ok": true,
+      "activeCount": 0,
+      "sample": []
+    },
+    "at": "2026-09-04T00:52:13.540Z"
+  },
+  "pauseResumeEnd": {
+    "status": "NOT_PROVEN",
+    "evidence": {
+      "reason": "CUT_I_ALLOW_ADS_MUTATION!=1 — pause/resume/end not attempted"
+    },
+    "at": "2026-09-04T00:52:13.540Z"
+  },
+  "placementActive": {
+    "status": "PARTIAL",
+    "evidence": {
+      "campaignId": "4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f",
+      "active": true,
+      "error": false,
+      "panel": true,
+      "note": "Execution panel wire proven; campaign was SUBMITTED not ACTIVE — not full ACTIVE/eligibility/app exposure PASS."
+    },
+    "at": "2026-09-04T00:51:59.401Z"
+  },
+  "creativeParity": {
+    "status": "PARTIAL",
+    "evidence": {
+      "status": 200,
+      "hasCreative": false,
+      "note": "Detail fetch only — not pixel/creative side-by-side PASS."
+    },
+    "at": "2026-09-04T00:52:14.184Z"
+  },
+  "searchTop": {
+    "status": "PASS",
+    "evidence": {
+      "panelPresent": true,
+      "rowCount": 8,
+      "searchTopSellable": "0",
+      "searchTopMarker": "STORES_SEARCH_TOP",
+      "sampleRows": [
+        {
+          "marker": "STORES_HOME_FEED",
+          "sellable": "1",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_HOMEDelivery Home · Store list adsSTORES_HOME_FEEDSell: YRun"
+        },
+        {
+          "marker": "STORES_CATEGORY_FEED",
+          "sellable": "1",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_CATEGORYCategory browse · Store adsSTORES_CATEGORY_FEEDSell:"
+        },
+        {
+          "marker": "STORES_HOME_HERO",
+          "sellable": "1",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_HOMEDelivery Home · Top heroSTORES_HOME_HEROSell: YRuntime: "
+        },
+        {
+          "marker": "STORES_HOME_INLINE_1",
+          "sellable": "0",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_HOMEDelivery Home · Inline bannerSTORES_HOME_INLINE_1Sell: N"
+        },
+        {
+          "marker": "STORES_CATEGORY_TOP",
+          "sellable": "0",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_CATEGORYCategory browse · Top bannerSTORES_CATEGORY_TOPSell:"
+        },
+        {
+          "marker": "STORES_CATEGORY_INLINE",
+          "sellable": "0",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_CATEGORYCategory browse · Inline (future)STORES_CATEGORY_INL"
+        },
+        {
+          "marker": "STORES_SEARCH_TOP",
+          "sellable": "0",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · DELIVERY_SEARCHSearch results · Top bannerSTORES_SEARCH_TOPSell: NRun"
+        },
+        {
+          "marker": "STORE_DETAIL_RECOMMENDATION_BANNER",
+          "sellable": "0",
+          "domain": "DELIVERY",
+          "text": "DELIVERY · STORE_DETAILStore detail · Recommendation (blocked)STORE_DETAIL_RECOM"
+        }
+      ],
+      "expected": "SEARCH_TOP data-sellable=0"
+    },
+    "at": "2026-09-04T00:51:56.001Z"
+  },
+  "feed": {
+    "status": "PARTIAL",
+    "evidence": {
+      "api": {
+        "status": 200,
+        "ok": true
+      },
+      "mutation": "no_safe_id"
+    },
+    "at": "2026-09-04T00:52:15.689Z"
+  },
+  "popup": {
+    "status": "NOT_PROVEN",
+    "evidence": {
+      "api": {
+        "status": 500,
+        "ok": false
+      },
+      "mutation": "no_safe_id"
+    },
+    "at": "2026-09-04T00:52:15.689Z"
+  },
+  "support": {
+    "status": "PARTIAL",
+    "evidence": {
+      "api": {
+        "status": 200,
+        "ok": true
+      },
+      "mutation": "no_safe_id"
+    },
+    "at": "2026-09-04T00:52:15.688Z"
+  },
+  "partner": {
+    "status": "PARTIAL",
+    "evidence": {
+      "api": {
+        "status": 200,
+        "ok": true
+      },
+      "mutation": "no_safe_id"
+    },
+    "at": "2026-09-04T00:52:15.688Z"
+  },
+  "actionCenterBell": {
+    "status": "PARTIAL",
+    "evidence": {
+      "ui": {
+        "present": false,
+        "totalText": null,
+        "cards": []
+      },
+      "bellApi": {
+        "status": 200,
+        "total": 25,
+        "by_category": {
+          "charges": 0,
+          "store_charges": 0,
+          "cash_charges": 0,
+          "user_charges": 0,
+          "reports": 2,
+          "trade_reports": 2,
+          "store_reports": 0,
+          "community_reports": 1,
+          "global_reports": 3,
+          "store_applications": 0,
+          "alerts": 0,
+          "feed_ad_requests": 0,
+          "delivery_ad_ops": 10,
+          "trade_promo_pending": 0,
+          "member_inquiry_open": 0,
+          "support_actionable": 12,
+          "store_inquiry_open": 0,
+          "platform_inquiry_open": 0
+        }
+      },
+      "overviewApi": {
+        "status": 200,
+        "ok": true
+      },
+      "bellCompare": "NOT_PROVEN",
+      "note": "Counts recorded when present; semantic parity claimed only with matching evidence."
+    },
+    "at": "2026-09-04T00:51:52.921Z"
+  },
+  "navigation": {
+    "status": "PARTIAL",
+    "evidence": {
+      "afterBack": "https://samarket.vercel.app/admin/delivery-ads/4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f",
+      "campaignId": "4b2f3fe5-38a1-4e50-90ef-9422bf56ef6f",
+      "note": "Browser back after map navigation; not full product memory contract proof."
+    },
+    "at": "2026-09-04T00:52:10.277Z"
+  },
+  "tabletBrowser": {
+    "status": "PASS",
+    "evidence": {
+      "viewport": {
+        "width": 1024,
+        "height": 768,
+        "label": "lg-min landscape (--sam-bp-lg-min)"
+      },
+      "surfaces": {
+        "actionCenter": {
+          "clientWidth": 1024,
+          "scrollWidth": 1024,
+          "pageOverflowX": false,
+          "bodyOverflowX": false,
+          "url": "https://samarket.vercel.app/admin#action-center",
+          "hasAdminShell": false,
+          "markers": {
+            "actionCenter": false,
+            "placementMap": false
+          }
+        },
+        "adsHub": {
+          "clientWidth": 1024,
+          "scrollWidth": 1024,
+          "pageOverflowX": false,
+          "bodyOverflowX": false,
+          "url": "https://samarket.vercel.app/admin/delivery-ads",
+          "hasAdminShell": true,
+          "markers": {
+            "actionCenter": false,
+            "placementMap": false
+          }
+        },
+        "placementMap": {
+          "clientWidth": 1024,
+          "scrollWidth": 1024,
+          "pageOverflowX": false,
+          "bodyOverflowX": false,
+          "url": "https://samarket.vercel.app/admin/delivery-ads/inventory#placement-map",
+          "hasAdminShell": true,
+          "markers": {
+            "actionCenter": false,
+            "placementMap": true
+          }
+        },
+        "finance": {
+          "clientWidth": 1024,
+          "scrollWidth": 1024,
+          "pageOverflowX": false,
+          "bodyOverflowX": false,
+          "url": "https://samarket.vercel.app/admin/store-finance",
+          "hasAdminShell": false,
+          "markers": {
+            "actionCenter": false,
+            "placementMap": false
+          }
+        }
+      },
+      "note": "1024×768 clientWidth/scrollWidth overflow check"
+    },
+    "at": "2026-09-04T00:52:10.310Z"
+  },
+  "reset": {
+    "status": "PASS",
+    "evidence": {
+      "execute": {
+        "status": 403,
+        "error": "super_admin_only"
+      },
+      "dryRun": {
+        "status": 403,
+        "error": "super_admin_only"
+      },
+      "note": "super_admin proved Production dry-run opt-in fail-closed; execute still blocked. No deletes.",
+      "expected": "Production execute always unavailable; dry-run without PRELAUNCH_RESET_PRODUCTION_DRY_RUN opt-in → 403 dry_run_forbidden (super_admin session required to prove env gate)",
+      "classification": "auth_gate_before_env_gate — execute still unavailable; env dry-run opt-in NOT_PROVEN on this actor",
+      "superAdminProbe": {
+        "email": "kakao.4866357290@kakao.native.dibay.internal",
+        "dryRun": {
+          "status": 403,
+          "error": "dry_run_forbidden",
+          "reasons": [
+            "production_execute_forbidden",
+            "production_dry_run_requires_explicit_opt_in"
+          ]
+        },
+        "execute": {
+          "status": 403,
+          "error": "execute_forbidden",
+          "reasons": [
+            "production_execute_forbidden",
+            "production_dry_run_requires_explicit_opt_in"
+          ]
+        }
+      }
+    },
+    "at": "2026-09-04T00:51:29.897Z"
+  },
+  "failurePaths": {
+    "status": "PASS",
+    "evidence": {
+      "failedKeys": [],
+      "blockedKeys": [],
+      "note": "Aggregated hard FAIL keys only — BLOCKED means proof unavailable, not product regression."
+    },
+    "at": "2026-09-04T00:52:15.689Z"
+  },
+  "matrix": {
+    "deploy": "PASS",
+    "login": "PASS",
+    "reset": "PASS",
+    "actionCenterBell": "PARTIAL",
+    "searchTop": "PASS",
+    "placementActive": "PARTIAL",
+    "navigation": "PARTIAL",
+    "tabletBrowser": "PASS",
+    "finance": "NOT_PROVEN",
+    "saleRecognition": "NOT_PROVEN",
+    "ads": "PARTIAL",
+    "pauseResumeEnd": "NOT_PROVEN",
+    "creativeParity": "PARTIAL",
+    "support": "PARTIAL",
+    "partner": "PARTIAL",
+    "popup": "NOT_PROVEN",
+    "feed": "PARTIAL",
+    "failurePaths": "PASS"
+  },
+  "remaining": [
+    "Finance F1/F3/F4/F7 Production approve chain on safe QA pending",
+    "Coin sale recognition LIVE: completed order → coin credit with effective flag",
+    "Delivery Ads full: apply→fund→approve→ACTIVE→app exposure",
+    "Pause/Resume/End runtime removal/restore",
+    "Popup Production path (admin API smoke 500 / no safe fixture)",
+    "Action Center UI marker on /admin (bell API only this run)",
+    "Tablet real device",
+    "Reset Storage/Auth NOT_IMPLEMENTED (product scope limited)"
+  ],
+  "finalVerdicts": {
+    "productReady": "NOT_PROVEN",
+    "adminReady": "PARTIAL",
+    "productionReady": "PARTIAL",
+    "cutI": "PARTIAL",
+    "note": "Honest close after Production deploy 2883f77. P0 Finance E2E / Coin sale recognition / Ads full ACTIVE chain / Pause-Resume-End / Popup remain open.",
+    "matrixSummary": {
+      "deploy": "PASS",
+      "login": "PASS",
+      "reset": "PASS",
+      "actionCenterBell": "PARTIAL",
+      "searchTop": "PASS",
+      "placementActive": "PARTIAL",
+      "navigation": "PARTIAL",
+      "tabletBrowser": "PASS",
+      "finance": "NOT_PROVEN",
+      "saleRecognition": "NOT_PROVEN",
+      "ads": "PARTIAL",
+      "pauseResumeEnd": "NOT_PROVEN",
+      "creativeParity": "PARTIAL",
+      "support": "PARTIAL",
+      "partner": "PARTIAL",
+      "popup": "NOT_PROVEN",
+      "feed": "PARTIAL",
+      "failurePaths": "PASS"
+    }
+  },
+  "finishedAt": "2026-09-04T00:53:32.915Z",
+  "loginMethod": "magiclink",
+  "honestyPatch": "2026-09-04T cut-i post-run downgrade of overclaimed PASS"
+}
