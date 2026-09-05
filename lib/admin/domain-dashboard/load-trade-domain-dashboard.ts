@@ -214,7 +214,7 @@ export async function loadTradeDomainDashboard(): Promise<AdminDomainDashboardMo
         id: "support",
         labelKo: "고객지원",
         labelEn: "Support",
-        href: "/admin/support",
+        href: "/admin/support?filter=ACTIONABLE#action-required",
         frequency: "OCCASIONAL",
       },
       {

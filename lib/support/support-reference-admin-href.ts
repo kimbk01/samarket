@@ -117,9 +117,15 @@ export function resolveSupportCaseContextLinks(input: {
       mutationOwner: "STORE",
     });
     links.push({
-      href: `/admin/finance?storeId=${encodeURIComponent(storeId)}`,
-      labelKo: "매장 Finance 보기",
-      labelEn: "Open store Finance",
+      href: `/admin/finance?storeId=${encodeURIComponent(storeId)}&view=statement`,
+      labelKo: "매장 재무 명세서 (B3)",
+      labelEn: "Store financial statement (B3)",
+      mutationOwner: "FINANCE",
+    });
+    links.push({
+      href: `/admin/finance?storeId=${encodeURIComponent(storeId)}#action-required`,
+      labelKo: "재무 관제 (B4)",
+      labelEn: "Finance control plane (B4)",
       mutationOwner: "FINANCE",
     });
   }

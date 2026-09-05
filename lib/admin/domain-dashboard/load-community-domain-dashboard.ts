@@ -233,7 +233,7 @@ export async function loadCommunityDomainDashboard(): Promise<AdminDomainDashboa
         id: "support",
         labelKo: "고객지원",
         labelEn: "Support",
-        href: ARO_IA_001_SUPPORT_PATH,
+        href: `${ARO_IA_001_SUPPORT_PATH}?filter=ACTIONABLE#action-required`,
         frequency: "OCCASIONAL",
       },
       {

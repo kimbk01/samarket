@@ -15,9 +15,11 @@ import type {
 import type { AdminSupportListFilter } from "@/lib/support/support-case-service";
 import { getSupportCategoryDefinition } from "@/lib/support/support-category-registry";
 import { resolveSupportCaseContextLinks } from "@/lib/support/support-reference-admin-href";
+import { AdminSupportControlPlane } from "@/components/admin/support/AdminSupportControlPlane";
 
 const FILTERS: { id: AdminSupportListFilter; labelKo: string; labelEn: string }[] = [
   { id: "ALL", labelKo: "전체", labelEn: "All" },
+  { id: "ACTIONABLE", labelKo: "답변 필요", labelEn: "Actionable" },
   { id: "MEMBER", labelKo: "회원", labelEn: "Member" },
   { id: "OWNER", labelKo: "매장 Owner", labelEn: "Owner" },
   { id: "UNASSIGNED", labelKo: "미배정", labelEn: "Unassigned" },
@@ -62,6 +64,16 @@ function statusLabel(status: string, ko: boolean): string {
     default:
       return humanizeToken(status);
   }
+}
+
+function waitingAgeLabel(iso: string, ko: boolean): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "—";
+  const hours = Math.max(0, Math.round((Date.now() - t) / 3600000));
+  if (hours < 1) return ko ? "1시간 미만" : "<1h";
+  if (hours < 24) return ko ? `${hours}시간` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return ko ? `${days}일` : `${days}d`;
 }
 
 function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
@@ -238,6 +250,13 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
       data-admin-support-ssot="1"
       data-admin-support-console="3col"
     >
+      <AdminSupportControlPlane
+        onOpenCase={(caseId) => {
+          setActiveId(caseId);
+          setFilter("ACTIONABLE");
+        }}
+      />
+
       <AdminPageHeader
         title={safeT("admin_support_title", {
           fallbackKo: "고객센터",
@@ -352,6 +371,8 @@ function AdminSupportPageInner({ initialCaseId }: { initialCaseId?: string }) {
                         {PRIORITIES.find((p) => p.id === c.priority)?.[ko ? "labelKo" : "labelEn"] ??
                           c.priority}
                         {!c.assigned_admin_id ? (ko ? " · 미배정" : " · Unassigned") : ""}
+                        {" · "}
+                        {waitingAgeLabel(c.last_message_at || c.created_at, ko)}
                         {" · "}
                         {c.last_message_at ? new Date(c.last_message_at).toLocaleString() : ""}
                       </p>

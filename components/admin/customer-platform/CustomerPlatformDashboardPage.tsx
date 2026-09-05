@@ -76,7 +76,7 @@ export function CustomerPlatformDashboardPage() {
 
   const queueCards: QueueCard[] = [
     {
-      href: "/admin/support?filter=WAITING_ADMIN",
+      href: "/admin/support?filter=ACTIONABLE#action-required",
       count: aq?.support_actionable ?? 0,
       titleKey: "admin_cp_queue_support_actionable",
       titleKo: "고객센터 조치 필요",

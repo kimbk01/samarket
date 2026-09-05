@@ -52,6 +52,14 @@ export function shouldPlayAdminOpsSound(input: {
   const newStatus = rowStatus(input.newRow);
 
   if (eventType === "UPDATE") {
+    if (table === "support_cases") {
+      const was =
+        oldStatus === "OPEN" || oldStatus === "WAITING_ADMIN";
+      const now =
+        newStatus === "OPEN" || newStatus === "WAITING_ADMIN";
+      // Reopen / customer reply → admin must act again
+      return !was && now;
+    }
     if (table === "stores") {
       const wasActionable = isAdminActionableStoreApproval(oldStatus);
       const nowActionable = isAdminActionableStoreApproval(newStatus);
@@ -77,6 +85,9 @@ export function shouldPlayAdminOpsSound(input: {
 
   if (eventType !== "INSERT") return false;
 
+  if (table === "support_cases") {
+    return newStatus === "OPEN" || newStatus === "WAITING_ADMIN" || !newStatus;
+  }
   if (table === "stores") {
     return isAdminActionableStoreApproval(newStatus);
   }
@@ -105,6 +116,9 @@ export function shouldRefreshAdminOpsQueue(input: {
   const oldStatus = rowStatus(input.oldRow);
   const newStatus = rowStatus(input.newRow);
 
+  if (table === "support_cases") {
+    return true;
+  }
   if (table === "stores") {
     return wasAdminActionableStoreApproval(oldStatus, newStatus) || input.eventType === "INSERT";
   }

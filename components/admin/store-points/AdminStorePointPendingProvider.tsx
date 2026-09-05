@@ -82,6 +82,7 @@ type AwarenessToast = {
     | "member_point_charge"
     | "store_point_charge"
     | "feed_ad"
+    | "support_case"
     | "member_care_inquiry"
     | "platform_inquiry"
     | "trade_report"
@@ -504,6 +505,38 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       ingestAdminOpsSoundIfPrefAllowed({
         sourceTable: "feed_ad_requests",
         rowId: requestId,
+      });
+    },
+    [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
+  );
+
+  const markSupportCaseAlert = useCallback(
+    (caseId: string, meta?: { publicCaseNo?: string | null; audience?: string | null; subject?: string | null }) => {
+      const id = String(caseId ?? "").trim();
+      if (!id) return;
+      const audience = String(meta?.audience ?? "").toUpperCase() === "OWNER" ? "Owner" : "Member";
+      const caseNo = String(meta?.publicCaseNo ?? "").trim();
+      const subject = String(meta?.subject ?? "").trim().slice(0, 40);
+      const label = [
+        safeT("admin_support_case_toast_title", {
+          fallbackKo: "고객지원 문의",
+          fallbackEn: "Support inquiry",
+        }),
+        audience,
+        caseNo || null,
+        subject || null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      showAwarenessToast({
+        kind: "support_case",
+        requestId: id,
+        label,
+        href: `/admin/support/${encodeURIComponent(id)}`,
+      });
+      ingestAdminOpsSoundIfPrefAllowed({
+        sourceTable: "support_cases",
+        rowId: id,
       });
     },
     [safeT, showAwarenessToast, ingestAdminOpsSoundIfPrefAllowed]
@@ -1172,6 +1205,55 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         )
         .on(
           "postgres_changes",
+          { event: "INSERT", schema: "public", table: "support_cases" },
+          (payload) => {
+            const row = rowAsRecord(payload.new);
+            const id = String(row?.id ?? "").trim();
+            if (
+              id &&
+              shouldPlayAdminOpsSound({
+                eventType: "INSERT",
+                sourceTable: "support_cases",
+                newRow: row,
+                oldRow: null,
+              })
+            ) {
+              markSupportCaseAlert(id, {
+                publicCaseNo: typeof row?.public_case_no === "string" ? row.public_case_no : null,
+                audience: typeof row?.audience === "string" ? row.audience : null,
+                subject: typeof row?.subject === "string" ? row.subject : null,
+              });
+            }
+            scheduleRefresh();
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "support_cases" },
+          (payload) => {
+            const newRow = rowAsRecord(payload.new);
+            const oldRow = rowAsRecord(payload.old);
+            const id = String(newRow?.id ?? oldRow?.id ?? "").trim();
+            if (
+              id &&
+              shouldPlayAdminOpsSound({
+                eventType: "UPDATE",
+                sourceTable: "support_cases",
+                newRow,
+                oldRow,
+              })
+            ) {
+              markSupportCaseAlert(id, {
+                publicCaseNo: typeof newRow?.public_case_no === "string" ? newRow.public_case_no : null,
+                audience: typeof newRow?.audience === "string" ? newRow.audience : null,
+                subject: typeof newRow?.subject === "string" ? newRow.subject : null,
+              });
+            }
+            scheduleRefresh();
+          }
+        )
+        .on(
+          "postgres_changes",
           { event: "INSERT", schema: "public", table: "reports" },
           (payload) => handleReportOpsChange("reports", payload)
         )
@@ -1306,7 +1388,9 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
               ? "admin-member-point-charge-toast"
               : awarenessToast.kind === "store_point_charge"
                 ? "admin-store-point-charge-toast"
-                : awarenessToast.kind === "member_care_inquiry"
+                : awarenessToast.kind === "support_case"
+                  ? "admin-support-case-toast"
+                  : awarenessToast.kind === "member_care_inquiry"
                   ? "admin-member-care-inquiry-toast"
                   : awarenessToast.kind === "platform_inquiry"
                     ? "admin-platform-inquiry-toast"

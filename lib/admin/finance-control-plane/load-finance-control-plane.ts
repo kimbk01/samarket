@@ -759,6 +759,13 @@ export async function loadFinanceControlPlane(
         frequency: "FREQUENT",
       },
       {
+        id: "support_control_plane",
+        labelKo: "고객지원 관제 (B6)",
+        labelEn: "Support control plane (B6)",
+        href: "/admin/support?filter=ACTIONABLE#action-required",
+        frequency: "REALTIME_CRITICAL",
+      },
+      {
         id: "ads_control_plane",
         labelKo: "광고 / 노출 관제 (B5)",
         labelEn: "Ads / Exposure control plane (B5)",

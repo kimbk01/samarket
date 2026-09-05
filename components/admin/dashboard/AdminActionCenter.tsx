@@ -414,14 +414,14 @@ export function AdminActionCenter() {
     },
     {
       id: "common-support",
-      href: withAdminReturnTo("/admin/support", returnTo),
+      href: withAdminReturnTo("/admin/support?filter=ACTIONABLE#action-required", returnTo),
       count: q.supportActionableCount,
       titleKo: "고객지원",
       titleEn: "Support",
       domainKo: "고객지원",
       domainEn: "Support",
-      primaryCtaKo: "Support 열기",
-      primaryCtaEn: "Open Support",
+      primaryCtaKo: "Support 관제",
+      primaryCtaEn: "Support control plane",
       alwaysShow: true,
     },
     {

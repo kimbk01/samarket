@@ -18,7 +18,8 @@ const SOURCE_TABLE_TO_EVENT_KEY: Readonly<Record<string, string>> = {
   store_point_charge_requests: "settlement_charge_requested",
   // No distinct Admin UI event_key today — intentional fallback:
   // stores, feed_ad_requests, member_admin_note_threads, platform_admin_inquiries,
-  // delivery_operation_alert_events, meeting_approvals, inquiry_threads, store_orders
+  // delivery_operation_alert_events, meeting_approvals, inquiry_threads, store_orders,
+  // support_cases (ARO-OPS-UX-002-B6 — uses admin_notice_received)
 };
 
 /**
@@ -45,4 +46,5 @@ export const ADMIN_OPS_SOUND_FALLBACK_SOURCES = [
   "meeting_approvals",
   "inquiry_threads",
   "store_orders",
+  "support_cases",
 ] as const;

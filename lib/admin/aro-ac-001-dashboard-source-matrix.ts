@@ -129,7 +129,7 @@ export const ARO_AC_001_SOURCE_MATRIX: readonly AroAc001SourceRow[] = [
     item: "SUPPORT",
     canonicalSource: "support_cases",
     countQuery: "status OPEN|WAITING_ADMIN",
-    deeplink: "/admin/support?filter=WAITING_ADMIN",
+    deeplink: "/admin/support?filter=ACTIONABLE#action-required",
     actionable: true,
     errorSemantics: "schema_missing_as_zero",
   },

@@ -613,6 +613,7 @@ export const adminMessages = {
     admin_feed_ad_products_hint:
       "기간·Point 가격은 새 신청·연장에만 적용됩니다. 이미 접수된 신청 금액은 바뀌지 않습니다.",
     admin_feed_ad_toast_title: "배너 광고 신청",
+    admin_support_case_toast_title: "고객지원 문의",
     admin_member_point_charge_toast_title: "회원 포인트 입금 신청",
     admin_store_point_charge_toast_title: "이전 매장 운영 기록",
     admin_member_care_inquiry_toast_title: "Owner/회원 1:1 문의",
@@ -3405,6 +3406,7 @@ export const adminMessages = {
     admin_feed_ad_products_hint:
       "Duration and Point apply to new requests and renewals only. Existing request snapshots stay unchanged.",
     admin_feed_ad_toast_title: "Banner ad request",
+    admin_support_case_toast_title: "Support inquiry",
     admin_member_point_charge_toast_title: "Member point deposit request",
     admin_store_point_charge_toast_title: "Historical store operations record",
     admin_member_care_inquiry_toast_title: "Owner/Member 1:1 inquiry",

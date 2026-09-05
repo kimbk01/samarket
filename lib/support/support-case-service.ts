@@ -595,14 +595,22 @@ export type AdminSupportListFilter =
   | "UNASSIGNED"
   | "WAITING_ADMIN"
   | "WAITING_USER"
-  | "RESOLVED";
+  | "RESOLVED"
+  /** ARO-OPS-UX-002-B6 — OPEN | WAITING_ADMIN (actionable admin work). */
+  | "ACTIONABLE";
 
 export async function listSupportCasesForAdmin(
   sb: SupabaseClient,
   input: { filter?: AdminSupportListFilter; search?: string; limit?: number }
 ): Promise<{ ok: true; cases: SupportCaseRow[] } | { ok: false; error: string }> {
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 200);
-  let query = sb.from("support_cases").select("*").order("last_message_at", { ascending: false }).limit(limit);
+  const actionableOldestFirst =
+    input.filter === "ACTIONABLE" || input.filter === "WAITING_ADMIN" || input.filter === "UNASSIGNED";
+  let query = sb
+    .from("support_cases")
+    .select("*")
+    .order("last_message_at", { ascending: actionableOldestFirst })
+    .limit(limit);
 
   switch (input.filter) {
     case "MEMBER":
@@ -616,6 +624,9 @@ export async function listSupportCasesForAdmin(
       break;
     case "WAITING_ADMIN":
       query = query.eq("status", "WAITING_ADMIN");
+      break;
+    case "ACTIONABLE":
+      query = query.in("status", ["OPEN", "WAITING_ADMIN"]);
       break;
     case "WAITING_USER":
       query = query.eq("status", "WAITING_USER");

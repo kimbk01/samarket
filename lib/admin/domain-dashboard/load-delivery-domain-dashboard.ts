@@ -146,7 +146,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       count: qUnavailable(unavailable, "support_actionable")
         ? null
         : (queue?.support_actionable ?? null),
-      href: "/admin/support",
+      href: "/admin/support?filter=ACTIONABLE#action-required",
       source: "admin_action_queue.support_actionable",
       owner: "support_cases",
     },
@@ -301,7 +301,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         id: "support",
         labelKo: "고객지원",
         labelEn: "Support",
-        href: "/admin/support",
+        href: "/admin/support?filter=ACTIONABLE#action-required",
         frequency: "DAILY_CRITICAL",
       },
       {
