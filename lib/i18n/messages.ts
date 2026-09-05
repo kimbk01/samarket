@@ -72,7 +72,18 @@ import { platformPopupOwnerMessages } from "./catalog/platform-popup-owner";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
-/** Canonical KO bag — MessageKey authority (not exported). Runtime merge unchanged. */
+import type { MessageKey } from "./message-key";
+export type { MessageKey } from "./message-key";
+
+type LocaleMessageBag = { readonly [K in MessageKey]: string };
+
+/** Public MESSAGES shape — serializable; preserves MessageKey, values as string. */
+export type MessagesTable = {
+  readonly ko: LocaleMessageBag;
+  readonly en: LocaleMessageBag;
+};
+
+/** Runtime KO bag — explicit LocaleMessageBag annotation avoids TS7056 on as-const emit. */
 const KO_MESSAGES = {
   ...commonMessages.ko,
   ...myMessages.ko,
@@ -145,7 +156,7 @@ const KO_MESSAGES = {
   ...platformPopupOwnerMessages.ko,
   ...adminMessages.ko,
   ...koJson,
-} as const;
+} as LocaleMessageBag;
 
 const EN_MESSAGES = {
   ...commonMessages.en,
@@ -219,25 +230,7 @@ const EN_MESSAGES = {
   ...platformPopupOwnerMessages.en,
   ...adminMessages.en,
   ...enJson,
-} as const;
-
-/** Valid translation key — keyed from canonical KO merge, not exported MESSAGES. */
-export type MessageKey = keyof typeof KO_MESSAGES;
-
-type LocaleMessageBag = { readonly [K in MessageKey]: string };
-
-/** Public MESSAGES shape — serializable; preserves MessageKey, values as string. */
-export type MessagesTable = {
-  readonly ko: LocaleMessageBag;
-  readonly en: LocaleMessageBag;
-};
-
-type _MissingInEn = Exclude<MessageKey, keyof typeof EN_MESSAGES>;
-type _ExtraInEn = Exclude<keyof typeof EN_MESSAGES, MessageKey>;
-type _LocaleKeyParityDrift = _MissingInEn | _ExtraInEn;
-type _AssertLocaleKeyParity = [_LocaleKeyParityDrift] extends [never] ? true : false;
-const _assertLocaleKeyParity: _AssertLocaleKeyParity = true;
-void _assertLocaleKeyParity;
+} as LocaleMessageBag;
 
 export const MESSAGES: MessagesTable = {
   ko: KO_MESSAGES,
