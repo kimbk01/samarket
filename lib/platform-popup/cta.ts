@@ -159,5 +159,10 @@ export function validatePlatformPopupCta(
 ): PlatformPopupCtaValidation {
   const normalized = normalizePlatformPopupCta(input);
   if (!normalized.ok) return normalized;
+  // Entity gate only when caller supplies lookup (incl. explicit null).
+  // Owner/Admin writers validate structure here; runtime/resolve pass lookup.
+  if (arguments.length < 2) {
+    return { ok: true, value: normalized.value };
+  }
   return assertPlatformPopupCtaTargetAvailable(normalized.value, lookup);
 }

@@ -147,6 +147,12 @@ describe("platform popup CTA fail-closed — CUT 1", () => {
     ).toBe(false);
   });
 
+  it("store CTA without lookup is structural-ok (entity gate deferred)", () => {
+    const r = validatePlatformPopupCta({ ctaType: "store", ctaTarget: "s1" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.href).toBe("/stores/s1");
+  });
+
   it("unauthorized target fail closed", () => {
     expect(
       validatePlatformPopupCta(
