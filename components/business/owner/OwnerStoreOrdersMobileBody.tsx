@@ -236,13 +236,14 @@ export function OwnerStoreOrdersMobileBody({
             })}
           </div>
 
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
+          <div className="mt-2 grid grid-cols-4 gap-1">
             <KpiCard
               label={t("store_owner_mobile_kpi_new")}
               value={summaryCounts.pending}
               tone="text-[#B42318]"
               href={onTabHref("new")}
               onSelect={() => onSelectTab("new")}
+              compact
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_preparing")}
@@ -250,6 +251,7 @@ export function OwnerStoreOrdersMobileBody({
               tone="text-[#B45309]"
               href={onTabHref("preparing")}
               onSelect={() => onSelectTab("preparing")}
+              compact
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_delivering")}
@@ -257,6 +259,7 @@ export function OwnerStoreOrdersMobileBody({
               tone="text-[var(--biz-primary)]"
               href={onTabHref("shipping")}
               onSelect={() => onSelectTab("shipping")}
+              compact
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_done_today")}
@@ -264,6 +267,7 @@ export function OwnerStoreOrdersMobileBody({
               tone="text-[var(--biz-text)]"
               href={onTabHref("done")}
               onSelect={() => onSelectTab("done")}
+              compact
             />
           </div>
 
@@ -353,12 +357,14 @@ function KpiCard({
   tone,
   href,
   onSelect,
+  compact = false,
 }: {
   label: string;
   value: number;
   tone: string;
   href: string;
   onSelect: () => void;
+  compact?: boolean;
 }) {
   return (
     <a
@@ -368,7 +374,12 @@ function KpiCard({
         e.preventDefault();
         onSelect();
       }}
-      className="rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
+      className={
+        compact
+          ? "rounded-[4px] border border-[#DDE5E0] bg-white px-1.5 py-1 text-center shadow-sm active:bg-[#EEF6F2]"
+          : "rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
+      }
+      data-owner-orders-kpi={compact ? "compact" : "default"}
     >
       <OwnerMobileStackedLabelCount
         variant="kpi"

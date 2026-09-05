@@ -71,19 +71,17 @@ export function isOwnerStoreAdminDirtyGuardPath(pathname: string): boolean {
   return isOwnerBasicInfoPath(pathname) || isOwnerStoreProfilePath(pathname);
 }
 
-/** 통합 주문 관리 — 오너 5탭 하단 네비 없이 KPI·탭·목록만 */
+/** 통합 주문 관리 — P0 primary tab (하단 5탭 유지) */
 export function isOwnerStoreOrdersPath(pathname: string): boolean {
   const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
   return p === "/stores/owner/orders";
 }
 
-/** 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼·문의·주문 관리·고객센터 등 전체 화면 서브라우트 */
+/**
+ * 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼(저장 CTA)만.
+ * P0 primary tabs(`/orders`, `/customer-care`)는 숨기지 않는다.
+ * 문의 상세도 Customers 탭 연속성을 위해 네비를 유지한다.
+ */
 export function isOwnerStoreFormBottomNavHiddenPath(pathname: string): boolean {
-  return (
-    isOwnerBasicInfoPath(pathname) ||
-    isOwnerStoreProfilePath(pathname) ||
-    isOwnerInquiriesPath(pathname) ||
-    isOwnerStoreOrdersPath(pathname) ||
-    isOwnerCustomerCarePath(pathname)
-  );
+  return isOwnerBasicInfoPath(pathname) || isOwnerStoreProfilePath(pathname);
 }

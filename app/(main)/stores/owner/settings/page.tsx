@@ -146,6 +146,7 @@ function MyBusinessSettingsPageInner() {
       row={phase.row}
       onToggleVisible={() => void toggleVisible()}
       onToggleMessengerFeature={(key, next) => void toggleMessengerFeature(key, next)}
+      onStoreUpdated={() => void load()}
     />
   );
 }

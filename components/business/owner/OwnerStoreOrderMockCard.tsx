@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
+import { classifyOwnerOrderStalePending } from "@/lib/business/owner-order-stale-pending";
 import { ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
 import {
   runOwnerStoreOrderCancelRequest,
@@ -19,7 +22,6 @@ import {
   ownerRiderStatusLabelI18n,
 } from "@/lib/stores/owner-order-ui-labels";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { forgetSingleFlight } from "@/lib/http/run-single-flight";
@@ -84,11 +86,15 @@ export function OwnerStoreOrderMockCard({
   onToggleExpanded: () => void;
   onOpenChat: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const tone = ownerOrderStatusTone(order.order_status);
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
   const statusLabel = ownerOpsStatusLabelI18n(language, order.order_status, order.fulfillment_type);
   const elapsed = formatOwnerOrderElapsed(order.created_at, language);
+  const stalePending = classifyOwnerOrderStalePending({
+    orderStatus: order.order_status,
+    createdAt: order.created_at,
+  });
   const buyerLabel =
     typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
       ? order.buyer_public_label.trim()
@@ -290,6 +296,36 @@ export function OwnerStoreOrderMockCard({
                 </span>
                 {elapsed ? (
                   <span className="text-[12px] font-medium leading-[1.35] text-[#6B7280]">{elapsed}</span>
+                ) : null}
+                {stalePending.class === "orphan_pending" ? (
+                  <span
+                    className="inline-flex rounded-[4px] bg-red-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-red-800 ring-1 ring-red-200"
+                    data-owner-order-stale="orphan_pending"
+                  >
+                    {`${ownerUiCopy(
+                      language,
+                      "장기 미처리 · 수락/취소 필요",
+                      "Long-unattended · accept/cancel required"
+                    )} (${stalePending.ageHours}h)`}
+                  </span>
+                ) : stalePending.class === "stale_pending" ? (
+                  <span
+                    className="inline-flex rounded-[4px] bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-amber-900 ring-1 ring-amber-200"
+                    data-owner-order-stale="stale_pending"
+                  >
+                    {`${ownerUiCopy(
+                      language,
+                      "미처리 pending · 조치 필요",
+                      "Unattended pending · action needed"
+                    )} (${stalePending.ageHours}h)`}
+                  </span>
+                ) : stalePending.class === "attention_pending" ? (
+                  <span
+                    className="inline-flex rounded-[4px] bg-orange-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-orange-800 ring-1 ring-orange-200"
+                    data-owner-order-stale="attention_pending"
+                  >
+                    {ownerUiCopy(language, "수락 지연", "Accept delayed")}
+                  </span>
                 ) : null}
                 {order.order_status === "completed" && order.review_status === "completed" ? (
                   <span

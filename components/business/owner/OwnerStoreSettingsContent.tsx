@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { OwnerManageHubLinks } from "@/components/business/owner/OwnerManageHubLinks";
+import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
+import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 
 type Props = {
   row: StoreRow;
@@ -15,56 +19,66 @@ type Props = {
       | "messenger_video_calls_enabled",
     next: boolean
   ) => void;
+  onStoreUpdated?: () => void | Promise<void>;
+  orderAlertsBadge?: number;
 };
 
-export function OwnerStoreSettingsContent({ row, onToggleVisible, onToggleMessengerFeature }: Props) {
-  const { t } = useI18n();
+export function OwnerStoreSettingsContent({
+  row,
+  onToggleVisible,
+  onToggleMessengerFeature,
+  onStoreUpdated,
+  orderAlertsBadge = 0,
+}: Props) {
+  const { t, language } = useI18n();
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const isApproved = row.approval_status === "approved";
   const visible = row.is_visible === true;
   const voiceMessagesEnabled = row.messenger_voice_messages_enabled !== false;
   const voiceCallsEnabled = row.messenger_voice_calls_enabled !== false;
   const videoCallsEnabled = row.messenger_video_calls_enabled !== false;
+  const refresh = onStoreUpdated ?? (async () => undefined);
 
   return (
-    <div className={OWNER_STORE_STACK_Y_CLASS}>
+    <div className={OWNER_STORE_STACK_Y_CLASS} data-owner-manage-settings="1">
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-semibold text-sam-fg">{t("owner_store_visibility_title")}</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">
+          {ownerUiCopy(language, "노출 · 영업", "Visibility · Open")}
+        </h2>
         <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          {t("owner_store_visibility_intro_before")}
-          <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">/stores/[slug]</code>
-          {t("owner_store_visibility_intro_mid")}{" "}
-          <strong className="font-semibold text-sam-fg">{t("owner_store_visibility_hidden_initial")}</strong>
-          {t("owner_store_visibility_intro_tail")}
+          {ownerUiCopy(
+            language,
+            "노출은 고객 목록 표시, 영업은 지금 주문 접수 가능 여부입니다. 홈과 동일한 상태를 사용합니다.",
+            "Visibility controls discovery listing; Open controls whether orders are accepted now. Same state as Home."
+          )}
         </p>
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
-          <div className="min-w-0">
-            <p className="sam-text-body font-medium text-sam-fg">
-              {visible ? t("owner_store_visibility_visible_y") : t("owner_store_visibility_hidden_n")}
-            </p>
-            <p className="sam-text-helper text-sam-muted">
-              {isApproved
-                ? t("owner_store_visibility_change_anytime")
-                : t("owner_store_visibility_after_approval")}
-            </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+            <BusinessAdminVisibleToggle row={row} onUpdated={refresh} />
           </div>
-          <button
-            type="button"
-            disabled={!isApproved}
-            onClick={onToggleVisible}
-            className={[
-              "shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-medium",
-              isApproved
-                ? visible
-                  ? "border border-sam-border bg-sam-surface text-sam-fg"
-                  : "bg-signature text-white"
-                : "cursor-not-allowed border border-sam-border bg-sam-surface-muted text-sam-muted",
-            ].join(" ")}
-          >
-            {visible ? t("owner_store_toggle_hide") : t("owner_store_toggle_show")}
-          </button>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+            <BusinessAdminOpenToggle row={row} onUpdated={refresh} />
+          </div>
         </div>
+        {!isApproved ? (
+          <p className="mt-2 sam-text-helper text-sam-muted">
+            {t("owner_store_visibility_after_approval")}
+          </p>
+        ) : null}
+        {/* Keep legacy one-tap visibility for callers that still wire onToggleVisible */}
+        <button
+          type="button"
+          disabled={!isApproved}
+          onClick={onToggleVisible}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+        >
+          {visible ? t("owner_store_toggle_hide") : t("owner_store_toggle_show")}
+        </button>
       </section>
+
+      <OwnerManageHubLinks row={row} orderAlertsBadge={orderAlertsBadge} />
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">{t("owner_store_messenger_features_title")}</h2>

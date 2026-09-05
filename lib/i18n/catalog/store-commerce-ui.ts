@@ -1597,8 +1597,11 @@ export const storeCommerceUiMessages = {
     store_owner_bottom_nav_home: "홈",
     store_owner_bottom_nav_dashboard: "대시보드",
     store_owner_bottom_nav_order_chat: "주문채팅",
-    store_owner_bottom_nav_orders: "주문관리",
+    store_owner_bottom_nav_orders: "주문",
     store_owner_bottom_nav_menu: "메뉴관리",
+    store_owner_bottom_nav_products: "상품",
+    store_owner_bottom_nav_customers: "고객",
+    store_owner_bottom_nav_manage: "관리",
     store_owner_bottom_nav_settings: "매장설정",
     store_owner_hub_avatar_fallback: "샵",
     store_owner_chat_room_open_failed: "채팅방을 열 수 없습니다.",
@@ -1744,6 +1747,7 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_status_paid: "지급 완료",
     store_owner_settlement_status_held: "보류",
     store_owner_settlement_status_cancelled: "취소",
+
     store_owner_settlement_filter_empty: "선택한 상태의 정산 건이 없습니다.",
 
   },
@@ -3346,6 +3350,9 @@ export const storeCommerceUiMessages = {
     store_owner_bottom_nav_order_chat: "Order chat",
     store_owner_bottom_nav_orders: "Orders",
     store_owner_bottom_nav_menu: "Menu",
+    store_owner_bottom_nav_products: "Products",
+    store_owner_bottom_nav_customers: "Customers",
+    store_owner_bottom_nav_manage: "Manage",
     store_owner_bottom_nav_settings: "Store",
     store_owner_hub_avatar_fallback: "S",
     store_owner_chat_room_open_failed: "Could not open chat.",
@@ -3490,6 +3497,7 @@ export const storeCommerceUiMessages = {
     store_owner_settlement_status_paid: "Paid",
     store_owner_settlement_status_held: "On hold",
     store_owner_settlement_status_cancelled: "Cancelled",
+
     store_owner_settlement_filter_empty: "No settlements in this status.",
 
   },

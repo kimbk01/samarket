@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
 import {
@@ -26,7 +28,6 @@ import {
   mapFinancialSummaryToOwner,
 } from "@/lib/business/summarize-owner-store-settlements";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function formatSettlementDate(iso: string | null | undefined): string {
@@ -157,7 +158,7 @@ function SettlementRowCard({
 
 /** 매장 어드민 — 정산 내역 (`/stores/owner/settlements?storeId=`) */
 export function OwnerStoreSettlementsView() {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const searchParams = useOwnerAdminUrlSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
 
@@ -272,6 +273,12 @@ export function OwnerStoreSettlementsView() {
   return (
     <div className={`mx-auto max-w-4xl min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
       <OwnerStoreAdminDashSection title={t("store_owner_settlement_guide_title")}>
+        <p
+          className="mb-2 inline-flex rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1 text-[11px] font-semibold tracking-wide text-sam-muted"
+          data-owner-settlement-readonly="1"
+        >
+          {ownerUiCopy(language, "조회 전용", "Read only")}
+        </p>
         <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_intro")}</p>
         {meta.settlement_delay_days != null || meta.settlement_fee_percent != null ? (
           <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-muted">

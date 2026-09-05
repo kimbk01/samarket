@@ -87,6 +87,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   registerOwnerMobileOpsMenuOpen,
 } from "@/lib/business/owner-mobile-ops-menu-bridge";
+import { setOwnerOpsDrawerOpen } from "@/lib/business/owner-ops-drawer-open";
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
   const peek = peekMeStoresListClientCache();
@@ -468,6 +469,11 @@ export function BusinessAdminShell({
       for (const release of releases) release();
     };
   }, [mobileMenuOpen, ownerOrderOverlayOpen]);
+
+  useEffect(() => {
+    setOwnerOpsDrawerOpen(mobileMenuOpen);
+    return () => setOwnerOpsDrawerOpen(false);
+  }, [mobileMenuOpen]);
 
   /**
    * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.

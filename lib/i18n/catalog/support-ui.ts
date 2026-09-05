@@ -8,6 +8,7 @@ export const supportUiMessages = {
     support_enter_cta: "문의하기",
     support_enter_missing_context: "문의 정보를 불러올 수 없습니다. 다시 시도해 주세요.",
     support_enter_category_label: "문의 유형",
+    support_chip_store: "매장",
     support_enter_surface_label: "화면",
     support_modal_close_aria: "고객센터 닫기",
     support_modal_start_hint:
@@ -155,6 +156,7 @@ export const supportUiMessages = {
     support_enter_cta: "Contact us",
     support_enter_missing_context: "Could not load inquiry context. Please try again.",
     support_enter_category_label: "Category",
+    support_chip_store: "Store",
     support_enter_surface_label: "Screen",
     support_modal_close_aria: "Close support",
     support_modal_start_hint:

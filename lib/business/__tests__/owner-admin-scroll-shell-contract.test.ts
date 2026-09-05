@@ -66,25 +66,27 @@ describe("owner admin scroll shell contract", () => {
     expect(isOwnerStoreProfilePath("/stores/owner/profile")).toBe(true);
   });
 
-  it("inquiries hides owner mobile bottom nav", () => {
+  it("inquiries keeps owner mobile bottom nav (Customers primary continuity)", () => {
     expect(isOwnerInquiriesPath("/stores/owner/inquiries")).toBe(true);
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/inquiries")).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/inquiries")).toBe(false);
   });
 
-  it("customer-care hides owner mobile bottom nav", () => {
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care")).toBe(true);
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/customer-center")).toBe(true);
+  it("customer-care keeps owner mobile bottom nav (P0 Customers tab)", () => {
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care")).toBe(false);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/customer-center")).toBe(
+      false
+    );
     expect(
       isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/messages/tid-1")
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isOwnerStoreFormBottomNavHiddenPath("/stores/owner/customer-care/inquiries/tid-1")
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("orders management hides owner mobile bottom nav", () => {
+  it("orders management keeps owner mobile bottom nav (P0 Orders tab)", () => {
     expect(isOwnerStoreOrdersPath("/stores/owner/orders")).toBe(true);
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/orders")).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/orders")).toBe(false);
     expect(isOwnerStoreOrdersPath("/stores/owner/orders/")).toBe(true);
   });
 
@@ -209,8 +211,9 @@ describe("owner admin scroll shell contract", () => {
     const css = readRepo("app/owner-compact-shell.css");
     expect(css).toContain("--owner-shell-header-border: 1px");
     expect(css).toMatch(
-      /--owner-shell-main-pt:\s*calc\([\s\S]*--owner-shell-header-border/
+      /--owner-content-top:\s*calc\([\s\S]*--owner-shell-header-border/
     );
+    expect(css).toMatch(/--owner-shell-main-pt:\s*var\(--owner-content-top\)/);
     expect(css).toMatch(/\.owner-compact-shell__header[\s\S]*overflow-y:\s*hidden/);
     expect(css).toMatch(/\.owner-compact-shell__header-inner[\s\S]*overflow:\s*hidden/);
   });

@@ -49,8 +49,13 @@ describe("Priority 3 Owner Delivery Ads entry / CTA hierarchy", () => {
     expect(ads?.href).toBe("/stores/owner/ads?storeId=s1");
     expect(ads?.href).not.toBe("/my/ads");
 
-    expect(myBizNavSrc()).toContain("OwnerRoutes.ads(storeId)");
-    expect(myBizNavSrc()).not.toMatch(/href:\s*"\/my\/ads"/);
+    const registrySrc = readFileSync(
+      join(process.cwd(), "lib/business/owner-nav-registry.ts"),
+      "utf8"
+    );
+    expect(registrySrc).toContain("OwnerRoutes.ads(storeId)");
+    expect(registrySrc).not.toMatch(/href:\s*"\/my\/ads"/);
+    expect(myBizNavSrc()).toContain("buildOwnerDrawerSectionsFromRegistry");
   });
 
   it("T2 — hub exposes one primary 광고 신청하기 action", () => {

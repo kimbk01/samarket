@@ -41,6 +41,7 @@ import {
   peekOwnerHubLatestPendingOrderId,
   subscribeOwnerHubLatestPendingOrderId,
 } from "@/lib/business/owner-hub-pending-order-bridge";
+import { setOwnerBottomNavOccupiesClearance } from "@/lib/business/owner-bottom-nav-occupancy";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -69,7 +70,7 @@ function OwnerMobileBottomNavSideTab({
   onCloseDomainSwitcher?: () => void;
 }) {
   const Icon = item.icon;
-  const showChatBadge = item.id === "order-chat" && (chatBadge ?? 0) > 0;
+  const showCustomersBadge = item.id === "customers" && (chatBadge ?? 0) > 0;
 
   return (
     <Link
@@ -89,7 +90,7 @@ function OwnerMobileBottomNavSideTab({
       <div className="app-bottom-nav-icon-slot">
         <span className="app-bottom-nav-inline-icon" key={active ? "on" : "off"}>
           <Icon className={SIDE_TAB_ICON_CLASS} aria-hidden />
-          {showChatBadge ? (
+          {showCustomersBadge ? (
             <span
               className={cn(
                 "bottom-nav-hub-badge",
@@ -192,7 +193,8 @@ function OwnerMobileBottomNavHomeHub({
 
 /**
  * 매장 오너 모바일 하단 탭 — 배달 `/stores` 와 동일 높이·아이콘/라벨 비율.
- * 주문관리 · 주문채팅 · 홈(대시보드) · 메뉴관리 · 매장설정 — `BusinessAdminShell` 전용.
+ * 주문 · 상품 · 홈 · 고객 · 관리 — `BusinessAdminShell` 전용.
+ * Geometry occupancy published for Support FAB clearance.
  */
 export function OwnerMobileBottomNav({
   storeId,
@@ -226,6 +228,12 @@ export function OwnerMobileBottomNav({
 
   useEffect(() => {
     setPortalToBody(true);
+  }, []);
+
+  /** Publish clearance while this nav is mounted (even if scroll-hidden — layout still reserved). */
+  useEffect(() => {
+    setOwnerBottomNavOccupiesClearance(true);
+    return () => setOwnerBottomNavOccupiesClearance(false);
   }, []);
 
   const pathKey = `${pathname}?${searchParams.toString()}`;
@@ -291,7 +299,7 @@ export function OwnerMobileBottomNav({
           href={href}
           label={t(item.labelKey)}
           active={isTabActive(item.id)}
-          chatBadge={item.id === "order-chat" ? chatBadge : undefined}
+          chatBadge={item.id === "customers" ? chatBadge : undefined}
           onNavigate={markTabIntent}
           onCloseDomainSwitcher={domainSwitcherOpen ? closeDomainSwitcher : undefined}
         />

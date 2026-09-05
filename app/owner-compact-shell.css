@@ -10,23 +10,43 @@
  */
 
 body[data-owner-compact-shell] {
-  --owner-shell-toolbar-h: var(--sam-header-row-height, 3.5rem);
-  --owner-shell-safe-top: var(--safe-top);
+  --owner-header-height: var(--sam-header-row-height, 3.5rem);
+  --owner-bottom-nav-height: 60px;
+  --owner-safe-top: var(--safe-top);
+  --owner-safe-bottom: var(--safe-bottom);
+  --owner-fixed-action-height: 0px;
+  --owner-shell-toolbar-h: var(--owner-header-height);
+  --owner-shell-safe-top: var(--owner-safe-top);
   --owner-shell-safe-left: var(--safe-left);
   --owner-shell-safe-right: var(--safe-right);
-  --owner-shell-safe-bottom: var(--safe-bottom);
+  --owner-shell-safe-bottom: var(--owner-safe-bottom);
   --owner-shell-pad-left: max(0.5rem, var(--owner-shell-safe-left));
   --owner-shell-pad-right: max(0.5rem, var(--owner-shell-safe-right));
   /** phone — `APP_MAIN_COLUMN` 32rem(512) 대신 읽기 폭 42rem 과 맞춤 */
   --owner-shell-content-max: 42rem;
   /** `.owner-compact-shell__header` `border-bottom` — main offset must include it or first scroll row clips */
   --owner-shell-header-border: 1px;
-  --owner-shell-main-pt: calc(
-    var(--owner-shell-safe-top) + var(--owner-shell-toolbar-h) + var(--owner-shell-header-border)
+  --owner-content-top: calc(
+    var(--owner-safe-top) + var(--owner-header-height) + var(--owner-shell-header-border)
   );
-  /** 메인 배달 탭 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS` 와 동일 식 */
-  --owner-shell-main-pb: calc(
-    76px + var(--delivery-home-overhang, 0px) + var(--owner-shell-safe-bottom)
+  --owner-shell-main-pt: var(--owner-content-top);
+  /**
+   * Content bottom clearance = bottom-nav + gap(16) + safe-bottom.
+   * DO NOT add `--delivery-home-overhang` (consumer delivery chrome).
+   */
+  --owner-content-bottom: calc(
+    var(--owner-bottom-nav-height) + 16px + var(--owner-fixed-action-height) +
+      var(--owner-safe-bottom)
+  );
+  --owner-shell-main-pb: var(--owner-content-bottom);
+  /**
+   * FAB sits above Owner delivery bottom-nav shell + home orbit overhang + gap.
+   * Nav root uses `.app-bottom-nav-shell--delivery` (height includes overhang);
+   * omit overhang and FAB overlaps the orbit by ~8px.
+   */
+  --owner-fab-bottom: calc(
+    var(--owner-bottom-nav-height) + var(--delivery-home-overhang, 0px) +
+      var(--owner-safe-bottom) + 10px
   );
 }
 
@@ -124,7 +144,7 @@ body[data-owner-compact-shell] {
 }
 
 .owner-compact-shell__main-pb {
-  padding-bottom: var(--owner-shell-main-pb, calc(76px + var(--safe-bottom)));
+  padding-bottom: var(--owner-content-bottom, var(--owner-shell-main-pb, calc(76px + var(--safe-bottom))));
 }
 
 /**
@@ -159,7 +179,7 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
 .owner-ops-drawer-scrim {
   position: fixed;
   inset: 0;
-  z-index: 1002;
+  z-index: 1000;
   margin: 0;
   padding: 0;
   border: 0;
@@ -193,7 +213,7 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 1003;
+  z-index: 1010;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

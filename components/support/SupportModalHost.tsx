@@ -148,7 +148,10 @@ function ContextChips({ context }: { context: SupportContext }) {
       </span>
       {context.audience === "OWNER" && context.storeId ? (
         <span className="rounded-ui-rect border border-[var(--overlay-border)] px-2 py-0.5 text-[12px] text-[var(--overlay-text-secondary)]">
-          Store
+          {safeT("support_chip_store", {
+            fallbackKo: "매장",
+            fallbackEn: "Store",
+          })}
         </span>
       ) : null}
       {context.referenceType ? (

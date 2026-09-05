@@ -1,8 +1,18 @@
-import { OwnerRoutes } from "@/lib/business/owner-routes";
-import type { OwnerBottomNavTabId } from "@/lib/delivery/owner/owner-bottom-nav-active";
+import {
+  getOwnerBottomNavItemDef,
+  OWNER_BOTTOM_NAV_SIDE_LEFT_IDS,
+  OWNER_BOTTOM_NAV_SIDE_RIGHT_IDS,
+  type OwnerBottomNavTabId,
+} from "@/lib/business/owner-nav-registry";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, MessageCircle, Settings, UtensilsCrossed } from "lucide-react";
+import {
+  ClipboardList,
+  Package,
+  Settings2,
+  Users,
+} from "lucide-react";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 export type OwnerMobileBottomNavItem = {
   id: OwnerBottomNavTabId;
@@ -11,36 +21,33 @@ export type OwnerMobileBottomNavItem = {
   href: (storeId: string, storeSlug?: string | null) => string;
 };
 
-/** 배달 5탭 순서 — 좌: 주문관리·주문채팅 · 중앙: 홈(대시보드) · 우: 메뉴·설정 */
-export const OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT: OwnerMobileBottomNavItem[] = [
-  {
-    id: "orders",
-    labelKey: "store_owner_bottom_nav_orders",
-    icon: ClipboardList,
-    href: (id) => OwnerRoutes.orders(id),
-  },
-  {
-    id: "order-chat",
-    labelKey: "store_owner_bottom_nav_order_chat",
-    icon: MessageCircle,
-    href: (id) => OwnerRoutes.orderChats(id),
-  },
-];
+const ICON_BY_TAB: Record<Exclude<OwnerBottomNavTabId, "home">, LucideIcon> = {
+  orders: ClipboardList,
+  products: Package,
+  customers: Users,
+  manage: Settings2,
+};
 
-export const OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT: OwnerMobileBottomNavItem[] = [
-  {
-    id: "menu",
-    labelKey: "store_owner_bottom_nav_menu",
-    icon: UtensilsCrossed,
-    href: (id) => OwnerRoutes.menu(id),
-  },
-  {
-    id: "settings",
-    labelKey: "store_owner_bottom_nav_settings",
-    icon: Settings,
-    href: (id) => OwnerRoutes.settings(id),
-  },
-];
+function toSideItem(id: Exclude<OwnerBottomNavTabId, "home">): OwnerMobileBottomNavItem {
+  const def = getOwnerBottomNavItemDef(id);
+  return {
+    id: def.id,
+    labelKey: def.labelKey,
+    icon: ICON_BY_TAB[id],
+    href: (storeId) => def.href(storeId),
+  };
+}
+
+/** 배달 5탭 — 좌: 주문·상품 · 중앙: 홈 · 우: 고객·관리 */
+export const OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT: OwnerMobileBottomNavItem[] =
+  OWNER_BOTTOM_NAV_SIDE_LEFT_IDS.filter((id): id is Exclude<OwnerBottomNavTabId, "home"> => id !== "home").map(
+    toSideItem
+  );
+
+export const OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT: OwnerMobileBottomNavItem[] =
+  OWNER_BOTTOM_NAV_SIDE_RIGHT_IDS.filter((id): id is Exclude<OwnerBottomNavTabId, "home"> => id !== "home").map(
+    toSideItem
+  );
 
 export const OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY = "store_owner_bottom_nav_home" as MessageKey;
 

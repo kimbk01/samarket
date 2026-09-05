@@ -44,7 +44,7 @@ export const OWNER_MOBILE_BOTTOM_NAV_HEIGHT_CLASS = "h-[60px]";
 /** 하단 탭 + safe-area — `owner-compact-shell.css` `--owner-shell-main-pb` (body `data-owner-compact-shell`) */
 export const OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS = OWNER_COMPACT_SHELL_MAIN_PB_CLASS;
 
-/** 오너 모바일 고정 헤더 z-index — 하단 네비(`z-[55]`)보다 위 (CSS `.owner-compact-shell__header` 와 동기) */
+/** 오너 모바일 고정 헤더 z-index — 하단 네비(`z-[55]`)보다 위 (CSS `.owner-compact-shell__header` 와 동기 · OWNER_OVERLAY_Z.header) */
 export const OWNER_MOBILE_PAGE_HEADER_Z_CLASS = "z-[56]";
 
 /** 주문 상세 풀스크린 — `BodyPortal` + 헤더(`z-[56]`)보다 위 */

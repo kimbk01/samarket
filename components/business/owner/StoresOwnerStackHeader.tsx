@@ -6,6 +6,12 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OWNER_DESKTOP_SHELL_MIN_TW, OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-viewport";
 
+/**
+ * `/stores/owner/apply` · empty hub · product composer — documented Owner header exception.
+ * Canonical owner chrome uses `OwnerMobileAdminHeader`.
+ * Keep this stack header when apply/empty/composer need a simpler back+title chrome
+ * without hub identity / ops menu trailing.
+ */
 export function StoresOwnerStackHeader({
   variant,
   backHref,

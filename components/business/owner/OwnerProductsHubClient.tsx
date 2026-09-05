@@ -81,6 +81,7 @@ function ownerHubStatusPillClass(active: boolean): string {
 import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { useSearchParams } from "next/navigation";
 
 /** 매장 상품 목록·노출·신규 등록 진입 — RSC `initial*` 으로 첫 페인트부터 데이터 표시 */
 export function OwnerProductsHubClient({
@@ -96,6 +97,8 @@ export function OwnerProductsHubClient({
   rscBootstrapError?: string;
 }) {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const statusFromUrl = searchParams.get("status");
   const hasRscPayload = initialSections != null && initialProducts != null;
 
   const adminStore = useBusinessAdminStore();
@@ -132,7 +135,12 @@ export function OwnerProductsHubClient({
   });
   const [tab, setTab] = useState<string>("all");
   /** 전체·판매중·품절·숨김(초안 포함) — 카테고리 탭과 AND 필터 */
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">(() => {
+    if (statusFromUrl === "sold_out" || statusFromUrl === "active" || statusFromUrl === "hidden") {
+      return statusFromUrl;
+    }
+    return "all";
+  });
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);

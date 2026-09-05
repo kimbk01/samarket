@@ -14,9 +14,39 @@ export const OWNER_COMPACT_SHELL_MAIN_PB_CLASS = "owner-compact-shell__main-pb";
 export const OWNER_COMPACT_SHELL_BLEED_X_CLASS = "owner-compact-shell__bleed-x";
 export const OWNER_STORE_ADMIN_FOOTER_BAR_CLASS = "owner-store-admin-footer-bar";
 
+let ownerCompactShellBodyEnabled = false;
+const ownerCompactShellBodyListeners = new Set<() => void>();
+
+function emitOwnerCompactShellBodyFlag(): void {
+  for (const cb of ownerCompactShellBodyListeners) cb();
+}
+
 /** `BusinessAdminShell` — compact 일 때 `document.body` 토글 */
 export function applyOwnerCompactShellBodyFlag(enabled: boolean): void {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined") {
+    if (ownerCompactShellBodyEnabled === enabled) return;
+    ownerCompactShellBodyEnabled = enabled;
+    emitOwnerCompactShellBodyFlag();
+    return;
+  }
   if (enabled) document.body.setAttribute(OWNER_COMPACT_SHELL_BODY_DATA_ATTR, "");
   else document.body.removeAttribute(OWNER_COMPACT_SHELL_BODY_DATA_ATTR);
+  if (ownerCompactShellBodyEnabled === enabled) return;
+  ownerCompactShellBodyEnabled = enabled;
+  emitOwnerCompactShellBodyFlag();
+}
+
+/** Support FAB / overlay — Owner shell active (independent of bottom-nav mount). */
+export function getOwnerCompactShellBodyFlag(): boolean {
+  if (typeof document !== "undefined") {
+    return document.body.hasAttribute(OWNER_COMPACT_SHELL_BODY_DATA_ATTR);
+  }
+  return ownerCompactShellBodyEnabled;
+}
+
+export function subscribeOwnerCompactShellBodyFlagStore(onStore: () => void): () => void {
+  ownerCompactShellBodyListeners.add(onStore);
+  return () => {
+    ownerCompactShellBodyListeners.delete(onStore);
+  };
 }

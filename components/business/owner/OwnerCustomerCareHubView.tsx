@@ -3,21 +3,34 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle, HelpCircle, Headphones } from "lucide-react";
+import { MessageCircle, HelpCircle, Headphones, Star } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OWNER_ADMIN_LIST_CARD_CLASS } from "@/lib/business/owner-admin-list-ui";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { useOwnerFabOrderChatBadgeCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
+import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
+import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 
 type UnreadState = {
   storeInquiry: number;
   adminInbox: number;
   adminInquiry: number;
+  reviewsNeedReply: number;
 };
 
+const ICON_BY_ENTRY = {
+  "order-chat": MessageCircle,
+  "store-inquiry": HelpCircle,
+  reviews: Star,
+  "customer-center": Headphones,
+} as const;
+
+/**
+ * Owner Customers hub — STORE↔CUSTOMER entries separate from OWNER↔DIBAY Support.
+ */
 export function OwnerCustomerCareHubView() {
   const { safeT } = useI18n();
   const sp = useSearchParams();
@@ -27,6 +40,7 @@ export function OwnerCustomerCareHubView() {
     storeInquiry: 0,
     adminInbox: 0,
     adminInquiry: 0,
+    reviewsNeedReply: 0,
   });
   const [resolvedStoreId, setResolvedStoreId] = useState<string | null>(storeIdParam);
 
@@ -69,8 +83,17 @@ export function OwnerCustomerCareHubView() {
       }
     }
 
+    let reviewsNeedReply = 0;
+    if (sid) {
+      const counts = await fetchStoreOrderCountsDeduped(sid, { force: false });
+      if (counts.status === 200) {
+        const snap = parseOwnerStoreOpsSnapshotFromJson(counts.json);
+        reviewsNeedReply = Math.max(0, Number(snap?.reviews_need_reply_count) || 0);
+      }
+    }
+
     const [adminInbox, adminInquiry] = await Promise.all([noteUnread("inbox"), noteUnread("inquiry")]);
-    setUnread({ storeInquiry, adminInbox, adminInquiry });
+    setUnread({ storeInquiry, adminInbox, adminInquiry, reviewsNeedReply });
   }, [storeIdParam]);
 
   useEffect(() => {
@@ -79,97 +102,112 @@ export function OwnerCustomerCareHubView() {
 
   const storeId = resolvedStoreId ?? storeIdParam;
   const customerCenterUnread = unread.adminInbox + unread.adminInquiry;
+  const hubEntries = listOwnerCustomerHubEntries(storeIdParam?.trim() || storeId);
 
-  const customerCenterHref = (() => {
-    // A2-1: do not invent first-store for Support entry when store context is unclear.
-    const sid = (storeIdParam ?? "").trim() || null;
-    const base = OwnerRoutes.customerCareCenter(sid);
-    return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
-  })();
+  const storeCustomerEntries = hubEntries.filter((e) => e.audience === "store_customer");
+  const dibayEntries = hubEntries.filter((e) => e.audience === "dibay_support");
 
-  const entries = [
-    {
-      id: "order-chat",
-      href: OwnerRoutes.orderChats(storeId),
-      icon: MessageCircle,
-      title: safeT("biz_care_order_chat", {
-        fallbackKo: "주문 채팅",
-        fallbackEn: "Order chat",
-      }),
-      desc: safeT("biz_care_order_chat_desc", {
-        fallbackKo: "배달·매장 주문 대화",
-        fallbackEn: "Delivery and store order conversations",
-      }),
-      badge: orderChatUnread,
-    },
-    {
-      id: "store-inquiry",
-      href: OwnerRoutes.inquiries(storeId),
-      icon: HelpCircle,
-      title: safeT("biz_care_store_inquiry", {
-        fallbackKo: "매장 문의",
-        fallbackEn: "Store inquiry",
-      }),
-      desc: safeT("biz_care_store_inquiry_desc", {
-        fallbackKo: "이 매장으로 온 문의",
-        fallbackEn: "Inquiries sent to this store",
-      }),
-      badge: unread.storeInquiry,
-    },
-    {
-      id: "customer-center",
-      href: customerCenterHref,
-      icon: Headphones,
-      title: safeT("biz_care_customer_center", {
-        fallbackKo: "고객센터",
-        fallbackEn: "Customer center",
-      }),
-      desc: safeT("biz_care_customer_center_desc", {
-        fallbackKo: "DIBAY 고객센터 · 상담 내역",
-        fallbackEn: "DIBAY Support and history",
-      }),
-      badge: customerCenterUnread,
-    },
-  ];
+  const badgeFor = (id: string): number => {
+    if (id === "order-chat") return orderChatUnread;
+    if (id === "store-inquiry") return unread.storeInquiry;
+    if (id === "reviews") return unread.reviewsNeedReply;
+    if (id === "customer-center") return customerCenterUnread;
+    return 0;
+  };
+
+  const renderEntry = (e: (typeof hubEntries)[number]) => {
+    const Icon = ICON_BY_ENTRY[e.id];
+    const badge = badgeFor(e.id);
+    return (
+      <li key={e.id}>
+        <Link
+          href={e.href}
+          className={`${OWNER_ADMIN_LIST_CARD_CLASS} flex items-center gap-3`}
+          data-owner-care-entry={e.id}
+          data-owner-care-audience={e.audience}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-ui-rect bg-sam-app text-sam-fg">
+            <Icon className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">
+              {safeT(e.titleKey, {
+                fallbackKo:
+                  e.id === "order-chat"
+                    ? "주문 채팅"
+                    : e.id === "store-inquiry"
+                      ? "매장 문의"
+                      : e.id === "reviews"
+                        ? "리뷰"
+                        : "DIBAY 고객센터",
+                fallbackEn:
+                  e.id === "order-chat"
+                    ? "Order chat"
+                    : e.id === "store-inquiry"
+                      ? "Store inquiry"
+                      : e.id === "reviews"
+                        ? "Reviews"
+                        : "DIBAY Support",
+              })}
+            </span>
+            <span className="mt-0.5 block text-xs text-sam-muted">
+              {safeT(e.descKey, {
+                fallbackKo:
+                  e.id === "order-chat"
+                    ? "배달·매장 주문 대화"
+                    : e.id === "store-inquiry"
+                      ? "이 매장으로 온 문의"
+                      : e.id === "reviews"
+                        ? "고객 리뷰 · 답글"
+                        : "DIBAY 고객센터 · 상담 내역",
+                fallbackEn:
+                  e.id === "order-chat"
+                    ? "Delivery and store order conversations"
+                    : e.id === "store-inquiry"
+                      ? "Inquiries sent to this store"
+                      : e.id === "reviews"
+                        ? "Customer reviews and replies"
+                        : "DIBAY Support and history",
+              })}
+            </span>
+          </span>
+          {badge > 0 ? (
+            <span
+              className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
+              data-owner-care-badge={e.id}
+            >
+              {badge > 99 ? "99+" : badge}
+            </span>
+          ) : null}
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-care-hub="1">
       <OwnerStoreAdminDashSection
-        title={safeT("biz_title_customer_care", {
-          fallbackKo: "고객 응대",
-          fallbackEn: "Customer care",
+        title={safeT("biz_care_section_store_customer", {
+          fallbackKo: "매장 고객",
+          fallbackEn: "Store customers",
         })}
       >
-        <ul className="space-y-3">
-          {entries.map((e) => {
-            const Icon = e.icon;
-            return (
-              <li key={e.id}>
-                <Link
-                  href={e.href}
-                  className={`${OWNER_ADMIN_LIST_CARD_CLASS} flex items-center gap-3`}
-                  data-owner-care-entry={e.id}
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-ui-rect bg-sam-app text-sam-fg">
-                    <Icon className="h-5 w-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{e.title}</span>
-                    <span className="mt-0.5 block text-xs text-sam-muted">{e.desc}</span>
-                  </span>
-                  {e.badge > 0 ? (
-                    <span
-                      className="inline-flex min-w-[1.25rem] justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white"
-                      data-owner-care-badge={e.id}
-                    >
-                      {e.badge > 99 ? "99+" : e.badge}
-                    </span>
-                  ) : null}
-                </Link>
-              </li>
-            );
+        <ul className="space-y-3">{storeCustomerEntries.map(renderEntry)}</ul>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection
+        title={safeT("biz_care_section_dibay_support", {
+          fallbackKo: "DIBAY 고객센터",
+          fallbackEn: "DIBAY Support",
+        })}
+      >
+        <p className="mb-3 text-xs text-sam-muted">
+          {safeT("biz_care_home_hint", {
+            fallbackKo: "DIBAY 관리자 문의는 「고객센터」에서 Support로 연결됩니다.",
+            fallbackEn: "Contact DIBAY admin via Customer Center → Support.",
           })}
-        </ul>
+        </p>
+        <ul className="space-y-3">{dibayEntries.map(renderEntry)}</ul>
       </OwnerStoreAdminDashSection>
     </div>
   );
