@@ -47,9 +47,12 @@ describe("CUT E Control Plane", () => {
   it("E1/E13/E14 — Action Center deep-links domain hubs", () => {
     const center = read("components/admin/dashboard/AdminActionCenter.tsx");
     expect(center).toContain("view=actionable");
-    expect(center).toContain("/admin/feed-ad-requests");
+    // Feed queue UI lives on ad-applications (AdminFeedAdRequestQueue). There is no
+    // /admin/feed-ad-requests list page — only /admin/feed-ad-requests/[id] detail.
+    expect(center).toContain("/admin/ad-applications?domain=feed");
     expect(center).toContain("/admin/platform-popup");
-    expect(center).toContain("/admin/support?filter=WAITING_ADMIN");
+    // ARO-OPS-UX-002-B6 — actionable = OPEN|WAITING_ADMIN control-plane filter
+    expect(center).toContain("/admin/support?filter=ACTIONABLE#action-required");
     expect(adminActionCenterHref()).toBe("/admin#action-center");
   });
 

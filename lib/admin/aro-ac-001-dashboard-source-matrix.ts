@@ -105,7 +105,7 @@ export const ARO_AC_001_SOURCE_MATRIX: readonly AroAc001SourceRow[] = [
     item: "FEED ADS",
     canonicalSource: "feed_ad_requests",
     countQuery: "pending_review (ops projection)",
-    deeplink: "/admin/feed-ad-requests",
+    deeplink: "/admin/ad-applications?domain=feed",
     actionable: true,
     errorSemantics: "schema_missing_as_zero",
   },

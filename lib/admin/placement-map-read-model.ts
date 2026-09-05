@@ -253,9 +253,9 @@ export function listFeedPlacementMapRows(): PlacementMapRow[] {
     ratioOwner: "lib/ads/feed-ad-placement.ts + feed banner product lock",
     runtimeRouteHint: p.route,
     runtimeConsumer: p.consumer,
-    adminController: "/admin/feed-ad-requests",
+    adminController: "/admin/ad-applications?domain=feed",
     configHref: "/admin/feed-ad-products",
-    opsHref: "/admin/feed-ad-requests",
+    opsHref: "/admin/ad-applications?domain=feed",
     previewHref: null,
     flags: {
       defined: true,

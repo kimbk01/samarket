@@ -231,7 +231,7 @@ export function AdminActionCenter() {
     },
     {
       id: "support",
-      href: withAdminReturnTo("/admin/support?filter=WAITING_ADMIN", returnTo),
+      href: withAdminReturnTo("/admin/support?filter=ACTIONABLE#action-required", returnTo),
       count: q.supportActionableCount,
       titleKo: "고객지원 답변 대기",
       titleEn: "Support waiting on admin",

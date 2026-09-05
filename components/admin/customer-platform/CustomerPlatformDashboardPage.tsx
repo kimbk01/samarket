@@ -116,7 +116,7 @@ export function CustomerPlatformDashboardPage() {
       domain: "store",
     },
     {
-      href: "/admin/feed-ad-requests",
+      href: "/admin/ad-applications?domain=feed",
       count: aq?.feed_ad_pending ?? 0,
       titleKey: "admin_menu_ads_feed_applications",
       titleKo: "피드 배너 광고 심사 (Growth)",

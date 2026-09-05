@@ -89,7 +89,7 @@ export function AdminOrderNotificationsPageClient() {
       titleEn: "Member point charges",
     },
     {
-      href: "/admin/feed-ad-requests",
+      href: "/admin/ad-applications?domain=feed",
       count: c?.feed_ad_requests ?? 0,
       titleKo: "피드 배너 광고 심사",
       titleEn: "Feed banner ad review",
