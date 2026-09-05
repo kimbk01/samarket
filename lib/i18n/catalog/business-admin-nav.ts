@@ -10,6 +10,8 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_products: "상품",
 
+    biz_nav_section_customers: "고객",
+
     biz_nav_section_promo: "프로모션",
 
     biz_nav_section_store: "매장",
@@ -18,7 +20,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_growth: "성장",
 
-    biz_nav_section_settings: "설정",
+    biz_nav_section_settings: "시스템",
 
     biz_nav_dashboard: "대시보드",
 
@@ -42,7 +44,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_customer_care_desc: "주문 채팅 · 매장 문의 · 고객센터",
 
-    biz_nav_delivery_orders: "배달 주문",
+    biz_nav_delivery_orders: "주문 관리",
 
     biz_nav_delivery_orders_desc: "신규·환불 요청·상태 변경",
 
@@ -50,9 +52,17 @@ export const businessAdminNavMessages = {
 
     biz_nav_delivery_ops_desc: "영업·배달·노출",
 
-    biz_nav_products: "상품 관리 , 등록",
+    biz_nav_ops_status: "영업·운영 상태",
 
-    biz_nav_products_desc: "목록·노출·신규 등록",
+    biz_nav_ops_status_desc: "심사·노출·판매 권한과 수정 안내",
+
+    biz_nav_products: "상품 관리",
+
+    biz_nav_products_desc: "목록·품절·노출·수정",
+
+    biz_nav_product_new: "상품 등록",
+
+    biz_nav_product_new_desc: "새 상품·옵션·사진 등록",
 
     biz_nav_categories: "카테고리",
 
@@ -78,7 +88,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_public_store_desc: "고객 화면 미리보기",
 
-    biz_nav_settlements: "정산 내역",
+    biz_nav_settlements: "정산",
+
+    biz_nav_settlements_desc: "주문별 매출·수수료·지급 현황",
 
     biz_nav_store_points: "이전 매장 운영 원장",
 
@@ -86,7 +98,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_finance: "Coin · 캐시",
 
-    biz_nav_finance_desc: "Coin 환전·내역, 캐시 충전·전환",
+    biz_nav_finance_desc: "매출 연계 Coin·캐시·충전·전환·환전",
 
     biz_nav_ads: "광고",
 
@@ -186,6 +198,8 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_products: "Products",
 
+    biz_nav_section_customers: "Customers",
+
     biz_nav_section_promo: "Promotions",
 
     biz_nav_section_store: "Store",
@@ -194,7 +208,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_growth: "Growth",
 
-    biz_nav_section_settings: "Settings",
+    biz_nav_section_settings: "System",
 
     biz_nav_dashboard: "Dashboard",
 
@@ -218,7 +232,7 @@ export const businessAdminNavMessages = {
 
     biz_nav_customer_care_desc: "Order chat, store inquiry & customer center",
 
-    biz_nav_delivery_orders: "Delivery orders",
+    biz_nav_delivery_orders: "Orders",
 
     biz_nav_delivery_orders_desc: "New, refunds & status updates",
 
@@ -226,9 +240,17 @@ export const businessAdminNavMessages = {
 
     biz_nav_delivery_ops_desc: "Hours, delivery & visibility",
 
-    biz_nav_products: "Products & menu",
+    biz_nav_ops_status: "Ops & status",
 
-    biz_nav_products_desc: "List, visibility & new items",
+    biz_nav_ops_status_desc: "Approval, visibility, sales rights & where to edit",
+
+    biz_nav_products: "Product management",
+
+    biz_nav_products_desc: "List, sold out, visibility & edits",
+
+    biz_nav_product_new: "Add product",
+
+    biz_nav_product_new_desc: "Create product with options & photos",
 
     biz_nav_categories: "Categories",
 
@@ -256,13 +278,15 @@ export const businessAdminNavMessages = {
 
     biz_nav_settlements: "Settlements",
 
+    biz_nav_settlements_desc: "Per-order sales, fees & payout status",
+
     biz_nav_store_points: "Historical store operations ledger",
 
     biz_nav_store_points_desc: "Read-only historical records",
 
     biz_nav_finance: "Coin · Cash",
 
-    biz_nav_finance_desc: "Coin withdrawals and history, Cash top-up and conversion",
+    biz_nav_finance_desc: "Sales-linked Coin, Cash, top-up, convert & withdraw",
 
     biz_nav_ads: "Ads",
 

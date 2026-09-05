@@ -210,6 +210,18 @@ export function OwnerCustomerCareHubView() {
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-care-hub="1">
+      <div className="space-y-1" data-owner-care-work-queue="1">
+        <h1 className="text-lg font-semibold text-sam-fg">
+          {ownerUiCopy(language, "고객 응대 큐", "Customer work queue")}
+        </h1>
+        <p className="text-xs text-sam-muted">
+          {ownerUiCopy(
+            language,
+            "미읽음·대기 건수만 실제 데이터로 표시합니다. 매장 고객과 DIBAY 지원은 분리됩니다.",
+            "Only real unread/waiting counts. Store customers stay separate from DIBAY Support."
+          )}
+        </p>
+      </div>
       {(() => {
         const pendingTotal =
           orderChatUnread + unread.storeInquiry + unread.reviewsNeedReply + customerCenterUnread;

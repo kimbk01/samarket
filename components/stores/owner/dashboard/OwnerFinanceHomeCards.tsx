@@ -62,21 +62,34 @@ export function OwnerFinanceHomeCards({ storeId }: { storeId: string }) {
   return (
     <div className={ownerDashCardClass()} data-owner-finance-home-cards="1">
       <div className="flex items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-bold text-sam-fg">
-            {ownerUiCopy(language, "Coin · Cash", "Coin · Cash")}
+            {ownerUiCopy(language, "Coin · Cash · 정산", "Coin · Cash · Settlements")}
           </h2>
           <p className="mt-0.5 text-xs text-sam-muted">
-            {ownerUiCopy(language, "재무·전환·출금은 Finance에서", "Balances, conversion, and payouts in Finance")}
+            {ownerUiCopy(
+              language,
+              "잔액·전환은 재무, 주문 매출·수수료는 정산",
+              "Balances in Finance; order sales & fees in Settlements"
+            )}
           </p>
         </div>
-        <Link
-          href={financeHref}
-          className="shrink-0 rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-white"
-          data-owner-home-finance-open="1"
-        >
-          {ownerUiCopy(language, "재무", "Finance")}
-        </Link>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+          <Link
+            href={financeHref}
+            className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-xs font-semibold text-white"
+            data-owner-home-finance-open="1"
+          >
+            {ownerUiCopy(language, "재무", "Finance")}
+          </Link>
+          <Link
+            href={OwnerRoutes.settlements(storeId)}
+            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-1.5 text-xs font-semibold text-sam-primary"
+            data-owner-home-settlements-open="1"
+          >
+            {ownerUiCopy(language, "정산", "Settlements")}
+          </Link>
+        </div>
       </div>
       {error ? <p className="mt-2 text-sm text-sam-danger">{error}</p> : null}
       <div className="mt-3 grid grid-cols-2 gap-2">

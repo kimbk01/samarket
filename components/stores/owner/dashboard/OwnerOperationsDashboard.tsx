@@ -68,6 +68,7 @@ export function OwnerOperationsDashboard({
           </>
         ) : (
           <>
+            {/* STORE OS hierarchy: status → urgent orders → problems → today → customer → finance */}
             <OwnerHomeStoreStatusCard
               row={row}
               onUpdated={onStoreUpdated ?? (async () => undefined)}
@@ -80,6 +81,7 @@ export function OwnerOperationsDashboard({
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
+            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
             <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
             <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
             <OwnerCustomerCareCard storeId={row.id} orderChatUnread={orderChatUnread} />
@@ -87,7 +89,6 @@ export function OwnerOperationsDashboard({
             <section data-owner-home-secondary-finance="1" className="space-y-1.5 pt-1">
               <OwnerFinanceHomeCards storeId={row.id} />
             </section>
-            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
           </>
         )}
       </div>

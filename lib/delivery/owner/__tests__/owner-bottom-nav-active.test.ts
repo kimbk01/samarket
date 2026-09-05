@@ -79,9 +79,35 @@ describe("resolveOwnerBottomNavActiveTabId", () => {
     expect(ids).toContain("delivery_ops");
     expect(ids).not.toContain("ops_review");
     expect(ids).toContain("reviews");
+    expect(ids).toContain("dashboard");
+    expect(ids).toContain("delivery_orders");
+    expect(ids).toContain("products");
+    expect(ids).toContain("product_new");
+    expect(ids).toContain("customer_care");
+    expect(ids).toContain("settlements");
     const opsHrefs = sections
       .flatMap((s) => s.items)
       .filter((i) => i.href.includes("/ops-status"));
     expect(opsHrefs).toHaveLength(1);
+  });
+
+  it("drawer keeps management map when store visibility is OFF", () => {
+    const sections = buildOwnerDrawerSectionsFromRegistry({
+      storeId: "s1",
+      slug: "demo",
+      approvalStatus: "approved",
+      isVisible: false,
+      canSell: false,
+      orderAlertsBadge: 2,
+    });
+    const ids = sections.flatMap((s) => s.items.map((i) => i.id));
+    expect(ids).toContain("delivery_orders");
+    expect(ids).toContain("finance");
+    expect(ids).toContain("settlements");
+    expect(ids).toContain("products");
+    expect(ids).toContain("product_new");
+    expect(ids).not.toContain("public_store");
+    const orders = sections.flatMap((s) => s.items).find((i) => i.id === "delivery_orders");
+    expect(orders?.badge).toBe(2);
   });
 });

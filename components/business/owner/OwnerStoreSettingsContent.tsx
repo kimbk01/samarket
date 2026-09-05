@@ -78,6 +78,42 @@ export function OwnerStoreSettingsContent({
         </button>
       </section>
 
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+        <h2 className="sam-text-body font-semibold text-sam-fg">
+          {ownerUiCopy(language, "매장 정보 편집 위치", "Where store fields are edited")}
+        </h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
+          {ownerUiCopy(
+            language,
+            "상호·이미지·소개·연락은 기본 정보, 영업시간·배달·서비스는 매장 설정, 심사·판매 권한은 운영·심사에서 확인합니다.",
+            "Name/image/intro/contact → Basic info. Hours/delivery/service → Store settings. Approval/sales rights → Ops status."
+          )}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={`/stores/owner/basic-info?${q}`}
+            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
+            data-owner-settings-goto-basic="1"
+          >
+            {ownerUiCopy(language, "기본 정보", "Basic info")}
+          </Link>
+          <Link
+            href={`/stores/owner/profile?${q}`}
+            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
+            data-owner-settings-goto-profile="1"
+          >
+            {ownerUiCopy(language, "매장 설정", "Store settings")}
+          </Link>
+          <Link
+            href={`/stores/owner/ops-status?${q}`}
+            className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-xs font-semibold text-sam-primary"
+            data-owner-settings-goto-ops="1"
+          >
+            {ownerUiCopy(language, "운영·심사", "Ops & status")}
+          </Link>
+        </div>
+      </section>
+
       <OwnerManageHubLinks row={row} orderAlertsBadge={orderAlertsBadge} />
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">

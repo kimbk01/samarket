@@ -325,6 +325,7 @@ export function OwnerProductsHubClient({
         <Link
           href={newProductHrefForTab}
           className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white shadow-sm active:scale-[0.98]`}
+          data-owner-product-register-cta="1"
         >
           {t("business_phase7_408")}
         </Link>

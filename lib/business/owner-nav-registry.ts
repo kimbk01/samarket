@@ -6,6 +6,9 @@
  * - legacy my-business nav groups (derived)
  *
  * DO NOT duplicate nav arrays in components.
+ *
+ * STORE OS: Drawer is a COMPLETE management map. BottomNav is fast daily entry.
+ * Do NOT omit BottomNav primaries from Drawer (multi-entry is intentional).
  */
 
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -28,16 +31,20 @@ export type OwnerNavSurface = "bottom" | "drawer" | "customer_hub" | "manage_hub
 export type OwnerBottomNavTabId = "home" | "orders" | "products" | "customers" | "manage";
 
 export type OwnerNavEntryDef = {
-  id: BusinessAdminNavItemId | "order_chats" | "customer_center";
+  id: BusinessAdminNavItemId;
   domain: OwnerNavDomain;
   labelKey: MessageKey;
   descriptionKey?: MessageKey;
   href: (storeId: string, slug?: string | null) => string;
-  /** When true, show only if approved && visible (ops). */
+  /**
+   * When true, show only if approved && visible.
+   * STORE OS: reserved for buyer-facing public preview only (`public_store`).
+   * Management capabilities use requireApproved so they remain when visibility is OFF.
+   */
   requireShowOps?: boolean;
   /** When true, show only if approved. */
   requireApproved?: boolean;
-  /** When true, show only if canSell. */
+  /** When true, show only if canSell. Prefer avoid on order history discovery. */
   requireCanSell?: boolean;
   /** When true, require slug + visible for public store link. */
   requirePublicSlug?: boolean;
@@ -46,6 +53,7 @@ export type OwnerNavEntryDef = {
   drawerSection?:
     | "ops"
     | "products"
+    | "customers"
     | "promo"
     | "store"
     | "finance"
@@ -126,61 +134,20 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     labelKey: "biz_nav_delivery_orders",
     descriptionKey: "biz_nav_delivery_orders_desc",
     href: (storeId) => OwnerRoutes.orders(storeId),
-    requireShowOps: true,
-    requireCanSell: true,
+    requireApproved: true,
     surfaces: ["drawer"],
     drawerSection: "ops",
     badgeFrom: "order_alerts",
   },
   {
-    id: "customer_care",
-    domain: "customers",
-    labelKey: "biz_nav_customer_care",
-    descriptionKey: "biz_nav_customer_care_desc",
-    href: (storeId) => OwnerRoutes.customerCare(storeId),
-    requireShowOps: true,
-    surfaces: ["drawer", "customer_hub"],
-    drawerSection: "ops",
-  },
-  {
-    id: "order_chats",
-    domain: "customers",
-    labelKey: "biz_care_order_chat",
-    descriptionKey: "biz_care_order_chat_desc",
-    href: (storeId) => OwnerRoutes.orderChats(storeId),
-    requireShowOps: true,
-    surfaces: ["customer_hub"],
-  },
-  {
-    id: "inquiries",
-    domain: "customers",
-    labelKey: "biz_nav_store_inquiries",
-    descriptionKey: "biz_nav_inquiries_desc",
-    href: (storeId) => OwnerRoutes.inquiries(storeId),
-    requireShowOps: true,
-    surfaces: ["drawer", "customer_hub"],
-    drawerSection: "ops",
-  },
-  {
-    id: "reviews",
-    domain: "customers",
-    labelKey: "my_biz_reviews",
-    href: (storeId) => OwnerRoutes.reviews(storeId),
+    id: "delivery_ops",
+    domain: "manage",
+    labelKey: "biz_nav_ops_status",
+    descriptionKey: "biz_nav_ops_status_desc",
+    href: (storeId) => OwnerRoutes.opsStatus(storeId),
     requireApproved: true,
-    surfaces: ["drawer", "customer_hub"],
+    surfaces: ["drawer", "manage_hub"],
     drawerSection: "ops",
-  },
-  {
-    id: "customer_center",
-    domain: "customers",
-    labelKey: "biz_care_customer_center",
-    descriptionKey: "biz_care_customer_center_desc",
-    href: (storeId) => {
-      const base = OwnerRoutes.customerCareCenter(storeId);
-      return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
-    },
-    requireShowOps: true,
-    surfaces: ["customer_hub"],
   },
   {
     id: "products",
@@ -193,6 +160,16 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     drawerSection: "products",
   },
   {
+    id: "product_new",
+    domain: "products",
+    labelKey: "biz_nav_product_new",
+    descriptionKey: "biz_nav_product_new_desc",
+    href: (storeId) => OwnerRoutes.productNew(storeId),
+    requireApproved: true,
+    surfaces: ["drawer"],
+    drawerSection: "products",
+  },
+  {
     id: "categories",
     domain: "products",
     labelKey: "biz_nav_categories",
@@ -200,6 +177,58 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     requireApproved: true,
     surfaces: ["drawer"],
     drawerSection: "products",
+  },
+  {
+    id: "customer_care",
+    domain: "customers",
+    labelKey: "biz_nav_customer_care",
+    descriptionKey: "biz_nav_customer_care_desc",
+    href: (storeId) => OwnerRoutes.customerCare(storeId),
+    requireApproved: true,
+    surfaces: ["drawer", "customer_hub"],
+    drawerSection: "customers",
+  },
+  {
+    id: "order_chats",
+    domain: "customers",
+    labelKey: "biz_care_order_chat",
+    descriptionKey: "biz_care_order_chat_desc",
+    href: (storeId) => OwnerRoutes.orderChats(storeId),
+    requireApproved: true,
+    surfaces: ["drawer", "customer_hub"],
+    drawerSection: "customers",
+  },
+  {
+    id: "inquiries",
+    domain: "customers",
+    labelKey: "biz_nav_store_inquiries",
+    descriptionKey: "biz_nav_inquiries_desc",
+    href: (storeId) => OwnerRoutes.inquiries(storeId),
+    requireApproved: true,
+    surfaces: ["drawer", "customer_hub"],
+    drawerSection: "customers",
+  },
+  {
+    id: "reviews",
+    domain: "customers",
+    labelKey: "my_biz_reviews",
+    href: (storeId) => OwnerRoutes.reviews(storeId),
+    requireApproved: true,
+    surfaces: ["drawer", "customer_hub"],
+    drawerSection: "customers",
+  },
+  {
+    id: "customer_center",
+    domain: "customers",
+    labelKey: "biz_care_customer_center",
+    descriptionKey: "biz_care_customer_center_desc",
+    href: (storeId) => {
+      const base = OwnerRoutes.customerCareCenter(storeId);
+      return `${base}${base.includes("?") ? "&" : "?"}from=owner-care`;
+    },
+    requireApproved: true,
+    surfaces: ["drawer", "customer_hub"],
+    drawerSection: "system",
   },
   {
     id: "coupons",
@@ -259,17 +288,6 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     surfaces: ["drawer", "manage_hub"],
     drawerSection: "store",
   },
-  /** Single ops-status entry — collapses former delivery_ops + ops_review duplicate. */
-  {
-    id: "delivery_ops",
-    domain: "manage",
-    labelKey: "biz_nav_delivery_ops",
-    descriptionKey: "biz_nav_delivery_ops_desc",
-    href: (storeId) => OwnerRoutes.opsStatus(storeId),
-    requireApproved: true,
-    surfaces: ["drawer", "manage_hub"],
-    drawerSection: "store",
-  },
   {
     id: "public_store",
     domain: "manage",
@@ -286,7 +304,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     labelKey: "biz_nav_finance",
     descriptionKey: "biz_nav_finance_desc",
     href: (storeId) => OwnerRoutes.finance(storeId),
-    requireShowOps: true,
+    requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
     drawerSection: "finance",
   },
@@ -294,8 +312,9 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     id: "settlements",
     domain: "finance",
     labelKey: "biz_nav_settlements",
+    descriptionKey: "biz_nav_settlements_desc",
     href: (storeId) => OwnerRoutes.settlements(storeId),
-    requireShowOps: true,
+    requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
     drawerSection: "finance",
   },
@@ -325,20 +344,13 @@ const DRAWER_SECTION_META: {
 }[] = [
   { id: "ops", titleKey: "biz_nav_section_ops" },
   { id: "products", titleKey: "biz_nav_section_products" },
-  { id: "promo", titleKey: "biz_nav_section_promo" },
+  { id: "customers", titleKey: "biz_nav_section_customers" },
   { id: "store", titleKey: "biz_nav_section_store" },
   { id: "finance", titleKey: "biz_nav_section_settlement" },
+  { id: "promo", titleKey: "biz_nav_section_promo" },
   { id: "growth", titleKey: "biz_nav_section_growth" },
   { id: "system", titleKey: "biz_nav_section_settings" },
 ];
-
-/** Bottom-nav primaries — omit from drawer dump (one obvious home each). */
-const DRAWER_OMIT_BOTTOM_PRIMARY = new Set([
-  "dashboard",
-  "delivery_orders",
-  "products",
-  "customer_care",
-]);
 
 function entryVisible(entry: OwnerNavEntryDef, ctx: MyBusinessNavContext): boolean {
   const approved = ctx.approvalStatus === "approved";
@@ -381,10 +393,7 @@ export function buildOwnerDrawerSectionsFromRegistry(ctx: MyBusinessNavContext):
       (e) =>
         e.surfaces.includes("drawer") &&
         e.drawerSection === meta.id &&
-        entryVisible(e, ctx) &&
-        e.id !== "order_chats" &&
-        e.id !== "customer_center" &&
-        !DRAWER_OMIT_BOTTOM_PRIMARY.has(e.id)
+        entryVisible(e, ctx)
     ).map((e) => {
       const href =
         e.id === "public_store" ? e.href(ctx.storeId, ctx.slug) : e.href(ctx.storeId);
@@ -395,7 +404,7 @@ export function buildOwnerDrawerSectionsFromRegistry(ctx: MyBusinessNavContext):
         descriptionKey?: MessageKey;
         badge?: number;
       } = {
-        id: e.id as BusinessAdminNavItemId,
+        id: e.id,
         labelKey: e.labelKey,
         href,
         descriptionKey: e.descriptionKey,
