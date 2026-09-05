@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayAlert } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -170,9 +170,44 @@ export function AdminCommunityCommentsPage() {
     }
   }
 
+  const hideLabel = terminologyDisplay("HIDE", language);
+  const restoreLabel = terminologyDisplay("RESTORE", language);
+  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
+  const selectAllLabel =
+    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
+  const selectedLabel =
+    language === "en"
+      ? `${selection.selectedCount} selected`
+      : `${selection.selectedCount}개 선택됨`;
+
   const runSoftBulk = async (status: "hidden" | "active" | "deleted") => {
     const ids = [...selection.selected];
     if (ids.length === 0) return;
+    if (status === "deleted") {
+      const ok = await dibayConfirm({
+        title: softDeleteLabel,
+        description:
+          language === "en"
+            ? `Sets status=deleted for ${ids.length} comment(s). DB rows remain. This is not a permanent DB delete.`
+            : `${ids.length}건 댓글을 status=deleted 로 표시합니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.`,
+        confirmLabel: softDeleteLabel,
+        cancelLabel: language === "en" ? "Cancel" : "취소",
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    } else if (status === "hidden") {
+      const ok = await dibayConfirm({
+        title: hideLabel,
+        description:
+          language === "en"
+            ? `Hide ${ids.length} comment(s) from public surfaces?`
+            : `${ids.length}건 댓글을 숨김 처리할까요?`,
+        confirmLabel: hideLabel,
+        cancelLabel: language === "en" ? "Cancel" : "취소",
+        confirmTone: "destructive",
+      });
+      if (!ok) return;
+    }
     setBulkBusy(true);
     const failed: string[] = [];
     try {
@@ -193,16 +228,6 @@ export function AdminCommunityCommentsPage() {
       setBulkBusy(false);
     }
   };
-
-  const hideLabel = terminologyDisplay("HIDE", language);
-  const restoreLabel = terminologyDisplay("RESTORE", language);
-  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
-  const selectAllLabel =
-    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
-  const selectedLabel =
-    language === "en"
-      ? `${selection.selectedCount} selected`
-      : `${selection.selectedCount}개 선택됨`;
 
   return (
     <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments" className="space-y-4 text-sam-fg">
@@ -372,6 +397,7 @@ export function AdminCommunityCommentsPage() {
                 const topic = String(r.topic_slug ?? "").trim();
                 const busy = busyId === id;
                 const content = String(r.content ?? "");
+                const status = String(r.status ?? "active");
                 return (
                   <tr key={id} className="border-b border-sam-border-soft align-top">
                     <td className="p-3" style={managementColumnStyle("SELECTION")}>
@@ -459,42 +485,73 @@ export function AdminCommunityCommentsPage() {
                     </td>
                     <td className="p-3" style={managementColumnStyle("ACTIONS")}>
                       <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          disabled={busy || bulkBusy}
-                          onClick={() =>
-                            void patchStatus(id, "hidden").then((ok) => {
-                              if (ok) void load();
-                            })
-                          }
-                          className="sam-text-helper text-amber-700 hover:underline"
-                        >
-                          {hideLabel}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || bulkBusy}
-                          onClick={() =>
-                            void patchStatus(id, "active").then((ok) => {
-                              if (ok) void load();
-                            })
-                          }
-                          className="sam-text-helper text-emerald-700 hover:underline"
-                        >
-                          {restoreLabel}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy || bulkBusy}
-                          onClick={() =>
-                            void patchStatus(id, "deleted").then((ok) => {
-                              if (ok) void load();
-                            })
-                          }
-                          className="sam-text-helper text-red-700 hover:underline"
-                        >
-                          {softDeleteLabel}
-                        </button>
+                        {status !== "hidden" && status !== "deleted" ? (
+                          <button
+                            type="button"
+                            disabled={busy || bulkBusy}
+                            onClick={() =>
+                              void (async () => {
+                                const ok = await dibayConfirm({
+                                  title: hideLabel,
+                                  description:
+                                    language === "en"
+                                      ? "Hide this comment from public surfaces?"
+                                      : "이 댓글을 숨김 처리할까요?",
+                                  confirmLabel: hideLabel,
+                                  cancelLabel: language === "en" ? "Cancel" : "취소",
+                                  confirmTone: "destructive",
+                                });
+                                if (!ok) return;
+                                const patched = await patchStatus(id, "hidden");
+                                if (patched) void load();
+                              })()
+                            }
+                            className="sam-text-helper text-amber-700 hover:underline"
+                          >
+                            {hideLabel}
+                          </button>
+                        ) : null}
+                        {status !== "active" ? (
+                          <button
+                            type="button"
+                            disabled={busy || bulkBusy}
+                            onClick={() =>
+                              void patchStatus(id, "active").then((ok) => {
+                                if (ok) void load();
+                              })
+                            }
+                            className="sam-text-helper text-emerald-700 hover:underline"
+                          >
+                            {restoreLabel}
+                          </button>
+                        ) : null}
+                        {status !== "deleted" ? (
+                          <button
+                            type="button"
+                            disabled={busy || bulkBusy}
+                            onClick={() =>
+                              void (async () => {
+                                const ok = await dibayConfirm({
+                                  title: softDeleteLabel,
+                                  description:
+                                    language === "en"
+                                      ? "Sets status=deleted. The DB row remains. This is not a permanent DB delete."
+                                      : "status=deleted 로 표시됩니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.",
+                                  confirmLabel: softDeleteLabel,
+                                  cancelLabel: language === "en" ? "Cancel" : "취소",
+                                  confirmTone: "destructive",
+                                });
+                                if (!ok) return;
+                                const patched = await patchStatus(id, "deleted");
+                                if (patched) void load();
+                              })()
+                            }
+                            className="sam-text-helper text-red-700 hover:underline"
+                            data-admin-mgmt-row-soft-delete="1"
+                          >
+                            {softDeleteLabel}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

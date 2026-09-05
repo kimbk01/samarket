@@ -20,8 +20,10 @@ export function AdminTableBottomHorizontalScroll(props: {
 
   return (
     <div
+      data-admin-table-bottom-hscroll="1"
       className={[
-        "pointer-events-auto fixed bottom-0 right-0 z-40 border-t border-[#d0d7e2] bg-white/95 shadow-[0_-6px_16px_rgba(16,24,40,0.12)] backdrop-blur-sm",
+        /* z-30: below Admin header (z-40) and far below dibay dialog (z-[1300]). */
+        "pointer-events-auto fixed bottom-0 right-0 z-30 border-t border-[#d0d7e2] bg-white/95 shadow-[0_-6px_16px_rgba(16,24,40,0.12)] backdrop-blur-sm",
         insetForAdminSidebar ? "left-[var(--admin-sidebar-width,16rem)]" : "left-0",
       ].join(" ")}
     >

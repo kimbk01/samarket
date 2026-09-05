@@ -45,16 +45,22 @@ export function DibayDialog({
       describedBy={description ? bodyId : undefined}
       ariaLabel={ariaLabel}
     >
-      <div className={OverlayUi.dialogPanel} onClick={(e) => e.stopPropagation()}>
-        <h2 id={titleId} className={OverlayUi.title}>
-          {title}
-        </h2>
-        {description != null ? (
-          <p id={bodyId} className={OverlayUi.body}>
-            {description}
-          </p>
-        ) : null}
-        {children}
+      <div
+        className={OverlayUi.dialogPanel}
+        data-dibay-dialog-panel="1"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={OverlayUi.dialogScroll} data-dibay-dialog-scroll="1">
+          <h2 id={titleId} className={OverlayUi.title}>
+            {title}
+          </h2>
+          {description != null ? (
+            <p id={bodyId} className={OverlayUi.body}>
+              {description}
+            </p>
+          ) : null}
+          {children}
+        </div>
         {actions && actions.length > 0 ? (
           <DibayOverlayActions layout={actionsLayout} actions={actions} />
         ) : null}

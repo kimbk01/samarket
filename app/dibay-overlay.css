@@ -130,8 +130,17 @@ html:has(.app-bottom-nav-shell--delivery)
 .dibay-overlay-dialog {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 320px;
+  /* Keep panel + footer CTA within viewport; body owns internal scroll. */
+  max-height: min(
+    calc(100dvh - 2 * var(--overlay-space-3) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)),
+    560px
+  );
+  min-height: 0;
+  overflow: hidden;
   border-radius: var(--overlay-radius-lg);
   border: 1px solid var(--overlay-border);
   background: var(--overlay-surface);
@@ -147,6 +156,19 @@ html:has(.app-bottom-nav-shell--delivery)
 .dibay-overlay-root[data-entered="true"] .dibay-overlay-dialog {
   transform: scale(1);
   opacity: 1;
+}
+
+.dibay-overlay-dialog-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.dibay-overlay-dialog > .dibay-overlay-actions {
+  flex-shrink: 0;
 }
 
 .dibay-overlay-sheet {
@@ -410,6 +432,13 @@ html:has(.app-bottom-nav-shell--delivery)
   text-align: center;
   padding-bottom: var(--overlay-space-3);
   border-bottom: 1px solid var(--overlay-border);
+}
+
+/* Admin fixed table H-scroll must not compete with open dialog chrome. */
+body:has(.dibay-overlay-root) [data-admin-table-bottom-hscroll],
+body:has(.dibay-overlay-root) [data-admin-posts-mgmt-bottom-hscroll] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

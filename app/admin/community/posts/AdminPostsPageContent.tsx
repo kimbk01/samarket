@@ -689,6 +689,7 @@ export function AdminPostsPageContent() {
                     const slug = topicSlugOf(r);
                     const reportCount = Number(r.report_count ?? 0);
                     const commentCount = Number(r.comment_count ?? 0);
+                    const status = String(r.status ?? "active");
                     return (
                       <tr key={id} className="border-b border-sam-border-soft">
                         <td className="p-3" style={managementColumnStyle("SELECTION")}>
@@ -814,46 +815,52 @@ export function AdminPostsPageContent() {
                         </td>
                         <td className="p-3" style={managementColumnStyle("ACTIONS")}>
                           <div className="flex flex-wrap gap-1">
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() =>
-                                void patchCommunityPost(id, "hidden").then((ok) => {
-                                  if (ok) void loadCommunity();
-                                })
-                              }
-                              className="sam-text-helper text-amber-700 hover:underline"
-                            >
-                              {hideLabel}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() =>
-                                void (async () => {
-                                  const ok = await confirmSoftStatusDelete(1, id);
-                                  if (!ok) return;
-                                  const patched = await patchCommunityPost(id, "deleted");
-                                  if (patched) void loadCommunity();
-                                })()
-                              }
-                              className="sam-text-helper text-red-600 hover:underline"
-                              data-admin-mgmt-row-soft-delete="1"
-                            >
-                              {softDeleteLabel}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busy || bulkBusy}
-                              onClick={() =>
-                                void patchCommunityPost(id, "active").then((ok) => {
-                                  if (ok) void loadCommunity();
-                                })
-                              }
-                              className="sam-text-helper text-emerald-700 hover:underline"
-                            >
-                              {restoreLabel}
-                            </button>
+                            {status !== "hidden" && status !== "deleted" ? (
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() =>
+                                  void patchCommunityPost(id, "hidden").then((ok) => {
+                                    if (ok) void loadCommunity();
+                                  })
+                                }
+                                className="sam-text-helper text-amber-700 hover:underline"
+                              >
+                                {hideLabel}
+                              </button>
+                            ) : null}
+                            {status !== "deleted" ? (
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() =>
+                                  void (async () => {
+                                    const ok = await confirmSoftStatusDelete(1, id);
+                                    if (!ok) return;
+                                    const patched = await patchCommunityPost(id, "deleted");
+                                    if (patched) void loadCommunity();
+                                  })()
+                                }
+                                className="sam-text-helper text-red-600 hover:underline"
+                                data-admin-mgmt-row-soft-delete="1"
+                              >
+                                {softDeleteLabel}
+                              </button>
+                            ) : null}
+                            {status !== "active" ? (
+                              <button
+                                type="button"
+                                disabled={busy || bulkBusy}
+                                onClick={() =>
+                                  void patchCommunityPost(id, "active").then((ok) => {
+                                    if (ok) void loadCommunity();
+                                  })
+                                }
+                                className="sam-text-helper text-emerald-700 hover:underline"
+                              >
+                                {restoreLabel}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

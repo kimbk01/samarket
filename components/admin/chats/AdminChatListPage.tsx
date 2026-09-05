@@ -17,6 +17,7 @@ import {
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionButton } from "@/components/admin/ui/AdminActionButton";
 import { AdminChatFilterBar } from "./AdminChatFilterBar";
 import { AdminChatTable } from "./AdminChatTable";
 import {
@@ -573,34 +574,34 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
           >
             {t("admin_chat_clear_selection")}
           </button>
-          <button
-            type="button"
+          <AdminActionButton
+            variant="secondary"
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={hideSelectedFromListOnly}
-            className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-40"
             data-admin-mgmt-bulk-action="hide_list"
           >
             {t("admin_chat_remove_list_only")}
-          </button>
+          </AdminActionButton>
           {mode === "trade" ? (
-            <button
-              type="button"
+            <AdminActionButton
+              variant="danger"
               disabled={selectedIds.size === 0 || actionBusy}
               onClick={() => void blockSelectedTradeRooms()}
-              className="rounded border border-red-300 bg-red-100 px-2.5 py-1.5 font-medium text-red-900 hover:bg-red-200 disabled:opacity-40"
+              className="border border-red-300 bg-red-50 text-red-900 hover:bg-red-100"
             >
               {t("admin_chat_close_selected_ops")}
-            </button>
+            </AdminActionButton>
           ) : null}
-          <button
-            type="button"
+          <span className="mx-0.5 hidden h-6 w-px bg-sam-border sm:inline" aria-hidden />
+          <AdminActionButton
+            variant="danger"
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={() => void deleteSelectedFromDb()}
-            className="rounded border-2 border-red-800 bg-red-700 px-2.5 py-1.5 font-semibold text-white shadow-sm hover:bg-red-800 disabled:opacity-40"
             data-admin-mgmt-hard-delete="1"
+            className="ring-2 ring-red-900/50"
           >
             {t("admin_chat_delete_from_db")}
-          </button>
+          </AdminActionButton>
         </div>
       ) : null}
       {actionMessage ? (

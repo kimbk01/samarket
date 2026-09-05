@@ -81,6 +81,8 @@ export const OverlayUi = {
   root: "dibay-overlay-root",
   backdrop: "dibay-overlay-backdrop",
   dialogPanel: "dibay-overlay-dialog",
+  /** Scroll owner inside center dialog — keeps footer actions reachable. */
+  dialogScroll: "dibay-overlay-dialog-scroll",
   sheetPanel: "dibay-overlay-sheet",
   sheetHandle: "dibay-overlay-sheet__handle",
   fullSheet: "dibay-overlay-full-sheet",
