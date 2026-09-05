@@ -126,6 +126,15 @@ const REGISTRY: readonly OperationalFrequencyEntry[] = [
     purpose: "Member lookup / management",
   },
   {
+    id: "system-member-deletion-requests",
+    workspace: "SYSTEM",
+    section: "members",
+    route: "/admin/users",
+    frequency: "DAILY_CRITICAL",
+    order: 5,
+    purpose: "Member deletion-request queue (separate from list bulk)",
+  },
+  {
     id: "system-prelaunch-reset",
     workspace: "SYSTEM",
     section: "reset",

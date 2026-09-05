@@ -16,6 +16,7 @@ export const TRADE_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   hardDeleteAvailable: false,
 };
 
+/** Member list: no generic bulk hard-delete. Deletion-request queue is separate. */
 export const MEMBER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "member",
   canDelete: false,

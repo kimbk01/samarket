@@ -27,11 +27,26 @@ import {
 import type { AdminMemberRoleBadge, AdminUser } from "@/lib/types/admin-user";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import {
+  AdminManagementBulkBar,
+  AdminManagementSelectionCheckbox,
+  AdminManagementTableViewport,
+  useAdminManagementSelection,
+} from "@/components/admin/management";
+import {
+  computeTableMinWidthPx,
+  managementColumnStyle,
+  MEMBER_ENTITY_ACTION_POLICY,
+  terminologyDisplay,
+  type ManagementColumnKind,
+} from "@/lib/admin/management";
 
 export type AdminUserTableVariant = "all" | "store" | "admin";
 
 interface AdminUserTableProps {
   users: AdminUser[];
+  /** Clears selection when search/filter/page/sort/tab changes (W1 contract). */
+  queryScopeKey: string;
   totalItems: number;
   page: number;
   pageSize: number;
@@ -205,6 +220,8 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   variant,
   staff,
   isMaster,
+  selected,
+  onToggleSelected,
 }: {
   user: AdminUser;
   onViewDetail: (user: AdminUser) => void;
@@ -214,6 +231,8 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   variant: AdminUserTableVariant;
   staff?: AdminStaff;
   isMaster?: boolean;
+  selected: boolean;
+  onToggleSelected: () => void;
 }) {
   const { t, safeT, language } = useI18n();
   const emptyCell = t("admin_users_empty_placeholder");
@@ -236,7 +255,15 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       className="cursor-pointer border-b border-[#eaecf0] bg-white text-[13px] hover:bg-[#f8fafc]"
       onClick={handleViewDetail}
     >
-      <td className="min-w-[180px] px-3 py-2">
+            <td className="px-3 py-2" style={managementColumnStyle("SELECTION")} onClick={stopRowNav}>
+        <AdminManagementSelectionCheckbox
+          role="row"
+          checked={selected}
+          onToggle={onToggleSelected}
+          aria-label={`${display} select`}
+        />
+      </td>
+<td className="min-w-[180px] px-3 py-2" style={managementColumnStyle("TITLE")}>
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-xs font-bold text-[#2563eb]">
             {initial}
@@ -337,7 +364,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="whitespace-nowrap px-3 py-2" onClick={stopRowNav}>
         <div className="flex items-center gap-1">
           <button type="button" className={ADMIN_USERS_LITE_TABLE_ACTION} onClick={handleViewDetail}>
-            {t("admin_users_action_detail")}
+            {terminologyDisplay("DETAIL", language)}
           </button>
           {variant === "admin" && isMaster && onEditPermissions ? (
             <button
@@ -367,6 +394,7 @@ AdminUserTableRow.displayName = "AdminUserTableRow";
 export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(function AdminUserTable(
   {
     users,
+    queryScopeKey,
     totalItems,
     page,
     pageSize,
@@ -383,17 +411,62 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
   },
   ref,
 ) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const policy = MEMBER_ENTITY_ACTION_POLICY;
+  const selectableIds = users.map((u) => u.id);
+  const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
+  const tableMinWidth = computeTableMinWidthPx([
+    "SELECTION",
+    "TITLE",
+    "IDENTITY",
+    "METADATA",
+    "METADATA",
+    "STATUS",
+    "METADATA",
+    "METADATA",
+    "DATE",
+    "DATE",
+    "ACTIONS",
+  ] as ManagementColumnKind[]);
+  const selectedLabel =
+    language === "en"
+      ? `${selection.selectedCount} selected (current page)`
+      : `현재 페이지 ${selection.selectedCount}개 선택`;
+  const selectAllLabel =
+    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
   return (
-    <div
-      ref={ref}
-      onScroll={onHorizontalScroll}
-      className="w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible rounded-lg border border-[#e4e7ec] bg-white"
+    <AdminManagementTableViewport
+      viewportRef={ref}
+      onHorizontalScroll={onHorizontalScroll}
+      className="rounded-lg border-[#e4e7ec]"
     >
-      <table className="min-w-[1100px] w-full border-collapse text-[13px]">
+      <AdminManagementBulkBar
+        selectedCount={selection.selectedCount}
+        policy={policy}
+        selectedLabel={selectedLabel}
+        actions={[]}
+        emptyActionsHint={
+          language === "en"
+            ? "No list bulk delete — use deletion-request queue or member detail"
+            : "목록 bulk 삭제 없음 · 탈퇴 요청 대기 또는 회원 상세에서 처리"
+        }
+      />
+      <table
+        className="w-full border-collapse text-[13px]"
+        style={{ minWidth: tableMinWidth }}
+        data-admin-mgmt-table-min-width={String(tableMinWidth)}
+      >
         <thead className="sticky top-0 z-10">
           <tr className="border-b border-[#eaecf0] bg-[#f8fafc] text-left text-[11px] font-semibold uppercase tracking-wide text-[#475467]">
-            <th className="px-3 py-2">
+            <th className="px-3 py-2" style={managementColumnStyle("SELECTION")}>
+              <AdminManagementSelectionCheckbox
+                role="header"
+                state={selection.headerState}
+                onToggle={selection.toggleAll}
+                aria-label={selectAllLabel}
+              />
+            </th>
+            <th className="px-3 py-2" style={managementColumnStyle("TITLE")}>
               {variant === "admin"
                 ? safeT("admin_users_col_staff_person", {
                     fallbackKo: "스태프",
@@ -456,6 +529,8 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
               variant={variant}
               staff={staffByUserId?.get(u.id)}
               isMaster={isMaster}
+              selected={selection.isSelected(u.id)}
+              onToggleSelected={() => selection.toggleRow(u.id)}
             />
           ))}
         </tbody>
@@ -467,6 +542,6 @@ export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(fu
         onPageChange={onPageChange}
         onPageSizeChange={onPageSizeChange}
       />
-    </div>
+    </AdminManagementTableViewport>
   );
 });

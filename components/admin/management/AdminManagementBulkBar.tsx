@@ -23,8 +23,10 @@ export function AdminManagementBulkBar(props: {
   policy: EntityActionPolicy;
   actions: BulkBarAction[];
   selectedLabel: string;
+  /** Shown when policy allows no bulk mutations (e.g. members). */
+  emptyActionsHint?: string;
 }) {
-  const { selectedCount, policy, actions, selectedLabel } = props;
+  const { selectedCount, policy, actions, selectedLabel, emptyActionsHint } = props;
   if (selectedCount <= 0) return null;
 
   const visible = actions.filter((a) => isBulkActionAllowed(policy, a.id));
@@ -35,6 +37,11 @@ export function AdminManagementBulkBar(props: {
       className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-surface px-3 py-2"
     >
       <span className="sam-text-body-secondary font-medium">{selectedLabel}</span>
+      {visible.length === 0 && emptyActionsHint ? (
+        <span className="sam-text-xxs text-sam-muted" data-admin-mgmt-bulk-empty="1">
+          {emptyActionsHint}
+        </span>
+      ) : null}
       {visible.map((a) => {
         const variant =
           a.id === "soft_delete" || a.id === "hard_delete" || a.id === "cancel"

@@ -31,6 +31,7 @@ import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
 import { AdminDeletionRequestsQueue } from "./AdminDeletionRequestsQueue";
+import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 
@@ -402,8 +403,18 @@ export function AdminUserListPage() {
     }
   }, [adminUserId, refreshMembers, t]);
 
+  const queryScopeKey = [
+    tab,
+    membersQueryParams,
+    String(membersKey),
+  ].join("|");
+
   return (
-    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
+    <AdminManagementSurfaceRoot
+      proofSurface="users"
+      wave="w2"
+      className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}
+    >
       <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
         <span>{t(breadcrumbRootKey)}</span>
         <span className="mx-1.5 text-[#98a2b3]">›</span>
@@ -507,7 +518,11 @@ export function AdminUserListPage() {
       {tab === "admin" && staffError ? (
         <p className="text-[12px] text-[#b42318]">{staffError}</p>
       ) : null}
-      {(tab === "all" || tab === "general") ? <AdminDeletionRequestsQueue /> : null}
+      {(tab === "all" || tab === "general") ? (
+        <div data-admin-member-deletion-request-queue="1">
+          <AdminDeletionRequestsQueue />
+        </div>
+      ) : null}
       <AdminUserListSummaryCards summary={memberSummary} />
       <AdminUserFilterBar
         searchDraft={searchDraft}
@@ -543,6 +558,7 @@ export function AdminUserListPage() {
         <AdminUserTable
           ref={tableScrollRef}
           users={users}
+          queryScopeKey={queryScopeKey}
           totalItems={filteredTotal}
           page={membersPage}
           pageSize={membersPageSize}
@@ -594,6 +610,6 @@ export function AdminUserListPage() {
           onSuccess={refreshMembers}
         />
       )}
-    </div>
+    </AdminManagementSurfaceRoot>
   );
 }
