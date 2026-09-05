@@ -111,12 +111,6 @@ export const OwnerRoutes = {
   points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/finance`, storeId),
   /** Delivery Ads Owner hub — canonical entry (not /my/ads /mypage feed ads). */
   ads: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/ads`, storeId),
-  /** Owner store notification inbox (canonical; slug path remains compatibility). */
-  notifications: (storeId?: string | null) =>
-    withStoreId(`${OWNER_ROUTES_BASE}/notifications`, storeId),
-  /** Owner order/store sound · vibration preferences. */
-  notificationSettings: (storeId?: string | null) =>
-    withStoreId(`${OWNER_ROUTES_BASE}/notification-settings`, storeId),
 } as const;
 
 /**

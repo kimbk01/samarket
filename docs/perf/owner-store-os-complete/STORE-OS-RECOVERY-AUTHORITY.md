@@ -25,8 +25,6 @@ Treat as WITHDRAWN until behavioral proof exists:
 | BUYER PRODUCT REFLECTION = PASS | WITHDRAWN → NOT_PROVEN |
 | NATIVE UI = PASS | WITHDRAWN → NOT_PROVEN |
 | NEW ORDER SOUND = PASS | WITHDRAWN → NOT_PROVEN |
-| PRODUCT create/edit/sold-out/buyer = COMPLETE PRODUCT PASS | **WITHDRAWN** — coarse partial proof ≠ complete registration process |
-| Any PRODUCT COMPLETE PROCESS = PASS without options+buyer+validation E2E | **WITHDRAWN** until `product-complete-process-proof.json` final=`PASS` |
 
 ## Recovery probe notes (2026-09-06)
 

@@ -94,7 +94,6 @@ type PublicProduct = {
   has_options?: boolean;
   images_json?: unknown;
   options_json?: unknown;
-  product_status?: string | null;
 };
 
 export function StoreProductPublic({
@@ -227,7 +226,7 @@ export function StoreProductPublic({
         setNotFound(false);
       }
       try {
-        const { json } = await fetchStoreProductPublicDeduped(productId, { force: !silent });
+        const { json } = await fetchStoreProductPublicDeduped(productId);
         const j = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
         if (!j?.ok || !j.product || !j.store) {
           if (!silent) setNotFound(true);
@@ -341,7 +340,7 @@ export function StoreProductPublic({
   const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
   const capQty = trackInv ? Math.min(maxQ, product.stock_qty) : maxQ;
   const soldOut =
-    product.product_status === "sold_out" || (trackInv && product.stock_qty <= 0);
+    trackInv && product.stock_qty <= 0;
 
   const unitWithOptions = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
   const cartLineQty = Math.max(minQ, Math.min(capQty, Math.floor(displayQty) || minQ));

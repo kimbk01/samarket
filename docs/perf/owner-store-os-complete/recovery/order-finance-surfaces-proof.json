@@ -1,15 +1,16 @@
 {
-  "origin": "http://127.0.0.1:3000",
+  "origin": "https://samarket.vercel.app",
   "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
-  "stamp": 1788639628358,
-  "orderId": "c19b2295-dec1-40f1-8b1d-a87aff27c2e2",
-  "orderNo": "SO1788639631612fe1d",
+  "stamp": 1788633776426,
+  "orderId": "a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a",
+  "orderNo": "SO178863377838119c6",
   "steps": {
+    "visibilityTempOn": true,
     "placeOrder": {
       "ok": true,
       "status": 200,
       "error": null,
-      "orderId": "c19b2295-dec1-40f1-8b1d-a87aff27c2e2"
+      "orderId": "a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a"
     },
     "transitions": [
       {
@@ -56,8 +57,9 @@
     "ORDER_SAFE_FLOW": {
       "result": "PASS",
       "path": "pending→accepted→preparing→ready_for_pickup→delivering→completed",
-      "orderId": "c19b2295-dec1-40f1-8b1d-a87aff27c2e2"
+      "orderId": "a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a"
     },
+    "visibilityRestoredOff": true,
     "financeApi": {
       "ok": true,
       "status": 200,
@@ -79,8 +81,8 @@
     },
     "financeStory": {
       "order": {
-        "id": "c19b2295-dec1-40f1-8b1d-a87aff27c2e2",
-        "order_no": "SO1788639631612fe1d",
+        "id": "a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a",
+        "order_no": "SO178863377838119c6",
         "order_status": "completed",
         "total_amount": 1050,
         "payment_amount": 1050,
@@ -90,7 +92,12 @@
         "platform_funded_amount": 0,
         "gift_redemption_amount": 0
       },
-      "coinLedger": null,
+      "coinLedger": {
+        "id": "4ae0d2c0-15f7-4722-8306-f0209a207b13",
+        "entry_kind": "SALE_EARN",
+        "amount": 1050,
+        "idempotency_key": "sale_coin:a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a"
+      },
       "cashFeeLedger": null,
       "financeAssetsKeys": [
         "storePoints",
@@ -99,18 +106,148 @@
       "coherent": true
     },
     "DASHBOARD": {
-      "result": "FAIL",
+      "result": "PASS",
       "dash": {
-        "storeStatus": false,
+        "storeStatus": true,
         "staleHint": false,
-        "financeCards": false,
-        "careCard": false,
-        "hasAwaiting": false,
-        "hasTodayCreated": false,
-        "distinguishesPendingVsToday": false
+        "financeCards": true,
+        "careCard": true,
+        "hasAwaiting": true,
+        "hasTodayCreated": true,
+        "distinguishesPendingVsToday": true
       }
     },
-    "exception": "page.goto: Timeout 90000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:3000/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec\", waiting until \"domcontentloaded\"\n\n    at go (/Users/bkkim/projects/samarket/scripts/qa/owner-store-os-order-finance-surfaces-proof.mjs:347:16)\n    at /Users/bkkim/projects/samarket/scripts/qa/owner-store-os-order-finance-surfaces-proof.mjs:376:9"
+    "LONG_PENDING_ORDER_UX": {
+      "result": "PASS",
+      "ordersUx": {
+        "longWaitingSection": true,
+        "freshSection": false,
+        "longText": "12 long-waiting pendingNo system TTL. Age is shown. Separated from fresh new-order urgency.NewDelivery209h 41m agoLong-unattended · accept/cancel required (209h)SO1787878930640bfaew테스트1 (@wwww)09 12 1",
+        "bodyHasAge": true
+      }
+    },
+    "FINANCE_UI": {
+      "result": "PASS",
+      "financeUi": {
+        "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "hasCoin": true,
+        "hasCash": true,
+        "hasConvert": true,
+        "hasHistory": true,
+        "hasTopUp": true,
+        "overflowX": 0
+      }
+    },
+    "FINANCE_ACCOUNTING": {
+      "result": "PASS",
+      "note": "Order amounts + optional ledger rows; UI surfaces Coin/Cash"
+    },
+    "SETTLEMENT": {
+      "result": "PASS",
+      "settlementUi": {
+        "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "hasSettlement": true,
+        "editableCount": 3,
+        "overflowX": 0
+      }
+    },
+    "PROMOTION": {
+      "result": "PASS",
+      "promo": {
+        "coupon": {
+          "url": "https://samarket.vercel.app/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "not404": true,
+          "hasPrimaryCta": true,
+          "sample": "Store coupons — free promotions for customers. Not paid gift certificates. Coupon offers Total 62 Active 16 Upcoming 0 Ended 46 Active 16 Upcoming Ended 46 ₱100 Active "
+        },
+        "gift": {
+          "url": "https://samarket.vercel.app/stores/owner/gift-certificates?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "not404": true,
+          "hasPrimaryCta": true,
+          "sample": "Gift certificate sales Redeemed gift amount ₱29,000 Coin earning pending ₱8,200 Recognized gift revenue ₱18,000 Gift revenue available Coin Manage revenue Redemption histo"
+        },
+        "banner": {
+          "url": "https://samarket.vercel.app/stores/owner/banners?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "not404": true,
+          "hasPrimaryCta": true,
+          "sample": "Shown as a horizontal swipe banner at the top of the customer store page. Add banner 만두의 환상 적인 제목 부분 Enabled · sort 0 · product Edit Delete eee CM KIM FOOD MART, LOWER GROUND, "
+        },
+        "notice": {
+          "url": "https://samarket.vercel.app/stores/owner/notices?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "not404": true,
+          "hasPrimaryCta": true,
+          "sample": "Shown on the customer store page by placement. Separate from the short notice on your store profile. Write notice eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Co"
+        },
+        "ads": {
+          "url": "https://samarket.vercel.app/stores/owner/ads?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "not404": true,
+          "hasPrimaryCta": true,
+          "sample": "Unable to load this content. Ads Apply for ads and check progress for your stores. CASH ₱0 Operating funds for ads, Partner, and store promotion Top up History Cash pays for "
+        }
+      }
+    },
+    "CUSTOMER_WORK_QUEUE": {
+      "result": "PASS",
+      "customer": {
+        "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "hub": true,
+        "hasOrderChat": true,
+        "hasInquiry": true,
+        "hasReview": true,
+        "hasSupport": true,
+        "links": [
+          {
+            "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "Order chatDelivery and store order conversationsOpen"
+          },
+          {
+            "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "Store inquiryInquiries sent to this storeOpen"
+          },
+          {
+            "href": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "ReviewsCustomer reviews and replies1 need reply1Handle now"
+          },
+          {
+            "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+            "label": "Customer centerDIBAY Support and historyOpen"
+          }
+        ]
+      }
+    },
+    "KO_OWNER": {
+      "result": "PASS",
+      "koProbe": {
+        "htmlLang": "ko",
+        "koHits": 60,
+        "enHits": 0,
+        "sample": "매장 상태\n\n숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능\n\n노출 — 고객 목록·검색에 표시\n\n노출\nOFF\n\n영업 — 지금 주문 접수 가능 여부\n\n영업\nON\n지금 처리할 주문\n업데이트 02:43:49\n\n미수락 대기\n\n30건\n\n3분 이상 미접수 30건\n\n조리 지연\n\n1건\n"
+      }
+    },
+    "LOCALE_OBSERVED": {
+      "htmlLang": "ko",
+      "koHits": 56,
+      "enHits": 0,
+      "sample": "매장 상태\n\n숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능\n\n노출 — 고객 목록·검색에 표시\n\n노출\nOFF\n\n영업 — 지금 주문 접수 가능 여부\n\n영업\nON\n지금 처리할 주문\n업데이트 02:43:49"
+    },
+    "EN_OWNER": {
+      "result": "PASS",
+      "enProbe": {
+        "htmlLang": "en",
+        "koHits": 0,
+        "enHits": 13,
+        "sample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right n"
+      }
+    },
+    "NOTIFICATION_CLASSIFICATION_UI": {
+      "result": "OBSERVED_ONLY_PENDING_EVENT_TYPED_PROOF",
+      "notifClass": {
+        "opened": false,
+        "hasOrdersDelivery": false,
+        "hasPromoOrAds": true,
+        "sample": "Notifications1614Ads / events9/4광고가 종료되었습니다배달 광고가 종료되었습니다.13Ads / events9/4광고가 재개되었습니다관리자가 배달 광고를 재개했습니다.12Ads / events9/4광고가 일시중지되었습니다관리자에 의해 배달 광고가 일시중지되었습니다.11Ads / events9/4광고가 승인되었습니다배달 광고가 승인되었습니다.10Ads / events9/4광고 신청이 거절되었습니다배달 광고 신청이 거절되었습니다. 같은 신청으로 다시 제출할 수 없습니다.09Ads / events9/1광고가 종료되었"
+      }
+    }
   },
-  "final": "FAIL"
+  "final": "PASS_WITH_PARTIALS_OK"
 }

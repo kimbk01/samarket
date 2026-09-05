@@ -31,21 +31,18 @@ function OptionAddBadgeButton({
   "aria-label": ariaLabel,
   variant = "option",
   className = "",
-  "data-owner-product-add-option-group": addGroupAttr,
 }: {
   children: ReactNode;
   onClick: () => void;
   "aria-label": string;
   variant?: OptionBadgeVariant;
   className?: string;
-  "data-owner-product-add-option-group"?: string;
 }) {
   return (
     <button
       type="button"
       aria-label={ariaLabel}
       onClick={onClick}
-      data-owner-product-add-option-group={addGroupAttr}
       className={
         "inline-flex touch-manipulation select-none items-center gap-1.5 rounded-[4px] border px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color,border-color] sam-text-body-secondary font-semibold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 " +
         OPTION_ADD_BADGE_VARIANT_CLASS[variant] +
@@ -137,7 +134,6 @@ export function OwnerProductOptionsTab({
             <OptionAddBadgeButton
               variant="group"
               aria-label={t("business_phase7_218")}
-              data-owner-product-add-option-group="1"
               onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
             >
               {t("business_phase7_218")}
@@ -153,11 +149,10 @@ export function OwnerProductOptionsTab({
             >
               <div className="space-y-2 p-3">
                 <div>
-                  <label htmlFor={`${group.groupLocalId}-name`} className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                     {t("business_phase7_401")}
                   </label>
                   <input
-                    id={`${group.groupLocalId}-name`}
                     value={group.nameKo}
                     onChange={(e) =>
                       onOptionGroupsChange((prev) => {
@@ -167,7 +162,6 @@ export function OwnerProductOptionsTab({
                       })
                     }
                     placeholder={t("business_phase7_210")}
-                    data-owner-product-option-group-name="1"
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                   />
                 </div>
@@ -293,7 +287,6 @@ export function OwnerProductOptionsTab({
                             })
                           }
                           placeholder={t("business_phase7_207")}
-                          data-owner-product-option-value-name="1"
                           className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-body text-sam-fg"
                         />
                       </div>
@@ -418,7 +411,6 @@ export function OwnerProductOptionsTab({
           <OptionAddBadgeButton
             variant="group"
             aria-label={t("business_phase7_218")}
-            data-owner-product-add-option-group="1"
             onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
           >
             {t("business_phase7_218")}

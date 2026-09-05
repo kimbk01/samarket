@@ -30,11 +30,4 @@ describe("legacy owner path mapping", () => {
     expect(OwnerRoutes.finance("s1")).toBe("/stores/owner/finance?storeId=s1");
     expect(OwnerRoutes.points("s1")).toBe(OwnerRoutes.finance("s1"));
   });
-
-  it("exposes canonical Owner notifications routes", () => {
-    expect(OwnerRoutes.notifications("s1")).toBe("/stores/owner/notifications?storeId=s1");
-    expect(OwnerRoutes.notificationSettings("s1")).toBe(
-      "/stores/owner/notification-settings?storeId=s1"
-    );
-  });
 });

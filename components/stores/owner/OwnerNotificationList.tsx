@@ -17,7 +17,6 @@ import {
   fetchMeOwnerStoreNotificationsDeduped,
   invalidateMeOwnerStoreNotificationsCache,
 } from "@/lib/me/fetch-me-owner-store-notifications";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -60,13 +59,7 @@ const GROUP_TAB_LABEL_KEY: Record<Exclude<OwnerNotifTab, "all">, MessageKey> = {
   refund: "store_owner_notif_group_refund",
 };
 
-export function OwnerNotificationList({
-  slug: _slug,
-  storeId,
-}: {
-  slug: string;
-  storeId: string;
-}) {
+export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId: string }) {
   const { t, language } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -336,7 +329,7 @@ export function OwnerNotificationList({
         </ul>
       )}
       <p className="text-xs text-sam-muted">
-        <Link href={OwnerRoutes.notificationSettings(storeId)} className="text-signature underline">
+        <Link href={`/stores/${encodeURIComponent(slug)}/owner/notification-settings`} className="text-signature underline">
           {t("store_owner_notif_settings_link")}
         </Link>
         {" · "}
