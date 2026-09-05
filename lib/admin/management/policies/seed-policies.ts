@@ -3,7 +3,7 @@ import type { EntityActionPolicy } from "../entity-action-policy";
 /**
  * Trade listing (posts-management) policy adapter.
  * Soft moderation via existing confirmAndUpdateAdminPostStatus.
- * Hard DB delete UI remains NOT_READY / unavailable (API may exist but must not be exposed).
+ * Hard DB delete UI remains unavailable (API must not be exposed as HARD CTA).
  */
 export const TRADE_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "trade_post",
@@ -11,9 +11,14 @@ export const TRADE_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "SOFT_DELETE",
   canHide: true,
   canRestore: true,
+  canSoftDelete: true,
   canChangeStatus: true,
   allowedBulkActions: ["restore", "hide", "soft_delete"],
   hardDeleteAvailable: false,
+  softMutationOwner: "confirmAndUpdateAdminPostStatus→updatePostStatusAdmin(status=deleted)",
+  hardMutationOwner: null,
+  softConfirmMode: "danger_confirm",
+  hardConfirmMode: "blocked",
 };
 
 /** Member list: no generic bulk hard-delete. Deletion-request queue is separate. */
@@ -23,9 +28,31 @@ export const MEMBER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "BLOCKED",
   canHide: false,
   canRestore: false,
+  canSoftDelete: false,
   canChangeStatus: true,
   allowedBulkActions: [],
   hardDeleteAvailable: false,
+  softMutationOwner: null,
+  hardMutationOwner: null,
+  softConfirmMode: "blocked",
+  hardConfirmMode: "blocked",
+};
+
+/** Store — finance/order dependency; no list hard wipe. */
+export const STORE_ENTITY_ACTION_POLICY: EntityActionPolicy = {
+  entityKind: "store",
+  canDelete: false,
+  deleteMode: "BLOCKED",
+  canHide: false,
+  canRestore: false,
+  canSoftDelete: false,
+  canChangeStatus: true,
+  allowedBulkActions: [],
+  hardDeleteAvailable: false,
+  softMutationOwner: null,
+  hardMutationOwner: null,
+  softConfirmMode: "blocked",
+  hardConfirmMode: "blocked",
 };
 
 export const ORDER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
@@ -34,9 +61,14 @@ export const ORDER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "STATUS_ONLY",
   canHide: false,
   canRestore: false,
+  canSoftDelete: false,
   canChangeStatus: true,
   allowedBulkActions: ["cancel"],
   hardDeleteAvailable: false,
+  softMutationOwner: null,
+  hardMutationOwner: null,
+  softConfirmMode: "blocked",
+  hardConfirmMode: "blocked",
 };
 
 export const SETTLEMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
@@ -45,9 +77,14 @@ export const SETTLEMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "BLOCKED",
   canHide: false,
   canRestore: false,
+  canSoftDelete: false,
   canChangeStatus: false,
   allowedBulkActions: [],
   hardDeleteAvailable: false,
+  softMutationOwner: null,
+  hardMutationOwner: null,
+  softConfirmMode: "blocked",
+  hardConfirmMode: "blocked",
 };
 
 /**
@@ -60,9 +97,14 @@ export const COMMUNITY_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "HARD_DELETE",
   canHide: true,
   canRestore: true,
+  canSoftDelete: true,
   canChangeStatus: true,
   allowedBulkActions: ["hide", "restore", "soft_delete", "hard_delete"],
   hardDeleteAvailable: true,
+  softMutationOwner: "PATCH /api/admin/community/engine/posts/:id {status}",
+  hardMutationOwner: "POST /api/admin/community/engine/posts/bulk-delete",
+  softConfirmMode: "danger_confirm",
+  hardConfirmMode: "strong_danger_confirm",
 };
 
 /** Community comment — soft status PATCH only (no list hard wipe API). */
@@ -72,7 +114,12 @@ export const COMMUNITY_COMMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   deleteMode: "SOFT_DELETE",
   canHide: true,
   canRestore: true,
+  canSoftDelete: true,
   canChangeStatus: true,
   allowedBulkActions: ["hide", "restore", "soft_delete"],
   hardDeleteAvailable: false,
+  softMutationOwner: "PATCH /api/admin/community/engine/comments/:id {status}",
+  hardMutationOwner: null,
+  softConfirmMode: "danger_confirm",
+  hardConfirmMode: "blocked",
 };

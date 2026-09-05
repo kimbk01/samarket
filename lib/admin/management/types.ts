@@ -91,6 +91,10 @@ export type AdminTerminologyConcept =
   | "CHARGE"
   | "CONVERT"
   | "DELETE"
+  /** Soft / status delete — never bare 「삭제」 alone for ops CTAs. */
+  | "SOFT_DELETE"
+  /** Permanent DB row removal — never bare 「삭제」. */
+  | "HARD_DELETE"
   | "HIDE"
   | "RESTORE"
   | "DEACTIVATE"

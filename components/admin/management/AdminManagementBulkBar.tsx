@@ -43,12 +43,22 @@ export function AdminManagementBulkBar(props: {
         </span>
       ) : null}
       {visible.map((a) => {
+        const isHard = a.id === "hard_delete";
+        const isSoftDestructive = a.id === "soft_delete" || a.id === "cancel";
         const variant =
-          a.id === "soft_delete" || a.id === "hard_delete" || a.id === "cancel"
+          isHard || isSoftDestructive
             ? managementCtaConsoleVariant("DANGER")
             : managementCtaConsoleVariant("STATUS");
         return (
-          <ConsoleButton key={a.id} variant={variant} size="sm" onClick={a.onClick}>
+          <ConsoleButton
+            key={a.id}
+            variant={variant}
+            size="sm"
+            onClick={a.onClick}
+            data-admin-mgmt-bulk-action={a.id}
+            data-admin-mgmt-hard-delete={isHard ? "1" : undefined}
+            className={isHard ? "ring-1 ring-red-700/40" : undefined}
+          >
             {a.label}
           </ConsoleButton>
         );

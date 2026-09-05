@@ -86,7 +86,7 @@ describe("admin community operator console contract", () => {
     expect(postsUi).not.toMatch(/admin_community_danger_zone/);
     expect(postsUi).toMatch(/AdminManagementBulkBar/);
     expect(postsUi).toMatch(/\/api\/admin\/community\/engine\/posts\/bulk-delete/);
-    expect(postsUi).toMatch(/admin_posts_bulk_delete_db/);
+    expect(postsUi).toMatch(/terminologyDisplay\("HARD_DELETE"/);
     expect(postsUi).toMatch(/author_label/);
     expect(postsUi).toMatch(/\/admin\/community\/posts\//);
   });

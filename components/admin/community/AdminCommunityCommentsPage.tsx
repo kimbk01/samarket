@@ -62,13 +62,7 @@ export function AdminCommunityCommentsPage() {
       [
         { value: "active", label: tr("admin_community_post_status_active") },
         { value: "hidden", label: terminologyDisplay("HIDE", language) },
-        {
-          value: "deleted",
-          label:
-            language === "en"
-              ? `${terminologyDisplay("DELETE", language)} (status)`
-              : `${terminologyDisplay("DELETE", language)}(상태)`,
-        },
+        { value: "deleted", label: terminologyDisplay("SOFT_DELETE", language) },
       ] as const,
     [language, tr]
   );
@@ -202,10 +196,7 @@ export function AdminCommunityCommentsPage() {
 
   const hideLabel = terminologyDisplay("HIDE", language);
   const restoreLabel = terminologyDisplay("RESTORE", language);
-  const softDeleteLabel =
-    language === "en"
-      ? `${terminologyDisplay("DELETE", language)} (status)`
-      : `${terminologyDisplay("DELETE", language)}(상태)`;
+  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
   const selectAllLabel =
     language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
   const selectedLabel =

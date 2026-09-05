@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -86,13 +86,7 @@ export function AdminPostsPageContent() {
       [
         { value: "active", label: tr("admin_community_post_status_active") },
         { value: "hidden", label: terminologyDisplay("HIDE", language) },
-        {
-          value: "deleted",
-          label:
-            language === "en"
-              ? `${terminologyDisplay("DELETE", language)} (status)`
-              : `${terminologyDisplay("DELETE", language)}(상태)`,
-        },
+        { value: "deleted", label: terminologyDisplay("SOFT_DELETE", language) },
       ] as const,
     [language, tr]
   );
@@ -310,10 +304,45 @@ export function AdminPostsPageContent() {
     [tr]
   );
 
+  const confirmSoftStatusDelete = useCallback(
+    async (count: number, sampleId?: string) => {
+      const softLabel = terminologyDisplay("SOFT_DELETE", language);
+      const hint =
+        language === "en"
+          ? "Sets status=deleted. The DB row remains. This is not a permanent DB delete."
+          : "status=deleted 로 표시됩니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.";
+      const sample = sampleId ? `\nID: ${sampleId}` : "";
+      return dibayConfirm({
+        title:
+          language === "en"
+            ? `${softLabel}? (not a permanent DB delete)`
+            : `${softLabel}할까요? (DB 영구 삭제 아님)`,
+        description: `${hint}\n${language === "en" ? "Selected" : "선택"}: ${count}${sample}`,
+        confirmTone: "destructive",
+        confirmLabel: softLabel,
+      });
+    },
+    [language]
+  );
+
   const runSoftBulk = useCallback(
     async (status: "hidden" | "active" | "deleted") => {
       const ids = [...selection.selected];
       if (ids.length === 0) return;
+      if (status === "deleted") {
+        const ok = await confirmSoftStatusDelete(ids.length, ids[0]);
+        if (!ok) return;
+      } else if (status === "hidden") {
+        const ok = await dibayConfirm({
+          title: terminologyDisplay("HIDE", language),
+          description:
+            language === "en"
+              ? `Hide ${ids.length} selected post(s)? Recoverable.`
+              : `선택 ${ids.length}건을 숨길까요? 복구 가능합니다.`,
+          confirmTone: "destructive",
+        });
+        if (!ok) return;
+      }
       setBulkBusy(true);
       setActionMsg(null);
       setCommunityErr("");
@@ -342,18 +371,37 @@ export function AdminPostsPageContent() {
         setBulkBusy(false);
       }
     },
-    [selection, patchCommunityPost, loadCommunity, language]
+    [selection, patchCommunityPost, loadCommunity, language, confirmSoftStatusDelete]
   );
 
   const bulkHardDelete = useCallback(async () => {
     const ids = [...selection.selected];
     if (ids.length === 0) return;
-    if (
-      !(await dibayConfirm({
-        title: tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }),
-        confirmTone: "destructive",
-      }))
-    ) {
+    const hardLabel = terminologyDisplay("HARD_DELETE", language);
+    const sample = ids.slice(0, 3).join(", ") + (ids.length > 3 ? "…" : "");
+    const body =
+      language === "en"
+        ? `Action: ${hardLabel}\nEntity: community_post\nCount: ${ids.length}\nSample: ${sample}\n\nRemoves DB rows permanently. Cannot restore.\nChild cleanup follows API/DB CASCADE only.\nType DELETE to confirm.`
+        : `작업: ${hardLabel}\n엔티티: community_post\n건수: ${ids.length}\n대표: ${sample}\n\nDB에서 실제로 제거합니다. 복구 불가.\nchild 정리는 API/DB CASCADE 범위만 적용됩니다.\n확인하려면 DELETE 를 입력하세요.`;
+    const typed = await dibayPrompt({
+      title:
+        language === "en"
+          ? `${hardLabel}? (irreversible)`
+          : `${hardLabel}할까요? (복구 불가)`,
+      description: body,
+      placeholder: "DELETE",
+      required: true,
+      confirmTone: "destructive",
+      confirmLabel: hardLabel,
+    });
+    if (typed == null) return;
+    if (typed.trim() !== "DELETE") {
+      await dibayAlert({
+        title:
+          language === "en"
+            ? "Confirmation text mismatch — hard delete cancelled"
+            : "확인 문구 불일치 — DB 영구 삭제를 취소했습니다",
+      });
       return;
     }
     setBulkBusy(true);
@@ -373,6 +421,7 @@ export function AdminPostsPageContent() {
         notFoundOrSkipped?: string[];
       };
       if (!res.ok || !j.ok) {
+        // No soft-delete fallback — surface hard-delete failure only.
         setCommunityErr(j.error ?? tr("admin_posts_err_community_bulk_delete"));
         return;
       }
@@ -391,15 +440,12 @@ export function AdminPostsPageContent() {
     } finally {
       setBulkBusy(false);
     }
-  }, [selection, loadCommunity, tr]);
+  }, [selection, loadCommunity, tr, language]);
 
   const hideLabel = terminologyDisplay("HIDE", language);
   const restoreLabel = terminologyDisplay("RESTORE", language);
-  const softDeleteLabel =
-    language === "en"
-      ? `${terminologyDisplay("DELETE", language)} (status)`
-      : `${terminologyDisplay("DELETE", language)}(상태)`;
-  const hardDeleteLabel = tr("admin_posts_bulk_delete_db");
+  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
+  const hardDeleteLabel = terminologyDisplay("HARD_DELETE", language);
   const selectAllLabel =
     language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
   const selectedLabel =
@@ -715,11 +761,21 @@ export function AdminPostsPageContent() {
                           <select
                             value={String(r.status ?? "active")}
                             disabled={busy || bulkBusy}
-                            onChange={(e) =>
-                              void patchCommunityPost(id, e.target.value).then((ok) => {
-                                if (ok) void loadCommunity();
-                              })
-                            }
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              void (async () => {
+                                if (next === "deleted") {
+                                  const ok = await confirmSoftStatusDelete(1, id);
+                                  if (!ok) {
+                                    e.target.value = String(r.status ?? "active");
+                                    return;
+                                  }
+                                }
+                                const patched = await patchCommunityPost(id, next);
+                                if (patched) void loadCommunity();
+                                else e.target.value = String(r.status ?? "active");
+                              })();
+                            }}
                             className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                           >
                             {communityStatusOptions.map((o) => (
@@ -753,11 +809,15 @@ export function AdminPostsPageContent() {
                               type="button"
                               disabled={busy || bulkBusy}
                               onClick={() =>
-                                void patchCommunityPost(id, "deleted").then((ok) => {
-                                  if (ok) void loadCommunity();
-                                })
+                                void (async () => {
+                                  const ok = await confirmSoftStatusDelete(1, id);
+                                  if (!ok) return;
+                                  const patched = await patchCommunityPost(id, "deleted");
+                                  if (patched) void loadCommunity();
+                                })()
                               }
                               className="sam-text-helper text-red-600 hover:underline"
+                              data-admin-mgmt-row-soft-delete="1"
                             >
                               {softDeleteLabel}
                             </button>

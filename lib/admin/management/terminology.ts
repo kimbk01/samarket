@@ -211,8 +211,28 @@ const TERMS: Record<AdminTerminologyConcept, TerminologyEntry> = {
     fallbackKo: "삭제",
     fallbackEn: "Delete",
     domain: "COMMON",
-    meaning: "Destructive remove (soft or hard per policy)",
-    doNotUseAs: ["숨김"],
+    meaning:
+      "Bare word only — do NOT use for Admin ops CTAs. Prefer SOFT_DELETE or HARD_DELETE.",
+    doNotUseAs: ["숨김", "DB 영구 삭제", "삭제(상태)"],
+  },
+  SOFT_DELETE: {
+    concept: "SOFT_DELETE",
+    i18nKey: "admin_mgmt_action_soft_delete",
+    fallbackKo: "삭제(상태)",
+    fallbackEn: "Delete (status)",
+    domain: "COMMON",
+    meaning:
+      "Row remains in DB; canonical soft/status deleted flag. Not permanent wipe.",
+    doNotUseAs: ["DB 영구 삭제", "숨김"],
+  },
+  HARD_DELETE: {
+    concept: "HARD_DELETE",
+    i18nKey: "admin_mgmt_action_hard_delete",
+    fallbackKo: "DB 영구 삭제",
+    fallbackEn: "Permanent DB delete",
+    domain: "COMMON",
+    meaning: "Actual DB row (+ canonical child deps) removal. Irreversible.",
+    doNotUseAs: ["삭제", "삭제(상태)", "숨김"],
   },
   HIDE: {
     concept: "HIDE",
@@ -220,8 +240,8 @@ const TERMS: Record<AdminTerminologyConcept, TerminologyEntry> = {
     fallbackKo: "숨김",
     fallbackEn: "Hide",
     domain: "COMMON",
-    meaning: "Soft visibility off",
-    doNotUseAs: ["삭제"],
+    meaning: "Soft visibility off; recoverable",
+    doNotUseAs: ["삭제", "삭제(상태)", "DB 영구 삭제"],
   },
   RESTORE: {
     concept: "RESTORE",

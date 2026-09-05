@@ -91,9 +91,9 @@ export const AdminPostsManagementTable = forwardRef<
   );
 
   const manageLabel = terminologyDisplay("DETAIL", language);
-  const hideLabel = t("admin_posts_mgmt_action_hide");
-  const restoreLabel = t("admin_posts_mgmt_action_unhide");
-  const softDeleteLabel = `${terminologyDisplay("DELETE", language)} (soft)`;
+  const hideLabel = terminologyDisplay("HIDE", language);
+  const restoreLabel = terminologyDisplay("RESTORE", language);
+  const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
   const productLabel = terminologyDisplay("PRODUCT", language);
   const adLabel = terminologyDisplay("ADVERTISEMENT", language);
   const selectAllLabel =
@@ -113,8 +113,8 @@ export const AdminPostsManagementTable = forwardRef<
       fallbackEn: "Restore this listing?",
     }),
     deleteTitle: safeT("admin_products_confirm_soft_delete", {
-      fallbackKo: "소프트 삭제할까요? (영구 삭제 아님)",
-      fallbackEn: "Soft-delete this listing? (not permanent)",
+      fallbackKo: "삭제(상태)할까요? (DB 영구 삭제 아님)",
+      fallbackEn: "Delete (status)? (not a permanent DB delete)",
     }),
     markSoldTitle: safeT("admin_products_confirm_mark_sold", {
       fallbackKo: "판매완료로 표시할까요?",

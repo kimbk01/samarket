@@ -430,7 +430,17 @@ export const adminMessages = {
     admin_community_sort_up: "↑",
     admin_community_sort_down: "↓",
     admin_community_danger_zone: "위험 작업",
-    admin_community_danger_zone_hint: "영구 삭제는 복구할 수 없습니다. 일반 운영은 숨김·삭제 상태를 사용하세요.",
+    admin_community_danger_zone_hint:
+      "DB 영구 삭제는 복구할 수 없습니다. 일반 운영은 숨김·삭제(상태)를 사용하세요.",
+    admin_mgmt_action_soft_delete: "삭제(상태)",
+    admin_mgmt_action_hard_delete: "DB 영구 삭제",
+    admin_mgmt_soft_delete_confirm_title: "삭제(상태)할까요? (DB 영구 삭제 아님)",
+    admin_mgmt_soft_delete_confirm_hint:
+      "status=deleted 로 표시됩니다. DB row는 남습니다. DB 영구 삭제가 아닙니다.",
+    admin_mgmt_hard_delete_confirm_title: "DB 영구 삭제할까요? (복구 불가)",
+    admin_mgmt_hard_delete_confirm_body:
+      "선택 {count}건을 DB에서 실제로 제거합니다. 복구할 수 없습니다.\n연결된 child는 API/DB CASCADE 범위만 적용됩니다.\n확인하려면 아래에 DELETE 를 입력하세요.",
+    admin_mgmt_hard_delete_confirm_placeholder: "DELETE",
     admin_community_open_member: "회원 상세에서 관리",
     admin_community_report_status_pending: "처리 대기",
     admin_community_report_filter_all: "전체",
@@ -3209,7 +3219,17 @@ export const adminMessages = {
     admin_community_sort_up: "↑",
     admin_community_sort_down: "↓",
     admin_community_danger_zone: "Danger zone",
-    admin_community_danger_zone_hint: "Hard delete cannot be undone. Prefer hide/delete status for normal ops.",
+    admin_community_danger_zone_hint:
+      "Permanent DB delete cannot be undone. Prefer hide / delete (status) for normal ops.",
+    admin_mgmt_action_soft_delete: "Delete (status)",
+    admin_mgmt_action_hard_delete: "Permanent DB delete",
+    admin_mgmt_soft_delete_confirm_title: "Delete (status)? (not a permanent DB delete)",
+    admin_mgmt_soft_delete_confirm_hint:
+      "Sets status=deleted. The DB row remains. This is not a permanent DB delete.",
+    admin_mgmt_hard_delete_confirm_title: "Permanently delete from DB? (irreversible)",
+    admin_mgmt_hard_delete_confirm_body:
+      "Remove {count} selected row(s) from the DB. This cannot be undone.\nChild cleanup follows API/DB CASCADE only.\nType DELETE below to confirm.",
+    admin_mgmt_hard_delete_confirm_placeholder: "DELETE",
     admin_community_open_member: "Manage in member detail",
     admin_community_report_status_pending: "Pending",
     admin_community_report_filter_all: "All",

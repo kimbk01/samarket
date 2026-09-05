@@ -64,8 +64,8 @@ export function AdminProductActionPanel({
       fallbackEn: "Restore this listing?",
     }),
     deleteTitle: safeT("admin_products_confirm_soft_delete", {
-      fallbackKo: "소프트 삭제할까요? (영구 삭제 아님)",
-      fallbackEn: "Soft-delete this listing? (not permanent)",
+      fallbackKo: "삭제(상태)할까요? (DB 영구 삭제 아님)",
+      fallbackEn: "Delete (status)? (not a permanent DB delete)",
     }),
     markSoldTitle: safeT("admin_products_confirm_mark_sold", {
       fallbackKo: "판매완료로 표시할까요?",
