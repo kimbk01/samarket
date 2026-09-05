@@ -1,0 +1,85 @@
+{
+  "cut": "ARO-OPS-UX-002-B1",
+  "sha": "1a4d80d45",
+  "expectSha": "1a4d80d45",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "viewport": "1024x768",
+  "routes": [
+    {
+      "id": "trade",
+      "path": "/admin/posts-management",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "hasSoftStatus": false,
+        "hasSoftLegacy": false,
+        "hasHardCta": false,
+        "hasNotReadyHard": false
+      },
+      "bulk": {
+        "visible": true,
+        "text": "1개 선택됨복구숨김삭제(상태)",
+        "hasSoft": true,
+        "hasHard": false,
+        "hardAttr": false
+      },
+      "softModal": {
+        "text": "삭제(상태)할까요? (DB 영구 삭제 아님)\n\nPOST a3202e7d-b9ad-497b-9413-5ed013b6b88a 팝니다 · Toyota Wigo Seller: BK KIM (@bbk1122) status=deleted 로 표시됩니다. DB 영구 삭제가 아닙니다.\n\n삭제(상태)할까요? (DB 영구 삭제 아님)\n취소\n확인",
+        "saysNotPermanent": true,
+        "saysStatusDeleted": true,
+        "fits": true
+      },
+      "checks": {
+        "bodyNoXOverflow": true,
+        "softLabel": true,
+        "noSoftLegacy": true,
+        "noHardInBulk": true,
+        "softInBulkWhenSelected": true,
+        "softModalNotPermanent": true,
+        "softModalFits": true
+      },
+      "failed": []
+    },
+    {
+      "id": "community",
+      "path": "/admin/community/posts",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "hasSoftRow": true,
+        "softLabelPresent": true,
+        "hardVisibleWithoutSelect": false
+      },
+      "bulk": {
+        "visible": true,
+        "text": "1개 선택됨복구숨김삭제(상태)DB 영구 삭제",
+        "hasSoft": true,
+        "hasHard": true,
+        "hardAttr": true,
+        "hardVisible": true
+      },
+      "hardModal": {
+        "text": "DB 영구 삭제할까요? (복구 불가)\n\n작업: DB 영구 삭제 엔티티: community_post 건수: 1 대표: 9698bac9-4152-4679-9ad2-8d56a2aa6668 DB에서 실제로 제거합니다. 복구 불가. child 정리는 API/DB CASCADE 범위만 적용됩니다. 확인하려면 DELETE 를 입력하세요.\n\nDB 영구 삭제할까요? (복구 불가)\n취소\nDB 영구 삭제",
+        "saysHard": true,
+        "saysIrreversible": true,
+        "asksDeleteToken": true,
+        "fits": true
+      },
+      "checks": {
+        "bodyNoXOverflow": true,
+        "softRow": true,
+        "hardHiddenUntilSelect": true,
+        "hardInBulkWhenSelected": true,
+        "softInBulkWhenSelected": true,
+        "hardModalDistinct": true,
+        "hardModalFits": true
+      },
+      "failed": []
+    }
+  ],
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T17:50:43.561Z"
+}
