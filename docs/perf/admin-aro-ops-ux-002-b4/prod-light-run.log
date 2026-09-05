@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "c19d78ccc",
+  "path": "/admin/finance",
+  "checks": {
+    "marker": true,
+    "actionRequired": true,
+    "point": true,
+    "coin": true,
+    "cash": true,
+    "obligations": true,
+    "settlements": true,
+    "refunds": true,
+    "recent": true,
+    "bodyX": true,
+    "statementEntry": true,
+    "deliveryFinance": true
+  },
+  "loginMethod": "magiclink",
+  "at": "2026-09-05T20:25:57.785Z"
+}
