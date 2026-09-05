@@ -170,9 +170,9 @@ export function AdminPrelaunchResetPage() {
         <p className="mt-2 font-semibold">
           {safeT("admin_prelaunch_reset_scope_limit", {
             fallbackKo:
-              "현재 실행 가능 범위: 명시 ID 기반 테스트 콘텐츠·광고(draft/ended 등)만. 회원/매장 완전 삭제·Auth·Storage cleanup은 미구현(FORBIDDEN/NOT_IMPLEMENTED).",
+              "명시 ID 기반 테스트 데이터만. Storage는 entity 참조 object만, Auth는 protected가 아닌 manual.local 테스트 회원만. Production 실행은 항상 차단.",
             fallbackEn:
-              "Executable scope now: explicit-ID test content/ads only. Full member/store wipe, Auth, and Storage cleanup are NOT implemented.",
+              "Explicit-ID test data only. Storage: entity-referenced objects. Auth: non-protected manual.local test members only. Production execute always blocked.",
           })}
         </p>
       </div>
@@ -303,6 +303,35 @@ export function AdminPrelaunchResetPage() {
               </div>
             ))}
           </div>
+          <div className="mt-3 grid gap-2 text-[12px] sm:grid-cols-3" data-admin-prelaunch-reset-phase-counts="1">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+              <p className="text-sam-muted">DB steps</p>
+              <p className="font-bold tabular-nums">
+                {plan.deleteSteps.filter((s) => s.phase === "DB").length}
+              </p>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+              <p className="text-sam-muted">Storage objects</p>
+              <p className="font-bold tabular-nums">{plan.storageObjects?.length ?? 0}</p>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+              <p className="text-sam-muted">Auth DELETE / blocked</p>
+              <p className="font-bold tabular-nums">
+                {(plan.authTargets ?? []).filter((t) => t.action === "DELETE").length}
+                {" / "}
+                {(plan.authTargets ?? []).filter((t) => t.action === "BLOCKED").length}
+              </p>
+            </div>
+          </div>
+          {(plan.authTargets ?? []).length > 0 ? (
+            <ul className="mt-3 max-h-40 space-y-1 overflow-auto text-[11px] font-mono" data-admin-prelaunch-reset-auth="1">
+              {plan.authTargets.map((t) => (
+                <li key={t.userId}>
+                  [{t.action}] {t.userId.slice(0, 8)}… {t.reason}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <p className="mt-3 font-mono text-[11px] text-sam-muted">
             plan={plan.planId} hash={plan.planHash} env={plan.environment}
           </p>

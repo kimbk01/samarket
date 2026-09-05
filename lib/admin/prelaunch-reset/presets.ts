@@ -11,7 +11,11 @@ export type PrelaunchPresetSpec = {
   requiresExplicitStore: boolean;
   /** CUT H: execute only when finance/gift/order counts are 0 for these presets. */
   executeRequiresZeroFinance: boolean;
-  executeAuthPhase: "FORBIDDEN" | "NOT_IMPLEMENTED";
+  /**
+   * FORBIDDEN — Auth delete never planned as DELETE.
+   * EXPLICIT_SAFE_MEMBER — only explicit memberIds that pass protection + manual.local ownership.
+   */
+  executeAuthPhase: "FORBIDDEN" | "EXPLICIT_SAFE_MEMBER";
 };
 
 export const PRELAUNCH_RESET_PRESETS: Record<PrelaunchResetPreset, PrelaunchPresetSpec> = {
@@ -39,11 +43,11 @@ export const PRELAUNCH_RESET_PRESETS: Record<PrelaunchResetPreset, PrelaunchPres
     titleKo: "테스트 회원 데이터",
     titleEn: "Test member data",
     includes: ["MEMBER", "TRADE", "COMMUNITY", "MESSENGER", "NOTIFICATIONS", "CALL", "SUPPORT"],
-    excludesByDefault: ["finance", "orders", "gift", "auth_delete", "system_config", "audit"],
+    excludesByDefault: ["finance", "orders", "gift", "system_config", "audit"],
     requiresExplicitMember: true,
     requiresExplicitStore: false,
     executeRequiresZeroFinance: true,
-    executeAuthPhase: "FORBIDDEN",
+    executeAuthPhase: "EXPLICIT_SAFE_MEMBER",
   },
   TEST_STORE_DATA: {
     id: "TEST_STORE_DATA",
@@ -96,18 +100,18 @@ export const PRELAUNCH_RESET_PRESETS: Record<PrelaunchResetPreset, PrelaunchPres
       "NOTIFICATIONS",
     ],
     excludesByDefault: [
-      "auth_users",
       "finance_ledgers",
       "gift_value",
       "settled_orders",
       "system_config",
       "registries",
       "audit",
+      "non_manual_local_auth",
     ],
     requiresExplicitMember: true,
     requiresExplicitStore: true,
     executeRequiresZeroFinance: true,
-    executeAuthPhase: "FORBIDDEN",
+    executeAuthPhase: "EXPLICIT_SAFE_MEMBER",
   },
 };
 

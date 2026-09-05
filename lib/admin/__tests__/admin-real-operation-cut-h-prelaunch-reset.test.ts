@@ -73,10 +73,11 @@ describe("CUT H Pre-launch Reset", () => {
     expect(confirmationMatches(plan, "RESET TEST DATA 41 " + hash.slice(0, 8))).toBe(false);
   });
 
-  it("H4/H5 — presets require explicit selectors where needed", () => {
+  it("H4/H5 — presets require explicit selectors; Auth default forbidden except safe member presets", () => {
     expect(PRELAUNCH_RESET_PRESETS.TEST_MEMBER_DATA.requiresExplicitMember).toBe(true);
     expect(PRELAUNCH_RESET_PRESETS.TEST_STORE_DATA.requiresExplicitStore).toBe(true);
     expect(PRELAUNCH_RESET_PRESETS.TEST_CONTENT_ONLY.executeAuthPhase).toBe("FORBIDDEN");
+    expect(PRELAUNCH_RESET_PRESETS.TEST_MEMBER_DATA.executeAuthPhase).toBe("EXPLICIT_SAFE_MEMBER");
   });
 
   it("selector normalization drops empties", () => {
@@ -98,7 +99,9 @@ describe("CUT H Pre-launch Reset", () => {
     expect(execLib).toContain("revalidatePrelaunchResetPlan");
     expect(execLib).toContain("confirmationMatches");
     expect(execLib).toContain("appendAuditLog");
-    expect(execLib).toContain("auth_user_delete_not_in_cut_h");
+    expect(execLib).toContain("storageObjects");
+    expect(execLib).toContain("auth.admin.deleteUser");
+    expect(execLib).toContain("atomicClaim: false");
   });
 
   it("UI danger + no wipe-all wiring", () => {
@@ -106,6 +109,7 @@ describe("CUT H Pre-launch Reset", () => {
     expect(ui).toContain("data-admin-prelaunch-reset");
     expect(ui).not.toContain("wipe-all-app-data");
     expect(ui).toContain("typedConfirmation");
+    expect(ui).toContain("data-admin-prelaunch-reset-phase-counts");
     expect(read("components/admin/admin-menu.ts")).toContain("/admin/prelaunch-reset");
   });
 });

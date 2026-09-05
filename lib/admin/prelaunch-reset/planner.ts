@@ -18,6 +18,10 @@ import {
   type PrelaunchResetDeleteStep,
   type PrelaunchResetEntityRef,
 } from "@/lib/admin/prelaunch-reset/types";
+import {
+  planPrelaunchResetAuthTargets,
+  planPrelaunchResetStorageObjects,
+} from "@/lib/admin/prelaunch-reset/storage-auth-plan";
 
 async function countEq(
   sb: SupabaseClient,
@@ -242,23 +246,43 @@ export async function buildPrelaunchResetPlan(
     blockers.push("commerce_preset_execute_blocked_in_cut_h");
   }
 
-  // Storage steps are planned as NOT executable listing only in CUT H
-  if (counts.content + counts.ads > 0) {
+  // --- STORAGE (CUT I-P0-11): explicit entity-referenced objects only ---
+  const storagePlan = await planPrelaunchResetStorageObjects(input.sb, {
+    safeMemberIds,
+    storeIds,
+    contentIds: selector.contentIds,
+    deliveryAdCampaignIds: selector.deliveryAdCampaignIds,
+  });
+  warnings.push(...storagePlan.warnings);
+  const storageObjects = storagePlan.objects;
+  counts.storage = storageObjects.length;
+  if (storageObjects.length > 0) {
     storageSteps.push({
-      id: "storage_entity_derived",
+      id: "storage_explicit_objects",
       domain: "STORAGE",
       table: "storage.objects",
-      filterDescription: "entity-derived prefixes only (CUT H: NOT_IMPLEMENTED phase)",
-      estimatedRows: 0,
+      filterDescription: `${storageObjects.length} explicit bucket/path refs from selected entities`,
+      estimatedRows: storageObjects.length,
       phase: "STORAGE",
-      executableInCutH: false,
+      executableInCutH: true,
     });
-    counts.storage = 0;
-    warnings.push("storage_phase_not_implemented_in_cut_h");
   }
 
-  // Auth never auto-planned for delete
-  warnings.push("auth_user_delete_forbidden_in_cut_h_execute");
+  // --- AUTH (CUT I-P0-11): explicit safe members only; else PRESERVE/BLOCKED ---
+  const authTargets = await planPrelaunchResetAuthTargets(input.sb, {
+    safeMemberIds,
+    protectedIds,
+    preset: preset.id,
+    presetSpec: preset,
+  });
+  const authDeleteCount = authTargets.filter((t) => t.action === "DELETE").length;
+  const authBlockedCount = authTargets.filter((t) => t.action === "BLOCKED").length;
+  if (safeMemberIds.length > 0 && preset.executeAuthPhase === "FORBIDDEN") {
+    warnings.push("auth_user_delete_forbidden_by_preset");
+  }
+  if (authBlockedCount > 0) {
+    warnings.push(`auth_blocked_targets=${authBlockedCount}`);
+  }
 
   const planId =
     input.planId?.trim() ||
@@ -269,6 +293,17 @@ export async function buildPrelaunchResetPlan(
     selector,
     counts,
     deleteSteps: deleteSteps.map((s) => ({ id: s.id, table: s.table, n: s.estimatedRows })),
+    storageObjects: storageObjects.map((o) => ({
+      bucket: o.bucket,
+      path: o.path,
+      sourceKind: o.sourceKind,
+      sourceId: o.sourceId,
+    })),
+    authTargets: authTargets.map((t) => ({
+      userId: t.userId,
+      action: t.action,
+      reason: t.reason,
+    })),
     blockers: [...blockers].sort(),
   };
   const planHash = hashPlanPayload(hashBody);
@@ -277,7 +312,9 @@ export async function buildPrelaunchResetPlan(
   const executeAllowed =
     envGate.executeAllowed &&
     blockers.length === 0 &&
-    deleteSteps.some((s) => s.executableInCutH && s.estimatedRows > 0);
+    (deleteSteps.some((s) => s.executableInCutH && s.estimatedRows > 0) ||
+      storageObjects.length > 0 ||
+      authDeleteCount > 0);
 
   if (!envGate.executeAllowed) {
     blockers.push(...envGate.reasons.filter((r) => r.includes("execute") || r.includes("ENABLED")));
@@ -295,6 +332,8 @@ export async function buildPrelaunchResetPlan(
     counts,
     deleteSteps,
     storageSteps,
+    storageObjects,
+    authTargets,
     financialGuards,
     externalReferences,
     planHash,

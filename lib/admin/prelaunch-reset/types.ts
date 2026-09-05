@@ -50,6 +50,22 @@ export type PrelaunchResetDeleteStep = {
   executableInCutH: boolean;
 };
 
+export type PrelaunchResetStorageObject = {
+  bucket: string;
+  path: string;
+  sourceKind: "member" | "store" | "content" | "delivery_ad";
+  sourceId: string;
+  reference: string;
+};
+
+export type PrelaunchResetAuthTarget = {
+  userId: string;
+  email: string | null;
+  linkedEntity: string;
+  action: "DELETE" | "PRESERVE" | "BLOCKED";
+  reason: string;
+};
+
 export type PrelaunchResetPlan = {
   planId: string;
   preset: PrelaunchResetPreset;
@@ -62,6 +78,10 @@ export type PrelaunchResetPlan = {
   counts: PrelaunchResetCounts;
   deleteSteps: PrelaunchResetDeleteStep[];
   storageSteps: PrelaunchResetDeleteStep[];
+  /** Explicit Storage objects bound into planHash (CUT I-P0-11). */
+  storageObjects: PrelaunchResetStorageObject[];
+  /** Explicit Auth targets with DELETE | PRESERVE | BLOCKED (CUT I-P0-11). */
+  authTargets: PrelaunchResetAuthTarget[];
   financialGuards: string[];
   externalReferences: string[];
   planHash: string;

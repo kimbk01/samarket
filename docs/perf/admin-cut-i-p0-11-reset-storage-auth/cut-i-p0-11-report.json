@@ -1,0 +1,38 @@
+{
+  "cut": "I-P0-11",
+  "title": "DIBAY ADMIN REAL OPERATION — CUT I-P0-11 RESET STORAGE / AUTH",
+  "headBefore": "c38048b73a2c701f518a4f95a5633d2a8b998c4e",
+  "productCodeChange": true,
+  "files": [
+    "lib/admin/prelaunch-reset/storage-auth-plan.ts",
+    "lib/admin/prelaunch-reset/planner.ts",
+    "lib/admin/prelaunch-reset/execute.ts",
+    "lib/admin/prelaunch-reset/types.ts",
+    "lib/admin/prelaunch-reset/presets.ts",
+    "components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx",
+    "lib/admin/__tests__/admin-real-operation-cut-h-prelaunch-reset.test.ts",
+    "lib/admin/__tests__/admin-real-operation-cut-i-p0-11-reset-storage-auth.test.ts",
+    "scripts/qa/admin-cut-i-reset-safe-fixture-local.mjs"
+  ],
+  "proof": {
+    "vitest": "PASS (14 tests: CUT H + P0-11)",
+    "localFixture": "docs/perf/admin-cut-i-production-e2e/reset-safe-fixture-local.json",
+    "productionExecute": "BLOCKED",
+    "destructiveProductionTest": "NONE",
+    "atomicClaim": false
+  },
+  "storage": {
+    "buckets": ["post-images", "store-product-images", "admin-notification-campaign-images"],
+    "method": "explicit DB-referenced URL/path only",
+    "result": "PASS"
+  },
+  "auth": {
+    "method": "EXPLICIT_SAFE_MEMBER (manual.local) via auth.admin.deleteUser",
+    "protection": "current admin + active admin memberships",
+    "result": "PASS"
+  },
+  "result": "PASS",
+  "otherCarry": {
+    "REAL_DEVICE_TABLET": "NOT_PROVEN"
+  }
+}

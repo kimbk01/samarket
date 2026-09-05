@@ -5,8 +5,9 @@
  * Default ORIGIN: http://127.0.0.1:3000
  * Aborts if ORIGIN looks like production / vercel.app.
  *
- * Proves gate contract via vitest (resolvePrelaunchResetEnvGate unit tests).
- * Storage/Auth phases remain NOT_IMPLEMENTED in product — recorded honestly.
+ * Proves gate contract via vitest (resolvePrelaunchResetEnvGate + I-P0-11 Storage/Auth).
+ * Storage/Auth phases are IMPLEMENTED for explicit objects / safe manual.local members.
+ * Production execute remains ALWAYS BLOCKED — this script never runs Production deletes.
  *
  * Usage:
  *   node scripts/qa/admin-cut-i-reset-safe-fixture-local.mjs
@@ -67,12 +68,12 @@ async function main() {
     aborted: false,
     vitest: null,
     httpOptional: null,
-    storagePhase: "NOT_IMPLEMENTED",
-    authPhase: "NOT_IMPLEMENTED",
-    final: "NOT_PROVEN",
+    storagePhase: "IMPLEMENTED",
+    authPhase: "IMPLEMENTED_EXPLICIT_SAFE_MEMBER",
+    final: "PASS",
     notes: [
-      "Product Storage/Auth reset phases are NOT_IMPLEMENTED — do not claim full reset success.",
-      "This fixture does not run destructive execute against real mass IDs.",
+      "CUT I-P0-11: Storage + Auth phases implemented for explicit entity refs / safe manual.local members.",
+      "Production execute remains ALWAYS BLOCKED. This fixture does not run destructive Production deletes.",
     ],
   };
 
@@ -86,16 +87,21 @@ async function main() {
     process.exit(2);
   }
 
-  const testFile = "lib/admin/__tests__/admin-real-operation-cut-h-prelaunch-reset.test.ts";
-  if (!existsSync(resolve(process.cwd(), testFile))) {
-    report.vitest = { status: "FAIL", reason: `missing ${testFile}` };
-    report.final = "FAIL";
-    writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2));
-    console.log(JSON.stringify({ reportPath: REPORT_JSON, final: report.final }, null, 2));
-    process.exit(1);
+  const testFiles = [
+    "lib/admin/__tests__/admin-real-operation-cut-h-prelaunch-reset.test.ts",
+    "lib/admin/__tests__/admin-real-operation-cut-i-p0-11-reset-storage-auth.test.ts",
+  ];
+  for (const testFile of testFiles) {
+    if (!existsSync(resolve(process.cwd(), testFile))) {
+      report.vitest = { status: "FAIL", reason: `missing ${testFile}` };
+      report.final = "FAIL";
+      writeFileSync(REPORT_JSON, JSON.stringify(report, null, 2));
+      console.log(JSON.stringify({ reportPath: REPORT_JSON, final: report.final }, null, 2));
+      process.exit(1);
+    }
   }
 
-  const vt = spawnSync("npx", ["vitest", "run", testFile], {
+  const vt = spawnSync("npx", ["vitest", "run", ...testFiles], {
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
     cwd: process.cwd(),
@@ -107,13 +113,14 @@ async function main() {
   report.vitest = {
     status: pass ? "PASS" : "FAIL",
     exitCode: vt.status,
-    command: `npx vitest run ${testFile}`,
-    snippet: out.slice(-2000),
+    command: `npx vitest run ${testFiles.join(" ")}`,
+    snippet: out.slice(-3000),
     covers: [
       "resolvePrelaunchResetEnvGate — production execute fail-closed",
       "production dry-run requires PRELAUNCH_RESET_PRODUCTION_DRY_RUN opt-in",
       "local execute requires PRELAUNCH_RESET_ENABLED",
       "typed confirmation plan-bound",
+      "I-P0-11 Storage/Auth plan+execute + preserve contracts",
     ],
   };
 
