@@ -116,9 +116,10 @@ describe("platform popup product completion — Admin IA", () => {
     expect(leaf?.path).toBe("/admin/platform-popup");
     expect(leaf?.status).toBe("done");
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    expect(ads?.children?.[0]?.key).toBe("ads-paid");
-    expect(ads?.children?.[1]?.key).toBe("ads-feed");
-    expect(ads?.children?.[2]?.key).toBe("ads-platform-popup");
+    // CUT J: Delivery Ads ops first; Platform Popup remains an ads workspace leaf.
+    expect(ads?.children?.[0]?.key).toBe("ads-delivery-ops");
+    expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-platform-popup")).toBe(true);
   });
 
   it("hub page uses Control Center (not raw queue-only)", () => {

@@ -50,7 +50,8 @@ describe("community admin C+D safe-scope surface contract", () => {
     expect(menu).toMatch(/\/admin\/community\/comments/);
     expect(menu).toMatch(/\/admin\/community\/settings/);
     expect(menu).toMatch(/\/admin\/community\/point-policies/);
-    expect(menu).toMatch(/Comment report authority/);
+    expect(menu).toMatch(/community-feed-reports/);
+    expect(menu).toMatch(/\/admin\/community\/reports/);
     const nav = read("lib/community/community-nav.ts");
     expect(nav.length).toBeGreaterThan(0);
   });

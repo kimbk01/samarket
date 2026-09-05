@@ -63,7 +63,11 @@ describe("P1-3 Admin orphan / menu finalization", () => {
     const trade = findAdminMenuByKey(adminMenu, "trade");
     const keys = new Set((trade?.children ?? []).map((c) => c.key));
     expect(keys.has("chat-trade")).toBe(true);
-    expect(keys.has("ads-applications")).toBe(true);
     expect(keys.has("reports-posts")).toBe(true);
+    // CUT J: ads-applications moved to ads workspace (ads-trade-promote).
+    expect(keys.has("ads-applications")).toBe(false);
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
+    );
   });
 });

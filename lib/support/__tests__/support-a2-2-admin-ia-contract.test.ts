@@ -10,8 +10,12 @@ function read(rel: string): string {
 
 describe("A2-2 admin support IA / badge SSOT", () => {
   it("menu exposes Support Center + archive + store inquiries only", () => {
-    const support = requireAdminMenuByKey(adminMenu, "cp-support");
-    const paths = (support.children ?? []).map((c) => c.path);
+    // CUT J: Support is top-level workspace (not nested cp-support under Customer Platform).
+    const support = requireAdminMenuByKey(adminMenu, "support");
+    const paths = (support.children ?? []).flatMap(function walk(n): string[] {
+      const own = n.path ? [n.path] : [];
+      return [...own, ...(n.children ?? []).flatMap(walk)];
+    });
     expect(paths).toContain("/admin/support");
     expect(paths).toContain("/admin/support/archive");
     expect(paths).toContain("/admin/store-inquiries");
