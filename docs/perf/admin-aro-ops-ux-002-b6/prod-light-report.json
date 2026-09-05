@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "a17afd6ad",
+  "path": "/admin/support?filter=ACTIONABLE#action-required",
+  "checks": {
+    "marker": true,
+    "actionRequired": true,
+    "memberSection": true,
+    "ownerSection": true,
+    "aging": true,
+    "queue": true,
+    "bodyX": true,
+    "messengerSeparated": true,
+    "financeSupportEntry": true
+  },
+  "loginMethod": "magiclink",
+  "at": "2026-09-05T21:26:56.976Z"
+}
