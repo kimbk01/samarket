@@ -22,20 +22,20 @@ describe("customer-platform menu IA (CUT J)", () => {
     expect(cp.children?.some((c) => c.key === "cp-notification-engine")).toBe(false);
   });
 
-  it("A2-2 + J: Support Center is top-level support; store_inquiries legacy; Care/platform off menu", () => {
+  it("A2-2 + J + B7: Support Center top-level; store_inquiries route KEEP but not primary", () => {
     expect(adminMenu.some((w) => w.key === "support")).toBe(true);
     expect(findAdminMenuByKey(adminMenu, "cp-support-center")?.path).toBe("/admin/support");
     expect(findAdminMenuByKey(adminMenu, "cp-support-archive")?.path).toBe(
       "/admin/support/archive"
     );
-    expect(findAdminMenuByKey(adminMenu, "cp-store-inquiry")?.path).toBe(
-      "/admin/store-inquiries"
-    );
+    // B7: legacy leaf removed from primary nav (route file may remain).
+    expect(findAdminMenuByKey(adminMenu, "cp-store-inquiry")).toBeUndefined();
     const supportPaths = (findAdminMenuByKey(adminMenu, "support")?.children ?? [])
       .flatMap(function walk(n): string[] {
         const own = n.path ? [n.path] : [];
         return [...own, ...(n.children ?? []).flatMap(walk)];
       });
+    expect(supportPaths).not.toContain("/admin/store-inquiries");
     expect(supportPaths).not.toContain("/admin/member-notes?kind=inquiry");
     expect(supportPaths).not.toContain("/admin/platform-inquiries");
   });

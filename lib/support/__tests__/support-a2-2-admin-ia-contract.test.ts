@@ -9,8 +9,9 @@ function read(rel: string): string {
 }
 
 describe("A2-2 admin support IA / badge SSOT", () => {
-  it("menu exposes Support Center + archive + store inquiries only", () => {
+  it("menu exposes Support Center + archive; store-inquiries not primary (ARO-OPS-UX-002-B7)", () => {
     // CUT J: Support is top-level workspace (not nested cp-support under Customer Platform).
+    // B7: legacy /admin/store-inquiries route KEEP, primary nav HIDE.
     const support = requireAdminMenuByKey(adminMenu, "support");
     const paths = (support.children ?? []).flatMap(function walk(n): string[] {
       const own = n.path ? [n.path] : [];
@@ -18,7 +19,7 @@ describe("A2-2 admin support IA / badge SSOT", () => {
     });
     expect(paths).toContain("/admin/support");
     expect(paths).toContain("/admin/support/archive");
-    expect(paths).toContain("/admin/store-inquiries");
+    expect(paths).not.toContain("/admin/store-inquiries");
     expect(paths).not.toContain("/admin/member-notes?kind=inquiry");
     expect(paths).not.toContain("/admin/member-notes?kind=inbox");
     expect(paths).not.toContain("/admin/platform-inquiries");

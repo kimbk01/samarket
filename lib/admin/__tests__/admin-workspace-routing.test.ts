@@ -76,7 +76,8 @@ describe("admin-workspace-routing (CUT J)", () => {
 
   it("computes workspace roots from SSOT leaves", () => {
     const finance = adminMenu.find((w) => w.key === "finance")!;
-    expect(resolveWorkspaceRootPath(finance)).toBe("/admin/point-charges");
+    // ARO-OPS-UX-002-B7: B4 Finance Control Plane is workspace root first leaf.
+    expect(resolveWorkspaceRootPath(finance)).toBe("/admin/finance");
     const ads = adminMenu.find((w) => w.key === "ads")!;
     expect(resolveWorkspaceRootPath(ads)).toBe("/admin/delivery-ads");
     const support = adminMenu.find((w) => w.key === "support")!;
