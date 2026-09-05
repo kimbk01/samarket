@@ -83,6 +83,8 @@ Prod-light: `community.hardBulk=true`, `community.softBulk=true`
 
 Empty list previously hid the action bar → discoverability gap; toolbar always rendered after load so labels remain visible when disabled.
 
+Prod chat proof (`aro-ops-ux-002-b1r-prod-chat.json`): hide=`관리 목록에서 숨김`, hard=`DB 영구 삭제`, reset=`?scopes=chat` — **PASS**.
+
 ---
 
 ### RESET CONTEXT ENTRY
