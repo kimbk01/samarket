@@ -17,6 +17,22 @@ export type PrelaunchResetSelector = {
   contentIds: string[];
   /** Optional explicit delivery ad campaign ids. */
   deliveryAdCampaignIds: string[];
+  /** ARO-RST-COV-001 — community_comments ids (comments-only; posts preserved). */
+  commentIds: string[];
+  /** ARO-RST-COV-001 — support_cases ids (messages CASCADE). */
+  supportCaseIds: string[];
+  /** ARO-RST-COV-001 — feed_ad_campaigns ids (Point ledger preserved). */
+  feedAdCampaignIds: string[];
+  /** ARO-RST-COV-001 — feed_ad_requests ids. */
+  feedAdRequestIds: string[];
+  /** ARO-RST-COV-001 — platform_popup_campaigns ids (Cash ledger preserved). */
+  popupCampaignIds: string[];
+  /** ARO-RST-COV-001 — platform_popup_owner_requests ids. */
+  popupRequestIds: string[];
+  /** ARO-RST-COV-001 — store_coupon_campaigns ids (unused only). */
+  couponCampaignIds: string[];
+  /** ARO-RST-COV-001 — community_messenger_rooms ids (safe chat subset). */
+  chatRoomIds: string[];
 };
 
 /** ARO-RST-001 — type selection bound into planHash (not UI-only). */
@@ -151,5 +167,13 @@ export function normalizeSelector(raw: Partial<PrelaunchResetSelector> | null | 
     storeIds: uniq(raw?.storeIds),
     contentIds: uniq(raw?.contentIds),
     deliveryAdCampaignIds: uniq(raw?.deliveryAdCampaignIds),
+    commentIds: uniq(raw?.commentIds),
+    supportCaseIds: uniq(raw?.supportCaseIds),
+    feedAdCampaignIds: uniq(raw?.feedAdCampaignIds),
+    feedAdRequestIds: uniq(raw?.feedAdRequestIds),
+    popupCampaignIds: uniq(raw?.popupCampaignIds),
+    popupRequestIds: uniq(raw?.popupRequestIds),
+    couponCampaignIds: uniq(raw?.couponCampaignIds),
+    chatRoomIds: uniq(raw?.chatRoomIds),
   };
 }

@@ -16,6 +16,7 @@ export {
   selectAllEligibleScopes,
   normalizeSelectedScopes,
 } from "@/lib/admin/prelaunch-reset/selective-scopes";
+export { ARO_RST_COV_001_DEPENDENCY_MATRIX } from "@/lib/admin/prelaunch-reset/aro-rst-cov-001-coverage-matrix";
 export type {
   PrelaunchResetPlan,
   PrelaunchResetPreset,

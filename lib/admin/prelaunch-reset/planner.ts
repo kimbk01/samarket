@@ -11,11 +11,18 @@ import {
   defaultScopesForPreset,
   normalizeSelectedScopes,
   scopeAllowsAuth,
+  scopeAllowsChat,
+  scopeAllowsCommunityComments,
   scopeAllowsCommunityPosts,
+  scopeAllowsCoupons,
   scopeAllowsDeliveryAds,
+  scopeAllowsFeedAds,
   scopeAllowsMembers,
+  scopeAllowsNotifications,
+  scopeAllowsPopup,
   scopeAllowsStorage,
   scopeAllowsStores,
+  scopeAllowsSupport,
   scopeAllowsTradeContent,
   type PrelaunchResetSelectiveScope,
 } from "@/lib/admin/prelaunch-reset/selective-scopes";
@@ -105,11 +112,16 @@ export async function buildPrelaunchResetPlan(
   const needsMemberIds =
     scopeAllowsMembers(selectedScopes) ||
     scopeAllowsAuth(selectedScopes) ||
-    ((scopeAllowsTradeContent(selectedScopes) || scopeAllowsCommunityPosts(selectedScopes)) &&
-      selector.contentIds.length === 0);
+    scopeAllowsNotifications(selectedScopes) ||
+    ((scopeAllowsTradeContent(selectedScopes) ||
+      scopeAllowsCommunityPosts(selectedScopes) ||
+      scopeAllowsCommunityComments(selectedScopes)) &&
+      selector.contentIds.length === 0 &&
+      selector.commentIds.length === 0);
   const needsStoreIds =
     scopeAllowsStores(selectedScopes) ||
-    (scopeAllowsDeliveryAds(selectedScopes) && selector.deliveryAdCampaignIds.length === 0);
+    (scopeAllowsDeliveryAds(selectedScopes) && selector.deliveryAdCampaignIds.length === 0) ||
+    (scopeAllowsCoupons(selectedScopes) && selector.couponCampaignIds.length === 0);
 
   if (preset.requiresExplicitMember && selector.memberIds.length === 0 && needsMemberIds) {
     blockers.push("preset_requires_explicit_memberIds");
@@ -121,7 +133,15 @@ export async function buildPrelaunchResetPlan(
     selector.memberIds.length === 0 &&
     selector.storeIds.length === 0 &&
     selector.contentIds.length === 0 &&
-    selector.deliveryAdCampaignIds.length === 0
+    selector.deliveryAdCampaignIds.length === 0 &&
+    selector.commentIds.length === 0 &&
+    selector.supportCaseIds.length === 0 &&
+    selector.feedAdCampaignIds.length === 0 &&
+    selector.feedAdRequestIds.length === 0 &&
+    selector.popupCampaignIds.length === 0 &&
+    selector.popupRequestIds.length === 0 &&
+    selector.couponCampaignIds.length === 0 &&
+    selector.chatRoomIds.length === 0
   ) {
     blockers.push("selector_empty_explicit_ids_required");
   }
@@ -233,7 +253,47 @@ export async function buildPrelaunchResetPlan(
 
   counts.content = tradeRows + communityRows;
 
-  // --- Ads (Delivery only — Feed/Popup NOT_SUPPORTED) ---
+  // --- ARO-RST-COV-001: community_comments (parent posts preserved) ---
+  let commentRows = 0;
+  if (scopeAllowsCommunityComments(selectedScopes)) {
+    const commentIds = selector.commentIds.length
+      ? selector.commentIds
+      : scopeAllowsCommunityPosts(selectedScopes)
+        ? []
+        : selector.contentIds;
+    if (commentIds.length) {
+      const byId = await countIn(input.sb, "community_comments", "id", commentIds);
+      commentRows += byId.n;
+      if (byId.error) warnings.push(byId.error);
+    }
+    if (safeMemberIds.length && (scopeAllowsMembers(selectedScopes) || commentIds.length === 0)) {
+      const byAuthor = await countIn(input.sb, "community_comments", "user_id", safeMemberIds);
+      commentRows += byAuthor.n;
+      if (byAuthor.error) warnings.push(byAuthor.error);
+    }
+    if (commentRows > 0) {
+      deleteSteps.push({
+        id: "db_community_comments",
+        domain: "COMMUNITY",
+        table: "community_comments",
+        filterDescription: "explicit commentIds and/or author memberIds (posts preserved)",
+        estimatedRows: commentRows,
+        phase: "DB",
+        executableInCutH: true,
+      });
+    }
+    counts.content += commentRows;
+    scopeImpact.push({
+      scope: "community_comments",
+      estimatedDbRows: commentRows,
+      storageObjects: 0,
+      authDelete: 0,
+      status: commentRows > 0 ? "active" : "idle",
+      detail: "community_comments; parent posts preserved",
+    });
+  }
+
+  // --- Ads (Delivery) ---
   let ads = 0;
   if (scopeAllowsDeliveryAds(selectedScopes)) {
     if (selector.deliveryAdCampaignIds.length) {
@@ -268,6 +328,352 @@ export async function buildPrelaunchResetPlan(
     });
   }
 
+  // --- ARO-RST-COV-001: feed_ads (Point ledger preserved) ---
+  let feedAds = 0;
+  if (scopeAllowsFeedAds(selectedScopes)) {
+    if (selector.feedAdCampaignIds.length) {
+      const c = await countIn(input.sb, "feed_ad_campaigns", "id", selector.feedAdCampaignIds);
+      feedAds += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_feed_ad_campaigns",
+          domain: "ADS_FEED",
+          table: "feed_ad_campaigns",
+          filterDescription: "explicit feedAdCampaignIds; point_ledger preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    if (selector.feedAdRequestIds.length) {
+      const c = await countIn(input.sb, "feed_ad_requests", "id", selector.feedAdRequestIds);
+      feedAds += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_feed_ad_requests",
+          domain: "ADS_FEED",
+          table: "feed_ad_requests",
+          filterDescription: "explicit feedAdRequestIds; holds may CASCADE; point_ledger preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    if (safeMemberIds.length && scopeAllowsMembers(selectedScopes) && selector.feedAdRequestIds.length === 0) {
+      const c = await countIn(input.sb, "feed_ad_requests", "user_id", safeMemberIds);
+      feedAds += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_feed_ad_requests_by_member",
+          domain: "ADS_FEED",
+          table: "feed_ad_requests",
+          filterDescription: "feed_ad_requests by memberIds; point_ledger preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    counts.ads += feedAds;
+    scopeImpact.push({
+      scope: "feed_ads",
+      estimatedDbRows: feedAds,
+      storageObjects: 0,
+      authDelete: 0,
+      status: feedAds > 0 ? "active" : "idle",
+      detail: "feed ops rows; Point ledger preserved",
+    });
+  }
+
+  // --- ARO-RST-COV-001: popup (Cash ledger preserved) ---
+  let popupRows = 0;
+  if (scopeAllowsPopup(selectedScopes)) {
+    if (selector.popupCampaignIds.length) {
+      const c = await countIn(input.sb, "platform_popup_campaigns", "id", selector.popupCampaignIds);
+      popupRows += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_popup_campaigns",
+          domain: "POPUP",
+          table: "platform_popup_campaigns",
+          filterDescription: "explicit popupCampaignIds; business_cash_* preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    if (selector.popupRequestIds.length) {
+      const c = await countIn(
+        input.sb,
+        "platform_popup_owner_requests",
+        "id",
+        selector.popupRequestIds
+      );
+      popupRows += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_popup_requests",
+          domain: "POPUP",
+          table: "platform_popup_owner_requests",
+          filterDescription: "explicit popupRequestIds; Cash ledger preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    if (storeIds.length && scopeAllowsStores(selectedScopes) && selector.popupRequestIds.length === 0) {
+      const c = await countIn(input.sb, "platform_popup_owner_requests", "store_id", storeIds);
+      popupRows += c.n;
+      if (c.error) warnings.push(c.error);
+      if (c.n > 0) {
+        deleteSteps.push({
+          id: "db_popup_requests_by_store",
+          domain: "POPUP",
+          table: "platform_popup_owner_requests",
+          filterDescription: "popup requests by storeIds; Cash ledger preserved",
+          estimatedRows: c.n,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    }
+    counts.ads += popupRows;
+    scopeImpact.push({
+      scope: "popup",
+      estimatedDbRows: popupRows,
+      storageObjects: 0,
+      authDelete: 0,
+      status: popupRows > 0 ? "active" : "idle",
+      detail: "popup ops rows; Cash ledger preserved",
+    });
+  }
+
+  // --- ARO-RST-COV-001: coupons (unused only) ---
+  let couponRows = 0;
+  if (scopeAllowsCoupons(selectedScopes)) {
+    const couponIds =
+      selector.couponCampaignIds.length > 0
+        ? selector.couponCampaignIds
+        : storeIds.length && scopeAllowsStores(selectedScopes)
+          ? []
+          : [];
+    let candidateIds = [...couponIds];
+    if (!candidateIds.length && storeIds.length && scopeAllowsStores(selectedScopes)) {
+      const { data: rows, error } = await input.sb
+        .from("store_coupon_campaigns")
+        .select("id")
+        .in("store_id", storeIds);
+      if (error) warnings.push(`store_coupon_campaigns:${error.message}`);
+      candidateIds = (rows ?? []).map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
+    }
+    if (candidateIds.length) {
+      const redeem = await countIn(input.sb, "store_coupon_redemptions", "campaign_id", candidateIds);
+      if (redeem.error) warnings.push(redeem.error);
+      if (redeem.n > 0) {
+        warnings.push(`coupon_redemptions_present=${redeem.n}_blocked_from_delete`);
+        financialGuards.push(`coupon_redemptions=${redeem.n}`);
+        // Still allow deleting campaigns with zero redemptions — filter by checking each is heavy;
+        // block entire coupon step when any redemption exists among candidates (honest PARTIAL).
+        scopeImpact.push({
+          scope: "coupons",
+          estimatedDbRows: 0,
+          storageObjects: 0,
+          authDelete: 0,
+          status: "blocked",
+          detail: "redemptions present — unused-only policy blocked this selection",
+        });
+      } else {
+        couponRows = candidateIds.length;
+        deleteSteps.push({
+          id: "db_coupon_entitlements",
+          domain: "COUPON",
+          table: "coupon_user_entitlements",
+          filterDescription: "entitlements for unused coupon campaigns",
+          estimatedRows: await countEq(input.sb, "coupon_user_entitlements", "campaign_id", candidateIds),
+          phase: "DB",
+          executableInCutH: true,
+        });
+        deleteSteps.push({
+          id: "db_coupon_campaigns",
+          domain: "COUPON",
+          table: "store_coupon_campaigns",
+          filterDescription: "unused store_coupon_campaigns (0 redemptions)",
+          estimatedRows: couponRows,
+          phase: "DB",
+          executableInCutH: true,
+        });
+        counts.other += couponRows;
+        scopeImpact.push({
+          scope: "coupons",
+          estimatedDbRows: couponRows,
+          storageObjects: 0,
+          authDelete: 0,
+          status: couponRows > 0 ? "active" : "idle",
+          detail: "unused coupon campaigns only",
+        });
+      }
+    } else {
+      scopeImpact.push({
+        scope: "coupons",
+        estimatedDbRows: 0,
+        storageObjects: 0,
+        authDelete: 0,
+        status: "idle",
+        detail: "no couponCampaignIds / storeIds",
+      });
+    }
+  }
+
+  // --- ARO-RST-COV-001: support ---
+  let supportRows = 0;
+  if (scopeAllowsSupport(selectedScopes)) {
+    if (selector.supportCaseIds.length) {
+      const c = await countIn(input.sb, "support_cases", "id", selector.supportCaseIds);
+      supportRows += c.n;
+      if (c.error) warnings.push(c.error);
+    }
+    if (safeMemberIds.length && scopeAllowsMembers(selectedScopes)) {
+      const c = await countIn(input.sb, "support_cases", "requester_user_id", safeMemberIds);
+      supportRows += c.n;
+      if (c.error) warnings.push(c.error);
+    }
+    if (storeIds.length && scopeAllowsStores(selectedScopes)) {
+      const c = await countIn(input.sb, "support_cases", "owner_store_id", storeIds);
+      supportRows += c.n;
+      if (c.error) warnings.push(c.error);
+    }
+    if (supportRows > 0) {
+      deleteSteps.push({
+        id: "db_support_cases",
+        domain: "SUPPORT",
+        table: "support_cases",
+        filterDescription: "explicit supportCaseIds and/or member/store scoped cases",
+        estimatedRows: supportRows,
+        phase: "DB",
+        executableInCutH: true,
+      });
+    }
+    counts.messages += supportRows;
+    scopeImpact.push({
+      scope: "support",
+      estimatedDbRows: supportRows,
+      storageObjects: 0,
+      authDelete: 0,
+      status: supportRows > 0 ? "active" : "idle",
+      detail: "support_cases (+ messages CASCADE)",
+    });
+  }
+
+  // --- ARO-RST-COV-001: notifications (member events only) ---
+  let notifRows = 0;
+  if (scopeAllowsNotifications(selectedScopes)) {
+    if (safeMemberIds.length) {
+      const c = await countIn(input.sb, "notification_events", "user_id", safeMemberIds);
+      notifRows = c.n;
+      if (c.error) warnings.push(c.error);
+      if (notifRows > 0) {
+        deleteSteps.push({
+          id: "db_notification_events",
+          domain: "NOTIFICATIONS",
+          table: "notification_events",
+          filterDescription: "notification_events for explicit memberIds; devices preserved",
+          estimatedRows: notifRows,
+          phase: "DB",
+          executableInCutH: true,
+        });
+      }
+    } else {
+      warnings.push("notifications_scope_requires_memberIds");
+    }
+    counts.notifications = notifRows;
+    scopeImpact.push({
+      scope: "notifications",
+      estimatedDbRows: notifRows,
+      storageObjects: 0,
+      authDelete: 0,
+      status: notifRows > 0 ? "active" : "idle",
+      detail: "member notification_events only",
+    });
+  }
+
+  // --- ARO-RST-COV-001: chat PARTIAL (general_direct|group only) ---
+  let chatRows = 0;
+  if (scopeAllowsChat(selectedScopes)) {
+    if (selector.chatRoomIds.length) {
+      const { data: rooms, error } = await input.sb
+        .from("community_messenger_rooms")
+        .select("id, chat_domain, domain_identity_key")
+        .in("id", selector.chatRoomIds);
+      if (error) warnings.push(`community_messenger_rooms:${error.message}`);
+      const safeIds: string[] = [];
+      for (const row of rooms ?? []) {
+        const r = row as {
+          id?: string;
+          chat_domain?: string;
+          domain_identity_key?: string | null;
+        };
+        const domain = String(r.chat_domain ?? "");
+        const identity = String(r.domain_identity_key ?? "");
+        const protectedChat =
+          domain === "trade" ||
+          domain === "store_order" ||
+          identity.startsWith("trade_") ||
+          identity.startsWith("store_order:");
+        if (protectedChat) {
+          blockedEntities.push({
+            kind: "blocked",
+            id: String(r.id ?? ""),
+            label: "chat_room",
+            reason: "protected_transaction_or_order_chat",
+          });
+          warnings.push(`chat_room_protected:${r.id}`);
+          continue;
+        }
+        if (domain === "general_direct" || domain === "group") {
+          safeIds.push(String(r.id));
+        } else {
+          warnings.push(`chat_room_unknown_domain_skipped:${r.id}:${domain}`);
+        }
+      }
+      chatRows = safeIds.length;
+      if (chatRows > 0) {
+        deleteSteps.push({
+          id: "db_safe_chat_rooms",
+          domain: "MESSENGER",
+          table: "community_messenger_rooms",
+          filterDescription: `safe chat rooms (${safeIds.length}); trade/order preserved`,
+          estimatedRows: chatRows,
+          phase: "DB",
+          executableInCutH: true,
+        });
+        // Bind safe ids into selector for executor via resolved refs
+        for (const id of safeIds) {
+          resolved.push({ kind: "content", id, label: "safe_chat_room" });
+        }
+      }
+    } else {
+      warnings.push("chat_scope_requires_explicit_chatRoomIds");
+    }
+    counts.messages += chatRows;
+    scopeImpact.push({
+      scope: "chat",
+      estimatedDbRows: chatRows,
+      storageObjects: 0,
+      authDelete: 0,
+      status: chatRows > 0 ? "active" : "idle",
+      detail: "general_direct|group only; trade/order protected",
+    });
+  }
+
   // --- Stores / members ---
   if (scopeAllowsStores(selectedScopes)) {
     counts.stores = storeIds.length;
@@ -277,7 +683,7 @@ export async function buildPrelaunchResetPlan(
       storageObjects: 0,
       authDelete: 0,
       status: storeIds.length > 0 ? "active" : "idle",
-      detail: "store row delete NOT_SUPPORTED; selector gates ads/storage",
+      detail: "store row delete NOT_SUPPORTED; selector gates ads/coupons/support/storage",
     });
   }
   if (scopeAllowsMembers(selectedScopes)) {
@@ -288,7 +694,7 @@ export async function buildPrelaunchResetPlan(
       storageObjects: 0,
       authDelete: 0,
       status: safeMemberIds.length > 0 ? "active" : "idle",
-      detail: "profiles row delete NOT_SUPPORTED; selector gates content/auth/storage",
+      detail: "profiles row delete NOT_SUPPORTED; selector gates content/auth/notifications/support",
     });
   }
 

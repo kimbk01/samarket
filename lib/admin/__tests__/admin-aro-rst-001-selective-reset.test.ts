@@ -22,17 +22,17 @@ describe("ARO-RST-001 Selective Reset", () => {
     expect(byKey.members.support).toBe("PARTIAL");
     expect(byKey.stores.support).toBe("PARTIAL");
     expect(byKey.community_posts.support).toBe("SUPPORTED");
-    expect(byKey.community_comments.support).toBe("NOT_SUPPORTED");
+    expect(byKey.community_comments.support).toBe("SUPPORTED");
     expect(byKey.trade_content.support).toBe("SUPPORTED");
-    expect(byKey.chat.support).toBe("NOT_SUPPORTED");
+    expect(byKey.chat.support).toBe("PARTIAL");
     expect(byKey.orders.support).toBe("BLOCKED");
     expect(byKey.delivery_ads.support).toBe("SUPPORTED");
-    expect(byKey.feed_ads.support).toBe("NOT_SUPPORTED");
-    expect(byKey.popup.support).toBe("NOT_SUPPORTED");
-    expect(byKey.coupons.support).toBe("NOT_SUPPORTED");
+    expect(byKey.feed_ads.support).toBe("SUPPORTED");
+    expect(byKey.popup.support).toBe("SUPPORTED");
+    expect(byKey.coupons.support).toBe("PARTIAL");
     expect(byKey.gifts.support).toBe("BLOCKED");
-    expect(byKey.support.support).toBe("NOT_SUPPORTED");
-    expect(byKey.notifications.support).toBe("NOT_SUPPORTED");
+    expect(byKey.support.support).toBe("SUPPORTED");
+    expect(byKey.notifications.support).toBe("PARTIAL");
     expect(byKey.point.support).toBe("BLOCKED");
     expect(byKey.coin.support).toBe("BLOCKED");
     expect(byKey.cash.support).toBe("BLOCKED");
@@ -51,10 +51,10 @@ describe("ARO-RST-001 Selective Reset", () => {
     }
     expect(all).not.toContain("orders");
     expect(all).not.toContain("gifts");
-    expect(all).not.toContain("chat");
-    expect(all).not.toContain("community_comments");
-    expect(all).not.toContain("feed_ads");
-    expect(all).not.toContain("popup");
+    expect(all).toContain("chat");
+    expect(all).toContain("community_comments");
+    expect(all).toContain("feed_ads");
+    expect(all).toContain("popup");
   });
 
   it("normalizeSelectedScopes drops blocked/unsupported and sorts", () => {
@@ -79,7 +79,7 @@ describe("ARO-RST-001 Selective Reset", () => {
     expect(h1).not.toBe(h2);
   });
 
-  it("defaultScopesForPreset never auto-selects feed_ads/popup/orders", () => {
+  it("defaultScopesForPreset never auto-selects orders; may include feed/popup when preset includes them", () => {
     const scopes = defaultScopesForPreset([
       "TRADE",
       "COMMUNITY",
@@ -90,9 +90,10 @@ describe("ARO-RST-001 Selective Reset", () => {
     ]);
     expect(scopes).toContain("trade_content");
     expect(scopes).toContain("community_posts");
+    expect(scopes).toContain("community_comments");
     expect(scopes).toContain("delivery_ads");
-    expect(scopes).not.toContain("feed_ads");
-    expect(scopes).not.toContain("popup");
+    expect(scopes).toContain("feed_ads");
+    expect(scopes).toContain("popup");
     expect(scopes).not.toContain("orders");
   });
 

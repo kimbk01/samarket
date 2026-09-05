@@ -30,6 +30,14 @@ export async function POST(req: Request) {
     storeIds?: string[];
     contentIds?: string[];
     deliveryAdCampaignIds?: string[];
+    commentIds?: string[];
+    supportCaseIds?: string[];
+    feedAdCampaignIds?: string[];
+    feedAdRequestIds?: string[];
+    popupCampaignIds?: string[];
+    popupRequestIds?: string[];
+    couponCampaignIds?: string[];
+    chatRoomIds?: string[];
     selectedScopes?: string[];
   };
   try {
@@ -52,6 +60,14 @@ export async function POST(req: Request) {
       storeIds: body.storeIds,
       contentIds: body.contentIds,
       deliveryAdCampaignIds: body.deliveryAdCampaignIds,
+      commentIds: body.commentIds,
+      supportCaseIds: body.supportCaseIds,
+      feedAdCampaignIds: body.feedAdCampaignIds,
+      feedAdRequestIds: body.feedAdRequestIds,
+      popupCampaignIds: body.popupCampaignIds,
+      popupRequestIds: body.popupRequestIds,
+      couponCampaignIds: body.couponCampaignIds,
+      chatRoomIds: body.chatRoomIds,
     },
     selectedScopes: body.selectedScopes,
   });

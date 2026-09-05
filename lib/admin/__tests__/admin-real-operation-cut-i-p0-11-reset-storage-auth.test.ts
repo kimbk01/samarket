@@ -4,7 +4,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hashPlanPayload } from "@/lib/admin/prelaunch-reset/types";
+import { hashPlanPayload, normalizeSelector } from "@/lib/admin/prelaunch-reset/types";
 import { resolvePrelaunchResetEnvGate } from "@/lib/admin/prelaunch-reset/environment";
 import { PRELAUNCH_RESET_PRESETS } from "@/lib/admin/prelaunch-reset/presets";
 import { PRELAUNCH_RESET_HARD_LOCK } from "@/lib/admin/admin-real-operation-cut-h-prelaunch-reset-hard-lock";
@@ -119,12 +119,12 @@ describe("CUT I-P0-11 Reset Storage/Auth", () => {
     const plan: PrelaunchResetPlan = {
       planId: "pr_test",
       preset: "TEST_MEMBER_DATA",
-      selector: {
+      selector: normalizeSelector({
         memberIds: [targetUser],
         storeIds: [],
         contentIds: [],
         deliveryAdCampaignIds: [],
-      },
+      }),
       selectedScopes: ["members", "storage", "auth"],
       scopeImpact: [],
       resolved: [],

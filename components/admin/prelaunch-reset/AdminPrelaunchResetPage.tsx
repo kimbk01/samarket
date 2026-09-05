@@ -90,6 +90,14 @@ export function AdminPrelaunchResetPage() {
   const [storeIdsRaw, setStoreIdsRaw] = useState("");
   const [contentIdsRaw, setContentIdsRaw] = useState("");
   const [campaignIdsRaw, setCampaignIdsRaw] = useState("");
+  const [commentIdsRaw, setCommentIdsRaw] = useState("");
+  const [supportCaseIdsRaw, setSupportCaseIdsRaw] = useState("");
+  const [feedAdCampaignIdsRaw, setFeedAdCampaignIdsRaw] = useState("");
+  const [feedAdRequestIdsRaw, setFeedAdRequestIdsRaw] = useState("");
+  const [popupCampaignIdsRaw, setPopupCampaignIdsRaw] = useState("");
+  const [popupRequestIdsRaw, setPopupRequestIdsRaw] = useState("");
+  const [couponCampaignIdsRaw, setCouponCampaignIdsRaw] = useState("");
+  const [chatRoomIdsRaw, setChatRoomIdsRaw] = useState("");
   const [plan, setPlan] = useState<PrelaunchResetPlan | null>(null);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,8 +119,29 @@ export function AdminPrelaunchResetPage() {
       storeIds: parseIds(storeIdsRaw),
       contentIds: parseIds(contentIdsRaw),
       deliveryAdCampaignIds: parseIds(campaignIdsRaw),
+      commentIds: parseIds(commentIdsRaw),
+      supportCaseIds: parseIds(supportCaseIdsRaw),
+      feedAdCampaignIds: parseIds(feedAdCampaignIdsRaw),
+      feedAdRequestIds: parseIds(feedAdRequestIdsRaw),
+      popupCampaignIds: parseIds(popupCampaignIdsRaw),
+      popupRequestIds: parseIds(popupRequestIdsRaw),
+      couponCampaignIds: parseIds(couponCampaignIdsRaw),
+      chatRoomIds: parseIds(chatRoomIdsRaw),
     }),
-    [memberIdsRaw, storeIdsRaw, contentIdsRaw, campaignIdsRaw]
+    [
+      memberIdsRaw,
+      storeIdsRaw,
+      contentIdsRaw,
+      campaignIdsRaw,
+      commentIdsRaw,
+      supportCaseIdsRaw,
+      feedAdCampaignIdsRaw,
+      feedAdRequestIdsRaw,
+      popupCampaignIdsRaw,
+      popupRequestIdsRaw,
+      couponCampaignIdsRaw,
+      chatRoomIdsRaw,
+    ]
   );
 
   function invalidatePlan() {
@@ -226,7 +255,12 @@ export function AdminPrelaunchResetPage() {
     typed.trim() !== plan.typedConfirmationPhrase;
 
   return (
-    <div className="space-y-4 pb-10" data-admin-prelaunch-reset="1" data-aro-rst-001="1">
+    <div
+      className="space-y-4 pb-10"
+      data-admin-prelaunch-reset="1"
+      data-aro-rst-001="1"
+      data-aro-rst-cov-001="1"
+    >
       <AdminPageHeader
         title={safeT("admin_page_prelaunch_reset", {
           fallbackKo: "운영 시작 전 테스트 데이터 정리",
@@ -424,6 +458,103 @@ export function AdminPrelaunchResetPage() {
               value={campaignIdsRaw}
               onChange={(e) => {
                 setCampaignIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Comment IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={commentIdsRaw}
+              onChange={(e) => {
+                setCommentIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+              placeholder="community_comments uuid…"
+            />
+          </label>
+          <label className="block text-[12px]">
+            Support Case IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={supportCaseIdsRaw}
+              onChange={(e) => {
+                setSupportCaseIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Feed Ad Campaign IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={feedAdCampaignIdsRaw}
+              onChange={(e) => {
+                setFeedAdCampaignIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Feed Ad Request IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={feedAdRequestIdsRaw}
+              onChange={(e) => {
+                setFeedAdRequestIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Popup Campaign IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={popupCampaignIdsRaw}
+              onChange={(e) => {
+                setPopupCampaignIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Popup Request IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={popupRequestIdsRaw}
+              onChange={(e) => {
+                setPopupRequestIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Coupon Campaign IDs
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={couponCampaignIdsRaw}
+              onChange={(e) => {
+                setCouponCampaignIdsRaw(e.target.value);
+                invalidatePlan();
+              }}
+            />
+          </label>
+          <label className="block text-[12px]">
+            Chat Room IDs (safe general/group only)
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app p-2 font-mono text-[12px]"
+              rows={2}
+              value={chatRoomIdsRaw}
+              onChange={(e) => {
+                setChatRoomIdsRaw(e.target.value);
                 invalidatePlan();
               }}
             />

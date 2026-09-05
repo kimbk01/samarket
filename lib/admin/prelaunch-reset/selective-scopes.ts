@@ -74,9 +74,9 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     auth: "derived",
     protection: "current admin / active admin / MASTER always protected",
     executionSupport:
-      "Explicit memberIds: Auth DELETE when @manual.local + EXPLICIT_SAFE_MEMBER preset; linked trade posts when trade_content selected. profiles row DELETE not in Cut H executor.",
-    reasonKo: "명시 memberId · Auth/연계 콘텐츠만 (profiles 행 삭제 없음)",
-    reasonEn: "Explicit memberIds · Auth/linked content only (no profiles row delete)",
+      "ARO-RST-COV-001: Explicit memberIds gate Auth/content/notifications/support. profiles row DELETE still not executed (finance/FK safety).",
+    reasonKo: "부분 — Auth·연계 콘텐츠 가능 · profiles 행 삭제 없음(금융/FK)",
+    reasonEn: "Partial — Auth/linked content OK · no profiles row delete (finance/FK)",
   },
   {
     key: "stores",
@@ -92,9 +92,9 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     auth: "none",
     protection: "finance/order/gift gates; no force delete",
     executionSupport:
-      "Explicit storeIds: terminal delivery_ad_campaigns when delivery_ads selected; storage refs. stores row DELETE not in Cut H executor.",
-    reasonKo: "명시 storeId · 연계 광고(종료분)/Storage만 (stores 행 삭제 없음)",
-    reasonEn: "Explicit storeIds · linked terminal ads/Storage only (no stores row delete)",
+      "ARO-RST-COV-001: Explicit storeIds gate ads/coupons/support/storage. stores row DELETE not executed when finance/orders present.",
+    reasonKo: "부분 — 연계 광고·쿠폰·Storage · stores 행 삭제 없음(주문/금융 게이트)",
+    reasonEn: "Partial — linked ads/coupons/storage · no stores row delete (order/finance gate)",
   },
   {
     key: "community_posts",
@@ -118,17 +118,17 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     group: "content",
     labelKo: "댓글",
     labelEn: "Comments",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
-    dbOwner: "community_comments / post_comments",
-    dependencies: "parent post",
+    support: "SUPPORTED",
+    selectAllEligible: true,
+    dbOwner: "community_comments",
+    dependencies: "parent post preserved when comments-only",
     financeRisk: "none",
     storage: "none",
     auth: "none",
-    protection: "n/a",
-    executionSupport: "No executor path — do not fake-enable",
-    reasonKo: "미지원 — executor 경로 없음",
-    reasonEn: "Not supported — no executor path",
+    protection: "explicit commentIds and/or author memberIds",
+    executionSupport: "ARO-RST-COV-001: DB DELETE community_comments; parent posts kept",
+    reasonKo: "삭제 가능 (댓글만 · 게시글 유지)",
+    reasonEn: "Deletable (comments only · posts preserved)",
   },
   {
     key: "trade_content",
@@ -152,17 +152,18 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     group: "content",
     labelKo: "채팅 테스트 데이터",
     labelEn: "Chat test data",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
-    dbOwner: "community_messenger_* / order chat",
-    dependencies: "order/trade evidence",
+    support: "PARTIAL",
+    selectAllEligible: true,
+    dbOwner: "community_messenger_rooms",
+    dependencies: "messages/participants CASCADE; trade/order rooms protected",
     financeRisk: "gate",
     storage: "none",
     auth: "none",
-    protection: "business/order evidence — conservative",
-    executionSupport: "No safe cascade — blocked from selection",
-    reasonKo: "미지원 — 주문/거래 증적 위험",
-    reasonEn: "Not supported — order/trade evidence risk",
+    protection: "trade / store_order rooms never deleted",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE rooms with chat_domain in (general_direct, group) by explicit chatRoomIds only",
+    reasonKo: "부분 — 일반/그룹 테스트 방만 (거래·주문 채팅 보호)",
+    reasonEn: "Partial — general/group test rooms only (trade/order chat protected)",
   },
   {
     key: "orders",
@@ -203,51 +204,54 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     group: "ads",
     labelKo: "피드 광고",
     labelEn: "Feed ads",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
+    support: "SUPPORTED",
+    selectAllEligible: true,
     dbOwner: "feed_ad_campaigns / feed_ad_requests",
-    dependencies: "billing/history",
+    dependencies: "creatives; holds CASCADE from request; Point ledger preserved",
     financeRisk: "gate",
     storage: "none",
     auth: "none",
-    protection: "no Cut H executor path",
-    executionSupport: "Preset inventory only — no DELETE",
-    reasonKo: "미지원 — executor 없음",
-    reasonEn: "Not supported — no executor",
+    protection: "point_ledger never deleted",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE feed campaigns/requests by explicit IDs; Point ledger preserved",
+    reasonKo: "삭제 가능 (운영 row · Point 원장 보존)",
+    reasonEn: "Deletable (ops rows · Point ledger preserved)",
   },
   {
     key: "popup",
     group: "ads",
     labelKo: "팝업",
     labelEn: "Popup",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
-    dbOwner: "platform_popup_*",
-    dependencies: "owner requests",
+    support: "SUPPORTED",
+    selectAllEligible: true,
+    dbOwner: "platform_popup_campaigns / platform_popup_owner_requests",
+    dependencies: "creatives CASCADE; Cash ledger preserved",
     financeRisk: "gate",
     storage: "none",
     auth: "none",
-    protection: "no Cut H executor path",
-    executionSupport: "Preset inventory only — no DELETE",
-    reasonKo: "미지원 — executor 없음",
-    reasonEn: "Not supported — no executor",
+    protection: "business_cash_* never deleted",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE popup campaigns/requests by explicit IDs; Cash ledger preserved",
+    reasonKo: "삭제 가능 (운영 row · Cash 원장 보존)",
+    reasonEn: "Deletable (ops rows · Cash ledger preserved)",
   },
   {
     key: "coupons",
     group: "other",
     labelKo: "쿠폰",
     labelEn: "Coupons",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
-    dbOwner: "store_coupons",
-    dependencies: "orders",
+    support: "PARTIAL",
+    selectAllEligible: true,
+    dbOwner: "store_coupon_campaigns",
+    dependencies: "entitlements; redemptions block campaign delete",
     financeRisk: "gate",
     storage: "none",
     auth: "none",
-    protection: "order-linked gate",
-    executionSupport: "No DELETE path",
-    reasonKo: "미지원",
-    reasonEn: "Not supported",
+    protection: "campaigns with redemptions blocked; Gift ≠ Coupon",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE unused campaigns (0 redemptions) after entitlements; Gift remains BLOCKED",
+    reasonKo: "부분 — 미사용 쿠폰 캠페인만 (사용 이력 있으면 차단)",
+    reasonEn: "Partial — unused coupon campaigns only (block if redeemed)",
   },
   {
     key: "gifts",
@@ -271,34 +275,36 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     group: "other",
     labelKo: "고객지원",
     labelEn: "Support",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
+    support: "SUPPORTED",
+    selectAllEligible: true,
     dbOwner: "support_cases",
-    dependencies: "messages",
+    dependencies: "support_messages CASCADE",
     financeRisk: "none",
     storage: "none",
     auth: "none",
-    protection: "no inbox wipe; no executor",
-    executionSupport: "No DELETE path",
-    reasonKo: "미지원",
-    reasonEn: "Not supported",
+    protection: "explicit case ids and/or member/store scoped — no global inbox wipe",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE support_cases by supportCaseIds and/or requester/store selectors",
+    reasonKo: "삭제 가능 (명시 케이스 · 전체 인박스 wipe 금지)",
+    reasonEn: "Deletable (explicit cases · no inbox wipe)",
   },
   {
     key: "notifications",
     group: "other",
     labelKo: "알림",
     labelEn: "Notifications",
-    support: "NOT_SUPPORTED",
-    selectAllEligible: false,
-    dbOwner: "notifications / push_devices",
-    dependencies: "devices",
+    support: "PARTIAL",
+    selectAllEligible: true,
+    dbOwner: "notification_events",
+    dependencies: "member-scoped events only",
     financeRisk: "none",
     storage: "none",
     auth: "none",
-    protection: "no global device wipe",
-    executionSupport: "No DELETE path",
-    reasonKo: "미지원",
-    reasonEn: "Not supported",
+    protection: "no device wipe; no admin campaign wipe",
+    executionSupport:
+      "ARO-RST-COV-001: DELETE notification_events for explicit memberIds only",
+    reasonKo: "부분 — 회원 notification_events만 (디바이스/캠페인 보존)",
+    reasonEn: "Partial — member notification_events only (devices/campaigns preserved)",
   },
   {
     key: "point",
@@ -453,9 +459,17 @@ export function defaultScopesForPreset(includes: readonly string[]): PrelaunchRe
   if (includes.includes("MEMBER")) s.add("members");
   if (includes.includes("STORE") || includes.includes("OWNER")) s.add("stores");
   if (includes.includes("TRADE")) s.add("trade_content");
-  if (includes.includes("COMMUNITY")) s.add("community_posts");
+  if (includes.includes("COMMUNITY")) {
+    s.add("community_posts");
+    s.add("community_comments");
+  }
   if (includes.includes("ADS_DELIVERY")) s.add("delivery_ads");
-  // Feed/Popup remain NOT_SUPPORTED — never auto-select
+  if (includes.includes("ADS_FEED")) s.add("feed_ads");
+  if (includes.includes("POPUP")) s.add("popup");
+  if (includes.includes("SUPPORT")) s.add("support");
+  if (includes.includes("MESSENGER")) s.add("chat");
+  if (includes.includes("COUPON")) s.add("coupons");
+  if (includes.includes("NOTIFICATIONS")) s.add("notifications");
   s.add("storage");
   if (includes.includes("MEMBER")) s.add("auth");
   return [...s].sort();
@@ -469,8 +483,38 @@ export function scopeAllowsCommunityPosts(scopes: readonly PrelaunchResetSelecti
   return scopes.includes("community_posts");
 }
 
+export function scopeAllowsCommunityComments(
+  scopes: readonly PrelaunchResetSelectiveScope[]
+): boolean {
+  return scopes.includes("community_comments");
+}
+
 export function scopeAllowsDeliveryAds(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
   return scopes.includes("delivery_ads");
+}
+
+export function scopeAllowsFeedAds(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("feed_ads");
+}
+
+export function scopeAllowsPopup(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("popup");
+}
+
+export function scopeAllowsCoupons(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("coupons");
+}
+
+export function scopeAllowsSupport(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("support");
+}
+
+export function scopeAllowsNotifications(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("notifications");
+}
+
+export function scopeAllowsChat(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {
+  return scopes.includes("chat");
 }
 
 export function scopeAllowsMembers(scopes: readonly PrelaunchResetSelectiveScope[]): boolean {

@@ -179,14 +179,229 @@ export async function executePrelaunchReset(
             (dbDeleted.delivery_ad_campaigns ?? 0) + (count ?? 0);
         }
       }
+      // ARO-RST-COV-001 scopes
+      if (step.table === "community_comments") {
+        const commentIds = (plan.selector.commentIds ?? []).length
+          ? plan.selector.commentIds ?? []
+          : plan.selectedScopes.includes("community_posts")
+            ? []
+            : plan.selector.contentIds;
+        if (commentIds.length) {
+          const { error, count } = await input.sb
+            .from("community_comments")
+            .delete({ count: "exact" })
+            .in("id", commentIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.community_comments = (dbDeleted.community_comments ?? 0) + (count ?? 0);
+        }
+        if (plan.selector.memberIds.length && plan.selectedScopes.includes("members")) {
+          const { error, count } = await input.sb
+            .from("community_comments")
+            .delete({ count: "exact" })
+            .in("user_id", plan.selector.memberIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.community_comments = (dbDeleted.community_comments ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "feed_ad_campaigns" && plan.selector.feedAdCampaignIds.length) {
+        const { error, count } = await input.sb
+          .from("feed_ad_campaigns")
+          .delete({ count: "exact" })
+          .in("id", plan.selector.feedAdCampaignIds);
+        if (error) throw new Error(error.message);
+        dbDeleted.feed_ad_campaigns = (dbDeleted.feed_ad_campaigns ?? 0) + (count ?? 0);
+      }
+      if (step.table === "feed_ad_requests") {
+        if (step.id === "db_feed_ad_requests" && plan.selector.feedAdRequestIds.length) {
+          const { error, count } = await input.sb
+            .from("feed_ad_requests")
+            .delete({ count: "exact" })
+            .in("id", plan.selector.feedAdRequestIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.feed_ad_requests = (dbDeleted.feed_ad_requests ?? 0) + (count ?? 0);
+        }
+        if (
+          step.id === "db_feed_ad_requests_by_member" &&
+          plan.selector.memberIds.length &&
+          plan.selectedScopes.includes("members")
+        ) {
+          const { error, count } = await input.sb
+            .from("feed_ad_requests")
+            .delete({ count: "exact" })
+            .in("user_id", plan.selector.memberIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.feed_ad_requests = (dbDeleted.feed_ad_requests ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "platform_popup_campaigns" && plan.selector.popupCampaignIds.length) {
+        const { error, count } = await input.sb
+          .from("platform_popup_campaigns")
+          .delete({ count: "exact" })
+          .in("id", plan.selector.popupCampaignIds);
+        if (error) throw new Error(error.message);
+        dbDeleted.platform_popup_campaigns =
+          (dbDeleted.platform_popup_campaigns ?? 0) + (count ?? 0);
+      }
+      if (step.table === "platform_popup_owner_requests") {
+        if (step.id === "db_popup_requests" && plan.selector.popupRequestIds.length) {
+          const { error, count } = await input.sb
+            .from("platform_popup_owner_requests")
+            .delete({ count: "exact" })
+            .in("id", plan.selector.popupRequestIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.platform_popup_owner_requests =
+            (dbDeleted.platform_popup_owner_requests ?? 0) + (count ?? 0);
+        }
+        if (
+          step.id === "db_popup_requests_by_store" &&
+          plan.selector.storeIds.length &&
+          plan.selectedScopes.includes("stores")
+        ) {
+          const { error, count } = await input.sb
+            .from("platform_popup_owner_requests")
+            .delete({ count: "exact" })
+            .in("store_id", plan.selector.storeIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.platform_popup_owner_requests =
+            (dbDeleted.platform_popup_owner_requests ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "coupon_user_entitlements") {
+        const couponIds = plan.selector.couponCampaignIds;
+        if (couponIds.length) {
+          const { error, count } = await input.sb
+            .from("coupon_user_entitlements")
+            .delete({ count: "exact" })
+            .in("campaign_id", couponIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.coupon_user_entitlements =
+            (dbDeleted.coupon_user_entitlements ?? 0) + (count ?? 0);
+        } else if (plan.selector.storeIds.length && plan.selectedScopes.includes("stores")) {
+          const { data: camps } = await input.sb
+            .from("store_coupon_campaigns")
+            .select("id")
+            .in("store_id", plan.selector.storeIds);
+          const ids = (camps ?? []).map((r) => String((r as { id?: string }).id ?? "")).filter(Boolean);
+          if (ids.length) {
+            const { error, count } = await input.sb
+              .from("coupon_user_entitlements")
+              .delete({ count: "exact" })
+              .in("campaign_id", ids);
+            if (error) throw new Error(error.message);
+            dbDeleted.coupon_user_entitlements =
+              (dbDeleted.coupon_user_entitlements ?? 0) + (count ?? 0);
+          }
+        }
+      }
+      if (step.table === "store_coupon_campaigns") {
+        const couponIds = plan.selector.couponCampaignIds;
+        if (couponIds.length) {
+          const { error, count } = await input.sb
+            .from("store_coupon_campaigns")
+            .delete({ count: "exact" })
+            .in("id", couponIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.store_coupon_campaigns =
+            (dbDeleted.store_coupon_campaigns ?? 0) + (count ?? 0);
+        } else if (plan.selector.storeIds.length && plan.selectedScopes.includes("stores")) {
+          const { error, count } = await input.sb
+            .from("store_coupon_campaigns")
+            .delete({ count: "exact" })
+            .in("store_id", plan.selector.storeIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.store_coupon_campaigns =
+            (dbDeleted.store_coupon_campaigns ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "support_cases") {
+        if (plan.selector.supportCaseIds.length) {
+          const { error, count } = await input.sb
+            .from("support_cases")
+            .delete({ count: "exact" })
+            .in("id", plan.selector.supportCaseIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.support_cases = (dbDeleted.support_cases ?? 0) + (count ?? 0);
+        }
+        if (plan.selector.memberIds.length && plan.selectedScopes.includes("members")) {
+          const { error, count } = await input.sb
+            .from("support_cases")
+            .delete({ count: "exact" })
+            .in("requester_user_id", plan.selector.memberIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.support_cases = (dbDeleted.support_cases ?? 0) + (count ?? 0);
+        }
+        if (plan.selector.storeIds.length && plan.selectedScopes.includes("stores")) {
+          const { error, count } = await input.sb
+            .from("support_cases")
+            .delete({ count: "exact" })
+            .in("owner_store_id", plan.selector.storeIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.support_cases = (dbDeleted.support_cases ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "notification_events" && plan.selector.memberIds.length) {
+        const { error, count } = await input.sb
+          .from("notification_events")
+          .delete({ count: "exact" })
+          .in("user_id", plan.selector.memberIds);
+        if (error) throw new Error(error.message);
+        dbDeleted.notification_events = (dbDeleted.notification_events ?? 0) + (count ?? 0);
+      }
+      if (step.table === "community_messenger_rooms" && plan.selector.chatRoomIds.length) {
+        const { data: rooms, error: roomErr } = await input.sb
+          .from("community_messenger_rooms")
+          .select("id, chat_domain, domain_identity_key")
+          .in("id", plan.selector.chatRoomIds);
+        if (roomErr) throw new Error(roomErr.message);
+        const safeIds: string[] = [];
+        for (const row of rooms ?? []) {
+          const r = row as {
+            id?: string;
+            chat_domain?: string;
+            domain_identity_key?: string | null;
+          };
+          const domain = String(r.chat_domain ?? "");
+          const identity = String(r.domain_identity_key ?? "");
+          const protectedChat =
+            domain === "trade" ||
+            domain === "store_order" ||
+            identity.startsWith("trade_") ||
+            identity.startsWith("store_order:");
+          if (!protectedChat && (domain === "general_direct" || domain === "group") && r.id) {
+            safeIds.push(String(r.id));
+          }
+        }
+        if (safeIds.length) {
+          const { error, count } = await input.sb
+            .from("community_messenger_rooms")
+            .delete({ count: "exact" })
+            .in("id", safeIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.community_messenger_rooms =
+            (dbDeleted.community_messenger_rooms ?? 0) + (count ?? 0);
+        }
+      }
     }
     phases.push({
       phase: "DB",
       status: "PASS",
       detail: JSON.stringify(dbDeleted),
       deletedCounts: {
-        content: (dbDeleted.posts ?? 0) + (dbDeleted.community_posts ?? 0),
-        ads: dbDeleted.delivery_ad_campaigns ?? 0,
+        content:
+          (dbDeleted.posts ?? 0) +
+          (dbDeleted.community_posts ?? 0) +
+          (dbDeleted.community_comments ?? 0),
+        ads:
+          (dbDeleted.delivery_ad_campaigns ?? 0) +
+          (dbDeleted.feed_ad_campaigns ?? 0) +
+          (dbDeleted.feed_ad_requests ?? 0) +
+          (dbDeleted.platform_popup_campaigns ?? 0) +
+          (dbDeleted.platform_popup_owner_requests ?? 0),
+        messages:
+          (dbDeleted.support_cases ?? 0) + (dbDeleted.community_messenger_rooms ?? 0),
+        notifications: dbDeleted.notification_events ?? 0,
+        other:
+          (dbDeleted.store_coupon_campaigns ?? 0) + (dbDeleted.coupon_user_entitlements ?? 0),
       },
     });
   } catch (e) {
