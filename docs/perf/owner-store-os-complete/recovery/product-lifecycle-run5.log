@@ -1,0 +1,10 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopbzz4",
+  "productId": null,
+  "storeSlug": "aa11",
+  "steps": {},
+  "final": "FAIL",
+  "error": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: /Select a category/i }).first()\n"
+}

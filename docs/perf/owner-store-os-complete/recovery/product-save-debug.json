@@ -1,0 +1,65 @@
+{
+  "QA": "QA StoreOS probe 1788631898597",
+  "after": {
+    "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "sample": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot toggle it here.\n\nCancel\nSave\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nOFF\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n30\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\nPROMOTIONS\nCoupons\nIssue and pause store coupons\nDetails\nGift certificates\nApply to sell paid gift certificates\nDetails\nBanners\nStore header banners\nDetails\nNotices\nNotices by placement\nDetails\nGROWTH\nAds\nApply for and manage Delivery ads\nDetails\nSYSTEM\nCustomer center\nDIBAY Support and history\nDetails\nAlerts & ops\nDelivery sounds (global admin)\nDetails\n← My profile (home)\n‹\nADD PRODUCT\n16",
+    "errors": []
+  },
+  "posts": [
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/menu-sections",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=jj8xd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=jj8xd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec&_rsc=jj8xd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products?_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/products/new?_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    },
+    {
+      "url": "https://samarket.vercel.app/stores/owner/menu-categories?_rsc=j6vsd",
+      "status": 200,
+      "method": "GET"
+    }
+  ]
+}

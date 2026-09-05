@@ -1,0 +1,41 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "target": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "finalUrl": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "hubCount": 1,
+  "entries": [
+    {
+      "id": "order-chat",
+      "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    {
+      "id": "store-inquiry",
+      "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    {
+      "id": "reviews",
+      "href": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    {
+      "id": "customer-center",
+      "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care"
+    }
+  ],
+  "customersHref": [
+    "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+    "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+  ],
+  "hops": [
+    {
+      "t": 1788630699348,
+      "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    {
+      "t": 1788630699739,
+      "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    }
+  ],
+  "bodySample": "Customer work queue\n\nOnly real unread/waiting counts. Store customers stay separate from DIBAY Support.\n\n1 customer items need attention\n\nBadges show real unread/open counts only — nothing invented.\n\nStore customers\nOrder chat\nDelivery and store order conversations\nOpen\nStore inquiry\nInquiries sent to this store\nOpen\nReviews\nCustomer reviews and replies\n1 need reply\n1\nHandle now\nDIBAY Support\n\nContact DIBAY admin via Customer Center → Support.\n\nCustomer center\nDIBAY Support and history\nOpen\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nOFF\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n30\nDetails\nOps & status\nApprov",
+  "verdict": "PASS_STAYS_ON_HUB"
+}

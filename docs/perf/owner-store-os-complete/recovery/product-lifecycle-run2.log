@@ -1,0 +1,10 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtop833j",
+  "productId": null,
+  "storeSlug": "aa11",
+  "steps": {},
+  "final": "FAIL",
+  "error": "locator.fill: Error: Input of type \"file\" cannot be filled\nCall log:\n  - waiting for locator('input:not([type=\"hidden\"]):not([type=\"checkbox\"]):not([type=\"radio\"]):not([inputmode=\"numeric\"])').first()\n    - locator resolved to <input multiple type=\"file\" id=\"_r_5dp_\" class=\"sr-only\" accept=\"image/jpeg,image/png,image/webp\"/>\n    - fill(\"QA StoreOS mtop833j\")\n  - attempting fill action\n    - waiting for element to be visible, enabled and editable\n"
+}

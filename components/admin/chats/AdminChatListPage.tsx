@@ -548,7 +548,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         onFiltersChange={setFilters}
         onSearchChange={setSearchQuery}
       />
-      {!loading && (filtered.length > 0 || rooms.length > 0) ? (
+      {!loading ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
             {t("admin_chat_selected_summary", {

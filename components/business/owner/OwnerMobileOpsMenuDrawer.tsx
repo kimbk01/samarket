@@ -61,6 +61,7 @@ export function OwnerMobileOpsMenuDrawer({
       ref={rootRef}
       data-biz="1"
       data-owner-ops-drawer-root
+      data-open={dataOpen}
       data-dibay-overlay="owner-ops-side-drawer"
       inert={!open}
     >

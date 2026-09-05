@@ -1,0 +1,58 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopqn0z",
+  "productId": "66a4d2cc-0acc-4f9a-8cc0-9f61cb9d026e",
+  "storeSlug": "aa11",
+  "steps": {
+    "apiPosts": [
+      {
+        "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"66a4d2cc-0acc-4f9a-8cc0-9f61cb9d026e\"}}"
+      }
+    ],
+    "create": {
+      "status": "PASS",
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "listed": 1
+    },
+    "dbCreate": {
+      "status": "PASS",
+      "productId": "66a4d2cc-0acc-4f9a-8cc0-9f61cb9d026e"
+    },
+    "forceActive": {
+      "status": "PASS_API",
+      "before": "hidden"
+    },
+    "storeVisibilityOn": {
+      "status": "PASS"
+    },
+    "buyerCreate": {
+      "status": "FAIL",
+      "url": "https://samarket.vercel.app/stores/aa11",
+      "productStatus": "active",
+      "bodyHasName": false
+    },
+    "edit": {
+      "status": "PASS",
+      "editedName": "QA StoreOS mtopqn0z EDIT"
+    },
+    "soldOut": {
+      "status": "PASS"
+    },
+    "buyerSoldOut": {
+      "status": "PASS",
+      "nameShown": false,
+      "soldCue": false
+    },
+    "cleanup": {
+      "status": "PASS"
+    },
+    "storeVisibilityRestore": {
+      "status": "PASS"
+    }
+  },
+  "final": "FAIL",
+  "qaNameEdited": "QA StoreOS mtopqn0z EDIT"
+}

@@ -26,8 +26,8 @@ export async function safeNotifyOwnerBusinessCashChargeCompleted(
     const amount = formatDeliveryAdPhpMinor(input.amountMinor);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
-      notification_type: "commerce",
-      push_kind: "delivery",
+      notification_type: "system",
+      push_kind: "marketing",
       title: notifySafeT(language, "notify_delivery_ad_cash_charge_completed_title"),
       body: notifySafeT(language, "notify_delivery_ad_cash_charge_completed_body", {
         vars: { amount },
@@ -60,8 +60,8 @@ export async function safeNotifyOwnerBusinessCashChargeRejected(
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
-      notification_type: "commerce",
-      push_kind: "delivery",
+      notification_type: "system",
+      push_kind: "marketing",
       title: notifySafeT(language, "notify_delivery_ad_cash_charge_rejected_title"),
       body: notifySafeT(language, "notify_delivery_ad_cash_charge_rejected_body"),
       link_url: DELIVERY_AD_OWNER_ROUTES.hub,

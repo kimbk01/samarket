@@ -87,6 +87,7 @@ export function InboxGroupCardList({
           event_type: item.event_type,
           bell_presentation_type: item.bell_presentation_type,
           campaign_type: item.campaign_type,
+          meta_kind: typeof item.meta?.kind === "string" ? item.meta.kind : null,
         });
         const categoryLabel = labelKey
           ? t(labelKey)

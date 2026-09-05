@@ -1,0 +1,32 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopif3d",
+  "productId": null,
+  "storeSlug": "aa11",
+  "steps": {
+    "apiPosts": [
+      {
+        "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"77d37159-3085-4c5c-b6c8-4b9428f5a722\"}}"
+      }
+    ],
+    "create": {
+      "status": "PASS",
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "listed": 1
+    },
+    "dbCreate": {
+      "status": "FAIL"
+    },
+    "buyerCreate": {
+      "status": "NOT_PROVEN",
+      "reason": "missing slug or product"
+    },
+    "cleanup": {
+      "status": "SKIP"
+    }
+  },
+  "final": "FAIL"
+}

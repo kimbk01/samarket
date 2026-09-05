@@ -1,0 +1,112 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "checkedAt": "2026-09-05T18:07:12.504Z",
+  "bellVsHamburger": {
+    "status": "PASS",
+    "bell": {
+      "notif": true,
+      "drawerVisible": false
+    },
+    "hamburger": {
+      "open": true,
+      "notifWhileOpen": false
+    }
+  },
+  "drawerMap": {
+    "status": "PASS",
+    "open": true,
+    "anchors": [
+      {
+        "href": "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Dashboard Metrics, orders & inquiries Details"
+      },
+      {
+        "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Orders New, refunds & status updates 30 Details"
+      },
+      {
+        "href": "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Ops & status Approval, visibility, sales rights & where to edit Details"
+      },
+      {
+        "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Product management List, sold out, visibility & edits Details"
+      },
+      {
+        "href": "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Add product Create product with options & photos Details"
+      },
+      {
+        "href": "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Categories Details"
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Customer care Order chat, store inquiry & customer center Details"
+      },
+      {
+        "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Order chat Delivery and store order conversations Details"
+      },
+      {
+        "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Store inquiries Reply to store inquiries Details"
+      },
+      {
+        "href": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Reviews Details"
+      },
+      {
+        "href": "/stores/owner/basic-info?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Basic info Logo, name, intro, contact & location Details"
+      },
+      {
+        "href": "/stores/owner/profile?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Store settings Hours, delivery, gallery & service type Details"
+      },
+      {
+        "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Coin · Cash Sales-linked Coin, Cash, top-up, convert & withdraw Details"
+      },
+      {
+        "href": "/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Settlements Per-order sales, fees & payout status Details"
+      },
+      {
+        "href": "/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Coupons Issue and pause store coupons Details"
+      },
+      {
+        "href": "/stores/owner/gift-certificates?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Gift certificates Apply to sell paid gift certificates Details"
+      },
+      {
+        "href": "/stores/owner/banners?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Banners Store header banners Details"
+      },
+      {
+        "href": "/stores/owner/notices?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Notices Notices by placement Details"
+      },
+      {
+        "href": "/stores/owner/ads?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Ads Apply for and manage Delivery ads Details"
+      },
+      {
+        "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+        "label": "Customer center DIBAY Support and history Details"
+      },
+      {
+        "href": "/stores/owner/settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "Alerts & ops Delivery sounds (global admin) Details"
+      },
+      {
+        "href": "/my",
+        "label": "← My profile (home)"
+      }
+    ],
+    "missing": [],
+    "sample": "eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nOFF\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n30\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out,"
+  }
+}

@@ -40,8 +40,8 @@ export async function safeNotifyDeliveryAdLifecycleOwner(
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
-      notification_type: "commerce",
-      push_kind: "delivery",
+      notification_type: "system",
+      push_kind: "marketing",
       title: notifySafeT(language, mapped.titleKey),
       body: notifySafeT(language, mapped.bodyKey),
       link_url: mapped.linkUrl,
@@ -87,8 +87,8 @@ export async function safeNotifyDeliveryAdHumanOwner(
     const language = await loadNotificationUserLanguage(sb, ownerUserId);
     await appendUserNotification(sb, {
       user_id: ownerUserId,
-      notification_type: "commerce",
-      push_kind: "delivery",
+      notification_type: "system",
+      push_kind: "marketing",
       title: notifySafeT(language, mapped.titleKey),
       body: notifySafeT(language, mapped.bodyKey),
       link_url: mapped.linkUrl,

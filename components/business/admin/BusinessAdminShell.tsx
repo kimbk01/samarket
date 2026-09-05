@@ -92,6 +92,10 @@ import {
   registerOwnerMobileOpsMenuOpen,
 } from "@/lib/business/owner-mobile-ops-menu-bridge";
 import { setOwnerOpsDrawerOpen } from "@/lib/business/owner-ops-drawer-open";
+import {
+  dispatchTier1HeaderOverlayClose,
+  TIER1_HEADER_OVERLAY_OPEN,
+} from "@/lib/layout/tier1-header-overlay-events";
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
   const peek = peekMeStoresListClientCache();
@@ -599,7 +603,15 @@ export function BusinessAdminShell({
   }, [basicInfoBackIntercept]);
 
   const openMobileOwnerMenu = useCallback(() => {
+    // Existing overlay contract: drawer must not stack under an open Tier1 notification panel.
+    dispatchTier1HeaderOverlayClose();
     setMobileMenuOpen(true);
+  }, []);
+
+  useEffect(() => {
+    const onNotificationOpen = () => setMobileMenuOpen(false);
+    window.addEventListener(TIER1_HEADER_OVERLAY_OPEN, onNotificationOpen);
+    return () => window.removeEventListener(TIER1_HEADER_OVERLAY_OPEN, onNotificationOpen);
   }, []);
 
   useLayoutEffect(() => {

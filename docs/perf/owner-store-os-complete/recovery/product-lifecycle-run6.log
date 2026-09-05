@@ -1,0 +1,26 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopd3yd",
+  "productId": null,
+  "storeSlug": "aa11",
+  "steps": {
+    "apiPosts": [],
+    "create": {
+      "status": "FAIL",
+      "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "listed": 0
+    },
+    "dbCreate": {
+      "status": "FAIL"
+    },
+    "buyerCreate": {
+      "status": "NOT_PROVEN",
+      "reason": "missing slug or product"
+    },
+    "cleanup": {
+      "status": "SKIP"
+    }
+  },
+  "final": "FAIL"
+}

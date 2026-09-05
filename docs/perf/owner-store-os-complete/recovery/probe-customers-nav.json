@@ -1,0 +1,167 @@
+{
+  "navDump": {
+    "links": [
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "View all",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Store inquiry\nInquiries sent to this sto",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+        "text": "Customer center\nDIBAY Support and histor",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+        "text": "Support history",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Customers",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Dashboard\nMetrics, orders & inquiries\nDe",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Customer care\nOrder chat, store inquiry ",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Store inquiries\nReply to store inquiries",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+        "text": "Customer center\nDIBAY Support and histor",
+        "aria": null
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Customers",
+        "aria": "Customers"
+      }
+    ],
+    "bottom": [
+      {
+        "href": "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Dashboard\nMetrics, orders & in"
+      },
+      {
+        "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Orders\nNew, refunds & status u"
+      },
+      {
+        "href": "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Ops & status\nApproval, visibil"
+      },
+      {
+        "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Product management\nList, sold "
+      },
+      {
+        "href": "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Add product\nCreate product wit"
+      },
+      {
+        "href": "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Categories\nDetails"
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Customer care\nOrder chat, stor"
+      },
+      {
+        "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Order chat\nDelivery and store "
+      },
+      {
+        "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Store inquiries\nReply to store"
+      },
+      {
+        "href": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Reviews\nDetails"
+      },
+      {
+        "href": "/stores/owner/basic-info?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Basic info\nLogo, name, intro, "
+      },
+      {
+        "href": "/stores/owner/profile?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Store settings\nHours, delivery"
+      },
+      {
+        "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Coin · Cash\nSales-linked Coin,"
+      },
+      {
+        "href": "/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Settlements\nPer-order sales, f"
+      },
+      {
+        "href": "/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Coupons\nIssue and pause store "
+      },
+      {
+        "href": "/stores/owner/gift-certificates?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Gift certificates\nApply to sel"
+      },
+      {
+        "href": "/stores/owner/banners?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Banners\nStore header banners\nD"
+      },
+      {
+        "href": "/stores/owner/notices?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Notices\nNotices by placement\nD"
+      },
+      {
+        "href": "/stores/owner/ads?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Ads\nApply for and manage Deliv"
+      },
+      {
+        "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+        "text": "Customer center\nDIBAY Support "
+      },
+      {
+        "href": "/stores/owner/settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Alerts & ops\nDelivery sounds ("
+      },
+      {
+        "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&fresh_list=1",
+        "text": "30\nOrders"
+      },
+      {
+        "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Products"
+      },
+      {
+        "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Customers"
+      },
+      {
+        "href": "/stores/owner/settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "text": "Manage"
+      }
+    ]
+  },
+  "clickTarget": "href-customer-care",
+  "finalUrl": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "hub": 1,
+  "hops": [
+    "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+  ],
+  "title": "Customer work queue"
+}

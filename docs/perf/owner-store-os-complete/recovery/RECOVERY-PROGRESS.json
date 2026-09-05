@@ -1,0 +1,37 @@
+{
+  "authority": "STORE-OS-RECOVERY-AUTHORITY.md",
+  "updatedAt": "2026-09-06T18:30:00Z",
+  "withdrawnPass": [
+    "DRAWER_COMPLETE_MAP",
+    "CUSTOMERS",
+    "WEB_SCENARIO_COMPLETION",
+    "BUYER_REFLECTION",
+    "NATIVE_UI",
+    "NEW_ORDER_SOUND"
+  ],
+  "supersededEvidence": [
+    "docs/perf/owner-store-os-complete/honesty-recheck/ (weak drawer body-regex / customers→inquiries URL as automatic redirect — not currently reproducible)"
+  ],
+  "current": {
+    "CUSTOMER_CANONICAL_ROUTE": "PASS_ON_PRODUCTION_PROBE",
+    "DRAWER_PANEL_MAP": "PASS_BEHAVIORAL",
+    "BELL_VS_HAMBURGER": "PASS_BEHAVIORAL",
+    "NOTIFICATION_CLASSIFICATION": "CODE_FIXED_PENDING_SHIP",
+    "LONG_PENDING_ORDER_UX": "CODE_FIXED_PENDING_SHIP",
+    "PRODUCT_CREATE": "PASS_BEHAVIORAL",
+    "PRODUCT_EDIT": "PASS_BEHAVIORAL",
+    "PRODUCT_SOLD_OUT": "PASS_BEHAVIORAL",
+    "BUYER_REFLECTION": "PASS_BEHAVIORAL",
+    "ORDER_SAFE_FLOW": "NOT_PROVEN",
+    "FINANCE_ACCOUNTING": "NOT_PROVEN",
+    "SETTLEMENT": "NOT_PROVEN",
+    "PROMOTION": "NOT_PROVEN",
+    "RESPONSIVE": "NOT_PROVEN_THIS_RUN",
+    "KO_OWNER": "NOT_PROVEN",
+    "EN_OWNER": "OBSERVED_EN_SESSION",
+    "IOS": "NOT_PROVEN",
+    "ANDROID": "NOT_PROVEN",
+    "SOUND": "NOT_PROVEN"
+  },
+  "productState": "FAIL / INCOMPLETE / NOT LOCKED"
+}

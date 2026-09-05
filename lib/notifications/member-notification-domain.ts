@@ -25,6 +25,8 @@ export type MemberNotificationDomainRow = {
   event_type?: string | null;
   bell_presentation_type?: string | null;
   campaign_type?: string | null;
+  /** display_payload / row meta.kind — historical delivery_ad_* mis-bucket repair */
+  meta_kind?: string | null;
 };
 
 function norm(v: unknown): string {
@@ -69,6 +71,12 @@ export function classifyMemberNotificationDomain(
     hasAny(tokens, ["inquiry_answered", "inbox_message_received", "member_admin_note"])
   ) {
     return null;
+  }
+
+  // Delivery Ads ops / Cash charge — never Orders & delivery (historical writer bug).
+  const metaKind = norm(row.meta_kind);
+  if (metaKind.startsWith("delivery_ad_")) {
+    return "marketing";
   }
 
   // Explicit campaign / push / presentation win first (notice ≠ system).

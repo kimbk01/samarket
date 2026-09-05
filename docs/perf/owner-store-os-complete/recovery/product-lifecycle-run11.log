@@ -1,0 +1,45 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopmp3e",
+  "productId": "50076378-1749-4f5a-abbd-34d39d369fa4",
+  "storeSlug": "aa11",
+  "steps": {
+    "apiPosts": [
+      {
+        "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"50076378-1749-4f5a-abbd-34d39d369fa4\"}}"
+      }
+    ],
+    "create": {
+      "status": "PASS",
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "listed": 1
+    },
+    "dbCreate": {
+      "status": "PASS",
+      "productId": "50076378-1749-4f5a-abbd-34d39d369fa4"
+    },
+    "buyerCreate": {
+      "status": "FAIL"
+    },
+    "edit": {
+      "status": "PASS",
+      "editedName": "QA StoreOS mtopmp3e EDIT"
+    },
+    "soldOut": {
+      "status": "PASS"
+    },
+    "buyerSoldOut": {
+      "status": "PASS",
+      "nameShown": false,
+      "soldCue": false
+    },
+    "cleanup": {
+      "status": "PASS"
+    }
+  },
+  "final": "FAIL",
+  "qaNameEdited": "QA StoreOS mtopmp3e EDIT"
+}

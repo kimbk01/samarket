@@ -19,7 +19,19 @@ import {
 } from "@/lib/business/owner-mobile-orders-tab";
 import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
+import {
+  classifyOwnerOrderStalePending,
+  type OwnerOrderStaleClass,
+} from "@/lib/business/owner-order-stale-pending";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+
+const STALE_SORT_RANK: Record<OwnerOrderStaleClass, number> = {
+  none: 0,
+  attention_pending: 1,
+  stale_pending: 2,
+  orphan_pending: 3,
+};
 const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_ORDER_TAB_IDS.map(
   (id) => {
     const labelById: Record<(typeof OWNER_MOBILE_ORDER_TAB_IDS)[number], MessageKey> = {
@@ -77,7 +89,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseChat: () => void;
   onCollapseTransient: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
@@ -121,12 +133,42 @@ export function OwnerStoreOrdersMobileBody({
       list = list.filter((o) => o.fulfillment_type === filterFulfillment);
     }
     list = [...list].sort((a, b) => {
+      if (effectiveTab === "new") {
+        const ca = classifyOwnerOrderStalePending({
+          orderStatus: a.order_status,
+          createdAt: a.created_at,
+        }).class;
+        const cb = classifyOwnerOrderStalePending({
+          orderStatus: b.order_status,
+          createdAt: b.created_at,
+        }).class;
+        const ra = STALE_SORT_RANK[ca];
+        const rb = STALE_SORT_RANK[cb];
+        if (ra !== rb) return ra - rb;
+      }
       const ta = new Date(a.created_at).getTime();
       const tb = new Date(b.created_at).getTime();
       return sortNewestFirst ? tb - ta : ta - tb;
     });
     return list;
   }, [orders, effectiveTab, searchQuery, filterFulfillment, sortNewestFirst]);
+
+  const { freshNewOrders, longWaitingNewOrders } = useMemo(() => {
+    if (effectiveTab !== "new") {
+      return { freshNewOrders: displayOrders, longWaitingNewOrders: [] as OwnerStoreOrderListRow[] };
+    }
+    const fresh: OwnerStoreOrderListRow[] = [];
+    const longWait: OwnerStoreOrderListRow[] = [];
+    for (const o of displayOrders) {
+      const cls = classifyOwnerOrderStalePending({
+        orderStatus: o.order_status,
+        createdAt: o.created_at,
+      }).class;
+      if (cls === "stale_pending" || cls === "orphan_pending") longWait.push(o);
+      else fresh.push(o);
+    }
+    return { freshNewOrders: fresh, longWaitingNewOrders: longWait };
+  }, [displayOrders, effectiveTab]);
 
   const scrollHighlightId = (scrollToHighlightOrderId || expandedOrderId).trim();
 
@@ -325,6 +367,80 @@ export function OwnerStoreOrdersMobileBody({
             <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
               <p className="font-bold text-[var(--biz-text)]">{t("store_owner_mobile_empty_title")}</p>
               <p className="mt-1">{t("store_owner_mobile_empty_hint")}</p>
+            </div>
+          ) : effectiveTab === "new" && longWaitingNewOrders.length > 0 ? (
+            <div className="space-y-4">
+              {freshNewOrders.length > 0 ? (
+                <section data-owner-orders-section="fresh-new" className="space-y-2.5">
+                  <h2 className="px-0.5 text-[12px] font-bold uppercase tracking-wide text-[#6B7280]">
+                    {ownerUiCopy(language, "지금 처리할 신규 주문", "Fresh actionable new orders")}
+                  </h2>
+                  <ul className="space-y-2.5">
+                    {freshNewOrders.map((o) => (
+                      <OwnerStoreOrderMockCard
+                        key={o.id}
+                        storeId={storeId}
+                        order={o}
+                        onUpdated={onUpdated}
+                        onPatchOrderRow={onPatchOrderRow}
+                        onReconcileOrder={onReconcileOrder}
+                        onOrderStatusPatched={onOrderStatusPatched}
+                        isHighlight={expandedOrderId === o.id || chatOrderId === o.id}
+                        isExpanded={expandedOrderId === o.id && !chatOrderId}
+                        onToggleExpanded={() => {
+                          if (expandedOrderId === o.id && !chatOrderId) {
+                            onCloseDetail();
+                          } else {
+                            onOpenDetail(o.id);
+                          }
+                        }}
+                        onOpenChat={() => onOpenChat(o.id)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              <section data-owner-orders-section="long-waiting" className="space-y-2.5">
+                <div className="rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-2">
+                  <h2 className="text-[13px] font-bold text-amber-950">
+                    {ownerUiCopy(
+                      language,
+                      `장기 미처리 pending ${longWaitingNewOrders.length}건`,
+                      `${longWaitingNewOrders.length} long-waiting pending`
+                    )}
+                  </h2>
+                  <p className="mt-0.5 text-[11px] leading-[1.35] text-amber-900/80">
+                    {ownerUiCopy(
+                      language,
+                      "시스템 TTL 없음 · 경과 시간을 숨기지 않습니다. 신규 긴급 주문과 분리된 운영 주의 구간입니다.",
+                      "No system TTL. Age is shown. Separated from fresh new-order urgency."
+                    )}
+                  </p>
+                </div>
+                <ul className="space-y-2.5">
+                  {longWaitingNewOrders.map((o) => (
+                    <OwnerStoreOrderMockCard
+                      key={o.id}
+                      storeId={storeId}
+                      order={o}
+                      onUpdated={onUpdated}
+                      onPatchOrderRow={onPatchOrderRow}
+                      onReconcileOrder={onReconcileOrder}
+                      onOrderStatusPatched={onOrderStatusPatched}
+                      isHighlight={expandedOrderId === o.id || chatOrderId === o.id}
+                      isExpanded={expandedOrderId === o.id && !chatOrderId}
+                      onToggleExpanded={() => {
+                        if (expandedOrderId === o.id && !chatOrderId) {
+                          onCloseDetail();
+                        } else {
+                          onOpenDetail(o.id);
+                        }
+                      }}
+                      onOpenChat={() => onOpenChat(o.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
             </div>
           ) : (
             <ul className="space-y-2.5">

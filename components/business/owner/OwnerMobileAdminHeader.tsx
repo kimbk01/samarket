@@ -180,6 +180,7 @@ export function OwnerMobileAdminHeader({
           <button
             type="button"
             className={`relative z-10 ${HEADER_ICON_BTN_CLASS}`}
+            data-owner-ops-menu-trigger="1"
             aria-label={t("store_owner_aria_open_menu")}
             aria-haspopup="dialog"
             aria-expanded={opsMenuOpen}

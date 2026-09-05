@@ -564,6 +564,7 @@ function matchesInboxPushKind(row: InboxNotificationRow, pushKind: InboxPushKind
         event_type: row.event_type,
         bell_presentation_type: row.bell_presentation_type,
         campaign_type: row.campaign_type,
+        meta_kind: typeof row.meta?.kind === "string" ? row.meta.kind : null,
       }) === pushKind
     );
   }

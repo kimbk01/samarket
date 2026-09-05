@@ -1,0 +1,52 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA StoreOS mtopok0o",
+  "productId": "1d562e37-caa7-4c9f-8faf-72523e065f58",
+  "storeSlug": "aa11",
+  "steps": {
+    "apiPosts": [
+      {
+        "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"1d562e37-caa7-4c9f-8faf-72523e065f58\"}}"
+      }
+    ],
+    "create": {
+      "status": "PASS",
+      "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "listed": 1
+    },
+    "dbCreate": {
+      "status": "PASS",
+      "productId": "1d562e37-caa7-4c9f-8faf-72523e065f58"
+    },
+    "storeVisibilityOn": {
+      "status": "PASS"
+    },
+    "buyerCreate": {
+      "status": "FAIL",
+      "url": "https://samarket.vercel.app/stores/aa11"
+    },
+    "edit": {
+      "status": "PASS",
+      "editedName": "QA StoreOS mtopok0o EDIT"
+    },
+    "soldOut": {
+      "status": "PASS"
+    },
+    "buyerSoldOut": {
+      "status": "PASS",
+      "nameShown": false,
+      "soldCue": false
+    },
+    "cleanup": {
+      "status": "PASS"
+    },
+    "storeVisibilityRestore": {
+      "status": "PASS"
+    }
+  },
+  "final": "FAIL",
+  "qaNameEdited": "QA StoreOS mtopok0o EDIT"
+}

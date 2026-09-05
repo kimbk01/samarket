@@ -139,4 +139,22 @@ describe("member notification domain IA SSOT", () => {
       )
     ).toBe(true);
   });
+
+  it("delivery_ad_* meta_kind is marketing even when legacy push_kind=delivery", () => {
+    expect(
+      classifyMemberNotificationDomain({
+        push_kind: "delivery",
+        notification_type: "commerce",
+        event_type: "order_status",
+        meta_kind: "delivery_ad_approved",
+      })
+    ).toBe("marketing");
+    expect(
+      classifyMemberNotificationDomain({
+        push_kind: "delivery",
+        notification_type: "commerce",
+        meta_kind: "delivery_ad_business_cash_charge_completed",
+      })
+    ).toBe("marketing");
+  });
 });

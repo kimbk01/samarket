@@ -1,0 +1,27 @@
+{
+  "qa": "QA StoreOS z1788632259540",
+  "submitInfo": {
+    "form": true,
+    "btn": {
+      "text": "Save",
+      "disabled": false
+    },
+    "drawerOpen": false
+  },
+  "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "posts": [
+    {
+      "m": "POST",
+      "u": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/upload-image",
+      "s": 200,
+      "b": "{\"ok\":true,\"url\":\"https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/f091919b-5044-45e0-9d63-fd64ea6d230d.webp\",\"path\":\"19085860-52d2-4183-b033-e71fcb58bcec/f091919b-5044-45e0-9d63-fd64ea6d230d.webp\",\"width\":512,\"height\":512,\"heroPath\":\"19085860-52d2-4183-b033-e71fcb58bcec/f091919b-5044-45e0-9d63-fd64ea6d230d.hero.webp\"}"
+    },
+    {
+      "m": "POST",
+      "u": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+      "s": 200,
+      "b": "{\"ok\":true,\"product\":{\"id\":\"3075539a-534a-4d2d-9312-36b634bb2a00\"}}"
+    }
+  ],
+  "sample": "Add category\nAdd product\n\nCategory\n\nAll\n소주류\n김밥류\n{신메뉴}\n만두류\n[오픈기념 한정 판매] 1.2인 분의 라면\n\nList filter\n\nAll statuses\nOn sale\nSold out\nHidden · draft\n\nadssda\n\n1,000peso\nSold out\nVisibility\nEdit\nDelete\n\n매운 라면의 아름 다운 밤 입니다.\n\n아싸 가오리 삐리 삐리뽀.. !!!!!!!!!!!!!!!\n\n2,000peso\nSold out\nVisibility\nEdit\nDelete\n\n오리지날 김밥\n\n할인인율 적용한 나의 김밥\n\n180peso\nSold out\nVisibility\nEdit\nDelete\n\n김치김밥\n\n졸라맛없는 김밥\n\n150peso\nSold out\nVisibility\nEdit\nDelete\n\nQA StoreOS z1788632259540\n\n123peso\n· Hidden\nSold out\nVisibility\nEdit\nDelete\n\n개똥의 맛을 즐기는 개똥\n\n개똥의 맛을 즐겨 보세요\n\n200peso\nSold out\nVisibility\nEdit\nDelete\n\n계란 라면\n\n150peso\nSold out\nVisibility\nEdit"
+}

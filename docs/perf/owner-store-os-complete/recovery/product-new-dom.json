@@ -1,0 +1,63 @@
+{
+  "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "inputs": [
+    {
+      "tag": "INPUT",
+      "type": "file",
+      "name": null,
+      "id": "_r_53a_",
+      "placeholder": null,
+      "aria": null
+    },
+    {
+      "tag": "INPUT",
+      "type": null,
+      "name": null,
+      "id": "",
+      "placeholder": null,
+      "aria": null
+    },
+    {
+      "tag": "INPUT",
+      "type": null,
+      "name": null,
+      "id": "",
+      "placeholder": "Short description shown in lists",
+      "aria": null
+    },
+    {
+      "tag": "INPUT",
+      "type": null,
+      "name": null,
+      "id": "",
+      "placeholder": "0",
+      "aria": null
+    },
+    {
+      "tag": "INPUT",
+      "type": null,
+      "name": null,
+      "id": "",
+      "placeholder": "0",
+      "aria": null
+    }
+  ],
+  "buttons": [
+    "Select a category\n▼",
+    "Basics",
+    "Options",
+    "Language",
+    "No stock tracking",
+    "Track stock",
+    "+\nAdd option group",
+    "Cancel",
+    "Save",
+    "OFF",
+    "ON",
+    "‹",
+    "16",
+    "Close",
+    "Don't show today"
+  ],
+  "sample": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot toggle it here.\n\nCancel\nSave\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nOFF\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n30\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\n"
+}

@@ -950,6 +950,10 @@ export function PhilifeHeaderNotificationInbox({
 
               className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border/90 bg-sam-surface shadow-[0_14px_36px_rgba(0,0,0,0.16)] ${popupMotionClass}`}
 
+              data-owner-notification-panel="1"
+
+              data-tier1-notification-panel="1"
+
               role="dialog"
 
               aria-modal="true"
@@ -1086,6 +1090,10 @@ export function PhilifeHeaderNotificationInbox({
         ref={triggerRef}
 
         type="button"
+
+        data-owner-notification-bell="1"
+
+        data-tier1-notification-bell="1"
 
         onClick={() => {
           unlockNotificationSoundAudio();
