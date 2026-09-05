@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "51389b430",
+  "path": "/admin/delivery-ads#action-required",
+  "checks": {
+    "marker": true,
+    "actionRequired": true,
+    "execution": true,
+    "creatives": true,
+    "placement": true,
+    "billing": true,
+    "entries": true,
+    "workQueues": true,
+    "bodyX": true,
+    "placementNeBanner": true,
+    "feedPointNote": true,
+    "deliveryCashNote": true,
+    "financeAdsEntry": true
+  },
+  "loginMethod": "magiclink",
+  "at": "2026-09-05T20:56:05.143Z"
+}
