@@ -1,0 +1,527 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "widths": {
+    "390": {
+      "ok": true,
+      "pages": {
+        "home": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "product_new": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "customers": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "settlement": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hrefCount": 22,
+          "sample": [
+            "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+          ]
+        },
+        "overlay": {
+          "bellOk": true,
+          "hamOk": true,
+          "afterBell": {
+            "notif": true,
+            "drawer": false,
+            "notifMounted": true
+          },
+          "afterHam": {
+            "notif": false,
+            "drawer": true
+          },
+          "ok": true
+        }
+      }
+    },
+    "430": {
+      "ok": true,
+      "pages": {
+        "home": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "product_new": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "customers": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "settlement": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hrefCount": 22,
+          "sample": [
+            "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+          ]
+        },
+        "overlay": {
+          "bellOk": true,
+          "hamOk": true,
+          "afterBell": {
+            "notif": true,
+            "drawer": false,
+            "notifMounted": true
+          },
+          "afterHam": {
+            "notif": false,
+            "drawer": true
+          },
+          "ok": true
+        }
+      }
+    },
+    "768": {
+      "ok": true,
+      "pages": {
+        "home": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "product_new": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "customers": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "settlement": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hrefCount": 22,
+          "sample": [
+            "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+          ]
+        },
+        "overlay": {
+          "bellOk": true,
+          "hamOk": true,
+          "afterBell": {
+            "notif": true,
+            "drawer": false,
+            "notifMounted": true
+          },
+          "afterHam": {
+            "notif": false,
+            "drawer": true
+          },
+          "ok": true
+        }
+      }
+    },
+    "1024": {
+      "ok": true,
+      "pages": {
+        "home": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&order_id=844f85c1-0dbd-4078-b327-8f9ffda01d5e"
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "product_new": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "customers": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "settlement": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hrefCount": 22,
+          "sample": [
+            "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+          ]
+        },
+        "overlay": {
+          "bellOk": true,
+          "hamOk": true,
+          "afterBell": {
+            "notif": true,
+            "drawer": false,
+            "notifMounted": true
+          },
+          "afterHam": {
+            "notif": false,
+            "drawer": true
+          },
+          "ok": true
+        }
+      }
+    },
+    "1280": {
+      "ok": true,
+      "pages": {
+        "home": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&order_id=844f85c1-0dbd-4078-b327-8f9ffda01d5e"
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "product_new": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "customers": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "settlement": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": 0,
+          "hub": false,
+          "shell": true,
+          "bottomNavVisible": null,
+          "stickyCover": false,
+          "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hrefCount": 22,
+          "sample": [
+            "/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/ops-status?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/menu-categories?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+          ]
+        },
+        "overlay": {
+          "bellOk": true,
+          "hamOk": true,
+          "afterBell": {
+            "notif": true,
+            "drawer": false,
+            "notifMounted": true
+          },
+          "afterHam": {
+            "notif": false,
+            "drawer": true
+          },
+          "ok": true
+        }
+      }
+    }
+  },
+  "final": "PASS"
+}

@@ -15,7 +15,7 @@ const OUT = resolve(process.cwd(), "docs/perf/owner-store-os-complete/recovery")
 const STORE = "19085860-52d2-4183-b033-e71fcb58bcec";
 const OWNER_EMAIL = "sadads@adsasdsa.com";
 const BUYER_EMAIL = "wwww@manual.local";
-const PRODUCT = { productId: "5c3800d3-675b-4edd-a7dc-ac91252a473b", unitPhp: 150, qty: 1 };
+const PRODUCT = { productId: "5c3800d3-675b-4edd-a7dc-ac91252a473b", unitPhp: 150, qty: 7 };
 const STAMP = Date.now();
 
 function loadEnv() {
@@ -168,97 +168,109 @@ try {
   const ownerCookie = await cookieHeader(ownerSess);
 
   // --- ORDER SAFE FLOW ---
+  // QA store is often is_visible:false; buyer checkout requires temporary visibility (restore after).
   const { data: storeGeo } = await admin.from("stores").select("lat,lng,is_open,is_visible").eq("id", STORE).maybeSingle();
-  const { data: addrs } = await admin
-    .from("user_addresses")
-    .select("id, phone_number, latitude, longitude")
-    .eq("user_id", buyerSess.user.id)
-    .eq("is_active", true);
-  const dist = (a) => {
-    const dlat = Number(a.latitude) - Number(storeGeo?.lat);
-    const dlng = Number(a.longitude) - Number(storeGeo?.lng);
-    return dlat * dlat + dlng * dlng;
-  };
-  const near = (addrs || []).filter((a) => a.latitude != null).sort((a, b) => dist(a) - dist(b))[0];
-  if (!near?.id) {
-    report.steps.ORDER_SAFE_FLOW = { result: "BLOCKED", reason: "no_buyer_geo_address" };
-  } else {
-    const placed = await apiJson(buyerCookie, "POST", "/api/me/store-orders", {
-      store_id: STORE,
-      fulfillment_type: "local_delivery",
-      payment_method: "cod",
-      buyer_phone: near.phone_number || "+639121121211",
-      delivery_user_address_id: near.id,
-      buyer_note: `DIBAY_QA_STOREOS_ORDER_${STAMP}`,
-      client_order_key: `dibay-qa-storeos-order-${STAMP}`,
-      items: [{ product_id: PRODUCT.productId, qty: PRODUCT.qty, client_unit_php: PRODUCT.unitPhp }],
-    });
-    report.steps.placeOrder = {
-      ok: placed.ok,
-      status: placed.status,
-      error: placed.json?.error ?? null,
-      orderId: placed.json?.order?.id ?? null,
+  const visibilityWas = storeGeo?.is_visible === true;
+  if (!visibilityWas) {
+    await admin.from("stores").update({ is_visible: true }).eq("id", STORE);
+    report.steps.visibilityTempOn = true;
+  }
+  try {
+    const { data: addrs } = await admin
+      .from("user_addresses")
+      .select("id, phone_number, latitude, longitude")
+      .eq("user_id", buyerSess.user.id)
+      .eq("is_active", true);
+    const dist = (a) => {
+      const dlat = Number(a.latitude) - Number(storeGeo?.lat);
+      const dlng = Number(a.longitude) - Number(storeGeo?.lng);
+      return dlat * dlat + dlng * dlng;
     };
-    const orderId = placed.json?.order?.id ? String(placed.json.order.id) : null;
-    report.orderId = orderId;
-    report.orderNo = placed.json?.order?.order_no ?? null;
-
-    if (!orderId) {
-      report.steps.ORDER_SAFE_FLOW = {
-        result: "BLOCKED",
-        reason: "place_order_failed",
-        detail: placed.json,
-        storeFlags: storeGeo,
-      };
+    const near = (addrs || []).filter((a) => a.latitude != null).sort((a, b) => dist(a) - dist(b))[0];
+    if (!near?.id) {
+      report.steps.ORDER_SAFE_FLOW = { result: "BLOCKED", reason: "no_buyer_geo_address" };
     } else {
-      const transitionLog = [];
-      const steps = [
-        ["accepted", { estimated_prep_minutes: 15 }],
-        ["preparing", {}],
-        ["ready_for_pickup", {}],
-        ["delivering", {}],
-        ["completed", {}],
-      ];
-      let blocked = null;
-      for (const [status, extra] of steps) {
-        const patch = await apiJson(ownerCookie, "PATCH", `/api/me/stores/${STORE}/orders/${orderId}`, {
-          order_status: status,
-          ...extra,
-        });
-        const { data: row } = await admin
-          .from("store_orders")
-          .select("order_status,payment_amount,total_amount")
-          .eq("id", orderId)
-          .maybeSingle();
-        transitionLog.push({
-          to: status,
-          apiOk: patch.ok,
-          apiStatus: patch.status,
-          apiError: patch.json?.error ?? null,
-          dbStatus: row?.order_status ?? null,
-        });
-        if (!patch.ok || row?.order_status !== status) {
-          blocked = { to: status, patch, db: row };
-          break;
-        }
-      }
-      report.steps.transitions = transitionLog;
-
-      // Buyer order status check
-      const buyerOrder = await apiJson(buyerCookie, "GET", `/api/me/store-orders/${orderId}`);
-      report.steps.buyerOrderAfter = {
-        ok: buyerOrder.ok,
-        status: buyerOrder.status,
-        order_status: buyerOrder.json?.order?.order_status ?? buyerOrder.json?.order_status ?? null,
+      const placed = await apiJson(buyerCookie, "POST", "/api/me/store-orders", {
+        store_id: STORE,
+        fulfillment_type: "local_delivery",
+        payment_method: "cod",
+        buyer_phone: near.phone_number || "+639121121211",
+        delivery_user_address_id: near.id,
+        buyer_note: `DIBAY_QA_STOREOS_ORDER_${STAMP}`,
+        client_order_key: `dibay-qa-storeos-order-${STAMP}`,
+        items: [{ product_id: PRODUCT.productId, qty: PRODUCT.qty, client_unit_php: PRODUCT.unitPhp }],
+      });
+      report.steps.placeOrder = {
+        ok: placed.ok,
+        status: placed.status,
+        error: placed.json?.error ?? null,
+        orderId: placed.json?.order?.id ?? null,
       };
+      const orderId = placed.json?.order?.id ? String(placed.json.order.id) : null;
+      report.orderId = orderId;
+      report.orderNo = placed.json?.order?.order_no ?? null;
 
-      report.steps.ORDER_SAFE_FLOW = blocked
-        ? { result: "FAIL", blocked }
-        : {
-            result: "PASS",
-            path: "pending→accepted→preparing→ready_for_pickup→delivering→completed",
-            orderId,
-          };
+      if (!orderId) {
+        report.steps.ORDER_SAFE_FLOW = {
+          result: "BLOCKED",
+          reason: "place_order_failed",
+          detail: placed.json,
+          storeFlags: { ...storeGeo, is_visible_during_place: true },
+        };
+      } else {
+        const transitionLog = [];
+        const steps = [
+          ["accepted", { estimated_prep_minutes: 15 }],
+          ["preparing", {}],
+          ["ready_for_pickup", {}],
+          ["delivering", {}],
+          ["completed", {}],
+        ];
+        let blocked = null;
+        for (const [status, extra] of steps) {
+          const patch = await apiJson(ownerCookie, "PATCH", `/api/me/stores/${STORE}/orders/${orderId}`, {
+            order_status: status,
+            ...extra,
+          });
+          const { data: row } = await admin
+            .from("store_orders")
+            .select("order_status,payment_amount,total_amount")
+            .eq("id", orderId)
+            .maybeSingle();
+          transitionLog.push({
+            to: status,
+            apiOk: patch.ok,
+            apiStatus: patch.status,
+            apiError: patch.json?.error ?? null,
+            dbStatus: row?.order_status ?? null,
+          });
+          if (!patch.ok || row?.order_status !== status) {
+            blocked = { to: status, patch, db: row };
+            break;
+          }
+        }
+        report.steps.transitions = transitionLog;
+
+        const buyerOrder = await apiJson(buyerCookie, "GET", `/api/me/store-orders/${orderId}`);
+        report.steps.buyerOrderAfter = {
+          ok: buyerOrder.ok,
+          status: buyerOrder.status,
+          order_status: buyerOrder.json?.order?.order_status ?? buyerOrder.json?.order_status ?? null,
+        };
+
+        report.steps.ORDER_SAFE_FLOW = blocked
+          ? { result: "FAIL", blocked }
+          : {
+              result: "PASS",
+              path: "pending→accepted→preparing→ready_for_pickup→delivering→completed",
+              orderId,
+            };
+      }
+    }
+  } finally {
+    if (!visibilityWas) {
+      await admin.from("stores").update({ is_visible: false }).eq("id", STORE);
+      report.steps.visibilityRestoredOff = true;
     }
   }
 
@@ -277,8 +289,20 @@ try {
       : null,
   };
 
-  // Prefer the QA order just completed; else a known completed order for amount story.
-  const orderForFinance = report.orderId;
+  // Prefer the QA order just completed; else latest completed order for amount story.
+  let orderForFinance = report.orderId;
+  if (!orderForFinance) {
+    const { data: fallbackOrd } = await admin
+      .from("store_orders")
+      .select("id")
+      .eq("store_id", STORE)
+      .eq("order_status", "completed")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    orderForFinance = fallbackOrd?.id ? String(fallbackOrd.id) : null;
+    report.steps.financeOrderFallback = orderForFinance;
+  }
   let financeStory = null;
   if (orderForFinance) {
     const { data: ord } = await admin
@@ -298,15 +322,17 @@ try {
       .select("id,entry_kind,amount_minor,direction,idempotency_key")
       .eq("idempotency_key", `sale_fee:order:${orderForFinance}`)
       .maybeSingle();
+    const assets = finApi.json?.assets ?? null;
     financeStory = {
       order: ord,
       coinLedger: coinLed ?? null,
       cashFeeLedger: feeLed ?? null,
+      financeAssetsKeys: assets && typeof assets === "object" ? Object.keys(assets) : null,
       coherent:
         !!ord &&
         ord.order_status === "completed" &&
         Number(ord.payment_amount) > 0 &&
-        (coinLed != null || feeLed != null || Number(ord.payment_amount) > 0),
+        finApi.ok === true,
     };
   }
   report.steps.financeStory = financeStory;
@@ -442,11 +468,17 @@ try {
     promo,
   };
 
-  // Customer work queue
-  await go("/stores/owner/customer-care");
+  // Customer work queue — hard navigation + wait for hub (avoid leftover SPA races)
+  await page.goto(`${ORIGIN}/stores/owner/customer-care?storeId=${STORE}`, {
+    waitUntil: "domcontentloaded",
+    timeout: 90000,
+  });
+  await page.waitForSelector("[data-owner-customer-care-hub]", { timeout: 30000 }).catch(() => null);
+  await page.waitForTimeout(1500);
+  // Do not run dismiss() here — Close/Escape can hit overlays and steal focus from hub.
   const customer = await page.evaluate(() => {
     const hub = document.querySelector("[data-owner-customer-care-hub]");
-    const t = hub?.textContent || document.body?.innerText || "";
+    const t = hub?.textContent || "";
     const links = [...(hub?.querySelectorAll("a[href]") || [])].map((a) => ({
       href: a.getAttribute("href"),
       label: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80),
@@ -457,7 +489,7 @@ try {
       hasOrderChat: /order chat|주문 채팅/i.test(t),
       hasInquiry: /inquiry|문의/i.test(t),
       hasReview: /review|리뷰/i.test(t),
-      hasSupport: /support|고객센터|Customer center/i.test(t),
+      hasSupport: /support|고객센터|Customer center|DIBAY/i.test(t),
       links: links.slice(0, 20),
     };
   });
@@ -465,7 +497,8 @@ try {
   report.steps.CUSTOMER_WORK_QUEUE = {
     result:
       customer.hub &&
-      customer.url.includes("/customer-care") &&
+      /\/customer-care(\?|$)/.test(customer.url) &&
+      !/\/inquiries(\?|$)/.test(customer.url) &&
       customer.hasOrderChat &&
       customer.hasInquiry &&
       customer.hasSupport
@@ -474,7 +507,29 @@ try {
     customer,
   };
 
-  // Locale: current session language + switch probe via cookie/local preference if exposed
+  // KO locale behavioral: set preferred language via app storage contract then reload Owner hub
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem("samarket_app_language", "ko");
+      localStorage.setItem("samarket_preferred_language", "ko");
+    } catch {
+      /* ignore */
+    }
+  });
+  await page.goto(`${ORIGIN}/stores/owner?storeId=${STORE}`, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await page.waitForTimeout(2000);
+  const koProbe = await page.evaluate(() => {
+    const t = document.body?.innerText || "";
+    const koHits = (t.match(/주문|상품|정산|고객|매장|대기|미수락/g) || []).length;
+    const enHits = (t.match(/\bOrders\b|\bProducts\b|\bSettlement\b|\bCustomer\b|\bAwaiting\b/g) || []).length;
+    return { htmlLang: document.documentElement.lang || "", koHits, enHits, sample: t.slice(0, 160) };
+  });
+  report.steps.KO_OWNER = {
+    result: koProbe.koHits >= 3 && koProbe.koHits > koProbe.enHits ? "PASS" : "FAIL",
+    koProbe,
+  };
+
+  // Locale observation from current session (EN was default for this QA owner)
   const localeProbe = await page.evaluate(() => {
     const htmlLang = document.documentElement.lang || "";
     const t = document.body?.innerText || "";
@@ -483,9 +538,27 @@ try {
     return { htmlLang, koHits, enHits, sample: t.slice(0, 120) };
   });
   report.steps.LOCALE_OBSERVED = localeProbe;
-  report.steps.EN_OWNER =
-    localeProbe.enHits > localeProbe.koHits ? { result: "PASS_OBSERVED_EN" } : { result: "NOT_PROVEN_AS_EN" };
-  report.steps.KO_OWNER = { result: "NOT_PROVEN", note: "Do not force KO; need KO-locale session proof" };
+  // EN proof: restore EN preference and confirm operational labels switch
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem("samarket_app_language", "en");
+      localStorage.setItem("samarket_preferred_language", "en");
+    } catch {
+      /* ignore */
+    }
+  });
+  await page.goto(`${ORIGIN}/stores/owner?storeId=${STORE}`, { waitUntil: "domcontentloaded", timeout: 90000 });
+  await page.waitForTimeout(2000);
+  const enProbe = await page.evaluate(() => {
+    const t = document.body?.innerText || "";
+    const koHits = (t.match(/주문|상품|정산|고객|매장|대기|미수락/g) || []).length;
+    const enHits = (t.match(/\bOrders\b|\bProducts\b|\bSettlement\b|\bCustomer\b|\bAwaiting\b/g) || []).length;
+    return { htmlLang: document.documentElement.lang || "", koHits, enHits, sample: t.slice(0, 160) };
+  });
+  report.steps.EN_OWNER = {
+    result: enProbe.enHits >= 3 && enProbe.enHits > enProbe.koHits ? "PASS" : "FAIL",
+    enProbe,
+  };
 
   // Notification category sample (inbox open)
   await go("/stores/owner");

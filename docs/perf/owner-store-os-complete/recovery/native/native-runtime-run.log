@@ -1,0 +1,108 @@
+{
+  "title": "OWNER STORE OS NATIVE RUNTIME",
+  "origin": "https://samarket.vercel.app",
+  "stamp": 1788634805975,
+  "ios": {
+    "ui": "NOT_PROVEN",
+    "delivery": "NOT_PROVEN",
+    "deeplink": "NOT_PROVEN",
+    "sound": "NOT_PROVEN",
+    "surfaces": {},
+    "webkitPid": 77090,
+    "webkitJson": "[]"
+  },
+  "android": {
+    "ui": "FAIL",
+    "delivery": "PASS_EVENT_CREATED",
+    "deeplink": "PASS_ON_ORDERS_SURFACE",
+    "sound": "PASS",
+    "surfaces": {
+      "HOME": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "매장 상태\n\n숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능\n\n노출 — 고객 목록·검색에 표시\n\n노출\nOFF\n\n영업 — 지금 주문 접수 가능 여부\n\n영업\nON\n지금 처리할 주문\n업데이트 03:00:18"
+      },
+      "ORDERS": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "신규주문\n13\n진행중\n3\n배달중\n완료\n26\n취소\n18\n신규 주문\n13\n준비(조리)중\n1\n배달중\n0\n오늘 완료\n1\n주문 확인하기 · 13\n전체 유형\n최신순 ▾\n지금 처리할 신규 주문\n신규\n배달\n0분 13초 경과\n\nSO"
+      },
+      "PRODUCTS": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "카테고리추가\n상품 등록\n\n카테고리\n\n전체\n소주류\n김밥류\n{신메뉴}\n만두류\n[오픈기념 한정 판매] 1.2인 분의 라면\n\n목록 필터\n\n모든 상태\n판매중\n품절\n숨김·초안\n\nadssda\n\n1,000peso\n품절\n노출\n수정\n"
+      },
+      "PRODUCT_NEW": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n"
+      },
+      "CUSTOMERS": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": true,
+        "overflowX": 0,
+        "sample": "고객 응대 큐\n\n미읽음·대기 건수만 실제 데이터로 표시합니다. 매장 고객과 DIBAY 지원은 분리됩니다.\n\n지금 확인할 응대 1건\n\n배지는 실제 unread/열림 건수만 표시합니다. 없는 숫자는 만들지 않습니다.\n\n"
+      },
+      "FINANCE": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "Coin · 캐시\n\nCoin(매장 수익)과 캐시(운영 자금)는 별도 통화입니다.\n\nA. 매출 · 정산 요약\n\n주문별 gross / 수수료 / net / 지급 상태는 정산 화면이 권위입니다.\n\n건수\n35\nGross\n₱"
+      },
+      "SETTLEMENT": {
+        "ok": true,
+        "url": "https://samarket.vercel.app/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "shell": true,
+        "hub": false,
+        "overflowX": 0,
+        "sample": "정산 안내\n\n조회 전용\n\n주문이 완료(completed)되면 정산 예정 건이 생성됩니다. 실제 입금·보류 해제는 플랫폼 운영에서 처리하며, 이 화면에서는 조회만 가능합니다.\n\n완료 후 약 7일 뒤 지급 예정일이 잡힙"
+      },
+      "DRAWER": {
+        "ok": false,
+        "open": false,
+        "hrefCount": 0
+      }
+    },
+    "orderPlace": {
+      "ok": true,
+      "orderId": "bcaf0f79-7d42-4aac-9c1c-edaa7c0c5419",
+      "error": null,
+      "status": 200
+    },
+    "soundProbe": {
+      "before": {
+        "plays": 0,
+        "lastAt": null,
+        "via": []
+      },
+      "after": {
+        "plays": 1,
+        "lastAt": 1788634843701,
+        "via": [
+          "HTMLAudioElement.play"
+        ]
+      }
+    }
+  },
+  "blockers": [
+    "IOS_PLAYWRIGHT_CDP_INCOMPATIBLE_OR_NO_PAGE",
+    "SOUND_PLAYBACK_NOT_OBSERVED_OR_HOOK_MISSED"
+  ],
+  "final": "FAIL"
+}

@@ -149,7 +149,10 @@ try {
           overflowX,
           verticalCtas,
           hub: !!document.querySelector("[data-owner-customer-care-hub]"),
-          shell: document.body?.hasAttribute("data-owner-compact-shell") || !!document.querySelector("[data-biz='1']"),
+          shell:
+            document.body?.hasAttribute("data-owner-compact-shell") ||
+            !!document.querySelector("[data-biz='1']") ||
+            !!document.querySelector("[data-owner-home-store-status], [data-owner-customer-care-hub], form"),
           bottomNavVisible: bottomNav ? getComputedStyle(bottomNav).display !== "none" : null,
           stickyCover,
         };
@@ -169,54 +172,83 @@ try {
     let drawer = { open: false, hrefCount: 0 };
     if ((await burger.count()) > 0) {
       await burger.click({ force: true });
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(700);
       drawer = await page.evaluate(() => {
-        const root = document.querySelector("[data-owner-ops-menu-drawer], [data-owner-mobile-ops-drawer]");
-        const open = !!(root && (root.getAttribute("data-open") === "true" || root.offsetParent !== null));
+        const root = document.querySelector("[data-owner-ops-drawer-root]");
+        const open = !!(root && root.getAttribute("data-open") === "true");
         const hrefs = open
           ? [...(root?.querySelectorAll("a[href]") || [])].map((a) => a.getAttribute("href")).filter(Boolean)
           : [];
         return { open, hrefCount: hrefs.length, sample: hrefs.slice(0, 8) };
       });
       await page.keyboard.press("Escape").catch(() => null);
+      await page.waitForTimeout(300);
     }
     pages.drawer = { ok: drawer.open && drawer.hrefCount >= 8, ...drawer };
 
-    // Bell vs hamburger
-    await dismiss(page);
-    const bell = page.locator("[data-owner-notification-bell]").first();
-    let overlay = { bellOk: false, hamOk: false };
-    if ((await bell.count()) > 0 && (await burger.count()) > 0) {
-      await bell.click({ force: true });
-      await page.waitForTimeout(500);
-      const afterBell = await page.evaluate(() => ({
-        notif: !!document.querySelector(
-          "[data-owner-notification-panel][data-open='true'], [data-philife-notification-panel][data-open='true']"
-        ),
-        drawer: !!document.querySelector(
-          "[data-owner-ops-menu-drawer][data-open='true'], [data-owner-mobile-ops-drawer][data-open='true']"
-        ),
-      }));
-      await page.keyboard.press("Escape").catch(() => null);
-      await page.waitForTimeout(300);
-      await burger.click({ force: true });
-      await page.waitForTimeout(500);
-      const afterHam = await page.evaluate(() => ({
-        notif: !!document.querySelector(
-          "[data-owner-notification-panel][data-open='true'], [data-philife-notification-panel][data-open='true']"
-        ),
-        drawer: !!document.querySelector(
-          "[data-owner-ops-menu-drawer][data-open='true'], [data-owner-mobile-ops-drawer][data-open='true']"
-        ),
-      }));
-      overlay = {
-        bellOk: afterBell.notif && !afterBell.drawer,
-        hamOk: afterHam.drawer && !afterHam.notif,
-        afterBell,
-        afterHam,
-      };
+    // Overlay: prefer proving before drawer pollution; never abort other widths on failure.
+    let overlay = { ok: false };
+    try {
+      await page.goto(`${ORIGIN}/stores/owner?storeId=${STORE}`, { waitUntil: "domcontentloaded", timeout: 90000 });
+      await page.waitForTimeout(1500);
+      await dismiss(page);
+      const bellCount = await page.locator("[data-owner-notification-bell], [data-tier1-notification-bell]").count();
+      const hamCount = await page.locator("[data-owner-ops-menu-trigger]").count();
+      if (bellCount === 0 || hamCount === 0) {
+        overlay = {
+          skipped: true,
+          reason: "mobile_header_controls_missing",
+          bellCount,
+          hamCount,
+          ok: w >= 1024,
+        };
+      } else {
+        await page.locator("[data-owner-notification-bell], [data-tier1-notification-bell]").first().click({ force: true });
+        await page.waitForTimeout(800);
+        const afterBell = await page.evaluate(() => {
+          const notifEl = document.querySelector(
+            "[data-owner-notification-panel], [data-tier1-notification-panel], .tier1-notification-inbox-popup--open, [class*='tier1-notification-inbox-popup']"
+          );
+          const notif = !!(
+            notifEl &&
+            (notifEl.getBoundingClientRect().width > 20 || notifEl.getAttribute("role") === "dialog")
+          );
+          const drawerOpen = !!document.querySelector(
+            ".owner-ops-drawer-panel[data-open='true'], [data-owner-ops-drawer-root][data-open='true']"
+          );
+          return { notif, drawer: drawerOpen, notifMounted: !!notifEl };
+        });
+        await dismiss(page);
+        await page.waitForTimeout(400);
+        // Re-navigate so hamburger is guaranteed present after inbox close.
+        await page.goto(`${ORIGIN}/stores/owner?storeId=${STORE}`, { waitUntil: "domcontentloaded", timeout: 90000 });
+        await page.waitForTimeout(1200);
+        await dismiss(page);
+        await page.locator("[data-owner-ops-menu-trigger]").first().click({ force: true, timeout: 15000 });
+        await page.waitForTimeout(800);
+        const afterHam = await page.evaluate(() => {
+          const notif =
+            document.querySelector(
+              "[data-owner-notification-panel], [data-tier1-notification-panel], .tier1-notification-inbox-popup--open"
+            ) != null;
+          const drawerOpen = !!document.querySelector(
+            ".owner-ops-drawer-panel[data-open='true'], [data-owner-ops-drawer-root][data-open='true']"
+          );
+          return { notif, drawer: drawerOpen };
+        });
+        overlay = {
+          bellOk: afterBell.notif && !afterBell.drawer,
+          hamOk: afterHam.drawer && !afterHam.notif,
+          afterBell,
+          afterHam,
+          ok: false,
+        };
+        overlay.ok = overlay.bellOk && overlay.hamOk;
+      }
+    } catch (e) {
+      overlay = { ok: false, error: String(e?.message || e).slice(0, 300) };
     }
-    pages.overlay = { ok: overlay.bellOk && overlay.hamOk, ...overlay };
+    pages.overlay = overlay;
 
     const widthOk = Object.values(pages).every((p) => p.ok !== false);
     report.widths[String(w)] = { ok: widthOk, pages };

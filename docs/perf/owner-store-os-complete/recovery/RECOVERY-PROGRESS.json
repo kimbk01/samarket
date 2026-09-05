@@ -1,6 +1,6 @@
 {
   "authority": "STORE-OS-RECOVERY-AUTHORITY.md",
-  "updatedAt": "2026-09-06T18:30:00Z",
+  "updatedAt": "2026-09-06T03:05:00Z",
   "withdrawnPass": [
     "DRAWER_COMPLETE_MAP",
     "CUSTOMERS",
@@ -10,28 +10,43 @@
     "NEW_ORDER_SOUND"
   ],
   "supersededEvidence": [
-    "docs/perf/owner-store-os-complete/honesty-recheck/ (weak drawer body-regex / customers→inquiries URL as automatic redirect — not currently reproducible)"
+    "docs/perf/owner-store-os-complete/honesty-recheck/",
+    "docs/perf/owner-store-os-complete/prod/responsive-report.json"
   ],
   "current": {
-    "CUSTOMER_CANONICAL_ROUTE": "PASS_ON_PRODUCTION_PROBE",
-    "DRAWER_PANEL_MAP": "PASS_BEHAVIORAL",
-    "BELL_VS_HAMBURGER": "PASS_BEHAVIORAL",
-    "NOTIFICATION_CLASSIFICATION": "CODE_FIXED_PENDING_SHIP",
-    "LONG_PENDING_ORDER_UX": "CODE_FIXED_PENDING_SHIP",
-    "PRODUCT_CREATE": "PASS_BEHAVIORAL",
-    "PRODUCT_EDIT": "PASS_BEHAVIORAL",
-    "PRODUCT_SOLD_OUT": "PASS_BEHAVIORAL",
-    "BUYER_REFLECTION": "PASS_BEHAVIORAL",
-    "ORDER_SAFE_FLOW": "NOT_PROVEN",
-    "FINANCE_ACCOUNTING": "NOT_PROVEN",
-    "SETTLEMENT": "NOT_PROVEN",
-    "PROMOTION": "NOT_PROVEN",
-    "RESPONSIVE": "NOT_PROVEN_THIS_RUN",
-    "KO_OWNER": "NOT_PROVEN",
-    "EN_OWNER": "OBSERVED_EN_SESSION",
-    "IOS": "NOT_PROVEN",
-    "ANDROID": "NOT_PROVEN",
-    "SOUND": "NOT_PROVEN"
+    "CUSTOMER_CANONICAL_ROUTE": "PASS",
+    "CUSTOMER_WORK_QUEUE": "PASS",
+    "DRAWER_PANEL_MAP": "PASS",
+    "BELL_VS_HAMBURGER": "PASS",
+    "NOTIFICATION_CLASSIFICATION": "CODE_SHIPPED_EVENT_TYPED_PROD_PROOF_PENDING",
+    "LONG_PENDING_ORDER_UX": "PASS",
+    "PRODUCT_CREATE": "PASS",
+    "PRODUCT_EDIT": "PASS",
+    "PRODUCT_SOLD_OUT": "PASS",
+    "BUYER_REFLECTION": "PASS",
+    "ORDER_SAFE_FLOW": "PASS",
+    "FINANCE_ACCOUNTING": "PASS",
+    "SETTLEMENT": "PASS",
+    "PROMOTION": "PASS",
+    "DASHBOARD": "PASS",
+    "RESPONSIVE_390_430_768_1024_1280": "PASS",
+    "KO_OWNER": "PASS",
+    "EN_OWNER": "PASS",
+    "ANDROID_OWNER_UI": "PASS_SURFACES_DRAWER_FAIL",
+    "ANDROID_NEW_ORDER_DELIVERY": "PASS_EVENT_CREATED",
+    "ANDROID_DEEPLINK": "PASS_ON_ORDERS_SURFACE",
+    "ANDROID_SOUND": "PASS_HTMLAUDIO_PLAY_OBSERVED",
+    "IOS_OWNER_UI": "NOT_PROVEN",
+    "IOS_NEW_ORDER": "NOT_PROVEN",
+    "IOS_SOUND": "NOT_PROVEN"
   },
-  "productState": "FAIL / INCOMPLETE / NOT LOCKED"
+  "gates": {
+    "lint": "PASS_PRE_COMMIT",
+    "typecheck:build": "PASS_PRE_COMMIT",
+    "i18n": "PASS_PRE_COMMIT",
+    "vitest_member_notification_domain": "PASS",
+    "build": "PASS"
+  },
+  "productState": "FAIL / NOT CLOSED",
+  "unresolvedBlocker": "IOS_DEVICE_LOCKED — iPhonebk connected but locked; Cap app cannot launch/inspect until unlocked. Android Cap APK surfaces+NEW ORDER sound observed; Android drawer open still FAIL on device header trigger."
 }

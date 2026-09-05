@@ -1,0 +1,7 @@
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('[data-owner-ops-menu-trigger]').first()
+
+    at /Users/bkkim/projects/samarket/scripts/qa/owner-store-os-responsive-behavioral-proof.mjs:208:20 {
+  name: 'TimeoutError'
+}

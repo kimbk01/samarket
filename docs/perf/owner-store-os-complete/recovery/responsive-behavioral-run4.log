@@ -1,0 +1,7 @@
+locator.waitFor: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('[data-owner-ops-menu-trigger]').first()
+
+    at /Users/bkkim/projects/samarket/scripts/qa/owner-store-os-responsive-behavioral-proof.mjs:227:25 {
+  name: 'TimeoutError'
+}

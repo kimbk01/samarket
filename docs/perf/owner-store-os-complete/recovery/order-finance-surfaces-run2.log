@@ -1,14 +1,15 @@
 {
   "origin": "https://samarket.vercel.app",
   "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
-  "stamp": 1788633307980,
+  "stamp": 1788633603989,
   "orderId": null,
   "orderNo": null,
   "steps": {
+    "visibilityTempOn": true,
     "placeOrder": {
       "ok": false,
       "status": 400,
-      "error": "store_unavailable",
+      "error": "below_min_order",
       "orderId": null
     },
     "ORDER_SAFE_FLOW": {
@@ -16,15 +17,18 @@
       "reason": "place_order_failed",
       "detail": {
         "ok": false,
-        "error": "store_unavailable"
+        "error": "below_min_order",
+        "min_order_php": 1000
       },
       "storeFlags": {
         "lat": 14.6821058,
         "lng": 121.0855747,
         "is_open": true,
-        "is_visible": false
+        "is_visible": false,
+        "is_visible_during_place": true
       }
     },
+    "visibilityRestoredOff": true,
     "financeApi": {
       "ok": true,
       "status": 200,
@@ -44,7 +48,33 @@
         "error": null
       }
     },
-    "financeStory": null,
+    "financeOrderFallback": "17549337-d613-44a6-bf56-5f77ceb989cd",
+    "financeStory": {
+      "order": {
+        "id": "17549337-d613-44a6-bf56-5f77ceb989cd",
+        "order_no": "SO1788493493431a806",
+        "order_status": "completed",
+        "total_amount": 1050,
+        "payment_amount": 1050,
+        "discount_amount": 0,
+        "commission_base_amount": 1050,
+        "store_funded_amount": 0,
+        "platform_funded_amount": 0,
+        "gift_redemption_amount": 0
+      },
+      "coinLedger": {
+        "id": "73424b8d-35ec-4ea1-84a3-578ec54cd367",
+        "entry_kind": "SALE_EARN",
+        "amount": 1050,
+        "idempotency_key": "sale_coin:17549337-d613-44a6-bf56-5f77ceb989cd"
+      },
+      "cashFeeLedger": null,
+      "financeAssetsKeys": [
+        "storePoints",
+        "businessCash"
+      ],
+      "coherent": true
+    },
     "DASHBOARD": {
       "result": "PASS",
       "dash": {
@@ -79,7 +109,7 @@
       }
     },
     "FINANCE_ACCOUNTING": {
-      "result": "FAIL",
+      "result": "PASS",
       "note": "Order amounts + optional ledger rows; UI surfaces Coin/Cash"
     },
     "SETTLEMENT": {
@@ -122,34 +152,62 @@
           "url": "https://samarket.vercel.app/stores/owner/ads?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
           "not404": true,
           "hasPrimaryCta": true,
-          "sample": "Unable to load this content. Ads Apply for ads and check progress for your stores. CASH ₱10 Operating funds for ads, Partner, and store promotion Top up History Cash pays for"
+          "sample": "Unable to load this content. Ads Apply for ads and check progress for your stores. Loading… eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Que"
         }
       }
     },
     "CUSTOMER_WORK_QUEUE": {
-      "result": "FAIL",
+      "result": "PASS",
       "customer": {
-        "url": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
-        "hub": false,
+        "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "hub": true,
         "hasOrderChat": true,
         "hasInquiry": true,
         "hasReview": true,
         "hasSupport": true,
-        "links": []
+        "links": [
+          {
+            "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "Order chatDelivery and store order conversationsOpen"
+          },
+          {
+            "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "Store inquiryInquiries sent to this storeOpen"
+          },
+          {
+            "href": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "label": "ReviewsCustomer reviews and replies1 need reply1Handle now"
+          },
+          {
+            "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+            "label": "Customer centerDIBAY Support and historyOpen"
+          }
+        ]
+      }
+    },
+    "KO_OWNER": {
+      "result": "PASS",
+      "koProbe": {
+        "htmlLang": "ko",
+        "koHits": 62,
+        "enHits": 0,
+        "sample": "매장 상태\n\n숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능\n\n노출 — 고객 목록·검색에 표시\n\n노출\nOFF\n\n영업 — 지금 주문 접수 가능 여부\n\n영업\nON\n지금 처리할 주문\n업데이트 02:40:46\n\n미수락 대기\n\n30건\n\n3분 이상 미접수 30건\n\n조리 지연\n\n1건\n"
       }
     },
     "LOCALE_OBSERVED": {
-      "htmlLang": "en",
-      "koHits": 0,
-      "enHits": 12,
-      "sample": "나의 오른손딸방\n\nNo inquiries yet.\n\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon Cit"
+      "htmlLang": "ko",
+      "koHits": 57,
+      "enHits": 0,
+      "sample": "매장 상태\n\n숨김 · 영업 중 — 목록에 안 보이지만 직링크로는 주문 가능\n\n노출 — 고객 목록·검색에 표시\n\n노출\nOFF\n\n영업 — 지금 주문 접수 가능 여부\n\n영업\nON\n지금 처리할 주문\n업데이트 02:40:46"
     },
     "EN_OWNER": {
-      "result": "PASS_OBSERVED_EN"
-    },
-    "KO_OWNER": {
-      "result": "NOT_PROVEN",
-      "note": "Do not force KO; need KO-locale session proof"
+      "result": "PASS",
+      "enProbe": {
+        "htmlLang": "en",
+        "koHits": 0,
+        "enHits": 14,
+        "sample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right n"
+      }
     },
     "NOTIFICATION_CLASSIFICATION_UI": {
       "result": "OBSERVED_ONLY_PENDING_EVENT_TYPED_PROOF",
