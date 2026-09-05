@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "76597f685",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "pickHow": "store_settlements",
+  "path": "/admin/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec&view=statement",
+  "checks": {
+    "marker": true,
+    "summary": true,
+    "flow": true,
+    "fees": true,
+    "obligations": true,
+    "coin": true,
+    "cash": true,
+    "settlements": true,
+    "timeline": true,
+    "bodyX": true,
+    "deliveryEntry": true
+  },
+  "shaProbe": {
+    "status": 404
+  },
+  "loginMethod": "magiclink",
+  "at": "2026-09-05T19:54:25.137Z"
+}
