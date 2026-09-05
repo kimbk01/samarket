@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCommunityPromotionQueue } from "@/components/admin/ads/AdminCommunityPromotionQueue";
 import { AdminFeedAdRequestQueue } from "@/components/admin/ads/AdminFeedAdRequestQueue";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  ARO_IA_001_ADS_HUB_PATH,
+  ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
+} from "@/lib/admin/aro-ia-001-community-common-links";
+import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 
 type AdApplicationDomain = "trade" | "community" | "feed";
 
@@ -70,6 +77,7 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
   const searchParams = useSearchParams();
   const domain = forcedDomain ?? normalizeDomain(searchParams.get("domain"));
   const choice = DOMAIN_CHOICES.find((item) => item.domain === domain) ?? null;
+  const returnTo = readAdminReturnToFromSearch(searchParams);
 
   if (!choice) {
     return (
@@ -84,6 +92,7 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
             fallbackEn:
               "Choose Trade, Community, or Feed Banner to show only that writer queue.",
           })}
+          backHref={returnTo ?? undefined}
         />
         <div className="grid gap-3 sm:grid-cols-3">
           {DOMAIN_CHOICES.map((item) => (
@@ -111,6 +120,18 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
     );
   }
 
+  const communityCrossLinks =
+    domain === "community"
+      ? ([
+          {
+            href: ARO_IA_001_ADS_HUB_PATH,
+            labelKo: "광고 / 노출 운영 보기",
+            labelEn: "View Ads / Exposure ops",
+            dataAttr: "community-promo-to-ads",
+          },
+        ] as const)
+      : [];
+
   return (
     <div className="space-y-4">
       <AdminPageHeader
@@ -118,11 +139,28 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
           fallbackKo: choice.fallbackTitleKo,
           fallbackEn: choice.fallbackTitleEn,
         })}
-        description={safeT(choice.descKey, {
-          fallbackKo: choice.fallbackDescKo,
-          fallbackEn: choice.fallbackDescEn,
-        })}
+        description={
+          domain === "community"
+            ? safeT(choice.descKey, {
+                fallbackKo: "커뮤니티 내 포인트 홍보 · writer: point_promotion_orders",
+                fallbackEn: "Community Point promotion · writer: point_promotion_orders",
+              })
+            : safeT(choice.descKey, {
+                fallbackKo: choice.fallbackDescKo,
+                fallbackEn: choice.fallbackDescEn,
+              })
+        }
+        backHref={returnTo ?? (forcedDomain === "community" ? "/admin/community" : undefined)}
       />
+      {domain === "community" ? (
+        <Suspense fallback={null}>
+          <AdminOpsCrossLinkBar
+            links={communityCrossLinks}
+            noteKo="커뮤니티 내 포인트 홍보입니다. Feed Ads·배달 광고 집행과는 별도입니다."
+            noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
+          />
+        </Suspense>
+      ) : null}
       {domain === "trade" ? (
         <section
           id="domain-trade-promo"
@@ -162,6 +200,8 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
           <AdminFeedAdRequestQueue />
         </section>
       ) : null}
+      {/* ARO-IA-001: path constant kept for static contract (primary Community entry). */}
+      <span className="sr-only" data-aro-ia-001-community-promo-path={ARO_IA_001_COMMUNITY_PROMOTIONS_PATH} />
     </div>
   );
 }

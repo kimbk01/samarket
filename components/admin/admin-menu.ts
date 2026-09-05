@@ -136,6 +136,11 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-feed-reports": "admin_menu_community_reports",
   "community-point-policies": "admin_menu_community_point_policies",
   "community-promotions": "admin_menu_community_promotions",
+  "community-section-ops": "admin_menu_community_section_ops",
+  "community-section-content": "admin_menu_community_section_content",
+  "community-section-moderation": "admin_menu_community_section_moderation",
+  "community-section-promo-point": "admin_menu_community_section_promo_point",
+  "community-section-settings": "admin_menu_community_section_settings",
 
   // Delivery — section headers (path 없음) + leaves
   "delivery-section-policies": "admin_menu_delivery_section_policies",
@@ -598,60 +603,96 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── COMMUNITY ──────────────────────────────────
+  // ARO-IA-001: section headers (path 없음) + domain leaves KEEP; Common은 page cross-link만.
   {
     key: "community",
     title: "",
     children: [
       {
-        key: "community-home",
+        key: "community-section-ops",
         title: "",
-        path: "/admin/community",
         status: "done",
+        children: [
+          {
+            key: "community-home",
+            title: "",
+            path: "/admin/community",
+            status: "done",
+          },
+        ],
       },
       {
-        key: "community-topics",
+        key: "community-section-content",
         title: "",
-        path: "/admin/community/topics",
-        matchPaths: ["/admin/philife/topics", "/admin/philife"],
         status: "done",
-      },
-      { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
-      {
-        key: "community-comments",
-        title: "",
-        path: "/admin/community/comments",
-        status: "done",
-      },
-      {
-        key: "community-feed-reports",
-        title: "",
-        path: "/admin/community/reports",
-        matchPaths: ["/admin/philife/reports"],
-        status: "done",
-      },
-      {
-        key: "philife-meeting-reports",
-        title: "",
-        path: "/admin/philife/meeting-reports",
-        status: "done",
+        children: [
+          {
+            key: "community-topics",
+            title: "",
+            path: "/admin/community/topics",
+            matchPaths: ["/admin/philife/topics", "/admin/philife"],
+            status: "done",
+          },
+          { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
+          {
+            key: "community-comments",
+            title: "",
+            path: "/admin/community/comments",
+            status: "done",
+          },
+        ],
       },
       {
-        key: "community-promotions",
+        key: "community-section-moderation",
         title: "",
-        path: "/admin/community/promotions",
         status: "done",
+        children: [
+          {
+            key: "community-feed-reports",
+            title: "",
+            path: "/admin/community/reports",
+            matchPaths: ["/admin/philife/reports"],
+            status: "done",
+          },
+          {
+            key: "philife-meeting-reports",
+            title: "",
+            path: "/admin/philife/meeting-reports",
+            status: "done",
+          },
+        ],
       },
       {
-        key: "community-feed-settings",
+        key: "community-section-promo-point",
         title: "",
-        path: "/admin/community/settings",
         status: "done",
+        children: [
+          {
+            key: "community-promotions",
+            title: "",
+            path: "/admin/community/promotions",
+            status: "done",
+          },
+          {
+            key: "community-point-policies",
+            title: "",
+            path: "/admin/community/point-policies",
+            status: "done",
+          },
+        ],
       },
       {
-        key: "community-point-policies",
+        key: "community-section-settings",
         title: "",
-        path: "/admin/community/point-policies",
         status: "done",
+        children: [
+          {
+            key: "community-feed-settings",
+            title: "",
+            path: "/admin/community/settings",
+            status: "done",
+          },
+        ],
       },
     ],
   },

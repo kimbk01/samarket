@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
+import { ARO_IA_001_SUPPORT_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 
 export type AdminCommunityReportsFilters = {
   status: string;
@@ -112,6 +114,20 @@ export function AdminCommunityReportsPage({
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_feed_reports_page_title" backHref="/admin/community" />
+      <Suspense fallback={null}>
+        <AdminOpsCrossLinkBar
+          links={[
+            {
+              href: ARO_IA_001_SUPPORT_PATH,
+              labelKo: "고객지원 Case 보기",
+              labelEn: "Open Support cases",
+              dataAttr: "community-report-to-support",
+            },
+          ]}
+          noteKo="콘텐츠·행위 moderation입니다. 회원/Owner 문의 Case는 고객지원에서 처리합니다."
+          noteEn="Content/behavior moderation. Member/Owner inquiry Cases are handled in Support."
+        />
+      </Suspense>
       <AdminCard titleKey="admin_feed_reports_card_title">
         <div className="mb-3 flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-0.5">

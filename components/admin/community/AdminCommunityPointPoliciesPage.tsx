@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { BoardPointPolicyForm } from "@/components/admin/point-policies/BoardPointPolicyForm";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
@@ -13,6 +14,7 @@ import {
   communityPolicyAdminMode,
 } from "@/lib/community-points/policy-resolver";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
+import { ARO_IA_001_FINANCE_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 
 type TabId = "global" | "boards" | "payouts" | "reclaim";
 
@@ -131,6 +133,20 @@ export function AdminCommunityPointPoliciesPage() {
         titleKey="admin_community_point_page_title"
         description={t("admin_community_point_page_desc")}
       />
+      <Suspense fallback={null}>
+        <AdminOpsCrossLinkBar
+          links={[
+            {
+              href: ARO_IA_001_FINANCE_POINT_POLICIES_PATH,
+              labelKo: "Point 전체 운영 보기",
+              labelEn: "View all Point ops",
+              dataAttr: "community-point-to-finance",
+            },
+          ]}
+          noteKo="커뮤니티 적립/회수 정책입니다. 원장은 공통 Point(board_point_policies)를 사용합니다."
+          noteEn="Community earn/reclaim policies. Ledger uses shared Point (board_point_policies)."
+        />
+      </Suspense>
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((item) => (

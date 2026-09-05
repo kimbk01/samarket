@@ -1,8 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { useAdminPointPolicyData } from "@/hooks/useAdminPointPolicyData";
@@ -15,6 +16,7 @@ import { PointRewardSimulator } from "./PointRewardSimulator";
 import { PointPolicyLogList } from "./PointPolicyLogList";
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
+import { ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 
 type TabId = "board" | "probability" | "event" | "simulate" | "logs";
 
@@ -111,6 +113,20 @@ export function AdminPointPolicyPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_points_policy_page" />
+      <Suspense fallback={null}>
+        <AdminOpsCrossLinkBar
+          links={[
+            {
+              href: ARO_IA_001_COMMUNITY_POINT_POLICIES_PATH,
+              labelKo: "커뮤니티 포인트 정책",
+              labelEn: "Community point policies",
+              dataAttr: "finance-point-to-community",
+            },
+          ]}
+          noteKo="커뮤니티 적립/회수 정책입니다. 원장은 공통 Point(board_point_policies)를 사용합니다."
+          noteEn="Community earn/reclaim policies. Ledger uses shared Point (board_point_policies)."
+        />
+      </Suspense>
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {tabs.map((tab) => (

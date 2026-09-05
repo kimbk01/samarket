@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -31,6 +32,7 @@ import {
 import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 
 type ProductFilter = "all" | "store_sponsored" | "banner";
 
@@ -249,6 +251,22 @@ export function AdminDeliveryAdsControlPlane() {
               fallbackEn: "Unified Store Sponsored and Banner operations",
             })}
           </p>
+          <div className="mt-2">
+            <Suspense fallback={null}>
+              <AdminOpsCrossLinkBar
+                links={[
+                  {
+                    href: ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
+                    labelKo: "커뮤니티 홍보 관리",
+                    labelEn: "Community promotion queue",
+                    dataAttr: "ads-hub-to-community-promo",
+                  },
+                ]}
+                noteKo="커뮤니티 내 포인트 홍보입니다. Feed Ads·배달 광고 집행과는 별도입니다."
+                noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
+              />
+            </Suspense>
+          </div>
           <AdminDeliveryAdsSectionNav />
           {inventoryFilter ? (
             <p className="mt-2 text-[12px] text-sam-fg">
