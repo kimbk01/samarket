@@ -52,6 +52,10 @@ function normalizeOrderCountsSeed(meta: OwnerHubOrderCountsSeedInput): OwnerHubO
     today_order_count: n(merged.today_order_count),
     yesterday_completed_sales_amount: money(merged.yesterday_completed_sales_amount),
     today_cancelled_count: n(merged.today_cancelled_count),
+    latest_pending_order_id:
+      typeof merged.latest_pending_order_id === "string" && merged.latest_pending_order_id.trim()
+        ? merged.latest_pending_order_id.trim()
+        : null,
     avg_order_value_today: money(merged.avg_order_value_today),
     reviews_need_reply_count: n(merged.reviews_need_reply_count),
     active_dispute_count: n(merged.active_dispute_count),

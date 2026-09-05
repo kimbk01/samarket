@@ -44,7 +44,7 @@ export function OwnerUrgentOrdersCard({
   const { t } = useI18n();
   const pendingOrderId = useSyncExternalStore(
     subscribeOwnerHubLatestPendingOrderId,
-    () => peekOwnerHubLatestPendingOrderId(storeId),
+    () => peekOwnerHubLatestPendingOrderId(storeId) ?? snapshot.latest_pending_order_id,
     () => null
   );
   const entryHref = (tab: StoreOrderTabId, withPendingOrder?: boolean) =>

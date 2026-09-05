@@ -40,6 +40,7 @@ export type OwnerStoreOpsSnapshot = {
   today_order_count: number;
   yesterday_completed_sales_amount: number;
   today_cancelled_count: number;
+  latest_pending_order_id: string | null;
   avg_order_value_today: number;
   reviews_need_reply_count: number;
   active_dispute_count: number;
@@ -71,6 +72,7 @@ export const EMPTY_OWNER_STORE_OPS_SNAPSHOT: OwnerStoreOpsSnapshot = {
   today_order_count: 0,
   yesterday_completed_sales_amount: 0,
   today_cancelled_count: 0,
+  latest_pending_order_id: null,
   avg_order_value_today: 0,
   reviews_need_reply_count: 0,
   active_dispute_count: 0,
@@ -156,6 +158,10 @@ export function parseOwnerStoreOpsSnapshotFromJson(json: unknown): OwnerStoreOps
     today_order_count: n(b.today_order_count),
     yesterday_completed_sales_amount: money(b.yesterday_completed_sales_amount),
     today_cancelled_count: n(b.today_cancelled_count),
+    latest_pending_order_id:
+      typeof b.latest_pending_order_id === "string" && b.latest_pending_order_id.trim()
+        ? b.latest_pending_order_id.trim()
+        : null,
     avg_order_value_today,
     reviews_need_reply_count: n(b.reviews_need_reply_count),
     active_dispute_count: n(b.active_dispute_count),

@@ -405,18 +405,38 @@ export async function fetchStorePublicBySlugDeduped(slug: string): Promise<Store
   });
 }
 
+export function invalidateStoreProductPublicCache(productId?: string): void {
+  const id = productId?.trim();
+  if (!id) {
+    storeProductPublicCache.clear();
+    return;
+  }
+  storeProductPublicCache.delete(id);
+}
+
 /** GET /api/stores/products/:productId */
-export async function fetchStoreProductPublicDeduped(productId: string): Promise<StoreApiJsonResponse> {
+export async function fetchStoreProductPublicDeduped(
+  productId: string,
+  opts?: { force?: boolean }
+): Promise<StoreApiJsonResponse> {
   const id = productId.trim();
   if (!id) return { status: 400, json: { ok: false } };
-  const cached = storeProductPublicCache.get(id);
-  if (cached && cached.expiresAt > Date.now()) {
-    return { status: cached.value.status, json: cached.value.json };
+  const force = opts?.force === true;
+  if (!force) {
+    const cached = storeProductPublicCache.get(id);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { status: cached.value.status, json: cached.value.json };
+    }
+  } else {
+    storeProductPublicCache.delete(id);
   }
-  return runSingleFlight(`stores:api:product:${id}`, async () => {
-    const inFlightCached = storeProductPublicCache.get(id);
-    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
-      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+  const flightKey = force ? `stores:api:product:${id}:fresh` : `stores:api:product:${id}`;
+  return runSingleFlight(flightKey, async () => {
+    if (!force) {
+      const inFlightCached = storeProductPublicCache.get(id);
+      if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+        return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+      }
     }
     const res = await fetch(`/api/stores/products/${encodeURIComponent(id)}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));

@@ -1,0 +1,235 @@
+{
+  "title": "DASHBOARD COMPLETE PROCESS",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "ownerEmail": "sadads@adsasdsa.com",
+  "stamp": 1788643684337,
+  "steps": {
+    "counts": {
+      "status": 200,
+      "ok": true,
+      "pending_accept_count": 31,
+      "latest_pending_order_id": "35867d2d-a6af-4fec-865f-87d9f881e50b"
+    },
+    "hrefs": {
+      "storeStatus": "inline_management_toggles",
+      "urgent": [
+        {
+          "key": "Awaiting accept31 orders30 unaccepted for 3+ min",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+          "text": "Awaiting accept31 orders30 unaccepted for 3+ min"
+        },
+        {
+          "key": "Prep delay1 ordersPast estimated time",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=preparing&fresh_list=1",
+          "text": "Prep delay1 ordersPast estimated time"
+        },
+        {
+          "key": "Delivery delay0 ordersNormal",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=shipping&fresh_list=1",
+          "text": "Delivery delay0 ordersNormal"
+        },
+        {
+          "key": "Pending 3m+30 ordersUnconfirmed for 3+ min",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+          "text": "Pending 3m+30 ordersUnconfirmed for 3+ min"
+        },
+        {
+          "key": "Review orders",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+          "text": "Review orders"
+        }
+      ],
+      "inventory": [
+        {
+          "key": "View all",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "View all"
+        },
+        {
+          "key": "Sold out0 itemsNormal",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=sold_out",
+          "text": "Sold out0 itemsNormal"
+        },
+        {
+          "key": "Hidden items0 itemsNormal",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=hidden",
+          "text": "Hidden items0 itemsNormal"
+        },
+        {
+          "key": "Sales paused0 itemsNormal",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Sales paused0 itemsNormal"
+        },
+        {
+          "key": "Option errors—Check scheduled sales",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Option errors—Check scheduled sales"
+        }
+      ],
+      "flow": [
+        {
+          "key": "View all",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&fresh_list=1",
+          "text": "View all"
+        },
+        {
+          "key": "Waiting31",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&fresh_list=1",
+          "text": "Waiting31"
+        },
+        {
+          "key": "Preparing71 delayed",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=progress&fresh_list=1",
+          "text": "Preparing71 delayed"
+        },
+        {
+          "key": "Delivering12",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=shipping&fresh_list=1",
+          "text": "Delivering12"
+        },
+        {
+          "key": "Done6",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=done&fresh_list=1",
+          "text": "Done6"
+        }
+      ],
+      "today": [
+        {
+          "key": "orders",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&fresh_list=1",
+          "text": "Created today8 ordersOrders created today · older pending queue is in Action required above"
+        },
+        {
+          "key": "sales",
+          "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Today's sales₱6,300+500% vs yesterday"
+        },
+        {
+          "key": "avg",
+          "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Avg. order value₱1,050—"
+        },
+        {
+          "key": "cancel",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=cancelled&fresh_list=1",
+          "text": "Cancel rate12.5%—"
+        }
+      ],
+      "customer": [
+        {
+          "key": "order-chat",
+          "href": "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Order chatDelivery and store order conversations"
+        },
+        {
+          "key": "store-inquiry",
+          "href": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Store inquiryInquiries sent to this store"
+        },
+        {
+          "key": "customer-center",
+          "href": "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+          "text": "Customer centerDIBAY Support and history"
+        }
+      ],
+      "quick": [
+        {
+          "key": "orders",
+          "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Orders"
+        },
+        {
+          "key": "products",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Products"
+        },
+        {
+          "key": "sold_out",
+          "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=sold_out",
+          "text": "Sold out"
+        },
+        {
+          "key": "promotion",
+          "href": "/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Promos"
+        },
+        {
+          "key": "customers",
+          "href": "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Customers"
+        }
+      ],
+      "finance": [
+        {
+          "key": "Finance",
+          "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Finance"
+        },
+        {
+          "key": "Settlements",
+          "href": "/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "text": "Settlements"
+        }
+      ]
+    },
+    "mapping": {
+      "store_status_to_management": true,
+      "urgent_order_to_exact_order": true,
+      "problem_to_resolution": true,
+      "today_order_to_filtered_context": true,
+      "sales_to_finance": true,
+      "customer_to_queue": true,
+      "sold_out_to_products": true,
+      "finance_to_finance": true,
+      "settlement_to_settlement": true,
+      "promotion_to_promo_domain": true
+    },
+    "navigation": {
+      "orders": {
+        "present": true,
+        "href": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&fresh_list=1",
+        "path": "/stores/owner/orders",
+        "status": 200,
+        "ok": true
+      },
+      "sales": {
+        "present": true,
+        "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/finance",
+        "status": 200,
+        "ok": true
+      },
+      "sold_out": {
+        "present": true,
+        "href": "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=sold_out",
+        "path": "/stores/owner/products",
+        "status": 200,
+        "ok": true
+      },
+      "promotion": {
+        "present": true,
+        "href": "/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/coupons",
+        "status": 200,
+        "ok": true
+      },
+      "finance": {
+        "present": true,
+        "href": "/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/finance",
+        "status": 200,
+        "ok": true
+      },
+      "settlements": {
+        "present": true,
+        "href": "/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/settlements",
+        "status": 200,
+        "ok": true
+      }
+    }
+  },
+  "final": "PASS"
+}

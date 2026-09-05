@@ -1,0 +1,82 @@
+{
+  "title": "STORE MANAGEMENT COMPLETE PROCESS",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "ownerEmail": "sadads@adsasdsa.com",
+  "stamp": 1788643967042,
+  "steps": {
+    "before": {
+      "slug": "aa11",
+      "store_name": "나의 오른손딸방",
+      "description": "너의 손길은 나의 오른손과 같았다",
+      "is_visible": true,
+      "is_open": true,
+      "delivery_available": true,
+      "pickup_available": true,
+      "hasAddress": true,
+      "hasLocation": true,
+      "hasCategory": true
+    },
+    "visibilityToggle": {
+      "hideStatus": 200,
+      "hideApiOk": true,
+      "publicHiddenStatus": 404,
+      "publicHiddenNull": true,
+      "showStatus": 200,
+      "showApiOk": true,
+      "publicShownStatus": 200,
+      "publicShownVisible": true
+    },
+    "openToggle": {
+      "closeStatus": 200,
+      "closeApiOk": true,
+      "buyerSeesClosed": true,
+      "openStatus": 200,
+      "openApiOk": true,
+      "buyerSeesOpen": true
+    },
+    "basicInfoPersist": {
+      "patchStatus": 200,
+      "patchApiOk": true,
+      "ownerValue": "Owner Store OS proof 1788643967042",
+      "buyerValue": "Owner Store OS proof 1788643967042",
+      "persisted": true,
+      "buyerFacingEffect": true
+    },
+    "serviceConfigPersist": {
+      "patchStatus": 200,
+      "patchApiOk": true,
+      "delivery_available": true,
+      "pickup_available": true,
+      "min_order_php": 1000,
+      "prep_time_minutes": 22,
+      "delivery_fee_php": 55,
+      "buyerDeliveryAvailable": true,
+      "buyerPickupAvailable": true
+    }
+  },
+  "classifications": {
+    "basic_info": "PRESERVED",
+    "name": "PRESERVED_LOCKED_BY_BACKEND_AUTHORITY",
+    "description": "PRESERVED",
+    "images": "PRESERVED",
+    "contact": "PRESERVED",
+    "address_location": "PRESERVED",
+    "category": "PRESERVED_LOCKED_BY_BACKEND_AUTHORITY",
+    "business_data": "PRESERVED",
+    "hours": "PRESERVED",
+    "holiday": "NOT_SUPPORTED",
+    "temporary_closure_pause": "PRESERVED",
+    "visibility": "PRESERVED",
+    "open_state": "PRESERVED",
+    "delivery": "PRESERVED",
+    "pickup": "PRESERVED",
+    "delivery_area": "REPLACED_GLOBAL_POLICY",
+    "delivery_fee": "PRESERVED",
+    "minimum_order": "PRESERVED",
+    "prep_time": "PRESERVED",
+    "service_configuration": "PRESERVED"
+  },
+  "final": "PASS"
+}

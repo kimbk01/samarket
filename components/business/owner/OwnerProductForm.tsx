@@ -266,9 +266,16 @@ export function OwnerProductForm({
         const sc = formBodyScrollRef.current;
         const el = optionsSectionRef.current;
         if (!sc || !el) return;
-        const nextTop =
-          el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
-        sc.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+        // Prefer the primary options CTA so sticky category/tabs cannot intercept taps.
+        const cta =
+          el.querySelector<HTMLElement>("button[aria-label]") ||
+          el.querySelector<HTMLElement>("button");
+        const target = cta ?? el;
+        const scRect = sc.getBoundingClientRect();
+        const tRect = target.getBoundingClientRect();
+        const desired = scRect.top + Math.min(120, Math.floor(scRect.height * 0.22));
+        const delta = tRect.top - desired;
+        sc.scrollTo({ top: Math.max(0, sc.scrollTop + delta), behavior: "smooth" });
       });
     });
   }, []);
@@ -801,12 +808,14 @@ export function OwnerProductForm({
                   />
                 </div>
                 <div className="min-w-0">
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_325")}</label>
+                  <label htmlFor="owner-product-summary" className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_325")}</label>
                   <input
+                    id="owner-product-summary"
                     value={values.summary}
                     onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                     placeholder={t("business_phase7_095")}
+                    data-owner-product-summary="1"
                   />
                 </div>
                 <div>
@@ -917,10 +926,11 @@ export function OwnerProductForm({
             <div
               ref={optionsSectionRef}
               id="owner-product-options"
+              data-owner-product-options="1"
               className={
                 detailNav === "options"
-                  ? "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.14),0_10px_28px_rgba(11,66,26,0.2)] ring-2 ring-[var(--biz-primary)]/45 ring-offset-2 ring-offset-[var(--biz-app-bg)]"
-                  : "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.08),0_8px_24px_rgba(15,23,42,0.08)]"
+                  ? "scroll-mt-28 rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.14),0_10px_28px_rgba(11,66,26,0.2)] ring-2 ring-[var(--biz-primary)]/45 ring-offset-2 ring-offset-[var(--biz-app-bg)]"
+                  : "scroll-mt-28 rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.08),0_8px_24px_rgba(15,23,42,0.08)]"
               }
             >
               <OwnerStoreAdminDashSection

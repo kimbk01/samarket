@@ -50,6 +50,10 @@ export function mapRpcSnapshotCounts(data: unknown): Omit<OwnerStoreOpsSnapshot,
     sale_suspended_product_count: n(d.sale_suspended_product_count),
     option_error_product_count: 0,
     option_error_health_available: false,
+    latest_pending_order_id:
+      typeof d.latest_pending_order_id === "string" && d.latest_pending_order_id.trim()
+        ? d.latest_pending_order_id.trim()
+        : null,
   };
 }
 

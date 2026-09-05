@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { cancelRatePercent, salesDeltaPercent } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { OwnerDashSparkline } from "./OwnerDashSparkline";
 import {
@@ -28,6 +29,9 @@ export function OwnerSalesSummaryCard({
     snapshot.yesterday_completed_sales_amount
   );
   const cancelRate = cancelRatePercent(snapshot.today_cancelled_count, snapshot.today_order_count);
+  const ordersHref = buildOwnerOrdersEntryHref({ storeId, freshList: true });
+  const cancelledOrdersHref = buildOwnerOrdersEntryHref({ storeId, tab: "cancelled", freshList: true });
+  const financeHref = OwnerRoutes.finance(storeId);
   const settlementsHref = OwnerRoutes.settlements(storeId);
 
   const tiles = [
@@ -37,6 +41,7 @@ export function OwnerSalesSummaryCard({
       value: t("store_owner_dash_count_orders", { count: snapshot.today_order_count }),
       hint: t("store_owner_dash_today_order_hint"),
       delta: null as number | null,
+      href: ordersHref,
     },
     {
       id: "sales",
@@ -44,6 +49,7 @@ export function OwnerSalesSummaryCard({
       value: formatMoneyPhp(snapshot.today_completed_sales_amount),
       hint: null as string | null,
       delta: salesDelta,
+      href: financeHref,
     },
     {
       id: "avg",
@@ -51,6 +57,7 @@ export function OwnerSalesSummaryCard({
       value: formatMoneyPhp(snapshot.avg_order_value_today),
       hint: null as string | null,
       delta: null as number | null,
+      href: financeHref,
     },
     {
       id: "cancel",
@@ -58,6 +65,7 @@ export function OwnerSalesSummaryCard({
       value: `${cancelRate}%`,
       hint: null as string | null,
       delta: null as number | null,
+      href: cancelledOrdersHref,
     },
   ];
 
@@ -75,8 +83,9 @@ export function OwnerSalesSummaryCard({
           return (
             <Link
               key={tile.id}
-              href={settlementsHref}
+              href={tile.href}
               prefetch={false}
+              data-owner-home-today-summary={tile.id}
               className="flex min-h-[88px] flex-col justify-between rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 active:bg-[var(--biz-primary-soft)]"
             >
               <div className="flex items-start justify-between gap-1">

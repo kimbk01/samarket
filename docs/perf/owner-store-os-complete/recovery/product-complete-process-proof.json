@@ -1,0 +1,194 @@
+{
+  "title": "PRODUCT COMPLETE PROCESS",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA Complete mtov9b81",
+  "productId": "b670bd83-8b3c-4671-b675-974fed1e0107",
+  "sections": {
+    "tabs": [
+      "Basics",
+      "Options",
+      "Language"
+    ],
+    "hasCategory": true,
+    "hasImage": true,
+    "hasName": true,
+    "hasPrice": true,
+    "hasDiscount": true,
+    "hasInventory": true,
+    "hasOptionsSection": true,
+    "hasStatusBand": true,
+    "hasSave": true,
+    "languagePlaceholder": false,
+    "optionsTabClickable": true,
+    "optionsEditorVisible": true
+  },
+  "steps": {
+    "listEntry": {
+      "registerCta": true,
+      "bodyHasText": true,
+      "url": "http://127.0.0.1:3000/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "formVisible": true,
+      "newUrl": "http://127.0.0.1:3000/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "sectionInventory": "PASS",
+    "category": {
+      "ok": true
+    },
+    "basicFields": {
+      "name": "QA Complete mtov9b81",
+      "price": "1500"
+    },
+    "image": {
+      "ok": true
+    },
+    "optionsAddClick": {
+      "ok": true,
+      "label": "+Add option group"
+    },
+    "options": {
+      "attempted": true,
+      "groupReady": true,
+      "optionReady": true,
+      "filled": true,
+      "group": "QA Size",
+      "option": "Large"
+    },
+    "validationRequiredName": "PASS",
+    "apiPosts": [
+      {
+        "url": "http://127.0.0.1:3000/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"b670bd83-8b3c-4671-b675-974fed1e0107\"}}"
+      }
+    ],
+    "save": {
+      "url": "http://127.0.0.1:3000/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "persisted": {
+      "found": true,
+      "product_status": "hidden",
+      "hasThumb": true,
+      "hasMenuSection": true,
+      "optionsJson": [
+        {
+          "id": "85601b64-d986-40e0-a8da-862418a423a4",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "5d2ff89d-8507-4cab-be41-770a40309fdf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ]
+    },
+    "activateViaOwnerPatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "afterActivate": {
+      "product_status": "active",
+      "options_json": [
+        {
+          "id": "85601b64-d986-40e0-a8da-862418a423a4",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "5d2ff89d-8507-4cab-be41-770a40309fdf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ],
+      "menu_section_id": "f2e842f2-7562-413e-bf3f-822099c3c5f8"
+    },
+    "storeVisibilityOn": "PASS_API",
+    "publicProductApi": {
+      "status": 200,
+      "ok": true,
+      "title": "QA Complete mtov9b81",
+      "options": [
+        {
+          "id": "85601b64-d986-40e0-a8da-862418a423a4",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "5d2ff89d-8507-4cab-be41-770a40309fdf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ],
+      "product_status": "active"
+    },
+    "publicOptions": "PASS",
+    "buyerList": "PASS",
+    "buyerDetail": {
+      "name": true,
+      "optionsGroup": false,
+      "optionsValue": false,
+      "optionsCue": true,
+      "optionsAfterCta": false,
+      "url": "http://127.0.0.1:3000/stores/aa11",
+      "sample": "만두의 환상 적인 제목 부분\n\n설명이 어찌 구현 되는지 확인 해라. bk\n\n나의 오른손딸방\n★ 5.0(1)\n›\nOrders 0\nOpen\nDelivery\nPickup\nDelivery order\n\n닝기리 씨빠빠..브라덜...\n\nGet coupons\n\n₱100 off\n\nFree coupon\n\n나의 오른손딸방 discount\n\nMin. order ₱700\n\nValid until 2026.09.24\n\nGet coupon\n\n₱100 off\n\nFree coupon\n\n나의 오른손딸방 discount\n\nMin. order ₱700\n\nValid until 2026.09.24\n\nGet coupon\n\n₱100 off\n\nFree coupon\n\n나의 오른손딸방 discount\n\nMin. order ₱700\n\nValid until 2026.09.24\n\nGet coupon\n\n₱100 off\n\nFree coupon\n\n나의 오른손딸방 discount\n\nMin. order ₱700\n\nValid until 2026.0"
+    },
+    "buyerAfterCreate": "PASS",
+    "editApi": [
+      {
+        "status": 200,
+        "body": "{\"ok\":true}"
+      }
+    ],
+    "edit": "PASS",
+    "soldOutPatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "soldOutBuyerSample": "QA Complete mtov9b81\n\nQA edited summary\n\nMenu reviews (1) ›\n\nThis item is sold out.\n\nSold out\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtov9b81\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "soldOutBuyer": "PASS",
+    "resumePatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "resumeBuyerSample": "QA Complete mtov9b81\n\nQA edited summary\n\nMenu reviews (1) ›\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtov9b81\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "resumeBuyer": "PASS",
+    "hide": "PASS_API",
+    "show": "PASS_API",
+    "createSoldOutApi": {
+      "status": 200,
+      "body": "{\"ok\":true,\"product\":{\"id\":\"5ab40089-c856-4609-971e-4672dad08402\"}}"
+    },
+    "createSoldOutStatus": "sold_out",
+    "cleanup": "PASS_DELETED",
+    "optionsPersisted": "PASS"
+  },
+  "final": "PASS",
+  "note": "Coarse create/edit/sold-out PASS is WITHDRAWN; this is the complete-process contract.",
+  "storeSlug": "aa11",
+  "evidenceLevel": "LOCAL_PROVEN"
+}

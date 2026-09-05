@@ -1,0 +1,2580 @@
+{
+  "title": "NOTIFICATIONS COMPLETE PROOF",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "authority": "pre-7fd97bd07 <-> CURRENT <-> backend",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "checkedAt": "2026-09-05T21:28:04.281Z",
+  "accidentallyRemovedOrBrokenFound": [
+    "Drawer notification entry had been known to target notification settings instead of canonical inbox",
+    "Canonical owner notification settings route was missing from the Store OS route set"
+  ],
+  "fixed": [
+    "Drawer notification entry now targets /stores/owner/notifications?storeId=...",
+    "Canonical settings route /stores/owner/notification-settings?storeId=... loads independently",
+    "Delivery ad notification sample classifies as marketing instead of order/delivery"
+  ],
+  "steps": {
+    "api": {
+      "inbox": {
+        "ok": true,
+        "status": 200,
+        "count": 22,
+        "unreadBefore": 0,
+        "kinds": [
+          "store_point_account_replied",
+          "store_point_charge_approved",
+          "store_order_buyer_cancelled",
+          "store_order_created"
+        ],
+        "sampleDeepLinks": [
+          {
+            "id": "4c167233-2bf5-4f58-bcc2-7f3256e2f0de",
+            "kind": "store_point_account_replied",
+            "link_url": "/stores/owner/points?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "order_id": null
+          },
+          {
+            "id": "a94e7bd5-b363-4805-bed2-1fd5f9a059d0",
+            "kind": "store_point_charge_approved",
+            "link_url": "/stores/owner/points?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "order_id": null
+          },
+          {
+            "id": "a6fcdbf5-4ebe-43e7-bf07-f5de7d18e806",
+            "kind": "store_point_account_replied",
+            "link_url": "/stores/owner/points?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "order_id": null
+          },
+          {
+            "id": "05954699-b972-476d-b375-27519101a23f",
+            "kind": "store_order_buyer_cancelled",
+            "link_url": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&order_id=a3fd0a71-8ed3-4300-8629-9127d02471a7&ack_owner_notifications=1",
+            "order_id": "a3fd0a71-8ed3-4300-8629-9127d02471a7"
+          },
+          {
+            "id": "73b047e5-b456-4f9f-a4ed-5a0bc477feb0",
+            "kind": "store_order_created",
+            "link_url": "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&order_id=a3fd0a71-8ed3-4300-8629-9127d02471a7&ack_owner_notifications=1",
+            "order_id": "a3fd0a71-8ed3-4300-8629-9127d02471a7"
+          }
+        ]
+      },
+      "readOneSafeAction": {
+        "skipped": true,
+        "reason": "no_unread_owner_store_notification"
+      },
+      "unreadAfter": {
+        "ok": true,
+        "unread": 0
+      },
+      "badge": {
+        "ok": true,
+        "status": 200,
+        "unread_count": 0
+      },
+      "settings": {
+        "ok": true,
+        "status": 200,
+        "settings": {
+          "service_enabled": true,
+          "trade_chat_enabled": true,
+          "community_chat_enabled": true,
+          "order_enabled": true,
+          "store_enabled": true,
+          "trade_events_enabled": true,
+          "community_social_enabled": true,
+          "notice_enabled": true,
+          "marketing_enabled": false,
+          "sound_enabled": true,
+          "vibration_enabled": true,
+          "quiet_hours_enabled": false,
+          "quiet_hours_start": null,
+          "quiet_hours_end": null
+        },
+        "table_missing": false
+      },
+      "push": {
+        "ok": true,
+        "status": 200,
+        "keys": [
+          "ok",
+          "vapid_configured",
+          "web_push_enabled",
+          "subscription_count",
+          "table_missing"
+        ]
+      },
+      "deliveryAdClassificationSample": {
+        "input": {
+          "push_kind": "delivery",
+          "notification_type": "commerce",
+          "event_type": "order_status",
+          "meta_kind": "delivery_ad_approved"
+        },
+        "classifiedAs": "marketing",
+        "expected": "marketing"
+      }
+    },
+    "canonicalRoutes": {
+      "ownerRoutesNotifications": "/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "ownerRoutesNotificationSettings": "/stores/owner/notification-settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "drawerProofStatus": "PASS",
+      "drawerNotificationHref": {
+        "href": "/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "InboxOrder · payment · refund alerts · sound settingsDetails"
+      },
+      "drawerSettingsMisTargetAbsent": true
+    },
+    "uiCodePresence": {
+      "canonicalInboxPage": "app/(main)/stores/owner/notifications/page.tsx",
+      "canonicalSettingsPage": "app/(main)/stores/owner/notification-settings/page.tsx",
+      "inboxComponent": "components/business/owner/OwnerStoreNotificationsView.tsx",
+      "settingsComponent": "components/business/owner/OwnerStoreNotificationSettingsView.tsx",
+      "listComponent": "components/stores/owner/OwnerNotificationList.tsx"
+    },
+    "drawerRuntime": {
+      "open": true,
+      "notificationHref": {
+        "href": "/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "label": "InboxOrder · payment · refund alerts · sound settingsDetails"
+      },
+      "settingsHref": null,
+      "notificationLike": [
+        {
+          "href": "/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+          "label": "InboxOrder · payment · refund alerts · sound settingsDetails"
+        }
+      ],
+      "landing": {
+        "url": "http://127.0.0.1:3000/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/notifications",
+        "text": "",
+        "hasSettingsLink": false
+      },
+      "settingsLanding": {
+        "url": "http://127.0.0.1:3000/stores/owner/notification-settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "path": "/stores/owner/notification-settings",
+        "switches": 0,
+        "text": ""
+      },
+      "inboxProbe": {
+        "path": "/stores/owner/notifications",
+        "status": 200,
+        "url": "http://127.0.0.1:3000/stores/owner/notifications?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788643873932",
+        "domPath": "/stores/owner/notifications",
+        "text": "‹\nNotifications\n\nLoading…\n\nOrder management\n\nNotification settings\n\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nON\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nPublic store page\nCustomer-facing preview\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\nPROMOTIONS\nCoupons\nIssue and pause store coupons\nDetails\nGift certificates\nApply to sell paid gift certificates\nDetails\nBanners\nStore header banners\nDetails\nNotices\nNotices by placement\nDetails\nGROWTH\nAds\nApply for and manage Delivery ads\nDetails\nSYSTEM\nCustomer center\nDIBAY Support and history\nDetails\nInbox\nOrder · payment · refund alerts · sound settings\nDetails\n← My profile (home)\n‹\nSTORE ADMIN\n5\nOrders\nProducts\nHome\nCustomers\nManage",
+        "settingsLinks": 1,
+        "switches": 2,
+        "notificationList": 0,
+        "logs": [
+          {
+            "type": "info",
+            "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "info",
+            "text": "[cm-receive-latency] helpers_attached {hasDump: true, hasClear: true}"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=uO2nSgZkSLcxwHwAn5zzs' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "info",
+            "text": "[auth_client_created] {\"at\":1788643906547}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_start] {\"at\":1788643906549,\"source\":\"bindAuthListener\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-plan] {blocking: Array(0), deferred: Array(7)}"
+          },
+          {
+            "type": "debug",
+            "text": "[app-boot-verify] {url: /api/me/profile?lite=1, clientCallSource: app_boot_minimal}"
+          },
+          {
+            "type": "log",
+            "text": "[shell-fetch-trace] {api: /api/me/profile, component: fetch-app-boot-profile, reason: fetchAppBootProfileMinimal_network, pathname: /stores/owner/notifications, ts: 1788643906551}"
+          },
+          {
+            "type": "log",
+            "text": "[hub-badge-loop] {reason: pathname_effect, pathname: /stores/owner/notifications, visibility: visible, focused: true, ts: 1788643906553}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-surface, action: scheduled, delayMs: 120, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_BUILD] fingerprint source=AppBootProvider {\"gitSha\":\"4f9071f7e0d9\",\"buildConfiguration\":\"debug\",\"buildTimestamp\":\"2026-08-04T01:09:32.603Z\",\"gitDirty\":true,\"bundleId\":\"com.dibay.app\",\"webDeploySha\":null,\"environment\":\"development\"}"
+          },
+          {
+            "type": "info",
+            "text": "[auth_session_changed] {\"event\":\"SIGNED_IN\",\"at\":1788643906565}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643906565,\"source\":\"auth_event:SIGNED_IN\"}"
+          },
+          {
+            "type": "info",
+            "text": "[oauth] exchange_success {\"userId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"provider\":\"email\"}"
+          },
+          {
+            "type": "info",
+            "text": "[auth_session_changed] {\"event\":\"INITIAL_SESSION\",\"at\":1788643906566}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643906566,\"source\":\"auth_event:INITIAL_SESSION\"}"
+          },
+          {
+            "type": "info",
+            "text": "[initial_session_recovered_authenticated] {\"at\":1788643906566,\"userId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-surface, action: executed, delayMs: 120, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_BUILD] native_app_info versionName=null buildNumber=null"
+          },
+          {
+            "type": "debug",
+            "text": "[messenger:perf] {\"category\":\"realtime.subscription\",\"metric\":\"channel_subscribe\",\"value\":1,\"unit\":\"count\",\"labels\":{\"scope\":\"community-messenger-unread-sound:f00de57c-27d1-495c-824e-e39eab3227aa\",\"outcome\":\"ok\",\"status\":\"SUBSCRIBED\",\"attemptPhase\":\"initial\",\"hs4_channelName\":\"community-messenger-un"
+          },
+          {
+            "type": "warning",
+            "text": "The resource http://127.0.0.1:3000/_next/static/css/app/(main)/stores/layout.css?v=1788643887317 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally."
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643909635,\"source\":\"bindAuthListener\"}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_done] {\"at\":1788643909635,\"source\":\"bindAuthListener\",\"ok\":true,\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] presentation_capability_ready {callId: null, platform: web, capabilities: web_floating_dock, iosNativePipAvailable: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] provider_ready {syncOnly: false}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_attempt\",\"reason\":\"mount\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_skipped\",\"reason\":\"not_ios_shell\"}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] presentation_capability_ready {callId: null, platform: web, capabilities: web_floating_dock, iosNativePipAvailable: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] provider_ready {syncOnly: false}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_attempt\",\"reason\":\"mount\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_skipped\",\"reason\":\"not_ios_shell\"}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] call_v4_foreground_resume_detected {callId: null, trigger: pathname_change, pathname: /stores/owner/notifications, phase: idle}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] call_v4_foreground_resume_skip {callId: null, reason: not_connected, trigger: pathname_change, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_start] {\"at\":1788643909940,\"source\":\"session_lost_redirect\"}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643909944,\"source\":\"session_lost_redirect\"}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_done] {\"at\":1788643909944,\"source\":\"session_lost_redirect\",\"ok\":true,\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: app-boot-initial-badge, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: app-boot-initial-badge, source: app_boot_initial_badge, action: scheduled, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: profile-full, delay_ms: 80}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: profile-full, source: profile-full, action: scheduled, delayMs: 80, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: hub-badge, delay_ms: 220}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: hub-badge, source: hub-badge, action: scheduled, delayMs: 220, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: app-boot-initial-badge, source: app_boot_initial_badge, action: executed, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_state {\"state\":\"WAITING_COMPLETE\",\"reason\":\"app_boot_initial_badge\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: profile-full, source: profile-full, action: executed, delayMs: 80, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "debug",
+            "text": "[app-boot-verify] {url: /api/me/profile?mode=full, clientCallSource: app_boot_background}"
+          },
+          {
+            "type": "log",
+            "text": "[shell-fetch-trace] {api: /api/me/profile, component: app_boot_background, reason: fetchMeProfileFullBackground_network, pathname: /stores/owner/notifications, ts: 1788643910028}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: hub-badge, source: hub-badge, action: executed, delayMs: 220, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-boot] appReady reason=shellReady"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-boot] dibayAppReady reason=shellReady"
+          },
+          {
+            "type": "info",
+            "text": "[DEV_SAFE_MODE_PROBE] client {isDevSafeMode: false, NEXT_PUBLIC_DEV_SAFE_MODE: 0}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":2,\"schedulePathname\":\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":0,\"executionPathname\":\"/stores/owner/notifications\",\"timestamp\":1788643910187,\"pathname\":\"/stores/owner/notifications\",\"documentUrl\":\"http://127.0.0.1:3000/stores/own"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"detail\":\"cancel_scheduled:last_subscriber_unsubscribed\",\"schedulePathname\":\"/stores/owner/notifications\",\"executionPathname\":\"/stores/owner/notifications\",\"activeSubscriberCount\":0"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":0,\"schedulePathname\":\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":0,\"executionPathname\":\"/stores/owner/notifications\",\"timestamp\":1788643910208,\"pathname\":\"/stores/owner/notifications\",\"documentUrl\":\"http://127.0.0.1:3000/stores/own"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"detail\":\"cancel_scheduled:last_subscriber_unsubscribed\",\"schedulePathname\":\"/stores/owner/notifications\",\"executionPathname\":\"/stores/owner/notifications\",\"activeSubscriberCount\":0"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":21,\"schedulePathname\":"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-badge-count-first, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: scheduled, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-settings-philife-inbox, action: skipped_ttl, delayMs: 120, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: philife-tier1-inbox-prefetch, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: scheduled, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":24,\"schedulePathname\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":1,\"executionPathname\":\"/stores/owner/notifications\",\"timestamp\":1788643910213,\"pathname\":\"/stores/owner/notifications\",\"documentUrl\":\"http://127.0.0.1:3000/stores/own"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":25,\"schedulePathname\""
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-badge-count-first, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: joined, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-settings-philife-inbox, action: skipped_ttl, delayMs: 120, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: philife-tier1-inbox-prefetch, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: joined, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":1,\"executionPathname\":\"/stores/owner/notifications\",\"timestamp\":1788643910215,\"pathname\":\"/stores/owner/notifications\",\"documentUrl\":\"http://127.0.0.1:3000/stores/own"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":27,\"schedulePathname\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"fresh_session_snapshot\",\"autoHydrate\":true,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":43,\"schedulePathnam"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-r2d1] listener_attach {kind: listener_attach, source: useSupabaseStoreOrdersRealtime.subscribe, owner: useSupabaseStoreOrdersRealtime, storeId: 19085860-52d2-4183-b033-e71fcb58bcec, fetchReason: channel:store-orders-rt:19085860-52d2-4183-b033-e71fcb58bcec}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: executed, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: executed, delayMs: 0, pathname: /stores/owner/notifications}"
+          },
+          {
+            "type": "debug",
+            "text": "[messenger:perf] {\"category\":\"realtime.subscription\",\"metric\":\"channel_subscribe\",\"value\":1,\"unit\":\"count\",\"labels\":{\"scope\":\"notifications-rt:f00de57c-27d1-495c-824e-e39eab3227aa\",\"outcome\":\"ok\",\"status\":\"SUBSCRIBED\",\"attemptPhase\":\"initial\",\"hs4_channelName\":\"notifications-rt:f00de57c-27d1-495c-82"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"projection_payload.receive\",\"authority\":\"domain_badge\",\"bellTotal\":42,\"appIcon_messenger\":2,\"appIcon_trade\":3,\"appIcon_storeOrder\":10,\"general_direct\":2,\"applyBell\":true,\"t\":1788643910590}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyNotificationBadgeProjection.enter\",\"applyBell\":true,\"projectionVersionMs\":1788643910590,\"in_bellTotal\":5,\"in_appIconTotal\":20,\"in_bottomChat\":15,\"in_general_direct\":2,\"before_appIconTotal\":0,\"t\":1788643910590}"
+          },
+          {
+            "type": "log",
+            "text": "[hub-badge-render] {renderCount: 1, changedKeys: Array(1), pathname: /stores/owner/notifications, ts: 1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-disconnect-probe] b_surface_complete_applied {messenger: 2, trade: 3, storeOrder: 10, missedCall: 5, appIconTotal: 20}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"Bell.apply.enter\",\"in_bellTotal\":5,\"in_bell_breakdown_total\":5,\"projectionVersionMs\":1788643910590,\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyBellBadgeProjection.enter\",\"in_totalUnread\":5,\"in_source\":\"network\",\"in_versionMs\":1788643910590,\"prev_totalUnread\":null,\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyBellBadgeProjection.exit\",\"out_totalUnread\":5,\"status\":\"ok\",\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"Bell.apply.exit\",\"out_bellTotal\":5,\"projectionVersionMs\":1788643910590,\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyNotificationBadgeProjection.exit\",\"out_appIconTotal\":20,\"out_bellTotal\":5,\"out_bottomChat\":15,\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_commit {\"generation\":1,\"source\":\"badge_count_http\",\"factsVersion\":1788643910000,\"surfaceVersionMs\":1788643910590,\"projectionId\":\"proj-1-mtowei7z\",\"projection_commit_ok\":1}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_generation_lineage {\"generation\":1,\"roomFactCount\":0,\"builderBottomChat\":15,\"projectionBottomChat\":15,\"hubCm\":15,\"bottomChat\":15,\"sameGeneration\":true,\"source\":\"badge_count_http\",\"projectionId\":\"proj-1-mtowei7z\"}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"projection_payload.commit\",\"ok\":true,\"notificationAttentionTotal\":5,\"general_direct\":2,\"versionMs\":1788643910000,\"t\":1788643910591}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] ui_set {\"authority\":\"domain_badge\",\"total\":5,\"reason\":\"app_boot_initial_badge\"}"
+          }
+        ]
+      },
+      "settingsProbe": {
+        "path": "/stores/owner/notification-settings",
+        "status": 200,
+        "url": "http://127.0.0.1:3000/stores/owner/notification-settings?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788643910919",
+        "domPath": "/stores/owner/notification-settings",
+        "text": "‹\nNotification settings\nStore alerts\n\n19085860-52d2-4183-b033-e71fcb58bcec\n\nAll notification settingsto adjust trade and community messenger alerts together.\n\nOrder alerts\n\nNew orders, cancel, refund, payment, etc.\n\nStore & sales alerts\n\nIn-app alerts for store operations\n\nIn-app sound\nVibration\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nON\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n31\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nPublic store page\nCustomer-facing preview\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\nPROMOTIONS\nCoupons\nIssue and pause store coupons\nDetails\nGift certificates\nApply to sell paid gift certificates\nDetails\nBanners\nStore header banners\nDetails\nNotices\nNotices by placement\nDetails\nGROWTH\nAds\nApply for and manage Delivery ads\nDetails\nSYSTEM\nCustomer center\nDIBAY Support and history\nDetails\nInbox\nOrder · payment · refund alerts · sound settings\nDetails\n← My profile (home)\n‹\nSTORE ADMIN\n5\n31\nOrders\nProducts\nHome\nCustomers\nManage",
+        "settingsLinks": 0,
+        "switches": 6,
+        "notificationList": 0,
+        "logs": [
+          {
+            "type": "info",
+            "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "info",
+            "text": "[cm-receive-latency] helpers_attached {hasDump: true, hasClear: true}"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "info",
+            "text": "[auth_client_created] {\"at\":1788643917870}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_start] {\"at\":1788643917872,\"source\":\"bindAuthListener\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-plan] {blocking: Array(0), deferred: Array(7)}"
+          },
+          {
+            "type": "debug",
+            "text": "[app-boot-verify] {url: /api/me/profile?lite=1, clientCallSource: app_boot_minimal}"
+          },
+          {
+            "type": "log",
+            "text": "[shell-fetch-trace] {api: /api/me/profile, component: fetch-app-boot-profile, reason: fetchAppBootProfileMinimal_network, pathname: /stores/owner/notification-settings, ts: 1788643917873}"
+          },
+          {
+            "type": "log",
+            "text": "[hub-badge-loop] {reason: pathname_effect, pathname: /stores/owner/notification-settings, visibility: visible, focused: true, ts: 1788643917875}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-surface, action: scheduled, delayMs: 120, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_BUILD] fingerprint source=AppBootProvider {\"gitSha\":\"4f9071f7e0d9\",\"buildConfiguration\":\"debug\",\"buildTimestamp\":\"2026-08-04T01:09:32.603Z\",\"gitDirty\":true,\"bundleId\":\"com.dibay.app\",\"webDeploySha\":null,\"environment\":\"development\"}"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "info",
+            "text": "[auth_session_changed] {\"event\":\"SIGNED_IN\",\"at\":1788643917887}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643917887,\"source\":\"auth_event:SIGNED_IN\"}"
+          },
+          {
+            "type": "info",
+            "text": "[oauth] exchange_success {\"userId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"provider\":\"email\"}"
+          },
+          {
+            "type": "info",
+            "text": "[auth_session_changed] {\"event\":\"INITIAL_SESSION\",\"at\":1788643917888}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643917889,\"source\":\"auth_event:INITIAL_SESSION\"}"
+          },
+          {
+            "type": "info",
+            "text": "[initial_session_recovered_authenticated] {\"at\":1788643917889,\"userId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-surface, action: executed, delayMs: 120, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_BUILD] native_app_info versionName=null buildNumber=null"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643918668,\"source\":\"bindAuthListener\"}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_done] {\"at\":1788643918668,\"source\":\"bindAuthListener\",\"ok\":true,\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "debug",
+            "text": "[messenger:perf] {\"category\":\"realtime.subscription\",\"metric\":\"channel_subscribe\",\"value\":1,\"unit\":\"count\",\"labels\":{\"scope\":\"community-messenger-unread-sound:f00de57c-27d1-495c-824e-e39eab3227aa\",\"outcome\":\"ok\",\"status\":\"SUBSCRIBED\",\"attemptPhase\":\"initial\",\"hs4_channelName\":\"community-messenger-un"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_attempt\",\"reason\":\"mount\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_skipped\",\"reason\":\"not_ios_shell\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_attempt\",\"reason\":\"mount\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_skipped\",\"reason\":\"not_ios_shell\"}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] presentation_capability_ready {callId: null, platform: web, capabilities: web_floating_dock, iosNativePipAvailable: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] provider_ready {syncOnly: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] presentation_capability_ready {callId: null, platform: web, capabilities: web_floating_dock, iosNativePipAvailable: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] provider_ready {syncOnly: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] call_v4_foreground_resume_detected {callId: null, trigger: pathname_change, pathname: /stores/owner/notification-settings, phase: idle}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4] call_v4_foreground_resume_skip {callId: null, reason: not_connected, trigger: pathname_change, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[DIBAY_CALL_V4_OWNER] incoming_sheet_eval {callId: , owner: none, phase: idle, nativeAcceptInflight: false, terminal: false}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_start] {\"at\":1788643919301,\"source\":\"session_lost_redirect\"}"
+          },
+          {
+            "type": "info",
+            "text": "[session_authenticated] {\"at\":1788643919308,\"source\":\"session_lost_redirect\"}"
+          },
+          {
+            "type": "info",
+            "text": "[recovery_session_check_done] {\"at\":1788643919308,\"source\":\"session_lost_redirect\",\"ok\":true,\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"session_authenticated\",\"phase\":\"authenticated\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: app-boot-initial-badge, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: app-boot-initial-badge, source: app_boot_initial_badge, action: scheduled, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: profile-full, delay_ms: 80}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: profile-full, source: profile-full, action: scheduled, delayMs: 80, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: hub-badge, delay_ms: 220}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: hub-badge, source: hub-badge, action: scheduled, delayMs: 220, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: app-boot-initial-badge, source: app_boot_initial_badge, action: executed, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_state {\"state\":\"WAITING_COMPLETE\",\"reason\":\"app_boot_initial_badge\"}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: profile-full, source: profile-full, action: executed, delayMs: 80, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "debug",
+            "text": "[app-boot-verify] {url: /api/me/profile?mode=full, clientCallSource: app_boot_background}"
+          },
+          {
+            "type": "log",
+            "text": "[shell-fetch-trace] {api: /api/me/profile, component: app_boot_background, reason: fetchMeProfileFullBackground_network, pathname: /stores/owner/notification-settings, ts: 1788643919399}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: hub-badge, source: hub-badge, action: executed, delayMs: 220, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-boot] appReady reason=shellReady"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-boot] dibayAppReady reason=shellReady"
+          },
+          {
+            "type": "info",
+            "text": "[DEV_SAFE_MODE_PROBE] client {isDevSafeMode: false, NEXT_PUBLIC_DEV_SAFE_MODE: 0}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":2,\"schedulePathname\":\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":0,\"executionPathname\":\"/stores/owner/notification-settings\",\"timestamp\":1788643919590,\"pathname\":\"/stores/owner/notification-settings\",\"documentUrl\":\"http://127.0.0.1"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"detail\":\"cancel_scheduled:last_subscriber_unsubscribed\",\"schedulePathname\":\"/stores/owner/notification-settings\",\"executionPathname\":\"/stores/owner/notification-settings\",\"activeSu"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":0,\"schedulePathname\":\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":0,\"executionPathname\":\"/stores/owner/notification-settings\",\"timestamp\":1788643919620,\"pathname\":\"/stores/owner/notification-settings\",\"documentUrl\":\"http://127.0.0.1"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"detail\":\"cancel_scheduled:last_subscriber_unsubscribed\",\"schedulePathname\":\"/stores/owner/notification-settings\",\"executionPathname\":\"/stores/owner/notification-settings\",\"activeSu"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":true,\"activeSubscriberCount\":1,\"hasSnapshot\":true,\"snapshotAgeMs\":29,\"schedulePathname\":"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-badge-count-first, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: scheduled, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-settings-philife-inbox, action: skipped_ttl, delayMs: 120, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: philife-tier1-inbox-prefetch, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: scheduled, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":32,\"schedulePathname\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":1,\"executionPathname\":\"/stores/owner/notification-settings\",\"timestamp\":1788643919624,\"pathname\":\"/stores/owner/notification-settings\",\"documentUrl\":\"http://127.0.0.1"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":33,\"schedulePathname\""
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-badge-count-first, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: joined, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: notification-settings-app, delay_ms: 120}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-settings-app, source: notification-settings-philife-inbox, action: skipped_ttl, delayMs: 120, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-api-deferred] {id: philife-tier1-inbox-prefetch, delay_ms: 0}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: joined, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_unsubscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"activeSubscriberCount\":1,\"executionPathname\":\"/stores/owner/notification-settings\",\"timestamp\":1788643919625,\"pathname\":\"/stores/owner/notification-settings\",\"documentUrl\":\"http://127.0.0.1"
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_subscribe\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"first_or_additional_subscriber\",\"autoHydrate\":false,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":34,\"schedulePathname\""
+          },
+          {
+            "type": "info",
+            "text": "[mypage-net-marker] {\"event\":\"owner_lite_store_auto_hydrate_skipped\",\"viewerId\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"subscriber\":\"subscribeOwnerLiteStore\",\"subscribeReason\":\"fresh_session_snapshot\",\"autoHydrate\":true,\"activeSubscriberCount\":2,\"hasSnapshot\":true,\"snapshotAgeMs\":45,\"schedulePathnam"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: notification-badge-count-first, source: badge-count-first-subscriber, action: executed, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "info",
+            "text": "[dibay-r2d1] listener_attach {kind: listener_attach, source: useSupabaseStoreOrdersRealtime.subscribe, owner: useSupabaseStoreOrdersRealtime, storeId: 19085860-52d2-4183-b033-e71fcb58bcec, fetchReason: channel:store-orders-rt:19085860-52d2-4183-b033-e71fcb58bcec}"
+          },
+          {
+            "type": "log",
+            "text": "[startup-deferred-trace] {jobId: philife-tier1-inbox-prefetch, source: philife-tier1-inbox-prefetch, action: executed, delayMs: 0, pathname: /stores/owner/notification-settings}"
+          },
+          {
+            "type": "debug",
+            "text": "[messenger:perf] {\"category\":\"realtime.subscription\",\"metric\":\"channel_subscribe\",\"value\":1,\"unit\":\"count\",\"labels\":{\"scope\":\"notifications-rt:f00de57c-27d1-495c-824e-e39eab3227aa\",\"outcome\":\"ok\",\"status\":\"SUBSCRIBED\",\"attemptPhase\":\"initial\",\"hs4_channelName\":\"notifications-rt:f00de57c-27d1-495c-82"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"projection_payload.receive\",\"authority\":\"domain_badge\",\"bellTotal\":42,\"appIcon_messenger\":2,\"appIcon_trade\":3,\"appIcon_storeOrder\":10,\"general_direct\":2,\"applyBell\":true,\"t\":1788643919987}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyNotificationBadgeProjection.enter\",\"applyBell\":true,\"projectionVersionMs\":1788643919988,\"in_bellTotal\":5,\"in_appIconTotal\":20,\"in_bottomChat\":15,\"in_general_direct\":2,\"before_appIconTotal\":0,\"t\":1788643919988}"
+          },
+          {
+            "type": "log",
+            "text": "[hub-badge-render] {renderCount: 1, changedKeys: Array(1), pathname: /stores/owner/notification-settings, ts: 1788643919988}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-disconnect-probe] b_surface_complete_applied {messenger: 2, trade: 3, storeOrder: 10, missedCall: 5, appIconTotal: 20}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"Bell.apply.enter\",\"in_bellTotal\":5,\"in_bell_breakdown_total\":5,\"projectionVersionMs\":1788643919988,\"t\":1788643919988}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyBellBadgeProjection.enter\",\"in_totalUnread\":5,\"in_source\":\"network\",\"in_versionMs\":1788643919988,\"prev_totalUnread\":null,\"t\":1788643919989}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyBellBadgeProjection.exit\",\"out_totalUnread\":5,\"status\":\"ok\",\"t\":1788643919989}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"Bell.apply.exit\",\"out_bellTotal\":5,\"projectionVersionMs\":1788643919988,\"t\":1788643919989}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"applyNotificationBadgeProjection.exit\",\"out_appIconTotal\":20,\"out_bellTotal\":5,\"out_bottomChat\":15,\"t\":1788643919989}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_commit {\"generation\":1,\"source\":\"badge_count_http\",\"factsVersion\":1788643919382,\"surfaceVersionMs\":1788643919988,\"projectionId\":\"proj-1-mtoweph1\",\"projection_commit_ok\":1}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] projection_generation_lineage {\"generation\":1,\"roomFactCount\":0,\"builderBottomChat\":15,\"projectionBottomChat\":15,\"hubCm\":15,\"bottomChat\":15,\"sameGeneration\":true,\"source\":\"badge_count_http\",\"projectionId\":\"proj-1-mtoweph1\"}"
+          },
+          {
+            "type": "info",
+            "text": "[badge-fd-probe] {\"stage\":\"projection_payload.commit\",\"ok\":true,\"notificationAttentionTotal\":5,\"general_direct\":2,\"versionMs\":1788643919382,\"t\":1788643919989}"
+          },
+          {
+            "type": "info",
+            "text": "[notify-badge] ui_set {\"authority\":\"domain_badge\",\"total\":5,\"reason\":\"app_boot_initial_badge\"}"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_bridge_ready\",\"ready\":false}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_attempt\",\"reason\":\"bridge_timeout\"}"
+          },
+          {
+            "type": "log",
+            "text": "[DIBAY_PUSH_REGISTER] {\"step\":\"voip_listener_attach_skipped\",\"reason\":\"not_ios_shell\"}"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=eTldZRe99pGGEC6k5vWA-' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      }
+    }
+  },
+  "final": "PASS"
+}

@@ -1,0 +1,3955 @@
+{
+  "title": "PROMOTION COMPLETE PROOF",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "authority": "pre-7fd97bd07 <-> CURRENT <-> backend",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "checkedAt": "2026-09-05T21:15:22.208Z",
+  "accidentallyRemovedOrBrokenFound": [],
+  "fixed": [],
+  "steps": {
+    "api": {
+      "coupon": {
+        "ok": true,
+        "status": 200,
+        "count": 62,
+        "sampleId": "abe13b57-c207-431c-a028-828170c2e935",
+        "lifecycleSamples": [
+          "active",
+          "paused",
+          "ended",
+          "revoked"
+        ],
+        "hasActiveInactive": [
+          "active",
+          "paused",
+          "ended",
+          "revoked"
+        ],
+        "hasCostPerformanceFields": true
+      },
+      "couponDetail": {
+        "ok": true,
+        "status": 200,
+        "hasOps": true,
+        "error": null
+      },
+      "giftCertificate": {
+        "applicationsOk": true,
+        "productsOk": true,
+        "redemptionsOk": true,
+        "promoOk": true,
+        "applications": 3,
+        "products": 28,
+        "redemptions": 44,
+        "approvedProducts": 0,
+        "rejectedWithReason": 0,
+        "statusSamples": [
+          "submitted",
+          "approved"
+        ]
+      },
+      "banner": {
+        "ok": true,
+        "status": 200,
+        "count": 1,
+        "activeInactive": [
+          "active"
+        ]
+      },
+      "notice": {
+        "ok": true,
+        "status": 200,
+        "count": 0,
+        "activeInactive": []
+      },
+      "deliveryAds": {
+        "ok": true,
+        "status": 200,
+        "count": 11,
+        "sampleId": "1ded291d-def2-422d-9ffb-d191addc63e8",
+        "lifecycleSamples": [
+          "ENDED",
+          "REJECTED",
+          "SUBMITTED",
+          "DRAFT",
+          "UNDER_REVIEW"
+        ],
+        "productKinds": [
+          "store_sponsored"
+        ],
+        "detailOk": true,
+        "performanceOk": true
+      }
+    },
+    "couponUiList": {
+      "root": true,
+      "list": false,
+      "create": true,
+      "opsGrid": false,
+      "sample": "Store coupons — free promotions for customers. Not paid gift certificates. Coupon offers Total 0 Active 0 Upcoming 0 Ended 0 Active Upcoming Ended No coupons yet. Create coupon offer eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON"
+    },
+    "uiRouteProbes": {
+      "coupons": {
+        "url": "http://127.0.0.1:3000/stores/owner/coupons?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788643962434-1",
+        "not404": true,
+        "status": 200,
+        "text": "Store coupons — free promotions for customers. Not paid gift certificates. Coupon offers Total 0 Active 0 Upcoming 0 Ended 0 Active Upcoming Ended No coupons yet. Create coupon offer eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & edits D",
+        "selectors": {
+          "couponHub": true,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": true,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_SOCKET_NOT_CONNECTED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_RESET"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_RESET"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yf53vlJvt0FvmjLzHxp4e' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "couponDetail": {
+        "url": "http://127.0.0.1:3000/stores/owner/coupons?campaign=abe13b57-c207-431c-a028-828170c2e935&storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644006989-1",
+        "not404": true,
+        "status": 200,
+        "text": "List Basics ₱100 Active QA-UI7-1787715640075 Store issued Store promotion Issue window 2026.08.26 – 2026.09.25 Usage window 2026.09.02 Store funded Issued and used Issue limit: 1/20 · Issued: 1 · Used 0 · Usage 0% Held by customers: 0 · Remaining claim slots: 19 Min. order ₱700 Cost This coupon is 100% store-funded. Funding mode cannot be changed. Discount budget ₱20,000 · Reserved (unredeemed claims) ₱100 Coupon order GMV: ₱0 Realized discount: ₱0 Store cost: ₱0 DIBAY support: ₱0 No store cost Coupon instances Coupon no.: CP-260826-6BBHZ-34 Status: available · Customer: q테스트1 Operations Pause",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": true,
+          "couponCreate": false,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "The resource http://127.0.0.1:3000/_next/static/css/app/(main)/stores/layout.css?v=1788644020443 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=1_KtM-lTQJ1HVUoAjyNlU' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "couponCreate": {
+        "url": "http://127.0.0.1:3000/stores/owner/coupons?create=1&storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644051168-1",
+        "not404": true,
+        "status": 200,
+        "text": "Create coupon offer List Benefit 1 / 6 TitleDiscount Fixed amount Percent Discount valueMax discount eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & edits Details Add product Create product with options & photos Details Categories Details",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=Oj9zY08d1xrQ0c9e6x9H6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "giftHome": {
+        "url": "http://127.0.0.1:3000/stores/owner/gift-certificates?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644080903-1",
+        "not404": true,
+        "status": 200,
+        "text": "Gift certificate sales Redeemed gift amount ₱29,000 Coin earning pending ₱8,200 Recognized gift revenue ₱18,000 Gift revenue available Coin Manage revenue Redemption history Gift product management On sale: 0 In review: 1 Apply to sell gift certificates View applications View products Gift certificate products 나의 오른손딸방 GIFT CERTIFICATE Store gift Store gift [QA LEDGER-C] MALL-OWNE… Face value ₱1,000 ₱1,000 → ₱900 Issuer 나의 오른손딸방 Valid until No expiry Gift number Issued after purchase Powered by DIBAY Paused · 1 나의 오른손딸방 GIFT CERTIFICATE Store gift Store gift [QA LEDGER-C] SHARE… Face value ₱1,",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": true,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=fo1-RMBTKV8AaOnwkgLmd' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "giftApply": {
+        "url": "http://127.0.0.1:3000/stores/owner/gift-certificates?view=apply&storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644115689-1",
+        "not404": true,
+        "status": 200,
+        "text": "Gift sale application Gift title Requested face value Requested purchase price (Points) Description, terms, notes Artwork / image Review applicationBack eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & edits Details Add product Create prod",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": true,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=kHMQ0EqJHu78PiEKKF-a5' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "giftApplications": {
+        "url": "http://127.0.0.1:3000/stores/owner/gift-certificates?view=applications&storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644146376-1",
+        "not404": true,
+        "status": 200,
+        "text": "Application history U7 Positive Fee QA 1787781314566 Face 1,000 · Awaiting review U7 Positive Fee QA 1787780758706 Face 1,000 · Approved U1 QA Gift 1787758868901 Face 1,000 · Approved Back eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & e",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": true,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=-78BE80U1AIsxoHkSjcmC' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "banners": {
+        "url": "http://127.0.0.1:3000/stores/owner/banners?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644175866-1",
+        "not404": true,
+        "status": 200,
+        "text": "Shown as a horizontal swipe banner at the top of the customer store page. Add banner 만두의 환상 적인 제목 부분 Enabled · sort 0 · product Edit Delete eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & edits Details Add product Create product with opti",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=ty4rVIYyKmKDmn47t2lh6' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "notices": {
+        "url": "http://127.0.0.1:3000/stores/owner/notices?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644210346-1",
+        "not404": true,
+        "status": 200,
+        "text": "Shown on the customer store page by placement. Separate from the short notice on your store profile. A network error occurred. Write notice eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 Store operations center Visibility ON Open ON OPERATIONS Dashboard Metrics, orders & inquiries Details Orders New, refunds & status updates 31 Details Ops & status Approval, visibility, sales rights & where to edit Details PRODUCTS Product management List, sold out, visibility & edits Details Add product Create product with opti",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=yP2DE71u_Kuu_SaLeVXE4' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "ads": {
+        "url": "http://127.0.0.1:3000/stores/owner/ads?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644249027-1",
+        "not404": true,
+        "status": 200,
+        "text": "Unable to load this content. Ads Apply for ads and check progress for your stores. CASH ₱0 Operating funds for ads, Partner, and store promotion Top up History Cash pays for ads, promotions, banners, and partner products What to do now [QA] cut-i-p0-3-1788493784809 New ops message Next [QA] cut-i-p0-1-1788492947741 F7 New ops message Next 0 Needs edits 6 In review 0 Scheduled 0 Active 0 Paused + New ad application Recent ads 나의 오른손딸방 · Store promotion · Delivery home store ads 2026-09-02 ~ 2026-09-09 Submitted View details 나의 오른손딸방 · Store promotion · Delivery home store ads 2026-09-01 ~ 2026-",
+        "selectors": {
+          "couponHub": false,
+          "couponList": false,
+          "couponDetail": false,
+          "couponCreate": false,
+          "giftRoot": false,
+          "giftKpis": false,
+          "giftProducts": 0,
+          "adsRoot": false,
+          "adsList": false,
+          "adsCta": false
+        },
+        "attempt": 1,
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "[i18n-missing-translation] en owner_ads_hub_greeting"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=caSIAD4TM77tcix7cdcOf' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      },
+      "adsDetail": {
+        "url": "http://127.0.0.1:3000/stores/owner/ads/1ded291d-def2-422d-9ffb-d191addc63e8?storeId=19085860-52d2-4183-b033-e71fcb58bcec&probe=1788644334188",
+        "not404": true,
+        "status": 200,
+        "text": "Ad ended No further action on this ad. Ended Store promotion [QA] cut-i-p0-3-1788493784809 Delivery home store ads Period: 2026-09-04 ~ 2026-09-06 Pricing Price not set Ad performance Ad performance 7d 30d All Loading performance… History ended_admin · 2026-09-04 04:29:22 resumed_admin · 2026-09-04 04:29:14 paused_admin · 2026-09-04 04:29:00 updated · 2026-09-04 04:25:05 updated · 2026-09-04 04:24:02 updated · 2026-09-04 04:11:36 updated · 2026-09-04 04:11:01 system_activated · 2026-09-04 03:50:48 updated · 2026-09-04 03:49:52 approved · 2026-09-04 03:49:50 review_started · 2026-09-04 03:49:49 submitted · 2026-09-04 03:49:48 owner_sponsored_create_draft · 2026-09-04 03:49:47 Ad operations Ad operations Loading operations history… eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTE",
+        "logs": [
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "warning",
+            "text": "Capacitor plugin \"NativePushRegister\" already registered. Cannot register plugins twice."
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          },
+          {
+            "type": "error",
+            "text": "WebSocket connection to 'ws://127.0.0.1:3000/_next/webpack-hmr?id=XIOutg_yWMprA5doYvjWX' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE"
+          }
+        ]
+      }
+    },
+    "noticeUiList": {
+      "not404": true,
+      "note": "Fixture has 0 notice rows; list/create surface loads, edit/detail not applicable until a row exists."
+    },
+    "runtimeReprobe": {
+      "checkedAt": "2026-09-05T21:38:46.786Z",
+      "okUi": true,
+      "adsDetailCheckedAt": "2026-09-05T21:39:02.129Z",
+      "adsDetailOk": true
+    }
+  },
+  "final": "PASS"
+}

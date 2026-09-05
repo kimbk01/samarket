@@ -104,9 +104,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_ads_desc: "배달 광고 신청·관리",
 
-    biz_nav_notifications: "알림 · 운영",
+    biz_nav_notifications: "알림함",
 
-    biz_nav_notifications_desc: "배달 알림음 안내(관리자 전역 설정)",
+    biz_nav_notifications_desc: "주문·결제·환불 알림 확인 · 알림음 설정",
     my_biz_group_store: "상점 관리",
     my_biz_group_orders: "주문·정산",
     my_biz_group_products: "상품 관리",
@@ -292,9 +292,9 @@ export const businessAdminNavMessages = {
 
     biz_nav_ads_desc: "Apply for and manage Delivery ads",
 
-    biz_nav_notifications: "Alerts & ops",
+    biz_nav_notifications: "Inbox",
 
-    biz_nav_notifications_desc: "Delivery sounds (global admin)",
+    biz_nav_notifications_desc: "Order · payment · refund alerts · sound settings",
     my_biz_group_store: "Store management",
     my_biz_group_orders: "Orders & settlement",
     my_biz_group_products: "Products",

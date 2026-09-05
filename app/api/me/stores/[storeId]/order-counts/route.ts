@@ -157,6 +157,20 @@ export async function GET(
   }
 
   const { payload: body, cache_hit: countsCacheHit } = countsResult;
+  if (body.pending_accept_count > 0 && !body.latest_pending_order_id) {
+    const { data: latestPending } = await sb
+      .from("store_orders")
+      .select("id")
+      .eq("store_id", id)
+      .eq("order_status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const latestPendingId = String(latestPending?.id ?? "").trim();
+    if (latestPendingId) {
+      body.latest_pending_order_id = latestPendingId;
+    }
+  }
   cache_hit = countsCacheHit ? 1 : 0;
   const total_ms = Math.round(perfNowMs() - wall0);
 

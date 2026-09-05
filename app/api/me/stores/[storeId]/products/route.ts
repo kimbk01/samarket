@@ -259,7 +259,10 @@ export async function POST(
   const track_inventory = body.track_inventory === true;
 
   const statusRaw = body.product_status !== undefined ? String(body.product_status).trim() : "hidden";
-  const product_status = ["draft", "active", "hidden"].includes(statusRaw) ? statusRaw : "hidden";
+  /** Align with PATCH / Owner form: create may set sold_out (no silent coerce to hidden). */
+  const product_status = ["draft", "active", "hidden", "sold_out"].includes(statusRaw)
+    ? statusRaw
+    : "hidden";
 
   if (
     product_status === "active" &&

@@ -1,0 +1,133 @@
+{
+  "title": "FINANCE_SETTLEMENT COMPLETE PROOF",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "authority": "pre-7fd97bd07 <-> CURRENT <-> backend",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "checkedAt": "2026-09-05T21:13:39.023Z",
+  "accidentallyRemovedOrBrokenFound": [],
+  "fixed": [],
+  "steps": {
+    "api": {
+      "finance": {
+        "ok": true,
+        "status": 200,
+        "keys": [
+          "ok",
+          "storeId",
+          "assets",
+          "conversion",
+          "businessCashLedger",
+          "storePointsLedger",
+          "saleFeeObligations",
+          "topUpRequests"
+        ],
+        "assets": [
+          "storePoints",
+          "businessCash"
+        ]
+      },
+      "businessCash": {
+        "ok": true,
+        "status": 200,
+        "ledgerCount": 40,
+        "topUpCount": 13
+      },
+      "coinQuoteSafeAction": {
+        "ok": true,
+        "status": 200,
+        "quoteKeys": [
+          "ratePesosPerPoint",
+          "version",
+          "isDefaultRate",
+          "effectiveFrom",
+          "storePointsBalance",
+          "businessCashBalanceMinor",
+          "requestedPoints",
+          "expectedBusinessCashMinor",
+          "rateChangedNoticeRequired"
+        ]
+      },
+      "withdrawalsHistory": {
+        "ok": true,
+        "status": 200,
+        "count": 2
+      },
+      "settlements": {
+        "ok": true,
+        "status": 200,
+        "count": 40,
+        "summaryKeys": [
+          "order_count",
+          "gross",
+          "discount",
+          "point",
+          "refund",
+          "commission_base",
+          "commission_gross",
+          "commission_reversal",
+          "platform_commission_revenue",
+          "net_settlement",
+          "pending_net",
+          "paid_net",
+          "cancelled_count",
+          "refunded_ledger_count"
+        ]
+      }
+    },
+    "accountingAuthority": {
+      "latestCompletedOrder": {
+        "id": "a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a",
+        "order_no": "SO178863377838119c6",
+        "order_status": "completed",
+        "total_amount": 1050,
+        "payment_amount": 1050,
+        "discount_amount": 0,
+        "commission_base_amount": 1050,
+        "store_funded_amount": 0,
+        "platform_funded_amount": 0,
+        "gift_redemption_amount": 0,
+        "updated_at": "2026-09-05T18:43:05.39203+00:00"
+      },
+      "coinRecognitionLedger": {
+        "id": "4ae0d2c0-15f7-4722-8306-f0209a207b13",
+        "entry_kind": "SALE_EARN",
+        "amount": 1050,
+        "idempotency_key": "sale_coin:a8e689ee-fe41-4daf-9cdd-ca7cfa4bcc4a",
+        "created_at": "2026-09-05T18:43:05.144767+00:00"
+      },
+      "cashFeeLedger": null,
+      "orderLinkedRevenueObserved": true,
+      "noFakeAccountingFields": {
+        "coin": "store_economic_point_accounts/store_economic_point_ledger",
+        "cash": "business_cash_accounts/business_cash_ledger",
+        "settlement": "store_settlements financial facts",
+        "uiDoesNotSynthesizeMissingRows": true
+      }
+    },
+    "financeUi": {
+      "url": "http://127.0.0.1:3000/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "root": true,
+      "cashManage": true,
+      "convert": true,
+      "coinHistory": true,
+      "cashHistory": true,
+      "withdrawal": true,
+      "hasCoin": true,
+      "hasCash": true,
+      "hasTopUp": true,
+      "hasWithdraw": true,
+      "sample": "Coin · Cash Coin (store earnings) and Cash (operating funds) are separate currencies. A. Sales · settlement summary Per-order gross, fees, net, and payout status are authoritative on Settlements. Count 40 Gross ₱49,620 Platform fee ₱2,619 Refund ₱6,700 Pending net ₱37,967 Paid net ₱1,954 Open settle",
+      "overflowX": 0
+    },
+    "settlementUi": {
+      "url": "http://127.0.0.1:3000/stores/owner/settlements?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "readonlyMarker": true,
+      "hasRowsOrEmptyState": true,
+      "hasOrderLink": true,
+      "sample": "Settlement guide Read only A settlement entry is created when an order is completed. Payouts and holds are handled by platform ops; this screen is read-only. Refreshing… Manage orders Period uses settlement ledger created_at (completion recognition). Header rate is current policy; per-order fees use",
+      "overflowX": 0
+    }
+  },
+  "final": "PASS"
+}

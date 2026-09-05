@@ -1,0 +1,186 @@
+{
+  "title": "ORDERS COMPLETE PROCESS",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "ownerEmail": "sadads@adsasdsa.com",
+  "buyerEmail": "wwww@manual.local",
+  "stamp": 1788642351530,
+  "orderId": "544e5265-a982-4102-8e57-eef16db2bf1d",
+  "orderNo": "SO178864235476584fc",
+  "product": {
+    "productId": "5c3800d3-675b-4edd-a7dc-ac91252a473b",
+    "unitPhp": 150,
+    "qty": 7
+  },
+  "steps": {
+    "storeBefore": {
+      "id": "19085860-52d2-4183-b033-e71fcb58bcec",
+      "slug": "aa11",
+      "is_visible": true,
+      "is_open": true,
+      "lat": 14.6821058,
+      "lng": 121.0855747
+    },
+    "ownerListBefore": {
+      "ok": true,
+      "status": 200,
+      "count": 60,
+      "meta": {
+        "owner_accept_requires_payment": false,
+        "refund_requested_count": 0,
+        "pending_accept_count": 31,
+        "pending_delivery_count": 25,
+        "store_pickup_address_lines": [
+          "LOWER GROUND DILIMAN COMMERCIAL CENTER Commonwealth Ave Quezon City 1126 Metro Manila eee CM KIM FOOD MART, Quezon City · Payatas"
+        ]
+      },
+      "error": null
+    },
+    "buyerAddress": {
+      "id": "6fb3b2ff-5201-4a23-b57a-ada113d71ef4",
+      "hasPhone": true
+    },
+    "placeOrder": {
+      "ok": true,
+      "status": 200,
+      "error": null,
+      "orderId": "544e5265-a982-4102-8e57-eef16db2bf1d"
+    },
+    "ownerDetailPending": {
+      "ok": true,
+      "status": 200,
+      "order_status": "pending",
+      "itemCount": 1,
+      "order_chat_ready": true,
+      "hasReceipt": true,
+      "hasPaymentAmount": true
+    },
+    "transitions": [
+      {
+        "to": "accepted",
+        "apiOk": true,
+        "apiStatus": 200,
+        "apiError": null,
+        "dbStatus": "accepted",
+        "prepMinutes": 15,
+        "hasEstimatedReadyAt": true,
+        "hasAcceptedAt": true
+      },
+      {
+        "to": "preparing",
+        "apiOk": true,
+        "apiStatus": 200,
+        "apiError": null,
+        "dbStatus": "preparing",
+        "prepMinutes": 15,
+        "hasEstimatedReadyAt": true,
+        "hasAcceptedAt": true
+      },
+      {
+        "to": "ready_for_pickup",
+        "apiOk": true,
+        "apiStatus": 200,
+        "apiError": null,
+        "dbStatus": "ready_for_pickup",
+        "prepMinutes": 15,
+        "hasEstimatedReadyAt": true,
+        "hasAcceptedAt": true
+      },
+      {
+        "to": "delivering",
+        "apiOk": true,
+        "apiStatus": 200,
+        "apiError": null,
+        "dbStatus": "delivering",
+        "prepMinutes": 15,
+        "hasEstimatedReadyAt": true,
+        "hasAcceptedAt": true
+      },
+      {
+        "to": "completed",
+        "apiOk": true,
+        "apiStatus": 200,
+        "apiError": null,
+        "dbStatus": "completed",
+        "prepMinutes": 15,
+        "hasEstimatedReadyAt": true,
+        "hasAcceptedAt": true
+      }
+    ],
+    "ownerDetailCompleted": {
+      "ok": true,
+      "status": 200,
+      "order_status": "completed",
+      "review_status": "pending",
+      "order_no": "SO178864235476584fc",
+      "payment_amount": 1050,
+      "itemCount": 1
+    },
+    "ownerListAfterCompleted": {
+      "ok": true,
+      "status": 200,
+      "count": 60,
+      "orderFound": true,
+      "order_status": "completed",
+      "hasItems": true,
+      "meta": {
+        "owner_accept_requires_payment": false,
+        "refund_requested_count": 0,
+        "pending_accept_count": 31,
+        "pending_delivery_count": 25,
+        "store_pickup_address_lines": [
+          "LOWER GROUND DILIMAN COMMERCIAL CENTER Commonwealth Ave Quezon City 1126 Metro Manila eee CM KIM FOOD MART, Quezon City · Payatas"
+        ]
+      }
+    },
+    "buyerOrderAfter": {
+      "ok": true,
+      "status": 200,
+      "order_status": "completed"
+    },
+    "ORDER_SAFE_FLOW": {
+      "result": "PASS",
+      "path": "pending->accepted->preparing->ready_for_pickup->delivering->completed",
+      "orderId": "544e5265-a982-4102-8e57-eef16db2bf1d"
+    },
+    "ownerOrdersUi": {
+      "url": "http://127.0.0.1:3000/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=done",
+      "notLogin": true,
+      "tabs": [
+        "New 9",
+        "In progress 3",
+        "Delivering",
+        "Done 31",
+        "Cancelled 17",
+        "New orders 9",
+        "Preparing 1",
+        "Out for delivery",
+        "Completed today 6",
+        "Orders",
+        "Products",
+        "Customers"
+      ],
+      "kpiCards": 4,
+      "actionRequiredCta": true,
+      "longWaitingSection": false,
+      "highlightedOrderPresent": true,
+      "hasSearchOrFilterChrome": true,
+      "hasCompletedText": true,
+      "hasOrderNo": true,
+      "sample": "New 9 In progress 3 Delivering Done 31 Cancelled 17 New orders 9 Preparing 1 Out for delivery 0 Completed today 6 Review orders · 9 All types Newest ▾ Delivered Delivery 0m 56s ago SO178864235476584fc w테스트1 (@wwww) 09 12 112 1211 sss, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila 김치김밥 ×7 ₱1,050 5:05 AM New Accepted Preparing Ready to deliver Delivering Near address Done Expand Chat Delivered Delivery 2m 22s ago SO17886422691333aa7 w테스트1 (@wwww) 09 12 112 1211 sss, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila 김치김밥 ×7 ₱1,050 5:04 AM New Accepted "
+    }
+  },
+  "capabilityClassification": {
+    "new_order_reception": "LOCAL_PROVEN",
+    "order_alert_badge": "LOCAL_PROVEN",
+    "detail_receipt_payment": "LOCAL_PROVEN",
+    "accept_with_prep_time": "LOCAL_PROVEN",
+    "preparing_ready_delivery_complete": "LOCAL_PROVEN",
+    "buyer_completion_reflection": "LOCAL_PROVEN",
+    "filters_search_history_tabs": "LOCAL_PROVEN",
+    "chat_contact": "LOCAL_PROVEN",
+    "long_pending_treatment": "IMPLEMENTED"
+  },
+  "final": "PASS"
+}

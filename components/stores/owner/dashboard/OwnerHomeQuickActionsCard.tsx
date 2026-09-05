@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, Package, Ban, MessageCircle } from "lucide-react";
+import { ClipboardList, Package, Ban, MessageCircle, TicketPercent } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
@@ -16,6 +16,7 @@ export function OwnerHomeQuickActionsCard({
   chatBadge?: number;
 }) {
   const { language } = useI18n();
+  const productsHref = OwnerRoutes.products(storeId);
   const items = [
     {
       id: "orders",
@@ -27,7 +28,7 @@ export function OwnerHomeQuickActionsCard({
     },
     {
       id: "products",
-      href: OwnerRoutes.products(storeId),
+      href: productsHref,
       icon: Package,
       titleKo: "상품 관리",
       titleEn: "Products",
@@ -35,10 +36,18 @@ export function OwnerHomeQuickActionsCard({
     },
     {
       id: "sold_out",
-      href: `${OwnerRoutes.products(storeId)}?status=sold_out`,
+      href: `${productsHref}${productsHref.includes("?") ? "&" : "?"}status=sold_out`,
       icon: Ban,
       titleKo: "빠른 품절",
       titleEn: "Sold out",
+      badge: 0,
+    },
+    {
+      id: "promotion",
+      href: OwnerRoutes.coupons(storeId),
+      icon: TicketPercent,
+      titleKo: "프로모션",
+      titleEn: "Promos",
       badge: 0,
     },
     {
@@ -60,7 +69,7 @@ export function OwnerHomeQuickActionsCard({
       <h2 className="mb-2 text-sm font-bold text-sam-fg">
         {ownerUiCopy(language, "바로가기", "Quick actions")}
       </h2>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {items.map((item) => {
           const Icon = item.icon;
           return (

@@ -1,0 +1,80 @@
+{
+  "title": "CUSTOMER COMPLETE PROCESS",
+  "evidenceLevel": "LOCAL_PROVEN",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "ownerEmail": "sadads@adsasdsa.com",
+  "stamp": 1788643922374,
+  "steps": {
+    "orderChat": {
+      "listStatus": 200,
+      "listOk": true,
+      "count": 50,
+      "first": {
+        "order_id": "544e5265-a982-4102-8e57-eef16db2bf1d",
+        "room_id": "42be05e7-ec8d-4134-ab1c-db5104237d63",
+        "unread_count": 0,
+        "messenger_href": "/community-messenger/rooms/42be05e7-ec8d-4134-ab1c-db5104237d63?from=delivery&cm_list=delivery&cm_return=%2Fstores%2Fowner%2Forder-chats%3FstoreId%3D19085860-52d2-4183-b033-e71fcb58bcec&cm_ctx=eyJ2IjoxLCJraW5kIjoiZGVsaXZlcnkiLCJoZWFkbGluZSI6IuuCmOydmCDsmKTrpbjshpDrlLjrsKkgwrcg6rmA7LmY6rmA67ClIiwic3RvcmVPcmRlcklkIjoiNTQ0ZTUyNjUtYTk4Mi00MTAyLThlNTctZWVmMTZkYjJiZjFkIiwib3JkZXJObyI6IlNPMTc4ODY0MjM1NDc2NTg0ZmMiLCJzdG9yZUlkIjoiMTkwODU4NjAtNTJkMi00MTgzLWIwMzMtZTcxZmNiNThiY2VjIiwiZnVsZmlsbG1lbnRUeXBlIjoibG9jYWxfZGVsaXZlcnkiLCJwcmljZUxhYmVsIjoi4oKxMSwwNTAiLCJzdGVwTGFiZWwiOiJEZWxpdmVyZWQifQ"
+      },
+      "uiListToDetail": {
+        "hasRow": true,
+        "finalUrl": "http://127.0.0.1:3000/community-messenger/rooms/42be05e7-ec8d-4134-ab1c-db5104237d63?from=delivery&cm_list=delivery&cm_return=%2Fstores%2Fowner%2Forder-chats%3FstoreId%3D19085860-52d2-4183-b033-e71fcb58bcec&cm_ctx=eyJ2IjoxLCJraW5kIjoiZGVsaXZlcnkiLCJoZWFkbGluZSI6IuuCmOydmCDsmKTrpbjshpDrlLjrsKkgwrcg6rmA7LmY6rmA67ClIiwic3RvcmVPcmRlcklkIjoiNTQ0ZTUyNjUtYTk4Mi00MTAyLThlNTctZWVmMTZkYjJiZjFkIiwib3JkZXJObyI6IlNPMTc4ODY0MjM1NDc2NTg0ZmMiLCJzdG9yZUlkIjoiMTkwODU4NjAtNTJkMi00MTgzLWIwMzMtZTcxZmNiNThiY2VjIiwiZnVsZmlsbG1lbnRUeXBlIjoibG9jYWxfZGVsaXZlcnkiLCJwcmljZUxhYmVsIjoi4oKxMSwwNTAiLCJzdGVwTGFiZWwiOiJEZWxpdmVyZWQifQ",
+        "bodySample": "",
+        "ok": true
+      }
+    },
+    "storeInquiries": {
+      "listStatus": 200,
+      "listOk": true,
+      "count": 0,
+      "openCount": 0,
+      "hasInlineDetail": false,
+      "statusBadge": false,
+      "deeplink": "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "action": "NO_OPEN_INQUIRY_DATA"
+    },
+    "reviews": {
+      "listStatus": 200,
+      "listOk": true,
+      "count": 1,
+      "needReplyCount": 1,
+      "hasInlineDetail": true,
+      "statusBadge": true,
+      "deeplink": "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "action": {
+        "reviewId": "4d806833-918a-48b4-8421-b336ff4fd14d",
+        "patchStatus": 200,
+        "patchOk": true,
+        "replyPersisted": true,
+        "buyerNotificationExpectedOnFirstReply": true
+      }
+    },
+    "dibaySupport": {
+      "inboxStatus": 200,
+      "inboxOk": true,
+      "inboxCount": 2,
+      "inboxUnread": 0,
+      "inquiryStatus": 200,
+      "inquiryOk": true,
+      "inquiryCount": 2,
+      "supportUi": {
+        "center": true,
+        "inquire": true,
+        "tabs": [
+          "history",
+          "archive"
+        ],
+        "notesLists": [],
+        "bodySample": "Contact DIBAY Support. Your store context is included.\n\nContact us\nSupport history\nPrevious inquiry archive\n\nLoading…\n\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nON\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\n"
+      },
+      "deeplink": "/stores/owner/customer-care/customer-center"
+    }
+  },
+  "classifications": {
+    "order_chat": "PRESERVED",
+    "store_inquiries": "PRESERVED_INLINE_DETAIL",
+    "reviews": "PRESERVED_INLINE_DETAIL",
+    "dibay_support": "REPLACED_SUPPORT_CASES_WITH_LEGACY_ARCHIVE"
+  },
+  "final": "PASS"
+}

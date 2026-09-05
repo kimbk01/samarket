@@ -37,6 +37,18 @@ export const loadOwnerHubDashboardPackServer = cache(
     if (!gate.ok) return null;
 
     const counts = await fetchOwnerStoreOrderCounts(sb, id);
+    if (counts.pending_accept_count > 0 && !counts.latest_pending_order_id) {
+      const { data: latestPending } = await sb
+        .from("store_orders")
+        .select("id")
+        .eq("store_id", id)
+        .eq("order_status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const latestPendingId = String(latestPending?.id ?? "").trim();
+      if (latestPendingId) counts.latest_pending_order_id = latestPendingId;
+    }
 
     return {
       orders: [],
