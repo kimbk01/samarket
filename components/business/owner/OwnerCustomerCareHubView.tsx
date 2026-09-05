@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle, HelpCircle, Headphones, Star } from "lucide-react";
+import { MessageCircle, HelpCircle, Headphones, Star, ChevronRight } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OWNER_ADMIN_LIST_CARD_CLASS } from "@/lib/business/owner-admin-list-ui";
+import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { useOwnerFabOrderChatBadgeCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 
 type UnreadState = {
   storeInquiry: number;
@@ -32,7 +34,7 @@ const ICON_BY_ENTRY = {
  * Owner Customers hub — STORE↔CUSTOMER entries separate from OWNER↔DIBAY Support.
  */
 export function OwnerCustomerCareHubView() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const sp = useSearchParams();
   const storeIdParam = sp.get("storeId");
   const orderChatUnread = useOwnerFabOrderChatBadgeCount();
@@ -170,6 +172,17 @@ export function OwnerCustomerCareHubView() {
                         : "DIBAY Support and history",
               })}
             </span>
+            {badge > 0 ? (
+              <span className="mt-1 block text-xs font-semibold text-sam-danger" data-owner-care-pending={e.id}>
+                {e.id === "order-chat"
+                  ? ownerUiCopy(language, `미확인 채팅 ${badge}건`, `${badge} unread chats`)
+                  : e.id === "store-inquiry"
+                    ? ownerUiCopy(language, `열린 문의 ${badge}건`, `${badge} open inquiries`)
+                    : e.id === "reviews"
+                      ? ownerUiCopy(language, `답글 필요 ${badge}건`, `${badge} need reply`)
+                      : ownerUiCopy(language, `새 상담 ${badge}건`, `${badge} support updates`)}
+              </span>
+            ) : null}
           </span>
           {badge > 0 ? (
             <span
@@ -177,6 +190,17 @@ export function OwnerCustomerCareHubView() {
               data-owner-care-badge={e.id}
             >
               {badge > 99 ? "99+" : badge}
+            </span>
+          ) : (
+            <span className={`${OwnerCta.tertiary} min-h-9 shrink-0 px-2.5 text-xs`}>
+              {ownerUiCopy(language, "열기", "Open")}
+              <ChevronRight className="h-4 w-4 opacity-70" aria-hidden />
+            </span>
+          )}
+          {badge > 0 ? (
+            <span className={`${OwnerCta.secondary} min-h-9 shrink-0 whitespace-nowrap px-2.5 text-xs`}>
+              {ownerUiCopy(language, "지금 처리", "Handle now")}
+              <ChevronRight className="h-4 w-4" aria-hidden />
             </span>
           ) : null}
         </Link>
@@ -186,6 +210,33 @@ export function OwnerCustomerCareHubView() {
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} pb-8`} data-owner-customer-care-hub="1">
+      {(() => {
+        const pendingTotal =
+          orderChatUnread + unread.storeInquiry + unread.reviewsNeedReply + customerCenterUnread;
+        if (pendingTotal <= 0) return null;
+        return (
+          <div
+            className="rounded-ui-rect border border-sam-danger/25 bg-sam-danger-soft px-3 py-2.5"
+            data-owner-care-action-required="1"
+          >
+            <p className="text-sm font-semibold text-sam-danger">
+              {ownerUiCopy(
+                language,
+                `지금 확인할 응대 ${pendingTotal}건`,
+                `${pendingTotal} customer items need attention`
+              )}
+            </p>
+            <p className="mt-0.5 text-xs text-sam-muted">
+              {ownerUiCopy(
+                language,
+                "배지는 실제 unread/열림 건수만 표시합니다. 없는 숫자는 만들지 않습니다.",
+                "Badges show real unread/open counts only — nothing invented."
+              )}
+            </p>
+          </div>
+        );
+      })()}
+
       <OwnerStoreAdminDashSection
         title={safeT("biz_care_section_store_customer", {
           fallbackKo: "매장 고객",

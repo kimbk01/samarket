@@ -1,5 +1,14 @@
 /**
  * 매장 오너 허브 운영 스냅샷 — GET …/order-counts 확장 페이로드.
+ *
+ * Semantics (RPC get_owner_store_ops_snapshot_counts):
+ * - pending_accept_count / flow_waiting_count: ALL pending (any day) — action queue
+ * - pending_over_3m_count: pending with created_at older than 3 minutes
+ * - today_order_count: orders with created_at >= start of UTC day (NOT the open queue)
+ * - today_completed_sales_amount / flow_completed_today_count: completed updated today
+ *
+ * Therefore urgent pending can be > 0 while today_order_count is 0 when the queue
+ * is historical/orphan pending. UI labels must not imply they are the same metric.
  */
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 

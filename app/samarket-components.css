@@ -2392,13 +2392,11 @@
   .currency-card--point {
     background: var(--currency-point-bg);
     border-color: var(--currency-point-border);
-    color: var(--sam-fg);
   }
 
   .currency-card--coin {
     background: var(--currency-coin-bg);
     border-color: var(--currency-coin-border);
-    color: var(--sam-fg);
   }
 
   .currency-card--coin [data-currency-badge="coin"],
@@ -2409,11 +2407,29 @@
   .currency-card--cash {
     background: var(--currency-cash-bg);
     border-color: var(--currency-cash-border);
-    color: var(--sam-fg);
   }
 
   .currency-card--cash [data-currency-badge="cash"],
   .currency-card--cash [data-currency-amount="cash"] {
     color: var(--currency-cash-accent);
+  }
+
+  /**
+   * Currency card CTAs — parent must NOT inherit body text onto primary buttons
+   * (was causing dark-on-green illegible labels on Owner Finance).
+   */
+  .currency-card--point :is(a, button)[data-currency-action],
+  .currency-card--coin :is(a, button)[data-currency-action],
+  .currency-card--cash :is(a, button)[data-currency-action] {
+    white-space: nowrap;
+  }
+
+  .currency-card--point :is(a, button)[data-currency-action].sam-btn-primary,
+  .currency-card--coin :is(a, button)[data-currency-action].sam-btn-primary,
+  .currency-card--cash :is(a, button)[data-currency-action].sam-btn-primary,
+  .currency-card--point :is(a, button)[data-currency-action].sam-btn--primary,
+  .currency-card--coin :is(a, button)[data-currency-action].sam-btn--primary,
+  .currency-card--cash :is(a, button)[data-currency-action].sam-btn--primary {
+    color: var(--sam-text-on-primary);
   }
 }

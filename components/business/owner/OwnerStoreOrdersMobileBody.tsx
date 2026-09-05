@@ -271,6 +271,22 @@ export function OwnerStoreOrdersMobileBody({
             />
           </div>
 
+          {summaryCounts.pending > 0 ? (
+            <a
+              href={onTabHref("new")}
+              onClick={(e) => {
+                e.preventDefault();
+                onSelectTab("new");
+              }}
+              className="mt-2 flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect bg-[#DC2626] px-3 text-sm font-bold text-white active:bg-red-700"
+              data-owner-orders-action-required="1"
+              data-owner-cta="danger"
+            >
+              {t("store_owner_dash_review_orders_btn")}
+              {` · ${summaryCounts.pending}`}
+            </a>
+          ) : null}
+
           {searchOpen ? (
             <input
               type="search"

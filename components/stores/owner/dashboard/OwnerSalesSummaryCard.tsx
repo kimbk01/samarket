@@ -35,24 +35,28 @@ export function OwnerSalesSummaryCard({
       id: "orders",
       label: t("store_owner_dash_today_order_count"),
       value: t("store_owner_dash_count_orders", { count: snapshot.today_order_count }),
+      hint: t("store_owner_dash_today_order_hint"),
       delta: null as number | null,
     },
     {
       id: "sales",
       label: t("store_owner_dash_today_sales"),
       value: formatMoneyPhp(snapshot.today_completed_sales_amount),
+      hint: null as string | null,
       delta: salesDelta,
     },
     {
       id: "avg",
       label: t("store_owner_dash_avg_order_value"),
       value: formatMoneyPhp(snapshot.avg_order_value_today),
+      hint: null as string | null,
       delta: null as number | null,
     },
     {
       id: "cancel",
       label: t("store_owner_dash_cancel_rate"),
       value: `${cancelRate}%`,
+      hint: null as string | null,
       delta: null as number | null,
     },
   ];
@@ -85,6 +89,8 @@ export function OwnerSalesSummaryCard({
                   <p className={`mt-0.5 ${ownerDashTypography.helper} ${deltaToneClass(tile.delta)}`}>
                     {deltaLabel}
                   </p>
+                ) : tile.hint ? (
+                  <p className={`mt-0.5 ${ownerDashTypography.helper} text-gray-500`}>{tile.hint}</p>
                 ) : (
                   <p className={`mt-0.5 ${ownerDashTypography.helper} text-gray-400`}>—</p>
                 )}

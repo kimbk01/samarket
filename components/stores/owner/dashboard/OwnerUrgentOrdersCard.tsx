@@ -139,40 +139,48 @@ export function OwnerUrgentOrdersCard({
       {!hasUrgent ? (
         <p className={ownerDashTypography.helper}>{t("store_owner_dash_no_urgent")}</p>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
-          {cells.map((c) => (
-            <Link
-              key={c.id}
-              href={c.href}
-              prefetch={false}
-              className="min-h-[76px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 transition active:bg-[var(--biz-primary-soft)]"
-            >
-              <p className={ownerDashTypography.cellTitle}>{c.title}</p>
-              <p className={`mt-1 ${c.danger ? ownerDashTypography.metricUrgent : ownerDashTypography.metric}`}>
-                {t("store_owner_dash_count_orders", { count: c.count })}
-              </p>
-              {c.sub ? (
-                <p
-                  className={`mt-1 flex items-start gap-0.5 ${ownerDashTypography.helper} ${
-                    c.danger ? "font-medium text-[#DC2626]" : ""
-                  }`}
-                >
-                  {c.danger ? <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> : null}
-                  <span>{c.sub}</span>
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            {cells.map((c) => (
+              <Link
+                key={c.id}
+                href={c.href}
+                prefetch={false}
+                className="min-h-[76px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 transition active:bg-[var(--biz-primary-soft)]"
+              >
+                <p className={ownerDashTypography.cellTitle}>{c.title}</p>
+                <p className={`mt-1 ${c.danger ? ownerDashTypography.metricUrgent : ownerDashTypography.metric}`}>
+                  {t("store_owner_dash_count_orders", { count: c.count })}
                 </p>
-              ) : null}
-            </Link>
-          ))}
-        </div>
+                {c.sub ? (
+                  <p
+                    className={`mt-1 flex items-start gap-0.5 ${ownerDashTypography.helper} ${
+                      c.danger ? "font-medium text-[#DC2626]" : ""
+                    }`}
+                  >
+                    {c.danger ? <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden /> : null}
+                    <span>{c.sub}</span>
+                  </p>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+          {snapshot.pending_accept_count > 0 && snapshot.today_order_count === 0 ? (
+            <p className={`${ownerDashTypography.helper} text-gray-500`} data-owner-dash-stale-queue-hint="1">
+              {t("store_owner_dash_today_order_hint")}
+            </p>
+          ) : null}
+        </>
       )}
 
       <Link
         href={newOrdersHref}
         prefetch={false}
-        className={`flex min-h-[44px] w-full items-center justify-center rounded-[4px] text-[14px] font-bold text-white ${
+        className={`flex min-h-11 w-full items-center justify-center whitespace-nowrap rounded-ui-rect text-[14px] font-bold text-white ${
           hasUrgent ? "bg-[#DC2626] active:bg-red-700" : "pointer-events-none bg-gray-300 text-gray-600"
         } ${pulseNew && hasUrgent ? "animate-pulse" : ""}`}
         aria-disabled={!hasUrgent}
+        data-owner-cta="danger"
       >
         {t("store_owner_dash_review_orders_btn")}
       </Link>

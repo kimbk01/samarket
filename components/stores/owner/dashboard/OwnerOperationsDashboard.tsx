@@ -21,8 +21,9 @@ import { OwnerInventoryIssueCard } from "./OwnerInventoryIssueCard";
 import { OwnerFinanceHomeCards } from "./OwnerFinanceHomeCards";
 
 /**
- * Owner Home — action-first hierarchy (P1).
- * A Store status → B Action required → C Today summary → D Quick actions → E Secondary (finance).
+ * Owner Home — real operating command center.
+ * A Store status → B Action required → C Order queue → D Today business →
+ * E Customer response → F Quick actions → G Finance (secondary) → H Low-priority.
  */
 export function OwnerOperationsDashboard({
   row,
@@ -79,14 +80,14 @@ export function OwnerOperationsDashboard({
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
-            <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
-            <OwnerHomeQuickActionsCard storeId={row.id} chatBadge={orderChatUnread} />
             <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
+            <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
             <OwnerCustomerCareCard storeId={row.id} orderChatUnread={orderChatUnread} />
-            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
+            <OwnerHomeQuickActionsCard storeId={row.id} chatBadge={orderChatUnread} />
             <section data-owner-home-secondary-finance="1" className="space-y-1.5 pt-1">
               <OwnerFinanceHomeCards storeId={row.id} />
             </section>
+            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
           </>
         )}
       </div>

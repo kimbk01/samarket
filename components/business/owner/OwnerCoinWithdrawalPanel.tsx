@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { Sam } from "@/lib/ui/css-vars";
+import { OwnerCta } from "@/lib/business/owner-cta-classes";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 
 type WithdrawalRow = {
   id: string;
@@ -21,7 +23,7 @@ export function OwnerCoinWithdrawalPanel({
   storeId: string;
   onSubmitted?: () => void | Promise<void>;
 }) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [rows, setRows] = useState<WithdrawalRow[]>([]);
   const [amount, setAmount] = useState("");
   const [destinationType, setDestinationType] = useState<"gcash" | "bank">("gcash");
@@ -115,10 +117,17 @@ export function OwnerCoinWithdrawalPanel({
   return (
     <OwnerStoreAdminDashSection
       title={safeT("owner_finance_withdraw_title", {
-        fallbackKo: "Coin 환전 신청",
-        fallbackEn: "Coin withdrawal",
+        fallbackKo: "외부 출금 · 환전 신청",
+        fallbackEn: "External payout / withdrawal",
       })}
     >
+      <p className="mb-3 text-xs text-sam-muted">
+        {ownerUiCopy(
+          language,
+          "Coin을 외부 GCash·은행으로 보내는 신청입니다. 위의 내부 Coin→Cash 전환과 다릅니다.",
+          "Sends Coin to an external GCash/bank account. Separate from internal Coin→Cash conversion above."
+        )}
+      </p>
       <div id="coin-withdraw" className="space-y-3">
         {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
         {notice ? <p className="text-sm text-sam-fg">{notice}</p> : null}
@@ -174,10 +183,16 @@ export function OwnerCoinWithdrawalPanel({
             fallbackEn: "Account name",
           })}
         />
-        <button type="button" className={Sam.btn.primary} disabled={busy} onClick={() => void submit()}>
+        <button
+          type="button"
+          className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
+          disabled={busy}
+          onClick={() => void submit()}
+          data-owner-cta="primary"
+        >
           {safeT("owner_finance_withdraw_submit", {
-            fallbackKo: "Coin 환전 신청",
-            fallbackEn: "Request Coin withdrawal",
+            fallbackKo: "외부 출금 신청",
+            fallbackEn: "Submit withdrawal",
           })}
         </button>
       </div>

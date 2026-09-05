@@ -10,6 +10,11 @@ import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { Sam } from "@/lib/ui/css-vars";
+import {
+  OWNER_FORM_ACTION_ROW_CLASS,
+  OWNER_FORM_INPUT_GROW_CLASS,
+  OwnerCta,
+} from "@/lib/business/owner-cta-classes";
 
 type Quote = {
   ratePesosPerPoint: number;
@@ -280,9 +285,9 @@ export function OwnerBusinessCashView({
           fallbackEn: "Top up Cash",
         })}
       >
-        <div className="flex gap-2">
+        <div className={OWNER_FORM_ACTION_ROW_CLASS}>
           <input
-            className={Sam.input.base}
+            className={`${Sam.input.base} ${OWNER_FORM_INPUT_GROW_CLASS}`}
             inputMode="numeric"
             value={topUpAmountPhp}
             onChange={(e) => setTopUpAmountPhp(e.target.value)}
@@ -293,9 +298,10 @@ export function OwnerBusinessCashView({
           />
           <button
             type="button"
-            className={Sam.btn.primary}
+            className={OwnerCta.formPrimary}
             disabled={busy}
             onClick={() => void submitTopUp()}
+            data-owner-cta="primary"
           >
             {safeT("owner_bc_topup_submit", {
               fallbackKo: "충전 신청",
@@ -331,9 +337,9 @@ export function OwnerBusinessCashView({
               })})`
             : ""}
         </p>
-        <div className="flex gap-2">
+        <div className={OWNER_FORM_ACTION_ROW_CLASS}>
           <input
-            className={Sam.input.base}
+            className={`${Sam.input.base} ${OWNER_FORM_INPUT_GROW_CLASS}`}
             inputMode="numeric"
             value={convertPoints}
             onChange={(e) => {
@@ -351,9 +357,10 @@ export function OwnerBusinessCashView({
           />
           <button
             type="button"
-            className={Sam.btn.secondary}
+            className={OwnerCta.formSecondary}
             disabled={busy}
             onClick={() => void refreshQuote(Math.trunc(Number(convertPoints) || 0))}
+            data-owner-cta="secondary"
           >
             {safeT("owner_bc_quote", { fallbackKo: "미리보기", fallbackEn: "Preview" })}
           </button>
@@ -394,9 +401,10 @@ export function OwnerBusinessCashView({
             ) : null}
             <button
               type="button"
-              className={Sam.btn.primary}
+              className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
               disabled={busy}
               onClick={() => void submitConvert()}
+              data-owner-cta="primary"
             >
               {safeT("owner_bc_convert_confirm", {
                 fallbackKo: "전환 확인",

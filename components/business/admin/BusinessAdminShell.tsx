@@ -48,6 +48,10 @@ import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerS
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import {
+  useOwnerFabOrderChatBadgeCount,
+  useOwnerFabStoreBadgeCount,
+} from "@/lib/chats/use-owner-hub-badge-total";
+import {
   isOwnerStoreProductComposerPath,
   resolveOwnerStackScrollHostPath,
 } from "@/lib/business/owner-stack-scroll-host-path";
@@ -113,6 +117,8 @@ export function BusinessAdminShell({
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
   const hubRuntime = useOwnerHubRuntime();
+  const ownerOrderChatUnread = useOwnerFabOrderChatBadgeCount();
+  const ownerInquiryAttention = useOwnerFabStoreBadgeCount();
   const [stores, setStores] = useState<StoreRow[] | null>(() => {
     if (initialStores != null && initialStores.length > 0) return initialStores;
     return readInitialStoresFromMeListCache();
@@ -349,7 +355,6 @@ export function BusinessAdminShell({
   const orderCountsStoreId =
     selectedRow &&
     String(selectedRow.approval_status) === "approved" &&
-    selectedRow.is_visible === true &&
     storeRowCanSell(selectedRow)
       ? selectedRow.id
       : null;
@@ -414,15 +419,24 @@ export function BusinessAdminShell({
       : (hubRuntime?.orderAlertsBadge ?? orderAlertsBadge);
   const ownerHeaderBellCount = ownerOrderAttentionCount;
 
+  /**
+   * Bottom-nav badge split (screenshot FAIL root cause):
+   * - orders tab → orderAttention
+   * - customers tab → chat unread + inquiry (never order queue)
+   * Bell (Tier1 owner_commerce_inbox) is separate unread inbox — not the same as action-required.
+   */
+  const ownerMobileBottomNavOrderBadge = Math.min(Math.max(0, ownerOrderAttentionCount), 99);
+  const ownerMobileBottomNavCustomersBadge = Math.min(
+    Math.max(0, ownerOrderChatUnread) + Math.max(0, ownerInquiryAttention),
+    99
+  );
+
   const ownerStoreIdForBell = (selectedRow?.id ?? storeIdParam).trim();
 
   const ownerNotificationBell =
     ownerStoreIdForBell ?
       <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={ownerStoreIdForBell} />
     : null;
-
-  const ownerMobileBottomNavChatBadge =
-    ownerOrderAttentionCount > 0 ? Math.min(ownerOrderAttentionCount, 99) : 0;
 
   const navCtx = useMemo(() => {
     if (!selectedRow) {
@@ -846,7 +860,8 @@ export function BusinessAdminShell({
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}
-                chatBadge={ownerMobileBottomNavChatBadge}
+                orderBadge={ownerMobileBottomNavOrderBadge}
+                customersBadge={ownerMobileBottomNavCustomersBadge}
                 scrollHideEnabled
               />
             : null}

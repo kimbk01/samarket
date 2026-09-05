@@ -46,6 +46,7 @@ export type OwnerNavEntryDef = {
   drawerSection?:
     | "ops"
     | "products"
+    | "promo"
     | "store"
     | "finance"
     | "growth"
@@ -208,7 +209,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     href: (storeId) => OwnerRoutes.coupons(storeId),
     requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
-    drawerSection: "products",
+    drawerSection: "promo",
   },
   {
     id: "gift_certificates",
@@ -218,7 +219,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     href: (storeId) => OwnerRoutes.giftCertificates(storeId),
     requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
-    drawerSection: "products",
+    drawerSection: "promo",
   },
   {
     id: "banners",
@@ -228,7 +229,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     href: (storeId) => OwnerRoutes.banners(storeId),
     requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
-    drawerSection: "products",
+    drawerSection: "promo",
   },
   {
     id: "notices",
@@ -238,7 +239,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     href: (storeId) => OwnerRoutes.notices(storeId),
     requireApproved: true,
     surfaces: ["drawer", "manage_hub"],
-    drawerSection: "products",
+    drawerSection: "promo",
   },
   {
     id: "basic_info",
@@ -324,11 +325,20 @@ const DRAWER_SECTION_META: {
 }[] = [
   { id: "ops", titleKey: "biz_nav_section_ops" },
   { id: "products", titleKey: "biz_nav_section_products" },
+  { id: "promo", titleKey: "biz_nav_section_promo" },
   { id: "store", titleKey: "biz_nav_section_store" },
   { id: "finance", titleKey: "biz_nav_section_settlement" },
   { id: "growth", titleKey: "biz_nav_section_growth" },
   { id: "system", titleKey: "biz_nav_section_settings" },
 ];
+
+/** Bottom-nav primaries — omit from drawer dump (one obvious home each). */
+const DRAWER_OMIT_BOTTOM_PRIMARY = new Set([
+  "dashboard",
+  "delivery_orders",
+  "products",
+  "customer_care",
+]);
 
 function entryVisible(entry: OwnerNavEntryDef, ctx: MyBusinessNavContext): boolean {
   const approved = ctx.approvalStatus === "approved";
@@ -373,7 +383,8 @@ export function buildOwnerDrawerSectionsFromRegistry(ctx: MyBusinessNavContext):
         e.drawerSection === meta.id &&
         entryVisible(e, ctx) &&
         e.id !== "order_chats" &&
-        e.id !== "customer_center"
+        e.id !== "customer_center" &&
+        !DRAWER_OMIT_BOTTOM_PRIMARY.has(e.id)
     ).map((e) => {
       const href =
         e.id === "public_store" ? e.href(ctx.storeId, ctx.slug) : e.href(ctx.storeId);

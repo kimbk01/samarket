@@ -10,6 +10,8 @@ export const businessAdminNavMessages = {
 
     biz_nav_section_products: "상품",
 
+    biz_nav_section_promo: "프로모션",
+
     biz_nav_section_store: "매장",
 
     biz_nav_section_settlement: "정산",
@@ -183,6 +185,8 @@ export const businessAdminNavMessages = {
     biz_nav_section_delivery: "Delivery",
 
     biz_nav_section_products: "Products",
+
+    biz_nav_section_promo: "Promotions",
 
     biz_nav_section_store: "Store",
 

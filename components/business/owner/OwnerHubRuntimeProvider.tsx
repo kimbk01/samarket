@@ -70,12 +70,8 @@ function pickRow(stores: StoreRow[], storeIdParam: string): StoreRow | null {
 }
 
 function orderCountsStoreIdFromRow(row: StoreRow | null): string | null {
-  if (
-    !row ||
-    row.approval_status !== "approved" ||
-    row.is_visible !== true ||
-    !storeRowCanSell(row)
-  ) {
+  // Visibility OFF must NOT suppress order-attention badges — hidden stores still receive orders.
+  if (!row || row.approval_status !== "approved" || !storeRowCanSell(row)) {
     return null;
   }
   return row.id;

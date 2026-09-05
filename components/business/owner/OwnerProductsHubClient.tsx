@@ -81,6 +81,8 @@ function ownerHubStatusPillClass(active: boolean): string {
 import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
+import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { useSearchParams } from "next/navigation";
 
 /** 매장 상품 목록·노출·신규 등록 진입 — RSC `initial*` 으로 첫 페인트부터 데이터 표시 */
@@ -96,7 +98,7 @@ export function OwnerProductsHubClient({
   /** RSC 부트스트랩 실패 시 클라에서 API 재시도 */
   rscBootstrapError?: string;
 }) {
-  const { t } = useI18n();
+  const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const statusFromUrl = searchParams.get("status");
   const hasRscPayload = initialSections != null && initialProducts != null;
@@ -470,8 +472,10 @@ export function OwnerProductsHubClient({
                           decoding="async"
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center px-0.5 text-center sam-text-xxs leading-tight text-sam-meta">
-                          {t("business_phase7_419")}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1 text-center">
+                          <span className="text-[10px] font-medium text-sam-muted">
+                            {ownerUiCopy(language, "이미지 없음", "No image")}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -495,10 +499,10 @@ export function OwnerProductsHubClient({
                       </div>
                     </div>
                   </div>
-                  <div className="flex min-h-8 w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-sam-border-soft px-2 py-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-0.5">
-                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">{t("business_phase7_317")}</span>
+                  <div className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-2 gap-y-2 border-t border-sam-border-soft px-2 py-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="whitespace-nowrap text-xs font-medium text-sam-muted">{t("business_phase7_317")}</span>
                         <button
                           type="button"
                           role="switch"
@@ -510,43 +514,46 @@ export function OwnerProductsHubClient({
                               : t("business_phase7_421")
                           }
                           onClick={() => onToggleSoldOut(p)}
-                          className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
                             p.product_status === "sold_out" ? "bg-amber-500" : "bg-sam-border-soft"
                           }`}
+                          data-owner-cta="toggle"
                         >
                           <span
-                            className={`absolute top-1 h-4 w-4 rounded-full bg-sam-surface shadow transition ${
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
                               p.product_status === "sold_out" ? "left-6" : "left-1"
                             }`}
                           />
                         </button>
                       </div>
-                      <div className="flex items-center gap-0.5">
-                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">{t("business_phase7_047")}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="whitespace-nowrap text-xs font-medium text-sam-muted">{t("business_phase7_047")}</span>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={listed}
                           disabled={busy}
                           onClick={() => onToggleListed(p, !listed)}
-                          className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
+                          className={`relative h-7 w-12 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
                             listed ? "bg-emerald-500" : "bg-sam-border-soft"
                           }`}
+                          data-owner-cta="toggle"
                         >
                           <span
-                            className={`absolute top-1 h-4 w-4 rounded-full bg-sam-surface shadow transition ${
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
                               listed ? "left-6" : "left-1"
                             }`}
                           />
                         </button>
                       </div>
                     </div>
-                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
                       <Link
                         href={editHref}
-                        className="inline-flex min-h-8 items-center gap-0.5 rounded-md border border-sam-border bg-sam-surface px-2 py-0.5 sam-text-xxs font-medium text-signature"
+                        className={`${OwnerCta.secondary} min-h-10 px-3 text-sm`}
+                        data-owner-cta="secondary"
                       >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -560,16 +567,9 @@ export function OwnerProductsHubClient({
                         type="button"
                         disabled={busy}
                         onClick={() => onDeleteClick(p)}
-                        className="inline-flex min-h-8 items-center gap-0.5 rounded-md border border-red-100 bg-red-50 px-2 py-0.5 sam-text-xxs font-medium text-red-700 disabled:opacity-50"
+                        className={`${OwnerCta.ghost} min-h-10 px-2 text-sm font-medium text-sam-danger underline-offset-2 hover:underline`}
+                        data-owner-cta="danger"
                       >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
                         {t("common_delete")}
                       </button>
                     </div>

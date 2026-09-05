@@ -57,7 +57,7 @@ function OwnerMobileBottomNavSideTab({
   href,
   active,
   label,
-  chatBadge,
+  badgeCount,
   onNavigate,
   onCloseDomainSwitcher,
 }: {
@@ -65,12 +65,13 @@ function OwnerMobileBottomNavSideTab({
   href: string;
   active: boolean;
   label: string;
-  chatBadge?: number;
+  /** Action-required count for this tab only (orders ≠ customers). */
+  badgeCount?: number;
   onNavigate: (tabId: OwnerBottomNavTabId) => void;
   onCloseDomainSwitcher?: () => void;
 }) {
   const Icon = item.icon;
-  const showCustomersBadge = item.id === "customers" && (chatBadge ?? 0) > 0;
+  const showBadge = (badgeCount ?? 0) > 0;
 
   return (
     <Link
@@ -90,15 +91,16 @@ function OwnerMobileBottomNavSideTab({
       <div className="app-bottom-nav-icon-slot">
         <span className="app-bottom-nav-inline-icon" key={active ? "on" : "off"}>
           <Icon className={SIDE_TAB_ICON_CLASS} aria-hidden />
-          {showCustomersBadge ? (
+          {showBadge ? (
             <span
               className={cn(
                 "bottom-nav-hub-badge",
                 OWNER_HUB_BADGE_DOT_CLASS,
                 BOTTOM_NAV_BADGE_RING_CLASS
               )}
+              data-owner-bottom-nav-badge={item.id}
             >
-              {(chatBadge ?? 0) > 99 ? "99+" : chatBadge}
+              {(badgeCount ?? 0) > 99 ? "99+" : badgeCount}
             </span>
           ) : null}
         </span>
@@ -195,20 +197,32 @@ function OwnerMobileBottomNavHomeHub({
  * 매장 오너 모바일 하단 탭 — 배달 `/stores` 와 동일 높이·아이콘/라벨 비율.
  * 주문 · 상품 · 홈 · 고객 · 관리 — `BusinessAdminShell` 전용.
  * Geometry occupancy published for Support FAB clearance.
+ *
+ * Badge authority (do not mix):
+ * - orders → orderAttention / orderAlertsBadge
+ * - customers → storeOrderChatUnread + inquiryAttention (NOT order queue)
  */
 export function OwnerMobileBottomNav({
   storeId,
   storeSlug = null,
   chatBadge,
+  orderBadge,
+  customersBadge,
   scrollHideEnabled = true,
 }: {
   storeId: string;
   storeSlug?: string | null;
+  /** @deprecated use customersBadge — kept for call-site compatibility */
   chatBadge?: number;
+  orderBadge?: number;
+  customersBadge?: number;
   scrollHideEnabled?: boolean;
 }) {
   const { t } = useI18n();
   const hubRuntime = useOwnerHubRuntime();
+  const resolvedOrderBadge =
+    orderBadge ?? (hubRuntime?.orderAlertsBadge != null ? hubRuntime.orderAlertsBadge : 0);
+  const resolvedCustomersBadge = customersBadge ?? chatBadge ?? 0;
   const pendingOrderId = useSyncExternalStore(
     subscribeOwnerHubLatestPendingOrderId,
     () => peekOwnerHubLatestPendingOrderId(storeId),
@@ -284,7 +298,7 @@ export function OwnerMobileBottomNav({
   const renderSide = (items: OwnerMobileBottomNavItem[]) =>
     items.map((item) => {
       let href = item.href(storeId, storeSlug);
-      if (item.id === "orders" && (hubRuntime?.orderAlertsBadge ?? 0) > 0) {
+      if (item.id === "orders" && resolvedOrderBadge > 0) {
         href = buildOwnerOrdersEntryHref({
           storeId,
           tab: "new",
@@ -292,6 +306,12 @@ export function OwnerMobileBottomNav({
           freshList: true,
         });
       }
+      const badgeCount =
+        item.id === "orders"
+          ? resolvedOrderBadge
+          : item.id === "customers"
+            ? resolvedCustomersBadge
+            : 0;
       return (
         <OwnerMobileBottomNavSideTab
           key={item.id}
@@ -299,7 +319,7 @@ export function OwnerMobileBottomNav({
           href={href}
           label={t(item.labelKey)}
           active={isTabActive(item.id)}
-          chatBadge={item.id === "customers" ? chatBadge : undefined}
+          badgeCount={badgeCount}
           onNavigate={markTabIntent}
           onCloseDomainSwitcher={domainSwitcherOpen ? closeDomainSwitcher : undefined}
         />
