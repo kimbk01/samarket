@@ -51,9 +51,9 @@ export function AdminPageHeader(props: AdminPageHeaderProps) {
   })();
 
   return (
-    <div className="mb-4 flex flex-wrap items-start gap-3">
+    <div className="mb-4 flex flex-wrap items-start gap-3" data-admin-page-header="1">
       {backHref ? <AppBackButton backHref={backHref} ariaLabel={t("admin_back_to_list")} /> : null}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <h1 className={titleClassName}>{resolvedTitle}</h1>
         {resolvedDescription !== undefined ? (
           <p className={descriptionClassName}>{resolvedDescription}</p>

@@ -213,7 +213,7 @@ export function DeliveryOrdersDashboardClient() {
   ];
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="space-y-4" data-admin-orders-surface="1">
       <AdminPageHeader
         titleKey="admin_do_dashboard_title"
         descriptionKey="admin_do_dashboard_desc"
@@ -240,7 +240,7 @@ export function DeliveryOrdersDashboardClient() {
           <Link
             key={s.href}
             href={s.href}
-            className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-medium whitespace-nowrap text-sam-fg hover:border-signature hover:text-signature"
           >
             {s.label}
           </Link>

@@ -8,17 +8,19 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminControlPlaneEmpty,
+  AdminControlPlaneSection,
+} from "@/components/admin/ui/AdminControlPlaneChrome";
+import { AdminToneBadge, AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import type {
   SupportActionRow,
   SupportControlPlaneModel,
 } from "@/lib/admin/support-control-plane/types";
 
 function Unavail({ ko }: { ko: boolean }) {
-  return (
-    <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-      {ko ? "확인 불가" : "UNAVAILABLE"}
-    </span>
-  );
+  return <AdminUnavailableChip ko={ko} />;
 }
 
 function Section({
@@ -31,10 +33,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2" data-admin-support-section={id} id={id}>
-      <h2 className="sam-text-body font-semibold text-sam-fg">{title}</h2>
+    <AdminControlPlaneSection id={id} title={title} dataAttr="data-admin-support-section">
       {children}
-    </section>
+    </AdminControlPlaneSection>
   );
 }
 
@@ -56,14 +57,12 @@ function ActionCard({
     >
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-bold">
+          <AdminToneBadge tone={item.requesterType === "OWNER" ? "progress" : "neutral"}>
             {item.requesterType === "OWNER" ? (ko ? "Owner" : "Owner") : ko ? "회원" : "Member"}
-          </span>
-          <span className="sam-text-xxs text-sam-muted">{item.publicCaseNo}</span>
-          <span className="sam-text-xxs text-sam-muted">{item.category}</span>
-          <span className="sam-text-xxs font-semibold text-amber-900">
-            {ko ? item.ageLabelKo : item.ageLabelEn}
-          </span>
+          </AdminToneBadge>
+          <span className="sam-text-helper text-sam-muted">{item.publicCaseNo}</span>
+          <span className="sam-text-helper text-sam-muted">{item.category}</span>
+          <AdminToneBadge tone="waiting">{ko ? item.ageLabelKo : item.ageLabelEn}</AdminToneBadge>
         </div>
         <p className="text-[15px] font-semibold text-sam-fg">{item.subject}</p>
         <p className="sam-text-helper text-sam-muted">
@@ -74,52 +73,33 @@ function ActionCard({
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpen ? (
-          <button
-            type="button"
-            onClick={() => onOpen(item.id)}
-            className="rounded-ui-rect bg-sam-fg px-3 py-1.5 text-[12px] font-semibold text-sam-app"
-          >
-            {ko ? "답변/처리" : "Reply"}
-          </button>
+          <AdminActionButton variant="primary" onClick={() => onOpen(item.id)}>
+            {ko ? "답변 작성" : "Write reply"}
+          </AdminActionButton>
         ) : (
-          <Link
-            href={item.href}
-            className="rounded-ui-rect bg-sam-fg px-3 py-1.5 text-[12px] font-semibold text-sam-app"
-          >
-            {ko ? "답변/처리" : "Reply"}
-          </Link>
+          <AdminActionLink href={item.href} variant="primary">
+            {ko ? "문의 상세" : "Open case"}
+          </AdminActionLink>
         )}
         {item.contextHref ? (
-          <Link
-            href={item.contextHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.contextHref} variant="secondary">
             {ko ? item.contextLabelKo || "원본" : item.contextLabelEn || "Context"}
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.statementHref ? (
-          <Link
-            href={item.statementHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.statementHref} variant="secondary">
             Statement
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.financeHref ? (
-          <Link
-            href={item.financeHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.financeHref} variant="secondary">
             Finance
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.adsHref ? (
-          <Link
-            href={item.adsHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.adsHref} variant="secondary">
             Ads
-          </Link>
+          </AdminActionLink>
         ) : null}
       </div>
     </div>
@@ -196,22 +176,18 @@ export function AdminSupportControlPlane({
       <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-sam-fg">
+            <h1 className="sam-text-page-title font-semibold text-sam-fg">
               {ko ? "고객지원 / 알림 관제" : "Support / Notification Control Plane"}
             </h1>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
+            <p className="mt-1 sam-text-body text-sam-muted">
               {ko
                 ? "문의 Case → 답변 → 해결. Messenger와 분리. 답변 ≠ 해결."
                 : "Case → reply → resolve. Separate from Messenger. Reply ≠ resolve."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
+          <AdminActionButton variant="neutral" onClick={() => void load()}>
             {ko ? "새로고침" : "Refresh"}
-          </button>
+          </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-amber-800">
@@ -222,9 +198,9 @@ export function AdminSupportControlPlane({
 
       <Section id="action-required" title={ko ? "지금 답변할 문의" : "Action required"}>
         {model.actionRequired.length === 0 ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border px-4 py-6 text-center text-sam-muted">
-            {ko ? "지금 처리할 문의가 없습니다." : "No support cases need action right now."}
-          </p>
+          <AdminControlPlaneEmpty
+            message={ko ? "지금 처리할 문의가 없습니다." : "No support cases need action right now."}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {model.actionRequired.map((item) => (

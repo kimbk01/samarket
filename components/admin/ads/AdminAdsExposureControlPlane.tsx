@@ -9,6 +9,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminControlPlaneEmpty,
+  AdminControlPlaneSection,
+} from "@/components/admin/ui/AdminControlPlaneChrome";
+import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import type {
   AdsActionItem,
   AdsControlPlaneModel,
@@ -16,11 +22,7 @@ import type {
 } from "@/lib/admin/ads-control-plane/types";
 
 function Unavail({ ko }: { ko: boolean }) {
-  return (
-    <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-      {ko ? "확인 불가" : "UNAVAILABLE"}
-    </span>
-  );
+  return <AdminUnavailableChip ko={ko} />;
 }
 
 function Section({
@@ -33,10 +35,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2" data-admin-ads-section={id} id={id}>
-      <h2 className="sam-text-body font-semibold text-sam-fg">{title}</h2>
+    <AdminControlPlaneSection id={id} title={title} dataAttr="data-admin-ads-section">
       {children}
-    </section>
+    </AdminControlPlaneSection>
   );
 }
 
@@ -73,35 +74,23 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href={item.href}
-          className="rounded-ui-rect bg-sam-fg px-3 py-1.5 text-[12px] font-semibold text-sam-app"
-        >
-          {ko ? "검토/상세" : "Review"}
-        </Link>
+        <AdminActionLink href={item.href} variant="primary">
+          {ko ? "광고 신청 검토" : "Review application"}
+        </AdminActionLink>
         {item.statementHref ? (
-          <Link
-            href={item.statementHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.statementHref} variant="secondary">
             Statement
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.financeHref ? (
-          <Link
-            href={item.financeHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.financeHref} variant="secondary">
             Finance
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.memberHref ? (
-          <Link
-            href={item.memberHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.memberHref} variant="secondary">
             Member
-          </Link>
+          </AdminActionLink>
         ) : null}
       </div>
     </div>
@@ -225,27 +214,23 @@ export function AdminAdsExposureControlPlane() {
       <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-sam-fg">
+            <h1 className="sam-text-page-title font-semibold text-sam-fg">
               {ko ? "광고 / 노출 관제" : "Ads / Exposure Control Plane"}
             </h1>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
+            <p className="mt-1 sam-text-body text-sam-muted">
               {ko
                 ? "신청 → 소재 → 비용(currency) → 승인 → 집행 → 실제 노출 가능 여부. Delivery/Feed/Popup authority는 합치지 않습니다."
                 : "Application → creative → billing currency → approval → execution → exposure eligibility. Domains stay separate."}
             </p>
-            <p className="mt-1 sam-text-xxs text-sam-muted">
+            <p className="mt-1 sam-text-helper text-sam-muted">
               {ko
                 ? "엔티티: 광고 상품 · 광고 신청 · 광고 소재 · 노출 위치 · 광고 집행 · 노출 정책 · 비용 (합치지 않음)"
                 : "Entities: Ad product · Application · Creative · Placement · Execution · Policy · Billing (kept separate)"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
+          <AdminActionButton variant="neutral" onClick={() => void load()}>
             {ko ? "새로고침" : "Refresh"}
-          </button>
+          </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-amber-800">
@@ -256,9 +241,9 @@ export function AdminAdsExposureControlPlane() {
 
       <Section id="action-required" title={ko ? "지금 처리할 광고" : "Action required"}>
         {model.actionRequired.length === 0 ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border px-4 py-6 text-center text-sam-muted">
-            {ko ? "지금 처리할 광고 항목이 없습니다." : "No ads items need action right now."}
-          </p>
+          <AdminControlPlaneEmpty
+            message={ko ? "지금 처리할 광고 항목이 없습니다." : "No ads items need action right now."}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {model.actionRequired.map((item) => (

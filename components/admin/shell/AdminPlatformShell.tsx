@@ -220,7 +220,7 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
         <div className="admin-platform-shell__body relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           {drawerOpen ? (
             <div
-              className="fixed inset-0 z-40 bg-black/50 md:hidden"
+              className="fixed inset-0 z-[45] bg-black/50 md:hidden"
               onClick={closeDrawer}
               aria-hidden
             />
@@ -245,11 +245,17 @@ function AdminPlatformShellInner({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div className="admin-platform-shell__page-chrome shrink-0 border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-4 py-2">
+            <div
+              className="admin-platform-shell__page-chrome shrink-0 border-b border-[var(--admin-console-border)] bg-[var(--admin-console-surface)] px-4 py-2"
+              data-admin-page-chrome="1"
+            >
               <AdminShellBreadcrumb crumbs={crumbs} />
             </div>
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-              <main className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-auto overflow-y-auto px-4 py-4">
+              <main
+                className="admin-platform-shell__content min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4"
+                data-admin-main-content="1"
+              >
                 {children}
               </main>
               {showDeliveryCmsRightMenu ? (

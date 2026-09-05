@@ -9,8 +9,12 @@ export function AdminShellBreadcrumb({ crumbs }: { crumbs: AdminBreadcrumbCrumb[
   if (crumbs.length === 0) return null;
 
   return (
-    <nav aria-label={t("admin_shell_breadcrumb")} className="admin-shell-breadcrumb">
-      <ol className="flex flex-wrap items-center gap-1 text-xs text-[var(--admin-console-muted)]">
+    <nav
+      aria-label={t("admin_shell_breadcrumb")}
+      className="admin-shell-breadcrumb"
+      data-admin-breadcrumb="1"
+    >
+      <ol className="flex flex-wrap items-center gap-1.5 text-[13px] leading-5 text-[var(--admin-console-muted)]">
         {crumbs.map((crumb, index) => {
           const label = crumb.titleKey ? t(crumb.titleKey) : tt(crumb.key);
           const isLast = index === crumbs.length - 1;

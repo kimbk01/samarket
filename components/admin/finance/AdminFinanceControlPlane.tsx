@@ -9,19 +9,17 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import {
+  AdminControlPlaneEmpty,
+  AdminControlPlaneSection,
+} from "@/components/admin/ui/AdminControlPlaneChrome";
+import { AdminUnavailableChip } from "@/components/admin/ui/AdminToneBadge";
 import type {
   FinanceActionItem,
   FinanceControlPlaneModel,
   FinanceSectionRow,
 } from "@/lib/admin/finance-control-plane/types";
-
-function Unavail({ ko }: { ko: boolean }) {
-  return (
-    <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-      {ko ? "확인 불가" : "UNAVAILABLE"}
-    </span>
-  );
-}
 
 function Section({
   id,
@@ -33,11 +31,14 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-2" data-admin-finance-section={id} id={id}>
-      <h2 className="sam-text-body font-semibold text-sam-fg">{title}</h2>
+    <AdminControlPlaneSection id={id} title={title} dataAttr="data-admin-finance-section">
       {children}
-    </section>
+    </AdminControlPlaneSection>
   );
+}
+
+function Unavail({ ko }: { ko: boolean }) {
+  return <AdminUnavailableChip ko={ko} />;
 }
 
 function RowTable({
@@ -138,35 +139,23 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
         </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <Link
-          href={item.href}
-          className="rounded-ui-rect bg-sam-fg px-3 py-1.5 text-[12px] font-semibold text-sam-app"
-        >
-          {ko ? "처리/큐" : "Open queue"}
-        </Link>
+        <AdminActionLink href={item.href} variant="primary">
+          {ko ? "재무 요청 검토" : "Review finance request"}
+        </AdminActionLink>
         {item.statementHref ? (
-          <Link
-            href={item.statementHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.statementHref} variant="secondary">
             Statement
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.memberHref ? (
-          <Link
-            href={item.memberHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.memberHref} variant="secondary">
             Member
-          </Link>
+          </AdminActionLink>
         ) : null}
         {item.referenceHref ? (
-          <Link
-            href={item.referenceHref}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
-          >
+          <AdminActionLink href={item.referenceHref} variant="secondary">
             {ko ? "원본" : "Source"}
-          </Link>
+          </AdminActionLink>
         ) : null}
       </div>
     </div>
@@ -238,22 +227,18 @@ export function AdminFinanceControlPlane() {
       <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-sam-fg">
+            <h1 className="sam-text-page-title font-semibold text-sam-fg">
               {ko ? "공통 재무 관제" : "Common Finance Control Plane"}
             </h1>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
+            <p className="mt-1 sam-text-body text-sam-muted">
               {ko
                 ? "처리해야 할 돈 → 회원/매장 → Point·Coin·Cash·정산 → 원본 → Statement. 자산은 합산하지 않습니다."
                 : "Actionable money → member/store → Point·Coin·Cash·settlement → source → Statement. Assets are never merged."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="rounded border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-medium text-sam-fg"
-          >
+          <AdminActionButton variant="neutral" onClick={() => void load()}>
             {ko ? "새로고침" : "Refresh"}
-          </button>
+          </AdminActionButton>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-amber-800">
@@ -264,9 +249,11 @@ export function AdminFinanceControlPlane() {
 
       <Section id="action-required" title={ko ? "지금 처리할 돈" : "Action required"}>
         {model.actionRequired.length === 0 ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-6 text-center sam-text-body text-sam-muted">
-            {ko ? "지금 처리할 재무 항목이 없습니다." : "No finance items need action right now."}
-          </p>
+          <AdminControlPlaneEmpty
+            message={
+              ko ? "지금 처리할 재무 항목이 없습니다." : "No finance items need action right now."
+            }
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {model.actionRequired.map((item) => (

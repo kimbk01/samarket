@@ -158,11 +158,11 @@ export function AdminDomainDashboardShell({
       data-admin-domain-dashboard={model.domain}
       data-aro-ops-ux-002-b2="1"
     >
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight text-sam-fg">
+      <header className="space-y-1" data-admin-cp-header="domain">
+        <h1 className="sam-text-page-title font-semibold tracking-tight text-sam-fg">
           {ko ? model.titleKo : model.titleEn}
         </h1>
-        <p className="sam-text-body-secondary text-sam-muted">
+        <p className="sam-text-body text-sam-muted">
           {ko ? model.descriptionKo : model.descriptionEn}
         </p>
       </header>

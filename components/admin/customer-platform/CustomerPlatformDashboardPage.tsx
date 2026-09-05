@@ -151,7 +151,10 @@ export function CustomerPlatformDashboardPage() {
 
   return (
     <div className="sam-page-stack">
-      <AdminPageHeader titleKey="admin_menu_customer_platform" />
+      <AdminPageHeader
+        titleKey="admin_menu_customer_platform"
+        descriptionKey="admin_cp_dashboard_intro"
+      />
 
       <p className="sam-text-body-secondary text-sam-muted">
         {safeT("admin_cp_dashboard_intro", {
