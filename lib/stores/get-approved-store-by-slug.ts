@@ -104,6 +104,16 @@ export function resetApprovedStoreSlugCacheForTests(): void {
   approvedStoreSlugCache.clear();
 }
 
+export function invalidateApprovedStoreSlugCacheForSlug(decodedSlug: string): void {
+  const slugKey = decodedSlug.trim().toLowerCase();
+  if (!slugKey) return;
+  for (const key of approvedStoreSlugCache.keys()) {
+    if (key.startsWith(`${slugKey}\0`)) {
+      approvedStoreSlugCache.delete(key);
+    }
+  }
+}
+
 export type StoreCommerceMeta = {
   favoriteCount: number;
   recentOrderCount: number;

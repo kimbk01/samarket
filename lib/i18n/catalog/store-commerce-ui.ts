@@ -1140,6 +1140,8 @@ export const storeCommerceUiMessages = {
     store_owner_notif_table_missing: "알림 설정 테이블이 아직 없습니다.",
     store_owner_notif_load_failed: "설정을 불러오지 못했습니다.",
     store_owner_notif_settings_link_suffix: "에서 거래·커뮤니티 채팅 알림을 함께 조정할 수 있어요.",
+    store_owner_notif_push_label: "주문·매장 알림",
+    store_owner_notif_push_desc: "신규 주문과 매장 운영 관련 선택 알림",
     store_owner_notif_order_label: "주문 알림",
     store_owner_notif_order_desc: "신규 주문·취소·환불·결제 등",
     store_owner_notif_store_label: "매장·판매 알림",
@@ -2891,6 +2893,8 @@ export const storeCommerceUiMessages = {
     store_owner_notif_load_failed: "Could not load settings.",
     store_owner_notif_settings_link_suffix:
       " to adjust trade and community messenger alerts together.",
+    store_owner_notif_push_label: "Order & store alerts",
+    store_owner_notif_push_desc: "Optional alerts for new orders and store operations",
     store_owner_notif_order_label: "Order alerts",
     store_owner_notif_order_desc: "New orders, cancel, refund, payment, etc.",
     store_owner_notif_store_label: "Store & sales alerts",

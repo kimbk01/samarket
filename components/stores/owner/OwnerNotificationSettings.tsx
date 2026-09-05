@@ -2,14 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { fetchMeNotificationSettingsGet } from "@/lib/me/fetch-me-notification-settings-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type DomainSettings = {
-  order_enabled: boolean;
-  store_enabled: boolean;
-  sound_enabled: boolean;
-  vibration_enabled: boolean;
+  optional_push_enabled: boolean;
+  optional_sound_enabled: boolean;
 };
 
 function Row({
@@ -58,7 +55,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
     try {
-      const res = await fetchMeNotificationSettingsGet();
+      const res = await fetch("/api/me/owner-notification-settings", { credentials: "include" });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         table_missing?: boolean;
@@ -77,17 +74,13 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
       setTableMissing(j.table_missing === true);
       const x = j.settings;
       const nextSettings: DomainSettings = {
-        order_enabled: x.order_enabled !== false,
-        store_enabled: x.store_enabled !== false,
-        sound_enabled: x.sound_enabled !== false,
-        vibration_enabled: x.vibration_enabled !== false,
+        optional_push_enabled: x.optional_push_enabled !== false,
+        optional_sound_enabled: x.optional_sound_enabled !== false,
       };
       setS((prev) =>
         prev &&
-        prev.order_enabled === nextSettings.order_enabled &&
-        prev.store_enabled === nextSettings.store_enabled &&
-        prev.sound_enabled === nextSettings.sound_enabled &&
-        prev.vibration_enabled === nextSettings.vibration_enabled
+        prev.optional_push_enabled === nextSettings.optional_push_enabled &&
+        prev.optional_sound_enabled === nextSettings.optional_sound_enabled
           ? prev
           : nextSettings
       );
@@ -105,7 +98,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   const patch = useCallback(
     async (partial: Partial<DomainSettings>) => {
       if (!s) return;
-      const res = await fetch("/api/me/notification-settings", {
+      const res = await fetch("/api/me/owner-notification-settings", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -157,26 +150,15 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
         </p>
       </div>
       <Row
-        label={t("store_owner_notif_order_label")}
-        description={t("store_owner_notif_order_desc")}
-        checked={s.order_enabled}
-        onChange={(v) => void patch({ order_enabled: v })}
-      />
-      <Row
-        label={t("store_owner_notif_store_label")}
-        description={t("store_owner_notif_store_desc")}
-        checked={s.store_enabled}
-        onChange={(v) => void patch({ store_enabled: v })}
+        label={t("store_owner_notif_push_label")}
+        description={t("store_owner_notif_push_desc")}
+        checked={s.optional_push_enabled}
+        onChange={(v) => void patch({ optional_push_enabled: v })}
       />
       <Row
         label={t("store_owner_notif_sound")}
-        checked={s.sound_enabled}
-        onChange={(v) => void patch({ sound_enabled: v })}
-      />
-      <Row
-        label={t("store_owner_notif_vibration")}
-        checked={s.vibration_enabled}
-        onChange={(v) => void patch({ vibration_enabled: v })}
+        checked={s.optional_sound_enabled}
+        onChange={(v) => void patch({ optional_sound_enabled: v })}
       />
     </div>
   );
