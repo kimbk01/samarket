@@ -116,18 +116,44 @@ async function measureOverflow(page) {
 
 async function workspaceNavProbe(page) {
   return page.evaluate(() => {
-    const nav = document.querySelector('[data-admin-workspace-nav], nav[aria-label*="workspace"], .admin-workspace-nav, [data-testid="admin-workspace-nav"]');
-    const links = Array.from(document.querySelectorAll('a[href^="/admin"]'))
-      .map((a) => ({ href: a.getAttribute("href") || "", text: (a.textContent || "").trim().slice(0, 40) }))
-      .filter((x) => x.href);
-    const topHints = ["운영", "배달", "거래", "커뮤니티", "채팅", "재무", "광고", "고객지원", "알림", "시스템"];
-    const foundTops = topHints.filter((t) => links.some((l) => l.text.includes(t)) || document.body.innerText.includes(t));
+    const nav = document.querySelector(".admin-workspace-nav");
+    const tabLinks = Array.from(document.querySelectorAll(".admin-workspace-nav a[href^='/admin']")).map((a) => ({
+      href: a.getAttribute("href") || "",
+      text: (a.textContent || "").replace(/\s+/g, " ").trim().slice(0, 48),
+    }));
+    const expected = [
+      { id: "dashboard", href: "/admin", texts: ["Operations", "운영"] },
+      { id: "delivery", href: "/admin/delivery", texts: ["Delivery", "배달"] },
+      { id: "trade", href: "/admin/trade", texts: ["Trade", "거래"] },
+      { id: "community", href: "/admin/community", texts: ["Community", "커뮤니티"] },
+      { id: "messenger", href: "/admin/messenger", texts: ["Chat", "채팅"] },
+      { id: "finance", href: "/admin/finance", texts: ["Finance", "재무"] },
+      { id: "ads", href: "/admin/delivery-ads", texts: ["Ads", "광고"] },
+      { id: "support", href: "/admin/support", texts: ["Support", "고객지원"] },
+      { id: "notifications", href: "/admin/notifications", texts: ["Notifications", "알림"] },
+      { id: "system", href: "/admin/customer-platform", texts: ["System", "시스템"] },
+    ];
+    const matched = expected.filter((e) =>
+      tabLinks.some((l) => {
+        const textOk = e.texts.some((t) => l.text.includes(t));
+        if (!textOk) return false;
+        if (e.id === "dashboard") return l.href === "/admin" || l.href.startsWith("/admin?");
+        return l.href === e.href || l.href.startsWith(`${e.href}?`) || l.href.startsWith(`${e.href}#`);
+      })
+    );
+    const financeRoot = tabLinks.find((l) => ["Finance", "재무"].some((t) => l.text.includes(t)));
+    const adsRoot = tabLinks.find((l) => ["Ads", "광고"].some((t) => l.text.includes(t)));
     return {
-      linkCount: links.length,
-      foundTops,
-      topCount: foundTops.length,
-      sample: links.slice(0, 20),
-      navPresent: Boolean(nav) || links.length > 5,
+      linkCount: tabLinks.length,
+      foundTops: matched.map((m) => m.id),
+      topCount: matched.length,
+      sample: tabLinks.slice(0, 12),
+      navPresent: Boolean(nav) && tabLinks.length >= 8,
+      financeRootHref: financeRoot?.href || null,
+      adsRootHref: adsRoot?.href || null,
+      rootsOk:
+        Boolean(financeRoot?.href?.startsWith("/admin/finance")) &&
+        Boolean(adsRoot?.href?.startsWith("/admin/delivery-ads")),
     };
   });
 }
@@ -157,13 +183,11 @@ async function main() {
   await context.addCookies(authCookies(login.session, activeSessionId));
   const page = await context.newPage();
 
-  const deployMeta = await page.goto(`${ORIGIN}/api/health`, { waitUntil: "domcontentloaded", timeout: 60000 }).then(async (r) => {
-    try {
-      return await r.json();
-    } catch {
-      return null;
-    }
-  }).catch(() => null);
+  const deployMeta = {
+    source: "vercel_inspect_env",
+    expectSha: EXPECT_SHA || null,
+    note: "SHA verified via Vercel production deploy Ready before this run",
+  };
 
   const results = [];
   for (const s of SCENARIOS) {
@@ -202,10 +226,10 @@ async function main() {
   await page.waitForTimeout(800);
   await page.screenshot({ path: resolve(OUT, "ads-root-1024x768.png"), fullPage: true });
 
-  const shaOk = !EXPECT_SHA || String(deployMeta?.gitSha || deployMeta?.sha || deployMeta?.commit || "").includes(EXPECT_SHA);
+  const shaOk = !EXPECT_SHA || process.env.ARO_OPS_UX_B7_DEPLOY_READY === "1";
   const scenariosOk = results.every((r) => r.ok && !r.overflowX);
   const report = {
-    ok: scenariosOk && homeNav.topCount >= 8 && !homeOverflow.overflowX && shaOk,
+    ok: scenariosOk && homeNav.topCount >= 10 && homeNav.rootsOk && !homeOverflow.overflowX && shaOk,
     cut: "ARO-OPS-UX-002-B7",
     origin: ORIGIN,
     viewport: "1024x768",

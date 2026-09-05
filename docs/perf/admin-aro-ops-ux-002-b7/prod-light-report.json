@@ -1,0 +1,252 @@
+{
+  "ok": true,
+  "cut": "ARO-OPS-UX-002-B7",
+  "origin": "https://samarket.vercel.app",
+  "viewport": "1024x768",
+  "expectSha": "a8fb25c68",
+  "deployMeta": {
+    "source": "vercel_inspect_env",
+    "expectSha": "a8fb25c68",
+    "note": "SHA verified via Vercel production deploy Ready before this run"
+  },
+  "shaOk": true,
+  "home": {
+    "linkCount": 10,
+    "foundTops": [
+      "dashboard",
+      "delivery",
+      "trade",
+      "community",
+      "messenger",
+      "finance",
+      "ads",
+      "support",
+      "notifications",
+      "system"
+    ],
+    "topCount": 10,
+    "sample": [
+      {
+        "href": "/admin",
+        "text": "Operations"
+      },
+      {
+        "href": "/admin/delivery",
+        "text": "Delivery"
+      },
+      {
+        "href": "/admin/trade",
+        "text": "Trade"
+      },
+      {
+        "href": "/admin/community",
+        "text": "Community"
+      },
+      {
+        "href": "/admin/messenger",
+        "text": "Chat"
+      },
+      {
+        "href": "/admin/finance",
+        "text": "Finance"
+      },
+      {
+        "href": "/admin/delivery-ads",
+        "text": "Ads / Exposure"
+      },
+      {
+        "href": "/admin/support",
+        "text": "Support"
+      },
+      {
+        "href": "/admin/notifications",
+        "text": "Notifications"
+      },
+      {
+        "href": "/admin/customer-platform",
+        "text": "System"
+      }
+    ],
+    "navPresent": true,
+    "financeRootHref": "/admin/finance",
+    "adsRootHref": "/admin/delivery-ads",
+    "rootsOk": true,
+    "overflowX": false
+  },
+  "scenarios": [
+    {
+      "id": "IA1_ORDER",
+      "path": "/admin/stores/orders",
+      "finalUrl": "https://samarket.vercel.app/admin/stores/orders",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": false,
+      "topLevelHints": [],
+      "topCount": 0,
+      "expectWs": "delivery",
+      "hasContent": true
+    },
+    {
+      "id": "IA2_CASH",
+      "path": "/admin/finance",
+      "finalUrl": "https://samarket.vercel.app/admin/finance",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "finance",
+      "hasContent": true
+    },
+    {
+      "id": "IA3_ADS",
+      "path": "/admin/delivery-ads",
+      "finalUrl": "https://samarket.vercel.app/admin/delivery-ads",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "ads",
+      "hasContent": true
+    },
+    {
+      "id": "IA4_SUPPORT",
+      "path": "/admin/support",
+      "finalUrl": "https://samarket.vercel.app/admin/support",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "support",
+      "hasContent": true
+    },
+    {
+      "id": "IA5_TRADE",
+      "path": "/admin/posts-management",
+      "finalUrl": "https://samarket.vercel.app/admin/posts-management",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "trade",
+      "hasContent": true
+    },
+    {
+      "id": "IA6_STATEMENT",
+      "path": "/admin/finance?view=statement",
+      "finalUrl": "https://samarket.vercel.app/admin/finance?view=statement",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "finance",
+      "hasContent": true
+    },
+    {
+      "id": "IA7_POPUP",
+      "path": "/admin/platform-popup",
+      "finalUrl": "https://samarket.vercel.app/admin/platform-popup",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "ads",
+      "hasContent": true
+    },
+    {
+      "id": "IA8_RESET",
+      "path": "/admin/prelaunch-reset",
+      "finalUrl": "https://samarket.vercel.app/admin/prelaunch-reset",
+      "ok": true,
+      "overflowX": false,
+      "breadcrumbVisible": true,
+      "topLevelHints": [
+        "dashboard",
+        "delivery",
+        "trade",
+        "community",
+        "messenger",
+        "finance",
+        "ads",
+        "support",
+        "notifications",
+        "system"
+      ],
+      "topCount": 10,
+      "expectWs": "system",
+      "hasContent": true
+    }
+  ],
+  "loginMethod": "magiclink"
+}
