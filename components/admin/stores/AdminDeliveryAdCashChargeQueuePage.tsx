@@ -222,8 +222,17 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     {String(r.created_at ?? "").slice(0, 19)} · {r.status}
                   </p>
                   <Link
-                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
+                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}&view=statement`}
                     className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
+                  >
+                    {safeT("admin_delivery_ads_cash_charges_open_statement", {
+                      fallbackKo: "매장 재무 명세서",
+                      fallbackEn: "Store financial statement",
+                    })}
+                  </Link>
+                  <Link
+                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}`}
+                    className="mt-1 ml-2 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
                   >
                     {safeT("admin_delivery_ads_cash_charges_open_store", {
                       fallbackKo: "매장 Cash/Coin 보기",

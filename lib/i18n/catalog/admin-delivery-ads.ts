@@ -325,6 +325,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_cash_charges_reject_ok: "거절 완료. Cash 잔액은 변경되지 않았습니다.",
     admin_delivery_ads_cash_charges_finance_hub: "Finance 허브",
     admin_delivery_ads_cash_charges_open_store: "매장 Cash/Coin 보기",
+    admin_delivery_ads_cash_charges_open_statement: "매장 재무 명세서",
     admin_delivery_ads_cash_charges_store: "매장",
     admin_delivery_ads_open_category_policy: "업종(BROWSE) 광고 정책",
     admin_delivery_ads_inventory_desc:
@@ -684,6 +685,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_cash_charges_reject_ok: "Rejected. Cash balance was not changed.",
     admin_delivery_ads_cash_charges_finance_hub: "Finance hub",
     admin_delivery_ads_cash_charges_open_store: "Open store Cash/Coin",
+    admin_delivery_ads_cash_charges_open_statement: "Store financial statement",
     admin_delivery_ads_cash_charges_store: "Store",
     admin_delivery_ads_open_category_policy: "BROWSE category ad policy",
     admin_delivery_ads_inventory_desc:

@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
 import { AdminFinanceOpsQueue } from "@/components/admin/finance/AdminFinanceOpsQueue";
+import { AdminStoreFinancialStatement } from "@/components/admin/finance/AdminStoreFinancialStatement";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -62,9 +63,14 @@ export function AdminStoreFinancePanels() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [statementStoreId, setStatementStoreId] = useState("");
+
   useEffect(() => {
     const sid = searchParams.get("storeId")?.trim() ?? "";
-    if (sid) setStoreId(sid);
+    if (sid) {
+      setStoreId(sid);
+      setStatementStoreId(sid);
+    }
   }, [searchParams]);
 
   const load = async (event: FormEvent) => {
@@ -90,6 +96,7 @@ export function AdminStoreFinancePanels() {
         return;
       }
       setData(json);
+      setStatementStoreId(sid);
     } catch {
       setData(null);
       setError(
@@ -106,6 +113,10 @@ export function AdminStoreFinancePanels() {
   return (
     <div className="space-y-4" data-admin-store-finance-panels="1">
       <AdminFinanceOpsQueue />
+
+      {statementStoreId ? (
+        <AdminStoreFinancialStatement storeId={statementStoreId} />
+      ) : null}
 
       <form
         onSubmit={(event) => void load(event)}

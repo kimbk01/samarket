@@ -312,6 +312,13 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         frequency: "FREQUENT",
       },
       {
+        id: "store_financial_statement",
+        labelKo: "매장 재무 명세서",
+        labelEn: "Store financial statement",
+        href: "/admin/business",
+        frequency: "DAILY_CRITICAL",
+      },
+      {
         id: "action_center",
         labelKo: "전역 Action Center",
         labelEn: "Global Action Center",

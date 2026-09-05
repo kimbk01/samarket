@@ -2282,6 +2282,7 @@ export const adminMessages = {
     admin_stores_settlements_desc:
       "주문 완료(completed) 시점에 원장이 생성됩니다. 기간 필터는 원장의 생성 시각(UTC) 기준입니다. 완료 반영 열은 주문이 completed일 때의 주문 수정 시각입니다.",
     admin_stores_settlements_filter_title: "필터",
+    admin_stores_settlements_open_statement: "이 매장 재무 명세서 열기",
     admin_stores_settlements_filter_hint:
       "「정산 상태」를 고르면 「지급 상태」는 무시됩니다. 보류만·미지급만·환불 반영만은 정산 상태와 함께 AND 로 적용됩니다.",
     admin_stores_settlements_filter_period: "기간 (원장 생성일 UTC)",
@@ -5065,6 +5066,7 @@ export const adminMessages = {
     admin_stores_payment_err_table_missing: "Apply the store_payment_events table migration.",
     admin_stores_settlements_desc: "Ledger entries are created when an order is completed. Period filter uses ledger created_at (UTC). Completed column shows order updated_at when status is completed.",
     admin_stores_settlements_filter_title: "Filters",
+    admin_stores_settlements_open_statement: "Open store financial statement",
     admin_stores_settlements_filter_hint: "Settlement status overrides payout status. Held only / unpaid only / refund applied combine with settlement status (AND).",
     admin_stores_settlements_filter_period: "Period (ledger created UTC)",
     admin_stores_settlements_filter_vendor: "Vendor",

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,6 +9,7 @@ import { DibayOverlayButton, DibayOverlayRoot } from "@/components/ui/dibay-over
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 
 type Row = {
   id: string;
@@ -111,7 +113,7 @@ function allowedModes(row: Row): Record<OpsMode, boolean> {
 }
 
 export function AdminStoreSettlementsPage() {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const searchParams = useSearchParams();
   const storeIdFromUrl = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
@@ -440,6 +442,19 @@ export function AdminStoreSettlementsPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_store_settlements" />
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_settlements_desc")}</p>
+      {filterStoreId.trim() ? (
+        <p className="sam-text-body-secondary" data-admin-settlement-statement-link="1">
+          <Link
+            href={businessCcFinancialStatementHref(filterStoreId.trim())}
+            className="font-semibold text-signature hover:underline"
+          >
+            {safeT("admin_stores_settlements_open_statement", {
+              fallbackKo: "이 매장 재무 명세서 열기",
+              fallbackEn: "Open store financial statement",
+            })}
+          </Link>
+        </p>
+      ) : null}
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_settlements_filter_title")}</h2>

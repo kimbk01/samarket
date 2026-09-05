@@ -20,6 +20,7 @@ import {
   businessCcCashChargesHref,
   businessCcDeliveryAdsHref,
   businessCcFinanceHref,
+  businessCcFinancialStatementHref,
   businessCcOrdersByStoreHref,
   businessCcOwnerMemberHref,
   businessCcPartnerHref,
@@ -449,8 +450,18 @@ export function AdminBusinessOpsOverviewGrid({
         })}
         footer={
           <div className="flex flex-wrap gap-2" data-admin-store-ops-hub-links="1">
+            <Link
+              href={businessCcFinancialStatementHref(storeId)}
+              className={linkClass}
+              data-store-hub-financial-statement="1"
+            >
+              {safeT("admin_biz_ops_link_financial_statement", {
+                fallbackKo: "재무 명세서",
+                fallbackEn: "Financial statement",
+              })}
+            </Link>
             <Link href={businessCcFinanceHref(storeId)} className={linkClass} data-store-hub-finance="1">
-              Finance
+              Coin/Cash
             </Link>
             <Link href={businessCcCashChargesHref()} className={linkClass} data-store-hub-cash="1">
               Cash

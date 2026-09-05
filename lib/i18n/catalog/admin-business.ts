@@ -327,6 +327,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_card_reviews: "평점/리뷰",
     admin_biz_ops_card_reports: "신고/제재",
     admin_biz_ops_card_operation_links: "운영 바로가기",
+    admin_biz_ops_link_financial_statement: "재무 명세서",
     admin_biz_ops_operation_links_note:
       "Coin / Cash / 광고 / Partner / 문의는 각 canonical 화면에서 처리합니다. 이 카드는 바로가기만 제공합니다.",
     admin_biz_ops_card_delivery: "배달 현황",
@@ -706,6 +707,7 @@ export const adminBusinessMessages = {
     admin_biz_ops_card_reviews: "Rating / reviews",
     admin_biz_ops_card_reports: "Reports / sanctions",
     admin_biz_ops_card_operation_links: "Operation links",
+    admin_biz_ops_link_financial_statement: "Financial statement",
     admin_biz_ops_operation_links_note:
       "Coin / Cash / Ads / Partner / Support are handled on their canonical screens. This card is deep-links only.",
     admin_biz_ops_card_delivery: "Delivery",
