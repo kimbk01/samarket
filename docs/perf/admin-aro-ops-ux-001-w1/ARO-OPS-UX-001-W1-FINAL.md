@@ -1,13 +1,16 @@
 # DIBAY ADMIN
 ## ARO-OPS-UX-001-W1 FINAL
 
-HEAD BEFORE: `1771318be` (product base) / evidence `9eb9eb00f`  
-HEAD AFTER: *(fill on commit)*  
-ORIGIN / PRODUCTION: *(fill after push)*
+HEAD BEFORE: `1771318be` (product base) / audit evidence `9eb9eb00f`  
+HEAD AFTER: `d7e8b66aa9771ae43bffb354a8d2f96871b9d21e`  
+ORIGIN: pushed `main`  
+PRODUCTION: Ready — Commit `d7e8b66` (`samarket-73qybpkvo`) → `https://samarket.vercel.app`
 
 PRODUCT CODE CHANGE: YES  
-PROOF SURFACE: `/admin/posts-management`  
-WHY: Closest existing checkbox + current-page select-all + soft bulk; lowest mutation risk for shared contract adoption.
+FILES: 25  
+COMMIT: `d7e8b66aa` — `feat(admin): ARO-OPS-UX-001-W1 shared domain management contract`  
+PUSH: YES  
+DEPLOY: Ready
 
 ### SHARED OWNERS
 
@@ -19,53 +22,85 @@ WHY: Closest existing checkbox + current-page select-all + soft bulk; lowest mut
 | SELECTION | `selection.ts` + `useAdminManagementSelection` |
 | BULK | `AdminManagementBulkBar` + `entity-action-policy` |
 | CTA | `cta-taxonomy.ts` → ConsoleButton / Sam |
-| STATUS | domain badge (TradeStatusBadge) + shared CTA STATUS slot |
-| ENTITY POLICY | `policies/seed-policies.ts` adapters |
+| STATUS | domain badge (TradeStatusBadge) + CTA STATUS slot |
+| ENTITY POLICY | `policies/seed-policies.ts` |
 | FREQUENCY | `operational-frequency-registry.ts` |
 | TERMINOLOGY | `terminology.ts` |
 
 ### FREQUENCY
 
 TYPE: `OperationalFrequencyClass`  
-REGISTRY: seed entries for Delivery/Trade/Community/Messenger + Common workspaces  
+REGISTRY: Delivery/Trade/Community/Messenger + Common seed entries  
 MEASURED USAGE CLAIM: **NONE**
 
 ### TERMINOLOGY
 
-Canonical concepts MEMBER…CANCEL + DETAIL/MANAGE with doNotUseAs collisions documented.
+MEMBER / STORE / OWNER / PRODUCT / MENU / REPORT / SUPPORT / ADVERTISEMENT / PROMOTION / EXPOSURE / POINT / COIN / CASH / SETTLEMENT / DELETE / HIDE / RESTORE — typed with doNotUseAs.
 
 ### TABLE
 
-OVERFLOW OWNER: `AdminManagementTableViewport` only  
-TABLE MIN WIDTH: `computeTableMinWidthPx`  
-COLUMN SEMANTICS: SELECTION/IDENTITY/TITLE/STATUS/NUMERIC/DATE/METADATA/ACTIONS  
-STICKY: optional (default off on proof)  
-BODY X OVERFLOW: must not (tablet helper)
+OVERFLOW OWNER: table viewport only  
+TABLE MIN WIDTH: semantic `computeTableMinWidthPx`  
+COLUMN SEMANTICS: yes  
+STICKY: default off (proof)  
+BODY X OVERFLOW: **0** @ 1024×768 (prod light)
 
 ### SELECTION
 
 ROW / HEADER / INDETERMINATE: yes  
-CURRENT PAGE SELECT ALL: default  
-FILTER RESULT / GLOBAL DB: not enabled (GLOBAL throws)  
-QUERY CHANGE: clears selection
+CURRENT PAGE SELECT ALL: yes (40 rows → bulk bar)  
+FILTER RESULT / GLOBAL DB: not enabled  
+QUERY CHANGE: clears
 
 ### BULK
 
-Policy-filtered actions; trade soft hide/restore/soft_delete; hard unavailable
+BAR: yes · SELECTED COUNT: yes · ALLOWED: hide/restore/soft_delete · INVALID hard omitted · POLICY: TRADE_POST
+
+### CTA
+
+PRIMARY/SECONDARY/STATUS/DANGER via ConsoleButton/Sam mapping
 
 ### DELETE POLICY
 
-Trade: SOFT_DELETE · hardDeleteAvailable=false  
-Member/Order/Settlement seed: BLOCKED / STATUS_ONLY
+HARD: unavailable on trade proof · SOFT: yes · HIDE/RESTORE: yes · BLOCKED seeds: member/settlement
+
+### PROOF SURFACE
+
+ROUTE: `/admin/posts-management`  
+WHY: closest existing selection/bulk; soft-only mutations preserved  
+BEFORE: local Set + ad-hoc overflow  
+AFTER: shared viewport/selection/bulk/policy + `data-aro-ops-ux-001-w1`
+
+### TABLET 1024×768 (prod light)
+
+TBL-1 body.scrollWidth<=clientWidth: PASS (1024=1024)  
+TBL-2 shell no body x: PASS  
+TBL-3 viewport needs scroll: PASS (1244>734)  
+TBL-4 usable: PASS  
+TBL-5 selection reachable: PASS  
+TBL-6 actions reachable: PASS (screenshot)  
+TBL-7..12: PASS / no sticky enabled (N/A overlap)
 
 ### CONTRACT TESTS
 
-`lib/admin/__tests__/admin-aro-ops-ux-001-w1-contract.test.ts` — W1-01…W1-16 PASS
+W1-01…W1-16: PASS (`admin-aro-ops-ux-001-w1-contract.test.ts`)
+
+FIRST DIVERGENCE: NONE  
+TYPECHECK: PASS (index-tsc pre-commit)  
+LINT: PASS (pre-commit path)  
+I18N: PASS (staged catalog)  
+BUILD: PASS  
+PRODUCTION LIGHT: **PASS** (`aro-ops-ux-001-w1-prod-light.json`) · destructive: **NONE**
 
 ### RESULT
 
-*(pending deploy + prod light)*
+**ARO-OPS-UX-001-W1 = PASS / CLOSED / LOCK**
 
-REAL-WORLD ADMIN READY: **PARTIAL** (W1 SSOT ready ≠ all domains migrated)
+REAL-WORLD ADMIN READY: **PARTIAL**  
+(W1 SSOT ready ≠ Members/Community/Trade full migration)
 
-NEXT WAVES: NOT STARTED
+CLOSED LOCKS UNCHANGED: CUT I P0 · ARO-IA · ARO-RST · ARO-RST-COV · ARO-AC
+
+### NEXT WAVES — NOT STARTED
+
+W2 MEMBERS … W12 FINAL — Owner approval required per wave.

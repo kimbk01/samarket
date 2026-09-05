@@ -1,0 +1,34 @@
+{
+  "sha": "d7e8b66aa",
+  "expectSha": "d7e8b66aa",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "geo": {
+    "bodyScrollWidth": 1024,
+    "bodyClientWidth": 1024,
+    "tableViewportScrollWidth": 1244,
+    "tableViewportClientWidth": 734,
+    "hasRoot": true,
+    "hasViewport": true,
+    "hasSelectAll": true,
+    "hasRowSelect": 40
+  },
+  "afterSelect": {
+    "bulkVisible": true,
+    "bulkText": "40개 선택됨숨김 해제숨김삭제 (soft)"
+  },
+  "checks": {
+    "page": true,
+    "w1Root": true,
+    "tableViewport": true,
+    "selectAll": true,
+    "rowSelect": true,
+    "bodyNoXOverflow": true,
+    "bulkBarWhenSelected": true,
+    "destructiveMutation": false
+  },
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T15:08:27.887Z"
+}
