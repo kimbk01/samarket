@@ -1,7 +1,7 @@
 "use client";
 
 import { dibayConfirm, dibayAlert, dibayPrompt } from "@/components/ui/dibay-overlay";
-import { forwardRef, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import {
@@ -20,14 +20,25 @@ import {
 import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { POSTS_MGMT_TAB_LABEL_KEY, postsMgmtLocale } from "./posts-management-i18n";
+import { TradePromoBadge, TradeStatusBadge } from "@/components/admin/trade-console/trade-console-ui";
 import {
-  ConsoleButton,
-  TradePromoBadge,
-  TradeStatusBadge,
-} from "@/components/admin/trade-console/trade-console-ui";
+  AdminManagementBulkBar,
+  AdminManagementSelectionCheckbox,
+  AdminManagementTableViewport,
+  useAdminManagementSelection,
+} from "@/components/admin/management";
+import {
+  computeTableMinWidthPx,
+  managementColumnStyle,
+  terminologyDisplay,
+  TRADE_POST_ENTITY_ACTION_POLICY,
+  type ManagementColumnKind,
+} from "@/lib/admin/management";
 
 interface AdminPostsManagementTableProps {
   products: Product[];
+  /** Clears selection when page/filter/search/sort context changes. */
+  queryScopeKey: string;
   /** false면 상품 ID 열 숨김 (필터·정렬은 그대로 적용) */
   showProductIdColumn?: boolean;
   /** 가로 스크롤 동기화·측정용 (하단 고정 스크롤바) */
@@ -36,17 +47,61 @@ interface AdminPostsManagementTableProps {
   onActionSuccess?: () => void;
 }
 
+const COLUMN_KINDS: ManagementColumnKind[] = [
+  "SELECTION",
+  "TITLE",
+  "IDENTITY",
+  "METADATA",
+  "NUMERIC",
+  "METADATA",
+  "STATUS",
+  "NUMERIC",
+  "NUMERIC",
+  "NUMERIC",
+  "METADATA",
+  "DATE",
+  "ACTIONS",
+];
+
 export const AdminPostsManagementTable = forwardRef<
   HTMLDivElement,
   AdminPostsManagementTableProps
 >(function AdminPostsManagementTable(
-  { products, showProductIdColumn = false, onHorizontalScroll, onActionSuccess },
+  {
+    products,
+    queryScopeKey,
+    showProductIdColumn = false,
+    onHorizontalScroll,
+    onActionSuccess,
+  },
   ref
 ) {
   const { t, language, safeT } = useI18n();
   const locale = postsMgmtLocale(language);
   const [actionRowId, setActionRowId] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const policy = TRADE_POST_ENTITY_ACTION_POLICY;
+  const selectableIds = useMemo(() => products.map((p) => p.id), [products]);
+  const selection = useAdminManagementSelection({
+    queryScopeKey,
+    selectableIds,
+  });
+
+  const tableMinWidth = computeTableMinWidthPx(
+    showProductIdColumn ? (["SELECTION", "IDENTITY", ...COLUMN_KINDS.slice(1)] as ManagementColumnKind[]) : COLUMN_KINDS
+  );
+
+  const manageLabel = terminologyDisplay("DETAIL", language);
+  const hideLabel = t("admin_posts_mgmt_action_hide");
+  const restoreLabel = t("admin_posts_mgmt_action_unhide");
+  const softDeleteLabel = `${terminologyDisplay("DELETE", language)} (soft)`;
+  const productLabel = terminologyDisplay("PRODUCT", language);
+  const adLabel = terminologyDisplay("ADVERTISEMENT", language);
+  const selectAllLabel =
+    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
+  const selectedLabel =
+    language === "en"
+      ? `${selection.selectedCount} selected`
+      : `${selection.selectedCount}개 선택됨`;
 
   const moderationLabels = {
     hideTitle: safeT("admin_products_confirm_hide", {
@@ -199,91 +254,98 @@ export const AdminPostsManagementTable = forwardRef<
     }
   };
 
-  const toggleAll = () => {
-    if (selected.size === products.length) setSelected(new Set());
-    else setSelected(new Set(products.map((p) => p.id)));
+  const runBulk = async (action: "hide" | "restore" | "delete") => {
+    for (const id of selection.selected) {
+      const p = products.find((x) => x.id === id);
+      if (p) await runAction(action, p);
+    }
   };
 
   return (
-    <div
-      ref={ref}
-      onScroll={onHorizontalScroll}
-      className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface [-webkit-overflow-scrolling:touch]"
+    <AdminManagementTableViewport
+      viewportRef={ref}
+      onHorizontalScroll={onHorizontalScroll}
+      className="min-w-0"
     >
-      {selected.size > 0 ? (
-        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-sam-border bg-sam-surface px-3 py-2">
-          <span className="sam-text-body-secondary font-medium">{selected.size}개 선택됨</span>
-          <ConsoleButton
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void (async () => {
-                for (const id of selected) {
-                  const p = products.find((x) => x.id === id);
-                  if (p) await runAction("restore", p);
-                }
-              })();
-            }}
-          >
-            {t("admin_posts_mgmt_action_unhide")}
-          </ConsoleButton>
-          <ConsoleButton
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void (async () => {
-                for (const id of selected) {
-                  const p = products.find((x) => x.id === id);
-                  if (p) await runAction("hide", p);
-                }
-              })();
-            }}
-          >
-            {t("admin_posts_mgmt_action_hide")}
-          </ConsoleButton>
-          <ConsoleButton
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void (async () => {
-                for (const id of selected) {
-                  const p = products.find((x) => x.id === id);
-                  if (p) await runAction("delete", p);
-                }
-              })();
-            }}
-          >
-            {t("admin_posts_mgmt_action_force_delete")}
-          </ConsoleButton>
-        </div>
-      ) : null}
+      <AdminManagementBulkBar
+        selectedCount={selection.selectedCount}
+        policy={policy}
+        selectedLabel={selectedLabel}
+        actions={[
+          {
+            id: "restore",
+            label: restoreLabel,
+            onClick: () => void runBulk("restore"),
+          },
+          {
+            id: "hide",
+            label: hideLabel,
+            onClick: () => void runBulk("hide"),
+          },
+          {
+            id: "soft_delete",
+            label: softDeleteLabel,
+            onClick: () => void runBulk("delete"),
+          },
+        ]}
+      />
 
-      <table className="w-full table-fixed text-left sam-text-body-secondary">
+      <table
+        className="w-full table-fixed text-left sam-text-body-secondary"
+        style={{ minWidth: tableMinWidth }}
+        data-admin-mgmt-table-min-width={String(tableMinWidth)}
+      >
         <thead className="border-b border-sam-border bg-sam-surface-muted/80 sam-text-xxs text-sam-muted">
           <tr>
-            <th className="w-8 px-2 py-2">
-              <input
-                type="checkbox"
-                checked={selected.size === products.length && products.length > 0}
-                onChange={toggleAll}
-                aria-label="전체 선택"
+            <th className="px-2 py-2" style={managementColumnStyle("SELECTION")}>
+              <AdminManagementSelectionCheckbox
+                role="header"
+                state={selection.headerState}
+                onToggle={selection.toggleAll}
+                aria-label={selectAllLabel}
               />
             </th>
             {showProductIdColumn ? (
-              <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_product_id")}</th>
+              <th className="px-2 py-2" style={managementColumnStyle("IDENTITY")}>
+                {t("admin_posts_mgmt_th_product_id")}
+              </th>
             ) : null}
-            <th className="w-[20%] px-2 py-2">상품</th>
-            <th className="w-[11%] px-2 py-2">{t("admin_posts_mgmt_th_seller")}</th>
-            <th className="w-[12%] px-2 py-2">{t("admin_posts_mgmt_th_category")}</th>
-            <th className="w-[9%] px-2 py-2">{t("admin_posts_mgmt_th_price")}</th>
-            <th className="w-[10%] px-2 py-2">지역</th>
-            <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_status")}</th>
-            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_likes")}</th>
-            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_chats")}</th>
-            <th className="w-[5%] px-2 py-2 text-center">{t("admin_posts_mgmt_th_reports")}</th>
-            <th className="w-[7%] px-2 py-2">광고</th>
-            <th className="w-[8%] px-2 py-2">{t("admin_posts_mgmt_th_created")}</th>
-            <th className="w-14 px-2 py-2 text-center">{t("admin_posts_mgmt_th_actions")}</th>
+            <th className="px-2 py-2" style={managementColumnStyle("TITLE")}>
+              {productLabel}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("IDENTITY")}>
+              {t("admin_posts_mgmt_th_seller")}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("METADATA")}>
+              {t("admin_posts_mgmt_th_category")}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("NUMERIC")}>
+              {t("admin_posts_mgmt_th_price")}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("METADATA")}>
+              지역
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("STATUS")}>
+              {t("admin_posts_mgmt_th_status")}
+            </th>
+            <th className="px-2 py-2 text-center" style={managementColumnStyle("NUMERIC", { align: "center" })}>
+              {t("admin_posts_mgmt_th_likes")}
+            </th>
+            <th className="px-2 py-2 text-center" style={managementColumnStyle("NUMERIC", { align: "center" })}>
+              {t("admin_posts_mgmt_th_chats")}
+            </th>
+            <th className="px-2 py-2 text-center" style={managementColumnStyle("NUMERIC", { align: "center" })}>
+              {t("admin_posts_mgmt_th_reports")}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("METADATA")}>
+              {adLabel}
+            </th>
+            <th className="px-2 py-2" style={managementColumnStyle("DATE")}>
+              {t("admin_posts_mgmt_th_created")}
+            </th>
+            <th className="px-2 py-2 text-center" style={managementColumnStyle("ACTIONS")}>
+              {t("admin_posts_mgmt_th_actions")}
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-sam-border-soft">
@@ -293,23 +355,16 @@ export const AdminPostsManagementTable = forwardRef<
             const market = getMarketCategoryPath(p.categorySlug);
             return (
               <tr key={p.id} className="hover:bg-sam-surface-muted/40">
-                <td className="px-2 py-2">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(p.id)}
-                    onChange={() => {
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(p.id)) next.delete(p.id);
-                        else next.add(p.id);
-                        return next;
-                      });
-                    }}
+                <td className="px-2 py-2" style={managementColumnStyle("SELECTION")}>
+                  <AdminManagementSelectionCheckbox
+                    role="row"
+                    checked={selection.isSelected(p.id)}
+                    onToggle={() => selection.toggleRow(p.id)}
                     aria-label={`${p.title} 선택`}
                   />
                 </td>
                 {showProductIdColumn ? (
-                  <td className="px-2 py-2 font-mono sam-text-xxs">
+                  <td className="px-2 py-2 font-mono sam-text-xxs" style={managementColumnStyle("IDENTITY")}>
                     <Link
                       href={`/admin/products/${p.id}`}
                       className="text-signature hover:underline"
@@ -319,10 +374,11 @@ export const AdminPostsManagementTable = forwardRef<
                     </Link>
                   </td>
                 ) : null}
-                <td className="px-2 py-2">
+                <td className="px-2 py-2" style={managementColumnStyle("TITLE")}>
                   <Link
                     href={`/admin/products/${p.id}`}
                     className="flex min-w-0 items-center gap-2 hover:underline"
+                    title={p.title}
                   >
                     {p.thumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element -- admin ops thumb
@@ -342,7 +398,7 @@ export const AdminPostsManagementTable = forwardRef<
                     </span>
                   </Link>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2" style={managementColumnStyle("IDENTITY")}>
                   <Link
                     href={`/admin/users/${p.sellerId}?fromPost=${encodeURIComponent(p.id)}`}
                     className="text-signature hover:underline"
@@ -355,7 +411,7 @@ export const AdminPostsManagementTable = forwardRef<
                     ) : null}
                   </Link>
                 </td>
-                <td className="truncate px-2 py-2 text-sam-muted">
+                <td className="truncate px-2 py-2 text-sam-muted" style={managementColumnStyle("METADATA")} title={catLabel}>
                   {market && catLabel !== "—" ? (
                     <Link
                       href={market}
@@ -369,16 +425,22 @@ export const AdminPostsManagementTable = forwardRef<
                     catLabel
                   )}
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 tabular-nums text-sam-fg">
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums text-sam-fg" style={managementColumnStyle("NUMERIC")}>
                   {p.isFreeShare ? t("admin_posts_mgmt_price_free_share") : formatPrice(p.price ?? 0)}
                 </td>
-                <td className="truncate px-2 py-2 text-sam-muted">{p.location || "—"}</td>
-                <td className="px-2 py-2">
+                <td className="truncate px-2 py-2 text-sam-muted" style={managementColumnStyle("METADATA")}>
+                  {p.location || "—"}
+                </td>
+                <td className="px-2 py-2" style={managementColumnStyle("STATUS")}>
                   <TradeStatusBadge status={p.status} />
                 </td>
-                <td className="px-2 py-2 text-center tabular-nums">{p.likesCount ?? 0}</td>
-                <td className="px-2 py-2 text-center tabular-nums">{p.chatCount ?? 0}</td>
-                <td className="px-2 py-2 text-center">
+                <td className="px-2 py-2 text-center tabular-nums" style={managementColumnStyle("NUMERIC", { align: "center" })}>
+                  {p.likesCount ?? 0}
+                </td>
+                <td className="px-2 py-2 text-center tabular-nums" style={managementColumnStyle("NUMERIC", { align: "center" })}>
+                  {p.chatCount ?? 0}
+                </td>
+                <td className="px-2 py-2 text-center" style={managementColumnStyle("NUMERIC", { align: "center" })}>
                   {(p.reportCount ?? 0) > 0 ? (
                     <Link
                       href={`/admin/reports?domain=trade&target_type=product&target=${encodeURIComponent(p.id)}`}
@@ -390,21 +452,21 @@ export const AdminPostsManagementTable = forwardRef<
                     <span className="text-sam-muted">0</span>
                   )}
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2" style={managementColumnStyle("METADATA")}>
                   <TradePromoBadge
                     active={Boolean(p.hasPromotionOverlay || p.isPromoted || p.isBoosted)}
                   />
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted">
+                <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted" style={managementColumnStyle("DATE")}>
                   {new Date(p.createdAt).toLocaleDateString(locale)}
                 </td>
-                <td className="relative px-2 py-2 text-center">
+                <td className="relative px-2 py-2 text-center" style={managementColumnStyle("ACTIONS")}>
                   <div className="inline-flex items-center gap-1">
                     <Link
                       href={`/admin/products/${p.id}`}
                       className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
                     >
-                      관리
+                      {manageLabel}
                     </Link>
                     <button
                       type="button"
@@ -456,21 +518,21 @@ export const AdminPostsManagementTable = forwardRef<
                         onClick={() => void runAction("hide", p)}
                         className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                       >
-                        {t("admin_posts_mgmt_action_hide")}
+                        {hideLabel}
                       </button>
                       <button
                         type="button"
                         onClick={() => void runAction("restore", p)}
                         className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                       >
-                        {t("admin_posts_mgmt_action_unhide")}
+                        {restoreLabel}
                       </button>
                       <button
                         type="button"
                         onClick={() => void runAction("delete", p)}
                         className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-600 hover:bg-sam-app"
                       >
-                        {t("admin_posts_mgmt_action_force_delete")}
+                        {softDeleteLabel}
                       </button>
                       <Link
                         href={`/admin/reports?domain=trade&target_type=product&target=${encodeURIComponent(p.id)}`}
@@ -491,14 +553,7 @@ export const AdminPostsManagementTable = forwardRef<
                       >
                         {t("admin_posts_mgmt_action_bump")}
                       </button>
-                      <div className="my-1 border-t border-red-200" />
-                      <button
-                        type="button"
-                        disabled
-                        className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-700/50"
-                      >
-                        DB 영구 삭제 · NOT_READY
-                      </button>
+                      {/* hard_delete omitted — policy.hardDeleteAvailable === false */}
                     </div>
                   ) : null}
                 </td>
@@ -514,7 +569,7 @@ export const AdminPostsManagementTable = forwardRef<
           onClick={() => setActionRowId(null)}
         />
       ) : null}
-    </div>
+    </AdminManagementTableViewport>
   );
 });
 

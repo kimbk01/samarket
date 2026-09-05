@@ -31,6 +31,7 @@ import {
   SectionHeader,
   TabStrip,
 } from "@/components/admin/trade-console/trade-console-ui";
+import { AdminManagementSurfaceRoot } from "@/components/admin/management";
 
 /** 한 페이지 표시 건수 */
 const POSTS_MANAGEMENT_PAGE_SIZE = 40;
@@ -309,8 +310,36 @@ export function AdminPostsManagementPage({
     };
   }, [products, tab]);
 
+  const queryScopeKey = useMemo(
+    () =>
+      [
+        tab,
+        statusView,
+        String(safePage),
+        sellerSearch.trim(),
+        categorySearch.trim(),
+        productIdSearch.trim(),
+        JSON.stringify(filters),
+        showProductIdColumn ? "1" : "0",
+      ].join("|"),
+    [
+      tab,
+      statusView,
+      safePage,
+      sellerSearch,
+      categorySearch,
+      productIdSearch,
+      filters,
+      showProductIdColumn,
+    ]
+  );
+
   return (
-    <div className={`min-w-0 space-y-3${showBottomFixedScroll ? " pb-14" : ""}`} data-admin>
+    <AdminManagementSurfaceRoot
+      proofSurface="posts-management"
+      className={`min-w-0 space-y-3${showBottomFixedScroll ? " pb-14" : ""}`}
+    >
+      <div data-admin className="contents">
       <SectionHeader
         title={t("admin_posts_mgmt_page_title")}
         description={safeT("admin_posts_mgmt_page_desc", {
@@ -589,6 +618,7 @@ export function AdminPostsManagementPage({
           <AdminPostsManagementTable
             ref={tableScrollRef}
             products={paginatedFiltered}
+            queryScopeKey={queryScopeKey}
             showProductIdColumn={showProductIdColumn}
             onHorizontalScroll={onTableHorizontalScroll}
             onActionSuccess={refreshList}
@@ -666,6 +696,7 @@ export function AdminPostsManagementPage({
           </div>
         </>
       )}
-    </div>
+      </div>
+    </AdminManagementSurfaceRoot>
   );
 }
