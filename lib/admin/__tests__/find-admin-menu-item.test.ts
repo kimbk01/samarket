@@ -42,9 +42,18 @@ describe("find-admin-menu-item", () => {
     );
   });
 
-  it("topLevelChildrenByKey returns community children", () => {
+  it("topLevelChildrenByKey returns community section headers (ARO-IA-001)", () => {
     const children = topLevelChildrenByKey(adminMenu, "community");
-    expect(children.some((c) => c.key === "community-posts")).toBe(true);
+    expect(children.map((c) => c.key)).toEqual([
+      "community-section-ops",
+      "community-section-content",
+      "community-section-moderation",
+      "community-section-promo-point",
+      "community-section-settings",
+    ]);
+    // Leaves stay nested under sections — not direct top-level children.
+    expect(children.some((c) => c.key === "community-posts")).toBe(false);
+    expect(findAdminMenuByKey(adminMenu, "community-posts")?.path).toBe("/admin/community/posts");
   });
 });
 
