@@ -1,0 +1,51 @@
+{
+  "authMethod": "magiclink",
+  "cookieParts": 1,
+  "checks": {
+    "sidebar_sections": false,
+    "sidebar_promo_leaf": false,
+    "sidebar_point_leaf": false,
+    "promo_cross": false,
+    "promo_writer": false,
+    "point_cross": true,
+    "landed_finance": true,
+    "return_param_point": true,
+    "general_reports_label": true,
+    "meeting_reports_label": true,
+    "report_cross": true,
+    "report_note": true,
+    "meeting_cross": true
+  },
+  "pages": {
+    "promo": {
+      "url": "https://samarket.vercel.app/admin/community/promotions",
+      "authGate": true,
+      "hasAdmin": false
+    },
+    "point": {
+      "url": "https://samarket.vercel.app/admin/community/point-policies",
+      "authGate": false
+    },
+    "reports": {
+      "url": "https://samarket.vercel.app/admin/community/reports",
+      "authGate": false,
+      "snippet": "dibaY Admin\nOperations\nDelivery\nTrade\nCommunity\nChat\nFinance\nAds / Exposure\nSupport\nNotifications\nSystem\nKorean\nEnglish\nMASTER\nHomepage\n27\nCommunity\nOPERATIONS\n▲\nCommunity ops\nCONTENT\n▼\nREPORTS / MODERATION\n▲\nGeneral reports\n1\nMeeting reports\nPROMOTION / POINTS\n▼\nSETTINGS\n▼\nMASTER\nCommunity\n/\nReport"
+    },
+    "meeting": {
+      "url": "https://samarket.vercel.app/admin/philife/meeting-reports",
+      "authGate": false
+    }
+  },
+  "failed": [
+    "sidebar_sections",
+    "sidebar_promo_leaf",
+    "sidebar_point_leaf",
+    "promo_cross",
+    "promo_writer",
+    "landed_ads",
+    "return_param_promo",
+    "ads_back",
+    "back_promo"
+  ],
+  "result": "FAIL"
+}
