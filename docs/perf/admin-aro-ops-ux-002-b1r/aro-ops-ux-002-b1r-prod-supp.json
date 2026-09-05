@@ -1,0 +1,19 @@
+{
+  "cut": "ARO-OPS-UX-002-B1R-SUPP",
+  "checks": {
+    "chatNoLegacyHide": true,
+    "chatNoLegacyDbDelete": true,
+    "chatHasHideTerm": false,
+    "chatHasHardTerm": false,
+    "tradeResetLink": true,
+    "tradeResetHref": "/admin/prelaunch-reset?scopes=trade_content",
+    "resetPageLoaded": true,
+    "resetTradePrefillVisible": true
+  },
+  "failed": [
+    "chatHasHideTerm",
+    "chatHasHardTerm"
+  ],
+  "result": "PARTIAL",
+  "at": "2026-09-05T18:28:58.883Z"
+}

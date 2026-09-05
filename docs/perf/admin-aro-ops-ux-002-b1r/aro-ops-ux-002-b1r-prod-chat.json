@@ -1,0 +1,17 @@
+{
+  "cut": "ARO-OPS-UX-002-B1R-CHAT",
+  "sha": "e6827d58e",
+  "hide": "관리 목록에서 숨김",
+  "hard": "DB 영구 삭제",
+  "resetHref": "/admin/prelaunch-reset?scopes=chat",
+  "checks": {
+    "hideCanonical": true,
+    "hardCanonical": true,
+    "noLegacyHide": true,
+    "noLegacyHard": true,
+    "resetPrefill": true
+  },
+  "at": "2026-09-05T18:42:06.280Z",
+  "failed": [],
+  "result": "PASS"
+}

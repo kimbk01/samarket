@@ -1,0 +1,29 @@
+{
+  "cut": "ARO-OPS-UX-002-B1R",
+  "sha": "6ba217f4d",
+  "expectSha": "6ba217f4d",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "viewport": "1024x768",
+  "trade": {
+    "checks": {
+      "hasRows": true,
+      "softBulkVisible": true,
+      "oneDialogAfterSoftClick": true,
+      "zeroDialogAfterCancel": true,
+      "noSecondPrompt": true,
+      "hardCtaVisible": true,
+      "hardAsksDelete": true
+    }
+  },
+  "community": {
+    "checks": {
+      "hardBulk": true,
+      "softBulk": true
+    }
+  },
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T18:28:30.174Z"
+}
