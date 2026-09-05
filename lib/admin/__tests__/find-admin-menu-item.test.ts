@@ -12,7 +12,8 @@ describe("find-admin-menu-item", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
     expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(false);
     // trade promote is nested under ads-trade-promote
     expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
       "/admin/ad-applications?domain=trade"

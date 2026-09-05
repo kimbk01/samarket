@@ -91,11 +91,14 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(findAdminMenuByKey(adminMenu, "growth")).toBeUndefined();
   });
 
-  it("keeps notification domain settings under system/app-config only", () => {
+  it("B7: notification sound settings owned by notifications workspace", () => {
     expect(findAdminMenuByKey(adminMenu, "settings-notifications")?.path).toBe(
       "/admin/settings/notifications"
     );
-    expect(findAdminMenuByKey(adminMenu, "app-config")).toBeTruthy();
+    const notifications = findAdminMenuByKey(adminMenu, "notifications");
+    expect(notifications?.children?.some((c) => c.key === "settings-notifications")).toBe(true);
+    const appConfig = findAdminMenuByKey(adminMenu, "app-config");
+    expect(appConfig?.children?.some((c) => c.key === "settings-notifications")).toBe(false);
   });
 
   it("moves common reports into system-members; trade reports stay domain-scoped", () => {
@@ -132,14 +135,14 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
   it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
-    // ARO-OPS-UX-002-B2: delivery dashboard is workspace root entry (ops hub), not ads ownership.
+    // B7: Overview → Daily ops → Management → Business → Config → Platform
     expect(topKeys).toEqual([
       "delivery-dashboard",
+      "delivery-section-operations",
+      "delivery-section-management",
       "business-shops",
       "delivery-section-policies",
       "delivery-section-settings",
-      "delivery-section-operations",
-      "delivery-section-management",
       "delivery-section-platform",
     ]);
     expect(findAdminMenuByKey(adminMenu, "delivery-dashboard")?.path).toBe("/admin/delivery");

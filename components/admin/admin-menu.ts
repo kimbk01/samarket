@@ -321,59 +321,70 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── DELIVERY ───────────────────────────────────
-  // Domain ops only — delivery-ads primary ownership moved to ads workspace.
+  // B7: Overview → Daily ops → Management → Config → Platform tools.
+  // delivery-ads primary ownership remains ads workspace (B5).
   {
     key: "delivery",
     title: "",
     children: [
       { key: "delivery-dashboard", title: "", path: "/admin/delivery", status: "done" },
-      { key: "business-shops", title: "", path: "/admin/business", status: "done" },
-      {
-        key: "delivery-section-policies",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "store-fee-policies-admin",
-            title: "",
-            path: "/admin/store-fee-policies",
-            status: "done",
-          },
-          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
-        ],
-      },
-      {
-        key: "delivery-section-settings",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "store-settings-alerts",
-            title: "",
-            path: "/admin/stores/application-settings?menu=alerts",
-            matchPaths: ["/admin/stores/application-settings"],
-            status: "done",
-          },
-          {
-            key: "delivery-bottom-nav",
-            title: "",
-            path: "/admin/stores/bottom-nav",
-            matchPaths: ["/admin/delivery/bottom-nav"],
-            status: "done",
-          },
-          {
-            key: "commerce-settings-admin",
-            title: "",
-            path: "/admin/commerce-settings",
-            status: "partial",
-          },
-        ],
-      },
       {
         key: "delivery-section-operations",
         title: "",
         status: "done",
         children: [
+          {
+            key: "delivery-orders",
+            title: "",
+            status: "done",
+            children: [
+              {
+                key: "delivery-orders-list",
+                title: "",
+                path: "/admin/stores/orders",
+                matchPaths: ["/admin/delivery-orders"],
+                status: "done",
+              },
+              {
+                key: "delivery-orders-action-queue",
+                title: "",
+                path: "/admin/store-orders",
+                status: "partial",
+              },
+              {
+                key: "delivery-orders-cancel",
+                title: "",
+                path: "/admin/stores/orders/cancellations",
+                status: "done",
+              },
+              {
+                key: "delivery-orders-refund",
+                title: "",
+                path: "/admin/stores/orders/refunds",
+                status: "done",
+              },
+              {
+                key: "delivery-orders-logs",
+                title: "",
+                path: "/admin/stores/orders/logs",
+                status: "done",
+              },
+              {
+                key: "delivery-order-chats",
+                title: "",
+                path: "/admin/order-chats",
+                matchPaths: ["/admin/chats/business"],
+                status: "done",
+              },
+            ],
+          },
+          { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
+          {
+            key: "store-products-admin",
+            title: "",
+            path: "/admin/store-products",
+            status: "partial",
+          },
           {
             key: "stores-home-shelves",
             title: "",
@@ -426,58 +437,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/store-discovery",
             status: "done",
-          },
-          { key: "stores-commerce", title: "", path: "/admin/stores", status: "partial" },
-          {
-            key: "store-products-admin",
-            title: "",
-            path: "/admin/store-products",
-            status: "partial",
-          },
-          {
-            key: "delivery-orders",
-            title: "",
-            status: "done",
-            children: [
-              {
-                key: "delivery-orders-list",
-                title: "",
-                path: "/admin/stores/orders",
-                matchPaths: ["/admin/delivery-orders"],
-                status: "done",
-              },
-              {
-                key: "delivery-orders-action-queue",
-                title: "",
-                path: "/admin/store-orders",
-                status: "partial",
-              },
-              {
-                key: "delivery-orders-cancel",
-                title: "",
-                path: "/admin/stores/orders/cancellations",
-                status: "done",
-              },
-              {
-                key: "delivery-orders-refund",
-                title: "",
-                path: "/admin/stores/orders/refunds",
-                status: "done",
-              },
-              {
-                key: "delivery-orders-logs",
-                title: "",
-                path: "/admin/stores/orders/logs",
-                status: "done",
-              },
-              {
-                key: "delivery-order-chats",
-                title: "",
-                path: "/admin/order-chats",
-                matchPaths: ["/admin/chats/business"],
-                status: "done",
-              },
-            ],
           },
           { key: "delivery-ops-console", title: "", path: "/admin/ops-console", status: "done" },
           {
@@ -538,6 +497,48 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
         ],
       },
+      { key: "business-shops", title: "", path: "/admin/business", status: "done" },
+      {
+        key: "delivery-section-policies",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-fee-policies-admin",
+            title: "",
+            path: "/admin/store-fee-policies",
+            status: "done",
+          },
+          { key: "delivery-distance", title: "", path: "/admin/delivery-distance", status: "done" },
+        ],
+      },
+      {
+        key: "delivery-section-settings",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "store-settings-alerts",
+            title: "",
+            path: "/admin/stores/application-settings?menu=alerts",
+            matchPaths: ["/admin/stores/application-settings"],
+            status: "done",
+          },
+          {
+            key: "delivery-bottom-nav",
+            title: "",
+            path: "/admin/stores/bottom-nav",
+            matchPaths: ["/admin/delivery/bottom-nav"],
+            status: "done",
+          },
+          {
+            key: "commerce-settings-admin",
+            title: "",
+            path: "/admin/commerce-settings",
+            status: "partial",
+          },
+        ],
+      },
       {
         key: "delivery-section-platform",
         title: "",
@@ -556,7 +557,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── TRADE ──────────────────────────────────────
-  // Marketplace ops; ads-applications moved to ads workspace.
+  // B7: Overview → Daily moderation/management → Context → Config/Archive.
+  // ads-applications primary ownership remains ads workspace.
   {
     key: "trade",
     title: "",
@@ -570,14 +572,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
-        key: "chat-trade-flow",
-        title: "",
-        path: "/admin/trade-flow",
-        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
-        status: "done",
-      },
-      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
-      {
         key: "reports-posts",
         title: "",
         path: "/admin/reports?domain=trade&target_type=product",
@@ -585,6 +579,14 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       { key: "reviews-trade", title: "", path: "/admin/reviews", status: "done" },
+      {
+        key: "chat-trade-flow",
+        title: "",
+        path: "/admin/trade-flow",
+        matchPaths: ["/admin/chats/trade-complete", "/admin/trade-flow?panel=complete"],
+        status: "done",
+      },
+      { key: "chat-trade", title: "", path: "/admin/chats/trade", status: "done" },
       { key: "trade-post-ads", title: "", path: "/admin/trade-post-ads", status: "done" },
       { key: "trade-ad-policies", title: "", path: "/admin/trade-ad-policies", status: "done" },
       { key: "trade-likes", title: "", path: "/admin/favorites", status: "done" },
@@ -747,10 +749,18 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── FINANCE ────────────────────────────────────
+  // B7: B4 Control Plane root first → Point specialists → Store Coin ledger.
+  // B3 Statement stays contextual (storeId query), not a primary sidebar leaf.
   {
     key: "finance",
     title: "",
     children: [
+      {
+        key: "store-finance-admin",
+        title: "",
+        path: "/admin/finance",
+        status: "done",
+      },
       {
         key: "finance-member-point",
         title: "",
@@ -770,12 +780,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           {
-            key: "store-finance-admin",
-            title: "",
-            path: "/admin/finance",
-            status: "done",
-          },
-          {
             key: "store-point-ledger-admin",
             title: "",
             path: "/admin/store-point-ledger",
@@ -787,59 +791,22 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── ADS (광고/노출) ────────────────────────────
+  // B7: B5 Control Plane root → applications → specialists → placement/popup → legacy last.
   {
     key: "ads",
     title: "",
     children: [
       {
-        key: "ads-delivery-ops",
+        key: "delivery-ads-control",
         title: "",
+        path: "/admin/delivery-ads",
         status: "done",
-        children: [
-          {
-            key: "delivery-ads-control",
-            title: "",
-            path: "/admin/delivery-ads",
-            status: "done",
-          },
-          {
-            key: "delivery-ads-commercial",
-            title: "",
-            path: "/admin/delivery-ads/commercial-settings",
-            status: "done",
-          },
-          {
-            key: "ads-placement-map",
-            title: "",
-            path: "/admin/delivery-ads/inventory#placement-map",
-            matchPaths: ["/admin/delivery-ads/inventory"],
-            status: "done",
-          },
-        ],
       },
-      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
       {
         key: "ads-feed-applications",
         title: "",
         path: "/admin/ad-applications?domain=feed",
         status: "done",
-      },
-      {
-        key: "ads-feed-products",
-        title: "",
-        path: "/admin/feed-ad-products",
-        status: "done",
-      },
-      {
-        key: "ads-platform-popup",
-        title: "",
-        path: "/admin/platform-popup",
-        status: "done",
-        matchPaths: [
-          "/admin/platform-popup/",
-          "/admin/platform-popup/requests",
-          "/admin/platform-popup/requests/",
-        ],
       },
       {
         key: "ads-trade-promote",
@@ -854,12 +821,48 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
         ],
       },
-      { key: "ads-paid", title: "", path: "/admin/promoted-items", status: "done" },
+      {
+        key: "ads-placement-map",
+        title: "",
+        path: "/admin/delivery-ads/inventory#placement-map",
+        matchPaths: ["/admin/delivery-ads/inventory"],
+        status: "done",
+      },
+      {
+        key: "ads-platform-popup",
+        title: "",
+        path: "/admin/platform-popup",
+        status: "done",
+        matchPaths: [
+          "/admin/platform-popup/",
+          "/admin/platform-popup/requests",
+          "/admin/platform-popup/requests/",
+        ],
+      },
+      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+      {
+        key: "ads-feed-products",
+        title: "",
+        path: "/admin/feed-ad-products",
+        status: "done",
+      },
+      {
+        key: "delivery-ads-commercial",
+        title: "",
+        path: "/admin/delivery-ads/commercial-settings",
+        status: "done",
+      },
       {
         key: "ads-legacy",
         title: "",
         status: "partial",
         children: [
+          {
+            key: "ads-paid",
+            title: "",
+            path: "/admin/promoted-items",
+            status: "partial",
+          },
           { key: "ads-products", title: "", path: "/admin/ad-products", status: "partial" },
           { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "partial" },
           { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
@@ -878,6 +881,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
   },
 
   // ── SUPPORT ────────────────────────────────────
+  // B7: B6 Control Plane → archive. Legacy store-inquiries route KEEP, primary nav HIDE.
   {
     key: "support",
     title: "",
@@ -894,23 +898,11 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/support/archive",
         status: "done",
       },
-      {
-        key: "support-legacy",
-        title: "",
-        status: "partial",
-        children: [
-          {
-            key: "cp-store-inquiry",
-            title: "",
-            path: "/admin/store-inquiries",
-            status: "partial",
-          },
-        ],
-      },
     ],
   },
 
   // ── NOTIFICATIONS ──────────────────────────────
+  // B7: operational send tools → sound/preferences CONFIG → devices.
   {
     key: "notifications",
     title: "",
@@ -919,6 +911,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "cp-notification-engine",
         title: "",
         path: "/admin/notifications",
+        status: "done",
+      },
+      {
+        key: "settings-notifications",
+        title: "",
+        path: "/admin/settings/notifications",
         status: "done",
       },
       { key: "push-devices", title: "", path: "/admin/push-devices", status: "done" },
@@ -1032,12 +1030,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             status: "done",
           },
           { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
-          {
-            key: "settings-notifications",
-            title: "",
-            path: "/admin/settings/notifications",
-            status: "done",
-          },
           {
             key: "menu-main-bottom-nav",
             title: "",
