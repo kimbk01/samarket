@@ -133,7 +133,7 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
       : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-promotions">
       <AdminPageHeader
         title={safeT(choice.titleKey, {
           fallbackKo: choice.fallbackTitleKo,

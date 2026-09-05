@@ -49,3 +49,30 @@ export const SETTLEMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   allowedBulkActions: [],
   hardDeleteAvailable: false,
 };
+
+/**
+ * Community post — soft status via PATCH; hard DB delete via engine bulk-delete.
+ * status=deleted is soft (not hard wipe).
+ */
+export const COMMUNITY_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
+  entityKind: "community_post",
+  canDelete: true,
+  deleteMode: "HARD_DELETE",
+  canHide: true,
+  canRestore: true,
+  canChangeStatus: true,
+  allowedBulkActions: ["hide", "restore", "soft_delete", "hard_delete"],
+  hardDeleteAvailable: true,
+};
+
+/** Community comment — soft status PATCH only (no list hard wipe API). */
+export const COMMUNITY_COMMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
+  entityKind: "community_comment",
+  canDelete: true,
+  deleteMode: "SOFT_DELETE",
+  canHide: true,
+  canRestore: true,
+  canChangeStatus: true,
+  allowedBulkActions: ["hide", "restore", "soft_delete"],
+  hardDeleteAvailable: false,
+};

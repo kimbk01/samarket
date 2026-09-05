@@ -64,8 +64,11 @@ export function AdminCommunityHomePage({
 
       <AdminCard titleKey="admin_community_home_shortcuts_title">
         <nav className="flex flex-wrap gap-3 sam-text-body">
-          <Link href="/admin/community/topics" className="text-sam-primary hover:underline">
-            {t("admin_menu_community_topics")}
+          <Link href="/admin/community/reports" className="text-sam-primary hover:underline">
+            {t("admin_menu_community_reports")}
+          </Link>
+          <Link href="/admin/philife/meeting-reports" className="text-sam-primary hover:underline">
+            {t("admin_menu_meeting_reports")}
           </Link>
           <Link href="/admin/community/posts" className="text-sam-primary hover:underline">
             {t("admin_menu_community_posts")}
@@ -73,17 +76,17 @@ export function AdminCommunityHomePage({
           <Link href="/admin/community/comments" className="text-sam-primary hover:underline">
             {t("admin_menu_community_comments")}
           </Link>
-          <Link href="/admin/community/reports" className="text-sam-primary hover:underline">
-            {t("admin_menu_community_reports")}
+          <Link href="/admin/community/topics" className="text-sam-primary hover:underline">
+            {t("admin_menu_community_topics")}
           </Link>
           <Link href="/admin/community/promotions" className="text-sam-primary hover:underline">
             {t("admin_menu_community_promotions")}
           </Link>
-          <Link href="/admin/community/settings" className="text-sam-primary hover:underline">
-            {t("admin_menu_feed_settings")}
-          </Link>
           <Link href="/admin/community/point-policies" className="text-sam-primary hover:underline">
             {t("admin_menu_community_point_policies")}
+          </Link>
+          <Link href="/admin/community/settings" className="text-sam-primary hover:underline">
+            {t("admin_menu_feed_settings")}
           </Link>
         </nav>
       </AdminCard>

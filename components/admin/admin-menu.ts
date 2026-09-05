@@ -608,6 +608,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     key: "community",
     title: "",
     children: [
+      // ARO-OPS-UX-001-W3: operator workflow — Overview → Daily moderation → Content → Occasional promo → Config
       {
         key: "community-section-ops",
         title: "",
@@ -617,27 +618,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "community-home",
             title: "",
             path: "/admin/community",
-            status: "done",
-          },
-        ],
-      },
-      {
-        key: "community-section-content",
-        title: "",
-        status: "done",
-        children: [
-          {
-            key: "community-topics",
-            title: "",
-            path: "/admin/community/topics",
-            matchPaths: ["/admin/philife/topics", "/admin/philife"],
-            status: "done",
-          },
-          { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
-          {
-            key: "community-comments",
-            title: "",
-            path: "/admin/community/comments",
             status: "done",
           },
         ],
@@ -658,6 +638,27 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "philife-meeting-reports",
             title: "",
             path: "/admin/philife/meeting-reports",
+            status: "done",
+          },
+        ],
+      },
+      {
+        key: "community-section-content",
+        title: "",
+        status: "done",
+        children: [
+          { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
+          {
+            key: "community-comments",
+            title: "",
+            path: "/admin/community/comments",
+            status: "done",
+          },
+          {
+            key: "community-topics",
+            title: "",
+            path: "/admin/community/topics",
+            matchPaths: ["/admin/philife/topics", "/admin/philife"],
             status: "done",
           },
         ],

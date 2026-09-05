@@ -7,6 +7,20 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { formatTimeAgo } from "@/lib/utils/format";
+import {
+  AdminManagementBulkBar,
+  AdminManagementSelectionCheckbox,
+  AdminManagementSurfaceRoot,
+  AdminManagementTableViewport,
+  useAdminManagementSelection,
+} from "@/components/admin/management";
+import {
+  COMMUNITY_COMMENT_ENTITY_ACTION_POLICY,
+  computeTableMinWidthPx,
+  managementColumnStyle,
+  terminologyDisplay,
+  type ManagementColumnKind,
+} from "@/lib/admin/management";
 
 type CommunityCommentRow = {
   id: string;
@@ -22,27 +36,48 @@ type CommunityCommentRow = {
   author_label?: string | null;
 };
 
+const COLUMN_KINDS: ManagementColumnKind[] = [
+  "SELECTION",
+  "TITLE",
+  "METADATA",
+  "TITLE",
+  "IDENTITY",
+  "NUMERIC",
+  "STATUS",
+  "DATE",
+  "ACTIONS",
+];
+
 export function AdminCommunityCommentsPage() {
-  const { t: tr } = useI18n();
+  const { t: tr, language } = useI18n();
   const dash = tr("admin_users_empty_placeholder");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const policy = COMMUNITY_COMMENT_ENTITY_ACTION_POLICY;
+  const tableMinWidth = computeTableMinWidthPx(COLUMN_KINDS);
 
   const statusOptions = useMemo(
     () =>
       [
-        { value: "active", labelKey: "admin_community_post_status_active" as const },
-        { value: "hidden", labelKey: "admin_feed_posts_action_hide" as const },
-        { value: "deleted", labelKey: "admin_feed_posts_action_delete" as const },
+        { value: "active", label: tr("admin_community_post_status_active") },
+        { value: "hidden", label: terminologyDisplay("HIDE", language) },
+        {
+          value: "deleted",
+          label:
+            language === "en"
+              ? `${terminologyDisplay("DELETE", language)} (status)`
+              : `${terminologyDisplay("DELETE", language)}(상태)`,
+        },
       ] as const,
-    []
+    [language, tr]
   );
 
   const [rows, setRows] = useState<CommunityCommentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [postFilter, setPostFilter] = useState(() => searchParams.get("postId") ?? "");
   const [topicFilter, setTopicFilter] = useState(() => searchParams.get("topicSlug") ?? "");
   const [userFilter, setUserFilter] = useState(() => searchParams.get("userId") ?? "");
@@ -50,6 +85,16 @@ export function AdminCommunityCommentsPage() {
   const [period, setPeriod] = useState(() => searchParams.get("period") ?? "");
   const [topicFilterTruncated, setTopicFilterTruncated] = useState(false);
   const skipUrlWriteRef = useRef(true);
+
+  const queryScopeKey = useMemo(
+    () => [postFilter, topicFilter, userFilter, statusFilter, period].join("|"),
+    [postFilter, topicFilter, userFilter, statusFilter, period]
+  );
+  const selectableIds = useMemo(
+    () => rows.map((r) => String(r.id ?? "")).filter(Boolean),
+    [rows]
+  );
+  const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
 
   useEffect(() => {
     if (skipUrlWriteRef.current) {
@@ -111,7 +156,7 @@ export function AdminCommunityCommentsPage() {
     void load();
   }, [load]);
 
-  async function patchStatus(id: string, status: string) {
+  async function patchStatus(id: string, status: string): Promise<boolean> {
     setBusyId(id);
     try {
       const res = await fetch(`/api/admin/community/engine/comments/${encodeURIComponent(id)}`, {
@@ -123,16 +168,53 @@ export function AdminCommunityCommentsPage() {
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         await dibayAlert({ title: j.error ?? tr("admin_topics_err_save") });
-        return;
+        return false;
       }
-      await load();
+      return true;
     } finally {
       setBusyId(null);
     }
   }
 
+  const runSoftBulk = async (status: "hidden" | "active" | "deleted") => {
+    const ids = [...selection.selected];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    const failed: string[] = [];
+    try {
+      for (const id of ids) {
+        const ok = await patchStatus(id, status);
+        if (!ok) failed.push(id);
+      }
+      selection.clear();
+      if (failed.length > 0) {
+        setErr(
+          language === "en"
+            ? `${failed.length} failed · others applied`
+            : `${failed.length}건 실패 · 나머지는 반영됨`
+        );
+      }
+      await load();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const hideLabel = terminologyDisplay("HIDE", language);
+  const restoreLabel = terminologyDisplay("RESTORE", language);
+  const softDeleteLabel =
+    language === "en"
+      ? `${terminologyDisplay("DELETE", language)} (status)`
+      : `${terminologyDisplay("DELETE", language)}(상태)`;
+  const selectAllLabel =
+    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
+  const selectedLabel =
+    language === "en"
+      ? `${selection.selectedCount} selected`
+      : `${selection.selectedCount}개 선택됨`;
+
   return (
-    <div className="space-y-4 text-sam-fg">
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="community-comments" className="space-y-4 text-sam-fg">
       <AdminPageHeader
         titleKey="admin_community_comments_page_title"
         description={tr("admin_community_comments_page_desc")}
@@ -176,7 +258,7 @@ export function AdminCommunityCommentsPage() {
             <option value="">{tr("admin_posts_filter_all_status")}</option>
             {statusOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {tr(o.labelKey)}
+                {o.label}
               </option>
             ))}
           </select>
@@ -197,30 +279,97 @@ export function AdminCommunityCommentsPage() {
       ) : null}
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
+        <div
+          className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800"
+          data-admin-mgmt-state="ERROR"
+        >
           {err}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="py-12 text-center sam-text-body text-sam-muted">{tr("common_loading")}</div>
+        <div className="py-12 text-center sam-text-body text-sam-muted" data-admin-mgmt-state="LOADING">
+          {tr("common_loading")}
+        </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"
+          data-admin-mgmt-state="EMPTY"
+        >
           {tr("admin_community_comments_empty")}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[1100px] text-left sam-text-body">
+        <AdminManagementTableViewport className="min-w-0">
+          <AdminManagementBulkBar
+            selectedCount={selection.selectedCount}
+            policy={policy}
+            selectedLabel={selectedLabel}
+            actions={[
+              {
+                id: "restore",
+                label: restoreLabel,
+                onClick: () => {
+                  if (bulkBusy) return;
+                  void runSoftBulk("active");
+                },
+              },
+              {
+                id: "hide",
+                label: hideLabel,
+                onClick: () => {
+                  if (bulkBusy) return;
+                  void runSoftBulk("hidden");
+                },
+              },
+              {
+                id: "soft_delete",
+                label: softDeleteLabel,
+                onClick: () => {
+                  if (bulkBusy) return;
+                  void runSoftBulk("deleted");
+                },
+              },
+            ]}
+          />
+          <table
+            className="w-full table-fixed text-left sam-text-body"
+            style={{ minWidth: tableMinWidth }}
+            data-admin-mgmt-table-min-width={String(tableMinWidth)}
+          >
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="p-3 font-medium">{tr("admin_community_comments_col_post")}</th>
-                <th className="p-3 font-medium">{tr("admin_posts_col_topic")}</th>
-                <th className="p-3 font-medium">{tr("admin_community_comments_col_body")}</th>
-                <th className="p-3 font-medium">{tr("admin_posts_col_author")}</th>
-                <th className="p-3 font-medium">{tr("admin_posts_col_likes")}</th>
-                <th className="p-3 font-medium">{tr("admin_feed_posts_col_status")}</th>
-                <th className="p-3 font-medium">{tr("admin_posts_col_registered")}</th>
-                <th className="p-3 font-medium">{tr("admin_posts_col_manage")}</th>
+                <th className="p-3" style={managementColumnStyle("SELECTION")}>
+                  <AdminManagementSelectionCheckbox
+                    role="header"
+                    state={selection.headerState}
+                    onToggle={selection.toggleAll}
+                    aria-label={selectAllLabel}
+                  />
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("TITLE")}>
+                  {tr("admin_community_comments_col_post")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("METADATA")}>
+                  {tr("admin_posts_col_topic")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("TITLE")}>
+                  {tr("admin_community_comments_col_body")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("IDENTITY")}>
+                  {tr("admin_posts_col_author")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("NUMERIC")}>
+                  {tr("admin_posts_col_likes")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("STATUS")}>
+                  {tr("admin_feed_posts_col_status")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("DATE")}>
+                  {tr("admin_posts_col_registered")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("ACTIONS")}>
+                  {tr("admin_posts_col_manage")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -234,11 +383,21 @@ export function AdminCommunityCommentsPage() {
                 const content = String(r.content ?? "");
                 return (
                   <tr key={id} className="border-b border-sam-border-soft align-top">
-                    <td className="max-w-[180px] p-3">
+                    <td className="p-3" style={managementColumnStyle("SELECTION")}>
+                      <AdminManagementSelectionCheckbox
+                        role="row"
+                        checked={selection.isSelected(id)}
+                        onToggle={() => selection.toggleRow(id)}
+                        disabled={bulkBusy}
+                        aria-label={selectAllLabel}
+                      />
+                    </td>
+                    <td className="p-3" style={managementColumnStyle("TITLE")}>
                       {postId ? (
                         <Link
                           href={`/admin/community/posts/${encodeURIComponent(postId)}`}
-                          className="font-medium text-signature hover:underline"
+                          className="block truncate font-medium text-signature hover:underline"
+                          title={String(r.post_title ?? "")}
                         >
                           {String(r.post_title ?? "").trim() || tr("admin_posts_no_title")}
                         </Link>
@@ -246,7 +405,7 @@ export function AdminCommunityCommentsPage() {
                         dash
                       )}
                     </td>
-                    <td className="p-3 text-sam-muted">
+                    <td className="p-3 text-sam-muted" style={managementColumnStyle("METADATA")}>
                       {topic ? (
                         <button
                           type="button"
@@ -259,10 +418,14 @@ export function AdminCommunityCommentsPage() {
                         dash
                       )}
                     </td>
-                    <td className="max-w-[280px] p-3 text-sam-fg" title={content}>
+                    <td className="p-3 text-sam-fg" style={managementColumnStyle("TITLE")} title={content}>
                       <span className="line-clamp-3">{content || dash}</span>
                     </td>
-                    <td className="max-w-[140px] truncate p-3 text-sam-muted" title={authorLabel}>
+                    <td
+                      className="truncate p-3 text-sam-muted"
+                      style={managementColumnStyle("IDENTITY")}
+                      title={authorLabel}
+                    >
                       {uid ? (
                         <Link
                           href={`/admin/users/${encodeURIComponent(uid)}`}
@@ -274,22 +437,28 @@ export function AdminCommunityCommentsPage() {
                         authorLabel
                       )}
                     </td>
-                    <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
-                    <td className="p-3">
+                    <td className="p-3 text-sam-muted" style={managementColumnStyle("NUMERIC")}>
+                      {Number(r.like_count ?? 0)}
+                    </td>
+                    <td className="p-3" style={managementColumnStyle("STATUS")}>
                       <select
                         value={String(r.status ?? "active")}
-                        disabled={busy}
-                        onChange={(e) => void patchStatus(id, e.target.value)}
+                        disabled={busy || bulkBusy}
+                        onChange={(e) =>
+                          void patchStatus(id, e.target.value).then((ok) => {
+                            if (ok) void load();
+                          })
+                        }
                         className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                       >
                         {statusOptions.map((o) => (
                           <option key={o.value} value={o.value}>
-                            {tr(o.labelKey)}
+                            {o.label}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td className="whitespace-nowrap p-3 text-sam-muted">
+                    <td className="whitespace-nowrap p-3 text-sam-muted" style={managementColumnStyle("DATE")}>
                       {r.created_at ? formatTimeAgo(r.created_at) : dash}
                       {r.updated_at ? (
                         <div className="sam-text-xxs text-sam-meta">
@@ -297,31 +466,43 @@ export function AdminCommunityCommentsPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="p-3">
+                    <td className="p-3" style={managementColumnStyle("ACTIONS")}>
                       <div className="flex flex-wrap gap-1">
                         <button
                           type="button"
-                          disabled={busy}
-                          onClick={() => void patchStatus(id, "hidden")}
+                          disabled={busy || bulkBusy}
+                          onClick={() =>
+                            void patchStatus(id, "hidden").then((ok) => {
+                              if (ok) void load();
+                            })
+                          }
                           className="sam-text-helper text-amber-700 hover:underline"
                         >
-                          {tr("admin_feed_posts_action_hide")}
+                          {hideLabel}
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
-                          onClick={() => void patchStatus(id, "active")}
+                          disabled={busy || bulkBusy}
+                          onClick={() =>
+                            void patchStatus(id, "active").then((ok) => {
+                              if (ok) void load();
+                            })
+                          }
                           className="sam-text-helper text-emerald-700 hover:underline"
                         >
-                          {tr("admin_feed_posts_action_restore")}
+                          {restoreLabel}
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
-                          onClick={() => void patchStatus(id, "deleted")}
+                          disabled={busy || bulkBusy}
+                          onClick={() =>
+                            void patchStatus(id, "deleted").then((ok) => {
+                              if (ok) void load();
+                            })
+                          }
                           className="sam-text-helper text-red-700 hover:underline"
                         >
-                          {tr("admin_feed_posts_action_delete")}
+                          {softDeleteLabel}
                         </button>
                       </div>
                     </td>
@@ -330,8 +511,8 @@ export function AdminCommunityCommentsPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </AdminManagementTableViewport>
       )}
-    </div>
+    </AdminManagementSurfaceRoot>
   );
 }

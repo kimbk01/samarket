@@ -7,6 +7,20 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import {
+  AdminManagementBulkBar,
+  AdminManagementSelectionCheckbox,
+  AdminManagementSurfaceRoot,
+  AdminManagementTableViewport,
+  useAdminManagementSelection,
+} from "@/components/admin/management";
+import {
+  COMMUNITY_POST_ENTITY_ACTION_POLICY,
+  computeTableMinWidthPx,
+  managementColumnStyle,
+  terminologyDisplay,
+  type ManagementColumnKind,
+} from "@/lib/admin/management";
 
 type CommunityPostRow = {
   id: string;
@@ -31,6 +45,21 @@ type CommunityPostRow = {
   author_username?: string | null;
 };
 
+const COLUMN_KINDS: ManagementColumnKind[] = [
+  "SELECTION",
+  "TITLE",
+  "METADATA",
+  "IDENTITY",
+  "METADATA",
+  "NUMERIC",
+  "NUMERIC",
+  "NUMERIC",
+  "NUMERIC",
+  "STATUS",
+  "DATE",
+  "ACTIONS",
+];
+
 function isoToDateInput(iso: string): string {
   const d = iso.trim();
   if (!d) return "";
@@ -44,20 +73,28 @@ function isoToDateInput(iso: string): string {
 }
 
 export function AdminPostsPageContent() {
-  const { t: tr } = useI18n();
+  const { t: tr, language } = useI18n();
   const dash = tr("admin_users_empty_placeholder");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const policy = COMMUNITY_POST_ENTITY_ACTION_POLICY;
+  const tableMinWidth = computeTableMinWidthPx(COLUMN_KINDS);
 
   const communityStatusOptions = useMemo(
     () =>
       [
-        { value: "active", labelKey: "admin_community_post_status_active" as const },
-        { value: "hidden", labelKey: "admin_feed_posts_action_hide" as const },
-        { value: "deleted", labelKey: "admin_feed_posts_action_delete" as const },
+        { value: "active", label: tr("admin_community_post_status_active") },
+        { value: "hidden", label: terminologyDisplay("HIDE", language) },
+        {
+          value: "deleted",
+          label:
+            language === "en"
+              ? `${terminologyDisplay("DELETE", language)} (status)`
+              : `${terminologyDisplay("DELETE", language)}(상태)`,
+        },
       ] as const,
-    []
+    [language, tr]
   );
 
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
@@ -87,10 +124,37 @@ export function AdminPostsPageContent() {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [communityBusyId, setCommunityBusyId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
-
-  const [selectedCommunity, setSelectedCommunity] = useState<Set<string>>(() => new Set());
-  const communitySelectAllRef = useRef<HTMLInputElement>(null);
   const skipUrlWriteRef = useRef(true);
+
+  const queryScopeKey = useMemo(
+    () =>
+      [
+        communityTopicFilter,
+        communityUserFilter,
+        communityPostIdFilter,
+        communityStatusFilter,
+        communityPeriod,
+        communityReportedOnly ? "1" : "0",
+        communityCreatedFrom,
+        communityCreatedTo,
+      ].join("|"),
+    [
+      communityTopicFilter,
+      communityUserFilter,
+      communityPostIdFilter,
+      communityStatusFilter,
+      communityPeriod,
+      communityReportedOnly,
+      communityCreatedFrom,
+      communityCreatedTo,
+    ]
+  );
+
+  const selectableIds = useMemo(
+    () => communityRows.map((r) => String(r.id ?? "")).filter(Boolean),
+    [communityRows]
+  );
+  const selection = useAdminManagementSelection({ queryScopeKey, selectableIds });
 
   useEffect(() => {
     if (skipUrlWriteRef.current) {
@@ -236,54 +300,60 @@ export function AdminPostsPageContent() {
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setCommunityErr(j.error ?? tr("admin_posts_err_community_patch"));
-          return;
+          return false;
         }
-        setSelectedCommunity((prev) => {
-          const next = new Set(prev);
-          next.delete(id);
-          return next;
-        });
-        await loadCommunity();
+        return true;
       } finally {
         setCommunityBusyId(null);
       }
     },
-    [loadCommunity, tr]
+    [tr]
   );
 
-  const communityIdsVisible = communityRows.map((r) => String(r.id));
-  const allCommunitySelected =
-    communityIdsVisible.length > 0 && communityIdsVisible.every((id) => selectedCommunity.has(id));
-  const someCommunitySelected = communityIdsVisible.some((id) => selectedCommunity.has(id));
-
-  useEffect(() => {
-    const el = communitySelectAllRef.current;
-    if (el) el.indeterminate = someCommunitySelected && !allCommunitySelected;
-  }, [someCommunitySelected, allCommunitySelected]);
-
-  const toggleCommunityRow = useCallback((id: string, checked: boolean) => {
-    setSelectedCommunity((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }, []);
-
-  const toggleAllCommunity = useCallback(
-    (checked: boolean) => {
-      setSelectedCommunity(() => {
-        if (!checked) return new Set();
-        return new Set(communityIdsVisible);
-      });
+  const runSoftBulk = useCallback(
+    async (status: "hidden" | "active" | "deleted") => {
+      const ids = [...selection.selected];
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      setActionMsg(null);
+      setCommunityErr("");
+      const failed: string[] = [];
+      try {
+        for (const id of ids) {
+          const ok = await patchCommunityPost(id, status);
+          if (!ok) failed.push(id);
+        }
+        selection.clear();
+        if (failed.length > 0) {
+          setCommunityErr(
+            language === "en"
+              ? `${failed.length} failed · others applied`
+              : `${failed.length}건 실패 · 나머지는 반영됨`
+          );
+        } else {
+          setActionMsg(
+            language === "en"
+              ? `Updated status for ${ids.length}`
+              : `${ids.length}건 상태 변경 완료`
+          );
+        }
+        await loadCommunity();
+      } finally {
+        setBulkBusy(false);
+      }
     },
-    [communityIdsVisible]
+    [selection, patchCommunityPost, loadCommunity, language]
   );
 
-  const bulkDeleteCommunity = useCallback(async () => {
-    const ids = [...selectedCommunity];
+  const bulkHardDelete = useCallback(async () => {
+    const ids = [...selection.selected];
     if (ids.length === 0) return;
-    if (!(await dibayConfirm({ title: tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }), confirmTone: "destructive" }))) {
+    if (
+      !(await dibayConfirm({
+        title: tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }),
+        confirmTone: "destructive",
+      }))
+    ) {
       return;
     }
     setBulkBusy(true);
@@ -306,7 +376,7 @@ export function AdminPostsPageContent() {
         setCommunityErr(j.error ?? tr("admin_posts_err_community_bulk_delete"));
         return;
       }
-      setSelectedCommunity(new Set());
+      selection.clear();
       const skipped =
         j.notFoundOrSkipped?.length ?
           tr("admin_posts_msg_skipped_suffix", { skipped: j.notFoundOrSkipped.length })
@@ -321,10 +391,24 @@ export function AdminPostsPageContent() {
     } finally {
       setBulkBusy(false);
     }
-  }, [selectedCommunity, loadCommunity, tr]);
+  }, [selection, loadCommunity, tr]);
+
+  const hideLabel = terminologyDisplay("HIDE", language);
+  const restoreLabel = terminologyDisplay("RESTORE", language);
+  const softDeleteLabel =
+    language === "en"
+      ? `${terminologyDisplay("DELETE", language)} (status)`
+      : `${terminologyDisplay("DELETE", language)}(상태)`;
+  const hardDeleteLabel = tr("admin_posts_bulk_delete_db");
+  const selectAllLabel =
+    language === "en" ? "Select all on current page" : "현재 페이지 전체 선택";
+  const selectedLabel =
+    language === "en"
+      ? `${selection.selectedCount} selected`
+      : `${selection.selectedCount}개 선택됨`;
 
   return (
-    <div className="space-y-4">
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="community-posts" className="space-y-4">
       <AdminPageHeader
         titleKey="admin_menu_community_posts"
         description={tr("admin_posts_help_community_short")}
@@ -370,7 +454,7 @@ export function AdminPostsPageContent() {
             <option value="">{tr("admin_posts_filter_all_status")}</option>
             {communityStatusOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {tr(o.labelKey)}
+                {o.label}
               </option>
             ))}
           </select>
@@ -417,221 +501,289 @@ export function AdminPostsPageContent() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center sam-text-body text-sam-muted">{tr("common_loading")}</div>
+        <div className="py-12 text-center sam-text-body text-sam-muted" data-admin-mgmt-state="LOADING">
+          {tr("common_loading")}
+        </div>
       ) : (
         <>
           {communityErr ? (
-            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
+            <div
+              className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800"
+              data-admin-mgmt-state="ERROR"
+            >
               {communityErr}
             </div>
           ) : null}
           {communityRows.length === 0 && !communityErr ? (
-            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
+            <div
+              className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"
+              data-admin-mgmt-state="EMPTY"
+            >
               {tr("admin_posts_empty_community")}
             </div>
           ) : communityRows.length > 0 ? (
-            <>
-              <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-                <table className="w-full min-w-[1100px] text-left sam-text-body">
-                  <thead>
-                    <tr className="border-b border-sam-border bg-sam-app">
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_topic")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_author")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_region")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_views")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_likes")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_comments")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_reported")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_registered")}</th>
-                      <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {communityRows.map((r) => {
-                      const id = String(r.id ?? "");
-                      const busy = communityBusyId === id;
-                      const titleStr = String(r.title ?? "");
-                      const uid = String(r.user_id ?? "").trim();
-                      const authorLabel = String(r.author_label ?? "").trim() || dash;
-                      const slug = topicSlugOf(r);
-                      const reportCount = Number(r.report_count ?? 0);
-                      const commentCount = Number(r.comment_count ?? 0);
-                      return (
-                        <tr key={id} className="border-b border-sam-border-soft">
-                          <td className="max-w-[220px] p-3">
-                            <Link
-                              href={`/admin/community/posts/${encodeURIComponent(id)}`}
-                              className="font-medium text-signature hover:underline"
-                            >
-                              {titleStr ? titleStr : tr("admin_posts_no_title")}
-                            </Link>
-                            {r.is_sample_data === true ? (
-                              <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
-                                {tr("admin_feed_posts_sample_badge")}
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="p-3 text-sam-muted">
-                            {slug ? (
-                              <button
-                                type="button"
-                                className="text-signature hover:underline"
-                                onClick={() => setCommunityTopicFilter(slug)}
-                              >
-                                {topicDisplayLabel(r)}
-                              </button>
-                            ) : (
-                              dash
-                            )}
-                          </td>
-                          <td className="max-w-[140px] truncate p-3 text-sam-muted" title={authorLabel}>
-                            {uid ? (
-                              <Link
-                                href={`/admin/users/${encodeURIComponent(uid)}`}
-                                className="text-signature hover:underline"
-                              >
-                                {authorLabel}
-                              </Link>
-                            ) : (
-                              authorLabel
-                            )}
-                          </td>
-                          <td
-                            className="max-w-[140px] truncate p-3 text-sam-muted"
-                            title={String(r.region_label ?? "")}
-                          >
-                            {String(r.region_label ?? dash)}
-                          </td>
-                          <td className="p-3 text-sam-muted">{Number(r.view_count ?? 0)}</td>
-                          <td className="p-3 text-sam-muted">{Number(r.like_count ?? 0)}</td>
-                          <td className="p-3">
-                            <Link
-                              href={`/admin/community/comments?postId=${encodeURIComponent(id)}`}
-                              className="text-signature hover:underline"
-                            >
-                              {commentCount}
-                            </Link>
-                          </td>
-                          <td className="p-3">
-                            {reportCount > 0 ? (
-                              <Link
-                                href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
-                                className="text-signature hover:underline"
-                              >
-                                {reportCount}
-                              </Link>
-                            ) : (
-                              <span className="text-sam-muted">0</span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <select
-                              value={String(r.status ?? "active")}
-                              disabled={busy || bulkBusy}
-                              onChange={(e) => void patchCommunityPost(id, e.target.value)}
-                              className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
-                            >
-                              {communityStatusOptions.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {tr(o.labelKey)}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="whitespace-nowrap p-3 text-sam-muted">
-                            {r.created_at ? formatTimeAgo(r.created_at) : dash}
-                          </td>
-                          <td className="p-3">
-                            <div className="flex flex-wrap gap-1">
-                              <button
-                                type="button"
-                                disabled={busy || bulkBusy}
-                                onClick={() => void patchCommunityPost(id, "hidden")}
-                                className="sam-text-helper text-amber-700 hover:underline"
-                              >
-                                {tr("admin_feed_posts_action_hide")}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busy || bulkBusy}
-                                onClick={() => void patchCommunityPost(id, "deleted")}
-                                className="sam-text-helper text-red-600 hover:underline"
-                              >
-                                {tr("admin_feed_posts_action_delete")}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={busy || bulkBusy}
-                                onClick={() => void patchCommunityPost(id, "active")}
-                                className="sam-text-helper text-emerald-700 hover:underline"
-                              >
-                                {tr("admin_feed_posts_action_restore")}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <details className="rounded-ui-rect border border-red-200 bg-red-50/40 px-3 py-2">
-                <summary className="cursor-pointer font-medium text-red-800">
-                  {tr("admin_community_danger_zone")}
-                </summary>
-                <p className="mt-2 sam-text-body-secondary text-red-900/80">
-                  {tr("admin_community_danger_zone_hint")}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-1.5 sam-text-body-secondary">
-                    <input
-                      ref={communitySelectAllRef}
-                      type="checkbox"
-                      checked={allCommunitySelected}
-                      onChange={(e) => toggleAllCommunity(e.target.checked)}
-                      className="rounded border-sam-border"
-                      aria-label={tr("admin_posts_aria_select_all_community")}
-                    />
-                    {tr("admin_posts_title_select_all_visible")}
-                  </label>
-                  <span className="sam-text-body-secondary text-sam-fg">
-                    {tr("admin_posts_bulk_selected", { count: selectedCommunity.size })}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={bulkBusy || selectedCommunity.size === 0}
-                    onClick={() => void bulkDeleteCommunity()}
-                    className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
-                  >
-                    {tr("admin_posts_bulk_delete_db")}
-                  </button>
-                </div>
-                <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto sam-text-helper">
+            <AdminManagementTableViewport className="min-w-0">
+              <AdminManagementBulkBar
+                selectedCount={selection.selectedCount}
+                policy={policy}
+                selectedLabel={selectedLabel}
+                actions={[
+                  {
+                    id: "restore",
+                    label: restoreLabel,
+                    onClick: () => {
+                      if (bulkBusy) return;
+                      void runSoftBulk("active");
+                    },
+                  },
+                  {
+                    id: "hide",
+                    label: hideLabel,
+                    onClick: () => {
+                      if (bulkBusy) return;
+                      void runSoftBulk("hidden");
+                    },
+                  },
+                  {
+                    id: "soft_delete",
+                    label: softDeleteLabel,
+                    onClick: () => {
+                      if (bulkBusy) return;
+                      void runSoftBulk("deleted");
+                    },
+                  },
+                  {
+                    id: "hard_delete",
+                    label: hardDeleteLabel,
+                    onClick: () => {
+                      if (bulkBusy) return;
+                      void bulkHardDelete();
+                    },
+                  },
+                ]}
+              />
+              <table
+                className="w-full table-fixed text-left sam-text-body"
+                style={{ minWidth: tableMinWidth }}
+                data-admin-mgmt-table-min-width={String(tableMinWidth)}
+              >
+                <thead>
+                  <tr className="border-b border-sam-border bg-sam-app">
+                    <th className="p-3" style={managementColumnStyle("SELECTION")}>
+                      <AdminManagementSelectionCheckbox
+                        role="header"
+                        state={selection.headerState}
+                        onToggle={selection.toggleAll}
+                        aria-label={selectAllLabel}
+                      />
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("TITLE")}>
+                      {tr("admin_feed_posts_col_title")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("METADATA")}>
+                      {tr("admin_posts_col_topic")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("IDENTITY")}>
+                      {tr("admin_posts_col_author")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("METADATA")}>
+                      {tr("admin_posts_col_region")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("NUMERIC")}>
+                      {tr("admin_posts_col_views")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("NUMERIC")}>
+                      {tr("admin_posts_col_likes")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("NUMERIC")}>
+                      {tr("admin_posts_col_comments")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("NUMERIC")}>
+                      {tr("admin_feed_posts_col_reported")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("STATUS")}>
+                      {tr("admin_feed_posts_col_status")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("DATE")}>
+                      {tr("admin_posts_col_registered")}
+                    </th>
+                    <th className="p-3 font-medium text-sam-fg" style={managementColumnStyle("ACTIONS")}>
+                      {tr("admin_posts_col_manage")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
                   {communityRows.map((r) => {
                     const id = String(r.id ?? "");
-                    const titleStr = String(r.title ?? "").trim() || tr("admin_posts_no_title");
+                    const busy = communityBusyId === id;
+                    const titleStr = String(r.title ?? "");
+                    const uid = String(r.user_id ?? "").trim();
+                    const authorLabel = String(r.author_label ?? "").trim() || dash;
+                    const slug = topicSlugOf(r);
+                    const reportCount = Number(r.report_count ?? 0);
+                    const commentCount = Number(r.comment_count ?? 0);
                     return (
-                      <li key={`danger-${id}`} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedCommunity.has(id)}
-                          disabled={bulkBusy}
-                          onChange={(e) => toggleCommunityRow(id, e.target.checked)}
-                          aria-label={tr("admin_posts_aria_select_row", { label: titleStr.slice(0, 24) })}
-                        />
-                        <span className="truncate text-sam-fg">{titleStr}</span>
-                      </li>
+                      <tr key={id} className="border-b border-sam-border-soft">
+                        <td className="p-3" style={managementColumnStyle("SELECTION")}>
+                          <AdminManagementSelectionCheckbox
+                            role="row"
+                            checked={selection.isSelected(id)}
+                            onToggle={() => selection.toggleRow(id)}
+                            disabled={bulkBusy}
+                            aria-label={tr("admin_posts_aria_select_row", {
+                              label: (titleStr || id).slice(0, 24),
+                            })}
+                          />
+                        </td>
+                        <td className="p-3" style={managementColumnStyle("TITLE")}>
+                          <Link
+                            href={`/admin/community/posts/${encodeURIComponent(id)}`}
+                            className="block truncate font-medium text-signature hover:underline"
+                            title={titleStr || undefined}
+                          >
+                            {titleStr ? titleStr : tr("admin_posts_no_title")}
+                          </Link>
+                          {r.is_sample_data === true ? (
+                            <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
+                              {tr("admin_feed_posts_sample_badge")}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="p-3 text-sam-muted" style={managementColumnStyle("METADATA")}>
+                          {slug ? (
+                            <button
+                              type="button"
+                              className="text-signature hover:underline"
+                              onClick={() => setCommunityTopicFilter(slug)}
+                            >
+                              {topicDisplayLabel(r)}
+                            </button>
+                          ) : (
+                            dash
+                          )}
+                        </td>
+                        <td
+                          className="truncate p-3 text-sam-muted"
+                          style={managementColumnStyle("IDENTITY")}
+                          title={authorLabel}
+                        >
+                          {uid ? (
+                            <Link
+                              href={`/admin/users/${encodeURIComponent(uid)}`}
+                              className="text-signature hover:underline"
+                            >
+                              {authorLabel}
+                            </Link>
+                          ) : (
+                            authorLabel
+                          )}
+                        </td>
+                        <td
+                          className="truncate p-3 text-sam-muted"
+                          style={managementColumnStyle("METADATA")}
+                          title={String(r.region_label ?? "")}
+                        >
+                          {String(r.region_label ?? dash)}
+                        </td>
+                        <td className="p-3 text-sam-muted" style={managementColumnStyle("NUMERIC")}>
+                          {Number(r.view_count ?? 0)}
+                        </td>
+                        <td className="p-3 text-sam-muted" style={managementColumnStyle("NUMERIC")}>
+                          {Number(r.like_count ?? 0)}
+                        </td>
+                        <td className="p-3" style={managementColumnStyle("NUMERIC")}>
+                          <Link
+                            href={`/admin/community/comments?postId=${encodeURIComponent(id)}`}
+                            className="text-signature hover:underline"
+                          >
+                            {commentCount}
+                          </Link>
+                        </td>
+                        <td className="p-3" style={managementColumnStyle("NUMERIC")}>
+                          {reportCount > 0 ? (
+                            <Link
+                              href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
+                              className="text-signature hover:underline"
+                            >
+                              {reportCount}
+                            </Link>
+                          ) : (
+                            <span className="text-sam-muted">0</span>
+                          )}
+                        </td>
+                        <td className="p-3" style={managementColumnStyle("STATUS")}>
+                          <select
+                            value={String(r.status ?? "active")}
+                            disabled={busy || bulkBusy}
+                            onChange={(e) =>
+                              void patchCommunityPost(id, e.target.value).then((ok) => {
+                                if (ok) void loadCommunity();
+                              })
+                            }
+                            className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
+                          >
+                            {communityStatusOptions.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td
+                          className="whitespace-nowrap p-3 text-sam-muted"
+                          style={managementColumnStyle("DATE")}
+                        >
+                          {r.created_at ? formatTimeAgo(r.created_at) : dash}
+                        </td>
+                        <td className="p-3" style={managementColumnStyle("ACTIONS")}>
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              disabled={busy || bulkBusy}
+                              onClick={() =>
+                                void patchCommunityPost(id, "hidden").then((ok) => {
+                                  if (ok) void loadCommunity();
+                                })
+                              }
+                              className="sam-text-helper text-amber-700 hover:underline"
+                            >
+                              {hideLabel}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || bulkBusy}
+                              onClick={() =>
+                                void patchCommunityPost(id, "deleted").then((ok) => {
+                                  if (ok) void loadCommunity();
+                                })
+                              }
+                              className="sam-text-helper text-red-600 hover:underline"
+                            >
+                              {softDeleteLabel}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || bulkBusy}
+                              onClick={() =>
+                                void patchCommunityPost(id, "active").then((ok) => {
+                                  if (ok) void loadCommunity();
+                                })
+                              }
+                              className="sam-text-helper text-emerald-700 hover:underline"
+                            >
+                              {restoreLabel}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                </ul>
-              </details>
-            </>
+                </tbody>
+              </table>
+            </AdminManagementTableViewport>
           ) : null}
         </>
       )}
-    </div>
+    </AdminManagementSurfaceRoot>
   );
 }

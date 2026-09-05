@@ -9,8 +9,16 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCard } from "@/components/admin/AdminCard";
+import {
+  AdminManagementSurfaceRoot,
+  AdminManagementTableViewport,
+} from "@/components/admin/management";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
-import { ARO_IA_001_SUPPORT_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
+import {
+  ARO_IA_001_OWNERS,
+  ARO_IA_001_SUPPORT_PATH,
+} from "@/lib/admin/aro-ia-001-community-common-links";
+import { computeTableMinWidthPx, managementColumnStyle, type ManagementColumnKind } from "@/lib/admin/management";
 
 export type AdminCommunityReportsFilters = {
   status: string;
@@ -20,11 +28,32 @@ export type AdminCommunityReportsFilters = {
   authorId: string;
 };
 
-const FEED_REPORT_ACTION_STATUS_KEYS = {
-  reviewing: "admin_report_status_reviewing",
-  resolved: "admin_report_status_resolved",
-  dismissed: "admin_feed_reports_status_dismissed",
+/** State-based CTAs — not status echo labels. */
+const FEED_REPORT_ACTION_CTA_KEYS = {
+  reviewing: "admin_meeting_reports_action_start_review",
+  resolved: "admin_meeting_reports_action_resolve",
+  dismissed: "admin_stores_reports_dismiss",
 } as const satisfies Record<"reviewing" | "resolved" | "dismissed", MessageKey>;
+
+const REPORT_COLUMN_KINDS: ManagementColumnKind[] = [
+  "METADATA",
+  "TITLE",
+  "IDENTITY",
+  "IDENTITY",
+  "TITLE",
+  "DATE",
+  "STATUS",
+  "ACTIONS",
+];
+
+function nextReportActions(
+  status: string
+): Array<"reviewing" | "resolved" | "dismissed"> {
+  const s = status.trim().toLowerCase();
+  if (s === "pending" || s === "open") return ["reviewing"];
+  if (s === "reviewing") return ["resolved", "dismissed"];
+  return [];
+}
 
 const STATUS_FILTERS = [
   { value: "", labelKey: "admin_community_report_filter_all" as const },
@@ -111,8 +140,12 @@ export function AdminCommunityReportsPage({
     }
   };
 
+  const tableMinWidth = computeTableMinWidthPx(REPORT_COLUMN_KINDS);
+
   return (
-    <div className="space-y-4">
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="community-reports" className="space-y-4">
+      <span className="sr-only" data-admin-community-reports-owner={ARO_IA_001_OWNERS.report} />
+      <span className="sr-only" data-admin-writer={ARO_IA_001_OWNERS.report} />
       <AdminPageHeader titleKey="admin_feed_reports_page_title" backHref="/admin/community" />
       <Suspense fallback={null}>
         <AdminOpsCrossLinkBar
@@ -163,23 +196,50 @@ export function AdminCommunityReportsPage({
         </div>
 
         {patchErr ? (
-          <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{patchErr}</p>
+          <p
+            className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700"
+            data-admin-mgmt-state="ERROR"
+          >
+            {patchErr}
+          </p>
         ) : null}
         {rows.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">{tr("admin_feed_reports_empty")}</p>
+          <p className="sam-text-body-secondary text-sam-muted" data-admin-mgmt-state="EMPTY">
+            {tr("admin_feed_reports_empty")}
+          </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] border-collapse text-left sam-text-helper">
+          <AdminManagementTableViewport className="min-w-0">
+            <table
+              className="w-full table-fixed border-collapse text-left sam-text-helper"
+              style={{ minWidth: tableMinWidth }}
+              data-admin-mgmt-table-min-width={String(tableMinWidth)}
+            >
               <thead>
                 <tr className="border-b border-sam-border text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_target")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_post")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_reporter")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_author")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_reason")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_time")}</th>
-                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_status")}</th>
-                  <th className="py-2 font-medium">{tr("admin_feed_reports_col_actions")}</th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("METADATA")}>
+                    {tr("admin_feed_reports_col_target")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("TITLE")}>
+                    {tr("admin_feed_reports_col_post")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("IDENTITY")}>
+                    {tr("admin_feed_reports_col_reporter")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("IDENTITY")}>
+                    {tr("admin_feed_reports_col_author")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("TITLE")}>
+                    {tr("admin_feed_reports_col_reason")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("DATE")}>
+                    {tr("admin_feed_reports_col_time")}
+                  </th>
+                  <th className="py-2 pr-2 font-medium" style={managementColumnStyle("STATUS")}>
+                    {tr("admin_feed_reports_col_status")}
+                  </th>
+                  <th className="py-2 font-medium" style={managementColumnStyle("ACTIONS")}>
+                    {tr("admin_feed_reports_col_actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -187,6 +247,7 @@ export function AdminCommunityReportsPage({
                   const reporterLabel = String(r.reporter_label ?? "").trim() || dash;
                   const authorLabel = String(r.author_label ?? "").trim() || dash;
                   const authorId = String(r.post_author_id ?? "").trim();
+                  const nextActions = nextReportActions(String(r.status ?? ""));
                   return (
                     <tr
                       key={r.id}
@@ -195,8 +256,10 @@ export function AdminCommunityReportsPage({
                       }}
                       className="border-b border-sam-border-soft align-top transition-colors duration-500"
                     >
-                      <td className="py-2 pr-2">{tr("admin_community_target_type_post")}</td>
-                      <td className="py-2 pr-2 max-w-[200px]">
+                      <td className="py-2 pr-2" style={managementColumnStyle("METADATA")}>
+                        {tr("admin_community_target_type_post")}
+                      </td>
+                      <td className="truncate py-2 pr-2" style={managementColumnStyle("TITLE")}>
                         {r.target_type === "post" && r.target_id ? (
                           <Link
                             href={`/admin/community/posts/${encodeURIComponent(r.target_id)}`}
@@ -208,7 +271,7 @@ export function AdminCommunityReportsPage({
                           <span className="text-sam-meta">{dash}</span>
                         )}
                       </td>
-                      <td className="py-2 pr-2 max-w-[140px] truncate">
+                      <td className="truncate py-2 pr-2" style={managementColumnStyle("IDENTITY")}>
                         {r.reporter_id ? (
                           <Link
                             href={`/admin/users/${encodeURIComponent(r.reporter_id)}`}
@@ -220,7 +283,7 @@ export function AdminCommunityReportsPage({
                           reporterLabel
                         )}
                       </td>
-                      <td className="py-2 pr-2 max-w-[140px] truncate">
+                      <td className="truncate py-2 pr-2" style={managementColumnStyle("IDENTITY")}>
                         {authorId ? (
                           <Link
                             href={`/admin/users/${encodeURIComponent(authorId)}`}
@@ -232,33 +295,38 @@ export function AdminCommunityReportsPage({
                           authorLabel
                         )}
                       </td>
-                      <td className="py-2 pr-2 text-sam-fg">
+                      <td className="py-2 pr-2 text-sam-fg" style={managementColumnStyle("TITLE")}>
                         <span className="font-medium text-sam-muted">{r.reason_type}</span>
                         {r.reason_text ? (
                           <p className="mt-0.5 line-clamp-2 sam-text-xxs">{r.reason_text}</p>
                         ) : null}
                       </td>
-                      <td className="py-2 pr-2 whitespace-nowrap text-sam-muted">
+                      <td
+                        className="whitespace-nowrap py-2 pr-2 text-sam-muted"
+                        style={managementColumnStyle("DATE")}
+                      >
                         {r.created_at ? new Date(r.created_at).toLocaleString(dateLocale) : dash}
                       </td>
-                      <td className="py-2 pr-2">{r.status}</td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap gap-1">
+                      <td className="py-2 pr-2" style={managementColumnStyle("STATUS")}>
+                        {r.status}
+                      </td>
+                      <td className="py-2" style={managementColumnStyle("ACTIONS")}>
+                        <div className="flex flex-wrap gap-1" data-admin-report-cta-state={r.status}>
                           <Link
                             href={`/admin/reports/${encodeURIComponent(r.id)}`}
                             className="rounded border border-sam-border px-2 py-0.5 sam-text-xxs text-sam-primary hover:bg-sam-app"
                           >
                             {tr("admin_report_th_detail")}
                           </Link>
-                          {(["reviewing", "resolved", "dismissed"] as const).map((s) => (
+                          {nextActions.map((s) => (
                             <button
                               key={s}
                               type="button"
-                              disabled={busyId === r.id || r.status === s}
+                              disabled={busyId === r.id}
                               onClick={() => void patch(r.id, s)}
                               className="rounded border border-sam-border px-2 py-0.5 sam-text-xxs hover:bg-sam-app disabled:opacity-40"
                             >
-                              {tr(FEED_REPORT_ACTION_STATUS_KEYS[s])}
+                              {tr(FEED_REPORT_ACTION_CTA_KEYS[s])}
                             </button>
                           ))}
                         </div>
@@ -268,9 +336,9 @@ export function AdminCommunityReportsPage({
                 })}
               </tbody>
             </table>
-          </div>
+          </AdminManagementTableViewport>
         )}
       </AdminCard>
-    </div>
+    </AdminManagementSurfaceRoot>
   );
 }

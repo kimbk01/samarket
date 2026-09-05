@@ -5,6 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MeetingReportRow, MeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
+import { AdminManagementSurfaceRoot } from "@/components/admin/management";
+import { ARO_IA_001_OWNERS } from "@/lib/admin/aro-ia-001-community-common-links";
 
 const MEETING_REPORT_STATUS_KEYS = {
   pending: "admin_dashboard_report_pending",
@@ -140,8 +142,8 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
             className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
           />
 
-          <div className="flex flex-wrap gap-2">
-            {localStatus !== "reviewing" && (
+          <div className="flex flex-wrap gap-2" data-admin-report-cta-state={localStatus}>
+            {localStatus === "pending" ? (
               <button
                 type="button"
                 disabled={busy}
@@ -150,28 +152,28 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
               >
                 {tr("admin_meeting_reports_action_start_review")}
               </button>
-            )}
-            {localStatus !== "resolved" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handle("resolved")}
-                className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 sam-text-helper font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
-              >
-                {tr("admin_meeting_reports_action_resolve")}
-              </button>
-            )}
-            {localStatus !== "rejected" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void handle("rejected")}
-                className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
-              >
-                {tr("admin_report_action_reject")}
-              </button>
-            )}
-            {localStatus !== "pending" && (
+            ) : null}
+            {localStatus === "reviewing" ? (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handle("resolved")}
+                  className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 sam-text-helper font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
+                >
+                  {tr("admin_meeting_reports_action_resolve")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handle("rejected")}
+                  className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
+                >
+                  {tr("admin_stores_reports_dismiss")}
+                </button>
+              </>
+            ) : null}
+            {localStatus === "resolved" || localStatus === "rejected" ? (
               <button
                 type="button"
                 disabled={busy}
@@ -180,7 +182,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
               >
                 {tr("admin_meeting_reports_action_restore_pending")}
               </button>
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -234,7 +236,9 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
   };
 
   return (
-    <div className="space-y-4">
+    <AdminManagementSurfaceRoot wave="w3" proofSurface="meeting-reports" className="space-y-4">
+      <span className="sr-only" data-admin-meeting-reports-owner={ARO_IA_001_OWNERS.meetingReport} />
+      <span className="sr-only" data-admin-writer={ARO_IA_001_OWNERS.meetingReport} />
       {/* 요약 뱃지 */}
       <div className="flex flex-wrap gap-2 sam-text-helper">
         {pendingCount > 0 && (
@@ -272,7 +276,10 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
 
       {/* 신고 목록 */}
       {filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center">
+        <div
+          className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center"
+          data-admin-mgmt-state="EMPTY"
+        >
           <p className="sam-text-body text-sam-meta">
             {filter === "all"
               ? tr("admin_meeting_reports_empty_all")
@@ -288,6 +295,6 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
           ))}
         </div>
       )}
-    </div>
+    </AdminManagementSurfaceRoot>
   );
 }

@@ -128,7 +128,7 @@ export function AdminCommunityPointPoliciesPage() {
   ];
 
   return (
-    <div className="space-y-4 text-sam-fg">
+    <div className="space-y-4 text-sam-fg" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-point-policies">
       <AdminPageHeader
         titleKey="admin_community_point_page_title"
         description={t("admin_community_point_page_desc")}
@@ -147,6 +147,7 @@ export function AdminCommunityPointPoliciesPage() {
           noteEn="Community earn/reclaim policies. Ledger uses shared Point (board_point_policies)."
         />
       </Suspense>
+      <span className="sr-only" data-admin-writer="board_point_policies" />
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((item) => (

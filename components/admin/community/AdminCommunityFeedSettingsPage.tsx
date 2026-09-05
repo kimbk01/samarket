@@ -69,16 +69,18 @@ export function AdminCommunityFeedSettingsPage() {
 
   if (loading || !ops) {
     return (
-      <div className="space-y-4">
-        <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community/topics" />
-        <p className="sam-text-body-secondary text-sam-muted">{tr("common_loading")}</p>
+      <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-settings">
+        <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community" />
+        <p className="sam-text-body-secondary text-sam-muted" data-admin-mgmt-state="LOADING">
+          {tr("common_loading")}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community/topics" />
+    <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-settings">
+      <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/community" />
       <form onSubmit={onSave} className="space-y-4">
         <AdminCard titleKey="admin_community_feed_settings_section_content">
           <div className="max-w-xl space-y-4 sam-text-body-secondary">

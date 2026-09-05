@@ -24,8 +24,8 @@ export const ARO_IA_001_OWNERS = {
 
 export const ARO_IA_001_COMMUNITY_SECTION_KEYS = [
   "community-section-ops",
-  "community-section-content",
   "community-section-moderation",
+  "community-section-content",
   "community-section-promo-point",
   "community-section-settings",
 ] as const;
