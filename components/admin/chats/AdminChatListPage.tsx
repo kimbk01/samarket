@@ -1,6 +1,6 @@
 "use client";
 
-import { dibayConfirm } from "@/components/ui/dibay-overlay";
+import { dibayAlert, dibayConfirm, dibayPrompt } from "@/components/ui/dibay-overlay";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -24,6 +24,10 @@ import {
   matchAdminChatRoomToDeepLink,
   parseAdminTradeChatDeepLink,
 } from "@/lib/admin-products/admin-trade-deep-link";
+import {
+  buildAdminPrelaunchResetHref,
+  DOMAIN_RESET_SCOPE_PRESETS,
+} from "@/lib/admin/prelaunch-reset/domain-reset-entry";
 
 type AdminMergeSource = "chat_rooms" | "product_chats";
 type TaggedAdminRoom = AdminChatRoom & { _mergeSource: AdminMergeSource };
@@ -135,7 +139,7 @@ interface AdminChatListPageProps {
 }
 
 export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const deepLink = useMemo(() => parseAdminTradeChatDeepLink(searchParams), [searchParams]);
   const deepLinkActive = mode === "trade" && adminTradeChatDeepLinkActive(deepLink);
@@ -306,9 +310,22 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
       return;
     }
 
-    if (
-      !(await dibayConfirm({ title: t("admin_chat_delete_confirm", { count: items.length }), confirmTone: "destructive" }))
-    ) {
+    const typed = await dibayPrompt({
+      title: t("admin_chat_delete_from_db"),
+      description: t("admin_chat_delete_confirm", { count: items.length }),
+      placeholder: "DELETE",
+      required: true,
+      confirmTone: "destructive",
+      confirmLabel: t("admin_chat_delete_from_db"),
+    });
+    if (typed == null) return;
+    if (typed.trim() !== "DELETE") {
+      await dibayAlert({
+        title:
+          language === "en"
+            ? "Confirmation text mismatch — cancelled"
+            : "확인 문구 불일치 — 취소됨",
+      });
       return;
     }
 
@@ -424,6 +441,16 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   return (
     <div className="space-y-4">
       <AdminPageHeader titleKey={getTitleKey(mode)} />
+      <p className="sam-text-helper text-sam-muted" data-admin-domain-reset-entry="chat">
+        <Link
+          href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.chat)}
+          className="text-signature hover:underline"
+        >
+          {language === "en"
+            ? "Clean test chat data (Reset · chat)"
+            : "테스트 채팅 데이터 정리 (Reset · chat)"}
+        </Link>
+      </p>
       {mode === "trade" ? (
         <div
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted"
@@ -551,6 +578,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={hideSelectedFromListOnly}
             className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-40"
+            data-admin-mgmt-bulk-action="hide_list"
           >
             {t("admin_chat_remove_list_only")}
           </button>
@@ -568,7 +596,8 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
             type="button"
             disabled={selectedIds.size === 0 || actionBusy}
             onClick={() => void deleteSelectedFromDb()}
-            className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
+            className="rounded border-2 border-red-800 bg-red-700 px-2.5 py-1.5 font-semibold text-white shadow-sm hover:bg-red-800 disabled:opacity-40"
+            data-admin-mgmt-hard-delete="1"
           >
             {t("admin_chat_delete_from_db")}
           </button>

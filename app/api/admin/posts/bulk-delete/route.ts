@@ -5,13 +5,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/admin/posts/bulk-delete
- * body: { ids: string[] } — 거래 posts 테이블 영구 삭제
+ * body: { ids: string[], surface?: string }
  *
- * CONTRACT (Trade Admin L10):
- * - Trade Post CC / posts-management permanent CTA = DISABLED · NOT_READY
- *   (dependency preview 미완 — do not wire those CTAs here)
- * - Legacy community admin bulk tool may still call this API
- * - Reject explicit trade_admin surface until permanent-delete cut ships
+ * ARO-OPS-UX-002-B1R:
+ * Trade Admin surfaces allowed with row-level eligibility
+ * (sold / sold_buyer blocked). Existing delete + image cleanup owner preserved.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
@@ -20,11 +18,17 @@ import {
   collectPostRowImageUrls,
   removeCanonicalImagesFromPublicUrls,
 } from "@/lib/media/canonical-image-lifecycle.server";
+import {
+  evaluateTradePostHardDeleteEligibility,
+  type TradePostHardDeleteBlocker,
+} from "@/lib/admin-posts/trade-post-hard-delete-eligibility";
 
 const MAX_BATCH = 50;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const TRADE_SURFACES = new Set(["trade_admin", "posts_management", "product_cc"]);
 
 function parseIds(body: unknown): string[] | null {
   if (!body || typeof body !== "object") return null;
@@ -56,16 +60,6 @@ export async function POST(req: NextRequest) {
     json && typeof json === "object" && "surface" in json
       ? String((json as { surface?: unknown }).surface ?? "").trim().toLowerCase()
       : "";
-  if (surface === "trade_admin" || surface === "posts_management" || surface === "product_cc") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "permanent_delete_not_ready",
-        message: "Trade Admin permanent delete is NOT_READY (dependency preview incomplete).",
-      },
-      { status: 501 }
-    );
-  }
 
   const ids = parseIds(json);
   if (!ids) {
@@ -85,24 +79,78 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const { data: rowsBefore } = await sb
+  const { data: rowsBefore, error: loadErr } = await sb
     .from(POSTS_TABLE_READ)
-    .select("id, images, thumbnail_url")
+    .select("id, images, thumbnail_url, status, sold_buyer_id")
     .in("id", ids);
 
-  const imageUrlsToRemove: string[] = [];
-  for (const row of rowsBefore ?? []) {
-    imageUrlsToRemove.push(...collectPostRowImageUrls(row as { images?: unknown; thumbnail_url?: unknown }));
+  if (loadErr) {
+    return NextResponse.json({ ok: false, error: loadErr.message }, { status: 500 });
   }
 
-  const { error, data } = await sb.from(POSTS_TABLE_WRITE).delete().in("id", ids).select("id");
+  type Row = {
+    id: string;
+    images?: unknown;
+    thumbnail_url?: unknown;
+    status?: string | null;
+    sold_buyer_id?: string | null;
+  };
+
+  const byId = new Map((rowsBefore ?? []).map((r) => [String((r as Row).id), r as Row]));
+  const blocked: { id: string; blockers: TradePostHardDeleteBlocker[] }[] = [];
+  const eligibleIds: string[] = [];
+
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (!row) {
+      blocked.push({ id, blockers: ["invalid_id"] });
+      continue;
+    }
+    const ev = evaluateTradePostHardDeleteEligibility({
+      id,
+      status: row.status,
+      soldBuyerId: row.sold_buyer_id,
+    });
+    if (!ev.eligible) blocked.push({ id, blockers: ev.blockers });
+    else eligibleIds.push(id);
+  }
+
+  // Non-trade legacy callers: still delete only eligible rows (same safety).
+  void TRADE_SURFACES;
+  void surface;
+
+  if (eligibleIds.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      deleted: [],
+      deletedCount: 0,
+      notFoundOrSkipped: ids,
+      blocked,
+      message: "no_eligible_rows",
+    });
+  }
+
+  const imageUrlsToRemove: string[] = [];
+  for (const id of eligibleIds) {
+    const row = byId.get(id);
+    if (!row) continue;
+    imageUrlsToRemove.push(
+      ...collectPostRowImageUrls(row as { images?: unknown; thumbnail_url?: unknown })
+    );
+  }
+
+  const { error, data } = await sb
+    .from(POSTS_TABLE_WRITE)
+    .delete()
+    .in("id", eligibleIds)
+    .select("id");
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
   const deleted = (data ?? []).map((r: { id: string }) => r.id);
   const deletedSet = new Set(deleted);
-  const missing = ids.filter((id) => !deletedSet.has(id));
+  const missing = eligibleIds.filter((id) => !deletedSet.has(id));
 
   if (deleted.length > 0 && imageUrlsToRemove.length > 0) {
     const removal = await removeCanonicalImagesFromPublicUrls({
@@ -120,5 +168,6 @@ export async function POST(req: NextRequest) {
     deleted,
     deletedCount: deleted.length,
     notFoundOrSkipped: missing,
+    blocked,
   });
 }

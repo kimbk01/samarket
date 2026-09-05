@@ -21,6 +21,10 @@ import {
   terminologyDisplay,
   type ManagementColumnKind,
 } from "@/lib/admin/management";
+import {
+  buildAdminPrelaunchResetHref,
+  DOMAIN_RESET_SCOPE_PRESETS,
+} from "@/lib/admin/prelaunch-reset/domain-reset-entry";
 
 type CommunityPostRow = {
   id: string;
@@ -459,6 +463,23 @@ export function AdminPostsPageContent() {
         titleKey="admin_menu_community_posts"
         description={tr("admin_posts_help_community_short")}
       />
+
+      <p className="sam-text-helper text-sam-muted">
+        <Link
+          href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.community)}
+          className="text-signature hover:underline"
+          data-admin-domain-reset-entry="community"
+        >
+          {language === "en"
+            ? "Clean test data (Reset · community_posts)"
+            : "테스트 데이터 정리 (Reset · community_posts)"}
+        </Link>
+        <span className="ml-2">
+          {language === "en"
+            ? "DB permanent delete for selected posts is on the bulk bar (high danger)."
+            : "선택 후 bulk bar의 DB 영구 삭제(고위험)로 개별 영구 삭제합니다."}
+        </span>
+      </p>
 
       {actionMsg ? (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">

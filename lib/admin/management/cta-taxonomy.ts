@@ -15,6 +15,8 @@ export function managementCtaSamClass(variant: ManagementCtaVariant): string {
       return Sam.btn.ghostCombo;
     case "STATUS":
       return Sam.btn.outlineCombo;
+    case "CRITICAL_DANGER":
+      return `${Sam.btn.dangerCombo} ring-2 ring-red-800/70 font-semibold`;
     case "DANGER":
       return Sam.btn.dangerCombo;
     default:
@@ -29,6 +31,7 @@ export function managementCtaConsoleVariant(
     case "PRIMARY":
       return "primary";
     case "DANGER":
+    case "CRITICAL_DANGER":
       return "danger";
     case "TERTIARY":
       return "ghost";
@@ -45,5 +48,6 @@ export const CTA_MEANING = {
   detailNavigate: "SECONDARY",
   stateTransition: "STATUS",
   destructive: "DANGER",
+  permanentDestructive: "CRITICAL_DANGER",
   tertiaryGhost: "TERTIARY",
 } as const satisfies Record<string, ManagementCtaVariant>;

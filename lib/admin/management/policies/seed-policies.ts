@@ -2,23 +2,23 @@ import type { EntityActionPolicy } from "../entity-action-policy";
 
 /**
  * Trade listing (posts-management) policy adapter.
- * Soft moderation via existing confirmAndUpdateAdminPostStatus.
- * Hard DB delete UI remains unavailable (API must not be exposed as HARD CTA).
+ * Soft moderation via confirmAndApplyBulkAdminPostStatus (ONE confirm for N).
+ * Hard DB delete via POST /api/admin/posts/bulk-delete with row eligibility.
  */
 export const TRADE_POST_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "trade_post",
   canDelete: true,
-  deleteMode: "SOFT_DELETE",
+  deleteMode: "HARD_DELETE",
   canHide: true,
   canRestore: true,
   canSoftDelete: true,
   canChangeStatus: true,
-  allowedBulkActions: ["restore", "hide", "soft_delete"],
-  hardDeleteAvailable: false,
-  softMutationOwner: "confirmAndUpdateAdminPostStatus→updatePostStatusAdmin(status=deleted)",
-  hardMutationOwner: null,
+  allowedBulkActions: ["restore", "hide", "soft_delete", "hard_delete"],
+  hardDeleteAvailable: true,
+  softMutationOwner: "confirmAndApplyBulkAdminPostStatus→updatePostStatusAdmin(status=deleted)",
+  hardMutationOwner: "POST /api/admin/posts/bulk-delete (eligibility-gated)",
   softConfirmMode: "danger_confirm",
-  hardConfirmMode: "blocked",
+  hardConfirmMode: "strong_danger_confirm",
 };
 
 /** Member list: no generic bulk hard-delete. Deletion-request queue is separate. */

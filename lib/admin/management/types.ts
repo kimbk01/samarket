@@ -64,7 +64,15 @@ export type ManagementColumnKind =
   | "METADATA"
   | "ACTIONS";
 
-export type ManagementCtaVariant = "PRIMARY" | "SECONDARY" | "TERTIARY" | "STATUS" | "DANGER";
+export type ManagementCtaVariant =
+  | "PRIMARY"
+  | "SECONDARY"
+  | "TERTIARY"
+  | "STATUS"
+  | "DANGER"
+  /** Hard/permanent delete — stronger than DANGER; reuses danger token + emphasis. */
+  | "CRITICAL_DANGER";
+
 
 export type ManagementListState = "LOADING" | "EMPTY" | "ERROR" | "PERMISSION_DENIED" | "READY";
 

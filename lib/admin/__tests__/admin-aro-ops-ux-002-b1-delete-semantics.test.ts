@@ -35,25 +35,25 @@ describe("ARO-OPS-UX-002-B1 delete semantics", () => {
     expect(terminologyDisplay("SOFT_DELETE", "ko")).not.toBe(terminologyDisplay("HIDE", "ko"));
   });
 
-  it("B1-3/B1-4/B1-5 Trade: soft label, no hard CTA, soft modal keeps DB-row hint", () => {
-    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(false);
+  it("B1-3/B1-4/B1-5 Trade: soft label; hard eligibility-gated (B1R)", () => {
     expect(TRADE_POST_ENTITY_ACTION_POLICY.canSoftDelete).toBe(true);
-    expect(canHardDelete(TRADE_POST_ENTITY_ACTION_POLICY)).toBe(false);
+    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
+    expect(canHardDelete(TRADE_POST_ENTITY_ACTION_POLICY)).toBe(true);
     expect(listVisibleBulkActions(TRADE_POST_ENTITY_ACTION_POLICY)).toEqual([
       "restore",
       "hide",
       "soft_delete",
+      "hard_delete",
     ]);
-    expect(isBulkActionAllowed(TRADE_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(false);
+    expect(isBulkActionAllowed(TRADE_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(true);
 
     const table = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
     expect(table).toContain('terminologyDisplay("SOFT_DELETE"');
     expect(table).not.toMatch(/\(soft\)/);
     expect(table).toMatch(/DB 영구 삭제가 아닙니다/);
-    expect(table).toMatch(/hard_delete omitted/);
-    expect(table).not.toMatch(/id:\s*"hard_delete"/);
-    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardMutationOwner).toBeNull();
-    expect(TRADE_POST_ENTITY_ACTION_POLICY.softMutationOwner).toMatch(/updatePostStatusAdmin/);
+    expect(table).toContain("confirmAndApplyBulkAdminPostStatus");
+    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardMutationOwner).toMatch(/bulk-delete/);
+    expect(TRADE_POST_ENTITY_ACTION_POLICY.softMutationOwner).toMatch(/BulkAdminPostStatus|updatePostStatusAdmin/);
   });
 
   it("B1-6/B1-7/B1-8/B1-9 Community: row soft; bulk hard visible; real owner; stronger confirm", () => {

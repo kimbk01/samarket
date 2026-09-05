@@ -9,6 +9,10 @@ import type {
   AdminCmDomainListDomain,
   AdminCommunityMessengerDomainRoomRow,
 } from "@/lib/admin-community-messenger/service";
+import {
+  buildAdminPrelaunchResetHref,
+  DOMAIN_RESET_SCOPE_PRESETS,
+} from "@/lib/admin/prelaunch-reset/domain-reset-entry";
 
 export type AdminMessengerDomainListMode = "general" | "group" | "store_order";
 
@@ -101,6 +105,24 @@ export function AdminMessengerDomainRoomList({ mode }: Props) {
       data-testid={`admin-messenger-domain-list-${mode}`}
     >
       <AdminPageHeader title={title} description={description} />
+
+      {mode === "general" || mode === "group" ? (
+        <p className="sam-text-helper text-sam-muted" data-admin-domain-reset-entry="chat">
+          <Link
+            href={buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.chat)}
+            className="text-signature hover:underline"
+          >
+            {language === "en"
+              ? "Clean test chat data (Reset · chat scope)"
+              : "테스트 채팅 데이터 정리 (Reset · chat 범위)"}
+          </Link>
+          <span className="ml-2">
+            {language === "en"
+              ? "Permanent DB wipe uses Reset with chatRoomIds + chat scope only. Trade/order rooms stay protected."
+              : "DB 영구 삭제는 Reset에서 chatRoomIds + chat 범위로만 수행합니다. 거래·주문 방은 보호됩니다."}
+          </span>
+        </p>
+      ) : null}
 
       {error ? (
         <p className="rounded-ui-rect border border-sam-danger/40 bg-sam-danger/5 px-3 py-2 text-sm text-sam-danger">

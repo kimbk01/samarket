@@ -9,6 +9,18 @@ import {
 } from "@/lib/admin-posts/updatePostAdmin";
 import { confirmAndUpdateAdminPostStatus } from "@/lib/admin-posts/confirm-admin-post-moderation";
 import {
+  alertBulkModerationSummary,
+  confirmAndApplyBulkAdminPostStatus,
+} from "@/lib/admin-posts/confirm-admin-post-bulk-moderation";
+import {
+  partitionTradePostsForHardDelete,
+  tradePostHardDeleteBlockerLabel,
+} from "@/lib/admin-posts/trade-post-hard-delete-eligibility";
+import {
+  buildAdminPrelaunchResetHref,
+  DOMAIN_RESET_SCOPE_PRESETS,
+} from "@/lib/admin/prelaunch-reset/domain-reset-entry";
+import {
   getMarketCategoryPath,
   getPublicProductPath,
 } from "@/lib/products/web-post-links";
@@ -94,6 +106,7 @@ export const AdminPostsManagementTable = forwardRef<
   const hideLabel = terminologyDisplay("HIDE", language);
   const restoreLabel = terminologyDisplay("RESTORE", language);
   const softDeleteLabel = terminologyDisplay("SOFT_DELETE", language);
+  const hardDeleteLabel = terminologyDisplay("HARD_DELETE", language);
   const productLabel = terminologyDisplay("PRODUCT", language);
   const adLabel = terminologyDisplay("ADVERTISEMENT", language);
   const selectAllLabel =
@@ -102,6 +115,7 @@ export const AdminPostsManagementTable = forwardRef<
     language === "en"
       ? `${selection.selectedCount} selected`
       : `${selection.selectedCount}개 선택됨`;
+  const tradeResetHref = buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.trade);
 
   const moderationLabels = {
     hideTitle: safeT("admin_products_confirm_hide", {
@@ -255,9 +269,147 @@ export const AdminPostsManagementTable = forwardRef<
   };
 
   const runBulk = async (action: "hide" | "restore" | "delete") => {
-    for (const id of selection.selected) {
-      const p = products.find((x) => x.id === id);
-      if (p) await runAction(action, p);
+    const productsSelected = [...selection.selected]
+      .map((id) => products.find((x) => x.id === id))
+      .filter((p): p is Product => !!p);
+    if (productsSelected.length === 0) return;
+
+    const outcome = await confirmAndApplyBulkAdminPostStatus({
+      action,
+      products: productsSelected.map((p) => ({
+        id: p.id,
+        title: p.title,
+        sellerLabel: p.seller?.nickname ?? p.sellerId,
+        reservedBuyerId: p.reservedBuyerId,
+        soldBuyerId: p.soldBuyerId,
+      })),
+      labels: {
+        hideTitle: moderationLabels.hideTitle,
+        restoreTitle: moderationLabels.restoreTitle,
+        deleteTitle: moderationLabels.deleteTitle,
+        softDeleteHint: moderationLabels.softDeleteHint,
+        reasonPlaceholder: moderationLabels.reasonPlaceholder,
+        cancelLabel: moderationLabels.cancelLabel,
+        confirmLabel: softDeleteLabel,
+      },
+      language,
+    });
+    if (outcome.cancelled) return;
+    selection.clear();
+    await alertBulkModerationSummary({
+      language,
+      successCount: outcome.successCount,
+      failCount: outcome.failCount,
+      results: outcome.results,
+    });
+    onActionSuccess?.();
+  };
+
+  const runBulkHardDelete = async () => {
+    const productsSelected = [...selection.selected]
+      .map((id) => products.find((x) => x.id === id))
+      .filter((p): p is Product => !!p);
+    if (productsSelected.length === 0) return;
+
+    const { eligibleIds, blocked } = partitionTradePostsForHardDelete(
+      productsSelected.map((p) => ({
+        id: p.id,
+        status: p.status,
+        soldBuyerId: p.soldBuyerId,
+      }))
+    );
+
+    if (eligibleIds.length === 0) {
+      const lines = blocked
+        .slice(0, 8)
+        .map(
+          (b) =>
+            `· ${b.id.slice(0, 8)}… ${b.blockers
+              .map((x) => tradePostHardDeleteBlockerLabel(x, language))
+              .join(", ")}`
+        )
+        .join("\n");
+      await dibayAlert({
+        title:
+          language === "en"
+            ? "No eligible rows for permanent DB delete"
+            : "DB 영구 삭제 가능한 항목이 없습니다",
+        description: lines,
+      });
+      return;
+    }
+
+    const sample = eligibleIds.slice(0, 3).join(", ") + (eligibleIds.length > 3 ? "…" : "");
+    const blockedNote =
+      blocked.length > 0
+        ? language === "en"
+          ? `\n${blocked.length} blocked (sold/evidence) — skipped.`
+          : `\n차단 ${blocked.length}건(판매완료/증거) — 제외됩니다.`
+        : "";
+    const body =
+      language === "en"
+        ? `Action: ${hardDeleteLabel}\nEntity: trade_post\nEligible: ${eligibleIds.length}\nSample: ${sample}${blockedNote}\n\nRemoves DB rows permanently. Cannot restore.\nType DELETE to confirm.`
+        : `작업: ${hardDeleteLabel}\n엔티티: trade_post\n가능: ${eligibleIds.length}건\n대표: ${sample}${blockedNote}\n\nDB에서 실제로 제거합니다. 복구 불가.\n확인하려면 DELETE 를 입력하세요.`;
+
+    const typed = await dibayPrompt({
+      title:
+        language === "en"
+          ? `${hardDeleteLabel}? (irreversible)`
+          : `${hardDeleteLabel}할까요? (복구 불가)`,
+      description: body,
+      placeholder: "DELETE",
+      required: true,
+      confirmTone: "destructive",
+      confirmLabel: hardDeleteLabel,
+    });
+    if (typed == null) return;
+    if (typed.trim() !== "DELETE") {
+      await dibayAlert({
+        title:
+          language === "en"
+            ? "Confirmation text mismatch — cancelled"
+            : "확인 문구 불일치 — 취소됨",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/posts/bulk-delete", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: eligibleIds, surface: "posts_management" }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        deletedCount?: number;
+        blocked?: { id: string; blockers: string[] }[];
+        notFoundOrSkipped?: string[];
+      };
+      if (!res.ok || !j.ok) {
+        await dibayAlert({
+          title: j.error ?? (language === "en" ? "Hard delete failed" : "DB 영구 삭제 실패"),
+        });
+        return;
+      }
+      selection.clear();
+      const blockedN = j.blocked?.length ?? blocked.length;
+      await dibayAlert({
+        title:
+          language === "en"
+            ? `Deleted ${j.deletedCount ?? 0}`
+            : `${j.deletedCount ?? 0}건 DB 영구 삭제`,
+        description:
+          blockedN > 0
+            ? language === "en"
+              ? `${blockedN} blocked/skipped`
+              : `차단/제외 ${blockedN}건`
+            : undefined,
+      });
+      onActionSuccess?.();
+    } catch (e) {
+      await dibayAlert({ title: (e as Error)?.message ?? t("admin_posts_mgmt_action_failed") });
     }
   };
 
@@ -287,9 +439,27 @@ export const AdminPostsManagementTable = forwardRef<
             label: softDeleteLabel,
             onClick: () => void runBulk("delete"),
           },
+          {
+            id: "hard_delete",
+            label: hardDeleteLabel,
+            onClick: () => void runBulkHardDelete(),
+          },
         ]}
       />
-
+      <div className="mb-2 flex flex-wrap items-center gap-2 px-1">
+        <Link
+          href={tradeResetHref}
+          className="sam-text-helper text-signature hover:underline"
+          data-admin-domain-reset-entry="trade"
+        >
+          {language === "en" ? "Clean test data (Reset)" : "테스트 데이터 정리 (Reset)"}
+        </Link>
+        <span className="sam-text-xxs text-sam-muted">
+          {language === "en"
+            ? "Opens Prelaunch Reset with trade_content preselected"
+            : "Prelaunch Reset · trade_content 범위 미리 선택"}
+        </span>
+      </div>
       <table
         className="w-full table-fixed text-left sam-text-body-secondary"
         style={{ minWidth: tableMinWidth }}
@@ -553,7 +723,7 @@ export const AdminPostsManagementTable = forwardRef<
                       >
                         {t("admin_posts_mgmt_action_bump")}
                       </button>
-                      {/* hard_delete omitted — policy.hardDeleteAvailable === false */}
+                      {/* DB 영구 삭제: bulk selection + eligibility only (B1R) */}
                     </div>
                   ) : null}
                 </td>

@@ -74,14 +74,14 @@ describe("ARO-OPS-UX-001-W1 shared management contract", () => {
     expect(shouldClearSelectionOnQueryChange(null, "page:1")).toBe(false);
   });
 
-  it("W1-09..11 bulk policy + blocked hard delete", () => {
+  it("W1-09..11 bulk policy + Trade hard_delete allowed (B1R eligibility)", () => {
     const visible = listVisibleBulkActions(TRADE_POST_ENTITY_ACTION_POLICY);
     expect(visible).toContain("hide");
     expect(visible).toContain("restore");
     expect(visible).toContain("soft_delete");
-    expect(visible).not.toContain("hard_delete");
-    expect(isBulkActionAllowed(TRADE_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(false);
-    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(false);
+    expect(visible).toContain("hard_delete");
+    expect(isBulkActionAllowed(TRADE_POST_ENTITY_ACTION_POLICY, "hard_delete")).toBe(true);
+    expect(TRADE_POST_ENTITY_ACTION_POLICY.hardDeleteAvailable).toBe(true);
     expect(MEMBER_ENTITY_ACTION_POLICY.deleteMode).toBe("BLOCKED");
     expect(listVisibleBulkActions(MEMBER_ENTITY_ACTION_POLICY)).toEqual([]);
   });

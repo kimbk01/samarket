@@ -6,7 +6,8 @@
  * Destructive flow: analyze → protect/block → typed confirm → execute (non-prod only).
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -80,6 +81,7 @@ function supportBadge(
 export function AdminPrelaunchResetPage() {
   const { safeT, language } = useI18n();
   const ko = language !== "en";
+  const searchParams = useSearchParams();
   const [preset, setPreset] = useState<PrelaunchResetPreset>("TEST_CONTENT_ONLY");
   const [selectedScopes, setSelectedScopes] = useState<PrelaunchResetSelectiveScope[]>(() =>
     selectAllEligibleScopes().filter((k) =>
@@ -112,6 +114,21 @@ export function AdminPrelaunchResetPage() {
   const eligible = useMemo(() => new Set(selectAllEligibleScopes()), []);
   const selectAllChecked =
     eligible.size > 0 && [...eligible].every((k) => selectedScopes.includes(k));
+
+  useEffect(() => {
+    const raw = searchParams.get("scopes")?.trim() ?? "";
+    if (!raw) return;
+    const known = new Set(PRELAUNCH_RESET_SELECTIVE_MATRIX.map((r) => r.key));
+    const next = [
+      ...new Set(
+        raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s): s is PrelaunchResetSelectiveScope => known.has(s as PrelaunchResetSelectiveScope))
+      ),
+    ];
+    if (next.length > 0) setSelectedScopes(next);
+  }, [searchParams]);
 
   const selector = useMemo(
     () => ({
