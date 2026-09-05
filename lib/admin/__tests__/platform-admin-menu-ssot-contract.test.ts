@@ -132,7 +132,9 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
   it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
     const delivery = findAdminMenuByKey(adminMenu, "delivery");
     const topKeys = (delivery?.children ?? []).map((c) => c.key);
+    // ARO-OPS-UX-002-B2: delivery dashboard is workspace root entry (ops hub), not ads ownership.
     expect(topKeys).toEqual([
+      "delivery-dashboard",
       "business-shops",
       "delivery-section-policies",
       "delivery-section-settings",
@@ -140,6 +142,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
       "delivery-section-management",
       "delivery-section-platform",
     ]);
+    expect(findAdminMenuByKey(adminMenu, "delivery-dashboard")?.path).toBe("/admin/delivery");
     expect(findAdminMenuByKey(adminMenu, "store-ads-section")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "stores-home-shelves")?.path).toBe(
       "/admin/stores-home-shelves"
