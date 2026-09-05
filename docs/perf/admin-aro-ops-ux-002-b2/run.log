@@ -1,0 +1,42 @@
+{
+  "cut": "ARO-OPS-UX-002-B2",
+  "sha": "3bee7e3c2",
+  "expectSha": "3bee7e3c2",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "viewport": "1024x768",
+  "domains": {
+    "delivery": {
+      "marker": true,
+      "actionSection": true,
+      "stateSection": true,
+      "entries": true,
+      "noBodyXOverflow": true
+    },
+    "trade": {
+      "marker": true,
+      "actionSection": true,
+      "stateSection": true,
+      "entries": true,
+      "noBodyXOverflow": true
+    },
+    "community": {
+      "marker": true,
+      "actionSection": true,
+      "stateSection": true,
+      "entries": true,
+      "noBodyXOverflow": true
+    },
+    "messenger": {
+      "marker": true,
+      "actionSection": true,
+      "stateSection": true,
+      "entries": true,
+      "noBodyXOverflow": true
+    }
+  },
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T19:16:10.931Z"
+}
