@@ -135,7 +135,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       labelKo: "배달 광고 처리 필요",
       labelEn: "Delivery ads need admin",
       count: qUnavailable(unavailable, "delivery_ad_ops") ? null : (queue?.delivery_ad_ops ?? null),
-      href: DELIVERY_AD_ADMIN_ROUTES.hub,
+      href: `${DELIVERY_AD_ADMIN_ROUTES.hub}#action-required`,
       source: "admin_action_queue.delivery_ad_ops",
       owner: "delivery_ad_ops",
     },
@@ -287,7 +287,7 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
         id: "ads",
         labelKo: "배달 광고",
         labelEn: "Delivery ads",
-        href: DELIVERY_AD_ADMIN_ROUTES.hub,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.hub}#action-required`,
         frequency: "FREQUENT",
       },
       {

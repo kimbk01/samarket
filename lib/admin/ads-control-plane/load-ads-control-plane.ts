@@ -1,0 +1,416 @@
+/**
+ * ARO-OPS-UX-002-B5 — Ads / Exposure Control Plane loader.
+ * Composes Delivery / Feed / Popup / Trade-promote sources. No new ads tables.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
+import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
+import {
+  loadAdminDeliveryAdCampaignList,
+  type AdminDeliveryAdListItem,
+} from "@/lib/stores/advertising/admin-delivery-ad-loader";
+import { listAllPlacementMapRows, placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
+import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
+import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
+import type {
+  AdsActionItem,
+  AdsControlPlaneModel,
+  AdsExecutionRow,
+} from "@/lib/admin/ads-control-plane/types";
+
+function ageHours(iso: string): number | null {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 3600000));
+}
+
+function memberHref(userId: string): string {
+  return `/admin/users/${encodeURIComponent(userId)}`;
+}
+
+function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
+  return !!err && re.test(String(err.message ?? ""));
+}
+
+/** Presentation only — does not invent runtime store/serviceability pass. */
+function presentDeliveryEligibility(c: AdminDeliveryAdListItem): string {
+  const life = String(c.lifecycleStatus ?? "");
+  if (life === "PAUSED" || life.startsWith("PAUSED")) {
+    return "집행: PAUSED · 실제 노출: NOT_ELIGIBLE (paused)";
+  }
+  if (life === "ENDED" || c.scheduleHint === "ended") {
+    return "집행: ENDED · 실제 노출: NOT_ELIGIBLE";
+  }
+  if (life === "SCHEDULED" || c.scheduleHint === "not_started") {
+    return "집행: SCHEDULED · 실제 노출: NOT_ELIGIBLE (not started)";
+  }
+  if (life !== "ACTIVE") {
+    return `집행: ${life} · 실제 노출: NOT_ELIGIBLE`;
+  }
+  const reasons: string[] = [];
+  if (c.reviewStatus !== "APPROVED") reasons.push(`review=${c.reviewStatus}`);
+  if (c.scheduleHint !== "in_window") reasons.push(`schedule=${c.scheduleHint}`);
+  if (!c.inventoryKeys.length) reasons.push("no_inventory_keys");
+  if (reasons.length) {
+    return `집행: ACTIVE · 실제 노출: NOT_ELIGIBLE (${reasons.join(", ")}) — store/serviceability는 runtime resolver`;
+  }
+  return "집행: ACTIVE · 캠페인측 schedule/inventory OK — 실제 노출은 store/serviceability runtime도 충족해야 함";
+}
+
+export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
+  const sectionErrors: string[] = [];
+
+  const [deliveryQueue, feedRes, popupRes, tradePromoRes, activeDelivery] = await Promise.all([
+    listDeliveryAdAdminActionQueue(sb, { limit: 40 }),
+    sb
+      .from("feed_ad_requests")
+      .select("id, user_id, status, start_at, end_at, created_at, placement, title")
+      .order("created_at", { ascending: false })
+      .limit(40),
+    sb
+      .from("platform_popup_owner_requests")
+      .select("id, store_id, owner_user_id, request_status, created_at, title")
+      .in("request_status", ["submitted", "under_review"])
+      .order("created_at", { ascending: false })
+      .limit(40),
+    sb
+      .from("point_promotion_orders")
+      .select("id, user_id, domain, order_status, created_at, post_id")
+      .eq("domain", "trade")
+      .eq("order_status", "pending_review")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: 80 }),
+  ]);
+
+  if (!deliveryQueue.ok) sectionErrors.push(`delivery_queue:${deliveryQueue.error}`);
+  if (feedRes.error && !isMissing(feedRes.error, /feed_ad_requests|schema cache|does not exist/i)) {
+    sectionErrors.push(`feed:${feedRes.error.message}`);
+  }
+  if (
+    popupRes.error &&
+    !isMissing(popupRes.error, /platform_popup_owner_requests|schema cache|does not exist/i)
+  ) {
+    sectionErrors.push(`popup:${popupRes.error.message}`);
+  }
+  if (
+    tradePromoRes.error &&
+    !isMissing(tradePromoRes.error, /point_promotion_orders|schema cache|does not exist/i)
+  ) {
+    sectionErrors.push(`trade_promo:${tradePromoRes.error.message}`);
+  }
+  if (activeDelivery.error) sectionErrors.push(`delivery_list:${activeDelivery.error}`);
+
+  const deliveryUnavailable = !deliveryQueue.ok;
+  const feedUnavailable =
+    !!feedRes.error && !isMissing(feedRes.error, /feed_ad_requests|schema cache|does not exist/i);
+  const popupUnavailable =
+    !!popupRes.error &&
+    !isMissing(popupRes.error, /platform_popup_owner_requests|schema cache|does not exist/i);
+  const tradeUnavailable =
+    !!tradePromoRes.error &&
+    !isMissing(tradePromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
+
+  const actionRequired: AdsActionItem[] = [];
+  const applications: AdsActionItem[] = [];
+  const creatives: AdsActionItem[] = [];
+
+  if (deliveryQueue.ok) {
+    for (const item of deliveryQueue.items.slice(0, 20)) {
+      const pres = mapAdminDeliveryAdActionQueuePresentation({
+        productKind: item.productKind,
+        lifecycleStatus: item.campaignLifecycle,
+        creativeAssetPath: item.creativeAssetPath,
+        hadChangesRequested: item.hadChangesRequested,
+      });
+      const isCreative = pres.bucket === "needs_creative";
+      const storeId = item.storeId;
+      const row: AdsActionItem = {
+        id: `delivery:${item.caseId}`,
+        domain: "delivery",
+        product: item.productKind,
+        entity: isCreative ? "creative" : "application",
+        applicantLabel: item.campaignTitle || item.campaignId.slice(0, 8),
+        storeId,
+        memberId: item.ownerUserId || null,
+        creativeHint: item.creativeAssetPath
+          ? item.creativeAssetPath.slice(0, 48)
+          : isCreative
+            ? "needs_creative"
+            : null,
+        placementHint:
+          item.productKind === "banner"
+            ? "BANNER product → open detail for Placement Map preview"
+            : "STORE_SPONSORED (≠ organic ranking)",
+        amountLabel: null,
+        currency: "CASH",
+        status: `${item.campaignLifecycle || "—"} / ${item.caseStatus}`,
+        eligibility:
+          "payment≠approval — WAITING_ADMIN; ACTIVE requires admin approval + schedule + eligibility",
+        ageHours: ageHours(item.updatedAt),
+        at: item.updatedAt,
+        source: "delivery_ad_operations_cases WAITING_ADMIN",
+        href: item.destination || DELIVERY_AD_ADMIN_ROUTES.detail(item.campaignId),
+        statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
+        financeHref: "/admin/finance#action-required",
+        memberHref: item.ownerUserId ? memberHref(item.ownerUserId) : null,
+      };
+      actionRequired.push(row);
+      if (isCreative) creatives.push(row);
+      else applications.push(row);
+    }
+  }
+
+  const feedRows = feedUnavailable ? [] : ((feedRes.data ?? []) as Record<string, unknown>[]);
+  const feedPending = feedRows.filter((r) => {
+    return (
+      projectFeedAdOpsProductStatus({
+        requestStatus: String(r.status ?? ""),
+        startAt: typeof r.start_at === "string" ? r.start_at : null,
+        endAt: typeof r.end_at === "string" ? r.end_at : null,
+      }) === "pending_review"
+    );
+  });
+  for (const r of feedPending.slice(0, 15)) {
+    const id = String(r.id ?? "");
+    const userId = String(r.user_id ?? "");
+    const at = String(r.created_at ?? "");
+    const row: AdsActionItem = {
+      id: `feed:${id}`,
+      domain: "feed",
+      product: "feed_ad",
+      entity: "application",
+      applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
+      storeId: null,
+      memberId: userId || null,
+      creativeHint: null,
+      placementHint: r.placement ? String(r.placement) : "TRADE_FEED / COMMUNITY_FEED",
+      amountLabel: null,
+      currency: "POINT",
+      status: String(r.status ?? ""),
+      eligibility: null,
+      ageHours: ageHours(at),
+      at,
+      source: "feed_ad_requests",
+      href: `/admin/feed-ad-requests/${encodeURIComponent(id)}`,
+      statementHref: null,
+      financeHref: "/admin/finance#point",
+      memberHref: userId ? memberHref(userId) : null,
+    };
+    actionRequired.push(row);
+    applications.push(row);
+  }
+
+  const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as Record<string, unknown>[]);
+  for (const r of popupRows.slice(0, 15)) {
+    const id = String(r.id ?? "");
+    const storeId = String(r.store_id ?? "").trim() || null;
+    const ownerId = String(r.owner_user_id ?? "").trim() || null;
+    const at = String(r.created_at ?? "");
+    const row: AdsActionItem = {
+      id: `popup:${id}`,
+      domain: "popup",
+      product: "platform_popup",
+      entity: "application",
+      applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
+      storeId,
+      memberId: ownerId,
+      creativeHint: null,
+      placementHint: "GLOBAL_POPUP / domain surface (see request detail)",
+      amountLabel: null,
+      currency: "CASH",
+      status: String(r.request_status ?? ""),
+      eligibility: null,
+      ageHours: ageHours(at),
+      at,
+      source: "platform_popup_owner_requests",
+      href: `/admin/platform-popup/requests/${encodeURIComponent(id)}`,
+      statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
+      financeHref: "/admin/finance#action-required",
+      memberHref: ownerId ? memberHref(ownerId) : null,
+    };
+    actionRequired.push(row);
+    applications.push(row);
+  }
+
+  // Trade promote — Point commerce, NOT AdProduct / not Partner
+  const tradeRows = tradeUnavailable
+    ? []
+    : ((tradePromoRes.data ?? []) as Record<string, unknown>[]);
+  for (const r of tradeRows.slice(0, 10)) {
+    const id = String(r.id ?? "");
+    const userId = String(r.user_id ?? "");
+    const at = String(r.created_at ?? "");
+    const row: AdsActionItem = {
+      id: `trade_promo:${id}`,
+      domain: "trade_promote",
+      product: "trade_promote (≠ AdProduct)",
+      entity: "application",
+      applicantLabel: id.slice(0, 8),
+      storeId: null,
+      memberId: userId || null,
+      creativeHint: null,
+      placementHint: "TRADE feed promote",
+      amountLabel: null,
+      currency: "POINT",
+      status: String(r.order_status ?? ""),
+      eligibility: null,
+      ageHours: ageHours(at),
+      at,
+      source: "point_promotion_orders domain=trade",
+      href: `/admin/ad-applications?domain=trade`,
+      statementHref: null,
+      financeHref: "/admin/finance#point",
+      memberHref: userId ? memberHref(userId) : null,
+    };
+    actionRequired.push(row);
+    applications.push(row);
+  }
+
+  actionRequired.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+  const currentExecution: AdsExecutionRow[] = [];
+  for (const c of activeDelivery.error ? [] : activeDelivery.items) {
+    const life = String(c.lifecycleStatus ?? "");
+    if (!(life === "ACTIVE" || life === "SCHEDULED" || life.startsWith("PAUSED"))) continue;
+    const storeId = c.storeId ? String(c.storeId) : null;
+    currentExecution.push({
+      id: c.id,
+      domain: "delivery",
+      product: c.productKind,
+      label: c.title || c.storeName || c.id.slice(0, 8),
+      placement: c.inventoryKeys?.[0] || c.listBucket || null,
+      status: life,
+      eligibility: presentDeliveryEligibility(c),
+      period: [c.startAt, c.endAt].filter(Boolean).join(" → ") || null,
+      currency: "CASH",
+      href: DELIVERY_AD_ADMIN_ROUTES.detail(c.id),
+      statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
+      source: "store_*_ad_campaigns lifecycle + scheduleHint/inventory",
+    });
+  }
+
+  const placements = listAllPlacementMapRows()
+    .slice(0, 40)
+    .map((r) => ({
+      domain: r.domain,
+      placementId: r.placementId,
+      displayNameKo: r.displayNameKo,
+      displayNameEn: r.displayNameEn,
+      productKind: r.productKind,
+      aspectRatio: r.aspectRatio,
+      href: placementMapFocusHref(r.placementId),
+    }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    actionRequired: actionRequired.slice(0, 40),
+    queues: {
+      delivery: {
+        count: deliveryUnavailable ? null : deliveryQueue.ok ? deliveryQueue.items.length : null,
+        unavailable: deliveryUnavailable,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=actionable`,
+        source: "delivery_ad_operations_cases WAITING_ADMIN",
+      },
+      feed: {
+        count: feedUnavailable ? null : feedPending.length,
+        unavailable: feedUnavailable,
+        href: "/admin/ad-applications?domain=feed",
+        source: "feed_ad_requests pending_review",
+      },
+      popup: {
+        count: popupUnavailable ? null : popupRows.length,
+        unavailable: popupUnavailable,
+        href: "/admin/platform-popup",
+        source: "platform_popup_owner_requests submitted|under_review",
+      },
+      tradePromote: {
+        count: tradeUnavailable ? null : tradeRows.length,
+        unavailable: tradeUnavailable,
+        href: "/admin/ad-applications?domain=trade",
+        source: "point_promotion_orders trade pending_review",
+      },
+    },
+    currentExecution: currentExecution.slice(0, 30),
+    applications: applications.slice(0, 30),
+    creatives: creatives.slice(0, 20),
+    placements,
+    billingNotes: [
+      {
+        domain: "delivery",
+        currency: "CASH",
+        noteKo: "Delivery Ads = Cash. payment≠승인≠실제 노출.",
+        noteEn: "Delivery Ads = Cash. payment≠approval≠exposure.",
+        href: "/admin/finance#action-required",
+      },
+      {
+        domain: "feed",
+        currency: "POINT",
+        noteKo: "Feed Ads = Point. Cash로 표시하면 P0.",
+        noteEn: "Feed Ads = Point. Showing Cash is P0.",
+        href: "/admin/finance#point",
+      },
+      {
+        domain: "popup",
+        currency: "CASH",
+        noteKo: "Popup = canonical Cash billing.",
+        noteEn: "Popup = canonical Cash billing.",
+        href: "/admin/platform-popup",
+      },
+      {
+        domain: "trade_promote",
+        currency: "POINT",
+        noteKo: "Trade promote = Point. AdProduct/Partner 아님.",
+        noteEn: "Trade promote = Point. Not AdProduct/Partner.",
+        href: "/admin/ad-applications?domain=trade",
+      },
+    ],
+    domainEntries: [
+      {
+        id: "delivery_hub",
+        labelKo: "Delivery Ads 허브",
+        labelEn: "Delivery Ads hub",
+        href: DELIVERY_AD_ADMIN_ROUTES.hub,
+        frequency: "REALTIME_CRITICAL",
+      },
+      {
+        id: "placement_map",
+        labelKo: "Placement Map",
+        labelEn: "Placement Map",
+        href: `${DELIVERY_AD_ADMIN_ROUTES.inventory}#placement-map`,
+        frequency: "FREQUENT",
+      },
+      {
+        id: "feed",
+        labelKo: "Feed Ads",
+        labelEn: "Feed Ads",
+        href: "/admin/feed-ads",
+        frequency: "DAILY",
+      },
+      {
+        id: "popup",
+        labelKo: "Popup",
+        labelEn: "Popup",
+        href: "/admin/platform-popup",
+        frequency: "DAILY",
+      },
+      {
+        id: "partner",
+        labelKo: "Partner (≠ AdProduct)",
+        labelEn: "Partner (≠ AdProduct)",
+        href: DELIVERY_AD_ADMIN_ROUTES.partnerMemberships,
+        frequency: "OCCASIONAL",
+      },
+      {
+        id: "finance",
+        labelKo: "재무 관제 (B4)",
+        labelEn: "Finance control plane (B4)",
+        href: "/admin/finance#action-required",
+        frequency: "FREQUENT",
+      },
+    ],
+    recent: actionRequired.slice(0, 25),
+    sectionErrors,
+  };
+}

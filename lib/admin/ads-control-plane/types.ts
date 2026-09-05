@@ -1,0 +1,92 @@
+/**
+ * ARO-OPS-UX-002-B5 — Ads / Exposure Control Plane read-model contract.
+ * Composition only — no unified ads SSOT / mutation.
+ */
+
+export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote";
+
+export type AdsBillingCurrency = "CASH" | "POINT" | "UNKNOWN" | "N_A";
+
+export type AdsActionItem = {
+  id: string;
+  domain: AdsControlDomain;
+  /** Ad product kind or promote type — never Partner as AdProduct */
+  product: string;
+  entity:
+    | "application"
+    | "creative"
+    | "execution"
+    | "approval"
+    | "refund_context";
+  applicantLabel: string;
+  storeId: string | null;
+  memberId: string | null;
+  creativeHint: string | null;
+  placementHint: string | null;
+  amountLabel: string | null;
+  currency: AdsBillingCurrency;
+  status: string;
+  eligibility: string | null;
+  ageHours: number | null;
+  at: string;
+  source: string;
+  href: string;
+  statementHref: string | null;
+  financeHref: string | null;
+  memberHref: string | null;
+};
+
+export type AdsExecutionRow = {
+  id: string;
+  domain: AdsControlDomain;
+  product: string;
+  label: string;
+  placement: string | null;
+  status: string;
+  /** Separate from status — e.g. ACTIVE but NOT_ELIGIBLE */
+  eligibility: string;
+  period: string | null;
+  currency: AdsBillingCurrency;
+  href: string;
+  statementHref: string | null;
+  source: string;
+};
+
+export type AdsControlPlaneModel = {
+  generatedAt: string;
+  actionRequired: AdsActionItem[];
+  queues: {
+    delivery: { count: number | null; unavailable: boolean; href: string; source: string };
+    feed: { count: number | null; unavailable: boolean; href: string; source: string };
+    popup: { count: number | null; unavailable: boolean; href: string; source: string };
+    tradePromote: { count: number | null; unavailable: boolean; href: string; source: string };
+  };
+  currentExecution: AdsExecutionRow[];
+  applications: AdsActionItem[];
+  creatives: AdsActionItem[];
+  placements: Array<{
+    domain: string;
+    placementId: string;
+    displayNameKo: string;
+    displayNameEn: string;
+    productKind: string;
+    aspectRatio: string;
+    href: string;
+  }>;
+  billingNotes: Array<{
+    domain: AdsControlDomain;
+    currency: AdsBillingCurrency;
+    noteKo: string;
+    noteEn: string;
+    href: string;
+  }>;
+  domainEntries: Array<{
+    id: string;
+    labelKo: string;
+    labelEn: string;
+    href: string;
+    frequency: string;
+  }>;
+  recent: AdsActionItem[];
+  sectionErrors: string[];
+};

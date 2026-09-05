@@ -207,7 +207,7 @@ export async function loadTradeDomainDashboard(): Promise<AdminDomainDashboardMo
         id: "ads",
         labelKo: "광고/노출",
         labelEn: "Ads / exposure",
-        href: "/admin/delivery-ads",
+        href: "/admin/delivery-ads#action-required",
         frequency: "OCCASIONAL",
       },
       {

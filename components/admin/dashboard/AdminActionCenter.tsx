@@ -196,7 +196,7 @@ export function AdminActionCenter() {
     },
     {
       id: "feed-ads",
-      href: withAdminReturnTo("/admin/feed-ad-requests", returnTo),
+      href: withAdminReturnTo("/admin/ad-applications?domain=feed", returnTo),
       count: q.feedAdPendingCount,
       titleKo: "피드 광고 심사",
       titleEn: "Feed ad review",
@@ -402,14 +402,14 @@ export function AdminActionCenter() {
     },
     {
       id: "common-ads",
-      href: withAdminReturnTo(DELIVERY_AD_ADMIN_ROUTES.hub, returnTo),
+      href: withAdminReturnTo(`${DELIVERY_AD_ADMIN_ROUTES.hub}#action-required`, returnTo),
       count: q.deliveryAdOpsPendingCount + q.feedAdPendingCount + q.platformPopupPendingCount,
       titleKo: "광고 / 노출",
       titleEn: "Ads / Exposure",
       domainKo: "광고",
       domainEn: "Ads",
-      primaryCtaKo: "광고 허브",
-      primaryCtaEn: "Ads hub",
+      primaryCtaKo: "광고 관제",
+      primaryCtaEn: "Ads control plane",
       alwaysShow: true,
     },
     {

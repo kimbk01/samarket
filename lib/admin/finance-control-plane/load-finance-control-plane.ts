@@ -759,6 +759,13 @@ export async function loadFinanceControlPlane(
         frequency: "FREQUENT",
       },
       {
+        id: "ads_control_plane",
+        labelKo: "광고 / 노출 관제 (B5)",
+        labelEn: "Ads / Exposure control plane (B5)",
+        href: "/admin/delivery-ads#action-required",
+        frequency: "FREQUENT",
+      },
+      {
         id: "point_ledger",
         labelKo: "Point 원장",
         labelEn: "Point ledger",

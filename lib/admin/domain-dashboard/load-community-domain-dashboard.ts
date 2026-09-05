@@ -226,7 +226,7 @@ export async function loadCommunityDomainDashboard(): Promise<AdminDomainDashboa
         id: "ads",
         labelKo: "광고/노출",
         labelEn: "Ads / exposure",
-        href: ARO_IA_001_ADS_HUB_PATH,
+        href: `${ARO_IA_001_ADS_HUB_PATH}#action-required`,
         frequency: "OCCASIONAL",
       },
       {

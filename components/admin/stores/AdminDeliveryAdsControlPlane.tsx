@@ -9,6 +9,7 @@ import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
+import { AdminAdsExposureControlPlane } from "@/components/admin/ads/AdminAdsExposureControlPlane";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
@@ -236,6 +237,9 @@ export function AdminDeliveryAdsControlPlane() {
   return (
     <AdminDeliveryCmsChrome help="home">
       <div className="space-y-4 pb-10" data-admin-delivery-ads-hub="design-board" data-hub-default-view="actionable">
+        {/* ARO-OPS-UX-002-B5 — cross-domain Ads/Exposure Control Plane (read-only composition). */}
+        <AdminAdsExposureControlPlane />
+
         {/* 1 — Page identity / summary */}
         <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">Delivery › Ads</p>

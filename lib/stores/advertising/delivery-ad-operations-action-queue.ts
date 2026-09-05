@@ -38,6 +38,8 @@ export type DeliveryAdAdminActionQueueItem = {
   creativeAssetPath: string | null;
   /** Soft resubmit signal: prior Admin review notes present. */
   hadChangesRequested: boolean;
+  /** Store context for B3 Statement deeplink (null when campaign has no store). */
+  storeId: string | null;
   updatedAt: string;
   destination: string;
 };
@@ -215,6 +217,10 @@ export async function listDeliveryAdAdminActionQueue(
           ? String(campRow.image_url)
           : null,
       hadChangesRequested: reviewNotes.length > 0,
+      storeId:
+        campRow?.store_id == null || !String(campRow.store_id).trim()
+          ? null
+          : String(campRow.store_id),
       updatedAt: row.updatedAt,
       destination: DELIVERY_AD_ADMIN_ROUTES.detail(row.campaignId),
     });
