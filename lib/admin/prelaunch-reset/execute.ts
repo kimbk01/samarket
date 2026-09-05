@@ -24,6 +24,7 @@ export type ExecutePrelaunchResetInput = {
   actorUserId: string;
   preset: PrelaunchResetPreset;
   selector: Partial<PrelaunchResetSelector>;
+  selectedScopes?: readonly string[] | null;
   planId: string;
   expectedHash: string;
   typedConfirmation: string;
@@ -63,6 +64,7 @@ export async function executePrelaunchReset(
       actorUserId: input.actorUserId,
       preset: input.preset,
       selector: input.selector,
+      selectedScopes: input.selectedScopes,
       planId: input.planId,
     });
     phases.push({
@@ -78,6 +80,7 @@ export async function executePrelaunchReset(
     actorUserId: input.actorUserId,
     preset: input.preset,
     selector: input.selector,
+    selectedScopes: input.selectedScopes,
     planId: input.planId,
     expectedHash: input.expectedHash,
   });
@@ -118,13 +121,36 @@ export async function executePrelaunchReset(
           if (error) throw new Error(error.message);
           dbDeleted.posts = (dbDeleted.posts ?? 0) + (count ?? 0);
         }
-        if (plan.selector.memberIds.length && plan.preset !== "TEST_ADS_DATA") {
+        if (
+          plan.selector.memberIds.length &&
+          plan.preset !== "TEST_ADS_DATA" &&
+          plan.selectedScopes.includes("members")
+        ) {
           const { error, count } = await input.sb
             .from("posts")
             .delete({ count: "exact" })
             .in("user_id", plan.selector.memberIds);
           if (error) throw new Error(error.message);
           dbDeleted.posts = (dbDeleted.posts ?? 0) + (count ?? 0);
+        }
+      }
+      if (step.table === "community_posts") {
+        const ids = [...plan.selector.contentIds];
+        if (ids.length) {
+          const { error, count } = await input.sb
+            .from("community_posts")
+            .delete({ count: "exact" })
+            .in("id", ids);
+          if (error) throw new Error(error.message);
+          dbDeleted.community_posts = (dbDeleted.community_posts ?? 0) + (count ?? 0);
+        }
+        if (plan.selector.memberIds.length && plan.selectedScopes.includes("members")) {
+          const { error, count } = await input.sb
+            .from("community_posts")
+            .delete({ count: "exact" })
+            .in("user_id", plan.selector.memberIds);
+          if (error) throw new Error(error.message);
+          dbDeleted.community_posts = (dbDeleted.community_posts ?? 0) + (count ?? 0);
         }
       }
       if (step.table === "delivery_ad_campaigns") {
@@ -138,6 +164,7 @@ export async function executePrelaunchReset(
         }
         if (
           plan.selector.storeIds.length &&
+          plan.selectedScopes.includes("stores") &&
           (plan.preset === "TEST_ADS_DATA" || plan.preset === "TEST_STORE_DATA")
         ) {
           const { error, count } = await input.sb
@@ -158,7 +185,7 @@ export async function executePrelaunchReset(
       status: "PASS",
       detail: JSON.stringify(dbDeleted),
       deletedCounts: {
-        content: dbDeleted.posts ?? 0,
+        content: (dbDeleted.posts ?? 0) + (dbDeleted.community_posts ?? 0),
         ads: dbDeleted.delivery_ad_campaigns ?? 0,
       },
     });

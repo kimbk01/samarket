@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PrelaunchResetDomainId } from "@/lib/admin/prelaunch-reset/domain-inventory";
+import type { PrelaunchResetSelectiveScope } from "@/lib/admin/prelaunch-reset/selective-scopes";
 
 export type PrelaunchResetPreset =
   | "TEST_CONTENT_ONLY"
@@ -17,6 +18,9 @@ export type PrelaunchResetSelector = {
   /** Optional explicit delivery ad campaign ids. */
   deliveryAdCampaignIds: string[];
 };
+
+/** ARO-RST-001 — type selection bound into planHash (not UI-only). */
+export type { PrelaunchResetSelectiveScope };
 
 export type PrelaunchResetCountBucket =
   | "members"
@@ -70,6 +74,17 @@ export type PrelaunchResetPlan = {
   planId: string;
   preset: PrelaunchResetPreset;
   selector: PrelaunchResetSelector;
+  /** ARO-RST-001 selective type scopes (hash-bound). */
+  selectedScopes: PrelaunchResetSelectiveScope[];
+  /** Per-scope dry-run summary for UI (planner-owned; not fake). */
+  scopeImpact: Array<{
+    scope: PrelaunchResetSelectiveScope;
+    estimatedDbRows: number;
+    storageObjects: number;
+    authDelete: number;
+    status: "active" | "idle" | "blocked" | "skipped";
+    detail: string;
+  }>;
   resolved: PrelaunchResetEntityRef[];
   protectedEntities: PrelaunchResetEntityRef[];
   blockedEntities: PrelaunchResetEntityRef[];

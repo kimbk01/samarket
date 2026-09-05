@@ -11,8 +11,14 @@ export {
   confirmationMatches,
 } from "@/lib/admin/prelaunch-reset/planner";
 export { executePrelaunchReset } from "@/lib/admin/prelaunch-reset/execute";
+export {
+  PRELAUNCH_RESET_SELECTIVE_MATRIX,
+  selectAllEligibleScopes,
+  normalizeSelectedScopes,
+} from "@/lib/admin/prelaunch-reset/selective-scopes";
 export type {
   PrelaunchResetPlan,
   PrelaunchResetPreset,
   PrelaunchResetSelector,
+  PrelaunchResetSelectiveScope,
 } from "@/lib/admin/prelaunch-reset/types";

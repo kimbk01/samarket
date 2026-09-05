@@ -125,6 +125,8 @@ describe("CUT I-P0-11 Reset Storage/Auth", () => {
         contentIds: [],
         deliveryAdCampaignIds: [],
       },
+      selectedScopes: ["members", "storage", "auth"],
+      scopeImpact: [],
       resolved: [],
       protectedEntities: [],
       blockedEntities: [],

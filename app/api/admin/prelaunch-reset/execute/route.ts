@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     storeIds?: string[];
     contentIds?: string[];
     deliveryAdCampaignIds?: string[];
+    selectedScopes?: string[];
   };
   try {
     body = (await req.json()) as typeof body;
@@ -68,6 +69,7 @@ export async function POST(req: Request) {
       contentIds: body.contentIds,
       deliveryAdCampaignIds: body.deliveryAdCampaignIds,
     },
+    selectedScopes: body.selectedScopes,
   });
 
   const status =
