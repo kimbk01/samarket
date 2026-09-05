@@ -1,0 +1,39 @@
+{
+  "sha": "6a2e4d244",
+  "expectSha": "6a2e4d244",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "geo": {
+    "bodyScrollWidth": 1024,
+    "bodyClientWidth": 1024,
+    "tableViewportScrollWidth": 1199,
+    "tableViewportClientWidth": 734,
+    "hasW2": true,
+    "hasViewport": true,
+    "hasSelectAll": true,
+    "hasRowSelect": 10,
+    "hasDeletionQueue": true
+  },
+  "afterSelect": {
+    "bulkVisible": true,
+    "bulkText": "현재 페이지 10개 선택목록 bulk 삭제 없음 · 탈퇴 요청 대기 또는 회원 상세에서 처리",
+    "emptyHint": true,
+    "hasHardDeleteButton": false
+  },
+  "checks": {
+    "page": true,
+    "w2Root": true,
+    "tableViewport": true,
+    "selectAll": true,
+    "rowSelect": true,
+    "bodyNoXOverflow": true,
+    "deletionQueueSeparate": true,
+    "bulkBarWhenSelected": true,
+    "noHardDeleteInBulk": true,
+    "destructiveMutation": false
+  },
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T15:25:29.363Z"
+}
