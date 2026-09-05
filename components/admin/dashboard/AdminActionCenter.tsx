@@ -360,7 +360,7 @@ export function AdminActionCenter() {
   const commonOps: QueueCard[] = [
     {
       id: "common-finance",
-      href: withAdminReturnTo("/admin/finance", returnTo),
+      href: withAdminReturnTo("/admin/finance#action-required", returnTo),
       count:
         q.userChargePendingCount +
         q.cashChargePendingCount +
@@ -370,8 +370,8 @@ export function AdminActionCenter() {
       titleEn: "Finance (Point / Coin / Cash / Settlement)",
       domainKo: "재무",
       domainEn: "Finance",
-      primaryCtaKo: "Finance 허브",
-      primaryCtaEn: "Finance hub",
+      primaryCtaKo: "재무 관제",
+      primaryCtaEn: "Finance control plane",
       alwaysShow: true,
     },
     {

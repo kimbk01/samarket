@@ -306,16 +306,16 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
       },
       {
         id: "finance",
-        labelKo: "재무",
-        labelEn: "Finance",
-        href: "/admin/finance",
+        labelKo: "재무 관제",
+        labelEn: "Finance control plane",
+        href: "/admin/finance#action-required",
         frequency: "FREQUENT",
       },
       {
         id: "store_financial_statement",
         labelKo: "매장 재무 명세서",
         labelEn: "Store financial statement",
-        href: "/admin/business",
+        href: "/admin/finance",
         frequency: "DAILY_CRITICAL",
       },
       {

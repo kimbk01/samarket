@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
-import { AdminFinanceOpsQueue } from "@/components/admin/finance/AdminFinanceOpsQueue";
+import { AdminFinanceControlPlane } from "@/components/admin/finance/AdminFinanceControlPlane";
 import { AdminStoreFinancialStatement } from "@/components/admin/finance/AdminStoreFinancialStatement";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -112,15 +112,19 @@ export function AdminStoreFinancePanels() {
 
   return (
     <div className="space-y-4" data-admin-store-finance-panels="1">
-      <AdminFinanceOpsQueue />
+      {/* ARO-OPS-UX-002-B4: Control Plane always first. B3 Statement is store drill-down. */}
+      <AdminFinanceControlPlane />
 
       {statementStoreId ? (
-        <AdminStoreFinancialStatement storeId={statementStoreId} />
+        <div id="store-financial-statement">
+          <AdminStoreFinancialStatement storeId={statementStoreId} />
+        </div>
       ) : null}
 
       <form
         onSubmit={(event) => void load(event)}
         className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+        id="store-finance-lookup"
       >
         <label className="text-sm font-semibold text-sam-fg" htmlFor="admin-finance-store-id">
           {safeT("admin_store_finance_store_id", {

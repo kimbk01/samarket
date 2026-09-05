@@ -50,16 +50,22 @@ describe("CUT B Finance SSOT + operation UX", () => {
     );
   });
 
-  it("mounts Finance ops queue on finance hub", () => {
+  it("mounts Finance Control Plane on finance hub (B4; supersedes count-only ops queue)", () => {
     const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
-    expect(panels).toContain("AdminFinanceOpsQueue");
-    expect(existsSync(join(process.cwd(), "components/admin/finance/AdminFinanceOpsQueue.tsx"))).toBe(
+    expect(panels).toContain("AdminFinanceControlPlane");
+    expect(existsSync(join(process.cwd(), "components/admin/finance/AdminFinanceControlPlane.tsx"))).toBe(
       true
     );
-    const queue = read("components/admin/finance/AdminFinanceOpsQueue.tsx");
-    expect(queue).toContain("/api/admin/point-charges");
-    expect(queue).toContain("/api/admin/business-cash-charges?status=PENDING");
-    expect(queue).toContain("/api/admin/coin-withdrawals?status=REQUESTED");
+    const plane = read("components/admin/finance/AdminFinanceControlPlane.tsx");
+    expect(plane).toContain("/api/admin/finance-control-plane");
+    expect(plane).toContain('data-aro-ops-ux-002-b4="1"');
+    expect(plane).toContain("action-required");
+    const loader = read("lib/admin/finance-control-plane/load-finance-control-plane.ts");
+    expect(loader).toContain("point_charge_requests");
+    expect(loader).toContain("business_cash_charge_requests");
+    expect(loader).toContain("coin_withdrawal_requests");
+    expect(loader).toContain("store_settlements");
+    expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
   });
 
   it("removes product-facing Business Cash copy from popup labels", () => {
