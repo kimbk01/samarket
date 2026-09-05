@@ -73,7 +73,7 @@ describe("admin community operator console contract", () => {
     expect(home).toMatch(/admin_community_home_today_posts/);
   });
 
-  it("admin post detail route and danger zone keys are wired", () => {
+  it("admin post detail route and list hard-delete via W1 bulk bar (ARO-OPS-UX-001-W3)", () => {
     const detailPage = read("app/admin/community/posts/[postId]/page.tsx");
     expect(detailPage).toMatch(/AdminCommunityPostDetailPage/);
     const detail = read("components/admin/community/AdminCommunityPostDetailPage.tsx");
@@ -81,8 +81,12 @@ describe("admin community operator console contract", () => {
     expect(detail).toMatch(/admin_community_system_info/);
     expect(detail).toMatch(/admin_community_view_on_site/);
 
+    // W3: danger-zone dual selection removed — hard delete is selection → AdminManagementBulkBar.
     const postsUi = read("app/admin/community/posts/AdminPostsPageContent.tsx");
-    expect(postsUi).toMatch(/admin_community_danger_zone/);
+    expect(postsUi).not.toMatch(/admin_community_danger_zone/);
+    expect(postsUi).toMatch(/AdminManagementBulkBar/);
+    expect(postsUi).toMatch(/\/api\/admin\/community\/engine\/posts\/bulk-delete/);
+    expect(postsUi).toMatch(/admin_posts_bulk_delete_db/);
     expect(postsUi).toMatch(/author_label/);
     expect(postsUi).toMatch(/\/admin\/community\/posts\//);
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adminMenu } from "@/components/admin/admin-menu";
+import { ARO_IA_001_COMMUNITY_SECTION_KEYS } from "@/lib/admin/aro-ia-001-community-common-links";
 import {
   findAdminMenuByKey,
   requireAdminMenuByKey,
@@ -42,15 +43,10 @@ describe("find-admin-menu-item", () => {
     );
   });
 
-  it("topLevelChildrenByKey returns community section headers (ARO-IA-001)", () => {
+  it("topLevelChildrenByKey returns community section headers (ARO-IA-001 + W3 frequency)", () => {
     const children = topLevelChildrenByKey(adminMenu, "community");
-    expect(children.map((c) => c.key)).toEqual([
-      "community-section-ops",
-      "community-section-content",
-      "community-section-moderation",
-      "community-section-promo-point",
-      "community-section-settings",
-    ]);
+    // ops → moderation → content → promo → settings (moderation before content)
+    expect(children.map((c) => c.key)).toEqual([...ARO_IA_001_COMMUNITY_SECTION_KEYS]);
     // Leaves stay nested under sections — not direct top-level children.
     expect(children.some((c) => c.key === "community-posts")).toBe(false);
     expect(findAdminMenuByKey(adminMenu, "community-posts")?.path).toBe("/admin/community/posts");
