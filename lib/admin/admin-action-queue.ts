@@ -55,7 +55,14 @@ export type AdminActionQueueCategory =
   | "store_inquiry_open"
   | "platform_inquiry_open"
   | "community_reports"
-  | "store_applications";
+  | "store_applications"
+  /** ARO-AC-001 */
+  | "meeting_reports"
+  | "orders_attention"
+  | "settlements_actionable"
+  | "coin_withdrawals"
+  | "platform_popup_pending"
+  | "partner_pending";
 
 export type AdminActionQueuePriority = "P0_CRITICAL" | "P1_ACTION_REQUIRED" | "P2_INFORMATIONAL" | "P3_SILENT";
 
@@ -94,6 +101,12 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   community_reports: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
   /** stores.approval_status — Admin next-action only (pending|under_review; not revision_requested). */
   store_applications: { priority: "P1_ACTION_REQUIRED", rt: "RT_REQUIRED", soundEligible: true },
+  meeting_reports: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  orders_attention: { priority: "P0_CRITICAL", rt: "POLL_SUFFICIENT", soundEligible: false },
+  settlements_actionable: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  coin_withdrawals: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  platform_popup_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  partner_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
 };
 
 export type AdminActionQueueCounts = {
@@ -116,8 +129,20 @@ export type AdminActionQueueCounts = {
   platform_inquiry_open: number;
   community_reports: number;
   store_applications: number;
+  /** ARO-AC-001 extensions */
+  meeting_reports: number;
+  orders_attention: number;
+  settlements_actionable: number;
+  coin_withdrawals: number;
+  platform_popup_pending: number;
+  partner_pending: number;
   /** Sum of actionable categories (excludes AST-002 store_charges + legacy platform). */
   total: number;
+  /**
+   * Categories that failed to load (real error) — UI must not treat as “0 pending”.
+   * Schema-missing optional tables stay quiet (count 0).
+   */
+  unavailable: string[];
   /** Legacy admin-bell shape (charges = cash+user; reports = reports+store_reports) */
   by_category: {
     charges: number;
@@ -140,6 +165,12 @@ export type AdminActionQueueCounts = {
     support_actionable: number;
     store_inquiry_open: number;
     platform_inquiry_open: number;
+    meeting_reports: number;
+    orders_attention: number;
+    settlements_actionable: number;
+    coin_withdrawals: number;
+    platform_popup_pending: number;
+    partner_pending: number;
   };
 };
 
@@ -172,7 +203,14 @@ export async function loadAdminActionQueueCounts(input: {
     platform_inquiry_open: 0,
     community_reports: 0,
     store_applications: 0,
+    meeting_reports: 0,
+    orders_attention: 0,
+    settlements_actionable: 0,
+    coin_withdrawals: 0,
+    platform_popup_pending: 0,
+    partner_pending: 0,
     total: 0,
+    unavailable: [],
     by_category: {
       charges: 0,
       store_charges: 0,
@@ -192,6 +230,12 @@ export async function loadAdminActionQueueCounts(input: {
       support_actionable: 0,
       store_inquiry_open: 0,
       platform_inquiry_open: 0,
+      meeting_reports: 0,
+      orders_attention: 0,
+      settlements_actionable: 0,
+      coin_withdrawals: 0,
+      platform_popup_pending: 0,
+      partner_pending: 0,
     },
   });
 
@@ -211,6 +255,12 @@ export async function loadAdminActionQueueCounts(input: {
     communityReportsRes,
     storeApplicationsRes,
     deliveryAdOpsRes,
+    meetingReportsRes,
+    ordersAttentionRes,
+    settlementsRes,
+    coinWithdrawRes,
+    popupPendingRes,
+    partnerPendingRes,
   ] = await Promise.all([
     storesSb
       ? storesSb
@@ -286,6 +336,42 @@ export async function loadAdminActionQueueCounts(input: {
           .select("id", { count: "exact", head: true })
           .eq("status", "WAITING_ADMIN")
       : Promise.resolve({ count: 0, error: null }),
+    notesSb
+      ? notesSb
+          .from("meeting_reports")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "reviewing"])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("store_orders")
+          .select("id", { count: "exact", head: true })
+          .or("needs_admin_attention.eq.true,order_status.eq.refund_requested")
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("store_settlements")
+          .select("id", { count: "exact", head: true })
+          .in("settlement_status", ["scheduled", "held"])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("coin_withdrawal_requests")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "REQUESTED")
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("platform_popup_owner_requests")
+          .select("id", { count: "exact", head: true })
+          .in("request_status", ["submitted", "under_review"])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("delivery_ad_partner_memberships")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "PENDING_REVIEW")
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   const store_charges =
@@ -358,6 +444,49 @@ export async function loadAdminActionQueueCounts(input: {
       ? 0
       : safeCount(deliveryAdOpsRes);
 
+  const unavailable: string[] = [];
+  const markUnavailable = (
+    key: string,
+    res: { error?: { message?: string } | null },
+    missingRe: RegExp
+  ): number => {
+    if (!res.error) return safeCount(res as { count?: number | null; error?: { message?: string } | null });
+    if (missingRe.test(res.error.message ?? "")) return 0;
+    unavailable.push(key);
+    return 0;
+  };
+
+  const meeting_reports = markUnavailable(
+    "meeting_reports",
+    meetingReportsRes,
+    /meeting_reports|schema cache|does not exist/i
+  );
+  const orders_attention = markUnavailable(
+    "orders_attention",
+    ordersAttentionRes,
+    /needs_admin_attention|store_orders|schema cache|does not exist/i
+  );
+  const settlements_actionable = markUnavailable(
+    "settlements_actionable",
+    settlementsRes,
+    /store_settlements|schema cache|does not exist/i
+  );
+  const coin_withdrawals = markUnavailable(
+    "coin_withdrawals",
+    coinWithdrawRes,
+    /coin_withdrawal_requests|schema cache|does not exist/i
+  );
+  const platform_popup_pending = markUnavailable(
+    "platform_popup_pending",
+    popupPendingRes,
+    /platform_popup_owner_requests|schema cache|does not exist/i
+  );
+  const partner_pending = markUnavailable(
+    "partner_pending",
+    partnerPendingRes,
+    /delivery_ad_partner_memberships|schema cache|does not exist/i
+  );
+
   // CUT E: actionable finance = Cash + Member Point (never AST-002 store_charges).
   const charges = cash_charges + user_charges;
   const reportsCombined = reports + store_reports;
@@ -374,7 +503,13 @@ export async function loadAdminActionQueueCounts(input: {
     store_inquiry_open +
     platform_inquiry_open +
     community_reports +
-    store_applications;
+    store_applications +
+    meeting_reports +
+    orders_attention +
+    settlements_actionable +
+    coin_withdrawals +
+    platform_popup_pending +
+    partner_pending;
 
   return {
     store_charges,
@@ -392,7 +527,14 @@ export async function loadAdminActionQueueCounts(input: {
     platform_inquiry_open,
     community_reports,
     store_applications,
+    meeting_reports,
+    orders_attention,
+    settlements_actionable,
+    coin_withdrawals,
+    platform_popup_pending,
+    partner_pending,
     total,
+    unavailable: [...new Set(unavailable)],
     by_category: {
       charges,
       store_charges,
@@ -412,6 +554,12 @@ export async function loadAdminActionQueueCounts(input: {
       support_actionable,
       store_inquiry_open,
       platform_inquiry_open,
+      meeting_reports,
+      orders_attention,
+      settlements_actionable,
+      coin_withdrawals,
+      platform_popup_pending,
+      partner_pending,
     },
   };
 }

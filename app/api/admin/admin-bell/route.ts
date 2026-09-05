@@ -26,5 +26,6 @@ export async function GET() {
     ok: true,
     total: counts.total,
     by_category: counts.by_category,
+    unavailable: counts.unavailable,
   });
 }

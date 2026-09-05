@@ -114,6 +114,15 @@ type Ctx = {
   storeReportsCount: number;
   communityReportsCount: number;
   globalReportsCount: number;
+  /** ARO-AC-001 */
+  meetingReportsCount: number;
+  ordersAttentionCount: number;
+  settlementsActionableCount: number;
+  coinWithdrawalsCount: number;
+  platformPopupPendingCount: number;
+  partnerPendingCount: number;
+  deliveryAlertsCount: number;
+  queueUnavailable: string[];
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
@@ -133,6 +142,14 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   storeReportsCount: 0,
   communityReportsCount: 0,
   globalReportsCount: 0,
+  meetingReportsCount: 0,
+  ordersAttentionCount: 0,
+  settlementsActionableCount: 0,
+  coinWithdrawalsCount: 0,
+  platformPopupPendingCount: 0,
+  partnerPendingCount: 0,
+  deliveryAlertsCount: 0,
+  queueUnavailable: [],
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -180,6 +197,14 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [communityReportsCount, setCommunityReportsCount] = useState(0);
   const [globalReportsCount, setGlobalReportsCount] = useState(0);
   const [storeApplicationsCount, setStoreApplicationsCount] = useState(0);
+  const [meetingReportsCount, setMeetingReportsCount] = useState(0);
+  const [ordersAttentionCount, setOrdersAttentionCount] = useState(0);
+  const [settlementsActionableCount, setSettlementsActionableCount] = useState(0);
+  const [coinWithdrawalsCount, setCoinWithdrawalsCount] = useState(0);
+  const [platformPopupPendingCount, setPlatformPopupPendingCount] = useState(0);
+  const [partnerPendingCount, setPartnerPendingCount] = useState(0);
+  const [deliveryAlertsCount, setDeliveryAlertsCount] = useState(0);
+  const [queueUnavailable, setQueueUnavailable] = useState<string[]>([]);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
   const awarenessToastTimeoutRef = useRef<number | null>(null);
@@ -729,6 +754,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           total?: number;
+          unavailable?: string[];
           by_category?: {
             charges?: number;
             store_charges?: number;
@@ -745,6 +771,13 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             community_reports?: number;
             global_reports?: number;
             store_applications?: number;
+            alerts?: number;
+            meeting_reports?: number;
+            orders_attention?: number;
+            settlements_actionable?: number;
+            coin_withdrawals?: number;
+            platform_popup_pending?: number;
+            partner_pending?: number;
           };
         };
         return { resOk: res.ok, json };
@@ -806,6 +839,18 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         setCommunityReportsCount(communityReports);
         setGlobalReportsCount(globalReports);
         setStoreApplicationsCount(storeApplications);
+        setMeetingReportsCount(Math.max(0, Math.floor(Number(json.by_category?.meeting_reports) || 0)));
+        setOrdersAttentionCount(Math.max(0, Math.floor(Number(json.by_category?.orders_attention) || 0)));
+        setSettlementsActionableCount(
+          Math.max(0, Math.floor(Number(json.by_category?.settlements_actionable) || 0))
+        );
+        setCoinWithdrawalsCount(Math.max(0, Math.floor(Number(json.by_category?.coin_withdrawals) || 0)));
+        setPlatformPopupPendingCount(
+          Math.max(0, Math.floor(Number(json.by_category?.platform_popup_pending) || 0))
+        );
+        setPartnerPendingCount(Math.max(0, Math.floor(Number(json.by_category?.partner_pending) || 0)));
+        setDeliveryAlertsCount(Math.max(0, Math.floor(Number(json.by_category?.alerts) || 0)));
+        setQueueUnavailable(Array.isArray(json.unavailable) ? json.unavailable.map(String) : []);
         if (!feedSoundHydratedRef.current) {
           feedSoundHydratedRef.current = true;
           void detectNewFeedAds();
@@ -1210,6 +1255,14 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       communityReportsCount,
       globalReportsCount,
       storeApplicationsCount,
+      meetingReportsCount,
+      ordersAttentionCount,
+      settlementsActionableCount,
+      coinWithdrawalsCount,
+      platformPopupPendingCount,
+      partnerPendingCount,
+      deliveryAlertsCount,
+      queueUnavailable,
       adminBellCount,
       refresh,
     }),
@@ -1229,6 +1282,14 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       communityReportsCount,
       globalReportsCount,
       storeApplicationsCount,
+      meetingReportsCount,
+      ordersAttentionCount,
+      settlementsActionableCount,
+      coinWithdrawalsCount,
+      platformPopupPendingCount,
+      partnerPendingCount,
+      deliveryAlertsCount,
+      queueUnavailable,
       refresh,
     ]
   );
