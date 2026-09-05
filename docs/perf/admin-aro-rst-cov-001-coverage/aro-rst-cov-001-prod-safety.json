@@ -1,0 +1,34 @@
+{
+  "sha": "7fd97bd07",
+  "expectSha": "1771318be",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "execProbe": {
+    "status": 403,
+    "ok": false
+  },
+  "checks": {
+    "page": true,
+    "covMarker": true,
+    "matrix": true,
+    "selectAll": true,
+    "commentsSupported": true,
+    "supportSupported": true,
+    "feedSupported": true,
+    "popupSupported": true,
+    "chatPartial": true,
+    "couponsPartial": true,
+    "notificationsPartial": true,
+    "ordersBlocked": true,
+    "giftsBlocked": true,
+    "pointBlocked": true,
+    "settlementBlocked": true,
+    "commentsEnabled": true,
+    "ordersDisabled": true,
+    "executeBlocked": true
+  },
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T14:10:50.187Z"
+}
