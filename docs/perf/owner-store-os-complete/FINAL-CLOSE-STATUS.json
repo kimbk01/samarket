@@ -1,0 +1,27 @@
+{
+  "title": "DIBAY OWNER ADMIN — STORE OS FINAL CLOSE",
+  "headBefore": "d4d845bce2aa80d9522e9013e7555699937758ae",
+  "ownerCommit": "8a59baf8e99c803633efba78a8d05be66a2f1ee7",
+  "originMain": "8a59baf8e99c803633efba78a8d05be66a2f1ee7",
+  "productionSha": "8a59baf8e99c803633efba78a8d05be66a2f1ee7",
+  "deployment": "dpl_FibFDCpw126DbRwLEeZGrELjXmNj",
+  "alias": "https://samarket.vercel.app",
+  "webResponsive": {
+    "390": "PASS",
+    "430": "PASS",
+    "768": "PASS",
+    "1024": "PASS",
+    "1280": "PASS",
+    "evidence": "docs/perf/owner-store-os-complete/prod/responsive-report.json"
+  },
+  "drawerCompleteMap": "PASS",
+  "androidOwnerUi": "NOT_PROVEN",
+  "androidOwnerUiNote": "CapAPK/Chrome VIEW landed on login; no authenticated Owner session on device for this run",
+  "iosOwnerUi": "NOT_PROVEN",
+  "iosOwnerUiNote": "Xcode CLI tools (simctl/xctrace) unavailable; device UDID seen but no authenticated WebView proof",
+  "newOrderSoundNative": "NOT_PROVEN",
+  "staffPermission": "DEFERRED / DOMAIN_NOT_IMPLEMENTED",
+  "adminAro": "PRESERVED / NOT COMMITTED",
+  "final": "FAIL_NOT_CLOSED",
+  "blocker": "Native authenticated Owner UI + NEW ORDER sound not proven"
+}

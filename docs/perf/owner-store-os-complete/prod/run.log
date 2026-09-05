@@ -1,0 +1,11 @@
+{
+  "final": "FAIL",
+  "firstDivergence": "390-CUSTOMERS careHub=false url=https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+  "pages": {
+    "390": "FAIL",
+    "430": "FAIL",
+    "768": "FAIL",
+    "1024": "FAIL",
+    "1280": "FAIL"
+  }
+}

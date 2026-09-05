@@ -254,18 +254,23 @@ try {
     if (!productsOk) fail(`${w}-PRODUCTS`);
     widthReport.pages.products = { ok: productsOk, overflowX: products.overflowX, verticalCtas: products.verticalCtas };
 
-    // CUSTOMERS — prefer hub URL; if soft-nav drifts, follow bottom-nav customers link
-    await go("/stores/owner/customer-care", { waitText: "Order chat|주문 채팅|Store customers|매장 고객|DIBAY Support|고객센터" });
-    if (!/\/customer-care(\/|\?|$)/.test(page.url())) {
-      const careLink = page.locator('a[href*="/stores/owner/customer-care"]').first();
-      if ((await careLink.count()) > 0) {
-        await careLink.click({ force: true }).catch(() => null);
-        await page.waitForTimeout(800);
+    // CUSTOMERS — hard land on care hub; do not recover via ambiguous first matching link
+    await go("/stores/owner/customer-care", {
+      waitText: "Customer work queue|고객 응대 큐|Store customers|매장 고객|Order chat|주문 채팅",
+    });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (/\/customer-care(\/|\?|$)/.test(page.url()) && (await page.locator("[data-owner-customer-care-hub]").count()) > 0) {
+        break;
       }
+      await page.goto(`${ORIGIN}/stores/owner/customer-care?storeId=${STORE}`, {
+        waitUntil: "domcontentloaded",
+        timeout: 90000,
+      });
+      await dismiss(page);
+      await page
+        .waitForSelector("[data-owner-customer-care-hub]", { timeout: 30000 })
+        .catch(() => null);
     }
-    await page
-      .waitForSelector("[data-owner-customer-care-hub]", { timeout: 30000 })
-      .catch(() => null);
     const customers = await pageMetrics("customers");
     const customersUrl = page.url();
     await page.screenshot({ path: resolve(OUT, `${w}-customers.png`), fullPage: false });

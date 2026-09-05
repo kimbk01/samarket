@@ -1,0 +1,342 @@
+{
+  "origin": "https://samarket.vercel.app",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "widths": {
+    "390": {
+      "height": 844,
+      "pages": {
+        "home": {
+          "ok": true,
+          "tag": "home",
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "homeActionFirst": true,
+          "staleHint": true,
+          "financeSection": true,
+          "careHub": false,
+          "careAction": false,
+          "settlementRo": false,
+          "ordersAction": false
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "ordersAction": true
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": []
+        },
+        "customers": {
+          "ok": true,
+          "careHub": true,
+          "careAction": false,
+          "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "financeLabels": true
+        },
+        "settlement": {
+          "ok": true,
+          "settlementRo": true
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hasPromo": true,
+          "hasOpsDump": true,
+          "hasOrders": true,
+          "hasProducts": true,
+          "hasProductNew": true,
+          "hasSettlements": true,
+          "textSample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to handle now\nUpdated 01:23:55\n\nAwaiting accept\n\n30 orders\n\n30 unaccepted for 3+ min\n\nPrep delay\n\n1 orders\n\nPast estimated time\n\nDelivery delay\n\n0 orders\n\nNormal\n\nPending 3m+\n\n30 orders\n\nUnconfirmed for 3+ min\n\nOrders created today · older pending queue is in Action required above\n\nReview orders\nOperations issues\nView all\n\nSold out\n\n0 items\n\nNormal\n\nHidden items\n\n1 items\n\nCheck sales status\n\nSales paused\n\n0 items\n\nNormal\n\nOption errors\n\n—\n\nCheck scheduled sales\n\nOrder pipeline\nView all\nWaiting\n30\n→\nPreparing\n7\n1 delayed\n→\nDelivering\n12\n→\nDone\n0\nCreated today · sales\nView details\n\nCreated today\n\n0 orders\n\nOrders created today · older pending queue is in Action required above\n\nToday's sales\n\n₱0\n\n-100% vs yesterday\n\nAvg. order value\n\n₱0\n\n—\n\nCancel rate\n\n0%\n\n—\n\nCustomer care\nView all\n\nContact DIBAY admin via Customer Center → Support.\n\nOrder chat\nDelivery and store order conversations\nStore inquiry\nInquiries sent to this store\nCustomer center\nDIBAY Support and history\nSupport history\nQuick actions\nOrders\nProdu"
+        }
+      },
+      "badges": {
+        "orderBadge": "30",
+        "customersBadge": null,
+        "allHubBadges": [
+          "30"
+        ]
+      }
+    },
+    "430": {
+      "height": 844,
+      "pages": {
+        "home": {
+          "ok": true,
+          "tag": "home",
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "homeActionFirst": true,
+          "staleHint": true,
+          "financeSection": true,
+          "careHub": false,
+          "careAction": false,
+          "settlementRo": false,
+          "ordersAction": false
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "ordersAction": true
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": []
+        },
+        "customers": {
+          "ok": true,
+          "careHub": true,
+          "careAction": true,
+          "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "financeLabels": true
+        },
+        "settlement": {
+          "ok": true,
+          "settlementRo": true
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hasPromo": true,
+          "hasOpsDump": true,
+          "hasOrders": true,
+          "hasProducts": true,
+          "hasProductNew": true,
+          "hasSettlements": true,
+          "textSample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to handle now\nUpdated 01:24:21\n\nAwaiting accept\n\n30 orders\n\n30 unaccepted for 3+ min\n\nPrep delay\n\n1 orders\n\nPast estimated time\n\nDelivery delay\n\n0 orders\n\nNormal\n\nPending 3m+\n\n30 orders\n\nUnconfirmed for 3+ min\n\nOrders created today · older pending queue is in Action required above\n\nReview orders\nOperations issues\nView all\n\nSold out\n\n0 items\n\nNormal\n\nHidden items\n\n1 items\n\nCheck sales status\n\nSales paused\n\n0 items\n\nNormal\n\nOption errors\n\n—\n\nCheck scheduled sales\n\nOrder pipeline\nView all\nWaiting\n30\n→\nPreparing\n7\n1 delayed\n→\nDelivering\n12\n→\nDone\n0\nCreated today · sales\nView details\n\nCreated today\n\n0 orders\n\nOrders created today · older pending queue is in Action required above\n\nToday's sales\n\n₱0\n\n-100% vs yesterday\n\nAvg. order value\n\n₱0\n\n—\n\nCancel rate\n\n0%\n\n—\n\nCustomer care\nView all\n\nContact DIBAY admin via Customer Center → Support.\n\nOrder chat\nDelivery and store order conversations\nStore inquiry\nInquiries sent to this store\nCustomer center\nDIBAY Support and history\nSupport history\nQuick actions\nOrders\nProdu"
+        }
+      },
+      "badges": {
+        "orderBadge": "30",
+        "customersBadge": null,
+        "allHubBadges": [
+          "30"
+        ]
+      }
+    },
+    "768": {
+      "height": 844,
+      "pages": {
+        "home": {
+          "ok": true,
+          "tag": "home",
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "homeActionFirst": true,
+          "staleHint": true,
+          "financeSection": true,
+          "careHub": false,
+          "careAction": false,
+          "settlementRo": false,
+          "ordersAction": false
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "ordersAction": true
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": []
+        },
+        "customers": {
+          "ok": true,
+          "careHub": true,
+          "careAction": false,
+          "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "financeLabels": true
+        },
+        "settlement": {
+          "ok": true,
+          "settlementRo": true
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hasPromo": true,
+          "hasOpsDump": true,
+          "hasOrders": true,
+          "hasProducts": true,
+          "hasProductNew": true,
+          "hasSettlements": true,
+          "textSample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to handle now\nUpdated 01:24:44\n\nAwaiting accept\n\n30 orders\n\n30 unaccepted for 3+ min\n\nPrep delay\n\n1 orders\n\nPast estimated time\n\nDelivery delay\n\n0 orders\n\nNormal\n\nPending 3m+\n\n30 orders\n\nUnconfirmed for 3+ min\n\nOrders created today · older pending queue is in Action required above\n\nReview orders\nOperations issues\nView all\n\nSold out\n\n0 items\n\nNormal\n\nHidden items\n\n1 items\n\nCheck sales status\n\nSales paused\n\n0 items\n\nNormal\n\nOption errors\n\n—\n\nCheck scheduled sales\n\nOrder pipeline\nView all\nWaiting\n30\n→\nPreparing\n7\n1 delayed\n→\nDelivering\n12\n→\nDone\n0\nCreated today · sales\nView details\n\nCreated today\n\n0 orders\n\nOrders created today · older pending queue is in Action required above\n\nToday's sales\n\n₱0\n\n-100% vs yesterday\n\nAvg. order value\n\n₱0\n\n—\n\nCancel rate\n\n0%\n\n—\n\nCustomer care\nView all\n\nContact DIBAY admin via Customer Center → Support.\n\nOrder chat\nDelivery and store order conversations\nStore inquiry\nInquiries sent to this store\nCustomer center\nDIBAY Support and history\nSupport history\nQuick actions\nOrders\nProdu"
+        }
+      },
+      "badges": {
+        "orderBadge": "30",
+        "customersBadge": null,
+        "allHubBadges": [
+          "30"
+        ]
+      }
+    },
+    "1024": {
+      "height": 768,
+      "pages": {
+        "home": {
+          "ok": true,
+          "tag": "home",
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "homeActionFirst": true,
+          "staleHint": true,
+          "financeSection": true,
+          "careHub": false,
+          "careAction": false,
+          "settlementRo": false,
+          "ordersAction": false
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "ordersAction": true
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": []
+        },
+        "customers": {
+          "ok": true,
+          "careHub": true,
+          "careAction": true,
+          "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "financeLabels": true
+        },
+        "settlement": {
+          "ok": true,
+          "settlementRo": true
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hasPromo": true,
+          "hasOpsDump": true,
+          "hasOrders": true,
+          "hasProducts": true,
+          "hasProductNew": true,
+          "hasSettlements": true,
+          "textSample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to handle now\nUpdated 01:25:09\n\nAwaiting accept\n\n30 orders\n\n30 unaccepted for 3+ min\n\nPrep delay\n\n1 orders\n\nPast estimated time\n\nDelivery delay\n\n0 orders\n\nNormal\n\nPending 3m+\n\n30 orders\n\nUnconfirmed for 3+ min\n\nOrders created today · older pending queue is in Action required above\n\nReview orders\nOperations issues\nView all\n\nSold out\n\n0 items\n\nNormal\n\nHidden items\n\n1 items\n\nCheck sales status\n\nSales paused\n\n0 items\n\nNormal\n\nOption errors\n\n—\n\nCheck scheduled sales\n\nOrder pipeline\nView all\nWaiting\n30\n→\nPreparing\n7\n1 delayed\n→\nDelivering\n12\n→\nDone\n0\nCreated today · sales\nView details\n\nCreated today\n\n0 orders\n\nOrders created today · older pending queue is in Action required above\n\nToday's sales\n\n₱0\n\n-100% vs yesterday\n\nAvg. order value\n\n₱0\n\n—\n\nCancel rate\n\n0%\n\n—\n\nCustomer care\nView all\n\nContact DIBAY admin via Customer Center → Support.\n\nOrder chat\nDelivery and store order conversations\nStore inquiry\nInquiries sent to this store\nCustomer center\nDIBAY Support and history\nSupport history\nQuick actions\nOrders\nProdu"
+        }
+      },
+      "badges": {
+        "orderBadge": "30",
+        "customersBadge": null,
+        "allHubBadges": [
+          "30"
+        ]
+      }
+    },
+    "1280": {
+      "height": 768,
+      "pages": {
+        "home": {
+          "ok": true,
+          "tag": "home",
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "homeActionFirst": true,
+          "staleHint": true,
+          "financeSection": true,
+          "careHub": false,
+          "careAction": false,
+          "settlementRo": false,
+          "ordersAction": false
+        },
+        "orders": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "ordersAction": true
+        },
+        "products": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": []
+        },
+        "customers": {
+          "ok": true,
+          "careHub": true,
+          "careAction": true,
+          "url": "https://samarket.vercel.app/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+        },
+        "finance": {
+          "ok": true,
+          "overflowX": 0,
+          "verticalCtas": [],
+          "primaryDarkOnDark": [],
+          "financeLabels": true
+        },
+        "settlement": {
+          "ok": true,
+          "settlementRo": true
+        },
+        "drawer": {
+          "ok": true,
+          "open": true,
+          "hasPromo": true,
+          "hasOpsDump": true,
+          "hasOrders": true,
+          "hasProducts": true,
+          "hasProductNew": true,
+          "hasSettlements": true,
+          "textSample": "Store status\n\nHidden · Open — not listed; direct link can still order\n\nVisibility — shown in customer discovery\n\nVisibility\nOFF\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to handle now\nUpdated 01:25:35\n\nAwaiting accept\n\n30 orders\n\n30 unaccepted for 3+ min\n\nPrep delay\n\n1 orders\n\nPast estimated time\n\nDelivery delay\n\n0 orders\n\nNormal\n\nPending 3m+\n\n30 orders\n\nUnconfirmed for 3+ min\n\nOrders created today · older pending queue is in Action required above\n\nReview orders\nOperations issues\nView all\n\nSold out\n\n0 items\n\nNormal\n\nHidden items\n\n1 items\n\nCheck sales status\n\nSales paused\n\n0 items\n\nNormal\n\nOption errors\n\n—\n\nCheck scheduled sales\n\nOrder pipeline\nView all\nWaiting\n30\n→\nPreparing\n7\n1 delayed\n→\nDelivering\n12\n→\nDone\n0\nCreated today · sales\nView details\n\nCreated today\n\n0 orders\n\nOrders created today · older pending queue is in Action required above\n\nToday's sales\n\n₱0\n\n-100% vs yesterday\n\nAvg. order value\n\n₱0\n\n—\n\nCancel rate\n\n0%\n\n—\n\nCustomer care\nView all\n\nContact DIBAY admin via Customer Center → Support.\n\nOrder chat\nDelivery and store order conversations\nStore inquiry\nInquiries sent to this store\nCustomer center\nDIBAY Support and history\nSupport history\nQuick actions\nOrders\nProdu"
+        }
+      },
+      "badges": {
+        "orderBadge": "30",
+        "customersBadge": null,
+        "allHubBadges": [
+          "30"
+        ]
+      }
+    }
+  },
+  "pages": {
+    "390": "PASS",
+    "430": "PASS",
+    "768": "PASS",
+    "1024": "PASS",
+    "1280": "PASS"
+  },
+  "badges": {},
+  "drawer": {},
+  "final": "PASS",
+  "firstDivergence": null
+}
