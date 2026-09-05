@@ -1,0 +1,191 @@
+{
+  "title": "PRODUCT COMPLETE PROCESS",
+  "origin": "http://127.0.0.1:3000",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "qaName": "QA Complete mtotg12j",
+  "productId": "786af991-71f7-4cd8-94ee-e310efe5b00c",
+  "sections": {
+    "tabs": [
+      "Basics",
+      "Options",
+      "Language"
+    ],
+    "hasCategory": true,
+    "hasImage": true,
+    "hasName": true,
+    "hasPrice": true,
+    "hasDiscount": true,
+    "hasInventory": true,
+    "hasOptionsSection": true,
+    "hasStatusBand": true,
+    "hasSave": true,
+    "languagePlaceholder": false,
+    "optionsTabClickable": true,
+    "optionsEditorVisible": true
+  },
+  "steps": {
+    "listEntry": {
+      "registerCta": true,
+      "url": "http://127.0.0.1:3000/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "sectionInventory": "PASS",
+    "category": {
+      "ok": true
+    },
+    "basicFields": {
+      "name": "QA Complete mtotg12j",
+      "price": "1500"
+    },
+    "statusToggles": {
+      "visible": null,
+      "orders": "false"
+    },
+    "image": {
+      "ok": true
+    },
+    "optionsAddClick": {
+      "ok": true,
+      "label": "+Add option group"
+    },
+    "options": {
+      "attempted": true,
+      "groupReady": true,
+      "optionReady": true,
+      "filled": true,
+      "group": "QA Size",
+      "option": "Large"
+    },
+    "validationRequiredName": "PASS",
+    "apiPosts": [
+      {
+        "url": "http://127.0.0.1:3000/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
+        "status": 200,
+        "body": "{\"ok\":true,\"product\":{\"id\":\"786af991-71f7-4cd8-94ee-e310efe5b00c\"}}"
+      }
+    ],
+    "save": {
+      "url": "http://127.0.0.1:3000/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "persisted": {
+      "found": true,
+      "product_status": "hidden",
+      "hasThumb": true,
+      "hasMenuSection": true,
+      "optionsJson": [
+        {
+          "id": "0c6ca574-d8a1-4d49-93b3-fa14051a04cb",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "2e93cadb-2036-4ced-9047-dbfe542a60bf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ]
+    },
+    "activateViaOwnerPatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "afterActivate": {
+      "product_status": "active",
+      "options_json": [
+        {
+          "id": "0c6ca574-d8a1-4d49-93b3-fa14051a04cb",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "2e93cadb-2036-4ced-9047-dbfe542a60bf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ],
+      "menu_section_id": "f2e842f2-7562-413e-bf3f-822099c3c5f8"
+    },
+    "publicProductApi": {
+      "status": 200,
+      "ok": true,
+      "title": "QA Complete mtotg12j",
+      "options": [
+        {
+          "id": "0c6ca574-d8a1-4d49-93b3-fa14051a04cb",
+          "nameKo": "QA Size",
+          "options": [
+            {
+              "id": "2e93cadb-2036-4ced-9047-dbfe542a60bf",
+              "name": "Large",
+              "soldOut": false,
+              "priceDelta": 0,
+              "defaultSelected": false
+            }
+          ],
+          "inputType": "radio",
+          "maxSelect": 1,
+          "minSelect": 1,
+          "sortOrder": 0,
+          "isRequired": true
+        }
+      ],
+      "product_status": "active"
+    },
+    "menuSectionName": "소주류",
+    "menusApi": {
+      "status": 200,
+      "ok": true,
+      "hasName": false,
+      "productCount": 9
+    },
+    "buyerList": "PASS",
+    "buyerListSample": "만두의 환상 적인 제목 부분\n\n설명이 어찌 구현 되는지 확인 해라. bk\n\n나의 오른손딸방\n★ 5.0(1)\n›\nOrders 0\nOpen\nDelivery\nPickup\nDelivery order\n\n닝기리 씨빠빠..브라덜...\n\nSearch menu\n소주류\n김밥류\n{신메뉴}\n만두류\n[오픈기념 한정 판매] 1.2인 분의 라면\nPopular menu\n1\n+\n\n김치김밥\n\nPopular\nOwner's pick\n₱150\n2\n+\n\n오리지날 김밥\n\nPopular\nOwner's pick\nSale\n₱180\n₱200\n3\n+\n\n매운 라면의 아름 다운 밤 입니다.\n\nPopular\nOwner's pick\n₱2,000\n4\n+\n\n김치만두\n\nPopular\n₱120\nRecommended\n+\n\nadssda\n\nOwner's pick\n소주류\nQA ",
+    "buyerDetail": {
+      "name": true,
+      "optionsGroup": true,
+      "optionsValue": true,
+      "sample": "QA Complete mtotg12j\nMenu reviews (1) ›\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtotg12j\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500"
+    },
+    "buyerAfterCreate": "PASS",
+    "edit": "PASS",
+    "soldOutPatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "soldOutBuyerSample": "QA Complete mtotg12j\n\nQA edited summary\n\nMenu reviews (1) ›\n\nThis item is sold out.\n\nSold out\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtotg12j\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "soldOutBuyer": "PASS",
+    "resumePatch": {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    },
+    "resumeBuyerSample": "QA Complete mtotg12j\n\nQA edited summary\n\nMenu reviews (1) ›\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtotg12j\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "resumeBuyer": "PASS",
+    "createSoldOutApi": {
+      "status": 200,
+      "body": "{\"ok\":true,\"product\":{\"id\":\"1fe08f1e-ce19-45f8-ac4c-627075c9cc92\"}}"
+    },
+    "createSoldOutStatus": "sold_out",
+    "cleanup": "PASS_DELETED",
+    "optionsPersisted": "PASS",
+    "publicOptions": "PASS"
+  },
+  "final": "PASS",
+  "note": "Coarse create/edit/sold-out PASS is WITHDRAWN; this is the complete-process contract.",
+  "storeSlug": "aa11",
+  "evidenceLevel": "LOCAL_PROVEN"
+}

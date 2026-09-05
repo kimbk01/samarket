@@ -105,7 +105,12 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             >
               <div className="px-4 pb-2 pt-3.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-neutral-900">{g.label}</h3>
+                  <h3
+                    className="text-[15px] font-extrabold tracking-[-0.025em] text-neutral-900"
+                    data-owner-buyer-option-group={g.label}
+                  >
+                    {g.label}
+                  </h3>
                   {required ? (
                     <span className={STORE_ORDER_BADGE_REQUIRED}>{t("store_modifier_required")}</span>
                   ) : (
@@ -276,7 +281,12 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
 
         const header = (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="sam-text-body font-semibold text-sam-fg">{g.label}</span>
+            <span
+              className="sam-text-body font-semibold text-sam-fg"
+              data-owner-buyer-option-group={g.label}
+            >
+              {g.label}
+            </span>
             {required ? (
               <span className="rounded-full bg-rose-100 px-2 py-0.5 sam-text-xxs font-bold text-rose-800">
                 {t("store_modifier_required")}

@@ -405,10 +405,24 @@ export async function fetchStorePublicBySlugDeduped(slug: string): Promise<Store
   });
 }
 
-/** GET /api/stores/products/:productId */
-export async function fetchStoreProductPublicDeduped(productId: string): Promise<StoreApiJsonResponse> {
+/** GET /api/stores/products/:productId — status/options must not stay stale across Owner mutations. */
+export function invalidateStoreProductPublicCache(productId?: string): void {
+  const id = (productId ?? "").trim();
+  if (!id) {
+    storeProductPublicCache.clear();
+    return;
+  }
+  storeProductPublicCache.delete(id);
+  forgetSingleFlight(`stores:api:product:${id}`);
+}
+
+export async function fetchStoreProductPublicDeduped(
+  productId: string,
+  opts?: { force?: boolean }
+): Promise<StoreApiJsonResponse> {
   const id = productId.trim();
   if (!id) return { status: 400, json: { ok: false } };
+  if (opts?.force) invalidateStoreProductPublicCache(id);
   const cached = storeProductPublicCache.get(id);
   if (cached && cached.expiresAt > Date.now()) {
     return { status: cached.value.status, json: cached.value.json };

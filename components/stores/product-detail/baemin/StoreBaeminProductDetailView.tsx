@@ -102,7 +102,10 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           </p>
         ) : null}
         {soldOut ? (
-          <p className="mx-4 mb-2 rounded-[8px] bg-[#F2F3F5] px-3 py-2 text-[13px] font-medium text-[#333333]">
+          <p
+            data-owner-buyer-sold-out="1"
+            className="mx-4 mb-2 rounded-[8px] bg-[#F2F3F5] px-3 py-2 text-[13px] font-medium text-[#333333]"
+          >
             {t("store_sold_out")}
           </p>
         ) : null}
