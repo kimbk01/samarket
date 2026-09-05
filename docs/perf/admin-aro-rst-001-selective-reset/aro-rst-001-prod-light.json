@@ -1,0 +1,22 @@
+{
+  "sha": "73975438b2a5cc4e00d21c79994e76cf0dc1799a",
+  "checks": {
+    "page": true,
+    "aroMarker": true,
+    "selectAll": true,
+    "matrix": true,
+    "checkbox": true,
+    "noRadio": true,
+    "ordersBlocked": true,
+    "chatUnsupported": true,
+    "giftsBlocked": true,
+    "tradeSupported": true,
+    "ordersDisabled": true,
+    "selectAllChecked": true,
+    "selectAllSkipsBlocked": true,
+    "executeBlocked": true,
+    "executeBlockedNote": "403 on /execute (super_admin_only or production_execute_forbidden); no destructive run"
+  },
+  "failed": [],
+  "result": "PASS"
+}
