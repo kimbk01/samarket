@@ -1,0 +1,39 @@
+{
+  "sha": "850066060",
+  "expectSha": "850066060",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "activeSessionId": true,
+  "commonCardIds": [
+    "common-finance",
+    "common-coin",
+    "common-settlement",
+    "common-ads",
+    "common-support",
+    "common-meeting-reports"
+  ],
+  "checks": {
+    "pageAuthOk": true,
+    "aroMarker": true,
+    "topSummary": true,
+    "actionRequired": true,
+    "domainHealth": true,
+    "commonOps": true,
+    "hasSettlementLink": true,
+    "hasCommunityReports": true,
+    "hasMeetingReports": true,
+    "hasCoinWithdraw": true,
+    "hasOrders": true,
+    "hasFinanceHub": true,
+    "hasPartnerSeparate": true,
+    "overflowX": true,
+    "commonHasCoin": true,
+    "commonHasSettlement": true,
+    "commonHasMeeting": true,
+    "commonHasAds": true,
+    "commonHasSupport": true
+  },
+  "failed": [],
+  "result": "PASS",
+  "at": "2026-09-05T13:23:11.356Z"
+}
