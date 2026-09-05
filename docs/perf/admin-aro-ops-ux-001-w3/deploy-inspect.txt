@@ -1,0 +1,33 @@
+npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Vercel CLI 58.4.4 (Node.js 26.0.0)
+Fetching deployment "samarket.vercel.app" in kimbk01s-projects
+> Fetched deployment "samarket-4c1bqj19p-kimbk01s-projects.vercel.app" in kimbk01s-projects [585ms]
+
+  General
+
+    id		dpl_2LQd799bFBcUHxcZGCUEHKzs7bLv
+    name	samarket
+    target	production
+    status	● Ready
+    url		https://samarket-4c1bqj19p-kimbk01s-projects.vercel.app
+    created	Sat Sep 05 2026 23:59:39 GMT+0800 (Philippine Standard Time) [8m ago]
+
+
+  Aliases
+
+    ╶ https://samarket.vercel.app
+    ╶ https://samarket-kimbk01s-projects.vercel.app
+    ╶ https://samarket-git-main-kimbk01s-projects.vercel.app
+    
+
+  Builds
+
+    ┌ .        [0ms]
+    ├── λ index (17.07MB) [bom1]
+    ├── λ _not-found (17.07MB) [bom1]
+    ├── λ _not-found.rsc (17.07MB) [bom1]
+    ├── λ account/delete (17.07MB) [bom1]
+    ├── λ account/delete-request (17.07MB) [bom1]
+    └── 2744 output items hidden
+    
+

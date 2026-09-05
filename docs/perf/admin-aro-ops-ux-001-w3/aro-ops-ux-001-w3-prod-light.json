@@ -1,0 +1,115 @@
+{
+  "sha": "c99e69f56",
+  "expectSha": "c99e69f56",
+  "origin": "https://samarket.vercel.app",
+  "authMethod": "magiclink",
+  "routes": [
+    {
+      "id": "posts",
+      "path": "/admin/community/posts",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "tableViewportScrollWidth": 1148,
+        "tableViewportClientWidth": 734,
+        "hasW3": true,
+        "hasViewport": true,
+        "hasSelectAll": true,
+        "hasRowSelect": 81
+      },
+      "afterSelect": {
+        "bulkVisible": true,
+        "bulkText": "81개 선택됨복구숨김삭제(상태)선택 항목 DB에서 영구 삭제"
+      },
+      "checks": {
+        "page": true,
+        "w3Root": true,
+        "bodyNoXOverflow": true,
+        "tableViewport": true,
+        "selectAll": true,
+        "rowSelect": true,
+        "bulkWhenSelected": true
+      },
+      "failed": []
+    },
+    {
+      "id": "comments",
+      "path": "/admin/community/comments",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "tableViewportScrollWidth": 1028,
+        "tableViewportClientWidth": 734,
+        "hasW3": true,
+        "hasViewport": true,
+        "hasSelectAll": true,
+        "hasRowSelect": 100
+      },
+      "afterSelect": {
+        "bulkVisible": true,
+        "bulkText": "100개 선택됨복구숨김삭제(상태)"
+      },
+      "checks": {
+        "page": true,
+        "w3Root": true,
+        "bodyNoXOverflow": true,
+        "tableViewport": true,
+        "selectAll": true,
+        "rowSelect": true,
+        "bulkWhenSelected": true
+      },
+      "failed": []
+    },
+    {
+      "id": "reports",
+      "path": "/admin/community/reports",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "tableViewportScrollWidth": 1032,
+        "tableViewportClientWidth": 692,
+        "hasW3": true,
+        "hasViewport": true,
+        "hasSelectAll": false,
+        "hasRowSelect": 0,
+        "reportOwner": "community_reports"
+      },
+      "afterSelect": null,
+      "checks": {
+        "page": true,
+        "w3Root": true,
+        "bodyNoXOverflow": true,
+        "tableViewport": true,
+        "reportOwner": true
+      },
+      "failed": []
+    },
+    {
+      "id": "meeting-reports",
+      "path": "/admin/philife/meeting-reports",
+      "geo": {
+        "bodyScrollWidth": 1024,
+        "bodyClientWidth": 1024,
+        "tableViewportScrollWidth": 0,
+        "tableViewportClientWidth": 0,
+        "hasW3": true,
+        "hasViewport": false,
+        "hasSelectAll": false,
+        "hasRowSelect": 0,
+        "meetingOwner": "meeting_reports"
+      },
+      "afterSelect": null,
+      "checks": {
+        "page": true,
+        "w3Root": true,
+        "bodyNoXOverflow": true,
+        "meetingOwner": true
+      },
+      "failed": []
+    }
+  ],
+  "failed": [],
+  "result": "PASS",
+  "destructiveProductionTest": "NONE",
+  "at": "2026-09-05T16:07:35.112Z"
+}
