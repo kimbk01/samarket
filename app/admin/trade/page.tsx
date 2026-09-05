@@ -1,6 +1,10 @@
-import { AdminTradeHub } from "@/components/admin/trade/AdminTradeHub";
+import { AdminDomainDashboardShell } from "@/components/admin/domain-dashboard/AdminDomainDashboardShell";
+import { loadTradeDomainDashboard } from "@/lib/admin/domain-dashboard/load-trade-domain-dashboard";
 
-/** 거래 관련 어드민 통합 진입 — 사이드바 「거래」→「거래 통합」 */
-export default function AdminTradeHubPage() {
-  return <AdminTradeHub />;
+export const dynamic = "force-dynamic";
+
+/** Trade Domain Dashboard — separate from /admin/posts-management list. */
+export default async function AdminTradeHubPage() {
+  const model = await loadTradeDomainDashboard();
+  return <AdminDomainDashboardShell model={model} />;
 }

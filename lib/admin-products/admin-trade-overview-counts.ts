@@ -15,6 +15,7 @@ export type AdminTradeOverviewCounts = {
   listingsActive: number | null;
   listingsSold: number | null;
   listingsHidden: number | null;
+  listingsDeleted: number | null;
   reportsPending: number | null;
   promoPending: number | null;
   promoActive: number | null;
@@ -51,6 +52,7 @@ export async function fetchAdminTradeOverviewCounts(
     listingsActive,
     listingsSold,
     listingsHidden,
+    listingsDeleted,
     reportsPending,
     promoPending,
     promoActive,
@@ -59,6 +61,7 @@ export async function fetchAdminTradeOverviewCounts(
     countExact(sb, () => tradePostsHead(sbAny).eq("status", "active")),
     countExact(sb, () => tradePostsHead(sbAny).eq("status", "sold")),
     countExact(sb, () => tradePostsHead(sbAny).eq("status", "hidden")),
+    countExact(sb, () => tradePostsHead(sbAny).eq("status", "deleted")),
     countExact(sb, () =>
       sbAny
         .from("reports")
@@ -89,6 +92,7 @@ export async function fetchAdminTradeOverviewCounts(
     listingsActive,
     listingsSold,
     listingsHidden,
+    listingsDeleted,
     reportsPending,
     promoPending,
     promoActive,

@@ -1,7 +1,9 @@
-import { AdminCommunityHomePage } from "@/components/admin/community/AdminCommunityHomePage";
-import { loadAdminCommunityHomeSummary } from "@/lib/admin-community/home-summary";
+import { AdminDomainDashboardShell } from "@/components/admin/domain-dashboard/AdminDomainDashboardShell";
+import { loadCommunityDomainDashboard } from "@/lib/admin/domain-dashboard/load-community-domain-dashboard";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminCommunityRoute() {
-  const summary = await loadAdminCommunityHomeSummary();
-  return <AdminCommunityHomePage summary={summary} />;
+  const model = await loadCommunityDomainDashboard();
+  return <AdminDomainDashboardShell model={model} />;
 }

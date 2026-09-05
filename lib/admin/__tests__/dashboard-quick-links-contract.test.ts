@@ -83,7 +83,7 @@ describe("dashboard quick links ← menu SSOT (Slice 2A)", () => {
     const delivery = projectDashboardQuickLinks("master").ops.find(
       (l) => l.menuKey === "delivery"
     );
-    expect(delivery?.href).toBe("/admin/business");
+    expect(delivery?.href).toBe("/admin/delivery");
     expect(delivery?.labelKey).toBe("admin_menu_delivery");
   });
 

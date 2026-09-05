@@ -196,7 +196,9 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-fee-policies-admin": "admin_menu_store_fee_policies_admin",
   "store-payment-events-admin": "admin_menu_store_payment_events",
   "commerce-settings-admin": "admin_menu_commerce_settings",
+  "delivery-dashboard": "admin_menu_delivery_dashboard",
   "business-shops": "admin_menu_business_management",
+  "messenger-hub": "admin_menu_messenger_hub",
 
   // Messenger
   "chat-all": "admin_menu_chat_all",
@@ -324,6 +326,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     key: "delivery",
     title: "",
     children: [
+      { key: "delivery-dashboard", title: "", path: "/admin/delivery", status: "done" },
       { key: "business-shops", title: "", path: "/admin/business", status: "done" },
       {
         key: "delivery-section-policies",
@@ -703,6 +706,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     key: "messenger",
     title: "",
     children: [
+      { key: "messenger-hub", title: "", path: "/admin/messenger", status: "done" },
       {
         key: "chat-general",
         title: "",
