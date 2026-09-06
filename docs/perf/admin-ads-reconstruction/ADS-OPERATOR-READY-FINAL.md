@@ -1,87 +1,58 @@
-# ADS / EXPOSURE REAL OPERATION RECONSTRUCTION — FINAL
+# ADS / EXPOSURE — PRODUCT GAP CLOSE + PRODUCTION FINAL
 
-**Date:** 2026-09-06  
-**Scope:** Ads / Exposure only (Finance/Support/System out of scope)  
-**Verdict:** `ADS OPERATOR READY = FAIL` · `HARD LOCK = NOT LOCKED`
+**Base reconstruction:** `ebd398339`  
+**This close:** PRODUCT GAP (paid extend + Delivery hide semantics) then Production bind + P1–P24  
 
-## CURRENT (this run)
+**Verdict (pre-Production bind):** code gaps below closed in this run; Production P1–P24 / SHA bind filled after push.
 
-### Implemented (CODE)
+## Prior INVALID conclusion
 
-| Area | Evidence |
-|---|---|
-| Route authority inventory | `docs/perf/admin-ads-reconstruction/ROUTE-AUTHORITY-INVENTORY.md` |
-| Product contract + legacy audit | `ADS-PRODUCT-CONTRACT.md`, `LEGACY-ADS-AUDIT.md` |
-| Shared presentation | `lib/admin/ads-operator/ads-operator-presentation.ts` |
-| Occupancy / vacancy (no new capacity DB) | `placement-occupancy.ts` → control plane + Placement Map |
-| Nav MERGE | Ads children; legacy → `promoted-items` only; community Ads entry → redirect path |
-| Legacy URL MERGE | `/admin/post-ads`, `/admin/ad-products`, `/admin/banners` redirect; community applications → `/admin/community/promotions` |
-| Feed operator list + filters | `AdminFeedAdsListPage` ops/test/history filters |
-| Feed pause/resume CTA→writer→eligibility | `pause-resume-feed-ad-campaign.ts` + PATCH + detail UI; paused ≠ feed eligible |
-| Popup single create CTA + queue language | `AdminPlatformPopupHubPage` |
-| Popup source limit (evidence: optimize→1440×1000) | `POPUP_CREATIVE_SOURCE_MAX_BYTES=8MB` (notif campaign 2MB unchanged) |
-| Placement Map operator surface | human labels + occupancy; Runtime:Y primary removed; tech under details |
-| HOME/CATEGORY boundary copy | organic/slot gate vs Ads ops banners |
-| Canonical lifecycle labels | `ads-canonical-lifecycle.ts` (Feed paused parity) |
-| Storage policy notes | `ads-creative-storage-policy.ts` |
-| Unit tests | `ads-operator-occupancy-lifecycle.test.ts` PASS; B7 menu + p1-3 PASS |
+「다음 단계는 Production P1–P24 재감사뿐」 = **INVALID**. Two PRODUCT GAPS were still open.
 
-### First divergence (blocks PASS)
+## PRODUCT GAP close (this run)
 
-1. **Production P1–P24 + visual QA = NOT_PROVEN** — this run did not execute authenticated Production Admin/Customer/renderer proof. Screenshots alone would not count; none were taken this run.
-2. **Paid extend money policy incomplete** — Feed renew exists; Delivery/Popup **PAID EXTENSION / COMPENSATION / FREE** operator UI with cost+payment+history not fully wired end-to-end for all products.
-3. **Delivery “숨김”** — still maps to pause/end language; no separate hide mutation (documented PRODUCT language, not a second writer).
-4. **Customer parity** — Feed pause/resume presentation aligned; Owner Delivery/Popup full 22-question parity across all surfaces not re-proven in Production.
+### 1. Paid / compensation extension
 
-### Owner A–V (honest)
+| Product | PAID | COMPENSATION | FREE silent | Notes |
+|---|---|---|---|---|
+| Delivery | Admin GET/POST `/api/admin/delivery-ads/[id]/extend` → quote → Cash debit → `end_at` → `delivery_ad_extension_snapshots` → audit `extended` | same route `ADMIN_FREE_COMPENSATION` + reason | **UNSUPPORTED** (no UI) | Schedule save lengthening `end_at` → `use_extension_flow` |
+| Feed | Member `renewFeedAdCampaign` Point spend↔period | Admin `extend_compensation` | **UNSUPPORTED** | pause ⇒ not renderer-eligible |
+| Popup | **UNSUPPORTED** (no extend CTA) | **UNSUPPORTED** | **UNSUPPORTED** | schedule/transition only |
+| Trade/Community Promote | **UNSUPPORTED** (new purchase) | **UNSUPPORTED** | — | — |
 
-| Key | Result |
-|---|---|
-| A Completion 22Q | FAIL — not Production-proven for one real ad |
-| B MERGE | PARTIAL CODE — redirects + nav; writers frozen only where redirected |
-| C Product≠Placement | CODE PASS (presentation) |
-| D Placement Map | CODE PASS (operator-first); PROD NOT_PROVEN |
-| E CTA chain | PARTIAL — Feed pause/resume/end + Delivery existing; extend money incomplete |
-| F Delete | CODE — hard delete not primary on reconstructed surfaces |
-| G Customer parity | PARTIAL CODE — Feed paused; full Admin↔Customer all products NOT_PROVEN |
-| H Popup upload | CODE PASS (8MB source + pipeline); PROD size evidence NOT_PROVEN |
-| I Creative replace | POLICY documented; orphan scan PROD NOT_PROVEN |
-| J Preview honesty | PARTIAL — map labeled thumbnail / 노출 예시 language |
-| K Ops defaults | CODE — Feed/Delivery history vs actionable |
-| L Error integrity | CODE — occupancy unavailable ≠ vacant 0 |
-| M Pre-approve safety | PARTIAL — collision/occupancy on CP; full approve gate PROD NOT_PROVEN |
-| N Extension money | FAIL / GAP |
-| O History | PARTIAL — domain audits exist; no fake timeline invented |
-| P Production proof | **NOT_PROVEN** |
-| Q Preserve canonical | PASS — no new Ads engine |
-| R Continuity | This report is FINAL STOP |
-| S Final re-audit | CODE search done this run; residual gaps listed above |
-| T Authority matrix | See below |
-| U Re-judge A–Z | FAIL on Production + extend money |
-| V Binary | **FAIL · NOT LOCKED** |
+### 2. Delivery hide semantics
 
-### Authority matrix (T)
+- Independent HIDDEN/SANCTIONED state: **not** in canonical SM → **UNSUPPORTED**
+- Fake 「숨김」 CTA / pause·end rename: **removed / not offered**
+- Operator verbs: **일시중지 / 재개 / 강제 종료 / 종료** only
+- Owner labels: `PAUSED_ADMIN` = 관리자 일시중지; `TERMINATED` = 강제 종료
 
-| PRODUCT | APPLICATION | PAYMENT | CREATIVE | PLACEMENT | SCHEDULE | EXECUTION | ELIGIBILITY | RENDERER | ADMIN MUTATION | CUSTOMER STATUS | HISTORY |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Delivery Cash | delivery applications | Cash | delivery creatives | delivery inventory | campaign window | store_*_ad_campaigns | delivery gates | stores discovery | delivery-ads actions | Owner delivery ads UI | delivery audit |
-| Feed Point banner | feed_ad_requests | Point HOLD/CAPTURE | feed creatives | feed placements | campaign window | feed_ad_campaigns | status=active+window | feed slot selector | feed-ad-requests PATCH (+pause/resume) | member feed presentation | request/campaign |
-| Platform Popup | owner requests | Cash | popup pipeline | popup surfaces | campaign window | platform_popup_campaigns | popup eligibility | popup renderer | popup actions/transition | Owner popup | popup audit |
-| Trade/Community Promote | point_promotion_orders | Point | N/A (post) | boost/pin | order window | promotion orders | promote eligibility | feed/community | promote order PATCH | member promote UI | order history |
+### 3. Customer parity
+
+- Owner history reads audit `before_json`/`after_json`; `extended` shows before→after end + amount/kind + reason
+- Shared lifecycle source (campaign row); no separate Admin status copy
+
+### 4. Collateral P0/P1 closed in same Ads boundary
+
+- Control plane collision/delivery/ending counts: `unavailable` ≠ `0`
+- Owner popup creative source max: `POPUP_CREATIVE_SOURCE_MAX_BYTES` (8MB) aligned with Admin
+- Feed ops default filter: excludes live `exposing` (not dumping ACTIVE into actionable)
+
+## Authority matrix
+
+| PRODUCT | APPLICATION | PAYMENT | CREATIVE | PLACEMENT | SCHEDULE | EXECUTION | ELIGIBILITY | RENDERER | ADMIN MUTATION | CUSTOMER STATUS SOURCE | HISTORY SOURCE | EXTENSION AUTHORITY | SANCTION AUTHORITY |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Delivery | delivery applications | Cash | delivery creatives | delivery inventory | campaign window | store_*_ad_campaigns | delivery gates | stores discovery | delivery-ads actions + `/extend` | Owner delivery ads | delivery_ad_audit_logs (+ extension_snapshots) | Admin extend PAID/COMP; schedule blocked | pause/terminate only — **no hide** |
+| Feed | feed_ad_requests | Point | feed creatives | feed placements | campaign window | feed_ad_campaigns | status=active+window | feed slot | feed-ad-requests PATCH | member feed presentation | request/campaign memo | Member renew PAID; Admin compensate | pause/end — **no hide** |
+| Popup | owner requests | Cash | popup pipeline 1440×1000 | popup surfaces | campaign window | platform_popup_campaigns | popup eligibility | popup renderer | popup transition | Owner popup | popup audit | **UNSUPPORTED** | pause/end — **no hide** |
+| Trade Promote | point_promotion_orders | Point | post | boost | order window | promotion orders | promote eligibility | trade feed | promote PATCH | member promote | order history | **UNSUPPORTED** | approve/reject |
+| Community Promote | point_promotion_orders | Point | post | pin | order window | promotion orders | promote eligibility | community feed | promote PATCH | member promote | order history | **UNSUPPORTED** | approve/reject |
 
 Chat paid advertising: **NOT SUPPORTED**.
 
-### Tests this run
+## Binary (code close)
 
-- `vitest` ads-operator occupancy/lifecycle + B7 menu + p1-3: **PASS**
-- Placement map hard lock verify: run separately in ship gate
+- duplicate writer / purchase / fake hide mapping / paid extend money bypass (Delivery+Feed paths): closed in code
+- Production bind + P1–P24: see ship section after push
 
-### Production P1–P24
-
-**ALL NOT_PROVEN** (no Production session this run).
-
----
-
-## STOP
-
-No auto next phase. Next required: Production authenticated P1–P24 + visual (desktop/1024/768) after `git push origin main` deploys, then re-judge A–V with PROD evidence. Extend-money CTA must close before claiming PASS.
+Do **not** claim `ADS SSOT = HARD LOCK` until Production SHA match + P1–P24 critical PASS.

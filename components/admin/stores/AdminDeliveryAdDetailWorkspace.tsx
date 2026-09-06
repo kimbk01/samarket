@@ -132,6 +132,17 @@ export function AdminDeliveryAdDetailWorkspace({
   const [opsExpanded, setOpsExpanded] = useState(false);
   const [perfExpanded, setPerfExpanded] = useState(false);
   const [decisionActionsExpanded, setDecisionActionsExpanded] = useState(false);
+  const [extendDays, setExtendDays] = useState(7);
+  const [extendKind, setExtendKind] = useState<"PAID" | "ADMIN_FREE_COMPENSATION">("PAID");
+  const [extendReason, setExtendReason] = useState("");
+  const [extendQuote, setExtendQuote] = useState<{
+    amountMinor: number;
+    currency: string;
+    previousEndAt: string;
+    newEndAt: string;
+    daysAdded: number;
+  } | null>(null);
+  const [extendBusy, setExtendBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -403,9 +414,17 @@ export function AdminDeliveryAdDetailWorkspace({
           reason: reason.trim() || null,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; error?: string };
+      const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
       if (!res.ok || !json.ok) {
-        setError(json.error || "update_failed");
+        if (json.error === "use_extension_flow") {
+          setError(
+            lang === "en"
+              ? "To extend the end date, use Period extension below (PAID or compensation)."
+              : "종료일 연장은 아래 「기간 연장」에서 유료/보상으로 처리하세요."
+          );
+        } else {
+          setError(json.error || "update_failed");
+        }
         return;
       }
       await load();
@@ -413,6 +432,83 @@ export function AdminDeliveryAdDetailWorkspace({
       setError("network_error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function previewExtendQuote() {
+    if (!campaign) return;
+    setExtendBusy(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams({
+        days: String(extendDays),
+        kind: extendKind,
+        previousEndAt: campaign.endAt,
+      });
+      const res = await fetch(
+        `/api/admin/delivery-ads/${encodeURIComponent(campaignId)}/extend?${qs}`,
+        { credentials: "include" }
+      );
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        quote?: {
+          amountMinor: number;
+          currency: string;
+          previousEndAt: string;
+          newEndAt: string;
+          daysAdded: number;
+        };
+      };
+      if (!res.ok || !json.ok || !json.quote) {
+        setExtendQuote(null);
+        setError(json.error || "quote_failed");
+        return;
+      }
+      setExtendQuote(json.quote);
+    } catch {
+      setError("network_error");
+    } finally {
+      setExtendBusy(false);
+    }
+  }
+
+  async function submitExtend() {
+    if (!campaign || extendBusy) return;
+    if (!extendReason.trim()) {
+      setError(lang === "en" ? "Extension reason is required." : "연장 사유를 입력하세요.");
+      return;
+    }
+    setExtendBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/delivery-ads/${encodeURIComponent(campaignId)}/extend`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productKind: campaign.productKind,
+            expectedUpdatedAt: campaign.updatedAt,
+            requestedDays: extendDays,
+            extensionKind: extendKind,
+            reason: extendReason.trim(),
+          }),
+        }
+      );
+      const json = (await res.json()) as { ok?: boolean; error?: string; detail?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error || json.detail || "extend_failed");
+        return;
+      }
+      setExtendReason("");
+      setExtendQuote(null);
+      await load();
+    } catch {
+      setError("network_error");
+    } finally {
+      setExtendBusy(false);
     }
   }
 
@@ -1321,6 +1417,106 @@ export function AdminDeliveryAdDetailWorkspace({
                     fallbackEn: "Save schedule",
                   })}
                 </button>
+                <p className="mt-2 text-[11px] text-sam-muted">
+                  {safeT("admin_delivery_ads_schedule_no_silent_extend", {
+                    fallbackKo:
+                      "종료일을 늘리려면 「일정 저장」이 아니라 아래 기간 연장(유료/보상)을 사용하세요. 숨김 CTA는 없습니다 — 일시중지·강제중단·종료만 지원합니다.",
+                    fallbackEn:
+                      "To lengthen end date, use Period extension (PAID/compensation) below — not Save schedule. No hide CTA — pause, terminate, and end only.",
+                  })}
+                </p>
+
+                <div
+                  className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3"
+                  data-admin-delivery-ads-extension="1"
+                >
+                  <p className="text-[13px] font-semibold text-sam-fg">
+                    {safeT("admin_delivery_ads_extension_title", {
+                      fallbackKo: "기간 연장",
+                      fallbackEn: "Period extension",
+                    })}
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-[12px]">
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        name="extendKind"
+                        checked={extendKind === "PAID"}
+                        onChange={() => setExtendKind("PAID")}
+                      />
+                      {lang === "en" ? "Paid" : "유료 연장"}
+                    </label>
+                    <label className="flex items-center gap-1">
+                      <input
+                        type="radio"
+                        name="extendKind"
+                        checked={extendKind === "ADMIN_FREE_COMPENSATION"}
+                        onChange={() => setExtendKind("ADMIN_FREE_COMPENSATION")}
+                      />
+                      {lang === "en" ? "Ops compensation" : "운영 보상 연장"}
+                    </label>
+                  </div>
+                  <label className="flex flex-col gap-1 text-[12px]">
+                    {lang === "en" ? "Days to add" : "추가 일수"}
+                    <input
+                      type="number"
+                      min={1}
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5"
+                      value={extendDays}
+                      onChange={(e) => setExtendDays(Number(e.target.value) || 1)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-[12px]">
+                    {lang === "en" ? "Reason (required)" : "사유 (필수)"}
+                    <input
+                      type="text"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5"
+                      value={extendReason}
+                      onChange={(e) => setExtendReason(e.target.value)}
+                    />
+                  </label>
+                  {extendQuote ? (
+                    <ul className="space-y-1 text-[12px] text-sam-fg" data-admin-delivery-ads-extension-quote="1">
+                      <li>
+                        {lang === "en" ? "Current end" : "현재 종료"}:{" "}
+                        {new Date(extendQuote.previousEndAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                      </li>
+                      <li>
+                        {lang === "en" ? "New end" : "변경 후 종료"}:{" "}
+                        {new Date(extendQuote.newEndAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                      </li>
+                      <li>
+                        {lang === "en" ? "Days" : "일수"}: {extendQuote.daysAdded}
+                      </li>
+                      <li>
+                        {lang === "en" ? "Amount" : "추가 비용"}:{" "}
+                        {extendKind === "ADMIN_FREE_COMPENSATION"
+                          ? lang === "en"
+                            ? "0 (compensation)"
+                            : "0 (보상)"
+                          : `${(extendQuote.amountMinor / 100).toFixed(2)} ${extendQuote.currency}`}
+                      </li>
+                    </ul>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={extendBusy}
+                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px]"
+                      onClick={() => void previewExtendQuote()}
+                    >
+                      {lang === "en" ? "Preview cost" : "비용 미리보기"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={extendBusy || !extendQuote}
+                      className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-50"
+                      onClick={() => void submitExtend()}
+                    >
+                      {lang === "en" ? "Apply extension" : "연장 실행"}
+                    </button>
+                  </div>
+                </div>
               </AdminCard>
             </div>
 

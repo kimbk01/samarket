@@ -687,6 +687,9 @@ export const adminMessages = {
     admin_feed_req_resume: "재개",
     admin_feed_req_pause_prompt: "일시중지 사유 (권장)",
     admin_feed_req_resume_confirm: "광고를 다시 노출할까요?",
+    admin_feed_req_extend_compensation: "보상 연장",
+    admin_feed_req_extend_days_prompt: "보상 연장 일수 (1–90)",
+    admin_feed_req_extend_reason_prompt: "보상 연장 사유 (필수)",
     admin_feed_req_end_confirm:
       "광고를 종료할까요? 피드에서 즉시 제외됩니다. 이미 확정된 Point는 자동 환불되지 않습니다.",
     admin_feed_req_table_missing: "feed_ad_requests 마이그레이션이 필요합니다.",
@@ -3488,6 +3491,9 @@ export const adminMessages = {
     admin_feed_req_resume: "Resume",
     admin_feed_req_pause_prompt: "Pause reason (recommended)",
     admin_feed_req_resume_confirm: "Resume this ad in the feed?",
+    admin_feed_req_extend_compensation: "Compensation extend",
+    admin_feed_req_extend_days_prompt: "Compensation days (1–90)",
+    admin_feed_req_extend_reason_prompt: "Compensation reason (required)",
     admin_feed_req_end_confirm:
       "End this ad? It leaves the feed immediately. Captured Points are not auto-refunded.",
     admin_feed_req_table_missing: "feed_ad_requests migration required.",

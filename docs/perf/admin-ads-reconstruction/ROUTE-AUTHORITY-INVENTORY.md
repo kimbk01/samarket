@@ -8,12 +8,12 @@ Scope: Ads / Exposure only
 
 | Product | Admin actions | API |
 |---|---|---|
-| Delivery | start_review, request_changes, approve, reject, pause→PAUSED_ADMIN, resume, end, terminate, archive | POST `/api/admin/delivery-ads/[id]/actions` |
-| Feed | approve, reject, end, pause, resume, creative update | PATCH `/api/admin/feed-ad-requests/[id]` |
+| Delivery | start_review, request_changes, approve, reject, pause→PAUSED_ADMIN, resume, end, terminate, archive; **extend** PAID/COMPENSATION via `/extend` | POST `/api/admin/delivery-ads/[id]/actions`; GET/POST `…/extend` |
+| Feed | approve, reject, end, pause, resume, extend_compensation, creative update | PATCH `/api/admin/feed-ad-requests/[id]` |
 | Popup | request approve/reject; campaign approve/paused/active/ended | platform-popup-*-actions/transition |
 | Promote | approve, reject | trade/community-promotion-orders PATCH |
 
-Delivery has **no separate hide verb** — operator “숨김” maps to pause/end policy (document as product language over pause).
+Delivery has **no hide verb** and **no fake 「숨김」 CTA**. Pause ≠ hide. Lengthening `end_at` via schedule save is blocked (`use_extension_flow`).
 
 ## Inventory
 

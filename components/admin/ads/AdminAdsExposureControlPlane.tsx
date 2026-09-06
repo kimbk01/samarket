@@ -304,7 +304,9 @@ export function AdminAdsExposureControlPlane() {
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
             {ko ? "신청 검토" : "Application review"}
-            <span className="mt-1 block tabular-nums text-sam-muted">{q.delivery.count ?? 0}</span>
+            <span className="mt-1 block tabular-nums text-sam-muted">
+              {q.delivery.unavailable ? (ko ? "확인 불가" : "Unavailable") : (q.delivery.count ?? "—")}
+            </span>
           </Link>
           <a
             href="#collision"
@@ -312,7 +314,13 @@ export function AdminAdsExposureControlPlane() {
             data-admin-ads-queue="collision_blocking"
           >
             {ko ? "노출 충돌" : "Exposure collision"}
-            <span className="mt-1 block tabular-nums">{q.collisionBlocking.count ?? 0}</span>
+            <span className="mt-1 block tabular-nums">
+              {q.collisionBlocking.unavailable
+                ? ko
+                  ? "확인 불가"
+                  : "Unavailable"
+                : (q.collisionBlocking.count ?? "—")}
+            </span>
           </a>
           <a
             href="#collision"
@@ -320,7 +328,13 @@ export function AdminAdsExposureControlPlane() {
             data-admin-ads-queue="collision_warning"
           >
             {ko ? "중복 확인 필요" : "Duplication review"}
-            <span className="mt-1 block tabular-nums">{q.collisionWarning.count ?? 0}</span>
+            <span className="mt-1 block tabular-nums">
+              {q.collisionWarning.unavailable
+                ? ko
+                  ? "확인 불가"
+                  : "Unavailable"
+                : (q.collisionWarning.count ?? "—")}
+            </span>
           </a>
           <Link
             href={q.endingSoon.href}
@@ -328,7 +342,13 @@ export function AdminAdsExposureControlPlane() {
             data-admin-ads-queue="ending_soon"
           >
             {ko ? "종료 예정" : "Ending soon"}
-            <span className="mt-1 block tabular-nums text-sam-muted">{q.endingSoon.count ?? 0}</span>
+            <span className="mt-1 block tabular-nums text-sam-muted">
+              {q.endingSoon.unavailable
+                ? ko
+                  ? "확인 불가"
+                  : "Unavailable"
+                : (q.endingSoon.count ?? "—")}
+            </span>
           </Link>
           <Link
             href={q.vacantSlots?.href ?? "#occupancy"}

@@ -22,7 +22,8 @@ export function adsOperatorExposureLabel(state: AdsOperatorExposureState, ko: bo
     case "paused":
       return ko ? "일시중지" : "Paused";
     case "hidden":
-      return ko ? "숨김" : "Hidden";
+      // No product HIDDEN state for Delivery/Feed — do not present as operator verb.
+      return ko ? "노출 불가" : "Not eligible";
     case "ineligible":
       return ko ? "노출 불가" : "Not eligible";
     case "ended":

@@ -74,7 +74,13 @@ export function AdminFeedAdsListPage() {
       if (filter === "test") return test;
       if (filter === "all") return !test || filter === "all";
       if (filter === "actionable") {
-        return !test && (exposure === "not_yet" || c.status === "active" || exposure === "scheduled");
+        // Ops default: needs attention — not live exposing, not ended dump.
+        return (
+          !test &&
+          exposure !== "exposing" &&
+          exposure !== "ended" &&
+          c.status !== "ended"
+        );
       }
       if (filter === "live") return !test && exposure === "exposing";
       if (filter === "scheduled") return !test && exposure === "scheduled";

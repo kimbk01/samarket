@@ -145,7 +145,9 @@ export function AdminFeedAdRequestDetail({
     });
   }, [data]);
 
-  const act = async (action: "approve" | "reject" | "end" | "pause" | "resume") => {
+  const act = async (
+    action: "approve" | "reject" | "end" | "pause" | "resume" | "extend_compensation"
+  ) => {
     let reason = "";
     if (action === "reject") {
       reason =
@@ -191,6 +193,33 @@ export function AdminFeedAdRequestDetail({
       if (!ok) return;
       reason = "admin_resumed";
     }
+    let requestedDays: number | undefined;
+    if (action === "extend_compensation") {
+      const daysRaw =
+        (
+          await dibayPrompt({
+            title: safeT("admin_feed_req_extend_days_prompt", {
+              fallbackKo: "보상 연장 일수 (1–90)",
+              fallbackEn: "Compensation days (1–90)",
+            }),
+            required: true,
+          })
+        )?.trim() ?? "";
+      const days = Number(daysRaw);
+      if (!Number.isInteger(days) || days < 1 || days > 90) return;
+      requestedDays = days;
+      reason =
+        (
+          await dibayPrompt({
+            title: safeT("admin_feed_req_extend_reason_prompt", {
+              fallbackKo: "보상 연장 사유 (필수)",
+              fallbackEn: "Compensation reason (required)",
+            }),
+            required: true,
+          })
+        )?.trim() ?? "";
+      if (!reason) return;
+    }
     setBusy(true);
     setErr("");
     try {
@@ -201,6 +230,7 @@ export function AdminFeedAdRequestDetail({
           action,
           reason: reason || undefined,
           campaignId: data?.campaign?.id ?? data?.request.campaignId ?? undefined,
+          requestedDays,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -341,6 +371,20 @@ export function AdminFeedAdRequestDetail({
           onClick={() => void act("resume")}
         >
           {safeT("admin_feed_req_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
+        </button>
+      ) : null}
+      {canEnd && !pending ? (
+        <button
+          type="button"
+          data-testid="admin-feed-req-detail-extend-compensation"
+          disabled={busy}
+          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          onClick={() => void act("extend_compensation")}
+        >
+          {safeT("admin_feed_req_extend_compensation", {
+            fallbackKo: "보상 연장",
+            fallbackEn: "Compensation extend",
+          })}
         </button>
       ) : null}
       {canEnd && !pending ? (

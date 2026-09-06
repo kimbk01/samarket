@@ -8,7 +8,10 @@ import { loadPlatformPopupOwnerRequest } from "@/lib/platform-popup/owner-reques
 import { isOwnerEditablePlatformPopupRequest } from "@/lib/platform-popup/owner-request-lifecycle";
 import { updatePlatformPopupOwnerDraft } from "@/lib/platform-popup/owner-request-writer";
 import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
-import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
+import {
+  DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
+  POPUP_CREATIVE_SOURCE_MAX_BYTES,
+} from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -51,7 +54,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
 
-  const validated = validateCampaignImageFile(file);
+  const validated = validateCampaignImageFile(file, {
+    maxBytes: POPUP_CREATIVE_SOURCE_MAX_BYTES,
+  });
   if (!validated.ok) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
   }

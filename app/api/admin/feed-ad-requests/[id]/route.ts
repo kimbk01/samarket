@@ -12,6 +12,7 @@ import {
   pauseFeedAdCampaign,
   resumeFeedAdCampaign,
 } from "@/lib/ads/pause-resume-feed-ad-campaign";
+import { adminCompensateExtendFeedAdCampaign } from "@/lib/ads/admin-compensate-extend-feed-ad-campaign";
 import { projectFeedAdOpsTimeline } from "@/lib/ads/feed-ad-ops-presentation";
 import {
   isFeedAdCampaignEligibleNow,
@@ -271,6 +272,7 @@ export async function PATCH(
     imageUrl?: string;
     altText?: string;
     headline?: string;
+    requestedDays?: number;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -410,6 +412,26 @@ export async function PATCH(
       status: result.status,
       campaignId: result.campaignId,
       requestId: result.requestId,
+    });
+  }
+
+  if (action === "extend_compensation") {
+    const result = await adminCompensateExtendFeedAdCampaign(sb, {
+      adminUserId: admin.userId,
+      requestId,
+      campaignId: body.campaignId != null ? String(body.campaignId) : null,
+      requestedDays: Number(body.requestedDays ?? 0),
+      reason: body.reason != null ? String(body.reason) : "",
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.httpStatus }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      extension: result,
     });
   }
 

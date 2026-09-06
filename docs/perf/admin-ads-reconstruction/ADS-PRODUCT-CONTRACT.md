@@ -39,17 +39,22 @@ ACTIVE ≠ actual exposure. Payment ≠ approval. Approval ≠ schedule.
 |---|---|---|---|---|
 | APPROVE | Y | Y | Y | Y |
 | REQUEST_CHANGE | Y | via update pending | — | — |
-| HOLD | pause | — | paused | — |
+| HOLD | pause (`PAUSED_ADMIN`) | pause (`paused`) | paused | — |
 | REJECT | Y | Y | Y | Y |
 | SCHEDULE | Y | via dates | Y | product duration |
-| PAUSE | Y | PRODUCT GAP | Y | — |
-| RESUME | Y | PRODUCT GAP | Y | — |
-| HIDE | maps to pause/end | PRODUCT GAP | paused | — |
+| PAUSE | Y | Y (not renderer-eligible) | Y | — |
+| RESUME | Y | Y | Y | — |
+| HIDE / SANCTION | **UNSUPPORTED** — no fake pause/end label | **UNSUPPORTED** | **UNSUPPORTED** | — |
 | END | Y | Y | Y | — |
-| EXTEND | PRODUCT GAP (implement if safe) | PRODUCT GAP | PRODUCT GAP | — |
+| FORCE TERMINATE | Y (`TERMINATED`) | end | end | — |
+| EXTEND PAID | Admin `/extend` + Cash + snapshot + audit | Member `renewFeedAdCampaign` Point only | **UNSUPPORTED** | **UNSUPPORTED** |
+| EXTEND COMPENSATION | Admin `/extend` + reason + snapshot + audit | Admin `extend_compensation` | **UNSUPPORTED** | **UNSUPPORTED** |
+| EXTEND FREE SILENT | **UNSUPPORTED** | **UNSUPPORTED** | **UNSUPPORTED** | — |
 | EDIT creative | Y | Y | Y | — |
 | REFUND | finance link | point reverse if exists | finance | — |
 | HARD_DELETE | draft only | no | no | no |
+
+**Delivery hide:** No 「숨김」 CTA. Verbs: 일시중지 / 재개 / 강제 종료 / 종료 only.
 
 ## HOME / CATEGORY boundary
 

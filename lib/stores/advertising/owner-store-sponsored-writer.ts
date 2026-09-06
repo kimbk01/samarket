@@ -795,11 +795,20 @@ export async function deleteOwnerSponsoredDraft(
   return { ok: true };
 }
 
+export type OwnerCampaignAuditHistoryItem = {
+  action: string;
+  reason: string | null;
+  createdAt: string;
+  actorType: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+};
+
 export async function listOwnerCampaignAudits(
   sb: SupabaseClient,
   campaignId: string,
   ownerUserId: string
-): Promise<Array<{ action: string; reason: string | null; createdAt: string }>> {
+): Promise<OwnerCampaignAuditHistoryItem[]> {
   const sponsored = await loadOwnerSponsoredCampaign(sb, campaignId, ownerUserId);
   let productKind: "store_sponsored" | "banner" | null = null;
   if (sponsored.ok) {
@@ -820,14 +829,30 @@ export async function listOwnerCampaignAudits(
   if (!productKind) return [];
   const { data } = await sb
     .from(DELIVERY_AD_AUDIT_LOG_TABLE)
-    .select("action, reason, created_at, actor_type")
+    .select("action, reason, created_at, actor_type, before_json, after_json")
     .eq("campaign_id", campaignId)
     .eq("product_kind", productKind)
     .order("created_at", { ascending: false })
     .limit(50);
-  return (data ?? []).map((r) => ({
-    action: String((r as { action: string }).action),
-    reason: (r as { reason?: string | null }).reason ?? null,
-    createdAt: String((r as { created_at: string }).created_at),
-  }));
+  return (data ?? []).map((r) => {
+    const beforeRaw = (r as { before_json?: unknown }).before_json;
+    const afterRaw = (r as { after_json?: unknown }).after_json;
+    return {
+      action: String((r as { action: string }).action),
+      reason: (r as { reason?: string | null }).reason ?? null,
+      createdAt: String((r as { created_at: string }).created_at),
+      actorType:
+        (r as { actor_type?: string | null }).actor_type != null
+          ? String((r as { actor_type: string }).actor_type)
+          : null,
+      before:
+        beforeRaw && typeof beforeRaw === "object" && !Array.isArray(beforeRaw)
+          ? (beforeRaw as Record<string, unknown>)
+          : null,
+      after:
+        afterRaw && typeof afterRaw === "object" && !Array.isArray(afterRaw)
+          ? (afterRaw as Record<string, unknown>)
+          : null,
+    };
+  });
 }

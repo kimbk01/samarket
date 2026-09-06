@@ -56,7 +56,14 @@ import { DELIVERY_AD_OWNER_PRIMARY_BTN_CLASS } from "@/lib/stores/advertising/de
 const OWNER_DETAIL_SECONDARY_BTN_CLASS =
   "inline-flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-[#BDBDBD] bg-white px-4 text-[14px] font-semibold text-sam-fg";
 
-type HistoryItem = { action: string; reason: string | null; createdAt: string };
+type HistoryItem = {
+  action: string;
+  reason: string | null;
+  createdAt: string;
+  actorType?: string | null;
+  before?: Record<string, unknown> | null;
+  after?: Record<string, unknown> | null;
+};
 
 type CommercialSnapshotSoft = {
   packageDisplayName?: string | null;
@@ -715,13 +722,53 @@ export function OwnerDeliveryAdDetailView({ campaignId }: { campaignId: string }
         <div data-owner-ads-detail-section="history">
           <OwnerStoreAdminDashSection title={t("owner_ads_history")}>
             <ul className="space-y-2 text-[12px] text-sam-muted">
-              {history.map((h, i) => (
-                <li key={`${h.createdAt}-${i}`}>
-                  <span className="font-medium text-sam-fg">{h.action}</span>
-                  {" · "}
-                  {h.createdAt.slice(0, 19).replace("T", " ")}
-                </li>
-              ))}
+              {history.map((h, i) => {
+                const afterEnd =
+                  h.after && typeof h.after.end_at === "string" ? String(h.after.end_at) : null;
+                const beforeEnd =
+                  h.before && typeof h.before.end_at === "string" ? String(h.before.end_at) : null;
+                const amountMinor =
+                  h.after && typeof h.after.amount_minor === "number"
+                    ? Number(h.after.amount_minor)
+                    : null;
+                const currency =
+                  h.after && typeof h.after.currency === "string"
+                    ? String(h.after.currency)
+                    : null;
+                const extensionKind =
+                  h.after && typeof h.after.extension_kind === "string"
+                    ? String(h.after.extension_kind)
+                    : null;
+                return (
+                  <li key={`${h.createdAt}-${i}`} data-owner-ads-history-action={h.action}>
+                    <span className="font-medium text-sam-fg">{h.action}</span>
+                    {h.actorType ? ` · ${h.actorType}` : ""}
+                    {" · "}
+                    {h.createdAt.slice(0, 19).replace("T", " ")}
+                    {h.reason ? (
+                      <div className="mt-0.5 text-sam-fg">
+                        {safeT("owner_ads_history_reason", {
+                          fallbackKo: "사유",
+                          fallbackEn: "Reason",
+                        })}
+                        : {h.reason}
+                      </div>
+                    ) : null}
+                    {h.action === "extended" && (beforeEnd || afterEnd) ? (
+                      <div className="mt-0.5 text-sam-fg">
+                        {beforeEnd
+                          ? `${beforeEnd.slice(0, 19).replace("T", " ")} → `
+                          : ""}
+                        {afterEnd ? afterEnd.slice(0, 19).replace("T", " ") : "—"}
+                        {extensionKind ? ` · ${extensionKind}` : ""}
+                        {amountMinor != null && currency
+                          ? ` · ${(amountMinor / 100).toFixed(2)} ${currency}`
+                          : ""}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           </OwnerStoreAdminDashSection>
         </div>

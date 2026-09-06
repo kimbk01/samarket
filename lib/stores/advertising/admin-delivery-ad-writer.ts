@@ -66,6 +66,7 @@ export type AdminDeliveryAdWriterError =
   | "creative_not_ready"
   | "destination_not_ready"
   | "funding_required"
+  | "use_extension_flow"
   | "db_error"
   | "rpc_failed";
 
@@ -363,6 +364,28 @@ export async function adminUpdateDeliveryAdSchedule(
     return { ok: false, error: "stale_updated_at" };
   }
 
+  const prevEndMs = row.end_at ? Date.parse(String(row.end_at)) : NaN;
+  const nextEndMs = Date.parse(schedule.endAt);
+  const life = String(row.lifecycle_status ?? "");
+  const extendableLife =
+    life === "ACTIVE" ||
+    life === "SCHEDULED" ||
+    life === "PAUSED_OWNER" ||
+    life === "PAUSED_ADMIN" ||
+    life === "APPROVED";
+  if (
+    extendableLife &&
+    Number.isFinite(prevEndMs) &&
+    Number.isFinite(nextEndMs) &&
+    nextEndMs > prevEndMs
+  ) {
+    return {
+      ok: false,
+      error: "use_extension_flow",
+      detail:
+        "Extending end_at requires Admin extension (PAID or compensation) — not schedule save.",
+    };
+  }
   const { error: updErr } = await sb
     .from(table)
     .update({
