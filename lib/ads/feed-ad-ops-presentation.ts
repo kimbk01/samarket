@@ -15,6 +15,7 @@ export type FeedAdOpsProductStatus =
   | "pending_review"
   | "scheduled"
   | "active"
+  | "paused"
   | "rejected"
   | "cancelled"
   | "ended";
@@ -25,6 +26,7 @@ const LABELS: Record<FeedAdOpsProductStatus, { ko: string; en: string }> = {
   pending_review: { ko: "심사중", en: "In review" },
   scheduled: { ko: "광고 예정", en: "Scheduled" },
   active: { ko: "광고중", en: "Running" },
+  paused: { ko: "일시중지", en: "Paused" },
   rejected: { ko: "반려", en: "Rejected" },
   cancelled: { ko: "취소", en: "Cancelled" },
   ended: { ko: "종료", en: "Ended" },
@@ -37,6 +39,7 @@ export function feedAdOpsProductStatusFromDisplay(
   if (s === "pending_review" || s === "pending" || s === "held") return "pending_review";
   if (s === "scheduled") return "scheduled";
   if (s === "active" || s === "approved" || s === "captured") return "active";
+  if (s === "paused") return "paused";
   if (s === "rejected") return "rejected";
   if (s === "cancelled") return "cancelled";
   if (s === "ended" || s === "expired") return "ended";

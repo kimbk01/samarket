@@ -61,7 +61,8 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "finance-store-currency": "admin_menu_store_finance",
   "ads-delivery-ops": "admin_menu_ads_delivery",
   "ads-placement-map": "admin_menu_placement_map",
-  "ads-trade-promote": "admin_menu_ads_applications",
+  "ads-trade-promote": "admin_menu_ads_promote_group",
+  "ads-community-promote": "admin_menu_ads_community_promote",
   "support-legacy": "admin_menu_store_inquiries",
   "system-members": "admin_menu_members",
 
@@ -790,8 +791,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── ADS (광고/노출) ────────────────────────────
-  // B7: B5 Control Plane root → applications → specialists → placement/popup → legacy last.
+  // ── ADS (광고/노출) — operator IA (reconstruction) ──
+  // 관제 → 신청 → 집행/형태 → 지면 → 상품 → 이력(read-only only)
   {
     key: "ads",
     title: "",
@@ -819,15 +820,15 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/ad-applications?domain=trade",
             status: "done",
           },
+          {
+            key: "ads-community-promote",
+            title: "",
+            path: "/admin/ad-applications?domain=community",
+            status: "done",
+          },
         ],
       },
-      {
-        key: "ads-placement-map",
-        title: "",
-        path: "/admin/delivery-ads/inventory#placement-map",
-        matchPaths: ["/admin/delivery-ads/inventory"],
-        status: "done",
-      },
+      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
       {
         key: "ads-platform-popup",
         title: "",
@@ -839,7 +840,13 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           "/admin/platform-popup/requests/",
         ],
       },
-      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+      {
+        key: "ads-placement-map",
+        title: "",
+        path: "/admin/delivery-ads/inventory#placement-map",
+        matchPaths: ["/admin/delivery-ads/inventory"],
+        status: "done",
+      },
       {
         key: "ads-feed-products",
         title: "",
@@ -863,18 +870,6 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             path: "/admin/promoted-items",
             status: "partial",
           },
-          { key: "ads-products", title: "", path: "/admin/ad-products", status: "partial" },
-          { key: "ads-post-ads", title: "", path: "/admin/post-ads", status: "partial" },
-          { key: "ads-benefits", title: "", path: "/admin/member-benefits", status: "done" },
-          { key: "ads-policy", title: "", path: "/admin/exposure-policies", status: "partial" },
-          { key: "ads-home-feed", title: "", path: "/admin/home-feed", status: "partial" },
-          {
-            key: "ads-recommendation",
-            title: "",
-            path: "/admin/personalized-feed",
-            status: "partial",
-          },
-          { key: "ads-banners", title: "", path: "/admin/banners", status: "partial" },
         ],
       },
     ],

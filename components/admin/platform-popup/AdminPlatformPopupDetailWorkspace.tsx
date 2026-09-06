@@ -32,13 +32,13 @@ import {
 import {
   DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
   PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS,
+  POPUP_CREATIVE_SOURCE_MAX_BYTES,
 } from "@/lib/platform-popup/creative-pixel-ssot";
 import {
   buildPlatformPopupCenterCropPreviewUrl,
   readPlatformPopupImageMeta,
   type PlatformPopupClientImageMeta,
 } from "@/lib/platform-popup/client-creative-crop-preview";
-import { CAMPAIGN_IMAGE_MAX_BYTES } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 
 function toLocalInput(iso: string | null): string {
   if (!iso) return "";
@@ -282,8 +282,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     });
     setPreviewOverrideUrl(null);
 
-    if (file.size > CAMPAIGN_IMAGE_MAX_BYTES) {
-      setError("이미지 용량이 너무 큽니다. 2MB 이하로 올려 주세요.");
+    if (file.size > POPUP_CREATIVE_SOURCE_MAX_BYTES) {
+      const maxMb = Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024));
+      setError(
+        `이미지 용량이 너무 큽니다. 원본은 ${maxMb}MB 이하로 올려 주세요. (서버에서 1440×1000 WebP로 최적화됩니다)`
+      );
       setFileMeta(null);
       return;
     }
@@ -400,8 +403,8 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               </p>
               <p className="text-xs text-sam-muted">
                 {safeT("admin_platform_popup_creative_spec_formats", {
-                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 최대 2MB`,
-                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · max 2MB`,
+                  fallbackKo: `지원 형식  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · 원본 최대 ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB (최적화 후 저장)`,
+                  fallbackEn: `Formats  ${PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS.join(" / ")} · source max ${Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024))}MB (optimized on upload)`,
                 })}
               </p>
             </div>

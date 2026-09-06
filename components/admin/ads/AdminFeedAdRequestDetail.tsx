@@ -145,7 +145,7 @@ export function AdminFeedAdRequestDetail({
     });
   }, [data]);
 
-  const act = async (action: "approve" | "reject" | "end") => {
+  const act = async (action: "approve" | "reject" | "end" | "pause" | "resume") => {
     let reason = "";
     if (action === "reject") {
       reason =
@@ -169,6 +169,27 @@ export function AdminFeedAdRequestDetail({
         }), confirmTone: "destructive" });
       if (!ok) return;
       reason = "admin_ended";
+    }
+    if (action === "pause") {
+      reason =
+        (
+          await dibayPrompt({
+            title: safeT("admin_feed_req_pause_prompt", {
+              fallbackKo: "일시중지 사유 (권장)",
+              fallbackEn: "Pause reason (recommended)",
+            }),
+          })
+        )?.trim() ?? "admin_paused";
+    }
+    if (action === "resume") {
+      const ok = await dibayConfirm({
+        title: safeT("admin_feed_req_resume_confirm", {
+          fallbackKo: "광고를 다시 노출할까요?",
+          fallbackEn: "Resume this ad in the feed?",
+        }),
+      });
+      if (!ok) return;
+      reason = "admin_resumed";
     }
     setBusy(true);
     setErr("");
@@ -246,11 +267,15 @@ export function AdminFeedAdRequestDetail({
 
   const r = data.request;
   const pending = r.status === "pending_review";
+  const campStatus = String(data.campaign?.status ?? "").toLowerCase();
   const canEnd =
     productStatus === "active" ||
     productStatus === "scheduled" ||
-    String(data.campaign?.status ?? "").toLowerCase() === "active" ||
-    String(data.campaign?.status ?? "").toLowerCase() === "scheduled";
+    campStatus === "active" ||
+    campStatus === "scheduled" ||
+    campStatus === "paused";
+  const canPause = campStatus === "active" || campStatus === "scheduled";
+  const canResume = campStatus === "paused";
   const primary = data.creatives[0];
   const dest = destinationSummary(r, en);
   const statusLabel = feedAdOpsStatusLabel(productStatus, en ? "en" : "ko");
@@ -295,6 +320,28 @@ export function AdminFeedAdRequestDetail({
             {safeT("admin_feed_req_reject", { fallbackKo: "반려", fallbackEn: "Reject" })}
           </button>
         </>
+      ) : null}
+      {canPause ? (
+        <button
+          type="button"
+          data-testid="admin-feed-req-detail-pause"
+          disabled={busy}
+          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          onClick={() => void act("pause")}
+        >
+          {safeT("admin_feed_req_pause", { fallbackKo: "일시중지", fallbackEn: "Pause" })}
+        </button>
+      ) : null}
+      {canResume ? (
+        <button
+          type="button"
+          data-testid="admin-feed-req-detail-resume"
+          disabled={busy}
+          className="rounded-ui-rect border border-sam-border px-4 py-2 disabled:opacity-50"
+          onClick={() => void act("resume")}
+        >
+          {safeT("admin_feed_req_resume", { fallbackKo: "재개", fallbackEn: "Resume" })}
+        </button>
       ) : null}
       {canEnd && !pending ? (
         <button

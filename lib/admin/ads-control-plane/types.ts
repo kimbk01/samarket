@@ -90,9 +90,24 @@ export type AdsControlPlaneModel = {
     collisionBlocking: { count: number | null; unavailable: boolean; href: string; source: string };
     collisionWarning: { count: number | null; unavailable: boolean; href: string; source: string };
     endingSoon: { count: number | null; unavailable: boolean; href: string; source: string };
+    vacantSlots: { count: number | null; unavailable: boolean; href: string; source: string };
   };
   currentExecution: AdsExecutionRow[];
   collisions: AdsCollisionCard[];
+  occupancy: Array<{
+    placementKey: string;
+    displayNameKo: string;
+    displayNameEn: string;
+    capacity: number;
+    liveCount: number;
+    reservedCount: number;
+    vacant: number;
+    nextVacancyAt: string | null;
+    vacancyLabelKo: string;
+    vacancyLabelEn: string;
+    href: string;
+    loadState: "ok" | "unavailable";
+  }>;
   applications: AdsActionItem[];
   creatives: AdsActionItem[];
   placements: Array<{

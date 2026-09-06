@@ -1299,6 +1299,17 @@ export function AdminStoresCategoryPolicyPage() {
           </div>
         </div>
 
+        <p
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950"
+          data-admin-category-ads-boundary="1"
+        >
+          {label(
+            ko,
+            "카테고리 정책의광고 탭은 슬롯 밀도·허용(게이트)만 다룹니다. 유료 광고 신청·집행·일시중지는 「광고 운영」에서 하세요.",
+            "Category policy Ad tabs control slot density/allowance only. Paid apply/execution/pause lives in Ads ops."
+          )}
+        </p>
+
         {saveMsg ? <p className="rounded-ui-rect bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-800">{saveMsg}</p> : null}
         {saveErr ? (
           <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-700">

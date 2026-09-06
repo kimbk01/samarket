@@ -8,6 +8,10 @@ import {
 import { listEligibleFeedAdCampaigns } from "@/lib/ads/feed-ad-campaigns-db";
 import { normalizeFeedAdDestination } from "@/lib/ads/feed-ad-destination";
 import { endFeedAdCampaign } from "@/lib/ads/end-feed-ad-campaign";
+import {
+  pauseFeedAdCampaign,
+  resumeFeedAdCampaign,
+} from "@/lib/ads/pause-resume-feed-ad-campaign";
 import { projectFeedAdOpsTimeline } from "@/lib/ads/feed-ad-ops-presentation";
 import {
   isFeedAdCampaignEligibleNow,
@@ -236,10 +240,11 @@ export async function GET(
 /**
  * PATCH /api/admin/feed-ad-requests/[id]
  * actions:
- *   approve | reject | end — PHASE 1 / ops writers
+ *   approve | reject | end | pause | resume — PHASE 1 / ops writers
  *   update — pending only: destination / durationDays (same request)
  *   replace_creative — same request creatives OR same campaign creatives
  *   end — no auto refund (ADMIN_END_REFUND_POLICY_REQUIRED)
+ *   pause/resume — campaign status only; no Point change
  */
 export async function PATCH(
   req: NextRequest,
@@ -363,6 +368,48 @@ export async function PATCH(
       requestId: result.requestId,
       refund: false,
       refundPolicy: "ADMIN_END_REFUND_POLICY_REQUIRED",
+    });
+  }
+
+  if (action === "pause") {
+    const result = await pauseFeedAdCampaign(sb, {
+      adminUserId: admin.userId,
+      requestId,
+      campaignId: body.campaignId != null ? String(body.campaignId) : null,
+      reason: body.reason != null ? String(body.reason) : "admin_paused",
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.httpStatus }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      status: result.status,
+      campaignId: result.campaignId,
+      requestId: result.requestId,
+    });
+  }
+
+  if (action === "resume") {
+    const result = await resumeFeedAdCampaign(sb, {
+      adminUserId: admin.userId,
+      requestId,
+      campaignId: body.campaignId != null ? String(body.campaignId) : null,
+      reason: body.reason != null ? String(body.reason) : "admin_resumed",
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error },
+        { status: result.httpStatus }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      status: result.status,
+      campaignId: result.campaignId,
+      requestId: result.requestId,
     });
   }
 

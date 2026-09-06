@@ -831,6 +831,15 @@ export function AdminStoresHomeShelvesPage() {
           </div>
         </div>
 
+        <p
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950"
+          data-admin-home-ads-boundary="1"
+        >
+          {ko
+            ? "이 화면은 유기(organic) 홈 구성·슬롯 허용만 관리합니다. 유료 광고 승인·일시중지·종료는 「광고 운영」에서 처리하세요. 광고 집행 상태를 여기서 바꾸지 않습니다."
+            : "This screen manages organic HOME composition and slot allowance only. Approve / pause / end paid ads in Ads ops. Do not mutate paid execution here."}
+        </p>
+
         {toast ? <p className="text-[13px] text-emerald-700">{toast}</p> : null}
         {saveErr ? (
           <p className="text-[13px] text-red-700">

@@ -18,6 +18,7 @@ export type FeedAdMemberDisplayStatus =
   | "pending_review"
   | "scheduled"
   | "active"
+  | "paused"
   | "rejected"
   | "ended"
   | "cancelled";
@@ -116,6 +117,19 @@ export function projectFeedAdMemberPresentation(input: {
       displayStatus: "ended",
       eligible: false,
       remainingMs: 0,
+      startAt,
+      endAt,
+    };
+  }
+  if (cs === "paused") {
+    const rem =
+      endAt && Number.isFinite(Date.parse(endAt))
+        ? Math.max(0, Date.parse(endAt) - nowMs)
+        : null;
+    return {
+      displayStatus: "paused",
+      eligible: false,
+      remainingMs: rem,
       startAt,
       endAt,
     };

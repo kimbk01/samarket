@@ -25,3 +25,10 @@ export function dibayCanonicalPopupCreativeAspectRatio(): number {
 }
 
 export const PLATFORM_POPUP_CREATIVE_ALLOWED_MIME_LABELS = ["JPG", "PNG", "WEBP"] as const;
+
+/**
+ * Source upload ceiling for popup (before sharp → 1440×1000 WebP).
+ * Evidence: pipeline always re-encodes; 2MB was arbitrary for source.
+ * Keep below common mobile decode risk; output is canonical WebP.
+ */
+export const POPUP_CREATIVE_SOURCE_MAX_BYTES = 8 * 1024 * 1024;

@@ -169,15 +169,25 @@ export function AdminPlatformPopupHubPage() {
           fallbackEn: "Popup Ad Operations",
         })}
         description={safeT("admin_platform_popup_hub_desc", {
-          fallbackKo: "신청 심사 · 캠페인 운영 · 직접 등록",
-          fallbackEn: "Request review · campaign ops · direct create",
+          fallbackKo: "오너 신청 검토 · 집행 관리 · 직접 등록. 신청≠집행.",
+          fallbackEn: "Owner request review · execution · direct create. Request ≠ execution.",
         })}
       />
 
       <AdminCard>
         <div className="space-y-3">
-          <div data-admin-popup-primary-create="1">{createCtaButton()}</div>
-          <p className="text-xs text-sam-muted">{emptyContractLine}</p>
+          <div data-admin-popup-primary-create="1" className="flex flex-wrap items-center gap-3">
+            {createCtaButton({ fullWidth: false })}
+            <p className="text-xs text-sam-muted">{emptyContractLine}</p>
+          </div>
+          <p className="text-xs text-sam-muted">
+            {safeT("admin_platform_popup_upload_hint", {
+              fallbackKo:
+                "원본 JPG/PNG/WebP · 권장 1440×1000(36:25) · 서버에서 자동 최적화. 과도한 원본은 최적화 후 저장됩니다.",
+              fallbackEn:
+                "Source JPG/PNG/WebP · recommended 1440×1000 (36:25) · server auto-optimizes before store.",
+            })}
+          </p>
           <div className="flex flex-wrap items-center gap-2 border-t border-sam-border pt-3">
             <button
               type="button"
@@ -188,8 +198,8 @@ export function AdminPlatformPopupHubPage() {
               onClick={() => setHubTab("requests")}
             >
               {safeT("admin_platform_popup_tab_requests", {
-                fallbackKo: "신청",
-                fallbackEn: "Requests",
+                fallbackKo: "검토 대기 · 신청",
+                fallbackEn: "Review · requests",
               })}
             </button>
             <button
@@ -201,8 +211,8 @@ export function AdminPlatformPopupHubPage() {
               onClick={() => setHubTab("campaigns")}
             >
               {safeT("admin_platform_popup_tab_campaigns", {
-                fallbackKo: "캠페인",
-                fallbackEn: "Campaigns",
+                fallbackKo: "집행 · 예약 · 종료",
+                fallbackEn: "Execution · schedule · ended",
               })}
             </button>
           </div>
@@ -251,12 +261,11 @@ export function AdminPlatformPopupHubPage() {
               <div className="space-y-3" data-admin-popup-requests-empty="1">
                 <p className="text-sm text-sam-muted">
                   {safeT("admin_platform_popup_requests_empty", {
-                    fallbackKo: "대기 중인 오너 신청이 없습니다.",
-                    fallbackEn: "No open owner requests.",
+                    fallbackKo: "대기 중인 오너 신청이 없습니다. 상단에서 팝업 광고를 등록하세요.",
+                    fallbackEn: "No open owner requests. Use Create popup ad above.",
                   })}
                 </p>
                 <p className="text-xs text-sam-muted">{emptyContractLine}</p>
-                {createCtaButton({ emptySlot: true })}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -351,12 +360,11 @@ export function AdminPlatformPopupHubPage() {
               <div className="space-y-3" data-admin-popup-campaigns-empty="1">
                 <p className="text-sm text-sam-muted">
                   {safeT("admin_platform_popup_empty", {
-                    fallbackKo: "아직 등록된 팝업이 없습니다.",
-                    fallbackEn: "No popup ads yet.",
+                    fallbackKo: "아직 등록된 팝업이 없습니다. 상단에서 등록하세요.",
+                    fallbackEn: "No popup ads yet. Use Create above.",
                   })}
                 </p>
                 <p className="text-xs text-sam-muted">{emptyContractLine}</p>
-                {createCtaButton({ emptySlot: true })}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -364,7 +372,7 @@ export function AdminPlatformPopupHubPage() {
                   <thead className="border-b border-sam-border text-sam-muted">
                     <tr>
                       <th className="px-2 py-2">{lang === "en" ? "Creative" : "소재"}</th>
-                      <th className="px-2 py-2">{lang === "en" ? "Campaign" : "캠페인"}</th>
+                      <th className="px-2 py-2">{lang === "en" ? "Ad" : "광고"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Status" : "상태"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Placement" : "노출"}</th>
                       <th className="px-2 py-2">{lang === "en" ? "Schedule" : "기간"}</th>

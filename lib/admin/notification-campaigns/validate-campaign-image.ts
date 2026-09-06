@@ -5,11 +5,15 @@ export type CampaignImageValidationResult =
   | { ok: true; mime: string; size: number }
   | { ok: false; error: "file_required" | "file_too_large" | "invalid_type" | "invalid_url" };
 
-export function validateCampaignImageFile(file: File): CampaignImageValidationResult {
+export function validateCampaignImageFile(
+  file: File,
+  opts?: { maxBytes?: number }
+): CampaignImageValidationResult {
   if (!file || !(file instanceof File)) {
     return { ok: false, error: "file_required" };
   }
-  if (file.size > CAMPAIGN_IMAGE_MAX_BYTES) {
+  const maxBytes = opts?.maxBytes ?? CAMPAIGN_IMAGE_MAX_BYTES;
+  if (file.size > maxBytes) {
     return { ok: false, error: "file_too_large" };
   }
   const mime = (file.type || "").toLowerCase();

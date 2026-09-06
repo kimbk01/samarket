@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/domain-control/ads-operator-cta";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
+import { computePlacementOccupancy } from "@/lib/admin/ads-operator/placement-occupancy";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -402,6 +403,52 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const blockingCount = collisions.filter((c) => c.severity === "BLOCKING").length;
   const warningCount = collisions.filter((c) => c.severity === "WARNING").length;
 
+  const occupancyUnavailable = !!activeDelivery.error;
+  const occupancyRows = occupancyUnavailable
+    ? []
+    : computePlacementOccupancy(
+        deliveryItems.map((c) => ({
+          id: c.id,
+          storeId: c.storeId,
+          storeName: c.storeName,
+          title: c.title,
+          productKind: c.productKind,
+          inventoryKeys: c.inventoryKeys ?? [],
+          lifecycleStatus: String(c.lifecycleStatus ?? ""),
+          startAt: c.startAt,
+          endAt: c.endAt,
+          creativeId: c.creativeId,
+        })),
+        {
+          placementKeys: listAllPlacementMapRows()
+            .filter((r) => r.domain === "DELIVERY")
+            .map((r) => r.placementId),
+        }
+      );
+  const placementNameById = new Map(
+    listAllPlacementMapRows().map((r) => [r.placementId, r] as const)
+  );
+  const occupancy = occupancyRows.map((o) => {
+    const row = placementNameById.get(o.placementKey);
+    return {
+      placementKey: o.placementKey,
+      displayNameKo: row?.displayNameKo ?? o.placementKey,
+      displayNameEn: row?.displayNameEn ?? o.placementKey,
+      capacity: o.capacity,
+      liveCount: o.liveCount,
+      reservedCount: o.reservedCount,
+      vacant: o.vacant,
+      nextVacancyAt: o.nextVacancyAt,
+      vacancyLabelKo: o.vacancyLabelKo,
+      vacancyLabelEn: o.vacancyLabelEn,
+      href: placementMapFocusHref(o.placementKey),
+      loadState: "ok" as const,
+    };
+  });
+  const vacantTotal = occupancyUnavailable
+    ? null
+    : occupancy.reduce((sum, o) => sum + o.vacant, 0);
+
   return {
     generatedAt: new Date().toISOString(),
     actionRequired: actionRequired.slice(0, 40),
@@ -448,9 +495,16 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=active`,
         source: "ACTIVE|SCHEDULED endAt <= 72h",
       },
+      vacantSlots: {
+        count: vacantTotal,
+        unavailable: occupancyUnavailable,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.inventory}#placement-map`,
+        source: "computePlacementOccupancy over delivery schedules",
+      },
     },
     currentExecution: currentExecution.slice(0, 30),
     collisions,
+    occupancy,
     applications: applications.slice(0, 30),
     creatives: creatives.slice(0, 20),
     placements,

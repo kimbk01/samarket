@@ -82,11 +82,11 @@ function Flag({
 }) {
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
+      className={`inline-flex rounded-ui-rect px-2 py-0.5 text-[10px] font-semibold ${
         on ? "bg-emerald-100 text-emerald-900" : "bg-sam-app text-sam-muted"
       }`}
     >
-      {ko ? labelKo : labelEn}: {on ? "Y" : "N"}
+      {ko ? labelKo : labelEn}
     </span>
   );
 }
@@ -127,6 +127,73 @@ export function AdminPlacementMapPanel() {
   );
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [executionLoading, setExecutionLoading] = useState(false);
+  const [occupancyByKey, setOccupancyByKey] = useState<
+    Record<
+      string,
+      {
+        capacity: number;
+        liveCount: number;
+        vacant: number;
+        reservedCount: number;
+        vacancyLabelKo: string;
+        vacancyLabelEn: string;
+      }
+    >
+  >({});
+  const [occupancyState, setOccupancyState] = useState<"loading" | "ok" | "unavailable">(
+    "loading"
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/ads-control-plane", { credentials: "include" });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          plane?: {
+            occupancy?: Array<{
+              placementKey: string;
+              capacity: number;
+              liveCount: number;
+              vacant: number;
+              reservedCount: number;
+              vacancyLabelKo: string;
+              vacancyLabelEn: string;
+            }>;
+            queues?: { vacantSlots?: { unavailable?: boolean } };
+          };
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok || json.plane?.queues?.vacantSlots?.unavailable) {
+          setOccupancyState("unavailable");
+          setOccupancyByKey({});
+          return;
+        }
+        const map: typeof occupancyByKey = {};
+        for (const o of json.plane?.occupancy ?? []) {
+          map[o.placementKey] = {
+            capacity: o.capacity,
+            liveCount: o.liveCount,
+            vacant: o.vacant,
+            reservedCount: o.reservedCount,
+            vacancyLabelKo: o.vacancyLabelKo,
+            vacancyLabelEn: o.vacancyLabelEn,
+          };
+        }
+        setOccupancyByKey(map);
+        setOccupancyState("ok");
+      } catch {
+        if (!cancelled) {
+          setOccupancyState("unavailable");
+          setOccupancyByKey({});
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -257,18 +324,25 @@ export function AdminPlacementMapPanel() {
       <div>
         <h2 className="text-[16px] font-bold text-sam-fg">
           {safeT("admin_placement_map_title", {
-            fallbackKo: "앱 노출 위치 맵 (Placement Map)",
-            fallbackEn: "App placement map",
+            fallbackKo: "노출 위치 (지면 점유)",
+            fallbackEn: "Placements (occupancy)",
           })}
         </h2>
         <p className="mt-1 text-[12px] text-sam-muted">
           {safeT("admin_placement_map_desc", {
             fallbackKo:
-              "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. ACTIVE 실행은 ?execution=campaignId 로 연결합니다.",
+              "서비스·화면별 유료 지면의 용량·사용·빈 자리를 봅니다. 기술 키·레지스트리는 「기술 정보」에만 둡니다. HOME/CATEGORY 유기 설정은 슬롯 허용만 — 광고 집행을 바꾸지 않습니다.",
             fallbackEn:
-              "Read-only over Delivery / Feed / Popup registries. No unified placement DB. ACTIVE execution via ?execution=campaignId.",
+              "Capacity, used, and vacant slots by surface. Registry keys stay under Technical info. HOME/CATEGORY organic config is slot allowance only — it does not mutate paid execution.",
           })}
         </p>
+        {occupancyState === "unavailable" ? (
+          <p className="mt-2 text-[12px] font-semibold text-amber-900">
+            {ko
+              ? "점유 정보를 불러올 수 없습니다. 빈 자리 0으로 간주하지 마세요."
+              : "Occupancy unavailable — do not treat as vacancy 0."}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap gap-2" data-admin-placement-map-domain="1">
@@ -432,6 +506,7 @@ export function AdminPlacementMapPanel() {
           ) : (
             rows.map((row) => {
               const active = selectedId === row.placementId;
+              const occ = occupancyByKey[row.placementId];
               return (
                 <button
                   key={`${row.domain}:${row.placementId}`}
@@ -450,28 +525,61 @@ export function AdminPlacementMapPanel() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
-                        {row.domain} · {row.screen}
+                      <p className="text-[11px] font-semibold text-sam-muted">
+                        {row.domain === "DELIVERY"
+                          ? ko
+                            ? "배달"
+                            : "Delivery"
+                          : row.domain === "FEED"
+                            ? ko
+                              ? "피드"
+                              : "Feed"
+                            : ko
+                              ? "팝업"
+                              : "Popup"}
+                        {" · "}
+                        {SCREENS.find((s) => s.id === row.screen)
+                          ? ko
+                            ? SCREENS.find((s) => s.id === row.screen)!.ko
+                            : SCREENS.find((s) => s.id === row.screen)!.en
+                          : row.screen}
                       </p>
                       <p className="mt-0.5 text-[14px] font-semibold text-sam-fg">
                         {ko ? row.displayNameKo : row.displayNameEn}
                       </p>
-                      <p className="mt-1 font-mono text-[11px] text-sam-muted">
-                        {row.placementId}
-                      </p>
+                      {occ ? (
+                        <p className="mt-1 text-[12px] text-sam-fg">
+                          {ko ? "사용" : "Used"} {occ.liveCount}/{occ.capacity}
+                          {" · "}
+                          {ko ? "빈 자리" : "Vacant"} {occ.vacant}
+                          {" · "}
+                          {ko ? occ.vacancyLabelKo : occ.vacancyLabelEn}
+                        </p>
+                      ) : occupancyState === "loading" ? (
+                        <p className="mt-1 text-[12px] text-sam-muted">
+                          {ko ? "점유 불러오는 중…" : "Loading occupancy…"}
+                        </p>
+                      ) : occupancyState === "unavailable" ? (
+                        <p className="mt-1 text-[12px] text-amber-900">
+                          {ko ? "점유 확인 불가" : "Occupancy unavailable"}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[12px] text-sam-muted">
+                          {ko ? "일정 기반 점유 없음" : "No schedule occupancy"}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      <Flag on={row.flags.sellable} labelKo="판매" labelEn="Sell" ko={ko} />
                       <Flag
-                        on={row.flags.runtimeSupported}
-                        labelKo="Runtime"
-                        labelEn="Runtime"
+                        on={row.flags.sellable}
+                        labelKo="판매 가능"
+                        labelEn="Sellable"
                         ko={ko}
                       />
                       <Flag
-                        on={row.flags.previewSupported}
-                        labelKo="Preview"
-                        labelEn="Preview"
+                        on={row.flags.runtimeSupported}
+                        labelKo="앱 연결"
+                        labelEn="App linked"
                         ko={ko}
                       />
                     </div>
@@ -502,9 +610,18 @@ export function AdminPlacementMapPanel() {
                   <p className="font-semibold text-[14px]">
                     {ko ? selected.displayNameKo : selected.displayNameEn}
                   </p>
-                  <p className="font-mono text-[11px] text-sam-muted">
-                    {selected.placementId}
-                  </p>
+                  {occupancyByKey[selected.placementId] ? (
+                    <p className="mt-1 text-[13px]">
+                      {ko ? "용량" : "Capacity"}{" "}
+                      {occupancyByKey[selected.placementId]!.liveCount}/
+                      {occupancyByKey[selected.placementId]!.capacity}
+                      {" · "}
+                      {ko ? "예약" : "Reserved"}{" "}
+                      {occupancyByKey[selected.placementId]!.reservedCount}
+                      {" · "}
+                      {ko ? "빈 자리" : "Vacant"} {occupancyByKey[selected.placementId]!.vacant}
+                    </p>
+                  ) : null}
                 </div>
                 {mini ? (
                   <DeliveryAdPlacementMiniature
@@ -520,31 +637,42 @@ export function AdminPlacementMapPanel() {
                     {ko ? "비율" : "Ratio"}: {selected.aspectRatio}
                   </li>
                   <li>
-                    {ko ? "비율 권한" : "Ratio owner"}: {selected.ratioOwner}
-                  </li>
-                  <li>
                     {ko ? "앱 경로" : "App route"}: {selected.runtimeRouteHint}
-                  </li>
-                  <li>
-                    {ko ? "Runtime" : "Runtime"}: {selected.runtimeConsumer}
                   </li>
                   <li className="text-sam-muted">{selected.notes}</li>
                 </ul>
+                <details className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5">
+                  <summary className="cursor-pointer text-[11px] font-semibold text-sam-muted">
+                    {ko ? "기술 정보 보기" : "Technical info"}
+                  </summary>
+                  <ul className="mt-2 space-y-1 font-mono text-[11px] text-sam-muted">
+                    <li>{selected.placementId}</li>
+                    <li>
+                      {ko ? "비율 권한" : "Ratio owner"}: {selected.ratioOwner}
+                    </li>
+                    <li>
+                      {ko ? "런타임" : "Runtime"}: {selected.runtimeConsumer}
+                    </li>
+                    <li>
+                      Preview: {selected.flags.previewSupported ? "Y" : "N"}
+                    </li>
+                  </ul>
+                </details>
                 {!selected.flags.sellable && selected.flags.runtimeSupported ? (
                   <p className="rounded-ui-rect border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] font-semibold text-amber-950">
                     {safeT("admin_placement_map_defined_not_sellable", {
                       fallbackKo:
-                        "이 지면은 정의·런타임 연결은 있으나 현재 판매 대상이 아닙니다.",
+                        "이 지면은 정의·앱 연결은 있으나 현재 판매 대상이 아닙니다.",
                       fallbackEn:
-                        "Defined and runtime-connected, but not sellable at launch.",
+                        "Defined and app-linked, but not sellable at launch.",
                     })}
                   </p>
                 ) : null}
                 {!selected.flags.runtimeSupported ? (
                   <p className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[11px] text-sam-muted">
                     {safeT("admin_placement_map_no_runtime", {
-                      fallbackKo: "Runtime 연결 없음 또는 미래/차단 지면입니다.",
-                      fallbackEn: "No runtime consumer, or future/blocked placement.",
+                      fallbackKo: "앱 연결 없음 또는 미래/차단 지면입니다.",
+                      fallbackEn: "No app consumer, or future/blocked placement.",
                     })}
                   </p>
                 ) : null}
@@ -562,8 +690,8 @@ export function AdminPlacementMapPanel() {
                       data-placement-cta="config"
                     >
                       {safeT("admin_placement_map_cta_config", {
-                        fallbackKo: "설정 보기",
-                        fallbackEn: "Open config",
+                        fallbackKo: "유기 설정 보기",
+                        fallbackEn: "Open organic config",
                       })}
                     </Link>
                   ) : null}

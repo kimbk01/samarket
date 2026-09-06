@@ -27,7 +27,9 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_preview_renderer_note:
       "미리보기는 프로덕션 DibayPopupAd를 그대로 사용합니다. 가로 모드에서는 팝업을 가로형으로 바꾸지 않고 노출하지 않습니다.",
     admin_platform_popup_hub_title: "팝업 광고 운영",
-    admin_platform_popup_hub_desc: "신청 심사 · 캠페인 운영 · 직접 등록",
+    admin_platform_popup_hub_desc: "오너 신청 검토 · 집행 관리 · 직접 등록. 신청≠집행.",
+    admin_platform_popup_upload_hint:
+      "원본 JPG/PNG/WebP · 권장 1440×1000(36:25) · 서버에서 자동 최적화. 과도한 원본은 최적화 후 저장됩니다.",
     admin_platform_popup_tab_requests: "신청",
     admin_platform_popup_tab_campaigns: "캠페인",
     admin_platform_popup_create_cta: "팝업 광고 등록",
@@ -86,7 +88,9 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_preview_renderer_note:
       "Preview uses the exact production DibayPopupAd. Landscape does not convert the popup — it suppresses it.",
     admin_platform_popup_hub_title: "Popup Ads Ops",
-    admin_platform_popup_hub_desc: "Request review · campaign ops · direct create",
+    admin_platform_popup_hub_desc: "Owner request review · execution · direct create. Request ≠ execution.",
+    admin_platform_popup_upload_hint:
+      "Source JPG/PNG/WebP · recommended 1440×1000 (36:25) · server auto-optimizes before store.",
     admin_platform_popup_tab_requests: "Requests",
     admin_platform_popup_tab_campaigns: "Campaigns",
     admin_platform_popup_create_cta: "Create popup ad",

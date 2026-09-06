@@ -298,7 +298,7 @@ export function AdminAdsExposureControlPlane() {
       </Section>
 
       <Section id="work-queues" title={ko ? "운영 큐" : "Work queues"}>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           <Link
             href={q.delivery.href}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
@@ -329,6 +329,16 @@ export function AdminAdsExposureControlPlane() {
           >
             {ko ? "종료 예정" : "Ending soon"}
             <span className="mt-1 block tabular-nums text-sam-muted">{q.endingSoon.count ?? 0}</span>
+          </Link>
+          <Link
+            href={q.vacantSlots?.href ?? "#occupancy"}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
+            data-admin-ads-queue="vacant_slots"
+          >
+            {ko ? "빈 자리" : "Vacancy"}
+            <span className="mt-1 block tabular-nums text-sam-muted">
+              {q.vacantSlots?.unavailable ? (ko ? "확인 불가" : "Unavailable") : (q.vacantSlots?.count ?? 0)}
+            </span>
           </Link>
           <a
             href="#execution"
@@ -403,6 +413,44 @@ export function AdminAdsExposureControlPlane() {
 
       <Section id="execution" title={ko ? "현재 집행 상태" : "Current execution state"}>
         <ExecTable rows={model.currentExecution} ko={ko} />
+      </Section>
+
+      <Section id="occupancy" title={ko ? "지면 빈 자리 / 점유" : "Placement vacancy / occupancy"}>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "기존 일정·재고로 계산합니다. 확인 불가면 빈 자리 0으로 표시하지 않습니다."
+            : "Computed from existing schedules. Unavailable never shows as vacancy 0."}
+        </p>
+        {q.vacantSlots?.unavailable ? (
+          <p className="sam-text-body-secondary text-amber-900" data-admin-ads-occupancy="unavailable">
+            {ko ? "점유 정보를 불러올 수 없습니다. 승인 전 충돌·빈 자리를 수동 확인하세요." : "Occupancy unavailable. Do not approve blindly."}
+          </p>
+        ) : (model.occupancy ?? []).length === 0 ? (
+          <AdminControlPlaneEmpty
+            message={ko ? "점유 계산 대상 지면이 없습니다." : "No occupancy rows."}
+          />
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-admin-ads-occupancy="ok">
+            {(model.occupancy ?? []).slice(0, 18).map((o) => (
+              <Link
+                key={o.placementKey}
+                href={o.href}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 hover:bg-sam-app"
+              >
+                <p className="font-semibold text-sam-fg">
+                  {ko ? o.displayNameKo : o.displayNameEn}
+                </p>
+                <p className="mt-1 sam-text-body-secondary text-sam-muted">
+                  {ko ? "사용" : "Used"} {o.liveCount}/{o.capacity}
+                  {" · "}
+                  {ko ? "빈 자리" : "Vacant"} {o.vacant}
+                  {" · "}
+                  {ko ? o.vacancyLabelKo : o.vacancyLabelEn}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section id="applications" title={ko ? "광고 신청" : "Applications"}>

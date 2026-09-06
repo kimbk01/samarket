@@ -1,5 +1,9 @@
-import { AdminBannerListPage } from "@/components/admin/banners/AdminBannerListPage";
+import { redirect } from "next/navigation";
 
+/**
+ * MERGE: /admin/banners is not Ads ops authority.
+ * Delivery banners → Delivery Ads; platform popups → platform-popup.
+ */
 export default function AdminBannersPage() {
-  return <AdminBannerListPage />;
+  redirect("/admin/delivery-ads");
 }

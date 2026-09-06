@@ -5,7 +5,10 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { replacePlatformPopupReadyCreative } from "@/lib/platform-popup/admin-campaign-writer";
 import { processPlatformPopupCreativeToCanonical } from "@/lib/platform-popup/creative-pipeline";
-import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
+import {
+  DIBAY_CANONICAL_POPUP_CREATIVE_SIZE,
+  POPUP_CREATIVE_SOURCE_MAX_BYTES,
+} from "@/lib/platform-popup/creative-pixel-ssot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -43,8 +46,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
 
-  const validated = validateCampaignImageFile(file);
+  const validated = validateCampaignImageFile(file, {
+    maxBytes: POPUP_CREATIVE_SOURCE_MAX_BYTES,
+  });
   if (!validated.ok) {
+    const maxMb = Math.round(POPUP_CREATIVE_SOURCE_MAX_BYTES / (1024 * 1024));
     return NextResponse.json(
       {
         ok: false,
@@ -53,7 +59,7 @@ export async function POST(
           validated.error === "invalid_type"
             ? "JPG, PNG, WEBP 이미지만 사용할 수 있습니다."
             : validated.error === "file_too_large"
-              ? "이미지 용량이 너무 큽니다. 2MB 이하로 올려 주세요."
+              ? `이미지 용량이 너무 큽니다. 원본은 ${maxMb}MB 이하로 올려 주세요. (서버에서 1440×1000 WebP로 최적화됩니다)`
               : "이미지 파일을 확인해 주세요.",
       },
       { status: 400 }
