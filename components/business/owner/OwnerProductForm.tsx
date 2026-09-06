@@ -699,7 +699,10 @@ export function OwnerProductForm({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)]">
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
+      data-owner-product-composer="1"
+    >
       <div
         className={`sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS}`}
       >
@@ -765,7 +768,8 @@ export function OwnerProductForm({
 
       <div
         ref={formBodyScrollRef}
-        className="min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
+        data-owner-product-form-scroll="1"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
       >
       <form
         id="owner-product-form"

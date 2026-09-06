@@ -858,7 +858,9 @@ export function BusinessAdminShell({
             <main
               className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${
                 isOwnerStoreProductComposerRoute
-                  ? "flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
+                  ? // Fixed stack header is portaled out of flow — main must own remaining viewport height
+                    // so OwnerProductForm scroll body (flex-1) cannot collapse to 0 under the category strip.
+                    "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
                   : `${ownerUnifiedMainLayoutClass} ${isOwnerDesktopStackViewport ? ownerMainBottomPadForChildren : ""}`
               }`}
             >
