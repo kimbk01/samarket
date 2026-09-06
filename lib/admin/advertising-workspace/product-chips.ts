@@ -1,6 +1,6 @@
 /**
- * One-page Ads workspace product chips — Launch sellable only (FINAL LOCK).
- * FUTURE / NOT_SELLABLE placements are never offered in ops chips.
+ * One-page Ads workspace product chips — Master Table (ACTIVE only).
+ * No FUTURE / HOUSE_AD chips.
  */
 
 export type AdvertisingWorkspaceDomain = "all" | "community" | "trade" | "delivery";
@@ -11,6 +11,9 @@ export type AdvertisingWorkspaceProductId =
   | "feed_banner"
   | "sponsored"
   | "banner_hero"
+  | "banner_inline"
+  | "banner_category_top"
+  | "banner_search_top"
   | "popup";
 
 export type AdvertisingWorkspaceProductChip = {
@@ -27,19 +30,22 @@ export const ADVERTISING_WORKSPACE_PRODUCTS_BY_DOMAIN: Record<
     { id: "all", labelKo: "전체 광고", labelEn: "All" },
     { id: "boost", labelKo: "게시물 상위노출", labelEn: "Post boost" },
     { id: "feed_banner", labelKo: "피드 배너", labelEn: "Feed banner" },
-    { id: "popup", labelKo: "팝업", labelEn: "Popup" },
+    { id: "popup", labelKo: "Popup", labelEn: "Popup" },
   ],
   trade: [
     { id: "all", labelKo: "전체 광고", labelEn: "All" },
     { id: "boost", labelKo: "게시물 상위노출", labelEn: "Post boost" },
     { id: "feed_banner", labelKo: "피드 배너", labelEn: "Feed banner" },
-    { id: "popup", labelKo: "팝업", labelEn: "Popup" },
+    { id: "popup", labelKo: "Popup", labelEn: "Popup" },
   ],
   delivery: [
     { id: "all", labelKo: "전체 광고", labelEn: "All" },
     { id: "sponsored", labelKo: "매장 상위홍보", labelEn: "Store sponsored" },
     { id: "banner_hero", labelKo: "홈 상단 배너", labelEn: "Home hero banner" },
-    { id: "popup", labelKo: "팝업", labelEn: "Popup" },
+    { id: "banner_inline", labelKo: "홈 중간 배너", labelEn: "Home inline banner" },
+    { id: "banner_category_top", labelKo: "업종별 상단 배너", labelEn: "Category top banner" },
+    { id: "banner_search_top", labelKo: "검색 상단 배너", labelEn: "Search top banner" },
+    { id: "popup", labelKo: "Popup", labelEn: "Popup" },
   ],
 };
 
@@ -98,14 +104,10 @@ export function rowMatchesWorkspaceFilter(input: {
       if (productId === "sponsored") {
         return product.includes("sponsored") || placement.includes("FEED");
       }
-      if (productId === "banner_hero") {
-        return (
-          placement.includes("HERO") ||
-          product.includes("hero") ||
-          product.includes("banner")
-        );
-      }
-      if (productId === "popup") return false;
+      if (productId === "banner_hero") return placement.includes("HERO") || product.includes("hero");
+      if (productId === "banner_inline") return placement.includes("INLINE");
+      if (productId === "banner_category_top") return placement.includes("CATEGORY_TOP") || placement.includes("CATEGORY");
+      if (productId === "banner_search_top") return placement.includes("SEARCH");
       return false;
     }
     if (input.domain === "popup") {
@@ -125,10 +127,16 @@ export function rowMatchesWorkspaceFilter(input: {
     return input.domain === "delivery" && (product.includes("sponsored") || placement.includes("FEED"));
   }
   if (productId === "banner_hero") {
-    return (
-      input.domain === "delivery" &&
-      (placement.includes("HERO") || product.includes("hero") || product.includes("banner"))
-    );
+    return input.domain === "delivery" && (placement.includes("HERO") || product.includes("hero"));
+  }
+  if (productId === "banner_inline") {
+    return input.domain === "delivery" && placement.includes("INLINE");
+  }
+  if (productId === "banner_category_top") {
+    return input.domain === "delivery" && placement.includes("CATEGORY");
+  }
+  if (productId === "banner_search_top") {
+    return input.domain === "delivery" && placement.includes("SEARCH");
   }
   void d;
   return true;

@@ -6,8 +6,7 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
 
 /**
  * COUNT SEMANTIC SSOT — TRADE_PROMO_PENDING vs FEED_AD_PENDING_REVIEW consumers.
- * Foundation-locked: action-queue filters stay domain-split; sidebar FINAL LOCK rolls
- * pending counts onto ads-advertising-workspace (removed per-leaf keys).
+ * Foundation-locked: Trade ads-applications must not consume Feed counts.
  */
 describe("Admin count semantic SSOT contract", () => {
   it("action queue defines TRADE_PROMO_PENDING same filter as Trade Hub", () => {
@@ -18,17 +17,16 @@ describe("Admin count semantic SSOT contract", () => {
     expect(overview).toMatch(/point_promotion_orders[\s\S]*domain[\s\S]*trade[\s\S]*pending_review/);
   });
 
-  it("sidebar binds ads pending counts to advertising workspace (FINAL LOCK)", () => {
+  it("sidebar binds Trade leaf to tradePromoPending and Growth leaf to feedAdPending", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "ads-advertising-workspace"');
-    expect(sidebar).toContain("adsWorkspacePendingCount");
+    expect(sidebar).toContain('item.key === "ads-applications"');
     expect(sidebar).toContain("tradePromoPendingCount");
+    expect(sidebar).toContain('item.key === "ads-feed-applications"');
     expect(sidebar).toContain("feedAdPendingCount");
-    expect(sidebar).toContain("deliveryAdOpsPendingCount");
-    // Removed menu leaves must not remain as badge targets
-    expect(sidebar).not.toContain('item.key === "ads-applications"');
-    expect(sidebar).not.toContain('item.key === "ads-feed-applications"');
-    expect(sidebar).not.toContain('item.key === "delivery-ads-control"');
+    // Regression: Trade leaf must not use Feed count
+    expect(sidebar).not.toMatch(
+      /ads-applications"\s*&&\s*feedAdPendingCount/
+    );
   });
 
   it("Listing report drill targets Trade product report queue", () => {

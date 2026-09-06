@@ -807,7 +807,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── ADS — canonical entry only (FINAL LOCK). Deep-link routes kept, not top nav.
+  // ── ADS — product axes: 관제 → 신청 → 집행 → 지면 → 상품 → 이력 ──
+  // Labels = customer product language (배너 광고 ≠ 「피드 광고」 abstraction).
   {
     key: "ads",
     title: "",
@@ -817,15 +818,73 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         path: "/admin/advertising",
         status: "done",
-        // Active when on advertising OR legacy deep-links under delivery/feed/popup ads.
-        matchPathPrefixes: [
-          "/admin/advertising",
-          "/admin/delivery-ads",
-          "/admin/feed-ads",
-          "/admin/feed-ad-requests",
-          "/admin/platform-popup",
-          "/admin/ad-applications",
+      },
+      {
+        key: "delivery-ads-control",
+        title: "",
+        path: "/admin/delivery-ads",
+        exactPath: true,
+        status: "done",
+      },
+      {
+        key: "ads-applications-group",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "ads-feed-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=feed",
+            status: "done",
+          },
+          {
+            key: "ads-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=trade",
+            status: "done",
+          },
+          {
+            key: "ads-community-promote",
+            title: "",
+            path: "/admin/ad-applications?domain=community",
+            status: "done",
+          },
         ],
+      },
+      {
+        key: "ads-execution-group",
+        title: "",
+        status: "done",
+        children: [
+          {
+            key: "delivery-ads-ops",
+            title: "",
+            path: "/admin/delivery-ads/manage",
+            matchPaths: ["/admin/delivery-ads/manage"],
+            // Detail / creative under /admin/delivery-ads/[id] — not 관제, not inventory.
+            matchPathPrefixes: ["/admin/delivery-ads"],
+            status: "done",
+          },
+          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+          {
+            key: "ads-platform-popup",
+            title: "",
+            path: "/admin/platform-popup",
+            status: "done",
+            matchPaths: [
+              "/admin/platform-popup/",
+              "/admin/platform-popup/requests",
+              "/admin/platform-popup/requests/",
+            ],
+          },
+        ],
+      },
+      {
+        key: "ads-placement-map",
+        title: "",
+        path: "/admin/delivery-ads/inventory#placement-map",
+        matchPaths: ["/admin/delivery-ads/inventory"],
+        status: "done",
       },
       {
         key: "ads-products-group",
@@ -843,6 +902,19 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/delivery-ads/commercial-settings",
             status: "done",
+          },
+        ],
+      },
+      {
+        key: "ads-legacy",
+        title: "",
+        status: "partial",
+        children: [
+          {
+            key: "ads-paid",
+            title: "",
+            path: "/admin/promoted-items",
+            status: "partial",
           },
         ],
       },

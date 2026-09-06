@@ -8,28 +8,20 @@ import {
 } from "@/lib/admin/find-admin-menu-item";
 
 describe("find-admin-menu-item", () => {
-  it("finds ads workspace FINAL LOCK leaves by key", () => {
+  it("finds ads workspace leaves by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    expect((ads?.children ?? []).map((c) => c.key)).toEqual([
-      "ads-advertising-workspace",
-      "ads-products-group",
-    ]);
-    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
-      "/admin/advertising"
+    expect(ads?.children?.length).toBeGreaterThan(0);
+    expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-execution-group")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-ops")?.path).toBe(
+      "/admin/delivery-ads/manage"
     );
-    expect(findAdminMenuByKey(adminMenu, "ads-feed-products")?.path).toBe(
-      "/admin/feed-ad-products"
-    );
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-commercial")?.path).toBe(
-      "/admin/delivery-ads/commercial-settings"
-    );
-    // Removed from menu tree (deep-links may still exist as routes)
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-execution-group")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-ops")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")).toBeUndefined();
+    // legacy flat Delivery ops key must stay absent (dual-stack menu leaf is delivery-ads-ops)
     expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(false);
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
+    );
   });
 
   it("trade no longer owns ads-applications primary; keeps reports", () => {

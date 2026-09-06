@@ -36,7 +36,7 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
       "/admin/finance"
     );
     expect(resolveWorkspaceRootPath(findAdminMenuByKey(adminMenu, "ads")!)).toBe(
-      "/admin/advertising"
+      "/admin/delivery-ads"
     );
     expect(resolveWorkspaceRootPath(findAdminMenuByKey(adminMenu, "support")!)).toBe(
       "/admin/support"
@@ -76,14 +76,10 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-delivery-ops")).toBeUndefined();
 
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
-    expect(adsKids).toEqual(["ads-advertising-workspace", "ads-products-group"]);
-    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
-      "/admin/advertising"
-    );
-    expect(findAdminMenuByKey(adminMenu, "ads-paid")).toBeUndefined();
+    expect(adsKids[0]).toBe("delivery-ads-control");
+    expect(adsKids.at(-1)).toBe("ads-legacy");
+    expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
     expect(adsKids).not.toContain("ads-paid");
-    expect(adsKids).not.toContain("ads-legacy");
-    expect(adsKids).not.toContain("delivery-ads-control");
   });
 
   it("B7-10..13 domain ownership preserved", () => {
@@ -109,23 +105,13 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
   });
 
   it("B7-17/20 ads + notifications semantics", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
-      "/admin/advertising"
+    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
+      "/admin/ad-applications?domain=feed"
     );
-    expect(
-      findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.matchPathPrefixes
-    ).toEqual(
-      expect.arrayContaining([
-        "/admin/delivery-ads",
-        "/admin/feed-ads",
-        "/admin/platform-popup",
-        "/admin/ad-applications",
-      ])
+    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toBe(
+      "/admin/delivery-ads/inventory#placement-map"
     );
-    // Removed from sidebar; deep-link routes remain
-    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe("/admin/platform-popup");
     expect(resolveActiveWorkspace("/admin/settings/notifications", "master").id).toBe(
       "notifications"
     );
@@ -150,18 +136,16 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     expect(crumbs.some((c) => c.key === "store-finance-admin")).toBe(true);
 
     const ads = listAdminWorkspaces("master").find((w) => w.id === "ads")!;
-    const adsCrumbs = resolveAdminBreadcrumb("/admin/advertising", ads);
+    const adsCrumbs = resolveAdminBreadcrumb("/admin/delivery-ads", ads);
     expect(adsCrumbs[0]?.key).toBe("ads");
-    expect(adsCrumbs.some((c) => c.key === "ads-advertising-workspace")).toBe(true);
+    expect(adsCrumbs.some((c) => c.key === "delivery-ads-control")).toBe(true);
   });
 
   it("B7-26 deeplink query/hash preserved on canonical leaves", () => {
-    // Ads application / placement-map leaves removed from menu; advertising workspace covers deep-links
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")).toBeUndefined();
-    expect(
-      findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.matchPathPrefixes
-    ).toContain("/admin/ad-applications");
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
+    );
+    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toContain("#placement-map");
     expect(findAdminMenuByKey(adminMenu, "jobs-management")?.path).toBe(
       "/admin/posts-management?tab=jobs"
     );

@@ -159,15 +159,12 @@ export async function POST(req: NextRequest) {
         actor_id: admin.userId,
         target_type: `${domain}_promotion_order`,
         target_id: entityId,
-        action:
-          action === "end"
-            ? `${domain}_promotion_order.ADMIN_ENDED`
-            : `${domain}_promotion_order.${action}`,
+        action: `${domain}_promotion_order.${action}`,
         before_json: null,
         after_json: {
           order_status: res.orderStatus,
           endAt: res.endAt,
-          refundPolicy: action === "end" ? "NO_AUTO_REFUND" : null,
+          refundPolicy: action === "end" ? "ADMIN_END_REFUND_POLICY_REQUIRED" : null,
         },
         ip: meta.ip,
         user_agent: meta.userAgent,
@@ -378,8 +375,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const lifeNow = String((camp as { lifecycle_status?: string }).lifecycle_status ?? "");
-    let deliveryAction =
+    const deliveryAction =
       action === "approve"
         ? "approve"
         : action === "reject"
@@ -397,18 +393,6 @@ export async function POST(req: NextRequest) {
                     : action === "delete_safe_draft"
                       ? "delete_safe_draft"
                       : null;
-    // Soft-delete: non-draft → archive (financial/audit preserved)
-    if (
-      action === "delete_safe_draft" &&
-      lifeNow &&
-      lifeNow !== "DRAFT" &&
-      (lifeNow === "ENDED" ||
-        lifeNow === "REJECTED" ||
-        lifeNow === "TERMINATED" ||
-        lifeNow === "CANCELLED")
-    ) {
-      deliveryAction = "archive";
-    }
     if (!deliveryAction || !isAdminDeliveryAdAction(deliveryAction)) {
       return NextResponse.json({ ok: false, error: "unsupported_action" }, { status: 400 });
     }

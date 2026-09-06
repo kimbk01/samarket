@@ -31,20 +31,14 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
     expect(tradeReports?.matchPaths ?? []).not.toContain("/admin/reports");
   });
 
-  it("splits promo presentation by domain (trade promote under ads workspace deep-links; community stays community)", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
-      "/admin/advertising"
-    );
-    expect(
-      findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.matchPathPrefixes
-    ).toEqual(
-      expect.arrayContaining(["/admin/ad-applications", "/admin/feed-ads"])
+  it("splits promo presentation by domain (trade promote under ads; feed under ads)", () => {
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "community-promotions")?.path).toBe(
       "/admin/community/promotions"
     );
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
   });
 
   it("Messenger exposes general/group/trade/order/reported ops leaves", () => {
@@ -72,14 +66,13 @@ describe("domain admin SSOT IA contract (CUT J)", () => {
     );
   });
 
-  it("CONFIG vs OPERATION: advertising workspace under ads, not delivery sidebar", () => {
+  it("CONFIG vs OPERATION: delivery-ads primary under ads, not delivery sidebar", () => {
     const deliveryOps = findAdminMenuByKey(adminMenu, "delivery-section-operations");
     const opsKeys = (deliveryOps?.children ?? []).map((c) => c.key);
     expect(opsKeys).not.toContain("store-ads-section");
     expect(opsKeys).not.toContain("delivery-ads-control");
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")).toBeUndefined();
-    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
-      "/admin/advertising"
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
+      "/admin/delivery-ads"
     );
     expect(adminMenu.find((w) => w.key === "ads")).toBeTruthy();
   });

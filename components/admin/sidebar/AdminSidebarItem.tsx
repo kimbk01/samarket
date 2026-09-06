@@ -57,18 +57,20 @@ export function AdminSidebarItem({
   const { cashChargePendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, deliveryAdOpsPendingCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
     useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
-  /** COUNT SSOT: Ads FINAL LOCK — pending counts roll up to ads-advertising-workspace */
-  const adsWorkspacePendingCount =
-    deliveryAdOpsPendingCount + tradePromoPendingCount + feedAdPendingCount;
+  /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
   const menuBadge =
     item.key === STORE_POINT_CHARGES_MENU_KEY && cashChargePendingCount > 0
       ? cashChargePendingCount
       : item.key === "store-finance-admin" && cashChargePendingCount + userChargePendingCount > 0
         ? cashChargePendingCount + userChargePendingCount
-        : item.key === "ads-advertising-workspace" && adsWorkspacePendingCount > 0
-          ? adsWorkspacePendingCount
-          : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
-            ? userChargePendingCount
+        : item.key === "delivery-ads-control" && deliveryAdOpsPendingCount > 0
+          ? deliveryAdOpsPendingCount
+      : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
+        ? userChargePendingCount
+        : item.key === "ads-applications" && tradePromoPendingCount > 0
+          ? tradePromoPendingCount
+          : item.key === "ads-feed-applications" && feedAdPendingCount > 0
+            ? feedAdPendingCount
             : item.key === "cp-support-center" && supportActionableCount > 0
               ? supportActionableCount
               : item.key === "global-reports" && globalReportsCount > 0

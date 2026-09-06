@@ -49,8 +49,7 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
 export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
   const sectionErrors: string[] = [];
 
-  const [deliveryQueue, feedRes, popupRes, boostPromoRes, activeDelivery, legacyTradeAdsRes, activePopupRes] =
-    await Promise.all([
+  const [deliveryQueue, feedRes, popupRes, boostPromoRes, activeDelivery] = await Promise.all([
     listDeliveryAdAdminActionQueue(sb, { limit: 40 }),
     sb
       .from("feed_ad_requests")
@@ -71,19 +70,6 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       .order("created_at", { ascending: false })
       .limit(60),
     loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: 80 }),
-    // Legacy trade_post_ads — only surface when live ops rows exist (FINAL LOCK).
-    sb
-      .from("trade_post_ads")
-      .select("id, user_id, post_id, status, start_at, end_at, created_at, placement")
-      .in("status", ["pending_review", "approved", "active", "pending"])
-      .order("created_at", { ascending: false })
-      .limit(30),
-    sb
-      .from("platform_popup_campaigns")
-      .select("id, name, status, priority, start_at, end_at, created_at")
-      .in("status", ["active", "scheduled", "approved"])
-      .order("priority", { ascending: false })
-      .limit(40),
   ]);
 
   if (!deliveryQueue.ok) sectionErrors.push(`delivery_queue:${deliveryQueue.error}`);
@@ -101,18 +87,6 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i)
   ) {
     sectionErrors.push(`boost_promo:${boostPromoRes.error.message}`);
-  }
-  if (
-    legacyTradeAdsRes.error &&
-    !isMissing(legacyTradeAdsRes.error, /trade_post_ads|schema cache|does not exist/i)
-  ) {
-    sectionErrors.push(`legacy_trade_ads:${legacyTradeAdsRes.error.message}`);
-  }
-  if (
-    activePopupRes.error &&
-    !isMissing(activePopupRes.error, /platform_popup_campaigns|schema cache|does not exist/i)
-  ) {
-    sectionErrors.push(`popup_campaigns:${activePopupRes.error.message}`);
   }
   if (activeDelivery.error) sectionErrors.push(`delivery_list:${activeDelivery.error}`);
 
@@ -305,170 +279,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     applications.push(row);
   }
 
-  // Dual-stack removal: Delivery ops *cases* stay off per-row Control Plane cards
-  // (no delivery:${caseId}). Campaign rows ARE included for /admin/advertising canonical list.
-
-  for (const c of (activeDelivery.error ? [] : activeDelivery.items).slice(0, 40)) {
-    const life = String(c.lifecycleStatus ?? "");
-    const id = String(c.id ?? "");
-    if (!id) continue;
-    const product =
-      c.productKind === "store_sponsored" ? "store_sponsored" : "delivery_banner";
-    const statusLabel =
-      life === "PENDING_REVIEW" || life === "IN_REVIEW"
-        ? "승인 대기"
-        : life === "SCHEDULED"
-          ? "예약"
-          : life === "ACTIVE"
-            ? "노출 중"
-            : life.startsWith("PAUSED")
-              ? "일시중지"
-              : life === "REJECTED"
-                ? "반려"
-                : life === "ENDED" || life === "TERMINATED" || life === "ARCHIVED"
-                  ? "종료"
-                  : life;
-    const needsAction =
-      life === "PENDING_REVIEW" || life === "IN_REVIEW" || life === "CHANGES_REQUESTED";
-    const row: AdsActionItem = {
-      id: `delivery_cam:${id}`,
-      domain: "delivery",
-      product,
-      entity: needsAction ? "application" : "execution",
-      applicantLabel: String(c.storeName ?? c.title ?? "").trim() || id.slice(0, 8),
-      storeId: c.storeId,
-      memberId: null,
-      creativeHint: c.creativeId,
-      placementHint: (c.inventoryKeys ?? [])[0] ?? null,
-      amountLabel: null,
-      currency: "CASH",
-      status: statusLabel,
-      whyActionable: needsAction ? "배달 광고 승인이 필요합니다." : null,
-      paymentLabel: adsPaymentLabel(null, "CASH", true),
-      periodLabel: formatPeriod(c.startAt, c.endAt),
-      remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true),
-      exposureLabel: life === "ACTIVE" ? "노출 가능" : null,
-      eligibility: null,
-      ageHours: ageHours(c.updatedAt ?? c.createdAt ?? new Date().toISOString()),
-      at: c.updatedAt ?? c.createdAt ?? new Date().toISOString(),
-      source: "store_*_ad_campaigns",
-      href: DELIVERY_AD_ADMIN_ROUTES.detail(id),
-      statementHref: c.storeId ? businessCcFinancialStatementHref(c.storeId) : null,
-      financeHref: "/admin/finance#action-required",
-      memberHref: null,
-    };
-    if (needsAction) {
-      actionRequired.push(row);
-      applications.push(row);
-    } else {
-      applications.push(row);
-    }
-  }
-
-  // Conditional legacy ops surface only when live trade_post_ads rows exist.
-  const legacyTradeAds =
-    legacyTradeAdsRes.error || !Array.isArray(legacyTradeAdsRes.data)
-      ? []
-      : (legacyTradeAdsRes.data as Array<Record<string, unknown>>);
-  for (const r of legacyTradeAds.slice(0, 20)) {
-    const id = String(r.id ?? "");
-    if (!id) continue;
-    const userId = String(r.user_id ?? "");
-    const postId = String(r.post_id ?? "");
-    const at = String(r.created_at ?? "");
-    const rawStatus = String(r.status ?? "").toLowerCase();
-    const statusLabel =
-      rawStatus === "pending_review" || rawStatus === "pending"
-        ? "승인 대기"
-        : rawStatus === "approved" || rawStatus === "active"
-          ? "노출 중"
-          : rawStatus;
-    const needsAction = rawStatus === "pending_review" || rawStatus === "pending";
-    const row: AdsActionItem = {
-      id: `legacy_trade_ad:${id}`,
-      domain: "trade_promote",
-      product: "legacy_trade_post_ad",
-      entity: needsAction ? "application" : "execution",
-      applicantLabel: id.slice(0, 8),
-      storeId: null,
-      memberId: userId || null,
-      creativeHint: postId || null,
-      placementHint: typeof r.placement === "string" ? r.placement : "기존 거래 광고",
-      amountLabel: null,
-      currency: "POINT",
-      status: statusLabel,
-      whyActionable: needsAction ? "기존 거래 광고(레거시) 확인이 필요합니다." : null,
-      paymentLabel: adsPaymentLabel(null, "POINT", true),
-      periodLabel: formatPeriod(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null
-      ),
-      remainingLabel: null,
-      exposureLabel: rawStatus === "active" || rawStatus === "approved" ? "노출 가능" : null,
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "trade_post_ads (legacy ops only)",
-      href: postId
-        ? `/admin/posts/${encodeURIComponent(postId)}`
-        : "/admin/advertising",
-      statementHref: null,
-      financeHref: "/admin/finance#point",
-      memberHref: userId ? memberHref(userId) : null,
-    };
-    if (needsAction) actionRequired.push(row);
-    applications.push(row);
-  }
-
-  // Active/scheduled popup campaigns for placement board + list (winner = priority DESC).
-  const activePopups =
-    activePopupRes.error || !Array.isArray(activePopupRes.data)
-      ? []
-      : (activePopupRes.data as Array<Record<string, unknown>>);
-  for (const r of activePopups.slice(0, 30)) {
-    const id = String(r.id ?? "");
-    if (!id) continue;
-    const at = String(r.created_at ?? "");
-    const rawStatus = String(r.status ?? "").toLowerCase();
-    const statusLabel =
-      rawStatus === "scheduled"
-        ? "예약"
-        : rawStatus === "active" || rawStatus === "approved"
-          ? "노출 중"
-          : rawStatus;
-    const priority = typeof r.priority === "number" ? r.priority : Number(r.priority) || 0;
-    const row: AdsActionItem = {
-      id: `popup_cam:${id}`,
-      domain: "popup",
-      product: "platform_popup",
-      entity: "execution",
-      applicantLabel: String(r.name ?? "").trim() || id.slice(0, 8),
-      storeId: null,
-      memberId: null,
-      creativeHint: null,
-      placementHint: "팝업",
-      amountLabel: null,
-      currency: "N_A",
-      status: statusLabel,
-      whyActionable: null,
-      paymentLabel: null,
-      periodLabel: formatPeriod(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null
-      ),
-      remainingLabel: null,
-      exposureLabel: `priority ${priority}`,
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "platform_popup_campaigns",
-      href: `/admin/platform-popup/${encodeURIComponent(id)}`,
-      statementHref: null,
-      financeHref: null,
-      memberHref: null,
-    };
-    applications.push(row);
-  }
+  // Dual-stack removal: Delivery per-row cards stay off the Control Plane.
 
   actionRequired.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
@@ -520,51 +331,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     return Number.isFinite(ms) && ms > 0 && ms <= 72 * 3600000;
   }).length;
 
-  // Dual-stack removal: Delivery *ops cases* stay off CP writer UI.
-  // Canonical /admin/advertising reads execution rows for ops list + occupancy.
-  const currentExecution: AdsExecutionRow[] = deliveryItems
-    .filter((c) => {
-      const life = String(c.lifecycleStatus ?? "");
-      return (
-        life === "ACTIVE" ||
-        life === "SCHEDULED" ||
-        life.startsWith("PAUSED") ||
-        life === "ENDED"
-      );
-    })
-    .slice(0, 40)
-    .map((c) => {
-      const life = String(c.lifecycleStatus ?? "");
-      const place = (c.inventoryKeys ?? [])[0] ?? null;
-      const finding = collisionFindings.find((f) => f.campaignId === c.id);
-      return {
-        id: `delivery_cam:${c.id}`,
-        domain: "delivery" as const,
-        product: c.productKind === "store_sponsored" ? "store_sponsored" : "delivery_banner",
-        label: String(c.storeName ?? c.title ?? c.id).trim(),
-        placement: place,
-        status:
-          life === "ACTIVE"
-            ? "노출 중"
-            : life === "SCHEDULED"
-              ? "예약"
-              : life.startsWith("PAUSED")
-                ? "일시중지"
-                : "종료",
-        eligibility: life === "ACTIVE" ? "노출 가능" : life,
-        period: formatPeriod(c.startAt, c.endAt),
-        remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true),
-        currency: "CASH" as const,
-        href: DELIVERY_AD_ADMIN_ROUTES.detail(c.id),
-        statementHref: c.storeId ? businessCcFinancialStatementHref(c.storeId) : null,
-        source: "store_*_ad_campaigns",
-        conflictSeverity: finding?.severity === "BLOCKING" || finding?.severity === "WARNING"
-          ? finding.severity
-          : ("NONE" as const),
-        conflictLabelKo: finding?.severityLabelKo ?? "정상",
-        conflictLabelEn: finding?.severityLabelEn ?? "OK",
-      };
-    });
+  // Dual-stack removal: Delivery execution management lives on hub only (not CP table).
+  // CP keeps collision/occupancy presentation (read) with links into hub/detail.
+  const currentExecution: AdsExecutionRow[] = [];
 
   const placements = listAllPlacementMapRows()
     .slice(0, 40)
@@ -766,10 +535,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         frequency: "FREQUENT",
       },
     ],
-    recent: [...applications, ...actionRequired]
-      .filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i)
-      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 80),
+    recent: actionRequired.slice(0, 25),
     sectionErrors,
   };
 }
