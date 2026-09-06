@@ -7,6 +7,7 @@ import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import {
+  collectMenuPathEntries,
   hasActiveDescendantInMenu,
   isLeafMenuActive,
   menuPathMatchScore,
@@ -16,8 +17,20 @@ const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
 const USER_POINT_CHARGES_MENU_KEY = "points-charge";
 
 function itemOrChildMatches(item: AdminMenuItem, currentPath: string): boolean {
-  if (item.path && menuPathMatchScore(currentPath, item.path) >= 0) return true;
+  if (
+    item.path &&
+    menuPathMatchScore(currentPath, item.path, { exactPath: item.exactPath === true }) >= 0
+  ) {
+    return true;
+  }
   if (item.matchPaths?.some((p) => menuPathMatchScore(currentPath, p) >= 0)) return true;
+  if (
+    item.matchPathPrefixes?.some((p) =>
+      menuPathMatchScore(currentPath, p, { asPrefix: true }) >= 0
+    )
+  ) {
+    return true;
+  }
   if (item.children?.length) return hasActiveDescendantInMenu(item.children, currentPath);
   return false;
 }
@@ -36,7 +49,7 @@ export function AdminSidebarItem({
   item: AdminMenuItem;
   currentPath: string;
   depth?: number;
-  pathsScope?: string[];
+  pathsScope?: string[] | ReturnType<typeof collectMenuPathEntries>;
   onClose?: () => void;
   onNavigate?: (path: string) => void;
 }) {
@@ -98,8 +111,17 @@ export function AdminSidebarItem({
 
   const leafIsActive =
     pathsScope && pathsScope.length > 0 && item.path
-      ? isLeafMenuActive(item.path, currentPath, pathsScope, item.matchPaths)
-      : Boolean(item.path && menuPathMatchScore(currentPath, item.path) >= 0 && !hasChildren);
+      ? isLeafMenuActive(item.path, currentPath, pathsScope, item.matchPaths, {
+          exactPath: item.exactPath === true,
+          matchPathPrefixes: item.matchPathPrefixes,
+        })
+      : Boolean(
+          item.path &&
+            menuPathMatchScore(currentPath, item.path, {
+              exactPath: item.exactPath === true,
+            }) >= 0 &&
+            !hasChildren
+        );
 
   const linkClass = `${baseLinkClass} ${leafIsActive ? activeClass : inactiveClass}`;
 

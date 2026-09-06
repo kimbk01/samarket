@@ -1,5 +1,10 @@
 /**
  * CUT B — Canonical route ownership (UI in CUT C / F).
+ *
+ * Ads dual-stack removal:
+ * - `control` = cross-domain Ads Control Plane (관제) — read composition
+ * - `hub` = Delivery store_sponsored + banner ops only — lifecycle list
+ * Mutation detail remains `/admin/delivery-ads/[campaignId]` (single writer UI).
  */
 
 export const DELIVERY_AD_OWNER_ROUTES = {
@@ -14,7 +19,10 @@ export const DELIVERY_AD_OWNER_ROUTES = {
 } as const;
 
 export const DELIVERY_AD_ADMIN_ROUTES = {
-  hub: "/admin/delivery-ads",
+  /** Cross-domain Ads 관제 (Control Plane). Not Delivery lifecycle list. */
+  control: "/admin/delivery-ads",
+  /** Delivery 매장 홍보 + 배달 배너 operator hub (single Delivery ops path). */
+  hub: "/admin/delivery-ads/manage",
   commercialSettings: "/admin/delivery-ads/commercial-settings",
   /** Launch placement inventory management (human language). */
   inventory: "/admin/delivery-ads/inventory",
@@ -34,5 +42,5 @@ export const DELIVERY_AD_LEGACY_ADMIN_ROUTES = {
   storeSponsored: "/admin/store-insertions",
   banner: "/admin/store-banner-ads",
   disposition: "canonical_redirect",
-  canonical: "/admin/delivery-ads",
+  canonical: "/admin/delivery-ads/manage",
 } as const;

@@ -46,7 +46,7 @@ export const CUT_J_CONFIG_VS_OPERATION = {
   homeConfigWorkspace: "delivery",
   categoryConfigRoute: "/admin/stores-category-policy",
   categoryConfigWorkspace: "delivery",
-  deliveryAdsOpsRoute: "/admin/delivery-ads",
+  deliveryAdsOpsRoute: "/admin/delivery-ads/manage",
   deliveryAdsOpsWorkspace: "ads",
   placementMapRoute: "/admin/delivery-ads/inventory#placement-map",
   placementMapWorkspace: "ads",

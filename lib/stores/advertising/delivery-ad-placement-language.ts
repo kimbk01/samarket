@@ -7,6 +7,7 @@ import {
   DELIVERY_AD_INVENTORY_KEYS,
   type DeliveryAdInventoryKey,
 } from "@/lib/stores/advertising/delivery-ad-inventory";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
 export type DeliveryAdPlacementI18nKey =
   | "owner_ads_inventory_home"
@@ -95,5 +96,5 @@ export function deliveryAdsAdminHubHref(filters: {
   if (filters.primarySlug?.trim()) qs.set("primarySlug", filters.primarySlug.trim());
   if (filters.subSlug?.trim()) qs.set("subSlug", filters.subSlug.trim());
   const q = qs.toString();
-  return q ? `/admin/delivery-ads?${q}` : "/admin/delivery-ads";
+  return q ? `${DELIVERY_AD_ADMIN_ROUTES.hub}?${q}` : DELIVERY_AD_ADMIN_ROUTES.hub;
 }

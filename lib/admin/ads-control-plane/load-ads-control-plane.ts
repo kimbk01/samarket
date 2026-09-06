@@ -4,11 +4,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
-import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import {
   loadAdminDeliveryAdCampaignList,
-  type AdminDeliveryAdListItem,
 } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import { listAllPlacementMapRows, placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
@@ -20,11 +18,8 @@ import type {
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
 import {
-  adsExposureLabel,
-  adsLifecycleOperatorLabel,
   adsPaymentLabel,
   adsRemainingPeriodLabel,
-  adsWhyActionable,
 } from "@/lib/admin/domain-control/ads-operator-cta";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
@@ -49,11 +44,6 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
   const a = startAt ? new Date(startAt).toLocaleDateString("ko") : "?";
   const b = endAt ? new Date(endAt).toLocaleDateString("ko") : "?";
   return `${a} → ${b}`;
-}
-
-/** Presentation only — operator exposure meaning (ko). */
-function presentDeliveryEligibility(c: AdminDeliveryAdListItem): string {
-  return adsExposureLabel(c.lifecycleStatus, true);
 }
 
 export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
@@ -114,65 +104,8 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const applications: AdsActionItem[] = [];
   const creatives: AdsActionItem[] = [];
 
-  if (deliveryQueue.ok) {
-    for (const item of deliveryQueue.items.slice(0, 20)) {
-      const pres = mapAdminDeliveryAdActionQueuePresentation({
-        productKind: item.productKind,
-        lifecycleStatus: item.campaignLifecycle,
-        creativeAssetPath: item.creativeAssetPath,
-        hadChangesRequested: item.hadChangesRequested,
-      });
-      const isCreative = pres.bucket === "needs_creative";
-      const storeId = item.storeId;
-      const life = item.campaignLifecycle;
-      const placement =
-        item.productKind === "banner"
-          ? adminDeliveryAdInventoryHumanLabel("STORES_HOME_HERO", "ko")
-          : adminDeliveryAdInventoryHumanLabel("STORES_HOME_FEED", "ko");
-      const row: AdsActionItem = {
-        id: `delivery:${item.caseId}`,
-        domain: "delivery",
-        product: item.productKind,
-        entity: isCreative ? "creative" : "application",
-        applicantLabel:
-          item.storeName || item.campaignTitle || item.campaignId.slice(0, 8),
-        storeId,
-        memberId: item.ownerUserId || null,
-        creativeHint: item.creativeAssetPath
-          ? item.creativeAssetPath.slice(0, 48)
-          : isCreative
-            ? "needs_creative"
-            : null,
-        placementHint: placement,
-        amountLabel: null,
-        currency: "CASH",
-        status: adsLifecycleOperatorLabel(life, true),
-        whyActionable: adsWhyActionable(
-          {
-            lifecycle: life,
-            needsCreative: isCreative,
-            hadChangesRequested: item.hadChangesRequested,
-          },
-          true
-        ),
-        paymentLabel: adsPaymentLabel(item.fundingStatus, "CASH", true),
-        periodLabel: formatPeriod(item.startAt, item.endAt),
-        remainingLabel: adsRemainingPeriodLabel(item.startAt, item.endAt, true),
-        exposureLabel: adsExposureLabel(life, true),
-        eligibility: null,
-        ageHours: ageHours(item.updatedAt),
-        at: item.updatedAt,
-        source: "delivery_ad_operations_cases WAITING_ADMIN",
-        href: item.destination || DELIVERY_AD_ADMIN_ROUTES.detail(item.campaignId),
-        statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-        financeHref: "/admin/finance#action-required",
-        memberHref: item.ownerUserId ? memberHref(item.ownerUserId) : null,
-      };
-      actionRequired.push(row);
-      if (isCreative) creatives.push(row);
-      else applications.push(row);
-    }
-  }
+  // Dual-stack removal: Delivery per-row cards stay off the Control Plane.
+  // Queue counts + href → Delivery hub; mutation detail remains single writer.
 
   const feedRows = feedUnavailable ? [] : ((feedRes.data ?? []) as Record<string, unknown>[]);
   const feedPending = feedRows.filter((r) => {
@@ -322,12 +255,6 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     })),
     { hrefForId: (id) => DELIVERY_AD_ADMIN_ROUTES.detail(id) }
   );
-  const conflictByCampaign = new Map<string, (typeof collisionFindings)[number]>();
-  for (const f of collisionFindings) {
-    const prev = conflictByCampaign.get(f.campaignId);
-    const rank = (s: string) => (s === "BLOCKING" ? 2 : s === "WARNING" ? 1 : 0);
-    if (!prev || rank(f.severity) > rank(prev.severity)) conflictByCampaign.set(f.campaignId, f);
-  }
 
   const collisions: AdsCollisionCard[] = collisionFindings
     .filter((f): f is typeof f & { severity: "WARNING" | "BLOCKING" } =>
@@ -360,33 +287,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     return Number.isFinite(ms) && ms > 0 && ms <= 72 * 3600000;
   }).length;
 
+  // Dual-stack removal: Delivery execution management lives on hub only (not CP table).
+  // CP keeps collision/occupancy presentation (read) with links into hub/detail.
   const currentExecution: AdsExecutionRow[] = [];
-  for (const c of deliveryItems) {
-    const life = String(c.lifecycleStatus ?? "");
-    if (!(life === "ACTIVE" || life === "SCHEDULED" || life.startsWith("PAUSED"))) continue;
-    const storeId = c.storeId ? String(c.storeId) : null;
-    const conflict = conflictByCampaign.get(c.id);
-    currentExecution.push({
-      id: c.id,
-      domain: "delivery",
-      product: c.productKind,
-      label: c.storeName || c.title || c.id.slice(0, 8),
-      placement: c.inventoryKeys?.[0]
-        ? adminDeliveryAdInventoryHumanLabel(c.inventoryKeys[0], "ko")
-        : null,
-      status: adsLifecycleOperatorLabel(life, true),
-      eligibility: presentDeliveryEligibility(c),
-      period: formatPeriod(c.startAt, c.endAt),
-      remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true),
-      currency: "CASH",
-      href: DELIVERY_AD_ADMIN_ROUTES.detail(c.id),
-      statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-      source: "store_*_ad_campaigns lifecycle + scheduleHint/inventory",
-      conflictSeverity: conflict?.severity ?? "NONE",
-      conflictLabelKo: conflict?.severityLabelKo ?? "정상",
-      conflictLabelEn: conflict?.severityLabelEn ?? "OK",
-    });
-  }
 
   const placements = listAllPlacementMapRows()
     .slice(0, 40)

@@ -76,7 +76,7 @@ function toRow(c: SupportCaseRow): SupportActionRow {
     financeHref: storeId
       ? `/admin/finance?storeId=${encodeURIComponent(storeId)}#action-required`
       : "/admin/finance#action-required",
-    adsHref: adsRelated ? "/admin/delivery-ads#action-required" : null,
+    adsHref: adsRelated ? "/admin/delivery-ads/manage#action-required" : null,
     source: "support_cases",
   };
 }
@@ -221,7 +221,7 @@ export async function loadSupportControlPlane(
         id: "ads",
         labelKo: "광고/노출 관제 (B5)",
         labelEn: "Ads / Exposure (B5)",
-        href: "/admin/delivery-ads#action-required",
+        href: "/admin/delivery-ads/manage#action-required",
         frequency: "FREQUENT",
       },
       {

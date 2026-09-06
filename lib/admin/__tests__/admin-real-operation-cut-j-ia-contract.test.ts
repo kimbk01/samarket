@@ -145,8 +145,8 @@ describe("CUT J IA separation hard lock", () => {
     const findability: Record<string, { workspace: string; route: string }> = {
       J21_cash: { workspace: "finance", route: "/admin/finance" },
       J22_coin: { workspace: "finance", route: "/admin/finance" },
-      J23_delivery_ad: { workspace: "ads", route: "/admin/delivery-ads" },
-      J24_banner: { workspace: "ads", route: "/admin/delivery-ads" },
+      J23_delivery_ad: { workspace: "ads", route: "/admin/delivery-ads/manage" },
+      J24_banner: { workspace: "ads", route: "/admin/delivery-ads/manage" },
       J25_popup: { workspace: "ads", route: "/admin/platform-popup" },
       J26_feed: { workspace: "ads", route: "/admin/feed-ads" },
       J27_member_support: { workspace: "support", route: "/admin/support" },

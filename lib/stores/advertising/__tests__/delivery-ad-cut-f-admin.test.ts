@@ -298,7 +298,7 @@ describe("CUT F Admin Delivery Ads", () => {
   });
 
   it("canonical admin routes + transactional mutation authority", () => {
-    expect(DELIVERY_AD_ADMIN_ROUTES.hub).toBe("/admin/delivery-ads");
+    expect(DELIVERY_AD_ADMIN_ROUTES.hub).toBe("/admin/delivery-ads/manage");
     expect(DELIVERY_AD_LEGACY_ADMIN_ROUTES.disposition).toBe("canonical_redirect");
     expect(CUT_F_ADMIN_TRANSACTIONAL_MUTATION.authority).toBe("admin_delivery_ad_transition");
     expect(CUT_F_ADMIN_TRANSACTIONAL_MUTATION.sequentialCompensationForbidden).toBe(true);

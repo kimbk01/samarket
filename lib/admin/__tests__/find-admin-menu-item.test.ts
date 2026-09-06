@@ -11,10 +11,14 @@ describe("find-admin-menu-item", () => {
   it("finds ads workspace leaves by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
-    expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
     expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-execution-group")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-ops")?.path).toBe(
+      "/admin/delivery-ads/manage"
+    );
+    // legacy flat Delivery ops key must stay absent (dual-stack menu leaf is delivery-ads-ops)
     expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(false);
-    // trade promote is nested under ads-trade-promote
     expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
       "/admin/ad-applications?domain=trade"
     );

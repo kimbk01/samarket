@@ -812,7 +812,7 @@ export function AdminStoresHomeShelvesPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/admin/delivery-ads"
+              href="/admin/delivery-ads/manage"
               className={Sam.btn.secondary}
               data-admin-delivery-ads-ops-cross-link="1"
             >

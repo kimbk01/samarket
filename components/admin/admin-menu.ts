@@ -28,6 +28,17 @@ export interface AdminMenuItem {
   path?: string;
   /** active 판정용 추가 path (별도 메뉴 노드 아님) */
   matchPaths?: string[];
+  /**
+   * If true, `path` matches only the exact pathname (no `/child` prefix match).
+   * Used so Ads 관제 (`/admin/delivery-ads`) does not steal active state from
+   * Delivery ops detail (`/admin/delivery-ads/[id]`).
+   */
+  exactPath?: true;
+  /**
+   * Active when current pathname is under one of these prefixes
+   * (loses to longer exact siblings in the same scope).
+   */
+  matchPathPrefixes?: string[];
   icon?: string;
   roles?: AdminMenuRole[];
   children?: AdminMenuItem[];
@@ -157,6 +168,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "store-insertions-control": "admin_menu_store_insertions_control",
   "store-ads-control": "admin_menu_store_ads_control",
   "delivery-ads-control": "admin_menu_delivery_ads_control",
+  "delivery-ads-ops": "admin_menu_delivery_ads_ops",
   "delivery-ads-commercial": "admin_menu_delivery_ads_commercial",
   "store-banner-ads-control": "admin_menu_store_banner_ads_control",
   "store-ads-section": "admin_menu_store_ads_section",
@@ -804,6 +816,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "delivery-ads-control",
         title: "",
         path: "/admin/delivery-ads",
+        exactPath: true,
         status: "done",
       },
       {
@@ -836,6 +849,15 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         title: "",
         status: "done",
         children: [
+          {
+            key: "delivery-ads-ops",
+            title: "",
+            path: "/admin/delivery-ads/manage",
+            matchPaths: ["/admin/delivery-ads/manage"],
+            // Detail / creative under /admin/delivery-ads/[id] — not 관제, not inventory.
+            matchPathPrefixes: ["/admin/delivery-ads"],
+            status: "done",
+          },
           { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
           {
             key: "ads-platform-popup",

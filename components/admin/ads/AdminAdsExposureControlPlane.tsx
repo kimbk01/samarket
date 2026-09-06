@@ -413,7 +413,7 @@ export function AdminAdsExposureControlPlane() {
           {(
             [
               [ko ? "배달" : "Delivery", "delivery", q.delivery],
-              [ko ? "피드" : "Feed", "feed", q.feed],
+              [ko ? "배너" : "Banner", "feed", q.feed],
               [ko ? "팝업" : "Popup", "popup", q.popup],
               [ko ? "거래 홍보" : "Trade", "trade_promote", q.tradePromote],
             ] as const
@@ -474,6 +474,18 @@ export function AdminAdsExposureControlPlane() {
       </Section>
 
       <Section id="execution" title={ko ? "현재 집행 상태" : "Current execution state"}>
+        <p className="sam-text-helper text-sam-muted" data-admin-ads-execution-policy="delivery-hub-only">
+          {ko
+            ? "배달 매장 홍보·배달 배너 집행/중지/이력은 배달 광고 운영에서만 관리합니다."
+            : "Delivery store promotion & banner lifecycle is managed only in Delivery ads ops."}
+          {" "}
+          <Link
+            href={`${q.delivery.href}`}
+            className="font-semibold text-signature hover:underline"
+          >
+            {ko ? "배달 광고 운영 열기" : "Open Delivery ads ops"}
+          </Link>
+        </p>
         <ExecTable rows={model.currentExecution} ko={ko} />
       </Section>
 

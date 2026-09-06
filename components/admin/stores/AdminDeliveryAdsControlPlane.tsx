@@ -9,7 +9,6 @@ import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
-import { AdminAdsExposureControlPlane } from "@/components/admin/ads/AdminAdsExposureControlPlane";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
@@ -33,6 +32,7 @@ import {
 import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-ad-admin-hub-today-counts";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
 import { adminDisplayApplicantLabel } from "@/lib/admin/operator-ux/operator-labels";
 
@@ -86,7 +86,7 @@ export function AdminDeliveryAdsControlPlane() {
     setHubView(view);
     const next = new URLSearchParams(searchParams.toString());
     next.set("view", view);
-    router.replace(`/admin/delivery-ads?${next.toString()}`, { scroll: false });
+    router.replace(`${DELIVERY_AD_ADMIN_ROUTES.hub}?${next.toString()}`, { scroll: false });
   };
   const [product, setProduct] = useState<ProductFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -237,14 +237,16 @@ export function AdminDeliveryAdsControlPlane() {
 
   return (
     <AdminDeliveryCmsChrome help="home">
-      <div className="space-y-4 pb-10" data-admin-delivery-ads-hub="design-board" data-hub-default-view="actionable">
-        {/* ARO-OPS-UX-002-B5 — cross-domain Ads/Exposure Control Plane (read-only composition). */}
-        <AdminAdsExposureControlPlane />
-
-        {/* 1 — Page identity / summary */}
+      <div
+        className="space-y-4 pb-10"
+        data-admin-delivery-ads-hub="design-board"
+        data-hub-default-view="actionable"
+        data-admin-delivery-ads-dual-stack="removed"
+      >
+        {/* 1 — Page identity / summary (Control Plane is /admin/delivery-ads only — no dual mount) */}
         <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">
-            {lang === "en" ? "Ads / Exposure › Delivery" : "광고 / 노출 › 배달"}
+            {lang === "en" ? "Ads / Exposure › Delivery ops" : "광고 / 노출 › 배달 운영"}
           </p>
           <h1 className="text-[20px] font-bold text-sam-fg">
             {safeT("admin_delivery_ads_title", {
@@ -254,8 +256,8 @@ export function AdminDeliveryAdsControlPlane() {
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_subtitle", {
-              fallbackKo: "매장 홍보·배너 집행 목록과 필터",
-              fallbackEn: "Store promotion and banner execution list",
+              fallbackKo: "매장 홍보·배달 배너 신청·집행·이력 (단일 운영 경로)",
+              fallbackEn: "Store promotion & delivery banner — single ops path",
             })}
           </p>
           <div className="mt-2">

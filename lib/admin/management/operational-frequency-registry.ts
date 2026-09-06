@@ -165,10 +165,10 @@ const REGISTRY: readonly OperationalFrequencyEntry[] = [
     id: "ads-delivery",
     workspace: "ADS_EXPOSURE",
     section: "delivery-ads",
-    route: "/admin/delivery-ads",
+    route: "/admin/delivery-ads/manage",
     frequency: "DAILY_CRITICAL",
     order: 1,
-    purpose: "Ads / Exposure Control Plane (B5)",
+    purpose: "Delivery ads ops (store promo + banner)",
   },
   {
     id: "support-cases",

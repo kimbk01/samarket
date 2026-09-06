@@ -115,7 +115,7 @@ export async function POST() {
     {
       ok: false,
       error: "legacy_writer_disabled",
-      canonical: "/admin/delivery-ads",
+      canonical: "/admin/delivery-ads/manage",
       api: "/api/admin/delivery-ads",
     },
     { status: 410 }
@@ -127,7 +127,7 @@ export async function PATCH() {
     {
       ok: false,
       error: "legacy_writer_disabled",
-      canonical: "/admin/delivery-ads",
+      canonical: "/admin/delivery-ads/manage",
       api: "/api/admin/delivery-ads",
     },
     { status: 410 }

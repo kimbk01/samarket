@@ -305,14 +305,14 @@ export const LEGACY_DEAD_SURFACE_LOCKS: readonly LegacySurfaceLock[] = [
     class: "REDIRECT_ONLY",
     writeAllowed: false,
     evidence: "app/admin/store-insertions/page.tsx",
-    target: "/admin/delivery-ads (or coupon when ?focus=coupons)",
+    target: "/admin/delivery-ads/manage (or coupon when ?focus=coupons)",
   },
   {
     id: "/admin/store-banner-ads",
     class: "REDIRECT_ONLY",
     writeAllowed: false,
     evidence: "app/admin/store-banner-ads/page.tsx",
-    target: "/admin/delivery-ads",
+    target: "/admin/delivery-ads/manage",
   },
   {
     id: "/admin/platform-inquiries",
@@ -432,7 +432,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   {
     id: "A",
     operation: "광고 신청 처리",
-    currentEntry: "/admin/delivery-ads",
+    currentEntry: "/admin/delivery-ads/manage",
     canonicalDomain: "DELIVERY_AD",
     readOwner: "admin-delivery-ad-loader",
     writeOwner: "admin_delivery_ad_transition",
@@ -443,7 +443,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   {
     id: "B",
     operation: "광고 소재 검수",
-    currentEntry: "/admin/delivery-ads (detail + creative)",
+    currentEntry: "/admin/delivery-ads/manage (detail + creative)",
     canonicalDomain: "DELIVERY_AD_CREATIVE",
     readOwner: "delivery_ad_creatives",
     writeOwner: "admin-delivery-ad-writer / owner-banner-writer",
@@ -476,7 +476,7 @@ export const SCENARIO_A_R_ENTRY_LOCK: readonly ScenarioEntryLock[] = [
   {
     id: "E",
     operation: "활성 광고 확인",
-    currentEntry: "/admin/delivery-ads",
+    currentEntry: "/admin/delivery-ads/manage",
     canonicalDomain: "DELIVERY_AD_EXECUTION",
     readOwner: "admin-delivery-ad-loader",
     writeOwner: "n/a (read)",

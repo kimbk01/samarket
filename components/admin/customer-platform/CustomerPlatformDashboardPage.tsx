@@ -108,7 +108,7 @@ export function CustomerPlatformDashboardPage() {
       domain: "store",
     },
     {
-      href: "/admin/delivery-ads?view=actionable",
+      href: "/admin/delivery-ads/manage?view=actionable",
       count: aq?.delivery_ad_ops_pending ?? 0,
       titleKey: "admin_menu_delivery_ads_control",
       titleKo: "배달 광고 운영 대기",

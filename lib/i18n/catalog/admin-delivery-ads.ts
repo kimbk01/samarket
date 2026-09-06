@@ -107,6 +107,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_lifecycle_archived: "보관",
     admin_delivery_ads_legacy_redirect: "배달 광고 통합 관리로 이동했습니다.",
     admin_menu_delivery_ads_control: "광고 관제",
+    admin_menu_delivery_ads_ops: "배달 광고",
     admin_menu_delivery_ads_commercial: "광고 상품 설정",
     admin_delivery_ads_commercial_title: "광고 상품 설정",
     admin_delivery_ads_commercial_subtitle:
@@ -466,6 +467,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_lifecycle_archived: "Archived",
     admin_delivery_ads_legacy_redirect: "Moved to unified Delivery ads control.",
     admin_menu_delivery_ads_control: "Ads control",
+    admin_menu_delivery_ads_ops: "Delivery ads",
     admin_menu_delivery_ads_commercial: "Ad product settings",
     admin_delivery_ads_commercial_title: "Ad product settings",
     admin_delivery_ads_commercial_subtitle:

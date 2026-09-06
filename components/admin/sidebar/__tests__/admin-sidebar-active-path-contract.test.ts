@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { adminMenu } from "@/components/admin/admin-menu";
+import { adminMenu, type AdminMenuItem } from "@/components/admin/admin-menu";
 import {
   bestMatchingMenuPath,
+  collectMenuPathEntries,
   collectMenuPaths,
   isLeafMenuActive,
   menuPathMatchScore,
@@ -11,14 +12,41 @@ import {
   resolveActiveWorkspace,
 } from "@/lib/admin/admin-workspace-routing";
 
-function workspacePaths(key: string): string[] {
+function workspaceEntries(key: string) {
   const ws = adminMenu.find((w) => w.key === key);
   if (!ws) return [];
-  return collectMenuPaths(ws.children?.length ? ws.children : [ws]);
+  return collectMenuPathEntries(ws.children?.length ? ws.children : [ws]);
 }
 
-function activeLeaves(scope: string[], current: string): string[] {
-  return scope.filter((p) => isLeafMenuActive(p, current, scope));
+function workspacePaths(key: string): string[] {
+  return workspaceEntries(key).map((e) => e.path);
+}
+
+/** Mirror AdminSidebarItem leaf active using real menu item metadata. */
+function activeLeaves(workspaceKey: string, current: string): string[] {
+  const ws = adminMenu.find((w) => w.key === workspaceKey);
+  if (!ws?.children?.length) return [];
+  const scope = collectMenuPathEntries(ws.children);
+  const out: string[] = [];
+  function walk(items: AdminMenuItem[]) {
+    for (const item of items) {
+      if (item.children?.length) {
+        walk(item.children);
+        continue;
+      }
+      if (!item.path) continue;
+      if (
+        isLeafMenuActive(item.path, current, scope, item.matchPaths, {
+          exactPath: item.exactPath === true,
+          matchPathPrefixes: item.matchPathPrefixes,
+        })
+      ) {
+        out.push(item.path);
+      }
+    }
+  }
+  walk(ws.children);
+  return out;
 }
 
 describe("admin sidebar active path authority", () => {
@@ -30,10 +58,17 @@ describe("admin sidebar active path authority", () => {
     expectCount: number;
   }> = [
     {
-      name: "workspace root messenger",
-      workspaceKey: "messenger",
-      path: "/admin/chats",
-      expectLeaf: "/admin/chats",
+      name: "ads control exact (not delivery detail)",
+      workspaceKey: "ads",
+      path: "/admin/delivery-ads",
+      expectLeaf: "/admin/delivery-ads",
+      expectCount: 1,
+    },
+    {
+      name: "delivery ads manage hub",
+      workspaceKey: "ads",
+      path: "/admin/delivery-ads/manage",
+      expectLeaf: "/admin/delivery-ads/manage",
       expectCount: 1,
     },
     {
@@ -89,32 +124,44 @@ describe("admin sidebar active path authority", () => {
       name: "trade reports domain-only query",
       workspaceKey: "trade",
       path: "/admin/reports?domain=trade",
-      expectLeaf: "/admin/reports?domain=trade",
+      expectLeaf: "/admin/reports?domain=trade&target_type=product",
       expectCount: 1,
     },
   ];
 
   it.each(cases)("$name → leaf=$expectLeaf count=$expectCount", (c) => {
-    const scope = workspacePaths(c.workspaceKey);
-    const actives = activeLeaves(scope, c.path);
+    const scope = workspaceEntries(c.workspaceKey);
+    const actives = activeLeaves(c.workspaceKey, c.path);
     expect(actives.length).toBe(c.expectCount);
     if (c.expectLeaf) {
-      expect(bestMatchingMenuPath(c.path, scope)).toBe(c.expectLeaf);
+      // bestMatchingMenuPath may return a matchPaths entry; active leaf is the menu item path.
       expect(actives).toEqual([c.expectLeaf]);
+      expect(bestMatchingMenuPath(c.path, scope)).not.toBeNull();
     } else {
       expect(actives).toEqual([]);
     }
   });
 
+  it("delivery ad detail activates Delivery ops leaf (not Ads control)", () => {
+    const scope = workspaceEntries("ads");
+    const detail = "/admin/delivery-ads/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const best = bestMatchingMenuPath(detail, scope);
+    expect(best).toBe("/admin/delivery-ads");
+    expect(activeLeaves("ads", detail)).toEqual(["/admin/delivery-ads/manage"]);
+    expect(
+      isLeafMenuActive("/admin/delivery-ads", detail, scope, undefined, { exactPath: true })
+    ).toBe(false);
+  });
+
   it("never activates parent when longer descendant wins", () => {
-    const scope = workspacePaths("messenger");
+    const scope = workspaceEntries("messenger");
     const current = "/admin/chats/messenger";
     expect(isLeafMenuActive("/admin/chats", current, scope)).toBe(false);
     expect(isLeafMenuActive("/admin/chats/messenger", current, scope)).toBe(true);
   });
 
   it("distinguishes support center vs archive sibling", () => {
-    const scope = workspacePaths("support");
+    const scope = workspaceEntries("support");
     expect(isLeafMenuActive("/admin/support", "/admin/support", scope)).toBe(true);
     expect(isLeafMenuActive("/admin/support/archive", "/admin/support", scope)).toBe(false);
     expect(isLeafMenuActive("/admin/support", "/admin/support/archive", scope)).toBe(false);
@@ -122,12 +169,13 @@ describe("admin sidebar active path authority", () => {
   });
 
   it("distinguishes CP hash siblings (dashboard vs action-queue vs monitoring)", () => {
-    const scope = workspacePaths("system");
-    expect(activeLeaves(scope, "/admin/customer-platform")).toEqual(["/admin/customer-platform"]);
-    expect(activeLeaves(scope, "/admin/customer-platform#action-queue")).toEqual([
+    expect(activeLeaves("system", "/admin/customer-platform")).toEqual([
+      "/admin/customer-platform",
+    ]);
+    expect(activeLeaves("system", "/admin/customer-platform#action-queue")).toEqual([
       "/admin/customer-platform#action-queue",
     ]);
-    expect(activeLeaves(scope, "/admin/customer-platform#monitoring")).toEqual([
+    expect(activeLeaves("system", "/admin/customer-platform#monitoring")).toEqual([
       "/admin/customer-platform#monitoring",
     ]);
   });

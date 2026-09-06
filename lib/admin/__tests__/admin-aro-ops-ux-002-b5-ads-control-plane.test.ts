@@ -36,14 +36,21 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
     expect(ui).not.toMatch(/캠페인/);
   });
 
-  it("mounts on canonical Delivery Ads hub (no ads-v2)", () => {
+  it("Control Plane owns /admin/delivery-ads; Delivery hub is /manage (no dual mount)", () => {
+    const controlPage = read("app/admin/delivery-ads/page.tsx");
+    expect(controlPage).toContain("AdminAdsExposureControlPlane");
+    expect(controlPage).not.toContain("AdminDeliveryAdsControlPlane");
+
+    const managePage = read("app/admin/delivery-ads/manage/page.tsx");
+    expect(managePage).toContain("AdminDeliveryAdsControlPlane");
+    expect(managePage).not.toContain("AdminAdsExposureControlPlane");
+
     const hub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
-    expect(hub).toContain("AdminAdsExposureControlPlane");
-    // Control plane mounts before legacy hub summary block.
-    expect(hub.indexOf("<AdminAdsExposureControlPlane")).toBeLessThan(
-      hub.indexOf("{/* 1 — Page identity / summary */}")
-    );
-    expect(DELIVERY_AD_ADMIN_ROUTES.hub).toBe("/admin/delivery-ads");
+    expect(hub).not.toContain("AdminAdsExposureControlPlane");
+    expect(hub).toContain('data-admin-delivery-ads-dual-stack="removed"');
+
+    expect(DELIVERY_AD_ADMIN_ROUTES.control).toBe("/admin/delivery-ads");
+    expect(DELIVERY_AD_ADMIN_ROUTES.hub).toBe("/admin/delivery-ads/manage");
     expect(existsSync(resolve(process.cwd(), "app/admin/ads-v2"))).toBe(false);
   });
 

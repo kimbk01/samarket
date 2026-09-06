@@ -6,7 +6,7 @@ import { AdminSidebarItem } from "./AdminSidebarItem";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
 import {
-  collectMenuPaths,
+  collectMenuPathEntries,
   hasActiveDescendantInMenu,
 } from "./admin-sidebar-active-path";
 
@@ -25,7 +25,7 @@ export function AdminSidebarGroup({
   const { t, tt } = useI18n();
   const status = getMenuStatus(item);
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
-  const pathsScope = collectMenuPaths(item.children);
+  const pathsScope = collectMenuPathEntries(item.children);
   const childActive = hasActiveDescendantInMenu(item.children, currentPath);
   const [open, setOpen] = useState(childActive);
 
