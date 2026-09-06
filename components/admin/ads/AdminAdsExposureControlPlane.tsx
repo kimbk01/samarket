@@ -416,6 +416,7 @@ export function AdminAdsExposureControlPlane() {
               [ko ? "배너" : "Banner", "feed", q.feed],
               [ko ? "팝업" : "Popup", "popup", q.popup],
               [ko ? "거래 홍보" : "Trade", "trade_promote", q.tradePromote],
+              [ko ? "커뮤니티 홍보" : "Community", "community_promote", q.communityPromote],
             ] as const
           ).map(([label, k, s]) => (
             <Link key={k} href={s.href} className="text-signature hover:underline" data-admin-ads-queue={k}>

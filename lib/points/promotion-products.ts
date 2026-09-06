@@ -26,8 +26,9 @@ export type MemberPromotionProduct = {
   sortOrder: number;
   active: boolean;
   /**
-   * Trade + Community member purchase: false = immediate active (A2).
-   * true reserved for legacy in-flight admin-review products only.
+   * ADDENDUM LOCK: applicant-paid Boost = HOLD → Admin approve → CAPTURE.
+   * true for all active Trade + Community promote SKUs.
+   * Immediate ACTIVE path is not the default for new member purchases.
    */
   requiresAdminApproval: boolean;
   titleKey: string;
@@ -86,15 +87,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 10000,
     sortOrder: 30,
     active: true,
-    requiresAdminApproval: false,
+    requiresAdminApproval: true,
     titleKey: "promo_product_community_3_title",
     descriptionKey: "promo_product_community_3_desc",
     fallbackTitleKo: "커뮤니티 3일 상위 노출",
     fallbackTitleEn: "Community top exposure · 3 days",
     fallbackDescKo:
-      "커뮤니티 피드 상단에 3일간 우선 노출됩니다. 포인트 결제 즉시 적용됩니다. (기존 상단고정 요금)",
+      "관리자 승인 후 커뮤니티 피드 상단에 3일간 우선 노출됩니다. 신청 시 Point가 보류(HOLD)되고, 승인 시 결제·거절 시 반환됩니다.",
     fallbackDescEn:
-      "Priority at top of the community feed for 3 days. Applies immediately with Point. (Legacy top-pin price)",
+      "After admin approval, priority at top of the community feed for 3 days. Points are held on apply, captured on approve, released on reject.",
   },
   {
     id: "community_promote_7",
@@ -105,15 +106,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 20000,
     sortOrder: 40,
     active: true,
-    requiresAdminApproval: false,
+    requiresAdminApproval: true,
     titleKey: "promo_product_community_7_title",
     descriptionKey: "promo_product_community_7_desc",
     fallbackTitleKo: "커뮤니티 7일 상위 노출",
     fallbackTitleEn: "Community top exposure · 7 days",
     fallbackDescKo:
-      "커뮤니티 피드 상단에 7일간 우선 노출됩니다. 포인트 결제 즉시 적용됩니다. (기존 상단고정 요금)",
+      "관리자 승인 후 커뮤니티 피드 상단에 7일간 우선 노출됩니다. 신청 시 Point가 보류(HOLD)되고, 승인 시 결제·거절 시 반환됩니다.",
     fallbackDescEn:
-      "Priority at top of the community feed for 7 days. Applies immediately with Point. (Legacy top-pin price)",
+      "After admin approval, priority at top of the community feed for 7 days. Points are held on apply, captured on approve, released on reject.",
   },
 ];
 

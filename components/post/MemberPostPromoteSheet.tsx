@@ -384,9 +384,11 @@ export function MemberPostPromoteSheet({
                   })}
                 </li>
                 <li className="pt-1 opacity-80">
-                  {safeT("promo_sheet_community_immediate_note", {
-                    fallbackKo: "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
-                    fallbackEn: "Goes live at the top of the feed immediately with Point. No admin approval.",
+                  {safeT("promo_sheet_community_approval_note", {
+                    fallbackKo:
+                      "신청 시 Point가 보류(HOLD)됩니다. 관리자 승인 후 피드 상단에 노출되고, 거절 시 Point가 반환됩니다.",
+                    fallbackEn:
+                      "Points are held on apply. After admin approval the post appears at the top of the feed; reject releases the hold.",
                   })}
                 </li>
               </>

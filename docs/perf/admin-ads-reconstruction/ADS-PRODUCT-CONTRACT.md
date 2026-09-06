@@ -3,6 +3,11 @@
 HEAD: 4d95ca8ac  
 Invalidates: prior ADS OPERATOR READY PARTIAL PASS (domain-control-final)
 
+**ADDENDUM LOCK (KEEP Master Placement audit):**  
+`docs/perf/admin-ads-reconstruction/MASTER-AUDIT-ADDENDUM-AUTHORITY-TRANSPARENCY-SLOT-LOCK.md`  
+— Admin authority · Advertising Statement · capacity/rotation · empty fallback.  
+One-page Workspace UI **blocked** until that LOCK is wired (adapters first).
+
 ## WHAT IS DIBAY ADVERTISING
 
 | Domain | What | Who applies | Pays | Currency | Approves | Placement | Exposure | Duration | Overlap | Admin | Legacy |

@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/admin/community-promotion-orders/[id]
- * body: { action: "approve" | "reject", reason?: string }
+ * body: { action: "approve" | "reject" | "pause" | "resume" | "end", reason?: string }
+ * end = no auto Point refund (ADMIN_END_REFUND_POLICY_REQUIRED)
  */
 export async function PATCH(
   req: NextRequest,
@@ -89,6 +90,41 @@ export async function PATCH(
       user_agent: meta.userAgent,
     });
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "pause" || action === "resume" || action === "end") {
+    const { applyBoostLifecycle } = await import("@/lib/promotion/admin-boost-lifecycle");
+    const res = await applyBoostLifecycle(sb, {
+      orderId,
+      domain: "community",
+      action,
+      adminUserId: admin.userId,
+      reason: body.reason ?? null,
+    });
+    if (!res.ok) {
+      return NextResponse.json({ ok: false, error: res.error }, { status: res.httpStatus });
+    }
+    void appendAuditLog(sb, {
+      actor_type: "admin",
+      actor_id: admin.userId,
+      target_type: "community_promotion_order",
+      target_id: orderId,
+      action: `community_promotion_order.${action}`,
+      before_json: before ? (before as Record<string, unknown>) : null,
+      after_json: {
+        action,
+        order_status: res.orderStatus,
+        endAt: res.endAt,
+        refundPolicy: action === "end" ? "ADMIN_END_REFUND_POLICY_REQUIRED" : null,
+      },
+      ip: meta.ip,
+      user_agent: meta.userAgent,
+    });
+    return NextResponse.json({
+      ok: true,
+      orderStatus: res.orderStatus,
+      endAt: res.endAt,
+    });
   }
 
   return NextResponse.json({ ok: false, error: "invalid_action" }, { status: 400 });

@@ -6,7 +6,7 @@ describe("trade paid exposure admin path", () => {
   it("trade products require admin approval", () => {
     expect(getMemberPromotionProduct("trade_promote_7")?.requiresAdminApproval).toBe(true);
     expect(getMemberPromotionProduct("trade_promote_14")?.requiresAdminApproval).toBe(true);
-    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(false);
+    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(true);
   });
 
   it("rejects community product ids", async () => {

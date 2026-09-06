@@ -3,7 +3,7 @@
  * Composition only — no unified ads SSOT / mutation.
  */
 
-export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote";
+export type AdsControlDomain = "delivery" | "feed" | "popup" | "trade_promote" | "community_promote";
 
 export type AdsBillingCurrency = "CASH" | "POINT" | "UNKNOWN" | "N_A";
 
@@ -87,6 +87,7 @@ export type AdsControlPlaneModel = {
     feed: { count: number | null; unavailable: boolean; href: string; source: string };
     popup: { count: number | null; unavailable: boolean; href: string; source: string };
     tradePromote: { count: number | null; unavailable: boolean; href: string; source: string };
+    communityPromote: { count: number | null; unavailable: boolean; href: string; source: string };
     collisionBlocking: { count: number | null; unavailable: boolean; href: string; source: string };
     collisionWarning: { count: number | null; unavailable: boolean; href: string; source: string };
     endingSoon: { count: number | null; unavailable: boolean; href: string; source: string };

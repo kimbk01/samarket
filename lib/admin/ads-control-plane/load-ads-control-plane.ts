@@ -49,7 +49,7 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
 export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
   const sectionErrors: string[] = [];
 
-  const [deliveryQueue, feedRes, popupRes, tradePromoRes, activeDelivery] = await Promise.all([
+  const [deliveryQueue, feedRes, popupRes, boostPromoRes, activeDelivery] = await Promise.all([
     listDeliveryAdAdminActionQueue(sb, { limit: 40 }),
     sb
       .from("feed_ad_requests")
@@ -64,11 +64,11 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       .limit(40),
     sb
       .from("point_promotion_orders")
-      .select("id, user_id, domain, order_status, created_at, post_id")
-      .eq("domain", "trade")
+      .select("id, user_id, domain, order_status, created_at, target_id, product_id, point_cost, start_at, end_at")
+      .in("domain", ["trade", "community"])
       .eq("order_status", "pending_review")
       .order("created_at", { ascending: false })
-      .limit(30),
+      .limit(60),
     loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: 80 }),
   ]);
 
@@ -83,10 +83,10 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     sectionErrors.push(`popup:${popupRes.error.message}`);
   }
   if (
-    tradePromoRes.error &&
-    !isMissing(tradePromoRes.error, /point_promotion_orders|schema cache|does not exist/i)
+    boostPromoRes.error &&
+    !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i)
   ) {
-    sectionErrors.push(`trade_promo:${tradePromoRes.error.message}`);
+    sectionErrors.push(`boost_promo:${boostPromoRes.error.message}`);
   }
   if (activeDelivery.error) sectionErrors.push(`delivery_list:${activeDelivery.error}`);
 
@@ -96,9 +96,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const popupUnavailable =
     !!popupRes.error &&
     !isMissing(popupRes.error, /platform_popup_owner_requests|schema cache|does not exist/i);
-  const tradeUnavailable =
-    !!tradePromoRes.error &&
-    !isMissing(tradePromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
+  const boostUnavailable =
+    !!boostPromoRes.error &&
+    !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
 
   const actionRequired: AdsActionItem[] = [];
   const applications: AdsActionItem[] = [];
@@ -198,10 +198,12 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     applications.push(row);
   }
 
-  // Trade promote — Point commerce, NOT AdProduct / not Partner
-  const tradeRows = tradeUnavailable
+  // Trade + Community Boost — Point HOLD pending (NOT Feed Banner)
+  const boostRows = boostUnavailable
     ? []
-    : ((tradePromoRes.data ?? []) as Record<string, unknown>[]);
+    : ((boostPromoRes.data ?? []) as Record<string, unknown>[]);
+  const tradeRows = boostRows.filter((r) => String(r.domain) === "trade");
+  const communityRows = boostRows.filter((r) => String(r.domain) === "community");
   for (const r of tradeRows.slice(0, 10)) {
     const id = String(r.id ?? "");
     const userId = String(r.user_id ?? "");
@@ -209,26 +211,29 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     const row: AdsActionItem = {
       id: `trade_promo:${id}`,
       domain: "trade_promote",
-      product: "trade_promote",
+      product: String(r.product_id ?? "trade_promote"),
       entity: "application",
       applicantLabel: id.slice(0, 8),
       storeId: null,
       memberId: userId || null,
       creativeHint: null,
       placementHint: "거래 피드 홍보",
-      amountLabel: null,
+      amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
       currency: "POINT",
       status: "검토 대기",
-      whyActionable: "거래 홍보 신청 심사가 필요합니다.",
+      whyActionable: "거래 더 알리기 승인이 필요합니다.",
       paymentLabel: adsPaymentLabel(null, "POINT", true),
-      periodLabel: null,
+      periodLabel: formatPeriod(
+        typeof r.start_at === "string" ? r.start_at : null,
+        typeof r.end_at === "string" ? r.end_at : null
+      ),
       remainingLabel: null,
       exposureLabel: "아직 노출 안 됨",
       eligibility: null,
       ageHours: ageHours(at),
       at,
       source: "point_promotion_orders domain=trade",
-      href: `/admin/ad-applications?domain=trade`,
+      href: `/admin/ad-applications/${encodeURIComponent(id)}?domain=trade`,
       statementHref: null,
       financeHref: "/admin/finance#point",
       memberHref: userId ? memberHref(userId) : null,
@@ -236,6 +241,45 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     actionRequired.push(row);
     applications.push(row);
   }
+  for (const r of communityRows.slice(0, 10)) {
+    const id = String(r.id ?? "");
+    const userId = String(r.user_id ?? "");
+    const at = String(r.created_at ?? "");
+    const row: AdsActionItem = {
+      id: `community_promo:${id}`,
+      domain: "community_promote",
+      product: String(r.product_id ?? "community_promote"),
+      entity: "application",
+      applicantLabel: id.slice(0, 8),
+      storeId: null,
+      memberId: userId || null,
+      creativeHint: null,
+      placementHint: "커뮤니티 상위 노출",
+      amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
+      currency: "POINT",
+      status: "검토 대기",
+      whyActionable: "커뮤니티 상위노출 승인이 필요합니다. (HOLD)",
+      paymentLabel: adsPaymentLabel(null, "POINT", true),
+      periodLabel: formatPeriod(
+        typeof r.start_at === "string" ? r.start_at : null,
+        typeof r.end_at === "string" ? r.end_at : null
+      ),
+      remainingLabel: null,
+      exposureLabel: "아직 노출 안 됨",
+      eligibility: null,
+      ageHours: ageHours(at),
+      at,
+      source: "point_promotion_orders domain=community",
+      href: `/admin/ad-applications/${encodeURIComponent(id)}?domain=community`,
+      statementHref: null,
+      financeHref: "/admin/finance#point",
+      memberHref: userId ? memberHref(userId) : null,
+    };
+    actionRequired.push(row);
+    applications.push(row);
+  }
+
+  // Dual-stack removal: Delivery per-row cards stay off the Control Plane.
 
   actionRequired.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
@@ -375,10 +419,16 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         source: "platform_popup_owner_requests submitted|under_review",
       },
       tradePromote: {
-        count: tradeUnavailable ? null : tradeRows.length,
-        unavailable: tradeUnavailable,
+        count: boostUnavailable ? null : tradeRows.length,
+        unavailable: boostUnavailable,
         href: "/admin/ad-applications?domain=trade",
         source: "point_promotion_orders trade pending_review",
+      },
+      communityPromote: {
+        count: boostUnavailable ? null : communityRows.length,
+        unavailable: boostUnavailable,
+        href: "/admin/ad-applications?domain=community",
+        source: "point_promotion_orders community pending_review HOLD",
       },
       collisionBlocking: {
         count: activeDelivery.error ? null : blockingCount,

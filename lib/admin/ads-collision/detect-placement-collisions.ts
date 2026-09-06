@@ -3,6 +3,11 @@
  * No conflict table. Distinguishes allowed multi-placement vs true capacity/overlap problems.
  */
 
+import {
+  BANNER_DUPLICATE_POLICY,
+  bannerPlacementDefaultCapacity,
+} from "@/lib/ads/banner-placement-capacity-ssot";
+
 export type AdsCollisionSeverity = "NONE" | "WARNING" | "BLOCKING";
 
 export type AdsCollisionCampaignInput = {
@@ -56,16 +61,9 @@ export type AdsCollisionFinding = {
   hrefHint: string;
 };
 
-const DEFAULT_CAPACITY: Record<string, number> = {
-  STORES_HOME_HERO: 1,
-  STORES_SEARCH_TOP: 1,
-  STORES_HOME_FEED: 3,
-  DELIVERY_HOME_TOP: 1,
-};
-
 function severityLabels(s: AdsCollisionSeverity): { ko: string; en: string } {
-  if (s === "BLOCKING") return { ko: "노출 충돌", en: "Exposure collision" };
-  if (s === "WARNING") return { ko: "중복 확인 필요", en: "Duplication review" };
+  if (s === "BLOCKING") return { ko: "기간 만석", en: "Period full" };
+  if (s === "WARNING") return { ko: "중복 기간", en: "Overlapping period" };
   return { ko: "정상", en: "OK" };
 }
 
@@ -77,6 +75,13 @@ export function isExposureOverlapCandidate(lifecycle: string): boolean {
   if (s.startsWith("PAUSED") || s === "HIDDEN" || s === "ENDED" || s === "CANCELLED") return false;
   if (s === "REJECTED" || s === "DRAFT" || s.includes("REVIEW")) return false;
   return false;
+}
+
+function capacityForKey(key: string, override?: Record<string, number>): number {
+  if (override && typeof override[key] === "number" && override[key]! > 0) {
+    return Math.trunc(override[key]!);
+  }
+  return bannerPlacementDefaultCapacity(key);
 }
 
 export function intervalsOverlap(
@@ -96,8 +101,7 @@ export function intervalsOverlap(
 }
 
 function capacityFor(key: string, override?: Record<string, number>): number {
-  if (override && typeof override[key] === "number") return Math.max(1, override[key]!);
-  return DEFAULT_CAPACITY[key] ?? 1;
+  return capacityForKey(key, override);
 }
 
 /**
@@ -203,8 +207,8 @@ export function detectPlacementCollisions(
           severity: sev,
           severityLabelKo: labels.ko,
           severityLabelEn: labels.en,
-          reasonKo: "같은 매장이 같은 placement에서 기간이 겹칩니다.",
-          reasonEn: "Same store overlaps on the same placement period.",
+          reasonKo: BANNER_DUPLICATE_POLICY.humanKo,
+          reasonEn: BANNER_DUPLICATE_POLICY.humanEn,
           checkCode,
           peers: [
             {

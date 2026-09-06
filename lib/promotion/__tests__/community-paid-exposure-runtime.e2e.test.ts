@@ -1,5 +1,6 @@
 /**
- * Runtime proof (service role) — Community A2 immediate active + TOP feed.
+ * Runtime proof (service role) — Community HOLD → approve CAPTURE + TOP feed.
+ * Catalog SKUs requireAdminApproval=true; immediate A2 is not the default path.
  * Run: RUN_REVENUE_E2E=1 npx vitest run lib/promotion/__tests__/community-paid-exposure-runtime.e2e.test.ts
  */
 import { randomUUID } from "node:crypto";

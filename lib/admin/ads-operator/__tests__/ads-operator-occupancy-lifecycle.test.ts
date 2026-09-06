@@ -29,9 +29,9 @@ describe("ads operator occupancy + lifecycle", () => {
       ],
       { nowMs: now, placementKeys: ["STORES_HOME_HERO"] }
     );
-    expect(rows[0]?.capacity).toBe(1);
+    expect(rows[0]?.capacity).toBe(5);
     expect(rows[0]?.liveCount).toBe(1);
-    expect(rows[0]?.vacant).toBe(0);
+    expect(rows[0]?.vacant).toBe(4);
   });
 
   it("ACTIVE lifecycle ≠ exposing without eligibility", () => {

@@ -1,8 +1,8 @@
 /**
  * Community Paid Exposure — point_promotion_orders authority.
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
- * NEW member purchase (A2): immediate spend + active (no admin).
- * Legacy pending+HOLD path kept only for requiresAdminApproval products / in-flight orders.
+ * ADDENDUM LOCK: new member purchase = HOLD → Admin approve CAPTURE / reject·cancel RELEASE.
+ * `applyCommunityPaidExposureImmediate` kept for legacy readers only (requiresAdminApproval=false SKUs).
  * DO NOT insert post_ads. DO NOT use Trade RPC (posts table) for community.
  */
 
@@ -157,10 +157,8 @@ export async function applyCommunityPaidExposurePending(
 }
 
 /**
- * A2 — Community top exposure: atomic Point spend + active entitlement.
- * Authority: RPC purchase_member_community_promotion (one DB TX).
- * No HOLD, no admin approve/reject on this path.
- * DO NOT app-layer spend→insert→compensate (partial failure window).
+ * Legacy A2 immediate path — blocked for active catalog SKUs (requiresAdminApproval=true).
+ * Kept so historical tooling/RPC readers are not deleted; new POST routes must use Pending+HOLD.
  */
 export async function applyCommunityPaidExposureImmediate(
   sb: SupabaseClient,
@@ -336,6 +334,47 @@ export async function rejectCommunityPaidExposure(
     .maybeSingle();
   if (upd) return { ok: false, error: upd.message };
   if (!updated?.id) return { ok: false, error: "reject_race" };
+
+  return { ok: true };
+}
+
+/**
+ * Member cancel of pending Community HOLD — RELEASE points, status cancelled.
+ * Active orders cannot use this (END/TERMINATE is Admin authority).
+ */
+export async function cancelCommunityPaidExposure(
+  sb: SupabaseClient,
+  input: { orderId: string; userId: string }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: row, error } = await sb
+    .from("point_promotion_orders")
+    .select("id, order_status, domain, user_id")
+    .eq("id", input.orderId)
+    .maybeSingle();
+  if (error || !row) return { ok: false, error: "not_found" };
+  const r = row as Record<string, unknown>;
+  if (String(r.domain) !== "community") return { ok: false, error: "not_community" };
+  if (String(r.user_id) !== input.userId) return { ok: false, error: "forbidden" };
+  if (String(r.order_status) !== "pending_review") {
+    return { ok: false, error: "not_pending" };
+  }
+
+  const released = await releaseHeldPointsForPromotionOrder(sb, { orderId: input.orderId });
+  if (!released.ok) return { ok: false, error: released.error };
+
+  const { data: updated, error: upd } = await sb
+    .from("point_promotion_orders")
+    .update({
+      order_status: "cancelled",
+      review_reason: "member_cancelled",
+    })
+    .eq("id", input.orderId)
+    .eq("order_status", "pending_review")
+    .eq("user_id", input.userId)
+    .select("id")
+    .maybeSingle();
+  if (upd) return { ok: false, error: upd.message };
+  if (!updated?.id) return { ok: false, error: "cancel_race" };
 
   return { ok: true };
 }
