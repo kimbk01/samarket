@@ -279,10 +279,10 @@ describe("R3 Admin Delivery Ads operations + creative UX", () => {
     expect(hub()).toContain("data-admin-delivery-ads-row-cta");
   });
 
-  it("R3-T23 — Action Queue CTA labels preserved (검수하기/배너 제작/다시 검수)", () => {
-    expect(i18n()).toContain("검수하기");
+  it("R3-T23 — Action Queue CTA labels preserved (검토하기/배너 제작/다시 검토)", () => {
+    expect(i18n()).toContain("검토하기");
     expect(i18n()).toContain("배너 제작");
-    expect(i18n()).toContain("다시 검수");
+    expect(i18n()).toContain("다시 검토");
     expect(queue()).toContain("presentation.ctaLabelKey");
   });
 

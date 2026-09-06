@@ -43,7 +43,8 @@ describe("ADS dual-stack removal — Delivery operator authority", () => {
   it("T3/T4: Control Plane is not a Delivery lifecycle writer UI; hub does not remount CP", () => {
     const loader = read("lib/admin/ads-control-plane/load-ads-control-plane.ts");
     expect(loader).not.toMatch(/\.(insert|update|delete|upsert)\(/);
-    expect(loader).toContain("Dual-stack removal");
+    expect(loader).toContain("No new ads tables");
+    expect(loader).toContain("projectDeliveryCampaignToActionItem");
     expect(loader).not.toContain("delivery:${item.caseId}");
 
     const hub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");

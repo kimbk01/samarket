@@ -39,7 +39,8 @@ describe("ads from-scratch recovery contracts", () => {
     );
     const ko = read("lib/i18n/catalog/admin.ts");
     expect(ko).toContain('admin_menu_ads_feed_applications: "배너 광고 신청"');
-    expect(ko).toContain('admin_menu_ads_feed: "배너 광고 집행"');
+    expect(ko).toContain('admin_menu_ads_feed: "피드 배너"');
+    expect(ko).not.toContain('admin_menu_ads_feed: "배너 광고 집행"');
     expect(ko).not.toContain('admin_menu_ads_feed_applications: "피드 광고 신청"');
   });
 
