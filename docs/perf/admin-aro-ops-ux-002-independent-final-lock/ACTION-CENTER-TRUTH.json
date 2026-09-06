@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-09-06T06:00:00Z",
+  "method": "source reconstruction AdminActionCenter + loadAdminActionQueueCounts @ 3d90c3e05",
+  "HARDCODED_OPERATIONAL_TRUTH": 0,
+  "ERROR_AS_ZERO_CRITICAL": 0,
+  "notes": "safeCount helper still returns 0 on error but callers use markUnavailable for critical categories; feed_ad_requests custom path also marks unavailable",
+  "cards": [
+    {"id": "orders", "countSource": "orders_attention", "href": "/admin/store-orders?order_status=refund_requested", "error": "unavailable flag"},
+    {"id": "settlement", "countSource": "settlements_actionable", "href": "/admin/store-settlements?settlement_status=scheduled", "error": "unavailable"},
+    {"id": "cash", "countSource": "cash_charges", "href": "DELIVERY_AD_ADMIN_ROUTES.cashCharges", "error": "unavailable"},
+    {"id": "user-charges", "countSource": "user_charges", "href": "point charges queue", "error": "unavailable"},
+    {"id": "store-apps", "countSource": "store_applications", "href": "/admin/stores?status=actionable", "error": "unavailable"},
+    {"id": "domain-chat", "countSource": "messenger_actionable", "href": "/admin/chats/reported", "error": "unavailable", "hardcodedZero": false},
+    {"id": "support", "countSource": "support_actionable", "href": "/admin/support?filter=ACTIONABLE", "error": "unavailable"},
+    {"id": "partner", "countSource": "partner_pending", "href": "partner memberships", "error": "unavailable"}
+  ],
+  "COUNT_LIST_MISMATCH": 0,
+  "GENERIC_DEAD_TARGET": 0,
+  "RESULT": "PASS"
+}

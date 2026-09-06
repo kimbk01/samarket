@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-09-06T06:00:00Z",
+  "P0": [],
+  "P1_FOUND_THEN_FIXED": [
+    {
+      "id": "DEF-011-contract-drift",
+      "class": "WRONG_CRITICAL_DEEPLINK_CONTRACT",
+      "symptom": "businessCcFinancialStatementHref omitted view=statement while Cash UI + Support href + B3 test still expected it",
+      "fix": "3d90c3e05 align all emitters to storeId-only helper; update B3 test",
+      "status": "CLOSED"
+    }
+  ],
+  "P1_OPEN": [],
+  "P2": [
+    {
+      "id": "DEF-013",
+      "class": "LEGACY_PRIMARY_VISIBLE_DEMOTED",
+      "blocking": false,
+      "primary": false,
+      "duplicateAuthority": false,
+      "note": "ads-legacy last under Ads, status partial, labeled legacy; canonical Delivery Ads control remains first"
+    }
+  ],
+  "FALSE_CLAIMS_IN_PRIOR_AGENT_REPORT": [
+    {
+      "claim": "DEF-011 fully closed with no residual contract drift",
+      "actual": "At claimed SHA 85480b40b helper stopped emitting view=statement but Cash/Support/B3 test still referenced it — found by independent audit and fixed before accepting HARD LOCK"
+    },
+    {
+      "claim": "PRODUCT SHA 85480b40b is current origin/main tip",
+      "actual": "At audit start origin tip was docs commit b092c480f; alias correctly still served 85480b40b until DEF-011 fix redeployed to 3d90c3e05"
+    }
+  ],
+  "CRITICAL_PUBLIC_OPERATIONAL_LEAK": 0,
+  "CRITICAL_MANUAL_RESEARCH": 0,
+  "FAKE_CRITICAL_SUCCESS": 0,
+  "ACTIVE_DUPLICATE_CHAT_DELETE_OWNER": 0,
+  "ACTIVE_DUPLICATE_CHARGE_SSOT": 0
+}

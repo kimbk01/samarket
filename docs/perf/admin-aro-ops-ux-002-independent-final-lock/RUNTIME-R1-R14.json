@@ -1,0 +1,122 @@
+{
+  "ok": true,
+  "timestamp": "2026-09-06T05:59:47.476Z",
+  "identity": {
+    "deploymentId": "dpl_BzSZc4d4z17QG2p7JCzUPRhX3iNm",
+    "status": "Ready",
+    "commitShort": "3d90c3e",
+    "raw": "\nVercel CLI 58.4.4 (Node.js 26.0.0)\nFetching deployment \"samarket.vercel.app\" in kimbk01s-projects\n> Fetched deployment \"samarket-trz2cqphg-kimbk01s-projects.vercel.app\" in kimbk01s-projects [531ms]\n\n  General\n\n    id\t\tdpl_BzSZc4d4z17QG2p7JCzUPRhX3iNm\n    name\tsamarket\n    target\tproduction\n    status\t● Ready\n    url\t\thttps://samarket-trz2cqphg-kimbk01s-projects.vercel.app\n    created\tSun Sep 06 2026 13:56:25 GMT+0800 (Philippine Standard Time) [3m ago]\n\n\n  Aliases\n\n    ╶ https://samarket.vercel.app\n    ╶ https://samarket-kimbk01s-projects.vercel.app\n    ╶ https://samarket-git-main-kimbk01s-projects.vercel.app\n    \n\n  Builds\n\n    ┌ .        [0ms]\n    ├── λ index (17.22MB) [bom1]\n    ├── λ _not-found (17.22MB) [bom1]\n    ├── λ _not-found.rsc (17.22MB) [bom1]\n    ├── λ account/delete (17.22MB) [bom1]\n    ├── λ account/delete-request (17.22MB) [bom1]\n    └── 2762 output items hidden\n    \n\n"
+  },
+  "expectSha": "3d90c3e05",
+  "AUTHENTICATED_PRODUCTION": "PASS",
+  "authenticatedSession": {
+    "method": "magiclink",
+    "email": "aaaa@manual.local",
+    "userId": "11111111-1111-1111-1111-111111111111"
+  },
+  "results": {
+    "R1": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Order detail Admin store deeplink",
+      "adminHref": "/admin/business/19085860-52d2-4183-b033-e71fcb58bcec",
+      "orderId": "3f6cf459-11a8-4cd6-ab33-c3a5465cea1c",
+      "storeId": "19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "R2": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Messenger AC card uses reported queue / real count path",
+      "chatCount": "1",
+      "chatHref": "/admin/chats/reported?returnTo=%2Fadmin",
+      "chatUnavailable": "0"
+    },
+    "R3": {
+      "result": "PASS",
+      "evidence": "CODE_CONTRACT_PLUS_PROD_UI",
+      "note": "safeCount→unavailable covered by unit/source; prod shows unavailable attrs when present",
+      "unavailableChips": 0
+    },
+    "R4": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Cash GET allowed for business-permission admin (no cash key)",
+      "status": 200,
+      "ok": true
+    },
+    "R5": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Canonical Cash queue page mounted",
+      "canon": 1
+    },
+    "R6": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Cash queue consumes requestId",
+      "cashFocusId": "fd6eff78-a73b-43f9-8d00-958377f0b976",
+      "focused": 1
+    },
+    "R7": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN_LIST",
+      "note": "membershipId fixture absent; list/filter page reachable",
+      "table": 1
+    },
+    "R8": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Stores page honors status=actionable",
+      "url": "https://samarket.vercel.app/admin/stores?status=actionable",
+      "filterActive": 2
+    },
+    "R9": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Chat hide control present with session semantics copy in catalog/UI",
+      "hideText": "Hide from admin list only (restores on refresh)",
+      "url": "https://samarket.vercel.app/admin/chats/trade"
+    },
+    "R10": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Hard delete control present (not executed)",
+      "hardPresent": true,
+      "DESTRUCTIVE_MUTATION": "NONE"
+    },
+    "R11": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Finance statement storeId deep link",
+      "url": "https://samarket.vercel.app/admin/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    },
+    "R12": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Support case exposes domain admin context links",
+      "financeish": "/admin/finance",
+      "linkCount": 81
+    },
+    "R13": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Ads Cash queue links to Finance/Store surfaces",
+      "adsFinance": 2
+    },
+    "R14": {
+      "result": "PASS",
+      "evidence": "LIVE_PROVEN",
+      "note": "Support actionable queue reachable (exact notif fixture optional)",
+      "url": "https://samarket.vercel.app/admin/support?filter=ACTIONABLE"
+    }
+  },
+  "failCount": 0,
+  "notProvenCount": 0,
+  "safety": {
+    "DESTRUCTIVE_MUTATION": "NONE",
+    "FINANCE_MUTATION": "NONE",
+    "ADS_MUTATION": "NONE",
+    "SUPPORT_REPLY": "NONE",
+    "RESET": "NONE"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "failCount": 0,
+  "notProvenCount": 0,
+  "identity": {
+    "deploymentId": "dpl_8ECb8ay8XnrwQn24vNRKMdVvu2Vk",
+    "status": "Ready",
+    "commitShort": "85480b4",
+    "raw": "\nVercel CLI 58.4.4 (Node.js 26.0.0)\nFetching deployment \"samarket.vercel.app\" in kimbk01s-projects\n> Fetched deployment \"samarket-onwq6ayas-kimbk01s-projects.vercel.app\" in kimbk01s-projects [603ms]\n\n  General\n\n    id\t\tdpl_8ECb8ay8XnrwQn24vNRKMdVvu2Vk\n    name\tsamarket\n    target\tproduction\n    status\t● Ready\n    url\t\thttps://samarket-onwq6ayas-kimbk01s-projects.vercel.app\n    created\tSun Sep 06 2026 13:35:23 GMT+0800 (Philippine Standard Time) [13m ago]\n\n\n  Aliases\n\n    ╶ https://samarket.vercel.app\n    ╶ https://samarket-kimbk01s-projects.vercel.app\n    ╶ https://samarket-git-main-kimbk01s-projects.vercel.app\n    \n\n  Builds\n\n    ┌ .        [0ms]\n    ├── λ index (17.21MB) [bom1]\n    ├── λ _not-found (17.21MB) [bom1]\n    ├── λ _not-found.rsc (17.21MB) [bom1]\n    ├── λ account/delete (17.21MB) [bom1]\n    ├── λ account/delete-request (17.21MB) [bom1]\n    └── 2762 output items hidden\n    \n\n"
+  }
+}

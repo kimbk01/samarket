@@ -1,0 +1,12 @@
+{
+  "alias": "https://samarket.vercel.app",
+  "finalProductSha": "3d90c3e05",
+  "finalDeployment": "dpl_BzSZc4d4z17QG2p7JCzUPRhX3iNm",
+  "buildCommit": "3d90c3e",
+  "status": "Ready",
+  "claimedShaAtStart": "85480b40b",
+  "claimedDeployAtStart": "dpl_8ECb8ay8XnrwQn24vNRKMdVvu2Vk",
+  "auth": {"method": "magiclink", "email": "aaaa@manual.local", "result": "PASS"},
+  "productCodeChangedDuringReAudit": true,
+  "change": "DEF-011 statement deeplink SSOT alignment"
+}

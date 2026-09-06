@@ -1,0 +1,14 @@
+{
+  "generatedAt": "2026-09-06T06:00:00Z",
+  "CURRENT_PHYSICAL_PASS": false,
+  "evidenceClass": "HISTORICAL_PRESERVED_PLUS_CODE_CONTRACT",
+  "note": "No fresh physical tablet run in this independent re-audit. Shared Admin shell not changed by DEF-011 fix. Prior B9/CUT physical tablet evidence remains HISTORICAL ONLY.",
+  "1024": "NOT_FRESHLY_MEASURED",
+  "768": "NOT_FRESHLY_MEASURED",
+  "BODY_X": "NOT_FRESHLY_MEASURED",
+  "HEADER": "NOT_FRESHLY_MEASURED",
+  "STICKY_CTA": "NOT_FRESHLY_MEASURED",
+  "DIALOG_FOOTER": "NOT_FRESHLY_MEASURED",
+  "PHYSICAL_EVIDENCE": "HISTORICAL_ONLY (B9/CUT-I-P0-12)",
+  "shellRegressionFromThisDiff": false
+}
