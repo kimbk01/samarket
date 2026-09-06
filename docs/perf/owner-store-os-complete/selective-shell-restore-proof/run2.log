@@ -1,0 +1,44 @@
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('button[aria-label*="메뉴"], button[aria-label*="menu"], button[aria-label*="ops"], [data-owner-ops-menu]').first()
+    - locator resolved to <button type="button" tabindex="-1" data-open="false" aria-label="메뉴 닫기" class="owner-ops-drawer-scrim"></button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div class="grid grid-cols-2 gap-2">…</div> from <div data-main-shell-root="true" class="flex min-h-0 min-w-0 w-full flex-1 flex-col">…</div> subtree intercepts pointer events
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - <div class="grid grid-cols-2 gap-2">…</div> from <div data-main-shell-root="true" class="flex min-h-0 min-w-0 w-full flex-1 flex-col">…</div> subtree intercepts pointer events
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - <div class="grid grid-cols-2 gap-2">…</div> from <div data-main-shell-root="true" class="flex min-h-0 min-w-0 w-full flex-1 flex-col">…</div> subtree intercepts pointer events
+     - retrying click action
+       - waiting 500ms
+
+    at /Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:756:19
+    at async withPage (/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:380:12)
+    at async file:///Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:701:27
+{
+  "outJson": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/SELECTIVE-SHELL-RESTORE-PROD-HUMAN-PROOF.json",
+  "summary": {
+    "PRODUCT_NEW": "FAIL",
+    "PRODUCT_EDIT": "FAIL",
+    "STORE_SETTINGS_SHELL": "FAIL",
+    "FINANCE_FORM_SHELL": "FAIL",
+    "CUSTOMER_INTERACTION_SHELL": "PASS",
+    "ORDER_DETAIL_SHELL": "FAIL",
+    "DRAWER_NOTIFICATION_OVERLAY": "FAIL"
+  },
+  "PRODUCTION_WEB_OWNER_SHELL": "FAIL",
+  "FINAL": "FAIL / NOT CLOSED"
+}

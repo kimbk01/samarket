@@ -220,6 +220,27 @@ describe("owner admin scroll shell contract", () => {
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
   });
 
+  it("owner stack shell height is CSS SSOT (not dynamic Tailwind 100dvh concat)", () => {
+    const css = readRepo("app/owner-compact-shell.css");
+    expect(css).toMatch(
+      /body\[data-owner-compact-shell\]\s+\[data-owner-stack-shell="1"\][\s\S]*?max-height:\s*100dvh/
+    );
+    expect(css).toMatch(
+      /body\[data-owner-compact-shell\]\s+\[data-owner-stack-shell="1"\][\s\S]*?overflow:\s*hidden/
+    );
+
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain("OWNER_STACK_SHELL_ROOT_ATTR");
+    expect(shell).toContain("ownerStackShellRootProps");
+    // Ban JIT-dropped dynamic concatenation that Production proved as max-height:none.
+    expect(shell).not.toMatch(
+      /\$\{OWNER_COMPACT_SHELL_MAX_TW\}:h-\[100dvh\]/
+    );
+    expect(shell).not.toMatch(
+      /\$\{OWNER_COMPACT_SHELL_MAX_TW\}:max-h-\[100dvh\]/
+    );
+  });
+
   it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/new")).toBe(true);
     expect(

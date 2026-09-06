@@ -1,0 +1,38 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator('a[href*="/inquiries/"], a[href*="customer-care"]').first()
+    - locator resolved to <a href="/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec" class="flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors text-[var(--biz-text)] hover:bg-[var(--biz-tan-soft)]">…</a>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - element is outside of the viewport
+    - retrying click action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and stable
+      - element is visible, enabled and stable
+      - scrolling into view if needed
+      - done scrolling
+      - element is outside of the viewport
+    - retrying click action
+      - waiting 100ms
+    58 × waiting for element to be visible, enabled and stable
+       - element is visible, enabled and stable
+       - scrolling into view if needed
+       - done scrolling
+       - element is outside of the viewport
+     - retrying click action
+       - waiting 500ms
+
+    at /Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:627:16
+    at async withPage (/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:378:12)
+    at async file:///Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:614:28 {
+  name: 'TimeoutError'
+}
+
+Node.js v26.0.0

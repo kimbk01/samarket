@@ -1,0 +1,1778 @@
+{
+  "at": "2026-09-06T06:08:36.094Z",
+  "ORIGIN_MAIN_SHA": "3d90c3e05",
+  "PRODUCTION_DEPLOY_SHA": "3d90c3e05",
+  "DEPLOYMENT_ID": "dpl_BzSZc4d4z17QG2p7JCzUPRhX3iNm",
+  "PRODUCTION_ALIAS": "https://samarket.vercel.app",
+  "ACTUAL_RUNTIME_SHA": "3d90c3e05",
+  "RECOVERY_SHA": "6ca1b3d46",
+  "RECOVERY_INCLUDED": true,
+  "SHELL_DECISION": "SELECTIVE_SHELL_RESTORE",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "productId": null,
+  "surfaces": {
+    "productNew": {
+      "viewports": {
+        "390": {
+          "viewport": {
+            "name": "390",
+            "width": 390,
+            "height": 844
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-390.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 390,
+              "h": 844
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 390,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 390
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 374,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 8,
+              "right": 382
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 195,
+              "y": 1414,
+              "w": 178,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 195,
+              "right": 373
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 390,
+              "h": 844
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 390,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 390
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 374,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 8,
+              "right": 382
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 195,
+              "y": 1414,
+              "w": 178,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 195,
+              "right": 373
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1446,
+              "scrollHeight": 1446
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1446,
+              "scrollHeight": 1446
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 195,
+              "y": 1414.28125,
+              "width": 178,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 390,
+              "h": 844
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 390,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 390
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 374,
+              "h": 1446,
+              "top": 53,
+              "bottom": 1499,
+              "left": 8,
+              "right": 382
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 195,
+              "y": 1414,
+              "w": 178,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 195,
+              "right": 373
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        },
+        "430": {
+          "viewport": {
+            "name": "430",
+            "width": 430,
+            "height": 932
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-430.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 430,
+              "h": 932
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 430,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 430
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 414,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 8,
+              "right": 422
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 215,
+              "y": 1414,
+              "w": 198,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 215,
+              "right": 413
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 430,
+              "h": 932
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 430,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 430
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 414,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 8,
+              "right": 422
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 215,
+              "y": 1414,
+              "w": 198,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 215,
+              "right": 413
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1446,
+              "scrollHeight": 1446
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1446,
+              "scrollHeight": 1446
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 215,
+              "y": 1414.28125,
+              "width": 198,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 430,
+              "h": 932
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 430,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 430
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 8,
+              "y": 53,
+              "w": 414,
+              "h": 1446,
+              "top": 53,
+              "bottom": 1499,
+              "left": 8,
+              "right": 422
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1446,
+              "scrollHeight": 1446,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 215,
+              "y": 1414,
+              "w": 198,
+              "h": 60,
+              "top": 1414,
+              "bottom": 1474,
+              "left": 215,
+              "right": 413
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        },
+        "768": {
+          "viewport": {
+            "name": "768",
+            "width": 768,
+            "height": 1024
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-768.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 768,
+              "h": 1024
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 768,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 768
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 16,
+              "y": 53,
+              "w": 736,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 16,
+              "right": 752
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 384,
+              "y": 1392,
+              "w": 359,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 384,
+              "right": 743
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 768,
+              "h": 1024
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 768,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 768
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 16,
+              "y": 53,
+              "w": 736,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 16,
+              "right": 752
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 384,
+              "y": 1392,
+              "w": 359,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 384,
+              "right": 743
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 384,
+              "y": 1391.53125,
+              "width": 359,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 768,
+              "h": 1024
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 768,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 768
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 16,
+              "y": 53,
+              "w": 736,
+              "h": 1424,
+              "top": 53,
+              "bottom": 1477,
+              "left": 16,
+              "right": 752
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 384,
+              "y": 1392,
+              "w": 359,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 384,
+              "right": 743
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        },
+        "1280": {
+          "viewport": {
+            "name": "1280",
+            "width": 1280,
+            "height": 800
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-1280.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1280,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1280
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 128,
+              "y": 53,
+              "w": 1024,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 128,
+              "right": 1152
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 640,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 640,
+              "right": 1143
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1280,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1280
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 128,
+              "y": 53,
+              "w": 1024,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 128,
+              "right": 1152
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 640,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 640,
+              "right": 1143
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 640,
+              "y": 1391.53125,
+              "width": 503,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1280,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1280
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 128,
+              "y": 53,
+              "w": 1024,
+              "h": 1424,
+              "top": 53,
+              "bottom": 1477,
+              "left": 128,
+              "right": 1152
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 640,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 640,
+              "right": 1143
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        },
+        "user_large": {
+          "viewport": {
+            "name": "user_large",
+            "width": 1440,
+            "height": 900
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-user_large.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1440,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1440
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 208,
+              "y": 53,
+              "w": 1024,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 208,
+              "right": 1232
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 720,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 720,
+              "right": 1223
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1440,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1440
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 208,
+              "y": 53,
+              "w": 1024,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 208,
+              "right": 1232
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 720,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 720,
+              "right": 1223
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 720,
+              "y": 1391.53125,
+              "width": 503,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1440,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1440
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 208,
+              "y": 53,
+              "w": 1024,
+              "h": 1424,
+              "top": 53,
+              "bottom": 1477,
+              "left": 208,
+              "right": 1232
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 720,
+              "y": 1392,
+              "w": 503,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 720,
+              "right": 1223
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        },
+        "1024x768": {
+          "viewport": {
+            "name": "1024x768",
+            "width": 1024,
+            "height": 768
+          },
+          "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/selective-shell-restore-proof/product-new-1024x768.png",
+          "initial": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1024
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 116,
+              "y": 53,
+              "w": 792,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 116,
+              "right": 908
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 512,
+              "y": 1392,
+              "w": 387,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 512,
+              "right": 899
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topMeasure": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1024
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "DIV",
+            "firstContentRect": {
+              "x": 116,
+              "y": 53,
+              "w": 792,
+              "h": 86,
+              "top": 53,
+              "bottom": 139,
+              "left": 116,
+              "right": 908
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 512,
+              "y": 1392,
+              "w": 387,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 512,
+              "right": 899
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "topFields": {
+            "categoryVisible": true,
+            "nameVisible": true,
+            "categoryTop": 53,
+            "nameTop": 308
+          },
+          "fields": {
+            "hasCategory": true,
+            "hasName": true,
+            "hasPrice": true,
+            "hasInventory": true,
+            "hasOptions": true,
+            "hasExposure": true,
+            "formMounted": true,
+            "composerMounted": true,
+            "formVisible": true,
+            "composerVisible": true
+          },
+          "scroll": {
+            "before": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "after": {
+              "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+              "scrollTop": 0,
+              "clientHeight": 1424,
+              "scrollHeight": 1424
+            },
+            "scrolled": false
+          },
+          "ctaReach": {
+            "reached": false,
+            "wheels": 12,
+            "box": {
+              "x": 512,
+              "y": 1391.53125,
+              "width": 387,
+              "height": 60
+            },
+            "covered": true
+          },
+          "afterCta": {
+            "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "headerCountVisible": 1,
+            "headerRect": {
+              "x": 0,
+              "y": 0,
+              "w": 1024,
+              "h": 57,
+              "top": 0,
+              "bottom": 57,
+              "left": 0,
+              "right": 1024
+            },
+            "headerTitle": "상품 등록",
+            "firstContentSelector": "[data-owner-product-composer]",
+            "firstContentRect": {
+              "x": 116,
+              "y": 53,
+              "w": 792,
+              "h": 1424,
+              "top": 53,
+              "bottom": 1477,
+              "left": 116,
+              "right": 908
+            },
+            "HEADER_BOTTOM_Y": 57,
+            "FIRST_FORM_CONTENT_TOP_Y": 53,
+            "TOP_GAP_PX": -4,
+            "bottomNavPresent": false,
+            "bottomNavRect": null,
+            "expectBottomNav": false,
+            "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+            "scrollMetrics": {
+              "clientHeight": 1424,
+              "scrollHeight": 1424,
+              "scrollTop": 0
+            },
+            "ctaText": "저장",
+            "ctaRect": {
+              "x": 512,
+              "y": 1392,
+              "w": 387,
+              "h": 60,
+              "top": 1392,
+              "bottom": 1452,
+              "left": 512,
+              "right": 899
+            },
+            "ctaVisibleInViewport": false,
+            "ctaCovered": false,
+            "bodyOverflow": "hidden",
+            "htmlOverflow": "hidden",
+            "bodyLead": "카테고리 (필수)\n카테고리를 선택하세요\n▼\n기본정보\n옵션설정\n언어\n필수 정보\n상품 이미지\n권장 512×512\n상품명\n한 줄 설명\n기본 가격 (peso) *\n할인\n할인율 (%)\n%\n\n할인 적용가(주문 단가)—\n\n재고\n\n재고 관리\n\n재고 확인 안 함\n재고 입력\n옵션 설정\n\n옵션이 없습니다\n\n+\n옵션 그룹 추가\n주문·노출·품절·추천·대표\n주문\n노출\n품절\n사장님 추천\n대표 메뉴\n\n인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.\n\n취소\n저장\neee CM KIM FOOD"
+          },
+          "checks": {
+            "HEADER": "PASS",
+            "TOP_CLEARANCE": "FAIL",
+            "FORM_VISIBLE": "PASS",
+            "SCROLL": "FAIL",
+            "BOTTOM_NAV_ABSENT": "PASS",
+            "REGISTER_CTA": "FAIL"
+          },
+          "PASS": false
+        }
+      },
+      "PASS": false
+    },
+    "productEdit": {
+      "PASS": false,
+      "reason": "no_product_id"
+    },
+    "storeSettings": {
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/profile?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "viewport": {
+          "w": 1440,
+          "h": 900
+        },
+        "headerCountVisible": 1,
+        "headerRect": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 53,
+          "top": 0,
+          "bottom": 53,
+          "left": 0,
+          "right": 1440
+        },
+        "headerTitle": "매장 설정",
+        "firstContentSelector": "#owner-store-profile-form",
+        "firstContentRect": {
+          "x": 272,
+          "y": 53,
+          "w": 896,
+          "h": 2875,
+          "top": 53,
+          "bottom": 2928,
+          "left": 272,
+          "right": 1168
+        },
+        "HEADER_BOTTOM_Y": 53,
+        "FIRST_FORM_CONTENT_TOP_Y": 53,
+        "TOP_GAP_PX": 0,
+        "bottomNavPresent": false,
+        "bottomNavRect": null,
+        "expectBottomNav": false,
+        "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1",
+        "scrollMetrics": {
+          "clientHeight": 2875,
+          "scrollHeight": 2875,
+          "scrollTop": 0
+        },
+        "ctaText": "취소",
+        "ctaRect": {
+          "x": 160,
+          "y": 840,
+          "w": 560,
+          "h": 60,
+          "top": 840,
+          "bottom": 900,
+          "left": 160,
+          "right": 720
+        },
+        "ctaVisibleInViewport": true,
+        "ctaCovered": false,
+        "bodyOverflow": "hidden",
+        "htmlOverflow": "hidden",
+        "bodyLead": "서비스 형태\n배달 가능\n포장·픽업 가능\n신규 주문 알림음 (배달)\n\n알림음은 관리자매장 신청 설정에서 지정합니다. 미설정 시 짧은비프음이 재생됩니다.\n\n매장 창 영업시간 (현지 시각)\n이 시간에 맞춰 자동 영업/마감 (끄면 영업 중 스위치·임시무만 적용)\n자동을 끄고 저장하면 /stores 에서 영업시간 밖에도 주문 가능합니다(임시 휴무·영업 끄기는 그대로 적용).\n현지 타임존\n필리핀 (Asia/Manila)\n한국 (Asia/Seoul)\n일본 (Asia/Tokyo)\nUTC\n\n영업 시간 (시작·종료"
+      },
+      "scroll": {
+        "before": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+          "scrollTop": 0,
+          "clientHeight": 2875,
+          "scrollHeight": 2875
+        },
+        "after": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1",
+          "scrollTop": 0,
+          "clientHeight": 2875,
+          "scrollHeight": 2875
+        },
+        "scrolled": false
+      },
+      "ctaReach": {
+        "reached": true,
+        "wheels": 0,
+        "box": {
+          "x": 160,
+          "y": 840,
+          "width": 560,
+          "height": 60
+        },
+        "covered": false
+      },
+      "PASS": false
+    },
+    "finance": {
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/finance?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "viewport": {
+          "w": 1440,
+          "h": 900
+        },
+        "headerCountVisible": 1,
+        "headerRect": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 53,
+          "top": 0,
+          "bottom": 53,
+          "left": 0,
+          "right": 1440
+        },
+        "headerTitle": "COIN · 캐시",
+        "firstContentSelector": "MAIN",
+        "firstContentRect": {
+          "x": 208,
+          "y": 53,
+          "w": 1024,
+          "h": 6355,
+          "top": 53,
+          "bottom": 6408,
+          "left": 208,
+          "right": 1232
+        },
+        "HEADER_BOTTOM_Y": 53,
+        "FIRST_FORM_CONTENT_TOP_Y": 53,
+        "TOP_GAP_PX": 0,
+        "bottomNavPresent": true,
+        "bottomNavRect": {
+          "x": 0,
+          "y": 822,
+          "w": 1440,
+          "h": 78,
+          "top": 822,
+          "bottom": 900,
+          "left": 0,
+          "right": 1440
+        },
+        "expectBottomNav": true,
+        "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1 owner-compact-shell__main-pb pt-1",
+        "scrollMetrics": {
+          "clientHeight": 6355,
+          "scrollHeight": 6355,
+          "scrollTop": 0
+        },
+        "ctaText": null,
+        "ctaRect": null,
+        "ctaVisibleInViewport": false,
+        "ctaCovered": true,
+        "bodyOverflow": "hidden",
+        "htmlOverflow": "hidden",
+        "bodyLead": "Coin · 캐시\n\nCoin(매장 수익)과 캐시(운영 자금)는 별도 통화입니다.\n\nA. 매출 · 정산 요약\n\n주문별 gross / 수수료 / net / 지급 상태는 정산 화면이 권위입니다.\n\n건수\n41\nGross\n₱50,670\n플랫폼 수수료\n₱2,692\n환불\n₱6,700\n지급 예정 net\n₱38,944\n지급 완료 net\n₱1,954\n정산 내역 열기\nB. 수수료 · 차감\n\n미납 판매 수수료\n\n₱136 — 캐시 충전 또는 Coin→캐시 전환 시 우선 정산됩니다.\n\nC. Coin · Cash 잔액\nCO"
+      },
+      "scroll": {
+        "before": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 owner-compact-shell__main-pb pt-1",
+          "scrollTop": 0,
+          "clientHeight": 6355,
+          "scrollHeight": 6355
+        },
+        "after": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 owner-compact-shell__main-pb pt-1",
+          "scrollTop": 0,
+          "clientHeight": 6355,
+          "scrollHeight": 6355
+        },
+        "scrolled": false
+      },
+      "PASS": false
+    },
+    "customer": {
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "viewport": {
+          "w": 1440,
+          "h": 900
+        },
+        "headerCountVisible": 1,
+        "headerRect": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 53,
+          "top": 0,
+          "bottom": 53,
+          "left": 0,
+          "right": 1440
+        },
+        "headerTitle": "매장 문의",
+        "firstContentSelector": "MAIN",
+        "firstContentRect": {
+          "x": 208,
+          "y": 53,
+          "w": 1024,
+          "h": 112,
+          "top": 53,
+          "bottom": 165,
+          "left": 208,
+          "right": 1232
+        },
+        "HEADER_BOTTOM_Y": 53,
+        "FIRST_FORM_CONTENT_TOP_Y": 53,
+        "TOP_GAP_PX": 0,
+        "bottomNavPresent": true,
+        "bottomNavRect": {
+          "x": 0,
+          "y": 822,
+          "w": 1440,
+          "h": 78,
+          "top": 822,
+          "bottom": 900,
+          "left": 0,
+          "right": 1440
+        },
+        "expectBottomNav": null,
+        "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1 pt-1",
+        "scrollMetrics": {
+          "clientHeight": 112,
+          "scrollHeight": 112,
+          "scrollTop": 0
+        },
+        "ctaText": null,
+        "ctaRect": null,
+        "ctaVisibleInViewport": false,
+        "ctaCovered": true,
+        "bodyOverflow": "hidden",
+        "htmlOverflow": "hidden",
+        "bodyLead": "나의 오른손딸방\n\n받은 문의가 없습니다.\n\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\n매장 운영 센터\n\n노출\nON\n영업\nON\n운영\n대시보드\n지표·주문·문의 요약\n상세\n주문 관리\n신규·환불 요청·상태 변경\n31\n상세\n영업·운영 상태\n심사·노출·판매 권한과 수정 안내\n상세\n상품\n상품 관리\n목록·품절·노출·수정\n"
+      },
+      "scroll": {
+        "before": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 pt-1",
+          "scrollTop": 0,
+          "clientHeight": 112,
+          "scrollHeight": 112
+        },
+        "after": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 pt-1",
+          "scrollTop": 0,
+          "clientHeight": 112,
+          "scrollHeight": 112
+        },
+        "scrolled": false
+      },
+      "detail": {
+        "skipped": true,
+        "reason": "no_inquiry_detail_link"
+      },
+      "PASS": true
+    },
+    "orders": {
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "viewport": {
+          "w": 1440,
+          "h": 900
+        },
+        "headerCountVisible": 1,
+        "headerRect": {
+          "x": 0,
+          "y": 0,
+          "w": 1440,
+          "h": 53,
+          "top": 0,
+          "bottom": 53,
+          "left": 0,
+          "right": 1440
+        },
+        "headerTitle": "주문 관리",
+        "firstContentSelector": "MAIN",
+        "firstContentRect": {
+          "x": 208,
+          "y": 261,
+          "w": 1024,
+          "h": 2349,
+          "top": 261,
+          "bottom": 2610,
+          "left": 208,
+          "right": 1232
+        },
+        "HEADER_BOTTOM_Y": 53,
+        "FIRST_FORM_CONTENT_TOP_Y": 261,
+        "TOP_GAP_PX": 208,
+        "bottomNavPresent": true,
+        "bottomNavRect": {
+          "x": 0,
+          "y": 822,
+          "w": 1440,
+          "h": 78,
+          "top": 822,
+          "bottom": 900,
+          "left": 0,
+          "right": 1440
+        },
+        "expectBottomNav": true,
+        "scrollOwnerTag": "owner-compact-shell__scroll min-h-0 flex-1 pb-[max(0.5rem,var(--safe-bottom))]",
+        "scrollMetrics": {
+          "clientHeight": 2349,
+          "scrollHeight": 2349,
+          "scrollTop": 0
+        },
+        "ctaText": "최신순 ▾",
+        "ctaRect": {
+          "x": 1170,
+          "y": 226,
+          "w": 62,
+          "h": 26,
+          "top": 226,
+          "bottom": 252,
+          "left": 1170,
+          "right": 1232
+        },
+        "ctaVisibleInViewport": true,
+        "ctaCovered": false,
+        "bodyOverflow": "hidden",
+        "htmlOverflow": "hidden",
+        "bodyLead": "신규주문\n7\n진행중\n2\n배달중\n완료\n32\n취소\n19\n신규 주문\n7\n준비(조리)중\n2\n배달중\n0\n오늘 완료\n7\n주문 확인하기 · 7\n전체 유형\n최신순 ▾\n지금 처리할 신규 주문\n신규\n배달\n11시간 9분 경과\n수락 지연\n\nSO1788634807961c802\n\nw테스트1 (@wwww)\n\n09 12 112 1211\n\nsss, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila\n\n김치김밥 ×7\n\n₱1,050\n\n오전 3:00\n\n신규\n\n접수\n\n조리\n\n배달 준"
+      },
+      "scroll": {
+        "before": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 pb-[max(0.5rem,var(--safe-bottom))]",
+          "scrollTop": 0,
+          "clientHeight": 2349,
+          "scrollHeight": 2349
+        },
+        "after": {
+          "tag": "owner-compact-shell__scroll min-h-0 flex-1 pb-[max(0.5rem,var(--safe-bottom))]",
+          "scrollTop": 0,
+          "clientHeight": 2349,
+          "scrollHeight": 2349
+        },
+        "scrolled": false
+      },
+      "detail": {
+        "skipped": true,
+        "reason": "no_order_card"
+      },
+      "PASS": false
+    }
+  },
+  "summary": {
+    "PRODUCT_NEW": "FAIL",
+    "PRODUCT_EDIT": "FAIL",
+    "STORE_SETTINGS_SHELL": "FAIL",
+    "FINANCE_FORM_SHELL": "FAIL",
+    "CUSTOMER_INTERACTION_SHELL": "PASS",
+    "ORDER_DETAIL_SHELL": "FAIL",
+    "DRAWER_NOTIFICATION_OVERLAY": "FAIL"
+  },
+  "runtimeError": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('button[aria-label*=\"메뉴\"], button[aria-label*=\"menu\"], button[aria-label*=\"ops\"], [data-owner-ops-menu]').first()\n    - locator resolved to <button type=\"button\" tabindex=\"-1\" data-open=\"false\" aria-label=\"메뉴 닫기\" class=\"owner-ops-drawer-scrim\"></button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"grid grid-cols-2 gap-2\">…</div> from <div data-main-shell-root=\"true\" class=\"flex min-h-0 min-w-0 w-full flex-1 flex-col\">…</div> subtree intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div class=\"grid grid-cols-2 gap-2\">…</div> from <div data-main-shell-root=\"true\" class=\"flex min-h-0 min-w-0 w-full flex-1 flex-col\">…</div> subtree intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    58 × waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div class=\"grid grid-cols-2 gap-2\">…</div> from <div data-main-shell-root=\"true\" class=\"flex min-h-0 min-w-0 w-full flex-1 flex-col\">…</div> subtree intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n\n    at /Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:756:19\n    at async withPage (/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:380:12)\n    at async file:///Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/_selective-shell-restore-prod-human-proof.mjs:701:27",
+  "PRODUCTION_WEB_OWNER_SHELL": "FAIL",
+  "FINAL": "FAIL / NOT CLOSED"
+}

@@ -14,6 +14,12 @@ export const OWNER_COMPACT_SHELL_MAIN_PB_CLASS = "owner-compact-shell__main-pb";
 export const OWNER_COMPACT_SHELL_BLEED_X_CLASS = "owner-compact-shell__bleed-x";
 export const OWNER_STORE_ADMIN_FOOTER_BAR_CLASS = "owner-store-admin-footer-bar";
 
+/**
+ * BusinessAdminShell stack root — height lock via `app/owner-compact-shell.css`
+ * (NOT dynamic Tailwind `max-[1024px]:h-[100dvh]` concatenation — JIT drops it).
+ */
+export const OWNER_STACK_SHELL_ROOT_ATTR = "data-owner-stack-shell";
+
 let ownerCompactShellBodyEnabled = false;
 const ownerCompactShellBodyListeners = new Set<() => void>();
 
