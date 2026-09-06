@@ -16,6 +16,11 @@ import {
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import {
+  isOwnerStorePreviewActionHref,
+  openOwnerStorePreview,
+} from "@/lib/business/owner-store-preview-bridge";
 
 export function BusinessAdminSidebar({
   sections,
@@ -34,8 +39,16 @@ export function BusinessAdminSidebar({
   const { t } = useI18n();
   const searchParams = useOwnerAdminUrlSearchParams();
   const router = useRouter();
+  const biz = useBusinessAdminStore();
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: BusinessAdminSidebarItem) => {
+    if (item.id === "public_store" || isOwnerStorePreviewActionHref(item.href)) {
+      e.preventDefault();
+      const slug = biz?.storeRow?.slug?.trim() ?? "";
+      if (slug) openOwnerStorePreview(slug);
+      onNavigate?.();
+      return;
+    }
     /* Drawer 닫기와 레이아웃 전환(hub)이 겹치면 Link 기본 동작이 끊기는 경우가 있어 대시보드만 명시 이동 */
     if (item.id === "dashboard") {
       if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
@@ -78,7 +91,9 @@ export function BusinessAdminSidebar({
           <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isBusinessAdminNavHrefActive(item.href, pathname, searchParams);
-              const isExternal = item.href.startsWith("/stores/");
+              const isPreviewAction =
+                item.id === "public_store" || isOwnerStorePreviewActionHref(item.href);
+              const isExternal = !isPreviewAction && item.href.startsWith("/stores/");
               const Icon = resolveOwnerHubMenuIcon(item.id);
               const common =
                 "flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors";
@@ -112,6 +127,24 @@ export function BusinessAdminSidebar({
                   </span>
                 </>
               );
+              if (isPreviewAction) {
+                return (
+                  <li key={item.id + item.href}>
+                    <button
+                      type="button"
+                      className={`${common} w-full text-left ${activeCls}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const slug = biz?.storeRow?.slug?.trim() ?? "";
+                        if (slug) openOwnerStorePreview(slug);
+                        onNavigate?.();
+                      }}
+                    >
+                      {inner}
+                    </button>
+                  </li>
+                );
+              }
               if (isExternal) {
                 return (
                   <li key={item.id + item.href}>

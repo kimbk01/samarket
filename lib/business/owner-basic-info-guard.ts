@@ -80,12 +80,11 @@ export function isOwnerStoreOrdersPath(pathname: string): boolean {
 }
 
 /**
- * 하단 `OwnerMobileBottomNav` 숨김 — 편집·작성 폼(저장 CTA)만.
- * P0 primary tabs(`/orders`, `/customer-care`)는 숨기지 않는다.
- * 문의 상세도 Customers 탭 연속성을 위해 네비를 유지한다.
- * Product CREATE/EDIT: BottomNav must not cover Register/Save CTA.
+ * @deprecated Prefer `isOwnerBottomNavHiddenPath` — kept as alias for CREATE/EDIT form hide set.
+ * Full eligibility (ads CREATE, apply, …) lives in `owner-bottom-nav-eligibility.ts`.
  */
 export function isOwnerStoreFormBottomNavHiddenPath(pathname: string): boolean {
+  // Local form set only — shell must call `isOwnerBottomNavHiddenPath` for full SSOT.
   return (
     isOwnerBasicInfoPath(pathname) ||
     isOwnerStoreProfilePath(pathname) ||

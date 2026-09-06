@@ -40,11 +40,11 @@ import { BusinessAdminVisibleToggle } from "@/components/business/admin/Business
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
-import { OwnerMobileAdminHeader } from "@/components/business/owner/OwnerMobileAdminHeader";
 import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OwnerStackPageSlideShell } from "@/components/business/owner/OwnerStackPageSlideShell";
 import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBottomNav";
-import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
+import { OwnerChromeHeader } from "@/components/business/owner/OwnerChromeHeader";
+import { OwnerStorePreviewModal } from "@/components/business/owner/OwnerStorePreviewModal";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 import {
@@ -63,8 +63,14 @@ import {
   emitOwnerBasicInfoLeave,
   getOwnerBasicInfoDirty,
   isOwnerStoreAdminDirtyGuardPath,
-  isOwnerStoreFormBottomNavHiddenPath,
 } from "@/lib/business/owner-basic-info-guard";
+import { isOwnerBottomNavHiddenPath } from "@/lib/business/owner-bottom-nav-eligibility";
+import { resolveOwnerStackBackHref } from "@/lib/business/owner-stack-back-href";
+import { acquireOwnerOverlayBodyLock } from "@/lib/business/owner-overlay-body-lock";
+import {
+  openOwnerStorePreview,
+  registerOwnerStorePreviewOpen,
+} from "@/lib/business/owner-store-preview-bridge";
 import {
   peekOwnerOrdersAttentionBridge,
   subscribeOwnerOrdersAttentionBridge,
@@ -129,11 +135,10 @@ export function BusinessAdminShell({
   });
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [storePreviewSlug, setStorePreviewSlug] = useState<string | null>(null);
   const [linkedStoreAddressRow, setLinkedStoreAddressRow] = useState<UserAddressDTO | null>(null);
   /** 운영 사이드 내비 스크롤 — 열 때 내부 목록은 항상 맨 위 */
   const sidebarNavScrollRef = useRef<HTMLDivElement | null>(null);
-  /** 모바일 드로어용: 닫을 때 복원할 `window` 세로 스크롤 (body 고정 잠금과 짝) */
-  const mobileOwnerDrawerLockYRef = useRef(0);
   const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
   /** ≤1024px — 모바일 헤더·하단 탭·드로어 메뉴 (태블릿·아이패드 세로 포함) */
   const isOwnerCompactShell = useOwnerCompactShellViewport();
@@ -156,7 +161,7 @@ export function BusinessAdminShell({
     isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 
   const isOwnerFormBottomNavHiddenRoute = useMemo(
-    () => isOwnerStoreFormBottomNavHiddenPath(ownerPathNorm),
+    () => isOwnerBottomNavHiddenPath(ownerPathNorm),
     [ownerPathNorm]
   );
 
@@ -456,12 +461,12 @@ export function BusinessAdminShell({
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
   const pageTitle = getBusinessAdminPageTitle(pathname, searchParams.toString());
   const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
-  const publicStoreHref =
+  const publicStoreSlug =
     selectedRow &&
     String(selectedRow.approval_status) === "approved" &&
     selectedRow.is_visible === true &&
     selectedRow.slug
-      ? `/stores/${encodeURIComponent(selectedRow.slug)}`
+      ? selectedRow.slug.trim()
       : null;
 
   useEffect(() => {
@@ -483,50 +488,44 @@ export function BusinessAdminShell({
   }, [mobileMenuOpen]);
 
   /**
-   * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.
-   * `overflow:hidden` 만 쓰면 WebKit(모바일 Safari 등)에서 문서 스크롤과 `position:fixed` 패널이
-   * 어긋나 사이드 상단(매장 헤더·토글)이 뷰포트 밖으로 밀린다. 본문을 `position:fixed` + `top:-y`로
-   * 고정하고, 닫을 때 `scrollTo`로 이전 위치를 복원한다.
+   * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금 — Owner overlay body-lock SSOT.
    */
   useLayoutEffect(() => {
     if (!mobileMenuOpen) return;
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    mobileOwnerDrawerLockYRef.current = y;
-
-    const html = document.documentElement;
-    const body = document.body;
-    const prev = {
-      htmlOverflow: html.style.overflow,
-      bodyOverflow: body.style.overflow,
-      bodyPosition: body.style.position,
-      bodyTop: body.style.top,
-      bodyLeft: body.style.left,
-      bodyRight: body.style.right,
-      bodyWidth: body.style.width,
-    };
-
-    body.style.position = "fixed";
-    body.style.top = `-${y}px`;
-    body.style.left = "0";
-    body.style.right = "0";
-    body.style.width = "100%";
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-
-    return () => {
-      html.style.overflow = prev.htmlOverflow;
-      body.style.overflow = prev.bodyOverflow;
-      body.style.position = prev.bodyPosition;
-      body.style.top = prev.bodyTop;
-      body.style.left = prev.bodyLeft;
-      body.style.right = prev.bodyRight;
-      body.style.width = prev.bodyWidth;
-      const restoreY = mobileOwnerDrawerLockYRef.current;
-      requestAnimationFrame(() => {
-        window.scrollTo(0, restoreY);
-      });
-    };
+    return acquireOwnerOverlayBodyLock("ops_drawer");
   }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    registerOwnerStorePreviewOpen((slug) => {
+      setMobileMenuOpen(false);
+      setStorePreviewSlug(slug);
+      try {
+        window.history.pushState({ ownerStorePreview: 1 }, "");
+      } catch {
+        /* ignore */
+      }
+    });
+    return () => registerOwnerStorePreviewOpen(null);
+  }, []);
+
+  const closeStorePreview = useCallback(() => {
+    try {
+      if (window.history.state && (window.history.state as { ownerStorePreview?: number }).ownerStorePreview) {
+        window.history.back();
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    setStorePreviewSlug(null);
+  }, []);
+
+  useEffect(() => {
+    if (!storePreviewSlug) return;
+    const onPop = () => setStorePreviewSlug(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [storePreviewSlug]);
 
   useLayoutEffect(() => {
     if (!mobileMenuOpen) return;
@@ -540,19 +539,7 @@ export function BusinessAdminShell({
 
   const adminHeaderBackHref = useMemo(() => {
     if (isHub || !selectedRow) return undefined;
-    const sid = selectedRow.id;
-    const p = ownerPathNorm;
-    if (p.startsWith("/stores/owner/customer-care/messages/") || p.startsWith("/stores/owner/customer-care/inquiries/")) {
-      const tab = p.includes("/messages/") ? "messages" : "inquiries";
-      return OwnerRoutes.customerCareCenter(sid, tab);
-    }
-    if (p === "/stores/owner/customer-care/customer-center" || p.startsWith("/stores/owner/customer-care/messages") || p.startsWith("/stores/owner/customer-care/inquiries")) {
-      return OwnerRoutes.customerCare(sid);
-    }
-    if (p === "/stores/owner/customer-care") {
-      return OwnerRoutes.hub(sid);
-    }
-    return `/stores/owner?storeId=${encodeURIComponent(sid)}`;
+    return resolveOwnerStackBackHref(ownerPathNorm, selectedRow.id);
   }, [isHub, selectedRow, ownerPathNorm]);
 
   const storeOpsForMobileHeader = useMemo(() => {
@@ -664,11 +651,11 @@ export function BusinessAdminShell({
         {...ownerStackShellRootProps}
         className={ownerStackShellRootClassName}
       >
-        <StoresOwnerStackHeader
-          variant="hub"
+        <OwnerChromeHeader
+          mode="empty_hub"
           hideTitle
           backHref="/mypage"
-          shopName={shopName}
+          storeName={shopName}
           hubSubtitle={t("business_phase7_079")}
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
@@ -696,20 +683,26 @@ export function BusinessAdminShell({
   const composerHeaderRightSlot = (
     <>
       {ownerNotificationBell}
-      {publicStoreHref ?
-        <Link
-          href={publicStoreHref}
+      {publicStoreSlug ?
+        <button
+          type="button"
           className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={t("business_phase7_019")}
+          aria-label={t("biz_nav_public_store")}
+          onClick={() => openOwnerStorePreview(publicStoreSlug)}
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
             />
           </svg>
-        </Link>
+        </button>
       : null}
     </>
   );
@@ -812,6 +805,11 @@ export function BusinessAdminShell({
           {sidebarBody}
         </OwnerMobileOpsMenuDrawer>
       : null}
+      <OwnerStorePreviewModal
+        open={Boolean(storePreviewSlug)}
+        slug={storePreviewSlug}
+        onClose={closeStorePreview}
+      />
       <div
         data-biz="1"
         {...ownerStackShellRootProps}
@@ -819,33 +817,28 @@ export function BusinessAdminShell({
       >
         <OwnerMobileAdminHeaderTrailingProvider>
           <div className="flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)]">
-            {selectedRow && !isOwnerStoreProductComposerRoute ?
-              <OwnerMobileAdminHeader
-                variant={isOwnerHubRoute ? "hub" : "page"}
-                storeName={shopName}
-                storeId={selectedRow.id}
-                storeSlug={selectedRow.slug}
-                storeOps={storeOpsForMobileHeader}
-                urgentAlertCount={ownerHeaderBellCount}
-                stores={hubRuntime?.stores ?? initialStores ?? null}
-                pageTitle={pageTitle}
-                backHref={mobileAdminHeaderBackHref}
-                backIntercept={combinedAdminHeaderBackIntercept}
-                opsMenuOpen={mobileMenuOpen}
-              />
-            : null}
-            {isOwnerStoreProductComposerRoute ?
-              <StoresOwnerStackHeader
-                variant="admin"
-                backHref={adminHeaderBackHref}
-                backIntercept={combinedAdminHeaderBackIntercept}
-                backPreferHistory
-                backAriaLabel={t("business_phase7_351")}
-                shopName={shopName}
-                pageTitle={pageTitle}
-                rightSlot={composerHeaderRightSlot}
-              />
-            : null}
+            <OwnerChromeHeader
+              mode={
+                isOwnerStoreProductComposerRoute ? "composer"
+                : isOwnerHubRoute ? "hub"
+                : "page"
+              }
+              storeName={shopName}
+              storeId={selectedRow.id}
+              storeSlug={selectedRow.slug}
+              storeOps={storeOpsForMobileHeader}
+              urgentAlertCount={ownerHeaderBellCount}
+              stores={hubRuntime?.stores ?? initialStores ?? null}
+              pageTitle={pageTitle}
+              backHref={
+                isOwnerStoreProductComposerRoute ? adminHeaderBackHref : mobileAdminHeaderBackHref
+              }
+              backIntercept={combinedAdminHeaderBackIntercept}
+              backPreferHistory
+              backAriaLabel={t("business_phase7_351")}
+              opsMenuOpen={mobileMenuOpen}
+              rightSlot={isOwnerStoreProductComposerRoute ? composerHeaderRightSlot : undefined}
+            />
 
             <main
               className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${ownerUnifiedMainLayoutClass} ${
@@ -864,7 +857,8 @@ export function BusinessAdminShell({
             selectedRow &&
             !ownerOrderOverlayOpen &&
             !storeOwnerFlyoutSuppressesOwnerMobileBottomNav &&
-            !isOwnerFormBottomNavHiddenRoute ?
+            !isOwnerFormBottomNavHiddenRoute &&
+            !storePreviewSlug ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}

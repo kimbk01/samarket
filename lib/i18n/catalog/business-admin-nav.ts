@@ -87,6 +87,7 @@ export const businessAdminNavMessages = {
     biz_nav_public_store: "공개 매장 페이지",
 
     biz_nav_public_store_desc: "고객 화면 미리보기",
+    biz_nav_public_store_open_external: "공개 페이지에서 열기",
 
     biz_nav_settlements: "정산",
 
@@ -277,6 +278,7 @@ export const businessAdminNavMessages = {
     biz_nav_public_store: "Public store page",
 
     biz_nav_public_store_desc: "Customer-facing preview",
+    biz_nav_public_store_open_external: "Open public page",
 
     biz_nav_settlements: "Settlements",
 

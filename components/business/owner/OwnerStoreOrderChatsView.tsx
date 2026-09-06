@@ -6,7 +6,7 @@ import { MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
-import { OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS, OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ChatRow = {
@@ -95,38 +95,36 @@ export function OwnerStoreOrderChatsView() {
 
   if (state.kind === "loading") {
     return (
-      <div
-        className={`flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
-      >
+      <OwnerAdminPageScrollShell>
         <div className="space-y-2 p-2 animate-pulse">
           <div className="h-16 rounded-[4px] bg-white" />
           <div className="h-16 rounded-[4px] bg-white" />
           <div className="h-16 rounded-[4px] bg-white" />
         </div>
-      </div>
+      </OwnerAdminPageScrollShell>
     );
   }
 
   if (state.kind === "need_store") {
     return (
-      <div
-        className={`flex h-full flex-col items-center justify-center bg-[var(--biz-app-bg)] text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
-      >
-        {t("store_owner_chats_need_store")}
-      </div>
+      <OwnerAdminPageScrollShell>
+        <div className="flex flex-col items-center justify-center py-12 text-sm text-[#8C8C8C]">
+          {t("store_owner_chats_need_store")}
+        </div>
+      </OwnerAdminPageScrollShell>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <div
-        className={`flex h-full flex-col items-center justify-center gap-3 bg-[var(--biz-app-bg)] text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
-      >
-        {state.message}
-        <button type="button" className="text-[var(--biz-primary)] underline" onClick={() => void load()}>
-          {t("store_owner_chats_retry")}
-        </button>
-      </div>
+      <OwnerAdminPageScrollShell>
+        <div className="flex flex-col items-center justify-center gap-3 py-12 text-sm text-red-600">
+          {state.message}
+          <button type="button" className="text-[var(--biz-primary)] underline" onClick={() => void load()}>
+            {t("store_owner_chats_retry")}
+          </button>
+        </div>
+      </OwnerAdminPageScrollShell>
     );
   }
 
@@ -137,10 +135,8 @@ export function OwnerStoreOrderChatsView() {
           {t("store_owner_chats_list_hint", { storeName: state.storeName })}
         </p>
       </div>
-      <ul
-        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS} min-h-0 flex-1 py-2`}
-        data-owner-scroll-host="order-chats-list"
-      >
+      <OwnerAdminPageScrollShell className="py-2">
+        <ul data-owner-scroll-host="order-chats-list">
         {state.chats.length === 0 ?
           <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
             <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />
@@ -186,7 +182,8 @@ export function OwnerStoreOrderChatsView() {
             </li>
           ))
         }
-      </ul>
+        </ul>
+      </OwnerAdminPageScrollShell>
     </div>
   );
 }

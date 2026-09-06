@@ -15,6 +15,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { MyBusinessNavContext } from "@/lib/business/my-business-nav-types";
 import type { BusinessAdminNavItemId } from "@/lib/business/business-admin-nav-ids";
+import { OWNER_STORE_PREVIEW_HREF } from "@/lib/business/owner-store-preview-bridge";
 
 export type OwnerNavDomain =
   | "home"
@@ -293,7 +294,7 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     domain: "manage",
     labelKey: "biz_nav_public_store",
     descriptionKey: "biz_nav_public_store_desc",
-    href: (_storeId, slug) => `/stores/${encodeURIComponent(slug ?? "")}`,
+    href: () => OWNER_STORE_PREVIEW_HREF,
     requirePublicSlug: true,
     surfaces: ["drawer"],
     drawerSection: "store",
@@ -407,7 +408,7 @@ export function buildOwnerDrawerSectionsFromRegistry(ctx: MyBusinessNavContext):
         entryVisible(e, ctx)
     ).map((e) => {
       const href =
-        e.id === "public_store" ? e.href(ctx.storeId, ctx.slug) : e.href(ctx.storeId);
+        e.id === "public_store" ? OWNER_STORE_PREVIEW_HREF : e.href(ctx.storeId, ctx.slug);
       const item: {
         id: BusinessAdminNavItemId;
         labelKey: MessageKey;

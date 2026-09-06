@@ -59,7 +59,7 @@ describe("owner admin scroll shell contract", () => {
 
   it("basic-info and profile hide owner mobile bottom nav separately", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toMatch(/!isOwnerFormBottomNavHiddenRoute\s*\?/);
+    expect(shell).toContain("!isOwnerFormBottomNavHiddenRoute");
     expect(isOwnerBasicInfoPath("/stores/owner/basic-info")).toBe(true);
     expect(isOwnerStoreProfilePath("/stores/owner/profile")).toBe(true);
   });
@@ -134,16 +134,16 @@ describe("owner admin scroll shell contract", () => {
     expect(src).toContain("OwnerStoreSettlementsView");
   });
 
-  it("order-chats list scroll root uses compact shell __scroll (bottom-nav hide SSOT)", () => {
+  it("order-chats list scroll root uses OwnerAdminPageScrollShell", () => {
     const src = readRepo("components/business/owner/OwnerStoreOrderChatsView.tsx");
-    expect(src).toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+    expect(src).toContain("OwnerAdminPageScrollShell");
     expect(src).toContain('data-owner-scroll-host="order-chats-list"');
     expect(src).not.toMatch(/<ul className="min-h-0 flex-1 overflow-y-auto/);
   });
 
-  it("orders list scroll root uses compact shell __scroll (sticky chrome stays outside)", () => {
+  it("orders list scroll root uses OwnerAdminPageScrollShell (sticky chrome stays outside)", () => {
     const src = readRepo("components/business/owner/OwnerStoreOrdersMobileBody.tsx");
-    expect(src).toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+    expect(src).toContain("OwnerAdminPageScrollShell");
     expect(src).toContain('data-owner-scroll-host="orders-list"');
   });
 
@@ -281,5 +281,28 @@ describe("owner admin scroll shell contract", () => {
     expect(form).not.toContain(
       "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain"
     );
+  });
+
+  it("orders and order-chats use OwnerAdminPageScrollShell (no direct scroll class bypass)", () => {
+    const orders = readRepo("components/business/owner/OwnerStoreOrdersMobileBody.tsx");
+    expect(orders).toContain("OwnerAdminPageScrollShell");
+    expect(orders).not.toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+    const chats = readRepo("components/business/owner/OwnerStoreOrderChatsView.tsx");
+    expect(chats).toContain("OwnerAdminPageScrollShell");
+    expect(chats).not.toContain("OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS");
+  });
+
+  it("apply shell uses owner-stack-shell root (no private h-[100dvh])", () => {
+    const apply = readRepo("components/business/owner/StoresOwnerApplyShell.tsx");
+    expect(apply).toContain("OWNER_STACK_SHELL_ROOT_CLASS");
+    expect(apply).toContain("OwnerAdminPageScrollShell");
+    expect(apply).not.toContain("h-[100dvh]");
+  });
+
+  it("shell BottomNav eligibility uses isOwnerBottomNavHiddenPath SSOT", () => {
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain("isOwnerBottomNavHiddenPath");
+    expect(shell).toContain("OwnerStorePreviewModal");
+    expect(shell).toContain("OwnerChromeHeader");
   });
 });

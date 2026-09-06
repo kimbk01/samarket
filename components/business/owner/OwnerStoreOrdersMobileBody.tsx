@@ -24,7 +24,7 @@ import {
   type OwnerOrderStaleClass,
 } from "@/lib/business/owner-order-stale-pending";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
-import { OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 
 const STALE_SORT_RANK: Record<OwnerOrderStaleClass, number> = {
   none: 0,
@@ -354,14 +354,13 @@ export function OwnerStoreOrdersMobileBody({
           </div>
       </div>
 
-      <main
-        ref={(el) => {
+      <OwnerAdminPageScrollShell
+        padForOwnerBottomNav
+        scrollRef={(el) => {
           listScrollRef.current = el;
         }}
-        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} min-h-0 flex-1 pb-[max(0.5rem,var(--safe-bottom))]`}
-        data-owner-scroll-host="orders-list"
       >
-        <div className="space-y-2.5 py-3">
+        <div className="space-y-2.5 py-3" data-owner-scroll-host="orders-list">
           {deepLinkMissBanner}
           {displayOrders.length === 0 ? (
             <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
@@ -468,7 +467,7 @@ export function OwnerStoreOrdersMobileBody({
             </ul>
           )}
         </div>
-      </main>
+      </OwnerAdminPageScrollShell>
 
       {chatOrderId ?
         <OwnerStoreOrderChatSlidePanel

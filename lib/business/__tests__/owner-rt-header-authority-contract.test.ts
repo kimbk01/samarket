@@ -29,12 +29,14 @@ describe("owner P2 RT / header / badge authority", () => {
     expect(dash).toContain("useSupabaseStoreOrdersRealtime(hubRuntime ? null");
   });
 
-  it("canonical header is OwnerMobileAdminHeader; composer + empty hub use StoresOwnerStackHeader", () => {
+  it("canonical chrome mounts via OwnerChromeHeader (one shell API)", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toContain("OwnerMobileAdminHeader");
+    expect(shell).toContain("OwnerChromeHeader");
     expect(shell).toContain("isOwnerStoreProductComposerRoute");
     expect(shell).toContain('data-owner-empty-hub-shell="1"');
     expect(shell).not.toMatch(/isHub && !selectedRow[\s\S]{0,280}min-h-screen/);
+    expect(shell).not.toMatch(/<OwnerMobileAdminHeader[\s\S]{0,40}variant=/);
+    expect(shell).not.toMatch(/<StoresOwnerStackHeader[\s\S]{0,40}variant=/);
   });
 
   it("product hub filters are local category/status controls not DibaySecondaryTabRow nav", () => {

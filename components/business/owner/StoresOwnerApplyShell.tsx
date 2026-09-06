@@ -2,19 +2,25 @@
 
 import type { ReactNode } from "react";
 import { useOwnerMobileStackViewportLock } from "@/lib/business/use-owner-mobile-stack-viewport-lock";
+import {
+  OWNER_STACK_SHELL_ROOT_ATTR,
+  OWNER_STACK_SHELL_ROOT_CLASS,
+} from "@/lib/business/owner-compact-shell-layout";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 
 /**
- * `/stores/owner/apply` — `isStoreOwnerAdminRoute` 가 메인 `<main>` 세로 스크롤을 막으므로
- * `BusinessAdminShell` 과 같이 문서 스크롤을 잠그고 내부 `overflow-y-auto` 만 스크롤한다.
- * 배경은 오너 `--biz-app-bg` (배달 delivery-bg 혼용 금지).
+ * `/stores/owner/apply` — same ONE `.owner-stack-shell` height root as BusinessAdminShell.
+ * Scroll via OwnerAdminPageScrollShell only (no private nested 100dvh).
  */
 export function StoresOwnerApplyShell({ children }: { children: ReactNode }) {
   useOwnerMobileStackViewportLock(true);
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh]">
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-        {children}
-      </div>
+    <div
+      data-biz="1"
+      {...{ [OWNER_STACK_SHELL_ROOT_ATTR]: "1" }}
+      className={`${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`}
+    >
+      <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>{children}</OwnerAdminPageScrollShell>
     </div>
   );
 }

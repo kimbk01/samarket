@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import {
   OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS,
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
@@ -11,6 +11,8 @@ type Props = {
   /** false — basic-info 등 하단 5탭이 꺼진 화면 */
   padForOwnerBottomNav?: boolean;
   className?: string;
+  /** Optional ref to the scroll host (`main.owner-compact-shell__scroll`). */
+  scrollRef?: Ref<HTMLElement | null>;
 };
 
 /**
@@ -21,6 +23,7 @@ export function OwnerAdminPageScrollShell({
   children,
   padForOwnerBottomNav = true,
   className,
+  scrollRef,
 }: Props) {
   const scrollPadClass = padForOwnerBottomNav ? OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS : "";
   const scrollClassName = [
@@ -35,7 +38,12 @@ export function OwnerAdminPageScrollShell({
   return (
     <div className="relative flex min-h-0 w-full flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col">
-        <main className={scrollClassName}>{children}</main>
+        <main
+          ref={scrollRef as Ref<HTMLElement>}
+          className={scrollClassName}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
