@@ -60,7 +60,7 @@ import {
   formatAdminDeliveryAdPriceOrUnset,
   isAdminDeliveryAdPerformanceLifecycle,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
-import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
+import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
   "request_changes",
@@ -311,8 +311,22 @@ export function AdminDeliveryAdDetailWorkspace({
 
   async function runAction(action: AdminDeliveryAdAction) {
     if (!campaign || busy) return;
-    if (adminActionRequiresReason(action) && !reason.trim()) {
-      setError("reason_required");
+    const needsReason = adminActionRequiresReason(action);
+    if (needsReason && !reason.trim()) {
+      setConfirmAction(action);
+      setError(
+        action === "reject"
+          ? lang === "en"
+            ? "Enter a rejection reason."
+            : "거절 사유를 입력해 주세요."
+          : action === "request_changes"
+            ? lang === "en"
+              ? "Enter what needs to be changed."
+              : "수정 요청 사유를 입력해 주세요."
+            : lang === "en"
+              ? "Please enter a reason."
+              : "사유를 입력해 주세요."
+      );
       return;
     }
     const needsConfirm =
@@ -324,6 +338,7 @@ export function AdminDeliveryAdDetailWorkspace({
       action === "delete_safe_draft";
     if (needsConfirm && confirmAction !== action) {
       setConfirmAction(action);
+      setError(null);
       return;
     }
     setBusy(true);
@@ -350,7 +365,7 @@ export function AdminDeliveryAdDetailWorkspace({
         setError(
           json.error === "funding_required"
             ? t("admin_delivery_ad_funding_required")
-            : json.error || "action_failed"
+            : adminOperatorErrorMessage(json.error || "action_failed", lang !== "en")
         );
         setConfirmAction(null);
         return;
@@ -363,7 +378,7 @@ export function AdminDeliveryAdDetailWorkspace({
       }
       await load();
     } catch {
-      setError("network_error");
+      setError(adminOperatorErrorMessage("network_error", lang !== "en"));
     } finally {
       setBusy(false);
     }
@@ -567,19 +582,31 @@ export function AdminDeliveryAdDetailWorkspace({
           >
             ←{" "}
             {safeT("admin_delivery_ads_back", {
-              fallbackKo: "목록",
-              fallbackEn: "Back",
+              fallbackKo: "목록으로",
+              fallbackEn: "Back to queue",
             })}
           </Link>
           <h1 className="mt-1 text-[20px] font-bold text-sam-fg">
-            {safeT("admin_delivery_ads_detail_title", {
-              fallbackKo: "광고 상세",
-              fallbackEn: "Campaign detail",
-            })}
+            {campaign
+              ? lang === "en"
+                ? "Review ad application"
+                : "광고 신청 검토"
+              : safeT("admin_delivery_ads_detail_title", {
+                  fallbackKo: "광고 상세",
+                  fallbackEn: "Ad detail",
+                })}
           </h1>
+          {campaign ? (
+            <p className="mt-1 text-[14px] text-sam-muted">
+              {campaign.storeName || "—"}
+              {" · "}
+              {safeT(adminDeliveryAdProductLabelKey(campaign.productKind), {
+                fallbackKo: campaign.productKind,
+                fallbackEn: campaign.productKind,
+              })}
+            </p>
+          ) : null}
         </div>
-
-        <AdminDeliveryAdsSectionNav />
 
         {loading ? (
           <p className="text-[13px] text-sam-muted" role="status">
@@ -591,7 +618,7 @@ export function AdminDeliveryAdDetailWorkspace({
         ) : null}
         {error ? (
           <p className="text-[13px] text-sam-danger" role="alert">
-            {error}
+            {adminOperatorErrorMessage(error, lang !== "en")}
           </p>
         ) : null}
 
@@ -652,22 +679,29 @@ export function AdminDeliveryAdDetailWorkspace({
               {requiredDecision.decisionRequired &&
               requiredDecision.primaryReviewActions.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2" data-admin-decision-primary-ctas="1">
-                  {requiredDecision.primaryReviewActions.map((action) => (
+                  {requiredDecision.primaryReviewActions.map((action) => {
+                    const approveBlocked =
+                      action === "approve" &&
+                      campaign.productKind === "banner" &&
+                      bannerPublishReady?.ok === false;
+                    return (
                     <button
                       key={`rd-${action}`}
                       type="button"
-                      disabled={
-                        busy ||
-                        (action === "approve" &&
-                          campaign.productKind === "banner" &&
-                          bannerPublishReady?.ok === false)
+                      disabled={busy || approveBlocked}
+                      title={
+                        approveBlocked
+                          ? lang === "en"
+                            ? "Banner creative is not ready for approval"
+                            : "배너 소재가 준비되지 않아 승인할 수 없습니다"
+                          : undefined
                       }
                       data-admin-delivery-ads-action={action}
                       className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
                         action === "reject"
                           ? "bg-sam-danger text-white"
                           : action === "approve"
-                            ? "bg-sam-brand text-white"
+                            ? "bg-sam-brand text-white disabled:opacity-40"
                             : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                       onClick={() => void runAction(action)}
@@ -683,21 +717,75 @@ export function AdminDeliveryAdDetailWorkspace({
                           })}`
                         : ""}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : null}
-              <label className="mt-3 flex flex-col gap-1 text-[12px]">
-                {safeT("admin_delivery_ads_reason", {
-                  fallbackKo: "사유 (수정요청·거절·중지·강제중단 필수)",
-                  fallbackEn: "Reason (required for changes/reject/pause/terminate)",
-                })}
-                <textarea
-                  className="min-h-[72px] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[13px] text-sam-fg"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  data-admin-delivery-ads-reason="1"
-                />
-              </label>
+              {campaign.productKind === "banner" &&
+              bannerPublishReady?.ok === false &&
+              requiredDecision.primaryReviewActions.includes("approve") ? (
+                <p className="mt-2 text-[12px] text-amber-900">
+                  {lang === "en"
+                    ? "Approve is disabled because banner creative is not ready."
+                    : "승인이 비활성인 이유: 배너 소재가 아직 준비되지 않았습니다."}
+                </p>
+              ) : null}
+              {confirmAction && adminActionRequiresReason(confirmAction) ? (
+                <div
+                  className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
+                  data-admin-delivery-ads-reason-panel="1"
+                >
+                  <label className="flex flex-col gap-1 text-[12px]">
+                    {confirmAction === "reject"
+                      ? lang === "en"
+                        ? "Rejection reason *"
+                        : "거절 사유 *"
+                      : confirmAction === "request_changes"
+                        ? lang === "en"
+                          ? "What needs to change *"
+                          : "수정이 필요한 이유 *"
+                        : lang === "en"
+                          ? "Reason *"
+                          : "사유 *"}
+                    <textarea
+                      className="min-h-[72px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      data-admin-delivery-ads-reason="1"
+                    />
+                  </label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px]"
+                      onClick={() => {
+                        setConfirmAction(null);
+                        setError(null);
+                      }}
+                    >
+                      {lang === "en" ? "Cancel" : "취소"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy || !reason.trim()}
+                      className="rounded-ui-rect bg-sam-danger px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
+                      onClick={() => void runAction(confirmAction)}
+                    >
+                      {confirmAction === "reject"
+                        ? lang === "en"
+                          ? "Confirm reject"
+                          : "거절 확정"
+                        : confirmAction === "request_changes"
+                          ? lang === "en"
+                            ? "Send edit request"
+                            : "수정 요청 보내기"
+                          : lang === "en"
+                            ? "Confirm"
+                            : "확정"}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             {/* B + E — 신청 요약 | 고객 노출 미리보기 (design board split) */}
@@ -724,12 +812,16 @@ export function AdminDeliveryAdDetailWorkspace({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sam-muted">Store</dt>
-                    <dd>{campaign.storeName || campaign.storeId || "—"}</dd>
+                    <dt className="text-sam-muted">
+                      {lang === "en" ? "Store" : "매장"}
+                    </dt>
+                    <dd>{campaign.storeName || "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-sam-muted">Owner</dt>
-                    <dd>{campaign.ownerDisplayName || campaign.ownerUserId || "—"}</dd>
+                    <dt className="text-sam-muted">
+                      {lang === "en" ? "Owner" : "사장님"}
+                    </dt>
+                    <dd>{campaign.ownerDisplayName || "—"}</dd>
                   </div>
                   <div>
                     <dt className="text-sam-muted">
@@ -745,7 +837,9 @@ export function AdminDeliveryAdDetailWorkspace({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sam-muted">Lifecycle</dt>
+                    <dt className="text-sam-muted">
+                      {lang === "en" ? "Status" : "상태"}
+                    </dt>
                     <dd>
                       {safeT(
                         `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
@@ -757,13 +851,24 @@ export function AdminDeliveryAdDetailWorkspace({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sam-muted">Period</dt>
-                    <dd className="text-sam-muted">
-                      {campaign.startAt.slice(0, 16)} ~ {campaign.endAt.slice(0, 16)}
+                    <dt className="text-sam-muted">
+                      {lang === "en" ? "Period" : "기간"}
+                    </dt>
+                    <dd className="text-sam-fg">
+                      {new Date(campaign.startAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                      {" ~ "}
+                      {new Date(campaign.endAt).toLocaleString(lang === "en" ? "en" : "ko")}
                     </dd>
                   </div>
                 </dl>
-                <p className="mt-2 break-all font-mono text-[11px] text-sam-muted">ID {campaign.id}</p>
+                <details className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-1.5">
+                  <summary className="cursor-pointer text-[12px] text-sam-muted">
+                    {lang === "en" ? "Technical info" : "기술 정보"}
+                  </summary>
+                  <p className="mt-1 break-all font-mono text-[11px] text-sam-muted">
+                    ID {campaign.id}
+                  </p>
+                </details>
               </AdminCard>
               </div>
 
@@ -860,8 +965,8 @@ export function AdminDeliveryAdDetailWorkspace({
                 <AdminCard titleKey="admin_delivery_ads_section_preview">
                   <DeliveryAdOwnerPhoneFrame
                     label={safeT("admin_delivery_ads_section_preview", {
-                      fallbackKo: "고객 노출 미리보기",
-                      fallbackEn: "Customer preview",
+                      fallbackKo: "노출 예시",
+                      fallbackEn: "Exposure example",
                     })}
                   >
                     <DeliveryAdCampaignPlacementPreviews

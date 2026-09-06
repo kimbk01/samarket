@@ -20,6 +20,11 @@ import type {
   FinanceControlPlaneModel,
   FinanceSectionRow,
 } from "@/lib/admin/finance-control-plane/types";
+import {
+  adminFinancePrimaryCta,
+  adminOperatorLabel,
+  adminStripTechnicalMeta,
+} from "@/lib/admin/operator-ux/operator-labels";
 
 function Section({
   id,
@@ -63,43 +68,46 @@ function RowTable({
         <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
           <tr>
             <th className="px-3 py-2">{ko ? "대상" : "Actor"}</th>
-            <th className="px-3 py-2">Type</th>
-            <th className="px-3 py-2">Amount</th>
-            <th className="px-3 py-2">Status</th>
+            <th className="px-3 py-2">{ko ? "유형" : "Type"}</th>
+            <th className="px-3 py-2">{ko ? "금액" : "Amount"}</th>
+            <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
             <th className="px-3 py-2">{ko ? "시각" : "When"}</th>
-            <th className="px-3 py-2">Links</th>
+            <th className="px-3 py-2">{ko ? "조치" : "Action"}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-sam-border-soft">
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const meta = adminStripTechnicalMeta(r.meta, ko);
+            return (
             <tr key={r.id}>
               <td className="truncate px-3 py-2 font-medium text-sam-fg">{r.label}</td>
-              <td className="px-3 py-2">{r.type}</td>
+              <td className="px-3 py-2">{adminOperatorLabel(r.type, ko)}</td>
               <td className="px-3 py-2 tabular-nums">{r.amountLabel}</td>
-              <td className="px-3 py-2">{r.status}</td>
+              <td className="px-3 py-2">{adminOperatorLabel(r.status, ko)}</td>
               <td className="whitespace-nowrap px-3 py-2 sam-text-xxs">
                 {r.at ? new Date(r.at).toLocaleString() : "—"}
               </td>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap gap-2">
                   <Link href={r.href} className="font-semibold text-signature hover:underline">
-                    {ko ? "상세" : "Open"}
+                    {ko ? "검토하기" : "Review"}
                   </Link>
                   {r.statementHref ? (
                     <Link href={r.statementHref} className="text-signature hover:underline">
-                      Statement
+                      {ko ? "재무 내역" : "Finance history"}
                     </Link>
                   ) : null}
                   {r.memberHref ? (
                     <Link href={r.memberHref} className="text-signature hover:underline">
-                      Member
+                      {ko ? "회원 정보" : "Member"}
                     </Link>
                   ) : null}
                 </div>
-                {r.meta ? <p className="mt-0.5 sam-text-xxs text-sam-muted">{r.meta}</p> : null}
+                {meta ? <p className="mt-0.5 sam-text-xxs text-sam-muted">{meta}</p> : null}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -115,8 +123,20 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
     ) : item.currency === "CASH" ? (
       <CurrencyBadge currency="cash" />
     ) : (
-      <span className="rounded border border-sam-border px-1.5 py-0.5 sam-text-xxs">PHP</span>
+      <span className="rounded border border-sam-border px-1.5 py-0.5 sam-text-xxs">
+        {ko ? "정산(PHP)" : "PHP"}
+      </span>
     );
+  const ageLabel =
+    item.ageHours == null
+      ? ""
+      : item.ageHours < 24
+        ? ko
+          ? `${item.ageHours}시간 전`
+          : `${item.ageHours}h ago`
+        : ko
+          ? `${Math.floor(item.ageHours / 24)}일 전`
+          : `${Math.floor(item.ageHours / 24)}d ago`;
 
   return (
     <div
@@ -127,34 +147,27 @@ function ActionCard({ item, ko }: { item: FinanceActionItem; ko: boolean }) {
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           {badge}
-          <span className="sam-text-xxs text-sam-muted">{item.type}</span>
-          {item.ageHours != null ? (
-            <span className="sam-text-xxs text-sam-muted">{item.ageHours}h</span>
-          ) : null}
+          <span className="sam-text-xxs font-semibold text-sam-fg">
+            {adminOperatorLabel(item.type, ko)}
+          </span>
+          {ageLabel ? <span className="sam-text-xxs text-sam-muted">{ageLabel}</span> : null}
         </div>
         <p className="text-[15px] font-semibold text-sam-fg">{item.actorLabel}</p>
         <p className="tabular-nums text-sam-fg">{item.amountLabel}</p>
-        <p className="sam-text-helper text-sam-muted">
-          {item.status} · {item.source}
-        </p>
+        <p className="sam-text-helper text-sam-muted">{adminOperatorLabel(item.status, ko)}</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <AdminActionLink href={item.href} variant="primary">
-          {ko ? "재무 요청 검토" : "Review finance request"}
+          {adminFinancePrimaryCta(item.type, ko)}
         </AdminActionLink>
-        {item.statementHref ? (
+        {item.actorKind === "store" && item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
-            Statement
+            {ko ? "매장 재무" : "Store finance"}
           </AdminActionLink>
         ) : null}
         {item.memberHref ? (
           <AdminActionLink href={item.memberHref} variant="secondary">
-            Member
-          </AdminActionLink>
-        ) : null}
-        {item.referenceHref ? (
-          <AdminActionLink href={item.referenceHref} variant="secondary">
-            {ko ? "원본" : "Source"}
+            {ko ? "회원 정보" : "Member"}
           </AdminActionLink>
         ) : null}
       </div>
@@ -228,12 +241,12 @@ export function AdminFinanceControlPlane() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "공통 재무 관제" : "Common Finance Control Plane"}
+              {ko ? "재무" : "Finance"}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
               {ko
-                ? "처리해야 할 돈 → 회원/매장 → Point·Coin·Cash·정산 → 원본 → Statement. 자산은 합산하지 않습니다."
-                : "Actionable money → member/store → Point·Coin·Cash·settlement → source → Statement. Assets are never merged."}
+                ? "지금 처리할 요청을 확인하고, 회원·매장별로 Point / Coin / Cash / 정산을 조치합니다. 자산은 합산하지 않습니다."
+                : "Review requests and act on Point / Coin / Cash / settlements per member or store. Assets are never merged."}
             </p>
           </div>
           <AdminActionButton variant="neutral" onClick={() => void load()}>
@@ -284,15 +297,15 @@ export function AdminFinanceControlPlane() {
         <div className="mt-2 flex flex-wrap gap-3 sam-text-body-secondary">
           {(
             [
-              ["point", q.point],
-              ["cash", q.cash],
-              ["coin", q.coinWithdraw],
-              ["settlement", q.settlement],
-              ["obligation", q.obligationStores],
+              [ko ? "Point 충전" : "Point", "point", q.point],
+              [ko ? "Cash 충전" : "Cash", "cash", q.cash],
+              [ko ? "Coin 출금" : "Coin withdraw", "coin", q.coinWithdraw],
+              [ko ? "정산" : "Settlement", "settlement", q.settlement],
+              [ko ? "미납 수수료" : "Fees", "obligation", q.obligationStores],
             ] as const
-          ).map(([k, s]) => (
+          ).map(([label, k, s]) => (
             <Link key={k} href={s.href} className="text-signature hover:underline" data-admin-finance-ops={k}>
-              {k}: {s.unavailable ? "UNAVAILABLE" : s.count ?? 0}
+              {label}: {s.unavailable ? (ko ? "확인 불가" : "UNAVAILABLE") : s.count ?? 0}
             </Link>
           ))}
         </div>
@@ -410,7 +423,7 @@ export function AdminFinanceControlPlane() {
         <RowTable rows={model.recent} ko={ko} empty={ko ? "최근 활동 없음" : "No recent activity"} />
       </Section>
 
-      <Section id="entries" title={ko ? "전문 큐 / 관리 진입" : "Primary management entries"}>
+      <Section id="entries" title={ko ? "빠른 관리" : "Quick management"}>
         <ul className="flex flex-wrap gap-2">
           {model.primaryEntries.map((e) => (
             <li key={e.id}>
@@ -421,7 +434,6 @@ export function AdminFinanceControlPlane() {
                 data-frequency={e.frequency}
               >
                 {ko ? e.labelKo : e.labelEn}
-                <span className="ml-2 text-sam-muted">{e.frequency}</span>
               </Link>
             </li>
           ))}

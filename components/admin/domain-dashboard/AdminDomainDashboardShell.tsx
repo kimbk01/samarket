@@ -1,12 +1,17 @@
 "use client";
 
 /**
- * ARO-OPS-UX-002-B2 — Shared Domain Dashboard shell (read-only).
+ * ARO-OPS-UX-002-B2 — Shared Domain Dashboard shell (operator presentation).
+ * Frequency taxonomy / raw owner keys / duplicate queues must not surface as primary UI.
  */
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminDomainDashboardModel } from "@/lib/admin/domain-dashboard/types";
+import {
+  adminOperatorLabel,
+  adminRecentTitle,
+} from "@/lib/admin/operator-ux/operator-labels";
 
 function MetricGrid({
   items,
@@ -65,12 +70,16 @@ function ActionGrid({
   unavailableLabel,
   emptyKo,
   emptyEn,
+  ctaKo,
+  ctaEn,
 }: {
   items: AdminDomainDashboardModel["actionRequired"];
   ko: boolean;
   unavailableLabel: string;
   emptyKo: string;
   emptyEn: string;
+  ctaKo: string;
+  ctaEn: string;
 }) {
   if (!items.length) {
     return (
@@ -92,13 +101,10 @@ function ActionGrid({
           data-owner={a.owner}
         >
           <div>
-            <p className="sam-text-helper text-sam-muted">{a.owner}</p>
             <p className="mt-1 text-[15px] font-semibold text-sam-fg">{ko ? a.labelKo : a.labelEn}</p>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[13px] font-semibold text-sam-primary">
-              {ko ? "큐 열기" : "Open queue"}
-            </span>
+            <span className="text-[13px] font-semibold text-sam-primary">{ko ? ctaKo : ctaEn}</span>
             {a.count == null ? (
               <span className="rounded-ui-rect border border-amber-600 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-900">
                 {unavailableLabel}
@@ -135,12 +141,20 @@ function EntryList({
             data-frequency={e.frequency}
           >
             <span className="sam-text-body text-sam-fg">{ko ? e.labelKo : e.labelEn}</span>
-            <span className="sam-text-helper text-sam-muted">{e.frequency}</span>
           </Link>
         </li>
       ))}
     </ul>
   );
+}
+
+function dedupeIssuesAgainstActions(
+  actionRequired: AdminDomainDashboardModel["actionRequired"],
+  issues: AdminDomainDashboardModel["issues"]
+): AdminDomainDashboardModel["issues"] {
+  const actionIds = new Set(actionRequired.map((a) => a.id));
+  const actionHrefs = new Set(actionRequired.map((a) => a.href));
+  return issues.filter((i) => !actionIds.has(i.id) && !actionHrefs.has(i.href));
 }
 
 export function AdminDomainDashboardShell({
@@ -151,12 +165,14 @@ export function AdminDomainDashboardShell({
   const { language } = useI18n();
   const ko = language !== "en";
   const unavailableLabel = ko ? "확인 불가" : "UNAVAILABLE";
+  const uniqueIssues = dedupeIssuesAgainstActions(model.actionRequired, model.issues);
 
   return (
     <div
       className="space-y-5 text-sam-fg"
       data-admin-domain-dashboard={model.domain}
       data-aro-ops-ux-002-b2="1"
+      data-operator-ux="1"
     >
       <header className="space-y-1" data-admin-cp-header="domain">
         <h1 className="sam-text-page-title font-semibold tracking-tight text-sam-fg">
@@ -172,7 +188,7 @@ export function AdminDomainDashboardShell({
           className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950"
           data-admin-domain-section-errors="1"
         >
-          {ko ? "일부 소스 확인 불가" : "Some sources unavailable"}: {model.sectionErrors.join(" · ")}
+          {ko ? "일부 정보를 불러오지 못했습니다." : "Some sources unavailable"}
         </div>
       ) : null}
 
@@ -186,12 +202,14 @@ export function AdminDomainDashboardShell({
           unavailableLabel={unavailableLabel}
           emptyKo="지금 처리할 대기 항목이 없습니다."
           emptyEn="No actionable items right now."
+          ctaKo="검토하기"
+          ctaEn="Review"
         />
       </section>
 
       <section className="space-y-2" data-admin-domain-section="current-state">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {ko ? "현재 상태" : "Current state"}
+          {ko ? "현재 운영 상태" : "Current state"}
         </h2>
         <MetricGrid items={model.currentState} ko={ko} unavailableLabel={unavailableLabel} />
       </section>
@@ -205,17 +223,19 @@ export function AdminDomainDashboardShell({
         </section>
       ) : null}
 
-      {model.issues.length > 0 ? (
+      {uniqueIssues.length > 0 ? (
         <section className="space-y-2" data-admin-domain-section="issues">
           <h2 className="sam-text-body font-semibold text-sam-fg">
             {ko ? "문제 / 신고" : "Issues / reports"}
           </h2>
           <ActionGrid
-            items={model.issues}
+            items={uniqueIssues}
             ko={ko}
             unavailableLabel={unavailableLabel}
             emptyKo="이슈 없음"
             emptyEn="No issues"
+            ctaKo="신고 검토"
+            ctaEn="Review report"
           />
         </section>
       ) : null}
@@ -223,13 +243,13 @@ export function AdminDomainDashboardShell({
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-2" data-admin-domain-section="primary-entries">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "주요 관리 진입" : "Primary management"}
+            {ko ? "빠른 관리" : "Quick management"}
           </h2>
           <EntryList items={model.primaryEntries} ko={ko} />
         </section>
         <section className="space-y-2" data-admin-domain-section="context-entries">
           <h2 className="sam-text-body font-semibold text-sam-fg">
-            {ko ? "관련 공통 / 컨텍스트" : "Related common / context"}
+            {ko ? "운영 관리 / 설정" : "Ops / settings"}
           </h2>
           <EntryList items={model.contextEntries} ko={ko} />
         </section>
@@ -245,30 +265,45 @@ export function AdminDomainDashboardShell({
               <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
                 <tr>
                   <th className="px-3 py-2">{ko ? "항목" : "Item"}</th>
-                  <th className="px-3 py-2">{ko ? "메모" : "Meta"}</th>
+                  <th className="px-3 py-2">{ko ? "내용" : "Detail"}</th>
                   <th className="px-3 py-2">{ko ? "시각" : "When"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sam-border-soft">
-                {model.recent.map((r) => (
-                  <tr key={r.id} className="hover:bg-sam-app/60">
-                    <td className="truncate px-3 py-2">
-                      {r.href ? (
-                        <Link href={r.href} prefetch={false} className="font-medium text-signature hover:underline">
-                          {r.title}
-                        </Link>
-                      ) : (
-                        r.title
-                      )}
-                    </td>
-                    <td className="truncate px-3 py-2 text-sam-muted">
-                      {ko ? r.metaKo : r.metaEn}
-                    </td>
-                    <td className="px-3 py-2 sam-text-xxs text-sam-muted">
-                      {r.at ? new Date(r.at).toLocaleString() : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {model.recent.map((r) => {
+                  const title = adminRecentTitle(
+                    r.title,
+                    ko ? (r.metaKo || "최근 활동") : (r.metaEn || "Recent activity"),
+                    r.metaEn || "Recent activity",
+                    ko
+                  );
+                  const metaRaw = (ko ? r.metaKo : r.metaEn) || "";
+                  const meta = metaRaw
+                    .split(" · ")
+                    .map((part) => adminOperatorLabel(part.trim(), ko))
+                    .join(" · ");
+                  return (
+                    <tr key={r.id} className="hover:bg-sam-app/60">
+                      <td className="truncate px-3 py-2">
+                        {r.href ? (
+                          <Link
+                            href={r.href}
+                            prefetch={false}
+                            className="font-medium text-signature hover:underline"
+                          >
+                            {title}
+                          </Link>
+                        ) : (
+                          title
+                        )}
+                      </td>
+                      <td className="truncate px-3 py-2 text-sam-muted">{meta}</td>
+                      <td className="px-3 py-2 sam-text-xxs text-sam-muted">
+                        {r.at ? new Date(r.at).toLocaleString() : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

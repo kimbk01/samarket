@@ -20,6 +20,10 @@ import type {
   AdsControlPlaneModel,
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
+import {
+  adminDisplayApplicantLabel,
+  adminOperatorLabel,
+} from "@/lib/admin/operator-ux/operator-labels";
 
 function Unavail({ ko }: { ko: boolean }) {
   return <AdminUnavailableChip ko={ko} />;
@@ -48,6 +52,10 @@ function CurrencyChip({ currency }: { currency: AdsActionItem["currency"] }) {
 }
 
 function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
+  const title = adminDisplayApplicantLabel(item.applicantLabel, ko);
+  const creativeIsUrl =
+    !!item.creativeHint &&
+    (/^https?:\/\//i.test(item.creativeHint) || item.creativeHint.includes("supabase"));
   return (
     <div
       className="flex min-h-[9rem] flex-col justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
@@ -58,38 +66,54 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
           <CurrencyChip currency={item.currency} />
-          <span className="sam-text-xxs uppercase text-sam-muted">{item.domain}</span>
-          <span className="sam-text-xxs text-sam-muted">{item.product}</span>
+          <span className="sam-text-xxs text-sam-muted">
+            {adminOperatorLabel(item.domain, ko)}
+          </span>
+          <span className="sam-text-xxs text-sam-muted">
+            {adminOperatorLabel(item.product, ko)}
+          </span>
         </div>
-        <p className="text-[15px] font-semibold text-sam-fg">{item.applicantLabel}</p>
+        <p className="text-[15px] font-semibold text-sam-fg">{title}</p>
         <p className="sam-text-helper text-sam-muted">
-          {item.status}
-          {item.placementHint ? ` · ${item.placementHint}` : ""}
+          {adminOperatorLabel(item.status, ko)}
+          {item.placementHint
+            ? ` · ${adminOperatorLabel(item.placementHint, ko)}`
+            : ""}
         </p>
         {item.eligibility ? (
-          <p className="sam-text-xxs text-amber-900">{item.eligibility}</p>
+          <p className="sam-text-xxs text-amber-900">
+            {/organic ranking/i.test(item.eligibility)
+              ? ko
+                ? "일반 노출(광고 아님)과 별개로 검토가 필요합니다."
+                : "Separate from organic ranking — admin review required."
+              : /payment\s*!=\s*approval/i.test(item.eligibility)
+                ? ko
+                  ? "결제 완료만으로 승인되지 않습니다. 관리자 심사가 필요합니다."
+                  : "Payment alone is not approval — admin review required."
+                : adminOperatorLabel(item.eligibility, ko)}
+          </p>
         ) : null}
-        {item.creativeHint ? (
-          <p className="truncate sam-text-xxs text-sam-muted">creative: {item.creativeHint}</p>
+        {item.creativeHint && !creativeIsUrl ? (
+          <p className="truncate sam-text-xxs text-sam-muted">
+            {ko ? "소재" : "Creative"}: {item.creativeHint}
+          </p>
+        ) : creativeIsUrl ? (
+          <p className="sam-text-xxs text-sam-muted">
+            {ko ? "소재 이미지 있음 (상세에서 확인)" : "Creative image attached (see detail)"}
+          </p>
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <AdminActionLink href={item.href} variant="primary">
-          {ko ? "광고 신청 검토" : "Review application"}
+          {ko ? "검토하기" : "Review"}
         </AdminActionLink>
-        {item.statementHref ? (
-          <AdminActionLink href={item.statementHref} variant="secondary">
-            Statement
-          </AdminActionLink>
-        ) : null}
         {item.financeHref ? (
           <AdminActionLink href={item.financeHref} variant="secondary">
-            Finance
+            {ko ? "재무" : "Finance"}
           </AdminActionLink>
-        ) : null}
-        {item.memberHref ? (
-          <AdminActionLink href={item.memberHref} variant="secondary">
-            Member
+        ) : item.statementHref ? (
+          <AdminActionLink href={item.statementHref} variant="secondary">
+            {ko ? "재무 내역" : "Finance history"}
           </AdminActionLink>
         ) : null}
       </div>
@@ -110,33 +134,39 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
       <table className="w-full min-w-[48rem] text-left sam-text-body-secondary">
         <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
           <tr>
-            <th className="px-3 py-2">Domain</th>
+            <th className="px-3 py-2">{ko ? "영역" : "Domain"}</th>
             <th className="px-3 py-2">{ko ? "상품" : "Product"}</th>
             <th className="px-3 py-2">{ko ? "집행" : "Execution"}</th>
-            <th className="px-3 py-2">Placement</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Eligibility</th>
-            <th className="px-3 py-2">Links</th>
+            <th className="px-3 py-2">{ko ? "노출 위치" : "Placement"}</th>
+            <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
+            <th className="px-3 py-2">{ko ? "노출 가능" : "Eligibility"}</th>
+            <th className="px-3 py-2">{ko ? "조치" : "Action"}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-sam-border-soft">
           {rows.map((r) => (
             <tr key={r.id}>
-              <td className="px-3 py-2">{r.domain}</td>
-              <td className="px-3 py-2">{r.product}</td>
-              <td className="truncate px-3 py-2 font-medium">{r.label}</td>
-              <td className="px-3 py-2">{r.placement || "—"}</td>
-              <td className="px-3 py-2">{r.status}</td>
-              <td className="px-3 py-2 sam-text-xxs">{r.eligibility}</td>
+              <td className="px-3 py-2">{adminOperatorLabel(r.domain, ko)}</td>
+              <td className="px-3 py-2">{adminOperatorLabel(r.product, ko)}</td>
+              <td className="truncate px-3 py-2 font-medium">
+                {adminDisplayApplicantLabel(r.label, ko)}
+              </td>
+              <td className="px-3 py-2">
+                {r.placement ? adminOperatorLabel(r.placement, ko) : "—"}
+              </td>
+              <td className="px-3 py-2">{adminOperatorLabel(r.status, ko)}</td>
+              <td className="px-3 py-2 sam-text-xxs">
+                {adminOperatorLabel(r.eligibility, ko)}
+              </td>
               <td className="px-3 py-2">
                 <Link href={r.href} className="font-semibold text-signature hover:underline">
-                  {ko ? "상세" : "Open"}
+                  {ko ? "검토하기" : "Review"}
                 </Link>
                 {r.statementHref ? (
                   <>
                     {" · "}
                     <Link href={r.statementHref} className="text-signature hover:underline">
-                      Statement
+                      {ko ? "재무 내역" : "Finance"}
                     </Link>
                   </>
                 ) : null}
@@ -215,17 +245,12 @@ export function AdminAdsExposureControlPlane() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "광고 / 노출 관제" : "Ads / Exposure Control Plane"}
+              {ko ? "광고 / 노출" : "Ads / Exposure"}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
               {ko
-                ? "신청 → 소재 → 비용(currency) → 승인 → 집행 → 실제 노출 가능 여부. Delivery/Feed/Popup authority는 합치지 않습니다."
-                : "Application → creative → billing currency → approval → execution → exposure eligibility. Domains stay separate."}
-            </p>
-            <p className="mt-1 sam-text-helper text-sam-muted">
-              {ko
-                ? "엔티티: 광고 상품 · 광고 신청 · 광고 소재 · 노출 위치 · 광고 집행 · 노출 정책 · 비용 (합치지 않음)"
-                : "Entities: Ad product · Application · Creative · Placement · Execution · Policy · Billing (kept separate)"}
+                ? "신청 검토 → 소재 확인 → 비용·승인 → 집행. 배달·피드·팝업은 각각 따로 처리합니다."
+                : "Review applications → creatives → billing & approval → execution. Delivery, feed, and popup stay separate."}
             </p>
           </div>
           <AdminActionButton variant="neutral" onClick={() => void load()}>
@@ -253,44 +278,44 @@ export function AdminAdsExposureControlPlane() {
         )}
       </Section>
 
-      <Section id="work-queues" title={ko ? "운영 큐 (분리)" : "Work queues (separated)"}>
+      <Section id="work-queues" title={ko ? "운영 큐" : "Work queues"}>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href={q.delivery.href}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            APPLICATION REVIEW
+            {ko ? "신청 검토" : "Application review"}
           </Link>
           <a
             href="#creatives"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            CREATIVE REVIEW
+            {ko ? "소재 검토" : "Creative review"}
           </a>
           <a
             href="#execution"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            SCHEDULE / EXECUTION
+            {ko ? "일정·집행" : "Schedule / execution"}
           </a>
           <Link
             href="/admin/delivery-ads?view=ended"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            ENDED / HISTORY
+            {ko ? "종료·이력" : "Ended / history"}
           </Link>
         </div>
         <div className="flex flex-wrap gap-3 sam-text-body-secondary">
           {(
             [
-              ["delivery", q.delivery],
-              ["feed", q.feed],
-              ["popup", q.popup],
-              ["trade_promote", q.tradePromote],
+              [ko ? "배달" : "Delivery", "delivery", q.delivery],
+              [ko ? "피드" : "Feed", "feed", q.feed],
+              [ko ? "팝업" : "Popup", "popup", q.popup],
+              [ko ? "거래 홍보" : "Trade", "trade_promote", q.tradePromote],
             ] as const
-          ).map(([k, s]) => (
+          ).map(([label, k, s]) => (
             <Link key={k} href={s.href} className="text-signature hover:underline" data-admin-ads-queue={k}>
-              {k}: {s.unavailable ? <Unavail ko={ko} /> : (s.count ?? 0)}
+              {label}: {s.unavailable ? <Unavail ko={ko} /> : (s.count ?? 0)}
             </Link>
           ))}
         </div>
@@ -314,11 +339,11 @@ export function AdminAdsExposureControlPlane() {
         )}
       </Section>
 
-      <Section id="creatives" title={ko ? "소재 검수 / Preview" : "Creative review / Preview"}>
+      <Section id="creatives" title={ko ? "소재 검수" : "Creative review"}>
         <p className="sam-text-helper text-sam-muted">
           {ko
-            ? "미리보기는 상세·Placement Map의 실제 placement preview renderer를 사용합니다. 이미지 파일명만 보여주지 않습니다."
-            : "Preview uses the real placement preview renderer on detail / Placement Map — not filename-only."}
+            ? "상세 화면에서 노출 예시로 소재를 확인합니다."
+            : "Review creatives via exposure preview on the detail screen."}
         </p>
         {model.creatives.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">
@@ -335,32 +360,32 @@ export function AdminAdsExposureControlPlane() {
           href="/admin/delivery-ads/inventory#placement-map"
           className="inline-flex sam-text-helper font-semibold text-signature hover:underline"
         >
-          {ko ? "Placement Map · 실제 지면/aspect" : "Placement Map · surfaces/aspect"}
+          {ko ? "노출 위치 지도 열기" : "Open placement map"}
         </Link>
       </Section>
 
-      <Section id="placement-map" title={ko ? "노출 위치 (Placement ≠ Banner)" : "Placement map (≠ Banner)"}>
+      <Section id="placement-map" title={ko ? "노출 위치" : "Placements"}>
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[40rem] text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
               <tr>
-                <th className="px-3 py-2">Domain</th>
-                <th className="px-3 py-2">Placement</th>
+                <th className="px-3 py-2">{ko ? "영역" : "Domain"}</th>
+                <th className="px-3 py-2">{ko ? "노출 위치" : "Placement"}</th>
                 <th className="px-3 py-2">{ko ? "상품" : "Product"}</th>
-                <th className="px-3 py-2">Aspect</th>
-                <th className="px-3 py-2">Map</th>
+                <th className="px-3 py-2">{ko ? "비율" : "Aspect"}</th>
+                <th className="px-3 py-2">{ko ? "열기" : "Open"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sam-border-soft">
               {model.placements.slice(0, 24).map((p) => (
                 <tr key={`${p.domain}:${p.placementId}`}>
-                  <td className="px-3 py-2">{p.domain}</td>
+                  <td className="px-3 py-2">{adminOperatorLabel(p.domain, ko)}</td>
                   <td className="px-3 py-2">{ko ? p.displayNameKo : p.displayNameEn}</td>
-                  <td className="px-3 py-2">{p.productKind}</td>
+                  <td className="px-3 py-2">{adminOperatorLabel(p.productKind, ko)}</td>
                   <td className="px-3 py-2">{p.aspectRatio}</td>
                   <td className="px-3 py-2">
                     <Link href={p.href} className="text-signature hover:underline">
-                      open
+                      {ko ? "열기" : "Open"}
                     </Link>
                   </td>
                 </tr>
@@ -370,7 +395,7 @@ export function AdminAdsExposureControlPlane() {
         </div>
       </Section>
 
-      <Section id="billing" title={ko ? "비용 / 환불 context" : "Billing / refund context"}>
+      <Section id="billing" title={ko ? "비용 / 환불" : "Billing / refunds"}>
         <ul className="grid gap-2 sm:grid-cols-2">
           {model.billingNotes.map((b) => (
             <li
@@ -380,7 +405,7 @@ export function AdminAdsExposureControlPlane() {
             >
               <div className="flex items-center gap-2">
                 <CurrencyChip currency={b.currency} />
-                <span className="font-semibold text-sam-fg">{b.domain}</span>
+                <span className="font-semibold text-sam-fg">{adminOperatorLabel(b.domain, ko)}</span>
               </div>
               <p className="mt-1 sam-text-helper text-sam-muted">{ko ? b.noteKo : b.noteEn}</p>
               <Link href={b.href} className="sam-text-helper font-semibold text-signature hover:underline">
@@ -391,7 +416,7 @@ export function AdminAdsExposureControlPlane() {
         </ul>
       </Section>
 
-      <Section id="entries" title={ko ? "도메인 / 전문 진입" : "Domain entries"}>
+      <Section id="entries" title={ko ? "빠른 관리" : "Quick management"}>
         <ul className="flex flex-wrap gap-2">
           {model.domainEntries.map((e) => (
             <li key={e.id}>
@@ -408,8 +433,8 @@ export function AdminAdsExposureControlPlane() {
         </ul>
         <p className="sam-text-xxs text-sam-muted">
           {ko
-            ? "Partner·쿠폰·Gift·organic ranking은 광고 상품이 아닙니다."
-            : "Partner, coupons, gifts, and organic ranking are not AdProducts."}
+            ? "Partner·쿠폰·Gift·일반 노출 순위는 광고 상품이 아닙니다."
+            : "Partner, coupons, gifts, and organic ranking are not ad products."}
         </p>
       </Section>
 
@@ -420,11 +445,11 @@ export function AdminAdsExposureControlPlane() {
           <ul className="space-y-1 sam-text-body-secondary">
             {model.recent.slice(0, 12).map((r) => (
               <li key={`recent-${r.id}`} className="flex flex-wrap gap-2 border-b border-sam-border-soft py-1.5">
-                <span className="text-sam-muted">{r.domain}</span>
-                <span className="font-medium">{r.applicantLabel}</span>
-                <span className="text-sam-muted">{r.status}</span>
+                <span className="text-sam-muted">{adminOperatorLabel(r.domain, ko)}</span>
+                <span className="font-medium">{adminDisplayApplicantLabel(r.applicantLabel, ko)}</span>
+                <span className="text-sam-muted">{adminOperatorLabel(r.status, ko)}</span>
                 <Link href={r.href} className="text-signature hover:underline">
-                  {ko ? "열기" : "Open"}
+                  {ko ? "검토하기" : "Review"}
                 </Link>
               </li>
             ))}

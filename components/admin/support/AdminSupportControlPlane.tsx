@@ -18,6 +18,7 @@ import type {
   SupportActionRow,
   SupportControlPlaneModel,
 } from "@/lib/admin/support-control-plane/types";
+import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 
 function Unavail({ ko }: { ko: boolean }) {
   return <AdminUnavailableChip ko={ko} />;
@@ -66,39 +67,39 @@ function ActionCard({
         </div>
         <p className="text-[15px] font-semibold text-sam-fg">{item.subject}</p>
         <p className="sam-text-helper text-sam-muted">
-          {item.status}
-          {item.referenceType ? ` · ${item.referenceType}` : ""}
+          {adminOperatorLabel(item.status, ko)}
+          {item.referenceType ? ` · ${adminOperatorLabel(item.referenceType, ko)}` : ""}
           {!item.assignedAdminId ? (ko ? " · 미배정" : " · Unassigned") : ""}
         </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpen ? (
           <AdminActionButton variant="primary" onClick={() => onOpen(item.id)}>
-            {ko ? "답변 작성" : "Write reply"}
+            {ko ? "답변하기" : "Reply"}
           </AdminActionButton>
         ) : (
           <AdminActionLink href={item.href} variant="primary">
-            {ko ? "문의 상세" : "Open case"}
+            {ko ? "답변하기" : "Reply"}
           </AdminActionLink>
         )}
         {item.contextHref ? (
           <AdminActionLink href={item.contextHref} variant="secondary">
-            {ko ? item.contextLabelKo || "원본" : item.contextLabelEn || "Context"}
+            {ko ? item.contextLabelKo || "관련 기록" : item.contextLabelEn || "Related"}
           </AdminActionLink>
         ) : null}
         {item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
-            Statement
+            {ko ? "재무 내역" : "Finance history"}
           </AdminActionLink>
         ) : null}
         {item.financeHref ? (
           <AdminActionLink href={item.financeHref} variant="secondary">
-            Finance
+            {ko ? "재무" : "Finance"}
           </AdminActionLink>
         ) : null}
         {item.adsHref ? (
           <AdminActionLink href={item.adsHref} variant="secondary">
-            Ads
+            {ko ? "광고" : "Ads"}
           </AdminActionLink>
         ) : null}
       </div>

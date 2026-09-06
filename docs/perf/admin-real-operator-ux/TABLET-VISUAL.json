@@ -1,0 +1,9 @@
+# TABLET VISUAL
+
+Status: PENDING_PRODUCTION_REAUDIT
+
+Required widths: 1024 landscape, 768 minimum.
+Pages: domain dashboard, ads, ads detail, finance, support, messenger, community.
+
+Code changes target operator language/CTA density; layout shell unchanged.
+Fresh capture after Production deploy.

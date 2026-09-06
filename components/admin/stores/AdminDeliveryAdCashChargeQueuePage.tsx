@@ -13,6 +13,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
+import { adminOperatorLabel } from "@/lib/admin/operator-ux/operator-labels";
 
 type ChargeRequest = {
   id: string;
@@ -33,7 +34,7 @@ type ActionResult = {
 };
 
 export function AdminDeliveryAdCashChargeQueuePage() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
   const searchParams = useSearchParams();
   const focusRequestId = (searchParams.get("requestId") ?? "").trim();
   const [rows, setRows] = useState<ChargeRequest[]>([]);
@@ -239,12 +240,24 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                       fallbackKo: "매장",
                       fallbackEn: "Store",
                     })}
-                    : {r.store_id}
+                    : {r.store_id.slice(0, 8)}…
                   </p>
-                  <p className="truncate text-[12px] text-sam-muted">{r.owner_user_id}</p>
                   <p className="text-[11px] text-sam-muted">
-                    {String(r.created_at ?? "").slice(0, 19)} · {r.status}
+                    {r.created_at
+                      ? new Date(String(r.created_at)).toLocaleString()
+                      : "—"}{" "}
+                    · {adminOperatorLabel(r.status, language !== "en")}
                   </p>
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-[11px] text-sam-muted">
+                      {language === "en" ? "Technical info" : "기술 정보"}
+                    </summary>
+                    <p className="break-all font-mono text-[10px] text-sam-muted">
+                      store {r.store_id}
+                      <br />
+                      owner {r.owner_user_id}
+                    </p>
+                  </details>
                   <Link
                     href={businessCcFinancialStatementHref(r.store_id)}
                     className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"

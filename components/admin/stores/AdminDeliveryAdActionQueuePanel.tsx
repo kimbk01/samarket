@@ -14,9 +14,12 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import { isDeliveryBannerCreativeAssetReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { DELIVERY_AD_ADMIN_ACTION_QUEUE_COLUMNS } from "@/lib/stores/advertising/delivery-ad-design-board-contract";
+import {
+  adminDisplayApplicantLabel,
+} from "@/lib/admin/operator-ux/operator-labels";
 
 export function AdminDeliveryAdActionQueuePanel() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [items, setItems] = useState<DeliveryAdAdminActionQueueItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -139,7 +142,10 @@ export function AdminDeliveryAdActionQueuePanel() {
                       data-case-id={item.caseId}
                     >
                       <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
-                        {item.campaignTitle || item.campaignId}
+                        {adminDisplayApplicantLabel(
+                          item.campaignTitle || "",
+                          language !== "en"
+                        )}
                       </td>
                       <td className="border border-[#BDBDBD] p-2 text-sam-fg">{productLabel}</td>
                       <td className="border border-[#BDBDBD] p-2 text-[#757575]">—</td>
@@ -211,8 +217,8 @@ export function AdminDeliveryAdActionQueuePanel() {
                           data-admin-delivery-ads-queue-cta={presentation.cta}
                         >
                           {safeT(presentation.ctaLabelKey, {
-                            fallbackKo: "상세 보기",
-                            fallbackEn: "Open detail",
+                            fallbackKo: "검토하기",
+                            fallbackEn: "Review",
                           })}
                         </Link>
                       </td>

@@ -34,6 +34,7 @@ import { aggregateAdminHubTodayCounts } from "@/lib/stores/advertising/delivery-
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { isDeliveryBannerCreativeAssetReady as creativeReady } from "@/lib/stores/advertising/delivery-ad-banner-creative-readiness";
 import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
+import { adminDisplayApplicantLabel } from "@/lib/admin/operator-ux/operator-labels";
 
 type ProductFilter = "all" | "store_sponsored" | "banner";
 
@@ -242,17 +243,19 @@ export function AdminDeliveryAdsControlPlane() {
 
         {/* 1 — Page identity / summary */}
         <div data-admin-delivery-ads-section="identity">
-          <p className="text-[12px] text-sam-muted">Delivery › Ads</p>
+          <p className="text-[12px] text-sam-muted">
+            {lang === "en" ? "Ads / Exposure › Delivery" : "광고 / 노출 › 배달"}
+          </p>
           <h1 className="text-[20px] font-bold text-sam-fg">
             {safeT("admin_delivery_ads_title", {
-              fallbackKo: "배달 광고",
-              fallbackEn: "Delivery ads",
+              fallbackKo: "배달 광고 목록",
+              fallbackEn: "Delivery ads list",
             })}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_subtitle", {
-              fallbackKo: "매장 홍보·배너 검수·운영 통합 제어",
-              fallbackEn: "Unified Store Sponsored and Banner operations",
+              fallbackKo: "매장 홍보·배너 집행 목록과 필터",
+              fallbackEn: "Store promotion and banner execution list",
             })}
           </p>
           <div className="mt-2">
@@ -383,8 +386,7 @@ export function AdminDeliveryAdsControlPlane() {
               {safeT("admin_delivery_ads_load_error", {
                 fallbackKo: "목록을 불러오지 못했습니다.",
                 fallbackEn: "Failed to load campaigns.",
-              })}{" "}
-              ({error})
+              })}
             </p>
           ) : null}
 
@@ -499,7 +501,9 @@ export function AdminDeliveryAdsControlPlane() {
                         ) : null}
                       </div>
                       <p className="mt-0.5 truncate text-[13px] text-sam-fg">
-                        {c.storeName || c.title || c.id.slice(0, 8)}
+                        {c.storeName ||
+                          adminDisplayApplicantLabel(c.title || "", lang !== "en") ||
+                          "—"}
                       </p>
                       <p className="truncate text-[11px] text-sam-muted">
                         {placement}
@@ -509,7 +513,7 @@ export function AdminDeliveryAdsControlPlane() {
                               fallbackKo: "가격 미설정",
                               fallbackEn: "Price not set",
                             })}`}
-                        {` · ${c.updatedAt.slice(0, 16)}`}
+                        {` · ${new Date(c.updatedAt).toLocaleString(lang === "en" ? "en" : "ko")}`}
                       </p>
                       <div className="mt-2">
                         <Link
@@ -519,8 +523,8 @@ export function AdminDeliveryAdsControlPlane() {
                           data-cta-focus={cta.focus ?? ""}
                         >
                           {safeT(cta.labelKey, {
-                            fallbackKo: "상세 보기",
-                            fallbackEn: "Open detail",
+                            fallbackKo: "검토하기",
+                            fallbackEn: "Review",
                           })}
                         </Link>
                       </div>

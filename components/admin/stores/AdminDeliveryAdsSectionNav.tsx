@@ -32,15 +32,15 @@ const NAV_ITEMS = [
   {
     href: DELIVERY_AD_ADMIN_ROUTES.partnerMemberships,
     match: (p: string) => p.startsWith(DELIVERY_AD_ADMIN_ROUTES.partnerMemberships),
-    labelKo: "Partner",
-    labelEn: "Partner",
+    labelKo: "Partner 멤버십",
+    labelEn: "Partner membership",
     dataAttr: "data-admin-delivery-ads-partner-link",
   },
   {
     href: DELIVERY_AD_ADMIN_ROUTES.cashCharges,
     match: (p: string) => p.startsWith(DELIVERY_AD_ADMIN_ROUTES.cashCharges),
-    labelKo: "Cash 충전",
-    labelEn: "Cash top-up",
+    labelKo: "Cash 충전 요청",
+    labelEn: "Cash top-up requests",
     dataAttr: "data-admin-delivery-ads-cash-charges-link",
   },
 ] as const;
