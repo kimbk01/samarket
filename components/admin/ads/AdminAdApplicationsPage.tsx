@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCommunityPromotionQueue } from "@/components/admin/ads/AdminCommunityPromotionQueue";
 import { AdminFeedAdRequestQueue } from "@/components/admin/ads/AdminFeedAdRequestQueue";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { ARO_IA_001_COMMUNITY_PROMOTIONS_PATH } from "@/lib/admin/aro-ia-001-community-common-links";
+import {
+  ARO_IA_001_ADS_HUB_PATH,
+  ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
+} from "@/lib/admin/aro-ia-001-community-common-links";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 
 type AdApplicationDomain = "trade" | "community" | "feed";
@@ -35,13 +39,14 @@ const DOMAIN_CHOICES: Array<{
   },
   {
     domain: "community",
+    // MERGE: choose-card + legacy ?domain=community → canonical Community entry
     href: ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
     titleKey: "admin_ad_applications_community_title",
     descKey: "admin_ad_applications_community_desc",
     fallbackTitleKo: "커뮤니티 더 알리기 신청",
     fallbackTitleEn: "Community promote requests",
-    fallbackDescKo: "커뮤니티 홍보 큐(/admin/community/promotions)로 이동합니다.",
-    fallbackDescEn: "Opens the community promotions queue (/admin/community/promotions).",
+    fallbackDescKo: "point_promotion_orders 중 domain=community 큐만 심사합니다.",
+    fallbackDescEn: "Review only point_promotion_orders where domain=community.",
   },
   {
     domain: "feed",
@@ -64,26 +69,41 @@ function normalizeDomain(value: string | null): AdApplicationDomain | null {
 
 /**
  * /admin/ad-applications — one domain queue per render (KEEP).
- * Community → MERGE redirect to /admin/community/promotions (canonical entry).
+ * NOT a unified ads table. Writers stay per queue.
+ * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
+ * CUT 1: domain section ownership labels (Trade / Community / Feed Banner).
+ *
+ * MERGE (Ads reconstruction):
+ * - Legacy `/admin/ad-applications?domain=community` redirects to
+ *   `/admin/community/promotions` (canonical entry).
+ * - Canonical page mounts this component with `forcedDomain="community"` and
+ *   MUST render the community queue in-place (never hollow redirect).
  */
 export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApplicationDomain }) {
   const { safeT, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const domain = forcedDomain ?? normalizeDomain(searchParams.get("domain"));
+  const queryDomain = normalizeDomain(searchParams.get("domain"));
+  const domain = forcedDomain ?? queryDomain;
   const choice = DOMAIN_CHOICES.find((item) => item.domain === domain) ?? null;
   const returnTo = readAdminReturnToFromSearch(searchParams);
 
+  // Legacy query URL only — do NOT redirect when forcedDomain (canonical owner).
+  const shouldRedirectLegacyCommunity =
+    !forcedDomain && queryDomain === "community";
+
   useEffect(() => {
-    if (forcedDomain === "community" || domain === "community") {
+    if (shouldRedirectLegacyCommunity) {
       router.replace(ARO_IA_001_COMMUNITY_PROMOTIONS_PATH);
     }
-  }, [domain, forcedDomain, router]);
+  }, [shouldRedirectLegacyCommunity, router]);
 
-  if (domain === "community" || forcedDomain === "community") {
+  if (shouldRedirectLegacyCommunity) {
     return (
       <p className="text-sm text-sam-muted">
-        {koLanguageRedirect(language)}
+        {language === "en"
+          ? "Redirecting to community promotions…"
+          : "커뮤니티 홍보 큐로 이동 중…"}
       </p>
     );
   }
@@ -129,6 +149,18 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
     );
   }
 
+  const communityCrossLinks =
+    domain === "community"
+      ? ([
+          {
+            href: ARO_IA_001_ADS_HUB_PATH,
+            labelKo: "광고 / 노출 운영 보기",
+            labelEn: "View Ads / Exposure ops",
+            dataAttr: "community-promo-to-ads",
+          },
+        ] as const)
+      : [];
+
   return (
     <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-promotions">
       <AdminPageHeader
@@ -136,12 +168,28 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
           fallbackKo: choice.fallbackTitleKo,
           fallbackEn: choice.fallbackTitleEn,
         })}
-        description={safeT(choice.descKey, {
-          fallbackKo: choice.fallbackDescKo,
-          fallbackEn: choice.fallbackDescEn,
-        })}
-        backHref={returnTo ?? undefined}
+        description={
+          domain === "community"
+            ? safeT(choice.descKey, {
+                fallbackKo: "커뮤니티 내 포인트 홍보 · writer: point_promotion_orders",
+                fallbackEn: "Community Point promotion · writer: point_promotion_orders",
+              })
+            : safeT(choice.descKey, {
+                fallbackKo: choice.fallbackDescKo,
+                fallbackEn: choice.fallbackDescEn,
+              })
+        }
+        backHref={returnTo ?? (forcedDomain === "community" ? "/admin/community" : undefined)}
       />
+      {domain === "community" ? (
+        <Suspense fallback={null}>
+          <AdminOpsCrossLinkBar
+            links={communityCrossLinks}
+            noteKo="커뮤니티 내 포인트 홍보입니다. Feed Ads·배달 광고 집행과는 별도입니다."
+            noteEn="Community Point-based promotion. Separate from Feed Ads and Delivery ad execution."
+          />
+        </Suspense>
+      ) : null}
       {domain === "trade" ? (
         <section
           id="domain-trade-promo"
@@ -153,6 +201,19 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
             DOMAIN: TRADE · writer: point_promotion_orders (trade)
           </p>
           <AdminCommunityPromotionQueue domain="trade" />
+        </section>
+      ) : null}
+      {domain === "community" ? (
+        <section
+          id="domain-community-promo"
+          data-admin-domain="community"
+          data-admin-writer="point_promotion_orders"
+          className="space-y-1"
+        >
+          <p className="px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">
+            DOMAIN: COMMUNITY · writer: point_promotion_orders (community)
+          </p>
+          <AdminCommunityPromotionQueue domain="community" />
         </section>
       ) : null}
       {domain === "feed" ? (
@@ -168,11 +229,8 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
           <AdminFeedAdRequestQueue />
         </section>
       ) : null}
+      {/* ARO-IA-001: path constant kept for static contract (primary Community entry). */}
       <span className="sr-only" data-aro-ia-001-community-promo-path={ARO_IA_001_COMMUNITY_PROMOTIONS_PATH} />
     </div>
   );
-}
-
-function koLanguageRedirect(language: string | undefined): string {
-  return language === "en" ? "Redirecting to community promotions…" : "커뮤니티 홍보 큐로 이동 중…";
 }

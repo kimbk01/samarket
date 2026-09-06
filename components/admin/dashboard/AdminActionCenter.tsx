@@ -104,7 +104,7 @@ export function AdminActionCenter() {
     },
     {
       id: "settlement",
-      href: withAdminReturnTo("/admin/store-settlements", returnTo),
+      href: withAdminReturnTo("/admin/store-settlements?settlement_status=scheduled", returnTo),
       count: q.settlementsActionableCount,
       unavailable: unavailable.has("settlements_actionable"),
       titleKo: "정산 요청 / 보류",
@@ -391,7 +391,7 @@ export function AdminActionCenter() {
     },
     {
       id: "common-settlement",
-      href: withAdminReturnTo("/admin/store-settlements", returnTo),
+      href: withAdminReturnTo("/admin/store-settlements?settlement_status=scheduled", returnTo),
       count: q.settlementsActionableCount,
       unavailable: unavailable.has("settlements_actionable"),
       titleKo: "정산 큐",
