@@ -60,12 +60,22 @@ export function AdminAdvertisingWorkspace() {
     setErr("");
     try {
       const res = await fetch("/api/admin/ads-control-plane", { cache: "no-store" });
-      const j = (await res.json()) as AdsControlPlaneModel & { ok?: boolean; error?: string };
-      if (!res.ok) {
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        plane?: AdsControlPlaneModel;
+      } & Partial<AdsControlPlaneModel>;
+      if (!res.ok || j.ok === false) {
         setErr(j.error ?? "load_failed");
         return;
       }
-      setModel(j);
+      // API contract: `{ ok: true, plane }` — same as AdminAdsExposureControlPlane.
+      const plane = j.plane;
+      if (!plane || !plane.queues || !Array.isArray(plane.occupancy)) {
+        setErr(j.error ?? "load_failed");
+        return;
+      }
+      setModel(plane);
     } catch {
       setErr("load_failed");
     }
@@ -172,15 +182,15 @@ export function AdminAdvertisingWorkspace() {
 
   const summary = useMemo(() => {
     const pending =
-      (model?.queues.delivery.count ?? 0) +
-      (model?.queues.feed.count ?? 0) +
-      (model?.queues.popup.count ?? 0) +
-      (model?.queues.tradePromote.count ?? 0) +
-      (model?.queues.communityPromote.count ?? 0);
-    const hero = model?.occupancy.find((o) => o.placementKey === "STORES_HOME_HERO");
+      (model?.queues?.delivery?.count ?? 0) +
+      (model?.queues?.feed?.count ?? 0) +
+      (model?.queues?.popup?.count ?? 0) +
+      (model?.queues?.tradePromote?.count ?? 0) +
+      (model?.queues?.communityPromote?.count ?? 0);
+    const hero = model?.occupancy?.find((o) => o.placementKey === "STORES_HOME_HERO");
     return {
       pending,
-      live: hero?.liveCount ?? model?.currentExecution.length ?? 0,
+      live: hero?.liveCount ?? model?.currentExecution?.length ?? 0,
       reserved: hero?.reservedCount ?? 0,
       vacant: hero?.vacant ?? 0,
       heroCapacity: hero?.capacity ?? BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.defaultCapacity,
