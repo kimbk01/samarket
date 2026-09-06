@@ -12,6 +12,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
+import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 
 type ChargeRequest = {
   id: string;
@@ -245,7 +246,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     {String(r.created_at ?? "").slice(0, 19)} · {r.status}
                   </p>
                   <Link
-                    href={`/admin/finance?storeId=${encodeURIComponent(r.store_id)}&view=statement`}
+                    href={businessCcFinancialStatementHref(r.store_id)}
                     className="mt-1 inline-block text-[12px] font-semibold text-[var(--currency-cash-accent)] hover:underline"
                   >
                     {safeT("admin_delivery_ads_cash_charges_open_statement", {

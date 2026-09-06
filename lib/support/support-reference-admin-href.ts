@@ -5,6 +5,7 @@
 
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { SupportReferenceType } from "@/lib/support/support-reference-authority";
+import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
 
 export type SupportAdminContextLink = {
   href: string;
@@ -117,7 +118,7 @@ export function resolveSupportCaseContextLinks(input: {
       mutationOwner: "STORE",
     });
     links.push({
-      href: `/admin/finance?storeId=${encodeURIComponent(storeId)}&view=statement`,
+      href: businessCcFinancialStatementHref(storeId),
       labelKo: "매장 재무 명세서 (B3)",
       labelEn: "Store financial statement (B3)",
       mutationOwner: "FINANCE",

@@ -43,7 +43,7 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
     const panels = read("components/admin/finance/AdminStoreFinancePanels.tsx");
     expect(panels).toContain("AdminStoreFinancialStatement");
     expect(existsSync(resolve(process.cwd(), "app/admin/store-finance-v2"))).toBe(false);
-    expect(businessCcFinancialStatementHref("s1")).toBe("/admin/finance?storeId=s1&view=statement");
+    expect(businessCcFinancialStatementHref("s1")).toBe("/admin/finance?storeId=s1");
   });
 
   it("entry points: business hub, settlements, delivery dashboard, cash charges", () => {
@@ -58,7 +58,8 @@ describe("ARO-OPS-UX-002-B3 store financial statement", () => {
     expect(delivery).toContain("store_financial_statement");
 
     const cash = read("components/admin/stores/AdminDeliveryAdCashChargeQueuePage.tsx");
-    expect(cash).toContain("view=statement");
+    expect(cash).toContain("businessCcFinancialStatementHref");
+    expect(cash).not.toContain("view=statement");
   });
 
   it("period resolver keeps today/7d/30d semantics", () => {
