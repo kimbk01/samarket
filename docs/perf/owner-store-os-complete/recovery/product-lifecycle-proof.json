@@ -54,5 +54,28 @@
     }
   },
   "final": "PASS",
-  "qaNameEdited": "QA StoreOS mtopuxdl EDIT"
+  "qaNameEdited": "QA StoreOS mtopuxdl EDIT",
+  "SUPERSEDED": true,
+  "WHY_SUPERSEDED": "Claimed PRODUCT PRODUCTION / COMPLETE PROCESS PASS without proving visible form root height and scroll. Authenticated Production repro 2026-09-06T03:52:28Z showed HEIGHT_0_SCROLL_COLLAPSE: #owner-product-form mounted but scroll parent flex-1 basis-0 computed height 0px (category strip only visible). Prior automation could fill clipped DOM and false-pass.",
+  "CURRENT_RUNTIME_EVIDENCE": {
+    "blankRepro": "docs/perf/owner-store-os-complete/recovery/product-new-blank-repro.json",
+    "forensicProdNow": "docs/perf/owner-store-os-complete/recovery/product-new-forensic-prod-now.json",
+    "productCompleteAfterFix": "docs/perf/owner-store-os-complete/recovery/product-complete-process-proof.json",
+    "boundedCritical": "docs/perf/owner-store-os-complete/recovery/bounded-critical-forensic.json"
+  },
+  "LAST_GOOD": {
+    "sha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
+    "deployment": "dpl_2vJvuPLnwd5CuBUy5NAywDxJyD52",
+    "alias": "https://samarket.vercel.app",
+    "provenAt": "2026-09-06T04:16:06.494Z"
+  },
+  "FIRST_BAD": {
+    "codeIntroSha": "7fd97bd078106869688ad4ce19eea8b0111694ea",
+    "note": "Store OS P0 shell already carried composer h-[100dvh] overflow-hidden + main without h-full + OwnerProductForm scroll flex-1 basis-0. Same collapse through d5edced8c.",
+    "runtimeBadDeployment": "dpl_33kpYgoGHA5Y7GLS8r66qb47j9j7",
+    "runtimeBadUrl": "https://samarket-790wxmdjc-kimbk01s-projects.vercel.app",
+    "runtimeBadProvenAt": "2026-09-06T04:16:06.494Z"
+  },
+  "ROOT_CAUSE": "H. OWNER_LAYOUT_HEIGHT/OVERFLOW_REGRESSION — BusinessAdminShell product composer main lacked definite height (h-full) under h-[100dvh] overflow-hidden shell; OwnerProductForm scroll region min-h-0 flex-1 basis-0 collapsed to height 0. Sticky category remained visible; body fields clipped; document/html overflow hidden so page scroll dead.",
+  "note": " | SUPERSEDED for missing form-root/scroll-height proof; see forensic recovery 2026-09-06."
 }

@@ -1,0 +1,121 @@
+{
+  "capturedAt": "2026-09-06T04:16:06.493Z",
+  "results": [
+    {
+      "label": "prod-alias-now",
+      "base": "https://samarket.vercel.app",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "out": {
+        "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscou",
+        "hasForm": true,
+        "form": {
+          "h": 1303.6875,
+          "w": 374,
+          "top": 194.59375,
+          "overflowY": "visible",
+          "height": "1303.69px",
+          "flex": "0 1 auto",
+          "className": "min-w-0 space-y-2 px-0 py-2 pb-0"
+        },
+        "scroll": {
+          "h": 649.40625,
+          "w": 374,
+          "top": 194.59375,
+          "overflowY": "auto",
+          "height": "649.406px",
+          "flex": "1 1 0%",
+          "className": "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
+        },
+        "composer": {
+          "h": 776,
+          "w": 374,
+          "top": 68,
+          "overflowY": "visible",
+          "height": "776px",
+          "flex": "1 1 0%",
+          "className": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem"
+        },
+        "scrollMetrics": {
+          "scrollHeight": 1304,
+          "clientHeight": 649
+        },
+        "canScrollInner": true,
+        "htmlOverflow": "hidden",
+        "bodyOverflow": "hidden",
+        "bodyPosition": "static",
+        "visible": {
+          "category": true,
+          "images": true,
+          "name": true,
+          "price": true,
+          "options": true,
+          "save": true
+        },
+        "basis0": false,
+        "hFullMain": true
+      },
+      "scrollDelta": {
+        "before": 0,
+        "after": 400,
+        "moved": true
+      },
+      "shot": "docs/perf/owner-store-os-complete/recovery/product-new-prod-alias-now.png"
+    },
+    {
+      "label": "prod-deploy-790wxmdjc-4h",
+      "base": "https://samarket-790wxmdjc-kimbk01s-projects.vercel.app",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "out": {
+        "url": "https://samarket-790wxmdjc-kimbk01s-projects.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscou",
+        "hasForm": true,
+        "form": {
+          "h": 1303.6875,
+          "w": 374,
+          "top": 194.59375,
+          "overflowY": "visible",
+          "height": "1303.69px",
+          "flex": "0 1 auto",
+          "className": "min-w-0 space-y-2 px-0 py-2 pb-0"
+        },
+        "scroll": {
+          "h": 0,
+          "w": 374,
+          "top": 194.59375,
+          "overflowY": "auto",
+          "height": "0px",
+          "flex": "1 1 0px",
+          "className": "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
+        },
+        "composer": null,
+        "scrollMetrics": {
+          "scrollHeight": 1304,
+          "clientHeight": 0
+        },
+        "canScrollInner": true,
+        "htmlOverflow": "hidden",
+        "bodyOverflow": "hidden",
+        "bodyPosition": "static",
+        "visible": {
+          "category": true,
+          "images": true,
+          "name": true,
+          "price": true,
+          "options": true,
+          "save": true
+        },
+        "basis0": true,
+        "hFullMain": false
+      },
+      "scrollDelta": {
+        "before": 0,
+        "after": 400,
+        "moved": true
+      },
+      "shot": "docs/perf/owner-store-os-complete/recovery/product-new-prod-deploy-790wxmdjc-4h.png"
+    }
+  ]
+}

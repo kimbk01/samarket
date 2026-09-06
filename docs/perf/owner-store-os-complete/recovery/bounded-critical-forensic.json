@@ -1,0 +1,87 @@
+{
+  "capturedAt": "2026-09-06T04:21:55.702Z",
+  "checks": {
+    "DRAWER": "PASS",
+    "STORE": "PASS",
+    "ORDERS": "PASS",
+    "CUSTOMER": "PASS",
+    "FINANCE": "PASS",
+    "NOTIFICATIONS": "PASS"
+  },
+  "drawer": {
+    "open": true,
+    "hrefCount": 57,
+    "productNewHref": true,
+    "sampleHrefs": [
+      "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+      "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=preparing&fresh_list=1",
+      "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=shipping&fresh_list=1",
+      "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+      "/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=new&order_id=35867d2d-a6af-4fec-865f-87d9f881e50b&fresh_list=1",
+      "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=sold_out",
+      "/stores/owner/products?storeId=19085860-52d2-4183-b033-e71fcb58bcec&status=hidden"
+    ],
+    "opener": true
+  },
+  "store": {
+    "patchRes": {
+      "status": 200,
+      "body": "{\"ok\":true,\"store\":{\"id\":\"19085860-52d2-4183-b033-e71fcb58bcec\",\"owner_user_id\":\"f00de57c-27d1-495c-824e-e39eab3227aa\",\"store_name\":\"나의 오른손딸방\",\"slug\":\"aa11\",\"business_type\":\"식당 · 양식\",\"owner_can_edit_store_identity\":false,\"store_category_id\":\"85bc854d-c282-4fe0-8eb7-bf04f5240280\",\"store_topic_id\":\"a2"
+    },
+    "basicUrl": "https://samarket.vercel.app/stores/owner/basic-info?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "basicHasForm": true,
+    "lead": "Public branding\n\nStore logo\n\n(set)\n\nStore name\n\nContact the dibaY ops team to change the store name.\n\n나의 오른손딸방\n\nStore in"
+  },
+  "orders": {
+    "ordersUi": {
+      "hasQueue": true,
+      "linkCount": 12,
+      "sample": "New\n8\nIn progress\n2\nDelivering\nDone\n31\nCancelled\n19\nNew orders\n8\nPreparing\n0\nOut for delivery\n0\nCompleted today\n6\nReview orders · 8\nAll types\nNewest ▾\nFRESH ACT"
+    },
+    "orderDetail": {
+      "opened": true,
+      "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec&tab=shipping",
+      "sample": "New\n8\nIn progress\n2\nDelivering\nDone\n31\nCancelled\n19\nNew orders\n8\nPreparing\n0\nOut for delivery\n0\nCompleted today\n6\nReview orders · 8\nAll types\nNewest ▾\n\nNo orders to show\n\nTry anoth"
+    },
+    "url": "https://samarket.vercel.app/stores/owner/orders?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+  },
+  "customer": {
+    "hasHub": true,
+    "domainLinkCount": 10,
+    "sampleLinks": [
+      "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "/stores/owner/inquiries?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "/stores/owner/reviews?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "/stores/owner/customer-care/customer-center?storeId=19085860-52d2-4183-b033-e71fcb58bcec&from=owner-care",
+      "/stores/owner/customer-care?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+      "/stores/owner/order-chats?storeId=19085860-52d2-4183-b033-e71fcb58bcec"
+    ],
+    "sample": "Customer work queue\n\nOnly real unread/waiting counts. Store customers stay separate from DIBAY Support.\n\n1 customer items need attention\n\nBadges show real unrea"
+  },
+  "finance": {
+    "finUi": {
+      "hasFinance": true,
+      "sample": "Coin · Cash\n\nCoin (store earnings) and Cash (operating funds) are separate currencies.\n\nA. Sales · settlement summary\n\nPer-order gross, fees, net, and payout st"
+    },
+    "settleUi": {
+      "hasSettlement": true,
+      "sample": "Settlement guide\n\nRead only\n\nA settlement entry is created when an order is completed. Payouts and holds are handled by platform ops; this screen is read-only.\n"
+    }
+  },
+  "notifications": {
+    "notif": {
+      "clicked": true,
+      "btnCount": 11
+    },
+    "notifOpen": {
+      "open": true,
+      "sample": "Store status\n\nVisible · Open — accepting orders\n\nVisibility — shown in customer discovery\n\nVisibility\nON\n\nOpen — accepting orders right now\n\nOpen\nON\nOrders to h"
+    },
+    "afterClose": "clicked-menu",
+    "hamAfter": {
+      "open": true,
+      "hrefCount": 57
+    }
+  }
+}

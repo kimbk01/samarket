@@ -1,0 +1,1679 @@
+{
+  "capturedAt": "2026-09-06T03:52:28.149Z",
+  "withStoreId": {
+    "url": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "title": "dibaY",
+    "bodyTextFull": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot toggle it here.\n\nCancel\nSave\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nON\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n31\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nPublic store page\nCustomer-facing preview\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\nPROMOTIONS\nCoupons\nIssue and pause store coupons\nDetails\nGift certificates\nApply to sell paid gift certificates\nDetails\nBanners\nStore header banners\nDetails\nNotices\nNotices by placement\nDetails\nGROWTH\nAds\nApply for and manage Delivery ads\nDetails\nSYSTEM\nCustomer center\nDIBAY Support and history\nDetails\nInbox\nOrder · payment · refund alerts · sound settings\nDetails\n← My profile (home)\n‹\nADD PRODUCT\n5",
+    "bodyTextLen": 1951,
+    "markers": {
+      "ownerProductForm": true,
+      "dataOwnerProductOptions": true,
+      "fileInputCount": 1,
+      "fileInputs": [
+        {
+          "id": "_r_7e9_",
+          "className": "sr-only",
+          "accept": "image/jpeg,image/png,image/webp",
+          "multiple": true,
+          "rect": {
+            "x": 16,
+            "y": 323.09375,
+            "width": 1,
+            "height": 1,
+            "top": 323.09375,
+            "right": 17,
+            "bottom": 324.09375,
+            "left": 16
+          }
+        }
+      ],
+      "imageMarkers": {
+        "hasRecommended512": true,
+        "productImagesText": true,
+        "dataOwnerProductImages": false,
+        "ownerProductImagesBlock": false
+      },
+      "stickyCategory": [
+        {
+          "tag": "DIV",
+          "text": "Category (required)Select a category▼BasicsOptionsLanguage",
+          "position": "sticky",
+          "rect": {
+            "x": 0,
+            "y": 68,
+            "width": 390,
+            "height": 126.59375,
+            "top": 68,
+            "right": 390,
+            "bottom": 194.59375,
+            "left": 0
+          }
+        }
+      ],
+      "missingStoreIdMsg": false,
+      "errorBoundary": false
+    },
+    "formRect": {
+      "x": 8,
+      "y": 194.59375,
+      "width": 374,
+      "height": 1303.6875,
+      "top": 194.59375,
+      "right": 382,
+      "bottom": 1498.28125,
+      "left": 8
+    },
+    "formComputed": {
+      "height": "1303.69px",
+      "width": "374px",
+      "display": "block",
+      "visibility": "visible",
+      "opacity": "1",
+      "overflow": "visible",
+      "minHeight": "0px"
+    },
+    "mainRect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844,
+      "top": 0,
+      "right": 390,
+      "bottom": 844,
+      "left": 0
+    },
+    "scrollBodies": [
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 w-full flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "app-shell w-full min-w-0 flex min-h-0 flex-1 flex-col overflow-hidden min-w-0 max-w-full overflow-x-clip bg-sam-app ",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "MAIN",
+        "id": "",
+        "className": "pb-4 min-w-0 bg-sam-app flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden flex min-h-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden relative isolate",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "min-h-0 min-w-0 flex-1 flex-col flex min-h-0 overflow-x-hidden overflow-y-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "mx-auto w-full min-w-0 max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]  flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375,
+          "top": 0,
+          "right": 390,
+          "bottom": 194.59375,
+          "left": 0
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375,
+          "top": 0,
+          "right": 390,
+          "bottom": 194.59375,
+          "left": 0
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375,
+          "top": 0,
+          "right": 390,
+          "bottom": 194.59375,
+          "left": 0
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "MAIN",
+        "id": "",
+        "className": "mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375,
+          "top": 0,
+          "right": 390,
+          "bottom": 194.59375,
+          "left": 0
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 8,
+          "y": 68,
+          "width": 374,
+          "height": 126.59375,
+          "top": 68,
+          "right": 382,
+          "bottom": 194.59375,
+          "left": 8
+        },
+        "computed": {
+          "height": "126.594px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      }
+    ],
+    "parentChain": [
+      {
+        "depth": 0,
+        "tag": "FORM",
+        "id": "owner-product-form",
+        "className": "min-w-0 space-y-2 px-0 py-2 pb-0",
+        "rect": {
+          "x": 8,
+          "y": 194.59375,
+          "width": 374,
+          "height": 1303.6875
+        },
+        "computed": {
+          "height": "1303.69px",
+          "minHeight": "0px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "0 1 auto",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "id": null,
+        "className": "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]",
+        "rect": {
+          "x": 8,
+          "y": 194.59375,
+          "width": 374,
+          "height": 0
+        },
+        "computed": {
+          "height": "0px",
+          "minHeight": "0px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "1 1 0px",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)]",
+        "rect": {
+          "x": 8,
+          "y": 68,
+          "width": 374,
+          "height": 126.59375
+        },
+        "computed": {
+          "height": "126.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 3,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 8,
+          "y": 68,
+          "width": 374,
+          "height": 126.59375
+        },
+        "computed": {
+          "height": "126.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 4,
+        "tag": "MAIN",
+        "id": null,
+        "className": "mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 5,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 6,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 7,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 194.59375
+        },
+        "computed": {
+          "height": "194.594px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 8,
+        "tag": "DIV",
+        "id": null,
+        "className": "relative col-start-1 row-start-1 min-h-[100dvh]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "844px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "0 1 auto",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 9,
+        "tag": "DIV",
+        "id": null,
+        "className": "delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "844px",
+          "display": "grid",
+          "flexDirection": "row",
+          "flex": "1 1 0%",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 10,
+        "tag": "DIV",
+        "id": null,
+        "className": "sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 11,
+        "tag": "DIV",
+        "id": null,
+        "className": "mx-auto w-full min-w-0 max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]  flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 12,
+        "tag": "DIV",
+        "id": null,
+        "className": "min-h-0 min-w-0 flex-1 flex-col flex min-h-0 overflow-x-hidden overflow-y-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 13,
+        "tag": "DIV",
+        "id": null,
+        "className": "main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 14,
+        "tag": "DIV",
+        "id": null,
+        "className": "main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden relative isolate",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 15,
+        "tag": "MAIN",
+        "id": null,
+        "className": "pb-4 min-w-0 bg-sam-app flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden flex min-h-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 16,
+        "tag": "DIV",
+        "id": null,
+        "className": "app-shell w-full min-w-0 flex min-h-0 flex-1 flex-col overflow-hidden min-w-0 max-w-full overflow-x-clip bg-sam-app ",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 17,
+        "tag": "DIV",
+        "id": null,
+        "className": "relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      }
+    ],
+    "viewport": {
+      "w": 390,
+      "h": 844
+    },
+    "childrenOfMain": [
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden relative isolate",
+        "h": 828,
+        "text": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\n"
+      }
+    ],
+    "pageUrl": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "label": "with_storeId",
+    "classification": "HEIGHT_0_SCROLL_COLLAPSE",
+    "finding": {
+      "verdict": "HEIGHT_0 (flex collapse) — form mounted, scroll parent height 0",
+      "crash": false,
+      "missingMount": false,
+      "missingStoreIdMessage": false,
+      "formMounted": true,
+      "formRectHeight": 1303.6875,
+      "scrollParentHeight0": true,
+      "scrollParent": {
+        "depth": 1,
+        "tag": "DIV",
+        "id": null,
+        "className": "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]",
+        "rect": {
+          "x": 8,
+          "y": 194.59375,
+          "width": 374,
+          "height": 0
+        },
+        "computed": {
+          "height": "0px",
+          "minHeight": "0px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "1 1 0px",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      "bizShellCollapsedHeights": [
+        {
+          "depth": 2,
+          "h": 126.59375,
+          "className": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)]"
+        },
+        {
+          "depth": 4,
+          "h": 194.59375,
+          "className": "mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[ca"
+        },
+        {
+          "depth": 5,
+          "h": 194.59375,
+          "className": "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow"
+        },
+        {
+          "depth": 6,
+          "h": 194.59375,
+          "className": "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  },
+  "withoutStoreId": {
+    "url": "https://samarket.vercel.app/stores/owner/products/new",
+    "title": "dibaY",
+    "bodyTextFull": "No store was specified. Back to dashboard and tap Add product.\n\neee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas\n\n나의 오른손딸방\n\nStore operations center\n\nVisibility\nON\nOpen\nON\nOPERATIONS\nDashboard\nMetrics, orders & inquiries\nDetails\nOrders\nNew, refunds & status updates\n31\nDetails\nOps & status\nApproval, visibility, sales rights & where to edit\nDetails\nPRODUCTS\nProduct management\nList, sold out, visibility & edits\nDetails\nAdd product\nCreate product with options & photos\nDetails\nCategories\nDetails\nCUSTOMERS\nCustomer care\nOrder chat, store inquiry & customer center\nDetails\nOrder chat\nDelivery and store order conversations\nDetails\nStore inquiries\nReply to store inquiries\nDetails\nReviews\nDetails\nSTORE\nBasic info\nLogo, name, intro, contact & location\nDetails\nStore settings\nHours, delivery, gallery & service type\nDetails\nPublic store page\nCustomer-facing preview\nDetails\nSETTLEMENT\nCoin · Cash\nSales-linked Coin, Cash, top-up, convert & withdraw\nDetails\nSettlements\nPer-order sales, fees & payout status\nDetails\nPROMOTIONS\nCoupons\nIssue and pause store coupons\nDetails\nGift certificates\nApply to sell paid gift certificates\nDetails\nBanners\nStore header banners\nDetails\nNotices\nNotices by placement\nDetails\nGROWTH\nAds\nApply for and manage Delivery ads\nDetails\nSYSTEM\nCustomer center\nDIBAY Support and history\nDetails\nInbox\nOrder · payment · refund alerts · sound settings\nDetails\n← My profile (home)\n‹\nADD PRODUCT\n5",
+    "bodyTextLen": 1485,
+    "markers": {
+      "ownerProductForm": false,
+      "dataOwnerProductOptions": false,
+      "fileInputCount": 0,
+      "fileInputs": [],
+      "imageMarkers": {
+        "hasRecommended512": false,
+        "productImagesText": false,
+        "dataOwnerProductImages": false,
+        "ownerProductImagesBlock": false
+      },
+      "stickyCategory": [],
+      "missingStoreIdMsg": false,
+      "errorBoundary": false
+    },
+    "formRect": null,
+    "formComputed": null,
+    "mainRect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 844,
+      "top": 0,
+      "right": 390,
+      "bottom": 844,
+      "left": 0
+    },
+    "scrollBodies": [
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 w-full flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "app-shell w-full min-w-0 flex min-h-0 flex-1 flex-col overflow-hidden min-w-0 max-w-full overflow-x-clip bg-sam-app ",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "MAIN",
+        "id": "",
+        "className": "pb-4 min-w-0 bg-sam-app flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden flex min-h-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844,
+          "top": 0,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden relative isolate",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-surface relative flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "min-h-0 min-w-0 flex-1 flex-col flex min-h-0 overflow-x-hidden overflow-y-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "mx-auto w-full min-w-0 max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]  flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 828,
+          "top": 0,
+          "right": 390,
+          "bottom": 828,
+          "left": 0
+        },
+        "computed": {
+          "height": "828px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 174,
+          "top": 0,
+          "right": 390,
+          "bottom": 174,
+          "left": 0
+        },
+        "computed": {
+          "height": "174px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 174,
+          "top": 0,
+          "right": 390,
+          "bottom": 174,
+          "left": 0
+        },
+        "computed": {
+          "height": "174px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 174,
+          "top": 0,
+          "right": 390,
+          "bottom": 174,
+          "left": 0
+        },
+        "computed": {
+          "height": "174px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "MAIN",
+        "id": "",
+        "className": "mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 174,
+          "top": 0,
+          "right": 390,
+          "bottom": 174,
+          "left": 0
+        },
+        "computed": {
+          "height": "174px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 8,
+          "y": 68,
+          "width": 374,
+          "height": 106,
+          "top": 68,
+          "right": 382,
+          "bottom": 174,
+          "left": 8
+        },
+        "computed": {
+          "height": "106px",
+          "minHeight": "0px",
+          "flex": "1 1 0%",
+          "flexGrow": "1",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "display": "flex",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      }
+    ],
+    "parentChain": [
+      {
+        "depth": 0,
+        "tag": "MAIN",
+        "id": null,
+        "className": "pb-4 min-w-0 bg-sam-app flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden flex min-h-0 flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 1,
+        "tag": "DIV",
+        "id": null,
+        "className": "app-shell w-full min-w-0 flex min-h-0 flex-1 flex-col overflow-hidden min-w-0 max-w-full overflow-x-clip bg-sam-app ",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 2,
+        "tag": "DIV",
+        "id": null,
+        "className": "relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 3,
+        "tag": "DIV",
+        "id": null,
+        "className": "relative flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-x-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 4,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 5,
+        "tag": "DIV",
+        "id": null,
+        "className": "main-shell-viewport-root flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh]",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "0 1 auto",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 6,
+        "tag": "DIV",
+        "id": null,
+        "className": "flex min-h-0 min-w-0 w-full flex-1 flex-col",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "flex",
+          "flexDirection": "column",
+          "flex": "1 1 0%",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 7,
+        "tag": "BODY",
+        "id": null,
+        "className": "font-sans antialiased",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "844px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "0 1 auto",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      },
+      {
+        "depth": 8,
+        "tag": "HTML",
+        "id": null,
+        "className": "sam-main-shell-viewport-lock",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 844
+        },
+        "computed": {
+          "height": "844px",
+          "minHeight": "0px",
+          "display": "block",
+          "flexDirection": "row",
+          "flex": "0 1 auto",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "visibility": "visible",
+          "opacity": "1"
+        }
+      }
+    ],
+    "viewport": {
+      "w": 390,
+      "h": 844
+    },
+    "childrenOfMain": [
+      {
+        "tag": "DIV",
+        "id": "",
+        "className": "main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden relative isolate",
+        "h": 828,
+        "text": "No store was specified. Back to dashboard and tap Add product."
+      }
+    ],
+    "pageUrl": "https://samarket.vercel.app/stores/owner/products/new",
+    "consoleErrors": [],
+    "pageErrors": [],
+    "label": "without_storeId",
+    "classification": "MISSING_STOREID_MESSAGE",
+    "finding": {
+      "verdict": "MISSING_STOREID_MESSAGE",
+      "bodyLead": "No store was specified. Back to dashboard and tap Add product.",
+      "formMounted": false,
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  }
+}

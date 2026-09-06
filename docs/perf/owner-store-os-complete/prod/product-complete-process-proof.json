@@ -2,8 +2,8 @@
   "title": "PRODUCT COMPLETE PROCESS",
   "origin": "https://samarket.vercel.app",
   "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
-  "qaName": "QA Complete mtpavfkl",
-  "productId": "064d2a04-86ad-4c1d-853d-d49d9db300f5",
+  "qaName": "QA Complete mtoxx96f",
+  "productId": "caedb443-ac27-4ce6-882b-bf4f3f9ae09f",
   "sections": {
     "tabs": [
       "Basics",
@@ -36,7 +36,7 @@
       "ok": true
     },
     "basicFields": {
-      "name": "QA Complete mtpavfkl",
+      "name": "QA Complete mtoxx96f",
       "price": "1500"
     },
     "image": {
@@ -59,7 +59,7 @@
       {
         "url": "https://samarket.vercel.app/api/me/stores/19085860-52d2-4183-b033-e71fcb58bcec/products",
         "status": 200,
-        "body": "{\"ok\":true,\"product\":{\"id\":\"064d2a04-86ad-4c1d-853d-d49d9db300f5\"}}"
+        "body": "{\"ok\":true,\"product\":{\"id\":\"caedb443-ac27-4ce6-882b-bf4f3f9ae09f\"}}"
       }
     ],
     "save": {
@@ -72,11 +72,11 @@
       "hasMenuSection": true,
       "optionsJson": [
         {
-          "id": "fd16c848-eeda-4d18-a72d-713f1d87bc54",
+          "id": "5b19325e-a2a0-4854-b430-0d93450eca4d",
           "nameKo": "QA Size",
           "options": [
             {
-              "id": "50085a24-c741-4da4-a0a1-32d9e038a4df",
+              "id": "4fc97a49-7aaf-4a7b-ad5b-5d97329878ff",
               "name": "Large",
               "soldOut": false,
               "priceDelta": 0,
@@ -99,11 +99,11 @@
       "product_status": "active",
       "options_json": [
         {
-          "id": "fd16c848-eeda-4d18-a72d-713f1d87bc54",
+          "id": "5b19325e-a2a0-4854-b430-0d93450eca4d",
           "nameKo": "QA Size",
           "options": [
             {
-              "id": "50085a24-c741-4da4-a0a1-32d9e038a4df",
+              "id": "4fc97a49-7aaf-4a7b-ad5b-5d97329878ff",
               "name": "Large",
               "soldOut": false,
               "priceDelta": 0,
@@ -123,14 +123,14 @@
     "publicProductApi": {
       "status": 200,
       "ok": true,
-      "title": "QA Complete mtpavfkl",
+      "title": "QA Complete mtoxx96f",
       "options": [
         {
-          "id": "fd16c848-eeda-4d18-a72d-713f1d87bc54",
+          "id": "5b19325e-a2a0-4854-b430-0d93450eca4d",
           "nameKo": "QA Size",
           "options": [
             {
-              "id": "50085a24-c741-4da4-a0a1-32d9e038a4df",
+              "id": "4fc97a49-7aaf-4a7b-ad5b-5d97329878ff",
               "name": "Large",
               "soldOut": false,
               "priceDelta": 0,
@@ -169,32 +169,48 @@
       "status": 200,
       "body": "{\"ok\":true}"
     },
-    "soldOutBuyerSample": "QA Complete mtpavfkl\n\nQA edited summary\n\nMenu reviews (1) ›\n\nThis item is sold out.\n\nSold out\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtpavfkl\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "soldOutBuyerSample": "QA Complete mtoxx96f\n\nQA edited summary\n\nMenu reviews (1) ›\n\nThis item is sold out.\n\nSold out\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtoxx96f\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
     "soldOutBuyer": "PASS",
     "resumePatch": {
       "status": 200,
       "body": "{\"ok\":true}"
     },
-    "resumeBuyerSample": "QA Complete mtpavfkl\n\nQA edited summary\n\nMenu reviews (1) ›\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtpavfkl\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
+    "resumeBuyerSample": "QA Complete mtoxx96f\n\nQA edited summary\n\nMenu reviews (1) ›\n\nPrice\n\nMenu price before add-ons.\n\n₱1,500\nQuantity\n−\n1\n+\nQA Size\nRequired\nLarge\n₱0\n\nPhotos may be styled and differ from the actual dish.\n\nClose\nDon't show today\nView advertisement details: /stores/aa11\n‹\nQA Complete mtoxx96f\n\nDelivery minimum order\n\n₱1,000\n\nAdd ₱1,500",
     "resumeBuyer": "PASS",
     "hide": "PASS_API",
     "show": "PASS_API",
     "createSoldOutApi": {
       "status": 200,
-      "body": "{\"ok\":true,\"product\":{\"id\":\"37d883a9-51a8-4638-b019-3be50c3296bf\"}}"
+      "body": "{\"ok\":true,\"product\":{\"id\":\"0c625cf1-a098-4962-8576-acc2f9c0df57\"}}"
     },
     "createSoldOutStatus": "sold_out",
     "cleanup": "PASS_DELETED",
     "optionsPersisted": "PASS"
   },
   "final": "PASS",
-  "note": "Coarse create/edit/sold-out PASS is WITHDRAWN; this is the complete-process contract.",
+  "note": "Coarse create/edit/sold-out PASS is WITHDRAWN; this is the complete-process contract. | SUPERSEDED for missing form-root/scroll-height proof; see forensic recovery 2026-09-06.",
   "storeSlug": "aa11",
   "evidenceLevel": "PRODUCTION_PROVEN",
-  "SUPERSEDED": false,
-  "forensicRecovery": {
-    "afterFixSha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
-    "scrollHeightProvenSeparately": "docs/perf/owner-store-os-complete/recovery/product-new-forensic-prod-now.json",
-    "capturedAt": "2026-09-06T04:24:06.797Z"
-  }
+  "SUPERSEDED": true,
+  "WHY_SUPERSEDED": "Claimed PRODUCT PRODUCTION / COMPLETE PROCESS PASS without proving visible form root height and scroll. Authenticated Production repro 2026-09-06T03:52:28Z showed HEIGHT_0_SCROLL_COLLAPSE: #owner-product-form mounted but scroll parent flex-1 basis-0 computed height 0px (category strip only visible). Prior automation could fill clipped DOM and false-pass.",
+  "CURRENT_RUNTIME_EVIDENCE": {
+    "blankRepro": "docs/perf/owner-store-os-complete/recovery/product-new-blank-repro.json",
+    "forensicProdNow": "docs/perf/owner-store-os-complete/recovery/product-new-forensic-prod-now.json",
+    "productCompleteAfterFix": "docs/perf/owner-store-os-complete/recovery/product-complete-process-proof.json",
+    "boundedCritical": "docs/perf/owner-store-os-complete/recovery/bounded-critical-forensic.json"
+  },
+  "LAST_GOOD": {
+    "sha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
+    "deployment": "dpl_2vJvuPLnwd5CuBUy5NAywDxJyD52",
+    "alias": "https://samarket.vercel.app",
+    "provenAt": "2026-09-06T04:16:06.494Z"
+  },
+  "FIRST_BAD": {
+    "codeIntroSha": "7fd97bd078106869688ad4ce19eea8b0111694ea",
+    "note": "Store OS P0 shell already carried composer h-[100dvh] overflow-hidden + main without h-full + OwnerProductForm scroll flex-1 basis-0. Same collapse through d5edced8c.",
+    "runtimeBadDeployment": "dpl_33kpYgoGHA5Y7GLS8r66qb47j9j7",
+    "runtimeBadUrl": "https://samarket-790wxmdjc-kimbk01s-projects.vercel.app",
+    "runtimeBadProvenAt": "2026-09-06T04:16:06.494Z"
+  },
+  "ROOT_CAUSE": "H. OWNER_LAYOUT_HEIGHT/OVERFLOW_REGRESSION — BusinessAdminShell product composer main lacked definite height (h-full) under h-[100dvh] overflow-hidden shell; OwnerProductForm scroll region min-h-0 flex-1 basis-0 collapsed to height 0. Sticky category remained visible; body fields clipped; document/html overflow hidden so page scroll dead."
 }

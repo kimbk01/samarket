@@ -1,0 +1,58 @@
+{
+  "title": "DIBAY OWNER — PRODUCT REGRESSION FORENSIC RECOVERY",
+  "writtenAt": "2026-09-06T04:24:06.797Z",
+  "CURRENT_BROKEN_PROD_SHA_AT_REPRO": "≤ d5edced8c / deploy dpl_33kpYgoGHA5Y7GLS8r66qb47j9j7 class (basis-0 collapse)",
+  "CURRENT_DEPLOYMENT_AT_REPRO": "pre-ad7942 alias (blank repro 2026-09-06T03:52:28.149Z)",
+  "CURRENT_PROD_AFTER_FIX": {
+    "sha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
+    "headAlsoIncludesDocs": "ed3095b5a709461689b9fe5e33afbe52062c3c5b",
+    "deployment": "dpl_2vJvuPLnwd5CuBUy5NAywDxJyD52",
+    "alias": "https://samarket.vercel.app"
+  },
+  "LAST_GOOD_SHA": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
+  "LAST_GOOD_DEPLOYMENT": "dpl_2vJvuPLnwd5CuBUy5NAywDxJyD52",
+  "FIRST_BAD_SHA": "7fd97bd078106869688ad4ce19eea8b0111694ea",
+  "FIRST_BAD_DEPLOYMENT": "dpl_33kpYgoGHA5Y7GLS8r66qb47j9j7 (runtime-proven BAD; code pattern since 7fd97bd07)",
+  "ROOT_CAUSE": "BusinessAdminShell isOwnerStoreProductComposerRoute main lacked h-full under h-[100dvh] overflow-hidden; OwnerProductForm scroll div min-h-0 flex-1 basis-0 → height 0",
+  "SCROLL_ROOT_CAUSE": "Inner owner product form scroll host (data-owner-product-form-scroll after fix); pre-fix: flex-1 basis-0 parent height 0 under overflow-hidden shell. html/body overflow hidden (viewport lock) — not overlay body-lock leak.",
+  "ROLLBACK_DECISION": "MINIMUM_FORWARD_FIX",
+  "WHY": "Isolated layout height bug; canonical form/options/images intact; ad7942 adds main h-full + composer explicit height + removes basis-0",
+  "FILES_CHANGED": [
+    "components/business/admin/BusinessAdminShell.tsx",
+    "components/business/owner/OwnerProductForm.tsx"
+  ],
+  "classification": "H. OWNER_LAYOUT_HEIGHT/OVERFLOW_REGRESSION",
+  "PREVIOUS_FALSE_PRODUCT_EVIDENCE": [
+    "docs/perf/owner-store-os-complete/TRUE-FINAL-CLOSE.json",
+    "docs/perf/owner-store-os-complete/recovery/RECOVERY-PROGRESS.json",
+    "docs/perf/owner-store-os-complete/prod/product-complete-process-proof.json",
+    "docs/perf/owner-store-os-complete/recovery/product-lifecycle-proof.json"
+  ],
+  "blankPageAnswers": {
+    "PRODUCT_PAGE_ROOT": "present",
+    "PRODUCT_FORM_ROOT": "present",
+    "IF_PRESENT": "zero-height scroll parent / covered by clip (sticky category visible)",
+    "SCROLL_ROOT": "inner container (form scroll) — collapsed",
+    "SCROLL_LOCK": "inactive overlay; html/body overflow hidden via main shell viewport lock",
+    "ACTIVE_OVERLAY": "none",
+    "CLIENT_EXCEPTION": "none",
+    "DATA_GUARD_EARLY_RETURN": "no (with storeId)"
+  },
+  "PRODUCTION_AFTER_FIX": {
+    "PRODUCT_NEW_RENDER": "PASS",
+    "PRODUCT_NEW_SCROLL": "PASS (clientHeight 649, scroll moved 0→400)",
+    "FULL_PRODUCT_PROCESS": "PASS",
+    "OWNER_TO_BUYER": "PASS"
+  },
+  "BOUNDED_OWNER_CHECK": {
+    "DRAWER": "PASS",
+    "STORE": "PASS",
+    "ORDERS": "PASS",
+    "CUSTOMER": "PASS",
+    "FINANCE": "PASS",
+    "NOTIFICATIONS": "PASS"
+  },
+  "ADMIN_ARO": "PRESERVED (dirty ARO docs/scripts not staged for this recovery)",
+  "NATIVE": "NOT STARTED IN THIS RECOVERY",
+  "OWNER_ADMIN_STORE_OS": "FAIL / NOT CLOSED"
+}

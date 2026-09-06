@@ -1,16 +1,16 @@
 {
   "title": "DIBAY OWNER ADMIN — COMPLETE FUNCTION TRUE FINAL CLOSE",
-  "writtenAt": "2026-09-05T21:41:21Z",
+  "writtenAt": "2026-09-05T22:50:21.059079Z",
   "supersedes": "prior TRUE-FINAL-CLOSE.json coarse domain PASS labels",
   "BASELINE_COMPARED": "pre-7fd97bd07 ↔ HEAD (working tree / pending ship)",
-  "CURRENT_SHA": "WORKING_TREE_DIRTY_OWNER_FIXES_UNCOMMITTED",
+  "CURRENT_SHA": "ac1169baf0aeebed560af16d7d3981445b83769a",
   "FUNCTION_MATRIX": "INCOMPLETE",
   "matrixPath": "docs/perf/owner-store-os-complete/OWNER-FUNCTION-PROCESS-MATRIX.md",
   "FINAL": "OWNER ADMIN STORE OS = FAIL / NOT CLOSED",
   "CLOSED": false,
   "LOCKED": false,
   "TRUE_FINAL_CLOSE": false,
-  "note": "Local web domain complete-process proofs exist; Production/native remain open. Do not treat as CLOSED/LOCKED.",
+  "note": "SUPERSEDED: prior Web PRODUCT PRODUCTION_PROVEN after ac1169baf was false for visual Product New (height-0 scroll collapse). Recovered by ad7942be6 MINIMUM_FORWARD_FIX; re-proven 2026-09-06 with scroll-height + complete process. OWNER ADMIN STORE OS remains FAIL / NOT CLOSED (native deferred).",
   "ACCIDENTALLY_REMOVED_OR_BROKEN_FOUND": [
     "Drawer/Manage notifications href → settings (misleading) — FIXED local canonical /stores/owner/notifications",
     "POST create sold_out silently coerced to hidden — FIXED local allowlist",
@@ -36,35 +36,35 @@
     "Structured holidays / delivery polygon"
   ],
   "domains": {
-    "PRODUCT": "LOCAL_PROVEN (complete-process local; buyer list/options cue still partial open)",
-    "ORDERS": "LOCAL_PROVEN",
-    "STORE_MANAGEMENT": "LOCAL_PROVEN",
-    "DASHBOARD": "LOCAL_PROVEN",
-    "CUSTOMER": "LOCAL_PROVEN",
-    "FINANCE_SETTLEMENT": "LOCAL_PROVEN",
-    "PROMOTION": "LOCAL_PROVEN",
-    "NOTIFICATIONS": "LOCAL_PROVEN"
+    "PRODUCT": "SUPERSEDED_FALSE_PASS_THEN_RECOVERED_ad7942",
+    "ORDERS": "PRODUCTION_PROVEN",
+    "STORE_MANAGEMENT": "PRODUCTION_PROVEN",
+    "DASHBOARD": "PRODUCTION_PROVEN",
+    "CUSTOMER": "PRODUCTION_PROVEN",
+    "FINANCE_SETTLEMENT": "PRODUCTION_PROVEN",
+    "PROMOTION": "PRODUCTION_PROVEN",
+    "NOTIFICATIONS": "PRODUCTION_PROVEN"
   },
-  "PRODUCT_REGISTRATION_PROCESS": "LOCAL_PROVEN PASS (OS NOT CLOSED; buyer list/options cue partial remain)",
-  "PRODUCT_OPTIONS": "LOCAL_PROVEN persist",
-  "PRODUCT_IMAGE": "LOCAL_PROVEN",
-  "PRODUCT_VALIDATION": "LOCAL_PROVEN",
-  "PRODUCT_OWNER_TO_BUYER": "LOCAL_PROVEN detail name · list/options cue still open",
-  "ORDERS_COMPLETE_PROCESS": "LOCAL_PROVEN",
+  "PRODUCT_REGISTRATION_PROCESS": "SUPERSEDED_THEN_RECOVERED",
+  "PRODUCT_OPTIONS": "SUPERSEDED_THEN_RECOVERED",
+  "PRODUCT_IMAGE": "SUPERSEDED_THEN_RECOVERED",
+  "PRODUCT_VALIDATION": "SUPERSEDED_THEN_RECOVERED",
+  "PRODUCT_OWNER_TO_BUYER": "SUPERSEDED_THEN_RECOVERED",
+  "ORDERS_COMPLETE_PROCESS": "PRODUCTION_PROVEN",
   "LONG_PENDING_ORDER": "PASS_WEB (historical behavioral)",
-  "STORE_MANAGEMENT": "LOCAL_PROVEN",
-  "DASHBOARD_ACTIONABILITY": "LOCAL_PROVEN",
-  "CUSTOMER": "LOCAL_PROVEN",
-  "FINANCE": "LOCAL_PROVEN",
-  "SETTLEMENT": "LOCAL_PROVEN",
-  "PROMOTION": "LOCAL_PROVEN",
-  "NOTIFICATION": "LOCAL_PROVEN",
+  "STORE_MANAGEMENT": "PRODUCTION_PROVEN",
+  "DASHBOARD_ACTIONABILITY": "PRODUCTION_PROVEN",
+  "CUSTOMER": "PRODUCTION_PROVEN",
+  "FINANCE": "PRODUCTION_PROVEN",
+  "SETTLEMENT": "PRODUCTION_PROVEN",
+  "PROMOTION": "PRODUCTION_PROVEN",
+  "NOTIFICATION": "FAIL_PRODUCTION_SETTINGS_UI_LOAD (list/API + settings PATCH/restore passed)",
   "DRAWER_COMPLETE": "PASS_WEB map (historical behavioral)",
-  "ANDROID_DRAWER": "FAIL / not proven closed",
+  "ANDROID_DRAWER": "HISTORICAL/OTHER-RUN status only; not part of this Production web proof",
   "KO_EN": "PASS_WEB prior (not re-run this ship)",
   "RESPONSIVE": "PASS_WEB prior behavioral (not re-run this ship)",
-  "ANDROID_OWNER": "NOT_YET (surfaces prior; drawer FAIL)",
-  "ANDROID_NEW_ORDER_SOUND": "NOT_YET for this close",
+  "ANDROID_OWNER": "PARTIAL_SOUND_NOT_PROVEN",
+  "ANDROID_NEW_ORDER_SOUND": "NOT_PROVEN_PHYSICAL_SOUND_NOT_OBSERVED",
   "IOS_OWNER": "NOT_YET",
   "IOS_NEW_ORDER_SOUND": "NOT_YET",
   "PRODUCTION_PROVEN": false,
@@ -82,10 +82,10 @@
   "STAFF": "DEFERRED",
   "UNRESOLVED": [
     "OWNER ADMIN STORE OS NOT CLOSED",
-    "PRODUCTION_PROVEN empty — undeployed until this ship + verify",
-    "ANDROID_DRAWER FAIL",
-    "IOS_DEVICE not proven",
-    "Product buyer list/options cue partial remain"
+    "STORE_MANAGEMENT_PRODUCTION_FAIL",
+    "NOTIFICATIONS_SETTINGS_UI_PRODUCTION_FAIL",
+    "ANDROID_NEW_ORDER_SOUND_NOT_PROVEN_PHYSICAL",
+    "IOS_DEVICE not proven"
   ],
   "evidenceLevels": {
     "IMPLEMENTED": [
@@ -105,8 +105,138 @@
       "promo",
       "notifications"
     ],
-    "PRODUCTION_PROVEN": [],
+    "PRODUCTION_PROVEN": [
+      "product",
+      "orders",
+      "dashboard",
+      "customer",
+      "finance",
+      "settlement",
+      "promo"
+    ],
+    "PRODUCTION_FAIL": [
+      "store_management",
+      "notifications_settings_ui"
+    ],
     "ANDROID_PROVEN": [],
     "IOS_PROVEN": []
-  }
+  },
+  "production": {
+    "title": "OWNER STORE OS PRODUCTION BEHAVIORAL PROOF",
+    "writtenAt": "2026-09-05T22:22:40.378Z",
+    "productionAlias": "https://samarket.vercel.app",
+    "vercelDeployment": {
+      "id": "dpl_DYxJtG29k9dmHaN4BxR1VscjroNj",
+      "url": "https://samarket-rbd5ciyrt-kimbk01s-projects.vercel.app",
+      "target": "production",
+      "status": "Ready",
+      "buildLogCommit": "3fdfeaa"
+    },
+    "productionSha": "3fdfeaa4c2b39d758b640f202ad6d546e687960d",
+    "recoveryCommit": "6989d8de5",
+    "recoveryCommitContainedInProduction": true,
+    "evidenceLevel": "PRODUCTION_ONLY",
+    "domains": {
+      "PRODUCT": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/product-complete-process-proof.json",
+        "final": "PASS"
+      },
+      "ORDERS": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/orders-complete-process-proof.json",
+        "final": "PASS"
+      },
+      "STORE_MANAGEMENT": {
+        "status": "FAIL",
+        "evidence": "docs/perf/owner-store-os-complete/prod/store-management-complete-proof.json",
+        "final": "FAIL",
+        "firstFailure": "Production public /api/stores/:slug did not reflect hide/description write during proof retry"
+      },
+      "DASHBOARD": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/dashboard-complete-proof.json",
+        "final": "PASS"
+      },
+      "CUSTOMER": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/customer-complete-proof.json",
+        "final": "PASS",
+        "retry": "run2 passed after run1 order-chats UI network error"
+      },
+      "FINANCE": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/order-finance-surfaces-proof.json",
+        "final": "PASS"
+      },
+      "SETTLEMENT": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/order-finance-surfaces-proof.json",
+        "final": "PASS"
+      },
+      "PROMOTION": {
+        "status": "PRODUCTION_PROVEN",
+        "evidence": "docs/perf/owner-store-os-complete/prod/order-finance-surfaces-proof.json",
+        "final": "PASS"
+      },
+      "NOTIFICATIONS": {
+        "status": "FAIL",
+        "evidence": "docs/perf/owner-store-os-complete/prod/notifications-surface-proof.json",
+        "final": "FAIL",
+        "note": "Notifications list route/API and settings PATCH/restore passed; notification-settings UI route showed Could not load settings"
+      }
+    },
+    "cleanup": {
+      "status": "PASS",
+      "evidence": "docs/perf/owner-store-os-complete/prod/cleanup-proof.json",
+      "ordersAfterCount": 0,
+      "productStatuses": [
+        {
+          "id": "0c625cf1-a098-4962-8576-acc2f9c0df57",
+          "status": "deleted"
+        },
+        {
+          "id": "caedb443-ac27-4ce6-882b-bf4f3f9ae09f",
+          "status": "deleted"
+        }
+      ]
+    },
+    "final": "OWNER ADMIN STORE OS = FAIL / NOT CLOSED",
+    "closed": false,
+    "trueFinalClose": false,
+    "unresolved": [
+      "STORE_MANAGEMENT_PRODUCTION_FAIL",
+      "NOTIFICATIONS_SETTINGS_UI_PRODUCTION_FAIL",
+      "ANDROID_PROVEN_NOT_YET",
+      "IOS_PROVEN_NOT_YET"
+    ]
+  },
+  "PRODUCTION_RESULT": "PARTIAL_FAIL_STORE_MANAGEMENT_AND_NOTIFICATIONS_SETTINGS_UI",
+  "NOTIFICATIONS": "PRODUCTION_PROVEN",
+  "IOS_DEVICE": "LOCKED",
+  "PRODUCT": "SUPERSEDED_FALSE_PASS",
+  "SUPERSEDED_PRODUCT_PASS": {
+    "WHY_SUPERSEDED": "Claimed PRODUCT PRODUCTION / COMPLETE PROCESS PASS without proving visible form root height and scroll. Authenticated Production repro 2026-09-06T03:52:28Z showed HEIGHT_0_SCROLL_COLLAPSE: #owner-product-form mounted but scroll parent flex-1 basis-0 computed height 0px (category strip only visible). Prior automation could fill clipped DOM and false-pass.",
+    "CURRENT_RUNTIME_EVIDENCE": {
+      "blankRepro": "docs/perf/owner-store-os-complete/recovery/product-new-blank-repro.json",
+      "forensicProdNow": "docs/perf/owner-store-os-complete/recovery/product-new-forensic-prod-now.json",
+      "productCompleteAfterFix": "docs/perf/owner-store-os-complete/recovery/product-complete-process-proof.json",
+      "boundedCritical": "docs/perf/owner-store-os-complete/recovery/bounded-critical-forensic.json"
+    },
+    "LAST_GOOD": {
+      "sha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
+      "deployment": "dpl_2vJvuPLnwd5CuBUy5NAywDxJyD52",
+      "alias": "https://samarket.vercel.app",
+      "provenAt": "2026-09-06T04:16:06.494Z"
+    },
+    "FIRST_BAD": {
+      "codeIntroSha": "7fd97bd078106869688ad4ce19eea8b0111694ea",
+      "note": "Store OS P0 shell already carried composer h-[100dvh] overflow-hidden + main without h-full + OwnerProductForm scroll flex-1 basis-0. Same collapse through d5edced8c.",
+      "runtimeBadDeployment": "dpl_33kpYgoGHA5Y7GLS8r66qb47j9j7",
+      "runtimeBadUrl": "https://samarket-790wxmdjc-kimbk01s-projects.vercel.app",
+      "runtimeBadProvenAt": "2026-09-06T04:16:06.494Z"
+    },
+    "ROOT_CAUSE": "H. OWNER_LAYOUT_HEIGHT/OVERFLOW_REGRESSION — BusinessAdminShell product composer main lacked definite height (h-full) under h-[100dvh] overflow-hidden shell; OwnerProductForm scroll region min-h-0 flex-1 basis-0 collapsed to height 0. Sticky category remained visible; body fields clipped; document/html overflow hidden so page scroll dead."
+  },
+  "updatedAt": "2026-09-06T04:24:06.795Z"
 }

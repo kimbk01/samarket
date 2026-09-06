@@ -190,11 +190,5 @@
   "final": "PASS",
   "note": "Coarse create/edit/sold-out PASS is WITHDRAWN; this is the complete-process contract.",
   "storeSlug": "aa11",
-  "evidenceLevel": "PRODUCTION_PROVEN",
-  "SUPERSEDED": false,
-  "forensicRecovery": {
-    "afterFixSha": "ad7942be6fe0fd0caa22a59a20e42a7596ce2dcd",
-    "scrollHeightProvenSeparately": "docs/perf/owner-store-os-complete/recovery/product-new-forensic-prod-now.json",
-    "capturedAt": "2026-09-06T04:24:06.797Z"
-  }
+  "evidenceLevel": "PRODUCTION_PROVEN"
 }
