@@ -220,11 +220,20 @@ describe("owner admin scroll shell contract", () => {
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
   });
 
-  it("product composer uses shared Owner stack scroll (no parallel 100dvh overflow-hidden main)", () => {
+  it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/new")).toBe(true);
+    expect(
+      isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/abc/edit")
+    ).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products")).toBe(false);
+  });
+
+  it("product composer uses shared Owner stack scroll (no parallel 100dvh / dual top pad)", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
     expect(shell).toContain("isOwnerStoreProductComposerRoute");
     expect(shell).toContain("ownerUnifiedMainLayoutClass");
-    expect(shell).toContain(
+    // ONE top clearance: owner-compact-shell__main — ban route-local dual pt.
+    expect(shell).not.toContain(
       "pt-[calc(var(--safe-top)+3.5rem+0.75rem)] px-2 sm:px-2 max-w-6xl"
     );
     expect(shell).not.toContain(
@@ -235,8 +244,10 @@ describe("owner admin scroll shell contract", () => {
     );
   });
 
-  it("OwnerProductForm is document-flow (no nested flex-1 scroll under 100dvh)", () => {
+  it("OwnerProductForm is document-flow under OwnerAdminPageScrollShell (canonical scroll)", () => {
     const form = readRepo("components/business/owner/OwnerProductForm.tsx");
+    expect(form).toContain("OwnerAdminPageScrollShell");
+    expect(form).toContain("padForOwnerBottomNav={false}");
     expect(form).toContain('data-owner-product-form-scroll="1"');
     expect(form).toContain('data-owner-product-composer="1"');
     expect(form).not.toContain(

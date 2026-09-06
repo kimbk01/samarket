@@ -1,48 +1,43 @@
-# Owner Product blank — baseline restore decision
+# BASELINE RESTORE DECISION — Owner Store OS (executed)
 
-**Updated:** 2026-09-06  
-**Authority:** User Production screenshot overrides automated PASS.
+**Decision:** `SELECTIVE_SHELL_RESTORE`  
+**Date:** 2026-09-06  
+**Trigger:** User Production screenshot after `a48c78865` — double top clearance + BottomNav on Product CREATE (≥2 domains share shell geometry risk).
 
-## USER REPORTED PRODUCT BLANK
+## SHAs
 
-**CONFIRMED as FAIL for current Store OS judgment** (user runtime).
+| Label | SHA |
+|---|---|
+| PRE_STORE_OS_BASELINE_SHA | `1771318be` |
+| LAST_STABLE_OWNER_SHA (layout) | `d4f512232` |
+| FIRST_COMPOSER_HEIGHT_BAD | `e41d44c73` |
+| FIRST_STORE_OS_PRESENTATION_SHA | `7fd97bd07` |
+| CURRENT_BEFORE_THIS_RECOVERY | `85480b40b` / post-`a48c78865` |
 
-Automation on `https://samarket.vercel.app` with `?storeId=` present showed a usable form at 390/1024/1280/1440.  
-The same route **without** `storeId` rendered header + need-store message / blank canvas — matching the user’s “header only, body blank” shape more closely than the previous height-0-with-category symptom.
+## What was wrong (root causes — not page patches)
 
-Therefore:
+1. **Double top offset** on Product composer `main`:  
+   `.owner-compact-shell__main` (`--owner-shell-main-pt`) **plus**  
+   `pt-[calc(var(--safe-top)+3.5rem+0.75rem)]` → huge white gap under header.
+2. **BottomNav on Product CREATE/EDIT** after composer joined shared scroll host — Save/Register CTA obstruction.
+3. **Missing canonical scroll host** on Product form — body scroll locked without `OwnerAdminPageScrollShell` (`__scroll`).
 
-- Claims of `PRODUCT NEW PRODUCTION = PASS` / `RECOVERED_GOOD sufficient` are **invalidated** for Store OS close.
-- Additional `h-full` / `basis-0` compensating patches are **forbidden**.
+## Executed restore (this change)
 
-## Timeline (re-checked)
+| Action | KEEP/REVERT |
+|---|---|
+| Remove dual composer `pt-[calc…]` | REVERT compensating pad |
+| Hide BottomNav on product composer paths | RESTORE CREATE/EDIT clearance |
+| Wrap `OwnerProductForm` in `OwnerAdminPageScrollShell padForOwnerBottomNav={false}` | RESTORE shell scroll SSOT |
+| Document-flow form (no nested 100dvh/`basis-0`) | KEEP from `a48c78865` |
+| Business fixes (reviews JSON, ads greeting, finance, holidays, …) | KEEP |
 
-| Label | SHA | Notes |
-|---|---|---|
-| PRE_STORE_OS_BASELINE | `1771318be` | Before Store OS P0 |
-| LAST_GOOD_BEFORE_REGRESSION (layout) | `d4f512232` | Product form = document flow (`flex min-h-0 flex-col` + natural form) |
-| FIRST_BAD (nested composer height) | `e41d44c73` | Introduced nested composer / overflow ownership split |
-| RECOVERED_GOOD (partial) | `ad7942be6` | Temporary height patch — **not** stable SSOT |
-| CURRENT | `a5f78fe24`+ | Still FAIL for close until human-usable Product New is locked |
+## Forbidden until shell PASS
 
-## SHELL DECISION
+No new route-local: `h-full` / `basis-0` / `100dvh` / dual `pt-*` / per-page `pb-32` for Owner.
 
-**SELECTIVE_RESTORE**
+## Hard locks (source)
 
-Why:
-
-1. Same Product New class of failure recurred after a minimum-forward height patch.
-2. Nested owners (`100dvh` + `overflow-hidden` + `flex-1` scroll) are a patch stack, not a canonical contract.
-3. `d4f512232` document-flow form is the last clear human-usable layout contract for registration content.
-4. Preserve later business fixes (customer/ads/finance/etc.) — do not whole-repo rollback.
-
-Executed:
-
-- Product composer included in Owner stack scroll host again.
-- Shell: remove parallel composer `h-[100dvh] overflow-hidden` + `main h-full overflow-hidden` special case.
-- Form: restore document-flow root (no nested `100dvh` / flex-1 scroll body).
-- `/products/new` without `storeId`: resolve first store and redirect (no blank composer dead-end).
-
-## Status
-
-OWNER ADMIN STORE OS = **FAIL / NOT CLOSED** until Production human-usability proof passes after this restore ships.
+- No dual `pt-[calc(var(--safe-top)+3.5rem+0.75rem)]` on composer in `BusinessAdminShell`
+- `isOwnerStoreFormBottomNavHiddenPath(products/new|edit)` === true
+- Product form uses `OwnerAdminPageScrollShell` + document-flow body

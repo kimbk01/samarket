@@ -844,11 +844,12 @@ export function BusinessAdminShell({
 
             <main
               className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${ownerUnifiedMainLayoutClass} ${
-                isOwnerStoreProductComposerRoute
-                  ? // Composer still uses StoresOwnerStackHeader (out of flow) — keep top offset only.
-                    "pt-[calc(var(--safe-top)+3.5rem+0.75rem)] px-2 sm:px-2 max-w-6xl"
-                  : isOwnerDesktopStackViewport
-                    ? ownerMainBottomPadForChildren
+                // ONE top clearance: `.owner-compact-shell__main` → `--owner-shell-main-pt`.
+                // Do not add route-local `pt-[calc(safe-top+…)]` (double gap under fixed header).
+                isOwnerDesktopStackViewport || isOwnerStoreProductComposerRoute
+                  ? ownerMainBottomPadForChildren
+                  : isOwnerFormBottomNavHiddenRoute
+                    ? ownerMainBottomPad
                     : ""
               }`}
             >

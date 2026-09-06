@@ -1,6 +1,6 @@
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 
-/** 상품 등록·편집 — 본문/하단 액션 분리를 위해 scroll host 잠금에서 제외 */
+/** 상품 등록·편집 — 헤더 분기·BottomNav 숨김 대상 (scroll host는 stack과 동일) */
 export function isOwnerStoreProductComposerPath(pathname: string): boolean {
   const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
   return (

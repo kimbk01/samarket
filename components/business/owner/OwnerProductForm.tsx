@@ -47,6 +47,7 @@ import {
   type OwnerProductRegisterErrorModal,
 } from "@/lib/business/owner-product-register-error";
 import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 type FormValues = {
   title: string;
   summary: string;
@@ -701,6 +702,7 @@ export function OwnerProductForm({
   }
 
   return (
+    <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>
     <div className="flex min-h-0 flex-col bg-[var(--biz-app-bg)]" data-owner-product-composer="1">
       <div
         className={`sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS}`}
@@ -769,9 +771,7 @@ export function OwnerProductForm({
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className={`min-w-0 space-y-2 px-0 py-2 ${
-          isDirty ? "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]" : "pb-4"
-        }`}
+        className="min-w-0 space-y-2 px-0 py-2 pb-[max(1rem,var(--safe-bottom))]"
       >
         {error ? (
           <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">
@@ -1151,5 +1151,6 @@ export function OwnerProductForm({
         }}
       />
     </div>
+    </OwnerAdminPageScrollShell>
   );
 }
