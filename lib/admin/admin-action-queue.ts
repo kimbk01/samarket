@@ -62,7 +62,9 @@ export type AdminActionQueueCategory =
   | "settlements_actionable"
   | "coin_withdrawals"
   | "platform_popup_pending"
-  | "partner_pending";
+  | "partner_pending"
+  /** Messenger Action Required — CM reports + trade chat_room reports (dashboard SSOT). */
+  | "messenger_actionable";
 
 export type AdminActionQueuePriority = "P0_CRITICAL" | "P1_ACTION_REQUIRED" | "P2_INFORMATIONAL" | "P3_SILENT";
 
@@ -107,6 +109,7 @@ export const ADMIN_ACTION_QUEUE_META: Record<
   coin_withdrawals: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
   platform_popup_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
   partner_pending: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
+  messenger_actionable: { priority: "P1_ACTION_REQUIRED", rt: "POLL_SUFFICIENT", soundEligible: false },
 };
 
 export type AdminActionQueueCounts = {
@@ -136,6 +139,8 @@ export type AdminActionQueueCounts = {
   coin_withdrawals: number;
   platform_popup_pending: number;
   partner_pending: number;
+  /** CM reports (received|reviewing) + trade chat_room reports (pending|reviewing). */
+  messenger_actionable: number;
   /** Sum of actionable categories (excludes AST-002 store_charges + legacy platform). */
   total: number;
   /**
@@ -171,6 +176,7 @@ export type AdminActionQueueCounts = {
     coin_withdrawals: number;
     platform_popup_pending: number;
     partner_pending: number;
+    messenger_actionable: number;
   };
 };
 
@@ -209,6 +215,7 @@ export async function loadAdminActionQueueCounts(input: {
     coin_withdrawals: 0,
     platform_popup_pending: 0,
     partner_pending: 0,
+    messenger_actionable: 0,
     total: 0,
     unavailable: [],
     by_category: {
@@ -236,6 +243,7 @@ export async function loadAdminActionQueueCounts(input: {
       coin_withdrawals: 0,
       platform_popup_pending: 0,
       partner_pending: 0,
+      messenger_actionable: 0,
     },
   });
 
@@ -261,6 +269,8 @@ export async function loadAdminActionQueueCounts(input: {
     coinWithdrawRes,
     popupPendingRes,
     partnerPendingRes,
+    cmMessengerReportsRes,
+    tradeChatReportsRes,
   ] = await Promise.all([
     storesSb
       ? storesSb
@@ -372,30 +382,54 @@ export async function loadAdminActionQueueCounts(input: {
           .select("id", { count: "exact", head: true })
           .eq("status", "PENDING_REVIEW")
       : Promise.resolve({ count: 0, error: null }),
+    notesSb
+      ? notesSb
+          .from("community_messenger_reports")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["received", "reviewing"])
+      : Promise.resolve({ count: 0, error: null }),
+    storesSb
+      ? storesSb
+          .from("reports")
+          .select("id", { count: "exact", head: true })
+          .eq("target_type", "chat_room")
+          .in("status", ["pending", "reviewing"])
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
-  const store_charges =
-    storeChargesRes.error &&
-    /store_point_charge_requests|schema cache|does not exist/i.test(storeChargesRes.error.message ?? "")
-      ? 0
-      : safeCount(storeChargesRes);
-  const cash_charges =
-    cashChargesRes.error &&
-    /business_cash_charge_requests|schema cache|does not exist/i.test(
-      cashChargesRes.error.message ?? ""
-    )
-      ? 0
-      : safeCount(cashChargesRes);
-  const user_charges =
-    userChargesRes.error &&
-    /point_charge_requests|schema cache|does not exist/i.test(userChargesRes.error.message ?? "")
-      ? 0
-      : safeCount(userChargesRes);
+  const unavailable: string[] = [];
+  const markUnavailable = (
+    key: string,
+    res: { count?: number | null; error?: { message?: string } | null },
+    missingRe: RegExp
+  ): number => {
+    if (!res.error) return safeCount(res);
+    if (missingRe.test(res.error.message ?? "")) return 0;
+    unavailable.push(key);
+    return 0;
+  };
+
+  const store_charges = markUnavailable(
+    "store_charges",
+    storeChargesRes,
+    /store_point_charge_requests|schema cache|does not exist/i
+  );
+  const cash_charges = markUnavailable(
+    "cash_charges",
+    cashChargesRes,
+    /business_cash_charge_requests|schema cache|does not exist/i
+  );
+  const user_charges = markUnavailable(
+    "user_charges",
+    userChargesRes,
+    /point_charge_requests|schema cache|does not exist/i
+  );
   const feed_ad_requests = (() => {
-    if (
-      feedAdRes.error &&
-      /feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")
-    ) {
+    if (feedAdRes.error) {
+      if (/feed_ad_requests|schema cache|does not exist/i.test(feedAdRes.error.message ?? "")) {
+        return 0;
+      }
+      unavailable.push("feed_ad_requests");
       return 0;
     }
     const rows = Array.isArray(feedAdRes.data) ? feedAdRes.data : [];
@@ -410,52 +444,49 @@ export async function loadAdminActionQueueCounts(input: {
       );
     }).length;
   })();
-  const trade_promo_pending =
-    tradePromoRes.error &&
-    /point_promotion_orders|schema cache|does not exist/i.test(tradePromoRes.error.message ?? "")
-      ? 0
-      : safeCount(tradePromoRes);
-  const reports = safeCount(reportsRes);
-  const store_reports = safeCount(storeReportsRes);
-  const delivery_alerts = safeCount(alertsRes);
+  const trade_promo_pending = markUnavailable(
+    "trade_promo_pending",
+    tradePromoRes,
+    /point_promotion_orders|schema cache|does not exist/i
+  );
+  const reports = markUnavailable("reports", reportsRes, /reports|schema cache|does not exist/i);
+  const store_reports = markUnavailable(
+    "store_reports",
+    storeReportsRes,
+    /store_reports|schema cache|does not exist/i
+  );
+  const delivery_alerts = markUnavailable(
+    "delivery_alerts",
+    alertsRes,
+    /delivery_operation_alert_events|schema cache|does not exist/i
+  );
   const member_inquiry_open = 0; // A2-2: legacy Care removed from actionable queue
-  const store_inquiry_open = safeCount(storeInquiryRes);
+  const store_inquiry_open = markUnavailable(
+    "store_inquiry_open",
+    storeInquiryRes,
+    /store_inquiries|schema cache|does not exist/i
+  );
   const platform_inquiry_open = 0; // A2-2: legacy platform inbox archive only
-  const support_actionable =
-    supportActionableRes.error &&
-    /support_cases|schema cache|does not exist/i.test(supportActionableRes.error.message ?? "")
-      ? 0
-      : safeCount(supportActionableRes);
-  const community_reports =
-    communityReportsRes.error &&
-    /community_reports|schema cache|does not exist/i.test(communityReportsRes.error.message ?? "")
-      ? 0
-      : safeCount(communityReportsRes);
-  const store_applications =
-    storeApplicationsRes.error &&
-    /stores|schema cache|does not exist/i.test(storeApplicationsRes.error.message ?? "")
-      ? 0
-      : safeCount(storeApplicationsRes);
-  const delivery_ad_ops =
-    deliveryAdOpsRes.error &&
-    /delivery_ad_operations_cases|schema cache|does not exist/i.test(
-      deliveryAdOpsRes.error.message ?? ""
-    )
-      ? 0
-      : safeCount(deliveryAdOpsRes);
-
-  const unavailable: string[] = [];
-  const markUnavailable = (
-    key: string,
-    res: { error?: { message?: string } | null },
-    missingRe: RegExp
-  ): number => {
-    if (!res.error) return safeCount(res as { count?: number | null; error?: { message?: string } | null });
-    if (missingRe.test(res.error.message ?? "")) return 0;
-    unavailable.push(key);
-    return 0;
-  };
-
+  const support_actionable = markUnavailable(
+    "support_actionable",
+    supportActionableRes,
+    /support_cases|schema cache|does not exist/i
+  );
+  const community_reports = markUnavailable(
+    "community_reports",
+    communityReportsRes,
+    /community_reports|schema cache|does not exist/i
+  );
+  const store_applications = markUnavailable(
+    "store_applications",
+    storeApplicationsRes,
+    /stores|schema cache|does not exist/i
+  );
+  const delivery_ad_ops = markUnavailable(
+    "delivery_ad_ops",
+    deliveryAdOpsRes,
+    /delivery_ad_operations_cases|schema cache|does not exist/i
+  );
   const meeting_reports = markUnavailable(
     "meeting_reports",
     meetingReportsRes,
@@ -486,6 +517,19 @@ export async function loadAdminActionQueueCounts(input: {
     partnerPendingRes,
     /delivery_ad_partner_memberships|schema cache|does not exist/i
   );
+  const cmMessengerReports = markUnavailable(
+    "messenger_actionable",
+    cmMessengerReportsRes,
+    /community_messenger_reports|schema cache|does not exist/i
+  );
+  const tradeChatReports = markUnavailable(
+    "messenger_actionable",
+    tradeChatReportsRes,
+    /reports|schema cache|does not exist/i
+  );
+  const messenger_actionable = unavailable.includes("messenger_actionable")
+    ? 0
+    : cmMessengerReports + tradeChatReports;
 
   // CUT E: actionable finance = Cash + Member Point (never AST-002 store_charges).
   const charges = cash_charges + user_charges;
@@ -509,7 +553,8 @@ export async function loadAdminActionQueueCounts(input: {
     settlements_actionable +
     coin_withdrawals +
     platform_popup_pending +
-    partner_pending;
+    partner_pending +
+    messenger_actionable;
 
   return {
     store_charges,
@@ -533,6 +578,7 @@ export async function loadAdminActionQueueCounts(input: {
     coin_withdrawals,
     platform_popup_pending,
     partner_pending,
+    messenger_actionable,
     total,
     unavailable: [...new Set(unavailable)],
     by_category: {
@@ -560,6 +606,7 @@ export async function loadAdminActionQueueCounts(input: {
       coin_withdrawals,
       platform_popup_pending,
       partner_pending,
+      messenger_actionable,
     },
   };
 }

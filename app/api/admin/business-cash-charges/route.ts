@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { BUSINESS_CASH_CHARGE_REQUESTS_TABLE } from "@/lib/stores/advertising/canonical-business-cash-contract";
 import {
   approveBusinessCashTopUpRequest,
@@ -10,17 +9,19 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Canonical Cash top-up queue.
+ * Permission owner = `business` (Store economic authority — same as Coin / store-finance).
+ * Do NOT invent a parallel `cash` permission key.
+ */
+
 /** GET — Admin canonical Cash top-up queue. */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   const status = String(req.nextUrl.searchParams.get("status") ?? "PENDING").trim();
-  let q = sb
+  let q = gate.sb
     .from(BUSINESS_CASH_CHARGE_REQUESTS_TABLE)
     .select(
       "id, store_id, owner_user_id, amount_minor, status, created_at, decided_at, reject_reason"
@@ -43,12 +44,8 @@ type PostBody = {
 
 /** POST — approve | reject */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
-  const sb = tryCreateSupabaseServiceClient();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
+  const gate = await requireAdminPermission("business");
+  if (!gate.ok) return gate.response;
 
   let body: PostBody;
   try {
@@ -64,8 +61,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "approve") {
-    const result = await approveBusinessCashTopUpRequest(sb, {
-      adminUserId: admin.userId,
+    const result = await approveBusinessCashTopUpRequest(gate.sb, {
+      adminUserId: gate.actor.userId,
       requestId,
     });
     if (!result.ok) {
@@ -80,8 +77,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (op === "reject") {
-    const result = await rejectBusinessCashTopUpRequest(sb, {
-      adminUserId: admin.userId,
+    const result = await rejectBusinessCashTopUpRequest(gate.sb, {
+      adminUserId: gate.actor.userId,
       requestId,
       reason: body.reason,
     });

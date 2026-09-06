@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
@@ -32,6 +33,8 @@ type ActionResult = {
 
 export function AdminDeliveryAdCashChargeQueuePage() {
   const { safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const focusRequestId = (searchParams.get("requestId") ?? "").trim();
   const [rows, setRows] = useState<ChargeRequest[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +69,16 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loaded || !focusRequestId) return;
+    const el = document.querySelector(`[data-admin-cash-charge-row="${CSS.escape(focusRequestId)}"]`);
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.setAttribute("data-admin-cash-charge-focus", "1");
+      el.classList.add("ring-2", "ring-signature");
+    }
+  }, [loaded, focusRequestId, rows]);
 
   const act = async (id: string, op: "approve" | "reject") => {
     setBusyId(id);

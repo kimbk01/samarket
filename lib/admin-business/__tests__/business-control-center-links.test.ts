@@ -35,7 +35,7 @@ describe("business-control-center-links", () => {
   it("CUT E operation hub deep-links", () => {
     expect(businessCcFinanceHref("abc-123")).toBe("/admin/finance?storeId=abc-123");
     expect(businessCcFinancialStatementHref("abc-123")).toBe(
-      "/admin/finance?storeId=abc-123&view=statement"
+      "/admin/finance?storeId=abc-123"
     );
     expect(businessCcDeliveryAdsHref("abc-123")).toContain("view=actionable");
     expect(businessCcSupportHref("abc-123")).toContain("search=abc-123");

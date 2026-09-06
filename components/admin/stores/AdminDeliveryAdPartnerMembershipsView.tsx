@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminDeliveryAdsSectionNav } from "@/components/admin/stores/AdminDeliveryAdsSectionNav";
@@ -37,6 +38,8 @@ const FILTER_BTN =
 export function AdminDeliveryAdPartnerMembershipsView() {
   const { language, safeT } = useI18n();
   const lang = language === "en" ? "en" : "ko";
+  const searchParams = useSearchParams();
+  const focusMembershipId = (searchParams.get("membershipId") ?? "").trim();
   const partnerCatalog = useAdminPartnerCatalogConfig();
   const [items, setItems] = useState<MembershipRow[]>([]);
   const [filter, setFilter] = useState<
@@ -47,7 +50,21 @@ export function AdminDeliveryAdPartnerMembershipsView() {
     | "REJECTED"
     | "ENDED"
     | "all"
-  >("open");
+  >(() => {
+    const s = (searchParams.get("status") ?? "").trim();
+    if (
+      s === "PENDING_REVIEW" ||
+      s === "ACTIVE" ||
+      s === "CANCEL_PENDING" ||
+      s === "REJECTED" ||
+      s === "ENDED" ||
+      s === "all" ||
+      s === "open"
+    ) {
+      return s;
+    }
+    return focusMembershipId ? "PENDING_REVIEW" : "open";
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -77,6 +94,18 @@ export function AdminDeliveryAdPartnerMembershipsView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!focusMembershipId || items.length === 0) return;
+    const el = document.querySelector(
+      `[data-admin-partner-membership-row="${CSS.escape(focusMembershipId)}"]`
+    );
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.setAttribute("data-admin-partner-membership-focus", "1");
+      el.classList.add("ring-2", "ring-signature");
+    }
+  }, [focusMembershipId, items]);
 
   const act = async (op: "approve" | "reject" | "end", membershipId: string) => {
     setBusy(true);
@@ -278,6 +307,7 @@ export function AdminDeliveryAdPartnerMembershipsView() {
                       key={m.id}
                       className="bg-white"
                       data-partner-membership-row={m.status}
+                      data-admin-partner-membership-row={m.id}
                     >
                       <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
                         <Link

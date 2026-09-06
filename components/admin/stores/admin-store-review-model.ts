@@ -64,6 +64,7 @@ export const ADMIN_STORE_APPROVAL_LABEL_KEYS: Record<string, MessageKey> = {
 
 export const ADMIN_STORE_STATUS_FILTER: { value: string; labelKey: MessageKey }[] = [
   { value: "all", labelKey: "admin_stores_filter_all" },
+  { value: "actionable", labelKey: "admin_stores_filter_actionable" },
   { value: "pending", labelKey: "admin_stores_approval_pending" },
   { value: "under_review", labelKey: "admin_stores_approval_under_review" },
   { value: "revision_requested", labelKey: "admin_stores_approval_revision_requested" },

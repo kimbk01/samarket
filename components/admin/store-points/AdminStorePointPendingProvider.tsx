@@ -123,6 +123,8 @@ type Ctx = {
   platformPopupPendingCount: number;
   partnerPendingCount: number;
   deliveryAlertsCount: number;
+  /** Messenger Action Required — CM + trade chat reports. */
+  messengerActionableCount: number;
   queueUnavailable: string[];
   adminBellCount: number;
   refresh: () => Promise<void>;
@@ -150,6 +152,7 @@ const AdminStorePointPendingContext = createContext<Ctx>({
   platformPopupPendingCount: 0,
   partnerPendingCount: 0,
   deliveryAlertsCount: 0,
+  messengerActionableCount: 0,
   queueUnavailable: [],
   adminBellCount: 0,
   refresh: async () => {},
@@ -205,6 +208,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const [platformPopupPendingCount, setPlatformPopupPendingCount] = useState(0);
   const [partnerPendingCount, setPartnerPendingCount] = useState(0);
   const [deliveryAlertsCount, setDeliveryAlertsCount] = useState(0);
+  const [messengerActionableCount, setMessengerActionableCount] = useState(0);
   const [queueUnavailable, setQueueUnavailable] = useState<string[]>([]);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [awarenessToast, setAwarenessToast] = useState<AwarenessToast | null>(null);
@@ -811,6 +815,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
             coin_withdrawals?: number;
             platform_popup_pending?: number;
             partner_pending?: number;
+            messenger_actionable?: number;
           };
         };
         return { resOk: res.ok, json };
@@ -883,6 +888,9 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         );
         setPartnerPendingCount(Math.max(0, Math.floor(Number(json.by_category?.partner_pending) || 0)));
         setDeliveryAlertsCount(Math.max(0, Math.floor(Number(json.by_category?.alerts) || 0)));
+        setMessengerActionableCount(
+          Math.max(0, Math.floor(Number(json.by_category?.messenger_actionable) || 0))
+        );
         setQueueUnavailable(Array.isArray(json.unavailable) ? json.unavailable.map(String) : []);
         if (!feedSoundHydratedRef.current) {
           feedSoundHydratedRef.current = true;
@@ -1344,6 +1352,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       platformPopupPendingCount,
       partnerPendingCount,
       deliveryAlertsCount,
+      messengerActionableCount,
       queueUnavailable,
       adminBellCount,
       refresh,
@@ -1371,6 +1380,7 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
       platformPopupPendingCount,
       partnerPendingCount,
       deliveryAlertsCount,
+      messengerActionableCount,
       queueUnavailable,
       refresh,
     ]

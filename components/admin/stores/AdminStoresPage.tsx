@@ -53,7 +53,11 @@ function displayAdminPhone(raw: string | null | undefined): string {
 export function AdminStoresPage() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(() => {
+    const status = searchParams.get("status")?.trim() ?? "";
+    if (ADMIN_STORE_STATUS_FILTER.some((f) => f.value === status)) return status;
+    return "all";
+  });
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);

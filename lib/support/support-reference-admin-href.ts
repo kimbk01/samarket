@@ -90,9 +90,9 @@ export function resolveSupportReferenceAdminHref(
       };
     case "PARTNER_MEMBERSHIP":
       return {
-        href: DELIVERY_AD_ADMIN_ROUTES.partnerMemberships,
-        labelKo: "Partner 멤버십 목록",
-        labelEn: "Open Partner memberships",
+        href: `${DELIVERY_AD_ADMIN_ROUTES.partnerMemberships}?membershipId=${encodeURIComponent(id)}&status=PENDING_REVIEW`,
+        labelKo: "Partner 멤버십 검토",
+        labelEn: "Open Partner membership",
         mutationOwner: "PARTNER",
       };
     default:

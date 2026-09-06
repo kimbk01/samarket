@@ -1853,7 +1853,8 @@ export const adminMessages = {
     admin_trade_chat_identity_banner:
       "Trade OPS identity: product_chats 우선 · 동일 listing×seller×buyer 이면 chat_rooms는 fallback · Community Messenger trade room UUID는 별도(혼동 금지).",
     admin_chat_storage_th: "저장소",
-    admin_chat_hidden_list_only: "선택한 방을 이 화면 목록에서만 숨겼습니다. 새로고침하면 다시 보입니다.",
+    admin_chat_hidden_list_only:
+      "선택한 방을 이 화면 목록에서만 숨겼습니다. 새로고침하면 다시 보입니다. 방 상태·DB는 변경되지 않습니다.",
     admin_chat_no_deletable_rooms: "삭제할 수 있는 방이 없습니다.",
     admin_chat_delete_confirm:
       "DB 영구 삭제: 선택 {count}개 채팅방을 DB에서 실제로 제거합니다.\n메시지·참여자·통합 신고(chat_reports) 등 연쇄 삭제가 수행됩니다. 복구 불가. 계속할까요?",
@@ -1878,7 +1879,7 @@ export const adminMessages = {
       "표시할 채팅이 없습니다. 목록에서만 숨긴 방만 남았다면 새로고침하면 다시 보입니다.",
     admin_chat_selected_summary: "선택 {selected}건 · 표시 {visible}건",
     admin_chat_clear_selection: "선택 해제",
-    admin_chat_remove_list_only: "관리 목록에서 숨김",
+    admin_chat_remove_list_only: "관리 목록에서만 숨김(새로고침 시 복원)",
     admin_chat_close_selected_ops: "선택 방 채팅 닫기(운영)",
     admin_chat_delete_from_db: "DB 영구 삭제",
     admin_chat_loading_room: "불러오는 중...",
@@ -2053,6 +2054,7 @@ export const adminMessages = {
     admin_stores_approval_rejected: "반려",
     admin_stores_approval_suspended: "정지",
     admin_stores_filter_all: "전체",
+    admin_stores_filter_actionable: "입점 검토 대기",
     admin_stores_toast_new_application: "새 매장 신청이 도착했습니다.",
     admin_stores_realtime_refresh_title: "새 신청이 있습니다. 눌러서 새로고침",
     admin_stores_filter_count_aria: "{label} 수량",
@@ -4646,7 +4648,8 @@ export const adminMessages = {
     admin_trade_chat_identity_banner:
       "Trade OPS identity: prefer product_chats; chat_rooms is fallback for the same listing×seller×buyer; CM trade room UUIDs are separate — do not mix.",
     admin_chat_storage_th: "Storage",
-    admin_chat_hidden_list_only: "The selected rooms were hidden only from this screen list. Refresh to see them again.",
+    admin_chat_hidden_list_only:
+      "The selected rooms were hidden only from this screen list. Refresh to see them again. Room status and DB are unchanged.",
     admin_chat_no_deletable_rooms: "There are no rooms that can be deleted.",
     admin_chat_delete_confirm:
       "Permanent DB delete: remove {count} chat rooms from the DB.\nCascading deletion will remove messages, participants, and integrated reports (chat_reports). Irreversible. Continue?",
@@ -4671,7 +4674,7 @@ export const adminMessages = {
       "There are no chats to display. If only list-hidden rooms remain, refresh to see them again.",
     admin_chat_selected_summary: "Selected {selected} · Visible {visible}",
     admin_chat_clear_selection: "Clear selection",
-    admin_chat_remove_list_only: "Hide from admin list",
+    admin_chat_remove_list_only: "Hide from admin list only (restores on refresh)",
     admin_chat_close_selected_ops: "Close selected room chats (ops)",
     admin_chat_delete_from_db: "Permanent DB delete",
     admin_chat_loading_room: "Loading...",
@@ -4847,6 +4850,7 @@ export const adminMessages = {
     admin_stores_approval_rejected: "Rejected",
     admin_stores_approval_suspended: "Suspended",
     admin_stores_filter_all: "All",
+    admin_stores_filter_actionable: "Actionable onboarding",
     admin_stores_toast_new_application: "A new store application arrived.",
     admin_stores_realtime_refresh_title: "New applications — tap to refresh",
     admin_stores_filter_count_aria: "{label} count",

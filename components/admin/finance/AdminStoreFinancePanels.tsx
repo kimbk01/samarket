@@ -71,6 +71,7 @@ export function AdminStoreFinancePanels() {
       setStoreId(sid);
       setStatementStoreId(sid);
     }
+    // view=statement is legacy query; storeId alone mounts statement panels.
   }, [searchParams]);
 
   const load = async (event: FormEvent) => {

@@ -149,6 +149,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refresh_audit: "감사 로그 새로고침",
     admin_do_order_chat: "주문 채팅",
     admin_do_user_store_detail: "사용자 매장 상세",
+    admin_do_admin_store_detail: "관리자 매장 보기",
     admin_do_confirm_force_cancel:
       "주문을 강제 취소할까요? (완료·환불된 주문은 거절됩니다)",
     admin_do_confirm_refund_request: "환불 요청 상태로 올릴까요?",
@@ -523,6 +524,7 @@ export const adminDeliveryOrdersMessages = {
     admin_do_refresh_audit: "Refresh audit log",
     admin_do_order_chat: "Order chat",
     admin_do_user_store_detail: "User store detail",
+    admin_do_admin_store_detail: "Open Admin store",
     admin_do_confirm_force_cancel:
       "Force-cancel this order? (Completed/refunded orders are rejected.)",
     admin_do_confirm_refund_request: "Mark as refund requested?",

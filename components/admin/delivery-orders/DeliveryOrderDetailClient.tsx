@@ -20,6 +20,10 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { useAdminStoreOrderRowRealtime } from "@/hooks/admin/useAdminStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  businessCcBackToStoreHref,
+  businessCcPublicStoreHref,
+} from "@/lib/admin-business/business-control-center-links";
 
 type AuditRow = {
   id: string;
@@ -32,7 +36,7 @@ type AuditRow = {
 };
 
 export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<AdminDeliveryOrder | null>(null);
 
@@ -474,10 +478,28 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         )}
       </AdminCard>
 
-      <div className="text-center text-sm">
-        <Link href={`/stores/${encodeURIComponent(order.storeSlug)}`} className="text-signature underline">
-          {t("admin_do_user_store_detail")}
-        </Link>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+        {order.storeId ? (
+          <Link
+            href={businessCcBackToStoreHref(order.storeId)}
+            className="font-semibold text-signature underline"
+            data-admin-order-store-admin-link="1"
+          >
+            {safeT("admin_do_admin_store_detail", {
+              fallbackKo: "관리자 매장 보기",
+              fallbackEn: "Open Admin store",
+            })}
+          </Link>
+        ) : null}
+        {order.storeSlug ? (
+          <Link
+            href={businessCcPublicStoreHref(order.storeSlug)}
+            className="text-sam-muted underline"
+            data-admin-order-store-public-link="1"
+          >
+            {t("admin_do_user_store_detail")}
+          </Link>
+        ) : null}
       </div>
     </div>
   );

@@ -123,3 +123,25 @@ export const COMMUNITY_COMMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   softConfirmMode: "danger_confirm",
   hardConfirmMode: "blocked",
 };
+
+/**
+ * Chat room list — hide is Admin personal/session list filter only (not room lifecycle).
+ * Hard delete: trade/general storage via bulk-delete API; CM wipe via Prelaunch Reset scope=chat.
+ * Do not merge these mutation owners.
+ */
+export const CHAT_ROOM_ENTITY_ACTION_POLICY: EntityActionPolicy = {
+  entityKind: "chat_room",
+  canDelete: true,
+  deleteMode: "HARD_DELETE",
+  canHide: true,
+  canRestore: false,
+  canSoftDelete: false,
+  canChangeStatus: true,
+  allowedBulkActions: ["hide", "hard_delete"],
+  hardDeleteAvailable: true,
+  softMutationOwner: "AdminChatListPage listHiddenIds (session UI filter only)",
+  hardMutationOwner:
+    "POST /api/admin/chat/rooms/bulk-delete (chat_rooms|product_chats) · CM wipe = Prelaunch Reset scopes=chat",
+  softConfirmMode: "danger_confirm",
+  hardConfirmMode: "strong_danger_confirm",
+};

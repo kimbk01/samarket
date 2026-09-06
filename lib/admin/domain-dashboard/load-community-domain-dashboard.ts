@@ -71,7 +71,7 @@ export async function loadCommunityDomainDashboard(): Promise<AdminDomainDashboa
           title: String(row.title ?? row.id),
           metaKo: `상태 ${String(row.status ?? "—")}`,
           metaEn: `status ${String(row.status ?? "—")}`,
-          href: `/admin/community/posts`,
+          href: `/admin/community/posts/${encodeURIComponent(String(row.id))}`,
           at: row.created_at ? String(row.created_at) : null,
         });
       }

@@ -9,6 +9,7 @@ import {
   parseStoredAddressBookPresentation,
   type AddressBookCardPresentation,
 } from "@/lib/addresses/address-book-card-presentation";
+import { ADMIN_ACTIONABLE_STORE_APPROVAL } from "@/lib/admin/admin-ops-actionable-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -183,13 +184,20 @@ export async function GET(req: Request) {
 
   const statusFilteredList =
     status && status !== "all"
-      ? filteredListWithApplicant.filter(
-          (s) => String((s as { approval_status?: unknown }).approval_status ?? "") === status
-        )
+      ? status === "actionable"
+        ? filteredListWithApplicant.filter((s) =>
+            (ADMIN_ACTIONABLE_STORE_APPROVAL as readonly string[]).includes(
+              String((s as { approval_status?: unknown }).approval_status ?? "")
+            )
+          )
+        : filteredListWithApplicant.filter(
+            (s) => String((s as { approval_status?: unknown }).approval_status ?? "") === status
+          )
       : filteredListWithApplicant;
 
   const statusCounts: Record<string, number> = {
     all: filteredListWithApplicant.length,
+    actionable: 0,
     pending: 0,
     under_review: 0,
     revision_requested: 0,
@@ -203,6 +211,8 @@ export async function GET(req: Request) {
       statusCounts[st] = (statusCounts[st] ?? 0) + 1;
     }
   }
+  statusCounts.actionable =
+    (statusCounts.pending ?? 0) + (statusCounts.under_review ?? 0);
 
   const permByStore: Record<string, Record<string, unknown>> = {};
   for (const p of permsRes.data ?? []) {

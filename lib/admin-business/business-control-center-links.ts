@@ -65,7 +65,7 @@ export function businessCcFinanceHref(storeId: string): string {
 
 /** ARO-OPS-UX-002-B3 — Store Financial Statement workspace (same finance route, statement view). */
 export function businessCcFinancialStatementHref(storeId: string): string {
-  return `/admin/finance?storeId=${encodeURIComponent(storeId.trim())}&view=statement`;
+  return `/admin/finance?storeId=${encodeURIComponent(storeId.trim())}`;
 }
 
 export function businessCcCashChargesHref(): string {

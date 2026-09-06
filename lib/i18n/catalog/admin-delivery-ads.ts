@@ -131,6 +131,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_policy_no_screen: "별도 지면 정책 화면 없음",
     admin_delivery_ads_view_app_placement: "앱 위치 보기",
     admin_placement_map_title: "앱 노출 위치 맵 (Placement Map)",
+    admin_placement_map_thumbnail_only: "맵 썸네일 미리보기 (배치 렌더러 전체 미리보기 아님)",
     admin_placement_map_desc:
       "Delivery / Feed / Popup 레지스트리를 읽기만 합니다. 새 placement DB·통합 mutation 없음. ACTIVE 실행은 ?execution=campaignId 로 연결합니다.",
     admin_placement_map_empty: "이 화면에는 광고 지면이 없습니다.",
@@ -486,6 +487,7 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_policy_no_screen: "No separate placement policy screen",
     admin_delivery_ads_view_app_placement: "View app placement",
     admin_placement_map_title: "App placement map",
+    admin_placement_map_thumbnail_only: "Map thumbnail only (not full placement renderer preview)",
     admin_placement_map_desc:
       "Read-only over Delivery / Feed / Popup registries. No unified placement DB. ACTIVE execution via ?execution=campaignId.",
     admin_placement_map_empty: "No ad placements on this screen.",

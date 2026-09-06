@@ -389,6 +389,12 @@ export function AdminPlacementMapPanel() {
                 ))}
                 {executionSnap.creativeAssetPath ? (
                   <div data-admin-placement-map-creative="1">
+                    <p className="mb-1 text-[11px] font-medium text-sam-muted">
+                      {safeT("admin_placement_map_thumbnail_only", {
+                        fallbackKo: "맵 썸네일 미리보기 (배치 렌더러 전체 미리보기 아님)",
+                        fallbackEn: "Map thumbnail only (not full placement renderer preview)",
+                      })}
+                    </p>
                     <SamarketThumbnail
                       src={executionSnap.creativeAssetPath}
                       alt=""
