@@ -10,7 +10,11 @@
  */
 
 body[data-owner-compact-shell] {
-  --owner-header-height: var(--sam-header-row-height, 3.5rem);
+  /**
+   * Owner stack headers use `h-14` (3.5rem / 56px) + 1px border.
+   * DO NOT bind to `--sam-header-row-height` (52px consumer app) — causes 4px underlap.
+   */
+  --owner-header-height: 3.5rem;
   --owner-bottom-nav-height: 60px;
   --owner-safe-top: var(--safe-top);
   --owner-safe-bottom: var(--safe-bottom);

@@ -214,6 +214,12 @@ describe("owner admin scroll shell contract", () => {
     expect(css).toMatch(/\.owner-compact-shell__header-inner[\s\S]*overflow:\s*hidden/);
   });
 
+  it("owner compact shell header height matches h-14 stack headers (not consumer 52px)", () => {
+    const css = readRepo("app/owner-compact-shell.css");
+    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
+    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
+  });
+
   it("owner hub dashboard uses OwnerAdminPageScrollShell scroll host", () => {
     const src = readRepo("components/stores/owner/dashboard/OwnerOperationsDashboard.tsx");
     expect(src).toContain("OwnerAdminPageScrollShell");
