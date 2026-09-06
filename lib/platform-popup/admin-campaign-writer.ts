@@ -14,7 +14,10 @@ import {
   type PlatformPopupMaterialField,
 } from "@/lib/platform-popup/admin-campaign-authority";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
-import { PLATFORM_POPUP_DEFAULT_TIMEZONE } from "@/lib/platform-popup/types";
+import {
+  PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
+  PLATFORM_POPUP_DEFAULT_TIMEZONE,
+} from "@/lib/platform-popup/types";
 import type {
   PlatformPopupCtaType,
   PlatformPopupSuppressionMode,
@@ -73,6 +76,9 @@ export async function createPlatformPopupAdminCampaign(
       approval_status: "not_submitted",
       priority: Number.isFinite(input.priority) ? Number(input.priority) : 0,
       timezone: (input.timezone ?? PLATFORM_POPUP_DEFAULT_TIMEZONE).trim() || PLATFORM_POPUP_DEFAULT_TIMEZONE,
+      cta_type: "internal_page",
+      cta_target: PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
+      external_url: null,
       created_by: input.adminUserId,
     })
     .select("id")
@@ -174,8 +180,12 @@ export async function updatePlatformPopupAdminCampaign(
     if (!isPlatformPopupCtaType(ctaType)) {
       return { ok: false, error: "cta_type_invalid", httpStatus: 400 };
     }
-    const ctaTarget =
+    const ctaTargetRaw =
       input.patch.ctaTarget != null ? String(input.patch.ctaTarget).trim() : String(current.cta_target ?? "");
+    const ctaTarget =
+      ctaType === "internal_page" && !ctaTargetRaw
+        ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH
+        : ctaTargetRaw;
     const externalUrl =
       "externalUrl" in input.patch
         ? input.patch.externalUrl?.trim() || null

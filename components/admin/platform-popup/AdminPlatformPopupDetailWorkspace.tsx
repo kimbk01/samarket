@@ -6,9 +6,11 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { validatePlatformPopupCta } from "@/lib/platform-popup/cta";
+import { formatPlatformPopupAdminError } from "@/lib/platform-popup/format-platform-popup-admin-error";
 import type { PlatformPopupAdminDetail } from "@/lib/platform-popup/admin-campaign-loader";
 import {
   PLATFORM_POPUP_CTA_TYPES,
+  PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH,
   PLATFORM_POPUP_DEFAULT_TIMEZONE,
   PLATFORM_POPUP_SUPPRESSION_MODES,
   type PlatformPopupCampaignStatus,
@@ -86,7 +88,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [suppressionMode, setSuppressionMode] = useState("TODAY");
   const [durationSec, setDurationSec] = useState<number | "">("");
   const [ctaType, setCtaType] = useState("internal_page");
-  const [ctaTarget, setCtaTarget] = useState("/market");
+  const [ctaTarget, setCtaTarget] = useState<string>(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
   const [externalUrl, setExternalUrl] = useState("");
   const [altText, setAltText] = useState("");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
@@ -102,7 +104,12 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setSuppressionMode(c.suppressionMode);
     setDurationSec(c.suppressionDurationSeconds ?? "");
     setCtaType(c.ctaType);
-    setCtaTarget(c.ctaTarget || "");
+    // Legacy drafts may have internal_page + empty target (DB default ''). Heal for edit UX.
+    const loadedTarget = String(c.ctaTarget ?? "").trim();
+    setCtaTarget(
+      loadedTarget ||
+        (c.ctaType === "internal_page" ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH : "")
+    );
     setExternalUrl(c.externalUrl || "");
     setAltText(c.creative?.altText || "");
     setPreviewOverrideUrl(null);
@@ -128,7 +135,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       error?: string;
     };
     if (!detailRes.ok || !detailJson.ok || !detailJson.campaign) {
-      setError(detailJson.error || "load_failed");
+      setError(
+        formatPlatformPopupAdminError(detailJson.error || "load_failed", language === "en" ? "en" : "ko")
+      );
       return;
     }
     hydrate(detailJson.campaign);
@@ -191,6 +200,24 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     setBusy(true);
     setError(null);
     setSaveNotice(null);
+    const lang = language === "en" ? "en" : "ko";
+    const nextTarget =
+      ctaType === "internal_page" && !String(ctaTarget).trim()
+        ? PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH
+        : ctaTarget;
+    if (ctaType === "internal_page" && nextTarget !== ctaTarget) {
+      setCtaTarget(nextTarget);
+    }
+    const ctaCheck = validatePlatformPopupCta({
+      ctaType,
+      ctaTarget: nextTarget,
+      externalUrl: externalUrl || null,
+    });
+    if (!ctaCheck.ok) {
+      setBusy(false);
+      setError(formatPlatformPopupAdminError(`cta_invalid:${ctaCheck.error}`, lang));
+      return;
+    }
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, {
       method: "PATCH",
       credentials: "same-origin",
@@ -205,14 +232,14 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
         suppressionMode,
         suppressionDurationSeconds: durationSec === "" ? null : Number(durationSec),
         ctaType,
-        ctaTarget,
+        ctaTarget: nextTarget,
         externalUrl: externalUrl || null,
       }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setBusy(false);
     if (!res.ok || !json.ok) {
-      setError(json.error || "save_failed");
+      setError(formatPlatformPopupAdminError(json.error || "save_failed", lang));
       return;
     }
     await load();
@@ -233,7 +260,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     setBusy(false);
     if (!res.ok || !json.ok) {
-      setError(json.error || "transition_failed");
+      setError(
+        formatPlatformPopupAdminError(json.error || "transition_failed", language === "en" ? "en" : "ko")
+      );
       return;
     }
     await load();
@@ -632,7 +661,11 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 value={ctaType}
                 onChange={(e) => {
                   markDirty();
-                  setCtaType(e.target.value);
+                  const next = e.target.value;
+                  setCtaType(next);
+                  if (next === "internal_page" && !String(ctaTarget).trim()) {
+                    setCtaTarget(PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH);
+                  }
                 }}
               >
                 {PLATFORM_POPUP_CTA_TYPES.map((t) => (

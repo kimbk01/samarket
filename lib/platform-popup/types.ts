@@ -5,6 +5,9 @@
 
 export const PLATFORM_POPUP_DEFAULT_TIMEZONE = "Asia/Manila" as const;
 
+/** First-party Admin create default landing (internal_page). */
+export const PLATFORM_POPUP_DEFAULT_INTERNAL_CTA_PATH = "/market" as const;
+
 export const PLATFORM_POPUP_CREATIVE_ASPECT = { w: 36, h: 25 } as const;
 
 export const PLATFORM_POPUP_CAMPAIGN_STATUSES = [
