@@ -82,8 +82,8 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
 
   it("R11–R12 Chat terminology aligned to hide-list vs permanent DB delete", () => {
     const catalog = read("lib/i18n/catalog/admin.ts");
-    expect(catalog).toMatch(/admin_chat_remove_list_only: "관리 목록에서 숨김"/);
-    expect(catalog).toMatch(/admin_chat_delete_from_db: "DB 영구 삭제"/);
+    expect(catalog).toMatch(/admin_chat_remove_list_only:\s*"관리 목록에서만? 숨김/);
+    expect(catalog).toMatch(/admin_chat_delete_from_db:\s*"DB 영구 삭제"/);
     const chats = read("components/admin/chats/AdminChatListPage.tsx");
     expect(chats).toContain('data-admin-mgmt-hard-delete="1"');
     expect(chats).toContain('typed.trim() !== "DELETE"');

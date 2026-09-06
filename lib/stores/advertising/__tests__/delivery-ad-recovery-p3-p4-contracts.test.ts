@@ -34,10 +34,13 @@ describe("Delivery Ads Recovery P3–P4 Admin/Customer contracts", () => {
       "components/admin/stores/AdminDeliveryAdInventoryManagementView.tsx",
       "components/admin/stores/AdminDeliveryAdCommercialSettingsView.tsx",
       "components/admin/stores/AdminDeliveryAdBannerStudioView.tsx",
-      "components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx",
     ]) {
       expect(read(f)).toContain("AdminDeliveryAdsSectionNav");
     }
+    // Ad application detail is an approval workspace — global config tabs stay off this screen.
+    const detail = read("components/admin/stores/AdminDeliveryAdDetailWorkspace.tsx");
+    expect(detail).not.toContain("AdminDeliveryAdsSectionNav");
+    expect(detail).toContain('data-admin-delivery-ads-detail-section="required-decision"');
   });
 
   it("Partner page rejects ambiguous underline primary nav and uses selected filters", () => {

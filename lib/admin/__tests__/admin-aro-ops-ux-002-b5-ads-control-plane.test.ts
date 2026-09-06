@@ -31,7 +31,8 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
     const ui = read("components/admin/ads/AdminAdsExposureControlPlane.tsx");
     expect(ui).toContain('data-aro-ops-ux-002-b5="1"');
     expect(ui).toContain("action-required");
-    expect(ui).toContain("Placement ≠ Banner");
+    expect(ui).toContain('id="placement-map"');
+    expect(ui).toMatch(/노출 위치|Placements/);
     expect(ui).not.toMatch(/캠페인/);
   });
 
