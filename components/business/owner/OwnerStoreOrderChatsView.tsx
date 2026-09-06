@@ -54,30 +54,35 @@ export function OwnerStoreOrderChatsView() {
     }
     setState({ kind: "loading" });
     try {
-      const res = await runSingleFlight(`owner-order-chats:${storeId}`, () =>
-        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/order-chats`, {
+      // Single-flight must share parsed JSON — Response body can only be read once.
+      const payload = await runSingleFlight(`owner-order-chats:${storeId}`, async () => {
+        const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/order-chats`, {
           credentials: "include",
           cache: "no-store",
-        })
-      );
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-        store?: { store_name?: string };
-        chats?: ChatRow[];
-      };
-      if (res.status === 401) {
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          store?: { store_name?: string };
+          chats?: ChatRow[];
+        };
+        return { status: res.status, json };
+      });
+      if (payload.status === 401) {
         setState({ kind: "error", message: t("common_login_required") });
         return;
       }
-      if (!json.ok || !Array.isArray(json.chats)) {
-        setState({ kind: "error", message: json.error ?? t("store_owner_err_load_list") });
+      if (!payload.json.ok || !Array.isArray(payload.json.chats)) {
+        setState({
+          kind: "error",
+          message: payload.json.error ?? t("store_owner_err_load_list"),
+        });
         return;
       }
       setState({
         kind: "ok",
-        storeName: json.store?.store_name?.trim() || t("store_owner_store_fallback"),
-        chats: json.chats,
+        storeName: payload.json.store?.store_name?.trim() || t("store_owner_store_fallback"),
+        chats: payload.json.chats,
       });
     } catch {
       setState({ kind: "error", message: t("store_owner_err_network") });

@@ -98,7 +98,12 @@ function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string
 
 function readPublicCommerceFields(raw: unknown) {
   const o = coerceBusinessHoursRecord(raw);
-  const hoursNote = typeof o.note === "string" ? o.note : "";
+  const hoursNote =
+    typeof o.holidays === "string" && o.holidays.trim()
+      ? o.holidays
+      : typeof o.note === "string"
+        ? o.note
+        : "";
   const s = (a: string, b: string) =>
     String(o[a] ?? o[b] ?? "")
       .trim()
@@ -280,6 +285,10 @@ function buildBusinessHoursJson(
     "weekdays",
     "weekdays_hours",
     "note",
+    "holidays",
+    "holiday",
+    "closed_days",
+    "휴무",
     "payment_methods",
     "paymentMethods",
     "payment_methods_config",
@@ -322,7 +331,11 @@ function buildBusinessHoursJson(
   for (const k of drop) delete prev[k];
 
   const n = values.hoursNote.trim();
-  if (n) prev.note = n;
+  if (n) {
+    // Buyer public info reads `holidays|holiday|closed_days|휴무` — keep `note` for legacy rows.
+    prev.holidays = n;
+    prev.note = n;
+  }
 
   const paySlice = {
     payMethodGcash: values.payMethodGcash,

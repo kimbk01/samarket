@@ -25,6 +25,7 @@ type ReviewRow = {
 export function OwnerStoreReviewsView() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  const storeIdQuery = searchParams.get("storeId")?.trim() ?? "";
   const [storeId, setStoreId] = useState<string>("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,42 +37,43 @@ export function OwnerStoreReviewsView() {
     setLoading(true);
     setErr(null);
     try {
-      const sidQuery = searchParams.get("storeId")?.trim() ?? "";
-      let sid = sidQuery;
+      let sid = storeIdQuery;
       if (!sid) {
         const { status, json } = await fetchMeStoresListDeduped();
         const j = json as { ok?: boolean; stores?: { id: string }[] };
         if (status === 401) {
-          setErr(t("common_login_required"));
+          setErr("unauthorized");
           setRows([]);
           return;
         }
         sid = j?.ok && Array.isArray(j.stores) && j.stores[0]?.id ? j.stores[0].id : "";
       }
       if (!sid) {
-        setErr(t("store_not_found_short"));
+        setErr("load_failed");
         setRows([]);
         return;
       }
       setStoreId(sid);
 
-      const res = await runSingleFlight(`me:store:${sid}:owner-reviews:list`, () =>
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
+      // Single-flight must share parsed JSON — Response body can only be read once.
+      const payload = await runSingleFlight(`me:store:${sid}:owner-reviews:list`, async () => {
+        const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
           credentials: "include",
           cache: "no-store",
-        })
-      );
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        reviews?: ReviewRow[];
-      };
-      if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "load_failed");
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          reviews?: ReviewRow[];
+        };
+        return { httpOk: res.ok, j };
+      });
+      if (!payload.httpOk || !payload.j?.ok) {
+        setErr(typeof payload.j?.error === "string" ? payload.j.error : "load_failed");
         setRows([]);
         return;
       }
-      const list = Array.isArray(j.reviews) ? j.reviews : [];
+      const list = Array.isArray(payload.j.reviews) ? payload.j.reviews : [];
       setRows(list);
       setDrafts((prev) => {
         const next = { ...prev };
@@ -86,7 +88,7 @@ export function OwnerStoreReviewsView() {
     } finally {
       setLoading(false);
     }
-  }, [searchParams]);
+  }, [storeIdQuery]);
 
   useEffect(() => {
     void load();

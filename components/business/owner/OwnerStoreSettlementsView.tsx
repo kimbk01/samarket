@@ -280,6 +280,19 @@ export function OwnerStoreSettlementsView() {
           {ownerUiCopy(language, "조회 전용", "Read only")}
         </p>
         <p className="sam-text-body text-sam-muted">{t("store_owner_settlement_intro")}</p>
+        {meta.truncated ? (
+          <p
+            className="mt-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+            data-owner-settlement-truncated="1"
+            role="status"
+          >
+            {ownerUiCopy(
+              language,
+              "목록이 일부만 표시됩니다. 기간·상태 필터로 범위를 좁혀 전체 행을 확인하세요.",
+              "This list is truncated. Narrow the date or status filters to see the full set."
+            )}
+          </p>
+        ) : null}
         {meta.settlement_delay_days != null || meta.settlement_fee_percent != null ? (
           <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-muted">
             {meta.settlement_delay_days != null ? (

@@ -194,7 +194,7 @@ export function StoreDetailInfoPublic({
     []
   );
   const bhHolidayFieldKeys = useMemo(
-    () => ["holidays", "holiday", "closed_days", "휴무"] as const,
+    () => ["holidays", "holiday", "closed_days", "휴무", "note"] as const,
     []
   );
 

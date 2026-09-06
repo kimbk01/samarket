@@ -82,16 +82,22 @@ export function OwnerStoreInquiriesView() {
         preferredStoreId && stores.some((s) => s.id === preferredStoreId)
           ? stores.find((s) => s.id === preferredStoreId)!
           : stores[0];
-      const ir = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, () =>
-        fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
+      // Single-flight must share parsed JSON — Response body can only be read once.
+      const payload = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, async () => {
+        const ir = await fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
           credentials: "include",
-        })
-      );
-      const ij = await ir.json();
-      if (!ij?.ok) {
+        });
+        const ij = (await ir.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          inquiries?: Row[];
+        };
+        return { httpOk: ir.ok, ij };
+      });
+      if (!payload.httpOk || !payload.ij?.ok) {
         setState({
           kind: "error",
-          message: typeof ij?.error === "string" ? ij.error : "load_failed",
+          message: typeof payload.ij?.error === "string" ? payload.ij.error : "load_failed",
         });
         return;
       }
@@ -99,7 +105,7 @@ export function OwnerStoreInquiriesView() {
         kind: "ok",
         storeId: store.id,
         storeName: String(store.store_name ?? t("business_phase7_484")),
-        rows: (ij.inquiries ?? []) as Row[],
+        rows: (payload.ij.inquiries ?? []) as Row[],
       });
     } catch {
       setState({ kind: "error", message: "network_error" });

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerManageHubLinks } from "@/components/business/owner/OwnerManageHubLinks";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
@@ -174,7 +175,11 @@ export function OwnerStoreSettingsContent({
         <p className="mt-2 sam-text-helper text-sam-muted">{t("owner_store_delivery_sound_beep_note")}</p>
         <p className="mt-3 sam-text-body-secondary text-sam-muted">
           {t("owner_store_delivery_sound_ops_prompt")}{" "}
-          <Link href={`/stores/owner/ops-status?${q}`} className="font-medium text-signature underline">
+          <Link
+            href={OwnerRoutes.notificationSettings(row.id)}
+            className="font-medium text-signature underline"
+            data-owner-settings-sound-cta="notification-settings"
+          >
             {t("owner_store_delivery_sound_ops_link")}
           </Link>{" "}
           {t("owner_store_delivery_sound_ops_suffix")}

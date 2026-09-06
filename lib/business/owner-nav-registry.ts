@@ -337,6 +337,16 @@ export const OWNER_NAV_REGISTRY: readonly OwnerNavEntryDef[] = [
     surfaces: ["drawer", "manage_hub"],
     drawerSection: "system",
   },
+  {
+    id: "notification_settings",
+    domain: "system",
+    labelKey: "biz_nav_notification_settings",
+    descriptionKey: "biz_nav_notification_settings_desc",
+    href: (storeId) => OwnerRoutes.notificationSettings(storeId),
+    requireApproved: true,
+    surfaces: ["drawer", "manage_hub"],
+    drawerSection: "system",
+  },
 ] as const;
 
 const DRAWER_SECTION_META: {

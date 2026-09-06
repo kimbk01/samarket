@@ -26,4 +26,5 @@ export type BusinessAdminNavItemId =
   | "settlements"
   | "finance"
   | "ads"
-  | "notifications";
+  | "notifications"
+  | "notification_settings";

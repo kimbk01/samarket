@@ -18,6 +18,7 @@ import {
   Gift,
   Headphones,
   Truck,
+  Volume2,
   Wallet,
 } from "lucide-react";
 import type { BusinessAdminNavItemId } from "@/lib/business/business-admin-nav";
@@ -46,6 +47,7 @@ const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
   coupons: TicketPercent,
   gift_certificates: Gift,
   notifications: Bell,
+  notification_settings: Volume2,
 };
 
 const FALLBACK = LayoutGrid;

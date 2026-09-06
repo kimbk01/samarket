@@ -31,6 +31,9 @@ describe("Delivery Ads design board UI contract", () => {
     expect(hub.indexOf("data-owner-ads-recent-title")).toBeLessThan(
       hub.indexOf("data-owner-ads-partner-card")
     );
+    // safeTranslate rejects unreplaced {name} — must pass vars, not .replace after t()
+    expect(hub).toContain('t("owner_ads_hub_greeting", { name: ownerDisplayName })');
+    expect(hub).not.toContain('t("owner_ads_hub_greeting").replace');
   });
 
   it("DB-O3 — application workspace is single-page with confirm", () => {

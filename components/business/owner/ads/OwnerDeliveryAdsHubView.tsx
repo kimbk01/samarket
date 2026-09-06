@@ -249,7 +249,7 @@ export function OwnerDeliveryAdsHubView() {
   }, [sortedCampaigns, unreadByCampaignId]);
 
   const greetingText = ownerDisplayName
-    ? t("owner_ads_hub_greeting").replace("{name}", ownerDisplayName)
+    ? t("owner_ads_hub_greeting", { name: ownerDisplayName })
     : t("owner_ads_hub_greeting_fallback");
 
   return (

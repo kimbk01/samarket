@@ -477,7 +477,13 @@ export function OwnerStoreOrdersView() {
     let doneToday = 0;
     for (const o of state.orders) {
       if (o.order_status === "pending") pending += 1;
-      if (o.order_status === "accepted" || o.order_status === "preparing") preparing += 1;
+      if (
+        o.order_status === "accepted" ||
+        o.order_status === "preparing" ||
+        o.order_status === "ready_for_pickup"
+      ) {
+        preparing += 1;
+      }
       if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
       if (o.order_status === "completed" && completedAtMs(o) >= t0) doneToday += 1;
     }

@@ -12,8 +12,11 @@ import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
-import { summarizeOwnerStoreSettlements } from "@/lib/business/summarize-owner-store-settlements";
-import type { OwnerStoreSettlementRow } from "@/lib/business/owner-store-settlement-types";
+import { mapFinancialSummaryToOwner } from "@/lib/business/summarize-owner-store-settlements";
+import type {
+  OwnerStoreSettlementSummary,
+} from "@/lib/business/summarize-owner-store-settlements";
+import type { OwnerStoreSettlementsServerSummary } from "@/lib/business/owner-store-settlement-types";
 
 type LedgerRow = {
   id: string;
@@ -37,48 +40,58 @@ type FinancePayload = {
   };
 };
 
-function mapCoinLedgerTitle(kind: string): string {
+function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
   switch (kind) {
     case "SALE_EARN":
-      return "Sale earning";
+      return ownerUiCopy(language, "판매 수익", "Sale earning");
     case "REVERSAL":
-      return "Refund reversal";
+      return ownerUiCopy(language, "환불 취소", "Refund reversal");
     case "GIFT_REDEMPTION_EARN":
-      return "Gift redemption earning";
+      return ownerUiCopy(language, "상품권 사용 수익", "Gift redemption earning");
     case "CONVERT_TO_BUSINESS_CASH":
-      return "Cash conversion";
+      return ownerUiCopy(language, "Cash 전환", "Cash conversion");
     case "WITHDRAWAL_REQUEST":
-      return "Withdrawal request";
+      return ownerUiCopy(language, "출금 신청", "Withdrawal request");
     case "WITHDRAWAL_RELEASE":
-      return "Withdrawal release";
+      return ownerUiCopy(language, "출금 해제", "Withdrawal release");
     case "WITHDRAWAL_COMPLETE":
-      return "Withdrawal paid";
+      return ownerUiCopy(language, "출금 지급", "Withdrawal paid");
     default:
-      return kind;
+      return ownerUiCopy(language, "Coin 내역", "Coin entry");
   }
 }
 
-function mapCashLedgerTitle(kind: string): string {
+function mapCashLedgerTitle(language: "ko" | "en", kind: string): string {
   switch (kind) {
     case "TOP_UP":
-      return "Top-up";
+      return ownerUiCopy(language, "충전", "Top-up");
     case "CONVERT_FROM_STORE_POINTS":
-      return "Coin conversion";
+      return ownerUiCopy(language, "Coin 전환", "Coin conversion");
     case "AD_SPEND":
-      return "Ad spend";
+      return ownerUiCopy(language, "광고 지출", "Ad spend");
     case "AD_REFUND":
-      return "Ad refund";
+      return ownerUiCopy(language, "광고 환불", "Ad refund");
     case "PARTNER_SPEND":
-      return "Partner spend";
+      return ownerUiCopy(language, "파트너 지출", "Partner spend");
     case "PARTNER_REFUND":
-      return "Partner refund";
+      return ownerUiCopy(language, "파트너 환불", "Partner refund");
     case "SALE_FEE":
-      return "Sale fee";
+      return ownerUiCopy(language, "판매 수수료", "Sale fee");
     case "SALE_FEE_SETTLEMENT":
-      return "Sale fee settlement";
+      return ownerUiCopy(language, "판매 수수료 정산", "Sale fee settlement");
     default:
-      return kind;
+      return ownerUiCopy(language, "Cash 내역", "Cash entry");
   }
+}
+
+function signedCashMinor(row: LedgerRow): number {
+  const minor = Math.abs(Math.trunc(Number(row.amountMinor ?? row.amount) || 0));
+  const dir = String(row.direction ?? "").toLowerCase();
+  if (dir === "debit" || dir === "out" || dir === "spend") return -minor;
+  if (dir === "credit" || dir === "in") return minor;
+  // Prefer explicit signed amount when direction is absent.
+  const raw = Math.trunc(Number(row.amountMinor ?? row.amount) || 0);
+  return raw;
 }
 
 /**
@@ -94,9 +107,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const [saleFeeOutstandingMinor, setSaleFeeOutstandingMinor] = useState(0);
   const [coinLedger, setCoinLedger] = useState<LedgerRow[]>([]);
   const [cashLedger, setCashLedger] = useState<LedgerRow[]>([]);
-  const [settleSummary, setSettleSummary] = useState<ReturnType<
-    typeof summarizeOwnerStoreSettlements
-  > | null>(null);
+  const [settleSummary, setSettleSummary] = useState<OwnerStoreSettlementSummary | null>(null);
   const financeHref = OwnerRoutes.finance(storeId);
   const settlementsHref = OwnerRoutes.settlements(storeId);
   const cashManageHref = `${financeHref}#cash-manage`;
@@ -123,9 +134,13 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCashLedger(json.businessCashLedger ?? []);
 
       if (settleRes.status === 200 && settleRes.json && typeof settleRes.json === "object") {
-        const body = settleRes.json as { ok?: boolean; settlements?: OwnerStoreSettlementRow[] };
-        if (body.ok !== false && Array.isArray(body.settlements)) {
-          setSettleSummary(summarizeOwnerStoreSettlements(body.settlements));
+        const body = settleRes.json as {
+          ok?: boolean;
+          summary?: OwnerStoreSettlementsServerSummary | null;
+        };
+        // Server summary is financial SSOT — never invent KPI from a truncated page of rows.
+        if (body.ok !== false && body.summary) {
+          setSettleSummary(mapFinancialSummaryToOwner(body.summary));
         } else {
           setSettleSummary(null);
         }
@@ -142,6 +157,18 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (loading) return;
+    const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "").trim() : "";
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (!el) return;
+    const id = window.requestAnimationFrame(() => {
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [loading, settleSummary, coinLedger.length, cashLedger.length]);
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
@@ -223,7 +250,11 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           </dl>
         ) : (
           <p className="mb-3 text-xs text-sam-muted" data-owner-finance-missing="settlement_summary">
-            MISSING_BACKEND_VISIBILITY: settlement summary unavailable on this load
+            {ownerUiCopy(
+              language,
+              "정산 요약을 이번 로드에서 가져오지 못했습니다. 정산 내역에서 확인하세요.",
+              "Settlement summary is unavailable on this load. Open Settlements for details."
+            )}
           </p>
         )}
         <Link
@@ -339,7 +370,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               <CurrencyHistoryRow
                 key={row.id}
                 currency="coin"
-                title={mapCoinLedgerTitle(row.entryKind)}
+                title={mapCoinLedgerTitle(language, row.entryKind)}
                 amount={Math.trunc(Number(row.amount) || 0)}
                 signed
                 createdAt={row.createdAt}
@@ -365,13 +396,13 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
             </li>
           ) : (
             cashLedger.slice(0, 20).map((row) => {
-              const minor = Math.trunc(Number(row.amountMinor ?? row.amount) || 0);
+              const signedMinor = signedCashMinor(row);
               return (
                 <CurrencyHistoryRow
                   key={row.id}
                   currency="cash"
-                  title={mapCashLedgerTitle(row.entryKind)}
-                  amount={minor}
+                  title={mapCashLedgerTitle(language, row.entryKind)}
+                  amount={signedMinor}
                   isMinor
                   signed
                   createdAt={row.createdAt}
