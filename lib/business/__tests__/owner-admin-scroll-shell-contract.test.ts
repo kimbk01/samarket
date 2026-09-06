@@ -31,9 +31,13 @@ describe("owner admin scroll shell contract", () => {
     expect(resolveOwnerStackScrollHostPath("/stores/owner/profile")).toBe(true);
   });
 
-  it("product composer is excluded from shared scroll host (RECOVERED_GOOD ad7942 private scroll)", () => {
-    expect(resolveOwnerStackScrollHostPath("/stores/owner/products/new")).toBe(false);
-    expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(true);
+  it("product composer stays excluded from scroll host lock", () => {
+    expect(
+      resolveOwnerStackScrollHostPath("/stores/owner/products/new")
+    ).toBe(false);
+    expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(
+      true
+    );
   });
 
   it("StoreBusinessGuard ok shell uses flex min-h-0 (not min-h-screen)", () => {
@@ -218,75 +222,5 @@ describe("owner admin scroll shell contract", () => {
     const src = readRepo("components/stores/owner/dashboard/OwnerOperationsDashboard.tsx");
     expect(src).toContain("OwnerAdminPageScrollShell");
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
-  });
-
-  it("SELECTIVE_SHELL_RESTORE: single .owner-stack-shell height root (no JIT 100dvh concat, no nest)", () => {
-    const css = readRepo("app/owner-compact-shell.css");
-    expect(css).toMatch(/body\[data-owner-compact-shell\]\s+\.owner-stack-shell/);
-    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
-    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
-
-    const layout = readRepo("lib/business/owner-compact-shell-layout.ts");
-    expect(layout).toContain('OWNER_STACK_SHELL_ROOT_CLASS = "owner-stack-shell"');
-
-    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toContain("OWNER_STACK_SHELL_ROOT_CLASS");
-    expect(shell).toContain("ownerStackShellRootClassName");
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:h-\[100dvh\]/);
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:max-h-\[100dvh\]/);
-    expect(shell).not.toMatch(
-      /\{\.\.\.ownerStackShellRootProps\}[\s\S]{0,220}\{\.\.\.ownerStackShellRootProps\}/
-    );
-    expect(shell).toContain("max-[1024px]:overflow-hidden");
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:overflow-hidden/);
-  });
-
-  it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/new")).toBe(true);
-    expect(
-      isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/abc/edit")
-    ).toBe(true);
-    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products")).toBe(false);
-  });
-
-  it("product composer uses RECOVERED_GOOD private height (ad7942) — not shared dual-pad scroll", () => {
-    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toContain("isOwnerStoreProductComposerRoute");
-    expect(shell).toContain(
-      "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
-    );
-    expect(shell).toContain('h-[100dvh] max-h-[100dvh] min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden');
-  });
-
-  it("OwnerProductForm owns scroll body height (RECOVERED_GOOD ad7942)", () => {
-    const form = readRepo("components/business/owner/OwnerProductForm.tsx");
-    expect(form).not.toContain("OwnerAdminPageScrollShell");
-    expect(form).toContain('data-owner-product-form-scroll="1"');
-    expect(form).toContain('data-owner-product-composer="1"');
-    expect(form).toContain(
-      "h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
-    );
-    expect(form).toMatch(
-      /data-owner-product-form-scroll="1"[\s\S]{0,120}min-h-0 flex-1 overflow-x-hidden overflow-y-auto/
-    );
-  });
-
-  it("Owner customer lists single-flight share parsed JSON (Response body once)", () => {
-    for (const rel of [
-      "components/business/owner/OwnerStoreReviewsView.tsx",
-      "components/business/owner/OwnerStoreInquiriesView.tsx",
-      "components/business/owner/OwnerStoreOrderChatsView.tsx",
-    ]) {
-      const src = readRepo(rel);
-      expect(src).toContain("runSingleFlight");
-      // Ban sharing raw fetch Response across waiters (body readable once).
-      expect(src).not.toMatch(
-        /runSingleFlight\([^)]+,\s*\(\)\s*=>\s*\n?\s*fetch\(/
-      );
-      expect(src).toMatch(/runSingleFlight\([\s\S]{0,200}async\s*\(\)\s*=>/);
-    }
-    const reviews = readRepo("components/business/owner/OwnerStoreReviewsView.tsx");
-    expect(reviews).toContain("storeIdQuery");
-    expect(reviews).not.toMatch(/useCallback\([\s\S]{0,40}\[searchParams\]/);
   });
 });

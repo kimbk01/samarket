@@ -254,15 +254,7 @@ export function OwnerProductForm({
     setFormTab("basic");
     setDetailNav("top");
     requestAnimationFrame(() => {
-      const host =
-        formBodyScrollRef.current?.closest<HTMLElement>(
-          ".owner-compact-shell__scroll, [data-owner-compact-shell-scroll], main"
-        ) ?? null;
-      if (host && host.scrollHeight > host.clientHeight + 8) {
-        host.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      formBodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     });
   }, []);
 
@@ -271,13 +263,19 @@ export function OwnerProductForm({
     setDetailNav("options");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        const sc = formBodyScrollRef.current;
         const el = optionsSectionRef.current;
-        if (!el) return;
+        if (!sc || !el) return;
+        // Prefer the primary options CTA so sticky category/tabs cannot intercept taps.
         const cta =
           el.querySelector<HTMLElement>("button[aria-label]") ||
           el.querySelector<HTMLElement>("button");
         const target = cta ?? el;
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        const scRect = sc.getBoundingClientRect();
+        const tRect = target.getBoundingClientRect();
+        const desired = scRect.top + Math.min(120, Math.floor(scRect.height * 0.22));
+        const delta = tRect.top - desired;
+        sc.scrollTo({ top: Math.max(0, sc.scrollTop + delta), behavior: "smooth" });
       });
     });
   }, []);
@@ -776,7 +774,7 @@ export function OwnerProductForm({
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="min-w-0 space-y-2 px-0 py-2 pb-[max(1rem,var(--safe-bottom))]"
+        className="min-w-0 space-y-2 px-0 py-2 pb-0"
       >
         {error ? (
           <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">

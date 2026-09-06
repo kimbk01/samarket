@@ -3,8 +3,6 @@
  * 한 번에 하나의 폼만 마운트된다고 가정하고 dirty 플래그를 공유한다.
  */
 
-import { isOwnerStoreProductComposerPath } from "@/lib/business/owner-stack-scroll-host-path";
-
 export type OwnerBasicInfoLeaveKind = "sidebar" | "back";
 
 export type OwnerBasicInfoLeaveDetail = {
@@ -80,15 +78,10 @@ export function isOwnerStoreOrdersPath(pathname: string): boolean {
 }
 
 /**
- * 하단 `OwnerMobileBottomNav` 숨김 — 편집·작성 폼(저장 CTA)만.
+ * 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼(저장 CTA)만.
  * P0 primary tabs(`/orders`, `/customer-care`)는 숨기지 않는다.
  * 문의 상세도 Customers 탭 연속성을 위해 네비를 유지한다.
- * Product CREATE/EDIT: BottomNav must not cover Register/Save CTA.
  */
 export function isOwnerStoreFormBottomNavHiddenPath(pathname: string): boolean {
-  return (
-    isOwnerBasicInfoPath(pathname) ||
-    isOwnerStoreProfilePath(pathname) ||
-    isOwnerStoreProductComposerPath(pathname)
-  );
+  return isOwnerBasicInfoPath(pathname) || isOwnerStoreProfilePath(pathname);
 }
