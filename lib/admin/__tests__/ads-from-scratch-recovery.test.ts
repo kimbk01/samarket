@@ -29,7 +29,7 @@ describe("ads from-scratch recovery contracts", () => {
 
   it("Ads menu uses product axes; Feed labeled as Banner ad", () => {
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
-    expect(adsKids[0]).toBe("delivery-ads-control");
+    expect(adsKids[0]).toBe("ads-advertising-workspace");
     expect(adsKids.at(-1)).toBe("ads-legacy");
     expect(adsKids).toContain("ads-applications-group");
     expect(adsKids).toContain("ads-execution-group");

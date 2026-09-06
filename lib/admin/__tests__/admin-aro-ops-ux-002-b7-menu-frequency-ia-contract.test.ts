@@ -36,7 +36,7 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
       "/admin/finance"
     );
     expect(resolveWorkspaceRootPath(findAdminMenuByKey(adminMenu, "ads")!)).toBe(
-      "/admin/delivery-ads"
+      "/admin/advertising"
     );
     expect(resolveWorkspaceRootPath(findAdminMenuByKey(adminMenu, "support")!)).toBe(
       "/admin/support"
@@ -76,7 +76,7 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     expect(findAdminMenuByKey(adminMenu, "ads-delivery-ops")).toBeUndefined();
 
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
-    expect(adsKids[0]).toBe("delivery-ads-control");
+    expect(adsKids[0]).toBe("ads-advertising-workspace");
     expect(adsKids.at(-1)).toBe("ads-legacy");
     expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
     expect(adsKids).not.toContain("ads-paid");

@@ -116,8 +116,9 @@ describe("platform popup product completion — Admin IA", () => {
     expect(leaf?.path).toBe("/admin/platform-popup");
     expect(leaf?.status).toBe("done");
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    // ARO-OPS-UX-002-B7: B5 Control Plane is first ads leaf (ads-delivery-ops wrapper removed).
-    expect(ads?.children?.[0]?.key).toBe("delivery-ads-control");
+    // Canonical Ads workspace is first leaf; Delivery CP remains a sibling under ads.
+    expect(ads?.children?.[0]?.key).toBe("ads-advertising-workspace");
+    expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
     const execution = findAdminMenuByKey(adminMenu, "ads-execution-group");
     expect(execution?.children?.some((c) => c.key === "ads-feed")).toBe(true);
     expect(execution?.children?.some((c) => c.key === "ads-platform-popup")).toBe(true);

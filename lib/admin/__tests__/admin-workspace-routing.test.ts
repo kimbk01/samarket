@@ -79,7 +79,7 @@ describe("admin-workspace-routing (CUT J)", () => {
     // ARO-OPS-UX-002-B7: B4 Finance Control Plane is workspace root first leaf.
     expect(resolveWorkspaceRootPath(finance)).toBe("/admin/finance");
     const ads = adminMenu.find((w) => w.key === "ads")!;
-    expect(resolveWorkspaceRootPath(ads)).toBe("/admin/delivery-ads");
+    expect(resolveWorkspaceRootPath(ads)).toBe("/admin/advertising");
     const support = adminMenu.find((w) => w.key === "support")!;
     expect(resolveWorkspaceRootPath(support)).toBe("/admin/support");
     const system = adminMenu.find((w) => w.key === "system")!;
