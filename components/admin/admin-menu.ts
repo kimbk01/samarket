@@ -170,10 +170,6 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-ads-control": "admin_menu_delivery_ads_control",
   "delivery-ads-ops": "admin_menu_delivery_ads_ops",
   "delivery-ads-commercial": "admin_menu_delivery_ads_commercial",
-  "ads-applications-hub": "admin_menu_ads_applications_hub",
-  "ads-live": "admin_menu_ads_live",
-  "ads-create": "admin_menu_ads_create",
-  "ads-payment-refund": "admin_menu_ads_payment_refund",
   "store-banner-ads-control": "admin_menu_store_banner_ads_control",
   "store-ads-section": "admin_menu_store_ads_section",
   "store-coupons-control": "admin_menu_store_coupons_control",
@@ -810,7 +806,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── ADS — TARGET IA (MASTER CONTRACT): 홈 → 신청 → 진행 중 → 만들기 → 위치 → 가격 → 결제 → 이력 ──
+  // ── ADS — product axes: 관제 → 신청 → 집행 → 지면 → 상품 → 이력 ──
+  // Labels = customer product language (배너 광고 ≠ 「피드 광고」 abstraction).
   {
     key: "ads",
     title: "",
@@ -823,31 +820,57 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
-        key: "ads-applications-hub",
+        key: "ads-applications-group",
         title: "",
-        path: "/admin/ad-applications",
         status: "done",
-        matchPaths: [
-          "/admin/ad-applications",
-          "/admin/ad-applications?domain=feed",
-          "/admin/ad-applications?domain=trade",
-          "/admin/ad-applications?domain=community",
+        children: [
+          {
+            key: "ads-feed-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=feed",
+            status: "done",
+          },
+          {
+            key: "ads-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=trade",
+            status: "done",
+          },
+          {
+            key: "ads-community-promote",
+            title: "",
+            path: "/admin/ad-applications?domain=community",
+            status: "done",
+          },
         ],
       },
       {
-        key: "ads-live",
+        key: "ads-execution-group",
         title: "",
-        path: "/admin/delivery-ads/manage",
         status: "done",
-        matchPaths: ["/admin/delivery-ads/manage", "/admin/feed-ads", "/admin/platform-popup"],
-        matchPathPrefixes: ["/admin/delivery-ads/", "/admin/platform-popup/", "/admin/feed-ads"],
-      },
-      {
-        key: "ads-create",
-        title: "",
-        path: "/admin/delivery-ads/first-party/new",
-        status: "done",
-        matchPaths: ["/admin/delivery-ads/first-party/new"],
+        children: [
+          {
+            key: "delivery-ads-ops",
+            title: "",
+            path: "/admin/delivery-ads/manage",
+            matchPaths: ["/admin/delivery-ads/manage"],
+            // Detail / creative under /admin/delivery-ads/[id] — not 관제, not inventory.
+            matchPathPrefixes: ["/admin/delivery-ads"],
+            status: "done",
+          },
+          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+          {
+            key: "ads-platform-popup",
+            title: "",
+            path: "/admin/platform-popup",
+            status: "done",
+            matchPaths: [
+              "/admin/platform-popup/",
+              "/admin/platform-popup/requests",
+              "/admin/platform-popup/requests/",
+            ],
+          },
+        ],
       },
       {
         key: "ads-placement-map",
@@ -876,17 +899,17 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         ],
       },
       {
-        key: "ads-payment-refund",
-        title: "",
-        path: "/admin/delivery-ads/cash-charges",
-        status: "done",
-        matchPaths: ["/admin/delivery-ads/cash-charges", "/admin/finance"],
-      },
-      {
         key: "ads-legacy",
         title: "",
-        path: "/admin/promoted-items",
         status: "partial",
+        children: [
+          {
+            key: "ads-paid",
+            title: "",
+            path: "/admin/promoted-items",
+            status: "partial",
+          },
+        ],
       },
     ],
   },

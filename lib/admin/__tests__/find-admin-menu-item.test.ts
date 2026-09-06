@@ -12,14 +12,15 @@ describe("find-admin-menu-item", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
     expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-live")).toBe(true);
-    expect(findAdminMenuByKey(adminMenu, "ads-live")?.path).toBe("/admin/delivery-ads/manage");
-    expect(findAdminMenuByKey(adminMenu, "ads-create")?.path).toBe(
-      "/admin/delivery-ads/first-party/new"
+    expect(ads?.children?.some((c) => c.key === "ads-execution-group")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-ops")?.path).toBe(
+      "/admin/delivery-ads/manage"
     );
+    // legacy flat Delivery ops key must stay absent (dual-stack menu leaf is delivery-ads-ops)
     expect(ads?.children?.some((c) => c.key === "ads-delivery-ops")).toBe(false);
-    expect(findAdminMenuByKey(adminMenu, "ads-applications-hub")?.path).toBe(
-      "/admin/ad-applications"
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
     );
   });
 

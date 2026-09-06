@@ -44,7 +44,7 @@ describe("paid exposure family includes community", () => {
   it("community prices from top_fixed seed and activate immediately (A2)", () => {
     const c3 = getMemberPromotionProduct("community_promote_3");
     expect(c3?.pointCost).toBe(10000);
-    expect(c3?.requiresAdminApproval).toBe(true);
+    expect(c3?.requiresAdminApproval).toBe(false);
     expect(listActiveMemberPromotionProducts("community").length).toBe(2);
   });
 

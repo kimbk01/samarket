@@ -643,52 +643,15 @@ export function OwnerBannerCreateView() {
   void keyboardOpen;
 
   if (doneCampaign) {
-    const invLabel = deliveryAdCommercialPlacementLabel(
-      (doneCampaign.inventoryKeys?.[0] as OwnerBannerInventoryKey) ?? inventoryKey,
-      lang === "en" ? "en" : "ko"
-    );
     return (
       <div
         className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto w-full max-w-[min(100%,42rem)] md:max-w-[min(100%,52rem)] px-4 pt-4 pb-8`}
         data-owner-ads-workspace="banner"
         data-owner-ads-wizard="single-page"
-        data-owner-ads-success="1"
       >
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5">
-          <p className="text-center text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
-          <p className="mt-2 text-center text-[13px] text-sam-muted">{t("owner_ads_success_body")}</p>
-          <dl className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-[13px]">
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">{lang === "en" ? "Application ID" : "신청번호"}</dt>
-              <dd className="font-mono font-semibold text-sam-fg">{doneCampaign.id}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">{lang === "en" ? "Placement" : "노출 위치"}</dt>
-              <dd className="text-right font-semibold text-sam-fg">{invLabel}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">{lang === "en" ? "Period" : "기간"}</dt>
-              <dd className="text-right text-sam-fg">
-                {doneCampaign.startAt
-                  ? new Date(doneCampaign.startAt).toLocaleDateString(lang === "en" ? "en" : "ko")
-                  : "—"}
-                {" → "}
-                {doneCampaign.endAt
-                  ? new Date(doneCampaign.endAt).toLocaleDateString(lang === "en" ? "en" : "ko")
-                  : "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-sam-muted">{lang === "en" ? "Status" : "상태"}</dt>
-              <dd className="font-semibold text-sam-fg">{doneCampaign.lifecycleStatus ?? "—"}</dd>
-            </div>
-          </dl>
-          <p className="mt-3 text-center text-[12px] text-sam-muted">
-            {safeT("owner_ads_success_next_admin", {
-              fallbackKo: "관리자 검토 후 승인되면 예약·노출이 진행됩니다.",
-              fallbackEn: "After admin approval, scheduling and exposure continue.",
-            })}
-          </p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
+          <p className="text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
+          <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_success_body")}</p>
           <div className="mt-4 flex flex-col gap-2">
             <button
               type="button"

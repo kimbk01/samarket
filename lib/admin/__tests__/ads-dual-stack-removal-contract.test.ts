@@ -71,12 +71,12 @@ describe("ADS dual-stack removal — Delivery operator authority", () => {
     expect(map).toContain("view=actionable");
   });
 
-  it("T6/T7: Ads nav has one Delivery ops leaf; control is Ad home", () => {
+  it("T6/T7: Ads nav has one Delivery ops leaf; control is separate 관제", () => {
     const paths = collectMenuPaths(adminMenu);
     const deliveryOps = paths.filter((p) => p.path === "/admin/delivery-ads/manage");
     const control = paths.filter((p) => p.path === "/admin/delivery-ads");
     expect(deliveryOps.length).toBe(1);
-    expect(deliveryOps[0]?.key).toBe("ads-live");
+    expect(deliveryOps[0]?.key).toBe("delivery-ads-ops");
     expect(control.length).toBe(1);
     expect(control[0]?.key).toBe("delivery-ads-control");
     const competing = paths.filter(

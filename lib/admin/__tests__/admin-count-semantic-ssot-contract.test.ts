@@ -9,23 +9,24 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
  * Foundation-locked: Trade ads-applications must not consume Feed counts.
  */
 describe("Admin count semantic SSOT contract", () => {
-  it("action queue defines TRADE_PROMO_PENDING for trade+community pending_review Boost", () => {
+  it("action queue defines TRADE_PROMO_PENDING same filter as Trade Hub", () => {
     const aq = read("lib/admin/admin-action-queue.ts");
     const overview = read("lib/admin-products/admin-trade-overview-counts.ts");
     expect(aq).toContain("trade_promo_pending");
-    expect(aq).toMatch(/point_promotion_orders[\s\S]*pending_review/);
-    expect(aq).toMatch(/\["trade",\s*"community"\]/);
+    expect(aq).toMatch(/point_promotion_orders[\s\S]*domain[\s\S]*trade[\s\S]*pending_review/);
     expect(overview).toMatch(/point_promotion_orders[\s\S]*domain[\s\S]*trade[\s\S]*pending_review/);
   });
 
-  it("sidebar binds applications hub to combined action-required ads counts", () => {
+  it("sidebar binds Trade leaf to tradePromoPending and Growth leaf to feedAdPending", () => {
     const sidebar = read("components/admin/sidebar/AdminSidebarItem.tsx");
-    expect(sidebar).toContain('item.key === "ads-applications-hub"');
-    expect(sidebar).toContain("adsApplicationsActionRequired");
-    expect(sidebar).toContain("deliveryAdOpsPendingCount");
-    expect(sidebar).toContain("feedAdPendingCount");
+    expect(sidebar).toContain('item.key === "ads-applications"');
     expect(sidebar).toContain("tradePromoPendingCount");
-    expect(sidebar).toContain("platformPopupPendingCount");
+    expect(sidebar).toContain('item.key === "ads-feed-applications"');
+    expect(sidebar).toContain("feedAdPendingCount");
+    // Regression: Trade leaf must not use Feed count
+    expect(sidebar).not.toMatch(
+      /ads-applications"\s*&&\s*feedAdPendingCount/
+    );
   });
 
   it("Listing report drill targets Trade product report queue", () => {

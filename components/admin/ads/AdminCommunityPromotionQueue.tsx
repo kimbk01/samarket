@@ -60,24 +60,15 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
     void load();
   }, [load]);
 
-  const act = async (
-    id: string,
-    action: "approve" | "reject" | "pause" | "resume" | "end"
-  ) => {
+  const act = async (id: string, action: "approve" | "reject") => {
     let reason = "";
-    if (action === "reject" || action === "end") {
+    if (action === "reject") {
       reason =
         (await dibayPrompt({
-          title:
-            action === "end"
-              ? safeT("admin_comm_promo_end_prompt", {
-                  fallbackKo: "종료 사유 (환불 없음 · CAPTURE 확정분)",
-                  fallbackEn: "End reason (no refund · CAPTURE settled)",
-                })
-              : safeT("admin_comm_promo_reject_prompt", {
-                  fallbackKo: "거절 사유 (필수)",
-                  fallbackEn: "Reject reason (required)",
-                }),
+          title: safeT("admin_comm_promo_reject_prompt", {
+            fallbackKo: "거절 사유 (필수)",
+            fallbackEn: "Reject reason (required)",
+          }),
           defaultValue: "",
           required: true,
         })) ?? "";
@@ -136,8 +127,6 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
         >
           <option value="pending_review">{en ? "Pending" : "심사 중"}</option>
           <option value="active">{en ? "Active" : "노출 중"}</option>
-          <option value="paused">{en ? "Paused" : "일시중지"}</option>
-          <option value="ended">{en ? "Ended" : "종료"}</option>
           <option value="rejected">{en ? "Rejected" : "거절"}</option>
           <option value="">{en ? "All" : "전체"}</option>
         </select>
@@ -158,9 +147,6 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           {rows.map((row) => {
             const busy = busyId === row.id;
             const canAct = row.orderStatus === "pending_review";
-            const canPause = row.orderStatus === "active";
-            const canResume = row.orderStatus === "paused";
-            const canEnd = row.orderStatus === "active" || row.orderStatus === "paused";
             const adminTargetHref = isTrade
               ? `/admin/products/${encodeURIComponent(row.targetId)}`
               : `/admin/community/posts/${encodeURIComponent(row.targetId)}`;
@@ -181,10 +167,6 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     {isTrade && row.listingStatus
                       ? ` · ${row.listingStatus}${row.listingEligible === false ? " (비공개)" : ""}`
                       : ""}
-                  </p>
-                  <p className="sam-text-xxs text-sam-muted tabular-nums" data-boost-order-id={row.id}>
-                    {en ? "Application #" : "신청번호 "}
-                    {row.id}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                     <Link
@@ -250,41 +232,6 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                     >
                       {en ? "Reject" : "거절"}
                     </button>
-                  </div>
-                ) : null}
-                {!canAct && (canPause || canResume || canEnd) ? (
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {canPause ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void act(row.id, "pause")}
-                        className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
-                      >
-                        {en ? "Pause" : "일시중지"}
-                      </button>
-                    ) : null}
-                    {canResume ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void act(row.id, "resume")}
-                        className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
-                      >
-                        {en ? "Resume" : "재개"}
-                      </button>
-                    ) : null}
-                    {canEnd ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void act(row.id, "end")}
-                        className="rounded-ui-rect border border-red-300 px-3 py-1.5 sam-text-helper font-medium text-red-700 disabled:opacity-50"
-                        data-boost-end-no-refund="ADMIN_END_REFUND_POLICY_REQUIRED"
-                      >
-                        {en ? "End (no refund)" : "종료 (환불 없음)"}
-                      </button>
-                    ) : null}
                   </div>
                 ) : null}
               </li>

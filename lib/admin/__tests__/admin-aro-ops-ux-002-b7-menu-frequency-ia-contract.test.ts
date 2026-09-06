@@ -78,11 +78,8 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
     expect(adsKids[0]).toBe("delivery-ads-control");
     expect(adsKids.at(-1)).toBe("ads-legacy");
-    expect(findAdminMenuByKey(adminMenu, "ads-legacy")?.path).toBe("/admin/promoted-items");
-    expect(adsKids).toContain("ads-applications-hub");
-    expect(adsKids).toContain("ads-live");
-    expect(adsKids).toContain("ads-create");
-    expect(adsKids).not.toContain("ads-execution-group");
+    expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
+    expect(adsKids).not.toContain("ads-paid");
   });
 
   it("B7-10..13 domain ownership preserved", () => {
@@ -108,15 +105,13 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
   });
 
   it("B7-17/20 ads + notifications semantics", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-applications-hub")?.path).toBe(
-      "/admin/ad-applications"
+    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
+      "/admin/ad-applications?domain=feed"
     );
     expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toBe(
       "/admin/delivery-ads/inventory#placement-map"
     );
-    expect(findAdminMenuByKey(adminMenu, "ads-live")?.matchPaths).toContain(
-      "/admin/platform-popup"
-    );
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe("/admin/platform-popup");
     expect(resolveActiveWorkspace("/admin/settings/notifications", "master").id).toBe(
       "notifications"
     );
@@ -147,8 +142,8 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
   });
 
   it("B7-26 deeplink query/hash preserved on canonical leaves", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-applications-hub")?.path).toBe(
-      "/admin/ad-applications"
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
+      "/admin/ad-applications?domain=trade"
     );
     expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toContain("#placement-map");
     expect(findAdminMenuByKey(adminMenu, "jobs-management")?.path).toBe(

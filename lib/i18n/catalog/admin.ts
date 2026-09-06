@@ -598,7 +598,7 @@ export const adminMessages = {
     admin_menu_ads_applications: "거래 더 알리기 신청",
     admin_menu_ads_applications_group: "광고 신청",
     admin_menu_ads_execution_group: "집행 관리",
-    admin_menu_ads_products_group: "상품 · 가격",
+    admin_menu_ads_products_group: "광고 상품 / 가격",
     admin_menu_ads_promote_group: "게시물 홍보 신청",
     admin_menu_ads_community_promote: "커뮤니티 게시물 홍보",
     admin_menu_ads_feed_applications: "배너 광고 신청",
@@ -630,6 +630,7 @@ export const adminMessages = {
     admin_store_report_toast_title: "매장 신고",
     admin_store_application_toast_title: "매장 등록 신청",
     admin_feed_ad_toast_open: "신청 상세 보기",
+    admin_menu_ads_legacy: "광고 이력",
     admin_legacy_comments_quarantine_banner:
       "LEGACY · 구 comments 표면입니다. Community 댓글 운영 SSOT는 커뮤니티 댓글입니다.",
     admin_legacy_comments_goto_community: "커뮤니티 댓글",
@@ -662,7 +663,6 @@ export const adminMessages = {
     admin_comm_promo_empty: "해당 상태의 신청이 없습니다.",
     admin_comm_promo_hint: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
     admin_comm_promo_reject_prompt: "거절 사유 (필수)",
-    admin_comm_promo_end_prompt: "종료 사유 (환불 없음 · CAPTURE 확정분)",
     admin_comm_promo_title: "게시물 홍보 신청",
     admin_trade_promo_title: "거래 더 알리기 신청",
     admin_trade_promo_hint:
@@ -3405,7 +3405,7 @@ export const adminMessages = {
     admin_menu_ads_applications: "Trade promote requests",
     admin_menu_ads_applications_group: "Ad applications",
     admin_menu_ads_execution_group: "Execution",
-    admin_menu_ads_products_group: "Products · pricing",
+    admin_menu_ads_products_group: "Products / pricing",
     admin_menu_ads_promote_group: "Post promote requests",
     admin_menu_ads_community_promote: "Community post promote",
     admin_menu_ads_feed_applications: "Banner ad requests",
@@ -3437,6 +3437,7 @@ export const adminMessages = {
     admin_store_report_toast_title: "Store report",
     admin_store_application_toast_title: "Store application",
     admin_feed_ad_toast_open: "Open request",
+    admin_menu_ads_legacy: "Ad history",
     admin_legacy_comments_quarantine_banner:
       "LEGACY · old comments surface. Community comment ops SSOT is Community comments.",
     admin_legacy_comments_goto_community: "Community comments",
@@ -3469,7 +3470,6 @@ export const adminMessages = {
     admin_comm_promo_empty: "No requests in this status.",
     admin_comm_promo_hint: "Community post boost — HOLD capture / release",
     admin_comm_promo_reject_prompt: "Reject reason (required)",
-    admin_comm_promo_end_prompt: "End reason (no refund · CAPTURE settled)",
     admin_comm_promo_title: "Post promotion requests",
     admin_trade_promo_title: "Trade promote requests",
     admin_trade_promo_hint:

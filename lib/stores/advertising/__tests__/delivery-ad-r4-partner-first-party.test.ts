@@ -261,7 +261,7 @@ describe("R4 DIBAY first-party Banner", () => {
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
     expect(view).toContain("DeliveryAdBanner");
     expect(view).toContain('data-admin-first-party-create="design-board"');
-    expect(view).toContain('data-admin-first-party-wizard="stepped"');
+    expect(view).toContain('data-admin-first-party-wizard="single-page"');
     expect(view).toContain("NOT_IMPLEMENTED_MODEL_BLOCKED");
   });
 
@@ -308,14 +308,10 @@ describe("R4 DIBAY first-party Banner", () => {
     }
   });
 
-  it("R4-F11 — Admin first-party uses ADMIN inventory keys (not Owner HERO-only)", () => {
+  it("R4-F11 — placements HOME_HERO / SEARCH_TOP only in create UI", () => {
     const view = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(view).toContain("ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS");
+    expect(view).toContain("OWNER_BANNER_INVENTORY_KEYS");
     expect(view).toContain("STORES_HOME_HERO");
-    expect(view).not.toContain("OWNER_BANNER_INVENTORY_KEYS");
-    const writer = read("lib/stores/advertising/delivery-ad-admin-first-party-writer.ts");
-    expect(writer).toContain("STORES_HOME_INLINE_1");
-    expect(writer).toContain("STORES_CATEGORY_TOP");
   });
 
   it("R4-F12 — commercial snapshot insert on create", () => {

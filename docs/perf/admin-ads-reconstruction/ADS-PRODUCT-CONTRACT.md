@@ -70,7 +70,6 @@ ACTIVE ≠ actual exposure. Payment ≠ approval. Approval ≠ schedule.
 
 ## Operator IA
 
-광고 홈 / 신청 관리 / 진행 중 광고 / 광고 만들기 / 노출 위치 / 상품·가격 / 결제·환불 / 광고 이력
+광고 관제 / 신청 관리 / 집행 관리 / 노출 위치 / 광고 형태 / 상품·가격 / 광고 이력  
 
-Forbidden: 광고 관제 · 집행 관리 · 배너 광고 집행 as primary labels.
 No generic 「캠페인」 in primary UI. No Runtime:Y primary.

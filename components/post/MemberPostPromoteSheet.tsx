@@ -54,7 +54,6 @@ export function MemberPostPromoteSheet({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [successEndAt, setSuccessEndAt] = useState("");
-  const [successOrderId, setSuccessOrderId] = useState("");
   const [pendingReview, setPendingReview] = useState(false);
   const [activeEndAt, setActiveEndAt] = useState<string | null>(null);
   const [pendingExisting, setPendingExisting] = useState(false);
@@ -112,7 +111,6 @@ export function MemberPostPromoteSheet({
   useEffect(() => {
     if (!open) return;
     setSuccessEndAt("");
-    setSuccessOrderId("");
     setPendingReview(false);
     void load();
   }, [open, load]);
@@ -153,8 +151,6 @@ export function MemberPostPromoteSheet({
         balanceAfter?: number;
         pendingReview?: boolean;
         status?: string;
-        order?: { id?: string } | null;
-        orderId?: string;
       };
       if (!res.ok || !j.ok) {
         if (j.error === "insufficient_balance" || j.code === "insufficient_balance") {
@@ -184,7 +180,6 @@ export function MemberPostPromoteSheet({
       if (typeof j.balanceAfter === "number") setBalance(j.balanceAfter);
       setPendingReview(j.pendingReview === true || j.status === "pending_review");
       setSuccessEndAt(j.endAt ?? "");
-      setSuccessOrderId(String(j.order?.id ?? j.orderId ?? "").trim());
       onPurchased?.();
     } catch {
       setErr(
@@ -287,19 +282,6 @@ export function MemberPostPromoteSheet({
             {": "}
             {new Date(successEndAt).toLocaleString(langEn ? "en-US" : "ko-KR")}
           </p>
-          {successOrderId ? (
-            <p
-              className={`mt-1 tabular-nums ${OverlayUi.bodySecondary}`}
-              data-promo-success-order-id={successOrderId}
-            >
-              {safeT("promo_sheet_order_id", {
-                fallbackKo: "신청번호",
-                fallbackEn: "Application #",
-              })}
-              {": "}
-              {successOrderId}
-            </p>
-          ) : null}
           {balance != null ? (
             <p className={`mt-1 ${OverlayUi.bodySecondary}`}>
               {safeT("promo_sheet_balance_after", {
@@ -402,11 +384,9 @@ export function MemberPostPromoteSheet({
                   })}
                 </li>
                 <li className="pt-1 opacity-80">
-                  {safeT("promo_sheet_community_admin_review_note", {
-                    fallbackKo:
-                      "신청 시 Point가 보류(HOLD)됩니다. 관리자 승인 후 피드 상단에 노출되고, 거절 시 Point가 반환됩니다.",
-                    fallbackEn:
-                      "Points are held on apply. After admin approval the post appears at the top of the feed; reject releases the hold.",
+                  {safeT("promo_sheet_community_immediate_note", {
+                    fallbackKo: "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
+                    fallbackEn: "Goes live at the top of the feed immediately with Point. No admin approval.",
                   })}
                 </li>
               </>

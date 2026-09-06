@@ -72,8 +72,6 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_submit_note:
       "결제 후 관리자 심사를 거쳐 광고가 노출됩니다. 결제만으로 광고가 즉시 노출되지 않습니다.",
     owner_platform_popup_section_summary: "신청 요약",
-    owner_platform_popup_success_title: "팝업 광고 신청이 접수되었습니다.",
-    owner_platform_popup_view_detail: "신청 상세",
   },
   en: {
     owner_platform_popup_product_title: "Global Popup Ad",
@@ -144,7 +142,5 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_submit_note:
       "After payment, an admin reviews the ad before it goes live. Payment alone never activates it.",
     owner_platform_popup_section_summary: "Request summary",
-    owner_platform_popup_success_title: "Popup ad request submitted.",
-    owner_platform_popup_view_detail: "View request",
   },
 } as const;

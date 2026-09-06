@@ -593,16 +593,9 @@ export function OwnerStoreSponsoredCreateView() {
         data-owner-ads-workspace="store-sponsored"
         data-owner-ads-wizard="single-page"
       >
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center" data-owner-ads-success="1">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
           <p className="text-[16px] font-bold text-sam-fg">{t("owner_ads_success_title")}</p>
           <p className="mt-2 text-[13px] text-sam-muted">{t("owner_ads_success_body")}</p>
-          <p
-            className="mt-3 text-[12px] tabular-nums text-sam-muted"
-            data-owner-sponsored-success-id={doneCampaign.id}
-          >
-            {language === "en" ? "Application #" : "신청번호 "}
-            {doneCampaign.id}
-          </p>
           <div className="mt-4 flex flex-col gap-2">
             <button
               type="button"
