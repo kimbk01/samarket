@@ -152,10 +152,17 @@ body[data-owner-compact-shell] {
 }
 
 /**
- * Owner stack shell height SSOT — body lock + single `__scroll` owner.
- * DO NOT rely on Tailwind `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh]` concatenation
- * (JIT does not emit the utility → shell grows with content → ch===sh → dead scroll).
+ * Owner stack viewport height — single scroll-capable column under body lock.
+ *
+ * Contract:
+ * - ONE `.owner-stack-shell` on the outermost stack root only
+ * - children use flex-1 min-h-0; never another 100dvh root
+ * - page scroll = `.owner-compact-shell__scroll` (OwnerAdminPageScrollShell)
+ * - header offset = `--owner-shell-main-pt` (h-14 + border, not consumer 52px)
+ *
+ * Do not restore height via dynamic Tailwind `${bp}:h-[100dvh]` (JIT drops it).
  */
+body[data-owner-compact-shell] .owner-stack-shell,
 body[data-owner-compact-shell] [data-owner-stack-shell="1"] {
   box-sizing: border-box;
   height: 100dvh;
