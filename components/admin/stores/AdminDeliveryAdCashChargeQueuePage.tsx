@@ -44,7 +44,9 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch("/api/admin/business-cash-charges?status=PENDING", {
+      // Deep-link requestId may point at a decided row — load all when focusing.
+      const statusQ = focusRequestId ? "all" : "PENDING";
+      const res = await fetch(`/api/admin/business-cash-charges?status=${encodeURIComponent(statusQ)}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -58,13 +60,21 @@ export function AdminDeliveryAdCashChargeQueuePage() {
         setLoaded(true);
         return;
       }
-      setRows(json.requests ?? []);
+      let next = json.requests ?? [];
+      if (focusRequestId) {
+        const hit = next.find((r) => r.id === focusRequestId);
+        const pending = next.filter((r) => String(r.status).toUpperCase() === "PENDING");
+        next = hit
+          ? [hit, ...pending.filter((r) => r.id !== hit.id)]
+          : pending;
+      }
+      setRows(next);
     } catch {
       setError("network");
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [focusRequestId]);
 
   useEffect(() => {
     void load();
