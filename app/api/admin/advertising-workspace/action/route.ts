@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     expectedLifecycle?: string;
     expectedUpdatedAt?: string;
     popupTransition?: string;
+    startAt?: string;
+    endAt?: string;
     /** Compensation / paid extend days — required for extend_compensation */
     requestedDays?: number;
     extensionKind?: "PAID" | "ADMIN_FREE_COMPENSATION";
@@ -473,6 +475,30 @@ export async function POST(req: NextRequest) {
   }
 
   if (family === "platform_popup_campaign") {
+    if (action === "change_period") {
+      const startAt = typeof body.startAt === "string" ? body.startAt.trim() : "";
+      const endAt = typeof body.endAt === "string" ? body.endAt.trim() : "";
+      if (!startAt || !endAt) {
+        return NextResponse.json({ ok: false, error: "period_required" }, { status: 400 });
+      }
+      const { updatePlatformPopupAdminCampaign } = await import(
+        "@/lib/platform-popup/admin-campaign-writer"
+      );
+      const res = await updatePlatformPopupAdminCampaign(sb, {
+        campaignId: entityId,
+        adminUserId: admin.userId,
+        patch: { startAt, endAt },
+        materialTouched: ["schedule"],
+      });
+      if (!res.ok) {
+        return NextResponse.json(
+          { ok: false, error: res.error },
+          { status: res.httpStatus ?? 400 }
+        );
+      }
+      return NextResponse.json({ ok: true, id: entityId });
+    }
+
     const nextStatus = (body.popupTransition ??
       (action === "pause"
         ? "paused"

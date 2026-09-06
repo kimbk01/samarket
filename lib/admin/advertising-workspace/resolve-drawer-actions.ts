@@ -19,7 +19,8 @@ export type WorkspaceDrawerAction =
   | "terminate"
   | "delete_safe_draft"
   | "add_internal_memo"
-  | "extend_compensation";
+  | "extend_compensation"
+  | "change_period";
 
 export type WorkspaceEntityFamily =
   | "boost_community"
@@ -30,7 +31,10 @@ export type WorkspaceEntityFamily =
   | "platform_popup_request"
   | "platform_popup_campaign";
 
-const ACTION_TO_VERB: Record<WorkspaceDrawerAction, AdminAuthorityVerb> = {
+const ACTION_TO_VERB: Record<
+  Exclude<WorkspaceDrawerAction, "change_period">,
+  AdminAuthorityVerb
+> = {
   approve: "APPROVE",
   reject: "REJECT",
   request_changes: "REQUEST_REVISION",
@@ -53,7 +57,7 @@ function familyForMatrix(f: WorkspaceEntityFamily): AdminAuthorityFamily {
 }
 
 /** Infer lifecycle bucket from operator status label / order_status. */
-export function inferWorkspaceLifecycleBucket(statusRaw: string): 
+export function inferWorkspaceLifecycleBucket(statusRaw: string):
   | "pending"
   | "scheduled"
   | "active"
@@ -62,7 +66,7 @@ export function inferWorkspaceLifecycleBucket(statusRaw: string):
   | "draft"
   | "other" {
   const s = statusRaw.toLowerCase();
-  if (s.includes("draft")) return "draft";
+  if (s.includes("draft") || s.includes("임시") || s.includes("불완전")) return "draft";
   if (s.includes("pending") || s.includes("검토") || s.includes("대기") || s.includes("review")) {
     return "pending";
   }
@@ -71,7 +75,9 @@ export function inferWorkspaceLifecycleBucket(statusRaw: string):
   if (s.includes("end") || s.includes("종료") || s.includes("reject") || s.includes("반려")) {
     return "ended";
   }
-  if (s.includes("active") || s.includes("노출") || s.includes("승인")) return "active";
+  if (s.includes("active") || s.includes("활성") || s.includes("노출") || s.includes("승인")) {
+    return "active";
+  }
   return "other";
 }
 
@@ -81,6 +87,38 @@ export function listWorkspaceDrawerActions(input: {
 }): WorkspaceDrawerAction[] {
   const bucket = inferWorkspaceLifecycleBucket(input.statusRaw);
   const matrixFamily = familyForMatrix(input.family);
+
+  if (input.family === "platform_popup_request") {
+    const candidates: WorkspaceDrawerAction[] =
+      bucket === "pending"
+        ? ["approve", "reject", "add_internal_memo"]
+        : ["add_internal_memo"];
+    return candidates.filter((a) => {
+      if (a === "add_internal_memo" || a === "change_period") return true;
+      return isAdminAuthorityCtaAllowed(matrixFamily, ACTION_TO_VERB[a]);
+    });
+  }
+
+  if (input.family === "platform_popup_campaign") {
+    const candidates: WorkspaceDrawerAction[] =
+      bucket === "active"
+        ? ["change_period", "pause", "end", "add_internal_memo"]
+        : bucket === "paused"
+          ? ["change_period", "resume", "end", "add_internal_memo"]
+          : bucket === "scheduled"
+            ? ["change_period", "pause", "end", "add_internal_memo"]
+            : bucket === "draft"
+              ? ["add_internal_memo"]
+              : bucket === "pending"
+                ? ["approve", "reject", "add_internal_memo"]
+                : ["add_internal_memo"];
+    return candidates.filter((a) => {
+      if (a === "add_internal_memo" || a === "change_period") return true;
+      if (a === "extend_compensation") return false;
+      return isAdminAuthorityCtaAllowed(matrixFamily, ACTION_TO_VERB[a]);
+    });
+  }
+
   const candidates: WorkspaceDrawerAction[] =
     bucket === "pending"
       ? ["approve", "reject", "request_changes", "add_internal_memo"]
@@ -95,7 +133,7 @@ export function listWorkspaceDrawerActions(input: {
               : ["add_internal_memo"];
 
   return candidates.filter((a) => {
-    if (a === "add_internal_memo") return true; // wired via audit memo writer
+    if (a === "add_internal_memo" || a === "change_period") return true;
     if (a === "request_changes") {
       return isAdminAuthorityCtaAllowed(matrixFamily, "REQUEST_REVISION");
     }
@@ -116,12 +154,23 @@ export function parseWorkspaceEntityId(rowId: string): string {
 
 export function familyFromControlDomain(
   domain: string,
-  product: string
+  product: string,
+  options?: { id?: string | null; source?: string | null }
 ): WorkspaceEntityFamily | null {
   if (domain === "community_promote") return "boost_community";
   if (domain === "trade_promote") return "boost_trade";
   if (domain === "feed") return "feed_banner";
-  if (domain === "popup") return "platform_popup_request";
+  if (domain === "popup") {
+    const id = String(options?.id ?? "");
+    const source = String(options?.source ?? "");
+    if (
+      id.startsWith("popup_campaign:") ||
+      source === "platform_popup_campaigns"
+    ) {
+      return "platform_popup_campaign";
+    }
+    return "platform_popup_request";
+  }
   if (domain === "delivery") {
     const p = product.toLowerCase();
     if (p.includes("sponsored") || p.includes("store")) return "delivery_sponsored";

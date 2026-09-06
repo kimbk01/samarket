@@ -17,7 +17,8 @@ import type {
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
 import { mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
-import { computePopupWinnerIdsBySurface } from "@/lib/admin/ads-exposure/popup-runtime-display";
+import { computePopupWinnerOccupancy } from "@/lib/admin/ads-exposure/popup-runtime-display";
+import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
 import { computePlacementOccupancy } from "@/lib/admin/ads-operator/placement-occupancy";
@@ -144,9 +145,31 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const popupCampaignItems = popupCampaignsUnavailable ? [] : popupCampaignsRes.items;
   const feedCampaigns = feedCampaignsSettled.ok ? feedCampaignsSettled.items : [];
   let popupWinnerIds = new Set<string>();
+  const popupWinnerById = new Map<
+    string,
+    { displayName: string; priority: number; periodLabel: string }
+  >();
   if (!popupCampaignsUnavailable && popupCampaignItems.length > 0) {
     try {
-      popupWinnerIds = await computePopupWinnerIdsBySurface(sb);
+      const occupancy = await computePopupWinnerOccupancy(sb);
+      popupWinnerIds = occupancy.winnerIds;
+      for (const c of popupCampaignItems) {
+        if (!popupWinnerIds.has(c.id)) continue;
+        const displayTitle = popupOperationalDisplayTitle({
+          name: c.name,
+          id: c.id,
+          updatedAt: c.updatedAt,
+          ko: true,
+        });
+        popupWinnerById.set(c.id, {
+          displayName: displayTitle,
+          priority: c.priority,
+          periodLabel:
+            c.startAt || c.endAt
+              ? `${c.startAt?.slice(0, 10) ?? "?"} → ${c.endAt?.slice(0, 10) ?? "?"}`
+              : "—",
+        });
+      }
     } catch (cause) {
       sectionErrors.push(
         `popup_runtime_display:${cause instanceof Error ? cause.message : String(cause)}`
@@ -169,7 +192,12 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     projected.push(projectPopupRequestToActionItem(r));
   }
   for (const c of popupCampaignItems) {
-    projected.push(projectPopupCampaignToActionItem(c, { winnerIds: popupWinnerIds }));
+    projected.push(
+      projectPopupCampaignToActionItem(c, {
+        winnerIds: popupWinnerIds,
+        winnerById: popupWinnerById,
+      })
+    );
   }
   for (const r of boostRows) {
     projected.push(projectPromoteOrderToActionItem(r));

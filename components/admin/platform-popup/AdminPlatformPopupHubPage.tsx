@@ -173,14 +173,28 @@ export function AdminPlatformPopupHubPage() {
     <div className="space-y-4" data-admin-platform-popup-hub="1">
       <AdminPageHeader
         title={safeT("admin_platform_popup_hub_title", {
-          fallbackKo: "팝업 광고 운영",
-          fallbackEn: "Popup Ad Operations",
+          fallbackKo: "팝업 광고 기존 hub",
+          fallbackEn: "Legacy Popup Ad Hub",
         })}
         description={safeT("admin_platform_popup_hub_desc", {
-          fallbackKo: "오너 신청 검토 · 집행 관리 · 직접 등록. 신청≠집행.",
-          fallbackEn: "Owner request review · execution · direct create. Request ≠ execution.",
+          fallbackKo: "팝업 상품별 상세/writer 화면입니다. 통합 신청은 광고 신청, 승인 후 운영은 노출 관리에서 처리합니다.",
+          fallbackEn: "Product-scoped popup detail/writer hub. Use Applications for requests and Operations for approved campaigns.",
         })}
       />
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/admin/advertising/applications"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm font-semibold text-sam-fg"
+        >
+          {lang === "en" ? "Applications" : "광고 신청"}
+        </Link>
+        <Link
+          href="/admin/advertising/operations"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm font-semibold text-sam-fg"
+        >
+          {lang === "en" ? "Operations" : "노출 관리"}
+        </Link>
+      </div>
 
       <AdminCard>
         <div className="space-y-3">

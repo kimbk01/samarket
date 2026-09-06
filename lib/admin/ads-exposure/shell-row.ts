@@ -21,6 +21,8 @@ export type AdsShellStatusTab =
   | "pending"
   | "scheduled"
   | "live"
+  | "waiting"
+  | "incomplete"
   | "paused"
   | "ended"
   | "rejected";
@@ -39,7 +41,11 @@ export type AdsShellListRow = {
   paymentLabel: string;
   /** Row status bucket — never `"all"`. */
   statusTab: Exclude<AdsShellStatusTab, "all">;
+  applicationStatusLabel: string;
+  campaignStatusLabel: string;
+  runtimeExposureStatusLabel: string;
   statusLabel: string;
+  operatingStatusLabel: string;
   creativeImageUrl: string | null;
   ctaLabel: string | null;
   destinationLabel: string | null;
@@ -57,12 +63,17 @@ export type AdsShellListRow = {
   rawStatus: string;
   currency: string;
   sourceKind: AdsActionItem["sourceKind"];
+  completenessClass: AdsActionItem["completenessClass"];
+  missingFieldsLabel: string | null;
+  waitingReasonLabel: string | null;
+  winnerOccupantLabel: string | null;
 };
 
 export type AdsShellProductFamily = "all" | "promote" | "banner" | "popup" | "sponsored";
 
 function opsToShellTab(ops: AdsOpsStatus): Exclude<AdsShellStatusTab, "all"> {
-  if (ops === "pending" || ops === "draft") return "pending";
+  if (ops === "pending") return "pending";
+  if (ops === "draft") return "incomplete";
   if (ops === "scheduled") return "scheduled";
   if (ops === "live") return "live";
   if (ops === "paused") return "paused";
@@ -151,23 +162,12 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
       : null;
 
   const runtimeStatus = item.runtimeDisplayStatus ?? null;
-  const statusTab =
-    runtimeStatus === "live_now" || runtimeStatus === "eligible_waiting"
-      ? "live"
-      : runtimeStatus
-        ? runtimeStatus === "draft" || runtimeStatus === "pending"
-          ? "pending"
-          : runtimeStatus
-        : normalizeAdsShellStatus(item.status, item.exposureLabel, item.periodLabel);
+  const statusTab = resolveShellStatusTab(item);
   const ops = mapRawToAdsOpsStatus(
     [item.status, item.exposureLabel, item.periodLabel].filter(Boolean).join(" ")
   );
 
-  const memberOrStore = item.storeId
-    ? item.applicantLabel || (ko ? "매장" : "Store")
-    : item.memberId
-      ? item.applicantLabel || (ko ? "회원" : "Member")
-      : item.applicantLabel || (ko ? "—" : "—");
+  const memberOrStore = resolveMemberOrStoreLabel(item, ko);
 
   const targetLabel =
     item.domain === "popup"
@@ -192,6 +192,15 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     domain: item.domain,
   });
 
+  const operatingLabel =
+    item.operatingStatusLabel ||
+    item.lifecycleStatusLabel ||
+    adsOpsStatusLabel(ops, ko);
+  const runtimeLabel = runtimeStatus
+    ? popupRuntimeDisplayLabel(runtimeStatus, ko)
+    : runtimeLabelFromTab(statusTab, ko);
+  const isApplication = item.entity === "application" || item.entity === "approval";
+
   return {
     id: item.id,
     kindLabel: adsShellKindLabel(item.domain, item.product, ko),
@@ -208,9 +217,12 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     amountLabel: item.amountLabel || (ko ? "—" : "—"),
     paymentLabel: item.paymentLabel || (ko ? "—" : "—"),
     statusTab,
-    statusLabel: runtimeStatus
-      ? popupRuntimeDisplayLabel(runtimeStatus, ko)
-      : adsOpsStatusLabel(ops, ko),
+    applicationStatusLabel: isApplication ? operatingLabel : ko ? "—" : "—",
+    campaignStatusLabel: isApplication ? (ko ? "—" : "—") : operatingLabel,
+    runtimeExposureStatusLabel: isApplication ? (ko ? "—" : "—") : runtimeLabel || (ko ? "—" : "—"),
+    /** Backward-compatible label: operating lifecycle only. */
+    statusLabel: operatingLabel,
+    operatingStatusLabel: operatingLabel,
     creativeImageUrl:
       item.creativeImageUrl || (isCreativeUrl(item.creativeHint) ? item.creativeHint : null),
     ctaLabel: item.ctaLabel ?? null,
@@ -218,7 +230,7 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     priority: item.priority ?? null,
     lifecycleStatusLabel: item.lifecycleStatusLabel ?? null,
     runtimeDisplayStatus: runtimeStatus,
-    runtimeDisplayLabel: runtimeStatus ? popupRuntimeDisplayLabel(runtimeStatus, ko) : null,
+    runtimeDisplayLabel: runtimeLabel,
     isRuntimeWinner: item.isRuntimeWinner ?? null,
     href: item.href,
     previewHref: item.previewHref || item.href,
@@ -229,7 +241,70 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     rawStatus: item.status,
     currency: item.currency,
     sourceKind: item.sourceKind ?? null,
+    completenessClass: item.completenessClass ?? null,
+    missingFieldsLabel: item.missingFieldsLabel ?? null,
+    waitingReasonLabel: item.waitingReasonLabel ?? null,
+    winnerOccupantLabel: item.winnerOccupantLabel ?? null,
   };
+}
+
+function runtimeLabelFromTab(statusTab: Exclude<AdsShellStatusTab, "all">, ko: boolean): string | null {
+  if (statusTab === "live") return ko ? "현재 노출 중" : "Live now";
+  if (statusTab === "waiting") return ko ? "노출 대기" : "Waiting";
+  if (statusTab === "scheduled") return ko ? "예약" : "Scheduled";
+  if (statusTab === "paused") return ko ? "일시중지" : "Paused";
+  if (statusTab === "incomplete") return ko ? "노출 불가" : "Not exposable";
+  if (statusTab === "ended" || statusTab === "rejected") return ko ? "노출 종료" : "Ended";
+  return null;
+}
+
+export function resolveMemberOrStoreLabel(item: AdsActionItem, ko: boolean): string {
+  if (item.sourceKind === "admin_direct") return ko ? "—" : "—";
+  if (item.storeId) {
+    return `매장 ${item.storeId.slice(0, 8)}`;
+  }
+  if (item.memberId) {
+    return ko ? `회원 ${item.memberId.slice(0, 8)}` : `Member ${item.memberId.slice(0, 8)}`;
+  }
+  return ko ? "—" : "—";
+}
+
+/**
+ * Summary / filter authority:
+ * - pending = real review only (not draft/incomplete)
+ * - live = customer-visible winner / delivery live only (not eligible_waiting)
+ * - waiting = eligible non-winner popups
+ */
+export function resolveShellStatusTab(
+  item: AdsActionItem
+): Exclude<AdsShellStatusTab, "all"> {
+  const runtimeStatus = item.runtimeDisplayStatus ?? null;
+  if (runtimeStatus === "live_now") return "live";
+  if (runtimeStatus === "eligible_waiting") return "waiting";
+  if (runtimeStatus === "incomplete" || runtimeStatus === "draft") return "incomplete";
+  if (runtimeStatus === "pending") return "pending";
+  if (runtimeStatus === "scheduled") return "scheduled";
+  if (runtimeStatus === "paused") return "paused";
+  if (runtimeStatus === "rejected") return "rejected";
+  if (runtimeStatus === "ended") return "ended";
+
+  if (item.completenessClass === "pending_review") return "pending";
+  if (
+    item.completenessClass === "orphan_partial" ||
+    item.completenessClass === "incomplete" ||
+    item.completenessClass === "draft_ready"
+  ) {
+    return "incomplete";
+  }
+
+  const tab = normalizeAdsShellStatus(item.status, item.exposureLabel, item.periodLabel);
+  if (tab === "pending") {
+    const raw = `${item.status} ${item.lifecycleStatusLabel ?? ""}`.toLowerCase();
+    if (raw.includes("draft") || raw.includes("임시") || raw.includes("불완전")) {
+      return "incomplete";
+    }
+  }
+  return tab;
 }
 
 export function filterShellRowsByTab(

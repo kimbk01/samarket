@@ -19,7 +19,8 @@ export type PopupRuntimeDisplayStatus =
   | "ended"
   | "pending"
   | "draft"
-  | "rejected";
+  | "rejected"
+  | "incomplete";
 
 const SURFACE_PATHNAME: Record<PlatformPopupConsumerSurface, string> = {
   COMMUNITY: "/philife",
@@ -33,8 +34,21 @@ const SURFACE_PATHNAME: Record<PlatformPopupConsumerSurface, string> = {
 export async function computePopupWinnerIdsBySurface(
   sb: SupabaseClient
 ): Promise<Set<string>> {
+  const { winnerIds } = await computePopupWinnerOccupancy(sb);
+  return winnerIds;
+}
+
+export type PopupWinnerOccupant = {
+  campaignId: string;
+  surface: PlatformPopupConsumerSurface;
+};
+
+export async function computePopupWinnerOccupancy(
+  sb: SupabaseClient
+): Promise<{ winnerIds: Set<string>; occupants: PopupWinnerOccupant[] }> {
   const candidates = await loadPlatformPopupCandidates(sb, {});
   const winnerIds = new Set<string>();
+  const occupants: PopupWinnerOccupant[] = [];
   const now = new Date();
 
   for (const expectedSurface of PLATFORM_POPUP_CONSUMER_SURFACES) {
@@ -47,9 +61,15 @@ export async function computePopupWinnerIdsBySurface(
       now,
       candidates,
     });
-    if (result.ok && result.winner) winnerIds.add(result.winner.campaignId);
+    if (result.ok && result.winner) {
+      winnerIds.add(result.winner.campaignId);
+      occupants.push({
+        campaignId: result.winner.campaignId,
+        surface: result.winner.surface,
+      });
+    }
   }
-  return winnerIds;
+  return { winnerIds, occupants };
 }
 
 export function projectPopupRuntimeDisplay(input: {
@@ -58,11 +78,18 @@ export function projectPopupRuntimeDisplay(input: {
   winnerIds: ReadonlySet<string>;
   startAt?: string | null;
   endAt?: string | null;
+  completeness?: "orphan_partial" | "incomplete" | "draft_ready" | "pending_review" | "operating" | null;
 }): {
   status: PopupRuntimeDisplayStatus;
   isRuntimeWinner: boolean;
 } {
   const isRuntimeWinner = input.winnerIds.has(input.campaignId);
+  if (
+    input.completeness === "orphan_partial" ||
+    input.completeness === "incomplete"
+  ) {
+    return { status: "incomplete", isRuntimeWinner: false };
+  }
   switch (input.opsStatus) {
     case "live":
       return {
@@ -76,7 +103,10 @@ export function projectPopupRuntimeDisplay(input: {
     case "rejected":
       return { status: "rejected", isRuntimeWinner: false };
     case "draft":
-      return { status: "draft", isRuntimeWinner: false };
+      return {
+        status: input.completeness === "draft_ready" ? "draft" : "incomplete",
+        isRuntimeWinner: false,
+      };
     case "pending":
       return { status: "pending", isRuntimeWinner: false };
     case "ended":
@@ -97,8 +127,9 @@ export function popupRuntimeDisplayLabel(
     paused: { ko: "일시중지", en: "Paused" },
     ended: { ko: "종료", en: "Ended" },
     pending: { ko: "승인 대기", en: "Pending" },
-    draft: { ko: "작성 중", en: "Draft" },
+    draft: { ko: "임시저장", en: "Saved draft" },
     rejected: { ko: "반려", en: "Rejected" },
+    incomplete: { ko: "불완전", en: "Incomplete" },
   };
   return ko ? labels[status].ko : labels[status].en;
 }

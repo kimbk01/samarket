@@ -13,6 +13,7 @@ import {
   ARO_IA_001_ADS_HUB_PATH,
   ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
+import { AdminAdvertisingAuthorityNav } from "@/components/admin/ads/AdminAdvertisingAuthorityNav";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 
 type AdApplicationDomain = "trade" | "community" | "feed";
@@ -79,7 +80,13 @@ function normalizeDomain(value: string | null): AdApplicationDomain | null {
  * - Canonical page mounts this component with `forcedDomain="community"` and
  *   MUST render the community queue in-place (never hollow redirect).
  */
-export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApplicationDomain }) {
+export function AdminAdApplicationsPage({
+  forcedDomain,
+  canonicalAuthority = false,
+}: {
+  forcedDomain?: AdApplicationDomain;
+  canonicalAuthority?: boolean;
+}) {
   const { safeT, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -117,9 +124,9 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
             fallbackEn: "Choose ad request domain",
           })}
           description={safeT("admin_ad_applications_choose_desc", {
-            fallbackKo: "거래, 커뮤니티, 피드 배너 중 하나를 선택하면 해당 writer 큐만 표시됩니다.",
+            fallbackKo: "승인 전 광고 신청을 상품별로 확인합니다. 승인 뒤 운영은 노출 관리에서 처리합니다.",
             fallbackEn:
-              "Choose Trade, Community, or Feed Banner to show only that writer queue.",
+              "Review pre-approval ad applications by product. Approved campaigns move to operations.",
           })}
           backHref={returnTo ?? undefined}
         />
@@ -163,6 +170,7 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
 
   return (
     <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-promotions">
+      {canonicalAuthority ? <AdminAdvertisingAuthorityNav /> : null}
       <AdminPageHeader
         title={safeT(choice.titleKey, {
           fallbackKo: choice.fallbackTitleKo,
@@ -171,8 +179,8 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
         description={
           domain === "community"
             ? safeT(choice.descKey, {
-                fallbackKo: "커뮤니티 내 포인트 홍보 · writer: point_promotion_orders",
-                fallbackEn: "Community Point promotion · writer: point_promotion_orders",
+                fallbackKo: "커뮤니티 내 포인트 홍보 신청을 승인 전 상태에서 처리합니다.",
+                fallbackEn: "Review Community Point promotion applications before approval.",
               })
             : safeT(choice.descKey, {
                 fallbackKo: choice.fallbackDescKo,
@@ -194,11 +202,12 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
         <section
           id="domain-trade-promo"
           data-admin-domain="trade"
-          data-admin-writer="point_promotion_orders"
           className="space-y-1"
         >
-          <p className="px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">
-            DOMAIN: TRADE · writer: point_promotion_orders (trade)
+          <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
+            {language === "en"
+              ? "Application actions only: detail, approve, hold when supported, reject."
+              : "신청 업무 전용: 상세, 승인, 보류(지원 시), 반려만 처리합니다."}
           </p>
           <AdminCommunityPromotionQueue domain="trade" />
         </section>
@@ -207,11 +216,12 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
         <section
           id="domain-community-promo"
           data-admin-domain="community"
-          data-admin-writer="point_promotion_orders"
           className="space-y-1"
         >
-          <p className="px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">
-            DOMAIN: COMMUNITY · writer: point_promotion_orders (community)
+          <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
+            {language === "en"
+              ? "Application actions only: detail, approve, hold when supported, reject."
+              : "신청 업무 전용: 상세, 승인, 보류(지원 시), 반려만 처리합니다."}
           </p>
           <AdminCommunityPromotionQueue domain="community" />
         </section>
@@ -220,11 +230,12 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
         <section
           id="domain-feed-ad"
           data-admin-domain="feed_banner"
-          data-admin-writer="feed_ad_requests"
           className="space-y-1"
         >
-          <p className="px-1 sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">
-            DOMAIN: FEED BANNER · writer: feed_ad_requests (Growth)
+          <p className="px-1 sam-text-xxs font-semibold text-sam-muted">
+            {language === "en"
+              ? "Application actions only: detail, approve, hold when supported, reject."
+              : "신청 업무 전용: 상세, 승인, 보류(지원 시), 반려만 처리합니다."}
           </p>
           <AdminFeedAdRequestQueue />
         </section>

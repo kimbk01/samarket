@@ -246,7 +246,7 @@ export function AdminDeliveryAdsControlPlane() {
         {/* 1 — Page identity / summary (Control Plane is /admin/delivery-ads only — no dual mount) */}
         <div data-admin-delivery-ads-section="identity">
           <p className="text-[12px] text-sam-muted">
-            {lang === "en" ? "Ads / Exposure › Delivery ops" : "광고 / 노출 › 배달 운영"}
+            {lang === "en" ? "Ads / Exposure › Delivery ads legacy view" : "광고 / 노출 › 배달 광고 기존 화면"}
           </p>
           <h1 className="text-[20px] font-bold text-sam-fg">
             {safeT("admin_delivery_ads_title", {
@@ -256,10 +256,30 @@ export function AdminDeliveryAdsControlPlane() {
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_subtitle", {
-              fallbackKo: "매장 홍보·배달 배너 신청·집행·이력 (단일 운영 경로)",
-              fallbackEn: "Store promotion & delivery banner — single ops path",
+              fallbackKo: "기존 배달 광고 화면입니다. 통합 신청/운영/위치 관리는 광고 / 노출 authority에서 처리합니다.",
+              fallbackEn: "Legacy delivery ads view. Unified application, operation, and placement work is handled by Ads / Exposure authority.",
             })}
           </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link
+              href="/admin/advertising/applications"
+              className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+            >
+              {lang === "en" ? "Applications" : "광고 신청"}
+            </Link>
+            <Link
+              href="/admin/advertising/operations"
+              className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+            >
+              {lang === "en" ? "Operations" : "노출 관리"}
+            </Link>
+            <Link
+              href="/admin/advertising/placements"
+              className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+            >
+              {lang === "en" ? "Placements" : "광고 위치"}
+            </Link>
+          </div>
           <div className="mt-2">
             <Suspense fallback={null}>
               <AdminOpsCrossLinkBar
@@ -310,12 +330,12 @@ export function AdminDeliveryAdsControlPlane() {
           <AdminDeliveryAdActionQueuePanel />
         </div>
 
-        {/* 3 — Ad execution list (actionable-first). UI term: 집행 — not generic Campaign. */}
+        {/* 3 — Legacy delivery execution list. Unified operations live under /admin/advertising/operations. */}
         <div data-admin-delivery-ads-section="execution-list" data-admin-delivery-ads-section-legacy="campaign-list">
           <h2 className="mb-2 text-[14px] font-semibold text-sam-fg">
             {safeT("admin_delivery_ads_execution_list_title", {
-              fallbackKo: "광고 집행 목록",
-              fallbackEn: "Ad executions",
+              fallbackKo: "배달 광고 기존 목록",
+              fallbackEn: "Legacy delivery ads list",
             })}
           </h2>
 
@@ -525,8 +545,8 @@ export function AdminDeliveryAdsControlPlane() {
                           data-cta-focus={cta.focus ?? ""}
                         >
                           {safeT(cta.labelKey, {
-                            fallbackKo: "검토하기",
-                            fallbackEn: "Review",
+                            fallbackKo: "상세",
+                            fallbackEn: "Detail",
                           })}
                         </Link>
                       </div>

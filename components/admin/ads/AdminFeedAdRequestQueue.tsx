@@ -29,8 +29,8 @@ type RequestRow = {
 };
 
 /**
- * Member Feed Ad Request review queue — HOLD capture / release.
- * Detail opens AdminFormSheet (no raw status dropdown).
+ * Member Feed Ad Request queue — application authority only.
+ * Approved campaigns are operated from Ads / Exposure operations.
  */
 export function AdminFeedAdRequestQueue() {
   const { t, safeT, language } = useI18n();
@@ -91,8 +91,8 @@ export function AdminFeedAdRequestQueue() {
           </h2>
           <p className="sam-text-helper text-sam-muted">
             {safeT("admin_feed_req_hint", {
-              fallbackKo: "상세 시트에서 Creative·연결 확인 후 승인/반려/종료합니다.",
-              fallbackEn: "Review creative and destination in the sheet, then approve, reject, or end.",
+              fallbackKo: "상세 시트에서 소재와 연결을 확인한 뒤 승인/보류/반려합니다. 승인 뒤 운영은 노출 관리에서 처리합니다.",
+              fallbackEn: "Review creative and destination, then approve, hold when supported, or reject. Approved campaigns move to operations.",
             })}
           </p>
         </div>
@@ -103,22 +103,13 @@ export function AdminFeedAdRequestQueue() {
           data-testid="admin-feed-req-filter"
         >
           <option value="pending_review">
-            {en ? "In review" : "심사중"} ({countLabel("pending_review", 0)})
-          </option>
-          <option value="scheduled">
-            {en ? "Scheduled" : "광고 예정"} ({countLabel("scheduled", 0)})
-          </option>
-          <option value="active">
-            {en ? "Running" : "광고중"} ({countLabel("active", 0)})
+            {en ? "Pending approval" : "승인 대기"} ({countLabel("pending_review", 0)})
           </option>
           <option value="rejected">
             {en ? "Rejected" : "반려"} ({countLabel("rejected", 0)})
           </option>
           <option value="cancelled">
             {en ? "Cancelled" : "취소"} ({countLabel("cancelled", 0)})
-          </option>
-          <option value="ended">
-            {en ? "Ended" : "종료"} ({countLabel("ended", 0)})
           </option>
           <option value="">{en ? "All" : "전체"}</option>
         </select>

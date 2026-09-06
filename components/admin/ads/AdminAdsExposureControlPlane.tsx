@@ -116,11 +116,14 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <AdminActionLink href={item.href} variant="primary">
-          {ko ? "검토하기" : "Review"}
+          {ko ? "상세" : "Detail"}
+        </AdminActionLink>
+        <AdminActionLink href="/admin/advertising/operations" variant="secondary">
+          {ko ? "노출 관리" : "Operations"}
         </AdminActionLink>
         {item.financeHref ? (
           <AdminActionLink href={item.financeHref} variant="secondary">
-            {ko ? "재무" : "Finance"}
+            {ko ? "결제 관계" : "Payment relation"}
           </AdminActionLink>
         ) : item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
@@ -187,7 +190,11 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
               </td>
               <td className="px-3 py-2">
                 <Link href={r.href} className="font-semibold text-signature hover:underline">
-                  {ko ? "검토하기" : "Review"}
+                  {ko ? "상세" : "Detail"}
+                </Link>
+                {" · "}
+                <Link href="/admin/advertising/operations" className="text-signature hover:underline">
+                  {ko ? "노출 관리" : "Operations"}
                 </Link>
                 {r.statementHref ? (
                   <>
@@ -266,12 +273,12 @@ export function AdminAdsExposureControlPlane() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "광고 관제" : "Ads control"}
+              {ko ? "광고 진단" : "Ads diagnostics"}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
               {ko
-                ? "신청 검토 → 소재 확인 → 결제·승인 → 집행. 매장 홍보·배너·팝업·게시물 홍보는 상품별로 처리합니다."
-                : "Review → creative → payment & approval → execution. Store promo, banners, popup, and post promote stay product-scoped."}
+                ? "이 화면은 진단/관제용입니다. 승인 전 업무는 광고 신청, 승인 후 운영은 노출 관리에서 처리합니다."
+                : "This screen is diagnostic. Use Applications for pre-approval work and Operations for approved campaigns."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -283,7 +290,7 @@ export function AdminAdsExposureControlPlane() {
                 data-admin-ads-data-filter="1"
                 onChange={(e) => setDataFilter(e.target.value as OpsDataFilter)}
               >
-                <option value="ops">{ko ? "운영" : "Ops"}</option>
+                <option value="ops">{ko ? "진단" : "Diagnostics"}</option>
                 <option value="test">{ko ? "테스트" : "Test"}</option>
                 <option value="all">{ko ? "전체" : "All"}</option>
               </select>
@@ -300,21 +307,21 @@ export function AdminAdsExposureControlPlane() {
         ) : null}
       </header>
 
-      <Section id="action-required" title={ko ? "지금 처리할 광고" : "Action required"}>
+      <Section id="action-required" title={ko ? "조치 필요 진단" : "Action diagnostics"}>
         <p className="sam-text-helper text-sam-muted">
           {ko
-            ? "심사·소재·결제·일정 문제가 있는 신청만 모읍니다. 승인·결제·실제 노출은 각각 별개입니다."
-            : "Only applications needing review, creative, payment, or schedule. Approval, payment, and exposure stay separate."}
+            ? "승인 전 업무는 광고 신청, 승인 후 운영은 노출 관리로 이동해 처리합니다."
+            : "Use Applications for pre-approval work and Operations for approved campaigns."}
         </p>
         {actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
             message={
               ko
                 ? dataFilter === "ops"
-                  ? "지금 처리할 운영 광고가 없습니다. (테스트는 「테스트」 필터)"
+                  ? "현재 조치 필요 진단 항목이 없습니다. (테스트는 「테스트」 필터)"
                   : "표시할 항목이 없습니다."
                 : dataFilter === "ops"
-                  ? "No ops ads need action. Use Test filter for fixtures."
+                  ? "No diagnostic action items. Use Test filter for fixtures."
                   : "Nothing to show."
             }
           />
@@ -327,13 +334,13 @@ export function AdminAdsExposureControlPlane() {
         )}
       </Section>
 
-      <Section id="work-queues" title={ko ? "운영 큐" : "Work queues"}>
+      <Section id="work-queues" title={ko ? "Authority 진입점" : "Authority entry points"}>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
           <Link
             href={q.delivery.href}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            {ko ? "신청 검토" : "Application review"}
+            {ko ? "광고 신청" : "Applications"}
             <span className="mt-1 block tabular-nums text-sam-muted">
               {q.delivery.unavailable ? (ko ? "확인 불가" : "Unavailable") : (q.delivery.count ?? "—")}
             </span>

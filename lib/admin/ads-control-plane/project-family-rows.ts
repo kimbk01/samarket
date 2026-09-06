@@ -25,9 +25,15 @@ import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-r
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
 import {
+  popupRuntimeDisplayLabel,
   projectPopupRuntimeDisplay,
   type PopupRuntimeDisplayStatus,
 } from "@/lib/admin/ads-exposure/popup-runtime-display";
+import {
+  classifyPopupCampaignCompleteness,
+  popupMissingFieldsLabel,
+  popupWaitingReasonLabel,
+} from "@/lib/admin/ads-exposure/popup-completeness";
 import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
 
 function ageHours(iso: string): number | null {
@@ -136,6 +142,20 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     String(c.title ?? "").trim() ||
     String(c.headline ?? "").trim() ||
     id.slice(0, 8);
+  const runtimeStatus =
+    ops === "live"
+      ? ("live_now" as const)
+      : ops === "scheduled"
+        ? ("scheduled" as const)
+        : ops === "paused"
+          ? ("paused" as const)
+          : ops === "pending"
+            ? ("pending" as const)
+            : ops === "draft"
+              ? ("incomplete" as const)
+              : ops === "rejected"
+                ? ("rejected" as const)
+                : ("ended" as const);
 
   return {
     id: `delivery:${id}`,
@@ -152,26 +172,29 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     creativeHint: c.imageUrl?.trim() || null,
     placementHint: deliveryPlacementHint(c) ?? (c.inventoryKeys?.[0] ?? null),
     amountLabel: null,
-    currency: "CASH",
+    currency: adminDirect ? ("N_A" satisfies AdsBillingCurrency) : ("CASH" satisfies AdsBillingCurrency),
     status: opsLabel(ops),
     whyActionable: actionable,
-    paymentLabel: adsPaymentLabel(adminDirect ? "FUNDED" : null, "CASH", true),
+    paymentLabel: adsPaymentLabel(adminDirect ? "ADMIN_DIRECT" : null, adminDirect ? "N_A" : "CASH", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
-    exposureLabel: exposureFromOps(ops),
-    eligibility: exposureFromOps(ops),
+    exposureLabel: popupRuntimeDisplayLabel(runtimeStatus, true),
+    eligibility: popupRuntimeDisplayLabel(runtimeStatus, true),
     ageHours: ageHours(at),
     at,
     source: "admin_delivery_ad_campaign_list",
     href: DELIVERY_AD_ADMIN_ROUTES.detail(id),
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-    financeHref: "/admin/finance#action-required",
+    financeHref: adminDirect ? null : "/admin/finance#action-required",
     memberHref: ownerId ? memberHref(ownerId) : null,
     title,
     creativeImageUrl: c.imageUrl?.trim() || null,
     ctaLabel: c.ctaHref ? "이동" : null,
     destinationLabel: c.ctaHref?.trim() || null,
     lifecycleStatusLabel: opsLabel(ops),
+    operatingStatusLabel: opsLabel(ops),
+    runtimeDisplayStatus: runtimeStatus,
+    isRuntimeWinner: ops === "live",
     sourceKind: adminDirect ? "admin_direct" : "owner",
     previewHref: `${DELIVERY_AD_ADMIN_ROUTES.detail(id)}?focus=preview`,
   };
@@ -487,7 +510,13 @@ export function popupCampaignOpsStatus(
 
 export function projectPopupCampaignToActionItem(
   c: PlatformPopupAdminListItem,
-  options: { winnerIds?: ReadonlySet<string> } = {}
+  options: {
+    winnerIds?: ReadonlySet<string>;
+    winnerById?: ReadonlyMap<
+      string,
+      { displayName: string; priority: number; periodLabel: string }
+    >;
+  } = {}
 ): AdsActionItem {
   const ops = popupCampaignOpsStatus(c);
   const id = String(c.id ?? "");
@@ -496,12 +525,21 @@ export function projectPopupCampaignToActionItem(
   const surfaceHint =
     c.surfaces?.length > 0 ? c.surfaces.join(",") : "GLOBAL";
   const adminDirect = !c.ownerStoreId && !c.ownerRequestId;
+  const completeness = classifyPopupCampaignCompleteness({
+    status: c.status,
+    approvalStatus: c.approvalStatus,
+    hasReadyCreative: Boolean(c.creativeThumbUrl),
+    startAt: c.startAt,
+    endAt: c.endAt,
+    name: c.name,
+  });
   const runtime = projectPopupRuntimeDisplay({
     opsStatus: ops,
     campaignId: id,
     winnerIds: options.winnerIds ?? new Set<string>(),
     startAt: c.startAt,
     endAt: c.endAt,
+    completeness: completeness.completeness,
   });
   const displayTitle = popupOperationalDisplayTitle({
     name: c.name,
@@ -520,6 +558,27 @@ export function projectPopupCampaignToActionItem(
             ? "거래 글 이동"
             : "커뮤니티 글 이동";
   const destinationLabel = c.externalUrl?.trim() || c.ctaTarget?.trim() || null;
+  const periodLabel = formatPeriod(c.startAt, c.endAt);
+  const missingFieldsLabel = popupMissingFieldsLabel(completeness.missing, true) || null;
+
+  let waitingReasonLabel: string | null = null;
+  let winnerOccupantLabel: string | null = null;
+  if (runtime.status === "eligible_waiting") {
+    const winners = [...(options.winnerIds ?? [])];
+    const primaryWinnerId = winners[0] ?? null;
+    const meta = primaryWinnerId ? options.winnerById?.get(primaryWinnerId) : null;
+    winnerOccupantLabel = meta?.displayName ?? primaryWinnerId;
+    waitingReasonLabel = popupWaitingReasonLabel({
+      winnerDisplayName: meta?.displayName ?? null,
+      winnerPriority: meta?.priority ?? null,
+      winnerPeriodLabel: meta?.periodLabel ?? null,
+      ko: true,
+    });
+  }
+
+  const paymentLabel = adminDirect
+    ? adsPaymentLabel("ADMIN_DIRECT", "N_A", true)
+    : adsPaymentLabel(null, "CASH", true);
 
   return {
     id: `popup_campaign:${id}`,
@@ -536,31 +595,46 @@ export function projectPopupCampaignToActionItem(
     creativeHint: c.creativeThumbUrl,
     placementHint: surfaceHint,
     amountLabel: null,
-    currency: "CASH" satisfies AdsBillingCurrency,
-    status: opsLabel(ops),
-    whyActionable: ops === "pending" || ops === "draft" ? "팝업 캠페인 확인이 필요합니다." : null,
-    paymentLabel: adsPaymentLabel(null, "CASH", true),
-    periodLabel: formatPeriod(c.startAt, c.endAt),
+    currency: adminDirect ? ("N_A" satisfies AdsBillingCurrency) : ("CASH" satisfies AdsBillingCurrency),
+    status: completeness.operatingLabelKo,
+    whyActionable:
+      completeness.completeness === "pending_review"
+        ? "팝업 광고 신청 심사가 필요합니다."
+        : completeness.completeness === "orphan_partial" ||
+            completeness.completeness === "incomplete"
+          ? missingFieldsLabel
+            ? `불완전: ${missingFieldsLabel}`
+            : "필수 정보가 부족합니다."
+          : completeness.completeness === "draft_ready"
+            ? "임시저장된 팝업입니다. 등록을 완료하세요."
+            : null,
+    paymentLabel,
+    periodLabel,
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
-    exposureLabel: exposureFromOps(ops),
-    eligibility: exposureFromOps(ops),
+    exposureLabel: popupRuntimeDisplayLabel(runtime.status, true),
+    eligibility: popupRuntimeDisplayLabel(runtime.status, true),
     ageHours: ageHours(at),
     at,
     source: "platform_popup_campaigns",
     href: `/admin/platform-popup/${encodeURIComponent(id)}`,
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-    financeHref: "/admin/finance#action-required",
+    financeHref: adminDirect ? null : "/admin/finance#action-required",
     memberHref: null,
     title: displayTitle,
     creativeImageUrl: c.creativeThumbUrl,
     ctaLabel,
     destinationLabel,
     priority: c.priority,
-    lifecycleStatusLabel: opsLabel(ops),
+    lifecycleStatusLabel: completeness.operatingLabelKo,
+    operatingStatusLabel: completeness.operatingLabelKo,
     runtimeDisplayStatus: runtime.status satisfies PopupRuntimeDisplayStatus,
     isRuntimeWinner: runtime.isRuntimeWinner,
     sourceKind: adminDirect ? "admin_direct" : "owner",
     previewHref: `/admin/platform-popup/${encodeURIComponent(id)}?focus=preview`,
+    completenessClass: completeness.completeness,
+    missingFieldsLabel,
+    waitingReasonLabel,
+    winnerOccupantLabel,
   };
 }
 

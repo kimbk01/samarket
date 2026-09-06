@@ -33,6 +33,34 @@ describe("workspace drawer writer CTAs", () => {
     expect(familyFromControlDomain("community_promote", "x")).toBe("boost_community");
     expect(familyFromControlDomain("delivery", "banner")).toBe("delivery_banner");
     expect(familyFromControlDomain("popup", "x")).toBe("platform_popup_request");
+    expect(
+      familyFromControlDomain("popup", "platform_popup", {
+        id: "popup_campaign:abc",
+        source: "platform_popup_campaigns",
+      })
+    ).toBe("platform_popup_campaign");
+  });
+
+  it("popup campaign active exposes pause/end/change_period without extend_compensation", () => {
+    const actions = listWorkspaceDrawerActions({
+      family: "platform_popup_campaign",
+      statusRaw: "활성",
+    });
+    expect(actions).toContain("pause");
+    expect(actions).toContain("end");
+    expect(actions).toContain("change_period");
+    expect(actions).not.toContain("extend_compensation");
+    expect(actions).not.toContain("approve");
+  });
+
+  it("popup request pending exposes approve/reject only", () => {
+    const actions = listWorkspaceDrawerActions({
+      family: "platform_popup_request",
+      statusRaw: "승인 대기",
+    });
+    expect(actions).toContain("approve");
+    expect(actions).toContain("reject");
+    expect(actions).not.toContain("pause");
   });
 
   it("splits internal memo vs public message", () => {

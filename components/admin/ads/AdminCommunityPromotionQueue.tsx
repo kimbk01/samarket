@@ -25,8 +25,9 @@ type OrderRow = {
 type Domain = "community" | "trade";
 
 /**
- * Member paid-exposure approval queue (point_promotion_orders).
+ * Member paid-exposure application queue (point_promotion_orders).
  * Community + Trade「더 알리기」 share HOLD capture / release.
+ * Campaign operations are handled by Ads / Exposure operations.
  */
 export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?: Domain }) {
   const { safeT, language } = useI18n();
@@ -66,7 +67,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
       reason =
         (await dibayPrompt({
           title: safeT("admin_comm_promo_reject_prompt", {
-            fallbackKo: "거절 사유 (필수)",
+            fallbackKo: "반려 사유 (필수)",
             fallbackEn: "Reject reason (required)",
           }),
           defaultValue: "",
@@ -110,13 +111,13 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           <p className="sam-text-helper text-sam-muted">
             {isTrade
               ? safeT("admin_trade_promo_hint", {
-                  fallbackKo: "거래 매물 더 알리기 — 글 확인 후 HOLD 확정/해제. 승인 시 홈·해당 카테고리 목록에 노출됩니다.",
+                  fallbackKo: "거래 매물 더 알리기 신청 — 글 확인 후 승인/반려합니다. 승인 뒤 운영은 노출 관리에서 확인합니다.",
                   fallbackEn:
-                    "Trade listing boost — review the post, then HOLD capture / release. After approval it appears on Home and that category feed.",
+                    "Trade listing boost application — approve or reject after review. Approved operations are managed in Ads operations.",
                 })
               : safeT("admin_comm_promo_hint", {
-                  fallbackKo: "커뮤니티 게시물 상위노출 — HOLD 확정/해제",
-                  fallbackEn: "Community post boost — HOLD capture / release",
+                  fallbackKo: "커뮤니티 게시물 상위노출 신청 — 승인/반려만 처리합니다.",
+                  fallbackEn: "Community post boost application — approve or reject only.",
                 })}
           </p>
         </div>
@@ -125,9 +126,8 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         >
-          <option value="pending_review">{en ? "Pending" : "심사 중"}</option>
-          <option value="active">{en ? "Active" : "노출 중"}</option>
-          <option value="rejected">{en ? "Rejected" : "거절"}</option>
+          <option value="pending_review">{en ? "Pending approval" : "승인 대기"}</option>
+          <option value="rejected">{en ? "Rejected" : "반려"}</option>
           <option value="">{en ? "All" : "전체"}</option>
         </select>
       </div>
@@ -230,7 +230,7 @@ export function AdminCommunityPromotionQueue({ domain = "community" }: { domain?
                       onClick={() => void act(row.id, "reject")}
                       className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
                     >
-                      {en ? "Reject" : "거절"}
+                      {en ? "Reject" : "반려"}
                     </button>
                   </div>
                 ) : null}

@@ -103,8 +103,8 @@ export function AdminFeedAdsListPage() {
       <AdminPageHeader titleKey="admin_menu_ads_feed" />
       <p className="sam-text-body-secondary text-sam-muted">
         {ko
-          ? "거래/커뮤니티 피드 배너 집행 목록입니다. 신청 심사는 「피드 광고 신청」에서 처리합니다. Point 결제 · ACTIVE≠실제 노출."
-          : "Trade/Community feed banner executions. Review requests under Feed ad requests. Point billing · ACTIVE ≠ live exposure."}
+          ? "피드 배너 기존 상품별 목록입니다. 통합 신청은 광고 신청, 승인 후 운영은 노출 관리에서 처리합니다."
+          : "Legacy product-scoped Feed banner list. Use Applications for requests and Operations for approved campaigns."}
       </p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
@@ -125,10 +125,16 @@ export function AdminFeedAdsListPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/admin/ad-applications?domain=feed"
+            href="/admin/advertising/applications"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-semibold text-sam-fg"
           >
-            {ko ? "신청 검토" : "Review requests"}
+            {ko ? "광고 신청" : "Applications"}
+          </Link>
+          <Link
+            href="/admin/advertising/operations"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body font-semibold text-sam-fg"
+          >
+            {ko ? "노출 관리" : "Operations"}
           </Link>
           <a
             href="/admin/feed-ads/new"

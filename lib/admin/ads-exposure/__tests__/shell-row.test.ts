@@ -86,12 +86,21 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
   });
 
   it("projects human placement and live href for HERO banner", () => {
-    const row = toAdsShellListRow(item({}), true);
+    const row = toAdsShellListRow(
+      item({
+        runtimeDisplayStatus: "live_now",
+        operatingStatusLabel: "노출 중",
+      }),
+      true
+    );
     expect(row.kindLabel).toBe("배달 배너");
     expect(row.placementLabel).toContain("상단 배너");
     expect(row.statusTab).toBe("live");
+    expect(row.applicationStatusLabel).toBe("—");
+    expect(row.campaignStatusLabel).toBe("노출 중");
+    expect(row.runtimeExposureStatusLabel).toBe("현재 노출 중");
     expect(row.liveHref).toBe("/stores");
-    expect(row.memberOrStore).toBe("한식당");
+    expect(row.memberOrStore).toBe("매장 store-1");
   });
 
   it("keeps popup target separate when creative is a URL", () => {
@@ -101,11 +110,14 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
         product: "platform_popup",
         applicantLabel: "Admin 직접 등록",
         storeId: null,
+        memberId: null,
+        sourceKind: "admin_direct",
         title: "9월 팝업",
         placementHint: "GLOBAL",
         creativeHint: "https://cdn.example.com/popup.webp",
         creativeImageUrl: "https://cdn.example.com/popup.webp",
         runtimeDisplayStatus: "eligible_waiting",
+        paymentLabel: "결제 없음",
         previewHref: "/admin/platform-popup/1?focus=preview",
       }),
       true
@@ -114,9 +126,30 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
     expect(row.placementLabel).toBe("전체 서비스 팝업");
     expect(row.targetLabel).not.toBe(row.placementLabel);
     expect(row.creativeImageUrl).toContain("popup.webp");
-    expect(row.statusTab).toBe("live");
-    expect(row.statusLabel).toBe("노출 대기");
+    expect(row.statusTab).toBe("waiting");
+    expect(row.statusLabel).toBe("노출 중");
+    expect(row.runtimeExposureStatusLabel).toBe("노출 대기");
+    expect(row.memberOrStore).toBe("—");
+    expect(row.paymentLabel).toBe("결제 없음");
     expect(row.previewHref).not.toBe(row.href);
+  });
+
+  it("does not count draft/incomplete as pending", () => {
+    const row = toAdsShellListRow(
+      item({
+        domain: "popup",
+        product: "platform_popup",
+        status: "임시저장",
+        storeId: null,
+        memberId: null,
+        sourceKind: "admin_direct",
+        runtimeDisplayStatus: "draft",
+        completenessClass: "draft_ready",
+        paymentLabel: "결제 없음",
+      }),
+      true
+    );
+    expect(row.statusTab).toBe("incomplete");
   });
 });
 
@@ -128,7 +161,15 @@ describe("adsShellKindLabel + filters", () => {
 
   it("filters by status tab and product family", () => {
     const rows = [
-      toAdsShellListRow(item({ id: "a", status: "ACTIVE", exposureLabel: "노출 중" }), true),
+      toAdsShellListRow(
+        item({
+          id: "a",
+          status: "ACTIVE",
+          exposureLabel: "노출 중",
+          runtimeDisplayStatus: "live_now",
+        }),
+        true
+      ),
       toAdsShellListRow(
         item({
           id: "b",
@@ -139,6 +180,7 @@ describe("adsShellKindLabel + filters", () => {
           storeId: null,
           memberId: "m1",
           applicantLabel: "회원A",
+          runtimeDisplayStatus: "pending",
         }),
         true
       ),
@@ -149,6 +191,7 @@ describe("adsShellKindLabel + filters", () => {
           product: "popup",
           status: "REJECTED",
           placementHint: "GLOBAL",
+          runtimeDisplayStatus: "rejected",
         }),
         true
       ),

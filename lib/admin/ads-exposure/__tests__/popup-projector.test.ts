@@ -34,5 +34,26 @@ describe("popup campaign action item", () => {
     expect(item.creativeImageUrl).toBe(campaign.creativeThumbUrl);
     expect(item.runtimeDisplayStatus).toBe("live_now");
     expect(item.sourceKind).toBe("admin_direct");
+    expect(item.paymentLabel).toBe("결제 없음");
+    expect(item.operatingStatusLabel).toBe("노출 중");
+  });
+
+  it("marks eligible non-winner as waiting with reason", () => {
+    const item = projectPopupCampaignToActionItem(campaign, {
+      winnerIds: new Set(["winner-1"]),
+      winnerById: new Map([
+        [
+          "winner-1",
+          {
+            displayName: "Owner popup · 19085860",
+            priority: 0,
+            periodLabel: "2026-09-05 → 2026-09-07",
+          },
+        ],
+      ]),
+    });
+    expect(item.runtimeDisplayStatus).toBe("eligible_waiting");
+    expect(item.waitingReasonLabel).toContain("Owner popup · 19085860");
+    expect(item.waitingReasonLabel).not.toContain("compareWinners");
   });
 });

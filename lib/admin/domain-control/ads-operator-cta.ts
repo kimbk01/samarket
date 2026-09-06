@@ -50,17 +50,17 @@ export function adsLifecycleOperatorLabel(
 ): string {
   const s = String(lifecycle ?? "").trim();
   const map: Record<string, { ko: string; en: string }> = {
-    DRAFT: { ko: "작성 중", en: "Draft" },
-    SUBMITTED: { ko: "신청 접수", en: "Submitted" },
-    UNDER_REVIEW: { ko: "검수 중", en: "Under review" },
-    CHANGES_REQUESTED: { ko: "수정 요청됨", en: "Changes requested" },
-    APPROVED: { ko: "승인됨", en: "Approved" },
-    SCHEDULED: { ko: "예약됨", en: "Scheduled" },
-    ACTIVE: { ko: "집행 중", en: "Active" },
+    DRAFT: { ko: "임시저장", en: "Draft" },
+    SUBMITTED: { ko: "승인 대기", en: "Pending approval" },
+    UNDER_REVIEW: { ko: "승인 대기", en: "Pending approval" },
+    CHANGES_REQUESTED: { ko: "보류", en: "On hold" },
+    APPROVED: { ko: "승인", en: "Approved" },
+    SCHEDULED: { ko: "예약", en: "Scheduled" },
+    ACTIVE: { ko: "노출 중", en: "Live" },
     PAUSED_OWNER: { ko: "사장님 일시중지", en: "Paused by owner" },
     PAUSED_ADMIN: { ko: "관리자 일시중지", en: "Paused by admin" },
     EXHAUSTED: { ko: "소진", en: "Exhausted" },
-    REJECTED: { ko: "거절됨", en: "Rejected" },
+    REJECTED: { ko: "반려", en: "Rejected" },
     ENDED: { ko: "종료", en: "Ended" },
     TERMINATED: { ko: "강제 종료", en: "Terminated" },
     ARCHIVED: { ko: "보관됨", en: "Archived" },
@@ -134,11 +134,19 @@ export function adsPaymentLabel(
   ko: boolean
 ): string {
   const f = String(fundingStatus ?? "").toUpperCase();
+  if (f === "NONE" || f === "ADMIN_DIRECT" || currency === "N_A") {
+    return ko ? "결제 없음" : "No payment";
+  }
   if (currency === "POINT") {
     return ko ? "Point 결제" : "Point billing";
   }
-  if (f === "FUNDED") return ko ? "Cash 결제 완료" : "Cash funded";
+  if (f === "FUNDED") return ko ? "Business Cash 결제 완료" : "Business Cash funded";
   if (f === "REFUNDED") return ko ? "환불됨" : "Refunded";
-  if (f === "UNFUNDED" || !f) return ko ? "결제 미완료" : "Not funded";
+  if (currency === "CASH") {
+    if (f === "UNFUNDED") return ko ? "Business Cash 결제 대기" : "Business Cash pending";
+    if (!f) return ko ? "Business Cash 결제" : "Business Cash billing";
+  }
+  if (f === "UNFUNDED") return ko ? "결제 대기" : "Payment pending";
+  if (!f) return ko ? "결제 정보 없음" : "Payment unavailable";
   return ko ? `결제: ${f}` : `Payment: ${f}`;
 }

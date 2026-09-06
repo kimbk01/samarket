@@ -55,10 +55,23 @@ export type AdsActionItem = {
     | "pending"
     | "draft"
     | "rejected"
+    | "incomplete"
     | null;
   isRuntimeWinner?: boolean | null;
   sourceKind?: "admin_direct" | "owner" | "member" | "unknown" | null;
   previewHref?: string | null;
+  /** Operating lifecycle label — never conflate with runtime exposure. */
+  operatingStatusLabel?: string | null;
+  completenessClass?:
+    | "orphan_partial"
+    | "incomplete"
+    | "draft_ready"
+    | "pending_review"
+    | "operating"
+    | null;
+  missingFieldsLabel?: string | null;
+  waitingReasonLabel?: string | null;
+  winnerOccupantLabel?: string | null;
 };
 
 export type AdsExecutionRow = {
