@@ -47,6 +47,7 @@ import {
   type OwnerProductRegisterErrorModal,
 } from "@/lib/business/owner-product-register-error";
 import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 type FormValues = {
   title: string;
   summary: string;
@@ -254,7 +255,15 @@ export function OwnerProductForm({
     setFormTab("basic");
     setDetailNav("top");
     requestAnimationFrame(() => {
-      formBodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      const host =
+        formBodyScrollRef.current?.closest<HTMLElement>(
+          ".owner-compact-shell__scroll, [data-owner-compact-shell-scroll], main"
+        ) ?? null;
+      if (host && host.scrollHeight > host.clientHeight + 8) {
+        host.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }, []);
 
@@ -263,19 +272,14 @@ export function OwnerProductForm({
     setDetailNav("options");
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const sc = formBodyScrollRef.current;
         const el = optionsSectionRef.current;
-        if (!sc || !el) return;
+        if (!el) return;
         // Prefer the primary options CTA so sticky category/tabs cannot intercept taps.
         const cta =
           el.querySelector<HTMLElement>("button[aria-label]") ||
           el.querySelector<HTMLElement>("button");
         const target = cta ?? el;
-        const scRect = sc.getBoundingClientRect();
-        const tRect = target.getBoundingClientRect();
-        const desired = scRect.top + Math.min(120, Math.floor(scRect.height * 0.22));
-        const delta = tRect.top - desired;
-        sc.scrollTo({ top: Math.max(0, sc.scrollTop + delta), behavior: "smooth" });
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }, []);
@@ -692,17 +696,15 @@ export function OwnerProductForm({
 
   if (loading) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center px-4 py-6">
+      <div className="px-4 py-6">
         <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
-      data-owner-product-composer="1"
-    >
+    <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>
+    <div className="flex min-h-0 flex-col bg-[var(--biz-app-bg)]" data-owner-product-composer="1">
       <div
         className={`sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS}`}
       >
@@ -766,15 +768,11 @@ export function OwnerProductForm({
         </nav>
       </div>
 
-      <div
-        ref={formBodyScrollRef}
-        data-owner-product-form-scroll="1"
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
-      >
+      <div ref={formBodyScrollRef} data-owner-product-form-scroll="1" className="min-w-0">
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="min-w-0 space-y-2 px-0 py-2 pb-0"
+        className="min-w-0 space-y-2 px-0 py-2 pb-[max(1rem,var(--safe-bottom))]"
       >
         {error ? (
           <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">
@@ -1154,5 +1152,6 @@ export function OwnerProductForm({
         }}
       />
     </div>
+    </OwnerAdminPageScrollShell>
   );
 }

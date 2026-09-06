@@ -1,6 +1,6 @@
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 
-/** 상품 등록·편집 — 본문/하단 액션 분리를 위해 scroll host 잠금에서 제외 */
+/** 상품 등록·편집 — 헤더 분기·BottomNav 숨김 대상 (scroll host는 stack과 동일) */
 export function isOwnerStoreProductComposerPath(pathname: string): boolean {
   const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
   return (
@@ -13,11 +13,8 @@ export function isOwnerStoreProductComposerPath(pathname: string): boolean {
 
 /**
  * compact 오너 스택 — body 스크롤 잠금 + `.owner-compact-shell__scroll` 단일 스크롤.
- * basic-info·profile·orders 등 guarded 서브라우트 포함. (하단 5탭 숨김과 분리)
+ * Product composer 포함: nested 100dvh/flex-1 scroll owner 는 WebKit에서 height 0 붕괴.
  */
 export function resolveOwnerStackScrollHostPath(ownerPathNorm: string): boolean {
-  return (
-    isStoresOwnerStackPath(ownerPathNorm) &&
-    !isOwnerStoreProductComposerPath(ownerPathNorm)
-  );
+  return isStoresOwnerStackPath(ownerPathNorm);
 }

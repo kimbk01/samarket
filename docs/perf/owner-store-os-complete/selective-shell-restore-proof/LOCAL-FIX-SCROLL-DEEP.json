@@ -1,0 +1,123 @@
+{
+  "at": "2026-09-06T08:25:22.888Z",
+  "webkit": {
+    "name": "webkit",
+    "initial": {
+      "composer": {
+        "h": 1446,
+        "ch": 1446,
+        "sh": 1446,
+        "oy": "visible",
+        "top": 53
+      },
+      "productScroll": {
+        "h": 1320,
+        "ch": 1320,
+        "sh": 1320,
+        "oy": "visible",
+        "top": 180
+      },
+      "shellScroll": {
+        "h": 0,
+        "ch": 0,
+        "sh": 1446,
+        "oy": "auto",
+        "top": 53
+      },
+      "biz": {
+        "h": 0,
+        "ch": 0,
+        "sh": 0,
+        "oy": "visible",
+        "top": 0
+      },
+      "nameVisible": true,
+      "submitTop": 1414,
+      "submitInView": false,
+      "se": {
+        "ch": 844,
+        "sh": 844,
+        "top": 0
+      }
+    },
+    "afterSwipe": {
+      "shellTop": 600,
+      "seTop": 0,
+      "submitTop": 814
+    },
+    "prog": {
+      "shellCh": 0,
+      "shellSh": 1446,
+      "shellTop": 800,
+      "submitTop": 614,
+      "submitInView": true,
+      "nameVisible": false
+    },
+    "intoView": {
+      "submitInView": false,
+      "submitTop": -30,
+      "shellTop": 1391,
+      "seTop": 0
+    }
+  },
+  "chromium": {
+    "name": "chromium",
+    "initial": {
+      "composer": {
+        "h": 1446,
+        "ch": 1446,
+        "sh": 1446,
+        "oy": "visible",
+        "top": 53
+      },
+      "productScroll": {
+        "h": 1320,
+        "ch": 1320,
+        "sh": 1320,
+        "oy": "visible",
+        "top": 180
+      },
+      "shellScroll": {
+        "h": 791,
+        "ch": 791,
+        "sh": 1446,
+        "oy": "auto",
+        "top": 53
+      },
+      "biz": {
+        "h": 844,
+        "ch": 844,
+        "sh": 844,
+        "oy": "visible",
+        "top": 0
+      },
+      "nameVisible": true,
+      "submitTop": 1414,
+      "submitInView": false,
+      "se": {
+        "ch": 844,
+        "sh": 844,
+        "top": 0
+      }
+    },
+    "afterSwipe": {
+      "shellTop": 600,
+      "seTop": 0,
+      "submitTop": 814
+    },
+    "prog": {
+      "shellCh": 791,
+      "shellSh": 1446,
+      "shellTop": 655,
+      "submitTop": 759,
+      "submitInView": true,
+      "nameVisible": false
+    },
+    "intoView": {
+      "submitInView": true,
+      "submitTop": 743,
+      "shellTop": 655,
+      "seTop": 0
+    }
+  }
+}

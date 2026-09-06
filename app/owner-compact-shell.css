@@ -10,7 +10,11 @@
  */
 
 body[data-owner-compact-shell] {
-  --owner-header-height: var(--sam-header-row-height, 3.5rem);
+  /**
+   * SELECTIVE_SHELL_RESTORE top clearance SSOT.
+   * Owner stack headers are `h-14` (3.5rem). Do not use consumer `--sam-header-row-height` (52px).
+   */
+  --owner-header-height: 3.5rem;
   --owner-bottom-nav-height: 60px;
   --owner-safe-top: var(--safe-top);
   --owner-safe-bottom: var(--safe-bottom);
@@ -31,23 +35,20 @@ body[data-owner-compact-shell] {
   );
   --owner-shell-main-pt: var(--owner-content-top);
   /**
-   * Content bottom clearance = bottom-nav + gap(16) + safe-bottom.
-   * DO NOT add `--delivery-home-overhang` (consumer delivery chrome).
+   * Actual Owner bottom-nav footprint (APK / iOS / Windows 공통).
+   * Nav root uses `.app-bottom-nav-shell--delivery` → height includes overhang.
+   * Content clearance and FAB must share this footprint (no platform forks).
    */
-  --owner-content-bottom: calc(
-    var(--owner-bottom-nav-height) + 16px + var(--owner-fixed-action-height) +
+  --owner-bottom-nav-footprint: calc(
+    var(--owner-bottom-nav-height) + var(--delivery-home-overhang, 0px) +
       var(--owner-safe-bottom)
   );
-  --owner-shell-main-pb: var(--owner-content-bottom);
-  /**
-   * FAB sits above Owner delivery bottom-nav shell + home orbit overhang + gap.
-   * Nav root uses `.app-bottom-nav-shell--delivery` (height includes overhang);
-   * omit overhang and FAB overlaps the orbit by ~8px.
-   */
-  --owner-fab-bottom: calc(
-    var(--owner-bottom-nav-height) + var(--delivery-home-overhang, 0px) +
-      var(--owner-safe-bottom) + 10px
+  --owner-content-bottom: calc(
+    var(--owner-bottom-nav-footprint) + 16px + var(--owner-fixed-action-height)
   );
+  --owner-shell-main-pb: var(--owner-content-bottom);
+  /** FAB sits above the same nav footprint + gap. */
+  --owner-fab-bottom: calc(var(--owner-bottom-nav-footprint) + 10px);
 }
 
 /** `--sam-bp-sm-tablet-min` */
@@ -145,6 +146,33 @@ body[data-owner-compact-shell] {
 
 .owner-compact-shell__main-pb {
   padding-bottom: var(--owner-content-bottom, var(--owner-shell-main-pb, calc(76px + var(--safe-bottom))));
+}
+
+/**
+ * SELECTIVE_SHELL_RESTORE — body lock requires ONE bounded viewport root so
+ * `.owner-compact-shell__scroll` can own page scroll.
+ *
+ * - ONE `.owner-stack-shell` on outermost stack root only
+ * - children: flex-1 min-h-0 only (never a second 100dvh root)
+ * - Product form: document-flow under OwnerAdminPageScrollShell (no route-local 100dvh)
+ */
+body[data-owner-compact-shell] .owner-stack-shell,
+body[data-owner-compact-shell] [data-owner-stack-shell="1"] {
+  box-sizing: border-box;
+  /**
+   * WebKit: `flex: 1 1 0%` + `min-height: 0` collapses specified `height: 100dvh`
+   * to used height 0 while max-height stays valid. Pin viewport size and disable
+   * flex grow/shrink on the single height root (APK / iOS / Windows shared).
+   */
+  flex: none;
+  width: 100%;
+  height: 100dvh;
+  height: 100svh;
+  max-height: 100dvh;
+  max-height: 100svh;
+  min-height: 100dvh;
+  min-height: 100svh;
+  overflow: hidden;
 }
 
 /**

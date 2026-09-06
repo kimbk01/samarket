@@ -1,0 +1,29 @@
+{
+  "at": "2026-09-06T08:34:01.528Z",
+  "webkit": {
+    "stackH": 844,
+    "stackHeightCss": "843.984375px",
+    "stackMinH": "843.999939px",
+    "stackFlex": "0 0 auto",
+    "shellCh": 787,
+    "shellTop": 659,
+    "composerH": 1446,
+    "nameVisible": true,
+    "submitInView": true,
+    "bottomNav": false,
+    "nameVisibleAtTop": true
+  },
+  "chromium": {
+    "stackH": 844,
+    "stackHeightCss": "844px",
+    "stackMinH": "844px",
+    "stackFlex": "0 0 auto",
+    "shellCh": 787,
+    "shellTop": 659,
+    "composerH": 1446,
+    "nameVisible": true,
+    "submitInView": true,
+    "bottomNav": false,
+    "nameVisibleAtTop": true
+  }
+}

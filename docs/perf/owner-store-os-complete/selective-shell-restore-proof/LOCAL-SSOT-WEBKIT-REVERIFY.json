@@ -1,0 +1,87 @@
+{
+  "at": "2026-09-06T08:31:01.192Z",
+  "webkit": {
+    "name": "webkit",
+    "stack": {
+      "h": 0,
+      "ch": 0,
+      "sh": 0,
+      "top": 0
+    },
+    "shellScroll": {
+      "h": 0,
+      "ch": 0,
+      "sh": 1446,
+      "top": 57
+    },
+    "composer": {
+      "h": 1446,
+      "ch": 1446,
+      "sh": 1446,
+      "top": -643
+    },
+    "nameVisibleInitial": true,
+    "bottomNav": false,
+    "shellTopAfter": 700,
+    "submitInView": true,
+    "submitTop": 718,
+    "dvhClassCount": 3,
+    "nameVisible": true
+  },
+  "chromium": {
+    "name": "chromium",
+    "stack": {
+      "h": 844,
+      "ch": 844,
+      "sh": 844,
+      "top": 0
+    },
+    "shellScroll": {
+      "h": 787,
+      "ch": 787,
+      "sh": 1446,
+      "top": 57
+    },
+    "composer": {
+      "h": 1446,
+      "ch": 1446,
+      "sh": 1446,
+      "top": -602
+    },
+    "nameVisibleInitial": true,
+    "bottomNav": false,
+    "shellTopAfter": 659,
+    "submitInView": true,
+    "submitTop": 759,
+    "dvhClassCount": 3,
+    "nameVisible": true
+  },
+  "chromium_win": {
+    "name": "chromium-win",
+    "stack": {
+      "h": 844,
+      "ch": 844,
+      "sh": 844,
+      "top": 0
+    },
+    "shellScroll": {
+      "h": 787,
+      "ch": 787,
+      "sh": 1446,
+      "top": 57
+    },
+    "composer": {
+      "h": 1446,
+      "ch": 1446,
+      "sh": 1446,
+      "top": -602
+    },
+    "nameVisibleInitial": true,
+    "bottomNav": false,
+    "shellTopAfter": 659,
+    "submitInView": true,
+    "submitTop": 759,
+    "dvhClassCount": 3,
+    "nameVisible": true
+  }
+}

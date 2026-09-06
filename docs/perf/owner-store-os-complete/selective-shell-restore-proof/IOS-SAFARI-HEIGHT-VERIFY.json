@@ -1,0 +1,212 @@
+{
+  "at": "2026-09-06T08:19:13.374Z",
+  "results": {
+    "webkit_iphone_390": {
+      "name": "webkit-iphone-390",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerH": 844,
+      "vvH": 844,
+      "composer": {
+        "sel": "[data-owner-product-composer]",
+        "cls": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe",
+        "top": 68,
+        "h": 0,
+        "ch": 0,
+        "sh": 127,
+        "overflowY": "visible",
+        "height": "0px",
+        "maxHeight": "775.999939px"
+      },
+      "scroll": {
+        "sel": "[data-owner-product-form-scroll]",
+        "cls": "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]",
+        "top": 195,
+        "h": 0,
+        "ch": 0,
+        "sh": 1304,
+        "overflowY": "auto",
+        "height": "0px",
+        "maxHeight": "none"
+      },
+      "form": {
+        "sel": "#owner-product-form",
+        "cls": "min-w-0 space-y-2 px-0 py-2 pb-0",
+        "top": 195,
+        "h": 1304,
+        "ch": 1304,
+        "sh": 1304,
+        "overflowY": "visible",
+        "height": "1303.6875px",
+        "maxHeight": "none"
+      },
+      "submit": {
+        "sel": "#owner-product-form button[type=\"submit\"]",
+        "cls": "h-[60px] min-w-0 flex-1 rounded-none border-0 px-2 sam-text-body font-medium disabled:opacity-50 bg-signature text-white",
+        "top": 1429,
+        "h": 60,
+        "ch": 60,
+        "sh": 60,
+        "overflowY": "visible",
+        "height": "60px",
+        "maxHeight": "none"
+      },
+      "nameVisible": true,
+      "hasCategoryText": true,
+      "hasNameText": false,
+      "blankBody": false,
+      "scrollDead": false,
+      "dvhClassCount": 6,
+      "dvhClasses": [
+        "main-shell-viewport-root flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supp",
+        "delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-",
+        "relative col-start-1 row-start-1 min-h-[100dvh]",
+        "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0",
+        "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100d",
+        "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0"
+      ],
+      "lead": " eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 매장 운영 센터 노출 ON 영업 ON 운영 대시보드 ",
+      "scrollDelta": null
+    },
+    "webkit_mac_1440": {
+      "name": "webkit-mac-1440",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerH": 900,
+      "vvH": 900,
+      "composer": {
+        "sel": "[data-owner-product-composer]",
+        "cls": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe",
+        "top": 68,
+        "h": 0,
+        "ch": 0,
+        "sh": 127,
+        "overflowY": "visible",
+        "height": "0px",
+        "maxHeight": "832px"
+      },
+      "scroll": {
+        "sel": "[data-owner-product-form-scroll]",
+        "cls": "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]",
+        "top": 195,
+        "h": 0,
+        "ch": 0,
+        "sh": 1281,
+        "overflowY": "auto",
+        "height": "0px",
+        "maxHeight": "none"
+      },
+      "form": {
+        "sel": "#owner-product-form",
+        "cls": "min-w-0 space-y-2 px-0 py-2 pb-0",
+        "top": 195,
+        "h": 1281,
+        "ch": 1281,
+        "sh": 1281,
+        "overflowY": "visible",
+        "height": "1280.9375px",
+        "maxHeight": "none"
+      },
+      "submit": {
+        "sel": "#owner-product-form button[type=\"submit\"]",
+        "cls": "h-[60px] min-w-0 flex-1 rounded-none border-0 px-2 sam-text-body font-medium disabled:opacity-50 bg-signature text-white",
+        "top": 1407,
+        "h": 60,
+        "ch": 60,
+        "sh": 60,
+        "overflowY": "visible",
+        "height": "60px",
+        "maxHeight": "none"
+      },
+      "nameVisible": true,
+      "hasCategoryText": true,
+      "hasNameText": false,
+      "blankBody": false,
+      "scrollDead": false,
+      "dvhClassCount": 6,
+      "dvhClasses": [
+        "main-shell-viewport-root flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supp",
+        "delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-",
+        "relative col-start-1 row-start-1 min-h-[100dvh]",
+        "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0",
+        "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100d",
+        "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0"
+      ],
+      "lead": " eee CM KIM FOOD MART, LOWER GROUND, DILIMAN COMMERCIAL CENTER, Commonwealth Ave, Quezon City, 1126 Metro Manila, Payatas 나의 오른손딸방 매장 운영 센터 노출 ON 영업 ON 운영 대시보드 ",
+      "scrollDelta": null
+    },
+    "chromium_iphone_390": {
+      "name": "chromium-iphone-390",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerH": 844,
+      "vvH": 844,
+      "composer": {
+        "sel": "[data-owner-product-composer]",
+        "cls": "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe",
+        "top": 68,
+        "h": 776,
+        "ch": 776,
+        "sh": 776,
+        "overflowY": "visible",
+        "height": "776px",
+        "maxHeight": "776px"
+      },
+      "scroll": {
+        "sel": "[data-owner-product-form-scroll]",
+        "cls": "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]",
+        "top": 195,
+        "h": 649,
+        "ch": 649,
+        "sh": 1304,
+        "overflowY": "auto",
+        "height": "649.406px",
+        "maxHeight": "none"
+      },
+      "form": {
+        "sel": "#owner-product-form",
+        "cls": "min-w-0 space-y-2 px-0 py-2 pb-0",
+        "top": 195,
+        "h": 1304,
+        "ch": 1304,
+        "sh": 1304,
+        "overflowY": "visible",
+        "height": "1303.69px",
+        "maxHeight": "none"
+      },
+      "submit": {
+        "sel": "#owner-product-form button[type=\"submit\"]",
+        "cls": "h-[60px] min-w-0 flex-1 rounded-none border-0 px-2 sam-text-body font-medium disabled:opacity-50 bg-signature text-white",
+        "top": 1429,
+        "h": 60,
+        "ch": 60,
+        "sh": 60,
+        "overflowY": "visible",
+        "height": "60px",
+        "maxHeight": "none"
+      },
+      "nameVisible": true,
+      "hasCategoryText": true,
+      "hasNameText": true,
+      "blankBody": false,
+      "scrollDead": false,
+      "dvhClassCount": 6,
+      "dvhClasses": [
+        "main-shell-viewport-root flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supp",
+        "delivery-presentation-shell relative grid min-h-[100dvh] w-full min-w-0 flex-1 grid-cols-1 overflow-",
+        "relative col-start-1 row-start-1 min-h-[100dvh]",
+        "flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100dvh] min-h-0",
+        "flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] h-[100dvh] max-h-[100d",
+        "flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0"
+      ],
+      "lead": "카테고리 (필수) 카테고리를 선택하세요 ▼ 기본정보 옵션설정 언어 필수 정보 상품 이미지 권장 512×512 상품명 한 줄 설명 기본 가격 (peso) * 할인 할인율 (%) % 할인 적용가(주문 단가)— 재고 재고 관리 재고 확인 안 함 재고 입력 옵션 설정 옵션이 없습니다 + 옵션 ",
+      "scrollDelta": 500
+    }
+  }
+}

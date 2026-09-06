@@ -50,12 +50,14 @@ describe("owner shell geometry / FAB clearance", () => {
     expect(src).toContain("OWNER_OVERLAY_Z_CLASS.fab");
   });
 
-  it("owner-compact-shell FAB token includes delivery overhang; content-bottom does not", () => {
+  it("owner-compact-shell content-bottom and FAB share nav footprint incl. overhang", () => {
     const css = readFileSync(join(ROOT, "app/owner-compact-shell.css"), "utf8");
     expect(css).toContain("--owner-fab-bottom");
     expect(css).toContain("--owner-content-bottom");
     expect(css).toContain("--owner-bottom-nav-height");
-    expect(css).toMatch(/--owner-fab-bottom:[^;]*delivery-home-overhang/);
-    expect(css).not.toMatch(/--owner-content-bottom:[^;]*delivery-home-overhang/);
+    expect(css).toContain("--owner-bottom-nav-footprint");
+    expect(css).toMatch(/--owner-bottom-nav-footprint:[^;]*delivery-home-overhang/);
+    expect(css).toMatch(/--owner-content-bottom:[^;]*owner-bottom-nav-footprint/);
+    expect(css).toMatch(/--owner-fab-bottom:[^;]*owner-bottom-nav-footprint/);
   });
 });

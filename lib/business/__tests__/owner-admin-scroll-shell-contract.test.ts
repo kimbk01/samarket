@@ -31,10 +31,8 @@ describe("owner admin scroll shell contract", () => {
     expect(resolveOwnerStackScrollHostPath("/stores/owner/profile")).toBe(true);
   });
 
-  it("product composer stays excluded from scroll host lock", () => {
-    expect(
-      resolveOwnerStackScrollHostPath("/stores/owner/products/new")
-    ).toBe(false);
+  it("product composer is a scroll host (shared Owner stack — no nested 100dvh owner)", () => {
+    expect(resolveOwnerStackScrollHostPath("/stores/owner/products/new")).toBe(true);
     expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(
       true
     );
@@ -222,5 +220,66 @@ describe("owner admin scroll shell contract", () => {
     const src = readRepo("components/stores/owner/dashboard/OwnerOperationsDashboard.tsx");
     expect(src).toContain("OwnerAdminPageScrollShell");
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
+  });
+
+  it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/new")).toBe(true);
+    expect(
+      isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/abc/edit")
+    ).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products")).toBe(false);
+  });
+
+  it("product composer uses shared Owner stack scroll (no parallel 100dvh / dual top pad)", () => {
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain("isOwnerStoreProductComposerRoute");
+    expect(shell).toContain("ownerUnifiedMainLayoutClass");
+    // ONE top clearance: owner-compact-shell__main — ban route-local dual pt.
+    expect(shell).not.toContain(
+      "pt-[calc(var(--safe-top)+3.5rem+0.75rem)] px-2 sm:px-2 max-w-6xl"
+    );
+    expect(shell).not.toContain(
+      "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
+    );
+    expect(shell).not.toMatch(
+      /ownerStackShellHeightClass = isOwnerStoreProductComposerRoute\s*\n\s*\?\s*"h-\[100dvh\]/
+    );
+  });
+
+  it("SELECTIVE_SHELL_RESTORE: single .owner-stack-shell height root (no JIT 100dvh concat, no nest)", () => {
+    const css = readRepo("app/owner-compact-shell.css");
+    expect(css).toMatch(/body\[data-owner-compact-shell\]\s+\.owner-stack-shell/);
+    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
+    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
+
+    const layout = readRepo("lib/business/owner-compact-shell-layout.ts");
+    expect(layout).toContain('OWNER_STACK_SHELL_ROOT_CLASS = "owner-stack-shell"');
+
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain("OWNER_STACK_SHELL_ROOT_CLASS");
+    expect(shell).toContain("ownerStackShellRootClassName");
+    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:h-\[100dvh\]/);
+    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:max-h-\[100dvh\]/);
+    expect(shell).not.toMatch(
+      /\{\.\.\.ownerStackShellRootProps\}[\s\S]{0,220}\{\.\.\.ownerStackShellRootProps\}/
+    );
+    expect(shell).toContain("max-[1024px]:overflow-hidden");
+  });
+
+  it("OwnerProductForm is document-flow under OwnerAdminPageScrollShell (canonical scroll)", () => {
+    const form = readRepo("components/business/owner/OwnerProductForm.tsx");
+    expect(form).toContain("OwnerAdminPageScrollShell");
+    expect(form).toContain("padForOwnerBottomNav={false}");
+    expect(form).toContain('data-owner-product-form-scroll="1"');
+    expect(form).toContain('data-owner-product-composer="1"');
+    expect(form).not.toContain(
+      "h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
+    );
+    expect(form).not.toMatch(
+      /data-owner-product-form-scroll="1"[\s\S]{0,120}min-h-0 flex-1 overflow-x-hidden overflow-y-auto/
+    );
+    expect(form).not.toContain(
+      "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain"
+    );
   });
 });

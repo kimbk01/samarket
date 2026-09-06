@@ -76,9 +76,6 @@ import {
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useOwnerCompactShellViewport } from "@/hooks/use-owner-compact-shell-viewport";
 import { subscribeOwnerCompactShellBodyFlag } from "@/lib/business/sync-owner-compact-shell-body-flag";
-import {
-  OWNER_COMPACT_SHELL_MAX_TW,
-} from "@/lib/business/owner-compact-shell-viewport";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
@@ -86,7 +83,10 @@ import {
 import {
   OWNER_COMPACT_SHELL_COLUMN_CLASS,
   OWNER_COMPACT_SHELL_MAIN_CLASS,
+  OWNER_STACK_SHELL_ROOT_ATTR,
+  OWNER_STACK_SHELL_ROOT_CLASS,
 } from "@/lib/business/owner-compact-shell-layout";
+import { OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   registerOwnerMobileOpsMenuOpen,
@@ -194,40 +194,29 @@ export function BusinessAdminShell({
     () => false
   );
 
-  /** 상품 등록·편집: 본문 스크롤 + 하단 액션 분리를 위해 main 열 높이를 뷰포트에 맞춘다 */
+  /** 상품 등록·편집: 헤더 타이틀 분기 — 높이/스크롤 소유권은 일반 Owner stack 과 동일 */
   const isOwnerStoreProductComposerRoute = useMemo(
     () => isOwnerStoreProductComposerPath(ownerPathNorm),
     [ownerPathNorm]
   );
 
-  const isOwnerMobileStackViewport =
-    isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute;
-
-  const ownerStackViewportLocked =
-    isOwnerMobileAdminShell || isOwnerStoreProductComposerRoute;
-
-  /** compact 스택 scroll host — `resolveOwnerStackScrollHostPath` (basic-info 포함, 하단 탭 숨김과 분리) */
+  /** compact 스택 scroll host — product composer 포함 (nested 100dvh 금지) */
   const ownerStackScrollHostPath = resolveOwnerStackScrollHostPath(ownerPathNorm);
 
-  /** Tailwind — compact 뷰포트 높이 잠금(hydration 전 CSS) */
-  const ownerCompactStackLayoutClass =
-    !isOwnerStoreProductComposerRoute
-      ? `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:max-h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden`
-      : "";
+  /**
+   * SELECTIVE_SHELL_RESTORE viewport root.
+   * Height owned by `.owner-stack-shell` CSS — never dynamic Tailwind 100dvh concatenation (JIT drops it).
+   * Inner wrappers: flex-1 min-h-0 only — never a second height root.
+   */
+  const ownerStackShellRootClassName = `${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`;
+  const ownerStackShellRootProps = { [OWNER_STACK_SHELL_ROOT_ATTR]: "1" as const };
 
-  /** 헤더·본문 column — 모바일·태블릿·데스크톱 웹 동일(중앙 정렬) */
-  const ownerUnifiedMainLayoutClass =
-    !isOwnerStoreProductComposerRoute
-      ? `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`
-      : "";
+  /** 헤더·본문 column — literal max-[1024px] (no `${TW}:…` JIT drop) */
+  const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-[1024px]:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
 
   /** 데스크톱(≥1025) — 앱 셸 overflow-y-hidden 안에서 본문 열 스크롤 */
   const isOwnerDesktopStackViewport =
     !isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
-
-  const ownerStackShellHeightClass = isOwnerStoreProductComposerRoute
-    ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
-    : `${ownerCompactStackLayoutClass} min-[1025px]:min-h-0 min-[1025px]:flex-1 min-[1025px]:overflow-hidden`;
 
   useOwnerMobileStackViewportLock(ownerStackScrollHostPath);
 
@@ -634,7 +623,8 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+          {...ownerStackShellRootProps}
+          className={`${ownerStackShellRootClassName} px-4 py-8`}
         >
           <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
@@ -652,7 +642,8 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+          {...ownerStackShellRootProps}
+          className={`${ownerStackShellRootClassName} px-4 py-8`}
         >
           <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
         </div>
@@ -670,7 +661,8 @@ export function BusinessAdminShell({
       <div
         data-biz="1"
         data-owner-empty-hub-shell="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+        {...ownerStackShellRootProps}
+        className={ownerStackShellRootClassName}
       >
         <StoresOwnerStackHeader
           variant="hub"
@@ -693,7 +685,8 @@ export function BusinessAdminShell({
     return (
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+        {...ownerStackShellRootProps}
+        className={`${ownerStackShellRootClassName} px-4 py-8`}
       >
         <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
       </div>
@@ -821,12 +814,11 @@ export function BusinessAdminShell({
       : null}
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+        {...ownerStackShellRootProps}
+        className={ownerStackShellRootClassName}
       >
         <OwnerMobileAdminHeaderTrailingProvider>
-          <div
-            className={`flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
-          >
+          <div className="flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)]">
             {selectedRow && !isOwnerStoreProductComposerRoute ?
               <OwnerMobileAdminHeader
                 variant={isOwnerHubRoute ? "hub" : "page"}
@@ -856,12 +848,14 @@ export function BusinessAdminShell({
             : null}
 
             <main
-              className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${
-                isOwnerStoreProductComposerRoute
-                  ? // Fixed stack header is portaled out of flow — main must own remaining viewport height
-                    // so OwnerProductForm scroll body (flex-1) cannot collapse to 0 under the category strip.
-                    "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
-                  : `${ownerUnifiedMainLayoutClass} ${isOwnerDesktopStackViewport ? ownerMainBottomPadForChildren : ""}`
+              className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${ownerUnifiedMainLayoutClass} ${
+                // ONE top clearance: `.owner-compact-shell__main` → `--owner-shell-main-pt`.
+                // Do not add route-local `pt-[calc(safe-top+…)]` (double gap under fixed header).
+                isOwnerDesktopStackViewport || isOwnerStoreProductComposerRoute
+                  ? ownerMainBottomPadForChildren
+                  : isOwnerFormBottomNavHiddenRoute
+                    ? ownerMainBottomPad
+                    : ""
               }`}
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
