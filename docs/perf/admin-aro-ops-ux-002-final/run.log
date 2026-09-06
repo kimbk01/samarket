@@ -1,0 +1,31 @@
+{
+  "readiness": "FAIL",
+  "firstDivergence": {
+    "journey": "F2",
+    "step": "unknown",
+    "expected": null,
+    "actual": null,
+    "root": "connection_break",
+    "fix": "NONE_IN_FINAL_SCOPE"
+  },
+  "summary": {
+    "F1": "PASS",
+    "F2": "FAIL",
+    "F3": "PASS",
+    "F4": "PASS",
+    "F5": "PASS",
+    "F6": "PASS",
+    "F7": "FAIL",
+    "F8": "PASS",
+    "F9": "FAIL",
+    "F10": "FAIL",
+    "F11": "PASS",
+    "F12": "PASS",
+    "F13": "PASS",
+    "F14": "FAIL",
+    "F15": "FAIL",
+    "F16": "FAIL",
+    "F17": "FAIL",
+    "F18": "FAIL"
+  }
+}

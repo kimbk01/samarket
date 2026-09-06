@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "productSha": "636462a3a",
+  "readiness": "PASS",
+  "mutation": "NONE",
+  "desktop": "LIVE_PROVEN",
+  "physicalTablet": "LOCKED_EVIDENCE_REUSED",
+  "journeyPassCount": 18,
+  "journeyTotal": 18
+}

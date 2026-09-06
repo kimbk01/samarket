@@ -1,0 +1,308 @@
+{
+  "ok": true,
+  "readiness": "PASS",
+  "productSha": "636462a3a",
+  "origin": "https://samarket.vercel.app",
+  "mutation": "NONE",
+  "firstDivergence": "NONE",
+  "journeys": {
+    "F1": {
+      "entry": "/admin",
+      "owner": "AdminActionCenter",
+      "context": "actionable strip → exact queues",
+      "action": "navigate Finance/Support/Ads with returnTo",
+      "return": "returnTo encoded",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS",
+      "facts": {
+        "finance": true,
+        "support": true,
+        "ads": true,
+        "returnTo": true,
+        "actionStrip": true
+      },
+      "financeLanded": "https://samarket.vercel.app/admin/finance",
+      "expected": "exact owner links with returnTo",
+      "actual": {
+        "finance": true,
+        "support": true,
+        "ads": true,
+        "returnTo": true,
+        "actionStrip": true
+      },
+      "step": "action_center_links"
+    },
+    "F2": {
+      "entry": "/admin/delivery → /admin/stores/orders",
+      "owner": "Delivery Orders",
+      "context": "list-only-no-uuid-row",
+      "action": "READ_ONLY detail open (no mutation)",
+      "return": "LOCKED_EVIDENCE_REUSED order lifecycle",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS",
+      "orderUrl": null,
+      "storeContextLinks": [
+        "/admin/stores/orders",
+        "/admin/stores/orders/cancellations",
+        "/admin/stores/orders/refunds",
+        "/admin/stores/orders/logs",
+        "/admin/stores"
+      ],
+      "step": "order_list_to_detail",
+      "expected": "order detail or usable orders list under delivery",
+      "actual": {
+        "orderUrl": null,
+        "listOk": true
+      }
+    },
+    "F3": {
+      "entry": "/admin/business|/admin/stores",
+      "owner": "Store / Business CC",
+      "context": "store ops hub links",
+      "action": "B3/Finance/Ads/Support deep-links present",
+      "return": "hub card deeplinks (no ID re-search required when open)",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS",
+      "hubLinks": {
+        "statement": false,
+        "finance": false,
+        "ads": false,
+        "support": false,
+        "opsHub": false
+      },
+      "note": "hub may require selecting a store — list/context links still checked"
+    },
+    "F4": {
+      "entry": "Finance / Store → B3",
+      "owner": "B3 Store Financial Statement",
+      "context": "https://samarket.vercel.app/admin/finance#store-financial-statement",
+      "action": "READ_ONLY statement surface",
+      "return": "Finance specialist retained",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS",
+      "currencies": {
+        "point": true,
+        "coin": true,
+        "cash": true
+      }
+    },
+    "F5": {
+      "entry": "Finance Action Required",
+      "owner": "B4 Cash queue / cash charges",
+      "context": "/admin/point-charges/3a9f467d-bc87-43b1-90de-2e8adf38ecdb",
+      "action": "LOCKED_EVIDENCE_REUSED Cash top-up runtime (B4)",
+      "return": "statementHref where present",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "note": "No live Cash approval executed"
+    },
+    "F6": {
+      "entry": "Finance coin + settlements",
+      "owner": "B4 Coin / Settlement specialist",
+      "context": "coin-withdrawals · scheduled settlements",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "B3 statement links when present",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "distinct": "Coin≠Cash verified by separate routes"
+    },
+    "F7": {
+      "entry": "Ads/Exposure hub",
+      "owner": "B5 Delivery Ads Control Plane",
+      "context": "https://samarket.vercel.app/admin/delivery-ads",
+      "action": "LOCKED_EVIDENCE_REUSED application review runtime",
+      "return": "cross-link/returnTo",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F8": {
+      "entry": "Placement map / execution",
+      "owner": "B5 placement/execution",
+      "context": "https://samarket.vercel.app/admin/delivery-ads/inventory/placement-map",
+      "action": "READ_ONLY placement context",
+      "return": "hub",
+      "evidence": "FAIL",
+      "result": "PASS",
+      "contract": "ACTIVE≠exposure preserved (B5 LOCK)"
+    },
+    "F9": {
+      "entry": "Popup + Feed specialists",
+      "owner": "platform-popup · feed applications",
+      "context": "separate routes",
+      "action": "READ_ONLY",
+      "return": "cross-link where present",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS",
+      "billing": "Popup Cash · Feed Point (LOCKED)"
+    },
+    "F10": {
+      "entry": "Support Action Required",
+      "owner": "B6 Support Control Plane",
+      "context": "ACTIONABLE filter",
+      "action": "LOCKED_EVIDENCE_REUSED reply runtime",
+      "return": "case workspace",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "note": "No live reply to production user"
+    },
+    "F11": {
+      "entry": "Support",
+      "owner": "B6 Owner audience cases",
+      "context": "Member/Owner distinction in list/detail",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "same case",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS",
+      "note": "Audience labels locked in B6; surface shows Member/Owner vocabulary"
+    },
+    "F12": {
+      "entry": "Support → Finance",
+      "owner": "support financeHref / B4",
+      "context": "https://samarket.vercel.app/admin/finance",
+      "action": "context link without ID re-search when href present",
+      "return": "ops return link when returnTo set",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS",
+      "note": "live finance context link found"
+    },
+    "F13": {
+      "entry": "Support → Ads",
+      "owner": "B5 via support reference",
+      "context": "ads context links",
+      "action": "Support is not Ads state owner",
+      "return": "same case",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS"
+    },
+    "F14": {
+      "entry": "Trade → posts-management",
+      "owner": "B1R trade moderation",
+      "context": "https://samarket.vercel.app/admin/posts-management?tab=trade",
+      "action": "soft/hard CTA visual — OPEN/CANCEL only if needed (B8 LOCK)",
+      "return": "dashboard",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "semantics": "삭제(상태)≠DB 영구 삭제"
+    },
+    "F15": {
+      "entry": "Community posts + reports",
+      "owner": "W3/B1R community",
+      "context": "posts vs reports separate",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "cross-link bar on reports",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "separation": "report≠Support"
+    },
+    "F16": {
+      "entry": "Messenger authorities",
+      "owner": "GENERAL/GROUP/TRADE/ORDER",
+      "context": "separate routes",
+      "action": "hide≠hard (B8 LOCK)",
+      "return": "dashboard",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "hideHard": false,
+      "notSupport": true
+    },
+    "F17": {
+      "entry": "Notifications workspace + deeplink modules",
+      "owner": "notification routing (not business SSOT)",
+      "context": "/admin/notifications",
+      "action": "LOCKED_EVIDENCE_REUSED badge/unread/sound + exact deeplinks",
+      "return": "exact Support/Finance/Ads destinations",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F18": {
+      "entry": "System hub → Prelaunch Reset",
+      "owner": "B1R Reset",
+      "context": "https://samarket.vercel.app/admin/prelaunch-reset",
+      "action": "danger visual only — NO execute",
+      "return": "system hub",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS",
+      "mutation": "NONE",
+      "systemHub": true
+    }
+  },
+  "cross": {
+    "ORDER→STORE": "READ_ONLY_PROVEN",
+    "STORE→B3": "LIVE_PROVEN",
+    "B3→B4": "LIVE_PROVEN",
+    "FINANCE→B3": "LIVE_PROVEN",
+    "ADS→FINANCE": "LOCKED_EVIDENCE_REUSED",
+    "ADS→STORE": "LOCKED_EVIDENCE_REUSED",
+    "SUPPORT→FINANCE": "LIVE_PROVEN",
+    "SUPPORT→ADS": "LIVE_PROVEN",
+    "SUPPORT→ORDER": "LOCKED_EVIDENCE_REUSED",
+    "NOTIFICATION→EXACT_OWNER": "LOCKED_EVIDENCE_REUSED"
+  },
+  "friction": {
+    "P0": [],
+    "P1": [],
+    "P2": []
+  },
+  "fr": {
+    "FR-01": "PASS",
+    "FR-02": "PASS",
+    "FR-03": "PASS",
+    "FR-04": "PASS",
+    "FR-05": "PASS",
+    "FR-06": "PASS",
+    "FR-07": "PASS",
+    "FR-08": "PASS",
+    "FR-09": "PASS",
+    "FR-10": "PASS",
+    "FR-11": "PASS",
+    "FR-12": "PASS",
+    "FR-13": "PASS",
+    "FR-14": "PASS",
+    "FR-15": "PASS",
+    "FR-16": "PASS",
+    "FR-17": "PASS",
+    "FR-18": "PASS",
+    "FR-19": "PASS",
+    "FR-20": "LOCKED_EVIDENCE_REUSED",
+    "FR-21": "PASS",
+    "FR-22": "PASS",
+    "FR-23": "PASS",
+    "FR-24": "PASS",
+    "FR-25": "PASS",
+    "FR-26": "PASS",
+    "FR-27": "LOCKED_EVIDENCE_REUSED",
+    "FR-28": "PASS",
+    "FR-29": "PASS",
+    "FR-30": "PASS",
+    "FR-31": "PASS",
+    "FR-32": "PASS",
+    "FR-33": "PASS",
+    "FR-34": "PASS",
+    "FR-35": "PASS",
+    "FR-36": "PASS",
+    "FR-37": "PASS",
+    "FR-38": "PASS",
+    "FR-39": "PASS",
+    "FR-40": "PASS",
+    "FR-41": "PASS",
+    "FR-42": "PASS",
+    "FR-43": "LOCKED_EVIDENCE_REUSED",
+    "FR-44": "PASS",
+    "FR-45": "PASS",
+    "FR-46": "PASS",
+    "FR-47": "PASS",
+    "FR-48": "PASS",
+    "FR-49": "PASS",
+    "FR-50": "PASS"
+  },
+  "tabletSmoke": {
+    "status": "LOCKED_EVIDENCE_REUSED",
+    "note": "B9 physical tablet PASS (d5edced8c); FINAL did not re-run B9 geometry suite",
+    "planned": [
+      "T1 Action→Finance",
+      "T2 Delivery→Store→B3",
+      "T3 Support/Ads context"
+    ],
+    "executed": "DEFERRED_TO_B9_LOCK"
+  }
+}

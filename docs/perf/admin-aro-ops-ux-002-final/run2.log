@@ -1,0 +1,24 @@
+{
+  "readiness": "PASS",
+  "firstDivergence": "NONE",
+  "summary": {
+    "F1": "PASS",
+    "F2": "PASS",
+    "F3": "PASS",
+    "F4": "PASS",
+    "F5": "PASS",
+    "F6": "PASS",
+    "F7": "PASS",
+    "F8": "PASS",
+    "F9": "PASS",
+    "F10": "PASS",
+    "F11": "PASS",
+    "F12": "PASS",
+    "F13": "PASS",
+    "F14": "PASS",
+    "F15": "PASS",
+    "F16": "PASS",
+    "F17": "PASS",
+    "F18": "PASS"
+  }
+}

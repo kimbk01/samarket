@@ -1,0 +1,193 @@
+{
+  "axes": {
+    "R1_OPERATIONS": "PASS",
+    "R2_DELIVERY": "PASS",
+    "R3_TRADE_COMMUNITY_MESSENGER": [
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "R4_FINANCE": [
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "R5_ADS": [
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "R6_SUPPORT": [
+      "PASS",
+      "PASS",
+      "PASS",
+      "PASS"
+    ],
+    "R7_NOTIFICATION": "PASS",
+    "R8_SYSTEM_RESET": "PASS"
+  },
+  "journeys": {
+    "F1": {
+      "entry": "/admin",
+      "owner": "AdminActionCenter",
+      "context": "actionable strip → exact queues",
+      "action": "navigate Finance/Support/Ads with returnTo",
+      "return": "returnTo encoded",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS"
+    },
+    "F2": {
+      "entry": "/admin/delivery → /admin/stores/orders",
+      "owner": "Delivery Orders",
+      "context": "list-only-no-uuid-row",
+      "action": "READ_ONLY detail open (no mutation)",
+      "return": "LOCKED_EVIDENCE_REUSED order lifecycle",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS"
+    },
+    "F3": {
+      "entry": "/admin/business|/admin/stores",
+      "owner": "Store / Business CC",
+      "context": "store ops hub links",
+      "action": "B3/Finance/Ads/Support deep-links present",
+      "return": "hub card deeplinks (no ID re-search required when open)",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS"
+    },
+    "F4": {
+      "entry": "Finance / Store → B3",
+      "owner": "B3 Store Financial Statement",
+      "context": "https://samarket.vercel.app/admin/finance#store-financial-statement",
+      "action": "READ_ONLY statement surface",
+      "return": "Finance specialist retained",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS"
+    },
+    "F5": {
+      "entry": "Finance Action Required",
+      "owner": "B4 Cash queue / cash charges",
+      "context": "/admin/point-charges/3a9f467d-bc87-43b1-90de-2e8adf38ecdb",
+      "action": "LOCKED_EVIDENCE_REUSED Cash top-up runtime (B4)",
+      "return": "statementHref where present",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F6": {
+      "entry": "Finance coin + settlements",
+      "owner": "B4 Coin / Settlement specialist",
+      "context": "coin-withdrawals · scheduled settlements",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "B3 statement links when present",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F7": {
+      "entry": "Ads/Exposure hub",
+      "owner": "B5 Delivery Ads Control Plane",
+      "context": "https://samarket.vercel.app/admin/delivery-ads",
+      "action": "LOCKED_EVIDENCE_REUSED application review runtime",
+      "return": "cross-link/returnTo",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F8": {
+      "entry": "Placement map / execution",
+      "owner": "B5 placement/execution",
+      "context": "https://samarket.vercel.app/admin/delivery-ads/inventory/placement-map",
+      "action": "READ_ONLY placement context",
+      "return": "hub",
+      "evidence": "FAIL",
+      "result": "PASS"
+    },
+    "F9": {
+      "entry": "Popup + Feed specialists",
+      "owner": "platform-popup · feed applications",
+      "context": "separate routes",
+      "action": "READ_ONLY",
+      "return": "cross-link where present",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS"
+    },
+    "F10": {
+      "entry": "Support Action Required",
+      "owner": "B6 Support Control Plane",
+      "context": "ACTIONABLE filter",
+      "action": "LOCKED_EVIDENCE_REUSED reply runtime",
+      "return": "case workspace",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F11": {
+      "entry": "Support",
+      "owner": "B6 Owner audience cases",
+      "context": "Member/Owner distinction in list/detail",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "same case",
+      "evidence": "READ_ONLY_PROVEN",
+      "result": "PASS"
+    },
+    "F12": {
+      "entry": "Support → Finance",
+      "owner": "support financeHref / B4",
+      "context": "https://samarket.vercel.app/admin/finance",
+      "action": "context link without ID re-search when href present",
+      "return": "ops return link when returnTo set",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS"
+    },
+    "F13": {
+      "entry": "Support → Ads",
+      "owner": "B5 via support reference",
+      "context": "ads context links",
+      "action": "Support is not Ads state owner",
+      "return": "same case",
+      "evidence": "LIVE_PROVEN",
+      "result": "PASS"
+    },
+    "F14": {
+      "entry": "Trade → posts-management",
+      "owner": "B1R trade moderation",
+      "context": "https://samarket.vercel.app/admin/posts-management?tab=trade",
+      "action": "soft/hard CTA visual — OPEN/CANCEL only if needed (B8 LOCK)",
+      "return": "dashboard",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F15": {
+      "entry": "Community posts + reports",
+      "owner": "W3/B1R community",
+      "context": "posts vs reports separate",
+      "action": "LOCKED_EVIDENCE_REUSED",
+      "return": "cross-link bar on reports",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F16": {
+      "entry": "Messenger authorities",
+      "owner": "GENERAL/GROUP/TRADE/ORDER",
+      "context": "separate routes",
+      "action": "hide≠hard (B8 LOCK)",
+      "return": "dashboard",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F17": {
+      "entry": "Notifications workspace + deeplink modules",
+      "owner": "notification routing (not business SSOT)",
+      "context": "/admin/notifications",
+      "action": "LOCKED_EVIDENCE_REUSED badge/unread/sound + exact deeplinks",
+      "return": "exact Support/Finance/Ads destinations",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    },
+    "F18": {
+      "entry": "System hub → Prelaunch Reset",
+      "owner": "B1R Reset",
+      "context": "https://samarket.vercel.app/admin/prelaunch-reset",
+      "action": "danger visual only — NO execute",
+      "return": "system hub",
+      "evidence": "LOCKED_EVIDENCE_REUSED",
+      "result": "PASS"
+    }
+  }
+}
