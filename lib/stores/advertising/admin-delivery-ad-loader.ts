@@ -62,6 +62,7 @@ const BANNER_SELECT = [
   "subtitle",
   "image_url",
   "cta_href",
+  "sort_order",
   "start_at",
   "end_at",
   "is_active",
@@ -112,6 +113,8 @@ export type AdminDeliveryAdListItem = {
   scheduleHint: "in_window" | "not_started" | "ended" | "invalid";
   /** OWNER_PAID | DIBAY_FIRST_PARTY */
   campaignSource: "OWNER_PAID" | "DIBAY_FIRST_PARTY";
+  /** Banner carousel order (0-based). Null for store_sponsored. */
+  sortOrder: number | null;
 };
 
 export type AdminDeliveryAdSummary = {
@@ -364,6 +367,10 @@ export async function loadAdminDeliveryAdCampaignList(
         String(raw.campaign_source ?? "OWNER_PAID") === "DIBAY_FIRST_PARTY"
           ? "DIBAY_FIRST_PARTY"
           : "OWNER_PAID",
+      sortOrder:
+        productKind === "banner" && raw.sort_order != null && Number.isFinite(Number(raw.sort_order))
+          ? Number(raw.sort_order)
+          : null,
     };
   };
 

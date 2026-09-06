@@ -75,6 +75,27 @@ export function humanPlacementLabel(key: string | null | undefined, ko: boolean)
   return raw;
 }
 
+export function humanPopupSurfaceShortLabel(
+  key: string | null | undefined,
+  ko: boolean
+): string {
+  const raw = String(key ?? "GLOBAL").trim().toUpperCase();
+  const labels: Record<string, PlacementLabel> = {
+    GLOBAL: { ko: "전체 서비스", en: "All services" },
+    COMMUNITY: { ko: "Community", en: "Community" },
+    TRADE: { ko: "거래", en: "Trade" },
+    DELIVERY: { ko: "배달", en: "Delivery" },
+    DELIVERY_OWNER: { ko: "배달 오너", en: "Delivery owner" },
+    ADMIN: { ko: "관리자", en: "Admin" },
+    MYPAGE: { ko: "마이페이지", en: "My page" },
+  };
+  const values = raw.split(",").map((surface) => {
+    const hit = labels[surface.trim()];
+    return hit ? (ko ? hit.ko : hit.en) : surface.trim();
+  });
+  return values.filter(Boolean).join(", ");
+}
+
 export function humanBannerSlideLabel(
   placementKey: string,
   slideIndex1Based: number,

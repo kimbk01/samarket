@@ -17,7 +17,8 @@ describe("admin direct unified flow contract", () => {
     const source = read("components/admin/ads/AdminAdsDirectRegisterHub.tsx");
     expect(source).toContain("/api/admin/delivery-ads/first-party");
     expect(source).toContain("/api/admin/feed-ads");
-    expect(source).toContain("/api/admin/platform-popup-campaigns");
+    expect(source).toContain("/api/admin/advertising/direct-popup");
+    expect(source).not.toContain('fetch("/api/admin/platform-popup-campaigns"');
     expect(source).not.toContain("/admin/delivery-ads/first-party/new");
     expect(source).not.toContain("/admin/feed-ads/new");
     expect(source).not.toMatch(/<Link[^>]+href=["']\/admin\/platform-popup["']/);

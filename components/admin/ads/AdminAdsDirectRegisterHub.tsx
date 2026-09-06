@@ -45,6 +45,7 @@ export function AdminAdsDirectRegisterHub() {
   const [publishMode, setPublishMode] = useState<PublishMode>("scheduled");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const domainLabel =
     product === "delivery" ? "delivery" : product === "feed" ? feedDomain : "popup";
@@ -115,6 +116,7 @@ export function AdminAdsDirectRegisterHub() {
 
   const submit = async () => {
     setError("");
+    setSuccess("");
     if (!name.trim() || !headline.trim()) {
       setError(ko ? "광고 이름과 헤드라인을 입력하세요." : "Enter a name and headline.");
       return;
@@ -191,50 +193,53 @@ export function AdminAdsDirectRegisterHub() {
         return;
       }
 
-      const createRes = await fetch("/api/admin/platform-popup-campaigns", {
+      const fd = new FormData();
+      fd.set("name", name.trim());
+      fd.set("surfaces", JSON.stringify([popupSurface]));
+      fd.set("startAt", startIso);
+      fd.set("endAt", endIso);
+      fd.set("ctaTarget", cta);
+      fd.set("file", popupFile!);
+      fd.set("publishMode", publishMode);
+      fd.set("altText", headline);
+      const createRes = await fetch("/api/admin/advertising/direct-popup", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, surfaces: [popupSurface], priority: 100 }),
+        body: fd,
       });
       const created = (await createRes.json().catch(() => ({}))) as {
         ok?: boolean;
         id?: string;
+        incomplete?: boolean;
+        detailHref?: string;
         error?: string;
       };
       if (!createRes.ok || !created.ok || !created.id) {
-        throw new Error(created.error || "create_failed");
+        if (created.incomplete && created.id) {
+          setError(
+            ko
+              ? "팝업 광고가 임시 상태로 저장되었습니다. 필수 설정을 완료해 주세요."
+              : "Popup was saved as an incomplete draft. Finish required settings."
+          );
+          return;
+        }
+        setError(
+          ko
+            ? "팝업 광고 등록을 완료하지 못했습니다."
+            : "Could not complete popup registration."
+        );
+        return;
       }
-      const patchRes = await fetch(`/api/admin/platform-popup-campaigns/${created.id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startAt: startIso,
-          endAt: endIso,
-          ctaType: "internal_page",
-          ctaTarget: cta,
-          surfaces: [popupSurface],
-          materialTouched: ["schedule", "cta", "surfaces"],
-        }),
-      });
-      if (!patchRes.ok) {
-        const json = (await patchRes.json().catch(() => ({}))) as { error?: string };
-        throw new Error(json.error || "schedule_update_failed");
-      }
-      const fd = new FormData();
-      fd.set("file", popupFile!);
-      fd.set("altText", headline);
-      fd.set("applyCrop", "center");
-      const creativeRes = await fetch(
-        `/api/admin/platform-popup-campaigns/${created.id}/creative`,
-        { method: "POST", credentials: "include", body: fd }
+      setSuccess(
+        publishMode === "live"
+          ? ko
+            ? "팝업 광고를 등록하고 노출을 시작했습니다."
+            : "Popup registered and activated."
+          : ko
+            ? "팝업 광고를 예약했습니다."
+            : "Popup scheduled."
       );
-      if (!creativeRes.ok) {
-        const json = (await creativeRes.json().catch(() => ({}))) as { error?: string };
-        throw new Error(json.error || "creative_upload_failed");
-      }
-      router.push(`/admin/platform-popup/${created.id}`);
+      router.push(created.detailHref || `/admin/platform-popup/${created.id}`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "create_failed");
     } finally {
@@ -353,8 +358,9 @@ export function AdminAdsDirectRegisterHub() {
           <button type="button" className={`${publishMode === "live" ? Sam.btn.primary : Sam.btn.secondary}`} onClick={() => setPublishMode("live")}>{ko ? "즉시 노출" : "Go live"}</button>
           <button type="button" className={`${publishMode === "scheduled" ? Sam.btn.primary : Sam.btn.secondary}`} onClick={() => setPublishMode("scheduled")}>{ko ? "예약 등록" : "Schedule"}</button>
         </div>
-        {product === "popup" ? <p className="text-xs text-sam-muted">{ko ? "팝업은 초안·소재·일정을 여기서 저장한 뒤 상세에서 승인/게시를 완료합니다." : "Popup saves draft, creative, and schedule here; approve/publish from detail."}</p> : null}
+        {product === "popup" ? <p className="text-xs text-sam-muted">{ko ? "팝업은 초안 생성·소재 저장·승인·노출 전환을 한 번에 완료합니다. 실패하면 활성화하지 않고 초안으로 보관합니다." : "Popup creation, creative, approval, and activation complete together. Failures remain inactive drafts."}</p> : null}
         {error ? <p role="alert" className="text-sm text-sam-danger">{error}</p> : null}
+        {success ? <p role="status" className="text-sm text-sam-success">{success}</p> : null}
         <button type="button" disabled={busy} className={Sam.btn.primary} onClick={() => void submit()}>{busy ? "…" : ko ? "등록 완료" : "Complete registration"}</button>
       </section>
     </div>

@@ -93,6 +93,31 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
     expect(row.liveHref).toBe("/stores");
     expect(row.memberOrStore).toBe("한식당");
   });
+
+  it("keeps popup target separate when creative is a URL", () => {
+    const row = toAdsShellListRow(
+      item({
+        domain: "popup",
+        product: "platform_popup",
+        applicantLabel: "Admin 직접 등록",
+        storeId: null,
+        title: "9월 팝업",
+        placementHint: "GLOBAL",
+        creativeHint: "https://cdn.example.com/popup.webp",
+        creativeImageUrl: "https://cdn.example.com/popup.webp",
+        runtimeDisplayStatus: "eligible_waiting",
+        previewHref: "/admin/platform-popup/1?focus=preview",
+      }),
+      true
+    );
+    expect(row.targetLabel).toBe("전체 서비스");
+    expect(row.placementLabel).toBe("전체 서비스 팝업");
+    expect(row.targetLabel).not.toBe(row.placementLabel);
+    expect(row.creativeImageUrl).toContain("popup.webp");
+    expect(row.statusTab).toBe("live");
+    expect(row.statusLabel).toBe("노출 대기");
+    expect(row.previewHref).not.toBe(row.href);
+  });
 });
 
 describe("adsShellKindLabel + filters", () => {

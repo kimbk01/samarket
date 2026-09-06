@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
@@ -67,6 +68,7 @@ type AuditRow = {
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
+  const searchParams = useSearchParams();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,14 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [externalUrl, setExternalUrl] = useState("");
   const [altText, setAltText] = useState("");
   const [previewOverrideUrl, setPreviewOverrideUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("focus") !== "preview") return;
+    const node = document.querySelector('[data-admin-popup-preview-sticky="1"]');
+    if (node instanceof HTMLElement) {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [searchParams, campaignId, campaign?.id]);
 
   const hydrate = useCallback((c: PlatformPopupAdminDetail) => {
     setCampaign(c);

@@ -44,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const result = await createPlatformPopupAdminCampaign(sb, {
     adminUserId: admin.userId,
-    name: String(body.name ?? "").trim() || "Untitled popup",
+    name: String(body.name ?? "").trim(),
     surfaces: body.surfaces,
     priority: body.priority,
     timezone: body.timezone,

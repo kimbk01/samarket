@@ -263,7 +263,7 @@ export function AdminAdvertisingWorkspace() {
         <div className="flex flex-wrap gap-2">
           <Link
             href="/admin/advertising/direct"
-            className={Sam.btn.primary}
+            className={`${Sam.btn.primary} min-h-12 px-6 text-base font-bold shadow-sm`}
             data-admin-ads-register-cta="1"
           >
             {ko ? "+ 광고 등록" : "+ Register ad"}
@@ -401,7 +401,26 @@ export function AdminAdvertisingWorkspace() {
                   const open = manageOpenId === r.id;
                   return (
                     <tr key={r.id} className="border-t border-sam-border align-top">
-                      <td className="px-2 py-2 font-medium text-sam-fg">{r.kindLabel}</td>
+                      <td className="px-2 py-2">
+                        <div className="flex min-w-[150px] items-center gap-2">
+                          {r.creativeImageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- operator creative thumbnail
+                            <img
+                              src={r.creativeImageUrl}
+                              alt=""
+                              className="h-10 w-10 shrink-0 rounded-ui-rect object-cover"
+                            />
+                          ) : (
+                            <span className="h-10 w-10 shrink-0 rounded-ui-rect bg-sam-border/40" />
+                          )}
+                          <span>
+                            <span className="block font-medium text-sam-fg">{r.kindLabel}</span>
+                            <span className="block max-w-[170px] truncate text-[11px] text-sam-muted">
+                              {r.title}
+                            </span>
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-2 py-2">{r.applicantLabel}</td>
                       <td className="px-2 py-2">{r.memberOrStore}</td>
                       <td className="px-2 py-2 max-w-[140px] truncate">{r.targetLabel}</td>
@@ -436,7 +455,7 @@ export function AdminAdvertisingWorkspace() {
                             </Link>
                             {r.previewSupported ? (
                               <Link
-                                href={r.href}
+                                href={r.previewHref}
                                 className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
                               >
                                 {ko ? "미리보기" : "Preview"}
@@ -484,8 +503,17 @@ export function AdminAdvertisingWorkspace() {
             </p>
           ) : (
             <div className="space-y-3">
+              {selectedShell.creativeImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- operator creative preview
+                <img
+                  src={selectedShell.creativeImageUrl}
+                  alt=""
+                  className="max-h-52 w-full rounded-ui-rect object-cover"
+                />
+              ) : null}
               <div>
                 <h2 className="font-semibold text-sam-fg">{selectedShell.kindLabel}</h2>
+                <p className="mt-0.5 text-sm font-medium text-sam-fg">{selectedShell.title}</p>
                 <p className="text-[12px] text-sam-muted">{selectedShell.placementLabel}</p>
                 <p className="mt-1 text-[13px]">{selectedShell.statusLabel}</p>
               </div>
@@ -499,14 +527,39 @@ export function AdminAdvertisingWorkspace() {
                   <dd>{selectedShell.periodLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "금액" : "Amount"}</dt>
-                  <dd>{selectedShell.amountLabel}</dd>
+                  <dt className="text-sam-muted">{ko ? "노출 위치" : "Placement"}</dt>
+                  <dd>{selectedShell.placementLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
-                  <dd>{selectedShell.paymentLabel}</dd>
+                  <dt className="text-sam-muted">{ko ? "우선순위" : "Priority"}</dt>
+                  <dd>{selectedShell.priority ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">CTA</dt>
+                  <dd>{selectedShell.ctaLabel || "—"}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{ko ? "이동 대상" : "Destination"}</dt>
+                  <dd className="max-w-[210px] break-all text-right">
+                    {selectedShell.destinationLabel || "—"}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{ko ? "캠페인 상태" : "Lifecycle"}</dt>
+                  <dd>{selectedShell.lifecycleStatusLabel || selected.status}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{ko ? "실제 노출 상태" : "Runtime"}</dt>
+                  <dd>{selectedShell.runtimeDisplayLabel || "—"}</dd>
                 </div>
               </dl>
+              {selectedShell.runtimeDisplayStatus === "eligible_waiting" ? (
+                <p className="rounded-ui-rect bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
+                  {ko
+                    ? "현재 같은 위치의 다른 팝업이 우선 노출되고 있습니다."
+                    : "Another popup is currently prioritized on this surface."}
+                </p>
+              ) : null}
 
               <label className="block text-[11px] text-sam-muted">
                 {ko ? "신청자 메시지 (반려·수정요청·연장)" : "Applicant-visible message"}
@@ -555,8 +608,13 @@ export function AdminAdvertisingWorkspace() {
               </div>
 
               <div className="flex flex-col gap-1 text-[13px]">
+                {selectedShell.previewSupported ? (
+                  <AdminActionLink href={selectedShell.previewHref}>
+                    {ko ? "미리보기" : "Preview"}
+                  </AdminActionLink>
+                ) : null}
                 <AdminActionLink href={selectedShell.href}>
-                  {ko ? "상세 화면 열기" : "Open detail"}
+                  {ko ? "수정 / 상세" : "Edit / detail"}
                 </AdminActionLink>
                 {selectedShell.liveHref ? (
                   <a

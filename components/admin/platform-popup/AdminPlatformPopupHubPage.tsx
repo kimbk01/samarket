@@ -41,6 +41,7 @@ export function AdminPlatformPopupHubPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [createName, setCreateName] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +112,16 @@ export function AdminPlatformPopupHubPage() {
   };
 
   const onCreate = async () => {
+    const name = createName.trim();
+    if (!name) {
+      setError(
+        safeT("admin_platform_popup_name_required", {
+          fallbackKo: "광고 이름을 입력해 주세요.",
+          fallbackEn: "Enter an ad name.",
+        })
+      );
+      return;
+    }
     setCreating(true);
     setError(null);
     const res = await fetch("/api/admin/platform-popup-campaigns", {
@@ -118,10 +129,7 @@ export function AdminPlatformPopupHubPage() {
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: safeT("admin_platform_popup_untitled", {
-          fallbackKo: "새 팝업 캠페인",
-          fallbackEn: "New popup campaign",
-        }),
+        name,
         surfaces: ["GLOBAL"],
       }),
     });
@@ -177,6 +185,27 @@ export function AdminPlatformPopupHubPage() {
       <AdminCard>
         <div className="space-y-3">
           <div data-admin-popup-primary-create="1" className="flex flex-wrap items-center gap-3">
+            <label className="min-w-[240px] flex-1 text-xs text-sam-muted">
+              {safeT("admin_platform_popup_operational_name", {
+                fallbackKo: "운영 광고 이름",
+                fallbackEn: "Operational ad name",
+              })}
+              <input
+                value={createName}
+                onChange={(event) => setCreateName(event.target.value)}
+                placeholder={safeT("admin_platform_popup_name_placeholder", {
+                  fallbackKo: "예: 9월 배달 신규회원 팝업",
+                  fallbackEn: "e.g. September delivery acquisition",
+                })}
+                className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm text-sam-fg"
+              />
+              <span className="mt-1 block">
+                {safeT("admin_platform_popup_name_helper", {
+                  fallbackKo: "목록과 운영 화면에서 캠페인을 구분할 이름입니다.",
+                  fallbackEn: "Used to identify this campaign in operational lists.",
+                })}
+              </span>
+            </label>
             {createCtaButton({ fullWidth: false })}
             <p className="text-xs text-sam-muted">{emptyContractLine}</p>
           </div>

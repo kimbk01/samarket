@@ -40,6 +40,25 @@ export type AdsActionItem = {
   statementHref: string | null;
   financeHref: string | null;
   memberHref: string | null;
+  title?: string | null;
+  creativeImageUrl?: string | null;
+  ctaLabel?: string | null;
+  destinationLabel?: string | null;
+  priority?: number | null;
+  lifecycleStatusLabel?: string | null;
+  runtimeDisplayStatus?:
+    | "live_now"
+    | "eligible_waiting"
+    | "scheduled"
+    | "paused"
+    | "ended"
+    | "pending"
+    | "draft"
+    | "rejected"
+    | null;
+  isRuntimeWinner?: boolean | null;
+  sourceKind?: "admin_direct" | "owner" | "member" | "unknown" | null;
+  previewHref?: string | null;
 };
 
 export type AdsExecutionRow = {

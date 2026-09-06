@@ -17,6 +17,7 @@ import type {
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
 import { mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
+import { computePopupWinnerIdsBySurface } from "@/lib/admin/ads-exposure/popup-runtime-display";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
 import { computePlacementOccupancy } from "@/lib/admin/ads-operator/placement-occupancy";
@@ -142,6 +143,16 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
   const popupCampaignItems = popupCampaignsUnavailable ? [] : popupCampaignsRes.items;
   const feedCampaigns = feedCampaignsSettled.ok ? feedCampaignsSettled.items : [];
+  let popupWinnerIds = new Set<string>();
+  if (!popupCampaignsUnavailable && popupCampaignItems.length > 0) {
+    try {
+      popupWinnerIds = await computePopupWinnerIdsBySurface(sb);
+    } catch (cause) {
+      sectionErrors.push(
+        `popup_runtime_display:${cause instanceof Error ? cause.message : String(cause)}`
+      );
+    }
+  }
 
   const projected: AdsActionItem[] = [];
 
@@ -158,7 +169,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     projected.push(projectPopupRequestToActionItem(r));
   }
   for (const c of popupCampaignItems) {
-    projected.push(projectPopupCampaignToActionItem(c));
+    projected.push(projectPopupCampaignToActionItem(c, { winnerIds: popupWinnerIds }));
   }
   for (const r of boostRows) {
     projected.push(projectPromoteOrderToActionItem(r));

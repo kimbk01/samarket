@@ -3,7 +3,12 @@
  */
 
 import type { AdsActionItem } from "@/lib/admin/ads-control-plane/types";
-import { humanPlacementLabel, productKindLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import {
+  humanPlacementLabel,
+  humanPopupSurfaceShortLabel,
+  productKindLabel,
+} from "@/lib/admin/ads-exposure/human-placement-label";
+import { popupRuntimeDisplayLabel } from "@/lib/admin/ads-exposure/popup-runtime-display";
 import { adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
 import {
   adsOpsStatusLabel,
@@ -23,6 +28,7 @@ export type AdsShellStatusTab =
 export type AdsShellListRow = {
   id: string;
   kindLabel: string;
+  title: string;
   applicantLabel: string;
   memberOrStore: string;
   targetLabel: string;
@@ -34,13 +40,23 @@ export type AdsShellListRow = {
   /** Row status bucket — never `"all"`. */
   statusTab: Exclude<AdsShellStatusTab, "all">;
   statusLabel: string;
+  creativeImageUrl: string | null;
+  ctaLabel: string | null;
+  destinationLabel: string | null;
+  priority: number | null;
+  lifecycleStatusLabel: string | null;
+  runtimeDisplayStatus: AdsActionItem["runtimeDisplayStatus"];
+  runtimeDisplayLabel: string | null;
+  isRuntimeWinner: boolean | null;
   href: string;
+  previewHref: string;
   liveHref: string | null;
   previewSupported: boolean;
   domain: string;
   product: string;
   rawStatus: string;
   currency: string;
+  sourceKind: AdsActionItem["sourceKind"];
 };
 
 export type AdsShellProductFamily = "all" | "promote" | "banner" | "popup" | "sponsored";
@@ -99,12 +115,13 @@ export function resolveShellPlacementKey(item: Pick<AdsActionItem, "domain" | "p
     if (hint.includes("COMMUNITY") || hint === "COMMUNITY") return "COMMUNITY";
     if (hint.includes("MYPAGE")) return "MYPAGE";
     if (item.placementHint && String(item.placementHint).trim()) {
-      return String(item.placementHint).trim();
+      return String(item.placementHint).trim().split(/\s+/)[0] ?? "GLOBAL";
     }
     return "GLOBAL";
   }
   if (item.placementHint && String(item.placementHint).trim()) {
-    return String(item.placementHint).trim();
+    // Inventory keys may append " slide:N" for HERO identity.
+    return String(item.placementHint).trim().split(/\s+/)[0] ?? "";
   }
   return "";
 }
@@ -133,7 +150,15 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
         : `${placementLabel} > Slide ${slideN}`
       : null;
 
-  const statusTab = normalizeAdsShellStatus(item.status, item.exposureLabel, item.periodLabel);
+  const runtimeStatus = item.runtimeDisplayStatus ?? null;
+  const statusTab =
+    runtimeStatus === "live_now" || runtimeStatus === "eligible_waiting"
+      ? "live"
+      : runtimeStatus
+        ? runtimeStatus === "draft" || runtimeStatus === "pending"
+          ? "pending"
+          : runtimeStatus
+        : normalizeAdsShellStatus(item.status, item.exposureLabel, item.periodLabel);
   const ops = mapRawToAdsOpsStatus(
     [item.status, item.exposureLabel, item.periodLabel].filter(Boolean).join(" ")
   );
@@ -145,9 +170,11 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
       : item.applicantLabel || (ko ? "—" : "—");
 
   const targetLabel =
-    item.creativeHint && !isCreativeUrl(item.creativeHint)
-      ? item.creativeHint
-      : placementLabel;
+    item.domain === "popup"
+      ? humanPopupSurfaceShortLabel(item.placementHint || placementKey, ko)
+      : item.creativeHint && !isCreativeUrl(item.creativeHint)
+        ? item.creativeHint
+        : item.title || item.applicantLabel || (ko ? "—" : "—");
 
   const productLower = String(item.product ?? "").toLowerCase();
   const previewSupported =
@@ -168,6 +195,10 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
   return {
     id: item.id,
     kindLabel: adsShellKindLabel(item.domain, item.product, ko),
+    title:
+      item.domain === "popup"
+        ? item.title || (ko ? "—" : "—")
+        : item.title || item.applicantLabel || (ko ? "—" : "—"),
     applicantLabel: item.applicantLabel || (ko ? "—" : "—"),
     memberOrStore,
     targetLabel,
@@ -177,14 +208,27 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     amountLabel: item.amountLabel || (ko ? "—" : "—"),
     paymentLabel: item.paymentLabel || (ko ? "—" : "—"),
     statusTab,
-    statusLabel: adsOpsStatusLabel(ops, ko),
+    statusLabel: runtimeStatus
+      ? popupRuntimeDisplayLabel(runtimeStatus, ko)
+      : adsOpsStatusLabel(ops, ko),
+    creativeImageUrl:
+      item.creativeImageUrl || (isCreativeUrl(item.creativeHint) ? item.creativeHint : null),
+    ctaLabel: item.ctaLabel ?? null,
+    destinationLabel: item.destinationLabel ?? null,
+    priority: item.priority ?? null,
+    lifecycleStatusLabel: item.lifecycleStatusLabel ?? null,
+    runtimeDisplayStatus: runtimeStatus,
+    runtimeDisplayLabel: runtimeStatus ? popupRuntimeDisplayLabel(runtimeStatus, ko) : null,
+    isRuntimeWinner: item.isRuntimeWinner ?? null,
     href: item.href,
+    previewHref: item.previewHref || item.href,
     liveHref,
     previewSupported,
     domain: item.domain,
     product: item.product,
     rawStatus: item.status,
     currency: item.currency,
+    sourceKind: item.sourceKind ?? null,
   };
 }
 

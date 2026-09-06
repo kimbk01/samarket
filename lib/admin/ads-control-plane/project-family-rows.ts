@@ -21,10 +21,14 @@ import {
   adsRemainingPeriodLabel,
 } from "@/lib/admin/domain-control/ads-operator-cta";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
-import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import type { AdminDeliveryAdListItem } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import type { PlatformPopupAdminListItem } from "@/lib/platform-popup/admin-campaign-loader";
+import {
+  projectPopupRuntimeDisplay,
+  type PopupRuntimeDisplayStatus,
+} from "@/lib/admin/ads-exposure/popup-runtime-display";
+import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -105,9 +109,13 @@ export function isAdsShellExecutionOps(ops: AdsOpsStatus): boolean {
 }
 
 function deliveryPlacementHint(c: AdminDeliveryAdListItem): string | null {
-  const key = c.inventoryKeys?.[0];
+  const key = c.inventoryKeys?.[0] ?? null;
   if (!key) return null;
-  return adminDeliveryAdInventoryHumanLabel(key, "ko") || key;
+  const slide =
+    key === "STORES_HOME_HERO" && c.sortOrder != null && Number.isFinite(c.sortOrder)
+      ? ` slide:${Math.max(1, Math.floor(c.sortOrder) + 1)}`
+      : "";
+  return `${key}${slide}`;
 }
 
 export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem): AdsActionItem {
@@ -123,17 +131,22 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
       : ops === "draft"
         ? "초안·소재 확인이 필요합니다."
         : null;
+  const adminDirect = c.campaignSource === "DIBAY_FIRST_PARTY";
+  const title =
+    String(c.title ?? "").trim() ||
+    String(c.headline ?? "").trim() ||
+    id.slice(0, 8);
 
   return {
     id: `delivery:${id}`,
     domain: "delivery",
     product,
     entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
-    applicantLabel:
-      String(c.title ?? "").trim() ||
-      String(c.storeName ?? "").trim() ||
-      String(c.headline ?? "").trim() ||
-      id.slice(0, 8),
+    applicantLabel: adminDirect
+      ? "Admin 직접 등록"
+      : String(c.storeName ?? "").trim() ||
+        String(c.ownerDisplayName ?? "").trim() ||
+        (storeId ? `매장 ${storeId.slice(0, 8)}` : "Owner"),
     storeId,
     memberId: ownerId,
     creativeHint: c.imageUrl?.trim() || null,
@@ -142,11 +155,7 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     currency: "CASH",
     status: opsLabel(ops),
     whyActionable: actionable,
-    paymentLabel: adsPaymentLabel(
-      c.campaignSource === "DIBAY_FIRST_PARTY" ? "FUNDED" : null,
-      "CASH",
-      true
-    ),
+    paymentLabel: adsPaymentLabel(adminDirect ? "FUNDED" : null, "CASH", true),
     periodLabel: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
     exposureLabel: exposureFromOps(ops),
@@ -158,6 +167,13 @@ export function projectDeliveryCampaignToActionItem(c: AdminDeliveryAdListItem):
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     financeHref: "/admin/finance#action-required",
     memberHref: ownerId ? memberHref(ownerId) : null,
+    title,
+    creativeImageUrl: c.imageUrl?.trim() || null,
+    ctaLabel: c.ctaHref ? "이동" : null,
+    destinationLabel: c.ctaHref?.trim() || null,
+    lifecycleStatusLabel: opsLabel(ops),
+    sourceKind: adminDirect ? "admin_direct" : "owner",
+    previewHref: `${DELIVERY_AD_ADMIN_ROUTES.detail(id)}?focus=preview`,
   };
 }
 
@@ -422,7 +438,11 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
     domain: "popup",
     product: "platform_popup",
     entity: "application",
-    applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
+    applicantLabel: storeId
+      ? `매장 ${storeId.slice(0, 8)}`
+      : ownerId
+        ? `Owner ${ownerId.slice(0, 8)}`
+        : "알 수 없음",
     storeId,
     memberId: ownerId,
     creativeHint: null,
@@ -443,6 +463,8 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     financeHref: "/admin/finance#action-required",
     memberHref: ownerId ? memberHref(ownerId) : null,
+    title: String(r.title ?? "").trim() || id.slice(0, 8),
+    sourceKind: "owner",
   };
 }
 
@@ -463,20 +485,52 @@ export function popupCampaignOpsStatus(
   });
 }
 
-export function projectPopupCampaignToActionItem(c: PlatformPopupAdminListItem): AdsActionItem {
+export function projectPopupCampaignToActionItem(
+  c: PlatformPopupAdminListItem,
+  options: { winnerIds?: ReadonlySet<string> } = {}
+): AdsActionItem {
   const ops = popupCampaignOpsStatus(c);
   const id = String(c.id ?? "");
   const storeId = c.ownerStoreId?.trim() || null;
   const at = String(c.updatedAt || c.startAt || "");
   const surfaceHint =
-    c.surfaces?.length > 0 ? c.surfaces.join(",") : "앱 팝업";
+    c.surfaces?.length > 0 ? c.surfaces.join(",") : "GLOBAL";
+  const adminDirect = !c.ownerStoreId && !c.ownerRequestId;
+  const runtime = projectPopupRuntimeDisplay({
+    opsStatus: ops,
+    campaignId: id,
+    winnerIds: options.winnerIds ?? new Set<string>(),
+    startAt: c.startAt,
+    endAt: c.endAt,
+  });
+  const displayTitle = popupOperationalDisplayTitle({
+    name: c.name,
+    id,
+    updatedAt: c.updatedAt,
+    ko: true,
+  });
+  const ctaLabel =
+    c.ctaType === "internal_page"
+      ? "내부 페이지 이동"
+      : c.ctaType === "external_url"
+        ? "외부 링크 이동"
+        : c.ctaType === "store"
+          ? "매장 이동"
+          : c.ctaType === "trade_listing"
+            ? "거래 글 이동"
+            : "커뮤니티 글 이동";
+  const destinationLabel = c.externalUrl?.trim() || c.ctaTarget?.trim() || null;
 
   return {
     id: `popup_campaign:${id}`,
     domain: "popup",
     product: "platform_popup",
     entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
-    applicantLabel: String(c.name ?? "").trim() || id.slice(0, 8),
+    applicantLabel: adminDirect
+      ? "Admin 직접 등록"
+      : storeId
+        ? `매장 ${storeId.slice(0, 8)}`
+        : "Owner",
     storeId,
     memberId: null,
     creativeHint: c.creativeThumbUrl,
@@ -497,6 +551,16 @@ export function projectPopupCampaignToActionItem(c: PlatformPopupAdminListItem):
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     financeHref: "/admin/finance#action-required",
     memberHref: null,
+    title: displayTitle,
+    creativeImageUrl: c.creativeThumbUrl,
+    ctaLabel,
+    destinationLabel,
+    priority: c.priority,
+    lifecycleStatusLabel: opsLabel(ops),
+    runtimeDisplayStatus: runtime.status satisfies PopupRuntimeDisplayStatus,
+    isRuntimeWinner: runtime.isRuntimeWinner,
+    sourceKind: adminDirect ? "admin_direct" : "owner",
+    previewHref: `/admin/platform-popup/${encodeURIComponent(id)}?focus=preview`,
   };
 }
 
