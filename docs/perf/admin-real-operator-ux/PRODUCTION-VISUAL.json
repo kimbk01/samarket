@@ -1,0 +1,56 @@
+{
+  "ok": true,
+  "identity": {
+    "origin": "https://samarket.vercel.app",
+    "expectSha": "868687220",
+    "deployment": "https://samarket.vercel.app/admin",
+    "productSha": null,
+    "at": "2026-09-06T06:43:57.709Z"
+  },
+  "gitHeadLocal": "868687220",
+  "routes": [
+    {
+      "id": "ads",
+      "path": "/admin/delivery-ads",
+      "forbiddenHits": [],
+      "uuidCountInViewportText": 0,
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/admin-real-operator-ux/prod-ads-1024.png",
+      "pass": true
+    },
+    {
+      "id": "finance",
+      "path": "/admin/finance",
+      "forbiddenHits": [],
+      "uuidCountInViewportText": 0,
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/admin-real-operator-ux/prod-finance-1024.png",
+      "pass": true
+    },
+    {
+      "id": "community",
+      "path": "/admin/community",
+      "forbiddenHits": [],
+      "uuidCountInViewportText": 0,
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/admin-real-operator-ux/prod-community-1024.png",
+      "pass": true
+    },
+    {
+      "id": "messenger",
+      "path": "/admin/messenger",
+      "forbiddenHits": [],
+      "uuidCountInViewportText": 0,
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/admin-real-operator-ux/prod-messenger-1024.png",
+      "pass": true
+    },
+    {
+      "id": "support",
+      "path": "/admin/support",
+      "forbiddenHits": [],
+      "uuidCountInViewportText": 0,
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/admin-real-operator-ux/prod-support-1024.png",
+      "pass": true
+    }
+  ],
+  "adsDetail": null,
+  "verdict": "PASS",
+  "operatorReady": "PASS"
+}

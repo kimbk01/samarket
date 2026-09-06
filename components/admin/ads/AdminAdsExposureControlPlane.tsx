@@ -21,6 +21,7 @@ import type {
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
 import {
+  adminAdsEligibilityNote,
   adminDisplayApplicantLabel,
   adminOperatorLabel,
 } from "@/lib/admin/operator-ux/operator-labels";
@@ -82,15 +83,7 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
         </p>
         {item.eligibility ? (
           <p className="sam-text-xxs text-amber-900">
-            {/organic ranking/i.test(item.eligibility)
-              ? ko
-                ? "일반 노출(광고 아님)과 별개로 검토가 필요합니다."
-                : "Separate from organic ranking — admin review required."
-              : /payment\s*!=\s*approval/i.test(item.eligibility)
-                ? ko
-                  ? "결제 완료만으로 승인되지 않습니다. 관리자 심사가 필요합니다."
-                  : "Payment alone is not approval — admin review required."
-                : adminOperatorLabel(item.eligibility, ko)}
+            {adminAdsEligibilityNote(item.eligibility, ko)}
           </p>
         ) : null}
         {item.creativeHint && !creativeIsUrl ? (
@@ -156,7 +149,7 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
               </td>
               <td className="px-3 py-2">{adminOperatorLabel(r.status, ko)}</td>
               <td className="px-3 py-2 sam-text-xxs">
-                {adminOperatorLabel(r.eligibility, ko)}
+                {adminAdsEligibilityNote(r.eligibility, ko) || "—"}
               </td>
               <td className="px-3 py-2">
                 <Link href={r.href} className="font-semibold text-signature hover:underline">

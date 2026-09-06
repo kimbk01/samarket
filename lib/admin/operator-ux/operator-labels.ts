@@ -180,6 +180,38 @@ export function adminOperatorErrorMessage(
   return key;
 }
 
+export function adminAdsEligibilityNote(
+  eligibility: string | null | undefined,
+  ko: boolean
+): string {
+  const e = String(eligibility ?? "").trim();
+  if (!e) return "";
+  if (/organic ranking/i.test(e) || /store sponsored/i.test(e)) {
+    return ko
+      ? "일반 노출(광고 아님)과 별개로 검토가 필요합니다."
+      : "Separate from organic ranking — admin review required.";
+  }
+  if (/payment\s*!=\s*approval/i.test(e) || /payment≠approval/i.test(e) || /payment != approval/i.test(e)) {
+    return ko
+      ? "결제 완료만으로 승인되지 않습니다. 관리자 심사가 필요합니다."
+      : "Payment alone is not approval — admin review required.";
+  }
+  if (/requires admin approval/i.test(e) || /WAITING_ADMIN/i.test(e)) {
+    return ko ? "관리자 검토가 필요합니다." : "Admin review required.";
+  }
+  if (/BANNER product/i.test(e) || /Placement Map/i.test(e)) {
+    return ko ? "배너 소재·노출 위치를 상세에서 확인하세요." : "Check banner creative and placement on detail.";
+  }
+  if (/NOT_ELIGIBLE|not eligible/i.test(e)) {
+    return ko ? "지금은 고객 화면에 노출되지 않습니다." : "Not currently eligible for customer exposure.";
+  }
+  // Avoid dumping long English developer notes
+  if (/[=≠>]/.test(e) || /_[A-Z]/.test(e) || e.length > 80) {
+    return ko ? "상세에서 처리 조건을 확인하세요." : "See detail for processing conditions.";
+  }
+  return adminOperatorLabel(e, ko);
+}
+
 export function adminFinancePrimaryCta(
   type: string,
   ko: boolean

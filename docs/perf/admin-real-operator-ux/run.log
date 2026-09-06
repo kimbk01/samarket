@@ -1,0 +1,31 @@
+{
+  "ok": true,
+  "verdict": "PASS",
+  "routes": [
+    {
+      "id": "ads",
+      "pass": true,
+      "hits": []
+    },
+    {
+      "id": "finance",
+      "pass": true,
+      "hits": []
+    },
+    {
+      "id": "community",
+      "pass": true,
+      "hits": []
+    },
+    {
+      "id": "messenger",
+      "pass": true,
+      "hits": []
+    },
+    {
+      "id": "support",
+      "pass": true,
+      "hits": []
+    }
+  ]
+}
