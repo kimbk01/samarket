@@ -1,0 +1,12 @@
+{
+  "ok": false,
+  "vpOk": true,
+  "dialogOk": false,
+  "parityOk": true,
+  "summary": {
+    "W1_1024": true,
+    "W2_1280": true,
+    "W3_1440": true,
+    "W4_767": true
+  }
+}

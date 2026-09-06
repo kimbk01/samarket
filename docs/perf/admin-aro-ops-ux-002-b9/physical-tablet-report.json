@@ -1,0 +1,137 @@
+{
+  "ok": true,
+  "kind": "PHYSICAL_TABLET_BROWSER",
+  "serial": "8b37179f7d94",
+  "model": "24076RP19G",
+  "browser": "Chrome via CDP",
+  "orientation": "landscape",
+  "origin": "https://samarket.vercel.app",
+  "mutation": "NONE",
+  "routes": [
+    {
+      "id": "S1",
+      "path": "/admin",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "대시보드"
+      },
+      "shot": "physical_S1.png",
+      "pass": true
+    },
+    {
+      "id": "S3",
+      "path": "/admin/stores/orders",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "배달·포장 주문 (실데이터)"
+      },
+      "shot": "physical_S3.png",
+      "pass": true
+    },
+    {
+      "id": "S4",
+      "path": "/admin/posts-management?tab=trade",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "게시물 관리"
+      },
+      "shot": "physical_S4.png",
+      "pass": true
+    },
+    {
+      "id": "S7",
+      "path": "/admin/finance",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "Point·Coin·Cash 재무"
+      },
+      "shot": "physical_S7.png",
+      "pass": true
+    },
+    {
+      "id": "S8",
+      "path": "/admin/delivery-ads",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "배달 광고 관리"
+      },
+      "shot": "physical_S8.png",
+      "pass": true
+    },
+    {
+      "id": "S9",
+      "path": "/admin/support",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "고객센터"
+      },
+      "shot": "physical_S9.png",
+      "pass": true
+    },
+    {
+      "id": "S10",
+      "path": "/admin/prelaunch-reset",
+      "measure": {
+        "vw": 1006,
+        "vh": 462,
+        "dpr": 1.3312500715255737,
+        "bodyClientWidth": 1007,
+        "bodyScrollWidth": 1007,
+        "bodyX": false,
+        "headerOverlap": false,
+        "breadcrumb": true,
+        "title": "운영 시작 전 테스트 데이터 정리"
+      },
+      "shot": "physical_S10.png",
+      "pass": true
+    }
+  ],
+  "dialog": {
+    "opened": true,
+    "footerVisible": true,
+    "bodyX": false,
+    "pass": true
+  }
+}

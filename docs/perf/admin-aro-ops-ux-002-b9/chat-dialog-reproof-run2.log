@@ -1,0 +1,8 @@
+page.waitForSelector: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('.dibay-overlay-root') to be visible
+
+    at hardOpenCancel (/Users/bkkim/projects/samarket/scripts/qa/admin-aro-ops-ux-002-b9-chat-dialog-reproof.mjs:123:16)
+    at async main (/Users/bkkim/projects/samarket/scripts/qa/admin-aro-ops-ux-002-b9-chat-dialog-reproof.mjs:138:21) {
+  name: 'TimeoutError'
+}

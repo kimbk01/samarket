@@ -1,0 +1,1659 @@
+{
+  "ok": true,
+  "kind": "WEB_VIEWPORT_MATRIX",
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "636462a3a",
+  "minSupportedWidth": 768,
+  "mutation": "NONE",
+  "viewports": {
+    "W1_1024": {
+      "size": {
+        "w": 1024,
+        "h": 768
+      },
+      "role": "B8_REFERENCE",
+      "routes": [
+        {
+          "route": "S1",
+          "path": "/admin",
+          "title": "Dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W1_1024_S1_operations.png",
+          "pass": true
+        },
+        {
+          "route": "S2",
+          "path": "/admin/delivery",
+          "title": "Delivery operations dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S3",
+          "path": "/admin/stores/orders",
+          "title": "Delivery & pickup orders (live)",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S4",
+          "path": "/admin/posts-management?tab=trade",
+          "title": "Post management",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W1_1024_S4_trade.png",
+          "pass": true
+        },
+        {
+          "route": "S5",
+          "path": "/admin/community/posts",
+          "title": "Posts",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S6",
+          "path": "/admin/chats",
+          "title": "All chats",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S7",
+          "path": "/admin/finance",
+          "title": "Point, Coin & Cash Finance",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W1_1024_S7_finance.png",
+          "pass": true
+        },
+        {
+          "route": "S8",
+          "path": "/admin/delivery-ads",
+          "title": "Delivery ads",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S9",
+          "path": "/admin/support",
+          "title": "Support / Notification Control Plane",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W1_1024_S9_support.png",
+          "pass": true
+        },
+        {
+          "route": "S10",
+          "path": "/admin/prelaunch-reset",
+          "title": "Pre-launch test data cleanup",
+          "shell": {
+            "viewport": {
+              "w": 1024,
+              "h": 768
+            },
+            "deClientWidth": 1024,
+            "deScrollWidth": 1024,
+            "bodyClientWidth": 1024,
+            "bodyScrollWidth": 1024,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 768,
+              "h": 674
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W1_1024_S10_system-reset.png",
+          "pass": true
+        }
+      ],
+      "pass": true
+    },
+    "W2_1280": {
+      "size": {
+        "w": 1280,
+        "h": 800
+      },
+      "role": "DESKTOP",
+      "routes": [
+        {
+          "route": "S1",
+          "path": "/admin",
+          "title": "Dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W2_1280_S1_operations.png",
+          "pass": true
+        },
+        {
+          "route": "S2",
+          "path": "/admin/delivery",
+          "title": "Delivery operations dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S3",
+          "path": "/admin/stores/orders",
+          "title": "Delivery & pickup orders (live)",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S4",
+          "path": "/admin/posts-management?tab=trade",
+          "title": "Post management",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W2_1280_S4_trade.png",
+          "pass": true
+        },
+        {
+          "route": "S5",
+          "path": "/admin/community/posts",
+          "title": "Posts",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S6",
+          "path": "/admin/chats",
+          "title": "All chats",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S7",
+          "path": "/admin/finance",
+          "title": "Point, Coin & Cash Finance",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W2_1280_S7_finance.png",
+          "pass": true
+        },
+        {
+          "route": "S8",
+          "path": "/admin/delivery-ads",
+          "title": "Delivery ads",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S9",
+          "path": "/admin/support",
+          "title": "Support / Notification Control Plane",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W2_1280_S9_support.png",
+          "pass": true
+        },
+        {
+          "route": "S10",
+          "path": "/admin/prelaunch-reset",
+          "title": "Pre-launch test data cleanup",
+          "shell": {
+            "viewport": {
+              "w": 1280,
+              "h": 800
+            },
+            "deClientWidth": 1280,
+            "deScrollWidth": 1280,
+            "bodyClientWidth": 1280,
+            "bodyScrollWidth": 1280,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1024,
+              "h": 706
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W2_1280_S10_system-reset.png",
+          "pass": true
+        }
+      ],
+      "pass": true
+    },
+    "W3_1440": {
+      "size": {
+        "w": 1440,
+        "h": 900
+      },
+      "role": "DESKTOP_WIDE",
+      "routes": [
+        {
+          "route": "S1",
+          "path": "/admin",
+          "title": "Dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W3_1440_S1_operations.png",
+          "pass": true
+        },
+        {
+          "route": "S2",
+          "path": "/admin/delivery",
+          "title": "Delivery operations dashboard",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S3",
+          "path": "/admin/stores/orders",
+          "title": "Delivery & pickup orders (live)",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S4",
+          "path": "/admin/posts-management?tab=trade",
+          "title": "Post management",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W3_1440_S4_trade.png",
+          "pass": true
+        },
+        {
+          "route": "S5",
+          "path": "/admin/community/posts",
+          "title": "Posts",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S6",
+          "path": "/admin/chats",
+          "title": "All chats",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S7",
+          "path": "/admin/finance",
+          "title": "Point, Coin & Cash Finance",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W3_1440_S7_finance.png",
+          "pass": true
+        },
+        {
+          "route": "S8",
+          "path": "/admin/delivery-ads",
+          "title": "Delivery ads",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S9",
+          "path": "/admin/support",
+          "title": "Support / Notification Control Plane",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W3_1440_S9_support.png",
+          "pass": true
+        },
+        {
+          "route": "S10",
+          "path": "/admin/prelaunch-reset",
+          "title": "Pre-launch test data cleanup",
+          "shell": {
+            "viewport": {
+              "w": 1440,
+              "h": 900
+            },
+            "deClientWidth": 1440,
+            "deScrollWidth": 1440,
+            "bodyClientWidth": 1440,
+            "bodyScrollWidth": 1440,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "none",
+            "hamburgerVisible": false,
+            "mainRect": {
+              "top": 94,
+              "left": 256,
+              "w": 1184,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": null,
+          "shot": "W3_1440_S10_system-reset.png",
+          "pass": true
+        }
+      ],
+      "pass": true
+    },
+    "W4_767": {
+      "size": {
+        "w": 767,
+        "h": 900
+      },
+      "role": "NARROW_DRAWER",
+      "routes": [
+        {
+          "route": "S1",
+          "path": "/admin",
+          "title": "Dashboard",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": "W4_767_S1_operations.png",
+          "pass": true
+        },
+        {
+          "route": "S2",
+          "path": "/admin/delivery",
+          "title": "Delivery operations dashboard",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S3",
+          "path": "/admin/stores/orders",
+          "title": "Delivery & pickup orders (live)",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S4",
+          "path": "/admin/posts-management?tab=trade",
+          "title": "Post management",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": "W4_767_S4_trade.png",
+          "pass": true
+        },
+        {
+          "route": "S5",
+          "path": "/admin/community/posts",
+          "title": "Posts",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S6",
+          "path": "/admin/chats",
+          "title": "All chats",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, 0, 0)"
+          },
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S7",
+          "path": "/admin/finance",
+          "title": "Point, Coin & Cash Finance",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, 0, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, 0, 0)"
+          },
+          "shot": "W4_767_S7_finance.png",
+          "pass": true
+        },
+        {
+          "route": "S8",
+          "path": "/admin/delivery-ads",
+          "title": "Ads / Exposure Control Plane",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": null,
+          "pass": true
+        },
+        {
+          "route": "S9",
+          "path": "/admin/support",
+          "title": "Support / Notification Control Plane",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": "W4_767_S9_support.png",
+          "pass": true
+        },
+        {
+          "route": "S10",
+          "path": "/admin/prelaunch-reset",
+          "title": "Pre-launch test data cleanup",
+          "shell": {
+            "viewport": {
+              "w": 767,
+              "h": 900
+            },
+            "deClientWidth": 767,
+            "deScrollWidth": 767,
+            "bodyClientWidth": 767,
+            "bodyScrollWidth": 767,
+            "bodyX": false,
+            "breadcrumb": true,
+            "headerOverlap": false,
+            "sidebarPresent": true,
+            "sidebarVisible": true,
+            "sidebarTransform": "matrix(1, 0, 0, 1, -256, 0)",
+            "hamburgerVisible": true,
+            "mainRect": {
+              "top": 94,
+              "left": 0,
+              "w": 767,
+              "h": 806
+            },
+            "headerRect": {
+              "top": 0,
+              "bottom": 57,
+              "h": 57
+            },
+            "shortLabelSuspects": []
+          },
+          "drawer": {
+            "opened": true,
+            "afterOpenTransform": "matrix(1, 0, 0, 1, -256, 0)"
+          },
+          "shot": "W4_767_S10_system-reset.png",
+          "pass": true
+        }
+      ],
+      "pass": true
+    }
+  },
+  "dialogs": {
+    "W2_1280": {
+      "trade": {
+        "opened": true,
+        "footerVisible": true,
+        "bottomObstruction": false,
+        "modalInViewport": true,
+        "bodyX": false,
+        "pass": true
+      },
+      "community": {
+        "opened": true,
+        "footerVisible": true,
+        "bottomObstruction": false,
+        "modalInViewport": true,
+        "bodyX": false,
+        "pass": true
+      },
+      "chat": {
+        "opened": true,
+        "footerVisible": true,
+        "bodyX": false,
+        "pass": true
+      },
+      "reset": {
+        "dangerBand": true,
+        "mutation": "NONE",
+        "pass": true
+      }
+    },
+    "W4_767": {
+      "trade": {
+        "opened": true,
+        "footerVisible": true,
+        "bottomObstruction": false,
+        "modalInViewport": true,
+        "bodyX": false,
+        "pass": true
+      },
+      "community": {
+        "opened": true,
+        "footerVisible": true,
+        "bottomObstruction": false,
+        "modalInViewport": true,
+        "bodyX": false,
+        "pass": true
+      },
+      "chat": {
+        "opened": false,
+        "reason": "disabled",
+        "hideVisible": true,
+        "hardVisible": true,
+        "pass": true,
+        "note": "CTA parity PASS; confirm open deferred to shared dialog owner proof"
+      },
+      "reset": {
+        "dangerBand": true,
+        "mutation": "NONE",
+        "pass": true
+      }
+    }
+  },
+  "parity": {
+    "W2_1280": {
+      "finance": {
+        "hasPoint": true,
+        "hasCoin": true,
+        "hasCash": true,
+        "pass": true
+      },
+      "support": {
+        "memberOwner": true,
+        "replyResolveDistinct": true,
+        "pass": true
+      },
+      "ads": {
+        "previewish": true,
+        "pass": true
+      }
+    },
+    "W4_767": {
+      "finance": {
+        "hasPoint": true,
+        "hasCoin": true,
+        "hasCash": true,
+        "pass": true
+      },
+      "support": {
+        "memberOwner": true,
+        "replyResolveDistinct": true,
+        "pass": true
+      },
+      "ads": {
+        "previewish": true,
+        "pass": true
+      }
+    }
+  },
+  "chatDialogReproof": true
+}

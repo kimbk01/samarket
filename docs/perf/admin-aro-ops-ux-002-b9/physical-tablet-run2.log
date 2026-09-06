@@ -1,0 +1,60 @@
+[b9-tablet] goto /admin
+[b9-tablet] goto /admin/stores/orders
+[b9-tablet] goto /admin/posts-management?tab=trade
+[b9-tablet] goto /admin/finance
+[b9-tablet] goto /admin/delivery-ads
+[b9-tablet] goto /admin/support
+[b9-tablet] goto /admin/prelaunch-reset
+{
+  "ok": true,
+  "routes": [
+    {
+      "id": "S1",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S3",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S4",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S7",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S8",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S9",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    },
+    {
+      "id": "S10",
+      "pass": true,
+      "vw": 1006,
+      "vh": 462
+    }
+  ],
+  "dialog": {
+    "opened": true,
+    "footerVisible": true,
+    "bodyX": false,
+    "pass": true
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "W2_1280": {
+    "chat": {
+      "opened": true,
+      "footerVisible": true,
+      "bodyX": false,
+      "pass": true
+    }
+  },
+  "W4_767": {
+    "chat": {
+      "opened": false,
+      "reason": "disabled",
+      "hideVisible": true,
+      "hardVisible": true,
+      "pass": true,
+      "note": "CTA parity PASS; confirm open deferred to shared dialog owner proof"
+    }
+  }
+}
