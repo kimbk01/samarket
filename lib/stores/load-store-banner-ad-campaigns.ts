@@ -22,6 +22,8 @@ import { DELIVERY_AD_CREATIVE_TABLE } from "@/lib/stores/advertising/delivery-ad
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import { issueEligibleDeliveryAdExposure } from "@/lib/stores/advertising/delivery-ad-exposure-token";
 import { loadDeliveryAdFundingStatusByCampaignIds } from "@/lib/stores/advertising/load-delivery-ad-campaign-funding-status";
+import { bannerPlacementDefaultCapacity } from "@/lib/ads/banner-placement-capacity-ssot";
+import { DELIVERY_HERO_PLACEMENT_KEY } from "@/lib/admin/ads-exposure/capacity-gate";
 
 const BANNER_JUNCTION = "delivery_banner_campaign_inventories";
 const INVENTORY_TABLE = "delivery_ad_inventories";
@@ -214,7 +216,8 @@ export async function loadVisibleStoresHomeHeroBanners(
         { id: b.slide.id, sortOrder: b.sortOrder, startAt: b.startAt }
       )
     );
-    return eligible.map((e) => e.slide);
+    const heroCap = bannerPlacementDefaultCapacity(DELIVERY_HERO_PLACEMENT_KEY);
+    return eligible.slice(0, heroCap).map((e) => e.slide);
   } catch (e) {
     console.error("[loadVisibleStoresHomeHeroBanners]", e instanceof Error ? e.message : e);
     return [];

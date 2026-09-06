@@ -39,6 +39,8 @@ function statusForError(error: string): number {
     case "INSUFFICIENT_BUSINESS_CASH":
     case "INSUFFICIENT_STORE_CASH":
       return 402;
+    case "capacity_full":
+      return 409;
     case "db_error":
     case "commercial_snapshot_failed":
       return 500;

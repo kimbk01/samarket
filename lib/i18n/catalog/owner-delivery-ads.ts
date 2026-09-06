@@ -49,7 +49,8 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_banner_dest_menu_help: "고객이 배너를 누르면 매장 메뉴로 이동합니다.",
     owner_ads_banner_dest_promo_help: "고객이 배너를 누르면 매장 프로모션으로 이동합니다.",
     owner_ads_customer_ad_tag: "광고",
-    owner_ads_submit_no_charge_note: "관리자 승인 후 Cash로 결제합니다. 지금 잔액이 차감되지 않습니다.",
+    owner_ads_submit_no_charge_note:
+      "광고 신청 시 Cash에서 결제됩니다. 잔액이 부족하면 신청할 수 없습니다.",
     owner_ads_delete_draft_confirm_body: "저장된 신청 내용이 삭제됩니다.",
     owner_ads_no_cancel_after_submit:
       "제출된 신청은 직접 취소할 수 없습니다. 관리자에게 문의해 주세요.",
@@ -78,7 +79,7 @@ export const ownerDeliveryAdsMessages = {
       "관리자 제작을 요청하면 Admin이 최종 배너를 제작합니다.",
     owner_ads_banner_pending_preview: "배너 제작 예정",
     owner_ads_billing_application_note:
-      "신청 접수이며 지금 결제되거나 Cash가 차감되지 않습니다.",
+      "광고 신청과 동시에 Cash가 결제(확보)됩니다. 반려 시 환불됩니다.",
     owner_ads_error_quote_stale:
       "요금이 변경되었습니다. 금액을 확인한 뒤 다시 신청해 주세요.",
     owner_ads_error_applications_paused: "현재 이 광고 상품은 신청을 받지 않습니다.",
@@ -101,12 +102,12 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_partner_benefits_title: "Partner 혜택",
     owner_ads_application_progress_aria: "광고 신청 단계",
     owner_ads_confirm_business_cash_note:
-      "결제 필요. 관리자 승인 및 광고 시작 전 Cash로 결제해야 합니다.",
+      "신청 시 Cash에서 광고비가 결제됩니다. 잔액이 부족하면 신청할 수 없습니다.",
     owner_ads_confirm_business_cash_model_b:
-      "관리자 승인 후 Cash로 결제합니다.",
+      "광고 신청 시 Cash에서 결제됩니다.",
     owner_ads_confirm_ad_amount: "광고 금액",
     owner_ads_confirm_cash_balance: "현재 Cash",
-    owner_ads_confirm_pay_after_approval: "승인 후 결제 예정",
+    owner_ads_confirm_pay_after_approval: "신청 시 결제",
     owner_ads_confirm_cash_after_pay: "결제 후 예상 잔액",
     owner_ads_cash_history: "이용 내역",
     owner_ads_cash_history_empty: "아직 이용 내역이 없습니다.",
@@ -495,7 +496,7 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_banner_dest_promo_help: "Opens your store promotions.",
     owner_ads_customer_ad_tag: "Ad",
     owner_ads_submit_no_charge_note:
-      "You will pay with Cash after admin approval. Nothing is charged on submit.",
+      "Cash is charged when you submit the application. You cannot submit with insufficient balance.",
     owner_ads_delete_draft_confirm_body: "Your saved draft application will be removed.",
     owner_ads_no_cancel_after_submit:
       "Submitted applications cannot be cancelled by you. Contact admin if needed.",
@@ -524,7 +525,7 @@ export const ownerDeliveryAdsMessages = {
       "If you request admin production, Admin creates the final banner.",
     owner_ads_banner_pending_preview: "Banner production pending",
     owner_ads_billing_application_note:
-      "This is an application request — no payment is taken and Cash is not charged now.",
+      "Cash is secured when you submit. Rejected applications are refunded.",
     owner_ads_error_quote_stale:
       "Pricing changed. Confirm the amount and apply again.",
     owner_ads_error_applications_paused: "This ad product is not accepting applications right now.",
@@ -547,12 +548,12 @@ export const ownerDeliveryAdsMessages = {
     owner_ads_partner_benefits_title: "Partner benefits",
     owner_ads_application_progress_aria: "Ad application steps",
     owner_ads_confirm_business_cash_note:
-      "Payment required. You must pay with Cash after admin approval and before the ad starts.",
+      "Cash is charged on submit. You cannot submit with insufficient balance.",
     owner_ads_confirm_business_cash_model_b:
-      "You pay with Cash after admin approval.",
+      "Cash is charged when you submit the application.",
     owner_ads_confirm_ad_amount: "Ad amount",
     owner_ads_confirm_cash_balance: "Current Cash",
-    owner_ads_confirm_pay_after_approval: "Due after approval",
+    owner_ads_confirm_pay_after_approval: "Pay on submit",
     owner_ads_confirm_cash_after_pay: "Balance after payment",
     owner_ads_cash_history: "History",
     owner_ads_cash_history_empty: "No cash history yet.",

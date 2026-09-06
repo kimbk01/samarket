@@ -115,11 +115,12 @@ describe("HERO capacity / rotation / authority SSOT", () => {
     expect(r.capacity).toBe(5);
     expect(r.overlappingCount).toBe(5);
     expect(r.full).toBe(true);
-    expect(r.messageKo).toContain("만석");
+    expect(r.messageKo).toContain("예약이 가득");
   });
 
   it("authority matrix exposes writer-backed CTAs only", () => {
-    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(true);
+    // Owner LOCK: Promote has no Pause/Resume/End writers
+    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(false);
     expect(isAdminAuthorityCtaAllowed("boost_community", "APPROVE")).toBe(true);
     expect(isAdminAuthorityCtaAllowed("delivery_sponsored", "CREATE")).toBe(false);
     expect(isAdminAuthorityCtaAllowed("delivery_banner", "CREATE")).toBe(true);

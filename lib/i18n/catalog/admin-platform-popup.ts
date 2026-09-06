@@ -28,7 +28,7 @@ export const adminPlatformPopupMessages = {
     admin_platform_popup_preview_renderer_note:
       "미리보기는 프로덕션 DibayPopupAd를 그대로 사용합니다. 가로 모드에서는 팝업을 가로형으로 바꾸지 않고 노출하지 않습니다.",
     admin_platform_popup_hub_title: "팝업 광고 운영",
-    admin_platform_popup_hub_desc: "오너 신청 검토 · 집행 관리 · 직접 등록. 신청≠집행.",
+    admin_platform_popup_hub_desc: "오너 신청 검토 · 노출 관리 · 직접 등록. 신청≠노출.",
     admin_platform_popup_upload_hint:
       "원본 JPG/PNG/WebP · 권장 1440×1000(36:25) · 서버에서 자동 최적화. 과도한 원본은 최적화 후 저장됩니다.",
     admin_platform_popup_tab_requests: "신청",

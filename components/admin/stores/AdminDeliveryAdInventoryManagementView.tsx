@@ -54,19 +54,19 @@ export function AdminDeliveryAdInventoryManagementView() {
     <AdminDeliveryCmsChrome>
       <div className="space-y-5 pb-10" data-admin-delivery-ads-inventory="1">
         <div>
-          <p className="text-[12px] text-sam-muted">Delivery › Ads › Inventory</p>
+          <p className="text-[12px] text-sam-muted">Delivery › Ads › Placements</p>
           <h1 className="text-[20px] font-bold text-sam-fg">
             {safeT("admin_delivery_ads_inventory_title", {
-              fallbackKo: "광고 지면 관리",
+              fallbackKo: "광고 위치 관리",
               fallbackEn: "Ad placement management",
             })}
           </h1>
           <p className="mt-1 text-[13px] text-sam-muted">
             {safeT("admin_delivery_ads_inventory_desc", {
               fallbackKo:
-                "고객 화면에 실제로 팔리는 광고 위치를 관리합니다. 내부 inventory key는 보조 정보입니다.",
+                "고객 화면에 실제로 팔리는 광고 위치를 관리합니다.",
               fallbackEn:
-                "Manage sellable customer placements. Internal inventory keys are secondary metadata only.",
+                "Manage sellable customer ad placements.",
             })}
           </p>
         </div>

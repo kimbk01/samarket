@@ -421,10 +421,15 @@ export function AdminDeliveryAdFirstPartyCreateView() {
           >
             {busy
               ? "…"
-              : safeT("admin_delivery_ads_first_party_submit", {
-                  fallbackKo: "디바이 광고 등록",
-                  fallbackEn: "Publish DIBAY ad",
-                })}
+              : new Date(startAt).getTime() <= Date.now()
+                ? safeT("admin_delivery_ads_first_party_go_live", {
+                    fallbackKo: "즉시 노출",
+                    fallbackEn: "Go live now",
+                  })
+                : safeT("admin_delivery_ads_first_party_schedule_submit", {
+                    fallbackKo: "예약 등록",
+                    fallbackEn: "Schedule registration",
+                  })}
           </button>
         </div>
       </div>

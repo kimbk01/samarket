@@ -67,6 +67,7 @@ export type AdminDeliveryAdWriterError =
   | "destination_not_ready"
   | "funding_required"
   | "use_extension_flow"
+  | "capacity_full"
   | "db_error"
   | "rpc_failed";
 
@@ -100,6 +101,7 @@ function mapRpcError(raw: unknown): AdminDeliveryAdWriterError {
     e === "creative_not_ready" ||
     e === "destination_not_ready" ||
     e === "funding_required" ||
+    e === "capacity_full" ||
     e === "db_error"
   ) {
     return e;
@@ -203,6 +205,29 @@ export async function adminTransitionDeliveryAdCampaign(
   if (input.productKind === "banner" && input.action === "approve") {
     const gate = await loadBannerPublishGate(sb, input.campaignId);
     if (!gate.ok) return gate;
+    const { data: sched } = await sb
+      .from(tableFor("banner"))
+      .select("start_at, end_at")
+      .eq("id", input.campaignId)
+      .maybeSingle();
+    if (sched?.start_at && sched?.end_at) {
+      const { assertDeliveryHeroCapacityAvailable } = await import(
+        "@/lib/admin/ads-exposure/capacity-gate"
+      );
+      const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+        startAt: String(sched.start_at),
+        endAt: String(sched.end_at),
+        excludeCampaignId: input.campaignId,
+        inventoryKey: "STORES_HOME_HERO",
+      });
+      if (!cap.ok) {
+        return {
+          ok: false,
+          error: "capacity_full",
+          detail: cap.messageKo,
+        };
+      }
+    }
   }
 
   const { data, error } = await sb.rpc("admin_delivery_ad_transition", {
@@ -386,6 +411,22 @@ export async function adminUpdateDeliveryAdSchedule(
         "Extending end_at requires Admin extension (PAID or compensation) — not schedule save.",
     };
   }
+
+  if (input.productKind === "banner") {
+    const { assertDeliveryHeroCapacityAvailable } = await import(
+      "@/lib/admin/ads-exposure/capacity-gate"
+    );
+    const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+      startAt: schedule.startAt,
+      endAt: schedule.endAt,
+      excludeCampaignId: input.campaignId,
+      inventoryKey: "STORES_HOME_HERO",
+    });
+    if (!cap.ok) {
+      return { ok: false, error: "capacity_full", detail: cap.messageKo };
+    }
+  }
+
   const { error: updErr } = await sb
     .from(table)
     .update({

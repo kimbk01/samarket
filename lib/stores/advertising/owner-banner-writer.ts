@@ -128,6 +128,7 @@ export type OwnerBannerWriterError =
   | "illegal_transition"
   | "delete_not_allowed"
   | "duplicate_submit"
+  | "capacity_full"
   | "db_error"
   | "inventory_lookup_failed"
   | "store_slug_missing";
@@ -501,6 +502,24 @@ export async function transitionOwnerBannerCampaign(
     input.action !== "end"
   ) {
     return { ok: false, error: "illegal_transition" };
+  }
+
+  if (input.action === "submit" || input.action === "resubmit") {
+    const invKey = row.inventoryKeys[0] ?? "STORES_HOME_HERO";
+    if (invKey === "STORES_HOME_HERO") {
+      const { assertDeliveryHeroCapacityAvailable } = await import(
+        "@/lib/admin/ads-exposure/capacity-gate"
+      );
+      const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+        startAt: row.startAt,
+        endAt: row.endAt,
+        excludeCampaignId: row.id,
+        inventoryKey: invKey,
+      });
+      if (!cap.ok) {
+        return { ok: false, error: "capacity_full" };
+      }
+    }
   }
 
   const { data, error } = await sb.rpc("owner_delivery_ad_transition", {

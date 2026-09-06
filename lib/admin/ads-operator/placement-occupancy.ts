@@ -7,7 +7,8 @@ import {
   isExposureOverlapCandidate,
   type AdsCollisionCampaignInput,
 } from "@/lib/admin/ads-collision/detect-placement-collisions";
-import { bannerPlacementDefaultCapacity } from "@/lib/ads/banner-placement-capacity-ssot";
+import { bannerPlacementDefaultCapacity, BANNER_CAPACITY_FULL_COPY } from "@/lib/ads/banner-placement-capacity-ssot";
+import { HERO_OCCUPYING_LIFECYCLES } from "@/lib/admin/ads-exposure/capacity-gate";
 
 export type PlacementOccupancyInput = AdsCollisionCampaignInput & {
   capacity?: number;
@@ -34,6 +35,14 @@ export type PlacementOccupancy = {
 function capacityFor(key: string, override?: number): number {
   if (typeof override === "number" && override > 0) return Math.trunc(override);
   return bannerPlacementDefaultCapacity(key);
+}
+
+/** HERO write-gate lifecycles; other placements keep exposure-only candidates. */
+function occupiesPlacement(placementKey: string, lifecycleStatus: string): boolean {
+  if (placementKey === "STORES_HOME_HERO") {
+    return HERO_OCCUPYING_LIFECYCLES.has(String(lifecycleStatus ?? "").toUpperCase());
+  }
+  return isExposureOverlapCandidate(lifecycleStatus);
 }
 
 function overlapsInterval(
@@ -69,7 +78,7 @@ export function computePlacementOccupancy(
       campaigns.find((c) => c.inventoryKeys.includes(placementKey))?.capacity
     );
     const related = campaigns.filter(
-      (c) => c.inventoryKeys.includes(placementKey) && isExposureOverlapCandidate(c.lifecycleStatus)
+      (c) => c.inventoryKeys.includes(placementKey) && occupiesPlacement(placementKey, c.lifecycleStatus)
     );
 
     const reserved = related.filter((c) => {
@@ -140,7 +149,7 @@ export function countPlacementOverlapInWindow(
   const related = campaigns.filter(
     (c) =>
       c.inventoryKeys.includes(input.placementKey) &&
-      isExposureOverlapCandidate(c.lifecycleStatus) &&
+      occupiesPlacement(input.placementKey, c.lifecycleStatus) &&
       overlapsInterval(c.startAt, c.endAt, startMs, endMs)
   );
   const overlappingCount = related.length;
@@ -151,8 +160,12 @@ export function countPlacementOverlapInWindow(
     overlappingCount,
     vacant,
     full,
-    messageKo: full ? "해당 기간 만석" : `빈 슬롯 ${vacant}`,
-    messageEn: full ? "No open slots for this period" : `${vacant} open slot(s)`,
+    messageKo: full
+      ? BANNER_CAPACITY_FULL_COPY.humanKo
+      : `빈 슬롯 ${vacant}`,
+    messageEn: full
+      ? BANNER_CAPACITY_FULL_COPY.humanEn
+      : `${vacant} open slot(s)`,
   };
 }
 

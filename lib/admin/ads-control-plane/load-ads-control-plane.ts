@@ -5,11 +5,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
-import {
-  loadAdminDeliveryAdCampaignList,
-} from "@/lib/stores/advertising/admin-delivery-ad-loader";
+import { loadAdminDeliveryAdCampaignList } from "@/lib/stores/advertising/admin-delivery-ad-loader";
 import { listAllPlacementMapRows, placementMapFocusHref } from "@/lib/admin/placement-map-read-model";
-import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
+import { listFeedAdCampaignsForAdmin } from "@/lib/ads/feed-ad-campaigns-db";
+import { listPlatformPopupAdminCampaigns } from "@/lib/platform-popup/admin-campaign-loader";
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 import type {
   AdsActionItem,
@@ -17,23 +16,28 @@ import type {
   AdsControlPlaneModel,
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
-import {
-  adsPaymentLabel,
-  adsRemainingPeriodLabel,
-} from "@/lib/admin/domain-control/ads-operator-cta";
+import { mapRawToAdsOpsStatus } from "@/lib/admin/ads-exposure/ops-status";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
 import { computePlacementOccupancy } from "@/lib/admin/ads-operator/placement-occupancy";
-
-function ageHours(iso: string): number | null {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.round((Date.now() - t) / 3600000));
-}
-
-function memberHref(userId: string): string {
-  return `/admin/users/${encodeURIComponent(userId)}`;
-}
+import {
+  dedupeAdsActionItems,
+  isAdsShellActionRequired,
+  projectDeliveryCampaignToActionItem,
+  projectDeliveryCampaignToExecutionRow,
+  projectFeedCampaignToActionItem,
+  projectFeedCampaignToExecutionRow,
+  projectFeedRequestToActionItem,
+  projectPopupCampaignToActionItem,
+  projectPopupCampaignToExecutionRow,
+  projectPopupRequestToActionItem,
+  projectPromoteOrderToActionItem,
+  promoteOrderOpsStatus,
+  sortAdsActionItemsByAtDesc,
+  type FeedRequestRow,
+  type PopupRequestRow,
+  type PromoteOrderRow,
+} from "@/lib/admin/ads-control-plane/project-family-rows";
 
 function isMissing(err: { message?: string } | null | undefined, re: RegExp): boolean {
   return !!err && re.test(String(err.message ?? ""));
@@ -46,30 +50,47 @@ function formatPeriod(startAt: string | null | undefined, endAt: string | null |
   return `${a} → ${b}`;
 }
 
+const FAMILY_LIMIT = 120;
+
 export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
   const sectionErrors: string[] = [];
 
-  const [deliveryQueue, feedRes, popupRes, boostPromoRes, activeDelivery] = await Promise.all([
+  const [
+    deliveryQueue,
+    feedRes,
+    popupRes,
+    boostPromoRes,
+    activeDelivery,
+    popupCampaignsRes,
+    feedCampaignsSettled,
+  ] = await Promise.all([
     listDeliveryAdAdminActionQueue(sb, { limit: 40 }),
     sb
       .from("feed_ad_requests")
       .select("id, user_id, status, start_at, end_at, created_at, placement, title")
       .order("created_at", { ascending: false })
-      .limit(40),
+      .limit(FAMILY_LIMIT),
     sb
       .from("platform_popup_owner_requests")
       .select("id, store_id, owner_user_id, request_status, created_at, title")
-      .in("request_status", ["submitted", "under_review"])
       .order("created_at", { ascending: false })
-      .limit(40),
+      .limit(FAMILY_LIMIT),
     sb
       .from("point_promotion_orders")
-      .select("id, user_id, domain, order_status, created_at, target_id, product_id, point_cost, start_at, end_at")
+      .select(
+        "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at"
+      )
       .in("domain", ["trade", "community"])
-      .eq("order_status", "pending_review")
       .order("created_at", { ascending: false })
-      .limit(60),
-    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: 80 }),
+      .limit(FAMILY_LIMIT),
+    loadAdminDeliveryAdCampaignList(sb, { product: "all", limit: FAMILY_LIMIT }),
+    listPlatformPopupAdminCampaigns(sb, { limit: FAMILY_LIMIT }),
+    listFeedAdCampaignsForAdmin(sb)
+      .then((items) => ({ ok: true as const, items }))
+      .catch((e: unknown) => ({
+        ok: false as const,
+        error: e instanceof Error ? e.message : String(e),
+      })),
   ]);
 
   if (!deliveryQueue.ok) sectionErrors.push(`delivery_queue:${deliveryQueue.error}`);
@@ -89,6 +110,18 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     sectionErrors.push(`boost_promo:${boostPromoRes.error.message}`);
   }
   if (activeDelivery.error) sectionErrors.push(`delivery_list:${activeDelivery.error}`);
+  if (!popupCampaignsRes.ok) {
+    if (!/platform_popup_campaigns|schema cache|does not exist/i.test(popupCampaignsRes.error)) {
+      sectionErrors.push(`popup_campaigns:${popupCampaignsRes.error}`);
+    }
+  }
+  if (!feedCampaignsSettled.ok) {
+    if (
+      !/feed_ad_campaigns|schema cache|does not exist/i.test(feedCampaignsSettled.error)
+    ) {
+      sectionErrors.push(`feed_campaigns:${feedCampaignsSettled.error}`);
+    }
+  }
 
   const deliveryUnavailable = !deliveryQueue.ok;
   const feedUnavailable =
@@ -99,15 +132,83 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
   const boostUnavailable =
     !!boostPromoRes.error &&
     !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
+  const popupCampaignsUnavailable = !popupCampaignsRes.ok;
 
-  const actionRequired: AdsActionItem[] = [];
-  const applications: AdsActionItem[] = [];
-  const creatives: AdsActionItem[] = [];
+  const feedRows = feedUnavailable ? [] : ((feedRes.data ?? []) as FeedRequestRow[]);
+  const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as PopupRequestRow[]);
+  const boostRows = boostUnavailable
+    ? []
+    : ((boostPromoRes.data ?? []) as PromoteOrderRow[]);
+  const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
+  const popupCampaignItems = popupCampaignsUnavailable ? [] : popupCampaignsRes.items;
+  const feedCampaigns = feedCampaignsSettled.ok ? feedCampaignsSettled.items : [];
 
-  // Dual-stack removal: Delivery per-row cards stay off the Control Plane.
-  // Queue counts + href → Delivery hub; mutation detail remains single writer.
+  const projected: AdsActionItem[] = [];
 
-  const feedRows = feedUnavailable ? [] : ((feedRes.data ?? []) as Record<string, unknown>[]);
+  for (const c of deliveryItems) {
+    projected.push(projectDeliveryCampaignToActionItem(c));
+  }
+  for (const r of feedRows) {
+    projected.push(projectFeedRequestToActionItem(r));
+  }
+  for (const c of feedCampaigns) {
+    projected.push(projectFeedCampaignToActionItem(c));
+  }
+  for (const r of popupRows) {
+    projected.push(projectPopupRequestToActionItem(r));
+  }
+  for (const c of popupCampaignItems) {
+    projected.push(projectPopupCampaignToActionItem(c));
+  }
+  for (const r of boostRows) {
+    projected.push(projectPromoteOrderToActionItem(r));
+  }
+
+  const applications = sortAdsActionItemsByAtDesc(dedupeAdsActionItems(projected));
+
+  const actionRequired = applications.filter((row) =>
+    isAdsShellActionRequired(mapRawToAdsOpsStatus(row.status))
+  );
+
+  const promoteExecution: AdsExecutionRow[] = boostRows.flatMap((r) => {
+    const ops = promoteOrderOpsStatus(r);
+    if (ops !== "live" && ops !== "scheduled" && ops !== "paused") return [];
+    const item = projectPromoteOrderToActionItem(r);
+    return [
+      {
+        id: item.id,
+        domain: item.domain,
+        product: item.product,
+        label: item.applicantLabel,
+        placement: item.placementHint,
+        status: item.status,
+        eligibility: item.exposureLabel ?? item.status,
+        period: item.periodLabel,
+        remainingLabel: item.remainingLabel,
+        currency: item.currency,
+        href: item.href,
+        statementHref: item.statementHref,
+        source: item.source,
+        conflictSeverity: "NONE" as const,
+        conflictLabelKo: "",
+        conflictLabelEn: "",
+      },
+    ];
+  });
+
+  const currentExecution: AdsExecutionRow[] = [
+    ...deliveryItems
+      .map((c) => projectDeliveryCampaignToExecutionRow(c))
+      .filter((row): row is AdsExecutionRow => row != null),
+    ...feedCampaigns
+      .map((c) => projectFeedCampaignToExecutionRow(c))
+      .filter((row): row is AdsExecutionRow => row != null),
+    ...popupCampaignItems
+      .map((c) => projectPopupCampaignToExecutionRow(c))
+      .filter((row): row is AdsExecutionRow => row != null),
+    ...promoteExecution,
+  ];
+
   const feedPending = feedRows.filter((r) => {
     return (
       projectFeedAdOpsProductStatus({
@@ -117,173 +218,19 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       }) === "pending_review"
     );
   });
-  for (const r of feedPending.slice(0, 15)) {
-    const id = String(r.id ?? "");
-    const userId = String(r.user_id ?? "");
-    const at = String(r.created_at ?? "");
-    const row: AdsActionItem = {
-      id: `feed:${id}`,
-      domain: "feed",
-      product: "feed_ad",
-      entity: "application",
-      applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
-      storeId: null,
-      memberId: userId || null,
-      creativeHint: null,
-      placementHint: r.placement
-        ? String(r.placement)
-        : "거래/커뮤니티 피드",
-      amountLabel: null,
-      currency: "POINT",
-      status: "검토 대기",
-      whyActionable: "피드 광고 신청 심사가 필요합니다.",
-      paymentLabel: adsPaymentLabel(null, "POINT", true),
-      periodLabel: formatPeriod(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null
-      ),
-      remainingLabel: adsRemainingPeriodLabel(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null,
-        true
-      ),
-      exposureLabel: "아직 노출 안 됨",
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "feed_ad_requests",
-      href: `/admin/feed-ad-requests/${encodeURIComponent(id)}`,
-      statementHref: null,
-      financeHref: "/admin/finance#point",
-      memberHref: userId ? memberHref(userId) : null,
-    };
-    actionRequired.push(row);
-    applications.push(row);
-  }
-
-  const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as Record<string, unknown>[]);
-  for (const r of popupRows.slice(0, 15)) {
-    const id = String(r.id ?? "");
-    const storeId = String(r.store_id ?? "").trim() || null;
-    const ownerId = String(r.owner_user_id ?? "").trim() || null;
-    const at = String(r.created_at ?? "");
-    const row: AdsActionItem = {
-      id: `popup:${id}`,
-      domain: "popup",
-      product: "platform_popup",
-      entity: "application",
-      applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
-      storeId,
-      memberId: ownerId,
-      creativeHint: null,
-      placementHint: "앱 팝업",
-      amountLabel: null,
-      currency: "CASH",
-      status: "검토 대기",
-      whyActionable: "팝업 광고 신청 심사가 필요합니다.",
-      paymentLabel: adsPaymentLabel(null, "CASH", true),
-      periodLabel: null,
-      remainingLabel: null,
-      exposureLabel: "아직 노출 안 됨",
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "platform_popup_owner_requests",
-      href: `/admin/platform-popup/requests/${encodeURIComponent(id)}`,
-      statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
-      financeHref: "/admin/finance#action-required",
-      memberHref: ownerId ? memberHref(ownerId) : null,
-    };
-    actionRequired.push(row);
-    applications.push(row);
-  }
-
-  // Trade + Community Boost — Point HOLD pending (NOT Feed Banner)
-  const boostRows = boostUnavailable
-    ? []
-    : ((boostPromoRes.data ?? []) as Record<string, unknown>[]);
+  const popupPending = popupRows.filter((r) => {
+    const st = String(r.request_status ?? "").toLowerCase();
+    return st === "submitted" || st === "under_review";
+  });
   const tradeRows = boostRows.filter((r) => String(r.domain) === "trade");
   const communityRows = boostRows.filter((r) => String(r.domain) === "community");
-  for (const r of tradeRows.slice(0, 10)) {
-    const id = String(r.id ?? "");
-    const userId = String(r.user_id ?? "");
-    const at = String(r.created_at ?? "");
-    const row: AdsActionItem = {
-      id: `trade_promo:${id}`,
-      domain: "trade_promote",
-      product: String(r.product_id ?? "trade_promote"),
-      entity: "application",
-      applicantLabel: id.slice(0, 8),
-      storeId: null,
-      memberId: userId || null,
-      creativeHint: null,
-      placementHint: "거래 피드 홍보",
-      amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
-      currency: "POINT",
-      status: "검토 대기",
-      whyActionable: "거래 더 알리기 승인이 필요합니다.",
-      paymentLabel: adsPaymentLabel(null, "POINT", true),
-      periodLabel: formatPeriod(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null
-      ),
-      remainingLabel: null,
-      exposureLabel: "아직 노출 안 됨",
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "point_promotion_orders domain=trade",
-      href: `/admin/ad-applications/${encodeURIComponent(id)}?domain=trade`,
-      statementHref: null,
-      financeHref: "/admin/finance#point",
-      memberHref: userId ? memberHref(userId) : null,
-    };
-    actionRequired.push(row);
-    applications.push(row);
-  }
-  for (const r of communityRows.slice(0, 10)) {
-    const id = String(r.id ?? "");
-    const userId = String(r.user_id ?? "");
-    const at = String(r.created_at ?? "");
-    const row: AdsActionItem = {
-      id: `community_promo:${id}`,
-      domain: "community_promote",
-      product: String(r.product_id ?? "community_promote"),
-      entity: "application",
-      applicantLabel: id.slice(0, 8),
-      storeId: null,
-      memberId: userId || null,
-      creativeHint: null,
-      placementHint: "커뮤니티 상위 노출",
-      amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
-      currency: "POINT",
-      status: "검토 대기",
-      whyActionable: "커뮤니티 상위노출 승인이 필요합니다. (HOLD)",
-      paymentLabel: adsPaymentLabel(null, "POINT", true),
-      periodLabel: formatPeriod(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null
-      ),
-      remainingLabel: null,
-      exposureLabel: "아직 노출 안 됨",
-      eligibility: null,
-      ageHours: ageHours(at),
-      at,
-      source: "point_promotion_orders domain=community",
-      href: `/admin/ad-applications/${encodeURIComponent(id)}?domain=community`,
-      statementHref: null,
-      financeHref: "/admin/finance#point",
-      memberHref: userId ? memberHref(userId) : null,
-    };
-    actionRequired.push(row);
-    applications.push(row);
-  }
+  const tradePending = tradeRows.filter(
+    (r) => String(r.order_status ?? "").toLowerCase() === "pending_review"
+  );
+  const communityPending = communityRows.filter(
+    (r) => String(r.order_status ?? "").toLowerCase() === "pending_review"
+  );
 
-  // Dual-stack removal: Delivery per-row cards stay off the Control Plane.
-
-  actionRequired.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-
-  const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
   const collisionFindings = detectPlacementCollisions(
     deliveryItems.map((c) => ({
       id: c.id,
@@ -330,10 +277,6 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     const ms = new Date(c.endAt).getTime() - Date.now();
     return Number.isFinite(ms) && ms > 0 && ms <= 72 * 3600000;
   }).length;
-
-  // Dual-stack removal: Delivery execution management lives on hub only (not CP table).
-  // CP keeps collision/occupancy presentation (read) with links into hub/detail.
-  const currentExecution: AdsExecutionRow[] = [];
 
   const placements = listAllPlacementMapRows()
     .slice(0, 40)
@@ -396,9 +339,11 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     ? null
     : occupancy.reduce((sum, o) => sum + o.vacant, 0);
 
+  const creatives: AdsActionItem[] = [];
+
   return {
     generatedAt: new Date().toISOString(),
-    actionRequired: actionRequired.slice(0, 40),
+    actionRequired: actionRequired.slice(0, 60),
     queues: {
       delivery: {
         count: deliveryUnavailable ? null : deliveryQueue.ok ? deliveryQueue.items.length : null,
@@ -413,19 +358,19 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         source: "feed_ad_requests pending_review",
       },
       popup: {
-        count: popupUnavailable ? null : popupRows.length,
+        count: popupUnavailable ? null : popupPending.length,
         unavailable: popupUnavailable,
         href: "/admin/platform-popup",
         source: "platform_popup_owner_requests submitted|under_review",
       },
       tradePromote: {
-        count: boostUnavailable ? null : tradeRows.length,
+        count: boostUnavailable ? null : tradePending.length,
         unavailable: boostUnavailable,
         href: "/admin/ad-applications?domain=trade",
         source: "point_promotion_orders trade pending_review",
       },
       communityPromote: {
-        count: boostUnavailable ? null : communityRows.length,
+        count: boostUnavailable ? null : communityPending.length,
         unavailable: boostUnavailable,
         href: "/admin/ad-applications?domain=community",
         source: "point_promotion_orders community pending_review HOLD",
@@ -455,10 +400,10 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         source: "computePlacementOccupancy over delivery schedules",
       },
     },
-    currentExecution: currentExecution.slice(0, 30),
+    currentExecution: currentExecution.slice(0, 80),
     collisions,
     occupancy,
-    applications: applications.slice(0, 30),
+    applications: applications.slice(0, 150),
     creatives: creatives.slice(0, 20),
     placements,
     billingNotes: [
@@ -535,7 +480,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         frequency: "FREQUENT",
       },
     ],
-    recent: actionRequired.slice(0, 25),
+    recent: applications.slice(0, 40),
     sectionErrors,
   };
 }

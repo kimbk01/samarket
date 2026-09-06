@@ -1141,8 +1141,8 @@ export function OwnerBannerCreateView() {
           </div>
           <p className="text-center text-[11px] text-sam-muted">
             {safeT("owner_ads_confirm_business_cash_model_b", {
-              fallbackKo: "관리자 승인 후 Cash로 결제합니다.",
-              fallbackEn: "You pay with Cash after admin approval.",
+              fallbackKo: "광고 신청 시 Cash에서 결제됩니다.",
+              fallbackEn: "Cash is charged when you submit the application.",
             })}
           </p>
         </div>

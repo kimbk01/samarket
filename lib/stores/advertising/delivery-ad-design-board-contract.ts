@@ -91,8 +91,8 @@ export const DELIVERY_AD_CUSTOMER_AD_TAG_CLASS =
 
 /** Owner confirm — 3-step timeline (board screen 5) */
 export const DELIVERY_AD_OWNER_CONFIRM_TIMELINE = [
-  { step: 1, labelKey: "owner_ads_confirm_timeline_review" },
-  { step: 2, labelKey: "owner_ads_confirm_timeline_payment" },
+  { step: 1, labelKey: "owner_ads_confirm_timeline_payment" },
+  { step: 2, labelKey: "owner_ads_confirm_timeline_review" },
   { step: 3, labelKey: "owner_ads_confirm_timeline_start" },
 ] as const;
 

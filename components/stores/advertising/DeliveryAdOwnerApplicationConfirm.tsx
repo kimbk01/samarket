@@ -85,8 +85,8 @@ export function DeliveryAdOwnerApplicationConfirm({
           <div className="flex items-center justify-between gap-3">
             <dt className="text-[#757575]">
               {safeT("owner_ads_confirm_amount_needed", {
-                fallbackKo: "승인 후 필요한 금액",
-                fallbackEn: "Amount needed after approval",
+                fallbackKo: "신청 시 결제 금액",
+                fallbackEn: "Amount charged on submit",
               })}
             </dt>
             <dd className="font-semibold tabular-nums text-sam-fg">
@@ -112,9 +112,9 @@ export function DeliveryAdOwnerApplicationConfirm({
               <p className="text-[12px] leading-relaxed text-[#757575]">
                 {safeT("owner_ads_cash_shortage_prep_copy", {
                   fallbackKo:
-                    "광고 신청은 관리자 검수 후 결제가 필요합니다. 현재 Cash가 부족하므로 승인 후 결제 전에 잔액을 준비해야 합니다.",
+                    "광고 신청 시 Cash가 결제됩니다. 현재 잔액이 부족하므로 충전 후 다시 신청해 주세요.",
                   fallbackEn:
-                    "Payment is due after admin approval. Your Cash balance is short, so prepare it before funding.",
+                    "Cash is charged on submit. Top up your balance, then submit again.",
                 })}
               </p>
             </>

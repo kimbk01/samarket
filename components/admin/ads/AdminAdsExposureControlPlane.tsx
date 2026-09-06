@@ -20,6 +20,7 @@ import type {
   AdsControlPlaneModel,
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
+import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
   adminDisplayApplicantLabel,
   adminOperatorLabel,
@@ -216,28 +217,15 @@ export function AdminAdsExposureControlPlane() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const res = await fetch("/api/admin/ads-control-plane", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        plane?: AdsControlPlaneModel;
-        error?: string;
-      };
-      if (!res.ok || !json.ok || !json.plane) {
-        setModel(null);
-        setError(json.error || "load_failed");
-        return;
-      }
-      setModel(json.plane);
-    } catch {
+    const result = await fetchAdsControlPlane();
+    if (!result.ok) {
       setModel(null);
-      setError("network");
-    } finally {
+      setError(result.error);
       setLoading(false);
+      return;
     }
+    setModel(result.plane);
+    setLoading(false);
   }, []);
 
   useEffect(() => {

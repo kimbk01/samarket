@@ -95,8 +95,8 @@ export const BANNER_DUPLICATE_POLICY = {
 } as const;
 
 export const BANNER_CAPACITY_FULL_COPY = {
-  humanKo: "해당 기간 만석",
-  humanEn: "No open slots for this period",
+  humanKo: "선택한 기간에는 이 광고 위치의 예약이 가득 찼습니다.",
+  humanEn: "The selected period is fully booked for this ad placement.",
 } as const;
 
 /** Unsupported rotation modes — never expose in Admin UI */
