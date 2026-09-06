@@ -66,8 +66,9 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(api).toMatch(/store_composition_policy_overrides|composition/);
   });
 
-  it("T6 Paid Ads → Delivery Ads control plane (legacy insertions redirected)", () => {
-    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+  it("T6 Paid Ads → Ads advertising workspace (legacy insertions redirected)", () => {
+    expect(findByKey("ads-advertising-workspace")?.path).toBe("/admin/advertising");
+    expect(findByKey("delivery-ads-control")).toBeNull();
     expect(findByKey("store-ads-control")).toBeNull();
     expect(STORE_PAID_AD_CAMPAIGN_TABLE).toBe("store_paid_ad_campaigns");
     const api = readFileSync(join(process.cwd(), "app/api/admin/store-paid-ads/route.ts"), "utf8");
@@ -105,8 +106,9 @@ describe("CUT 8 Admin Control Plane", () => {
     expect(exposure.blockingReasons).toContain("surfaceAllowed");
   });
 
-  it("T8 Banner Ads → Delivery Ads control plane (legacy banner redirected)", () => {
-    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+  it("T8 Banner Ads → Ads advertising workspace (legacy banner redirected)", () => {
+    expect(findByKey("ads-advertising-workspace")?.path).toBe("/admin/advertising");
+    expect(findByKey("delivery-ads-control")).toBeNull();
     expect(findByKey("store-banner-ads-control")).toBeNull();
     expect(STORE_BANNER_AD_CAMPAIGN_TABLE).toBe("store_banner_ad_campaigns");
     const api = readFileSync(join(process.cwd(), "app/api/admin/store-banner-ads/route.ts"), "utf8");
@@ -221,7 +223,8 @@ describe("CUT 8 Admin Control Plane", () => {
     for (const p of paths) counts.set(p, (counts.get(p) ?? 0) + 1);
     const dupes = [...counts.entries()].filter(([, n]) => n > 1);
     expect(dupes).toEqual([]);
-    expect(findByKey("delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+    expect(findByKey("ads-advertising-workspace")?.path).toBe("/admin/advertising");
+    expect(findByKey("delivery-ads-control")).toBeNull();
     expect(findByKey("store-ads-control")).toBeNull();
     expect(findByKey("store-banner-ads-control")).toBeNull();
   });

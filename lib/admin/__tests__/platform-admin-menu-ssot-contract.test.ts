@@ -75,19 +75,34 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(missing, missing.join("\n")).toEqual([]);
   });
 
-  it("ads workspace owns promoted-items / feed / popup / delivery-ads primary", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe(
-      "/admin/platform-popup"
+  it("ads workspace FINAL LOCK: advertising workspace + products group only", () => {
+    const ads = findAdminMenuByKey(adminMenu, "ads");
+    const adsKids = (ads?.children ?? []).map((c) => c.key);
+    expect(adsKids).toEqual(["ads-advertising-workspace", "ads-products-group"]);
+    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
+      "/admin/advertising"
     );
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
-      "/admin/delivery-ads"
+    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.matchPathPrefixes).toEqual(
+      expect.arrayContaining([
+        "/admin/advertising",
+        "/admin/delivery-ads",
+        "/admin/feed-ads",
+        "/admin/platform-popup",
+        "/admin/ad-applications",
+      ])
     );
-    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")?.path).toBe(
-      "/admin/delivery-ads/inventory#placement-map"
+    expect(findAdminMenuByKey(adminMenu, "ads-feed-products")?.path).toBe(
+      "/admin/feed-ad-products"
     );
-    expect(adminMenu.some((w) => w.key === "ads")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-commercial")?.path).toBe(
+      "/admin/delivery-ads/commercial-settings"
+    );
+    // Removed from menu tree (deep-link routes may still exist)
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-placement-map")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-paid")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")).toBeUndefined();
     expect(findAdminMenuByKey(adminMenu, "growth")).toBeUndefined();
   });
 
@@ -113,7 +128,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     );
   });
 
-  it("Cut B + J: Trade keeps marketplace ops; ads-applications lives under ads", () => {
+  it("Cut B + J: Trade keeps marketplace ops; ads applications not sidebar leaves", () => {
     const trade = findAdminMenuByKey(adminMenu, "trade");
     const tradeKeys = new Set((trade?.children ?? []).map((c) => c.key));
     expect(tradeKeys.has("reports-posts")).toBe(true);
@@ -124,12 +139,12 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(tradeKeys.has("trade-ad-policies")).toBe(true);
     expect(tradeKeys.has("store-settlements-admin")).toBe(false);
 
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
-      "/admin/ad-applications?domain=trade"
-    );
-    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
-      "/admin/ad-applications?domain=feed"
-    );
+    // FINAL LOCK: application queues are deep-links under advertising workspace, not menu leaves
+    expect(findAdminMenuByKey(adminMenu, "ads-applications")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")).toBeUndefined();
+    expect(
+      findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.matchPathPrefixes
+    ).toContain("/admin/ad-applications");
   });
 
   it("Delivery workspace: domain ops without primary delivery-ads ownership", () => {
@@ -153,12 +168,13 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(findAdminMenuByKey(adminMenu, "stores-browse-policy")?.path).toBe(
       "/admin/stores-category-policy"
     );
-    // Primary leaf for delivery-ads is under ads workspace
+    // Primary ads entry is advertising workspace (delivery-ads is deep-link only)
     const ops = findAdminMenuByKey(adminMenu, "delivery-section-operations");
     const opsKeys = new Set((ops?.children ?? []).map((c) => c.key));
     expect(opsKeys.has("store-ads-section")).toBe(false);
-    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
-      "/admin/delivery-ads"
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")).toBeUndefined();
+    expect(findAdminMenuByKey(adminMenu, "ads-advertising-workspace")?.path).toBe(
+      "/admin/advertising"
     );
   });
 

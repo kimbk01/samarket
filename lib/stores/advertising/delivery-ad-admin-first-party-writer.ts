@@ -145,6 +145,20 @@ export async function adminCreateDeliveryAdFirstPartyBanner(
   });
   if (!schedule.ok) return { ok: false, error: "invalid_schedule", detail: schedule.error };
 
+  if (inv.key === "STORES_HOME_HERO") {
+    const { assertDeliveryHeroCapacityAvailable } = await import(
+      "@/lib/admin/ads-exposure/capacity-gate"
+    );
+    const cap = await assertDeliveryHeroCapacityAvailable(sb, {
+      startAt: schedule.startAt,
+      endAt: schedule.endAt,
+      inventoryKey: inv.key,
+    });
+    if (!cap.ok) {
+      return { ok: false, error: "invalid_schedule", detail: cap.messageKo };
+    }
+  }
+
   const assetPath = String(input.assetPath ?? "").trim();
   if (!assetPath) return { ok: false, error: "invalid_creative", detail: "empty_asset" };
   const aspect = validateOwnerBannerCreativeAspect({

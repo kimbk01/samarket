@@ -583,12 +583,17 @@ export function OwnerBannerCreateView() {
                       fallbackKo: "배너 규격(비율·최소 픽셀)에 맞지 않습니다.",
                       fallbackEn: "Image does not match the required aspect or minimum pixels.",
                     })
-                  : error
-                    ? safeT("owner_ads_error_generic", {
-                        fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
-                        fallbackEn: "Something went wrong. Please try again.",
+                  : error === "capacity_full"
+                    ? safeT("owner_ads_banner_capacity_full", {
+                        fallbackKo: "이 위치에는 추가할 수 있는 배너가 없습니다. 다른 기간을 선택해 주세요.",
+                        fallbackEn: "No banner slots left for this placement and period. Choose another schedule.",
                       })
-                    : null;
+                    : error
+                      ? safeT("owner_ads_error_generic", {
+                          fallbackKo: "처리에 실패했습니다. 다시 시도해 주세요.",
+                          fallbackEn: "Something went wrong. Please try again.",
+                        })
+                      : null;
 
   const ctaLabel =
     ctaType === "store_menu"

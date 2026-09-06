@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { MyPostAdList } from "@/components/ads/MyPostAdList";
@@ -19,6 +20,7 @@ import { feedAdPlacementHumanLabel, type FeedAdPlacement } from "@/lib/ads/feed-
 import type { FeedAdProduct } from "@/lib/ads/feed-ad-products";
 import { DibayBottomSheet, DibayOverlayButton } from "@/components/ui/dibay-overlay";
 import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
+import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
 
 type FeedRequestRow = {
   id: string;
@@ -48,6 +50,8 @@ type FeedRequestRow = {
 export default function MyAdsPageClient() {
   const { t, safeT, language } = useI18n();
   const en = language === "en";
+  const searchParams = useSearchParams();
+  const showSubmitted = searchParams.get("submitted") === "1";
   const [ads, setAds] = useState<AdminPostAdRow[]>([]);
   const [meta, setMeta] = useState<MePostAdsMeta | null>(null);
   const [feedRequests, setFeedRequests] = useState<FeedRequestRow[]>([]);
@@ -258,6 +262,14 @@ export default function MyAdsPageClient() {
         backHref="/mypage"
       />
       <div className="mx-auto max-w-lg px-4 py-4 space-y-4">
+        {showSubmitted ? (
+          <p
+            className="rounded-ui-rect border border-sam-brand/30 bg-sam-brand/5 px-3 py-2 sam-text-body-secondary text-sam-fg"
+            data-ads-apply-submitted="1"
+          >
+            {en ? ADS_FEEDBACK.applySubmitted.en : ADS_FEEDBACK.applySubmitted.ko}
+          </p>
+        ) : null}
         {authHint ? (
           <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
             {t("auth_resource_access_denied")}

@@ -469,7 +469,7 @@ export default function MemberFeedAdRequestPage() {
         }
         return;
       }
-      router.push("/mypage/ads");
+      router.push("/mypage/ads?submitted=1");
     } finally {
       setBusy(false);
     }

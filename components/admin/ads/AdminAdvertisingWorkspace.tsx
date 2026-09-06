@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * One-page Domain Ads Operations Workspace (ADDENDUM §6).
- * Consumes existing control-plane loader — no new ads tables.
- * Mutations stay on writer routes via detail href (drawer next).
+ * Canonical Admin Ads / Exposure home — /admin/advertising
+ * FINAL LOCK: single entry · manage dropdown · placement board · capacity · feedback
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,42 +18,80 @@ import {
 } from "@/lib/admin/advertising-workspace/product-chips";
 import {
   familyFromControlDomain,
-  listWorkspaceDrawerActions,
-  parseWorkspaceEntityId,
   type WorkspaceDrawerAction,
 } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
-import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
-import { maskAdvertisingStatement, statementFromPointPromotionOrder } from "@/lib/ads/advertising-statement";
+import {
+  DELIVERY_HERO_CAPACITY,
+  DELIVERY_HERO_PLACEMENT_KEY,
+} from "@/lib/admin/ads-exposure/capacity-gate";
+import {
+  humanPlacementLabel,
+  productKindLabel,
+} from "@/lib/admin/ads-exposure/human-placement-label";
+import {
+  adsOpsStatusLabel,
+  projectAdsOpsStatus,
+  type AdsOpsStatus,
+} from "@/lib/admin/ads-exposure/ops-status";
+import {
+  ADS_FEEDBACK,
+  feedbackApprovedWithStart,
+} from "@/lib/admin/ads-exposure/action-feedback";
+import {
+  adsManageActionLabel,
+  listAdsManageActions,
+  type AdsManageAction,
+} from "@/lib/admin/ads-exposure/manage-actions";
+import { adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
+import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 
-type StatusFilter = "all" | "pending" | "live" | "reserved" | "paused" | "ending";
+type StatusFilter =
+  | "all"
+  | "pending"
+  | "scheduled"
+  | "live"
+  | "paused"
+  | "ended"
+  | "rejected"
+  | "placement";
 
-const ACTION_LABEL: Record<WorkspaceDrawerAction, { ko: string; en: string }> = {
-  approve: { ko: "승인", en: "Approve" },
-  reject: { ko: "반려", en: "Reject" },
-  request_changes: { ko: "수정 요청", en: "Request changes" },
-  pause: { ko: "일시중지", en: "Pause" },
-  resume: { ko: "재개", en: "Resume" },
-  end: { ko: "종료", en: "End" },
-  terminate: { ko: "강제 종료", en: "Terminate" },
-  delete_safe_draft: { ko: "삭제", en: "Delete draft" },
-  add_internal_memo: { ko: "내부 메모", en: "Internal memo" },
-  extend_compensation: { ko: "보상 연장", en: "Comp. extend" },
-};
+function rowOpsStatus(r: AdsActionItem): AdsOpsStatus {
+  return projectAdsOpsStatus({ rawStatus: r.status, startAt: null, endAt: null });
+}
+
+function mapManageToWriter(action: AdsManageAction): WorkspaceDrawerAction | null {
+  if (
+    action === "approve" ||
+    action === "reject" ||
+    action === "request_changes" ||
+    action === "pause" ||
+    action === "resume" ||
+    action === "end" ||
+    action === "terminate" ||
+    action === "delete_safe_draft" ||
+    action === "add_internal_memo" ||
+    action === "extend_compensation"
+  ) {
+    return action;
+  }
+  return null;
+}
 
 export function AdminAdvertisingWorkspace() {
   const { language } = useI18n();
   const ko = language !== "en";
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
   const [err, setErr] = useState("");
-  const [domain, setDomain] = useState<AdvertisingWorkspaceDomain>("delivery");
+  const [domain, setDomain] = useState<AdvertisingWorkspaceDomain>("all");
   const [product, setProduct] = useState<AdvertisingWorkspaceProductId>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<AdsActionItem | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState("");
   const [publicMessage, setPublicMessage] = useState("");
-  const [internalMemo, setInternalMemo] = useState("");
-  const [extendDays, setExtendDays] = useState(1);
+  const [heroOrderIds, setHeroOrderIds] = useState<string[]>([]);
+  const [orderMsg, setOrderMsg] = useState("");
 
   const load = useCallback(async () => {
     setErr("");
@@ -66,6 +103,17 @@ export function AdminAdvertisingWorkspace() {
         return;
       }
       setModel(j);
+      const heroOcc = j.occupancy?.find((o) => o.placementKey === DELIVERY_HERO_PLACEMENT_KEY);
+      void heroOcc;
+      const heroFromExec = (j.currentExecution ?? [])
+        .filter(
+          (e) =>
+            e.domain === "delivery" &&
+            (e.placement === DELIVERY_HERO_PLACEMENT_KEY ||
+              String(e.product).includes("banner"))
+        )
+        .map((e) => e.id.replace(/^delivery_cam:/, ""));
+      if (heroFromExec.length) setHeroOrderIds(heroFromExec);
     } catch {
       setErr("load_failed");
     }
@@ -80,66 +128,198 @@ export function AdminAdvertisingWorkspace() {
     setSelected(null);
     setActionMsg("");
     setPublicMessage("");
-    setInternalMemo("");
   }, [domain]);
 
-  const runDrawerAction = useCallback(
-    async (action: WorkspaceDrawerAction) => {
-      if (!selected) return;
-      const family = familyFromControlDomain(selected.domain, selected.product);
+  const runWriterAction = useCallback(
+    async (row: AdsActionItem, action: WorkspaceDrawerAction) => {
+      const family = familyFromControlDomain(row.domain, row.product);
       if (!family) {
-        setActionMsg(ko ? "이 행은 Drawer writer 미지원" : "No drawer writer for this row");
+        setActionMsg(ko ? "이 행은 관리 액션이 연결되지 않았습니다." : "No writer for this row.");
         return;
       }
-      setBusyAction(action);
-      setActionMsg("");
-      try {
-        if (action === "extend_compensation" && !publicMessage.trim()) {
-          setActionMsg(ko ? "연장 사유가 필요합니다." : "Extend reason required.");
-          setBusyAction(null);
+      if (action === "end" && (family === "boost_trade" || family === "boost_community")) {
+        if (!window.confirm(ko ? ADS_FEEDBACK.endBoostConfirm.ko : ADS_FEEDBACK.endBoostConfirm.en)) {
           return;
         }
+      }
+      if (action === "delete_safe_draft") {
+        if (!window.confirm(ko ? ADS_FEEDBACK.deleteConfirm.ko : ADS_FEEDBACK.deleteConfirm.en)) {
+          return;
+        }
+      }
+      if (action === "reject" && !publicMessage.trim()) {
+        setActionMsg(ko ? "반려 사유가 필요합니다." : "Rejection reason required.");
+        return;
+      }
+      setBusyAction(`${row.id}:${action}`);
+      setActionMsg("");
+      try {
         const res = await fetch("/api/admin/advertising-workspace/action", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             family,
-            entityId: parseWorkspaceEntityId(selected.id),
+            entityId: row.id.includes(":") ? row.id.slice(row.id.indexOf(":") + 1) : row.id,
             action,
             reason: publicMessage || undefined,
             publicMessage: publicMessage || undefined,
-            internalMemo: action === "add_internal_memo" ? internalMemo : undefined,
-            requestedDays: action === "extend_compensation" ? extendDays : undefined,
-            extensionKind:
-              action === "extend_compensation" ? "ADMIN_FREE_COMPENSATION" : undefined,
+            productKind: row.product.includes("sponsored") ? "store_sponsored" : "banner",
           }),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          endAt?: string;
+        };
         if (!res.ok || !j.ok) {
-          setActionMsg(j.error ?? "action_failed");
+          setActionMsg(j.error ?? ADS_FEEDBACK.saveFailed.ko);
           return;
         }
-        setActionMsg(ko ? "처리되었습니다." : "Done.");
+        if (action === "approve") {
+          setActionMsg(
+            feedbackApprovedWithStart({
+              startAt: null,
+              placementKey: row.placementHint,
+              ko,
+            })
+          );
+        } else if (action === "reject") {
+          setActionMsg(ko ? ADS_FEEDBACK.rejected.ko : ADS_FEEDBACK.rejected.en);
+        } else if (action === "pause") {
+          setActionMsg(ko ? ADS_FEEDBACK.paused.ko : ADS_FEEDBACK.paused.en);
+        } else if (action === "resume") {
+          setActionMsg(ko ? ADS_FEEDBACK.resumed.ko : ADS_FEEDBACK.resumed.en);
+        } else if (action === "end" || action === "terminate") {
+          setActionMsg(ko ? ADS_FEEDBACK.ended.ko : ADS_FEEDBACK.ended.en);
+        } else if (action === "delete_safe_draft") {
+          setActionMsg(ko ? ADS_FEEDBACK.deleted.ko : ADS_FEEDBACK.deleted.en);
+        } else {
+          setActionMsg(ko ? ADS_FEEDBACK.updated.ko : ADS_FEEDBACK.updated.en);
+        }
         setPublicMessage("");
-        setInternalMemo("");
+        setMenuOpenId(null);
         await load();
       } catch {
-        setActionMsg("action_failed");
+        setActionMsg(ADS_FEEDBACK.saveFailed.ko);
       } finally {
         setBusyAction(null);
       }
     },
-    [selected, publicMessage, internalMemo, extendDays, load, ko]
+    [ko, load, publicMessage]
   );
+
+  const onManage = useCallback(
+    async (row: AdsActionItem, action: AdsManageAction) => {
+      if (action === "view_detail") {
+        window.location.href = row.href;
+        return;
+      }
+      if (action === "preview" || action === "edit" || action === "change_period") {
+        window.location.href = row.href;
+        return;
+      }
+      if (action === "view_live") {
+        const href = adsLiveRouteHref({
+          productKind: row.product,
+          placementKey: row.placementHint,
+          domain: row.domain,
+        });
+        if (href) window.open(href, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (action === "view_history" || action === "view_reject_reason") {
+        window.location.href = row.href;
+        return;
+      }
+      if (action === "change_order") {
+        setStatus("placement");
+        setMenuOpenId(null);
+        return;
+      }
+      if (action === "go_live_now") {
+        await runWriterAction(row, "approve");
+        return;
+      }
+      const writer = mapManageToWriter(action);
+      if (writer) await runWriterAction(row, writer);
+    },
+    [runWriterAction]
+  );
+
+  const saveHeroOrder = useCallback(async () => {
+    setOrderMsg("");
+    setBusyAction("reorder");
+    try {
+      const res = await fetch("/api/admin/advertising/reorder-hero-banners", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orderedCampaignIds: heroOrderIds }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setOrderMsg(j.error ?? ADS_FEEDBACK.saveFailed.ko);
+        return;
+      }
+      setOrderMsg(j.message ?? ADS_FEEDBACK.orderSaved.ko);
+      await load();
+    } catch {
+      setOrderMsg(ADS_FEEDBACK.saveFailed.ko);
+    } finally {
+      setBusyAction(null);
+    }
+  }, [heroOrderIds, load]);
 
   const chips =
     domain === "all"
       ? [{ id: "all" as const, labelKo: "전체 광고", labelEn: "All" }]
-      : ADVERTISING_WORKSPACE_PRODUCTS_BY_DOMAIN[domain];
+      : ADVERTISING_WORKSPACE_PRODUCTS_BY_DOMAIN[domain].filter(
+          (c) =>
+            c.id === "all" ||
+            c.id === "boost" ||
+            c.id === "feed_banner" ||
+            c.id === "sponsored" ||
+            c.id === "banner_hero" ||
+            c.id === "popup"
+        );
 
   const rows = useMemo(() => {
     if (!model) return [];
-    const pool = [...model.actionRequired, ...model.applications, ...model.recent];
+    const pool = [
+      ...model.actionRequired,
+      ...model.applications,
+      ...model.recent,
+      ...model.currentExecution.map((e) => ({
+        id: e.id,
+        domain: e.domain,
+        product: e.product,
+        entity: "execution" as const,
+        applicantLabel: e.label,
+        storeId: null,
+        memberId: null,
+        creativeHint: null,
+        placementHint: e.placement,
+        amountLabel: null,
+        currency: e.currency,
+        status: e.status,
+        whyActionable: e.conflictSeverity !== "NONE" ? e.conflictLabelKo : null,
+        paymentLabel: null,
+        periodLabel: e.period,
+        remainingLabel: e.remainingLabel,
+        exposureLabel: e.eligibility,
+        eligibility: e.eligibility,
+        ageHours: null,
+        at: new Date().toISOString(),
+        source: e.source,
+        href: e.href,
+        statementHref: e.statementHref,
+        financeHref: null,
+        memberHref: null,
+      })),
+    ];
     const seen = new Set<string>();
     const uniq: AdsActionItem[] = [];
     for (const r of pool) {
@@ -148,24 +328,27 @@ export function AdminAdvertisingWorkspace() {
       uniq.push(r);
     }
     return uniq.filter((r) => {
-      if (
-        !rowMatchesWorkspaceFilter({
-          domain: r.domain,
-          product: r.product,
-          placementHint: r.placementHint,
-          workspaceDomain: domain,
-          productId: product,
-        })
-      ) {
-        return false;
+      if (domain !== "all") {
+        if (
+          !rowMatchesWorkspaceFilter({
+            domain: r.domain,
+            product: r.product,
+            placementHint: r.placementHint,
+            workspaceDomain: domain,
+            productId: product,
+          })
+        ) {
+          return false;
+        }
       }
-      if (status === "all") return true;
-      const st = `${r.status} ${r.exposureLabel ?? ""}`.toLowerCase();
-      if (status === "pending") return st.includes("대기") || st.includes("검토") || st.includes("pending");
-      if (status === "live") return st.includes("노출") && !st.includes("아직");
-      if (status === "reserved") return st.includes("예약") || st.includes("scheduled");
-      if (status === "paused") return st.includes("중지") || st.includes("pause");
-      if (status === "ending") return (r.remainingLabel ?? "").includes("종료") || st.includes("종료");
+      if (status === "all" || status === "placement") return true;
+      const ops = rowOpsStatus(r);
+      if (status === "pending") return ops === "pending";
+      if (status === "scheduled") return ops === "scheduled";
+      if (status === "live") return ops === "live";
+      if (status === "paused") return ops === "paused";
+      if (status === "ended") return ops === "ended" || ops === "archived";
+      if (status === "rejected") return ops === "rejected";
       return true;
     });
   }, [model, domain, product, status]);
@@ -177,59 +360,81 @@ export function AdminAdvertisingWorkspace() {
       (model?.queues.popup.count ?? 0) +
       (model?.queues.tradePromote.count ?? 0) +
       (model?.queues.communityPromote.count ?? 0);
-    const hero = model?.occupancy.find((o) => o.placementKey === "STORES_HOME_HERO");
+    const blocking = model?.queues.collisionBlocking.count ?? 0;
+    const hero = model?.occupancy.find((o) => o.placementKey === DELIVERY_HERO_PLACEMENT_KEY);
     return {
       pending,
-      live: hero?.liveCount ?? model?.currentExecution.length ?? 0,
-      reserved: hero?.reservedCount ?? 0,
-      vacant: hero?.vacant ?? 0,
-      heroCapacity: hero?.capacity ?? BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.defaultCapacity,
+      live: model?.currentExecution.filter((e) => e.status.includes("노출")).length ?? 0,
+      scheduled: model?.currentExecution.filter((e) => e.status.includes("예약")).length ?? 0,
+      problems: blocking,
+      heroLive: hero?.liveCount ?? 0,
+      heroCapacity: hero?.capacity ?? DELIVERY_HERO_CAPACITY,
     };
   }, [model]);
 
-  const drawerFamily = selected
-    ? familyFromControlDomain(selected.domain, selected.product)
-    : null;
-  const drawerActions = selected && drawerFamily
-    ? listWorkspaceDrawerActions({
-        family: drawerFamily,
-        statusRaw: selected.status,
-      })
-    : [];
-
-  const statementPreview = selected
-    ? maskAdvertisingStatement(
-        statementFromPointPromotionOrder({
-          id: selected.id.replace(/^[^:]+:/, ""),
-          domain:
-            selected.domain === "community_promote"
-              ? "community"
-              : selected.domain === "trade_promote"
-                ? "trade"
-                : "trade",
-          product_id: selected.product,
-          placement: selected.placementHint,
-          order_status: selected.status,
-          point_cost: null,
-          user_id: selected.memberId,
-          target_title: selected.applicantLabel,
-        }),
-        "admin"
-      )
-    : null;
+  const moveHero = (index: number, dir: -1 | 1) => {
+    setHeroOrderIds((prev) => {
+      const next = [...prev];
+      const j = index + dir;
+      if (j < 0 || j >= next.length) return prev;
+      const t = next[index]!;
+      next[index] = next[j]!;
+      next[j] = t;
+      return next;
+    });
+  };
 
   return (
-    <div className="space-y-4" data-admin-advertising-workspace="1">
-      <header className="space-y-1">
-        <h1 className="text-lg font-semibold text-sam-fg">
-          {ko ? "광고 / 홍보 관리" : "Ads / Promote"}
-        </h1>
-        <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "신청부터 실제 노출까지 한 화면에서 관리합니다."
-            : "Manage applications through live exposure on one screen."}
-        </p>
+    <div className="space-y-4" data-admin-advertising-workspace="1" data-admin-ads-exposure-home="1">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold text-sam-fg">
+            {ko ? "광고 / 노출" : "Ads / Exposure"}
+          </h1>
+          <p className="sam-text-helper text-sam-muted">
+            {ko
+              ? "신청부터 실제 노출까지 한 곳에서 운영합니다."
+              : "Operate applications through live exposure in one place."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <AdminActionLink href="/admin/delivery-ads/first-party/new" variant="primary">
+            {ko ? "+ 광고 등록" : "+ Create ad"}
+          </AdminActionLink>
+          <AdminActionLink href="/admin/platform-popup" variant="secondary">
+            {ko ? "팝업 등록" : "Create popup"}
+          </AdminActionLink>
+          <AdminActionLink href="/admin/feed-ads/new" variant="secondary">
+            {ko ? "피드 배너 등록" : "Feed banner"}
+          </AdminActionLink>
+        </div>
       </header>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-workspace-summary="1">
+        {(
+          [
+            ["pending", ko ? "승인 대기" : "Pending", summary.pending],
+            ["live", ko ? "노출 중" : "Live", summary.live],
+            ["scheduled", ko ? "예약" : "Scheduled", summary.scheduled],
+            ["problems", ko ? "문제" : "Issues", summary.problems],
+          ] as const
+        ).map(([key, label, value]) => (
+          <button
+            key={key}
+            type="button"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-left"
+            onClick={() => {
+              if (key === "pending") setStatus("pending");
+              else if (key === "live") setStatus("live");
+              else if (key === "scheduled") setStatus("scheduled");
+              else setStatus("all");
+            }}
+          >
+            <div className="sam-text-xxs text-sam-muted">{label}</div>
+            <div className="text-lg font-semibold tabular-nums text-sam-fg">{value}</div>
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-2" data-workspace-domain-tabs="1">
         {(
@@ -256,29 +461,30 @@ export function AdminAdvertisingWorkspace() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" data-workspace-summary="1">
+      <div className="flex flex-wrap gap-2" data-workspace-status-tabs="1">
         {(
           [
-            ["pending", ko ? "승인 대기" : "Pending", summary.pending],
-            ["live", ko ? "현재 노출" : "Live", summary.live],
-            ["reserved", ko ? "예약" : "Reserved", summary.reserved],
-            ["vacant", ko ? "빈 슬롯" : "Open slots", summary.vacant],
-            ["hero", ko ? `홈 배너 수량 ${summary.heroCapacity}` : `Hero slots ${summary.heroCapacity}`, summary.heroCapacity],
+            ["all", ko ? "전체" : "All"],
+            ["pending", ko ? "승인 대기" : "Pending"],
+            ["scheduled", ko ? "예약" : "Scheduled"],
+            ["live", ko ? "노출 중" : "Live"],
+            ["paused", ko ? "일시중지" : "Paused"],
+            ["ended", ko ? "종료" : "Ended"],
+            ["rejected", ko ? "반려" : "Rejected"],
+            ["placement", ko ? "광고 위치 관리" : "Placements"],
           ] as const
-        ).map(([key, label, value]) => (
+        ).map(([id, label]) => (
           <button
-            key={key}
+            key={id}
             type="button"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-left"
-            onClick={() => {
-              if (key === "pending") setStatus("pending");
-              else if (key === "live") setStatus("live");
-              else if (key === "reserved") setStatus("reserved");
-              else setStatus("all");
-            }}
+            className={`rounded-ui-rect border px-2.5 py-1 text-sm ${
+              status === id
+                ? "border-sam-brand bg-sam-brand/10 font-semibold"
+                : "border-sam-border bg-sam-app text-sam-muted"
+            }`}
+            onClick={() => setStatus(id)}
           >
-            <div className="sam-text-xxs text-sam-muted">{label}</div>
-            <div className="text-lg font-semibold tabular-nums text-sam-fg">{value}</div>
+            {label}
           </button>
         ))}
       </div>
@@ -302,153 +508,235 @@ export function AdminAdvertisingWorkspace() {
       </div>
 
       {err ? <p className="text-sm text-sam-danger">{err}</p> : null}
+      {actionMsg ? (
+        <p className="sam-text-helper text-sam-fg" data-drawer-action-msg="1">
+          {actionMsg}
+        </p>
+      ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_minmax(280px,340px)]">
+      {status === "placement" ? (
+        <section
+          className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-ads-placement-board="1"
+        >
+          <h2 className="font-semibold text-sam-fg">
+            {humanPlacementLabel(DELIVERY_HERO_PLACEMENT_KEY, ko)}
+          </h2>
+          <p className="sam-text-helper text-sam-muted">
+            {ko
+              ? `현재 ${summary.heroLive} / ${summary.heroCapacity} · 자동 전환 5초 · 화면 1장`
+              : `${summary.heroLive} / ${summary.heroCapacity} · auto 5s · 1 visible`}
+          </p>
+          <ol className="space-y-2">
+            {heroOrderIds.map((id, idx) => (
+              <li
+                key={id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
+              >
+                <span className="text-sm text-sam-fg">
+                  Slide {idx + 1} · {id.slice(0, 8)}
+                </span>
+                <div className="flex gap-1">
+                  <AdminActionButton
+                    type="button"
+                    variant="secondary"
+                    disabled={idx === 0}
+                    onClick={() => moveHero(idx, -1)}
+                  >
+                    ↑
+                  </AdminActionButton>
+                  <AdminActionButton
+                    type="button"
+                    variant="secondary"
+                    disabled={idx >= heroOrderIds.length - 1}
+                    onClick={() => moveHero(idx, 1)}
+                  >
+                    ↓
+                  </AdminActionButton>
+                  <AdminActionLink href={DELIVERY_AD_ADMIN_ROUTES.detail(id)}>
+                    {ko ? "상세" : "Detail"}
+                  </AdminActionLink>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {heroOrderIds.length === 0 ? (
+            <p className="sam-text-helper text-sam-muted">
+              {ko ? "현재 HERO 배너가 없습니다." : "No HERO banners."}
+            </p>
+          ) : (
+            <AdminActionButton
+              type="button"
+              disabled={busyAction === "reorder"}
+              onClick={() => void saveHeroOrder()}
+            >
+              {ko ? "배너 순서 저장" : "Save banner order"}
+            </AdminActionButton>
+          )}
+          {orderMsg ? <p className="sam-text-helper text-sam-fg">{orderMsg}</p> : null}
+
+          <h2 className="mt-6 font-semibold text-sam-fg">{ko ? "팝업" : "Popup"}</h2>
+          <p className="sam-text-helper text-sam-muted">
+            {ko
+              ? `동일 대상 동시 노출 1개 · 우선순위 높은 캠페인 승리 · 활성 ${
+                  model?.applications.filter((a) => a.domain === "popup" && a.id.startsWith("popup_cam:")).length ?? 0
+                }건`
+              : `Winner = 1 per target (priority DESC) · active ${
+                  model?.applications.filter((a) => a.domain === "popup" && a.id.startsWith("popup_cam:")).length ?? 0
+                }`}
+          </p>
+          <ul className="space-y-2">
+            {(model?.applications ?? [])
+              .filter((a) => a.domain === "popup" && a.id.startsWith("popup_cam:"))
+              .slice(0, 8)
+              .map((a) => (
+                <li
+                  key={a.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2"
+                >
+                  <span className="text-sm text-sam-fg">
+                    {a.applicantLabel} · {a.exposureLabel ?? "—"} · {a.periodLabel ?? "—"}
+                  </span>
+                  <AdminActionLink href={a.href}>{ko ? "상세" : "Detail"}</AdminActionLink>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left text-sm" data-workspace-table="1">
             <thead className="bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">{ko ? "상태" : "Status"}</th>
-                <th className="px-3 py-2 font-medium">{ko ? "상품" : "Product"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "종류" : "Type"}</th>
                 <th className="px-3 py-2 font-medium">{ko ? "신청자" : "Applicant"}</th>
                 <th className="px-3 py-2 font-medium">{ko ? "위치" : "Placement"}</th>
                 <th className="px-3 py-2 font-medium">{ko ? "기간" : "Period"}</th>
+                <th className="px-3 py-2 font-medium">{ko ? "결제" : "Pay"}</th>
                 <th className="px-3 py-2 font-medium">{ko ? "관리" : "Manage"}</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={7} className="px-3 py-8 text-center text-sam-muted">
                     {ko ? "표시할 광고가 없습니다." : "No ads in this filter."}
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.id} className="border-t border-sam-border">
-                    <td className="px-3 py-2">{r.status}</td>
-                    <td className="px-3 py-2">{r.product}</td>
-                    <td className="px-3 py-2">{r.applicantLabel}</td>
-                    <td className="px-3 py-2">{r.placementHint ?? "—"}</td>
-                    <td className="px-3 py-2">{r.periodLabel ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        className="text-sam-brand underline"
-                        onClick={() => setSelected(r)}
-                      >
-                        {ko ? "검토" : "Review"}
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  const ops = rowOpsStatus(r);
+                  const family = familyFromControlDomain(r.domain, r.product) ?? "feed_banner";
+                  const actions = listAdsManageActions({ status: ops, family });
+                  return (
+                    <tr key={r.id} className="border-t border-sam-border align-top">
+                      <td className="px-3 py-2">{adsOpsStatusLabel(ops, ko)}</td>
+                      <td className="px-3 py-2">{productKindLabel(r.product, ko)}</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-left text-sam-brand underline"
+                          onClick={() => setSelected(r)}
+                        >
+                          {r.applicantLabel}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2">
+                        {humanPlacementLabel(r.placementHint, ko)}
+                      </td>
+                      <td className="px-3 py-2">{r.periodLabel ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {r.paymentLabel ?? r.currency}
+                        {r.amountLabel ? ` · ${r.amountLabel}` : ""}
+                      </td>
+                      <td className="relative px-3 py-2">
+                        <button
+                          type="button"
+                          className="rounded-ui-rect border border-sam-border px-2 py-1 text-sm"
+                          onClick={() =>
+                            setMenuOpenId((cur) => (cur === r.id ? null : r.id))
+                          }
+                        >
+                          {ko ? "관리 ▼" : "Manage ▼"}
+                        </button>
+                        {menuOpenId === r.id ? (
+                          <div className="absolute right-2 z-20 mt-1 min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-md">
+                            {actions.map((a) => (
+                              <button
+                                key={a}
+                                type="button"
+                                className="block w-full px-3 py-1.5 text-left text-sm hover:bg-sam-app"
+                                disabled={busyAction != null}
+                                onClick={() => void onManage(r, a)}
+                              >
+                                {adsManageActionLabel(a, ko)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+      )}
 
+      {selected ? (
         <aside
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
           data-workspace-drawer="1"
+          data-workspace-drawer-live="1"
         >
-          {!selected ? (
-            <p className="sam-text-helper text-sam-muted">
-              {ko ? "왼쪽에서 광고를 선택하세요." : "Select an ad from the list."}
-            </p>
-          ) : (
-            <div className="space-y-2" data-workspace-drawer-live="1">
-              <h2 className="font-semibold text-sam-fg">{selected.applicantLabel}</h2>
-              <p className="sam-text-helper text-sam-muted">
-                {selected.product} · {selected.placementHint}
-              </p>
-              <p className="sam-text-helper">{selected.whyActionable}</p>
-              {statementPreview ? (
-                <dl className="space-y-1 sam-text-helper">
-                  <div>
-                    <dt className="text-sam-muted">{ko ? "상태" : "Status"}</dt>
-                    <dd>{statementPreview.currentStatus}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">{ko ? "결제" : "Payment"}</dt>
-                    <dd>{statementPreview.paymentStatus ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-sam-muted">{ko ? "금액" : "Amount"}</dt>
-                    <dd>
-                      {statementPreview.finalPrice ?? "—"} {statementPreview.currency}
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
-
-              <label className="block sam-text-xxs text-sam-muted">
-                {ko ? "신청자 메시지 (반려/수정요청/연장 사유)" : "Public message / extend reason"}
-                <textarea
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
-                  rows={2}
-                  value={publicMessage}
-                  onChange={(e) => setPublicMessage(e.target.value)}
-                  data-drawer-public-message="1"
-                />
-              </label>
-              {drawerActions.includes("extend_compensation") ? (
-                <label className="block sam-text-xxs text-sam-muted">
-                  {ko ? "보상 연장 일수" : "Compensation days"}
-                  <input
-                    type="number"
-                    min={1}
-                    max={90}
-                    className="mt-1 w-24 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
-                    value={extendDays}
-                    onChange={(e) => setExtendDays(Math.max(1, Number(e.target.value) || 1))}
-                    data-drawer-extend-days="1"
-                  />
-                </label>
-              ) : null}
-              <label className="block sam-text-xxs text-sam-muted">
-                {ko ? "내부 메모 (관리자만)" : "Internal memo"}
-                <textarea
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
-                  rows={2}
-                  value={internalMemo}
-                  onChange={(e) => setInternalMemo(e.target.value)}
-                  data-drawer-internal-memo="1"
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-2" data-drawer-actions="1">
-                {drawerActions.map((a) => (
-                  <AdminActionButton
-                    key={a}
-                    type="button"
-                    disabled={busyAction != null}
-                    onClick={() => void runDrawerAction(a)}
-                    data-drawer-action={a}
-                  >
-                    {busyAction === a ? "…" : ko ? ACTION_LABEL[a].ko : ACTION_LABEL[a].en}
-                  </AdminActionButton>
-                ))}
-              </div>
-              {actionMsg ? (
-                <p className="sam-text-xxs text-sam-muted" data-drawer-action-msg="1">
-                  {actionMsg}
-                </p>
-              ) : null}
-              <AdminActionLink href={selected.href}>
-                {ko ? "기존 상세 화면" : "Legacy detail"}
-              </AdminActionLink>
-            </div>
-          )}
+          <h2 className="font-semibold text-sam-fg">{selected.applicantLabel}</h2>
+          <p className="sam-text-helper text-sam-muted">
+            {productKindLabel(selected.product, ko)} ·{" "}
+            {humanPlacementLabel(selected.placementHint, ko)}
+          </p>
+          <p className="sam-text-helper">{selected.whyActionable}</p>
+          <label className="mt-2 block sam-text-xxs text-sam-muted">
+            {ko ? "반려 사유 / 공개 메시지" : "Reject reason / public message"}
+            <textarea
+              className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
+              rows={2}
+              value={publicMessage}
+              onChange={(e) => setPublicMessage(e.target.value)}
+              data-drawer-public-message="1"
+            />
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2" data-drawer-actions="1">
+            <AdminActionLink href={selected.href} variant="primary">
+              {ko ? "상세보기" : "Details"}
+            </AdminActionLink>
+            {(() => {
+              const live = adsLiveRouteHref({
+                productKind: selected.product,
+                placementKey: selected.placementHint,
+                domain: selected.domain,
+              });
+              return live ? (
+                <AdminActionLink href={live} variant="secondary">
+                  {ko ? "실제 노출 보기" : "View live"}
+                </AdminActionLink>
+              ) : null;
+            })()}
+          </div>
         </aside>
-      </div>
+      ) : null}
 
       <p className="sam-text-xxs text-sam-muted">
         <Link href="/admin/delivery-ads/commercial-settings" className="underline">
           {ko ? "상품 · 가격 설정" : "Products & pricing"}
         </Link>
         {" · "}
-        <Link href="/admin/promoted-items" className="underline">
-          {ko ? "광고 이력" : "Ad history"}
+        <Link href="/admin/feed-ad-products" className="underline">
+          {ko ? "피드 배너 가격" : "Feed banner prices"}
+        </Link>
+        {" · "}
+        <Link href={DELIVERY_AD_ADMIN_ROUTES.hub} className="underline">
+          {ko ? "배달 상세 허브" : "Delivery hub"}
         </Link>
       </p>
     </div>
