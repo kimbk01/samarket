@@ -1,0 +1,252 @@
+{
+  "ok": true,
+  "origin": "https://samarket.vercel.app",
+  "expectSha": "636462a3a",
+  "mutation": "NONE",
+  "surfaces": {
+    "U3_TRADE": {
+      "path": "/admin/posts-management?tab=trade",
+      "url": "https://samarket.vercel.app/admin/posts-management?tab=trade",
+      "title": "Post management",
+      "geometry": {
+        "viewport": {
+          "w": 1024,
+          "h": 768
+        },
+        "bodyClientWidth": 1024,
+        "bodyScrollWidth": 1024,
+        "bodyX": false,
+        "modalRect": null,
+        "footerRect": null,
+        "stickyRect": null,
+        "footerVisible": false,
+        "stickyVisible": false,
+        "bottomObstruction": false,
+        "overlayOpen": false
+      },
+      "softCtaCount": 0,
+      "hardCtaCount": 0,
+      "hasRows": true,
+      "hardConfirm": {
+        "opened": true,
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": {
+            "top": 186.25436401367188,
+            "left": 355.20001220703125,
+            "bottom": 581.74560546875,
+            "right": 668.800048828125,
+            "w": 313.60003662109375,
+            "h": 395.4912414550781
+          },
+          "footerRect": {
+            "top": 514.1256103515625,
+            "left": 375.7799987792969,
+            "bottom": 561.1656494140625,
+            "right": 648.2200317382812,
+            "w": 272.4400329589844,
+            "h": 47.0400390625
+          },
+          "stickyRect": null,
+          "footerVisible": true,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": true
+        }
+      },
+      "pass": true
+    },
+    "U4_COMMUNITY": {
+      "path": "/admin/community/posts",
+      "url": "https://samarket.vercel.app/admin/community/posts",
+      "title": "Posts",
+      "geometry": {
+        "viewport": {
+          "w": 1024,
+          "h": 768
+        },
+        "bodyClientWidth": 1024,
+        "bodyScrollWidth": 1024,
+        "bodyX": false,
+        "modalRect": null,
+        "footerRect": null,
+        "stickyRect": null,
+        "footerVisible": false,
+        "stickyVisible": false,
+        "bottomObstruction": false,
+        "overlayOpen": false
+      },
+      "softCtaCount": 0,
+      "hardCtaCount": 0,
+      "hasRows": true,
+      "softConfirm": {
+        "opened": true,
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": {
+            "top": 242.6962432861328,
+            "left": 355.20001220703125,
+            "bottom": 525.3037872314453,
+            "right": 668.800048828125,
+            "w": 313.60003662109375,
+            "h": 282.6075439453125
+          },
+          "footerRect": {
+            "top": 457.6837463378906,
+            "left": 375.7799987792969,
+            "bottom": 504.7237548828125,
+            "right": 648.2200317382812,
+            "w": 272.4400329589844,
+            "h": 47.040008544921875
+          },
+          "stickyRect": null,
+          "footerVisible": true,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": true
+        }
+      },
+      "hardConfirm": {
+        "opened": true,
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": {
+            "top": 173.71343994140625,
+            "left": 355.20001220703125,
+            "bottom": 594.2865600585938,
+            "right": 668.800048828125,
+            "w": 313.60003662109375,
+            "h": 420.5731201171875
+          },
+          "footerRect": {
+            "top": 526.6665649414062,
+            "left": 375.7799987792969,
+            "bottom": 573.70654296875,
+            "right": 648.2200317382812,
+            "w": 272.4400329589844,
+            "h": 47.03997802734375
+          },
+          "stickyRect": null,
+          "footerVisible": true,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": true
+        }
+      },
+      "pass": true
+    },
+    "U8_CHAT": {
+      "all": {
+        "path": "/admin/chats",
+        "url": "https://samarket.vercel.app/admin/chats",
+        "title": "All chats",
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": null,
+          "footerRect": null,
+          "stickyRect": null,
+          "footerVisible": false,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": false
+        },
+        "softCtaCount": 1,
+        "hardCtaCount": 1,
+        "hasRows": true
+      },
+      "trade": {
+        "path": "/admin/chats/trade",
+        "url": "https://samarket.vercel.app/admin/chats/trade",
+        "title": "Trade chats",
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": null,
+          "footerRect": null,
+          "stickyRect": null,
+          "footerVisible": false,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": false
+        },
+        "softCtaCount": 1,
+        "hardCtaCount": 1,
+        "hasRows": true
+      },
+      "hideVisible": true,
+      "hardVisible": true,
+      "hardConfirm": {
+        "opened": true,
+        "geometry": {
+          "viewport": {
+            "w": 1024,
+            "h": 768
+          },
+          "bodyClientWidth": 1024,
+          "bodyScrollWidth": 1024,
+          "bodyX": false,
+          "modalRect": {
+            "top": 212.5153045654297,
+            "left": 355.20001220703125,
+            "bottom": 555.4846649169922,
+            "right": 668.800048828125,
+            "w": 313.60003662109375,
+            "h": 342.9693603515625
+          },
+          "footerRect": {
+            "top": 487.86468505859375,
+            "left": 375.7799987792969,
+            "bottom": 534.9046630859375,
+            "right": 648.2200317382812,
+            "w": 272.4400329589844,
+            "h": 47.03997802734375
+          },
+          "stickyRect": null,
+          "footerVisible": true,
+          "stickyVisible": false,
+          "bottomObstruction": false,
+          "overlayOpen": true
+        }
+      },
+      "pass": true
+    }
+  },
+  "R1": {
+    "modalOwner": "dibay-overlay / DibayDialog",
+    "proofs": 3,
+    "footerVisible": true,
+    "bottomObstruction": false,
+    "pass": true
+  },
+  "productionShaProbe": null,
+  "shaOk": true
+}

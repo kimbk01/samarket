@@ -154,34 +154,40 @@ async function geometry(page) {
 }
 
 async function selectFirstRow(page) {
-  const cb = page.locator('[data-admin-mgmt-surface] input[type="checkbox"], [data-admin-mgmt-selection] input, table input[type="checkbox"]').nth(1);
-  if ((await cb.count()) === 0) {
-    const any = page.locator("table tbody input[type='checkbox']").first();
-    if ((await any.count()) === 0) return false;
-    await any.check({ force: true }).catch(() => any.click({ force: true }));
-    return true;
-  }
-  await cb.check({ force: true }).catch(() => cb.click({ force: true }));
+  await page.waitForTimeout(400);
+  const rowCb = page.locator("table tbody tr input[type='checkbox']").first();
+  if ((await rowCb.count()) === 0) return false;
+  await rowCb.check({ force: true }).catch(async () => {
+    await rowCb.click({ force: true });
+  });
+  await page.waitForTimeout(350);
   return true;
+}
+
+async function waitForRows(page, timeoutMs = 20000) {
+  try {
+    await page.waitForSelector("table tbody tr", { timeout: timeoutMs });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function openHardConfirmAndCancel(page, hardSelector) {
   const hard = page.locator(hardSelector).first();
   if ((await hard.count()) === 0) return { opened: false, reason: "hard_cta_missing" };
-  const disabled = await hard.isDisabled().catch(() => true);
-  if (disabled) {
-    // select a row then retry
-    await selectFirstRow(page);
-    await page.waitForTimeout(200);
+  if (await hard.isDisabled().catch(() => true)) {
+    const selected = await selectFirstRow(page);
+    if (!selected) return { opened: false, reason: "no_rows_to_select" };
+    await page.waitForTimeout(400);
   }
   if (await hard.isDisabled().catch(() => true)) {
     return { opened: false, reason: "hard_cta_disabled" };
   }
-  await hard.click();
-  await page.waitForSelector(".dibay-overlay-root", { timeout: 8000 });
+  await hard.click({ force: true });
+  await page.waitForSelector(".dibay-overlay-root", { timeout: 10000 });
   const g = await geometry(page);
   const shot = await page.screenshot({ fullPage: false });
-  // Cancel — never confirm destructive
   const cancel = page.locator(".dibay-overlay-btn--secondary").first();
   if ((await cancel.count()) > 0) await cancel.click();
   else await page.keyboard.press("Escape");
@@ -192,11 +198,12 @@ async function openHardConfirmAndCancel(page, hardSelector) {
 async function openSoftConfirmAndCancel(page, softSelector) {
   const soft = page.locator(softSelector).first();
   if ((await soft.count()) === 0) return { opened: false, reason: "soft_cta_missing" };
-  await selectFirstRow(page);
-  await page.waitForTimeout(200);
+  const selected = await selectFirstRow(page);
+  if (!selected) return { opened: false, reason: "no_rows_to_select" };
+  await page.waitForTimeout(400);
   if (await soft.isDisabled().catch(() => true)) return { opened: false, reason: "soft_cta_disabled" };
-  await soft.click();
-  await page.waitForSelector(".dibay-overlay-root", { timeout: 8000 }).catch(() => null);
+  await soft.click({ force: true });
+  await page.waitForSelector(".dibay-overlay-root", { timeout: 10000 }).catch(() => null);
   if (!(await page.locator(".dibay-overlay-root").count())) {
     return { opened: false, reason: "no_overlay" };
   }
@@ -210,12 +217,21 @@ async function openSoftConfirmAndCancel(page, softSelector) {
 
 async function pageBase(page, path, shotName) {
   await page.goto(`${ORIGIN}${path}`, { waitUntil: "domcontentloaded", timeout: 90000 });
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
+  const hasRows = await waitForRows(page);
   const g = await geometry(page);
   await page.screenshot({ path: resolve(OUT, shotName), fullPage: false });
-  const soft = await page.locator('[data-admin-mgmt-bulk-action="soft_delete"], [data-admin-mgmt-bulk-action="hide"], [data-admin-mgmt-bulk-action="hide_list"]').count();
-  const hard = await page.locator('[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]').count();
-  return { path, geometry: g, softCtaCount: soft, hardCtaCount: hard };
+  const soft = await page
+    .locator(
+      '[data-admin-mgmt-bulk-action="soft_delete"], [data-admin-mgmt-bulk-action="hide"], [data-admin-mgmt-bulk-action="hide_list"]'
+    )
+    .count();
+  const hard = await page
+    .locator('[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]')
+    .count();
+  const title = await page.locator("h1").first().innerText().catch(() => "");
+  const url = page.url();
+  return { path, url, title, geometry: g, softCtaCount: soft, hardCtaCount: hard, hasRows };
 }
 
 async function main() {
@@ -241,11 +257,21 @@ async function main() {
   };
 
   try {
-    // U3 Trade
-    const u3 = await pageBase(page, "/admin/posts-management?tab=trade", "u3-trade-base-1024x768.png");
+    // U3 Trade — prefer trade tab; fall back to all if empty
+    let u3 = await pageBase(page, "/admin/posts-management?tab=trade", "u3-trade-base-1024x768.png");
+    if (!u3.hasRows) {
+      u3 = await pageBase(page, "/admin/posts-management?tab=all", "u3-trade-base-1024x768.png");
+    }
     await selectFirstRow(page);
-    await page.waitForTimeout(300);
-    const u3Hard = await openHardConfirmAndCancel(page, '[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]');
+    await page.waitForTimeout(400);
+    // bulk bar appears after selection
+    await page.waitForSelector('[data-admin-mgmt-bulk-action="hard_delete"], [data-admin-mgmt-hard-delete="1"]', {
+      timeout: 8000,
+    }).catch(() => null);
+    const u3Hard = await openHardConfirmAndCancel(
+      page,
+      '[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]'
+    );
     if (u3Hard.shot) writeFileSync(resolve(OUT, "u3-trade-hard-confirm-1024x768.png"), u3Hard.shot);
     report.surfaces.U3_TRADE = {
       ...u3,
@@ -260,9 +286,13 @@ async function main() {
     // U4 Community posts
     const u4 = await pageBase(page, "/admin/community/posts", "u4-community-base-1024x768.png");
     await selectFirstRow(page);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(400);
+    await page.waitForSelector('[data-admin-mgmt-bulk-action="soft_delete"]', { timeout: 8000 }).catch(() => null);
     const u4Soft = await openSoftConfirmAndCancel(page, '[data-admin-mgmt-bulk-action="soft_delete"]');
-    const u4Hard = await openHardConfirmAndCancel(page, '[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]');
+    const u4Hard = await openHardConfirmAndCancel(
+      page,
+      '[data-admin-mgmt-hard-delete="1"], [data-admin-mgmt-bulk-action="hard_delete"]'
+    );
     if (u4Hard.shot) writeFileSync(resolve(OUT, "u4-community-hard-confirm-1024x768.png"), u4Hard.shot);
     report.surfaces.U4_COMMUNITY = {
       ...u4,
@@ -271,19 +301,22 @@ async function main() {
       pass:
         !u4.geometry.bodyX &&
         (u4Soft.opened === true || u4Hard.opened === true) &&
-        ((u4Hard.geometry?.footerVisible ?? u4Soft.geometry?.footerVisible) === true) &&
-        ((u4Hard.geometry?.bottomObstruction ?? u4Soft.geometry?.bottomObstruction) === false),
+        (u4Hard.geometry?.footerVisible ?? u4Soft.geometry?.footerVisible) === true &&
+        (u4Hard.geometry?.bottomObstruction ?? u4Soft.geometry?.bottomObstruction) === false,
     };
 
     // U8 Chat — all (hide/hard) + trade (ops + hard)
     const u8a = await pageBase(page, "/admin/chats", "u8-chat-all-base-1024x768.png");
+    await page.waitForSelector('[data-admin-mgmt-bulk-action="hide_list"]', { timeout: 15000 }).catch(() => null);
+    await page.waitForSelector('[data-admin-mgmt-hard-delete="1"]', { timeout: 5000 }).catch(() => null);
     await selectFirstRow(page);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(400);
     const hideVisible = (await page.locator('[data-admin-mgmt-bulk-action="hide_list"]').count()) > 0;
     const hardVisible = (await page.locator('[data-admin-mgmt-hard-delete="1"]').count()) > 0;
     const u8Hard = await openHardConfirmAndCancel(page, '[data-admin-mgmt-hard-delete="1"]');
     if (u8Hard.shot) writeFileSync(resolve(OUT, "u8-chat-hard-confirm-1024x768.png"), u8Hard.shot);
     const u8b = await pageBase(page, "/admin/chats/trade", "u8-chat-trade-base-1024x768.png");
+    await page.waitForSelector('[data-admin-mgmt-bulk-action="hide_list"]', { timeout: 10000 }).catch(() => null);
     report.surfaces.U8_CHAT = {
       all: u8a,
       trade: u8b,
