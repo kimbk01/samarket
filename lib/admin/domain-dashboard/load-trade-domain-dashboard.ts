@@ -74,8 +74,10 @@ export async function loadTradeDomainDashboard(): Promise<AdminDomainDashboardMo
     domain: "trade",
     titleKo: "거래 운영 대시보드",
     titleEn: "Trade operations dashboard",
-    descriptionKo: "게시물 상태·신고·홍보를 확인하고 관리 목록/큐로 이동합니다. 목록 관리는 게시물 관리에서 합니다.",
-    descriptionEn: "Review listing state, reports, and promotions — manage lists separately in Posts management.",
+    descriptionKo:
+      "신고·숨김·삭제 상태 게시글을 먼저 처리합니다. 내부 모더레이션 enum은 업무 라벨로 번역합니다.",
+    descriptionEn:
+      "Handle reports, hidden, and deleted-status posts first. Internal moderation enums stay out of primary UI.",
     currentState: [
       {
         id: "total",

@@ -1,43 +1,39 @@
-# BASELINE RESTORE DECISION — Owner Store OS (executed)
+# BASELINE RESTORE DECISION — Owner Store OS
 
 **Decision:** `SELECTIVE_SHELL_RESTORE`  
-**Date:** 2026-09-06  
-**Trigger:** User Production screenshot after `a48c78865` — double top clearance + BottomNav on Product CREATE (≥2 domains share shell geometry risk).
+**Canonical restore SHA:** `6ca1b3d46`  
+**Completion:** viewport height owned by ONE `.owner-stack-shell` CSS root (required under body lock; replaces broken `${TW}:h-[100dvh]` JIT that made `6ca1b3d46` incomplete)
 
-## SHAs
+## WHY THE 3-DAY LOOP HAPPENED (honest)
 
-| Label | SHA |
-|---|---|
-| PRE_STORE_OS_BASELINE_SHA | `1771318be` |
-| LAST_STABLE_OWNER_SHA (layout) | `d4f512232` |
-| FIRST_COMPOSER_HEIGHT_BAD | `e41d44c73` |
-| FIRST_STORE_OS_PRESENTATION_SHA | `7fd97bd07` |
-| CURRENT_BEFORE_THIS_RECOVERY | `85480b40b` / post-`a48c78865` |
+After `6ca1b3d46` selective restore shipped, follow-up commits stacked compensating height patches:
 
-## What was wrong (root causes — not page patches)
+| SHA | What it was | Why it looped |
+|---|---|---|
+| `3a7ae6c51` | CSS 100dvh lock | Valid need, but applied as extra patch layer |
+| `f7a9b8dc3` | header token 3.5rem | Needed for top clearance; shipped separately |
+| then nested `data-owner-stack-shell` on inner | dual 100dvh | **Regression** — scroll dead again |
+| `d2d6d5a91` | un-nest root | Another patch on the stack |
 
-1. **Double top offset** on Product composer `main`:  
-   `.owner-compact-shell__main` (`--owner-shell-main-pt`) **plus**  
-   `pt-[calc(var(--safe-top)+3.5rem+0.75rem)]` → huge white gap under header.
-2. **BottomNav on Product CREATE/EDIT** after composer joined shared scroll host — Save/Register CTA obstruction.
-3. **Missing canonical scroll host** on Product form — body scroll locked without `OwnerAdminPageScrollShell` (`__scroll`).
+User symptom: fix → return → fix → return.
 
-## Executed restore (this change)
+**Rule now:** no further Owner shell height/padding patches. This file is the freeze.
 
-| Action | KEEP/REVERT |
-|---|---|
-| Remove dual composer `pt-[calc…]` | REVERT compensating pad |
-| Hide BottomNav on product composer paths | RESTORE CREATE/EDIT clearance |
-| Wrap `OwnerProductForm` in `OwnerAdminPageScrollShell padForOwnerBottomNav={false}` | RESTORE shell scroll SSOT |
-| Document-flow form (no nested 100dvh/`basis-0`) | KEEP from `a48c78865` |
-| Business fixes (reviews JSON, ads greeting, finance, holidays, …) | KEEP |
+## Canonical end state (ONLY)
 
-## Forbidden until shell PASS
+1. ONE top clearance = `--owner-shell-main-pt` (header `3.5rem` + border) — no dual `pt-[calc…]`
+2. BottomNav hidden on Product CREATE/EDIT
+3. Product form = document-flow under `OwnerAdminPageScrollShell`
+4. ONE viewport root = `.owner-stack-shell` outermost only
+5. ONE page scroll = `.owner-compact-shell__scroll`
 
-No new route-local: `h-full` / `basis-0` / `100dvh` / dual `pt-*` / per-page `pb-32` for Owner.
+## Forbidden
 
-## Hard locks (source)
+- Nested `data-owner-stack-shell` / second 100dvh root
+- `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh]` dynamic Tailwind
+- Route-local `h-full` / `basis-0` / product-form `100dvh` / dual `pt-*` / per-page `pb-32`
+- Claiming CLOSED without user-runtime Product New scroll + register proof
 
-- No dual `pt-[calc(var(--safe-top)+3.5rem+0.75rem)]` on composer in `BusinessAdminShell`
-- `isOwnerStoreFormBottomNavHiddenPath(products/new|edit)` === true
-- Product form uses `OwnerAdminPageScrollShell` + document-flow body
+## KEEP (business — do not throw away)
+
+Reviews JSON · ads greeting · finance · holidays · customer hub · etc.

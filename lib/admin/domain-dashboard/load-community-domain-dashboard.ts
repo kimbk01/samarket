@@ -108,8 +108,10 @@ export async function loadCommunityDomainDashboard(): Promise<AdminDomainDashboa
     domain: "community",
     titleKo: "커뮤니티 운영 대시보드",
     titleEn: "Community operations dashboard",
-    descriptionKo: "게시글·댓글·신고를 확인하고 모더레이션/콘텐츠 관리로 이동합니다.",
-    descriptionEn: "Review posts, comments, and reports — jump to moderation and content tools.",
+    descriptionKo:
+      "신고·문제 콘텐츠를 먼저 처리하고, 게시글/댓글 관리는 빠른 관리에서, 토픽·Point 정책은 설정에서 다룹니다.",
+    descriptionEn:
+      "Handle reports first. Content moderation under quick management; topics/Point policies under settings.",
     currentState: [
       {
         id: "posts_total",
@@ -162,7 +164,7 @@ export async function loadCommunityDomainDashboard(): Promise<AdminDomainDashboa
     ],
     actionRequired,
     domainHealth: [],
-    issues: actionRequired,
+    issues: [],
     primaryEntries: [
       {
         id: "reports",

@@ -220,6 +220,27 @@ describe("owner admin scroll shell contract", () => {
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
   });
 
+  it("SELECTIVE_SHELL_RESTORE: single .owner-stack-shell height root (no JIT 100dvh concat, no nest)", () => {
+    const css = readRepo("app/owner-compact-shell.css");
+    expect(css).toMatch(/body\[data-owner-compact-shell\]\s+\.owner-stack-shell/);
+    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
+    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
+
+    const layout = readRepo("lib/business/owner-compact-shell-layout.ts");
+    expect(layout).toContain('OWNER_STACK_SHELL_ROOT_CLASS = "owner-stack-shell"');
+
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain("OWNER_STACK_SHELL_ROOT_CLASS");
+    expect(shell).toContain("ownerStackShellRootClassName");
+    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:h-\[100dvh\]/);
+    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:max-h-\[100dvh\]/);
+    expect(shell).not.toMatch(
+      /\{\.\.\.ownerStackShellRootProps\}[\s\S]{0,220}\{\.\.\.ownerStackShellRootProps\}/
+    );
+    expect(shell).toContain("max-[1024px]:overflow-hidden");
+    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:overflow-hidden/);
+  });
+
   it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products/new")).toBe(true);
     expect(

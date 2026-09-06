@@ -123,9 +123,9 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     titleKo: "채팅 운영 대시보드",
     titleEn: "Messenger operations dashboard",
     descriptionKo:
-      "일반·그룹·거래·주문 채팅 권한을 분리해 상태를 보고, 각 목록/신고 큐로 이동합니다.",
+      "신고를 먼저 처리하고, 일반·그룹·거래·주문 채팅은 타입별로 목록에서 확인합니다. UUID는 식별자가 아닙니다.",
     descriptionEn:
-      "Separate GENERAL / GROUP / TRADE / ORDER authorities — jump to each list or report queue.",
+      "Handle reports first. Browse GENERAL/GROUP/TRADE/ORDER lists by type — UUID is not the identity.",
     currentState: [
       {
         id: "general",
@@ -170,7 +170,7 @@ export async function loadMessengerDomainDashboard(): Promise<AdminDomainDashboa
     ],
     actionRequired,
     domainHealth: [],
-    issues: actionRequired,
+    issues: [],
     primaryEntries: [
       {
         id: "general",

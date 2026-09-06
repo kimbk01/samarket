@@ -156,8 +156,10 @@ export async function loadDeliveryDomainDashboard(): Promise<AdminDomainDashboar
     domain: "delivery",
     titleKo: "배달 운영 대시보드",
     titleEn: "Delivery operations dashboard",
-    descriptionKo: "매장·주문·정산·신고를 한눈에 보고 바로 처리 큐로 이동합니다.",
-    descriptionEn: "See stores, orders, settlements, and reports — jump straight to queues.",
+    descriptionKo:
+      "입점 검토·문제 주문·운영 중지 매장을 먼저 처리합니다. 카테고리/정책 설정은 보조 메뉴입니다.",
+    descriptionEn:
+      "Handle store intake, problem orders, and stopped stores first. Category/policy settings are secondary.",
     currentState: [
       {
         id: "stores_total",

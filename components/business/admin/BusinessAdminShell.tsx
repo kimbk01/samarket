@@ -76,9 +76,6 @@ import {
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useOwnerCompactShellViewport } from "@/hooks/use-owner-compact-shell-viewport";
 import { subscribeOwnerCompactShellBodyFlag } from "@/lib/business/sync-owner-compact-shell-body-flag";
-import {
-  OWNER_COMPACT_SHELL_MAX_TW,
-} from "@/lib/business/owner-compact-shell-viewport";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
@@ -86,6 +83,8 @@ import {
 import {
   OWNER_COMPACT_SHELL_COLUMN_CLASS,
   OWNER_COMPACT_SHELL_MAIN_CLASS,
+  OWNER_STACK_SHELL_ROOT_ATTR,
+  OWNER_STACK_SHELL_ROOT_CLASS,
 } from "@/lib/business/owner-compact-shell-layout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -203,18 +202,20 @@ export function BusinessAdminShell({
   /** compact 스택 scroll host — `resolveOwnerStackScrollHostPath` (product composer 포함) */
   const ownerStackScrollHostPath = resolveOwnerStackScrollHostPath(ownerPathNorm);
 
-  /** Tailwind — compact 뷰포트 높이 잠금(hydration 전 CSS) */
-  const ownerCompactStackLayoutClass = `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:max-h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden`;
+  /**
+   * SELECTIVE_SHELL_RESTORE viewport root.
+   * Height owned by `.owner-stack-shell` CSS — never dynamic Tailwind 100dvh concatenation (JIT drops it).
+   * Inner wrappers: flex-1 min-h-0 only — never a second height root.
+   */
+  const ownerStackShellRootClassName = `${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`;
+  const ownerStackShellRootProps = { [OWNER_STACK_SHELL_ROOT_ATTR]: "1" as const };
 
-  /** 헤더·본문 column — 모바일·태블릿·데스크톱 웹 동일(중앙 정렬) */
-  const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
+  /** 헤더·본문 column — literal max-[1024px] (no `${TW}:…` JIT drop) */
+  const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-[1024px]:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
 
   /** 데스크톱(≥1025) — 앱 셸 overflow-y-hidden 안에서 본문 열 스크롤 */
   const isOwnerDesktopStackViewport =
     !isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
-
-  // SELECTIVE_RESTORE: product composer no longer uses a parallel 100dvh overflow-hidden height owner.
-  const ownerStackShellHeightClass = `${ownerCompactStackLayoutClass} min-[1025px]:min-h-0 min-[1025px]:flex-1 min-[1025px]:overflow-hidden`;
 
   useOwnerMobileStackViewportLock(ownerStackScrollHostPath);
 
@@ -621,7 +622,7 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+          className="flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8"
         >
           <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
@@ -639,7 +640,7 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+          className="flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8"
         >
           <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
         </div>
@@ -657,7 +658,8 @@ export function BusinessAdminShell({
       <div
         data-biz="1"
         data-owner-empty-hub-shell="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+        {...ownerStackShellRootProps}
+        className={ownerStackShellRootClassName}
       >
         <StoresOwnerStackHeader
           variant="hub"
@@ -680,7 +682,7 @@ export function BusinessAdminShell({
     return (
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
+        className="flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8"
       >
         <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
       </div>
@@ -740,7 +742,7 @@ export function BusinessAdminShell({
       </div>
       <div
         ref={sidebarNavScrollRef}
-        className={`flex-1 overflow-y-auto bg-[var(--biz-card-bg)] px-1 py-3 ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overscroll-y-contain ${OWNER_COMPACT_SHELL_MAX_TW}:[-webkit-overflow-scrolling:touch]`}
+        className="flex-1 overflow-y-auto bg-[var(--biz-card-bg)] px-1 py-3 max-[1024px]:min-h-0 max-[1024px]:overscroll-y-contain max-[1024px]:[-webkit-overflow-scrolling:touch]"
       >
         <BusinessAdminSidebar
           sections={sections}
@@ -808,12 +810,11 @@ export function BusinessAdminShell({
       : null}
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+        {...ownerStackShellRootProps}
+        className={ownerStackShellRootClassName}
       >
         <OwnerMobileAdminHeaderTrailingProvider>
-          <div
-            className={`flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
-          >
+          <div className="flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)]">
             {selectedRow && !isOwnerStoreProductComposerRoute ?
               <OwnerMobileAdminHeader
                 variant={isOwnerHubRoute ? "hub" : "page"}
