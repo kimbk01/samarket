@@ -104,6 +104,7 @@ export default function MemberFeedAdRequestPage() {
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState("");
   const [imgWarn, setImgWarn] = useState("");
+  const [submittedRequestId, setSubmittedRequestId] = useState<string | null>(null);
 
   const placement: FeedAdPlacement = useMemo(() => {
     if (domain === "trade") return surface === "home" ? "TRADE_HOME" : "TRADE_CATEGORY";
@@ -438,7 +439,11 @@ export default function MemberFeedAdRequestPage() {
           idempotencyKey: idem,
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        requestId?: string;
+      };
       if (!res.ok || !j.ok) {
         const code = j.error ?? "failed";
         if (code === "insufficient_balance") {
@@ -469,7 +474,7 @@ export default function MemberFeedAdRequestPage() {
         }
         return;
       }
-      router.push("/mypage/ads");
+      setSubmittedRequestId(String(j.requestId ?? "").trim() || "submitted");
     } finally {
       setBusy(false);
     }
@@ -488,6 +493,48 @@ export default function MemberFeedAdRequestPage() {
     (placement !== "COMMUNITY_TOPIC" || Boolean(topicSlug.trim())) &&
     (destMode !== "own_content" || Boolean(ownId.trim())) &&
     (destMode !== "external_url" || /^https?:\/\//i.test(destUrl.trim()));
+
+  if (submittedRequestId) {
+    return (
+      <div className="min-h-screen bg-background" data-feed-ad-req-success="1">
+        <MySubpageHeader
+          title={safeT("feed_ad_req_title", {
+            fallbackKo: "배너 광고 만들기",
+            fallbackEn: "Create banner ad",
+          })}
+        />
+        <div className="mx-auto max-w-lg space-y-4 px-4 py-6">
+          <p className="sam-text-body font-semibold text-sam-fg">
+            {safeT("feed_ad_req_submitted_title", {
+              fallbackKo: "배너 광고 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
+              fallbackEn: "Banner ad request submitted. It goes live after admin approval.",
+            })}
+          </p>
+          <p
+            className="sam-text-helper tabular-nums text-sam-muted"
+            data-feed-ad-req-success-id={submittedRequestId}
+          >
+            {safeT("feed_ad_req_application_id", {
+              fallbackKo: "신청번호",
+              fallbackEn: "Application #",
+            })}
+            {": "}
+            {submittedRequestId}
+          </p>
+          <button
+            type="button"
+            className="block w-full rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-semibold text-white"
+            onClick={() => router.push("/mypage/ads")}
+          >
+            {safeT("feed_ad_req_go_my_ads", {
+              fallbackKo: "내 광고로 이동",
+              fallbackEn: "Go to My ads",
+            })}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (currentBanner) {
     const statusLabel =

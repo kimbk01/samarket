@@ -54,17 +54,22 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { cashChargePendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, deliveryAdOpsPendingCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
+  const { cashChargePendingCount, userChargePendingCount, feedAdPendingCount, tradePromoPendingCount, supportActionableCount, deliveryAdOpsPendingCount, platformPopupPendingCount, tradeReportsCount, storeReportsCount, communityReportsCount, globalReportsCount, storeApplicationsCount } =
     useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
-  /** COUNT SSOT: Trade ads-applications = TRADE_PROMO_PENDING; Growth ads-feed-applications = FEED_AD_PENDING_REVIEW */
+  /** Ads applications hub badge = all ADMIN ACTION REQUIRED application queues (COUNT===LIST filters). */
+  const adsApplicationsActionRequired =
+    deliveryAdOpsPendingCount +
+    feedAdPendingCount +
+    tradePromoPendingCount +
+    platformPopupPendingCount;
   const menuBadge =
     item.key === STORE_POINT_CHARGES_MENU_KEY && cashChargePendingCount > 0
       ? cashChargePendingCount
       : item.key === "store-finance-admin" && cashChargePendingCount + userChargePendingCount > 0
         ? cashChargePendingCount + userChargePendingCount
-        : item.key === "delivery-ads-control" && deliveryAdOpsPendingCount > 0
-          ? deliveryAdOpsPendingCount
+        : item.key === "ads-applications-hub" && adsApplicationsActionRequired > 0
+          ? adsApplicationsActionRequired
       : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
         ? userChargePendingCount
         : item.key === "ads-applications" && tradePromoPendingCount > 0

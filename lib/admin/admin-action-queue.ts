@@ -22,6 +22,7 @@ import {
   COMMUNITY_REPORT_ADMIN_ACTIONABLE,
   TRADE_REPORT_ADMIN_ACTIONABLE,
 } from "@/lib/admin/admin-ops-actionable-status";
+import { countDeliveryAdAdminActionQueue } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 
 /** Member Point charge rows that still need Admin action. */
 export const USER_CHARGE_ACTIONABLE_STATUSES = [
@@ -316,7 +317,7 @@ export async function loadAdminActionQueueCounts(input: {
       ? storesSb
           .from("point_promotion_orders")
           .select("id", { count: "exact", head: true })
-          .eq("domain", "trade")
+          .in("domain", ["trade", "community"])
           .eq("order_status", "pending_review")
       : Promise.resolve({ count: 0, error: null }),
     storesSb
@@ -341,10 +342,10 @@ export async function loadAdminActionQueueCounts(input: {
           .in("approval_status", [...ADMIN_ACTIONABLE_STORE_APPROVAL])
       : Promise.resolve({ count: 0, error: null }),
     storesSb
-      ? storesSb
-          .from("delivery_ad_operations_cases")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "WAITING_ADMIN")
+      ? countDeliveryAdAdminActionQueue(storesSb).then((count) => ({
+          count,
+          error: null as { message?: string } | null,
+        }))
       : Promise.resolve({ count: 0, error: null }),
     notesSb
       ? notesSb

@@ -98,6 +98,7 @@ export function OwnerPlatformPopupApplyView() {
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [submittedOk, setSubmittedOk] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -357,7 +358,8 @@ export function OwnerPlatformPopupApplyView() {
         setError(json.error || "submit_failed");
         return;
       }
-      router.push(PLATFORM_POPUP_OWNER_ROUTES.popupRequestDetail(json.item.id));
+      setRequest(json.item);
+      setSubmittedOk(true);
     } finally {
       setBusy(false);
       setConfirmOpen(false);
@@ -386,6 +388,41 @@ export function OwnerPlatformPopupApplyView() {
           fallbackEn: "Loading…",
         })}
       </p>
+    );
+  }
+
+  if (submittedOk && request?.id) {
+    return (
+      <div
+        className={`${OWNER_STORE_STACK_Y_CLASS} mx-auto max-w-lg px-4 pt-4 pb-8`}
+        data-owner-popup-success="1"
+      >
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center">
+          <p className="text-[16px] font-bold text-sam-fg">
+            {safeT("owner_platform_popup_success_title", {
+              fallbackKo: "팝업 광고 신청이 접수되었습니다.",
+              fallbackEn: "Popup ad request submitted.",
+            })}
+          </p>
+          <p
+            className="mt-3 text-[12px] tabular-nums text-sam-muted"
+            data-owner-popup-success-id={request.id}
+          >
+            {lang === "en" ? "Application #" : "신청번호 "}
+            {request.id}
+          </p>
+          <button
+            type="button"
+            className={`${OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS} mt-4 min-h-[48px] w-full`}
+            onClick={() => router.push(PLATFORM_POPUP_OWNER_ROUTES.popupRequestDetail(request.id))}
+          >
+            {safeT("owner_platform_popup_view_detail", {
+              fallbackKo: "신청 상세",
+              fallbackEn: "View request",
+            })}
+          </button>
+        </div>
+      </div>
     );
   }
 

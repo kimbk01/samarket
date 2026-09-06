@@ -27,20 +27,21 @@ describe("ads from-scratch recovery contracts", () => {
     expect(banner).toContain("배너 소재가 저장되었습니다");
   });
 
-  it("Ads menu uses product axes; Feed labeled as Banner ad", () => {
+  it("Ads menu TARGET IA: home · applications · live · create · placement · products · payment · history", () => {
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
     expect(adsKids[0]).toBe("delivery-ads-control");
     expect(adsKids.at(-1)).toBe("ads-legacy");
-    expect(adsKids).toContain("ads-applications-group");
-    expect(adsKids).toContain("ads-execution-group");
+    expect(adsKids).toContain("ads-applications-hub");
+    expect(adsKids).toContain("ads-live");
+    expect(adsKids).toContain("ads-create");
     expect(adsKids).toContain("ads-products-group");
-    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
-      "/admin/ad-applications?domain=feed"
+    expect(adsKids).not.toContain("ads-execution-group");
+    expect(findAdminMenuByKey(adminMenu, "ads-applications-hub")?.path).toBe(
+      "/admin/ad-applications"
     );
     const ko = read("lib/i18n/catalog/admin.ts");
-    expect(ko).toContain('admin_menu_ads_feed_applications: "배너 광고 신청"');
-    expect(ko).toContain('admin_menu_ads_feed: "배너 광고 집행"');
-    expect(ko).not.toContain('admin_menu_ads_feed_applications: "피드 광고 신청"');
+    expect(ko).toContain('admin_menu_ads_applications_hub: "신청 관리"');
+    expect(ko).toContain('admin_menu_delivery_ads_control: "광고 홈"');
   });
 
   it("test fixture detector catches PROD_ and [테스트]", () => {

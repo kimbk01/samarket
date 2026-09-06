@@ -80,12 +80,12 @@ describe("Delivery Ads product reconstruction contracts", () => {
     expect(hub).not.toContain("data-owner-ads-cash-wallet");
   });
 
-  it("T7 Admin first-party single-page + schedule + pixels", () => {
+  it("T7 Admin first-party stepped wizard + schedule + pixels", () => {
     const fp = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(fp).toContain('data-admin-first-party-wizard="single-page"');
+    expect(fp).toContain('data-admin-first-party-wizard="stepped"');
     expect(fp).toContain("data-admin-fp-pixel-guide");
-    expect(fp).toContain("data-admin-fp-schedule-invalid");
-    expect(fp).not.toContain("DeliveryAdAdminFirstPartyStepProgress");
+    expect(fp).toContain("DeliveryAdAdminFirstPartyStepProgress");
+    expect(fp).toContain("ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS");
   });
 
   it("T8 human geometry reject copy", () => {

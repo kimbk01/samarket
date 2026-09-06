@@ -9,12 +9,11 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
  * No new permission / audit / report / membership models.
  */
 describe("Admin COMMON/SYSTEM ownership presentation contract", () => {
-  it("maps Global Reports / Feed Growth / Trade audit / legacy paid to ownership titleKeys", () => {
+  it("maps Global Reports / Ads hub / Trade audit / legacy paid to ownership titleKeys", () => {
     const menu = read("components/admin/admin-menu.ts");
     expect(menu).toContain('"global-reports": "admin_menu_reports_observation"');
-    expect(menu).toContain('"ads-feed-applications": "admin_menu_ads_feed_applications"');
-    expect(menu).toContain('"ads-applications": "admin_menu_ads_applications"');
-    expect(menu).toContain('"ads-paid": "admin_menu_ads_paid_legacy"');
+    expect(menu).toContain('"ads-applications-hub": "admin_menu_ads_applications_hub"');
+    expect(menu).toContain('"ads-legacy": "admin_menu_ads_legacy"');
     expect(menu).toContain('"trade-audit": "admin_menu_trade_audit"');
     expect(menu).toContain('"audit-logs": "admin_menu_dev_audit"');
   });

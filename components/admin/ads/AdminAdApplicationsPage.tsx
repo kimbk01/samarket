@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminOpsCrossLinkBar } from "@/components/admin/AdminOpsCrossLinkBar";
 import { AdminCommunityPromotionQueue } from "@/components/admin/ads/AdminCommunityPromotionQueue";
 import { AdminFeedAdRequestQueue } from "@/components/admin/ads/AdminFeedAdRequestQueue";
+import { AdminAdApplicationsUnifiedInbox } from "@/components/admin/ads/AdminAdApplicationsUnifiedInbox";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -110,19 +111,35 @@ export function AdminAdApplicationsPage({ forcedDomain }: { forcedDomain?: AdApp
 
   if (!choice) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-admin-ads-applications-hub="1">
         <AdminPageHeader
           title={safeT("admin_ad_applications_choose_title", {
-            fallbackKo: "광고 신청 도메인 선택",
-            fallbackEn: "Choose ad request domain",
+            fallbackKo: "신청 관리",
+            fallbackEn: "Application management",
           })}
           description={safeT("admin_ad_applications_choose_desc", {
-            fallbackKo: "거래, 커뮤니티, 피드 배너 중 하나를 선택하면 해당 writer 큐만 표시됩니다.",
+            fallbackKo:
+              "도메인·상품별로 writer 큐를 엽니다. Delivery 매장 홍보·배너·팝업 신청은 배달/팝업 운영에서도 확인합니다.",
             fallbackEn:
-              "Choose Trade, Community, or Feed Banner to show only that writer queue.",
+              "Open each writer queue by domain/product. Delivery sponsored, banner, and popup also appear in Delivery/Popup ops.",
           })}
-          backHref={returnTo ?? undefined}
+          backHref={returnTo ?? "/admin/delivery-ads"}
         />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/delivery-ads/manage?view=actionable"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold hover:bg-sam-app"
+          >
+            {language === "en" ? "Delivery applications" : "배달 신청"}
+          </Link>
+          <Link
+            href="/admin/platform-popup/requests"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold hover:bg-sam-app"
+          >
+            {language === "en" ? "Popup applications" : "팝업 신청"}
+          </Link>
+        </div>
+        <AdminAdApplicationsUnifiedInbox />
         <div className="grid gap-3 sm:grid-cols-3">
           {DOMAIN_CHOICES.map((item) => (
             <Link

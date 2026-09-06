@@ -76,9 +76,9 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
   });
 
   it("ads workspace owns promoted-items / feed / popup / delivery-ads primary", () => {
-    expect(findAdminMenuByKey(adminMenu, "ads-paid")?.path).toBe("/admin/promoted-items");
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
-    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe(
+    expect(findAdminMenuByKey(adminMenu, "ads-legacy")?.path).toBe("/admin/promoted-items");
+    expect(findAdminMenuByKey(adminMenu, "ads-live")?.matchPaths).toContain("/admin/feed-ads");
+    expect(findAdminMenuByKey(adminMenu, "ads-live")?.matchPaths).toContain(
       "/admin/platform-popup"
     );
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe(
@@ -124,11 +124,8 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
     expect(tradeKeys.has("trade-ad-policies")).toBe(true);
     expect(tradeKeys.has("store-settlements-admin")).toBe(false);
 
-    expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
-      "/admin/ad-applications?domain=trade"
-    );
-    expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
-      "/admin/ad-applications?domain=feed"
+    expect(findAdminMenuByKey(adminMenu, "ads-applications-hub")?.path).toBe(
+      "/admin/ad-applications"
     );
   });
 

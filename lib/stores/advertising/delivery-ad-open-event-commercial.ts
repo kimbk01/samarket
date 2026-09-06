@@ -32,7 +32,11 @@ export const DELIVERY_AD_OPEN_EVENT_PARTNER = {
 } as const;
 
 export type BannerCreativePixelGuide = {
-  inventoryKey: "STORES_HOME_HERO" | "STORES_SEARCH_TOP";
+  inventoryKey:
+    | "STORES_HOME_HERO"
+    | "STORES_SEARCH_TOP"
+    | "STORES_HOME_INLINE_1"
+    | "STORES_CATEGORY_TOP";
   ratioLabel: string;
   recommendedWidth: number;
   recommendedHeight: number;
@@ -45,10 +49,10 @@ export type BannerCreativePixelGuide = {
 
 /**
  * Product geometry for Owner/Admin guidance.
- * Aspect matches inventory SSOT (39:16 / 3:1); pixels are launch recommendations.
+ * Aspect matches inventory SSOT; pixels are launch recommendations (not mock 2:1 defaults).
  */
 export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
-  "STORES_HOME_HERO" | "STORES_SEARCH_TOP",
+  BannerCreativePixelGuide["inventoryKey"],
   BannerCreativePixelGuide
 > = {
   STORES_HOME_HERO: {
@@ -73,12 +77,39 @@ export const DELIVERY_AD_BANNER_PIXEL_GUIDE: Record<
     safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
     objectFit: "cover",
   },
+  STORES_HOME_INLINE_1: {
+    inventoryKey: "STORES_HOME_INLINE_1",
+    ratioLabel: "2:1",
+    recommendedWidth: 1536,
+    recommendedHeight: 768,
+    minWidth: 686,
+    minHeight: 343,
+    safeAreaNoteKo: "중요 텍스트·로고는 중앙 80% 안쪽에 배치하세요.",
+    safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
+    objectFit: "cover",
+  },
+  STORES_CATEGORY_TOP: {
+    inventoryKey: "STORES_CATEGORY_TOP",
+    ratioLabel: "2:1",
+    recommendedWidth: 1536,
+    recommendedHeight: 768,
+    minWidth: 686,
+    minHeight: 343,
+    safeAreaNoteKo: "중요 텍스트·로고는 중앙 80% 안쪽에 배치하세요.",
+    safeAreaNoteEn: "Keep critical text/logo inside the center 80% safe area.",
+    objectFit: "cover",
+  },
 };
 
 export function bannerPixelGuideForInventory(
   key: string
 ): BannerCreativePixelGuide | null {
-  if (key === "STORES_HOME_HERO" || key === "STORES_SEARCH_TOP") {
+  if (
+    key === "STORES_HOME_HERO" ||
+    key === "STORES_SEARCH_TOP" ||
+    key === "STORES_HOME_INLINE_1" ||
+    key === "STORES_CATEGORY_TOP"
+  ) {
     return DELIVERY_AD_BANNER_PIXEL_GUIDE[key];
   }
   return null;

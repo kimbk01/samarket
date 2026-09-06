@@ -65,21 +65,6 @@ export function deliveryAdAdminQueueFundingAllowsIntake(input: {
   return isDeliveryAdFundingReadyForGoLive(input);
 }
 
-/**
- * Count WAITING_ADMIN Delivery Ads ops cases (Admin Action Queue SSOT fragment).
- * Note: badge count is status-only; list filters unfunded Owner-paid rows at read time.
- */
-export async function countDeliveryAdAdminActionQueue(
-  sb: SupabaseClient
-): Promise<number> {
-  const { count, error } = await sb
-    .from(DELIVERY_AD_OPERATIONS_CASE_TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("status", "WAITING_ADMIN");
-  if (error) return 0;
-  return Math.max(0, Math.floor(Number(count) || 0));
-}
-
 export async function listDeliveryAdAdminActionQueue(
   sb: SupabaseClient,
   input?: { limit?: number; productKind?: unknown }
@@ -255,4 +240,18 @@ export async function listDeliveryAdAdminActionQueue(
   }
 
   return { ok: true, items, total: items.length };
+}
+
+/**
+ * Count WAITING_ADMIN Delivery Ads ops cases that Admin can actually intake.
+ * MASTER CONTRACT: COUNT QUERY === LIST QUERY (same funding filter as list).
+ */
+export async function countDeliveryAdAdminActionQueue(
+  sb: SupabaseClient
+): Promise<number> {
+  const listed = await listDeliveryAdAdminActionQueue(sb, {
+    limit: DELIVERY_AD_ADMIN_ACTION_QUEUE_MAX_LIMIT,
+  });
+  if (!listed.ok) return 0;
+  return Math.max(0, Math.floor(Number(listed.total) || 0));
 }

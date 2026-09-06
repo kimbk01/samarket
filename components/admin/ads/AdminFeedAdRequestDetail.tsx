@@ -391,11 +391,15 @@ export function AdminFeedAdRequestDetail({
         <button
           type="button"
           data-testid="admin-feed-req-detail-end"
+          data-feed-end-refund="ADMIN_END_REFUND_POLICY_REQUIRED"
           disabled={busy}
           className="rounded-ui-rect border border-sam-danger px-4 py-2 text-sam-danger disabled:opacity-50"
           onClick={() => void act("end")}
         >
-          {safeT("admin_feed_req_end", { fallbackKo: "광고 종료", fallbackEn: "End ad" })}
+          {safeT("admin_feed_req_end", {
+            fallbackKo: "광고 종료 (환불 없음)",
+            fallbackEn: "End ad (no refund)",
+          })}
         </button>
       ) : null}
       <button

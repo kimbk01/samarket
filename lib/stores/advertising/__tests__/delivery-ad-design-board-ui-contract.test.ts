@@ -126,15 +126,16 @@ describe("Delivery Ads design board UI contract", () => {
     expect(queue).toContain("data-queue-commercial-summary");
   });
 
-  it("DB-A4 — admin partner table + first-party single-page", () => {
+  it("DB-A4 — admin partner table + first-party stepped wizard", () => {
     const partner = read("components/admin/stores/AdminDeliveryAdPartnerMembershipsView.tsx");
     expect(partner).toContain("data-admin-partner-memberships-table");
     expect(partner).toContain("AdminDeliveryAdPartnerConfigForm");
     const firstParty = read("components/admin/stores/AdminDeliveryAdFirstPartyCreateView.tsx");
-    expect(firstParty).toContain('data-admin-first-party-wizard="single-page"');
+    expect(firstParty).toContain('data-admin-first-party-wizard="stepped"');
     expect(firstParty).toContain("data-admin-fp-pixel-guide");
     expect(firstParty).toContain("bannerGeometryRejectMessage");
-    expect(firstParty).not.toContain("DeliveryAdAdminFirstPartyStepProgress");
+    expect(firstParty).toContain("DeliveryAdAdminFirstPartyStepProgress");
+    expect(firstParty).toContain("ADMIN_FIRST_PARTY_BANNER_INVENTORY_KEYS");
   });
 
   it("DB-A3b — standalone banner creative studio route", () => {

@@ -65,7 +65,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     sb
       .from("point_promotion_orders")
       .select("id, user_id, domain, order_status, created_at, post_id")
-      .eq("domain", "trade")
+      .in("domain", ["trade", "community"])
       .eq("order_status", "pending_review")
       .order("created_at", { ascending: false })
       .limit(30),
@@ -198,28 +198,32 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     applications.push(row);
   }
 
-  // Trade promote — Point commerce, NOT AdProduct / not Partner
+  // Trade + Community promote — Point HOLD pending Admin (MASTER CONTRACT)
   const tradeRows = tradeUnavailable
     ? []
     : ((tradePromoRes.data ?? []) as Record<string, unknown>[]);
-  for (const r of tradeRows.slice(0, 10)) {
+  for (const r of tradeRows.slice(0, 15)) {
     const id = String(r.id ?? "");
     const userId = String(r.user_id ?? "");
     const at = String(r.created_at ?? "");
+    const domainRaw = String(r.domain ?? "trade");
+    const isCommunity = domainRaw === "community";
     const row: AdsActionItem = {
-      id: `trade_promo:${id}`,
+      id: `${isCommunity ? "community" : "trade"}_promo:${id}`,
       domain: "trade_promote",
-      product: "trade_promote",
+      product: isCommunity ? "community_promote" : "trade_promote",
       entity: "application",
       applicantLabel: id.slice(0, 8),
       storeId: null,
       memberId: userId || null,
       creativeHint: null,
-      placementHint: "거래 피드 홍보",
+      placementHint: isCommunity ? "커뮤니티 피드 상위" : "거래 피드 홍보",
       amountLabel: null,
       currency: "POINT",
       status: "검토 대기",
-      whyActionable: "거래 홍보 신청 심사가 필요합니다.",
+      whyActionable: isCommunity
+        ? "커뮤니티 홍보 신청 심사가 필요합니다."
+        : "거래 홍보 신청 심사가 필요합니다.",
       paymentLabel: adsPaymentLabel(null, "POINT", true),
       periodLabel: null,
       remainingLabel: null,
@@ -227,8 +231,10 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       eligibility: null,
       ageHours: ageHours(at),
       at,
-      source: "point_promotion_orders domain=trade",
-      href: `/admin/ad-applications?domain=trade`,
+      source: `point_promotion_orders domain=${domainRaw}`,
+      href: isCommunity
+        ? `/admin/ad-applications?domain=community`
+        : `/admin/ad-applications?domain=trade`,
       statementHref: null,
       financeHref: "/admin/finance#point",
       memberHref: userId ? memberHref(userId) : null,

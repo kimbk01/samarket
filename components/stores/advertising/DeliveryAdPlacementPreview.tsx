@@ -6,6 +6,7 @@
  */
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useState } from "react";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { StoresHomeTimesaleRowCard } from "@/components/stores/home/presentation/StoresHomeTimesaleRowCard";
 import { StoreBrowseCategoryRowCard } from "@/components/stores/browse/StoreBrowseCategoryRowCard";
@@ -48,6 +49,8 @@ export type DeliveryAdPlacementPreviewProps = {
   className?: string;
   /** UI-1 — Owner application step 3: hide technical preview chrome. */
   presentationMode?: "default" | "owner_product";
+  /** MASTER — Mobile/Tablet frame toggle (admin/default chrome). */
+  showDeviceToggle?: boolean;
 };
 
 function OrganicMarker({ label }: { label: string }) {
@@ -63,6 +66,7 @@ function OrganicMarker({ label }: { label: string }) {
 
 export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProps) {
   const { t, language } = useI18n();
+  const [device, setDevice] = useState<"phone" | "tablet">("phone");
   const {
     productKind,
     inventoryKey,
@@ -82,9 +86,11 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
     policyHref,
     className,
     presentationMode = "default",
+    showDeviceToggle = false,
   } = props;
 
   const ownerProduct = presentationMode === "owner_product";
+  const deviceToggle = showDeviceToggle || renderContext === "admin_preview";
 
   const tokenGate = assertPlacementPreviewNoExposureToken(renderContext, null);
   if (!tokenGate.ok) {
@@ -136,6 +142,24 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         </span>
       </div>
 
+      {deviceToggle ? (
+        <div className="mt-2 flex gap-2" data-delivery-preview-device-toggle="1">
+          {(["phone", "tablet"] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              className={`rounded-ui-rect px-2.5 py-1 text-[11px] font-semibold ${
+                device === d ? "bg-signature text-white" : "border border-sam-border text-sam-fg"
+              }`}
+              data-delivery-preview-device={d}
+              onClick={() => setDevice(d)}
+            >
+              {d === "phone" ? "Mobile" : "Tablet"}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <p className="mt-1 text-[12px] text-sam-muted">
         {isAdmin ? t("delivery_ads_preview_admin_note") : t("delivery_ads_preview_owner_note")}
       </p>
@@ -177,7 +201,12 @@ export function DeliveryAdPlacementPreview(props: DeliveryAdPlacementPreviewProp
         <p className="mt-2 text-[12px] text-sam-muted">{t("delivery_ads_preview_home_rest_explain")}</p>
       ) : null}
 
-      <div className={`${ownerProduct ? "" : "mt-3"} overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app`}>
+      <div
+        className={`${ownerProduct ? "" : "mt-3"} overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app ${
+          deviceToggle && device === "tablet" ? "mx-auto max-w-[420px]" : deviceToggle ? "mx-auto max-w-[280px]" : ""
+        }`}
+        data-delivery-preview-frame={deviceToggle ? device : "none"}
+      >
         {inventoryKey === "STORES_SEARCH_TOP" ? (
           <div className="border-b border-sam-border px-3 py-2">
             <p className="text-[12px] font-semibold text-sam-fg">{t("delivery_ads_preview_search_shell_title")}</p>

@@ -90,6 +90,9 @@ export const pointsUiMessages = {
     promo_sheet_surface_community_home: "커뮤니티 홈 피드 상단",
     promo_sheet_surface_community_topic: "이 게시물 주제(토픽) 피드 상단",
     promo_sheet_community_approval_note: "관리자 승인 후 노출됩니다. 거절 시 보류 포인트가 반환됩니다.",
+    promo_sheet_community_admin_review_note:
+      "신청 시 Point가 보류(HOLD)되고, 관리자 승인 후 결제·노출됩니다. 거절 시 반환됩니다.",
+    promo_sheet_order_id: "신청번호",
     promo_sheet_community_immediate_note:
       "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
     promo_sheet_surface_trade_home: "거래 홈 목록",
@@ -175,6 +178,9 @@ export const pointsUiMessages = {
     feed_ad_req_hold_note:
       "신청 시 포인트가 보류되고, 관리자 승인 시 최종 사용됩니다. 반려 시 포인트가 반환됩니다.",
     feed_ad_req_submit: "광고 신청",
+    feed_ad_req_submitted_title: "배너 광고 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.",
+    feed_ad_req_application_id: "신청번호",
+    feed_ad_req_go_my_ads: "내 광고로 이동",
     trade_promo_badge: "홍보",
     trade_promo_detail_cta: "더 알리기",
     promo_sheet_title_trade: "게시물 홍보하기",
@@ -320,6 +326,9 @@ export const pointsUiMessages = {
     promo_sheet_surface_community_home: "Community home feed top",
     promo_sheet_surface_community_topic: "This post's topic feed top",
     promo_sheet_community_approval_note: "Goes live after admin approval. Rejected requests release the hold.",
+    promo_sheet_community_admin_review_note:
+      "Points are held on apply, captured on approve. Rejected requests release the hold.",
+    promo_sheet_order_id: "Application #",
     promo_sheet_community_immediate_note:
       "Goes live at the top of the feed immediately with Point. No admin approval.",
     promo_sheet_surface_trade_home: "Trade home list",
@@ -405,6 +414,9 @@ export const pointsUiMessages = {
     feed_ad_req_hold_note:
       "Point is held on submit, captured on approval, and returned if rejected.",
     feed_ad_req_submit: "Submit ad request",
+    feed_ad_req_submitted_title: "Banner ad request submitted. It goes live after admin approval.",
+    feed_ad_req_application_id: "Application #",
+    feed_ad_req_go_my_ads: "Go to My ads",
     trade_promo_badge: "Promoted",
     trade_promo_detail_cta: "Promote",
     promo_sheet_title_trade: "Promote this post",

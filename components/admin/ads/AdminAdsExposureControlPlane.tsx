@@ -273,17 +273,17 @@ export function AdminAdsExposureControlPlane() {
   });
 
   return (
-    <div className="space-y-5" data-admin-ads-control-plane="1" data-aro-ops-ux-002-b5="1">
+    <div className="space-y-5" data-admin-ads-control-plane="1" data-aro-ops-ux-002-b5="1" data-admin-ads-home="1">
       <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "광고 관제" : "Ads control"}
+              {ko ? "광고 홈" : "Ad home"}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
               {ko
-                ? "신청 검토 → 소재 확인 → 결제·승인 → 집행. 매장 홍보·배너·팝업·게시물 홍보는 상품별로 처리합니다."
-                : "Review → creative → payment & approval → execution. Store promo, banners, popup, and post promote stay product-scoped."}
+                ? "오늘 처리할 신청·노출 상태입니다. 숫자는 클릭하면 같은 조건의 목록으로 이동합니다."
+                : "Actionable applications and exposure status. Each count opens the matching filtered list."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -312,109 +312,206 @@ export function AdminAdsExposureControlPlane() {
         ) : null}
       </header>
 
-      <Section id="action-required" title={ko ? "지금 처리할 광고" : "Action required"}>
-        <p className="sam-text-helper text-sam-muted">
-          {ko
-            ? "심사·소재·결제·일정 문제가 있는 신청만 모읍니다. 승인·결제·실제 노출은 각각 별개입니다."
-            : "Only applications needing review, creative, payment, or schedule. Approval, payment, and exposure stay separate."}
-        </p>
+      <Section id="action-home" title={ko ? "관리자 확인 필요" : "Needs admin action"}>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+          {(
+            [
+              {
+                key: "pending_review",
+                labelKo: "승인 대기",
+                labelEn: "Awaiting approval",
+                count:
+                  (q.delivery.unavailable ? 0 : q.delivery.count ?? 0) +
+                  (q.feed.unavailable ? 0 : q.feed.count ?? 0) +
+                  (q.popup.unavailable ? 0 : q.popup.count ?? 0) +
+                  (q.tradePromote.unavailable ? 0 : q.tradePromote.count ?? 0),
+                href: "/admin/ad-applications",
+                tone: "primary" as const,
+              },
+              {
+                key: "revision",
+                labelKo: "수정 요청",
+                labelEn: "Revision",
+                count: actionRequired.filter((a) => /수정|revision|changes/i.test(a.status + (a.whyActionable ?? ""))).length,
+                href: "/admin/ad-applications",
+                tone: "warn" as const,
+              },
+              {
+                key: "payment",
+                labelKo: "결제 문제",
+                labelEn: "Payment issue",
+                count: actionRequired.filter((a) => /결제|payment|fund|cash/i.test(a.whyActionable ?? "")).length,
+                href: "/admin/delivery-ads/cash-charges",
+                tone: "warn" as const,
+              },
+              {
+                key: "start_today",
+                labelKo: "오늘 시작",
+                labelEn: "Starting today",
+                count: 0,
+                href: "/admin/delivery-ads/manage?view=scheduled",
+                tone: "neutral" as const,
+              },
+              {
+                key: "end_today",
+                labelKo: "오늘 종료",
+                labelEn: "Ending today",
+                count: q.endingSoon.unavailable ? null : q.endingSoon.count,
+                href: q.endingSoon.href,
+                tone: "neutral" as const,
+              },
+              {
+                key: "live",
+                labelKo: "현재 노출",
+                labelEn: "Live now",
+                count: null,
+                href: "/admin/delivery-ads/manage?view=active",
+                tone: "neutral" as const,
+              },
+              {
+                key: "paused",
+                labelKo: "일시중지",
+                labelEn: "Paused",
+                count: null,
+                href: "/admin/delivery-ads/manage?view=paused",
+                tone: "neutral" as const,
+              },
+              {
+                key: "exposure_error",
+                labelKo: "노출 오류",
+                labelEn: "Exposure error",
+                count: q.collisionBlocking.unavailable ? null : q.collisionBlocking.count,
+                href: "#diagnosis",
+                tone: "danger" as const,
+              },
+            ] as const
+          ).map((card) => (
+            <Link
+              key={card.key}
+              href={card.href}
+              className={`rounded-ui-rect border px-3 py-3 sam-text-body-secondary font-semibold hover:bg-sam-app ${
+                card.tone === "danger"
+                  ? "border-red-200 bg-red-50 text-red-950"
+                  : card.tone === "warn"
+                    ? "border-amber-200 bg-amber-50 text-amber-950"
+                    : "border-sam-border bg-sam-surface text-sam-fg"
+              }`}
+              data-admin-ads-home-card={card.key}
+            >
+              {ko ? card.labelKo : card.labelEn}
+              <span className="mt-1 block tabular-nums text-lg">
+                {card.count == null ? "—" : card.count}
+              </span>
+            </Link>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="action-required" title={ko ? "최근 신청 현황" : "Recent applications"}>
         {actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
             message={
               ko
                 ? dataFilter === "ops"
-                  ? "지금 처리할 운영 광고가 없습니다. (테스트는 「테스트」 필터)"
+                  ? "지금 처리할 운영 광고가 없습니다."
                   : "표시할 항목이 없습니다."
                 : dataFilter === "ops"
-                  ? "No ops ads need action. Use Test filter for fixtures."
+                  ? "No ops ads need action."
                   : "Nothing to show."
             }
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {actionRequired.map((item) => (
-              <ActionCard key={item.id} item={item} ko={ko} />
-            ))}
+          <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
+            <table className="min-w-full text-left sam-text-body-secondary" data-admin-ads-home-table="1">
+              <thead className="bg-sam-app text-sam-muted">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">{ko ? "신청번호" : "ID"}</th>
+                  <th className="px-3 py-2 font-semibold">{ko ? "도메인" : "Domain"}</th>
+                  <th className="px-3 py-2 font-semibold">{ko ? "상품" : "Product"}</th>
+                  <th className="px-3 py-2 font-semibold">{ko ? "대상" : "Target"}</th>
+                  <th className="px-3 py-2 font-semibold">{ko ? "상태" : "Status"}</th>
+                  <th className="px-3 py-2 font-semibold">{ko ? "신청일" : "Date"}</th>
+                  <th className="px-3 py-2 font-semibold" />
+                </tr>
+              </thead>
+              <tbody>
+                {actionRequired.slice(0, 20).map((item) => (
+                  <tr key={item.id} className="border-t border-sam-border">
+                    <td className="px-3 py-2 font-mono text-[12px]">{item.id}</td>
+                    <td className="px-3 py-2">{adminOperatorLabel(item.domain, ko)}</td>
+                    <td className="px-3 py-2">{adminOperatorLabel(item.product, ko)}</td>
+                    <td className="px-3 py-2">{adminDisplayApplicantLabel(item.applicantLabel, ko)}</td>
+                    <td className="px-3 py-2">{item.status}</td>
+                    <td className="px-3 py-2 text-sam-muted">
+                      {item.at ? new Date(item.at).toLocaleDateString(ko ? "ko" : "en") : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <AdminActionLink href={item.href} variant="primary">
+                        {ko ? "상세" : "Detail"}
+                      </AdminActionLink>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </Section>
 
-      <Section id="work-queues" title={ko ? "운영 큐" : "Work queues"}>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-          <Link
-            href={q.delivery.href}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
-          >
-            {ko ? "신청 검토" : "Application review"}
-            <span className="mt-1 block tabular-nums text-sam-muted">
-              {q.delivery.unavailable ? (ko ? "확인 불가" : "Unavailable") : (q.delivery.count ?? "—")}
-            </span>
-          </Link>
+      <Section id="diagnosis" title={ko ? "노출 상태 (진단)" : "Exposure diagnosis"}>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "충돌·빈 자리·종료 예정은 엔진 진단입니다. 신청 배지/승인 대기 숫자와 섞지 않습니다."
+            : "Collision, vacancy, and ending-soon are diagnostics — not application badges."}
+        </p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <a
             href="#collision"
-            className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-3 sam-text-body-secondary font-semibold text-red-950 hover:bg-red-100"
+            className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-3 font-semibold text-red-950"
             data-admin-ads-queue="collision_blocking"
           >
-            {ko ? "노출 충돌" : "Exposure collision"}
+            {ko ? "노출 충돌" : "Collision"}
             <span className="mt-1 block tabular-nums">
-              {q.collisionBlocking.unavailable
-                ? ko
-                  ? "확인 불가"
-                  : "Unavailable"
-                : (q.collisionBlocking.count ?? "—")}
+              {q.collisionBlocking.unavailable ? "—" : (q.collisionBlocking.count ?? 0)}
             </span>
           </a>
           <a
             href="#collision"
-            className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary font-semibold text-amber-950 hover:bg-amber-100"
+            className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 font-semibold text-amber-950"
             data-admin-ads-queue="collision_warning"
           >
-            {ko ? "중복 확인 필요" : "Duplication review"}
+            {ko ? "중복 확인" : "Duplication"}
             <span className="mt-1 block tabular-nums">
-              {q.collisionWarning.unavailable
-                ? ko
-                  ? "확인 불가"
-                  : "Unavailable"
-                : (q.collisionWarning.count ?? "—")}
+              {q.collisionWarning.unavailable ? "—" : (q.collisionWarning.count ?? 0)}
             </span>
           </a>
           <Link
             href={q.endingSoon.href}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 font-semibold"
             data-admin-ads-queue="ending_soon"
           >
             {ko ? "종료 예정" : "Ending soon"}
             <span className="mt-1 block tabular-nums text-sam-muted">
-              {q.endingSoon.unavailable
-                ? ko
-                  ? "확인 불가"
-                  : "Unavailable"
-                : (q.endingSoon.count ?? "—")}
+              {q.endingSoon.unavailable ? "—" : (q.endingSoon.count ?? 0)}
             </span>
           </Link>
           <Link
             href={q.vacantSlots?.href ?? "#occupancy"}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 font-semibold"
             data-admin-ads-queue="vacant_slots"
           >
             {ko ? "빈 자리" : "Vacancy"}
             <span className="mt-1 block tabular-nums text-sam-muted">
-              {q.vacantSlots?.unavailable ? (ko ? "확인 불가" : "Unavailable") : (q.vacantSlots?.count ?? 0)}
+              {q.vacantSlots?.unavailable ? "—" : (q.vacantSlots?.count ?? 0)}
             </span>
           </Link>
-          <a
-            href="#execution"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
-          >
-            {ko ? "일정·집행" : "Schedule / execution"}
-          </a>
         </div>
-        <div className="flex flex-wrap gap-3 sam-text-body-secondary">
+        <div className="mt-3 flex flex-wrap gap-3 sam-text-body-secondary">
           {(
             [
-              [ko ? "배달" : "Delivery", "delivery", q.delivery],
-              [ko ? "배너" : "Banner", "feed", q.feed],
-              [ko ? "팝업" : "Popup", "popup", q.popup],
+              [ko ? "배달 신청" : "Delivery", "delivery", q.delivery],
+              [ko ? "배너 신청" : "Banner", "feed", q.feed],
+              [ko ? "팝업 신청" : "Popup", "popup", q.popup],
               [ko ? "거래 홍보" : "Trade", "trade_promote", q.tradePromote],
             ] as const
           ).map(([label, k, s]) => (

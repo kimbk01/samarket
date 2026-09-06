@@ -96,12 +96,15 @@ export const DELIVERY_AD_OWNER_CONFIRM_TIMELINE = [
   { step: 3, labelKey: "owner_ads_confirm_timeline_start" },
 ] as const;
 
-/** Admin first-party — 4 steps */
+/** Admin first-party — MASTER wizard steps (Domain→Product→Placement→Creative→Schedule→Preview→Publish) */
 export const DELIVERY_AD_ADMIN_FIRST_PARTY_STEPS = [
-  { step: 1, labelKey: "admin_delivery_ads_fp_step_setup" },
-  { step: 2, labelKey: "admin_delivery_ads_fp_step_produce" },
-  { step: 3, labelKey: "admin_delivery_ads_fp_step_review" },
-  { step: 4, labelKey: "admin_delivery_ads_fp_step_publish" },
+  { step: 1, labelKey: "admin_delivery_ads_fp_step_domain" },
+  { step: 2, labelKey: "admin_delivery_ads_fp_step_product" },
+  { step: 3, labelKey: "admin_delivery_ads_fp_step_placement" },
+  { step: 4, labelKey: "admin_delivery_ads_fp_step_creative" },
+  { step: 5, labelKey: "admin_delivery_ads_fp_step_schedule" },
+  { step: 6, labelKey: "admin_delivery_ads_fp_step_preview" },
+  { step: 7, labelKey: "admin_delivery_ads_fp_step_publish" },
 ] as const;
 
 /** Admin action queue table columns (UI-2) */

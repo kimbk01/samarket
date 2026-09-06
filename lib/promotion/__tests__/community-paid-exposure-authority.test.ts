@@ -15,12 +15,12 @@ describe("community paid exposure authority", () => {
     expect(isPostAdsAdTypeOpenForNewApply("mid_insert")).toBe(false);
   });
 
-  it("keeps community catalog prices from live seed (10000/20000) and A2 immediate active", () => {
+  it("keeps community catalog prices from live seed (10000/20000) and HOLD→Admin approval", () => {
     const items = listActiveMemberPromotionProducts("community");
     expect(items.map((p) => p.id)).toEqual(["community_promote_3", "community_promote_7"]);
     expect(getMemberPromotionProduct("community_promote_3")?.pointCost).toBe(10000);
     expect(getMemberPromotionProduct("community_promote_7")?.pointCost).toBe(20000);
-    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(false);
-    expect(getMemberPromotionProduct("community_promote_7")?.requiresAdminApproval).toBe(false);
+    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(true);
+    expect(getMemberPromotionProduct("community_promote_7")?.requiresAdminApproval).toBe(true);
   });
 });
