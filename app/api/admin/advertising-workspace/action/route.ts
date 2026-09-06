@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     expectedLifecycle?: string;
     expectedUpdatedAt?: string;
     popupTransition?: string;
+    /** Compensation / paid extend days — required for extend_compensation */
+    requestedDays?: number;
+    extensionKind?: "PAID" | "ADMIN_FREE_COMPENSATION";
   };
 
   const family = body.family;
@@ -172,6 +175,43 @@ export async function POST(req: NextRequest) {
   }
 
   if (family === "feed_banner") {
+    if (action === "extend_compensation") {
+      if (!publicMsg) {
+        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+      }
+      const days = Number(body.requestedDays ?? 1);
+      const { adminCompensateExtendFeedAdCampaign } = await import(
+        "@/lib/ads/admin-compensate-extend-feed-ad-campaign"
+      );
+      const ext = await adminCompensateExtendFeedAdCampaign(sb, {
+        adminUserId: admin.userId,
+        requestId: entityId,
+        requestedDays: Number.isInteger(days) ? days : 0,
+        reason: publicMsg,
+      });
+      if (!ext.ok) {
+        return NextResponse.json({ ok: false, error: ext.error }, { status: ext.httpStatus });
+      }
+      void appendAuditLog(sb, {
+        actor_type: "admin",
+        actor_id: admin.userId,
+        target_type: "feed_ad_request",
+        target_id: entityId,
+        action: "feed_ad.extend_compensation",
+        before_json: { old_end: ext.previousEndAt },
+        after_json: {
+          new_end: ext.newEndAt,
+          extension_duration_days: ext.daysAdded,
+          charge_policy: "ADMIN_FREE_COMPENSATION",
+          reason: publicMsg,
+          admin_id: admin.userId,
+        },
+        ip: meta.ip,
+        user_agent: meta.userAgent,
+      });
+      return NextResponse.json({ ok: true, extension: ext });
+    }
+
     const feedAction =
       action === "approve"
         ? "approve"
@@ -294,6 +334,46 @@ export async function POST(req: NextRequest) {
     const expectedUpdatedAt = String(
       body.expectedUpdatedAt ?? (camp as { updated_at?: string }).updated_at ?? ""
     );
+
+    if (action === "extend_compensation") {
+      if (!publicMsg) {
+        return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+      }
+      const days = Number(body.requestedDays ?? 1);
+      const extensionKind =
+        body.extensionKind === "PAID" ? "PAID" : "ADMIN_FREE_COMPENSATION";
+      const { adminExtendDeliveryAdCampaign } = await import(
+        "@/lib/stores/advertising/admin-delivery-ad-extension-writer"
+      );
+      const ext = await adminExtendDeliveryAdCampaign(sb, {
+        adminUserId: admin.userId,
+        productKind,
+        campaignId: entityId,
+        expectedUpdatedAt,
+        requestedDays: Number.isInteger(days) ? days : 0,
+        extensionKind,
+        reason: publicMsg,
+      });
+      if (!ext.ok) {
+        return NextResponse.json(
+          { ok: false, error: ext.error, detail: ext.detail },
+          { status: ext.httpStatus }
+        );
+      }
+      return NextResponse.json({
+        ok: true,
+        extension: {
+          old_end: ext.previousEndAt,
+          new_end: ext.newEndAt,
+          extension_duration_days: ext.daysAdded,
+          charge_policy: ext.extensionKind,
+          reason: publicMsg,
+          admin_id: admin.userId,
+          amountMinor: ext.amountMinor,
+          paymentStatus: ext.paymentStatus,
+        },
+      });
+    }
 
     const deliveryAction =
       action === "approve"

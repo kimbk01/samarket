@@ -42,4 +42,14 @@ describe("workspace drawer writer CTAs", () => {
     expect(s.internalMemo).toBe("ops note");
     expect(s.publicAdminMessage).toBe("please fix image");
   });
+
+  it("active delivery banner exposes compensation extend (writer-backed)", () => {
+    expect(isAdminAuthorityCtaAllowed("delivery_banner", "EXTEND_COMPENSATION")).toBe(true);
+    const actions = listWorkspaceDrawerActions({
+      family: "delivery_banner",
+      statusRaw: "active",
+    });
+    expect(actions).toContain("extend_compensation");
+    expect(actions).toContain("pause");
+  });
 });

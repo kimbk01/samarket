@@ -54,6 +54,7 @@ export function AdminAdvertisingWorkspace() {
   const [actionMsg, setActionMsg] = useState("");
   const [publicMessage, setPublicMessage] = useState("");
   const [internalMemo, setInternalMemo] = useState("");
+  const [extendDays, setExtendDays] = useState(1);
 
   const load = useCallback(async () => {
     setErr("");
@@ -93,6 +94,11 @@ export function AdminAdvertisingWorkspace() {
       setBusyAction(action);
       setActionMsg("");
       try {
+        if (action === "extend_compensation" && !publicMessage.trim()) {
+          setActionMsg(ko ? "연장 사유가 필요합니다." : "Extend reason required.");
+          setBusyAction(null);
+          return;
+        }
         const res = await fetch("/api/admin/advertising-workspace/action", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -103,6 +109,9 @@ export function AdminAdvertisingWorkspace() {
             reason: publicMessage || undefined,
             publicMessage: publicMessage || undefined,
             internalMemo: action === "add_internal_memo" ? internalMemo : undefined,
+            requestedDays: action === "extend_compensation" ? extendDays : undefined,
+            extensionKind:
+              action === "extend_compensation" ? "ADMIN_FREE_COMPENSATION" : undefined,
           }),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -120,7 +129,7 @@ export function AdminAdvertisingWorkspace() {
         setBusyAction(null);
       }
     },
-    [selected, publicMessage, internalMemo, load, ko]
+    [selected, publicMessage, internalMemo, extendDays, load, ko]
   );
 
   const chips =
@@ -373,7 +382,7 @@ export function AdminAdvertisingWorkspace() {
               ) : null}
 
               <label className="block sam-text-xxs text-sam-muted">
-                {ko ? "신청자 메시지 (반려/수정요청)" : "Public message"}
+                {ko ? "신청자 메시지 (반려/수정요청/연장 사유)" : "Public message / extend reason"}
                 <textarea
                   className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
                   rows={2}
@@ -382,6 +391,20 @@ export function AdminAdvertisingWorkspace() {
                   data-drawer-public-message="1"
                 />
               </label>
+              {drawerActions.includes("extend_compensation") ? (
+                <label className="block sam-text-xxs text-sam-muted">
+                  {ko ? "보상 연장 일수" : "Compensation days"}
+                  <input
+                    type="number"
+                    min={1}
+                    max={90}
+                    className="mt-1 w-24 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sm text-sam-fg"
+                    value={extendDays}
+                    onChange={(e) => setExtendDays(Math.max(1, Number(e.target.value) || 1))}
+                    data-drawer-extend-days="1"
+                  />
+                </label>
+              ) : null}
               <label className="block sam-text-xxs text-sam-muted">
                 {ko ? "내부 메모 (관리자만)" : "Internal memo"}
                 <textarea
