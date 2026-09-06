@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
-import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
+import { OwnerProductNewStoreIdRedirect } from "@/components/business/owner/OwnerProductNewStoreIdRedirect";
 
 export default function OwnerNewProductPage({
   searchParams,
@@ -27,9 +27,9 @@ async function OwnerNewProductPageBody({
     typeof sp.menuSectionId === "string" ? sp.menuSectionId.trim() : "";
   if (!storeId) {
     return (
-      <OwnerStoreNeedStoreIdRscMessage
-        hintKey="owner_store_need_store_id_suffix_products"
-        useScrollShell={false}
+      <OwnerProductNewStoreIdRedirect
+        draft={defaultDraft}
+        menuSectionId={menuSectionId || undefined}
       />
     );
   }

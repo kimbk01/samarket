@@ -115,9 +115,9 @@ Status vocabulary only:
 | REQ_ID | REQUIREMENT | STATUS | NOTES |
 |---|---|---|---|
 | C-01 | Care hub (not silent inquiries redirect) | PARTIAL | hub root PASS; list leaves redirect to center by design |
-| C-02 | Order chat list→detail | PARTIAL | single-flight JSON fix LOCAL; Production re-prove pending |
-| C-03 | Store inquiries work | PARTIAL | empty OK + single-flight JSON fix LOCAL; reply NOT_PROVEN |
-| C-04 | Reviews list+reply | PARTIAL | list load race FIXED LOCAL (JSON single-flight); Production re-prove pending |
+| C-02 | Order chat list→detail | PARTIAL | single-flight JSON fix shipped `a5f78fe24`; list UI re-prove pending |
+| C-03 | Store inquiries work | PASS_PRODUCTION | empty/list HARD PASS after `a5f78fe24` (`customer-ads-hard-pass-prod.json`) |
+| C-04 | Reviews list+reply | PARTIAL | list HARD PASS Production (`a5f78fe24`); reply CTA path NOT_PROVEN this turn |
 | C-05 | DIBAY support center | PARTIAL | UI loads |
 | C-06 | Badges/deeplinks | NOT_PROVEN | |
 
@@ -142,7 +142,7 @@ Status vocabulary only:
 | PR-02 | Gift certificate | NOT_PROVEN |
 | PR-03 | Banner | NOT_PROVEN |
 | PR-04 | Notice | NOT_PROVEN |
-| PR-05 | Delivery ads | PARTIAL | greeting placeholder FIXED LOCAL (`t(key,{name})`); Production re-prove pending |
+| PR-05 | Delivery ads | PASS_PRODUCTION | greeting HARD PASS (`Hello, 테스트1`); no `Unable to load this content` after `a5f78fe24` |
 
 ### NOTIFICATIONS
 

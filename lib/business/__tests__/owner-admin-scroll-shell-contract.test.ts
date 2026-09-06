@@ -31,13 +31,9 @@ describe("owner admin scroll shell contract", () => {
     expect(resolveOwnerStackScrollHostPath("/stores/owner/profile")).toBe(true);
   });
 
-  it("product composer stays excluded from scroll host lock", () => {
-    expect(
-      resolveOwnerStackScrollHostPath("/stores/owner/products/new")
-    ).toBe(false);
-    expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(
-      true
-    );
+  it("product composer is a scroll host (SELECTIVE_RESTORE — no nested 100dvh owner)", () => {
+    expect(resolveOwnerStackScrollHostPath("/stores/owner/products/new")).toBe(true);
+    expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(true);
   });
 
   it("StoreBusinessGuard ok shell uses flex min-h-0 (not min-h-screen)", () => {
@@ -224,31 +220,30 @@ describe("owner admin scroll shell contract", () => {
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
   });
 
-  it("product composer main owns remaining viewport height (no zero-height flex collapse)", () => {
+  it("product composer uses shared Owner stack scroll (no parallel 100dvh overflow-hidden main)", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
     expect(shell).toContain("isOwnerStoreProductComposerRoute");
-    // Fixed/portaled header is out of flow — main must take remaining height so
-    // OwnerProductForm flex-1 scroll body cannot collapse to 0 under the category strip.
+    expect(shell).toContain("ownerUnifiedMainLayoutClass");
     expect(shell).toContain(
-      "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
-    );
-    expect(shell).toMatch(
-      /isOwnerStoreProductComposerRoute\s*\n\s*\?\s*\/\/[\s\S]{0,280}"flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden/
+      "pt-[calc(var(--safe-top)+3.5rem+0.75rem)] px-2 sm:px-2 max-w-6xl"
     );
     expect(shell).not.toContain(
-      '? "flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"'
+      "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
+    );
+    expect(shell).not.toMatch(
+      /ownerStackShellHeightClass = isOwnerStoreProductComposerRoute\s*\n\s*\?\s*"h-\[100dvh\]/
     );
   });
 
-  it("OwnerProductForm scroll body is not flex basis-0 (Product New blank regression lock)", () => {
+  it("OwnerProductForm is document-flow (no nested flex-1 scroll under 100dvh)", () => {
     const form = readRepo("components/business/owner/OwnerProductForm.tsx");
     expect(form).toContain('data-owner-product-form-scroll="1"');
     expect(form).toContain('data-owner-product-composer="1"');
-    expect(form).toMatch(
-      /data-owner-product-form-scroll="1"[\s\S]{0,120}min-h-0 flex-1 overflow-x-hidden overflow-y-auto/
+    expect(form).not.toContain(
+      "h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
     );
     expect(form).not.toMatch(
-      /data-owner-product-form-scroll[\s\S]{0,80}basis-0/
+      /data-owner-product-form-scroll="1"[\s\S]{0,120}min-h-0 flex-1 overflow-x-hidden overflow-y-auto/
     );
     expect(form).not.toContain(
       "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain"

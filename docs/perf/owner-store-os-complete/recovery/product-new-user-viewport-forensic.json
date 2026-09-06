@@ -1,0 +1,424 @@
+{
+  "at": "2026-09-06T05:18:53.903Z",
+  "origin": "https://samarket.vercel.app",
+  "expectedHead": "a5f78fe24",
+  "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+  "viewports": {
+    "390": {
+      "viewport": {
+        "name": "390",
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/product-new-blank-390.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "titleText": "dibaY",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot",
+        "hasForm": true,
+        "hasNameInput": true,
+        "nameVisible": true,
+        "formRect": {
+          "w": 374,
+          "h": 1304,
+          "top": 195,
+          "bottom": 1498
+        },
+        "scrollRect": {
+          "w": 374,
+          "h": 649,
+          "top": 195,
+          "bottom": 844
+        },
+        "composerRect": {
+          "w": 374,
+          "h": 776,
+          "top": 68,
+          "bottom": 844
+        },
+        "mainRect": {
+          "w": 390,
+          "h": 844,
+          "top": 0,
+          "bottom": 844
+        },
+        "headerRect": {
+          "w": 390,
+          "h": 57,
+          "top": 0,
+          "bottom": 57
+        },
+        "formCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "1303.69px",
+          "maxHeight": "none",
+          "flex": "0 1 auto",
+          "flexBasis": "auto",
+          "minHeight": "0px"
+        },
+        "scrollCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "height": "649.406px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "composerCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "776px",
+          "maxHeight": "776px",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "mainCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "height": "844px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "scrollProbe": {
+          "clientHeight": 649,
+          "scrollHeight": 1304,
+          "scrollTopBefore": 0,
+          "scrollTopAfterSet400": 400,
+          "canUserScroll": true
+        },
+        "buildId": null,
+        "vw": 390,
+        "vh": 844,
+        "nextBuildId": null
+      },
+      "humanUsable": true
+    },
+    "1280": {
+      "viewport": {
+        "name": "1280",
+        "width": 1280,
+        "height": 800
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/product-new-blank-1280.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "titleText": "dibaY",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot",
+        "hasForm": true,
+        "hasNameInput": true,
+        "nameVisible": true,
+        "formRect": {
+          "w": 1040,
+          "h": 1281,
+          "top": 195,
+          "bottom": 1476
+        },
+        "scrollRect": {
+          "w": 1040,
+          "h": 605,
+          "top": 195,
+          "bottom": 800
+        },
+        "composerRect": {
+          "w": 1040,
+          "h": 732,
+          "top": 68,
+          "bottom": 800
+        },
+        "mainRect": {
+          "w": 1280,
+          "h": 800,
+          "top": 0,
+          "bottom": 800
+        },
+        "headerRect": {
+          "w": 1280,
+          "h": 57,
+          "top": 0,
+          "bottom": 57
+        },
+        "formCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "1280.94px",
+          "maxHeight": "none",
+          "flex": "0 1 auto",
+          "flexBasis": "auto",
+          "minHeight": "0px"
+        },
+        "scrollCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "height": "605.406px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "composerCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "732px",
+          "maxHeight": "732px",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "mainCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "height": "800px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "scrollProbe": {
+          "clientHeight": 605,
+          "scrollHeight": 1281,
+          "scrollTopBefore": 0,
+          "scrollTopAfterSet400": 400,
+          "canUserScroll": true
+        },
+        "buildId": null,
+        "vw": 1280,
+        "vh": 800,
+        "nextBuildId": null
+      },
+      "humanUsable": true
+    },
+    "user_desktop_like": {
+      "viewport": {
+        "name": "user_desktop_like",
+        "width": 1440,
+        "height": 900
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/product-new-blank-user_desktop_like.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "titleText": "dibaY",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot",
+        "hasForm": true,
+        "hasNameInput": true,
+        "nameVisible": true,
+        "formRect": {
+          "w": 1040,
+          "h": 1281,
+          "top": 195,
+          "bottom": 1476
+        },
+        "scrollRect": {
+          "w": 1040,
+          "h": 705,
+          "top": 195,
+          "bottom": 900
+        },
+        "composerRect": {
+          "w": 1040,
+          "h": 832,
+          "top": 68,
+          "bottom": 900
+        },
+        "mainRect": {
+          "w": 1440,
+          "h": 900,
+          "top": 0,
+          "bottom": 900
+        },
+        "headerRect": {
+          "w": 1440,
+          "h": 57,
+          "top": 0,
+          "bottom": 57
+        },
+        "formCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "1280.94px",
+          "maxHeight": "none",
+          "flex": "0 1 auto",
+          "flexBasis": "auto",
+          "minHeight": "0px"
+        },
+        "scrollCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "height": "705.406px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "composerCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "832px",
+          "maxHeight": "832px",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "mainCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "height": "900px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "scrollProbe": {
+          "clientHeight": 705,
+          "scrollHeight": 1281,
+          "scrollTopBefore": 0,
+          "scrollTopAfterSet400": 400,
+          "canUserScroll": true
+        },
+        "buildId": null,
+        "vw": 1440,
+        "vh": 900,
+        "nextBuildId": null
+      },
+      "humanUsable": true
+    },
+    "1024x768": {
+      "viewport": {
+        "name": "1024x768",
+        "width": 1024,
+        "height": 768
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/owner-store-os-complete/recovery/product-new-blank-1024x768.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "measure": {
+        "href": "https://samarket.vercel.app/stores/owner/products/new?storeId=19085860-52d2-4183-b033-e71fcb58bcec",
+        "titleText": "dibaY",
+        "bodyLead": "CATEGORY (REQUIRED)\nSelect a category\n▼\nBasics\nOptions\nLanguage\nRequired information\nProduct images\nRecommended 512×512\nProduct name\nOne-line description\nBase price (peso) *\nDiscount\nDiscount rate (%)\n%\n\nDiscounted price (order unit)—\n\nInventory\n\nInventory management\n\nNo stock tracking\nTrack stock\nOption settings\n\nNo options\n\n+\nAdd option group\nOrder · visibility · sold out · recommended · featured\nOrders\nVisible\nSold out\nOwner's pick\nFeatured item\n\nPopular rank is from recent orders; you cannot",
+        "hasForm": true,
+        "hasNameInput": true,
+        "nameVisible": true,
+        "formRect": {
+          "w": 944,
+          "h": 1281,
+          "top": 195,
+          "bottom": 1476
+        },
+        "scrollRect": {
+          "w": 944,
+          "h": 573,
+          "top": 195,
+          "bottom": 768
+        },
+        "composerRect": {
+          "w": 944,
+          "h": 700,
+          "top": 68,
+          "bottom": 768
+        },
+        "mainRect": {
+          "w": 1024,
+          "h": 768,
+          "top": 0,
+          "bottom": 768
+        },
+        "headerRect": {
+          "w": 1024,
+          "h": 57,
+          "top": 0,
+          "bottom": 57
+        },
+        "formCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "1280.94px",
+          "maxHeight": "none",
+          "flex": "0 1 auto",
+          "flexBasis": "auto",
+          "minHeight": "0px"
+        },
+        "scrollCss": {
+          "display": "block",
+          "visibility": "visible",
+          "overflow": "hidden auto",
+          "overflowY": "auto",
+          "height": "573.406px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "composerCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "visible",
+          "overflowY": "visible",
+          "height": "700px",
+          "maxHeight": "700px",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "mainCss": {
+          "display": "flex",
+          "visibility": "visible",
+          "overflow": "hidden",
+          "overflowY": "hidden",
+          "height": "768px",
+          "maxHeight": "none",
+          "flex": "1 1 0%",
+          "flexBasis": "0%",
+          "minHeight": "0px"
+        },
+        "scrollProbe": {
+          "clientHeight": 573,
+          "scrollHeight": 1281,
+          "scrollTopBefore": 0,
+          "scrollTopAfterSet400": 400,
+          "canUserScroll": true
+        },
+        "buildId": null,
+        "vw": 1024,
+        "vh": 768,
+        "nextBuildId": null
+      },
+      "humanUsable": true
+    }
+  }
+}
