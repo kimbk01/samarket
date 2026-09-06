@@ -316,8 +316,8 @@ export function AdminDeliveryAdDetailWorkspace({
   function decisionToneClass(
     tone: NonNullable<typeof requiredDecision>["tone"]
   ): string {
-    if (tone === "urgent") return "border-sam-danger/40 bg-sam-danger/5 text-sam-fg";
-    if (tone === "info") return "border-sam-brand/30 bg-sam-brand/5 text-sam-fg";
+    if (tone === "urgent") return "border-sam-danger/40 bg-sam-app text-sam-fg";
+    if (tone === "info") return "border-sam-primary/30 bg-sam-primary/5 text-sam-fg";
     return "border-sam-border bg-sam-surface text-sam-fg";
   }
 
@@ -794,12 +794,12 @@ export function AdminDeliveryAdDetailWorkspace({
                           : undefined
                       }
                       data-admin-delivery-ads-action={action}
-                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
+                      className={`rounded-ui-rect px-4 py-2.5 text-[13px] font-semibold shadow-sm ${
                         action === "reject"
-                          ? "bg-sam-danger text-white"
+                          ? "bg-sam-danger text-white hover:opacity-90"
                           : action === "approve"
-                            ? "bg-sam-brand text-white disabled:opacity-40"
-                            : "border border-sam-border bg-sam-surface text-sam-fg"
+                            ? "bg-sam-primary text-sam-on-primary hover:opacity-90 disabled:opacity-40"
+                            : "border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
                       }`}
                       onClick={() => void runAction(action)}
                     >
@@ -1176,13 +1176,13 @@ export function AdminDeliveryAdDetailWorkspace({
                           bannerPublishReady?.ok === false)
                       }
                       data-admin-delivery-ads-action={action}
-                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-medium ${
+                      className={`rounded-ui-rect px-3 py-2 text-[12px] font-semibold ${
                         action === "terminate" ||
                         action === "reject" ||
                         action === "delete_safe_draft"
                           ? "bg-sam-danger text-white"
                           : action === "approve"
-                            ? "bg-sam-brand text-white"
+                            ? "bg-sam-primary text-sam-on-primary disabled:opacity-40"
                             : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                       onClick={() => void runAction(action)}

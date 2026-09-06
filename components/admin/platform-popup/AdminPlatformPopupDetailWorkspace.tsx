@@ -68,6 +68,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [needsCrop, setNeedsCrop] = useState(false);
@@ -181,11 +182,15 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     dirty,
   ]);
 
-  const markDirty = () => setDirty(true);
+  const markDirty = () => {
+    setDirty(true);
+    setSaveNotice(null);
+  };
 
   const save = async () => {
     setBusy(true);
     setError(null);
+    setSaveNotice(null);
     const res = await fetch(`/api/admin/platform-popup-campaigns/${campaignId}`, {
       method: "PATCH",
       credentials: "same-origin",
@@ -211,6 +216,9 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       return;
     }
     await load();
+    setSaveNotice(
+      language === "en" ? "Saved. List and preview reloaded." : "저장되었습니다. 목록·미리보기를 다시 불러왔습니다."
+    );
   };
 
   const transition = async (body: Record<string, unknown>) => {
@@ -332,6 +340,15 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
       {error ? (
         <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
           {error}
+        </p>
+      ) : null}
+      {saveNotice ? (
+        <p
+          className="rounded border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-sm font-medium text-sam-fg"
+          role="status"
+          data-admin-popup-save-notice="1"
+        >
+          {saveNotice}
         </p>
       ) : null}
 
@@ -808,9 +825,16 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 className="rounded bg-sam-primary px-3 py-1.5 text-sm font-semibold text-sam-on-primary disabled:opacity-50"
                 disabled={busy || !dirty}
                 onClick={() => void save()}
+                data-admin-popup-save="1"
+                data-admin-popup-save-state={busy ? "saving" : dirty ? "dirty" : "idle"}
               >
-                {safeT("admin_platform_popup_save", { fallbackKo: "저장", fallbackEn: "Save" })}
-                {dirty ? " *" : ""}
+                {busy
+                  ? safeT("admin_platform_popup_saving", {
+                      fallbackKo: "저장 중…",
+                      fallbackEn: "Saving…",
+                    })
+                  : safeT("admin_platform_popup_save", { fallbackKo: "저장", fallbackEn: "Save" })}
+                {dirty && !busy ? " *" : ""}
               </button>
               <button
                 type="button"

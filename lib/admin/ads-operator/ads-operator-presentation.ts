@@ -109,7 +109,7 @@ export function formatAdsPeriod(
 }
 
 const TEST_NAME_RE =
-  /(\[QA[^\]]*\]|QA[-_\s]|currency-prod-e2e|Geometry|PROD__|\[RUNTIME\]|\[EXIT\]|e2e[-_])/i;
+  /(\[QA[^\]]*\]|\[테스트\]|QA[-_\s]|currency-prod-e2e|Geometry|PROD[_-]{1,2}|\[RUNTIME\]|\[EXIT\]|e2e[-_])/i;
 
 export function isAdsTestFixtureLabel(label: string | null | undefined): boolean {
   return TEST_NAME_RE.test(String(label ?? ""));

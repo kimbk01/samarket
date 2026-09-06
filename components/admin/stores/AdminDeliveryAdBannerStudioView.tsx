@@ -41,6 +41,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<AdminDeliveryAdListItem | null>(null);
   const [creative, setCreative] = useState<{
     assetPath: string;
@@ -114,6 +115,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
     if (!campaign || busy) return;
     setBusy(true);
     setError(null);
+    setSaveNotice(null);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -155,6 +157,9 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       }
       setFileInputKey((k) => k + 1);
       await load();
+      setSaveNotice(
+        lang === "en" ? "Banner creative saved." : "배너 소재가 저장되었습니다."
+      );
     } finally {
       setBusy(false);
     }
@@ -163,6 +168,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
   async function removeCreative() {
     if (!campaign || busy) return;
     setBusy(true);
+    setSaveNotice(null);
     try {
       const res = await fetch(`/api/admin/delivery-ads/${encodeURIComponent(campaignId)}`, {
         method: "PATCH",
@@ -176,7 +182,10 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) setError(json.error || "remove_failed");
-      else await load();
+      else {
+        await load();
+        setSaveNotice(lang === "en" ? "Creative removed." : "소재를 제거했습니다.");
+      }
     } finally {
       setBusy(false);
     }
@@ -185,6 +194,7 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
   async function saveDestination() {
     if (!campaign || busy) return;
     setBusy(true);
+    setSaveNotice(null);
     try {
       const res = await fetch(`/api/admin/delivery-ads/${encodeURIComponent(campaignId)}`, {
         method: "PATCH",
@@ -199,7 +209,12 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) setError(json.error || "destination_failed");
-      else await load();
+      else {
+        await load();
+        setSaveNotice(
+          lang === "en" ? "Destination saved." : "이동 대상이 저장되었습니다."
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -242,6 +257,15 @@ export function AdminDeliveryAdBannerStudioView({ campaignId, productHint = "ban
         {error ? (
           <p className="text-[13px] text-red-600" role="alert">
             {error}
+          </p>
+        ) : null}
+        {saveNotice ? (
+          <p
+            className="rounded-ui-rect border border-sam-primary/30 bg-sam-primary/5 px-3 py-2 text-[13px] font-medium text-sam-fg"
+            role="status"
+            data-admin-banner-save-notice="1"
+          >
+            {saveNotice}
           </p>
         ) : null}
 

@@ -118,8 +118,9 @@ describe("platform popup product completion — Admin IA", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     // ARO-OPS-UX-002-B7: B5 Control Plane is first ads leaf (ads-delivery-ops wrapper removed).
     expect(ads?.children?.[0]?.key).toBe("delivery-ads-control");
-    expect(ads?.children?.some((c) => c.key === "ads-feed")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-platform-popup")).toBe(true);
+    const execution = findAdminMenuByKey(adminMenu, "ads-execution-group");
+    expect(execution?.children?.some((c) => c.key === "ads-feed")).toBe(true);
+    expect(execution?.children?.some((c) => c.key === "ads-platform-popup")).toBe(true);
   });
 
   it("hub page uses Control Center (not raw queue-only)", () => {

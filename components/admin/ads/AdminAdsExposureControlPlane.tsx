@@ -24,6 +24,18 @@ import {
   adminDisplayApplicantLabel,
   adminOperatorLabel,
 } from "@/lib/admin/operator-ux/operator-labels";
+import { isAdsTestFixtureLabel } from "@/lib/admin/ads-operator/ads-operator-presentation";
+
+type OpsDataFilter = "ops" | "test" | "all";
+
+function isTestActionItem(item: AdsActionItem): boolean {
+  return (
+    isAdsTestFixtureLabel(item.applicantLabel) ||
+    isAdsTestFixtureLabel(item.product) ||
+    isAdsTestFixtureLabel(item.placementHint) ||
+    isAdsTestFixtureLabel(item.whyActionable)
+  );
+}
 
 function Unavail({ ko }: { ko: boolean }) {
   return <AdminUnavailableChip ko={ko} />;
@@ -199,6 +211,7 @@ export function AdminAdsExposureControlPlane() {
   const [model, setModel] = useState<AdsControlPlaneModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [dataFilter, setDataFilter] = useState<OpsDataFilter>("ops");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -253,23 +266,44 @@ export function AdminAdsExposureControlPlane() {
   if (!model) return null;
   const q = model.queues;
 
+  const actionRequired = (model.actionRequired ?? []).filter((r) => {
+    if (dataFilter === "all") return true;
+    const isTest = isTestActionItem(r);
+    return dataFilter === "test" ? isTest : !isTest;
+  });
+
   return (
     <div className="space-y-5" data-admin-ads-control-plane="1" data-aro-ops-ux-002-b5="1">
       <header className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
-              {ko ? "광고 / 노출" : "Ads / Exposure"}
+              {ko ? "광고 관제" : "Ads control"}
             </h1>
             <p className="mt-1 sam-text-body text-sam-muted">
               {ko
-                ? "신청 검토 → 소재 확인 → 비용·승인 → 집행. 배달·피드·팝업은 각각 따로 처리합니다."
-                : "Review applications → creatives → billing & approval → execution. Delivery, feed, and popup stay separate."}
+                ? "신청 검토 → 소재 확인 → 결제·승인 → 집행. 매장 홍보·배너·팝업·게시물 홍보는 상품별로 처리합니다."
+                : "Review → creative → payment & approval → execution. Store promo, banners, popup, and post promote stay product-scoped."}
             </p>
           </div>
-          <AdminActionButton variant="neutral" onClick={() => void load()}>
-            {ko ? "새로고침" : "Refresh"}
-          </AdminActionButton>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="sam-text-helper text-sam-muted">
+              {ko ? "데이터" : "Data"}
+              <select
+                className="ml-2 rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sam-fg"
+                value={dataFilter}
+                data-admin-ads-data-filter="1"
+                onChange={(e) => setDataFilter(e.target.value as OpsDataFilter)}
+              >
+                <option value="ops">{ko ? "운영" : "Ops"}</option>
+                <option value="test">{ko ? "테스트" : "Test"}</option>
+                <option value="all">{ko ? "전체" : "All"}</option>
+              </select>
+            </label>
+            <AdminActionButton variant="neutral" onClick={() => void load()}>
+              {ko ? "새로고침" : "Refresh"}
+            </AdminActionButton>
+          </div>
         </div>
         {model.sectionErrors.length > 0 ? (
           <p className="sam-text-helper text-amber-800">
@@ -284,13 +318,21 @@ export function AdminAdsExposureControlPlane() {
             ? "심사·소재·결제·일정 문제가 있는 신청만 모읍니다. 승인·결제·실제 노출은 각각 별개입니다."
             : "Only applications needing review, creative, payment, or schedule. Approval, payment, and exposure stay separate."}
         </p>
-        {model.actionRequired.length === 0 ? (
+        {actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
-            message={ko ? "지금 처리할 광고 항목이 없습니다." : "No ads items need action right now."}
+            message={
+              ko
+                ? dataFilter === "ops"
+                  ? "지금 처리할 운영 광고가 없습니다. (테스트는 「테스트」 필터)"
+                  : "표시할 항목이 없습니다."
+                : dataFilter === "ops"
+                  ? "No ops ads need action. Use Test filter for fixtures."
+                  : "Nothing to show."
+            }
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {model.actionRequired.map((item) => (
+            {actionRequired.map((item) => (
               <ActionCard key={item.id} item={item} ko={ko} />
             ))}
           </div>

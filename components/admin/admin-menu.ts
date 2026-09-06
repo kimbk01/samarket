@@ -62,6 +62,9 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "ads-delivery-ops": "admin_menu_ads_delivery",
   "ads-placement-map": "admin_menu_placement_map",
   "ads-trade-promote": "admin_menu_ads_promote_group",
+  "ads-applications-group": "admin_menu_ads_applications_group",
+  "ads-execution-group": "admin_menu_ads_execution_group",
+  "ads-products-group": "admin_menu_ads_products_group",
   "ads-community-promote": "admin_menu_ads_community_promote",
   "support-legacy": "admin_menu_store_inquiries",
   "system-members": "admin_menu_members",
@@ -791,8 +794,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── ADS (광고/노출) — operator IA (reconstruction) ──
-  // 관제 → 신청 → 집행/형태 → 지면 → 상품 → 이력(read-only only)
+  // ── ADS — product axes: 관제 → 신청 → 집행 → 지면 → 상품 → 이력 ──
+  // Labels = customer product language (배너 광고 ≠ 「피드 광고」 abstraction).
   {
     key: "ads",
     title: "",
@@ -804,16 +807,16 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
-        key: "ads-feed-applications",
-        title: "",
-        path: "/admin/ad-applications?domain=feed",
-        status: "done",
-      },
-      {
-        key: "ads-trade-promote",
+        key: "ads-applications-group",
         title: "",
         status: "done",
         children: [
+          {
+            key: "ads-feed-applications",
+            title: "",
+            path: "/admin/ad-applications?domain=feed",
+            status: "done",
+          },
           {
             key: "ads-applications",
             title: "",
@@ -828,16 +831,23 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           },
         ],
       },
-      { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
       {
-        key: "ads-platform-popup",
+        key: "ads-execution-group",
         title: "",
-        path: "/admin/platform-popup",
         status: "done",
-        matchPaths: [
-          "/admin/platform-popup/",
-          "/admin/platform-popup/requests",
-          "/admin/platform-popup/requests/",
+        children: [
+          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+          {
+            key: "ads-platform-popup",
+            title: "",
+            path: "/admin/platform-popup",
+            status: "done",
+            matchPaths: [
+              "/admin/platform-popup/",
+              "/admin/platform-popup/requests",
+              "/admin/platform-popup/requests/",
+            ],
+          },
         ],
       },
       {
@@ -848,16 +858,23 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       {
-        key: "ads-feed-products",
+        key: "ads-products-group",
         title: "",
-        path: "/admin/feed-ad-products",
         status: "done",
-      },
-      {
-        key: "delivery-ads-commercial",
-        title: "",
-        path: "/admin/delivery-ads/commercial-settings",
-        status: "done",
+        children: [
+          {
+            key: "ads-feed-products",
+            title: "",
+            path: "/admin/feed-ad-products",
+            status: "done",
+          },
+          {
+            key: "delivery-ads-commercial",
+            title: "",
+            path: "/admin/delivery-ads/commercial-settings",
+            status: "done",
+          },
+        ],
       },
       {
         key: "ads-legacy",
