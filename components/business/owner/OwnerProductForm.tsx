@@ -47,7 +47,6 @@ import {
   type OwnerProductRegisterErrorModal,
 } from "@/lib/business/owner-product-register-error";
 import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
-import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 type FormValues = {
   title: string;
   summary: string;
@@ -695,15 +694,17 @@ export function OwnerProductForm({
 
   if (loading) {
     return (
-      <div className="px-4 py-6">
+      <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center px-4 py-6">
         <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
 
   return (
-    <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>
-    <div className="flex min-h-0 flex-col bg-[var(--biz-app-bg)]" data-owner-product-composer="1">
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))] max-h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
+      data-owner-product-composer="1"
+    >
       <div
         className={`sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS}`}
       >
@@ -767,7 +768,11 @@ export function OwnerProductForm({
         </nav>
       </div>
 
-      <div ref={formBodyScrollRef} data-owner-product-form-scroll="1" className="min-w-0">
+      <div
+        ref={formBodyScrollRef}
+        data-owner-product-form-scroll="1"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
+      >
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
@@ -1151,6 +1156,5 @@ export function OwnerProductForm({
         }}
       />
     </div>
-    </OwnerAdminPageScrollShell>
   );
 }

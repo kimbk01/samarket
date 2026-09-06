@@ -31,8 +31,8 @@ describe("owner admin scroll shell contract", () => {
     expect(resolveOwnerStackScrollHostPath("/stores/owner/profile")).toBe(true);
   });
 
-  it("product composer is a scroll host (SELECTIVE_RESTORE — no nested 100dvh owner)", () => {
-    expect(resolveOwnerStackScrollHostPath("/stores/owner/products/new")).toBe(true);
+  it("product composer is excluded from shared scroll host (RECOVERED_GOOD ad7942 private scroll)", () => {
+    expect(resolveOwnerStackScrollHostPath("/stores/owner/products/new")).toBe(false);
     expect(isOwnerStoreProductComposerPath("/stores/owner/products/new")).toBe(true);
   });
 
@@ -249,36 +249,25 @@ describe("owner admin scroll shell contract", () => {
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/products")).toBe(false);
   });
 
-  it("product composer uses shared Owner stack scroll (no parallel 100dvh / dual top pad)", () => {
+  it("product composer uses RECOVERED_GOOD private height (ad7942) — not shared dual-pad scroll", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
     expect(shell).toContain("isOwnerStoreProductComposerRoute");
-    expect(shell).toContain("ownerUnifiedMainLayoutClass");
-    // ONE top clearance: owner-compact-shell__main — ban route-local dual pt.
-    expect(shell).not.toContain(
-      "pt-[calc(var(--safe-top)+3.5rem+0.75rem)] px-2 sm:px-2 max-w-6xl"
-    );
-    expect(shell).not.toContain(
+    expect(shell).toContain(
       "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
     );
-    expect(shell).not.toMatch(
-      /ownerStackShellHeightClass = isOwnerStoreProductComposerRoute\s*\n\s*\?\s*"h-\[100dvh\]/
-    );
+    expect(shell).toContain('h-[100dvh] max-h-[100dvh] min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden');
   });
 
-  it("OwnerProductForm is document-flow under OwnerAdminPageScrollShell (canonical scroll)", () => {
+  it("OwnerProductForm owns scroll body height (RECOVERED_GOOD ad7942)", () => {
     const form = readRepo("components/business/owner/OwnerProductForm.tsx");
-    expect(form).toContain("OwnerAdminPageScrollShell");
-    expect(form).toContain("padForOwnerBottomNav={false}");
+    expect(form).not.toContain("OwnerAdminPageScrollShell");
     expect(form).toContain('data-owner-product-form-scroll="1"');
     expect(form).toContain('data-owner-product-composer="1"');
-    expect(form).not.toContain(
+    expect(form).toContain(
       "h-[calc(100dvh-(var(--safe-top)+3.5rem+0.75rem))]"
     );
-    expect(form).not.toMatch(
+    expect(form).toMatch(
       /data-owner-product-form-scroll="1"[\s\S]{0,120}min-h-0 flex-1 overflow-x-hidden overflow-y-auto/
-    );
-    expect(form).not.toContain(
-      "min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain"
     );
   });
 

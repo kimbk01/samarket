@@ -199,25 +199,29 @@ export function BusinessAdminShell({
     [ownerPathNorm]
   );
 
-  /** compact 스택 scroll host — `resolveOwnerStackScrollHostPath` (product composer 포함) */
+  /** compact 스택 scroll host — product composer 제외 (RECOVERED_GOOD 전용 스크롤) */
   const ownerStackScrollHostPath = resolveOwnerStackScrollHostPath(ownerPathNorm);
 
   /**
-   * SELECTIVE_SHELL_RESTORE viewport root.
-   * Height owned by `.owner-stack-shell` CSS — never dynamic Tailwind 100dvh concatenation (JIT drops it).
-   * Inner wrappers: flex-1 min-h-0 only — never a second height root.
+   * Non-composer: ONE `.owner-stack-shell` CSS height root.
+   * Product composer: literal `h-[100dvh]` (RECOVERED_GOOD `ad7942be6`) — form owns inner scroll.
    */
-  const ownerStackShellRootClassName = `${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`;
-  const ownerStackShellRootProps = { [OWNER_STACK_SHELL_ROOT_ATTR]: "1" as const };
+  const ownerStackShellRootClassName = isOwnerStoreProductComposerRoute
+    ? "flex h-[100dvh] max-h-[100dvh] min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[var(--biz-app-bg)]"
+    : `${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`;
+  const ownerStackShellRootProps = isOwnerStoreProductComposerRoute
+    ? {}
+    : { [OWNER_STACK_SHELL_ROOT_ATTR]: "1" as const };
 
-  /** 헤더·본문 column — literal max-[1024px] (no `${TW}:…` JIT drop) */
+  /** 헤더·본문 column — literal max-[1024px] (no `${TW}:…` JIT drop); composer uses private main */
   const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-[1024px]:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
 
   /** 데스크톱(≥1025) — 앱 셸 overflow-y-hidden 안에서 본문 열 스크롤 */
   const isOwnerDesktopStackViewport =
     !isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 
-  useOwnerMobileStackViewportLock(ownerStackScrollHostPath);
+  /** Product composer also locks document scroll (form owns overflow-y-auto). */
+  useOwnerMobileStackViewportLock(ownerStackScrollHostPath || isOwnerStoreProductComposerRoute);
 
   /** 상품 작성·목록 허브·기본 정보·카테고리 편집: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
   const ownerMainBottomPadForChildren = useMemo(() => {
@@ -844,14 +848,18 @@ export function BusinessAdminShell({
             : null}
 
             <main
-              className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${ownerUnifiedMainLayoutClass} ${
-                // ONE top clearance: `.owner-compact-shell__main` → `--owner-shell-main-pt`.
-                // Do not add route-local `pt-[calc(safe-top+…)]` (double gap under fixed header).
-                isOwnerDesktopStackViewport || isOwnerStoreProductComposerRoute
-                  ? ownerMainBottomPadForChildren
-                  : isOwnerFormBottomNavHiddenRoute
-                    ? ownerMainBottomPad
-                    : ""
+              className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${
+                isOwnerStoreProductComposerRoute
+                  ? // RECOVERED_GOOD (ad7942be6): fixed header is out of flow — main owns remaining height
+                    // so OwnerProductForm flex-1 scroll body cannot collapse to 0.
+                    "flex h-full min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
+                  : `${ownerUnifiedMainLayoutClass} ${
+                      isOwnerDesktopStackViewport
+                        ? ownerMainBottomPadForChildren
+                        : isOwnerFormBottomNavHiddenRoute
+                          ? ownerMainBottomPad
+                          : ""
+                    }`
               }`}
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>

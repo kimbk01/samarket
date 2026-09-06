@@ -1,6 +1,6 @@
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
 
-/** 상품 등록·편집 — 헤더 분기·BottomNav 숨김 대상 (scroll host는 stack과 동일) */
+/** 상품 등록·편집 — 헤더 분기·BottomNav 숨김·전용 높이/스크롤 대상 */
 export function isOwnerStoreProductComposerPath(pathname: string): boolean {
   const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
   return (
@@ -13,8 +13,11 @@ export function isOwnerStoreProductComposerPath(pathname: string): boolean {
 
 /**
  * compact 오너 스택 — body 스크롤 잠금 + `.owner-compact-shell__scroll` 단일 스크롤.
- * Product composer is included: nested 100dvh/flex-1 scroll owners caused blank forms.
+ * Product composer는 제외 — RECOVERED_GOOD (`ad7942be6`) 전용 높이/스크롤 소유.
  */
 export function resolveOwnerStackScrollHostPath(ownerPathNorm: string): boolean {
-  return isStoresOwnerStackPath(ownerPathNorm);
+  return (
+    isStoresOwnerStackPath(ownerPathNorm) &&
+    !isOwnerStoreProductComposerPath(ownerPathNorm)
+  );
 }
