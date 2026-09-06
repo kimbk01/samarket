@@ -105,8 +105,27 @@ export async function loadSupportControlPlane(
   const member = mapped.filter((r) => r.requesterType === "MEMBER" && isActionable(r.status));
   const owner = mapped.filter((r) => r.requesterType === "OWNER" && isActionable(r.status));
   const waitingUser = mapped.filter((r) => r.status === "WAITING_USER");
+  const inProgress = mapped.filter(
+    (r) => r.status === "WAITING_USER" || (isActionable(r.status) && !!r.assignedAdminId)
+  );
   const resolved = mapped.filter((r) => r.status === "RESOLVED" || r.status === "ARCHIVED");
   const aging = actionable.filter((r) => (r.ageHours ?? 0) >= 24).slice(0, 20);
+  const cat = (r: SupportActionRow) => String(r.category ?? "").toUpperCase();
+  const finance = actionable.filter((r) =>
+    /POINT|CASH|COIN|SETTLEMENT|FINANCE|WITHDRAW|PAYMENT/.test(cat(r))
+  );
+  const ads = actionable.filter(
+    (r) =>
+      !!r.adsHref ||
+      /AD|ADS|PROMOTE|POPUP|CAMPAIGN/.test(cat(r)) ||
+      /AD_|CAMPAIGN|FEED_AD|POPUP/.test(String(r.referenceType ?? "").toUpperCase())
+  );
+  const order = actionable.filter(
+    (r) =>
+      cat(r) === "ORDER" ||
+      cat(r) === "ORDER_DELIVERY" ||
+      String(r.referenceType ?? "").toUpperCase() === "STORE_ORDER"
+  );
   const recent = [...mapped]
     .sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime())
     .slice(0, 20);
@@ -121,6 +140,18 @@ export async function loadSupportControlPlane(
         href: "/admin/support?filter=ACTIONABLE#action-required",
         source: "support_cases OPEN|WAITING_ADMIN",
       },
+      inProgress: {
+        count: unavailable ? null : inProgress.length,
+        unavailable,
+        href: "/admin/support?filter=WAITING_USER",
+        source: "WAITING_USER or assigned actionable",
+      },
+      overdue: {
+        count: unavailable ? null : aging.length,
+        unavailable,
+        href: "/admin/support?filter=ACTIONABLE#aging",
+        source: "actionable ageHours >= 24",
+      },
       member: {
         count: unavailable ? null : member.length,
         unavailable,
@@ -132,6 +163,24 @@ export async function loadSupportControlPlane(
         unavailable,
         href: "/admin/support?filter=OWNER#action-required",
         source: "support_cases audience=OWNER actionable",
+      },
+      finance: {
+        count: unavailable ? null : finance.length,
+        unavailable,
+        href: "/admin/support?filter=ACTIONABLE#finance-inquiries",
+        source: "category finance-like actionable",
+      },
+      ads: {
+        count: unavailable ? null : ads.length,
+        unavailable,
+        href: "/admin/support?filter=ACTIONABLE#ads-inquiries",
+        source: "ads-related actionable",
+      },
+      order: {
+        count: unavailable ? null : order.length,
+        unavailable,
+        href: "/admin/support?filter=ACTIONABLE#order-inquiries",
+        source: "ORDER category actionable",
       },
       waitingUser: {
         count: unavailable ? null : waitingUser.length,
@@ -148,6 +197,9 @@ export async function loadSupportControlPlane(
     },
     memberInquiries: member.slice(0, 20),
     ownerInquiries: owner.slice(0, 20),
+    financeInquiries: finance.slice(0, 20),
+    adsInquiries: ads.slice(0, 20),
+    orderInquiries: order.slice(0, 20),
     aging,
     recent,
     domainEntries: [

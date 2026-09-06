@@ -1,0 +1,18 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "route": "/admin/support",
+  "proof_type": "CODE_PROVEN",
+  "queues": [
+    "waiting",
+    "in_progress",
+    "overdue",
+    "member",
+    "owner",
+    "finance",
+    "ads",
+    "order"
+  ],
+  "reply_ne_resolve": true,
+  "prod_runtime": "NOT_PROVEN_THIS_TURN"
+}

@@ -149,7 +149,28 @@ export function AdminNotificationList() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-notification-ops="1">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+        <p className="text-sm font-semibold text-sam-fg">
+          {language === "en" ? "Operational notifications" : "운영 알림"}
+        </p>
+        <p className="mt-1 sam-text-helper text-sam-muted">
+          {language === "en"
+            ? "Work items with exact deeplinks. Settings are separate."
+            : "바로 처리할 알림과 정확한 이동 링크. 알림 설정은 별도입니다."}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-3 sam-text-body-secondary">
+          <Link href="/admin/order-notifications" className="font-semibold text-signature hover:underline">
+            {language === "en" ? "Ops inbox" : "운영 알림함"}
+          </Link>
+          <Link href="/admin/order-notifications/settings" className="text-signature hover:underline">
+            {language === "en" ? "Notification settings" : "알림 설정"}
+          </Link>
+          <Link href="/admin/notifications" className="text-signature hover:underline">
+            {language === "en" ? "Campaigns (config)" : "캠페인 (설정)"}
+          </Link>
+        </div>
+      </div>
       <div className="flex flex-wrap justify-between gap-2">
         <p className="text-sm text-sam-muted">{t("admin_order_notif_intro")}</p>
         {rows.some((r) => !r.is_read) ? (
@@ -179,6 +200,7 @@ export function AdminNotificationList() {
                 className={`rounded-ui-rect border px-4 py-3 ${
                   !r.is_read ? "border-amber-200 bg-amber-50/50" : "border-sam-border-soft bg-sam-surface"
                 }`}
+                data-admin-notification-row="1"
               >
                 <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-muted">
                   <span>
@@ -192,12 +214,12 @@ export function AdminNotificationList() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link
                     href={href}
-                    className="text-xs font-semibold text-signature underline"
+                    className="rounded bg-sam-ink px-2 py-1 text-xs font-semibold text-white"
                     onClick={() => {
                       if (!r.is_read) void markRead(r.id);
                     }}
                   >
-                    {t("admin_order_notif_shortcut")}
+                    {language === "en" ? "Handle now" : "바로 처리"}
                   </Link>
                   {!r.is_read ? (
                     <button

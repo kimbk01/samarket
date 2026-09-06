@@ -1,0 +1,13 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "route": "/admin/store-settlements",
+  "proof_type": "CODE_PROVEN",
+  "daily_list": "PASS",
+  "date_filter": "PASS",
+  "store_filter": "PASS",
+  "status_filter": "PASS",
+  "daily_summary": "PASS",
+  "notes": "Presentation aggregate over store_settlements; no new aggregate table",
+  "prod_runtime": "NOT_PROVEN_THIS_TURN"
+}

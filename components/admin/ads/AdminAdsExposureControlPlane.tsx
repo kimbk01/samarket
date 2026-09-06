@@ -129,7 +129,7 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[48rem] text-left sam-text-body-secondary">
+      <table className="w-full min-w-[52rem] text-left sam-text-body-secondary">
         <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
           <tr>
             <th className="px-3 py-2">{ko ? "영역" : "Domain"}</th>
@@ -139,6 +139,7 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
             <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
             <th className="px-3 py-2">{ko ? "기간·남은" : "Period"}</th>
             <th className="px-3 py-2">{ko ? "노출" : "Exposure"}</th>
+            <th className="px-3 py-2">{ko ? "충돌" : "Conflict"}</th>
             <th className="px-3 py-2">{ko ? "조치" : "Action"}</th>
           </tr>
         </thead>
@@ -158,6 +159,19 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
                 {[r.period, r.remainingLabel].filter(Boolean).join(" · ") || "—"}
               </td>
               <td className="px-3 py-2 sam-text-xxs">{r.eligibility || "—"}</td>
+              <td className="px-3 py-2 sam-text-xxs">
+                <span
+                  className={
+                    r.conflictSeverity === "BLOCKING"
+                      ? "font-semibold text-red-800"
+                      : r.conflictSeverity === "WARNING"
+                        ? "font-semibold text-amber-900"
+                        : "text-sam-muted"
+                  }
+                >
+                  {ko ? r.conflictLabelKo : r.conflictLabelEn}
+                </span>
+              </td>
               <td className="px-3 py-2">
                 <Link href={r.href} className="font-semibold text-signature hover:underline">
                   {ko ? "검토하기" : "Review"}
@@ -284,31 +298,44 @@ export function AdminAdsExposureControlPlane() {
       </Section>
 
       <Section id="work-queues" title={ko ? "운영 큐" : "Work queues"}>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Link
             href={q.delivery.href}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
             {ko ? "신청 검토" : "Application review"}
+            <span className="mt-1 block tabular-nums text-sam-muted">{q.delivery.count ?? 0}</span>
           </Link>
           <a
-            href="#creatives"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
+            href="#collision"
+            className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-3 sam-text-body-secondary font-semibold text-red-950 hover:bg-red-100"
+            data-admin-ads-queue="collision_blocking"
           >
-            {ko ? "소재 검토" : "Creative review"}
+            {ko ? "노출 충돌" : "Exposure collision"}
+            <span className="mt-1 block tabular-nums">{q.collisionBlocking.count ?? 0}</span>
           </a>
+          <a
+            href="#collision"
+            className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary font-semibold text-amber-950 hover:bg-amber-100"
+            data-admin-ads-queue="collision_warning"
+          >
+            {ko ? "중복 확인 필요" : "Duplication review"}
+            <span className="mt-1 block tabular-nums">{q.collisionWarning.count ?? 0}</span>
+          </a>
+          <Link
+            href={q.endingSoon.href}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
+            data-admin-ads-queue="ending_soon"
+          >
+            {ko ? "종료 예정" : "Ending soon"}
+            <span className="mt-1 block tabular-nums text-sam-muted">{q.endingSoon.count ?? 0}</span>
+          </Link>
           <a
             href="#execution"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
             {ko ? "일정·집행" : "Schedule / execution"}
           </a>
-          <Link
-            href="/admin/delivery-ads?view=ended"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
-          >
-            {ko ? "종료·이력" : "Ended / history"}
-          </Link>
         </div>
         <div className="flex flex-wrap gap-3 sam-text-body-secondary">
           {(
@@ -324,6 +351,54 @@ export function AdminAdsExposureControlPlane() {
             </Link>
           ))}
         </div>
+      </Section>
+
+      <Section id="collision" title={ko ? "노출 충돌 / 중복" : "Overlap / collision"}>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "기존 inventory·일정·lifecycle으로 계산합니다. 허용 가능한 중복과 실제 충돌을 구분합니다."
+            : "Computed from inventory, schedule, and lifecycle. Allowed duplication vs real collision."}
+        </p>
+        {(model.collisions ?? []).length === 0 ? (
+          <AdminControlPlaneEmpty
+            message={ko ? "현재 충돌/중복 확인 항목이 없습니다." : "No overlap/collision items."}
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {(model.collisions ?? []).map((c) => (
+              <div
+                key={c.id}
+                className={`flex min-h-[9rem] flex-col justify-between rounded-ui-rect border px-4 py-3 ${
+                  c.severity === "BLOCKING"
+                    ? "border-red-300 bg-red-50"
+                    : "border-amber-300 bg-amber-50"
+                }`}
+                data-admin-ads-collision={c.severity}
+              >
+                <div className="space-y-1">
+                  <p className="text-[13px] font-bold">
+                    {ko ? c.severityLabelKo : c.severityLabelEn}
+                  </p>
+                  <p className="sam-text-helper text-sam-muted">
+                    {c.domain} · {adminOperatorLabel(c.product, ko)}
+                  </p>
+                  <p className="text-[15px] font-semibold text-sam-fg">{c.storeName}</p>
+                  <p className="sam-text-body-secondary">{c.placementLabel}</p>
+                  <p className="sam-text-xxs text-sam-muted">{c.periodLabel ?? "—"}</p>
+                  <p className="sam-text-helper">
+                    {ko ? `겹치는 광고: ${c.peerCount}건` : `Overlapping: ${c.peerCount}`}
+                  </p>
+                  <p className="sam-text-xxs text-sam-muted">{ko ? c.reasonKo : c.reasonEn}</p>
+                </div>
+                <div className="mt-3">
+                  <AdminActionLink href={c.href} variant="primary">
+                    {ko ? "충돌 확인" : "Review collision"}
+                  </AdminActionLink>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <Section id="execution" title={ko ? "현재 집행 상태" : "Current execution state"}>

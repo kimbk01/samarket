@@ -1,0 +1,11 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "proof_type": "NOT_PROVEN",
+  "viewports": {
+    "1024": "NOT_PROVEN",
+    "768": "NOT_PROVEN",
+    "desktop": "NOT_PROVEN"
+  },
+  "note": "Code uses overflow-x-auto tables + sticky-safe overlays; visual Production QA after deploy"
+}

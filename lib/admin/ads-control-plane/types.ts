@@ -57,6 +57,26 @@ export type AdsExecutionRow = {
   href: string;
   statementHref: string | null;
   source: string;
+  /** Presentation conflict — human label only in UI */
+  conflictSeverity: "NONE" | "WARNING" | "BLOCKING";
+  conflictLabelKo: string;
+  conflictLabelEn: string;
+};
+
+export type AdsCollisionCard = {
+  id: string;
+  severity: "WARNING" | "BLOCKING";
+  severityLabelKo: string;
+  severityLabelEn: string;
+  domain: string;
+  product: string;
+  storeName: string;
+  placementLabel: string;
+  periodLabel: string | null;
+  peerCount: number;
+  reasonKo: string;
+  reasonEn: string;
+  href: string;
 };
 
 export type AdsControlPlaneModel = {
@@ -67,8 +87,12 @@ export type AdsControlPlaneModel = {
     feed: { count: number | null; unavailable: boolean; href: string; source: string };
     popup: { count: number | null; unavailable: boolean; href: string; source: string };
     tradePromote: { count: number | null; unavailable: boolean; href: string; source: string };
+    collisionBlocking: { count: number | null; unavailable: boolean; href: string; source: string };
+    collisionWarning: { count: number | null; unavailable: boolean; href: string; source: string };
+    endingSoon: { count: number | null; unavailable: boolean; href: string; source: string };
   };
   currentExecution: AdsExecutionRow[];
+  collisions: AdsCollisionCard[];
   applications: AdsActionItem[];
   creatives: AdsActionItem[];
   placements: Array<{

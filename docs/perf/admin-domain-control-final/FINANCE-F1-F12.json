@@ -1,0 +1,90 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "scenarios": [
+    {
+      "scenario": "F1",
+      "name": "F1 Point charge request",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F2",
+      "name": "F2 Cash charge request",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F3",
+      "name": "F3 Coin sale earn history",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F4",
+      "name": "F4 Coin→Cash history only",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F5",
+      "name": "F5 Coin withdrawal request",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F6",
+      "name": "F6 Coin withdrawal Admin approval",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F7",
+      "name": "F7 settlement scheduled",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F8",
+      "name": "F8 settlement completed",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F9",
+      "name": "F9 settlement problem/hold",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F10",
+      "name": "F10 unpaid sale fee",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F11",
+      "name": "F11 ad debit/refund",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    },
+    {
+      "scenario": "F12",
+      "name": "F12 daily settlement + store detail",
+      "proof": "CODE_PROVEN",
+      "result": "PASS",
+      "note": "Operator surfaces present; Production fixture runtime NOT_PROVEN this turn"
+    }
+  ]
+}

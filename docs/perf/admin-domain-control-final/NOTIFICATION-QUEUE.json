@@ -1,0 +1,10 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "route": "/admin/order-notifications",
+  "proof_type": "CODE_PROVEN",
+  "ops_vs_config_separated": true,
+  "exact_deeplink": true,
+  "raw_event_primary": false,
+  "prod_runtime": "NOT_PROVEN_THIS_TURN"
+}

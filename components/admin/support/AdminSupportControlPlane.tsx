@@ -209,18 +209,29 @@ export function AdminSupportControlPlane({
             ))}
           </div>
         )}
-        <div className="flex flex-wrap gap-3 sam-text-body-secondary">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {(
             [
-              ["actionable", q.actionable],
-              ["member", q.member],
-              ["owner", q.owner],
-              ["waiting_user", q.waitingUser],
-              ["resolved", q.resolved],
+              [ko ? "답변 대기" : "Waiting reply", "actionable", q.actionable],
+              [ko ? "처리 중" : "In progress", "in_progress", q.inProgress],
+              [ko ? "장기 미처리" : "Overdue", "overdue", q.overdue],
+              [ko ? "회원 문의" : "Member", "member", q.member],
+              [ko ? "매장 문의" : "Owner", "owner", q.owner],
+              [ko ? "재무 문의" : "Finance", "finance", q.finance],
+              [ko ? "광고 문의" : "Ads", "ads", q.ads],
+              [ko ? "주문 문의" : "Order", "order", q.order],
             ] as const
-          ).map(([k, s]) => (
-            <Link key={k} href={s.href} className="text-signature hover:underline" data-admin-support-queue={k}>
-              {k}: {s.unavailable ? <Unavail ko={ko} /> : (s.count ?? 0)}
+          ).map(([label, k, s]) => (
+            <Link
+              key={k}
+              href={s.href}
+              className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-surface"
+              data-admin-support-queue={k}
+            >
+              {label}
+              <span className="mt-1 block tabular-nums text-sam-muted">
+                {s.unavailable ? <Unavail ko={ko} /> : (s.count ?? 0)}
+              </span>
             </Link>
           ))}
         </div>
@@ -238,7 +249,7 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="owner-inquiries" title={ko ? "Owner 문의" : "Owner inquiries"}>
+      <Section id="owner-inquiries" title={ko ? "매장 문의" : "Owner inquiries"}>
         {model.ownerInquiries.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
         ) : (
@@ -250,10 +261,46 @@ export function AdminSupportControlPlane({
         )}
       </Section>
 
-      <Section id="aging" title={ko ? "장기 대기 (24h+)" : "Aging (24h+)"}>
+      <Section id="finance-inquiries" title={ko ? "재무 문의" : "Finance inquiries"}>
+        {(model.financeInquiries ?? []).length === 0 ? (
+          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(model.financeInquiries ?? []).slice(0, 6).map((item) => (
+              <ActionCard key={`f-${item.id}`} item={item} ko={ko} onOpen={onOpenCase} />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section id="ads-inquiries" title={ko ? "광고 문의" : "Ads inquiries"}>
+        {(model.adsInquiries ?? []).length === 0 ? (
+          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(model.adsInquiries ?? []).slice(0, 6).map((item) => (
+              <ActionCard key={`a-${item.id}`} item={item} ko={ko} onOpen={onOpenCase} />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section id="order-inquiries" title={ko ? "주문 문의" : "Order inquiries"}>
+        {(model.orderInquiries ?? []).length === 0 ? (
+          <p className="sam-text-body-secondary text-sam-muted">{ko ? "0건" : "0"}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(model.orderInquiries ?? []).slice(0, 6).map((item) => (
+              <ActionCard key={`ord-${item.id}`} item={item} ko={ko} onOpen={onOpenCase} />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section id="aging" title={ko ? "장기 미처리 (24h+)" : "Overdue (24h+)"}>
         {model.aging.length === 0 ? (
           <p className="sam-text-body-secondary text-sam-muted">
-            {ko ? "장기 대기 문의 없음" : "No aging actionable cases"}
+            {ko ? "장기 미처리 문의 없음" : "No overdue actionable cases"}
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">

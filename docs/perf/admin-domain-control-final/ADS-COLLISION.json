@@ -1,0 +1,22 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "route": "/admin/delivery-ads#collision",
+  "proof_type": "TEST_PROVEN",
+  "checks": [
+    "A",
+    "B",
+    "C",
+    "E",
+    "F",
+    "G"
+  ],
+  "severity_labels": {
+    "NONE": "정상",
+    "WARNING": "중복 확인 필요",
+    "BLOCKING": "노출 충돌"
+  },
+  "new_conflict_table": false,
+  "unit_tests": "lib/admin/__tests__/ads-placement-collision.test.ts PASS",
+  "prod_runtime": "NOT_PROVEN_THIS_TURN"
+}

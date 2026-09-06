@@ -47,13 +47,21 @@ export type SupportControlPlaneModel = {
   actionRequired: SupportActionRow[];
   queues: {
     actionable: SupportQueueBucket;
+    inProgress: SupportQueueBucket;
+    overdue: SupportQueueBucket;
     member: SupportQueueBucket;
     owner: SupportQueueBucket;
+    finance: SupportQueueBucket;
+    ads: SupportQueueBucket;
+    order: SupportQueueBucket;
     waitingUser: SupportQueueBucket;
     resolved: SupportQueueBucket;
   };
   memberInquiries: SupportActionRow[];
   ownerInquiries: SupportActionRow[];
+  financeInquiries: SupportActionRow[];
+  adsInquiries: SupportActionRow[];
+  orderInquiries: SupportActionRow[];
   aging: SupportActionRow[];
   recent: SupportActionRow[];
   domainEntries: Array<{

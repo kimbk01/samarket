@@ -1,0 +1,13 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "proof_type": "CODE_PROVEN",
+  "point_ne_coin_ne_cash": "PRESERVED",
+  "coin_to_cash_history_only": "PRESERVED",
+  "coin_withdrawal_admin_approval": "PRESERVED",
+  "settlement_fee_snapshot": "PRESERVED",
+  "ads_payment_ne_approval_ne_active_ne_exposure": "PRESERVED",
+  "support_reply_ne_resolve": "PRESERVED",
+  "delete_ne_reset": "PRESERVED",
+  "new_ssot_tables": false
+}

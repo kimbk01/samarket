@@ -15,6 +15,7 @@ import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-
 import { projectFeedAdOpsProductStatus } from "@/lib/ads/feed-ad-ops-presentation";
 import type {
   AdsActionItem,
+  AdsCollisionCard,
   AdsControlPlaneModel,
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
@@ -26,6 +27,7 @@ import {
   adsWhyActionable,
 } from "@/lib/admin/domain-control/ads-operator-cta";
 import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
+import { detectPlacementCollisions } from "@/lib/admin/ads-collision/detect-placement-collisions";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -303,11 +305,66 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
 
   actionRequired.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
+  const deliveryItems = activeDelivery.error ? [] : activeDelivery.items;
+  const collisionFindings = detectPlacementCollisions(
+    deliveryItems.map((c) => ({
+      id: c.id,
+      storeId: c.storeId,
+      storeName: c.storeName,
+      title: c.title,
+      productKind: c.productKind,
+      inventoryKeys: c.inventoryKeys ?? [],
+      lifecycleStatus: String(c.lifecycleStatus ?? ""),
+      startAt: c.startAt,
+      endAt: c.endAt,
+      creativeId: c.creativeId,
+    })),
+    { hrefForId: (id) => DELIVERY_AD_ADMIN_ROUTES.detail(id) }
+  );
+  const conflictByCampaign = new Map<string, (typeof collisionFindings)[number]>();
+  for (const f of collisionFindings) {
+    const prev = conflictByCampaign.get(f.campaignId);
+    const rank = (s: string) => (s === "BLOCKING" ? 2 : s === "WARNING" ? 1 : 0);
+    if (!prev || rank(f.severity) > rank(prev.severity)) conflictByCampaign.set(f.campaignId, f);
+  }
+
+  const collisions: AdsCollisionCard[] = collisionFindings
+    .filter((f): f is typeof f & { severity: "WARNING" | "BLOCKING" } =>
+      f.severity === "BLOCKING" || f.severity === "WARNING"
+    )
+    .slice(0, 40)
+    .map((f) => ({
+      id: `${f.campaignId}:${f.checkCode}:${f.placementKey}`,
+      severity: f.severity,
+      severityLabelKo: f.severityLabelKo,
+      severityLabelEn: f.severityLabelEn,
+      domain: "delivery",
+      product: f.productKind,
+      storeName: f.storeName,
+      placementLabel: f.placementKey.startsWith("STORES_")
+        ? adminDeliveryAdInventoryHumanLabel(f.placementKey, "ko")
+        : f.placementLabel,
+      periodLabel: formatPeriod(f.startAt, f.endAt),
+      peerCount: f.peers.length,
+      reasonKo: f.reasonKo,
+      reasonEn: f.reasonEn,
+      href: f.hrefHint,
+    }));
+
+  const endingSoonCount = deliveryItems.filter((c) => {
+    const life = String(c.lifecycleStatus ?? "");
+    if (!(life === "ACTIVE" || life === "SCHEDULED")) return false;
+    if (!c.endAt) return false;
+    const ms = new Date(c.endAt).getTime() - Date.now();
+    return Number.isFinite(ms) && ms > 0 && ms <= 72 * 3600000;
+  }).length;
+
   const currentExecution: AdsExecutionRow[] = [];
-  for (const c of activeDelivery.error ? [] : activeDelivery.items) {
+  for (const c of deliveryItems) {
     const life = String(c.lifecycleStatus ?? "");
     if (!(life === "ACTIVE" || life === "SCHEDULED" || life.startsWith("PAUSED"))) continue;
     const storeId = c.storeId ? String(c.storeId) : null;
+    const conflict = conflictByCampaign.get(c.id);
     currentExecution.push({
       id: c.id,
       domain: "delivery",
@@ -324,6 +381,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       href: DELIVERY_AD_ADMIN_ROUTES.detail(c.id),
       statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
       source: "store_*_ad_campaigns lifecycle + scheduleHint/inventory",
+      conflictSeverity: conflict?.severity ?? "NONE",
+      conflictLabelKo: conflict?.severityLabelKo ?? "정상",
+      conflictLabelEn: conflict?.severityLabelEn ?? "OK",
     });
   }
 
@@ -338,6 +398,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       aspectRatio: r.aspectRatio,
       href: placementMapFocusHref(r.placementId),
     }));
+
+  const blockingCount = collisions.filter((c) => c.severity === "BLOCKING").length;
+  const warningCount = collisions.filter((c) => c.severity === "WARNING").length;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -367,8 +430,27 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
         href: "/admin/ad-applications?domain=trade",
         source: "point_promotion_orders trade pending_review",
       },
+      collisionBlocking: {
+        count: activeDelivery.error ? null : blockingCount,
+        unavailable: !!activeDelivery.error,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.hub}#collision`,
+        source: "presentation detectPlacementCollisions BLOCKING",
+      },
+      collisionWarning: {
+        count: activeDelivery.error ? null : warningCount,
+        unavailable: !!activeDelivery.error,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.hub}#collision`,
+        source: "presentation detectPlacementCollisions WARNING",
+      },
+      endingSoon: {
+        count: activeDelivery.error ? null : endingSoonCount,
+        unavailable: !!activeDelivery.error,
+        href: `${DELIVERY_AD_ADMIN_ROUTES.hub}?view=active`,
+        source: "ACTIVE|SCHEDULED endAt <= 72h",
+      },
     },
     currentExecution: currentExecution.slice(0, 30),
+    collisions,
     applications: applications.slice(0, 30),
     creatives: creatives.slice(0, 20),
     placements,

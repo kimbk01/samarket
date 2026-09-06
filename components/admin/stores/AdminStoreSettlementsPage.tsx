@@ -10,6 +10,19 @@ import { OverlayUi } from "@/lib/ui/dibay-overlay-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
+import {
+  groupSettlementsByDayStore,
+  groupSettlementsByStore,
+  settlementOpsBucketLabel,
+  sortSettlementOpsRows,
+  summarizeSettlementOps,
+  thisUtcWeekBounds,
+  utcDayBounds,
+  type SettlementDailyGroup,
+  type SettlementStoreGroup,
+} from "@/lib/admin/settlement-control/aggregate-settlement-ops";
+
+type OpsView = "daily" | "store" | "orders";
 
 type Row = {
   id: string;
@@ -113,7 +126,8 @@ function allowedModes(row: Row): Record<OpsMode, boolean> {
 }
 
 export function AdminStoreSettlementsPage() {
-  const { t, safeT } = useI18n();
+  const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
   const searchParams = useSearchParams();
   const storeIdFromUrl = (searchParams.get("store_id") ?? "").trim();
   const [rows, setRows] = useState<Row[]>([]);
@@ -133,10 +147,18 @@ export function AdminStoreSettlementsPage() {
   const [filterHeldOnly, setFilterHeldOnly] = useState(false);
   const [filterUnpaidOnly, setFilterUnpaidOnly] = useState(false);
   const [filterRefundOnly, setFilterRefundOnly] = useState(false);
+  const [opsView, setOpsView] = useState<OpsView>(storeIdFromUrl ? "orders" : "daily");
+  const [storeFocus, setStoreFocus] = useState<SettlementStoreGroup | null>(null);
 
   useEffect(() => {
     setFilterStoreId(storeIdFromUrl);
+    if (storeIdFromUrl) setOpsView("orders");
   }, [storeIdFromUrl]);
+
+  const statusFromUrl = (searchParams.get("settlement_status") ?? "").trim();
+  useEffect(() => {
+    if (statusFromUrl) setFilterSettlementStatus(statusFromUrl);
+  }, [statusFromUrl]);
 
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [opsRow, setOpsRow] = useState<Row | null>(null);
@@ -324,6 +346,54 @@ export function AdminStoreSettlementsPage() {
     setFilterHeldOnly(false);
     setFilterUnpaidOnly(false);
     setFilterRefundOnly(false);
+    setStoreFocus(null);
+  }, []);
+
+  const applyDatePreset = useCallback((preset: "today" | "yesterday" | "week") => {
+    if (preset === "today") {
+      const b = utcDayBounds(0);
+      setFilterFrom(b.from);
+      setFilterTo(b.to);
+      return;
+    }
+    if (preset === "yesterday") {
+      const b = utcDayBounds(1);
+      setFilterFrom(b.from);
+      setFilterTo(b.to);
+      return;
+    }
+    const b = thisUtcWeekBounds();
+    setFilterFrom(b.from);
+    setFilterTo(b.to);
+  }, []);
+
+  const opsSummary = useMemo(() => summarizeSettlementOps(rows), [rows]);
+  const dailyGroups = useMemo(() => groupSettlementsByDayStore(rows), [rows]);
+  const storeGroups = useMemo(() => groupSettlementsByStore(rows), [rows]);
+  const sortedOrders = useMemo(() => sortSettlementOpsRows(rows), [rows]);
+
+  const openStoreDay = useCallback((g: SettlementDailyGroup) => {
+    setFilterStoreId(g.storeId);
+    setFilterFrom(g.settlementDay);
+    setFilterTo(g.settlementDay);
+    setOpsView("orders");
+    setStoreFocus(null);
+  }, []);
+
+  const openStoreGroup = useCallback((g: SettlementStoreGroup) => {
+    setFilterStoreId(g.storeId);
+    if (g.periodFrom) setFilterFrom(g.periodFrom);
+    if (g.periodTo) setFilterTo(g.periodTo);
+    setStoreFocus(g);
+    setOpsView("orders");
+  }, []);
+
+  const applySummaryFilter = useCallback((kind: "needs" | "problem" | "pending" | "paid") => {
+    setFilterHeldOnly(kind === "problem");
+    setFilterUnpaidOnly(kind === "needs" || kind === "pending");
+    setFilterSettlementStatus(kind === "paid" ? "paid" : kind === "problem" ? "held" : "");
+    setFilterPayoutStatus("");
+    setOpsView("orders");
   }, []);
 
   const openOps = useCallback((r: Row) => {
@@ -439,9 +509,13 @@ export function AdminStoreSettlementsPage() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-admin-settlement-ops="1">
       <AdminPageHeader titleKey="admin_page_store_settlements" />
-      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_settlements_desc")}</p>
+      <p className="sam-text-body-secondary text-sam-muted">
+        {ko
+          ? "일자별·매장별 정산 운영 원장입니다. 수수료는 정산 스냅샷 값을 그대로 사용하며 재계산하지 않습니다."
+          : "Daily / store settlement operations ledger. Fees use settlement snapshot columns only — never recalculated."}
+      </p>
       {filterStoreId.trim() ? (
         <p className="sam-text-body-secondary" data-admin-settlement-statement-link="1">
           <Link
@@ -456,9 +530,56 @@ export function AdminStoreSettlementsPage() {
         </p>
       ) : null}
 
+      <div className="flex flex-wrap gap-2" data-admin-settlement-view-tabs="1">
+        {(
+          [
+            ["daily", "일자별 정산", "Daily"],
+            ["store", "매장별 정산", "By store"],
+            ["orders", "주문별 상세", "By order"],
+          ] as const
+        ).map(([id, labelKo, labelEn]) => (
+          <button
+            key={id}
+            type="button"
+            className={`rounded-ui-rect border px-3 py-2 text-sm font-semibold ${
+              opsView === id
+                ? "border-sam-ink bg-sam-ink text-white"
+                : "border-sam-border bg-sam-surface text-sam-fg"
+            }`}
+            onClick={() => setOpsView(id)}
+            data-settlement-view={id}
+          >
+            {ko ? labelKo : labelEn}
+          </button>
+        ))}
+      </div>
+
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-sam-fg">{t("admin_stores_settlements_filter_title")}</h2>
         <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_stores_settlements_filter_hint")}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded border border-sam-border px-2 py-1 sam-text-xxs"
+            onClick={() => applyDatePreset("today")}
+          >
+            {ko ? "오늘" : "Today"}
+          </button>
+          <button
+            type="button"
+            className="rounded border border-sam-border px-2 py-1 sam-text-xxs"
+            onClick={() => applyDatePreset("yesterday")}
+          >
+            {ko ? "어제" : "Yesterday"}
+          </button>
+          <button
+            type="button"
+            className="rounded border border-sam-border px-2 py-1 sam-text-xxs"
+            onClick={() => applyDatePreset("week")}
+          >
+            {ko ? "이번 주" : "This week"}
+          </button>
+        </div>
         <div className="mt-3 flex flex-wrap gap-3 sam-text-body-secondary">
           <label className="flex flex-col gap-1">
             <span className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_filter_period")}</span>
@@ -503,7 +624,9 @@ export function AdminStoreSettlementsPage() {
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">settlement_status</span>
+            <span className="sam-text-xxs text-sam-muted">
+              {ko ? "정산 상태" : "Settlement status"}
+            </span>
             <select
               className="rounded border border-sam-border px-2 py-1 text-sm"
               value={filterSettlementStatus}
@@ -520,7 +643,9 @@ export function AdminStoreSettlementsPage() {
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="sam-text-xxs text-sam-muted">payout_status</span>
+            <span className="sam-text-xxs text-sam-muted">
+              {ko ? "지급 상태" : "Payout status"}
+            </span>
             <select
               className="rounded border border-sam-border px-2 py-1 text-sm"
               value={filterPayoutStatus}
@@ -536,15 +661,15 @@ export function AdminStoreSettlementsPage() {
           </label>
           <label className="flex items-center gap-2 self-end text-sm">
             <input type="checkbox" checked={filterHeldOnly} onChange={(e) => setFilterHeldOnly(e.target.checked)} />
-            held only
+            {ko ? "보류만" : "Held only"}
           </label>
           <label className="flex items-center gap-2 self-end text-sm">
             <input type="checkbox" checked={filterUnpaidOnly} onChange={(e) => setFilterUnpaidOnly(e.target.checked)} />
-            unpaid only
+            {ko ? "미지급만" : "Unpaid only"}
           </label>
           <label className="flex items-center gap-2 self-end text-sm">
             <input type="checkbox" checked={filterRefundOnly} onChange={(e) => setFilterRefundOnly(e.target.checked)} />
-            refund affected only
+            {ko ? "환불 영향만" : "Refund affected"}
           </label>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -563,31 +688,100 @@ export function AdminStoreSettlementsPage() {
 
       {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
 
-      {summary ? (
-        <div className="grid gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:grid-cols-3 lg:grid-cols-6">
-          <div>
+      {rows.length > 0 || summary ? (
+        <div
+          className="grid gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8"
+          data-admin-settlement-summary="1"
+        >
+          <button type="button" className="text-left" onClick={() => setOpsView("orders")}>
             <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_orders")}</p>
-            <p className="font-semibold tabular-nums">{summary.order_count}</p>
-          </div>
+            <p className="font-semibold tabular-nums">{opsSummary.orderCount || summary?.order_count || 0}</p>
+          </button>
           <div>
             <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_gross")}</p>
-            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.gross)}</p>
-          </div>
-          <div>
-            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_refund")}</p>
-            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.refund)}</p>
+            <p className="font-semibold tabular-nums">
+              {formatMoneyPhp(opsSummary.gross || summary?.gross || 0)}
+            </p>
           </div>
           <div>
             <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_platform_fee")}</p>
-            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.platform_commission_revenue)}</p>
+            <p className="font-semibold tabular-nums">
+              {formatMoneyPhp(opsSummary.platformFee || summary?.platform_commission_revenue || 0)}
+            </p>
           </div>
           <div>
+            <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_th_refund")}</p>
+            <p className="font-semibold tabular-nums">
+              {formatMoneyPhp(opsSummary.refund || summary?.refund || 0)}
+            </p>
+          </div>
+          <div>
+            <p className="sam-text-xxs text-sam-muted">
+              {ko ? "총 조정" : "Adjustments"}
+            </p>
+            <p className="font-semibold tabular-nums">{formatMoneyPhp(opsSummary.adjustment)}</p>
+          </div>
+          <button type="button" className="text-left" onClick={() => applySummaryFilter("pending")}>
             <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_pending")}</p>
-            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.pending_net)}</p>
-          </div>
-          <div>
+            <p className="font-semibold tabular-nums">
+              {formatMoneyPhp(opsSummary.pendingNet || summary?.pending_net || 0)}
+            </p>
+          </button>
+          <button type="button" className="text-left" onClick={() => applySummaryFilter("paid")}>
             <p className="sam-text-xxs text-sam-muted">{t("admin_stores_settlements_summary_paid")}</p>
-            <p className="font-semibold tabular-nums">{formatMoneyPhp(summary.paid_net)}</p>
+            <p className="font-semibold tabular-nums">
+              {formatMoneyPhp(opsSummary.paidNet || summary?.paid_net || 0)}
+            </p>
+          </button>
+          <button type="button" className="text-left" onClick={() => applySummaryFilter("problem")}>
+            <p className="sam-text-xxs text-sam-muted">
+              {ko
+                ? `미처리 ${opsSummary.needsActionCount} · 문제 ${opsSummary.problemCount}`
+                : `Open ${opsSummary.needsActionCount} · Problem ${opsSummary.problemCount}`}
+            </p>
+            <p className="font-semibold tabular-nums text-amber-900">
+              {opsSummary.needsActionCount + opsSummary.problemCount}
+            </p>
+          </button>
+        </div>
+      ) : null}
+
+      {storeFocus ? (
+        <div
+          className="rounded-ui-rect border border-amber-300 bg-amber-50/60 p-4"
+          data-admin-settlement-store-detail="1"
+        >
+          <h3 className="text-sm font-semibold text-sam-fg">
+            {ko
+              ? `매장 정산 상세 · ${storeFocus.storeName}`
+              : `Store settlement · ${storeFocus.storeName}`}
+          </h3>
+          <p className="mt-1 sam-text-xxs text-sam-muted">
+            {storeFocus.periodFrom} ~ {storeFocus.periodTo} ·{" "}
+            {settlementOpsBucketLabel(storeFocus.primaryStatus, true)} ·{" "}
+            {formatMoneyPhp(storeFocus.net)}
+          </p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-5 sam-text-body-secondary">
+            <div>
+              <p className="sam-text-xxs text-sam-muted">총 주문금액</p>
+              <p className="font-semibold tabular-nums">{formatMoneyPhp(storeFocus.gross)}</p>
+            </div>
+            <div>
+              <p className="sam-text-xxs text-sam-muted">플랫폼 수수료</p>
+              <p className="font-semibold tabular-nums">{formatMoneyPhp(storeFocus.platformFee)}</p>
+            </div>
+            <div>
+              <p className="sam-text-xxs text-sam-muted">환불</p>
+              <p className="font-semibold tabular-nums">{formatMoneyPhp(storeFocus.refund)}</p>
+            </div>
+            <div>
+              <p className="sam-text-xxs text-sam-muted">기타 조정</p>
+              <p className="font-semibold tabular-nums">{formatMoneyPhp(storeFocus.adjustment)}</p>
+            </div>
+            <div>
+              <p className="sam-text-xxs text-sam-muted">최종 정산</p>
+              <p className="font-semibold tabular-nums">{formatMoneyPhp(storeFocus.net)}</p>
+            </div>
           </div>
         </div>
       ) : null}
@@ -596,12 +790,109 @@ export function AdminStoreSettlementsPage() {
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-sam-muted">{t("admin_stores_settlements_empty")}</p>
+      ) : opsView === "daily" ? (
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm" data-admin-settlement-daily="1">
+          <table className="min-w-[1100px] w-full text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+              <tr>
+                <th className="px-2 py-2">정산일</th>
+                <th className="px-2 py-2">매장</th>
+                <th className="px-2 py-2">주문 수</th>
+                <th className="px-2 py-2">총 주문금액</th>
+                <th className="px-2 py-2">플랫폼 수수료</th>
+                <th className="px-2 py-2">환불/조정</th>
+                <th className="px-2 py-2">최종 정산</th>
+                <th className="px-2 py-2">상태</th>
+                <th className="px-2 py-2">지급 예정</th>
+                <th className="px-2 py-2">지급 완료</th>
+                <th className="px-2 py-2">문제</th>
+                <th className="px-2 py-2">조치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyGroups.map((g) => (
+                <tr key={`${g.settlementDay}-${g.storeId}`} className="border-b border-sam-border-soft">
+                  <td className="px-2 py-2 tabular-nums">{g.settlementDay}</td>
+                  <td className="px-2 py-2 font-medium">{g.storeName}</td>
+                  <td className="px-2 py-2 tabular-nums">{g.orderCount}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(g.gross)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(g.platformFee)}</td>
+                  <td className="px-2 py-2 tabular-nums">
+                    {formatMoneyPhp(g.refund)} / {formatMoneyPhp(g.adjustment)}
+                  </td>
+                  <td className="px-2 py-2 font-semibold tabular-nums">{formatMoneyPhp(g.net)}</td>
+                  <td className="px-2 py-2">{settlementOpsBucketLabel(g.primaryStatus, true)}</td>
+                  <td className="px-2 py-2 sam-text-xxs">{g.earliestDue ?? "—"}</td>
+                  <td className="px-2 py-2 sam-text-xxs">{g.latestPaidAt ? fmtDt(g.latestPaidAt) : "—"}</td>
+                  <td className="px-2 py-2">
+                    {g.problemCount > 0 ? (
+                      <span className="font-semibold text-amber-900">{g.problemCount}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      className="rounded bg-sam-ink px-2 py-1 sam-text-xxs text-white"
+                      onClick={() => openStoreDay(g)}
+                    >
+                      {g.needsActionCount > 0 || g.problemCount > 0 ? "정산 검토" : "주문 상세"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : opsView === "store" ? (
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm" data-admin-settlement-by-store="1">
+          <table className="min-w-[1000px] w-full text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
+              <tr>
+                <th className="px-2 py-2">매장</th>
+                <th className="px-2 py-2">정산 기간</th>
+                <th className="px-2 py-2">주문 수</th>
+                <th className="px-2 py-2">총 주문금액</th>
+                <th className="px-2 py-2">수수료</th>
+                <th className="px-2 py-2">환불</th>
+                <th className="px-2 py-2">최종 정산</th>
+                <th className="px-2 py-2">상태</th>
+                <th className="px-2 py-2">조치</th>
+              </tr>
+            </thead>
+            <tbody>
+              {storeGroups.map((g) => (
+                <tr key={g.storeId} className="border-b border-sam-border-soft">
+                  <td className="px-2 py-2 font-medium">{g.storeName}</td>
+                  <td className="px-2 py-2 sam-text-xxs">
+                    {g.periodFrom} ~ {g.periodTo}
+                  </td>
+                  <td className="px-2 py-2 tabular-nums">{g.orderCount}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(g.gross)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(g.platformFee)}</td>
+                  <td className="px-2 py-2 tabular-nums">{formatMoneyPhp(g.refund)}</td>
+                  <td className="px-2 py-2 font-semibold tabular-nums">{formatMoneyPhp(g.net)}</td>
+                  <td className="px-2 py-2">{settlementOpsBucketLabel(g.primaryStatus, true)}</td>
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      className="rounded bg-sam-ink px-2 py-1 sam-text-xxs text-white"
+                      onClick={() => openStoreGroup(g)}
+                    >
+                      매장 상세
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm" data-admin-settlement-orders="1">
           <table className="min-w-[1280px] w-full text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
               <tr>
-                <th className="px-2 py-2">{t("admin_stores_settlements_th_id")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_order_id")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_customer")}</th>
                 <th className="px-2 py-2">{t("admin_stores_settlements_th_vendor")}</th>
@@ -620,15 +911,21 @@ export function AdminStoreSettlementsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {sortedOrders.map((r) => {
                 const held = r.settlement_status === "held";
                 const net = netAmount(r);
                 const completedTs = r.order_completed_at ?? r.created_at;
+                const allow = allowedModes(r);
+                const primaryCta =
+                  r.settlement_status === "held"
+                    ? "보류 사유 확인"
+                    : r.settlement_status === "processing"
+                      ? "지급 확인"
+                      : allow.processing || allow.paid
+                        ? "정산 검토"
+                        : "정산 내역";
                 return (
                   <tr key={r.id} className={`border-b border-sam-border-soft ${held ? "bg-amber-50/70" : ""}`}>
-                    <td className="px-2 py-2 font-mono sam-text-xxs text-sam-muted" title={r.id}>
-                      {r.id.slice(0, 10)}…
-                    </td>
                     <td className="px-2 py-2 font-mono sam-text-xxs text-sam-muted" title={r.order_id}>
                       {r.order_no || `${r.order_id.slice(0, 10)}…`}
                     </td>
@@ -684,14 +981,14 @@ export function AdminStoreSettlementsPage() {
                         >
                           {t("admin_stores_settlements_detail")}
                         </button>
-                        {allowedModes(r).paid || allowedModes(r).processing || allowedModes(r).held ? (
+                        {allow.paid || allow.processing || allow.held ? (
                           <button
                             type="button"
                             className="rounded bg-sam-ink px-2 py-1 sam-text-xxs text-white disabled:opacity-40"
                             disabled={busyId === r.id || anyOpsOpen}
                             onClick={() => openOps(r)}
                           >
-                            {t("admin_stores_settlements_payout_action")}
+                            {primaryCta}
                           </button>
                         ) : null}
                       </div>

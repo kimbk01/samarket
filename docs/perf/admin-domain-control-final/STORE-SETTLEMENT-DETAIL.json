@@ -1,0 +1,12 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "route": "/admin/store-settlements?store_id=",
+  "proof_type": "CODE_PROVEN",
+  "store_detail": "PASS",
+  "order_breakdown": "PASS",
+  "fee_snapshot": "PASS — platform_fee_percent/amount columns only",
+  "payment_actions": "PASS — paid|processing|held canonical PATCH only",
+  "action_history": "PARTIAL — payout_note/hold_reason/paid_at; no separate admin_action_history table",
+  "prod_runtime": "NOT_PROVEN_THIS_TURN"
+}

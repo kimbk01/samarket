@@ -1,0 +1,142 @@
+{
+  "sha": "pending_commit",
+  "timestamp": "2026-09-06T07:40:38Z",
+  "scenarios": [
+    {
+      "scenario": "A1",
+      "name": "A1 application received",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A2",
+      "name": "A2 review waiting",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A3",
+      "name": "A3 changes requested",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A4",
+      "name": "A4 hold",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A5",
+      "name": "A5 approve",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A6",
+      "name": "A6 payment complete",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A7",
+      "name": "A7 schedule set",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A8",
+      "name": "A8 scheduled",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A9",
+      "name": "A9 active",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A10",
+      "name": "A10 pause",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A11",
+      "name": "A11 resume",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A12",
+      "name": "A12 end",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A13",
+      "name": "A13 hide",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A14",
+      "name": "A14 refund/payment problem",
+      "proof": "CODE_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    },
+    {
+      "scenario": "A15",
+      "name": "A15 placement overlap",
+      "proof": "TEST_PROVEN",
+      "mutation_owner": "canonical delivery-ad lifecycle / review APIs",
+      "prod_destructive": false,
+      "result": "PASS",
+      "note": "UI+contract+CTA mapped; Production scenario runtime not re-executed this turn"
+    }
+  ],
+  "overall": "CODE/TEST_PROVEN — PROD_READ pending deploy QA"
+}
