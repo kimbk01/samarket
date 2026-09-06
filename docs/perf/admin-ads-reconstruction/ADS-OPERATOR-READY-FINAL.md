@@ -1,15 +1,31 @@
 # ADS / EXPOSURE — PRODUCT GAP CLOSE + PRODUCTION FINAL
 
 **Base reconstruction:** `ebd398339`  
-**This close:** PRODUCT GAP (paid extend + Delivery hide semantics) then Production bind + P1–P24  
+**PRODUCT SHA (this close):** `85ddce160b92aa68a3bcad1dead4e110fbec8f32`  
+**ORIGIN SHA:** `85ddce160b92aa68a3bcad1dead4e110fbec8f32`  
+**PRODUCTION deployment:** `dpl_3vDHfQhkaRVxw1aHsGeHUngiLCXF`  
+**Alias:** `https://samarket.vercel.app`  
+**Build log commit:** `85ddce1` (Branch: main)  
+**PRODUCTION SHA MATCH:** **YES**
 
-**Verdict (pre-Production bind):** code gaps below closed in this run; Production P1–P24 / SHA bind filled after push.
+## Binary judgment (this run)
+
+```
+ADS OPERATOR READY = FAIL
+CUSTOMER ADS LIFECYCLE = PARTIAL (code parity shipped; Production auth QA NOT_PROVEN)
+ADS SSOT = NOT LOCKED
+REAL-WORLD ADS ADMIN = NOT READY
+```
+
+**FIRST DIVERGENCE:** Production P1–P24 authenticated operator/customer/renderer proof blocked — Admin/Owner session credentials unavailable in this agent environment (`/admin/ads` → Sign in). Fixture-less unauth probes are not treated as product PASS.
+
+Product gaps that previously invalidated “Production-only next step” are **closed in code** on the bound SHA (see below). That does **not** equal HARD LOCK.
 
 ## Prior INVALID conclusion
 
-「다음 단계는 Production P1–P24 재감사뿐」 = **INVALID**. Two PRODUCT GAPS were still open.
+「다음 단계는 Production P1–P24 재감사뿐」 = **INVALID**. Two PRODUCT GAPS were still open at `ebd398339` report time.
 
-## PRODUCT GAP close (this run)
+## PRODUCT GAP close (shipped on `85ddce160`)
 
 ### 1. Paid / compensation extension
 
@@ -27,7 +43,7 @@
 - Operator verbs: **일시중지 / 재개 / 강제 종료 / 종료** only
 - Owner labels: `PAUSED_ADMIN` = 관리자 일시중지; `TERMINATED` = 강제 종료
 
-### 3. Customer parity
+### 3. Customer parity (code)
 
 - Owner history reads audit `before_json`/`after_json`; `extended` shows before→after end + amount/kind + reason
 - Shared lifecycle source (campaign row); no separate Admin status copy
@@ -36,7 +52,25 @@
 
 - Control plane collision/delivery/ending counts: `unavailable` ≠ `0`
 - Owner popup creative source max: `POPUP_CREATIVE_SOURCE_MAX_BYTES` (8MB) aligned with Admin
-- Feed ops default filter: excludes live `exposing` (not dumping ACTIVE into actionable)
+- Feed ops default filter: excludes live `exposing`
+
+## Gates (this run)
+
+| Gate | Result |
+|---|---|
+| lint | PASS |
+| typecheck:build | PASS |
+| verify:i18n-key-exposure | PASS |
+| verify:routes | PASS |
+| vitest delivery-ad-extension-product-gap + ads-operator | PASS (15) |
+| build | PASS |
+| commit | `85ddce160` |
+| push origin main | PASS |
+| Production bind | MATCH YES |
+
+## Production P1–P24
+
+**NOT_PROVEN** — requires authenticated Admin + Owner + renderer scenarios on desktop / 1024 / 768. Unauthenticated Production only proves sign-in wall + deployment SHA bind.
 
 ## Authority matrix
 
@@ -50,9 +84,6 @@
 
 Chat paid advertising: **NOT SUPPORTED**.
 
-## Binary (code close)
+## STOP
 
-- duplicate writer / purchase / fake hide mapping / paid extend money bypass (Delivery+Feed paths): closed in code
-- Production bind + P1–P24: see ship section after push
-
-Do **not** claim `ADS SSOT = HARD LOCK` until Production SHA match + P1–P24 critical PASS.
+No new Phase. Next human action (if continuing): authenticate Production Admin/Owner and execute P1–P24 against SHA `85ddce160` only.
