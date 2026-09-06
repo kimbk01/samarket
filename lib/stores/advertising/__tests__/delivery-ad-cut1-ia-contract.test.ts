@@ -43,7 +43,7 @@ describe("deliveryAdPlacementI18nKey", () => {
       })
     ).toBe("/admin/stores-category-policy?primary=restaurant&sub=korean");
     expect(deliveryAdsAdminHubHref({ inventory: "STORES_HOME_FEED" })).toBe(
-      "/admin/delivery-ads?inventory=STORES_HOME_FEED"
+      "/admin/delivery-ads/manage?inventory=STORES_HOME_FEED"
     );
     expect(deliveryAdPolicyScreenHref("STORES_HOME_HERO")).toBe("/admin/stores-home-shelves");
     expect(deliveryAdPolicyScreenHref("STORES_SEARCH_TOP")).toBe(
