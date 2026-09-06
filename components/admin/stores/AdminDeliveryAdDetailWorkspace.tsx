@@ -61,6 +61,7 @@ import {
   isAdminDeliveryAdPerformanceLifecycle,
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
+import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
   "request_changes",
@@ -858,6 +859,15 @@ export function AdminDeliveryAdDetailWorkspace({
                       {new Date(campaign.startAt).toLocaleString(lang === "en" ? "en" : "ko")}
                       {" ~ "}
                       {new Date(campaign.endAt).toLocaleString(lang === "en" ? "en" : "ko")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sam-muted">
+                      {lang === "en" ? "Remaining" : "남은 기간"}
+                    </dt>
+                    <dd>
+                      {adsRemainingPeriodLabel(campaign.startAt, campaign.endAt, lang !== "en") ||
+                        "—"}
                     </dd>
                   </div>
                 </dl>

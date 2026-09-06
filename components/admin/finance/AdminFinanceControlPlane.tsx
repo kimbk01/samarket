@@ -326,28 +326,30 @@ export function AdminFinanceControlPlane() {
         </Link>
       </Section>
 
-      <Section id="coin" title={ko ? "Coin (매장)" : "Coin (store)"}>
+      <Section id="coin" title={ko ? "Coin (매장) — 적립·전환·출금 분리" : "Coin (store) — earn / convert / withdraw"}>
         <h3 className="sam-text-helper font-semibold text-sam-muted">
-          {ko ? "출금 요청" : "Withdrawals"}
-        </h3>
-        <RowTable
-          rows={model.coin.withdrawRows}
-          ko={ko}
-          empty={ko ? "출금 대기 0건" : "0 open withdrawals"}
-        />
-        <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
-          {ko ? "최근 판매 적립" : "Recent sale credits"}
+          {ko ? "판매 Coin 적립 (조회 · 승인 아님)" : "Sale Coin earn (history · not approval)"}
         </h3>
         <RowTable
           rows={model.coin.recentCredits}
           ko={ko}
           empty={ko ? "최근 판매 Coin 없음" : "No recent sale Coin credits"}
         />
-        <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">Coin → Cash</h3>
+        <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
+          {ko ? "Coin → Cash 전환 (조회 · 승인 아님)" : "Coin → Cash (history · not approval)"}
+        </h3>
         <RowTable
           rows={model.coin.recentConversions}
           ko={ko}
           empty={ko ? "최근 전환 없음" : "No recent conversions"}
+        />
+        <h3 className="mt-3 sam-text-helper font-semibold text-sam-muted">
+          {ko ? "Coin 출금/환전 요청 (승인 대상)" : "Coin withdrawal (requires Admin)"}
+        </h3>
+        <RowTable
+          rows={model.coin.withdrawRows}
+          ko={ko}
+          empty={ko ? "출금 대기 0건" : "0 open withdrawals"}
         />
       </Section>
 
@@ -391,7 +393,12 @@ export function AdminFinanceControlPlane() {
         />
       </Section>
 
-      <Section id="settlements" title={ko ? "정산" : "Settlement"}>
+      <Section id="settlements" title={ko ? "정산 (일자·매장 통제 · 카드≠정산 전체)" : "Settlement (daily / store control)"}>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "아래는 지금 검토가 필요한 정산 요약입니다. 일자별·주문별 상세는 정산 큐에서 확인하세요."
+            : "Summary of settlements needing review. Open the settlement queue for daily/order detail."}
+        </p>
         <RowTable
           rows={model.settlements.rows}
           ko={ko}

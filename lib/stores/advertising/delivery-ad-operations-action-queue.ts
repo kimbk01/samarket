@@ -40,6 +40,11 @@ export type DeliveryAdAdminActionQueueItem = {
   hadChangesRequested: boolean;
   /** Store context for B3 Statement deeplink (null when campaign has no store). */
   storeId: string | null;
+  /** Human store name when available (presentation). */
+  storeName: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  fundingStatus: DeliveryAdFundingStatus | null;
   updatedAt: string;
   destination: string;
 };
@@ -165,7 +170,9 @@ export async function listDeliveryAdAdminActionQueue(
         : BANNER_AD_CAMPAIGN_TABLE;
     const { data: camp } = await sb
       .from(table)
-      .select("id, title, lifecycle_status, image_url, review_notes, campaign_source, store_id")
+      .select(
+        "id, title, lifecycle_status, image_url, review_notes, campaign_source, store_id, start_at, end_at"
+      )
       .eq("id", row.campaignId)
       .maybeSingle();
 
@@ -176,6 +183,8 @@ export async function listDeliveryAdAdminActionQueue(
       review_notes?: string | null;
       campaign_source?: string | null;
       store_id?: string | null;
+      start_at?: string | null;
+      end_at?: string | null;
     } | null;
 
     const fundingMap =
@@ -188,6 +197,23 @@ export async function listDeliveryAdAdminActionQueue(
       })
     ) {
       continue;
+    }
+
+    const storeId =
+      campRow?.store_id == null || !String(campRow.store_id).trim()
+        ? null
+        : String(campRow.store_id);
+    let storeName: string | null = null;
+    if (storeId) {
+      const { data: store } = await sb
+        .from("stores")
+        .select("name")
+        .eq("id", storeId)
+        .maybeSingle();
+      storeName =
+        store && typeof (store as { name?: string }).name === "string"
+          ? String((store as { name: string }).name)
+          : null;
     }
 
     const { data: thread } = await sb
@@ -217,10 +243,12 @@ export async function listDeliveryAdAdminActionQueue(
           ? String(campRow.image_url)
           : null,
       hadChangesRequested: reviewNotes.length > 0,
-      storeId:
-        campRow?.store_id == null || !String(campRow.store_id).trim()
-          ? null
-          : String(campRow.store_id),
+      storeId,
+      storeName,
+      startAt:
+        campRow?.start_at == null ? null : String(campRow.start_at),
+      endAt: campRow?.end_at == null ? null : String(campRow.end_at),
+      fundingStatus,
       updatedAt: row.updatedAt,
       destination: DELIVERY_AD_ADMIN_ROUTES.detail(row.campaignId),
     });

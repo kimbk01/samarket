@@ -18,6 +18,14 @@ import type {
   AdsControlPlaneModel,
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
+import {
+  adsExposureLabel,
+  adsLifecycleOperatorLabel,
+  adsPaymentLabel,
+  adsRemainingPeriodLabel,
+  adsWhyActionable,
+} from "@/lib/admin/domain-control/ads-operator-cta";
+import { adminDeliveryAdInventoryHumanLabel } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -33,29 +41,16 @@ function isMissing(err: { message?: string } | null | undefined, re: RegExp): bo
   return !!err && re.test(String(err.message ?? ""));
 }
 
-/** Presentation only — does not invent runtime store/serviceability pass. */
+function formatPeriod(startAt: string | null | undefined, endAt: string | null | undefined): string | null {
+  if (!startAt && !endAt) return null;
+  const a = startAt ? new Date(startAt).toLocaleDateString("ko") : "?";
+  const b = endAt ? new Date(endAt).toLocaleDateString("ko") : "?";
+  return `${a} → ${b}`;
+}
+
+/** Presentation only — operator exposure meaning (ko). */
 function presentDeliveryEligibility(c: AdminDeliveryAdListItem): string {
-  const life = String(c.lifecycleStatus ?? "");
-  if (life === "PAUSED" || life.startsWith("PAUSED")) {
-    return "집행: PAUSED · 실제 노출: NOT_ELIGIBLE (paused)";
-  }
-  if (life === "ENDED" || c.scheduleHint === "ended") {
-    return "집행: ENDED · 실제 노출: NOT_ELIGIBLE";
-  }
-  if (life === "SCHEDULED" || c.scheduleHint === "not_started") {
-    return "집행: SCHEDULED · 실제 노출: NOT_ELIGIBLE (not started)";
-  }
-  if (life !== "ACTIVE") {
-    return `집행: ${life} · 실제 노출: NOT_ELIGIBLE`;
-  }
-  const reasons: string[] = [];
-  if (c.reviewStatus !== "APPROVED") reasons.push(`review=${c.reviewStatus}`);
-  if (c.scheduleHint !== "in_window") reasons.push(`schedule=${c.scheduleHint}`);
-  if (!c.inventoryKeys.length) reasons.push("no_inventory_keys");
-  if (reasons.length) {
-    return `집행: ACTIVE · 실제 노출: NOT_ELIGIBLE (${reasons.join(", ")}) — store/serviceability는 runtime resolver`;
-  }
-  return "집행: ACTIVE · 캠페인측 schedule/inventory OK — 실제 노출은 store/serviceability runtime도 충족해야 함";
+  return adsExposureLabel(c.lifecycleStatus, true);
 }
 
 export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsControlPlaneModel> {
@@ -126,12 +121,18 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       });
       const isCreative = pres.bucket === "needs_creative";
       const storeId = item.storeId;
+      const life = item.campaignLifecycle;
+      const placement =
+        item.productKind === "banner"
+          ? adminDeliveryAdInventoryHumanLabel("STORES_HOME_HERO", "ko")
+          : adminDeliveryAdInventoryHumanLabel("STORES_HOME_FEED", "ko");
       const row: AdsActionItem = {
         id: `delivery:${item.caseId}`,
         domain: "delivery",
         product: item.productKind,
         entity: isCreative ? "creative" : "application",
-        applicantLabel: item.campaignTitle || item.campaignId.slice(0, 8),
+        applicantLabel:
+          item.storeName || item.campaignTitle || item.campaignId.slice(0, 8),
         storeId,
         memberId: item.ownerUserId || null,
         creativeHint: item.creativeAssetPath
@@ -139,15 +140,23 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
           : isCreative
             ? "needs_creative"
             : null,
-        placementHint:
-          item.productKind === "banner"
-            ? "BANNER product → open detail for Placement Map preview"
-            : "STORE_SPONSORED (≠ organic ranking)",
+        placementHint: placement,
         amountLabel: null,
         currency: "CASH",
-        status: `${item.campaignLifecycle || "—"} / ${item.caseStatus}`,
-        eligibility:
-          "payment≠approval — WAITING_ADMIN; ACTIVE requires admin approval + schedule + eligibility",
+        status: adsLifecycleOperatorLabel(life, true),
+        whyActionable: adsWhyActionable(
+          {
+            lifecycle: life,
+            needsCreative: isCreative,
+            hadChangesRequested: item.hadChangesRequested,
+          },
+          true
+        ),
+        paymentLabel: adsPaymentLabel(item.fundingStatus, "CASH", true),
+        periodLabel: formatPeriod(item.startAt, item.endAt),
+        remainingLabel: adsRemainingPeriodLabel(item.startAt, item.endAt, true),
+        exposureLabel: adsExposureLabel(life, true),
+        eligibility: null,
         ageHours: ageHours(item.updatedAt),
         at: item.updatedAt,
         source: "delivery_ad_operations_cases WAITING_ADMIN",
@@ -185,10 +194,24 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       storeId: null,
       memberId: userId || null,
       creativeHint: null,
-      placementHint: r.placement ? String(r.placement) : "TRADE_FEED / COMMUNITY_FEED",
+      placementHint: r.placement
+        ? String(r.placement)
+        : "거래/커뮤니티 피드",
       amountLabel: null,
       currency: "POINT",
-      status: String(r.status ?? ""),
+      status: "검토 대기",
+      whyActionable: "피드 광고 신청 심사가 필요합니다.",
+      paymentLabel: adsPaymentLabel(null, "POINT", true),
+      periodLabel: formatPeriod(
+        typeof r.start_at === "string" ? r.start_at : null,
+        typeof r.end_at === "string" ? r.end_at : null
+      ),
+      remainingLabel: adsRemainingPeriodLabel(
+        typeof r.start_at === "string" ? r.start_at : null,
+        typeof r.end_at === "string" ? r.end_at : null,
+        true
+      ),
+      exposureLabel: "아직 노출 안 됨",
       eligibility: null,
       ageHours: ageHours(at),
       at,
@@ -217,10 +240,15 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       storeId,
       memberId: ownerId,
       creativeHint: null,
-      placementHint: "GLOBAL_POPUP / domain surface (see request detail)",
+      placementHint: "앱 팝업",
       amountLabel: null,
       currency: "CASH",
-      status: String(r.request_status ?? ""),
+      status: "검토 대기",
+      whyActionable: "팝업 광고 신청 심사가 필요합니다.",
+      paymentLabel: adsPaymentLabel(null, "CASH", true),
+      periodLabel: null,
+      remainingLabel: null,
+      exposureLabel: "아직 노출 안 됨",
       eligibility: null,
       ageHours: ageHours(at),
       at,
@@ -245,16 +273,21 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     const row: AdsActionItem = {
       id: `trade_promo:${id}`,
       domain: "trade_promote",
-      product: "trade_promote (≠ AdProduct)",
+      product: "trade_promote",
       entity: "application",
       applicantLabel: id.slice(0, 8),
       storeId: null,
       memberId: userId || null,
       creativeHint: null,
-      placementHint: "TRADE feed promote",
+      placementHint: "거래 피드 홍보",
       amountLabel: null,
       currency: "POINT",
-      status: String(r.order_status ?? ""),
+      status: "검토 대기",
+      whyActionable: "거래 홍보 신청 심사가 필요합니다.",
+      paymentLabel: adsPaymentLabel(null, "POINT", true),
+      periodLabel: null,
+      remainingLabel: null,
+      exposureLabel: "아직 노출 안 됨",
       eligibility: null,
       ageHours: ageHours(at),
       at,
@@ -279,11 +312,14 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       id: c.id,
       domain: "delivery",
       product: c.productKind,
-      label: c.title || c.storeName || c.id.slice(0, 8),
-      placement: c.inventoryKeys?.[0] || c.listBucket || null,
-      status: life,
+      label: c.storeName || c.title || c.id.slice(0, 8),
+      placement: c.inventoryKeys?.[0]
+        ? adminDeliveryAdInventoryHumanLabel(c.inventoryKeys[0], "ko")
+        : null,
+      status: adsLifecycleOperatorLabel(life, true),
       eligibility: presentDeliveryEligibility(c),
-      period: [c.startAt, c.endAt].filter(Boolean).join(" → ") || null,
+      period: formatPeriod(c.startAt, c.endAt),
+      remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true),
       currency: "CASH",
       href: DELIVERY_AD_ADMIN_ROUTES.detail(c.id),
       statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
@@ -340,29 +376,29 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
       {
         domain: "delivery",
         currency: "CASH",
-        noteKo: "Delivery Ads = Cash. payment≠승인≠실제 노출.",
-        noteEn: "Delivery Ads = Cash. payment≠approval≠exposure.",
+        noteKo: "배달 광고는 Cash로 결제합니다. 결제·승인·실제 노출은 각각 별개입니다.",
+        noteEn: "Delivery Ads bill in Cash. Payment, approval, and exposure are separate.",
         href: "/admin/finance#action-required",
       },
       {
         domain: "feed",
         currency: "POINT",
-        noteKo: "Feed Ads = Point. Cash로 표시하면 P0.",
-        noteEn: "Feed Ads = Point. Showing Cash is P0.",
+        noteKo: "피드 광고는 Point로 결제합니다.",
+        noteEn: "Feed Ads bill in Point.",
         href: "/admin/finance#point",
       },
       {
         domain: "popup",
         currency: "CASH",
-        noteKo: "Popup = canonical Cash billing.",
-        noteEn: "Popup = canonical Cash billing.",
+        noteKo: "팝업은 Cash 결제입니다.",
+        noteEn: "Popup bills in Cash.",
         href: "/admin/platform-popup",
       },
       {
         domain: "trade_promote",
         currency: "POINT",
-        noteKo: "Trade promote = Point. AdProduct/Partner 아님.",
-        noteEn: "Trade promote = Point. Not AdProduct/Partner.",
+        noteKo: "거래 홍보는 Point입니다. 광고 상품/Partner가 아닙니다.",
+        noteEn: "Trade promote uses Point. Not an AdProduct/Partner.",
         href: "/admin/ad-applications?domain=trade",
       },
     ],

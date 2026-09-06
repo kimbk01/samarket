@@ -26,6 +26,12 @@ export type AdsActionItem = {
   amountLabel: string | null;
   currency: AdsBillingCurrency;
   status: string;
+  /** Operator-facing why this row needs Admin now (never raw enum dump). */
+  whyActionable: string | null;
+  paymentLabel: string | null;
+  periodLabel: string | null;
+  remainingLabel: string | null;
+  exposureLabel: string | null;
   eligibility: string | null;
   ageHours: number | null;
   at: string;
@@ -43,9 +49,10 @@ export type AdsExecutionRow = {
   label: string;
   placement: string | null;
   status: string;
-  /** Separate from status — e.g. ACTIVE but NOT_ELIGIBLE */
+  /** Separate from status — operator exposure meaning */
   eligibility: string;
   period: string | null;
+  remainingLabel: string | null;
   currency: AdsBillingCurrency;
   href: string;
   statementHref: string | null;

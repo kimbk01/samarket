@@ -14,14 +14,6 @@ export const OWNER_COMPACT_SHELL_MAIN_PB_CLASS = "owner-compact-shell__main-pb";
 export const OWNER_COMPACT_SHELL_BLEED_X_CLASS = "owner-compact-shell__bleed-x";
 export const OWNER_STORE_ADMIN_FOOTER_BAR_CLASS = "owner-store-admin-footer-bar";
 
-/**
- * Owner stack viewport root — height lock in `app/owner-compact-shell.css`.
- * Mount ONCE on the outermost BusinessAdminShell stack node.
- * Never nest another `.owner-stack-shell` / `data-owner-stack-shell` inside.
- */
-export const OWNER_STACK_SHELL_ROOT_CLASS = "owner-stack-shell";
-export const OWNER_STACK_SHELL_ROOT_ATTR = "data-owner-stack-shell";
-
 let ownerCompactShellBodyEnabled = false;
 const ownerCompactShellBodyListeners = new Set<() => void>();
 

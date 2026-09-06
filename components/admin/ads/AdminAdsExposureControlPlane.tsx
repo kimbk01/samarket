@@ -21,7 +21,6 @@ import type {
   AdsExecutionRow,
 } from "@/lib/admin/ads-control-plane/types";
 import {
-  adminAdsEligibilityNote,
   adminDisplayApplicantLabel,
   adminOperatorLabel,
 } from "@/lib/admin/operator-ux/operator-labels";
@@ -63,6 +62,7 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
       data-admin-ads-action={item.domain}
       data-entity={item.entity}
       data-source={item.source}
+      data-admin-control="ads-action-card"
     >
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -73,18 +73,23 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
           <span className="sam-text-xxs text-sam-muted">
             {adminOperatorLabel(item.product, ko)}
           </span>
+          <span className="rounded-ui-rect bg-sam-app px-1.5 py-0.5 sam-text-xxs font-semibold text-sam-fg">
+            {item.status}
+          </span>
         </div>
         <p className="text-[15px] font-semibold text-sam-fg">{title}</p>
-        <p className="sam-text-helper text-sam-muted">
-          {adminOperatorLabel(item.status, ko)}
-          {item.placementHint
-            ? ` · ${adminOperatorLabel(item.placementHint, ko)}`
-            : ""}
-        </p>
-        {item.eligibility ? (
-          <p className="sam-text-xxs text-amber-900">
-            {adminAdsEligibilityNote(item.eligibility, ko)}
+        {item.placementHint ? (
+          <p className="sam-text-helper text-sam-muted">
+            {ko ? "노출" : "Placement"}: {adminOperatorLabel(item.placementHint, ko)}
           </p>
+        ) : null}
+        <p className="sam-text-helper text-sam-fg">
+          {[item.paymentLabel, item.periodLabel, item.remainingLabel, item.exposureLabel]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {item.whyActionable ? (
+          <p className="sam-text-xxs text-amber-900">{item.whyActionable}</p>
         ) : null}
         {item.creativeHint && !creativeIsUrl ? (
           <p className="truncate sam-text-xxs text-sam-muted">
@@ -106,7 +111,7 @@ function ActionCard({ item, ko }: { item: AdsActionItem; ko: boolean }) {
           </AdminActionLink>
         ) : item.statementHref ? (
           <AdminActionLink href={item.statementHref} variant="secondary">
-            {ko ? "재무 내역" : "Finance history"}
+            {ko ? "매장 재무" : "Store finance"}
           </AdminActionLink>
         ) : null}
       </div>
@@ -129,10 +134,11 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
           <tr>
             <th className="px-3 py-2">{ko ? "영역" : "Domain"}</th>
             <th className="px-3 py-2">{ko ? "상품" : "Product"}</th>
-            <th className="px-3 py-2">{ko ? "집행" : "Execution"}</th>
+            <th className="px-3 py-2">{ko ? "매장/집행" : "Store"}</th>
             <th className="px-3 py-2">{ko ? "노출 위치" : "Placement"}</th>
             <th className="px-3 py-2">{ko ? "상태" : "Status"}</th>
-            <th className="px-3 py-2">{ko ? "노출 가능" : "Eligibility"}</th>
+            <th className="px-3 py-2">{ko ? "기간·남은" : "Period"}</th>
+            <th className="px-3 py-2">{ko ? "노출" : "Exposure"}</th>
             <th className="px-3 py-2">{ko ? "조치" : "Action"}</th>
           </tr>
         </thead>
@@ -147,10 +153,11 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
               <td className="px-3 py-2">
                 {r.placement ? adminOperatorLabel(r.placement, ko) : "—"}
               </td>
-              <td className="px-3 py-2">{adminOperatorLabel(r.status, ko)}</td>
+              <td className="px-3 py-2">{r.status}</td>
               <td className="px-3 py-2 sam-text-xxs">
-                {adminAdsEligibilityNote(r.eligibility, ko) || "—"}
+                {[r.period, r.remainingLabel].filter(Boolean).join(" · ") || "—"}
               </td>
+              <td className="px-3 py-2 sam-text-xxs">{r.eligibility || "—"}</td>
               <td className="px-3 py-2">
                 <Link href={r.href} className="font-semibold text-signature hover:underline">
                   {ko ? "검토하기" : "Review"}
@@ -159,7 +166,7 @@ function ExecTable({ rows, ko }: { rows: AdsExecutionRow[]; ko: boolean }) {
                   <>
                     {" · "}
                     <Link href={r.statementHref} className="text-signature hover:underline">
-                      {ko ? "재무 내역" : "Finance"}
+                      {ko ? "매장 재무" : "Finance"}
                     </Link>
                   </>
                 ) : null}
@@ -258,6 +265,11 @@ export function AdminAdsExposureControlPlane() {
       </header>
 
       <Section id="action-required" title={ko ? "지금 처리할 광고" : "Action required"}>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "심사·소재·결제·일정 문제가 있는 신청만 모읍니다. 승인·결제·실제 노출은 각각 별개입니다."
+            : "Only applications needing review, creative, payment, or schedule. Approval, payment, and exposure stay separate."}
+        </p>
         {model.actionRequired.length === 0 ? (
           <AdminControlPlaneEmpty
             message={ko ? "지금 처리할 광고 항목이 없습니다." : "No ads items need action right now."}

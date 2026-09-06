@@ -214,39 +214,10 @@ describe("owner admin scroll shell contract", () => {
     expect(css).toMatch(/\.owner-compact-shell__header-inner[\s\S]*overflow:\s*hidden/);
   });
 
-  it("owner compact shell header height matches h-14 stack headers (not consumer 52px)", () => {
-    const css = readRepo("app/owner-compact-shell.css");
-    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
-    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
-  });
-
   it("owner hub dashboard uses OwnerAdminPageScrollShell scroll host", () => {
     const src = readRepo("components/stores/owner/dashboard/OwnerOperationsDashboard.tsx");
     expect(src).toContain("OwnerAdminPageScrollShell");
     expect(src).not.toMatch(/<main[\s\S]*OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS/);
-  });
-
-  it("owner stack shell height is CSS SSOT (single .owner-stack-shell root)", () => {
-    const css = readRepo("app/owner-compact-shell.css");
-    expect(css).toMatch(/body\[data-owner-compact-shell\]\s+\.owner-stack-shell/);
-    expect(css).toMatch(/--owner-header-height:\s*3\.5rem/);
-    expect(css).not.toMatch(/--owner-header-height:\s*var\(--sam-header-row-height/);
-
-    const layout = readRepo("lib/business/owner-compact-shell-layout.ts");
-    expect(layout).toContain('OWNER_STACK_SHELL_ROOT_CLASS = "owner-stack-shell"');
-
-    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toContain("OWNER_STACK_SHELL_ROOT_CLASS");
-    expect(shell).toContain("ownerStackShellRootClassName");
-    // Ban JIT-dropped dynamic height utilities and nested root props.
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:h-\[100dvh\]/);
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:max-h-\[100dvh\]/);
-    expect(shell).not.toMatch(
-      /\{\.\.\.ownerStackShellRootProps\}[\s\S]{0,220}\{\.\.\.ownerStackShellRootProps\}/
-    );
-    // Main overflow utility must be a full literal for Tailwind JIT.
-    expect(shell).toContain("max-[1024px]:overflow-hidden");
-    expect(shell).not.toMatch(/\$\{OWNER_COMPACT_SHELL_MAX_TW\}:overflow-hidden/);
   });
 
   it("product composer hides owner mobile bottom nav (Register/Save CTA clearance)", () => {

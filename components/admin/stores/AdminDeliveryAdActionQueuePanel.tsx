@@ -7,7 +7,6 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import type { DeliveryAdAdminActionQueueItem } from "@/lib/stores/advertising/delivery-ad-operations-action-queue";
 import { mapAdminDeliveryAdActionQueuePresentation } from "@/lib/stores/advertising/delivery-ad-admin-action-queue-presentation";
 import {
-  adminDeliveryAdLifecycleLabelKey,
   adminDeliveryAdOpsCaseStatusLabelKey,
 } from "@/lib/stores/advertising/delivery-ad-admin-required-decision";
 import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -17,6 +16,11 @@ import { DELIVERY_AD_ADMIN_ACTION_QUEUE_COLUMNS } from "@/lib/stores/advertising
 import {
   adminDisplayApplicantLabel,
 } from "@/lib/admin/operator-ux/operator-labels";
+import {
+  adsLifecycleOperatorLabel,
+  adsPaymentLabel,
+  adsRemainingPeriodLabel,
+} from "@/lib/admin/domain-control/ads-operator-cta";
 
 export function AdminDeliveryAdActionQueuePanel() {
   const { t, safeT, language } = useI18n();
@@ -121,9 +125,6 @@ export function AdminDeliveryAdActionQueuePanel() {
                     item.productKind === "banner"
                       ? t("admin_delivery_ads_product_banner")
                       : t("admin_delivery_ads_product_store_sponsored");
-                  const lifecycleKey = item.campaignLifecycle
-                    ? (adminDeliveryAdLifecycleLabelKey(item.campaignLifecycle) as MessageKey)
-                    : null;
                   const focus =
                     presentation.cta === "produce_banner" ? "creative" : "operations";
                   const href =
@@ -142,13 +143,19 @@ export function AdminDeliveryAdActionQueuePanel() {
                       data-case-id={item.caseId}
                     >
                       <td className="border border-[#BDBDBD] p-2 font-medium text-sam-fg">
-                        {adminDisplayApplicantLabel(
-                          item.campaignTitle || "",
+                        {item.storeName ||
+                          adminDisplayApplicantLabel(
+                            item.campaignTitle || "",
+                            language !== "en"
+                          )}
+                      </td>
+                      <td className="border border-[#BDBDBD] p-2 text-sam-fg">{productLabel}</td>
+                      <td className="border border-[#BDBDBD] p-2 text-[#757575]">
+                        {adsLifecycleOperatorLabel(
+                          item.campaignLifecycle,
                           language !== "en"
                         )}
                       </td>
-                      <td className="border border-[#BDBDBD] p-2 text-sam-fg">{productLabel}</td>
-                      <td className="border border-[#BDBDBD] p-2 text-[#757575]">—</td>
                       <td
                         className="border border-[#BDBDBD] p-2"
                         data-queue-commercial-summary="1"
@@ -159,6 +166,24 @@ export function AdminDeliveryAdActionQueuePanel() {
                             fallbackEn: "Needs action",
                           })}
                         </span>
+                        <span className="ml-1 text-[11px] text-[#757575]">
+                          ·{" "}
+                          {adsPaymentLabel(
+                            item.fundingStatus,
+                            "CASH",
+                            language !== "en"
+                          )}
+                        </span>
+                        {item.startAt || item.endAt ? (
+                          <span className="ml-1 text-[11px] text-[#757575]">
+                            ·{" "}
+                            {adsRemainingPeriodLabel(
+                              item.startAt,
+                              item.endAt,
+                              language !== "en"
+                            )}
+                          </span>
+                        ) : null}
                         {item.productKind === "banner" ? (
                           <span className="ml-1 text-[11px] text-[#757575]">
                             ·{" "}
@@ -173,24 +198,7 @@ export function AdminDeliveryAdActionQueuePanel() {
                                 })}
                           </span>
                         ) : null}
-                        {lifecycleKey ? (
-                          <span className="ml-1 text-[#757575]">
-                            ·{" "}
-                            {safeT(lifecycleKey, {
-                              fallbackKo: item.campaignLifecycle || "—",
-                              fallbackEn: item.campaignLifecycle || "—",
-                            })}
-                          </span>
-                        ) : null}
-                        <span
-                          className="ml-1 inline-flex rounded-full bg-[#E8F5E9] px-1.5 py-0.5 text-[10px] font-semibold text-[#0A823E]"
-                          data-admin-queue-funding-verified="1"
-                        >
-                          {safeT("admin_delivery_ads_funding_verified", {
-                            fallbackKo: "BC 확보",
-                            fallbackEn: "BC secured",
-                          })}
-                        </span>
+                        <span className="sr-only">{commercialSummary}</span>
                         {item.caseStatus ? (
                           <span className="sr-only">
                             {safeT(
@@ -202,7 +210,6 @@ export function AdminDeliveryAdActionQueuePanel() {
                             )}
                           </span>
                         ) : null}
-                        <span className="sr-only">{commercialSummary}</span>
                       </td>
                       <td className="border border-[#BDBDBD] p-2 tabular-nums text-[#757575]">
                         {item.updatedAt

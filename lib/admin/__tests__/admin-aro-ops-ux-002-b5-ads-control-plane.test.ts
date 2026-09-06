@@ -49,10 +49,11 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
 
   it("keeps Partner / promote separation and billing currency hard rules", () => {
     const loader = read("lib/admin/ads-control-plane/load-ads-control-plane.ts");
-    expect(loader).toContain("≠ AdProduct");
-    expect(loader).toContain("Partner (≠ AdProduct)");
-    expect(loader).toContain("payment≠approval");
-    expect(loader).toContain("Feed Ads = Point");
+    expect(loader).toContain("currency: \"CASH\"");
+    expect(loader).toContain("currency: \"POINT\"");
+    expect(loader).toMatch(/결제·승인·실제 노출|Payment, approval, and exposure/);
+    expect(loader).toMatch(/피드 광고는 Point|Feed Ads bill in Point/);
+    expect(loader).toMatch(/거래 홍보는 Point|Trade promote uses Point/);
   });
 
   it("placement map registry is non-empty and used", () => {

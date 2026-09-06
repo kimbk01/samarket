@@ -86,8 +86,6 @@ import {
 import {
   OWNER_COMPACT_SHELL_COLUMN_CLASS,
   OWNER_COMPACT_SHELL_MAIN_CLASS,
-  OWNER_STACK_SHELL_ROOT_ATTR,
-  OWNER_STACK_SHELL_ROOT_CLASS,
 } from "@/lib/business/owner-compact-shell-layout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -205,19 +203,18 @@ export function BusinessAdminShell({
   /** compact 스택 scroll host — `resolveOwnerStackScrollHostPath` (product composer 포함) */
   const ownerStackScrollHostPath = resolveOwnerStackScrollHostPath(ownerPathNorm);
 
-  /**
-   * Owner stack viewport SSOT (height owned by `.owner-stack-shell` CSS).
-   * Inner wrappers: flex-1 min-h-0 only — never a second 100dvh root.
-   */
-  const ownerStackShellRootClassName = `${OWNER_STACK_SHELL_ROOT_CLASS} flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)]`;
-  const ownerStackShellRootProps = { [OWNER_STACK_SHELL_ROOT_ATTR]: "1" as const };
+  /** Tailwind — compact 뷰포트 높이 잠금(hydration 전 CSS) */
+  const ownerCompactStackLayoutClass = `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:max-h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden`;
 
-  /** 헤더·본문 column — literal max-[1024px] utilities (no `${TW}:…` JIT drop) */
-  const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden max-[1024px]:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
+  /** 헤더·본문 column — 모바일·태블릿·데스크톱 웹 동일(중앙 정렬) */
+  const ownerUnifiedMainLayoutClass = `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`;
 
   /** 데스크톱(≥1025) — 앱 셸 overflow-y-hidden 안에서 본문 열 스크롤 */
   const isOwnerDesktopStackViewport =
     !isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
+
+  // SELECTIVE_RESTORE: product composer no longer uses a parallel 100dvh overflow-hidden height owner.
+  const ownerStackShellHeightClass = `${ownerCompactStackLayoutClass} min-[1025px]:min-h-0 min-[1025px]:flex-1 min-[1025px]:overflow-hidden`;
 
   useOwnerMobileStackViewportLock(ownerStackScrollHostPath);
 
@@ -624,7 +621,7 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8`}
+          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
         >
           <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
@@ -642,7 +639,7 @@ export function BusinessAdminShell({
       return (
         <div
           data-biz="1"
-          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8`}
+          className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
         >
           <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
         </div>
@@ -660,8 +657,7 @@ export function BusinessAdminShell({
       <div
         data-biz="1"
         data-owner-empty-hub-shell="1"
-        {...ownerStackShellRootProps}
-        className={ownerStackShellRootClassName}
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
       >
         <StoresOwnerStackHeader
           variant="hub"
@@ -684,7 +680,7 @@ export function BusinessAdminShell({
     return (
       <div
         data-biz="1"
-        className="flex min-w-0 flex-1 min-h-0 w-full flex-col overflow-hidden bg-[var(--biz-app-bg)] px-4 py-8"
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] px-4 py-8 ${ownerStackShellHeightClass}`}
       >
         <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
       </div>
@@ -812,11 +808,12 @@ export function BusinessAdminShell({
       : null}
       <div
         data-biz="1"
-        {...ownerStackShellRootProps}
-        className={ownerStackShellRootClassName}
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
       >
         <OwnerMobileAdminHeaderTrailingProvider>
-          <div className={`flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)]`}>
+          <div
+            className={`flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
+          >
             {selectedRow && !isOwnerStoreProductComposerRoute ?
               <OwnerMobileAdminHeader
                 variant={isOwnerHubRoute ? "hub" : "page"}
