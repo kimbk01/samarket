@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPlatformPopupPreview } from "@/components/admin/platform-popup/AdminPlatformPopupPreview";
@@ -68,6 +68,7 @@ type AuditRow = {
 
 export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: string }) {
   const { safeT, language } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [campaign, setCampaign] = useState<PlatformPopupAdminDetail | null>(null);
   const [audit, setAudit] = useState<AuditRow[]>([]);
@@ -278,6 +279,36 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
     await load();
   };
 
+  const deleteDraft = async () => {
+    const ok = window.confirm(
+      language === "en"
+        ? "Delete this draft popup? This cannot be undone."
+        : "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/admin/advertising-workspace/action", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        family: "platform_popup_campaign",
+        entityId: campaignId,
+        action: "delete_safe_draft",
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    setBusy(false);
+    if (!res.ok || !json.ok) {
+      setError(
+        formatPlatformPopupAdminError(json.error || "delete_failed", language === "en" ? "en" : "ko")
+      );
+      return;
+    }
+    router.push("/admin/advertising");
+  };
+
   const uploadCreative = async (file: File, applyCrop: boolean) => {
     setBusy(true);
     setError(null);
@@ -364,16 +395,27 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
   };
 
   const status = campaign?.status as PlatformPopupCampaignStatus | undefined;
+  const isAdminDirect = Boolean(campaign && !campaign.ownerStoreId && !campaign.ownerRequestId);
+  const canDeleteDraft =
+    isAdminDirect &&
+    (status === "draft" || status === "pending_review");
 
   return (
     <div className="space-y-4" data-admin-platform-popup-detail="1">
       <AdminPageHeader
         backHref="/admin/platform-popup"
         title={campaign?.name || "…"}
-        description={safeT("admin_platform_popup_detail_desc", {
-          fallbackKo: "캠페인 편집 · 승인 · 프로덕션 렌더러 미리보기",
-          fallbackEn: "Edit, approve, and preview with production renderer",
-        })}
+        description={
+          isAdminDirect
+            ? safeT("admin_platform_popup_detail_desc_admin_direct", {
+                fallbackKo: "캠페인 편집 · 노출 운영 · 프로덕션 렌더러 미리보기",
+                fallbackEn: "Edit, operate exposure, and preview with production renderer",
+              })
+            : safeT("admin_platform_popup_detail_desc", {
+                fallbackKo: "캠페인 편집 · 승인 · 프로덕션 렌더러 미리보기",
+                fallbackEn: "Edit, approve, and preview with production renderer",
+              })
+        }
       />
 
       {error ? (
@@ -857,10 +899,15 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
 
           <AdminCard>
             <h2 className="mb-2 text-sm font-semibold">
-              {safeT("admin_platform_popup_section_actions", {
-                fallbackKo: "저장 · 승인 · 노출",
-                fallbackEn: "Save · approve · go live",
-              })}
+              {isAdminDirect
+                ? safeT("admin_platform_popup_section_actions_ops", {
+                    fallbackKo: "저장 · 노출 운영",
+                    fallbackEn: "Save · exposure ops",
+                  })
+                : safeT("admin_platform_popup_section_actions", {
+                    fallbackKo: "저장 · 승인 · 노출",
+                    fallbackEn: "Save · approve · go live",
+                  })}
             </h2>
             <div className="flex flex-wrap gap-2">
               <button
@@ -879,50 +926,65 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                   : safeT("admin_platform_popup_save", { fallbackKo: "저장", fallbackEn: "Save" })}
                 {dirty && !busy ? " *" : ""}
               </button>
-              <button
-                type="button"
-                className="rounded border border-sam-border px-3 py-1.5 text-sm"
-                disabled={busy}
-                onClick={() =>
-                  void transition({
-                    action: "transition",
-                    nextStatus: "pending_review",
-                    nextApproval: "pending_review",
-                  })
-                }
-              >
-                {safeT("admin_platform_popup_action_submit_review", {
-                  fallbackKo: "검토 요청",
-                  fallbackEn: "Submit for review",
-                })}
-              </button>
+              {!isAdminDirect ? (
+                <button
+                  type="button"
+                  className="rounded border border-sam-border px-3 py-1.5 text-sm"
+                  disabled={busy}
+                  onClick={() =>
+                    void transition({
+                      action: "transition",
+                      nextStatus: "pending_review",
+                      nextApproval: "pending_review",
+                    })
+                  }
+                >
+                  {safeT("admin_platform_popup_action_submit_review", {
+                    fallbackKo: "검토 요청",
+                    fallbackEn: "Submit for review",
+                  })}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="rounded border border-sam-border px-3 py-1.5 text-sm"
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", schedule: true })}
+                data-admin-popup-schedule="1"
               >
-                {safeT("admin_platform_popup_action_approve_schedule", {
-                  fallbackKo: "승인 후 예약 노출",
-                  fallbackEn: "Approve → scheduled",
-                })}
+                {isAdminDirect
+                  ? safeT("admin_platform_popup_action_schedule", {
+                      fallbackKo: "예약 노출",
+                      fallbackEn: "Schedule",
+                    })
+                  : safeT("admin_platform_popup_action_approve_schedule", {
+                      fallbackKo: "승인 후 예약 노출",
+                      fallbackEn: "Approve → scheduled",
+                    })}
               </button>
               <button
                 type="button"
                 className="rounded border border-sam-border px-3 py-1.5 text-sm"
                 disabled={busy}
                 onClick={() => void transition({ action: "approve", activate: true })}
+                data-admin-popup-go-live="1"
               >
-                {safeT("admin_platform_popup_action_approve_active", {
-                  fallbackKo: "승인 후 바로 노출",
-                  fallbackEn: "Approve → live now",
-                })}
+                {isAdminDirect
+                  ? safeT("admin_platform_popup_action_go_live", {
+                      fallbackKo: "바로 노출",
+                      fallbackEn: "Go live now",
+                    })
+                  : safeT("admin_platform_popup_action_approve_active", {
+                      fallbackKo: "승인 후 바로 노출",
+                      fallbackEn: "Approve → live now",
+                    })}
               </button>
               <button
                 type="button"
                 className="rounded border border-sam-border px-3 py-1.5 text-sm"
-                disabled={busy || status === "paused"}
+                disabled={busy || status === "paused" || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "paused" })}
+                data-admin-popup-pause="1"
               >
                 {safeT("admin_platform_popup_action_pause", {
                   fallbackKo: "일시 중지",
@@ -934,6 +996,7 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
                 className="rounded border border-sam-border px-3 py-1.5 text-sm"
                 disabled={busy || status !== "paused"}
                 onClick={() => void transition({ action: "transition", nextStatus: "active" })}
+                data-admin-popup-resume="1"
               >
                 {safeT("admin_platform_popup_action_resume", {
                   fallbackKo: "다시 노출",
@@ -943,14 +1006,29 @@ export function AdminPlatformPopupDetailWorkspace({ campaignId }: { campaignId: 
               <button
                 type="button"
                 className="rounded border border-red-300 px-3 py-1.5 text-sm text-red-700"
-                disabled={busy || status === "ended"}
+                disabled={busy || status === "ended" || status === "draft"}
                 onClick={() => void transition({ action: "transition", nextStatus: "ended" })}
+                data-admin-popup-end="1"
               >
                 {safeT("admin_platform_popup_action_end", {
                   fallbackKo: "종료",
                   fallbackEn: "End",
                 })}
               </button>
+              {canDeleteDraft ? (
+                <button
+                  type="button"
+                  className="rounded border border-red-500 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800"
+                  disabled={busy}
+                  onClick={() => void deleteDraft()}
+                  data-admin-popup-delete-draft="1"
+                >
+                  {safeT("admin_platform_popup_action_delete_draft", {
+                    fallbackKo: "삭제",
+                    fallbackEn: "Delete",
+                  })}
+                </button>
+              ) : null}
             </div>
           </AdminCard>
 

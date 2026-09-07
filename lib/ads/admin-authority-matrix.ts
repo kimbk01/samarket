@@ -148,7 +148,8 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
     CHANGE_PRIORITY: "Y",
     REPLACE_CREATIVE: "Y",
     EXTEND_PAID: "N",
-    DELETE_DRAFT: "N",
+    /** Draft / incomplete Admin Direct only — writer enforces; never live/scheduled. */
+    DELETE_DRAFT: "Y",
     VIEW_HISTORY: "Y",
     ADD_INTERNAL_MEMO: "Y",
   },

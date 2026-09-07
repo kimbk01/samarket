@@ -67,13 +67,22 @@ export function inferWorkspaceLifecycleBucket(statusRaw: string):
   | "other" {
   const s = statusRaw.toLowerCase();
   if (s.includes("draft") || s.includes("임시") || s.includes("불완전")) return "draft";
-  if (s.includes("pending") || s.includes("검토") || s.includes("대기") || s.includes("review")) {
-    return "pending";
-  }
   if (s.includes("schedule") || s.includes("예약")) return "scheduled";
   if (s.includes("pause") || s.includes("중지")) return "paused";
   if (s.includes("end") || s.includes("종료") || s.includes("reject") || s.includes("반려")) {
     return "ended";
+  }
+  // 「노출 대기」 before generic 「대기」 so popup waiting gets pause/end, not approve.
+  if (
+    s.includes("노출 중") ||
+    s.includes("현재 노출") ||
+    s.includes("노출 대기") ||
+    s.includes("waiting")
+  ) {
+    return "active";
+  }
+  if (s.includes("pending") || s.includes("검토") || s.includes("대기") || s.includes("review")) {
+    return "pending";
   }
   if (s.includes("active") || s.includes("활성") || s.includes("노출") || s.includes("승인")) {
     return "active";
@@ -108,7 +117,7 @@ export function listWorkspaceDrawerActions(input: {
           : bucket === "scheduled"
             ? ["change_period", "pause", "end", "add_internal_memo"]
             : bucket === "draft"
-              ? ["add_internal_memo"]
+              ? ["delete_safe_draft", "add_internal_memo"]
               : bucket === "pending"
                 ? ["approve", "reject", "add_internal_memo"]
                 : ["add_internal_memo"];
@@ -150,6 +159,33 @@ export function listWorkspaceDrawerActions(input: {
 export function parseWorkspaceEntityId(rowId: string): string {
   const i = rowId.indexOf(":");
   return i >= 0 ? rowId.slice(i + 1) : rowId;
+}
+
+/** Shell mode filter — 「전체 광고」에서도 popup 운영 CTA(중지/종료/삭제)를 유지한다. */
+export function filterWorkspaceActionsByMode(
+  actions: WorkspaceDrawerAction[],
+  mode: string
+): WorkspaceDrawerAction[] {
+  if (mode === "applications") {
+    return actions.filter((a) => ["approve", "reject", "request_changes"].includes(a));
+  }
+  if (mode === "boosts") {
+    return actions.filter((a) => ["pause", "resume"].includes(a));
+  }
+  if (mode === "all" || mode === "operations") {
+    return actions.filter((a) =>
+      [
+        "change_period",
+        "pause",
+        "resume",
+        "end",
+        "terminate",
+        "extend_compensation",
+        "delete_safe_draft",
+      ].includes(a)
+    );
+  }
+  return [];
 }
 
 export function familyFromControlDomain(

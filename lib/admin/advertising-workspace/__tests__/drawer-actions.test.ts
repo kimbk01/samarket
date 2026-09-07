@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   familyFromControlDomain,
+  filterWorkspaceActionsByMode,
   listWorkspaceDrawerActions,
 } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import { isAdminAuthorityCtaAllowed } from "@/lib/ads/admin-authority-matrix";
@@ -42,6 +43,16 @@ describe("workspace drawer writer CTAs", () => {
     ).toBe("platform_popup_campaign");
   });
 
+  it("popup campaign draft exposes delete_safe_draft", () => {
+    expect(isAdminAuthorityCtaAllowed("platform_popup", "DELETE_DRAFT")).toBe(true);
+    const actions = listWorkspaceDrawerActions({
+      family: "platform_popup_campaign",
+      statusRaw: "임시저장",
+    });
+    expect(actions).toContain("delete_safe_draft");
+    expect(actions).not.toContain("pause");
+  });
+
   it("popup campaign active exposes pause/end/change_period without extend_compensation", () => {
     const actions = listWorkspaceDrawerActions({
       family: "platform_popup_campaign",
@@ -52,6 +63,43 @@ describe("workspace drawer writer CTAs", () => {
     expect(actions).toContain("change_period");
     expect(actions).not.toContain("extend_compensation");
     expect(actions).not.toContain("approve");
+  });
+
+  it("popup campaign incomplete / 노출 대기 map to operable buckets", () => {
+    expect(
+      listWorkspaceDrawerActions({
+        family: "platform_popup_campaign",
+        statusRaw: "불완전",
+      })
+    ).toContain("delete_safe_draft");
+    const waiting = listWorkspaceDrawerActions({
+      family: "platform_popup_campaign",
+      statusRaw: "노출 대기",
+    });
+    expect(waiting).toContain("pause");
+    expect(waiting).toContain("end");
+    expect(waiting).not.toContain("approve");
+  });
+
+  it("mode=all keeps popup ops CTAs including delete", () => {
+    const draft = filterWorkspaceActionsByMode(
+      listWorkspaceDrawerActions({
+        family: "platform_popup_campaign",
+        statusRaw: "임시저장",
+      }),
+      "all"
+    );
+    expect(draft).toContain("delete_safe_draft");
+    const live = filterWorkspaceActionsByMode(
+      listWorkspaceDrawerActions({
+        family: "platform_popup_campaign",
+        statusRaw: "노출 중",
+      }),
+      "all"
+    );
+    expect(live).toContain("pause");
+    expect(live).toContain("end");
+    expect(live).not.toContain("delete_safe_draft");
   });
 
   it("popup request pending exposes approve/reject only", () => {

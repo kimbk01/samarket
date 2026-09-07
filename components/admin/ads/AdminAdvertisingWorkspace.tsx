@@ -15,6 +15,7 @@ import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-contro
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
   familyFromControlDomain,
+  filterWorkspaceActionsByMode,
   listWorkspaceDrawerActions,
   parseWorkspaceEntityId,
   type WorkspaceDrawerAction,
@@ -255,23 +256,6 @@ function filterRowsByMode(rows: AdsShellListRow[], mode: AdvertisingWorkspaceMod
   return rows;
 }
 
-function filterActionsByMode(
-  actions: WorkspaceDrawerAction[],
-  mode: AdvertisingWorkspaceMode
-): WorkspaceDrawerAction[] {
-  if (mode === "applications") {
-    return actions.filter((a) => ["approve", "reject", "request_changes"].includes(a));
-  }
-  if (mode === "boosts") {
-    // Single sanction CTA: pause = 제재, resume = 재개 (no duplicate end as 중지)
-    return actions.filter((a) => ["pause", "resume"].includes(a));
-  }
-  if (mode !== "operations") return [];
-  return actions.filter((a) =>
-    ["change_period", "pause", "resume", "end", "terminate", "extend_compensation"].includes(a)
-  );
-}
-
 export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: AdvertisingWorkspaceMode }) {
   const { language } = useI18n();
   const ko = language !== "en";
@@ -390,6 +374,17 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       setBusyAction(action);
       setActionMsg("");
       try {
+        if (action === "delete_safe_draft") {
+          const ok = window.confirm(
+            ko
+              ? "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
+              : "Delete this draft popup? This cannot be undone."
+          );
+          if (!ok) {
+            setBusyAction(null);
+            return;
+          }
+        }
         if (action === "extend_compensation" && !publicMessage.trim()) {
           setActionMsg(ko ? "연장 사유가 필요합니다." : "Extend reason required.");
           setBusyAction(null);
@@ -441,7 +436,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
   const selectedFamily = selected ? resolveFamily(selected) : null;
   const selectedActions =
     selected && selectedFamily
-      ? filterActionsByMode(
+      ? filterWorkspaceActionsByMode(
           listWorkspaceDrawerActions({
             family: selectedFamily,
             statusRaw: selected.status,
@@ -665,7 +660,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                   const fam = item ? resolveFamily(item) : null;
                   const actions =
                     item && fam
-                      ? filterActionsByMode(
+                      ? filterWorkspaceActionsByMode(
                           listWorkspaceDrawerActions({
                             family: fam,
                             statusRaw: item.status,

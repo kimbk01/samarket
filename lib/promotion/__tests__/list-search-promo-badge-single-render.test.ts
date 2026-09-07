@@ -78,10 +78,14 @@ describe("CUT F seller promotion unification", () => {
   });
 
   it("admin ad-applications mounts trade and community promotion queues", () => {
+    // Owner Policy LOCK: legacy /admin/ad-applications → boosts / applications authority
     const route = src("app/admin/ad-applications/page.tsx");
-    expect(route).toContain("AdminAdApplicationsPage");
+    expect(route).toContain("redirect");
+    expect(route).toContain("/admin/advertising/boosts");
+    expect(route).toContain("/admin/advertising/applications");
     expect(route).not.toContain('domain="trade"');
     expect(route).not.toContain('domain="community"');
+    // Queue component KEEP (mounted from advertising workspace / legacy page module)
     const page = src("components/admin/ads/AdminAdApplicationsPage.tsx");
     expect(page).toContain("<AdminCommunityPromotionQueue domain=\"trade\" />");
     expect(page).toContain("<AdminCommunityPromotionQueue domain=\"community\" />");

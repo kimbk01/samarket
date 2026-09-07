@@ -114,19 +114,21 @@ describe("platform popup product completion — Admin IA", () => {
   it("nav leaf exists under ads with discoverable path", () => {
     const leaf = findAdminMenuByKey(adminMenu, "ads-platform-popup");
     expect(leaf?.path).toBe("/admin/platform-popup");
-    expect(leaf?.status).toBe("done");
+    // Owner Policy LOCK: hub redirects to 노출 관리 — leaf remains discoverable (partial)
+    expect(leaf?.status).toBe("partial");
     const ads = findAdminMenuByKey(adminMenu, "ads");
-    // Canonical Ads workspace is first leaf; Delivery CP remains a sibling under ads.
     expect(ads?.children?.[0]?.key).toBe("ads-advertising-workspace");
-    expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
-    const execution = findAdminMenuByKey(adminMenu, "ads-execution-group");
-    expect(execution?.children?.some((c) => c.key === "ads-feed")).toBe(true);
-    expect(execution?.children?.some((c) => c.key === "ads-platform-popup")).toBe(true);
+    expect(ads?.children?.at(-1)?.key).toBe("ads-legacy");
+    // Delivery CP + popup hub absorbed under ads-legacy (PUBLIC = 7 authority leaves)
+    expect(findAdminMenuByKey(adminMenu, "delivery-ads-control")?.path).toBe("/admin/delivery-ads");
+    expect(findAdminMenuByKey(adminMenu, "ads-platform-popup")?.path).toBe("/admin/platform-popup");
   });
 
   it("hub page uses Control Center (not raw queue-only)", () => {
+    // Owner Policy LOCK: PUBLIC hub → /admin/advertising/operations; detail routes KEEP
     const page = readRepo("app/admin/platform-popup/page.tsx");
-    expect(page).toContain("AdminPlatformPopupHubPage");
+    expect(page).toContain("redirect");
+    expect(page).toContain("/admin/advertising/operations");
     const hub = readRepo("components/admin/platform-popup/AdminPlatformPopupHubPage.tsx");
     expect(hub).toContain("data-admin-platform-popup-hub");
     expect(hub).toContain("data-hub-tab=\"requests\"");

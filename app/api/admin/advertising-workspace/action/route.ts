@@ -475,6 +475,23 @@ export async function POST(req: NextRequest) {
   }
 
   if (family === "platform_popup_campaign") {
+    if (action === "delete_safe_draft") {
+      const { adminDeletePlatformPopupDraftCampaign } = await import(
+        "@/lib/platform-popup/admin-campaign-delete-draft"
+      );
+      const del = await adminDeletePlatformPopupDraftCampaign(sb, {
+        campaignId: entityId,
+        adminUserId: admin.userId,
+      });
+      if (!del.ok) {
+        return NextResponse.json(
+          { ok: false, error: del.error },
+          { status: del.httpStatus ?? 400 }
+        );
+      }
+      return NextResponse.json({ ok: true, id: del.id });
+    }
+
     if (action === "change_period") {
       const startAt = typeof body.startAt === "string" ? body.startAt.trim() : "";
       const endAt = typeof body.endAt === "string" ? body.endAt.trim() : "";
