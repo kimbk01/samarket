@@ -12,10 +12,7 @@ import { buildCommunityPostNotificationPath } from "@/lib/notifications/communit
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import { resolveNotificationDestination } from "@/lib/notifications/resolve-notification-destination";
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
-import {
-  buildChatRoomWebPath,
-  buildGroupChatWebPath,
-} from "@/lib/notifications/policy/notification-deeplink-paths";
+import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
 import {
   buildNotificationDetailHref,
   isBareNotificationsCenterHref,
@@ -85,13 +82,14 @@ function resolveLegacyTypeRoute(data: FcmRouteData): string | null {
   }
 
   if (type === "chat_message" && roomId) {
-    return buildChatRoomWebPath(roomId);
+    return buildCanonicalNotificationRoomHref({ roomId, chatDomain: "general_direct" });
   }
   if (type === "trade_message" && roomId) {
-    return buildChatRoomWebPath(roomId);
+    return buildCanonicalNotificationRoomHref({ roomId, chatDomain: "trade" });
   }
   if (type === "group_message" && roomId) {
-    return buildGroupChatWebPath(roomId);
+    // Product GROUP = CM rooms — never legacy /group-chat/{id}.
+    return buildCanonicalNotificationRoomHref({ roomId, chatDomain: "group" });
   }
 
   const orderId = firstNonEmpty(data.orderId, data.order_id);

@@ -8,7 +8,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import type { CommunityMessengerSendPostAckEffects } from "@/lib/community-messenger/server/community-messenger-send-post-ack-effects";
 import { cmMessagePreviewFallback } from "@/lib/community-messenger/cm-service-copy";
 import type { CmNotificationRoomKind } from "@/lib/notifications/engine/notification-event";
@@ -20,10 +20,15 @@ import { buildEnginePersistencePlan } from "@/lib/notifications/engine/persisten
 import { runEnginePersistencePipeline } from "@/lib/notifications/engine/run-engine-persistence-pipeline";
 
 function toCmNotificationRoomKind(
+  chatDomain: string | null | undefined,
   roomType: string | null | undefined,
   directKey: string | null | undefined
 ): CmNotificationRoomKind | null {
-  const kind = resolveGroupMessageRoomKind(String(roomType ?? ""), directKey ?? null);
+  const kind = resolveNotificationMessageRoomKind({
+    chatDomain,
+    roomType,
+    directKey,
+  });
   if (kind === "direct" || kind === "group") return kind;
   return null;
 }
@@ -38,7 +43,11 @@ export async function runLegacyMessageCreatedNotificationEngineAdapter(
   const createdAt = effects.createdAt;
   if (!roomId || !messageId || !senderUserId) return;
 
-  const roomKind = toCmNotificationRoomKind(effects.roomType ?? null, effects.directKey ?? null);
+  const roomKind = toCmNotificationRoomKind(
+    effects.chatDomain ?? null,
+    effects.roomType ?? null,
+    effects.directKey ?? null
+  );
   if (!roomKind) return;
 
   const recipients = [...new Set(effects.recipientUserIds.map((id) => id.trim()).filter(Boolean))];

@@ -1,11 +1,8 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
-import {
-  buildChatRoomWebPath,
-  buildTradeLegacyChatWebPath,
-} from "@/lib/notifications/policy/notification-deeplink-policy";
-import { buildGroupRoomWebPath } from "@/lib/community-messenger/group/group-room-deeplink";
+import { buildTradeLegacyChatWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
 
 export type MessageNotificationPreviewKind =
   | "text"
@@ -108,14 +105,28 @@ export function resolveMessageNotificationRouteUrl(
   if (!id) return "/community-messenger";
   switch (roomKind) {
     case "group":
-      return buildGroupRoomWebPath(id);
+      return (
+        buildCanonicalNotificationRoomHref({ roomId: id, chatDomain: "group" }) ??
+        "/community-messenger"
+      );
     case "trade_legacy":
       return buildTradeLegacyChatWebPath(id);
     case "trade":
+      return (
+        buildCanonicalNotificationRoomHref({ roomId: id, chatDomain: "trade" }) ??
+        "/community-messenger"
+      );
     case "store_order":
+      return (
+        buildCanonicalNotificationRoomHref({ roomId: id, chatDomain: "store_order" }) ??
+        "/community-messenger"
+      );
     case "direct":
     default:
-      return buildChatRoomWebPath(id);
+      return (
+        buildCanonicalNotificationRoomHref({ roomId: id, chatDomain: "general_direct" }) ??
+        "/community-messenger"
+      );
   }
 }
 

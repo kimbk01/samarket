@@ -1,9 +1,6 @@
+import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
 import type { NotificationDeepLinkResolverKey } from "@/lib/notifications/core/notification-event-registry";
-import {
-  buildChatRoomWebPath,
-  buildGroupChatWebPath,
-  buildMissedCallWebPath,
-} from "@/lib/notifications/policy/notification-deeplink-paths";
+import { buildMissedCallWebPath } from "@/lib/notifications/policy/notification-deeplink-paths";
 import { resolveSafeNotificationInternalRoute } from "@/lib/notifications/policy/notification-internal-route";
 import {
   buildNotificationDetailHref,
@@ -106,11 +103,22 @@ function resolveByRegistryKey(
     case "chat_room":
     case "trade_room":
     case "store_order_room":
-      href = roomId ? buildChatRoomWebPath(roomId) : "/community-messenger";
+    case "group_room": {
+      // Product GROUP SSOT = community_messenger_rooms — never legacy /group-chat.
+      const domainHint =
+        resolverKey === "group_room"
+          ? "group"
+          : resolverKey === "trade_room"
+            ? "trade"
+            : resolverKey === "store_order_room"
+              ? "store_order"
+              : "general_direct";
+      href = roomId
+        ? buildCanonicalNotificationRoomHref({ roomId, chatDomain: domainHint }) ??
+          "/community-messenger"
+        : "/community-messenger";
       break;
-    case "group_room":
-      href = roomId ? buildGroupChatWebPath(roomId) : "/community-messenger";
-      break;
+    }
     case "missed_call": {
       const callSessionId = String(context.callSessionId ?? "").trim();
       href =

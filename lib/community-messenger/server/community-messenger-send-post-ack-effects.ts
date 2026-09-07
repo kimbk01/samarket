@@ -6,7 +6,7 @@ import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm
 import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
-import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import {
   persistMessageMentionUserIds,
   resolveMentionUserIdsForGroupRoom,
@@ -29,6 +29,8 @@ export type CommunityMessengerSendPostAckEffects = {
   createdAt: string;
   itemTradeLedgerId: string | null;
   messageId: string;
+  /** Stored SSOT — primary notify classification key when present. */
+  chatDomain?: string | null;
   roomType?: CommunityMessengerRoomType | string | null;
   directKey?: string | null;
   hasMention?: boolean;
@@ -83,25 +85,37 @@ export async function runCommunityMessengerSendPostAckEffects(
     }).catch(() => {});
   }
   /**
-   * Atomic send RPC historically omitted `room_type` from the payload (membership migration
-   * return shape). Without a fallback lookup, private_group/open_group notify as `direct`
-   * → `chat_message` FCM kind. Resolve from room row when effects.roomType is missing.
+   * Notify classification authority = stored `chat_domain`.
+   * Atomic send RPC may omit room columns from the payload — fill missing fields from
+   * the existing room row lookup (same path historically used for room_type).
+   * Legacy room_type/direct_key only when chat_domain is genuinely absent.
    */
+  let chatDomain = typeof effects.chatDomain === "string" ? effects.chatDomain.trim() : "";
   let roomType = typeof effects.roomType === "string" ? effects.roomType.trim() : "";
   let directKey = effects.directKey ?? null;
-  if (!roomType && roomId) {
+  if ((!chatDomain || !roomType) && roomId) {
     const { data: roomRow } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("room_type, direct_key")
+      .select("chat_domain, room_type, direct_key")
       .eq("id", roomId)
       .maybeSingle();
-    roomType = typeof roomRow?.room_type === "string" ? String(roomRow.room_type).trim() : "";
+    if (!chatDomain) {
+      chatDomain =
+        typeof roomRow?.chat_domain === "string" ? String(roomRow.chat_domain).trim() : "";
+    }
+    if (!roomType) {
+      roomType = typeof roomRow?.room_type === "string" ? String(roomRow.room_type).trim() : "";
+    }
     if (directKey == null || String(directKey).trim() === "") {
       directKey =
         typeof roomRow?.direct_key === "string" ? String(roomRow.direct_key).trim() || null : null;
     }
   }
-  const roomKind = resolveGroupMessageRoomKind(roomType, directKey);
+  const roomKind = resolveNotificationMessageRoomKind({
+    chatDomain,
+    roomType,
+    directKey,
+  });
   let mentionUserIds: string[] = [];
   if (roomKind === "group" && messageId) {
     mentionUserIds = await resolveMentionUserIdsForGroupRoom(sb, roomId, content).catch(() => []);
@@ -128,6 +142,9 @@ export async function runCommunityMessengerSendPostAckEffects(
     mod
       .runLegacyMessageCreatedNotificationEngineAdapter(sb, {
         ...effects,
+        chatDomain: chatDomain || effects.chatDomain,
+        roomType: roomType || effects.roomType,
+        directKey,
         decisionSnapshotsByRecipientId,
       })
       .catch(() => {})

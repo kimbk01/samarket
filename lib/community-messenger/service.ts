@@ -15757,6 +15757,7 @@ async function trySendCommunityMessengerTextAtomic(
       messageId: message.id,
       directKey: directKeyStr,
       roomType: typeof payload.room_type === "string" ? payload.room_type : null,
+      chatDomain: typeof payload.chat_domain === "string" ? payload.chat_domain : null,
       hasMention: /@\S/.test(content),
     };
   }
@@ -15860,7 +15861,7 @@ export async function sendCommunityMessengerMessage(input: {
     }
     const roomQ = (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_status, is_readonly, direct_key, deleted_at, room_type")
+      .select("id, room_status, is_readonly, direct_key, deleted_at, room_type, chat_domain")
       .eq("id", roomId)
       .maybeSingle();
     const dedupeQ =
@@ -16019,6 +16020,10 @@ export async function sendCommunityMessengerMessage(input: {
         typeof (roomData as { room_type?: unknown }).room_type === "string"
           ? String((roomData as { room_type: string }).room_type).trim()
           : null;
+      const chatDomainStr =
+        typeof (roomData as { chat_domain?: unknown }).chat_domain === "string"
+          ? String((roomData as { chat_domain: string }).chat_domain).trim()
+          : null;
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       const insRow = insertedMessage as MessageRow;
       const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
@@ -16044,6 +16049,7 @@ export async function sendCommunityMessengerMessage(input: {
           messageId: insertedMessageId,
           directKey: directKeyStr,
           roomType: roomTypeStr,
+          chatDomain: chatDomainStr,
           hasMention,
         },
       };

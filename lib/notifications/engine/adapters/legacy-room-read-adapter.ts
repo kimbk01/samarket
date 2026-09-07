@@ -6,7 +6,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import type { CmNotificationRoomKind } from "@/lib/notifications/engine/notification-event";
 import {
   logNotificationEngineShadowResult,
@@ -20,6 +20,7 @@ export type LegacyRoomReadNotificationEngineAdapterInput = {
   roomId: string;
   lastReadMessageId?: string | null;
   readAt?: string;
+  chatDomain?: string | null;
   roomType?: string | null;
   directKey?: string | null;
   causation?: string;
@@ -28,23 +29,33 @@ export type LegacyRoomReadNotificationEngineAdapterInput = {
 async function resolveRoomKindForAdapter(
   sb: SupabaseClient<any> | null | undefined,
   roomId: string,
+  chatDomain?: string | null,
   roomType?: string | null,
   directKey?: string | null
 ): Promise<CmNotificationRoomKind | null> {
-  const fromInput = resolveGroupMessageRoomKind(String(roomType ?? ""), directKey ?? null);
+  const fromInput = resolveNotificationMessageRoomKind({
+    chatDomain,
+    roomType,
+    directKey,
+  });
   if (fromInput === "direct" || fromInput === "group") return fromInput;
 
   if (!sb) return null;
   const { data } = await sb
     .from("community_messenger_rooms")
-    .select("room_type, direct_key")
+    .select("chat_domain, room_type, direct_key")
     .eq("id", roomId)
     .maybeSingle();
   if (!data || typeof data !== "object") return null;
-  const row = data as { room_type?: unknown; direct_key?: unknown };
+  const row = data as { chat_domain?: unknown; room_type?: unknown; direct_key?: unknown };
+  const domain = typeof row.chat_domain === "string" ? row.chat_domain : "";
   const rt = typeof row.room_type === "string" ? row.room_type : "";
   const dk = typeof row.direct_key === "string" ? row.direct_key : null;
-  const kind = resolveGroupMessageRoomKind(rt, dk);
+  const kind = resolveNotificationMessageRoomKind({
+    chatDomain: domain,
+    roomType: rt,
+    directKey: dk,
+  });
   if (kind === "direct" || kind === "group") return kind;
   return null;
 }
@@ -57,7 +68,13 @@ export async function runLegacyRoomReadNotificationEngineAdapter(
   const roomId = input.roomId.trim();
   if (!userId || !roomId) return;
 
-  const roomKind = await resolveRoomKindForAdapter(sb, roomId, input.roomType, input.directKey ?? null);
+  const roomKind = await resolveRoomKindForAdapter(
+    sb,
+    roomId,
+    input.chatDomain,
+    input.roomType,
+    input.directKey ?? null
+  );
   if (!roomKind) return;
 
   const result = await runNotificationEngine(

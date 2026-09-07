@@ -6,7 +6,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import { resolveNotificationMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
 import type { CmNotificationRoomKind } from "@/lib/notifications/engine/notification-event";
 import { runNotificationEngine } from "@/lib/notifications/engine/notification-engine";
 import {
@@ -20,15 +20,21 @@ export type LegacyTargetBumpNotificationEngineAdapterInput = {
   recipientUserIds: string[];
   messageId?: string | null;
   messageCreatedAt?: string | null;
+  chatDomain?: string | null;
   roomType?: string | null;
   directKey?: string | null;
 };
 
 function toCmNotificationRoomKind(
+  chatDomain: string | null | undefined,
   roomType: string | null | undefined,
   directKey: string | null | undefined
 ): CmNotificationRoomKind | null {
-  const kind = resolveGroupMessageRoomKind(String(roomType ?? ""), directKey ?? null);
+  const kind = resolveNotificationMessageRoomKind({
+    chatDomain,
+    roomType,
+    directKey,
+  });
   if (kind === "direct" || kind === "group") return kind;
   return null;
 }
@@ -42,7 +48,11 @@ export async function runLegacyTargetBumpNotificationEngineAdapter(
   const messageId = input.messageId?.trim() ?? "";
   if (!roomId || !fromUserId) return;
 
-  const roomKind = toCmNotificationRoomKind(input.roomType ?? null, input.directKey ?? null);
+  const roomKind = toCmNotificationRoomKind(
+    input.chatDomain ?? null,
+    input.roomType ?? null,
+    input.directKey ?? null
+  );
   if (!roomKind) return;
 
   const createdAt = input.messageCreatedAt?.trim() || new Date().toISOString();

@@ -10,6 +10,7 @@ export function buildMissedCallWebPath(roomId: string, callSessionId: string): s
   return `/community-messenger/rooms/${encodeURIComponent(roomId.trim())}?focus=call-history&callId=${encodeURIComponent(callSessionId.trim())}`;
 }
 
+/** @deprecated Legacy experimental `group_rooms` surface. Product GROUP notifications MUST use CM room path (`buildCanonicalNotificationRoomHref` / `buildDomainRoomRoute`). */
 export function buildGroupChatWebPath(roomId: string): string {
   return `/group-chat/${encodeURIComponent(roomId.trim())}`;
 }

@@ -72,14 +72,17 @@ describe("badge authority surface writer contracts (2026-07-31)", () => {
 
   it("trade Bell href and FCM trade route share CM room path", () => {
     const merge = read("lib/notifications/inbox-events-merge.ts");
+    expect(merge).toContain('type === "group_message"');
+    expect(merge).toContain("buildCanonicalNotificationRoomHref");
+    expect(merge).not.toContain("buildGroupChatWebPath(roomId)");
     expect(merge).toContain('type === "trade_message"');
     expect(merge).toContain("buildChatRoomWebPath(roomId)");
     expect(merge).not.toContain("buildTradeLegacyChatWebPath(roomId)");
 
     const fcm = read("lib/push/resolve-push-route-from-fcm-data.ts");
     expect(fcm).toContain('type === "trade_message"');
-    expect(fcm).toContain("buildChatRoomWebPath(roomId)");
-    expect(fcm).toContain("buildGroupChatWebPath(roomId)");
+    expect(fcm).toContain("buildCanonicalNotificationRoomHref");
+    expect(fcm).not.toContain("buildGroupChatWebPath(roomId)");
     expect(fcm).not.toContain("?type=group");
   });
 });

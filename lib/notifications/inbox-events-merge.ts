@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
-import { buildChatRoomWebPath, buildGroupChatWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
+import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
+import { buildChatRoomWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
 import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
@@ -391,11 +392,24 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   const roomId = trimText(event.room_id);
   const type = trimText(event.type);
   if (roomId) {
-    if (type === "group_message" || metaKind === "group_chat") return buildGroupChatWebPath(roomId);
+    if (type === "group_message" || metaKind === "group_chat") {
+      return (
+        buildCanonicalNotificationRoomHref({ roomId, chatDomain: "group" }) ??
+        buildChatRoomWebPath(roomId)
+      );
+    }
     // Trade canonical = CM room path (same as FCM / resolveNotificationDestination trade_room).
     // DO NOT use /chats/:id legacy for new Bell rows — alias may redirect but is not SSOT.
-    if (type === "trade_message" || metaKind === "trade_chat") return buildChatRoomWebPath(roomId);
-    return buildChatRoomWebPath(roomId);
+    if (type === "trade_message" || metaKind === "trade_chat") {
+      return (
+        buildCanonicalNotificationRoomHref({ roomId, chatDomain: "trade" }) ??
+        buildChatRoomWebPath(roomId)
+      );
+    }
+    return (
+      buildCanonicalNotificationRoomHref({ roomId, chatDomain: "general_direct" }) ??
+      buildChatRoomWebPath(roomId)
+    );
   }
 
   const postId = trimText(meta?.post_id ?? meta?.community_post_id);

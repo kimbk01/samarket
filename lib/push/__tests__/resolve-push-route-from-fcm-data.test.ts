@@ -61,7 +61,7 @@ describe("resolvePushRouteFromFcmData — legacy", () => {
       "/community-messenger/rooms/trade-room-1"
     );
     expect(resolvePushRouteFromFcmData({ type: "group_message", roomId: "grp-1" })).toBe(
-      "/group-chat/grp-1"
+      "/community-messenger/rooms/grp-1"
     );
     expect(resolvePushRouteFromFcmData({ type: "delivery_order", orderId: "order-1" })).toBe(
       "/orders/store/order-1"

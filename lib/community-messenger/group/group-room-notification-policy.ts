@@ -16,8 +16,9 @@ export function isStoreOrderMessengerDirectKey(directKey: string | null | undefi
 }
 
 /**
- * Notification / push routing kind — `roomType` + ledger `direct_key`.
+ * Legacy inference only — `roomType` + ledger `direct_key`.
  * private_group · open_group → group; trade ledger keys → trade; else direct.
+ * DO NOT use as primary notify authority when `chat_domain` is present.
  */
 export function resolveGroupMessageRoomKind(
   roomType: CommunityMessengerRoomSummary["roomType"] | string,
@@ -27,6 +28,23 @@ export function resolveGroupMessageRoomKind(
   if (isTradeMessengerDirectKey(directKey)) return "trade";
   if (isStoreOrderMessengerDirectKey(directKey)) return "store_order";
   return "direct";
+}
+
+/**
+ * Canonical notification classification — stored `chat_domain` first.
+ * Legacy room_type/direct_key only when chat_domain is genuinely absent.
+ */
+export function resolveNotificationMessageRoomKind(input: {
+  chatDomain?: string | null;
+  roomType?: CommunityMessengerRoomSummary["roomType"] | string | null;
+  directKey?: string | null;
+}): GroupMessageRoomKind {
+  const domain = String(input.chatDomain ?? "").trim();
+  if (domain === "general_direct") return "direct";
+  if (domain === "group") return "group";
+  if (domain === "trade") return "trade";
+  if (domain === "store_order") return "store_order";
+  return resolveGroupMessageRoomKind(String(input.roomType ?? ""), input.directKey ?? null);
 }
 
 export type GroupChatListKindFilter = "all" | "direct" | "private_group" | "trade" | "delivery";
