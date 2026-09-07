@@ -82,7 +82,10 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         let err = error ?? ""
         if err.contains("answered_elsewhere") {
           self.log("ios_native_voice_answered_elsewhere", sid, "status=\(status)")
-          CallKitProvider.shared.reportCallEnded(uuidString: sid)
+          CallKitProvider.shared.reportCallEnded(
+            uuidString: sid,
+            endedReason: .answeredElsewhere
+          )
           completion(false)
           return
         }

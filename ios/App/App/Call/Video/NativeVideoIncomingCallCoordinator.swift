@@ -1,3 +1,4 @@
+import CallKit
 import Foundation
 
 /**
@@ -123,7 +124,10 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         NativeVideoCallLog.corr("I6", callId: sid, details: "event=accept_api_fail status=\(status)")
         if err.contains("answered_elsewhere") {
           self.log("ios_native_video_answered_elsewhere", sid, "status=\(status)")
-          CallKitProvider.shared.reportCallEnded(uuidString: sid)
+          CallKitProvider.shared.reportCallEnded(
+            uuidString: sid,
+            endedReason: .answeredElsewhere
+          )
           completion(false)
           return
         }

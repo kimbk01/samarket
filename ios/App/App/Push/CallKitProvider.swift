@@ -16,6 +16,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    * DO NOT invent a random CallKit UUID for orphan terminals (ae486 ghost redial).
    */
   private var terminalSuppressedSessionIds: Set<String> = []
+  /**
+   * CUT7 #3: orphan report-then-end for loser `answered_elsewhere` must use `.answeredElsewhere`
+   * (not invent a global default). Cleared when the matching session is ended.
+   */
+  private var pendingCallKitEndReasonBySessionId: [String: CXCallEndedReason] = [:]
   /** Last applied bundle ringtone filename (nil = system default). */
   private var appliedRingtoneSound: String?
 
@@ -186,9 +191,12 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         } else if NativeVideoCallLane.isEnabled() {
           NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
         }
+        // CUT7 #3: loser answered_elsewhere may have staged `.answeredElsewhere`; else `.remoteEnded`.
+        let endReason =
+          self.pendingCallKitEndReasonBySessionId.removeValue(forKey: sessionId) ?? .remoteEnded
         self.endCallKitSession(
           sessionId: sessionId,
-          reason: .remoteEnded,
+          reason: endReason,
           logDetail: "terminal_suppress_after_incoming"
         )
       }
@@ -196,9 +204,18 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
   }
 
-  func reportCallEnded(uuidString: String) {
+  /**
+   * Dismiss CallKit for a known session UUID.
+   * - Default `endedReason` = `.remoteEnded` (caller cancel / remote end / missed preserve).
+   * - CUT7 #3: loser `answered_elsewhere` passes `.answeredElsewhere` only.
+   */
+  func reportCallEnded(
+    uuidString: String,
+    endedReason: CXCallEndedReason = .remoteEnded
+  ) {
     let sid = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
     markTerminalSuppressed(sessionId: sid, reason: "report_call_ended")
+    pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
     let isVideo = hasVideoBySessionId[sid] ?? false
     // Terminal VoIP / remote cleanup — Native Voice path only when Runtime still owns session.
     if !isVideo {
@@ -212,17 +229,27 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
       }
     }
-    endCallKitSession(sessionId: sid, reason: .remoteEnded, logDetail: "report_call_ended")
+    endCallKitSession(sessionId: sid, reason: endedReason, logDetail: "report_call_ended")
   }
 
   /**
    * Mark session terminal so a late incoming VoIP cannot leave CallKit ringing.
    * Safe for cancel/reject/timeout races without inventing CallKit UUIDs.
+   * - Optional `callKitEndReason`: only for orphan report-then-end when loser
+   *   `answered_elsewhere` must project `.answeredElsewhere` (CUT7 #3). Default path
+   *   leaves pending map empty → `.remoteEnded`.
    */
-  func markTerminalSuppressed(sessionId: String, reason: String) {
+  func markTerminalSuppressed(
+    sessionId: String,
+    reason: String,
+    callKitEndReason: CXCallEndedReason? = nil
+  ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
     terminalSuppressedSessionIds.insert(sid)
+    if let callKitEndReason {
+      pendingCallKitEndReasonBySessionId[sid] = callKitEndReason
+    }
     DibayCallLog.info(
       "ios_callkit_terminal_suppressed",
       sessionId: sid,
@@ -265,6 +292,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callUuidBySessionId.removeValue(forKey: sid)
     hasVideoBySessionId.removeValue(forKey: sid)
     outgoingSessionIds.remove(sid)
+    pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
     DibayCallLog.info(
       "ios_voip_terminal_safe_uuid_end",
       sessionId: sid,
@@ -291,8 +319,16 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         detail: "reason=\(logDetail)"
       )
     }
+    if reason == .answeredElsewhere {
+      DibayCallLog.info(
+        "ios_callkit_ended_answered_elsewhere",
+        sessionId: sid,
+        detail: "reason=\(logDetail)"
+      )
+    }
     provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     callUuidBySessionId.removeValue(forKey: sid)
+    pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
     hasVideoBySessionId.removeValue(forKey: sid)
     outgoingSessionIds.remove(sid)
   }
