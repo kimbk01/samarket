@@ -32,7 +32,28 @@ public class NativeIncomingCallPlugin extends Plugin {
 
   @PluginMethod
   public void clearPendingPushRoute(PluginCall call) {
-    MainActivity.clearPersistedPendingPushRoute(getContext());
+    // Chat room pending: refuse until WebView path matches (delivery ≠ consumption).
+    // force=true: logout / account isolation.
+    Boolean force = call.getBoolean("force", false);
+    if (Boolean.TRUE.equals(force)) {
+      MainActivity.clearPersistedPendingPushRoute(getContext());
+    } else {
+      MainActivity.clearPersistedPendingPushRouteIfConsumed(getContext());
+    }
+    call.resolve();
+  }
+
+  @PluginMethod
+  public void notifyPushRouteConsumerReady(PluginCall call) {
+    MainActivity.onPushRouteConsumerReady(getContext());
+    call.resolve();
+  }
+
+  @PluginMethod
+  public void ackPushRouteConsumed(PluginCall call) {
+    String path = call.getString("path", "");
+    String notificationId = call.getString("notificationId", "");
+    MainActivity.ackPushRouteConsumed(getContext(), path, notificationId);
     call.resolve();
   }
 

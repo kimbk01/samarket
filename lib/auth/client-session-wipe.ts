@@ -263,6 +263,11 @@ async function runWipeClientSessionState(
   clearEphemeralLocalStorage();
   clearBoundAuthUserId();
   clearEphemeralSessionStorage({ setPostLogoutGuard });
+  if (reason === "user_logout" || reason === "account_switched") {
+    void import("@/lib/push/native/push-route-native-bridge").then(({ clearNativePersistedPendingPushRoute }) => {
+      void clearNativePersistedPendingPushRoute({ force: true });
+    });
+  }
   closeAllServiceWorkerNotifications();
   if (shouldClearBrowserCacheStorage(reason)) {
     void clearBrowserCacheStorageBestEffort();

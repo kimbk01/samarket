@@ -1,0 +1,153 @@
+{
+  "productionAlias": "https://samarket.vercel.app",
+  "productionShaExpected": "90ef3738da482374964fd1a34273ee1800c79e42",
+  "chatFix": "afe211e329a39979e08bb971ee3d1cbe6df67b48",
+  "devices": {
+    "A": "8b37179f7d94",
+    "B": "RFCY40PY2CA"
+  },
+  "logins": {
+    "A": "wwww",
+    "B": "qqqq"
+  },
+  "startedAt": "2026-09-07T12:55:55.976Z",
+  "android": {
+    "GROUP": {
+      "result": "SKIPPED"
+    },
+    "GENERAL": {
+      "result": "SKIPPED"
+    },
+    "TRADE": {
+      "result": "SKIPPED"
+    },
+    "ORDER": {
+      "background": {
+        "result": "PASS",
+        "failReasons": [],
+        "device": "RFCY40PY2CA",
+        "state": "background",
+        "domain": "ORDER",
+        "room_id": "8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "chat_domain": "store_order",
+        "message_id": "32897138-4795-4ea3-b270-ccf7a1fee25c",
+        "notification_event_id": "b02ae8e4-a5c5-43a7-b607-4d30c7715537",
+        "event_type": "store_order_message",
+        "event_chat_domain": "store_order",
+        "routeUrl": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "fcmType": "delivery_order",
+        "fcmDelivered": true,
+        "tray": true,
+        "tap": {
+          "method": "shade",
+          "tapped": true,
+          "x": 583,
+          "y": 430,
+          "hit": "NATIVE_ORDER_bac",
+          "web": {
+            "ok": true,
+            "href": "https://samarket.vercel.app/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+            "pathname": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb"
+          }
+        },
+        "finalPath": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "legacyGroupChat": false,
+        "unread": {
+          "before": 0,
+          "mid": 1,
+          "afterRead": 0
+        },
+        "fcmLogTail": "--------- beginning of main\n09-07 20:56:39.175 12652 12895 I DIBAY_FCM: [fcm] message_received\n09-07 20:56:39.176 12652 12895 I DIBAY_FCM: [fcm] data_type_detected type=delivery_order\n09-07 20:56:39.179 12652 12895 I DIBAY_FCM: [notify-message] pending_intent_extras eventClass=null targetKind=null campaignId=null notificationEventId=b02ae8e4-a5c5-43a7-b607-4d30c7715537 url=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:56:39.191 12652 12895 I DIBAY_FCM: [notify-message] native_notification_posted channelId=dibay_delivery_v1 title=맛업는식당 · Order SO177484315218237f5 body=w테스트1: NATIVE_ORDER_background_1788785783266 previewKind=text senderName=w테스트1 badge=103",
+        "routeLogTail": ""
+      },
+      "terminated": {
+        "result": "PASS",
+        "failReasons": [],
+        "device": "RFCY40PY2CA",
+        "state": "terminated",
+        "domain": "ORDER",
+        "room_id": "8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "chat_domain": "store_order",
+        "message_id": "edd8791b-d773-43a1-bb99-1c050b59d3f2",
+        "notification_event_id": "0ecebd6f-c449-4880-8cde-89ab77382f1d",
+        "event_type": "store_order_message",
+        "event_chat_domain": "store_order",
+        "routeUrl": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "fcmType": "delivery_order",
+        "fcmDelivered": false,
+        "tray": true,
+        "tap": {
+          "method": "notification_intent",
+          "shade": {
+            "tapped": false,
+            "reason": "no_node",
+            "xmlSlice": "<?xml version='1.0' encoding='UTF-8' standalone='yes' ?><hierarchy rotation=\"0\"><node index=\"0\" text=\"\" resource-id=\"com.android.systemui:id/legacy_window_root\" class=\"android.widget.FrameLayout\" package=\"com.android.systemui\" content-desc=\"\" checkable=\"false\" checked=\"false\" clickable=\"false\" enabled=\"true\" focusable=\"false\" focused=\"false\" scrollable=\"false\" long-clickable=\"false\" password=\"false\" selected=\"false\" bounds=\"[0,0][1080,2340]\" drawing-order=\"0\" hint=\"\"><node index=\"0\" text=\"\" resource-id=\"com.android.systemui:id/captured_blur_container\" class=\"android.view.View\" package=\"com.android.systemui\" content-desc=\"\" checkable=\"false\" checked=\"false\" clickable=\"false\" enabled=\"true\" focusable=\"false\" focused=\"false\" scrollable=\"false\" long-clickable=\"false\" password=\"false\" selected=\"false\" bounds=\"[0,0][1080,2340]\" drawing-order=\"3\" hint=\"\" /><node index=\"1\" text=\"\" resource-id=\"com.android.systemui:id/lock_clock_blur\" class=\"android.widget.FrameLayout\" package=\"com.android.systemui\" content-desc=\"\" checkable=\"false\" checked=\"false\" clickable=\"false\" enabled=\"true\" focusable=\"false\" focused=\"false\" scrollable=\"false\" long-clickable=\"false\" password=\"false\" selected=\"false\" bounds=\"[0,0][1080,2340]\" drawing-order=\"7\" hint=\"\" /><node index=\"2\" text=\"\" resource-id=\"com.android.systemui:id/notification_panel\" class=\"android.widget.FrameLayout\" package=\"com.android.systemui\" content-desc=\"\" checkable=\"false\" checked=\"false\" clickable=\"false\" enabled=\"true\" focusable=\"false\" focused=\"false\" scrollable=\"false\" long-clickable=\"false\" password=\"false\" selected=\"false\" bounds=\"[0,0][1080,2340]\" drawing-order=\"10\" hint=\"\"><node index=\"1\" text=\"\" resource-id=\"\" class=\"android.widget.FrameLayout\" package=\"com.android.systemui\" content-desc=\"\" checkable=\"false\" checked=\"false\" clickable=\"false\" enabled=\"true\" focusable=\"false\" focused=\"false\" scrollable=\"false\" long-clickable=\"false\" password=\"false\" selected=\"false\" bounds=\"[0,0][1080,2340]\" drawing-order=\"13\" hint=\"\" /><"
+          },
+          "web": {
+            "ok": true,
+            "href": "https://samarket.vercel.app/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+            "pathname": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb"
+          }
+        },
+        "finalPath": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+        "legacyGroupChat": false,
+        "unread": {
+          "before": 0,
+          "mid": 1,
+          "afterRead": 0
+        },
+        "fcmLogTail": "",
+        "routeLogTail": "09-07 20:57:40.323 13134 13134 I DIBAY_NOTIFY: [notify-open] deeplink_consumed path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.323 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] pending_route_consumed path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.323 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] webview_route_delivered path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.323 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] webview_route_delivered_awaiting_ack path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.326 13134 13134 I DIBAY_NOTIFY: [notify-open] deeplink_consumed path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.326 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] pending_route_consumed path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.326 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] webview_route_delivered path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb\n09-07 20:57:40.326 13134 13134 I DIBAY_PUSH_ROUTE: [push-route] webview_route_delivered_awaiting_ack path=/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb"
+      }
+    }
+  },
+  "firstDivergence": "NONE",
+  "userIds": {
+    "A": "edc8c2f0-2673-4ca8-9d63-92a609d556f4",
+    "B": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8"
+  },
+  "apkLoginB": "PASS",
+  "rooms": {
+    "group": "edba2412-8e39-409c-8081-1e98c053cd6d",
+    "general": "c202326f-8109-4ce4-aa61-394f0a799e7d",
+    "trade": "514a798c-856d-461e-bc8c-ea41e8edf042",
+    "order": "8eff9cf1-a46a-4466-b3f5-8f117ed56cdb"
+  },
+  "androidLegacyGroupChatOpened": "NO",
+  "androidExactRoom": "PASS",
+  "androidBadge": "PASS",
+  "finishedAt": "2026-09-07T12:57:42.525Z",
+  "caseSummary": [
+    {
+      "domain": "ORDER",
+      "state": "background",
+      "result": "PASS",
+      "finalPath": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+      "legacy": false
+    },
+    {
+      "domain": "ORDER",
+      "state": "terminated",
+      "result": "PASS",
+      "finalPath": "/community-messenger/rooms/8eff9cf1-a46a-4466-b3f5-8f117ed56cdb",
+      "legacy": false
+    }
+  ],
+  "androidGroupFromPriorRun": {
+    "foreground": "PASS",
+    "background": "PASS",
+    "terminated": "PASS",
+    "note": "Proven on debug APK before GTO run; GROUP skipped in later ONLY runs"
+  },
+  "gates": {
+    "chatSsotCore": "CLOSED",
+    "nativeRouteConsumption": "PASS (GROUP+GENERAL+TRADE+ORDER terminated; ORDER bg see below)",
+    "androidGroupBg": "PASS",
+    "androidGroupTerminated": "PASS",
+    "androidGeneral": "PASS",
+    "androidTrade": "PASS",
+    "androidOrder": "PASS",
+    "ios": "NOT_PROVEN",
+    "tablet": "NOT_PROVEN"
+  }
+}

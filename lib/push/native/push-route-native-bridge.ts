@@ -8,7 +8,7 @@ import { PENDING_PUSH_ROUTE_TTL_MS } from "@/lib/push/pending-push-route";
 export type NativeIncomingCallPlugin = {
   dismissNotification(options: { sessionId: string }): Promise<void>;
   dismissForegroundIncomingUi(options: { sessionId: string }): Promise<void>;
-  clearPendingPushRoute(): Promise<void>;
+  clearPendingPushRoute(options?: { force?: boolean }): Promise<void>;
   clearPendingCallRoute(): Promise<void>;
   getPendingPushRoute(): Promise<{
     path?: string;
@@ -19,6 +19,13 @@ export type NativeIncomingCallPlugin = {
     path?: string;
     at?: number;
   }>;
+  /** SPA PushRouteListener mounted — replay persisted pending if any. */
+  notifyPushRouteConsumerReady?(): Promise<void>;
+  /** SPA confirmed navigation/consume — only then native pending clear. */
+  ackPushRouteConsumed?(options: {
+    path: string;
+    notificationId?: string | null;
+  }): Promise<void>;
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
   startIncomingRingtone(options: { sessionId: string }): Promise<void>;
   stopIncomingRingtone(options: { sessionId?: string }): Promise<void>;
@@ -121,10 +128,49 @@ export async function readNativePersistedPendingPushRoute(
   }
 }
 
-export async function clearNativePersistedPendingPushRoute(): Promise<void> {
+export async function clearNativePersistedPendingPushRoute(options?: {
+  force?: boolean;
+}): Promise<void> {
   const plugin = await getNativeIncomingCallPlugin();
   if (!plugin) return;
   try {
+    if (options?.force) {
+      await plugin.clearPendingPushRoute({ force: true });
+      return;
+    }
+    await plugin.clearPendingPushRoute();
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function notifyNativePushRouteConsumerReady(): Promise<void> {
+  const plugin = await getNativeIncomingCallPlugin();
+  if (!plugin?.notifyPushRouteConsumerReady) return;
+  try {
+    await plugin.notifyPushRouteConsumerReady();
+  } catch {
+    /* best-effort — older APK without method */
+  }
+}
+
+export async function ackNativePushRouteConsumed(options: {
+  path: string;
+  notificationId?: string | null;
+}): Promise<void> {
+  const path = options.path?.trim() ?? "";
+  if (!path.startsWith("/")) return;
+  const plugin = await getNativeIncomingCallPlugin();
+  if (!plugin) return;
+  try {
+    if (plugin.ackPushRouteConsumed) {
+      await plugin.ackPushRouteConsumed({
+        path,
+        notificationId: options.notificationId ?? null,
+      });
+      return;
+    }
+    // Older APK fallback — clear is still better than permanent sticky pending.
     await plugin.clearPendingPushRoute();
   } catch {
     /* best-effort */

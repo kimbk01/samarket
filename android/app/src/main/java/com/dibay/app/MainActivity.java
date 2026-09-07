@@ -916,6 +916,145 @@ public class MainActivity extends BridgeActivity {
         .apply();
   }
 
+  private static boolean isChatMessengerRoomPendingPath(String path) {
+    return path != null && path.startsWith("/community-messenger/rooms/");
+  }
+
+  private static boolean webViewPathMatchesPending(MainActivity act, String pendingPath) {
+    if (act == null || pendingPath == null || pendingPath.isEmpty()) return false;
+    try {
+      Bridge bridge = act.getBridge();
+      if (bridge == null) return false;
+      WebView webView = bridge.getWebView();
+      if (webView == null) return false;
+      String url = webView.getUrl();
+      if (url == null || url.isEmpty()) return false;
+      Uri uri = Uri.parse(url);
+      String current = uri.getPath();
+      if (current == null) return false;
+      String query = uri.getQuery();
+      if (query != null && !query.isEmpty()) {
+        current = current + "?" + query;
+      }
+      if (current.equals(pendingPath)) return true;
+      String pendingPathOnly = pendingPath.split("\\?", 2)[0];
+      return current.split("\\?", 2)[0].equals(pendingPathOnly) && !pendingPath.contains("?");
+    } catch (Exception error) {
+      return false;
+    }
+  }
+
+  /**
+   * SPA clearPendingPushRoute — refuse until WebView shows the pending chat room.
+   * Prevents premature clear after delivery-only / router.push race on cold start.
+   */
+  public static void clearPersistedPendingPushRouteIfConsumed(android.content.Context context) {
+    if (context == null) return;
+    android.os.Bundle pending = readPersistedPendingPushRoute(context);
+    String pendingPath = pending.getString(PENDING_PATH_KEY);
+    if (pendingPath == null || pendingPath.isEmpty()) {
+      clearPersistedPendingPushRoute(context);
+      return;
+    }
+    if (!isChatMessengerRoomPendingPath(pendingPath)) {
+      clearPersistedPendingPushRoute(context);
+      MainActivity act = activeInstance;
+      if (act != null) {
+        act.mainHandler.post(act::clearInMemoryPendingRouteState);
+      }
+      return;
+    }
+    MainActivity act = activeInstance;
+    if (webViewPathMatchesPending(act, pendingPath)) {
+      ackPushRouteConsumed(context, pendingPath, pending.getString(PENDING_NOTIFICATION_ID_KEY));
+      return;
+    }
+    Log.i(
+        ROUTE_LOG_TAG,
+        "[push-route] clear_refused_awaiting_ack path=" + pendingPath);
+    if (act != null) {
+      onPushRouteConsumerReady(context);
+    }
+  }
+
+  /**
+   * SPA PushRouteListener mounted — re-arm delivery until consume ACK.
+   * Does not clear pending; only replays if prefs still hold a path.
+   */
+  public static void onPushRouteConsumerReady(android.content.Context context) {
+    MainActivity act = activeInstance;
+    if (act == null) {
+      Log.i(ROUTE_LOG_TAG, "[push-route] consumer_ready activity=null");
+      return;
+    }
+    act.mainHandler.post(
+        () -> {
+          Log.i(ROUTE_LOG_TAG, "[push-route] consumer_ready");
+          act.routeInjectedForCurrentPending = false;
+          act.restorePendingRouteFromPrefsIfNeeded();
+          if (act.pendingAppPath == null || act.pendingAppPath.isEmpty()) {
+            Log.i(ROUTE_LOG_TAG, "[push-route] consumer_ready pending=none");
+            return;
+          }
+          Log.i(
+              ROUTE_LOG_TAG,
+              "[push-route] pending_route_replayed path=" + act.pendingAppPath);
+          act.flushPendingAppPathIfAny();
+        });
+  }
+
+  /**
+   * SPA confirmed route consumption — only clear authority for chat push pending.
+   */
+  public static void ackPushRouteConsumed(
+      android.content.Context context, String path, String notificationId) {
+    if (context == null) return;
+    String target = path != null ? path.trim() : "";
+    android.os.Bundle pending = readPersistedPendingPushRoute(context);
+    String pendingPath = pending.getString(PENDING_PATH_KEY);
+    String pendingId = pending.getString(PENDING_NOTIFICATION_ID_KEY);
+    boolean pathOk =
+        target.isEmpty()
+            || pendingPath == null
+            || pendingPath.isEmpty()
+            || pendingPath.equals(target)
+            || pendingPath.startsWith(target.split("\\?", 2)[0]);
+    boolean idOk =
+        notificationId == null
+            || notificationId.trim().isEmpty()
+            || pendingId == null
+            || pendingId.isEmpty()
+            || pendingId.equals(notificationId.trim());
+    if (pendingPath != null
+        && !pendingPath.isEmpty()
+        && !target.isEmpty()
+        && !pathOk
+        && !idOk) {
+      Log.i(
+          ROUTE_LOG_TAG,
+          "[push-route] route_consumed_ignored path="
+              + target
+              + " pending="
+              + pendingPath);
+      return;
+    }
+    clearPersistedPendingPushRoute(context);
+    Log.i(
+        ROUTE_LOG_TAG,
+        "[push-route] route_consumed path=" + (target.isEmpty() ? pendingPath : target));
+    Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_cleared");
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(
+          () -> {
+            act.pendingAppPath = null;
+            act.pendingNotificationId = null;
+            act.routeInjectedForCurrentPending = true;
+            act.hideCallRouteLoadingOverlay();
+          });
+    }
+  }
+
   /** JS mount fallback when sessionStorage inject missed — SharedPreferences backup. */
   public static android.os.Bundle readPersistedPendingPushRoute(android.content.Context context) {
     android.os.Bundle out = new android.os.Bundle();
@@ -2708,7 +2847,6 @@ public class MainActivity extends BridgeActivity {
         notificationId != null
             ? notificationId.replace("\\", "\\\\").replace("'", "\\'")
             : "";
-    final long at = System.currentTimeMillis();
     final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
     final boolean callRoute =
         CallV4Lane.isV4CallPath(appPath)
@@ -2726,25 +2864,34 @@ public class MainActivity extends BridgeActivity {
             + jsNotificationId
             + "'}}));})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    routeInjectedForCurrentPending = true;
-    pendingAppPath = null;
-    pendingNotificationId = null;
-    hideCallRouteLoadingOverlay();
     Log.i("DIBAY_NOTIFY", "[notify-open] deeplink_consumed path=" + appPath);
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_consumed path=" + appPath);
     if (callRoute) {
       DibayCallPushLog.info("pending_route_consumed", acceptSessionId, "path=" + appPath);
     }
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
-    if (CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
-      logMainActivityCallV4RouteOpened(appPath, "inject_js_event");
-      Log.i(
-          CallV4Lane.TAG,
-          "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_consumed_once callId="
-              + (acceptSessionId != null ? acceptSessionId : "unknown")
-              + " delivery=inject_js_event");
+
+    // Call routes: existing direct-load / screen-ready ownership — mark injected.
+    // Chat / non-call: delivery ≠ consumption — keep pending until SPA ACK.
+    if (callRoute) {
+      routeInjectedForCurrentPending = true;
+      pendingAppPath = null;
+      pendingNotificationId = null;
+      hideCallRouteLoadingOverlay();
+      if (CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+        logMainActivityCallV4RouteOpened(appPath, "inject_js_event");
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_consumed_once callId="
+                + (acceptSessionId != null ? acceptSessionId : "unknown")
+                + " delivery=inject_js_event");
+      }
+      return true;
     }
-    return true;
+
+    Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered_awaiting_ack path=" + appPath);
+    // Keep pendingAppPath + SharedPreferences; allow flush retries / consumer_ready replay.
+    return false;
   }
 
   private boolean navigateWebViewToAppPathNow(String appPath, String notificationId) {

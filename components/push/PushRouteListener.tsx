@@ -19,9 +19,16 @@ import {
   writePendingPushRoute,
 } from "@/lib/push/pending-push-route";
 import {
+  ackNativePushRouteConsumed,
   clearNativePersistedPendingPushRoute,
+  notifyNativePushRouteConsumerReady,
   readNativePersistedPendingPushRoute,
 } from "@/lib/push/native/push-route-native-bridge";
+import {
+  decidePushRouteAck,
+  isCallPushRoutePath,
+  pathsMatchForPushConsume,
+} from "@/lib/push/push-route-consume-contract";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { shouldApplyMemberNotificationReadOnPushTap } from "@/lib/notifications/badge-authority-rebuild/push-routing-transport";
@@ -133,6 +140,54 @@ function markNotificationConsumed(notificationId: string | undefined): void {
   const map = readNotificationDedupe();
   map.set(id, Date.now());
   writeNotificationDedupe(map);
+}
+
+function currentAppPath(): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function ackChatPushRouteConsumed(path: string, notificationId?: string | null): void {
+  clearPendingPushRoute();
+  void ackNativePushRouteConsumed({ path, notificationId: notificationId ?? null });
+  console.info("[push-route] route_consumed", { path, notificationId: notificationId ?? null });
+}
+
+/**
+ * Chat routes: clear native pending only after path matches (or same-route skip).
+ * Call routes keep immediate clear (call screen-ready ownership unchanged).
+ */
+function finalizePushRouteConsume(path: string, notificationId?: string | null): void {
+  if (isCallPushRoutePath(path)) {
+    clearPendingPushRoute();
+    void clearNativePersistedPendingPushRoute();
+    return;
+  }
+  const decision = decidePushRouteAck({
+    targetPath: path,
+    currentPath: currentAppPath(),
+    authGate: "allow",
+  });
+  if (decision.action === "ack") {
+    ackChatPushRouteConsumed(path, notificationId);
+    return;
+  }
+  // Navigation kicked — poll briefly for exact path before ACK; keep pending on miss.
+  const started = Date.now();
+  const timer = window.setInterval(() => {
+    if (pathsMatchForPushConsume(currentAppPath(), path)) {
+      window.clearInterval(timer);
+      ackChatPushRouteConsumed(path, notificationId);
+      return;
+    }
+    if (Date.now() - started > 8_000) {
+      window.clearInterval(timer);
+      console.info("[push-route] consume_unconfirmed_keep_pending", {
+        path,
+        current: currentAppPath(),
+      });
+    }
+  }, 200);
 }
 
 /**
@@ -267,6 +322,24 @@ export function PushRouteListener() {
         return;
       }
 
+      // Foreground / already-on-target: ACK without reload (preserve unread policy).
+      if (!isCallPushRoutePath(path) && pathsMatchForPushConsume(currentAppPath(), path)) {
+        markNotificationConsumed(notificationId);
+        maybeMarkMemberAOnPushTap(path, notificationId, transport);
+        ackChatPushRouteConsumed(path, notificationId);
+        console.info("[push-route] same_route_ack", { path });
+        return;
+      }
+
+      if (!isCallPushRoutePath(path)) {
+        writePendingPushRoute({
+          path,
+          notificationId: notificationId ?? null,
+          at: Date.now(),
+          source: "push_navigate",
+        });
+      }
+
       if (isCallV4TelegramLaneEnabled() && isCallRoute(path)) {
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
@@ -389,8 +462,7 @@ export function PushRouteListener() {
         router.push(path);
       }
       maybeMarkMemberAOnPushTap(path, notificationId, transport);
-      clearPendingPushRoute();
-      void clearNativePersistedPendingPushRoute();
+      finalizePushRouteConsume(path, notificationId);
       console.info("[push-route] webview_route_delivered", { path });
     };
 
@@ -399,18 +471,42 @@ export function PushRouteListener() {
     const consumePendingRoutes = async () => {
       const sessionPending = readPendingPushRoute();
       if (sessionPending) {
-        console.info("[push-route] pending_route_replayed", { path: sessionPending.path, source: "session" });
-        navigate(sessionPending.path, sessionPending.notificationId ?? undefined);
+        console.info("[push-route] pending_route_replayed", {
+          path: sessionPending.path,
+          source: "session",
+        });
+        navigate(sessionPending.path, sessionPending.notificationId ?? undefined, undefined, {
+          skipNotificationDedupe: true,
+        });
         return;
       }
       const nativePending = await readNativePersistedPendingPushRoute();
       if (nativePending) {
-        console.info("[push-route] pending_route_replayed", { path: nativePending.path, source: "native" });
-        navigate(nativePending.path, nativePending.notificationId ?? undefined);
+        console.info("[push-route] pending_route_replayed", {
+          path: nativePending.path,
+          source: "native",
+        });
+        navigate(nativePending.path, nativePending.notificationId ?? undefined, undefined, {
+          skipNotificationDedupe: true,
+        });
       }
     };
 
-    void consumePendingRoutes();
+    const signalConsumerReady = () => {
+      console.info("[push-route] consumer_ready");
+      void notifyNativePushRouteConsumerReady().then(() => {
+        void consumePendingRoutes();
+      });
+    };
+
+    signalConsumerReady();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        signalConsumerReady();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     const onPushRoute = (event: Event) => {
       const detail = (event as CustomEvent<PushRouteDetail>).detail;
@@ -523,6 +619,7 @@ export function PushRouteListener() {
 
     return () => {
       window.removeEventListener("dibay:push-route", onPushRoute);
+      document.removeEventListener("visibilitychange", onVisibility);
       removeAppUrlOpen?.();
       removePushTap?.();
       navigateRef.current = null;
