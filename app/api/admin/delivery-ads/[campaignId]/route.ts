@@ -47,7 +47,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     audits: detail.audits,
     creative: detail.creative,
     placementPreview,
-    pricing: { model: "NOT_CONFIGURED", billing: "NONE" },
+    pricing: {
+      model: "FIXED_DURATION_PACKAGE",
+      billing: "BUSINESS_CASH",
+      packageAuthority: "delivery_ad_packages",
+      orderPercentChargeCollection: false,
+    },
   });
 }
 

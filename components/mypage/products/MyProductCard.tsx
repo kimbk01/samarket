@@ -65,12 +65,12 @@ export function MyProductCard({
   const timeLabel = formatTimeAgo(product.updatedAt ?? product.createdAt);
   const promoteCtaLabel = isPromoted
     ? safeT("marketplace_seller_promote_manage_cta", {
-        fallbackKo: "홍보 관리",
-        fallbackEn: "Manage promotion",
+        fallbackKo: "상위노출 관리",
+        fallbackEn: "Manage top exposure",
       })
     : safeT("marketplace_seller_promote_cta", {
-        fallbackKo: "더 알리기",
-        fallbackEn: "Promote more",
+        fallbackKo: "거래 상위노출",
+        fallbackEn: "Trade top exposure",
       });
 
   const openPromoteSheet = () => setPromoteSheetOpen(true);

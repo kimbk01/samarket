@@ -112,8 +112,10 @@ describe("CUT C Owner Store Sponsored contracts", () => {
     ).toBe(false);
   });
 
-  it("pricing NOT_CONFIGURED — no charge collection", () => {
-    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.status).toBe("NOT_CONFIGURED");
+  it("pricing CONFIGURED — package + Business Cash; ORDER_PERCENT chargeCollection stays false", () => {
+    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.status).toBe("CONFIGURED");
+    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.packageAuthority).toBe("delivery_ad_packages");
+    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.businessCashOnSubmit).toBe(true);
     expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.chargeCollection).toBe(false);
   });
 

@@ -273,15 +273,15 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     storeId: null,
     memberId: userId || null,
     creativeHint: r.target_id != null ? String(r.target_id) : null,
-    placementHint: isCommunity ? "커뮤니티 상위 노출" : "거래 피드 홍보",
+    placementHint: isCommunity ? "Community 상위노출" : "거래 상위노출",
     amountLabel: r.point_cost != null ? `${r.point_cost}P` : null,
     currency: "POINT",
     status: opsLabel(ops),
     whyActionable:
       ops === "pending"
         ? isCommunity
-          ? "커뮤니티 상위노출 승인이 필요합니다. (HOLD)"
-          : "거래 더 알리기 승인이 필요합니다."
+          ? "레거시 승인 대기 상위노출(신규 flow는 즉시 Point 결제)."
+          : "레거시 승인 대기 거래 상위노출(신규 flow는 즉시 Point 결제)."
         : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
     periodLabel: formatPeriod(
@@ -299,10 +299,11 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     ageHours: ageHours(at),
     at,
     source: `point_promotion_orders domain=${isCommunity ? "community" : "trade"}`,
-    href: `/admin/ad-applications/${encodeURIComponent(id)}?domain=${isCommunity ? "community" : "trade"}`,
+    href: `/admin/advertising/boosts`,
     statementHref: null,
     financeHref: "/admin/finance#point",
     memberHref: userId ? memberHref(userId) : null,
+    sourceKind: "member",
   };
 }
 

@@ -71,6 +71,11 @@ export async function GET(req: NextRequest) {
     campaigns: result.items,
     summary: result.summary,
     policyCounts: result.policyCounts,
-    pricing: { model: "NOT_CONFIGURED", billing: "NONE" },
+    pricing: {
+      model: "FIXED_DURATION_PACKAGE",
+      billing: "BUSINESS_CASH",
+      packageAuthority: "delivery_ad_packages",
+      orderPercentChargeCollection: false,
+    },
   });
 }

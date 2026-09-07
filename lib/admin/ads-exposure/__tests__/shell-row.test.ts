@@ -93,7 +93,7 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
       }),
       true
     );
-    expect(row.kindLabel).toBe("배달 배너");
+    expect(row.kindLabel).toBe("배달 홈 상단 배너");
     expect(row.placementLabel).toContain("상단 배너");
     expect(row.statusTab).toBe("live");
     expect(row.applicationStatusLabel).toBe("—");
@@ -155,8 +155,8 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
 
 describe("adsShellKindLabel + filters", () => {
   it("labels promote / sponsored families", () => {
-    expect(adsShellKindLabel("community_promote", "x", true)).toBe("게시물 상위노출");
-    expect(adsShellKindLabel("delivery", "store_sponsored", true)).toBe("매장 상위홍보");
+    expect(adsShellKindLabel("community_promote", "x", true)).toBe("Community 상위노출");
+    expect(adsShellKindLabel("delivery", "store_sponsored", true)).toBe("배달 매장 홍보");
   });
 
   it("filters by status tab and product family", () => {

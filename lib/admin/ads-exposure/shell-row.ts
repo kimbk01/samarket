@@ -102,19 +102,25 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   const d = String(domain ?? "").toLowerCase();
   const p = String(product ?? "").toLowerCase();
   if (d === "community_promote" || (d.includes("community") && p.includes("promote"))) {
-    return ko ? "게시물 상위노출" : "Post top exposure";
+    return ko ? "Community 상위노출" : "Community top exposure";
   }
   if (d === "trade_promote" || (d.includes("trade") && (p.includes("promote") || p.includes("boost")))) {
-    return ko ? "거래 더 알리기" : "Trade promote";
+    return ko ? "거래 상위노출" : "Trade top exposure";
   }
   if (d === "popup" || p.includes("popup")) {
     return ko ? "팝업" : "Popup";
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
+    if (p.includes("community") || d.includes("community")) {
+      return ko ? "Community 배너" : "Community banner";
+    }
+    if (p.includes("trade") || d.includes("trade")) {
+      return ko ? "거래 배너" : "Trade banner";
+    }
     return ko ? "피드 배너" : "Feed banner";
   }
   if (p.includes("sponsored") || p.includes("store_promote")) {
-    return ko ? "매장 상위홍보" : "Store promote";
+    return ko ? "배달 매장 홍보" : "Delivery store promotion";
   }
   if (d === "delivery" || p.includes("banner")) {
     return productKindLabel(product || "banner", ko);

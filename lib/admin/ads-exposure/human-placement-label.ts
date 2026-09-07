@@ -47,12 +47,12 @@ const PLACEMENT_LABELS: Record<string, PlacementLabel> = {
     en: "Community > Topic > Feed banner",
   },
   feed_boost: {
-    ko: "거래 > 홈·카테고리 > 더 알리기",
-    en: "Trade > Home/Category > Promote",
+    ko: "거래 > 게시물 상위노출",
+    en: "Trade > Post top exposure",
   },
   community_top_pin: {
-    ko: "Community > 게시물 목록 > 상위 노출",
-    en: "Community > Feed > Top exposure",
+    ko: "Community > 게시물 상위노출",
+    en: "Community > Post top exposure",
   },
   GLOBAL: { ko: "전체 서비스 팝업", en: "All-service popup" },
   COMMUNITY: { ko: "Community 팝업", en: "Community popup" },
@@ -111,20 +111,20 @@ export function productKindLabel(kind: string, ko: boolean): string {
     return ko ? "기존 거래 광고" : "Legacy trade ad";
   }
   if (k.includes("sponsored") || k === "store_promote") {
-    return ko ? "매장 상위홍보" : "Store promote";
+    return ko ? "배달 매장 홍보" : "Delivery store promotion";
   }
   if (k.includes("banner") && (k.includes("feed") || k === "feed_ad" || k === "feed_banner")) {
     return ko ? "피드 배너" : "Feed banner";
   }
   if (k.includes("banner") || k === "delivery_banner" || k === "banner_hero") {
-    return ko ? "배달 배너" : "Delivery banner";
+    return ko ? "배달 홈 상단 배너" : "Delivery home top banner";
   }
   if (k.includes("popup")) return ko ? "팝업" : "Popup";
   if (k.includes("community") && (k.includes("boost") || k.includes("promo") || k.includes("promote"))) {
-    return ko ? "게시물 상위노출" : "Post top exposure";
+    return ko ? "Community 상위노출" : "Community top exposure";
   }
   if (k.includes("trade") || k.includes("promote") || k === "boost") {
-    return ko ? "거래 더 알리기" : "Trade promote";
+    return ko ? "거래 상위노출" : "Trade top exposure";
   }
   return ko ? "광고" : "Ad";
 }

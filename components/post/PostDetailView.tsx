@@ -179,8 +179,8 @@ function PostDetailSellerProfileRow({
 function TradePostDetailInlinePromoteCta({ onTradeAdOpen }: { onTradeAdOpen: () => void }) {
   const { safeT } = useI18n();
   const promoteLabel = safeT("trade_promo_detail_cta", {
-    fallbackKo: "더 알리기",
-    fallbackEn: "Promote",
+    fallbackKo: "거래 상위노출",
+    fallbackEn: "Trade top exposure",
   });
   return (
     <button type="button" className={`w-full ${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA}`} onClick={onTradeAdOpen}>

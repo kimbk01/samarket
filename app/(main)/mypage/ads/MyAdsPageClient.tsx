@@ -267,14 +267,14 @@ export default function MyAdsPageClient() {
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-semibold text-sam-fg">
             {safeT("revenue_hub_promo_title", {
-              fallbackKo: "게시물 홍보",
-              fallbackEn: "Promote a post",
+              fallbackKo: "상위노출",
+              fallbackEn: "Top exposure",
             })}
           </h2>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {safeT("revenue_hub_promo_desc", {
               fallbackKo: "내 게시물을 목록 위쪽에 더 잘 보이게 합니다. 포인트를 사용합니다.",
-              fallbackEn: "Boost your own post in the list with Point.",
+              fallbackEn: "Make your post more visible at the top of the list with Point.",
             })}
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">

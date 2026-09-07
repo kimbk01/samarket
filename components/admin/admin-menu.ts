@@ -46,6 +46,11 @@ export interface AdminMenuItem {
   pendingRoute?: true;
   /** 연결 상태. 미지정이면 하위 메뉴 기준 자동 계산 */
   status?: AdminMenuStatus;
+  /**
+   * false면 PUBLIC sidebar에서 숨김 (deep-link / findAdminMenuByKey KEEP).
+   * Ads SSOT: ads-legacy retired from PUBLIC nav; canonical 7 leaves remain.
+   */
+  sidebarPublic?: boolean;
 }
 
 const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
@@ -871,6 +876,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "ads-legacy",
         title: "",
         status: "partial",
+        /** PUBLIC sidebar RETIRED — deep-links + redirects KEEP */
+        sidebarPublic: false,
         children: [
           {
             key: "delivery-ads-control",
@@ -1265,6 +1272,7 @@ export function filterMenuByRole(
   function filter(items: AdminMenuItem[]): AdminMenuItem[] {
     return items
       .filter((item) => !item.roles?.length || item.roles.includes(role))
+      .filter((item) => item.sidebarPublic !== false)
       .map((item) => ({
         ...item,
         children: item.children?.length ? filter(item.children) : undefined,

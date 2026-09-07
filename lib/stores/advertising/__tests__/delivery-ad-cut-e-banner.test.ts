@@ -301,7 +301,8 @@ describe("CUT E Owner Banner + renderer", () => {
   });
 
   it("pricing NOT_CONFIGURED", () => {
-    expect(OWNER_BANNER_PRICING.status).toBe("NOT_CONFIGURED");
+    expect(OWNER_BANNER_PRICING.status).toBe("CONFIGURED");
+    expect(OWNER_BANNER_PRICING.packageAuthority).toBe("delivery_ad_packages");
   });
 
   it("create route wired", () => {

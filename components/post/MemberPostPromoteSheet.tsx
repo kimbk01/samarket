@@ -197,12 +197,12 @@ export function MemberPostPromoteSheet({
   const sheetTitle =
     domain === "community"
       ? safeT("promo_sheet_title_community", {
-          fallbackKo: "게시물 홍보하기",
-          fallbackEn: "Promote this post",
+          fallbackKo: "Community 상위노출",
+          fallbackEn: "Community top exposure",
         })
       : safeT("promo_sheet_title_trade", {
-          fallbackKo: "게시물 홍보하기",
-          fallbackEn: "Promote this post",
+          fallbackKo: "거래 상위노출",
+          fallbackEn: "Trade top exposure",
         });
 
   const catalogFooter =
@@ -384,11 +384,11 @@ export function MemberPostPromoteSheet({
                   })}
                 </li>
                 <li className="pt-1 opacity-80">
-                  {safeT("promo_sheet_community_approval_note", {
+                  {safeT("promo_sheet_community_immediate_note", {
                     fallbackKo:
-                      "신청 시 Point가 보류(HOLD)됩니다. 관리자 승인 후 피드 상단에 노출되고, 거절 시 Point가 반환됩니다.",
+                      "포인트 결제 즉시 피드 상단에 노출됩니다. 관리자 승인이 없습니다.",
                     fallbackEn:
-                      "Points are held on apply. After admin approval the post appears at the top of the feed; reject releases the hold.",
+                      "Goes live at the top of the feed immediately with Point. No admin approval.",
                   })}
                 </li>
               </>

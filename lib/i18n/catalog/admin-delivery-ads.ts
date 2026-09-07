@@ -59,7 +59,8 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_creative: "크리에이티브",
     admin_delivery_ads_section_review: "승인 대기",
     admin_delivery_ads_section_history: "이력",
-    admin_delivery_ads_pricing_not_configured: "과금: NOT_CONFIGURED (CUT H 이전)",
+    admin_delivery_ads_pricing_not_configured:
+      "과금: FIXED_DURATION_PACKAGE (Business Cash) / ORDER_PERCENT 미설정",
     admin_delivery_ad_funding_required: "Cash 결제가 필요합니다.",
     admin_delivery_ads_funding_section: "결제·펀딩",
     admin_delivery_ads_funding_source: "소스",
@@ -428,7 +429,8 @@ export const adminDeliveryAdsMessages = {
     admin_delivery_ads_section_creative: "Creative",
     admin_delivery_ads_section_review: "Review",
     admin_delivery_ads_section_history: "History",
-    admin_delivery_ads_pricing_not_configured: "Pricing: NOT_CONFIGURED (before CUT H)",
+    admin_delivery_ads_pricing_not_configured:
+      "Pricing: FIXED_DURATION_PACKAGE (Business Cash) / ORDER_PERCENT not configured",
     admin_delivery_ad_funding_required: "Cash payment is required.",
     admin_delivery_ads_funding_section: "Funding",
     admin_delivery_ads_funding_source: "Source",

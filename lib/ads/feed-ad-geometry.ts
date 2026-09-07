@@ -19,6 +19,8 @@
  *   → FeedAdFramePreview → FeedAdBannerCarousel (Community + Trade)
  */
 
+import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
+
 export type FeedAdHostDensity = "trade" | "community";
 
 /** Source / upload aspect (not runtime CSS aspect-ratio). */
@@ -32,8 +34,9 @@ export const FEED_AD_MEDIA_ASPECT_RATIO = `${FEED_AD_MEDIA_ASPECT_W} / ${FEED_AD
  */
 export const FEED_AD_MEDIA_ASPECT_CLASS = "aspect-[3/1]";
 
-/** Auto-advance interval (Admin multi-slide only). Right→left, loops. */
-export const FEED_AD_SLIDE_INTERVAL_MS = 4000;
+/** Auto-advance interval — canonical owner: BANNER_PLACEMENT_CAPACITY_SSOT (Feed 4000ms). */
+export const FEED_AD_SLIDE_INTERVAL_MS =
+  BANNER_PLACEMENT_CAPACITY_SSOT.COMMUNITY_HOME.rotationIntervalMs;
 /** CSS transform duration for slide move. */
 export const FEED_AD_SLIDE_TRANSITION_MS = 400;
 

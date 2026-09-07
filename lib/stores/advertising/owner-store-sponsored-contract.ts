@@ -1,6 +1,7 @@
 /**
  * CUT C — Owner Store Sponsored application contracts (validation + UI labels).
- * Pricing charge execution remains CUT H — no fake ₱0.
+ * Commercial package authority is LIVE (delivery_ad_packages + Business Cash on submit).
+ * ORDER_PERCENT / attribution charge collection remains NOT_CONFIGURED (CUT H billing).
  */
 
 import {
@@ -26,10 +27,24 @@ export const OWNER_INVENTORY_TO_LEGACY_PLACEMENT = {
   STORES_CATEGORY_FEED: "stores_browse",
 } as const satisfies Record<OwnerStoreSponsoredInventoryKey, StorePaidAdPlacement>;
 
+/**
+ * Owner Delivery Ads product availability / pricing projection.
+ * Canonical commercial owner = delivery_ad_packages (FIXED_DURATION_PACKAGE).
+ * Do not invent prices here — quote via calculateDeliveryAdCommercialQuote / catalog.
+ */
 export const DELIVERY_AD_OWNER_PRICING_PRODUCT = {
-  status: "NOT_CONFIGURED" as const,
+  status: "CONFIGURED" as const,
+  model: "FIXED_DURATION_PACKAGE" as const,
+  currency: "BUSINESS_CASH" as const,
+  packageAuthority: "delivery_ad_packages" as const,
+  /** Package + Business Cash debit on submit is LIVE. */
+  businessCashOnSubmit: true,
+  /**
+   * ORDER_PERCENT / post-attribution collection remains NOT_CONFIGURED.
+   * Kept false so historical "chargeCollection" consumers do not enable ORDER_PERCENT.
+   */
   chargeCollection: false,
-  note: "Launch pricing strategy not configured — CUT H; pricing_model stays null",
+  note: "Package authority LIVE; ORDER_PERCENT charge collection still NOT_CONFIGURED",
 };
 
 export function isOwnerStoreSponsoredInventoryKey(

@@ -285,10 +285,11 @@ describe("CUT J Search / Detail inventory", () => {
     expect(CUT_I_ANALYTICS_AUTHORITY.breakdownRpc).toBe("get_delivery_ad_performance_breakdown");
   });
 
-  it("J36–J38 billing stays disabled / pricing NOT_CONFIGURED", () => {
+  it("J36–J38 ORDER_PERCENT billing stays disabled; package pricing CONFIGURED", () => {
     expect(DELIVERY_AD_BILLING_PLATFORM.isEnabled).toBe(false);
     expect(DELIVERY_AD_BILLING_PLATFORM.status).toBe("DISABLED");
-    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.status).toBe("NOT_CONFIGURED");
+    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.status).toBe("CONFIGURED");
+    expect(DELIVERY_AD_OWNER_PRICING_PRODUCT.chargeCollection).toBe(false);
     expect(DELIVERY_AD_ATTRIBUTION_POLICY.status).toBe("NOT_CONFIGURED");
   });
 

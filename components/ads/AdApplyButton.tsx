@@ -62,8 +62,8 @@ export function AdApplyButton({
         className="w-full rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2.5 sam-text-body-secondary font-semibold text-amber-800 hover:bg-amber-100"
       >
         {safeT("community_top_fix_cta", {
-          fallbackKo: "게시물 홍보하기",
-          fallbackEn: "Promote this post",
+          fallbackKo: "Community 상위노출",
+          fallbackEn: "Community top exposure",
         })}
       </button>
 

@@ -4,6 +4,7 @@
  * FUTURE inventories are not sellable.
  */
 
+import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 import {
   ACTIVE_DELIVERY_AD_INVENTORY_KEYS,
   FUTURE_DELIVERY_AD_INVENTORY_KEYS,
@@ -46,8 +47,9 @@ export const LAUNCH_BANNER_PLACEMENTS = [
     adminTitleKey: "admin_ads_launch_home_hero_title",
     miniature: "home_hero_carousel" as const,
     multiAd: "carousel" as const,
-    visibleAtOnce: 1,
-    autoSlideMs: 5000,
+    visibleAtOnce: BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.visibleAtOnce,
+    /** Canonical owner: BANNER_PLACEMENT_CAPACITY_SSOT (Delivery 5000ms). */
+    autoSlideMs: BANNER_PLACEMENT_CAPACITY_SSOT.STORES_HOME_HERO.rotationIntervalMs,
     loop: true,
     dotsRequired: true,
   },

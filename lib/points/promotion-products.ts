@@ -51,8 +51,8 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     requiresAdminApproval: false,
     titleKey: "promo_product_trade_7_title",
     descriptionKey: "promo_product_trade_7_desc",
-    fallbackTitleKo: "7일 더 알리기",
-    fallbackTitleEn: "Promote for 7 days",
+    fallbackTitleKo: "7일 거래 상위노출",
+    fallbackTitleEn: "Trade top exposure · 7 days",
     fallbackDescKo:
       "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
     fallbackDescEn:
@@ -70,8 +70,8 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     requiresAdminApproval: false,
     titleKey: "promo_product_trade_14_title",
     descriptionKey: "promo_product_trade_14_desc",
-    fallbackTitleKo: "14일 더 알리기",
-    fallbackTitleEn: "Promote for 14 days",
+    fallbackTitleKo: "14일 거래 상위노출",
+    fallbackTitleEn: "Trade top exposure · 14 days",
     fallbackDescKo:
       "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
     fallbackDescEn:
