@@ -91,18 +91,63 @@ const heartbeat = read("lib/community-messenger/call-session-heartbeat.ts");
 if (!heartbeat.includes("heartbeatCommunityMessengerCallSession")) {
   fail("server heartbeat module missing");
 }
-if (!heartbeat.includes("isCallSessionOneSidedHeartbeatStale")) {
-  fail("one-sided stale heartbeat policy missing");
+if (!heartbeat.includes("canEndActiveCallForPresenceStale")) {
+  fail("CUT1: heartbeat cleanup must use both-stale Presence SSOT");
+}
+if (!heartbeat.includes("updateCommunityMessengerCallSession")) {
+  fail("CUT1: heartbeat stale end must call updateCommunityMessengerCallSession");
+}
+if (!heartbeat.includes("CALL_SERVER_HEARTBEAT_ENDED_REASON")) {
+  fail("heartbeat_timeout ended reason missing from cleanup path");
 }
 
 const stalePolicy = read("lib/call/call-server-heartbeat.ts");
 if (!stalePolicy.includes("CALL_SERVER_HEARTBEAT_GRACE_AFTER_ANSWER_MS")) {
   fail("heartbeat grace after answer missing");
 }
+if (!stalePolicy.includes("One-sided stale MUST NOT")) {
+  fail("one-sided stale must remain documented as non-authority");
+}
 
-const staleCron = read("supabase/migrations/20260618150000_community_messenger_call_stale_cron.sql");
-if (!staleCron.includes("cleanup_stale_community_messenger_call_sessions") || !staleCron.includes("pg_cron")) {
-  fail("pg_cron stale cleanup migration missing");
+const presence = read("lib/call/call-active-presence.ts");
+if (!presence.includes("canEndActiveCallForPresenceStale") || !presence.includes("both")) {
+  fail("Presence SSOT both-stale helper missing");
+}
+
+const terminalWriter = read(
+  "lib/community-messenger/call-authority/call-terminal-writer-authority.ts",
+);
+if (!terminalWriter.includes("CALL_TERMINAL_SESSION_WRITER")) {
+  fail("CUT1 terminal writer authority module missing");
+}
+
+const cut1 = read("supabase/migrations/20261210120000_cm_call_terminal_writer_ssot_cut1.sql");
+if (!cut1.includes("cleanup_stale_community_messenger_call_sessions")) {
+  fail("CUT1 migration missing detect-only function");
+}
+if (/SET\s+status\s*=\s*'ended'/i.test(cut1) || /ended_reason\s*=\s*'heartbeat_timeout'/i.test(cut1)) {
+  fail("CUT1 migration must not mutate terminal fields");
+}
+if (!cut1.includes("AND caller_last_heartbeat_at < stale_cutoff") || !cut1.includes("AND callee_last_heartbeat_at < stale_cutoff")) {
+  fail("CUT1 detect predicate must be both-stale AND");
+}
+if (!cut1.includes("unschedule") || !cut1.includes("cleanup_stale_cm_call_sessions")) {
+  fail("CUT1 must unschedule legacy mutating pg_cron job");
+}
+
+const vercel = read("vercel.json");
+if (!vercel.includes("/api/community-messenger/calls/sessions/stale-cleanup")) {
+  fail("CUT1: vercel.json must schedule app stale-cleanup cron");
+}
+
+const staleRoute = read("app/api/community-messenger/calls/sessions/stale-cleanup/route.ts");
+if (!staleRoute.includes("cleanupStaleActiveCommunityMessengerCallSessions")) {
+  fail("stale-cleanup route must call TS cleanup (canonical writer path)");
+}
+
+const staleCronLegacy = read("supabase/migrations/20260618150000_community_messenger_call_stale_cron.sql");
+if (!staleCronLegacy.includes("cleanup_stale_community_messenger_call_sessions") || !staleCronLegacy.includes("pg_cron")) {
+  fail("historical pg_cron stale cleanup migration missing (keep for history)");
 }
 
 console.log("verify:active-call-lifecycle-contract PASS");

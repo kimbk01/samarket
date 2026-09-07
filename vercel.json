@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/delivery-ads-schedule-transitions",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/community-messenger/calls/sessions/stale-cleanup",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

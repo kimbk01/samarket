@@ -35,7 +35,7 @@ SSOT modules:
 |---|---|
 | Session terminal fields | `updateCommunityMessengerCallSession` only (incl. forceEnd → same path with `redial_replaced`) |
 | `duration_seconds` | `createCommunityMessengerCallLog` using duration Authority |
-| SQL cron `cleanup_stale_community_messenger_call_sessions` | Keep for heartbeat orphans; prefer TS heartbeat path with `heartbeat_timeout` reason |
+| SQL `cleanup_stale_community_messenger_call_sessions` | CUT1 detect-only (both-stale candidate count). **Must not** UPDATE terminal fields. Heartbeat stale end = Vercel cron → `/api/.../stale-cleanup` → `updateCommunityMessengerCallSession` (`heartbeat_timeout`) |
 
 ## Forbidden writers
 

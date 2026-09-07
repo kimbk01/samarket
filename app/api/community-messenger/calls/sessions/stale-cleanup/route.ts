@@ -17,12 +17,15 @@ async function runStaleCleanup(req: NextRequest) {
   return NextResponse.json({ ok: true, ...result });
 }
 
-/** Service/cron — one-sided stale active call cleanup + peer notify (TS path) */
+/**
+ * CUT1 Terminal Writer SSOT — sole scheduled path for heartbeat-stale terminal ends.
+ * Presence: both-stale AND only → updateCommunityMessengerCallSession (not SQL UPDATE).
+ */
 export async function POST(req: NextRequest) {
   return runStaleCleanup(req);
 }
 
-/** Vercel Cron (GET) — enable via vercel.json when pg_cron is not the stale cleanup owner */
+/** Vercel Cron (GET) — registered in vercel.json after CUT1 (pg_cron no longer ends sessions) */
 export async function GET(req: NextRequest) {
   return runStaleCleanup(req);
 }
