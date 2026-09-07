@@ -183,8 +183,18 @@ export function AdminAdsDirectDeliveryCreateView() {
         </h1>
         <p className="text-[12px] text-sam-muted">
           {humanPlacementLabel(inventoryKey, ko)} · {inventoryKey}
-          {preselectSlot >= 1 ? ` · Slide ${preselectSlot}` : ""}
         </p>
+        {preselectSlot >= 1 ? (
+          <p
+            className="text-[12px] text-sam-muted"
+            data-admin-delivery-slot-request="1"
+            data-admin-delivery-slot-guaranteed="0"
+          >
+            {ko
+              ? `요청 위치: Slide ${preselectSlot} (등록 시 실제 Slide는 빈 위치에 배정됩니다)`
+              : `Requested context: Slide ${preselectSlot} (actual Slide is assigned to a vacant position on register)`}
+          </p>
+        ) : null}
       </header>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-delivery-slots="1">

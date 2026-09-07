@@ -7,10 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
-import {
-  BANNER_PLACEMENT_CAPACITY_SSOT,
-  bannerPlacementDefaultCapacity,
-} from "@/lib/ads/banner-placement-capacity-ssot";
+import { feedAdPoolCapacity } from "@/lib/ads/feed-ad-pool-capacity";
 import {
   FEED_AD_RECOMMENDED_UPLOAD,
   FEED_AD_UPLOAD_MAX_FILE_BYTES,
@@ -39,14 +36,6 @@ const EMPTY_SLIDE: SlideDraft = {
   previewUrl: "",
   fileName: "",
 };
-
-function feedCapacityForPlacement(placement: FeedAdPlacement): number {
-  if (placement === "TRADE_HOME" || placement === "COMMUNITY_HOME") {
-    return bannerPlacementDefaultCapacity(placement);
-  }
-  // Topic/category pool uses the same 3-cap semantics as home (Owner R2).
-  return BANNER_PLACEMENT_CAPACITY_SSOT.COMMUNITY_HOME.defaultCapacity;
-}
 
 function humanUploadError(raw: string, ko: boolean): string {
   const s = raw.toLowerCase();
@@ -167,7 +156,7 @@ export function AdminFeedAdCreatePage({
     return surfaceMode === "home" ? "COMMUNITY_HOME" : "COMMUNITY_TOPIC";
   }, [domain, surfaceMode]);
 
-  const capacity = feedCapacityForPlacement(placement);
+  const capacity = feedAdPoolCapacity(placement);
   const used = usedByPlacement[placement] ?? 0;
   const remaining = Math.max(0, capacity - used);
   const createCopy = adsCreateConfirmCopy(ko);
