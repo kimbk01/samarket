@@ -2,6 +2,11 @@
  * Shared Ads operator PRESENTATION only — no mutation / no unified Ads SSOT.
  */
 
+import {
+  formatAdsPeriodRange,
+  formatAdsRemaining,
+} from "@/lib/admin/ads-exposure/canonical-location-period";
+
 export type AdsOperatorExposureState =
   | "not_yet"
   | "scheduled"
@@ -71,41 +76,16 @@ export function adsRemainingPeriodLabel(
   ko: boolean,
   nowMs = Date.now()
 ): string {
-  if (!endAt) return ko ? "종료일 없음" : "No end date";
-  const end = new Date(endAt).getTime();
-  if (!Number.isFinite(end)) return "—";
-  const ms = end - nowMs;
-  if (ms <= 0) return ko ? "종료됨" : "Ended";
-  const hours = Math.floor(ms / 3600000);
-  if (hours < 24) {
-    if (hours <= 0) return ko ? "오늘 종료" : "Ends today";
-    return ko ? `${hours}시간 남음` : `${hours}h left`;
-  }
-  const days = Math.floor(hours / 24);
-  const remH = hours % 24;
-  if (remH === 0) return ko ? `${days}일 남음` : `${days}d left`;
-  return ko ? `${days}일 ${remH}시간 남음` : `${days}d ${remH}h left`;
+  return formatAdsRemaining(startAt, endAt, nowMs, ko).label;
 }
 
 export function formatAdsPeriod(
   startAt: string | null | undefined,
   endAt: string | null | undefined,
-  locale = "ko-KR"
+  _locale = "ko-KR"
 ): string {
-  const fmt = (iso: string | null | undefined) => {
-    if (!iso) return "?";
-    const t = new Date(iso).getTime();
-    if (!Number.isFinite(t)) return "?";
-    return new Date(t).toLocaleString(locale, {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-  if (!startAt && !endAt) return "—";
-  return `${fmt(startAt)} ~ ${fmt(endAt)}`;
+  void _locale;
+  return formatAdsPeriodRange(startAt, endAt, true).label;
 }
 
 const TEST_NAME_RE =

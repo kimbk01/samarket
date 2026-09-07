@@ -1,8 +1,8 @@
 /**
  * Community Paid Exposure — point_promotion_orders authority.
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
- * ADDENDUM LOCK: new member purchase = HOLD → Admin approve CAPTURE / reject·cancel RELEASE.
- * `applyCommunityPaidExposureImmediate` kept for legacy readers only (requiresAdminApproval=false SKUs).
+ * OWNER POLICY LOCK: active catalog SKUs use Immediate (Point pay → active).
+ * Pending+HOLD path remains for requiresAdminApproval=true legacy/tooling only.
  * DO NOT insert post_ads. DO NOT use Trade RPC (posts table) for community.
  */
 
@@ -157,8 +157,7 @@ export async function applyCommunityPaidExposurePending(
 }
 
 /**
- * Legacy A2 immediate path — blocked for active catalog SKUs (requiresAdminApproval=true).
- * Kept so historical tooling/RPC readers are not deleted; new POST routes must use Pending+HOLD.
+ * OWNER POLICY: Point pay → immediate active when requiresAdminApproval=false.
  */
 export async function applyCommunityPaidExposureImmediate(
   sb: SupabaseClient,

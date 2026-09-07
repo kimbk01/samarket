@@ -35,6 +35,7 @@ import {
   popupWaitingReasonLabel,
 } from "@/lib/admin/ads-exposure/popup-completeness";
 import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
+import { formatAdsPeriodRange } from "@/lib/admin/ads-exposure/canonical-location-period";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -47,10 +48,9 @@ function memberHref(userId: string): string {
 }
 
 function formatPeriod(startAt: string | null | undefined, endAt: string | null | undefined): string | null {
-  if (!startAt && !endAt) return null;
-  const a = startAt ? new Date(startAt).toLocaleDateString("ko") : "?";
-  const b = endAt ? new Date(endAt).toLocaleDateString("ko") : "?";
-  return `${a} → ${b}`;
+  const r = formatAdsPeriodRange(startAt, endAt, true);
+  if (!r.valid && !r.error) return null;
+  return r.label;
 }
 
 function opsLabel(ops: AdsOpsStatus): string {

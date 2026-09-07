@@ -77,12 +77,12 @@ describe("community Boost HOLD → CAPTURE / RELEASE", () => {
     releaseHeld.mockResolvedValue({ ok: true });
   });
 
-  it("catalog SKUs require Admin approval (HOLD default path)", () => {
-    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(true);
-    expect(getMemberPromotionProduct("community_promote_7")?.requiresAdminApproval).toBe(true);
+  it("catalog SKUs skip Admin approval (immediate Point path)", () => {
+    expect(getMemberPromotionProduct("community_promote_3")?.requiresAdminApproval).toBe(false);
+    expect(getMemberPromotionProduct("community_promote_7")?.requiresAdminApproval).toBe(false);
   });
 
-  it("pending apply HOLDs points and returns pending_review", async () => {
+  it("pending apply rejects catalog SKUs (HOLD path not used for active catalog)", async () => {
     const sb = pendingApplySb();
     const res = await applyCommunityPaidExposurePending(sb, {
       userId: "user-1",
@@ -91,18 +91,10 @@ describe("community Boost HOLD → CAPTURE / RELEASE", () => {
       idempotencyKey: "idem-hold-1",
       targetTitle: "Hello",
     });
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.status).toBe("pending_review");
-    expect(res.pointCost).toBe(10000);
-    expect(holdPoints).toHaveBeenCalledWith(
-      sb,
-      expect.objectContaining({
-        userId: "user-1",
-        pointCost: 10000,
-        orderId: res.orderId,
-      })
-    );
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toBe("invalid_product");
+    expect(holdPoints).not.toHaveBeenCalled();
   });
 
   it("approve CAPTUREs held points", async () => {

@@ -5,10 +5,34 @@ vi.mock("@/lib/ads/post-ads-supabase", () => ({
   resolveCanonicalCommunityPostIdForAds: vi.fn(async () => "post-1"),
 }));
 
-describe("applyCommunityPaidExposureImmediate (legacy A2 — blocked for HOLD catalog)", () => {
-  it("rejects active community catalog SKUs (requiresAdminApproval=true)", async () => {
-    const rpc = vi.fn();
-    const sb = { from: () => ({}), rpc } as never;
+describe("applyCommunityPaidExposureImmediate (OWNER: Point → active)", () => {
+  it("accepts active community catalog SKUs (requiresAdminApproval=false)", async () => {
+    const rpc = vi.fn(async () => ({
+      data: {
+        ok: true,
+        order_id: "ord-1",
+        status: "active",
+        start_at: "2026-09-07T00:00:00.000Z",
+        end_at: "2026-09-10T00:00:00.000Z",
+        point_cost: 10000,
+        product_id: "community_promote_3",
+      },
+      error: null,
+    }));
+    const maybeSingle = vi.fn(async () => ({
+      data: { id: "post-1", title: "Hello", user_id: "user-1", status: "active" },
+      error: null,
+    }));
+    const sb = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle,
+          }),
+        }),
+      }),
+      rpc,
+    } as never;
     const res = await applyCommunityPaidExposureImmediate(sb, {
       userId: "user-1",
       postId: "post-1",
@@ -16,10 +40,10 @@ describe("applyCommunityPaidExposureImmediate (legacy A2 — blocked for HOLD ca
       idempotencyKey: "idem-1",
       targetTitle: "Hello",
     });
-    expect(res.ok).toBe(false);
-    if (res.ok) return;
-    expect(res.error).toBe("invalid_product");
-    expect(rpc).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.status).toBe("active");
+    expect(rpc).toHaveBeenCalled();
   });
 
   it("rejects legacy post_ads product ids before RPC", async () => {

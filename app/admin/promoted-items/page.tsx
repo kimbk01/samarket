@@ -1,5 +1,6 @@
-import { AdminPromotedItemListPage } from "@/components/admin/ads/AdminPromotedItemListPage";
+import { redirect } from "next/navigation";
 
-export default function AdminPromotedItemsPage() {
-  return <AdminPromotedItemListPage />;
+/** Legacy Point exposure list → 광고 이력 */
+export default function AdminPromotedItemsRedirectPage() {
+  redirect("/admin/advertising/history");
 }

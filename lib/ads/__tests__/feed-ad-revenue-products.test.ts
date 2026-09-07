@@ -41,14 +41,14 @@ describe("feed banner products — DB row mapper + deploy seed", () => {
 });
 
 describe("paid exposure family includes community", () => {
-  it("community prices from top_fixed seed and activate immediately (A2)", () => {
+  it("community prices from top_fixed seed and activate immediately", () => {
     const c3 = getMemberPromotionProduct("community_promote_3");
     expect(c3?.pointCost).toBe(10000);
-    expect(c3?.requiresAdminApproval).toBe(true);
+    expect(c3?.requiresAdminApproval).toBe(false);
     expect(listActiveMemberPromotionProducts("community").length).toBe(2);
   });
 
-  it("trade listing promotion requires admin approval (HOLD)", () => {
-    expect(getMemberPromotionProduct("trade_promote_7")?.requiresAdminApproval).toBe(true);
+  it("trade listing promotion skips admin approval (auto-live)", () => {
+    expect(getMemberPromotionProduct("trade_promote_7")?.requiresAdminApproval).toBe(false);
   });
 });

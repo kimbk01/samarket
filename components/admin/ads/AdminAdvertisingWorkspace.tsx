@@ -31,34 +31,82 @@ import {
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history";
+type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history" | "boosts";
 
-const STATUS_TABS: Array<{ id: AdsShellStatusTab; ko: string; en: string }> = [
+const STATUS_TABS_ALL: Array<{ id: AdsShellStatusTab; ko: string; en: string }> = [
   { id: "all", ko: "전체", en: "All" },
-  { id: "pending", ko: "승인 대기", en: "Pending" },
-  { id: "incomplete", ko: "불완전/임시", en: "Incomplete" },
+  { id: "pending", ko: "확인중", en: "In review" },
+  { id: "incomplete", ko: "보류", en: "On hold" },
   { id: "scheduled", ko: "예약", en: "Scheduled" },
-  { id: "live", ko: "노출 중", en: "Live" },
+  { id: "live", ko: "현재 노출", en: "Live" },
   { id: "waiting", ko: "노출 대기", en: "Waiting" },
   { id: "paused", ko: "일시중지", en: "Paused" },
   { id: "ended", ko: "종료", en: "Ended" },
   { id: "rejected", ko: "반려", en: "Rejected" },
 ];
 
-const FAMILY_TABS: Array<{ id: AdsShellProductFamily; ko: string; en: string }> = [
-  { id: "all", ko: "전체 종류", en: "All kinds" },
-  { id: "promote", ko: "상위 노출", en: "Promote" },
-  { id: "banner", ko: "배너", en: "Banner" },
-  { id: "sponsored", ko: "매장 홍보", en: "Store promote" },
-  { id: "popup", ko: "팝업", en: "Popup" },
-];
+function statusTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShellStatusTab; ko: string; en: string }> {
+  if (mode === "applications") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "pending", ko: "확인중", en: "In review" },
+      { id: "incomplete", ko: "보류", en: "On hold" },
+      { id: "rejected", ko: "반려", en: "Rejected" },
+    ];
+  }
+  if (mode === "boosts") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "live", ko: "현재 노출", en: "Live" },
+      { id: "scheduled", ko: "예약", en: "Scheduled" },
+      { id: "paused", ko: "제재 중", en: "Sanctioned" },
+      { id: "ended", ko: "종료", en: "Ended" },
+    ];
+  }
+  if (mode === "operations") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "live", ko: "현재 노출", en: "Live" },
+      { id: "waiting", ko: "노출 대기", en: "Waiting" },
+      { id: "scheduled", ko: "예약", en: "Scheduled" },
+      { id: "paused", ko: "일시중지", en: "Paused" },
+      { id: "incomplete", ko: "비노출", en: "Not exposing" },
+      { id: "ended", ko: "종료", en: "Ended" },
+    ];
+  }
+  return STATUS_TABS_ALL;
+}
+
+function familyTabsForMode(mode: AdvertisingWorkspaceMode): Array<{ id: AdsShellProductFamily; ko: string; en: string }> {
+  if (mode === "boosts") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "promote", ko: "상위 노출", en: "Promote" },
+    ];
+  }
+  if (mode === "applications" || mode === "operations") {
+    return [
+      { id: "all", ko: "전체", en: "All" },
+      { id: "banner", ko: "배너", en: "Banner" },
+      { id: "popup", ko: "팝업", en: "Popup" },
+      { id: "sponsored", ko: "매장홍보", en: "Store promote" },
+    ];
+  }
+  return [
+    { id: "all", ko: "전체 종류", en: "All kinds" },
+    { id: "promote", ko: "상위 노출", en: "Promote" },
+    { id: "banner", ko: "배너", en: "Banner" },
+    { id: "sponsored", ko: "매장 홍보", en: "Store promote" },
+    { id: "popup", ko: "팝업", en: "Popup" },
+  ];
+}
 
 const ACTION_LABEL: Record<WorkspaceDrawerAction, { ko: string; en: string }> = {
   approve: { ko: "승인", en: "Approve" },
   reject: { ko: "반려", en: "Reject" },
   request_changes: { ko: "보류", en: "Hold" },
   pause: { ko: "일시중지", en: "Pause" },
-  resume: { ko: "다시 노출", en: "Resume" },
+  resume: { ko: "재개", en: "Resume" },
   end: { ko: "종료", en: "End" },
   terminate: { ko: "강제 종료", en: "Terminate" },
   delete_safe_draft: { ko: "삭제", en: "Delete draft" },
@@ -137,12 +185,14 @@ function defaultStatusTabForMode(mode: AdvertisingWorkspaceMode): AdsShellStatus
   if (mode === "history") return "ended";
   if (mode === "applications") return "pending";
   if (mode === "operations") return "live";
+  if (mode === "boosts") return "live";
   return "all";
 }
 
 function modeTitle(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   if (mode === "operations") return ko ? "노출 관리" : "Exposure operations";
-  if (mode === "applications") return ko ? "광고 신청" : "Ad applications";
+  if (mode === "applications") return ko ? "광고 승인" : "Ad approval";
+  if (mode === "boosts") return ko ? "상위노출 관리" : "Boost management";
   if (mode === "history") return ko ? "광고 이력" : "Ads history";
   return ko ? "전체 광고" : "All ads";
 }
@@ -150,43 +200,57 @@ function modeTitle(mode: AdvertisingWorkspaceMode, ko: boolean): string {
 function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   if (mode === "operations") {
     return ko
-      ? "승인되어 캠페인이 생성된 광고만 운영합니다. 신청 승인/반려 action은 이 화면에서 제공하지 않습니다."
-      : "Operate approved campaigns only. Application approval actions are not exposed here.";
+      ? "승인 완료·Admin Direct 광고를 운영합니다. 운영 상태만 변경하며, 실제 노출은 resolver/placement 결과입니다."
+      : "Operate approved and Admin Direct ads. Only ops status is writable; runtime is projected.";
   }
   if (mode === "applications") {
     return ko
-      ? "승인 전 광고 신청만 처리합니다. 승인된 캠페인의 기간 변경·중지·재개·종료는 노출 관리에서 처리합니다."
-      : "Handle pre-approval applications only. Approved campaign operations move to Operations.";
+      ? "배너·팝업·매장홍보 신청만 확인중/보류/승인합니다. Community/Trade 상위노출은 상위노출 관리에서 봅니다."
+      : "Approve Banner/Popup/Delivery sponsored only. Community/Trade boosts are in Boost management.";
+  }
+  if (mode === "boosts") {
+    return ko
+      ? "Community/Trade Point 상위노출만 봅니다. 승인 없음. 제재(노출 중지)=pause, 재개=resume."
+      : "Community/Trade Point boosts only. No approval. Sanction=pause, resume=resume.";
   }
   if (mode === "history") {
     return ko
-      ? "종료·반려·취소된 광고 변경 이력을 확인합니다. 신규 운영 action은 제공하지 않습니다."
-      : "Review ended, rejected, and cancelled ad history. New operation actions are not exposed.";
+      ? "종료·반려·취소·제재된 광고 이력을 확인합니다."
+      : "Review ended, rejected, cancelled, and sanctioned ad history.";
   }
   return ko
-    ? "전체 광고를 검색하고 올바른 신청·운영·위치 authority로 진입합니다."
-    : "Search all ads and enter the correct application, operation, or placement authority.";
+    ? "전체 광고를 검색하고 올바른 승인·운영·위치 authority로 진입합니다."
+    : "Search all ads and enter the correct approval, operation, or placement authority.";
+}
+
+function isBoostDomain(domain: string): boolean {
+  return domain === "trade_promote" || domain === "community_promote";
 }
 
 function filterRowsByMode(rows: AdsShellListRow[], mode: AdvertisingWorkspaceMode): AdsShellListRow[] {
+  if (mode === "boosts") {
+    return rows.filter((r) => isBoostDomain(r.domain));
+  }
   if (mode === "operations") {
     return rows.filter(
       (r) =>
+        !isBoostDomain(r.domain) &&
         (r.applicationStatusLabel === "—" ||
           (r.domain === "popup" && String(r.id).startsWith("popup_campaign:"))) &&
-        ["scheduled", "live", "waiting", "paused", "incomplete"].includes(r.statusTab)
+        ["scheduled", "live", "waiting", "paused", "incomplete", "ended"].includes(r.statusTab)
     );
   }
   if (mode === "applications") {
     return rows.filter(
       (r) =>
+        !isBoostDomain(r.domain) &&
         !(r.domain === "popup" && String(r.id).startsWith("popup_campaign:")) &&
         r.applicationStatusLabel !== "—" &&
         ["pending", "incomplete", "rejected"].includes(r.statusTab)
     );
   }
   if (mode === "history") {
-    return rows.filter((r) => r.statusTab === "ended" || r.statusTab === "rejected");
+    return rows.filter((r) => r.statusTab === "ended" || r.statusTab === "rejected" || r.statusTab === "paused");
   }
   return rows;
 }
@@ -196,11 +260,15 @@ function filterActionsByMode(
   mode: AdvertisingWorkspaceMode
 ): WorkspaceDrawerAction[] {
   if (mode === "applications") {
-    return actions.filter((a) => ["approve", "reject", "request_changes", "add_internal_memo"].includes(a));
+    return actions.filter((a) => ["approve", "reject", "request_changes"].includes(a));
+  }
+  if (mode === "boosts") {
+    // Single sanction CTA: pause = 제재, resume = 재개 (no duplicate end as 중지)
+    return actions.filter((a) => ["pause", "resume"].includes(a));
   }
   if (mode !== "operations") return [];
   return actions.filter((a) =>
-    ["change_period", "pause", "resume", "end", "terminate", "add_internal_memo", "extend_compensation"].includes(a)
+    ["change_period", "pause", "resume", "end", "terminate", "extend_compensation"].includes(a)
   );
 }
 
@@ -238,7 +306,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
   const shellRows = useMemo(() => {
     if (!model) return [] as AdsShellListRow[];
     const items = collectPool(model);
-    let rows = items.map((i) => toAdsShellListRow(i, ko));
+    let rows = items.map((i) => toAdsShellListRow(i, ko, mode));
     rows = filterRowsByMode(rows, mode);
     rows = filterShellRowsByProductFamily(rows, family);
     rows = filterShellRowsByTab(rows, statusTab);
@@ -462,7 +530,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       </div>
 
       <div className="flex flex-wrap gap-2" data-shell-status-tabs="1">
-        {STATUS_TABS.map((t) => (
+        {statusTabsForMode(mode).map((t) => (
           <button
             key={t.id}
             type="button"
@@ -480,7 +548,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       </div>
 
       <div className="flex flex-wrap gap-2" data-shell-family-tabs="1">
-        {FAMILY_TABS.map((t) => (
+        {familyTabsForMode(mode).map((t) => (
           <button
             key={t.id}
             type="button"
@@ -564,24 +632,30 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
             <thead className="bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-2 py-2 font-medium">{ko ? "종류" : "Kind"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "신청자" : "Applicant"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "광고명" : "Name"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "출처/신청자" : "Source"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "회원/매장" : "Member/Store"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "광고 대상" : "Target"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "노출 위치" : "Placement"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "배너 상세" : "Banner detail"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "기간" : "Period"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "금액" : "Amount"}</th>
+                <th className="px-2 py-2 font-medium">{ko ? "남은 기간" : "Remaining"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "결제" : "Pay"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "신청 상태" : "Application"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "운영 상태" : "Campaign"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "실제 노출" : "Runtime"}</th>
+                <th className="px-2 py-2 font-medium">
+                  {mode === "applications"
+                    ? ko
+                      ? "승인 상태"
+                      : "Approval"
+                    : ko
+                      ? "운영 상태"
+                      : "Ops"}
+                </th>
+                <th className="px-2 py-2 font-medium">{ko ? "실제 노출 상태" : "Runtime"}</th>
                 <th className="px-2 py-2 font-medium">{ko ? "관리" : "Manage"}</th>
               </tr>
             </thead>
             <tbody>
               {shellRows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={11} className="px-3 py-8 text-center text-sam-muted">
                     {ko ? "표시할 광고가 없습니다." : "No ads in this filter."}
                   </td>
                 </tr>
@@ -603,7 +677,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                   return (
                     <tr key={r.id} className="border-t border-sam-border align-top">
                       <td className="px-2 py-2">
-                        <div className="flex min-w-[150px] items-center gap-2">
+                        <div className="flex min-w-[120px] items-center gap-2">
                           {r.creativeImageUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element -- operator creative thumbnail
                             <img
@@ -614,28 +688,34 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                           ) : (
                             <span className="h-10 w-10 shrink-0 rounded-ui-rect bg-sam-border/40" />
                           )}
-                          <span>
-                            <span className="block font-medium text-sam-fg">{r.kindLabel}</span>
-                            <span className="block max-w-[170px] truncate text-[11px] text-sam-muted">
-                              {r.title}
-                            </span>
-                          </span>
+                          <span className="font-medium text-sam-fg">{r.kindLabel}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-2">{r.applicantLabel}</td>
+                      <td className="px-2 py-2 max-w-[160px] truncate font-medium">{r.title}</td>
+                      <td className="px-2 py-2">
+                        {r.sourceKind === "admin_direct"
+                          ? ko
+                            ? "Admin 직접 등록"
+                            : "Admin direct"
+                          : r.applicantLabel}
+                      </td>
                       <td className="px-2 py-2">{r.memberOrStore}</td>
-                      <td className="px-2 py-2 max-w-[140px] truncate">{r.targetLabel}</td>
-                      <td className="px-2 py-2">{r.placementLabel}</td>
-                      <td className="px-2 py-2">{r.slideLabel ? r.slideLabel.split(">").pop()?.trim() : "—"}</td>
-                      <td className="px-2 py-2 whitespace-nowrap">{r.periodLabel}</td>
-                      <td className="px-2 py-2">{r.amountLabel}</td>
+                      <td className="px-2 py-2 max-w-[200px] text-[12px]">{r.placementLabel}</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-[12px]">{r.periodLabel}</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-[12px]">{r.remainingLabel}</td>
                       <td className="px-2 py-2">{r.paymentLabel}</td>
-                      <td className="px-2 py-2">{r.applicationStatusLabel}</td>
-                      <td className="px-2 py-2">{r.campaignStatusLabel}</td>
+                      <td className="px-2 py-2">
+                        {mode === "applications" ? r.applicationStatusLabel : r.campaignStatusLabel}
+                      </td>
                       <td className="px-2 py-2">
                         <div>{r.runtimeExposureStatusLabel}</div>
-                        {r.waitingReasonLabel ? (
+                        {mode !== "applications" && r.waitingReasonLabel ? (
                           <div className="mt-1 max-w-[180px] text-[11px] text-sam-muted">{r.waitingReasonLabel}</div>
+                        ) : null}
+                        {mode !== "applications" && r.winnerOccupantLabel ? (
+                          <div className="mt-1 max-w-[180px] text-[11px] text-sam-muted">
+                            {ko ? "현재 점유" : "Occupant"}: {r.winnerOccupantLabel}
+                          </div>
                         ) : null}
                       </td>
                       <td className="relative px-2 py-2">
@@ -687,7 +767,13 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                                 disabled={busyAction != null}
                                 onClick={() => void runDrawerAction(a, item)}
                               >
-                                {ko ? ACTION_LABEL[a].ko : ACTION_LABEL[a].en}
+                                {mode === "boosts" && a === "pause"
+                                  ? ko
+                                    ? "제재(노출 중지)"
+                                    : "Sanction (pause)"
+                                  : ko
+                                    ? ACTION_LABEL[a].ko
+                                    : ACTION_LABEL[a].en}
                               </button>
                             ))}
                             {mode === "operations" && r.domain === "delivery" ? (
@@ -709,16 +795,12 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
           </table>
         </div>
 
-        {mode === "operations" ? (
+        {mode === "operations" && selected && selectedShell ? (
         <aside
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
           data-shell-detail-panel="1"
         >
-          {!selected || !selectedShell ? (
-            <p className="text-[13px] text-sam-muted">
-              {ko ? "목록에서 광고를 선택하세요." : "Select an ad from the list."}
-            </p>
-          ) : (
+          {(
             <div className="space-y-3">
               {selectedShell.creativeImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- operator creative preview
@@ -750,6 +832,10 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                 <div className="flex justify-between gap-2">
                   <dt className="text-sam-muted">{ko ? "기간" : "Period"}</dt>
                   <dd>{selectedShell.periodLabel}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-sam-muted">{ko ? "남은 기간" : "Remaining"}</dt>
+                  <dd>{selectedShell.remainingLabel}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-sam-muted">{ko ? "노출 위치" : "Placement"}</dt>
@@ -906,12 +992,8 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       </div>
 
       <p className="text-[11px] text-sam-muted">
-        <Link href="/admin/delivery-ads/commercial-settings" className="underline">
+        <Link href="/admin/advertising/products" className="underline">
           {ko ? "광고 상품 / 가격" : "Products & pricing"}
-        </Link>
-        {" · "}
-        <Link href="/admin/feed-ad-products" className="underline">
-          {ko ? "피드 배너 가격" : "Feed banner pricing"}
         </Link>
       </p>
     </div>

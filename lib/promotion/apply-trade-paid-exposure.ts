@@ -1,8 +1,7 @@
 /**
- * Trade「더 알리기」pending HOLD → admin approve/reject.
- * Mirrors community apply-community-paid-exposure pending path.
- * LIST projection reads order_status=active only — pending never appears on /market.
- * DO NOT use purchase_member_content_promotion (immediate active) when approval is required.
+ * Trade「더 알리기」— pending HOLD path for requiresAdminApproval=true only.
+ * OWNER POLICY: active catalog uses purchase_member_content_promotion (immediate).
+ * LIST projection reads order_status=active only.
  */
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";

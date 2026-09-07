@@ -1,8 +1,8 @@
 /**
  * Member content Promotion product SSOT (AST-001 Point only).
  * CONTRACT: docs/dibay-paid-exposure-feed-ad-master-contract.md
+ * OWNER POLICY LOCK: Community/Trade Boost = Point pay → immediate active (no admin approval).
  * DO NOT: archived store-credit schema (AST-002), client-trusted prices, placement keys as user CTA.
- * Community prices from ad_products plife top_fixed seed (10000/20000) — not Trade copy.
  */
 
 export const PROMOTION_PRICE_ASSET = "D_POINT" as const;
@@ -26,9 +26,8 @@ export type MemberPromotionProduct = {
   sortOrder: number;
   active: boolean;
   /**
-   * ADDENDUM LOCK: applicant-paid Boost = HOLD → Admin approve → CAPTURE.
-   * true for all active Trade + Community promote SKUs.
-   * Immediate ACTIVE path is not the default for new member purchases.
+   * OWNER POLICY LOCK: false for all active Trade + Community promote SKUs.
+   * Point payment → immediate ACTIVE; Admin is post-hoc sanction only.
    */
   requiresAdminApproval: boolean;
   titleKey: string;
@@ -49,15 +48,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 500,
     sortOrder: 10,
     active: true,
-    requiresAdminApproval: true,
+    requiresAdminApproval: false,
     titleKey: "promo_product_trade_7_title",
     descriptionKey: "promo_product_trade_7_desc",
     fallbackTitleKo: "7일 더 알리기",
     fallbackTitleEn: "Promote for 7 days",
     fallbackDescKo:
-      "관리자 승인 후 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
     fallbackDescEn:
-      "After admin approval, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
   },
   {
     id: "trade_promote_14",
@@ -68,15 +67,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 900,
     sortOrder: 20,
     active: true,
-    requiresAdminApproval: true,
+    requiresAdminApproval: false,
     titleKey: "promo_product_trade_14_title",
     descriptionKey: "promo_product_trade_14_desc",
     fallbackTitleKo: "14일 더 알리기",
     fallbackTitleEn: "Promote for 14 days",
     fallbackDescKo:
-      "관리자 승인 후 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
+      "결제 즉시 거래 홈(전체)과 이 글의 카테고리 목록에 일반 매물처럼 섞여 노출됩니다. 1위 고정이 아니며, 표면당 최대 3개입니다.",
     fallbackDescEn:
-      "After admin approval, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
+      "After payment, shown among listings on Trade home and this post’s category feed. Not a guaranteed #1 — up to 3 per surface.",
   },
   {
     id: "community_promote_3",
@@ -87,15 +86,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 10000,
     sortOrder: 30,
     active: true,
-    requiresAdminApproval: true,
+    requiresAdminApproval: false,
     titleKey: "promo_product_community_3_title",
     descriptionKey: "promo_product_community_3_desc",
     fallbackTitleKo: "커뮤니티 3일 상위 노출",
     fallbackTitleEn: "Community top exposure · 3 days",
     fallbackDescKo:
-      "관리자 승인 후 커뮤니티 피드 상단에 3일간 우선 노출됩니다. 신청 시 Point가 보류(HOLD)되고, 승인 시 결제·거절 시 반환됩니다.",
+      "결제 즉시 커뮤니티 피드 상단에 3일간 우선 노출됩니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
     fallbackDescEn:
-      "After admin approval, priority at top of the community feed for 3 days. Points are held on apply, captured on approve, released on reject.",
+      "After payment, priority at top of the community feed for 3 days. No admin approval wait — Points are charged immediately.",
   },
   {
     id: "community_promote_7",
@@ -106,15 +105,15 @@ const PRODUCTS: readonly MemberPromotionProduct[] = [
     pointCost: 20000,
     sortOrder: 40,
     active: true,
-    requiresAdminApproval: true,
+    requiresAdminApproval: false,
     titleKey: "promo_product_community_7_title",
     descriptionKey: "promo_product_community_7_desc",
     fallbackTitleKo: "커뮤니티 7일 상위 노출",
     fallbackTitleEn: "Community top exposure · 7 days",
     fallbackDescKo:
-      "관리자 승인 후 커뮤니티 피드 상단에 7일간 우선 노출됩니다. 신청 시 Point가 보류(HOLD)되고, 승인 시 결제·거절 시 반환됩니다.",
+      "결제 즉시 커뮤니티 피드 상단에 7일간 우선 노출됩니다. 관리자 승인 대기 없이 Point가 결제됩니다.",
     fallbackDescEn:
-      "After admin approval, priority at top of the community feed for 7 days. Points are held on apply, captured on approve, released on reject.",
+      "After payment, priority at top of the community feed for 7 days. No admin approval wait — Points are charged immediately.",
   },
 ];
 

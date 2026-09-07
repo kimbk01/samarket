@@ -6,7 +6,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const NAV_ITEMS = [
   { href: "/admin/advertising", ko: "전체 광고", en: "All ads" },
-  { href: "/admin/advertising/applications", ko: "광고 신청", en: "Applications" },
+  { href: "/admin/advertising/boosts", ko: "상위노출 관리", en: "Boosts" },
+  { href: "/admin/advertising/applications", ko: "광고 승인", en: "Approval" },
   { href: "/admin/advertising/operations", ko: "노출 관리", en: "Operations" },
   { href: "/admin/advertising/placements", ko: "광고 위치", en: "Placements" },
   { href: "/admin/advertising/products", ko: "광고 상품 / 가격", en: "Products / pricing" },

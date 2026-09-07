@@ -1,5 +1,6 @@
-import { AdminFeedAdsListPage } from "@/components/admin/ads/AdminFeedAdsListPage";
+import { redirect } from "next/navigation";
 
-export default function AdminFeedAdsPage() {
-  return <AdminFeedAdsListPage />;
+/** Feed execution list → 노출 관리 */
+export default function AdminFeedAdsRedirectPage() {
+  redirect("/admin/advertising/operations");
 }

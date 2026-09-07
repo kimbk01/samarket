@@ -18,15 +18,16 @@ describe("workspace drawer writer CTAs", () => {
     expect(actions).not.toContain("terminate");
   });
 
-  it("active community boost keeps pause/end as authority GAP (no fake CTAs)", () => {
-    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(false);
-    expect(isAdminAuthorityCtaAllowed("boost_community", "END")).toBe(false);
+  it("active community boost exposes pause/resume/end (Owner sanction writers)", () => {
+    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(true);
+    expect(isAdminAuthorityCtaAllowed("boost_community", "RESUME")).toBe(true);
+    expect(isAdminAuthorityCtaAllowed("boost_community", "END")).toBe(true);
     const actions = listWorkspaceDrawerActions({
       family: "boost_community",
       statusRaw: "active",
     });
-    expect(actions).not.toContain("pause");
-    expect(actions).not.toContain("end");
+    expect(actions).toContain("pause");
+    expect(actions).toContain("end");
   });
 
   it("maps control domains to families", () => {

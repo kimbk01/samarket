@@ -11,9 +11,12 @@ describe("find-admin-menu-item", () => {
   it("finds ads workspace leaves by key", () => {
     const ads = findAdminMenuByKey(adminMenu, "ads");
     expect(ads?.children?.length).toBeGreaterThan(0);
-    expect(ads?.children?.some((c) => c.key === "delivery-ads-control")).toBe(true);
-    expect(ads?.children?.some((c) => c.key === "ads-execution-group")).toBe(true);
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.path).toBe("/admin/feed-ads");
+    expect(ads?.children?.some((c) => c.key === "ads-advertising-workspace")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-authority-boosts")).toBe(true);
+    expect(ads?.children?.some((c) => c.key === "ads-authority-applications")).toBe(true);
+    expect(findAdminMenuByKey(adminMenu, "ads-authority-operations")?.path).toBe(
+      "/admin/advertising/operations"
+    );
     expect(findAdminMenuByKey(adminMenu, "delivery-ads-ops")?.path).toBe(
       "/admin/delivery-ads/manage"
     );

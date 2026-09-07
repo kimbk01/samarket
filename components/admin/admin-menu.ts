@@ -71,11 +71,12 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "finance-member-point": "admin_menu_cp_points_member",
   "finance-store-currency": "admin_menu_store_finance",
   "ads-delivery-ops": "admin_menu_ads_delivery",
-  "ads-authority-applications": "admin_menu_ads_applications_group",
-  "ads-authority-operations": "admin_menu_ads_execution_group",
-  "ads-authority-placements": "admin_menu_placement_map",
-  "ads-authority-products": "admin_menu_ads_products_group",
-  "ads-authority-history": "admin_menu_ads_legacy",
+  "ads-authority-boosts": "admin_menu_ads_authority_boosts",
+  "ads-authority-applications": "admin_menu_ads_authority_applications",
+  "ads-authority-operations": "admin_menu_ads_authority_operations",
+  "ads-authority-placements": "admin_menu_ads_authority_placements",
+  "ads-authority-products": "admin_menu_ads_authority_products",
+  "ads-authority-history": "admin_menu_ads_authority_history",
   "ads-placement-map": "admin_menu_placement_map",
   "ads-trade-promote": "admin_menu_ads_promote_group",
   "ads-applications-group": "admin_menu_ads_applications_group",
@@ -812,8 +813,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     ],
   },
 
-  // ── ADS — product axes: 관제 → 신청 → 집행 → 지면 → 상품 → 이력 ──
-  // Labels = customer product language (배너 광고 ≠ 「피드 광고」 abstraction).
+  // ── ADS — Owner Policy LOCK: lifecycle IA only (7 PUBLIC leaves) ──
   {
     key: "ads",
     title: "",
@@ -822,6 +822,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "ads-advertising-workspace",
         title: "",
         path: "/admin/advertising",
+        status: "done",
+      },
+      {
+        key: "ads-authority-boosts",
+        title: "",
+        path: "/admin/advertising/boosts",
         status: "done",
       },
       {
@@ -840,111 +846,96 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         key: "ads-authority-placements",
         title: "",
         path: "/admin/advertising/placements",
+        matchPaths: ["/admin/delivery-ads/inventory"],
         status: "done",
       },
       {
         key: "ads-authority-products",
         title: "",
         path: "/admin/advertising/products",
+        matchPaths: [
+          "/admin/feed-ad-products",
+          "/admin/delivery-ads/commercial-settings",
+        ],
         status: "done",
       },
       {
         key: "ads-authority-history",
         title: "",
         path: "/admin/advertising/history",
+        matchPaths: ["/admin/promoted-items"],
         status: "done",
       },
+      // Absorb-before-delete: keep keys for redirects/breadcrumb; not primary IA.
       {
-        key: "delivery-ads-control",
+        key: "ads-legacy",
         title: "",
-        path: "/admin/delivery-ads",
-        exactPath: true,
-        status: "done",
-      },
-      {
-        key: "ads-applications-group",
-        title: "",
-        status: "done",
+        status: "partial",
         children: [
+          {
+            key: "delivery-ads-control",
+            title: "",
+            path: "/admin/delivery-ads",
+            exactPath: true,
+            status: "partial",
+          },
           {
             key: "ads-feed-applications",
             title: "",
             path: "/admin/ad-applications?domain=feed",
-            status: "done",
+            status: "partial",
           },
           {
             key: "ads-applications",
             title: "",
             path: "/admin/ad-applications?domain=trade",
-            status: "done",
+            status: "partial",
           },
           {
             key: "ads-community-promote",
             title: "",
             path: "/admin/ad-applications?domain=community",
-            status: "done",
+            status: "partial",
           },
-        ],
-      },
-      {
-        key: "ads-execution-group",
-        title: "",
-        status: "done",
-        children: [
           {
             key: "delivery-ads-ops",
             title: "",
             path: "/admin/delivery-ads/manage",
             matchPaths: ["/admin/delivery-ads/manage"],
-            // Detail / creative under /admin/delivery-ads/[id] — not 관제, not inventory.
             matchPathPrefixes: ["/admin/delivery-ads"],
-            status: "done",
+            status: "partial",
           },
-          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "done" },
+          { key: "ads-feed", title: "", path: "/admin/feed-ads", status: "partial" },
           {
             key: "ads-platform-popup",
             title: "",
             path: "/admin/platform-popup",
-            status: "done",
+            status: "partial",
             matchPaths: [
               "/admin/platform-popup/",
               "/admin/platform-popup/requests",
               "/admin/platform-popup/requests/",
             ],
           },
-        ],
-      },
-      {
-        key: "ads-placement-map",
-        title: "",
-        path: "/admin/delivery-ads/inventory#placement-map",
-        matchPaths: ["/admin/delivery-ads/inventory"],
-        status: "done",
-      },
-      {
-        key: "ads-products-group",
-        title: "",
-        status: "done",
-        children: [
+          {
+            key: "ads-placement-map",
+            title: "",
+            path: "/admin/delivery-ads/inventory#placement-map",
+            matchPaths: ["/admin/delivery-ads/inventory"],
+            status: "partial",
+          },
           {
             key: "ads-feed-products",
             title: "",
             path: "/admin/feed-ad-products",
-            status: "done",
+            status: "partial",
           },
           {
             key: "delivery-ads-commercial",
             title: "",
             path: "/admin/delivery-ads/commercial-settings",
-            status: "done",
+            status: "partial",
           },
-        ],
-      },
-      {
-        key: "ads-legacy",
-        title: "",
-        status: "partial",
-        children: [
           {
             key: "ads-paid",
             title: "",

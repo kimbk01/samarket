@@ -109,13 +109,14 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
   },
   boost_trade: {
     VIEW: "Y",
+    // OWNER POLICY: new purchases skip approval; legacy pending rows may still approve/reject.
     APPROVE: "Y",
     REJECT: "Y",
     CANCEL_REQUEST: "Y",
-    // Owner LOCK: Promote Pause/Resume/End writers do not exist — never show CTAs.
-    PAUSE: "GAP",
-    RESUME: "GAP",
-    END: "GAP",
+    // applyBoostLifecycle pause/resume/end — Admin sanction after auto-live.
+    PAUSE: "Y",
+    RESUME: "Y",
+    END: "Y",
     EXTEND_PAID: "N",
     DELETE_DRAFT: "N",
     VIEW_PAYMENT: "Y",
@@ -127,9 +128,9 @@ export const ADMIN_AUTHORITY_MATRIX: Record<
     APPROVE: "Y",
     REJECT: "Y",
     CANCEL_REQUEST: "Y",
-    PAUSE: "GAP",
-    RESUME: "GAP",
-    END: "GAP",
+    PAUSE: "Y",
+    RESUME: "Y",
+    END: "Y",
     EXTEND_PAID: "N",
     DELETE_DRAFT: "N",
     VIEW_PAYMENT: "Y",

@@ -123,7 +123,7 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
       true
     );
     expect(row.targetLabel).toBe("전체 서비스");
-    expect(row.placementLabel).toBe("전체 서비스 팝업");
+    expect(row.placementLabel).toBe("전체 서비스 > Popup");
     expect(row.targetLabel).not.toBe(row.placementLabel);
     expect(row.creativeImageUrl).toContain("popup.webp");
     expect(row.statusTab).toBe("waiting");

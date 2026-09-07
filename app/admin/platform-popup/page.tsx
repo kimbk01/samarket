@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { AdminPlatformPopupHubPage } from "@/components/admin/platform-popup/AdminPlatformPopupHubPage";
+import { redirect } from "next/navigation";
 
-export default function AdminPlatformPopupPage() {
-  return (
-    <Suspense fallback={<p className="p-4 text-sm text-sam-muted">…</p>}>
-      <AdminPlatformPopupHubPage />
-    </Suspense>
-  );
+/** Popup hub → 노출 관리 (detail routes under /admin/platform-popup/* stay) */
+export default function AdminPlatformPopupRedirectPage() {
+  redirect("/admin/advertising/operations");
 }

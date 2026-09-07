@@ -4,11 +4,17 @@
 
 import type { AdsActionItem } from "@/lib/admin/ads-control-plane/types";
 import {
-  humanPlacementLabel,
-  humanPopupSurfaceShortLabel,
-  productKindLabel,
-} from "@/lib/admin/ads-exposure/human-placement-label";
-import { popupRuntimeDisplayLabel } from "@/lib/admin/ads-exposure/popup-runtime-display";
+  formatAdsPeriodRange,
+  formatAdsRemaining,
+  formatPlacementByMode,
+  formatPreApprovalRuntimeStatus,
+  inferPlacementProductKind,
+  parseAdsInstant,
+} from "@/lib/admin/ads-exposure/canonical-location-period";
+import { humanPlacementLabel, humanPopupSurfaceShortLabel, productKindLabel } from "@/lib/admin/ads-exposure/human-placement-label";
+import {
+  popupRuntimeDisplayLabel,
+} from "@/lib/admin/ads-exposure/popup-runtime-display";
 import { adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
 import {
   adsOpsStatusLabel,
@@ -37,6 +43,8 @@ export type AdsShellListRow = {
   placementLabel: string;
   slideLabel: string | null;
   periodLabel: string;
+  /** Canonical remaining: 시작까지 / 종료까지 / 종료됨 / — */
+  remainingLabel: string;
   amountLabel: string;
   paymentLabel: string;
   /** Row status bucket — never `"all"`. */
@@ -150,16 +158,29 @@ function isCreativeUrl(hint: string | null | undefined): boolean {
   return /^https?:\/\//i.test(hint) || hint.includes("supabase");
 }
 
-export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellListRow {
+export function toAdsShellListRow(
+  item: AdsActionItem,
+  ko: boolean,
+  mode: "all" | "applications" | "operations" | "history" | "boosts" = "all"
+): AdsShellListRow {
   const placementKey = resolveShellPlacementKey(item);
-  const placementLabel = humanPlacementLabel(placementKey || item.placementHint, ko);
+  const kind = inferPlacementProductKind(item.domain, item.product);
   const slideN = parseSlideIndex(item.placementHint) ?? parseSlideIndex(item.creativeHint);
-  const slideLabel =
-    slideN != null && placementKey
-      ? ko
-        ? `${placementLabel} > Slide ${slideN}`
-        : `${placementLabel} > Slide ${slideN}`
-      : null;
+  const isApplication =
+    mode === "applications" ||
+    item.entity === "application" ||
+    item.entity === "approval";
+  const placementMode = isApplication ? "requested" : "actual";
+  const placementLabel = formatPlacementByMode(placementMode, {
+    kind,
+    ko,
+    inventoryKey: placementKey || item.placementHint,
+    feedDomain: item.domain === "feed" ? item.product : item.domain,
+    popupSurface: item.domain === "popup" ? placementKey || item.placementHint : null,
+    slotIndex: placementMode === "actual" ? slideN : null,
+  });
+  // Common Slide column removed — product secondary lives in placement hierarchy only.
+  const slideLabel = null;
 
   const runtimeStatus = item.runtimeDisplayStatus ?? null;
   const statusTab = resolveShellStatusTab(item);
@@ -196,10 +217,33 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     item.operatingStatusLabel ||
     item.lifecycleStatusLabel ||
     adsOpsStatusLabel(ops, ko);
-  const runtimeLabel = runtimeStatus
-    ? popupRuntimeDisplayLabel(runtimeStatus, ko)
-    : runtimeLabelFromTab(statusTab, ko);
-  const isApplication = item.entity === "application" || item.entity === "approval";
+
+  let runtimeLabel: string;
+  if (isApplication) {
+    runtimeLabel = formatPreApprovalRuntimeStatus(ko);
+  } else if (runtimeStatus) {
+    runtimeLabel = popupRuntimeDisplayLabel(runtimeStatus, ko);
+  } else {
+    runtimeLabel = runtimeLabelFromTab(statusTab, ko) || (ko ? "—" : "—");
+  }
+
+  // Prefer ISO-ish fragments from periodLabel when start/end not on item.
+  const { startIso, endIso } = splitPeriodHint(item.periodLabel);
+  const periodFmt = formatAdsPeriodRange(startIso, endIso, ko);
+  const remainingFmt = formatAdsRemaining(startIso, endIso, Date.now(), ko);
+  const periodLabel = periodFmt.valid
+    ? periodFmt.label
+    : periodFmt.error
+      ? periodFmt.label
+      : item.periodLabel && !/1970/.test(item.periodLabel)
+        ? item.periodLabel
+        : periodFmt.label;
+  const remainingLabel =
+    item.remainingLabel && !/1970/.test(item.remainingLabel)
+      ? remainingFmt.kind !== "missing"
+        ? remainingFmt.label
+        : item.remainingLabel
+      : remainingFmt.label;
 
   return {
     id: item.id,
@@ -213,14 +257,14 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     targetLabel,
     placementLabel,
     slideLabel,
-    periodLabel: item.periodLabel || (ko ? "—" : "—"),
+    periodLabel,
+    remainingLabel,
     amountLabel: item.amountLabel || (ko ? "—" : "—"),
     paymentLabel: item.paymentLabel || (ko ? "—" : "—"),
     statusTab,
     applicationStatusLabel: isApplication ? operatingLabel : ko ? "—" : "—",
     campaignStatusLabel: isApplication ? (ko ? "—" : "—") : operatingLabel,
-    runtimeExposureStatusLabel: isApplication ? (ko ? "—" : "—") : runtimeLabel || (ko ? "—" : "—"),
-    /** Backward-compatible label: operating lifecycle only. */
+    runtimeExposureStatusLabel: runtimeLabel,
     statusLabel: operatingLabel,
     operatingStatusLabel: operatingLabel,
     creativeImageUrl:
@@ -243,18 +287,37 @@ export function toAdsShellListRow(item: AdsActionItem, ko: boolean): AdsShellLis
     sourceKind: item.sourceKind ?? null,
     completenessClass: item.completenessClass ?? null,
     missingFieldsLabel: item.missingFieldsLabel ?? null,
-    waitingReasonLabel: item.waitingReasonLabel ?? null,
-    winnerOccupantLabel: item.winnerOccupantLabel ?? null,
+    waitingReasonLabel: isApplication ? null : item.waitingReasonLabel ?? null,
+    winnerOccupantLabel: isApplication ? null : item.winnerOccupantLabel ?? null,
+  };
+}
+
+function splitPeriodHint(periodLabel: string | null | undefined): {
+  startIso: string | null;
+  endIso: string | null;
+} {
+  const raw = String(periodLabel ?? "").trim();
+  if (!raw || /1970/.test(raw)) return { startIso: null, endIso: null };
+  const parts = raw.split(/\s*[→~\-–]\s*/);
+  if (parts.length < 2) {
+    const one = parseAdsInstant(raw);
+    return { startIso: one ? one.toISOString() : null, endIso: null };
+  }
+  const a = parseAdsInstant(parts[0]);
+  const b = parseAdsInstant(parts[1]);
+  return {
+    startIso: a ? a.toISOString() : null,
+    endIso: b ? b.toISOString() : null,
   };
 }
 
 function runtimeLabelFromTab(statusTab: Exclude<AdsShellStatusTab, "all">, ko: boolean): string | null {
-  if (statusTab === "live") return ko ? "현재 노출 중" : "Live now";
+  if (statusTab === "live") return ko ? "현재 노출" : "Live now";
   if (statusTab === "waiting") return ko ? "노출 대기" : "Waiting";
   if (statusTab === "scheduled") return ko ? "예약" : "Scheduled";
   if (statusTab === "paused") return ko ? "일시중지" : "Paused";
-  if (statusTab === "incomplete") return ko ? "노출 불가" : "Not exposable";
-  if (statusTab === "ended" || statusTab === "rejected") return ko ? "노출 종료" : "Ended";
+  if (statusTab === "incomplete") return ko ? "비노출" : "Not exposing";
+  if (statusTab === "ended" || statusTab === "rejected") return ko ? "종료" : "Ended";
   return null;
 }
 

@@ -1,14 +1,6 @@
-import { Suspense } from "react";
-import { AdminAdApplicationsPage } from "@/components/admin/ads/AdminAdApplicationsPage";
+import { redirect } from "next/navigation";
 
-/**
- * Community Promotion queue — same writer as ad-applications?domain=community.
- * Renders Domain queue in-place (no redirect-only hollow).
- */
-export default function AdminCommunityPromotionsPage() {
-  return (
-    <Suspense fallback={null}>
-      <AdminAdApplicationsPage forcedDomain="community" />
-    </Suspense>
-  );
+/** Community promote queue → 상위노출 관리 */
+export default function AdminCommunityPromotionsRedirectPage() {
+  redirect("/admin/advertising/boosts");
 }

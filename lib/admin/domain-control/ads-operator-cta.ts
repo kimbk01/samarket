@@ -9,6 +9,7 @@ import {
   type AdminDeliveryAdAction,
 } from "@/lib/stores/advertising/admin-delivery-ad-contract";
 import type { DeliveryAdLifecycleStatus } from "@/lib/stores/advertising/delivery-ad-lifecycle";
+import { formatAdsRemaining } from "@/lib/admin/ads-exposure/canonical-location-period";
 
 export type AdsOperatorCta = {
   action: AdminDeliveryAdAction;
@@ -97,21 +98,7 @@ export function adsRemainingPeriodLabel(
   endAt: string | null | undefined,
   ko: boolean
 ): string {
-  const end = endAt ? new Date(endAt).getTime() : NaN;
-  const start = startAt ? new Date(startAt).getTime() : NaN;
-  const now = Date.now();
-  if (!Number.isFinite(end)) return "";
-  if (Number.isFinite(start) && now < start) {
-    const h = Math.max(0, Math.round((start - now) / 3600000));
-    if (h < 48) return ko ? `${h}시간 후 시작` : `Starts in ${h}h`;
-    const d = Math.ceil(h / 24);
-    return ko ? `${d}일 후 시작` : `Starts in ${d}d`;
-  }
-  const left = end - now;
-  if (left <= 0) return ko ? "기간 종료" : "Period ended";
-  const h = Math.round(left / 3600000);
-  if (h < 48) return ko ? `${h}시간 남음` : `${h}h left`;
-  return ko ? `${Math.ceil(h / 24)}일 남음` : `${Math.ceil(h / 24)}d left`;
+  return formatAdsRemaining(startAt, endAt, Date.now(), ko).label;
 }
 
 export function adsExposureLabel(
