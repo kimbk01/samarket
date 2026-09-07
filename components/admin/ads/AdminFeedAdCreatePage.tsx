@@ -1,40 +1,93 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
 import {
+  BANNER_PLACEMENT_CAPACITY_SSOT,
+  bannerPlacementDefaultCapacity,
+} from "@/lib/ads/banner-placement-capacity-ssot";
+import {
   FEED_AD_RECOMMENDED_UPLOAD,
+  FEED_AD_UPLOAD_MAX_FILE_BYTES,
   feedAdMediaClass,
   feedAdMediaHeightClass,
 } from "@/lib/ads/feed-ad-geometry";
 import { FeedAdFramePreview } from "@/components/ads/FeedAdBannerCarousel";
+import { adsCreateConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 
 type SlideDraft = {
   imageUrl: string;
   altText: string;
   headline: string;
   previewUrl: string;
+  fileName: string;
 };
 
 type TradeCatOpt = { id: string; name: string; nameEn: string | null; slug: string };
 type TopicOpt = { id: string; slug: string; name: string; nameEn: string | null };
 
-const EMPTY_SLIDE: SlideDraft = { imageUrl: "", altText: "", headline: "", previewUrl: "" };
+const EMPTY_SLIDE: SlideDraft = {
+  imageUrl: "",
+  altText: "",
+  headline: "",
+  previewUrl: "",
+  fileName: "",
+};
+
+function feedCapacityForPlacement(placement: FeedAdPlacement): number {
+  if (placement === "TRADE_HOME" || placement === "COMMUNITY_HOME") {
+    return bannerPlacementDefaultCapacity(placement);
+  }
+  // Topic/category pool uses the same 3-cap semantics as home (Owner R2).
+  return BANNER_PLACEMENT_CAPACITY_SSOT.COMMUNITY_HOME.defaultCapacity;
+}
+
+function humanUploadError(raw: string, ko: boolean): string {
+  const s = raw.toLowerCase();
+  if (s.includes("too large") || s.includes("max") || s.includes("2mb") || s.includes("file_size")) {
+    return ko ? "파일 용량이 너무 큽니다.\n최대 2MB" : "File is too large.\nMax 2MB";
+  }
+  if (s.includes("aspect") || s.includes("ratio") || s.includes("geometry")) {
+    return ko
+      ? "이미지 비율이 맞지 않습니다.\n권장 비율: 3:1"
+      : "Image aspect does not match.\nRecommended: 3:1";
+  }
+  if (s.includes("small") || s.includes("below") || s.includes("min") || s.includes("dimension")) {
+    return ko
+      ? "이미지 크기가 너무 작습니다.\n권장 크기: 1200×400 이상"
+      : "Image is too small.\nRecommended: 1200×400 or larger";
+  }
+  if (raw === "upload_failed" || !raw.trim()) {
+    return ko ? "이미지를 업로드하지 못했습니다." : "Could not upload the image.";
+  }
+  return raw;
+}
 
 /**
  * Admin Feed Ad create — product UX order (not DB field order).
- * Category/Topic from SSOT APIs only (no raw id primary input).
+ * CUT R2: lockable Community/Trade product entries from Ads Direct.
  */
-export function AdminFeedAdCreatePage() {
+export function AdminFeedAdCreatePage({
+  lockedDomain,
+  entry = "legacy",
+}: {
+  lockedDomain?: FeedAdDomain;
+  entry?: "legacy" | "ads-direct";
+} = {}) {
   const { safeT, t, language } = useI18n();
   const router = useRouter();
   const langEn = language === "en";
+  const ko = !langEn;
+  const fileRefs = useRef<Array<HTMLInputElement | null>>([null, null, null]);
 
   const [name, setName] = useState("");
-  const [domain, setDomain] = useState<FeedAdDomain>("trade");
+  const [domain, setDomain] = useState<FeedAdDomain>(lockedDomain ?? "trade");
   const [surfaceMode, setSurfaceMode] = useState<"home" | "targeted">("home");
   const [targetCategoryId, setTargetCategoryId] = useState("");
   const [targetTopicSlug, setTargetTopicSlug] = useState("");
@@ -54,7 +107,16 @@ export function AdminFeedAdCreatePage() {
   const [targetsLoading, setTargetsLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [uploading, setUploading] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [usedByPlacement, setUsedByPlacement] = useState<Partial<Record<FeedAdPlacement, number>>>(
+    {}
+  );
+
+  useEffect(() => {
+    if (lockedDomain) setDomain(lockedDomain);
+  }, [lockedDomain]);
 
   const loadTargets = useCallback(async () => {
     setTargetsLoading(true);
@@ -71,9 +133,32 @@ export function AdminFeedAdCreatePage() {
     }
   }, []);
 
+  const loadCapacity = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/feed-ads", { cache: "no-store", credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        campaigns?: Array<{ placement?: string; status?: string }>;
+      };
+      if (!res.ok || !j.ok || !Array.isArray(j.campaigns)) return;
+      const next: Partial<Record<FeedAdPlacement, number>> = {};
+      for (const c of j.campaigns) {
+        const p = String(c.placement || "") as FeedAdPlacement;
+        const st = String(c.status || "").toLowerCase();
+        if (!p) continue;
+        if (st === "ended" || st === "rejected" || st === "draft") continue;
+        next[p] = (next[p] ?? 0) + 1;
+      }
+      setUsedByPlacement(next);
+    } catch {
+      /* capacity is informational */
+    }
+  }, []);
+
   useEffect(() => {
     void loadTargets();
-  }, [loadTargets]);
+    void loadCapacity();
+  }, [loadTargets, loadCapacity]);
 
   const placement: FeedAdPlacement = useMemo(() => {
     if (domain === "trade") {
@@ -82,16 +167,35 @@ export function AdminFeedAdCreatePage() {
     return surfaceMode === "home" ? "COMMUNITY_HOME" : "COMMUNITY_TOPIC";
   }, [domain, surfaceMode]);
 
+  const capacity = feedCapacityForPlacement(placement);
+  const used = usedByPlacement[placement] ?? 0;
+  const remaining = Math.max(0, capacity - used);
+  const createCopy = adsCreateConfirmCopy(ko);
+  const backHref = entry === "ads-direct" ? "/admin/advertising/direct" : "/admin/feed-ads";
+  const productTitle =
+    domain === "community"
+      ? ko
+        ? "Community 배너"
+        : "Community banner"
+      : ko
+        ? "거래 배너"
+        : "Trade banner";
+
   const uploadSlide = async (index: number, file: File) => {
     setUploading(index);
     setErr("");
+    if (file.size > FEED_AD_UPLOAD_MAX_FILE_BYTES) {
+      setErr(humanUploadError("file_size", ko));
+      setUploading(null);
+      return;
+    }
     try {
       const fd = new FormData();
       fd.set("file", file);
       const res = await fetch("/api/admin/feed-ads/upload", { method: "POST", body: fd });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: string; error?: string };
       if (!res.ok || !j.ok || !j.url) {
-        setErr(j.error ?? "upload_failed");
+        setErr(humanUploadError(j.error ?? "upload_failed", ko));
         return;
       }
       const preview = URL.createObjectURL(file);
@@ -109,6 +213,7 @@ export function AdminFeedAdCreatePage() {
           imageUrl: j.url!,
           previewUrl: preview,
           altText: next[index].altText || file.name,
+          fileName: file.name,
         };
         return next;
       });
@@ -134,9 +239,9 @@ export function AdminFeedAdCreatePage() {
 
   const filledSlides = slides.filter((s) => s.imageUrl.trim()).length;
 
-  const save = async () => {
-    if (busy) return;
+  const requestSave = () => {
     setErr("");
+    setSuccessMsg("");
     if (!name.trim()) {
       setErr(safeT("admin_feed_ads_err_name", { fallbackKo: "광고 이름을 입력하세요.", fallbackEn: "Enter a campaign name." }));
       return;
@@ -153,11 +258,24 @@ export function AdminFeedAdCreatePage() {
       setErr(safeT("admin_feed_ads_err_topic", { fallbackKo: "커뮤니티 주제를 선택하세요.", fallbackEn: "Select a community topic." }));
       return;
     }
-    if (status === "active" && uploading != null) {
+    if (uploading != null) {
       setErr(safeT("admin_feed_ads_err_upload", { fallbackKo: "이미지 업로드가 끝날 때까지 기다려 주세요.", fallbackEn: "Wait for image upload to finish." }));
       return;
     }
+    if (remaining <= 0 && status === "active") {
+      setErr(
+        ko
+          ? "추가 등록 불가 — 현재 위치가 가득 찼습니다."
+          : "Cannot register more — this placement is full."
+      );
+      return;
+    }
+    setConfirmOpen(true);
+  };
 
+  const save = async () => {
+    if (busy) return;
+    setErr("");
     setBusy(true);
     try {
       const payloadSlides = slides
@@ -187,12 +305,22 @@ export function AdminFeedAdCreatePage() {
           slides: payloadSlides,
         }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        campaignId?: string;
+      };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "save_failed");
+        setErr(
+          j.error ??
+            (ko ? "처리하지 못했습니다. 다시 시도해 주세요." : "Could not complete. Try again.")
+        );
         return;
       }
-      router.push("/admin/feed-ads");
+      setConfirmOpen(false);
+      setSuccessMsg(ko ? "광고가 등록되었습니다." : "Ad registered.");
+      await loadCapacity();
+      router.push("/admin/advertising/operations");
       router.refresh();
     } finally {
       setBusy(false);
@@ -203,13 +331,18 @@ export function AdminFeedAdCreatePage() {
   const labelTopic = (t: TopicOpt) => (langEn && t.nameEn ? t.nameEn : t.name);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <AdminPageHeader titleKey="admin_menu_ads_feed" backHref="/admin/feed-ads" />
+    <div
+      className="mx-auto max-w-3xl space-y-6"
+      data-admin-feed-ad-create="1"
+      data-admin-feed-ad-domain={domain}
+      data-admin-ads-direct-entry={entry}
+    >
+      <AdminPageHeader title={productTitle} backHref={backHref} />
 
       {/* 1 기본정보 */}
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_basic", { fallbackKo: "1. 광고 기본정보", fallbackEn: "1. Basics" })}
+          {productTitle}
         </h2>
         <label className="block">
           <span className="mb-1 block sam-text-body font-medium">
@@ -223,7 +356,8 @@ export function AdminFeedAdCreatePage() {
         </label>
       </section>
 
-      {/* 2 Domain */}
+      {/* 2 Domain — hidden when locked from Direct product entry */}
+      {!lockedDomain ? (
       <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <h2 className="sam-text-body font-semibold text-sam-fg">
           {safeT("admin_feed_ads_sec_domain", {
@@ -260,14 +394,12 @@ export function AdminFeedAdCreatePage() {
           </button>
         </div>
       </section>
+      ) : null}
 
       {/* 3 Surface */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-placement="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_surface", {
-            fallbackKo: "3. 어느 화면에 보여줄까요?",
-            fallbackEn: "3. Which surface?",
-          })}
+          {ko ? "노출 위치" : "Placement"}
         </h2>
         <div className="flex gap-2">
           <button
@@ -278,11 +410,12 @@ export function AdminFeedAdCreatePage() {
             onClick={() => setSurfaceMode("home")}
           >
             {domain === "trade"
-              ? safeT("admin_feed_ads_trade_home", { fallbackKo: "거래 홈", fallbackEn: "Trade home" })
-              : safeT("admin_feed_ads_community_home", {
-                  fallbackKo: "커뮤니티 홈",
-                  fallbackEn: "Community home",
-                })}
+              ? ko
+                ? "거래 홈 피드"
+                : "Trade home feed"
+              : ko
+                ? "Community 홈 피드"
+                : "Community home feed"}
           </button>
           <button
             type="button"
@@ -292,37 +425,32 @@ export function AdminFeedAdCreatePage() {
             onClick={() => setSurfaceMode("targeted")}
           >
             {domain === "trade"
-              ? safeT("admin_feed_ads_trade_cat", {
-                  fallbackKo: "특정 카테고리",
-                  fallbackEn: "Specific category",
-                })
-              : safeT("admin_feed_ads_community_topic", {
-                  fallbackKo: "특정 주제",
-                  fallbackEn: "Specific topic",
-                })}
+              ? ko
+                ? "거래 카테고리 피드"
+                : "Trade category feed"
+              : ko
+                ? "Community 주제 피드"
+                : "Community topic feed"}
           </button>
         </div>
-        <p className="sam-text-helper text-sam-muted">
-          {domain === "trade"
-            ? surfaceMode === "home"
-              ? safeT("admin_feed_ads_hint_trade_home", {
-                  fallbackKo: "거래 홈 피드 — 게시글 사이에 노출됩니다.",
-                  fallbackEn: "Trade home feed — shown between listings.",
-                })
-              : safeT("admin_feed_ads_hint_trade_cat", {
-                  fallbackKo: "거래 카테고리 피드 — 선택한 카테고리 게시글 사이에 노출됩니다.",
-                  fallbackEn: "Trade category feed — shown between listings in that category.",
-                })
-            : surfaceMode === "home"
-              ? safeT("admin_feed_ads_hint_community_home", {
-                  fallbackKo: "커뮤니티 홈 피드 — 글 사이에 노출됩니다.",
-                  fallbackEn: "Community home feed — shown between posts.",
-                })
-              : safeT("admin_feed_ads_hint_community_topic", {
-                  fallbackKo: "커뮤니티 주제 피드 — 선택한 주제의 글 사이에 노출됩니다.",
-                  fallbackEn: "Community topic feed — shown between posts in that topic.",
-                })}
-        </p>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2" data-admin-feed-capacity="1">
+          <p className="text-[13px] font-medium text-sam-fg">
+            {humanPlacementLabel(placement, ko)}
+          </p>
+          <p className="text-[11px] text-sam-muted">{placement}</p>
+          <p className="mt-1 text-[13px] text-sam-fg">
+            {ko ? `현재 사용: ${used} / ${capacity}` : `In use: ${used} / ${capacity}`}
+          </p>
+          <p className="text-[13px] text-sam-muted">
+            {remaining > 0
+              ? ko
+                ? `추가 가능: ${remaining}`
+                : `Available: ${remaining}`
+              : ko
+                ? "상태: 추가 등록 불가"
+                : "Status: cannot add more"}
+          </p>
+        </div>
       </section>
 
       {/* 4 Target SSOT */}
@@ -387,23 +515,39 @@ export function AdminFeedAdCreatePage() {
       ) : null}
 
       {/* 5 Images */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-creative="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_images", {
-            fallbackKo: "5. 광고 이미지 (1~3장)",
-            fallbackEn: "5. Images (1–3)",
-          })}
+          {ko ? "이미지" : "Image"}
         </h2>
-        <p className="sam-text-helper text-sam-muted">
-          {safeT("admin_feed_ads_image_ratio_hint", {
-            fallbackKo: `권장 비율 ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (예: ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). 피드에서는 리스트 카드 높이로 맞춰 보입니다.`,
-            fallbackEn: `Recommended ${FEED_AD_RECOMMENDED_UPLOAD.aspectLabel} (e.g. ${FEED_AD_RECOMMENDED_UPLOAD.minWidthPx}×${FEED_AD_RECOMMENDED_UPLOAD.minHeightPx}). Feed uses list-card height.`,
-          })}
-        </p>
+        <dl
+          className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-[13px]"
+          data-admin-feed-creative-spec="1"
+        >
+          <dt className="text-sam-muted">{ko ? "비율" : "Aspect"}</dt>
+          <dd className="font-semibold text-sam-fg">{FEED_AD_RECOMMENDED_UPLOAD.aspectLabel}</dd>
+          <dt className="text-sam-muted">{ko ? "권장 크기" : "Recommended"}</dt>
+          <dd className="font-semibold text-sam-fg">
+            {FEED_AD_RECOMMENDED_UPLOAD.standardWidthPx} × {FEED_AD_RECOMMENDED_UPLOAD.standardHeightPx}px
+          </dd>
+          <dt className="text-sam-muted">{ko ? "최대 용량" : "Max size"}</dt>
+          <dd className="font-semibold text-sam-fg">2MB</dd>
+          <dt className="text-sam-muted">{ko ? "노출 형태" : "Runtime"}</dt>
+          <dd className="text-sam-fg">
+            {domain === "community"
+              ? ko
+                ? "Community 피드 고정 높이 72–88px · object-cover"
+                : "Community feed fixed height 72–88px · object-cover"
+              : ko
+                ? "거래 피드 고정 높이 100px · object-cover"
+                : "Trade feed fixed height 100px · object-cover"}
+          </dd>
+        </dl>
         <div className="grid gap-3 md:grid-cols-3">
           {slides.map((s, i) => (
             <div key={i} className="rounded-ui-rect border border-sam-border-soft p-3">
-              <p className="mb-2 font-semibold">Slide {i + 1}</p>
+              <p className="mb-2 font-semibold">
+                {i === 0 ? (ko ? "대표 이미지" : "Primary image") : `Slide ${i + 1}`}
+              </p>
               {s.previewUrl || s.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- admin preview
                 <img
@@ -415,19 +559,46 @@ export function AdminFeedAdCreatePage() {
                 <div
                   className={`mb-2 flex ${feedAdMediaHeightClass(domain === "community" ? "community" : "trade")} w-full items-center justify-center rounded-ui-rect bg-sam-app text-sam-muted`}
                 >
-                  {uploading === i ? t("common_loading") : "—"}
+                  {uploading === i
+                    ? t("common_loading")
+                    : ko
+                      ? "이미지 없음"
+                      : "No image"}
                 </div>
               )}
+              {s.fileName ? (
+                <p className="mb-2 truncate text-[11px] text-sam-muted">{s.fileName}</p>
+              ) : null}
               <input
+                ref={(el) => {
+                  fileRefs.current[i] = el;
+                }}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                className="mb-2 block w-full sam-text-helper"
+                className="sr-only"
+                data-admin-feed-file-input={i}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) void uploadSlide(i, f);
                   e.target.value = "";
                 }}
               />
+              <button
+                type="button"
+                className="mb-2 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 text-[13px] font-semibold text-sam-fg"
+                data-admin-feed-image-picker={i}
+                onClick={() => fileRefs.current[i]?.click()}
+                disabled={uploading != null}
+              >
+                <ImageIcon className="h-4 w-4 shrink-0" aria-hidden />
+                {s.imageUrl
+                  ? ko
+                    ? "이미지 교체"
+                    : "Replace image"
+                  : ko
+                    ? "내 PC에서 이미지 선택"
+                    : "Choose image from PC"}
+              </button>
               <input
                 className="mb-2 w-full rounded-ui-rect border border-sam-border px-2 py-1.5 sam-text-helper"
                 placeholder="alt"
@@ -540,32 +711,18 @@ export function AdminFeedAdCreatePage() {
       </section>
 
       {/* 8 Preview — same FeedAd frame geometry as consumer */}
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-feed-runtime-preview="1">
         <h2 className="sam-text-body font-semibold text-sam-fg">
-          {safeT("admin_feed_ads_sec_preview", {
-            fallbackKo: "8. 실제 피드에서 이렇게 보여요",
-            fallbackEn: "8. How it looks in the feed",
-          })}
+          {domain === "community"
+            ? ko
+              ? "Community 실제 노출 형태 미리보기"
+              : "Community live-style preview"
+            : ko
+              ? "거래 실제 노출 형태 미리보기"
+              : "Trade live-style preview"}
         </h2>
         <p className="sam-text-helper text-sam-muted">
-          {domain === "trade"
-            ? surfaceMode === "home"
-              ? safeT("admin_feed_ads_trade_home", { fallbackKo: "거래 홈", fallbackEn: "Trade home" })
-              : `${safeT("admin_feed_ads_trade_cat", { fallbackKo: "거래 카테고리", fallbackEn: "Trade category" })}${
-                  targetCategoryId
-                    ? ` · ${labelCat(tradeCategories.find((c) => c.id === targetCategoryId) ?? { id: "", name: targetCategoryId, nameEn: null, slug: "" })}`
-                    : ""
-                }`
-            : surfaceMode === "home"
-              ? safeT("admin_feed_ads_community_home", {
-                  fallbackKo: "커뮤니티 홈",
-                  fallbackEn: "Community home",
-                })
-              : `${safeT("admin_feed_ads_community_topic", { fallbackKo: "커뮤니티 주제", fallbackEn: "Community topic" })}${
-                  targetTopicSlug
-                    ? ` · ${labelTopic(communityTopics.find((x) => x.slug === targetTopicSlug) ?? { id: "", slug: targetTopicSlug, name: targetTopicSlug, nameEn: null })}`
-                    : ""
-                }`}
+          {humanPlacementLabel(placement, ko)} · {placement}
           {` · ${filledSlides}/3`}
         </p>
         <div className="mx-auto w-full max-w-md space-y-2 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-2">
@@ -580,10 +737,9 @@ export function AdminFeedAdCreatePage() {
             if (!first) {
               return (
                 <p className="py-4 text-center sam-text-helper text-sam-muted">
-                  {safeT("admin_feed_ads_preview_empty", {
-                    fallbackKo: "이미지를 올리면 피드 크기로 미리보기됩니다.",
-                    fallbackEn: "Upload an image to preview at feed size.",
-                  })}
+                  {ko
+                    ? "이미지를 선택하면 실제 노출 높이로 미리보기됩니다."
+                    : "Choose an image to preview at live feed height."}
                 </p>
               );
             }
@@ -605,18 +761,48 @@ export function AdminFeedAdCreatePage() {
         </div>
       </section>
 
-      {err ? <p className="text-red-600">{err}</p> : null}
+      {err ? (
+        <p className="whitespace-pre-line text-red-600" role="alert">
+          {err}
+        </p>
+      ) : null}
+      {successMsg ? (
+        <p className="text-sam-success" role="status">
+          {successMsg}
+        </p>
+      ) : null}
 
       <button
         type="button"
         disabled={busy || uploading != null}
-        onClick={() => void save()}
+        onClick={() => requestSave()}
         className="w-full rounded-ui-rect bg-signature px-4 py-3 font-medium text-white disabled:opacity-50"
+        data-admin-feed-register-cta="1"
       >
         {busy
           ? t("common_loading")
-          : safeT("admin_feed_ads_publish", { fallbackKo: "9. 광고 게시", fallbackEn: "9. Publish" })}
+          : ko
+            ? "광고 등록"
+            : "Register ad"}
       </button>
+
+      <AdminActionConfirmDialog
+        open={confirmOpen}
+        title={createCopy.title}
+        description={createCopy.body}
+        confirmLabel={createCopy.confirmLabel}
+        cancelLabel={createCopy.cancelLabel}
+        tone={createCopy.tone}
+        pending={busy}
+        onCancel={() => {
+          if (busy) return;
+          setConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          if (busy) return;
+          void save();
+        }}
+      />
     </div>
   );
 }

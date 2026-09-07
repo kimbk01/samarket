@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  adsCreateConfirmCopy,
   adsPlacementReorderConfirmCopy,
   adsWorkspaceActionNeedsReason,
   adsWorkspaceMutationConfirmCopy,
@@ -36,6 +37,12 @@ describe("admin mutation confirm copy (CUT R1)", () => {
     const c = adsPlacementReorderConfirmCopy(true);
     expect(c.title).toContain("순서");
     expect(c.confirmLabel).toBe("저장");
+  });
+
+  it("create registration has dedicated copy", () => {
+    const c = adsCreateConfirmCopy(true);
+    expect(c.title).toContain("등록");
+    expect(c.confirmLabel).toBe("등록");
   });
 
   it("memo copy exists but R1 UI skips confirm for ordinary note save", () => {

@@ -1,368 +1,99 @@
 "use client";
 
+/**
+ * CUT R2 — Admin Direct product selection (canonical entry from + 광고 등록).
+ * Community / Trade / Delivery Hero / Popup are separate products.
+ * Boost / Delivery Sponsored are not offered.
+ */
+
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { FeedAdDomain, FeedAdPlacement } from "@/lib/ads/feed-ad-placement";
-import {
-  OWNER_BANNER_INVENTORY_KEYS,
-  type OwnerBannerInventoryKey,
-} from "@/lib/stores/advertising/owner-banner-contract";
-import { DELIVERY_AD_ADMIN_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import { AdminActionLink } from "@/components/admin/ui/AdminActionButton";
 
-type DirectProduct = "delivery" | "feed" | "popup";
-type PublishMode = "live" | "scheduled";
-
-const FEED_PLACEMENTS: Record<FeedAdDomain, FeedAdPlacement[]> = {
-  trade: ["TRADE_HOME", "TRADE_CATEGORY"],
-  community: ["COMMUNITY_HOME", "COMMUNITY_TOPIC"],
-};
+const PRODUCTS = [
+  {
+    id: "community",
+    href: "/admin/advertising/direct/community",
+    titleKo: "Community 배너",
+    titleEn: "Community banner",
+    bodyKo: "Community 피드에 노출",
+    bodyEn: "Shown in the Community feed",
+  },
+  {
+    id: "trade",
+    href: "/admin/advertising/direct/trade",
+    titleKo: "거래 배너",
+    titleEn: "Trade banner",
+    bodyKo: "거래 피드에 노출",
+    bodyEn: "Shown in the Trade feed",
+  },
+  {
+    id: "delivery",
+    href: "/admin/advertising/direct/delivery",
+    titleKo: "배달 홈 상단 배너",
+    titleEn: "Delivery home hero banner",
+    bodyKo: "배달 홈 Hero 영역",
+    bodyEn: "Delivery home Hero area",
+  },
+  {
+    id: "popup",
+    href: "/admin/advertising/direct/popup",
+    titleKo: "Popup",
+    titleEn: "Popup",
+    bodyKo: "서비스 Popup",
+    bodyEn: "Service popup",
+  },
+] as const;
 
 export function AdminAdsDirectRegisterHub() {
   const { language } = useI18n();
   const ko = language !== "en";
-  const router = useRouter();
-  const [product, setProduct] = useState<DirectProduct>("delivery");
-  const [feedDomain, setFeedDomain] = useState<FeedAdDomain>("trade");
-  const [deliveryPlacement, setDeliveryPlacement] =
-    useState<OwnerBannerInventoryKey>("STORES_HOME_HERO");
-  const [feedPlacement, setFeedPlacement] = useState<FeedAdPlacement>("TRADE_HOME");
-  const [popupSurface, setPopupSurface] = useState("GLOBAL");
-  const [targetId, setTargetId] = useState("");
-  const [name, setName] = useState("");
-  const [headline, setHeadline] = useState("");
-  const [subcopy, setSubcopy] = useState("");
-  const [cta, setCta] = useState("/stores");
-  const [imageUrl, setImageUrl] = useState("");
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [popupFile, setPopupFile] = useState<File | null>(null);
-  const [sourceWidth, setSourceWidth] = useState(0);
-  const [sourceHeight, setSourceHeight] = useState(0);
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
-  const [publishMode, setPublishMode] = useState<PublishMode>("scheduled");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const domainLabel =
-    product === "delivery" ? "delivery" : product === "feed" ? feedDomain : "popup";
-  const placementLabel =
-    product === "delivery"
-      ? deliveryPlacement
-      : product === "feed"
-        ? feedPlacement
-        : popupSurface;
-  const needsTarget =
-    product === "feed" &&
-    (feedPlacement === "TRADE_CATEGORY" || feedPlacement === "COMMUNITY_TOPIC");
-
-  const schedule = useMemo(() => {
-    const start = publishMode === "live" ? new Date() : startAt ? new Date(startAt) : null;
-    const end = endAt ? new Date(endAt) : null;
-    return {
-      start,
-      end,
-      valid:
-        start !== null &&
-        end !== null &&
-        Number.isFinite(start.getTime()) &&
-        Number.isFinite(end.getTime()) &&
-        end.getTime() > start.getTime(),
-    };
-  }, [endAt, publishMode, startAt]);
-
-  const resetCreative = () => {
-    setImageUrl("");
-    setPreviewUrl("");
-    setPopupFile(null);
-    setSourceWidth(0);
-    setSourceHeight(0);
-  };
-
-  const uploadCreative = async (file: File) => {
-    setError("");
-    if (product === "popup") {
-      setPopupFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-      return;
-    }
-    const endpoint =
-      product === "delivery"
-        ? "/api/admin/delivery-ads/upload-banner-image"
-        : "/api/admin/feed-ads/upload";
-    const fd = new FormData();
-    fd.set("file", file);
-    if (product === "delivery") fd.set("inventoryKey", deliveryPlacement);
-    const res = await fetch(endpoint, { method: "POST", credentials: "include", body: fd });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      url?: string;
-      width?: number;
-      height?: number;
-      error?: string;
-    };
-    if (!res.ok || !json.ok || !json.url) {
-      setError(json.error || (ko ? "이미지를 업로드하지 못했습니다." : "Image upload failed."));
-      return;
-    }
-    setImageUrl(json.url);
-    setPreviewUrl(URL.createObjectURL(file));
-    setSourceWidth(Number(json.width ?? 0));
-    setSourceHeight(Number(json.height ?? 0));
-  };
-
-  const submit = async () => {
-    setError("");
-    setSuccess("");
-    if (!name.trim() || !headline.trim()) {
-      setError(ko ? "광고 이름과 헤드라인을 입력하세요." : "Enter a name and headline.");
-      return;
-    }
-    if (!schedule.valid) {
-      setError(ko ? "시작·종료 기간을 확인하세요." : "Check the start and end schedule.");
-      return;
-    }
-    if ((product === "popup" && !popupFile) || (product !== "popup" && !imageUrl)) {
-      setError(ko ? "이미지를 업로드하세요." : "Upload an image.");
-      return;
-    }
-    if (needsTarget && !targetId.trim()) {
-      setError(ko ? "대상 식별자를 입력하세요." : "Enter the target identifier.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const startIso = schedule.start!.toISOString();
-      const endIso = schedule.end!.toISOString();
-      if (product === "delivery") {
-        const res = await fetch("/api/admin/delivery-ads/first-party", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product: "banner",
-            inventoryKey: deliveryPlacement,
-            startAt: startIso,
-            endAt: endIso,
-            assetPath: imageUrl,
-            sourceWidth,
-            sourceHeight,
-            title: name,
-            headline,
-            subcopy,
-            ctaHref: cta,
-          }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          campaignId?: string;
-          detailHref?: string;
-          error?: string;
-        };
-        if (!res.ok || !json.ok || !json.campaignId) throw new Error(json.error || "create_failed");
-        router.push(json.detailHref || DELIVERY_AD_ADMIN_ROUTES.detail(json.campaignId));
-        return;
-      }
-
-      if (product === "feed") {
-        const res = await fetch("/api/admin/feed-ads", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            domain: feedDomain,
-            placement: feedPlacement,
-            targetCategoryId: feedPlacement === "TRADE_CATEGORY" ? targetId : undefined,
-            targetTopicSlug: feedPlacement === "COMMUNITY_TOPIC" ? targetId : undefined,
-            status: publishMode === "live" ? "active" : "draft",
-            startAt: startIso,
-            endAt: endIso,
-            destinationType: "internal_page",
-            destinationUrl: cta,
-            slides: [{ sortOrder: 1, imageUrl, altText: headline, headline }],
-          }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) throw new Error(json.error || "create_failed");
-        router.push("/admin/feed-ads");
-        return;
-      }
-
-      const fd = new FormData();
-      fd.set("name", name.trim());
-      fd.set("surfaces", JSON.stringify([popupSurface]));
-      fd.set("startAt", startIso);
-      fd.set("endAt", endIso);
-      fd.set("ctaTarget", cta);
-      fd.set("file", popupFile!);
-      fd.set("publishMode", publishMode);
-      fd.set("altText", headline);
-      const createRes = await fetch("/api/admin/advertising/direct-popup", {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const created = (await createRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        id?: string;
-        incomplete?: boolean;
-        detailHref?: string;
-        error?: string;
-      };
-      if (!createRes.ok || !created.ok || !created.id) {
-        if (created.incomplete && created.id) {
-          setError(
-            ko
-              ? "팝업 광고가 임시 상태로 저장되었습니다. 필수 설정을 완료해 주세요."
-              : "Popup was saved as an incomplete draft. Finish required settings."
-          );
-          return;
-        }
-        setError(
-          ko
-            ? "팝업 광고 등록을 완료하지 못했습니다."
-            : "Could not complete popup registration."
-        );
-        return;
-      }
-      setSuccess(
-        publishMode === "live"
-          ? ko
-            ? "팝업 광고를 등록하고 노출을 시작했습니다."
-            : "Popup registered and activated."
-          : ko
-            ? "팝업 광고를 예약했습니다."
-            : "Popup scheduled."
-      );
-      router.push(created.detailHref || `/admin/platform-popup/${created.id}`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "create_failed");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
-    <div className="space-y-4" data-admin-ads-direct-flow="UNIFIED_7_STEP">
+    <div className="space-y-5" data-admin-ads-direct-flow="PRODUCT_SELECT_R2">
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
             {ko ? "광고 / 노출" : "Ads / Exposure"}
           </Link>
           {" › "}
-          {ko ? "관리자 직접 등록" : "Admin direct"}
+          {ko ? "광고 등록" : "Register ad"}
         </p>
         <h1 className="text-lg font-semibold text-sam-fg">
-          {ko ? "광고 통합 등록" : "Unified ad registration"}
+          {ko ? "광고 등록" : "Register ad"}
         </h1>
+        <p className="text-[14px] text-sam-fg">
+          {ko ? "어떤 광고를 등록하시겠습니까?" : "Which ad would you like to register?"}
+        </p>
       </header>
 
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="1">
-        <h2 className="font-semibold">{ko ? "1. 상품" : "1. Product"}</h2>
-        <div className="grid gap-2 sm:grid-cols-4">
-          {(["delivery", "feed", "popup"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={`rounded-ui-rect border px-3 py-2 ${product === value ? "border-sam-primary bg-sam-primary/5" : "border-sam-border"}`}
-              onClick={() => {
-                setProduct(value);
-                resetCreative();
-              }}
-            >
-              {value === "delivery" ? (ko ? "배달 배너" : "Delivery banner") : value === "feed" ? (ko ? "피드 배너" : "Feed banner") : ko ? "팝업" : "Popup"}
-            </button>
-          ))}
-          <button type="button" disabled className="rounded-ui-rect border border-sam-border px-3 py-2 opacity-50" data-admin-direct-store-promote-blocked="1">
-            {ko ? "매장 상위홍보 · 차단" : "Store promote · BLOCKED"}
-          </button>
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="2">
-        <h2 className="font-semibold">{ko ? "2. 도메인" : "2. Domain"}</h2>
-        {product === "feed" ? (
-          <select
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-            value={feedDomain}
-            onChange={(event) => {
-              const next = event.target.value as FeedAdDomain;
-              setFeedDomain(next);
-              setFeedPlacement(FEED_PLACEMENTS[next][0]);
-            }}
+      <div className="grid gap-3 sm:grid-cols-2" data-admin-ads-direct-products="1">
+        {PRODUCTS.map((p) => (
+          <AdminActionLink
+            key={p.id}
+            href={p.href}
+            variant="secondary"
+            className="!block h-auto min-h-[96px] flex-col items-start justify-center gap-1 px-4 py-4 text-left !whitespace-normal"
+            data-admin-ads-direct-product={p.id}
           >
-            <option value="trade">trade</option>
-            <option value="community">community</option>
-          </select>
-        ) : (
-          <p className="text-sm text-sam-muted">{domainLabel}</p>
-        )}
-      </section>
+            <span className="text-[15px] font-bold text-sam-fg">
+              {ko ? p.titleKo : p.titleEn}
+            </span>
+            <span className="text-[13px] font-normal text-sam-muted">
+              {ko ? p.bodyKo : p.bodyEn}
+            </span>
+          </AdminActionLink>
+        ))}
+      </div>
 
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="3">
-        <h2 className="font-semibold">{ko ? "3. 화면 / 위치" : "3. Screen / placement"}</h2>
-        {product === "delivery" ? (
-          <select className="w-full rounded-ui-rect border border-sam-border px-3 py-2" value={deliveryPlacement} onChange={(event) => { setDeliveryPlacement(event.target.value as OwnerBannerInventoryKey); resetCreative(); }}>
-            {OWNER_BANNER_INVENTORY_KEYS.map((key) => <option key={key} value={key}>{key}</option>)}
-          </select>
-        ) : product === "feed" ? (
-          <div className="space-y-2">
-            <select className="w-full rounded-ui-rect border border-sam-border px-3 py-2" value={feedPlacement} onChange={(event) => setFeedPlacement(event.target.value as FeedAdPlacement)}>
-              {FEED_PLACEMENTS[feedDomain].map((key) => <option key={key} value={key}>{key}</option>)}
-            </select>
-            {needsTarget ? <input className="w-full rounded-ui-rect border border-sam-border px-3 py-2" value={targetId} onChange={(event) => setTargetId(event.target.value)} placeholder={feedPlacement === "TRADE_CATEGORY" ? "category id" : "topic slug"} /> : null}
-          </div>
-        ) : (
-          <select className="w-full rounded-ui-rect border border-sam-border px-3 py-2" value={popupSurface} onChange={(event) => setPopupSurface(event.target.value)}>
-            {["GLOBAL", "DELIVERY", "TRADE", "COMMUNITY", "MYPAGE"].map((surface) => <option key={surface} value={surface}>{surface}</option>)}
-          </select>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="4">
-        <h2 className="font-semibold">{ko ? "4. 소재" : "4. Creative"}</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input className="rounded-ui-rect border border-sam-border px-3 py-2" value={name} onChange={(event) => setName(event.target.value)} placeholder={ko ? "광고 이름" : "Campaign name"} />
-          <input className="rounded-ui-rect border border-sam-border px-3 py-2" value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder={ko ? "헤드라인" : "Headline"} />
-          <input className="rounded-ui-rect border border-sam-border px-3 py-2" value={subcopy} onChange={(event) => setSubcopy(event.target.value)} placeholder={ko ? "서브카피" : "Subcopy"} />
-          <input className="rounded-ui-rect border border-sam-border px-3 py-2" value={cta} onChange={(event) => setCta(event.target.value)} placeholder="/path" />
-        </div>
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCreative(file); event.target.value = ""; }} />
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="5">
-        <h2 className="font-semibold">{ko ? "5. 기간" : "5. Period"}</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <input type="datetime-local" disabled={publishMode === "live"} className="rounded-ui-rect border border-sam-border px-3 py-2 disabled:opacity-50" value={startAt} onChange={(event) => setStartAt(event.target.value)} />
-          <input type="datetime-local" className="rounded-ui-rect border border-sam-border px-3 py-2" value={endAt} onChange={(event) => setEndAt(event.target.value)} />
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="6">
-        <h2 className="font-semibold">{ko ? "6. 미리보기" : "6. Preview"}</h2>
-        <p className="text-sm text-sam-muted">{name || "—"} · {domainLabel} · {placementLabel} · {headline || "—"}</p>
-        {previewUrl || imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- admin upload preview
-          <img src={previewUrl || imageUrl} alt="" className="max-h-52 w-full rounded-ui-rect object-cover" />
-        ) : null}
-      </section>
-
-      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-admin-direct-step="7">
-        <h2 className="font-semibold">{ko ? "7. 등록 방식" : "7. Action"}</h2>
-        <div className="flex gap-2">
-          <button type="button" className={`${publishMode === "live" ? Sam.btn.primary : Sam.btn.secondary}`} onClick={() => setPublishMode("live")}>{ko ? "즉시 노출" : "Go live"}</button>
-          <button type="button" className={`${publishMode === "scheduled" ? Sam.btn.primary : Sam.btn.secondary}`} onClick={() => setPublishMode("scheduled")}>{ko ? "예약 등록" : "Schedule"}</button>
-        </div>
-        {product === "popup" ? <p className="text-xs text-sam-muted">{ko ? "팝업은 초안 생성·소재 저장·승인·노출 전환을 한 번에 완료합니다. 실패하면 활성화하지 않고 초안으로 보관합니다." : "Popup creation, creative, approval, and activation complete together. Failures remain inactive drafts."}</p> : null}
-        {error ? <p role="alert" className="text-sm text-sam-danger">{error}</p> : null}
-        {success ? <p role="status" className="text-sm text-sam-success">{success}</p> : null}
-        <button type="button" disabled={busy} className={Sam.btn.primary} onClick={() => void submit()}>{busy ? "…" : ko ? "등록 완료" : "Complete registration"}</button>
-      </section>
+      <p
+        className="text-[12px] text-sam-muted"
+        data-admin-direct-store-promote-blocked="1"
+      >
+        {ko
+          ? "Boost·매장 상위홍보(Delivery Sponsored)는 Admin Direct로 등록할 수 없습니다."
+          : "Boost and Delivery Sponsored cannot be registered via Admin Direct."}
+      </p>
     </div>
   );
 }

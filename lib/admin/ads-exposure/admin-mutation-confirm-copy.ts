@@ -208,3 +208,18 @@ export function adsPlacementReorderConfirmCopy(ko: boolean): AdminMutationConfir
     reasonLabel: ko ? "사유" : "Reason",
   };
 }
+
+/** CUT R2 — create registration confirmation (before writer). */
+export function adsCreateConfirmCopy(ko: boolean): AdminMutationConfirmCopy {
+  return {
+    title: ko ? "광고를 등록하시겠습니까?" : "Register this ad?",
+    body: ko
+      ? "설정한 노출 위치와 기간을 확인한 후 등록합니다."
+      : "Confirm placement and schedule, then register.",
+    confirmLabel: ko ? "등록" : "Register",
+    cancelLabel: ko ? "취소" : "Cancel",
+    tone: "primary",
+    reasonRequired: false,
+    reasonLabel: ko ? "사유" : "Reason",
+  };
+}
