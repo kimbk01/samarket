@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
@@ -115,6 +115,7 @@ function signedCashMinor(row: LedgerRow): number {
 export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const { t, safeT, language } = useI18n();
   const ko = language !== "en";
+  const router = useRouter();
   const searchParams = useSearchParams();
   const section = (searchParams.get("section") || "transactions").trim();
 
@@ -179,6 +180,28 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Legacy deep links (#cash-manage / #cash-history) → section shell.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "").trim();
+    if (!hash) return;
+    const targetSection =
+      hash === "cash-manage"
+        ? "convert"
+        : hash === "cash-history"
+          ? "cash"
+          : hash === "coin-history"
+            ? "coin"
+            : hash === "coin-withdraw"
+              ? "withdraw"
+              : null;
+    if (!targetSection || section === targetSection) return;
+    const qs = new URLSearchParams(searchParams.toString());
+    qs.set("storeId", storeId);
+    qs.set("section", targetSection);
+    router.replace(`/stores/owner/finance?${qs.toString()}#${hash}`);
+  }, [router, searchParams, section, storeId]);
 
   const periodCoinIn = useMemo(
     () =>
@@ -327,7 +350,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
               {ko ? COIN_WITHDRAWAL_LABEL_KO : "Request Coin withdrawal"}
             </Link>
           </div>
-          <ul className="space-y-2">
+          <ul id="coin-history" className="space-y-2">
             {coinLedger.length === 0 ? (
               <li className="text-sm text-sam-muted">{t("store_owner_point_ledger_empty")}</li>
             ) : (
@@ -349,7 +372,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       {section === "cash" || section === "ads" ? (
         <section className="space-y-3" data-owner-finance-section={section}>
           <CurrencyBalanceCard currency="cash" amount={cashBalanceMinor} isMinor />
-          <ul className="space-y-2">
+          <ul id="cash-history" className="space-y-2">
             {(section === "ads"
               ? cashLedger.filter((r) => r.entryKind === "AD_SPEND" || r.entryKind === "AD_REFUND" || r.entryKind === "PARTNER_SPEND")
               : cashLedger
@@ -386,13 +409,17 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
 
       {section === "convert" ? (
         <section className="space-y-3" data-owner-finance-section="convert">
-          <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={load} />
+          <div id="cash-manage">
+            <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={load} />
+          </div>
         </section>
       ) : null}
 
       {section === "withdraw" ? (
         <section className="space-y-3" data-owner-finance-section="withdraw">
-          <OwnerCoinWithdrawalPanel storeId={storeId} onSubmitted={load} />
+          <div id="coin-withdraw">
+            <OwnerCoinWithdrawalPanel storeId={storeId} onSubmitted={load} />
+          </div>
         </section>
       ) : null}
     </div>

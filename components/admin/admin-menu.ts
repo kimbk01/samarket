@@ -837,6 +837,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "store-point-ledger-admin",
             title: "",
             path: "/admin/finance/transactions?wallet=COIN",
+            // Legacy AST-002 path still redirects here — keep finance workspace match.
+            matchPaths: ["/admin/store-point-ledger"],
             status: "done",
           },
           {
