@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
@@ -21,6 +22,10 @@ import {
 } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
 import {
+  adsWorkspaceMutationConfirmCopy,
+  type AdminMutationConfirmCopy,
+} from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import {
   filterShellRowsByProductFamily,
   filterShellRowsByTab,
   toAdsShellListRow,
@@ -29,7 +34,6 @@ import {
   type AdsShellStatusTab,
 } from "@/lib/admin/ads-exposure/shell-row";
 import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capacity-ssot";
-import { Sam } from "@/lib/ui/sam-component-classes";
 
 type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history" | "boosts";
 
@@ -288,6 +292,11 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
   const [manageOpenId, setManageOpenId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState("");
+  const [pendingMutation, setPendingMutation] = useState<{
+    action: WorkspaceDrawerAction;
+    item: AdsActionItem;
+    copy: AdminMutationConfirmCopy;
+  } | null>(null);
   const [publicMessage, setPublicMessage] = useState("");
   const [internalMemo, setInternalMemo] = useState("");
   const [extendDays, setExtendDays] = useState(1);
@@ -379,8 +388,12 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
     }));
   }, [model, ko]);
 
-  const runDrawerAction = useCallback(
-    async (action: WorkspaceDrawerAction, rowItem: AdsActionItem) => {
+  const executeDrawerAction = useCallback(
+    async (
+      action: WorkspaceDrawerAction,
+      rowItem: AdsActionItem,
+      reasonFromConfirm?: string
+    ) => {
       const fam = resolveFamily(rowItem);
       if (!fam) {
         setActionMsg(ko ? "이 행은 관리 액션이 없습니다." : "No manage actions for this row.");
@@ -392,21 +405,14 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
           return;
         }
       }
+      const reason =
+        (reasonFromConfirm && reasonFromConfirm.trim()) ||
+        publicMessage.trim() ||
+        "";
       setBusyAction(action);
       setActionMsg("");
       try {
-        if (action === "delete_safe_draft") {
-          const ok = window.confirm(
-            ko
-              ? "임시저장 팝업을 삭제할까요? 이 작업은 되돌릴 수 없습니다."
-              : "Delete this draft popup? This cannot be undone."
-          );
-          if (!ok) {
-            setBusyAction(null);
-            return;
-          }
-        }
-        if (action === "extend_compensation" && !publicMessage.trim()) {
+        if (action === "extend_compensation" && !reason) {
           setActionMsg(ko ? "연장 사유가 필요합니다." : "Extend reason required.");
           setBusyAction(null);
           return;
@@ -418,8 +424,8 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
             family: fam,
             entityId: parseWorkspaceEntityId(rowItem.id),
             action,
-            reason: publicMessage || undefined,
-            publicMessage: publicMessage || undefined,
+            reason: reason || undefined,
+            publicMessage: reason || undefined,
             internalMemo: action === "add_internal_memo" ? internalMemo : undefined,
             requestedDays: action === "extend_compensation" ? extendDays : undefined,
             extensionKind:
@@ -436,7 +442,11 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
               ? ko
                 ? ADS_FEEDBACK.capacityFull.ko
                 : ADS_FEEDBACK.capacityFull.en
-              : j.error ?? (ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en)
+              : j.error === "reason_required"
+                ? ko
+                  ? "사유를 입력해 주세요."
+                  : "Please enter a reason."
+                : j.error ?? (ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en)
           );
           return;
         }
@@ -444,6 +454,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
         setPublicMessage("");
         setInternalMemo("");
         setManageOpenId(null);
+        setPendingMutation(null);
         await load();
       } catch {
         setActionMsg(ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en);
@@ -452,6 +463,23 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       }
     },
     [publicMessage, internalMemo, extendDays, periodStart, periodEnd, load, ko]
+  );
+
+  const requestDrawerAction = useCallback(
+    (action: WorkspaceDrawerAction, rowItem: AdsActionItem) => {
+      // Ordinary internal note save — not a consequential Ads state mutation.
+      if (action === "add_internal_memo") {
+        void executeDrawerAction(action, rowItem);
+        return;
+      }
+      const fam = resolveFamily(rowItem);
+      const copy = adsWorkspaceMutationConfirmCopy(action, ko, {
+        boostSanction: mode === "boosts" && action === "pause",
+        family: fam,
+      });
+      setPendingMutation({ action, item: rowItem, copy });
+    },
+    [ko, mode, executeDrawerAction]
   );
 
   const selectedFamily = selected ? resolveFamily(selected) : null;
@@ -487,22 +515,24 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
         {headerCtas.showRegister || headerCtas.showPlacementsLink ? (
           <div className="flex flex-wrap gap-2">
             {headerCtas.showRegister ? (
-              <Link
+              <AdminActionLink
                 href="/admin/advertising/direct"
-                className={`${Sam.btn.primary} min-h-12 px-6 text-base font-bold shadow-sm`}
+                variant="primary"
+                className="min-h-12 px-6 text-base font-bold shadow-sm !bg-[var(--admin-console-accent,#1d4ed8)] !text-white"
                 data-admin-ads-register-cta="1"
               >
                 {ko ? "+ 광고 등록" : "+ Register ad"}
-              </Link>
+              </AdminActionLink>
             ) : null}
             {headerCtas.showPlacementsLink ? (
-              <Link
+              <AdminActionLink
                 href="/admin/advertising/placements"
-                className={Sam.btn.secondary}
+                variant="secondary"
+                className="min-h-12 px-4 font-semibold"
                 data-admin-ads-placement-cta="1"
               >
                 {ko ? "광고 위치 관리" : "Ad placements"}
-              </Link>
+              </AdminActionLink>
             ) : null}
           </div>
         ) : null}
@@ -786,8 +816,8 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                                 key={a}
                                 type="button"
                                 className="block w-full px-2 py-1.5 text-left text-[12px] hover:bg-sam-app"
-                                disabled={busyAction != null}
-                                onClick={() => void runDrawerAction(a, item)}
+                                disabled={busyAction != null || pendingMutation != null}
+                                onClick={() => requestDrawerAction(a, item)}
                               >
                                 {mode === "boosts" && a === "pause"
                                   ? ko
@@ -967,8 +997,8 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                   <AdminActionButton
                     key={a}
                     type="button"
-                    disabled={busyAction != null}
-                    onClick={() => void runDrawerAction(a, selected)}
+                    disabled={busyAction != null || pendingMutation != null}
+                    onClick={() => requestDrawerAction(a, selected)}
                     data-drawer-action={a}
                   >
                     {busyAction === a ? "…" : ko ? ACTION_LABEL[a].ko : ACTION_LABEL[a].en}
@@ -1018,6 +1048,33 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
           {ko ? "광고 상품 / 가격" : "Products & pricing"}
         </Link>
       </p>
+
+      <AdminActionConfirmDialog
+        open={Boolean(pendingMutation)}
+        title={pendingMutation?.copy.title ?? ""}
+        description={pendingMutation?.copy.body ?? ""}
+        confirmLabel={pendingMutation?.copy.confirmLabel ?? ""}
+        cancelLabel={pendingMutation?.copy.cancelLabel ?? (ko ? "취소" : "Cancel")}
+        tone={pendingMutation?.copy.tone ?? "primary"}
+        reasonRequired={Boolean(pendingMutation?.copy.reasonRequired)}
+        reasonLabel={pendingMutation?.copy.reasonLabel}
+        reasonPlaceholder={
+          ko ? "사유를 입력해 주세요." : "Enter a reason."
+        }
+        pending={busyAction != null}
+        onCancel={() => {
+          if (busyAction != null) return;
+          setPendingMutation(null);
+        }}
+        onConfirm={(reason) => {
+          if (!pendingMutation || busyAction != null) return;
+          void executeDrawerAction(
+            pendingMutation.action,
+            pendingMutation.item,
+            reason
+          );
+        }}
+      />
     </div>
   );
 }

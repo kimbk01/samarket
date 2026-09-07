@@ -4,7 +4,7 @@
  */
 
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 
 export type AdminActionVariant = "primary" | "secondary" | "neutral" | "danger" | "ghost";
 
@@ -59,19 +59,21 @@ export function AdminActionLink({
   className = "",
   children,
   prefetch = false,
+  ...rest
 }: {
   href: string;
   variant?: AdminActionVariant;
   className?: string;
   children: ReactNode;
   prefetch?: boolean;
-}) {
+} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className" | "children">) {
   return (
     <Link
       href={href}
       prefetch={prefetch}
       data-admin-action={variant}
       className={actionClassName(variant, className)}
+      {...rest}
     >
       {children}
     </Link>

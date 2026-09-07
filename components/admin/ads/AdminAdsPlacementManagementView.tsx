@@ -8,9 +8,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import type { AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
+import { adsPlacementReorderConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
 import { humanPlacementLabel } from "@/lib/admin/ads-exposure/human-placement-label";
 import { DELIVERY_HERO_CAPACITY } from "@/lib/admin/ads-exposure/capacity-gate";
 import type { HeroPlacementSlot } from "@/lib/admin/ads-exposure/hero-placement-slots";
@@ -23,9 +25,10 @@ export function AdminAdsPlacementManagementView() {
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [heroSlots, setHeroSlots] = useState<HeroPlacementSlot[]>([]);
   const [orderedIds, setOrderedIds] = useState<string[]>([]);
-
+  const reorderCopy = adsPlacementReorderConfirmCopy(ko);
   const load = useCallback(async () => {
     setErr("");
     const [controlPlane, heroRes] = await Promise.all([
@@ -91,6 +94,7 @@ export function AdminAdsPlacementManagementView() {
         setErr(json.error || (ko ? ADS_FEEDBACK.saveFailed.ko : ADS_FEEDBACK.saveFailed.en));
         return;
       }
+      setConfirmOpen(false);
       setMsg(ko ? ADS_FEEDBACK.orderSaved.ko : ADS_FEEDBACK.orderSaved.en);
       await load();
     } catch {
@@ -99,7 +103,6 @@ export function AdminAdsPlacementManagementView() {
       setBusy(false);
     }
   };
-
   const occupied = orderedIds.length;
   const cap = DELIVERY_HERO_CAPACITY;
 
@@ -247,7 +250,7 @@ export function AdminAdsPlacementManagementView() {
                 className={`${Sam.btn.primary} mt-3`}
                 disabled={busy || orderedIds.length === 0}
                 data-hero-reorder-save="1"
-                onClick={() => void saveOrder()}
+                onClick={() => setConfirmOpen(true)}
               >
                 {busy
                   ? "…"
@@ -311,6 +314,24 @@ export function AdminAdsPlacementManagementView() {
           </Link>
         </div>
       </section>
+
+      <AdminActionConfirmDialog
+        open={confirmOpen}
+        title={reorderCopy.title}
+        description={reorderCopy.body}
+        confirmLabel={reorderCopy.confirmLabel}
+        cancelLabel={reorderCopy.cancelLabel}
+        tone={reorderCopy.tone}
+        pending={busy}
+        onCancel={() => {
+          if (busy) return;
+          setConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          if (busy) return;
+          void saveOrder();
+        }}
+      />
     </div>
   );
 }

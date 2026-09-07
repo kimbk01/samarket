@@ -130,4 +130,26 @@ describe("workspace drawer writer CTAs", () => {
     expect(actions).toContain("extend_compensation");
     expect(actions).toContain("pause");
   });
+
+  it("HOLD/request_changes only for Delivery writers (not Feed/Boost/Popup)", () => {
+    expect(isAdminAuthorityCtaAllowed("delivery_banner", "REQUEST_REVISION")).toBe(true);
+    expect(isAdminAuthorityCtaAllowed("delivery_sponsored", "REQUEST_REVISION")).toBe(true);
+    expect(isAdminAuthorityCtaAllowed("feed_banner", "REQUEST_REVISION")).toBe(false);
+    expect(isAdminAuthorityCtaAllowed("boost_community", "REQUEST_REVISION")).toBe(false);
+    expect(isAdminAuthorityCtaAllowed("boost_trade", "REQUEST_REVISION")).toBe(false);
+    expect(isAdminAuthorityCtaAllowed("platform_popup", "REQUEST_REVISION")).toBe(false);
+
+    expect(
+      listWorkspaceDrawerActions({ family: "delivery_banner", statusRaw: "검토 대기" })
+    ).toContain("request_changes");
+    expect(
+      listWorkspaceDrawerActions({ family: "feed_banner", statusRaw: "검토 대기" })
+    ).not.toContain("request_changes");
+    expect(
+      listWorkspaceDrawerActions({ family: "boost_community", statusRaw: "검토 대기" })
+    ).not.toContain("request_changes");
+    expect(
+      listWorkspaceDrawerActions({ family: "platform_popup_request", statusRaw: "승인 대기" })
+    ).not.toContain("request_changes");
+  });
 });

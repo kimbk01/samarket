@@ -1294,6 +1294,33 @@
   background: var(--admin-console-bg);
 }
 
+/* CUT R1 — Ads primary CTAs must stay high-contrast on Admin chrome */
+[data-admin] [data-admin-ads-register-cta="1"] {
+  background: var(--admin-console-accent, #1d4ed8);
+  color: #ffffff;
+  border-color: var(--admin-console-accent, #1d4ed8);
+  font-weight: 700;
+}
+
+[data-admin] [data-admin-ads-register-cta="1"]:hover {
+  opacity: 0.92;
+  color: #ffffff;
+}
+
+[data-admin] [data-admin-ads-placement-cta="1"] {
+  color: var(--admin-console-fg, #1f2937);
+  border-color: var(--admin-console-border, #d0d7e2);
+  background: var(--admin-console-surface, #ffffff);
+  font-weight: 600;
+}
+
+[data-admin] [data-hero-reorder-save="1"] {
+  background: var(--admin-console-accent, #1d4ed8);
+  color: #ffffff;
+  border-color: var(--admin-console-accent, #1d4ed8);
+  font-weight: 700;
+}
+
 @layer components {
   .sam-divider {
     @apply h-px w-full bg-sam-border;
