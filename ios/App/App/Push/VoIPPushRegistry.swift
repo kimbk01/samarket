@@ -115,6 +115,24 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       }
     }
 
+    // CUT7 #5: ringing-era terminals must not tear down post-accept / connected winner.
+    // call_ended always applies (legitimate active hangup). Never blanket-ignore all terminals.
+    if !shouldApplyVoipTerminal(kind: kind, sessionId: sessionId) {
+      DibayCallLog.infoCallV4(
+        "ios_voip_terminal_stale_suppressed",
+        callId: sessionId,
+        owner: "terminal",
+        reason: "kind=\(kind)_post_accept"
+      )
+      DibayCallLog.infoCall(
+        "[voip] completion",
+        callId: sessionId,
+        detail: "stale_terminal_suppressed kind=\(kind)"
+      )
+      completion()
+      return
+    }
+
     let terminalReason = "ios_voip_terminal_\(kind)"
     // CUT7 CallKit presentation mapping (server taxonomy unchanged):
     // - call_answered_elsewhere → .answeredElsewhere (#3)
@@ -174,6 +192,66 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       callKitEndReason: callKitEndReason,
       completion: completion
     )
+  }
+
+  /**
+   * CUT7 #5 — VoIP terminal applicability (kind + local phase + same session).
+   *
+   * Server evidence (`service.ts` resolveNext):
+   * - cancel → `cancelled` only from ringing; active cancel remaps to `ended` → `call_ended`
+   * - reject → `rejected` only from ringing
+   * - missed → only from ringing
+   * - end → `ended` from active (must always apply)
+   *
+   * Therefore late `missed_call` / `call_canceled` / `call_rejected` after local
+   * accepting|accepted|connecting|connected are stale delivery vs winner session.
+   * `call_ended` must never be suppressed.
+   */
+  private func shouldApplyVoipTerminal(kind: String, sessionId: String) -> Bool {
+    if kind == "call_ended" {
+      return true
+    }
+    let postAccept = isPostAcceptEstablishedSession(sessionId: sessionId)
+    if kind == "call_answered_elsewhere" {
+      // Loser still ringing/incoming → apply. Post-accept on this device ⇒ winner/stale.
+      if postAccept {
+        return false
+      }
+      return true
+    }
+    if kind == "missed_call" || kind == "call_canceled" || kind == "call_rejected" {
+      return !postAccept
+    }
+    return true
+  }
+
+  /// Local runtime has already advanced past ringing for this exact sessionId.
+  private func isPostAcceptEstablishedSession(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+
+    let voice = NativeVoiceCallRuntime.shared.snapshot()
+    if let active = voice.session, active.sessionId == sid {
+      switch voice.phase {
+      case .accepting, .accepted, .tokenPending, .joining, .connected:
+        return true
+      case .idle, .incomingPresented, .outgoingStarting, .rejecting, .ending, .ended, .failed:
+        return false
+      }
+    }
+
+    if NativeVideoCallLane.isEnabled() {
+      let video = NativeVideoCallRuntime.shared.snapshot()
+      if let active = video.session, active.sessionId == sid {
+        switch video.state {
+        case .accepting, .connecting, .connected:
+          return true
+        case .ringing, .ending, .ended, .failed:
+          return false
+        }
+      }
+    }
+    return false
   }
 
   private func fulfillOrphanTerminalVoipPush(
