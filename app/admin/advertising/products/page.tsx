@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AdminAdvertisingAuthorityNav } from "@/components/admin/ads/AdminAdvertisingAuthorityNav";
 import { ADS_CANONICAL_PRODUCTS } from "@/lib/ads/ads-canonical-product-ssot";
 
 const PRODUCT_ROWS = [
@@ -43,7 +42,6 @@ const PRODUCT_ROWS = [
 export default function AdminAdvertisingProductsPage() {
   return (
     <div className="space-y-4" data-admin-advertising-products="1">
-      <AdminAdvertisingAuthorityNav />
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">

@@ -10,7 +10,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminActionButton, AdminActionLink } from "@/components/admin/ui/AdminActionButton";
-import { AdminAdvertisingAuthorityNav } from "@/components/admin/ads/AdminAdvertisingAuthorityNav";
 import type { AdsActionItem, AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import {
@@ -33,6 +32,28 @@ import { BANNER_PLACEMENT_CAPACITY_SSOT } from "@/lib/ads/banner-placement-capac
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type AdvertisingWorkspaceMode = "all" | "applications" | "operations" | "history" | "boosts";
+
+/**
+ * PHASE 2 — header CTA by page responsibility.
+ * Global 7-leaf IA = sidebar only. Row operational CTAs unchanged.
+ */
+export function advertisingWorkspaceHeaderCtas(mode: AdvertisingWorkspaceMode): {
+  showRegister: boolean;
+  showPlacementsLink: boolean;
+} {
+  switch (mode) {
+    case "all":
+      return { showRegister: true, showPlacementsLink: true };
+    case "operations":
+      return { showRegister: false, showPlacementsLink: true };
+    case "boosts":
+    case "applications":
+    case "history":
+      return { showRegister: false, showPlacementsLink: false };
+    default:
+      return { showRegister: false, showPlacementsLink: false };
+  }
+}
 
 const STATUS_TABS_ALL: Array<{ id: AdsShellStatusTab; ko: string; en: string }> = [
   { id: "all", ko: "전체", en: "All" },
@@ -445,6 +466,7 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
         )
       : [];
   const selectedShell = selected ? toAdsShellListRow(selected, ko) : null;
+  const headerCtas = advertisingWorkspaceHeaderCtas(mode);
 
   return (
     <div
@@ -453,7 +475,6 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
       data-admin-advertising-workspace="1"
       data-admin-advertising-mode={mode}
     >
-      <AdminAdvertisingAuthorityNav />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-lg font-semibold text-sam-fg">
@@ -463,22 +484,28 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
             {modeDescription(mode, ko)}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/advertising/direct"
-            className={`${Sam.btn.primary} min-h-12 px-6 text-base font-bold shadow-sm`}
-            data-admin-ads-register-cta="1"
-          >
-            {ko ? "+ 광고 등록" : "+ Register ad"}
-          </Link>
-          <Link
-            href="/admin/advertising/placements"
-            className={Sam.btn.secondary}
-            data-admin-ads-placement-cta="1"
-          >
-            {ko ? "광고 위치 관리" : "Ad placements"}
-          </Link>
-        </div>
+        {headerCtas.showRegister || headerCtas.showPlacementsLink ? (
+          <div className="flex flex-wrap gap-2">
+            {headerCtas.showRegister ? (
+              <Link
+                href="/admin/advertising/direct"
+                className={`${Sam.btn.primary} min-h-12 px-6 text-base font-bold shadow-sm`}
+                data-admin-ads-register-cta="1"
+              >
+                {ko ? "+ 광고 등록" : "+ Register ad"}
+              </Link>
+            ) : null}
+            {headerCtas.showPlacementsLink ? (
+              <Link
+                href="/admin/advertising/placements"
+                className={Sam.btn.secondary}
+                data-admin-ads-placement-cta="1"
+              >
+                {ko ? "광고 위치 관리" : "Ad placements"}
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" data-shell-summary="1">

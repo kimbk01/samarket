@@ -13,7 +13,6 @@ import {
   ARO_IA_001_ADS_HUB_PATH,
   ARO_IA_001_COMMUNITY_PROMOTIONS_PATH,
 } from "@/lib/admin/aro-ia-001-community-common-links";
-import { AdminAdvertisingAuthorityNav } from "@/components/admin/ads/AdminAdvertisingAuthorityNav";
 import { readAdminReturnToFromSearch } from "@/lib/admin/admin-operation-return-context";
 
 type AdApplicationDomain = "trade" | "community" | "feed";
@@ -82,10 +81,8 @@ function normalizeDomain(value: string | null): AdApplicationDomain | null {
  */
 export function AdminAdApplicationsPage({
   forcedDomain,
-  canonicalAuthority = false,
 }: {
   forcedDomain?: AdApplicationDomain;
-  canonicalAuthority?: boolean;
 }) {
   const { safeT, language } = useI18n();
   const router = useRouter();
@@ -170,7 +167,6 @@ export function AdminAdApplicationsPage({
 
   return (
     <div className="space-y-4" data-aro-ops-ux-001-w3="1" data-admin-mgmt-proof="community-promotions">
-      {canonicalAuthority ? <AdminAdvertisingAuthorityNav /> : null}
       <AdminPageHeader
         title={safeT(choice.titleKey, {
           fallbackKo: choice.fallbackTitleKo,

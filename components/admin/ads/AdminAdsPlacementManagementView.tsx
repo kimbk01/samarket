@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AdminAdvertisingAuthorityNav } from "@/components/admin/ads/AdminAdvertisingAuthorityNav";
 import { fetchAdsControlPlane } from "@/lib/admin/ads-control-plane/fetch-ads-control-plane";
 import type { AdsControlPlaneModel } from "@/lib/admin/ads-control-plane/types";
 import { ADS_FEEDBACK } from "@/lib/admin/ads-exposure/action-feedback";
@@ -106,7 +105,6 @@ export function AdminAdsPlacementManagementView() {
 
   return (
     <div className="space-y-5" data-admin-ads-placements="1">
-      <AdminAdvertisingAuthorityNav />
       <header className="space-y-1">
         <p className="text-[12px] text-sam-muted">
           <Link href="/admin/advertising" className="underline">
