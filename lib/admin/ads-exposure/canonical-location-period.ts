@@ -171,14 +171,15 @@ export function formatRequestedPlacement(input: {
     return ko ? "배달 > 매장 리스트 > 상위홍보" : "Delivery > Store list > Promote";
   }
   if (kind === "feed_banner") {
+    const key = String(input.inventoryKey ?? "").trim().split(/\s+/)[0] ?? "";
+    if (key && /^(TRADE_HOME|TRADE_CATEGORY|COMMUNITY_HOME|COMMUNITY_TOPIC)$/i.test(key)) {
+      return humanPlacementLabel(key, ko);
+    }
     const domain = String(input.feedDomain ?? "").toLowerCase();
-    const head =
-      domain.includes("community")
-        ? "Community"
-        : ko
-          ? "거래"
-          : "Trade";
-    return `${head} > Feed > Banner`;
+    if (domain.includes("community") || /community/i.test(key)) {
+      return ko ? "Community > 홈 피드" : "Community > Home feed";
+    }
+    return ko ? "거래 > 홈 피드" : "Trade > Home feed";
   }
   if (kind === "delivery_banner") {
     // Requested: never invent Slot N
@@ -196,16 +197,22 @@ export function formatActualPlacement(input: {
   inventoryKey?: string | null;
   feedDomain?: "trade" | "community" | string | null;
   popupSurface?: string | null;
-  /** 1-based slot; omit when not assigned */
+  /** 1-based slide; omit when not assigned */
   slotIndex?: number | null;
 }): string {
-  const base = formatRequestedPlacement(input);
   if (input.kind === "delivery_banner") {
+    const key = String(input.inventoryKey ?? "").trim().split(/\s+/)[0] ?? "";
+    if (!key) {
+      return input.ko ? "아직 배정되지 않음" : "Not assigned yet";
+    }
+    const base = humanPlacementLabel(key || "STORES_HOME_HERO", input.ko);
     const slot = input.slotIndex;
     if (slot != null && Number.isFinite(slot) && slot > 0) {
-      return koPart(base, `Slot ${Math.floor(slot)}`, input.ko);
+      return koPart(base, `Slide ${Math.floor(slot)}`, input.ko);
     }
+    return base;
   }
+  const base = formatRequestedPlacement(input);
   return base;
 }
 

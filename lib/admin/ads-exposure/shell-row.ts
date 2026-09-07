@@ -15,7 +15,7 @@ import { humanPlacementLabel, humanPopupSurfaceShortLabel, productKindLabel } fr
 import {
   popupRuntimeDisplayLabel,
 } from "@/lib/admin/ads-exposure/popup-runtime-display";
-import { adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
+import { adsBoostExactTargetHref, adsLiveRouteHref } from "@/lib/admin/ads-exposure/live-route";
 import {
   adsOpsStatusLabel,
   mapRawToAdsOpsStatus,
@@ -102,13 +102,13 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   const d = String(domain ?? "").toLowerCase();
   const p = String(product ?? "").toLowerCase();
   if (d === "community_promote" || (d.includes("community") && p.includes("promote"))) {
-    return ko ? "Community 상위노출" : "Community top exposure";
+    return ko ? "[Community] 게시물 상위노출" : "[Community] Post top exposure";
   }
   if (d === "trade_promote" || (d.includes("trade") && (p.includes("promote") || p.includes("boost")))) {
-    return ko ? "거래 상위노출" : "Trade top exposure";
+    return ko ? "[거래] 게시물 상위노출" : "[Trade] Post top exposure";
   }
   if (d === "popup" || p.includes("popup")) {
-    return ko ? "팝업" : "Popup";
+    return ko ? "[Platform] Popup" : "[Platform] Popup";
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
     if (p.includes("community") || d.includes("community")) {
@@ -271,11 +271,20 @@ export function toAdsShellListRow(
     item.domain === "feed" ||
     item.domain === "delivery";
 
-  const liveHref = adsLiveRouteHref({
-    productKind: item.product,
-    placementKey,
-    domain: item.domain,
-  });
+  const boostExactHref = boostDomain
+    ? adsBoostExactTargetHref({
+        domain: item.domain,
+        targetId: item.creativeHint && !isCreativeUrl(item.creativeHint) ? item.creativeHint : null,
+      })
+    : null;
+  const liveHref =
+    boostExactHref ||
+    adsLiveRouteHref({
+      productKind: item.product,
+      placementKey,
+      domain: item.domain,
+      targetHref: boostExactHref,
+    });
 
   const operatingLabel =
     item.operatingStatusLabel ||

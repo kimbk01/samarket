@@ -57,7 +57,7 @@ describe("canonical-location-period", () => {
       inventoryKey: "STORES_HOME_HERO",
       slotIndex: 1,
     });
-    expect(act).toMatch(/Slot 1/);
+    expect(act).toMatch(/Slide 1/);
   });
 
   it("boost and popup hierarchies", () => {

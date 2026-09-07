@@ -156,7 +156,7 @@ describe("resolveShellPlacementKey / toAdsShellListRow", () => {
 
 describe("adsShellKindLabel + filters", () => {
   it("labels promote / sponsored families", () => {
-    expect(adsShellKindLabel("community_promote", "x", true)).toBe("Community 상위노출");
+    expect(adsShellKindLabel("community_promote", "x", true)).toBe("[Community] 게시물 상위노출");
     expect(adsShellKindLabel("delivery", "store_sponsored", true)).toBe("[배달] 매장 상위홍보");
     expect(adsShellKindLabel("feed", "feed_banner_community", true)).toBe("[Community] 배너");
     expect(adsShellKindLabel("feed", "feed_banner_trade", true)).toBe("[거래] 배너");
