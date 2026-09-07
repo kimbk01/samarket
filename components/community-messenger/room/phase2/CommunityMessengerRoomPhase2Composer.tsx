@@ -523,7 +523,16 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           placeholder={composerPlaceholder}
           textareaRef={vm.composerTextareaRef}
           onDraftChange={handleDraftChange}
-          onAttach={() => vm.setActiveSheet("attach")}
+          onAttach={() => {
+            vm.composerTextareaRef.current?.blur();
+            useMessengerRoomUiStore.getState().setComposerFocused(false);
+            vm.setActiveSheet("attach");
+          }}
+          onEmoji={() => {
+            vm.composerTextareaRef.current?.blur();
+            useMessengerRoomUiStore.getState().setComposerFocused(false);
+            vm.setActiveSheet("emoji");
+          }}
           onSend={commitTextSend}
           onTextareaKeyDown={(e) => {
             notifyChatInputKeydownForPerf();

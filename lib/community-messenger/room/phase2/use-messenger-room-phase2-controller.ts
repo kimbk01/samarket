@@ -1230,10 +1230,21 @@ export function useMessengerRoomPhase2Controller() {
       const { latitude, longitude } = res.position;
       const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
       const content = translateCmUi("cm_ui_location_share_line", { url });
-      setAttachmentConfirmDraft({ kind: "location", content });
-      setActiveSheet("attach-confirm");
+      dismissRoomSheet();
+      const replyTarget = replyToMessage;
+      const replyId = replyTarget?.id?.trim() ?? "";
+      setReplyToMessage(null);
+      await sendRawText(content, undefined, replyId || null, replyId ? replyTarget : null);
     })();
-  }, [roomUnavailable, setActiveSheet, setAttachmentConfirmDraft, snapshot, showMessengerSnackbar]);
+  }, [
+    dismissRoomSheet,
+    replyToMessage,
+    roomUnavailable,
+    sendRawText,
+    setReplyToMessage,
+    snapshot,
+    showMessengerSnackbar,
+  ]);
 
   const sendImageFiles = useCallback(
     async (files: File[], optimisticPreviewUrls: string[]) => {
@@ -1331,6 +1342,15 @@ export function useMessengerRoomPhase2Controller() {
     ]
   );
 
+  /** Kakao-parity + sheet: images send without attach-confirm. */
+  const sendAttachmentImagesDirect = useCallback(
+    async (files: File[], previewUrls: string[]) => {
+      setReplyToMessage(null);
+      await sendImageFiles(files, previewUrls);
+    },
+    [sendImageFiles, setReplyToMessage]
+  );
+
   const openImagePicker = useCallback(() => {
     if (roomUnavailable || busy === "send-image" || !canUploadAttachments) return;
     imageInputRef.current?.click();
@@ -1352,9 +1372,9 @@ export function useMessengerRoomPhase2Controller() {
       });
     }
     const previewUrls = files.map((f) => URL.createObjectURL(f));
-    setAttachmentConfirmDraft({ kind: "image", files, previewUrls });
-    setActiveSheet("attach-confirm");
-  }, [setActiveSheet]);
+    setReplyToMessage(null);
+    void sendImageFiles(files, previewUrls);
+  }, [sendImageFiles, setReplyToMessage]);
 
   const sendFile = useCallback(
     async (file: File) => {
@@ -2642,6 +2662,7 @@ export function useMessengerRoomPhase2Controller() {
     sendMessage,
     sendSticker,
     sendLocationMessage,
+    sendAttachmentImagesDirect,
     attachmentConfirmDraft,
     cancelAttachmentConfirm,
     confirmAttachmentSend,

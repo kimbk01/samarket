@@ -192,7 +192,16 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
           if (node) noteR2M9Stage("textarea_dom_attach");
         }}
         onDraftChange={handleDraftChange}
-        onAttach={() => vm.setActiveSheet("attach")}
+        onAttach={() => {
+          textareaRef.current?.blur();
+          useMessengerRoomUiStore.getState().setComposerFocused(false);
+          vm.setActiveSheet("attach");
+        }}
+        onEmoji={() => {
+          textareaRef.current?.blur();
+          useMessengerRoomUiStore.getState().setComposerFocused(false);
+          vm.setActiveSheet("emoji");
+        }}
         onSend={commitTextSend}
         onTextareaKeyDown={(e) => {
           if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;

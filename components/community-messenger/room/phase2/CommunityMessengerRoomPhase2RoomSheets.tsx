@@ -56,7 +56,14 @@ import { MessengerStickerSheet } from "@/components/community-messenger/stickers
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
-import { Crown, Gift, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
+import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
+import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
+import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
+import {
+  logCallPermission,
+  type DirectCallDenyCode,
+} from "@/lib/community-messenger/direct-call-permission";
+import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerGiftOfferFlow";
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
@@ -70,11 +77,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
   const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
+  const [directOutgoingConfirmKind, setDirectOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
   const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
-  const isAttachMenuSheet = vm.activeSheet === "attach";
   const roomChatDomain = String(vm.snapshot?.room?.chatDomain ?? "").trim();
   const peerUserId = String(vm.snapshot?.room?.peerUserId ?? "").trim();
   const peerMember = (vm.snapshot?.members ?? []).find(
@@ -84,6 +91,29 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     vm.snapshot?.peerFriendshipState === "accepted" || Boolean(peerMember?.isFriend);
   const showGiftAttach = !vm.isGroupRoom && roomChatDomain === "general_direct" && Boolean(peerUserId);
   const giftEligible = showGiftAttach && peerIsFriend && !vm.roomUnavailable;
+  const canStartDirectCall = Boolean(!vm.isGroupRoom && !vm.roomUnavailable && vm.snapshot);
+
+  const startAttachDirectCall = (kind: "voice" | "video") => {
+    if (!vm.snapshot || vm.isGroupRoom) return;
+    const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room);
+    if (callMenuKind === "general" && vm.snapshot.directCallGate) {
+      const gate = vm.snapshot.directCallGate;
+      const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
+      if (!allowed) {
+        const code: DirectCallDenyCode = gate.denyCode ?? "deny_blocked";
+        logCallPermission("ui_gate_start", {
+          callerUserId: vm.snapshot.viewerUserId,
+          calleeUserId: vm.snapshot.room.peerUserId ?? undefined,
+          roomId: String(vm.snapshot.room.id ?? ""),
+          code,
+          callKind: kind,
+        });
+        showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
+        return;
+      }
+    }
+    setDirectOutgoingConfirmKind(kind);
+  };
 
   useEffect(() => {
     if (!giftEligible) return;
@@ -111,33 +141,26 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           className={
             isGroupMenuDrawer
               ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex justify-end`
-              : isAttachMenuSheet
-                ? `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex items-center justify-center px-4 py-[max(1rem,var(--safe-top))]`
-                : `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex flex-col justify-end ${MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS}`
+              : `fixed inset-0 ${OVERLAY_Z_CLASS.sheet} flex flex-col justify-end ${MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS}`
           }
           data-dibay-overlay="cm-room-phase2-sheets"
         >
-          {isAttachMenuSheet ? null : (
-            <button
-              type="button"
-              className={`${OverlayUi.backdrop} !opacity-100`}
-              aria-label={vm.t("nav_close")}
-              onClick={dismissSheet}
-            />
-          )}
-          {isAttachMenuSheet ? (
-            <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label={vm.t("nav_close")} onClick={dismissSheet} />
-          ) : null}
+          <button
+            type="button"
+            className={`${OverlayUi.backdrop} !opacity-100`}
+            aria-label={vm.t("nav_close")}
+            onClick={dismissSheet}
+          />
           <div
             className={
               isGroupMenuDrawer
                 ? "relative z-[1] flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
                 : `relative z-[1] overflow-y-auto ${
                     vm.activeSheet === "attach"
-                      ? "max-h-[min(80dvh,32rem)] w-[80%] max-w-[360px] rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_10px_28px_rgba(0,0,0,0.10)]"
+                      ? "max-h-[min(78dvh,36rem)] w-full rounded-t-[20px] border-t border-[color:var(--cm-room-divider)] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
                       : vm.activeSheet === "attach-confirm" ||
-                    vm.activeSheet === "stickers" ||
-                    vm.activeSheet === "emoji"
+                          vm.activeSheet === "stickers" ||
+                          vm.activeSheet === "emoji"
                         ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,var(--safe-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
                         : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
                             vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
@@ -147,126 +170,45 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             onClick={(event) => event.stopPropagation()}
           >
             {vm.activeSheet === "attach" ? (
-              <>
-                <div className="border-b border-[color:var(--cm-room-divider)] px-4 py-3">
-                  <p className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">{vm.t("common_attach")}</p>
-                  <p className="mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">{vm.t("cm_ui_select_item_to_send")}</p>
-                </div>
-                <nav className="flex flex-col" aria-label={vm.t("common_attach")}>
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("emoji")}
-                    disabled={vm.roomUnavailable || composerOutboundBusy}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Smile className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-                      {vm.t("common_emoji")}
-                    </span>
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("stickers")}
-                    disabled={vm.roomUnavailable || composerOutboundBusy}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Sticker className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-                      {vm.t("cm_ui_sticker")}
-                    </span>
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={vm.openImagePicker}
-                    disabled={vm.roomUnavailable || vm.busy === "send-image" || !vm.canUploadAttachments}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    {vm.t("cm_ui_photo_gallery")}
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={vm.openCameraPicker}
-                    disabled={vm.roomUnavailable || vm.busy === "send-image" || !vm.canUploadAttachments}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    {vm.t("cm_ui_camera")}
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={vm.openFilePicker}
-                    disabled={vm.roomUnavailable || vm.busy === "send-file" || !vm.canUploadAttachments}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    {vm.t("cm_ui_file")}
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void vm.sendLocationMessage()}
-                    disabled={vm.roomUnavailable}
-                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                  >
-                    {vm.t("common_location")}
-                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                  </button>
-                  {showGiftAttach ? (
-                    <button
-                      type="button"
-                      data-messenger-gift-attach-cta="1"
-                      onClick={() => {
-                        if (!giftEligible) {
-                          showMessengerSnackbar(
-                            safeT("gift_u3_friend_only", {
-                              fallbackKo: "친구로 추가한 회원에게만 상품권을 선물할 수 있습니다.",
-                              fallbackEn:
-                                "You can only send gift certificates to members you’ve added as friends.",
-                            }),
-                            { variant: "error" }
-                          );
-                          return;
-                        }
-                        vm.dismissRoomSheet();
-                        setGiftOfferOpen(true);
-                      }}
-                      disabled={vm.roomUnavailable || composerOutboundBusy}
-                      className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <Gift
-                          className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]"
-                          strokeWidth={2}
-                          aria-hidden
-                        />
-                        {safeT("gift_u3_attach_cta", {
-                          fallbackKo: "상품권 선물",
-                          fallbackEn: "Send gift certificate",
-                        })}
-                      </span>
-                      <span className="text-[color:var(--cm-room-text-muted)]">›</span>
-                    </button>
-                  ) : null}
-                </nav>
-                <div className="px-4 py-2">
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("menu")}
-                    className="w-full rounded-ui-rect bg-[color:var(--cm-room-chat-bg)] px-3 py-2.5 text-center text-[13px] font-normal text-[color:var(--cm-room-text-muted)] active:opacity-90"
-                  >
-                    {vm.t("cm_ui_media_files_and_room_info_hint")}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={vm.dismissRoomSheet}
-                  className="mt-1 w-full border-t border-[color:var(--cm-room-divider)] py-3 sam-text-body font-medium text-[color:var(--cm-room-text-muted)] active:bg-[color:var(--cm-room-primary-soft)]"
-                >
-                  {vm.t("common_cancel")}
-                </button>
-              </>
+              <CommunityMessengerAttachmentSheet
+                roomUnavailable={vm.roomUnavailable}
+                busy={vm.busy}
+                canUploadAttachments={vm.canUploadAttachments}
+                isGroupRoom={vm.isGroupRoom}
+                roomChatDomain={roomChatDomain}
+                peerUserId={peerUserId}
+                peerIsFriend={peerIsFriend}
+                canStartGroupCall={Boolean(vm.canStartGroupCall)}
+                canStartDirectCall={canStartDirectCall}
+                onDismiss={vm.dismissRoomSheet}
+                onSendImages={(files, previewUrls) => vm.sendAttachmentImagesDirect(files, previewUrls)}
+                onOpenGift={() => {
+                  vm.dismissRoomSheet();
+                  setGiftOfferOpen(true);
+                }}
+                onGiftFriendRequired={() => {
+                  showMessengerSnackbar(
+                    safeT("gift_u3_friend_only", {
+                      fallbackKo: "친구로 추가한 회원에게만 상품권을 선물할 수 있습니다.",
+                      fallbackEn:
+                        "You can only send gift certificates to members you’ve added as friends.",
+                    }),
+                    { variant: "error" }
+                  );
+                }}
+                onCallVoice={() => {
+                  vm.dismissRoomSheet();
+                  if (vm.isGroupRoom) setGroupOutgoingConfirmKind("voice");
+                  else startAttachDirectCall("voice");
+                }}
+                onCallVideo={() => {
+                  vm.dismissRoomSheet();
+                  if (vm.isGroupRoom) setGroupOutgoingConfirmKind("video");
+                  else startAttachDirectCall("video");
+                }}
+                onSendLocation={() => void vm.sendLocationMessage()}
+                t={vm.t}
+              />
             ) : null}
 
             {vm.activeSheet === "attach-confirm" && vm.attachmentConfirmDraft ? (
@@ -348,9 +290,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-[color:var(--cm-room-text-muted)] hover:bg-sam-surface-muted"
-                    onClick={() => vm.setActiveSheet("attach")}
+                    onClick={() => vm.setActiveSheet("stickers")}
                   >
-                    {vm.t("nav_back")}
+                    {vm.t("cm_ui_sticker")}
                   </button>
                   <span className="sam-text-body font-semibold text-[color:var(--cm-room-text)]">{vm.t("common_emoji")}</span>
                   <button
@@ -531,6 +473,23 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <span className="min-w-0 flex-1">
                       <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_file")}</span>
                       <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
+                    </span>
+                    <span className="sam-text-page-title text-sam-meta">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vm.dismissRoomSheet();
+                      vm.openFilePicker();
+                    }}
+                    disabled={vm.roomUnavailable || vm.busy === "send-file" || !vm.canUploadAttachments}
+                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app disabled:opacity-40"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500/12 text-slate-700">
+                      <FileIcon className="h-5 w-5 shrink-0" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_attach_send_file")}</span>
                     </span>
                     <span className="sam-text-page-title text-sam-meta">›</span>
                   </button>
@@ -1853,6 +1812,20 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             const kind = groupOutgoingConfirmKind;
             setGroupOutgoingConfirmKind(null);
             void vm.startGroupCall(kind);
+          }}
+        />
+      ) : null}
+      {directOutgoingConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={vm.snapshot?.room?.title?.trim() || ""}
+          kind={directOutgoingConfirmKind}
+          busy={vm.outgoingDialLocked}
+          onCancel={() => setDirectOutgoingConfirmKind(null)}
+          onConfirm={() => {
+            const kind = directOutgoingConfirmKind;
+            setDirectOutgoingConfirmKind(null);
+            void vm.startManagedDirectCall(kind);
           }}
         />
       ) : null}

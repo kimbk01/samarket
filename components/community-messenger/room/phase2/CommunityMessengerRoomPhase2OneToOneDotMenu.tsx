@@ -414,6 +414,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       onOpenMediaFiles={() => {
         vm.setActiveSheet("media");
       }}
+      onSendFile={() => {
+        vm.openFilePicker();
+      }}
       onFriendRequest={() => {
         void onFriendRequest();
       }}

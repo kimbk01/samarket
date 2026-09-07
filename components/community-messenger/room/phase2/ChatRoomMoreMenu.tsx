@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   CheckCircle2,
+  File as FileIcon,
   Image as ImageIcon,
   LogOut,
   Phone,
@@ -97,6 +98,8 @@ export type ChatRoomMoreMenuProps = {
   onOpenProductDetail?: (postId: string) => void;
   onSearch: () => void;
   onOpenMediaFiles: () => void;
+  /** Secondary path — file send (removed from + primary attachment). */
+  onSendFile?: () => void;
   onFriendRequest: () => void;
   onVoiceCall: () => void;
   onVideoCall: () => void;
@@ -177,6 +180,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     hidePeerSocialAdd = false,
     onSearch,
     onOpenMediaFiles,
+    onSendFile,
     onFriendRequest,
     onVoiceCall,
     onVideoCall,
@@ -309,6 +313,14 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
           <span className="min-w-0 flex-1 font-medium">{t("cm_ui_view_photo_file")}</span>
         </button>
+        {onSendFile ? (
+          <button type="button" onClick={onSendFile} className={listRowClass(true)}>
+            <FileIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+            <span className="min-w-0 flex-1 font-medium">
+              {t("cm_ui_file")}
+            </span>
+          </button>
+        ) : null}
 
         {!hidePeerSocialAdd && relation === "none" ? (
           <button

@@ -11,7 +11,7 @@ import {
   MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS,
   MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS,
 } from "@/lib/ui/messenger-chat-viewport-tuning";
-import { ArrowUp, Mic, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, Mic, Plus, Smile, Trash2 } from "lucide-react";
 import type {
   FocusEvent,
   KeyboardEvent,
@@ -103,6 +103,8 @@ export type MessengerComposerSectorProps = {
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   onDraftChange: (value: string) => void;
   onAttach: () => void;
+  /** Emoji/sticker entry — moved out of + attachment primary surface. */
+  onEmoji?: () => void;
   onSend: () => void;
   onTextareaKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   onTextareaFocus: (e: FocusEvent<HTMLTextAreaElement>) => void;
@@ -128,6 +130,7 @@ export function MessengerComposerSector({
   textareaRef,
   onDraftChange,
   onAttach,
+  onEmoji,
   onSend,
   onTextareaKeyDown,
   onTextareaFocus,
@@ -199,6 +202,18 @@ export function MessengerComposerSector({
               />
             )}
           </div>
+          {onEmoji && !voiceRecording ? (
+            <button
+              type="button"
+              data-cm-line-emoji-btn
+              onClick={onEmoji}
+              disabled={textareaDisabled}
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-[#666666] transition active:opacity-70 disabled:opacity-40"
+              aria-label={t("common_emoji")}
+            >
+              <Smile className="h-[20px] w-[20px]" strokeWidth={1.75} />
+            </button>
+          ) : null}
           {showVoiceMic && voice ? (
             <div data-delivery-composer-mic-slot className={MESSENGER_DELIVERY_COMPOSER_MIC_SLOT_CLASS}>
               {voice.micArming ? (
