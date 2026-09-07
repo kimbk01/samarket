@@ -58,12 +58,6 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search } from "lucide-react";
 import { CommunityMessengerAttachmentSheet } from "@/components/community-messenger/room/phase2/CommunityMessengerAttachmentSheet";
-import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
-import {
-  logCallPermission,
-  type DirectCallDenyCode,
-} from "@/lib/community-messenger/direct-call-permission";
-import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerGiftOfferFlow";
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
@@ -77,7 +71,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
   const { safeT } = useI18n();
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
-  const [directOutgoingConfirmKind, setDirectOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
   const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
@@ -91,29 +84,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     vm.snapshot?.peerFriendshipState === "accepted" || Boolean(peerMember?.isFriend);
   const showGiftAttach = !vm.isGroupRoom && roomChatDomain === "general_direct" && Boolean(peerUserId);
   const giftEligible = showGiftAttach && peerIsFriend && !vm.roomUnavailable;
-  const canStartDirectCall = Boolean(!vm.isGroupRoom && !vm.roomUnavailable && vm.snapshot);
-
-  const startAttachDirectCall = (kind: "voice" | "video") => {
-    if (!vm.snapshot || vm.isGroupRoom) return;
-    const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room);
-    if (callMenuKind === "general" && vm.snapshot.directCallGate) {
-      const gate = vm.snapshot.directCallGate;
-      const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
-      if (!allowed) {
-        const code: DirectCallDenyCode = gate.denyCode ?? "deny_blocked";
-        logCallPermission("ui_gate_start", {
-          callerUserId: vm.snapshot.viewerUserId,
-          calleeUserId: vm.snapshot.room.peerUserId ?? undefined,
-          roomId: String(vm.snapshot.room.id ?? ""),
-          code,
-          callKind: kind,
-        });
-        showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
-        return;
-      }
-    }
-    setDirectOutgoingConfirmKind(kind);
-  };
 
   useEffect(() => {
     if (!giftEligible) return;
@@ -178,8 +148,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 roomChatDomain={roomChatDomain}
                 peerUserId={peerUserId}
                 peerIsFriend={peerIsFriend}
-                canStartGroupCall={Boolean(vm.canStartGroupCall)}
-                canStartDirectCall={canStartDirectCall}
                 onDismiss={vm.dismissRoomSheet}
                 onSendImages={(files, previewUrls) => vm.sendAttachmentImagesDirect(files, previewUrls)}
                 onOpenGift={() => {
@@ -196,17 +164,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     { variant: "error" }
                   );
                 }}
-                onCallVoice={() => {
-                  vm.dismissRoomSheet();
-                  if (vm.isGroupRoom) setGroupOutgoingConfirmKind("voice");
-                  else startAttachDirectCall("voice");
-                }}
-                onCallVideo={() => {
-                  vm.dismissRoomSheet();
-                  if (vm.isGroupRoom) setGroupOutgoingConfirmKind("video");
-                  else startAttachDirectCall("video");
-                }}
-                onSendLocation={() => void vm.sendLocationMessage()}
                 t={vm.t}
               />
             ) : null}
@@ -1812,20 +1769,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             const kind = groupOutgoingConfirmKind;
             setGroupOutgoingConfirmKind(null);
             void vm.startGroupCall(kind);
-          }}
-        />
-      ) : null}
-      {directOutgoingConfirmKind ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={vm.snapshot?.room?.title?.trim() || ""}
-          kind={directOutgoingConfirmKind}
-          busy={vm.outgoingDialLocked}
-          onCancel={() => setDirectOutgoingConfirmKind(null)}
-          onConfirm={() => {
-            const kind = directOutgoingConfirmKind;
-            setDirectOutgoingConfirmKind(null);
-            void vm.startManagedDirectCall(kind);
           }}
         />
       ) : null}

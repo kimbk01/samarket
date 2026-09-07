@@ -9,7 +9,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { Camera, Gift, Image as ImageIcon, MapPin, Phone } from "lucide-react";
+import { Camera, Gift, Image as ImageIcon } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
@@ -18,10 +18,12 @@ import {
 } from "@/lib/community-messenger/attachment/attachment-action-capability";
 import {
   listMessengerAttachmentRecent,
+  mergeAttachmentSelectedIds,
   MESSENGER_ATTACHMENT_ALBUM_PICK_MAX,
   MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT,
   messengerAttachmentDeviceLibrarySupported,
   rememberMessengerAttachmentRecent,
+  takeFilesWithinAttachmentSelectionBudget,
   type MessengerAttachmentRecentItem,
 } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
 import {
@@ -44,15 +46,10 @@ export type CommunityMessengerAttachmentSheetProps = {
   roomChatDomain: string;
   peerUserId: string;
   peerIsFriend: boolean;
-  canStartGroupCall: boolean;
-  canStartDirectCall: boolean;
   onDismiss: () => void;
   onSendImages: (files: File[], previewUrls: string[]) => Promise<void> | void;
   onOpenGift: () => void;
   onGiftFriendRequired: () => void;
-  onCallVoice: () => void;
-  onCallVideo: () => void;
-  onSendLocation: () => void;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 };
 
@@ -85,15 +82,10 @@ export function CommunityMessengerAttachmentSheet({
   roomChatDomain,
   peerUserId,
   peerIsFriend,
-  canStartGroupCall,
-  canStartDirectCall,
   onDismiss,
   onSendImages,
   onOpenGift,
   onGiftFriendRequired,
-  onCallVoice,
-  onCallVideo,
-  onSendLocation,
   t,
 }: CommunityMessengerAttachmentSheetProps) {
   const { safeT } = useI18n();
@@ -106,15 +98,21 @@ export function CommunityMessengerAttachmentSheet({
     useState<MessengerPhotoLibraryPermissionState>("unavailable");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
-  const [callChooserOpen, setCallChooserOpen] = useState(false);
+  const selectedIdsRef = useRef<string[]>([]);
+  selectedIdsRef.current = selectedIds;
 
   const outboundBusy = isMessengerComposerOutboundBusy(busy) || busy === "send-image";
   const uploadBlocked = roomUnavailable || !canUploadAttachments || outboundBusy || sending;
 
+  const notifyAlbumPickMax = useCallback(() => {
+    showMessengerSnackbar(t("cm_ui_album_pick_max", { count: MESSENGER_ATTACHMENT_ALBUM_PICK_MAX }), {
+      variant: "error",
+    });
+  }, [t]);
+
   const giftVisible =
     !isGroupRoom && roomChatDomain === "general_direct" && Boolean(peerUserId.trim());
   const giftEligible = giftVisible && peerIsFriend && !roomUnavailable;
-  const callVisible = isGroupRoom ? canStartGroupCall : canStartDirectCall;
 
   const caps = useMemo(
     () =>
@@ -123,9 +121,8 @@ export function CommunityMessengerAttachmentSheet({
         roomChatDomain,
         peerUserId,
         giftVisible,
-        callVisible,
       }),
-    [callVisible, giftVisible, isGroupRoom, peerUserId, roomChatDomain]
+    [giftVisible, isGroupRoom, peerUserId, roomChatDomain]
   );
 
   useEffect(() => {
@@ -133,7 +130,6 @@ export function CommunityMessengerAttachmentSheet({
     setNativeRecent([]);
     setPhotoPermissionState("unavailable");
     setSelectedIds([]);
-    setCallChooserOpen(false);
     sendingLockRef.current = false;
     setSending(false);
 
@@ -185,6 +181,30 @@ export function CommunityMessengerAttachmentSheet({
   const refreshRecent = useCallback(() => {
     setRecent(listMessengerAttachmentRecent());
   }, []);
+
+  /** Gallery / native / camera → selection only (explicit Send via onSendSelected). */
+  const commitPickedFilesToSelection = useCallback(
+    (picked: File[]) => {
+      if (picked.length === 0 || uploadBlocked) return;
+      const { accepted, overflow } = takeFilesWithinAttachmentSelectionBudget(
+        selectedIdsRef.current.length,
+        picked,
+        MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+      );
+      if (overflow) notifyAlbumPickMax();
+      if (accepted.length === 0) return;
+      const added = rememberMessengerAttachmentRecent(accepted);
+      refreshRecent();
+      setSelectedIds((prev) =>
+        mergeAttachmentSelectedIds(
+          prev,
+          added.map((item) => item.id),
+          MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+        )
+      );
+    },
+    [notifyAlbumPickMax, refreshRecent, uploadBlocked]
+  );
 
   const onToggleRecent = useCallback(
     (id: string) => {
@@ -245,66 +265,29 @@ export function CommunityMessengerAttachmentSheet({
   }, [onDismiss, onSendImages, selectedIds, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
+    (event: ChangeEvent<HTMLInputElement>) => {
       const picked = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/"));
       event.target.value = "";
-      if (picked.length === 0 || uploadBlocked || sendingLockRef.current) return;
-      const files = picked.slice(0, MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
-      if (picked.length > MESSENGER_ATTACHMENT_ALBUM_PICK_MAX) {
-        showMessengerSnackbar(t("cm_ui_album_pick_max", { count: MESSENGER_ATTACHMENT_ALBUM_PICK_MAX }), {
-          variant: "error",
-        });
-      }
-      rememberMessengerAttachmentRecent(files);
-      refreshRecent();
-      const previewUrls = files.map((f) => URL.createObjectURL(f));
-      sendingLockRef.current = true;
-      setSending(true);
-      try {
-        await onSendImages(files, previewUrls);
-        onDismiss();
-      } finally {
-        sendingLockRef.current = false;
-        setSending(false);
-      }
+      commitPickedFilesToSelection(picked);
     },
-    [onDismiss, onSendImages, refreshRecent, t, uploadBlocked]
+    [commitPickedFilesToSelection]
   );
 
   const onNativePhotoPick = useCallback(async () => {
     if (uploadBlocked || sendingLockRef.current) return;
-    sendingLockRef.current = true;
-    setSending(true);
-    try {
-      const payloads = await pickMessengerPhotoLibraryPhotos(MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
-      if (payloads.length === 0) return;
-      const files = payloads.map((payload, index) => messengerPhotoPayloadToFile(payload, index));
-      const previewUrls = files.map((file) => URL.createObjectURL(file));
-      await onSendImages(files, previewUrls);
-      onDismiss();
-    } finally {
-      sendingLockRef.current = false;
-      setSending(false);
-    }
-  }, [onDismiss, onSendImages, uploadBlocked]);
+    const payloads = await pickMessengerPhotoLibraryPhotos(MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
+    if (payloads.length === 0) return;
+    const files = payloads.map((payload, index) => messengerPhotoPayloadToFile(payload, index));
+    commitPickedFilesToSelection(files);
+  }, [commitPickedFilesToSelection, uploadBlocked]);
 
   const onCameraChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const picked = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/"));
       event.target.value = "";
-      if (picked.length === 0 || uploadBlocked) return;
-      const added = rememberMessengerAttachmentRecent(picked.slice(0, 1));
-      refreshRecent();
-      if (added[0]) {
-        setSelectedIds((prev) => {
-          const id = added[0]!.id;
-          const without = prev.filter((x) => x !== id);
-          if (without.length >= MESSENGER_ATTACHMENT_ALBUM_PICK_MAX) return prev;
-          return [...without, id];
-        });
-      }
+      commitPickedFilesToSelection(picked.slice(0, 1));
     },
-    [refreshRecent, uploadBlocked]
+    [commitPickedFilesToSelection]
   );
 
   const onAction = useCallback(
@@ -325,21 +308,12 @@ export function CommunityMessengerAttachmentSheet({
           return;
         }
         onOpenGift();
-        return;
-      }
-      if (id === "call") {
-        setCallChooserOpen((v) => !v);
-        return;
-      }
-      if (id === "map") {
-        onSendLocation();
       }
     },
     [
       giftEligible,
       onGiftFriendRequired,
       onOpenGift,
-      onSendLocation,
       onNativePhotoPick,
       outboundBusy,
       roomUnavailable,
@@ -350,19 +324,13 @@ export function CommunityMessengerAttachmentSheet({
 
   const actionLabel = (id: MessengerAttachmentActionId): string => {
     if (id === "photo") return t("cm_ui_attach_photo");
-    if (id === "gift") {
-      return safeT("gift_u3_wallet_send", { fallbackKo: "선물하기", fallbackEn: "Send gift" });
-    }
-    if (id === "call") return t("cm_ui_attach_call");
-    return t("cm_ui_attach_map");
+    return safeT("gift_u3_wallet_send", { fallbackKo: "선물하기", fallbackEn: "Send gift" });
   };
 
   const actionIcon = (id: MessengerAttachmentActionId) => {
     const cls = "h-6 w-6 shrink-0 text-[color:var(--sam-brand,#085C3F)]";
     if (id === "photo") return <ImageIcon className={cls} strokeWidth={1.75} aria-hidden />;
-    if (id === "gift") return <Gift className={cls} strokeWidth={1.75} aria-hidden />;
-    if (id === "call") return <Phone className={cls} strokeWidth={1.75} aria-hidden />;
-    return <MapPin className={cls} strokeWidth={1.75} aria-hidden />;
+    return <Gift className={cls} strokeWidth={1.75} aria-hidden />;
   };
 
   const deviceLibrary = messengerAttachmentDeviceLibrarySupported();
@@ -468,55 +436,23 @@ export function CommunityMessengerAttachmentSheet({
       </div>
 
       <nav className="flex flex-col border-t border-[#ECECEC]" aria-label={t("common_attach")}>
-        {caps.actions.map((actionId, index) => {
-          const prev = caps.actions[index - 1];
-          const showDivider =
-            (actionId === "call" && (prev === "photo" || prev === "gift")) ||
-            (actionId === "map" && (prev === "call" || prev === "gift" || prev === "photo"));
-          return (
-            <div key={actionId}>
-              {showDivider ? <div className="mx-4 border-t border-[#ECECEC]" /> : null}
-              <button
-                type="button"
-                onClick={() => onAction(actionId)}
-                disabled={
-                  roomUnavailable ||
-                  outboundBusy ||
-                  sending ||
-                  (actionId === "photo" && uploadBlocked)
-                }
-                className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium text-[#191919] active:bg-[#F5F5F5] disabled:opacity-40"
-              >
-                {actionIcon(actionId)}
-                <span>{actionLabel(actionId)}</span>
-              </button>
-              {actionId === "call" && callChooserOpen ? (
-                <div className="flex gap-2 px-4 pb-3">
-                  <button
-                    type="button"
-                    className="min-h-[44px] flex-1 rounded-[10px] bg-[#F3F4F6] text-[14px] font-semibold text-[#191919] active:opacity-80"
-                    onClick={() => {
-                      setCallChooserOpen(false);
-                      onCallVoice();
-                    }}
-                  >
-                    {t("cm_ui_voice_call")}
-                  </button>
-                  <button
-                    type="button"
-                    className="min-h-[44px] flex-1 rounded-[10px] bg-[#F3F4F6] text-[14px] font-semibold text-[#191919] active:opacity-80"
-                    onClick={() => {
-                      setCallChooserOpen(false);
-                      onCallVideo();
-                    }}
-                  >
-                    {t("nav_video_call_label")}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+        {caps.actions.map((actionId) => (
+          <button
+            key={actionId}
+            type="button"
+            onClick={() => onAction(actionId)}
+            disabled={
+              roomUnavailable ||
+              outboundBusy ||
+              sending ||
+              (actionId === "photo" && uploadBlocked)
+            }
+            className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium text-[#191919] active:bg-[#F5F5F5] disabled:opacity-40"
+          >
+            {actionIcon(actionId)}
+            <span>{actionLabel(actionId)}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );

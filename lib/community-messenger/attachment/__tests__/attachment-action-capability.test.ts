@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveMessengerAttachmentCapabilities } from "@/lib/community-messenger/attachment/attachment-action-capability";
 
 describe("resolveMessengerAttachmentCapabilities", () => {
-  it("DIRECT friend: photo gift call map; money never", () => {
+  it("GENERAL eligible: photo + gift; call/map never in attachment menu", () => {
     const caps = resolveMessengerAttachmentCapabilities({
       isGroupRoom: false,
       roomChatDomain: "general_direct",
@@ -10,30 +10,67 @@ describe("resolveMessengerAttachmentCapabilities", () => {
       giftVisible: true,
       callVisible: true,
     });
-    expect(caps.actions).toEqual(["photo", "gift", "call", "map"]);
+    expect(caps.actions).toEqual(["photo", "gift"]);
+    expect(caps.photo).toBe(true);
+    expect(caps.gift).toBe(true);
+    expect(caps.call).toBe(false);
+    expect(caps.map).toBe(false);
     expect(caps.money).toBe(false);
   });
 
-  it("GROUP: no gift; call optional; money never", () => {
+  it("GENERAL non-eligible: photo only; gift/call/map absent", () => {
+    const caps = resolveMessengerAttachmentCapabilities({
+      isGroupRoom: false,
+      roomChatDomain: "general_direct",
+      peerUserId: "u1",
+      giftVisible: false,
+      callVisible: true,
+    });
+    expect(caps.actions).toEqual(["photo"]);
+    expect(caps.gift).toBe(false);
+    expect(caps.call).toBe(false);
+    expect(caps.map).toBe(false);
+  });
+
+  it("GROUP: photo only; gift/call/map absent", () => {
     const caps = resolveMessengerAttachmentCapabilities({
       isGroupRoom: true,
-      roomChatDomain: "private_group",
+      roomChatDomain: "group",
       peerUserId: "",
       giftVisible: false,
       callVisible: true,
     });
-    expect(caps.actions).toEqual(["photo", "call", "map"]);
+    expect(caps.actions).toEqual(["photo"]);
     expect(caps.gift).toBe(false);
+    expect(caps.call).toBe(false);
+    expect(caps.map).toBe(false);
   });
 
-  it("GROUP without call capability hides call", () => {
+  it("TRADE: photo only; gift/call/map absent", () => {
     const caps = resolveMessengerAttachmentCapabilities({
-      isGroupRoom: true,
-      roomChatDomain: "private_group",
-      peerUserId: "",
+      isGroupRoom: false,
+      roomChatDomain: "trade",
+      peerUserId: "seller",
+      giftVisible: false,
+      callVisible: true,
+    });
+    expect(caps.actions).toEqual(["photo"]);
+    expect(caps.gift).toBe(false);
+    expect(caps.call).toBe(false);
+    expect(caps.map).toBe(false);
+  });
+
+  it("ORDER: photo only; gift/call/map absent", () => {
+    const caps = resolveMessengerAttachmentCapabilities({
+      isGroupRoom: false,
+      roomChatDomain: "store_order",
+      peerUserId: "owner",
       giftVisible: false,
       callVisible: false,
     });
-    expect(caps.actions).toEqual(["photo", "map"]);
+    expect(caps.actions).toEqual(["photo"]);
+    expect(caps.gift).toBe(false);
+    expect(caps.call).toBe(false);
+    expect(caps.map).toBe(false);
   });
 });

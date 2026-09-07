@@ -1342,7 +1342,7 @@ export function useMessengerRoomPhase2Controller() {
     ]
   );
 
-  /** Kakao-parity + sheet: images send without attach-confirm. */
+  /** Attachment sheet explicit Send CTA → upload/send (pick is selection-only). */
   const sendAttachmentImagesDirect = useCallback(
     async (files: File[], previewUrls: string[]) => {
       setReplyToMessage(null);

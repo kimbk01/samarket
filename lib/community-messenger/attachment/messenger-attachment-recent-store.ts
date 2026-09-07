@@ -58,3 +58,36 @@ export function rememberMessengerAttachmentRecent(files: File[]): MessengerAttac
 export function messengerAttachmentDeviceLibrarySupported(): boolean {
   return isMessengerPhotoLibraryNativeAvailable();
 }
+
+/**
+ * CUT2 — Photo CTA / gallery / native pick budget before selection merge.
+ * Does not send; only decides how many picked files may enter selection.
+ */
+export function takeFilesWithinAttachmentSelectionBudget(
+  prevSelectedCount: number,
+  pickedFiles: File[],
+  max: number = MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+): { accepted: File[]; overflow: boolean } {
+  const selected = Math.max(0, prevSelectedCount);
+  const cap = Math.max(0, max);
+  const room = Math.max(0, cap - selected);
+  if (pickedFiles.length === 0) return { accepted: [], overflow: false };
+  if (room <= 0) return { accepted: [], overflow: true };
+  const accepted = pickedFiles.slice(0, room);
+  return { accepted, overflow: pickedFiles.length > room };
+}
+
+/** Append remembered item ids into selection without exceeding max (dedupe by id). */
+export function mergeAttachmentSelectedIds(
+  prevSelectedIds: string[],
+  addedIds: string[],
+  max: number = MESSENGER_ATTACHMENT_ALBUM_PICK_MAX
+): string[] {
+  const next = [...prevSelectedIds];
+  for (const id of addedIds) {
+    if (!id || next.includes(id)) continue;
+    if (next.length >= max) break;
+    next.push(id);
+  }
+  return next;
+}

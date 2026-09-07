@@ -18,6 +18,7 @@ import type { CommunityMessengerMessage } from "@/lib/community-messenger/types"
 import { canonicalHubHref } from "@/lib/delivery/customer/commerce-hub-nav";
 import { useGiftTransferPresentation } from "@/lib/gift-certificate/use-gift-transfer-presentation-batch";
 import { formatGiftInstanceExpirationDisplay } from "@/lib/gift-certificate/format-gift-certificate-expiration";
+import { resolveMessengerGiftCertificateCardFraming } from "@/lib/gift-certificate/messenger-gift-certificate-card-framing";
 import { COMMERCE_PRIMARY_BTN_CLASS } from "@/components/orders/customer-commerce/CommerceHubSegmentTabs";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -72,12 +73,15 @@ export function MessengerGiftCertificateCard(props: {
     presentation?.publicGiftNumber ??
     meta.public_gift_number?.trim() ??
     null;
-  const senderName =
-    presentation?.senderDisplayName?.trim() ||
-    safeT("commerce_hub_gift_chat_sender_fallback", {
-      fallbackKo: "친구",
-      fallbackEn: "Friend",
-    });
+  const peerFallback = safeT("commerce_hub_gift_chat_sender_fallback", {
+    fallbackKo: "친구",
+    fallbackEn: "Friend",
+  });
+  const senderName = presentation?.senderDisplayName?.trim() || peerFallback;
+  /** Presentation batch currently exposes sender nick only; peer fallback keeps body role-correct. */
+  const recipientName = peerFallback;
+  const framing = resolveMessengerGiftCertificateCardFraming(props.isRecipient);
+  const framingPeerName = framing.role === "recipient" ? senderName : recipientName;
 
   async function act(kind: "accept" | "reject" | "cancel") {
     if (busy || displayStatus !== "PENDING") return;
@@ -137,20 +141,31 @@ export function MessengerGiftCertificateCard(props: {
       data-gift-transfer-id={meta.gift_transfer_id}
       data-transfer-status={displayStatus}
       data-gift-scope={resolvedScope}
+      data-gift-card-framing={framing.role}
     >
       <div className="border-b border-sam-border/70 bg-[#F0FAF5] px-3 py-2.5">
-        <p className="text-sm font-bold text-[#045E3A]">
+        <p className="text-sm font-bold text-[#045E3A]" data-gift-card-framing-title="1">
           🎁{" "}
-          {safeT("commerce_hub_gift_chat_arrival", {
-            fallbackKo: "상품권 선물이 도착했어요!",
-            fallbackEn: "A gift certificate has arrived!",
+          {safeT(framing.titleKey, {
+            fallbackKo:
+              framing.role === "sender" ? "상품권을 보냈어요" : "상품권이 도착했어요",
+            fallbackEn:
+              framing.role === "sender"
+                ? "You sent a gift certificate"
+                : "A gift certificate arrived",
           })}
         </p>
-        <p className="mt-0.5 text-xs text-sam-muted">
-          {safeT("commerce_hub_gift_chat_from", {
-            vars: { name: senderName ?? "" },
-            fallbackKo: `${senderName}님이 상품권을 선물했습니다.`,
-            fallbackEn: `${senderName} sent you a gift certificate.`,
+        <p className="mt-0.5 text-xs text-sam-muted" data-gift-card-framing-body="1">
+          {safeT(framing.bodyKey, {
+            vars: { name: framingPeerName },
+            fallbackKo:
+              framing.role === "sender"
+                ? `${framingPeerName}님에게 선물했습니다.`
+                : `${framingPeerName}님이 선물했습니다.`,
+            fallbackEn:
+              framing.role === "sender"
+                ? `You sent this gift to ${framingPeerName}.`
+                : `${framingPeerName} sent you a gift.`,
           })}
         </p>
       </div>
