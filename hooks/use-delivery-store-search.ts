@@ -14,6 +14,10 @@ export type DeliverySearchStore = {
   district: string | null;
   city: string | null;
   region: string | null;
+  /** CUT 11 — from search-delivery serviceability (no client distance math) */
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
+  distanceKm?: number | null;
 };
 
 export type DeliverySearchMenu = {

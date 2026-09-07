@@ -26,9 +26,10 @@ export type ResolveStoreListCardBadgesInput = {
 };
 
 /**
- * CATEGORY / browse list badge semantic resolver.
+ * CATEGORY / browse / home list badge semantic resolver.
  * - isFeatured → recommended only (instant discount 금지)
  * - pickup/free/out-of-range는 실제 DIBAY 플래그·fee authority만
+ * - CUT 9: OOR면 free_delivery 등 주문 가능 암시 뱃지 억제 (후보 집합/랭킹은 변경하지 않음)
  */
 export function resolveStoreListCardBadges(
   input: ResolveStoreListCardBadgesInput
@@ -49,7 +50,9 @@ export function resolveStoreListCardBadges(
     });
   }
 
-  if (input.freeDeliveryProven) {
+  const outOfRange = Boolean(input.outOfRangeLabel?.trim());
+
+  if (input.freeDeliveryProven && !outOfRange) {
     out.push({
       kind: "free_delivery",
       label: input.freeDeliveryLabel,
@@ -65,7 +68,7 @@ export function resolveStoreListCardBadges(
     });
   }
 
-  if (input.outOfRangeLabel) {
+  if (outOfRange && input.outOfRangeLabel) {
     out.push({
       kind: "out_of_range",
       label: input.outOfRangeLabel,
@@ -74,4 +77,18 @@ export function resolveStoreListCardBadges(
   }
 
   return out;
+}
+
+/** Shared OOR badge copy from discovery DTO fields (no client distance math). */
+export function formatStoreCardOutOfRangeLabel(args: {
+  distanceOutOfRange: boolean;
+  maxDeliveryDistanceKm: number | null | undefined;
+  labelWithMax: (km: number) => string;
+  labelGeneric: string;
+}): string | null {
+  if (!args.distanceOutOfRange) return null;
+  if (args.maxDeliveryDistanceKm != null && Number.isFinite(args.maxDeliveryDistanceKm)) {
+    return args.labelWithMax(args.maxDeliveryDistanceKm);
+  }
+  return args.labelGeneric;
 }

@@ -14,6 +14,7 @@ import type {
 } from "@/lib/ads/types";
 import { fetchAdProductByIdFromDb } from "@/lib/ads/ad-products-supabase";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 
 /** 레거시 `PostAd` DTO → 어드민 목록 행 (DB 경로는 `mapJoinedPostAdRow`) */
 export function postAdToAdminRow(ad: PostAd): AdminPostAdRow {
@@ -229,7 +230,9 @@ export async function fetchActiveTopFixedAdFeedPostsFromDb(
       postTitle: title,
       postSummary,
       postImages,
-      locationLabel: String(post?.region_label ?? "").trim() || "—",
+      locationLabel: formatCommunityPublicRegionLabel({
+        regionLabel: String(post?.region_label ?? "").trim(),
+      }),
       boardKey: row.board_key ?? bk,
       adType: row.ad_type as AdType,
       priority: Number(row.priority) || 0,

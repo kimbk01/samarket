@@ -22,11 +22,16 @@
  * |---|---|---|---|---|---|
  * | /mypage/addresses | AddressPlatformSearchClient → AddressPlatformDetailClient | user_addresses | list (mgmt) | canonical FULL / TITLE | address-defaults.master |
  * | /onboarding/address | AddressManagementClient embedded (setup only) | user_addresses | — | canonical FULL / TITLE | address-defaults.master |
- * | Philife Header | — | user_addresses | /mypage/addresses | canonical TITLE | address-defaults.master |
+ * | Philife Header | — | user_addresses | /mypage/addresses | PUBLIC City (`formatPublicAddress`) | address-defaults.master |
+ * | Philife Local filter | taxonomy picker | session `samarket:community-local-filter:v1:{userId}` | CommunityLocalFilterPickerSheet | taxonomy area label | seed from master City; explicit independent |
  * | /stores header | — | user_addresses | /mypage/addresses | canonical TITLE | address-defaults.master |
- * | Cart / Checkout | — | user_addresses master | cart radio + same row text | FULL before order · store_orders snapshot after order | store_orders.delivery_* |
+ * | /stores/browse discovery origin | — | user_addresses master lat/lng only (CUT 4) | — | same master row as user_address_id | guest may use GPS; profiles geo ≠ authority |
+ * | Delivery routable (CUT 5) | ADDRESS_COMPLETE ≠ coords | DELIVERY_ROUTABLE = master + valid lat/lng | /mypage/addresses repair | DeliveryRoutableAddressGate | order path: missing_customer_coords |
+ * | Cart / Checkout | — | user_addresses master only (CUT 6 OPTION A) | master radio + address manage CTA | FULL before order · store_orders snapshot after order | store_orders.delivery_* from master |
+ * | Cart on master change (CUT 7) | RETAIN_AND_REVALIDATE | lines kept; serviceability + checkout identity refresh | OOR blocks checkout + CTAs | no silent clear | order create = current master |
+ * | Store detail / add (CUT 8) | same serviceability client | view OK; add blocked when OOR + local_delivery | cart retain | checkout block | order create hard block |
  * | Order Detail | — | — | — | order snapshot | store_orders frozen |
- * | Community Feed/Write | — | user_addresses master → title label | — | canonical TITLE | posts.region_label |
+ * | Community Feed/Write | — | user_addresses master → City | — | PUBLIC City (`formatPublicAddress`) + reader fail-closed | community_posts.region_label |
  * | Trade Write | — | user_addresses master → trade_lgu_id listing City seed + optional local Area | /mypage/addresses | canonical TITLE (seed UI) | posts.trade_lgu_id (+ optional region/city); meet_spot only if user picks |
  * | Trade Detail | — | posts snapshot | — | trade_lgu_id City label | posts.trade_lgu_id |
  * | Trade Meet Spot | map pick only | posts.meta.trade_meet_spot | — | place label | post meta (not card City) |
@@ -34,9 +39,10 @@
  * | Store Owner Address | owner store form | stores | — | store formatters | stores row |
  * | Admin Member Address | admin tools | user_addresses | — | canonical FULL | user_addresses + legacy profile section |
  *
- * ## B. REGION / EXPLORATION (current user presentation)
- * Authority: `resolveUserAddressTitle` from the master address only.
- * MUST NOT include detail_address / unit_floor_room / nickname / labelType.
+ * ## B. REGION / EXPLORATION (Philife / Market header — PUBLIC City)
+ * Authority: `formatPublicAddress` / `formatUserAddressPublic` from master only (CUT 1).
+ * MUST NOT use TITLE / street / building on Community·Market exploration headers.
+ * Delivery `/stores` header remains TITLE chip (separate resolver).
  * Taxonomy: `mapUserAddressToAppLocation` (ONE mapper)
  *
  * ## C. DELIVERY ADDRESS

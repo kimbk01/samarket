@@ -9,7 +9,8 @@ Do not declare HARD LOCK until current-tree Xiaomi **Google search UI** works (M
 | Type | Authority | Not |
 |---|---|---|
 | MEMBER MASTER | `user_addresses` + `is_default_master` | region_name / profile geo / life·trade·delivery flags |
-| REGION PUBLIC | `buildExplorationRegionSubtitleLine` | detail / unit / floor / room |
+| REGION PUBLIC (Community / Philife / Market exploration) | `formatPublicAddress` / `resolveCommunityPublicRegionLabelForUser` — **CITY ONLY** | TITLE / street / building / detail / unit / floor / room |
+| COMMUNITY LOCAL FILTER | `community-local-filter-ssot` — seed from master City; explicit independent session (user-scoped) | `RegionContext` / `profiles.region_*` as Local feed authority |
 | DELIVERY | base + `detail_address` | public feed copy |
 | STORE | `stores` address + geo columns | member master fallback |
 | ORDER SNAPSHOT | `store_orders.delivery_*` at create | live member pointer |

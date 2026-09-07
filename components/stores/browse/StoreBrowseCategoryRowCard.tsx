@@ -185,7 +185,10 @@ function StoreBrowseCategoryRowCardInner({
 
   const deliveryFeeUi = rowLabels?.deliveryFeeLabel ?? null;
   const deliveryFeeStrikePhp = rowLabels?.deliveryFeeStrikePhp ?? data.deliveryFeeStrikePhp;
-  const timeLabel = rowLabels?.etaLabel?.trim() || null;
+  /** CUT 9 — OOR cards must not show ETA as an orderable delivery signal. */
+  const timeLabel = distanceOutOfRangeLabel
+    ? null
+    : rowLabels?.etaLabel?.trim() || null;
   const minOrderLine = rowLabels?.minOrderLabel ?? null;
   const minOrderShort =
     minOrderLine?.includes(":") ? (minOrderLine.split(":").pop()?.trim() ?? null) : null;
@@ -193,6 +196,7 @@ function StoreBrowseCategoryRowCardInner({
   const commerceExtras = data.commerce ? commerceExtrasFromBrowseSnapshot(data.commerce) : null;
   const freeDeliveryProven =
     data.deliveryAvailable &&
+    !data.distanceOutOfRange &&
     commerceExtras != null &&
     storeBrowseDeliveryFeeShowsFreeBadge(commerceExtras);
 
@@ -459,7 +463,11 @@ function StoreBrowseCategoryRowCardInner({
             {timeLabel && (deliveryFeeUi || showBrowseStraightPin || showPinHaversine) ?
               <span className={FB.metaDot}>·</span>
             : null}
-            {data.deliveryAvailable && deliveryFeeUi ?
+            {distanceOutOfRangeLabel ?
+              <span className={`inline-flex shrink-0 items-center font-semibold text-sam-warning`}>
+                {distanceOutOfRangeLabel}
+              </span>
+            : data.deliveryAvailable && deliveryFeeUi ?
               <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
                 {deliveryFeeUi === t("store_free_delivery_applied") ?
                   <span className={FB.freeDelivery}>{deliveryFeeUi}</span>
@@ -471,7 +479,7 @@ function StoreBrowseCategoryRowCardInner({
             : !data.deliveryAvailable ?
               <span className={FB.metaStrong}>{t("store_delivery_no_short")}</span>
             : null}
-            {(timeLabel || deliveryFeeUi || !data.deliveryAvailable) &&
+            {(timeLabel || distanceOutOfRangeLabel || deliveryFeeUi || !data.deliveryAvailable) &&
             (showBrowseStraightPin || showPinHaversine) ?
               <span className={FB.metaDot}>·</span>
             : null}

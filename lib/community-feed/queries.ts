@@ -19,6 +19,7 @@ import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
 import { parsePostgresBool } from "./parse-postgres-bool";
 import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 
 /** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
 export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
@@ -278,7 +279,9 @@ export async function listCommunityFeedPosts(options: {
       title: String(r.title ?? ""),
       content: summaryRaw,
       summary: summaryRaw || "",
-      region_label: String(r.region_label ?? ""),
+      region_label: formatCommunityPublicRegionLabel({
+        regionLabel: String(r.region_label ?? ""),
+      }),
       is_question: !!r.is_question,
       is_meetup: !!r.is_meetup,
       meetup_date: r.meetup_date != null ? String(r.meetup_date) : null,
@@ -388,7 +391,9 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     title: String(row.title ?? ""),
     content,
     summary: storedSummary || summarizeCommunityPostContent(content, 160),
-    region_label: String(row.region_label ?? ""),
+    region_label: formatCommunityPublicRegionLabel({
+      regionLabel: String(row.region_label ?? ""),
+    }),
     is_question: !!row.is_question,
     is_meetup: !!row.is_meetup,
     meetup_date: row.meetup_date != null ? String(row.meetup_date) : null,

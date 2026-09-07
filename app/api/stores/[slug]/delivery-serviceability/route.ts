@@ -4,6 +4,7 @@ import {
   evaluateStoreDeliveryServiceability,
   loadDeliveryServiceabilityRuntimeContext,
 } from "@/lib/delivery/load-delivery-serviceability-runtime";
+import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -50,12 +51,15 @@ export async function GET(
     try {
       const defaults = await getUserAddressDefaults(sb, userId);
       const master = defaults.master;
-      if (master) {
+      if (master && isDeliveryRoutableMasterAddress(master)) {
         addressId = master.id;
         const la = master.latitude;
         const ln = master.longitude;
         if (typeof la === "number" && Number.isFinite(la)) customerLat = la;
         if (typeof ln === "number" && Number.isFinite(ln)) customerLng = ln;
+      } else if (master?.id) {
+        addressId = master.id;
+        /** Present but not routable — leave coords null (serviceability missing_customer_coords). */
       }
     } catch {
       /* ignore — treat as missing customer coords */

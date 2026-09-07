@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
   buildDeliveryListScrollRouteKey,
   saveDeliveryListScrollBeforeStoreNavigation,
@@ -17,33 +18,12 @@ import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearc
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
 import { RecommendedSearchChips } from "@/components/delivery/search/RecommendedSearchChips";
-import { DeliverySearchResults } from "@/components/delivery/search/DeliverySearchResults";
+import {
+  DeliverySearchResults,
+  type DeliverySearchMenu,
+  type DeliverySearchStore,
+} from "@/components/delivery/search/DeliverySearchResults";
 import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
-
-type DeliverySearchStore = {
-  id: string;
-  slug: string;
-  store_name: string;
-  description: string | null;
-  profile_image_url: string | null;
-  rating_avg: number | null;
-  review_count: number | null;
-  district: string | null;
-  city: string | null;
-  region: string | null;
-};
-
-type DeliverySearchMenu = {
-  id: string;
-  store_id: string;
-  store_slug: string;
-  store_name: string;
-  title: string;
-  summary: string | null;
-  price: number;
-  discount_price: number | null;
-  thumbnail_url: string | null;
-};
 
 type SearchResponse = {
   ok: boolean;
@@ -140,6 +120,16 @@ export function DeliverySearchPage() {
   useEffect(() => {
     if (debouncedQ.trim().length < 1) return;
     void runSearch(debouncedQ, "debounce");
+  }, [debouncedQ, runSearch]);
+
+  /** CUT 11 — same addresses-updated refresh as StoresHomeSearchModal hook (no new event system). */
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      if (debouncedQ.trim().length < 1) return;
+      void runSearch(debouncedQ, "debounce");
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [debouncedQ, runSearch]);
 
   const onSubmit = useCallback(

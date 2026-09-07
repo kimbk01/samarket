@@ -1114,10 +1114,17 @@ export const storeCommerceUiMessages = {
     store_err_pickup_disabled: "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요.",
     store_err_delivery_disabled: "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요.",
     store_err_delivery_out_of_range: "선택하신 주소는 이 매장의 배달 가능 거리를 벗어났습니다.",
+    store_detail_delivery_unavailable: "현재 배송지에는 배달할 수 없는 매장입니다",
+    store_cart_delivery_address_revalidated:
+      "배송지가 변경되어 배달 가능 여부를 다시 확인했습니다.",
+    store_cart_out_of_range_change_address: "배송지 변경",
+    store_cart_out_of_range_clear_cart: "장바구니 비우기",
+    store_cart_out_of_range_back_store: "매장으로 돌아가기",
     store_err_delivery_store_coords_required:
       "이 매장은 배달 위치가 아직 등록되지 않아 배달 주문을 받을 수 없습니다.",
     store_err_delivery_customer_coords_required:
       "배달 주소에 위치 좌표가 없습니다. 주소를 다시 저장해 주세요.",
+    store_delivery_routable_repair_title: "배송 주소를 확인해 주세요",
     store_view_menu_link: "{storeName} 메뉴 보기",
     store_checkout_request_owner_hint:
       "입력하시면 매장 사장님 주문 관리 화면에 '고객 요청 사항'으로 표시됩니다.",
@@ -2865,10 +2872,17 @@ export const storeCommerceUiMessages = {
     store_err_pickup_disabled: "This store does not accept pickup orders. Change fulfillment.",
     store_err_delivery_disabled: "This store does not offer delivery. Change fulfillment.",
     store_err_delivery_out_of_range: "Your selected address is outside this store's delivery range.",
+    store_detail_delivery_unavailable: "This store cannot deliver to your current address",
+    store_cart_delivery_address_revalidated:
+      "Your delivery address changed. We rechecked delivery availability.",
+    store_cart_out_of_range_change_address: "Change delivery address",
+    store_cart_out_of_range_clear_cart: "Clear cart",
+    store_cart_out_of_range_back_store: "Back to store",
     store_err_delivery_store_coords_required:
       "This store has not registered a delivery location yet, so delivery orders are unavailable.",
     store_err_delivery_customer_coords_required:
       "Your delivery address is missing map coordinates. Please save the address again.",
+    store_delivery_routable_repair_title: "Please check your delivery address",
     store_view_menu_link: "View {storeName} menu",
     store_checkout_request_owner_hint:
       "If provided, this appears as the customer request on the store owner's order screen.",

@@ -18,6 +18,8 @@ export function storeHomeFeedItemToShelfEntry(store: StoreHomeFeedItem): StoresH
     rating: store.rating,
     deliveryFeeLabel: store.deliveryFeeLabel,
     deliveryFeeStrikePhp: store.deliveryFeeStrikePhp,
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
   };
 }
 

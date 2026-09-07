@@ -83,7 +83,9 @@ import {
   setLastCheckoutOrderId,
 } from "@/lib/store-commerce/last-checkout-order-session";
 import {
+  canAcceptCartDeliverySelectionId,
   clearDeliveryAddressBookStorage,
+  findCartMasterDeliveryAddress,
   isCartDeliverySelectionValid,
   loadDeliveryAddressBook,
   parseUserAddressIdFromDeliverySelection,
@@ -150,6 +152,7 @@ import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   markCartHydrationExpensiveEffectsDone,
   markCartHydrationStage,
@@ -273,6 +276,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
   const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
   const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
+  /** CUT 7 — soft notice after addresses-updated revalidation (retain cart). */
+  const [deliveryAddressRevalidatedNotice, setDeliveryAddressRevalidatedNotice] = useState(false);
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const profilePhoneDigitsRef = useRef("");
@@ -704,11 +709,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const resolvedCheckoutGeo = useMemo(() => {
     const savedId = parseUserAddressIdFromDeliverySelection(selectedAddressId);
+    const master = findCartMasterDeliveryAddress(savedAddresses);
     const row =
       selectedAddressId === PROFILE_DELIVERY_SELECTION_ID
-        ? profileLinkedAddressRow
-        : savedId
-          ? (savedAddresses.find((x) => x.id === savedId) ?? null)
+        ? profileLinkedAddressRow && profileLinkedAddressRow.isDefaultMaster
+          ? profileLinkedAddressRow
+          : master && profileSnap?.userAddressId === master.id
+            ? master
+            : null
+        : savedId && master && master.id === savedId
+          ? master
           : null;
     if (row) return resolveCheckoutDeliveryGeoFromUserAddress(row);
 
@@ -720,7 +730,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           region: rid,
           city: cid,
           address1: profileSnap.freeSummaryLine.trim() || getLocationLabelIfValid(rid, cid) || "",
-          address2: profileSnap.addressDetail.trim(),
+          address2: profileSnap.addressDetail.trim() || null,
         });
         if (norm.region && norm.city && norm.address1) {
           return {
@@ -733,7 +743,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }
     }
     return null;
-  }, [selectedAddressId, profileLinkedAddressRow, savedAddresses, profileSnap]);
+  }, [
+    selectedAddressId,
+    savedAddresses,
+    profileLinkedAddressRow,
+    profileSnap,
+  ]);
 
   const region = resolvedCheckoutGeo?.regionId ?? "";
   const city = resolvedCheckoutGeo?.cityId ?? "";
@@ -748,11 +763,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const deliveryUserAddressIdForSubmit = useMemo(() => {
     if (fulfillment !== "local_delivery") return null;
+    const master = findCartMasterDeliveryAddress(savedAddresses);
     if (selectedAddressId === PROFILE_DELIVERY_SELECTION_ID) {
-      return profileSnap?.userAddressId?.trim() || null;
+      const pid = profileSnap?.userAddressId?.trim() || null;
+      if (pid && master?.id === pid) return pid;
+      /** checkout-contact default_delivery is master; allow when list not yet filtered. */
+      return pid;
     }
-    return parseUserAddressIdFromDeliverySelection(selectedAddressId);
-  }, [fulfillment, selectedAddressId, profileSnap?.userAddressId]);
+    const uid = parseUserAddressIdFromDeliverySelection(selectedAddressId);
+    if (uid && master?.id === uid) return uid;
+    return null;
+  }, [fulfillment, selectedAddressId, profileSnap?.userAddressId, savedAddresses]);
 
   const orderSubmitFingerprint = useMemo(() => {
     if (!store || !cart.snapshot) return "";
@@ -1100,6 +1121,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   useEffect(() => {
     const onAddressesUpdated = () => {
       if (lines.length === 0) return;
+      // CUT 7 policy: RETAIN_AND_REVALIDATE (see cart-address-change-policy.ts)
+      userPickedDeliveryAddressRef.current = false;
+      setDeliveryAddressRevalidatedNotice(true);
       void bootstrapCheckoutIdentity();
     };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
@@ -1146,10 +1170,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     });
   }, [addressBookHydrated, profileSnap, savedAddresses]);
 
-  const selectDeliveryAddressId = useCallback((selectionId: string) => {
-    userPickedDeliveryAddressRef.current = true;
-    setSelectedAddressId(selectionId);
-  }, []);
+  const selectDeliveryAddressId = useCallback(
+    (selectionId: string) => {
+      if (!canAcceptCartDeliverySelectionId(selectionId, savedAddresses, profileSnap)) {
+        return;
+      }
+      userPickedDeliveryAddressRef.current = true;
+      setSelectedAddressId(selectionId);
+    },
+    [savedAddresses, profileSnap],
+  );
 
   useEffect(() => {
     if (!store) return;
@@ -1881,7 +1911,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           minOrderLine={checkoutMinOrderFooterLine}
           busy={busy}
           submitDisabled={!meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
-          disabledReason={ownerOrderBlocked ? ownerOrderBlockedMessage : null}
+          disabledReason={
+            ownerOrderBlocked
+              ? ownerOrderBlockedMessage
+              : distanceOrderBlocked
+                ? t("store_err_delivery_out_of_range")
+                : null
+          }
           processingLabel={t("common_processing")}
           onSubmit={() => void submitOrder()}
         />
@@ -2368,10 +2404,42 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {t("store_delivery_courier_line", { label: commerce.deliveryCourierLabel.trim() })}
           </p>
         ) : null}
-        {distanceOrderBlocked ? (
-          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
-            {t("store_err_delivery_out_of_range")}
+        {deliveryAddressRevalidatedNotice && fulfillment === "local_delivery" && !distanceOrderBlocked ? (
+          <p className="rounded border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper font-medium leading-snug text-sky-950">
+            {t("store_cart_delivery_address_revalidated")}
           </p>
+        ) : null}
+        {distanceOrderBlocked ? (
+          <div className="space-y-2 rounded border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="sam-text-helper font-medium leading-snug text-amber-950">
+              {t("store_err_delivery_out_of_range")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(buildMypageAddressesHrefFromPath(pathname || `/stores/${storeSlug}/cart`, ""))
+                }
+                className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-2.5 py-1.5 sam-text-xxs font-bold text-[color:var(--delivery-primary)]"
+              >
+                {t("store_cart_out_of_range_change_address")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setClearCartConfirmOpen(true)}
+                className="rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg"
+              >
+                {t("store_cart_out_of_range_clear_cart")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void navigateToStoreMenu()}
+                className="rounded-[var(--delivery-radius)] border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-xxs font-bold text-sam-fg"
+              >
+                {t("store_cart_out_of_range_back_store")}
+              </button>
+            </div>
+          </div>
         ) : null}
         {checkoutBlocked && frontCommerce && !distanceOrderBlocked ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">

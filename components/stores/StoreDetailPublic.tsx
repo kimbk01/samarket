@@ -29,6 +29,8 @@ import {
   fetchStoreDeliveryServiceabilityClient,
   isDeliveryDistanceOrderBlocked,
 } from "@/lib/stores/fetch-store-delivery-serviceability-client";
+import { isDeliveryOrderingBlockedByServiceability } from "@/lib/stores/delivery-ordering-eligibility";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
@@ -1458,6 +1460,15 @@ export function StoreDetailPublic({
   const quickAddFromCard = useCallback(
     (p: StoreDetailProductCard): boolean => {
       if (!commerceCartActions || !store || p.has_options) return false;
+      if (
+        isDeliveryOrderingBlockedByServiceability({
+          fulfillmentMode,
+          distanceOutOfRange,
+        })
+      ) {
+        showStoreDetailToast(store.id, t("store_detail_delivery_unavailable"));
+        return true;
+      }
       if (storeOrderability.canOrderStore === false) {
         showStoreDetailToast(store.id, t("store_err_own_store_block"));
         return true;
@@ -1538,7 +1549,7 @@ export function StoreDetailPublic({
       showStoreDetailToast(store.id, t("store_added_to_cart_toast", { title: p.title }));
       return true;
     },
-    [commerceCartActions, store, commerce, storeOrderability, t]
+    [commerceCartActions, store, commerce, storeOrderability, t, fulfillmentMode, distanceOutOfRange]
   );
 
   const onMenuSearchFocus = useCallback(() => {
@@ -1853,6 +1864,10 @@ export function StoreDetailPublic({
 
   const ownerOrderBlocked = storeOrderability.canOrderStore === false;
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
+  const deliveryOrderingBlocked = isDeliveryOrderingBlockedByServiceability({
+    fulfillmentMode,
+    distanceOutOfRange,
+  });
   const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
     ownerOrderBlocked
@@ -1864,6 +1879,22 @@ export function StoreDetailPublic({
         : undefined;
 
   const storeRootPath = `/stores/${encodeURIComponent(detailStore.slug)}`;
+  const deliveryOrderingBanner = deliveryOrderingBlocked ? (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3">
+      <p className="text-[13px] font-medium leading-snug text-amber-950">
+        {t("store_detail_delivery_unavailable")}
+      </p>
+      <button
+        type="button"
+        onClick={() =>
+          router.push(buildMypageAddressesHrefFromPath(pathname || storeRootPath, ""))
+        }
+        className="mt-2 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-white px-2.5 py-1.5 text-[12px] font-bold text-[color:var(--delivery-primary)]"
+      >
+        {t("store_cart_out_of_range_change_address")}
+      </button>
+    </div>
+  ) : null;
   const infoPath = `${storeRootPath}/info`;
   const browseListHref = resolveStoreBrowseListHrefFromStore(detailStore);
   const fallbackHref =
@@ -2005,11 +2036,21 @@ export function StoreDetailPublic({
         sectionScrollMarginCss={sectionScrollMarginCss}
         menuSelectBlocked={menuSelectBlocked}
         menuSelectHint={menuSelectHint}
+        addActionsBlocked={deliveryOrderingBlocked}
         onOpenProductSheet={onOpenProductSheet}
         onQuickAddProduct={quickAddFromCard}
         onMenuFirstVisible={onMenuFirstVisible}
         commerceCartStoreId={isStoreDetailListSeedId(detailStore.id) ? undefined : detailStore.id}
-        menuTopSlot={menuTopSlot}
+        menuTopSlot={
+          deliveryOrderingBanner ? (
+            <>
+              {deliveryOrderingBanner}
+              {menuTopSlot}
+            </>
+          ) : (
+            menuTopSlot
+          )
+        }
         focusProductId={focusProductId}
         onFocusProductHandled={onFocusProductHandled}
         onFocusEntryReady={onFocusEntryReady}

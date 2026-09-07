@@ -15,18 +15,21 @@ export function RecommendedMenuSection({
   cards,
   canInteract,
   menuSelectBlocked,
+  addActionsBlocked,
   onOpenProduct,
   onQuickAddProduct,
 }: {
   cards: StoreDetailProductCard[];
   canInteract: boolean;
   menuSelectBlocked?: boolean;
+  addActionsBlocked?: boolean;
   onOpenProduct: (id: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 }) {
   const { t } = useI18n();
   if (cards.length === 0) return null;
-  const dimmed = menuSelectBlocked || !canInteract;
+  const browseBlocked = menuSelectBlocked || !canInteract;
+  const addBlocked = browseBlocked || Boolean(addActionsBlocked);
   const sz = DibayMenuBoard.thumbSize;
 
   return (
@@ -41,7 +44,8 @@ export function RecommendedMenuSection({
             key={p.id}
             p={p}
             sz={sz}
-            dimmed={dimmed}
+            browseBlocked={browseBlocked}
+            addBlocked={addBlocked}
             onOpenProduct={onOpenProduct}
             onQuickAddProduct={onQuickAddProduct}
           />
@@ -54,13 +58,15 @@ export function RecommendedMenuSection({
 function RecommendedMenuCard({
   p,
   sz,
-  dimmed,
+  browseBlocked,
+  addBlocked,
   onOpenProduct,
   onQuickAddProduct,
 }: {
   p: StoreDetailProductCard;
   sz: number;
-  dimmed: boolean;
+  browseBlocked: boolean;
+  addBlocked: boolean;
   onOpenProduct: (id: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 }) {
@@ -68,34 +74,34 @@ function RecommendedMenuCard({
   const soldOut = cardIsMenuSoldOut(p);
 
   const openSheet = useCallback(() => {
-    if (dimmed) return;
+    if (browseBlocked) return;
     onOpenProduct(p.id);
-  }, [dimmed, onOpenProduct, p.id]);
+  }, [browseBlocked, onOpenProduct, p.id]);
 
   const onAddPress = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      if (soldOut || dimmed) return;
+      if (soldOut || addBlocked) return;
       if (onQuickAddProduct?.(p)) return;
       onOpenProduct(p.id);
     },
-    [dimmed, onOpenProduct, onQuickAddProduct, p, soldOut]
+    [addBlocked, onOpenProduct, onQuickAddProduct, p, soldOut]
   );
 
   return (
     <div
       role="button"
-      tabIndex={dimmed ? -1 : 0}
+      tabIndex={browseBlocked ? -1 : 0}
       onClick={openSheet}
       onKeyDown={(e) => {
-        if (dimmed) return;
+        if (browseBlocked) return;
         if (e.key !== "Enter" && e.key !== " ") return;
         e.preventDefault();
         openSheet();
       }}
       className={`flex w-[112px] shrink-0 flex-col items-stretch overflow-hidden border border-[var(--delivery-border-section)] bg-[var(--delivery-bg-card)] text-left ${
-        dimmed ? "cursor-not-allowed opacity-45" : "cursor-pointer active:scale-[0.98]"
+        browseBlocked ? "cursor-not-allowed opacity-45" : "cursor-pointer active:scale-[0.98]"
       }`}
       style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}
     >
@@ -111,12 +117,14 @@ function RecommendedMenuCard({
           fill
         />
         {soldOut ? <SoldOutOverlay /> : null}
-        <MenuQuickAddButton
-          title={p.title}
-          disabled={soldOut || dimmed}
-          onPress={onAddPress}
-          size="compact"
-        />
+        {!addBlocked ? (
+          <MenuQuickAddButton
+            title={p.title}
+            disabled={soldOut}
+            onPress={onAddPress}
+            size="compact"
+          />
+        ) : null}
       </div>
       <div className="min-h-[2.75rem] px-1.5 py-1">
         <p className="line-clamp-2 text-[11px] font-extrabold leading-snug text-neutral-900">{p.title}</p>

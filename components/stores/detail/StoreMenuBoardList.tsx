@@ -23,6 +23,7 @@ export const StoreMenuBoardList = forwardRef<
     canSell: boolean;
     menuSelectBlocked?: boolean;
     menuSelectHint?: string;
+    addActionsBlocked?: boolean;
     sectionDomId?: (sectionIndex: number) => string;
     sectionScrollMarginClass?: string;
     sectionScrollMarginTopPx?: number;
@@ -40,6 +41,7 @@ export const StoreMenuBoardList = forwardRef<
     canSell,
     menuSelectBlocked,
     menuSelectHint,
+    addActionsBlocked,
     sectionDomId,
     sectionScrollMarginClass,
     sectionScrollMarginTopPx,
@@ -116,6 +118,7 @@ export const StoreMenuBoardList = forwardRef<
             canSell={canSell}
             menuSelectBlocked={menuSelectBlocked}
             menuSelectHint={sectionIndex === 0 ? menuSelectHint : undefined}
+            addActionsBlocked={addActionsBlocked}
             boardFlatCount={boardFlatCount}
             onOpenProduct={onOpenProduct}
             onQuickAddProduct={onQuickAddProduct}

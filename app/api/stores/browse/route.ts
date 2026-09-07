@@ -258,6 +258,7 @@ export async function GET(req: Request) {
       region: regionQ,
       city: cityQ,
       district: district ?? "",
+      addressPart: origin.cacheAddressPart,
       geoPart: origin.cacheGeoPart,
       page: pageQ,
       limit: limitQ,

@@ -29,6 +29,10 @@ import {
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 
 import type { MessageKey } from "@/lib/i18n/messages";
+import {
+  formatStoreCardOutOfRangeLabel,
+  resolveStoreListCardBadges,
+} from "@/lib/stores/presentation/resolve-store-list-card-badges";
 
 function statusBadge(
   status: BrowseStoreListItem["status"],
@@ -91,6 +95,9 @@ export type StoreVerticalCardModel = Pick<
   straightDistanceKm?: number | null;
   /** `약 …` 합산 ETA — 없으면 estPrepLabel만 표시 */
   etaLabel?: string | null;
+  /** CUT 10 — discovery serviceability (no client distance math) */
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
 };
 
 export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVerticalCardModel {
@@ -119,6 +126,8 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     distanceKm: store.distanceKm ?? null,
     routeDistanceKm: store.routeDistanceKm ?? null,
     straightDistanceKm: store.straightDistanceKm ?? null,
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
   };
 }
 
@@ -148,6 +157,8 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     distanceKm: store.distanceKm,
     routeDistanceKm: store.routeDistanceKm ?? null,
     straightDistanceKm: store.straightDistanceKm ?? null,
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
   };
 }
 
@@ -163,11 +174,61 @@ export function StoreVerticalDiscoveryCard({
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(store.slug);
   const freeDeliveryLabel = t("store_free_delivery_applied");
-  const flags = [
-    store.deliveryAvailable ? t("store_delivery_available") : null,
-    store.pickupAvailable ? t("store_pickup_available") : null,
-    store.visitAvailable ? t("store_visit_available") : null,
-  ].filter(Boolean) as string[];
+  const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm,
+    labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
+    labelGeneric: t("store_delivery_distance_out_of_range"),
+  });
+  const statusBadgeMeta =
+    store.status === "open"
+      ? { label: t("store_open_now"), className: "bg-sam-success-soft text-sam-success" }
+      : store.status === "preparing"
+        ? { label: t("store_preparing"), className: "bg-sam-warning-soft text-sam-warning" }
+        : store.status === "resting"
+          ? { label: t("store_resting_now"), className: "bg-sam-warning-soft text-sam-warning" }
+          : { label: t("store_closed_now"), className: "bg-sam-surface-muted text-sam-muted" };
+  const listBadges = resolveStoreListCardBadges({
+    statusLabel: statusBadgeMeta.label,
+    statusClassName: statusBadgeMeta.className,
+    isFeatured: store.isFeatured,
+    recommendedLabel: t("store_badge_recommended"),
+    pickupAvailable: store.pickupAvailable,
+    pickupLabel: t("store_pickup_available"),
+    freeDeliveryProven:
+      !outOfRangeLabel &&
+      store.deliveryAvailable &&
+      store.deliveryFeeLabel === freeDeliveryLabel,
+    freeDeliveryLabel: t("store_free_delivery_short"),
+    outOfRangeLabel,
+  });
+  /** CUT 10 — do not show unqualified "delivery available" when OOR; reuse CUT 9 badge kinds for chips. */
+  type VerticalFlagChip = {
+    key: "delivery" | "visit" | "pickup" | "free_delivery" | "out_of_range";
+    label: string;
+    className: string;
+  };
+  const flags: VerticalFlagChip[] = listBadges
+    .filter((b) => b.kind === "pickup" || b.kind === "free_delivery" || b.kind === "out_of_range")
+    .map((b) => ({
+      key: b.kind as "pickup" | "free_delivery" | "out_of_range",
+      label: b.label,
+      className: b.className,
+    }));
+  if (!outOfRangeLabel && store.deliveryAvailable) {
+    flags.unshift({
+      key: "delivery",
+      label: t("store_delivery_available"),
+      className: FB.chip,
+    });
+  }
+  if (!outOfRangeLabel && store.visitAvailable) {
+    flags.push({
+      key: "visit",
+      label: t("store_visit_available"),
+      className: FB.chip,
+    });
+  }
 
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
   const prefetchStoreDetail = (
@@ -287,10 +348,12 @@ export function StoreVerticalDiscoveryCard({
             {distLabel ?
               <span className={FB.distance}>{distLabel}</span>
             : null}
-            {store.etaLabel?.trim() ?
+            {outOfRangeLabel ?
+              <span className="font-semibold text-sam-warning">{outOfRangeLabel}</span>
+            : store.etaLabel?.trim() ?
               <span>{store.etaLabel}</span>
             : <span>{t("store_est_prep", { label: store.estPrepLabel })}</span>}
-            {store.deliveryFeeLabel === freeDeliveryLabel ?
+            {!outOfRangeLabel && store.deliveryFeeLabel === freeDeliveryLabel ?
               <span className="inline-flex flex-wrap items-center gap-1">
                 <span className={`text-[13px] ${FB.freeDelivery}`}>
                   {freeDeliveryLabel}
@@ -301,9 +364,9 @@ export function StoreVerticalDiscoveryCard({
                   </span>
                 : null}
               </span>
-            : store.deliveryFeeLabel ?
+            : !outOfRangeLabel && store.deliveryFeeLabel ?
               <span>{store.deliveryFeeLabel}</span>
-            : store.deliveryAvailable ?
+            : !outOfRangeLabel && store.deliveryAvailable ?
               <span>{t("store_delivery_fee_per_store")}</span>
             : null}
           </div>
@@ -314,10 +377,10 @@ export function StoreVerticalDiscoveryCard({
             <div className="flex flex-wrap gap-1">
               {flags.map((f) => (
                 <span
-                  key={f}
-                  className={FB.chip}
+                  key={f.key === "delivery" || f.key === "visit" ? f.label : `${f.key}:${f.label}`}
+                  className={f.key === "delivery" || f.key === "visit" ? FB.chip : `rounded-ui-rect px-2 py-0.5 sam-text-helper font-semibold ${f.className}`}
                 >
-                  {f}
+                  {f.label}
                 </span>
               ))}
             </div>

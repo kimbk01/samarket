@@ -93,7 +93,15 @@ function StoresHomeTimesaleRowCardInner({
 
   const deliveryFeeUi = rowLabels?.deliveryFeeLabel ?? store.deliveryFeeLabel;
   const deliveryFeeStrikePhp = rowLabels?.deliveryFeeStrikePhp ?? store.deliveryFeeStrikePhp;
-  const timeLabel = rowLabels?.etaLabel?.trim() || store.etaLabel?.trim() || null;
+  const outOfRangeLabel =
+    store.distanceOutOfRange && store.maxDeliveryDistanceKm != null
+      ? t("store_delivery_distance_out_of_range_with_max", { km: store.maxDeliveryDistanceKm })
+      : store.distanceOutOfRange
+        ? t("store_delivery_distance_out_of_range")
+        : null;
+  const timeLabel = outOfRangeLabel
+    ? null
+    : rowLabels?.etaLabel?.trim() || store.etaLabel?.trim() || null;
   const minOrderLine = rowLabels?.minOrderLabel ?? store.minOrderLabel;
   const minOrderShort =
     minOrderLine?.includes(":") ? (minOrderLine.split(":").pop()?.trim() ?? null) : minOrderLine;
@@ -101,6 +109,7 @@ function StoresHomeTimesaleRowCardInner({
   const commerceExtras = store.commerce ? commerceExtrasFromBrowseSnapshot(store.commerce) : null;
   const freeDeliveryProven =
     store.deliveryAvailable &&
+    !store.distanceOutOfRange &&
     commerceExtras != null &&
     storeBrowseDeliveryFeeShowsFreeBadge(commerceExtras);
 
@@ -120,12 +129,7 @@ function StoresHomeTimesaleRowCardInner({
     pickupLabel: t("store_pickup_available"),
     freeDeliveryProven,
     freeDeliveryLabel: t("store_free_delivery_short"),
-    outOfRangeLabel:
-      store.distanceOutOfRange && store.maxDeliveryDistanceKm != null
-        ? t("store_delivery_distance_out_of_range_with_max", { km: store.maxDeliveryDistanceKm })
-        : store.distanceOutOfRange
-          ? t("store_delivery_distance_out_of_range")
-          : null,
+    outOfRangeLabel,
   });
 
   const thumbUrl =
@@ -222,7 +226,9 @@ function StoresHomeTimesaleRowCardInner({
           : null}
 
           <p className={`mt-1 line-clamp-1 text-[12.5px] leading-[1.02] ${FB.metaRow}`}>
-            {!store.deliveryAvailable ?
+            {outOfRangeLabel ?
+              <span className="font-semibold text-sam-warning">{outOfRangeLabel}</span>
+            : !store.deliveryAvailable ?
               t("store_delivery_no_short")
             : deliveryFeeUi ?
               <span className="inline-flex flex-wrap items-center gap-1">

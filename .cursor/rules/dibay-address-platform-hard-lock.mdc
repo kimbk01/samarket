@@ -27,6 +27,8 @@ NOT complete: region_name, profiles.full_address, profile geo, life/trade/delive
 - Second create steal master (`promoteLastSaved`)
 - Member address write resync `store_orders` delivery snapshot
 - Public region formatter include `detail_address` / unit / floor / room
+- Community public location use TITLE / street / building (`resolveUserAddressTitle`) — CITY ONLY via `formatPublicAddress`
+- Community Local filter authority = `RegionContext` / `profiles.region_*` — use `community-local-filter-ssot` (master City seed)
 - Trust client `region_label` on community/neighborhood POST
 - Treat store address and member master as interchangeable
 - Patch store street/place without lat/lng in the same request

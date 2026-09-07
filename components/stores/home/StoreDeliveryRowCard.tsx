@@ -7,6 +7,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { browseCommerceSnapshotEqual } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
+import { resolveStoreListCardBadges } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
@@ -410,13 +411,16 @@ function StoreDeliveryRowCardInner({
   const deliveryFeeUi = rowLabels?.deliveryFeeLabel ?? null;
   const deliveryFeeStrikePhp = rowLabels?.deliveryFeeStrikePhp ?? data.deliveryFeeStrikePhp;
   const paymentMethodsUi = rowLabels?.paymentMethodsLine ?? "";
-  const timeLabel = rowLabels?.etaLabel?.trim() || null;
+  const timeLabel = distanceOutOfRangeLabel
+    ? null
+    : rowLabels?.etaLabel?.trim() || null;
   const minOrderLine = rowLabels?.minOrderLabel ?? null;
   const minOrderShort =
     minOrderLine?.includes(":") ? (minOrderLine.split(":").pop()?.trim() ?? null) : null;
 
   const hasFreeDelivery =
     data.deliveryAvailable &&
+    !data.distanceOutOfRange &&
     (deliveryFeeUi === t("store_delivery_fee_free_line") ||
       deliveryFeeUi === t("store_free_delivery_applied"));
   const statusBadge =
@@ -441,29 +445,22 @@ function StoreDeliveryRowCardInner({
     featuredMenuImages.length > 0 ?
       featuredMenuImages.map((x) => ({ ...x, kind: "menu" as const }))
     : [];
-  /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
-  const serviceBadgeClass =
-    "bg-sam-surface-muted text-sam-muted";
-  const badgeLabels: { label: string; className: string }[] = [statusBadge];
-  if (data.deliveryAvailable) {
-    badgeLabels.push({ label: t("store_badge_delivery"), className: serviceBadgeClass });
-  }
-  if (data.pickupAvailable) {
-    badgeLabels.push({ label: t("store_pickup_available"), className: serviceBadgeClass });
-  }
-  if (hasFreeDelivery) {
-    badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-sam-success-soft text-sam-success" });
-  }
-  if (data.isFeatured) {
-    badgeLabels.push({ label: t("store_badge_recommended"), className: "bg-sam-warning-soft text-sam-warning" });
-  }
-  if (data.reservationAvailable) {
-    badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });
-  }
-  if (distanceOutOfRangeLabel) {
+  /** CUT 9 — HOME/BROWSE shared badge resolver (no false delivery/free affordance when OOR). */
+  const badgeLabels: { label: string; className: string }[] = resolveStoreListCardBadges({
+    statusLabel: statusBadge.label,
+    statusClassName: statusBadge.className,
+    isFeatured: data.isFeatured,
+    recommendedLabel: t("store_badge_recommended"),
+    pickupAvailable: data.pickupAvailable,
+    pickupLabel: t("store_pickup_available"),
+    freeDeliveryProven: hasFreeDelivery,
+    freeDeliveryLabel: t("store_free_delivery_short"),
+    outOfRangeLabel: distanceOutOfRangeLabel,
+  });
+  if (data.reservationAvailable && !distanceOutOfRangeLabel) {
     badgeLabels.push({
-      label: distanceOutOfRangeLabel,
-      className: "bg-sam-warning-soft text-sam-warning",
+      label: t("store_badge_reservation"),
+      className: "bg-sam-surface-muted text-sam-muted",
     });
   }
 
@@ -668,7 +665,9 @@ function StoreDeliveryRowCardInner({
                 </span>
               </h3>
               <p className={`mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[color:var(--delivery-text-sub)]`}>
-                {!data.deliveryAvailable ?
+                {distanceOutOfRangeLabel ?
+                  <span className="font-semibold text-sam-warning">{distanceOutOfRangeLabel}</span>
+                : !data.deliveryAvailable ?
                   t("store_delivery_no_short")
                 : deliveryFeeUi === t("store_free_delivery_applied") ?
                   <span className="inline-flex flex-wrap items-center gap-1.5">

@@ -34,6 +34,9 @@ export type StoresHomeFoodEntry = {
   /** P1-D B2 — campaign copy only (not popular/discount/featured) */
   campaignTitle?: string | null;
   campaignType?: "event" | "promo" | null;
+  /** CUT 10 — from home-feed serviceability (no client distance math) */
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
 };
 
 
@@ -63,6 +66,8 @@ export function flattenStoresHomeFoodEntries(
         s.deliveryFeeStrikePhp != null && Number(s.deliveryFeeStrikePhp) > 0 ?
           "delivery_fee_strike"
         : null,
+      distanceOutOfRange: s.distanceOutOfRange === true,
+      maxDeliveryDistanceKm: s.maxDeliveryDistanceKm ?? null,
     });
   }
   return out;

@@ -120,11 +120,8 @@ import {
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
-import { useRegionOptional } from "@/contexts/RegionContext";
-import {
-  neighborhoodLocationKeyFromRegion,
-  neighborhoodLocationMetaFromRegion,
-} from "@/lib/neighborhood/location-key";
+import { useCommunityLocalFilter } from "@/hooks/use-community-local-filter";
+import { CommunityLocalFilterPickerSheet } from "@/components/community/CommunityLocalFilterPickerSheet";
 
 declare global {
   interface Window {
@@ -295,16 +292,14 @@ export function CommunityFeed({
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
   const searchQueryString = searchParams.toString();
   const viewerSig = usePhilifeFeedViewerSig();
-  const regionCtx = useRegionOptional();
-  const currentRegion = regionCtx?.currentRegion ?? null;
-  const locationKey = useMemo(
-    () => neighborhoodLocationKeyFromRegion(currentRegion) ?? "",
-    [currentRegion]
-  );
-  const locationMeta = useMemo(
-    () => neighborhoodLocationMetaFromRegion(currentRegion),
-    [currentRegion]
-  );
+  const {
+    locationKey,
+    locationMeta,
+    filterLabel,
+    filter,
+    setExplicitFilter,
+  } = useCommunityLocalFilter();
+  const [localFilterPickerOpen, setLocalFilterPickerOpen] = useState(false);
 
   /** Community Navigation SSOT — Latest | Popular | Topic… | Local */
   const navSelection = parseCommunityNavFromSearchParams(searchParams);
@@ -1767,6 +1762,29 @@ export function CommunityFeed({
                 );
               })}
             </DibaySecondaryTabRow>
+            {navSelection.kind === "local" ? (
+              <div className={`${PHILIFE_FEED_FILTER_STRIP_CLASS} border-t-0`}>
+                <div className={`flex min-w-0 items-center justify-between gap-2 ${APP_MAIN_HEADER_INNER_CLASS}`}>
+                  <p className="min-w-0 truncate sam-text-body-secondary text-sam-muted">
+                    {safeT("community_local_filter_active", {
+                      fallbackKo: "보는 동네",
+                      fallbackEn: "Viewing",
+                    })}
+                    {filterLabel.trim() ? ` · ${filterLabel.trim()}` : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLocalFilterPickerOpen(true)}
+                    className="shrink-0 sam-text-body font-semibold text-sam-primary"
+                  >
+                    {safeT("community_local_filter_change", {
+                      fallbackKo: "지역 변경",
+                      fallbackEn: "Change area",
+                    })}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {allSortOpen && allSortMenuPos && typeof document !== "undefined"
               ? createPortal(
                   <ul
@@ -1871,6 +1889,20 @@ export function CommunityFeed({
           <div className="px-3 py-3 sm:px-4">
             <div className="rounded-[4px] border border-amber-200/90 bg-amber-50 px-4 py-3 text-[14px] text-amber-950">
               {err}
+              {plan.requiresRegion && !locationKey ? (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setLocalFilterPickerOpen(true)}
+                    className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
+                  >
+                    {safeT("community_local_filter_change", {
+                      fallbackKo: "지역 변경",
+                      fallbackEn: "Change area",
+                    })}
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1934,6 +1966,15 @@ export function CommunityFeed({
         </div>
         </div>
       </div>
+      <CommunityLocalFilterPickerSheet
+        open={localFilterPickerOpen}
+        onClose={() => setLocalFilterPickerOpen(false)}
+        initialRegionId={filter?.regionId ?? ""}
+        initialCityId={filter?.cityId ?? ""}
+        onApply={(regionId, cityId) => {
+          setExplicitFilter(regionId, cityId);
+        }}
+      />
     </div>
   );
 }

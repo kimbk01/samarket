@@ -1,6 +1,10 @@
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 
-/** GET /api/stores/browse - response cache (primary/sub/region/city/district/geo/page/limit) */
+/**
+ * GET /api/stores/browse - response cache (primary/sub/region/city/district/address/geo/page/limit)
+ * CUT 3: addressId isolates browse response cache for same geo bucket.
+ * CUT 4: Delivery browse origin for members = master only (profiles/GPS removed).
+ */
 const TTL_MS = 45_000;
 
 const cache = new Map<string, { expiresAt: number; body: unknown }>();
@@ -11,6 +15,8 @@ export function browseListCacheKey(parts: {
   region: string;
   city: string;
   district: string;
+  /** Member master address identity — `addr:{uuid}` | `addr:none` (CUT 3) */
+  addressPart: string;
   geoPart: string;
   page: string;
   limit: string;
@@ -25,6 +31,7 @@ export function browseListCacheKey(parts: {
     parts.region,
     parts.city,
     parts.district,
+    parts.addressPart || "addr:none",
     parts.geoPart,
     parts.page,
     parts.limit,

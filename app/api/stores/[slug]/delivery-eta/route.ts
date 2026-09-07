@@ -96,7 +96,7 @@ function maybeCoordDebug(
  * 좌표 출처:
  * - 매장: `stores` 행 — **`lat`**, **`lng`** (`getApprovedStoreBySlug` + `STORE_DELIVERY_ETA_SELECT`).
  * - 배달지: `user_addresses` 행 — **`latitude`**, **`longitude`**
- *   (`id` = 쿼리 파라미터 `delivery_user_address_id`, 본인 소유 행만).
+ *   (`id` = 쿼리 파라미터 `delivery_user_address_id`, 본인 소유 **active master** 행만 — CUT 6).
  */
 export async function GET(
   req: Request,
@@ -167,13 +167,21 @@ export async function GET(
     const { data: row, error } = await sb
       .from("user_addresses")
       .select(
-        "id, user_id, place_id, formatted_address, road_address, full_address, detail_address, unit_floor_room, latitude, longitude"
+        "id, user_id, is_active, is_default_master, place_id, formatted_address, road_address, full_address, detail_address, unit_floor_room, latitude, longitude"
       )
       .eq("id", deliveryUserAddressId)
       .maybeSingle();
 
     if (error || !row || String((row as { user_id?: string }).user_id ?? "") !== buyerId) {
       return NextResponse.json({ ok: false, error: "address_not_found" }, { status: 404 });
+    }
+    const meta = row as {
+      is_active?: boolean | null;
+      is_default_master?: boolean | null;
+    };
+    /** CUT 6 OPTION A — checkout destination = master only (parity with order create). */
+    if (meta.is_active === false || meta.is_default_master !== true) {
+      return NextResponse.json({ ok: false, error: "delivery_user_address_not_master" }, { status: 400 });
     }
     const addrRow = row as {
       id?: unknown;

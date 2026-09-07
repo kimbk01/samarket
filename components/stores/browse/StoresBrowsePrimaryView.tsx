@@ -193,8 +193,13 @@ export function StoresBrowsePrimaryView({
   );
   /** deep link `sort` — chip 클릭 전까지 URL이 fetch authority */
   const browseSortUrlPinnedRef = useRef(true);
-  /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
-  const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
+  /** browse origin — member master only (CUT 4); guest may use GPS */
+  const [browseUserGeo, setBrowseUserGeo] = useState<{
+    lat: number;
+    lng: number;
+    addressId: string | null;
+    source: "master" | "gps" | "none";
+  } | null>(null);
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
 
   const browseUserGeoRef = useRef(browseUserGeo);
@@ -208,7 +213,14 @@ export function StoresBrowsePrimaryView({
     if (typeof window === "undefined") return;
     let cancelled = false;
     let seq = 0;
-    const commitGeo = (next: { lat: number; lng: number } | null) => {
+    const commitGeo = (
+      next: {
+        lat: number;
+        lng: number;
+        addressId: string | null;
+        source: "master" | "gps" | "none";
+      } | null
+    ) => {
       if (browseListUserOriginCoordsEqual(browseUserGeoRef.current, next)) return;
       setBrowseUserGeo(next);
     };
@@ -376,6 +388,8 @@ export function StoresBrowsePrimaryView({
     ) {
       q.set("user_lat", String(browseUserGeo.lat));
       q.set("user_lng", String(browseUserGeo.lng));
+      const aid = browseUserGeo.addressId?.trim();
+      if (aid) q.set("user_address_id", aid);
     }
     return q.toString();
   }, [
@@ -387,6 +401,7 @@ export function StoresBrowsePrimaryView({
     browseDistanceCoordsEnabled,
     browseUserGeo?.lat,
     browseUserGeo?.lng,
+    browseUserGeo?.addressId,
     browseRequestSort,
   ]);
 
@@ -398,10 +413,21 @@ export function StoresBrowsePrimaryView({
         primaryRegion?.regionId ?? "",
         primaryRegion?.cityId ?? "",
         primaryRegion?.barangay ?? "",
-        browseDistanceCoordsEnabled && browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
+        browseDistanceCoordsEnabled && browseUserGeo
+          ? `${browseUserGeo.addressId ?? "none"}:${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}`
+          : "",
         browseRequestSort,
       ].join("|"),
-    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo, browseRequestSort]
+    [
+      primarySlug,
+      activeSub,
+      primaryRegion?.regionId,
+      primaryRegion?.cityId,
+      primaryRegion?.barangay,
+      browseDistanceCoordsEnabled,
+      browseUserGeo,
+      browseRequestSort,
+    ]
   );
 
   /** prewarm·pointerdown 은 geo 없는 키 — 마운트 직후 동기 peek 폴백 */
@@ -409,6 +435,7 @@ export function StoresBrowsePrimaryView({
     const sp = new URLSearchParams(browseQuerySuffix);
     sp.delete("user_lat");
     sp.delete("user_lng");
+    sp.delete("user_address_id");
     return sp.toString();
   }, [browseQuerySuffix]);
   const prevBrowseListContextKeyRef = useRef<string | null>(browseListContextKey);

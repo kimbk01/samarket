@@ -9,6 +9,8 @@ export type StoresBrowseClientQueryInput = {
   primaryRegion?: UserRegion | null;
   userLat?: number | null;
   userLng?: number | null;
+  /** Master `user_addresses.id` — browse cache identity (CUT 3) */
+  userAddressId?: string | null;
   /** 거리 정렬용 geo — prewarm·탭 hover 기본 false */
   includeGeo?: boolean;
 };
@@ -43,6 +45,8 @@ export function buildStoresBrowseClientQueryString(input: StoresBrowseClientQuer
     if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
       q.set("user_lat", String(lat));
       q.set("user_lng", String(lng));
+      const aid = input.userAddressId?.trim();
+      if (aid) q.set("user_address_id", aid);
     }
   }
   return q.toString();

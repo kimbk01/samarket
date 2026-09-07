@@ -16,18 +16,21 @@ export function PopularMenuSection({
   cards,
   canInteract,
   menuSelectBlocked,
+  addActionsBlocked,
   onOpenProduct,
   onQuickAddProduct,
 }: {
   cards: StoreDetailProductCard[];
   canInteract: boolean;
   menuSelectBlocked?: boolean;
+  addActionsBlocked?: boolean;
   onOpenProduct: (id: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 }) {
   const { t } = useI18n();
   if (cards.length === 0) return null;
-  const dimmed = menuSelectBlocked || !canInteract;
+  const browseBlocked = menuSelectBlocked || !canInteract;
+  const addBlocked = browseBlocked || Boolean(addActionsBlocked);
 
   return (
     <section
@@ -56,7 +59,8 @@ export function PopularMenuSection({
               salePrice={salePrice}
               hasDiscount={hasDiscount}
               soldOut={soldOut}
-              dimmed={dimmed}
+              browseBlocked={browseBlocked}
+              addBlocked={addBlocked}
               onOpenProduct={onOpenProduct}
               onQuickAddProduct={onQuickAddProduct}
             />
@@ -74,7 +78,8 @@ function PopularMenuRow({
   salePrice,
   hasDiscount,
   soldOut,
-  dimmed,
+  browseBlocked,
+  addBlocked,
   onOpenProduct,
   onQuickAddProduct,
 }: {
@@ -84,40 +89,41 @@ function PopularMenuRow({
   salePrice: number;
   hasDiscount: boolean;
   soldOut: boolean;
-  dimmed: boolean;
+  browseBlocked: boolean;
+  addBlocked: boolean;
   onOpenProduct: (id: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 }) {
   const openSheet = useCallback(() => {
-    if (dimmed) return;
+    if (browseBlocked) return;
     onOpenProduct(p.id);
-  }, [dimmed, onOpenProduct, p.id]);
+  }, [browseBlocked, onOpenProduct, p.id]);
 
   const onAddPress = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      if (soldOut || dimmed) return;
+      if (soldOut || addBlocked) return;
       if (onQuickAddProduct?.(p)) return;
       onOpenProduct(p.id);
     },
-    [dimmed, onOpenProduct, onQuickAddProduct, p, soldOut]
+    [addBlocked, onOpenProduct, onQuickAddProduct, p, soldOut]
   );
 
   return (
     <li>
       <div
         role="button"
-        tabIndex={dimmed ? -1 : 0}
+        tabIndex={browseBlocked ? -1 : 0}
         onClick={openSheet}
         onKeyDown={(e) => {
-          if (dimmed) return;
+          if (browseBlocked) return;
           if (e.key !== "Enter" && e.key !== " ") return;
           e.preventDefault();
           openSheet();
         }}
         className={`flex w-full items-start gap-3 py-3 text-left ${
-          dimmed ? "cursor-not-allowed opacity-45" : "cursor-pointer"
+          browseBlocked ? "cursor-not-allowed opacity-45" : "cursor-pointer"
         }`}
       >
         <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[color:var(--delivery-primary)]">
@@ -130,7 +136,9 @@ function PopularMenuRow({
             roundedClassName="rounded-[12px]"
           />
           {soldOut ? <SoldOutOverlay /> : null}
-          <MenuQuickAddButton title={p.title} disabled={soldOut || dimmed} onPress={onAddPress} />
+          {!addBlocked ? (
+            <MenuQuickAddButton title={p.title} disabled={soldOut} onPress={onAddPress} />
+          ) : null}
         </div>
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[14px] font-extrabold leading-snug text-neutral-900">{p.title}</p>

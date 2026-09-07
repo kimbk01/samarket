@@ -14,6 +14,7 @@ import { navigateToDeliveryStoreProduct } from "@/lib/navigation/navigate-to-del
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
+import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 import { STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import type { StoresHomeShelfCardBenefit } from "@/lib/stores/product/stores-home-shelf-card-benefit";
@@ -36,6 +37,12 @@ function StoresHomeHighRatingFoodCardInner({
   const { t } = useI18n();
   const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
+  const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+    distanceOutOfRange: entry.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: entry.maxDeliveryDistanceKm,
+    labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
+    labelGeneric: t("store_delivery_distance_out_of_range"),
+  });
   const warmMenus = () => {
     deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
   };
@@ -98,9 +105,12 @@ function StoresHomeHighRatingFoodCardInner({
         </p>
         <p className="text-[13px] font-semibold text-[color:var(--delivery-primary)]">{formatPrice(entry.price)}</p>
         <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.storeName}</p>
+        {outOfRangeLabel ?
+          <p className="line-clamp-1 text-[12.5px] font-semibold text-sam-warning">{outOfRangeLabel}</p>
+        : null}
         {benefit?.benefitLine ?
           <p className="line-clamp-2 text-[11.5px] font-medium text-signature">{benefit.benefitLine}</p>
-        : entry.etaLabel ?
+        : !outOfRangeLabel && entry.etaLabel ?
           <p className={`line-clamp-1 text-[12.5px] ${STORES_HOME_META}`}>{entry.etaLabel}</p>
         : null}
         {benefit?.sponsored ?

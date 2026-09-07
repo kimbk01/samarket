@@ -11,6 +11,7 @@ import {
   memberDisplayLabelFromRow,
   type MemberIdentityProfileFields,
 } from "@/lib/users/public-member-identity";
+import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 
 function excerptFromPostBody(raw: string, max = 180): string {
   const t = raw.replace(/\s+/g, " ").trim();
@@ -131,7 +132,9 @@ export async function fetchActiveCommunityPaidExposureFeedPosts(
       postTitle: title,
       postSummary,
       postImages: imageByPostId.get(pid) ?? [],
-      locationLabel: String(post.region_label ?? "").trim() || "—",
+      locationLabel: formatCommunityPublicRegionLabel({
+        regionLabel: String(post.region_label ?? "").trim(),
+      }),
       boardKey: "plife",
       adType: "top_fixed" as AdType,
       priority: 0,

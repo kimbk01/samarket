@@ -22,6 +22,7 @@ export function CategoryMenuSection({
   boardFlatCount = 0,
   menuSelectBlocked,
   menuSelectHint,
+  addActionsBlocked,
   onOpenProduct,
   onQuickAddProduct,
   onFirstProductPaint,
@@ -37,6 +38,7 @@ export function CategoryMenuSection({
   boardFlatCount?: number;
   menuSelectBlocked?: boolean;
   menuSelectHint?: string;
+  addActionsBlocked?: boolean;
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
   onFirstProductPaint?: () => void;
@@ -87,6 +89,7 @@ export function CategoryMenuSection({
             storeSlug={storeSlug}
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}
+            addActionsBlocked={addActionsBlocked}
             onOpenProduct={onOpenProduct}
             onQuickAddProduct={onQuickAddProduct}
             onFirstRowPaint={onFirstProductPaint}
@@ -100,6 +103,7 @@ export function CategoryMenuSection({
                   p={p}
                   canInteract={canInteract}
                   menuSelectBlocked={menuSelectBlocked}
+                  addActionsBlocked={addActionsBlocked}
                   onOpenProduct={onOpenProduct}
                   onQuickAddProduct={onQuickAddProduct}
                 />

@@ -12,8 +12,10 @@ export const ADDRESS_DEFAULTS_FETCH_CALLERS = [
   "trade_meet_spot_pick",
   "business_apply_form",
   "browse_list_user_origin",
+  "delivery_routable_gate",
   "trade_meet_fallback_line",
   "trade_location_scope",
+  "community_local_filter",
   "unknown",
 ] as const;
 
@@ -32,7 +34,10 @@ export type AddressDefaultsFetchReason =
   | "meet_spot_seed"
   | "apply_form_seed"
   | "browse_origin"
+  | "delivery_routable"
   | "fallback_line"
   | "trade_location_panel"
   | "trade_location_seed"
+  | "community_local_filter_boot"
+  | "community_local_filter_force"
   | "unspecified";

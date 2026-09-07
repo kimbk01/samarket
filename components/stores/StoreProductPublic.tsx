@@ -34,6 +34,16 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoreDeliveryServiceabilityClient,
+  isDeliveryDistanceOrderBlocked,
+} from "@/lib/stores/fetch-store-delivery-serviceability-client";
+import { isDeliveryOrderingBlockedByServiceability } from "@/lib/stores/delivery-ordering-eligibility";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  readStoreFulfillmentPref,
+  resolveStoreFulfillmentModeForEntry,
+} from "@/lib/stores/store-fulfillment-pref";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
@@ -50,6 +60,7 @@ type PublicStore = {
   store_name: string;
   profile_image_url?: string | null;
   delivery_available?: boolean | null;
+  pickup_available?: boolean | null;
   is_open?: boolean | null;
   business_hours_json?: unknown;
   can_order_store?: boolean;
@@ -112,6 +123,7 @@ export function StoreProductPublic({
   const [store, setStore] = useState<PublicStore | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [distanceOutOfRange, setDistanceOutOfRange] = useState(false);
   /** 사용자가 스테퍼로 바꾼 수량 — null 이면 카트 줄 수량을 그대로 표시 */
   const [qtyUserOverride, setQtyUserOverride] = useState<number | null>(null);
   const [detailGalleryIdx, setDetailGalleryIdx] = useState(0);
@@ -258,6 +270,32 @@ export function StoreProductPublic({
 
   useRefetchOnPageShowRestore(() => void loadProductPage({ silent: true }));
 
+  useEffect(() => {
+    const slugKey = store?.slug?.trim() || storeSlug.trim();
+    if (!slugKey) {
+      setDistanceOutOfRange(false);
+      return;
+    }
+    let cancelled = false;
+    let ac: AbortController | null = null;
+    const run = () => {
+      ac?.abort();
+      ac = new AbortController();
+      void fetchStoreDeliveryServiceabilityClient(slugKey, ac.signal).then((svc) => {
+        if (cancelled) return;
+        setDistanceOutOfRange(isDeliveryDistanceOrderBlocked(svc));
+      });
+    };
+    run();
+    const onAddressesUpdated = () => run();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => {
+      cancelled = true;
+      ac?.abort();
+      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    };
+  }, [store?.slug, storeSlug]);
+
   const onShare = useCallback(() => {
     if (typeof window === "undefined" || !product) return;
     const url = window.location.href;
@@ -336,6 +374,17 @@ export function StoreProductPublic({
   const orderBlocked = commerce.inBreak || !commerce.isOpenForCommerce;
   const ownerOrderBlocked = store.can_order_store === false;
   const ownerOrderBlockedMessage = t("store_err_own_store_block");
+  const fulfillmentMode = resolveStoreFulfillmentModeForEntry(
+    {
+      deliveryAvailable: store.delivery_available === true,
+      pickupAvailable: store.pickup_available !== false,
+    },
+    readStoreFulfillmentPref(store.slug)
+  );
+  const deliveryOrderingBlocked = isDeliveryOrderingBlockedByServiceability({
+    fulfillmentMode,
+    distanceOutOfRange,
+  });
 
   const minQ = Math.max(1, Number(product.min_order_qty) || 1);
   const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
@@ -354,6 +403,8 @@ export function StoreProductPublic({
 
   const commerceBlockedMessage = ownerOrderBlocked
     ? ownerOrderBlockedMessage
+    : deliveryOrderingBlocked
+      ? t("store_detail_delivery_unavailable")
     : orderBlocked
       ? commerce.inBreak
         ? t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })
@@ -370,11 +421,12 @@ export function StoreProductPublic({
 
   const reviewCount = Math.max(0, Math.floor(Number(store.review_count) || 0));
   const profileUrl = store.profile_image_url?.trim() || "";
-  const qtyStepperDisabled = soldOut || orderBlocked || ownerOrderBlocked;
+  const qtyStepperDisabled = soldOut || orderBlocked || ownerOrderBlocked || deliveryOrderingBlocked;
   const ctaDisabled =
     soldOut ||
     orderBlocked ||
     ownerOrderBlocked ||
+    deliveryOrderingBlocked ||
     !optionValidation.ok ||
     !commerceCartActions ||
     capQty < minQ ||
@@ -394,6 +446,10 @@ export function StoreProductPublic({
     if (!st || !pr || !commerceCartActions) return;
     if (ownerOrderBlocked) {
       setCartErr(ownerOrderBlockedMessage);
+      return;
+    }
+    if (deliveryOrderingBlocked) {
+      setCartErr(t("store_detail_delivery_unavailable"));
       return;
     }
     if (commerce.inBreak) {

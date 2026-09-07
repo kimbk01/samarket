@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { isDeliveryRoutableMasterAddress } from "@/lib/addresses/delivery-routable-address";
 import { pickAddressRowForDeliveryRouting, getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { haversineKm } from "@/lib/geo/haversine-km";
@@ -122,39 +123,60 @@ function explicitCoordsFromSearchParams(searchParams: URLSearchParams): Pick<Sto
   return { lat, lng };
 }
 
+function noneOrigin(userId: string | null): StoreListDeliveryOrigin {
+  return {
+    source: "none",
+    userId,
+    addressId: null,
+    placeId: null,
+    lat: null,
+    lng: null,
+    addressIdentity: null,
+    cacheKeyPart: "none",
+  };
+}
+
 export async function resolveStoreListDeliveryOrigin(
   sb: SupabaseClient<any>,
   searchParams: URLSearchParams,
 ): Promise<StoreListDeliveryOrigin> {
   const userId = await getRouteUserId();
+  /**
+   * CUT 5 — logged-in member: master routable coords only.
+   * Do not fall through to query GPS/explicit coords (no silent override).
+   */
   if (userId) {
     try {
       const defs = await getUserAddressDefaults(sb, userId);
       const addr = pickAddressRowForDeliveryRouting(defs);
-      const lat = parseFiniteLatitude(addr?.latitude);
-      const lng = parseFiniteLongitude(addr?.longitude);
-      if (addr && lat != null && lng != null) {
-        const placeId = addr.placeId?.trim() || null;
-        const addressIdentity = normalizeDeliveryAddressIdentity(
-          addr.formattedAddress,
-          addr.roadAddress,
-          addr.fullAddress,
-          addr.detailAddress,
-          addr.unitFloorRoom,
-        );
-        return {
-          source: "saved_address",
-          userId,
-          addressId: addr.id,
-          placeId,
-          lat,
-          lng,
-          addressIdentity,
-          cacheKeyPart: ["addr", userId, addr.id, placeId ?? "", lat.toFixed(6), lng.toFixed(6), addressIdentity ?? ""].join(":"),
-        };
+      if (!addr?.id || !isDeliveryRoutableMasterAddress(addr)) {
+        return noneOrigin(userId);
       }
+      const lat = parseFiniteLatitude(addr.latitude);
+      const lng = parseFiniteLongitude(addr.longitude);
+      if (lat == null || lng == null) {
+        return noneOrigin(userId);
+      }
+      const placeId = addr.placeId?.trim() || null;
+      const addressIdentity = normalizeDeliveryAddressIdentity(
+        addr.formattedAddress,
+        addr.roadAddress,
+        addr.fullAddress,
+        addr.detailAddress,
+        addr.unitFloorRoom,
+      );
+      return {
+        source: "saved_address",
+        userId,
+        addressId: addr.id,
+        placeId,
+        lat,
+        lng,
+        addressIdentity,
+        cacheKeyPart: ["addr", userId, addr.id, placeId ?? "", lat.toFixed(6), lng.toFixed(6), addressIdentity ?? ""].join(":"),
+      };
     } catch {
-      // Fallback below keeps public lists usable if the address table is temporarily unavailable.
+      return noneOrigin(userId);
     }
   }
 
@@ -162,7 +184,7 @@ export async function resolveStoreListDeliveryOrigin(
   if (explicit.lat != null && explicit.lng != null) {
     return {
       source: "explicit_coords",
-      userId: userId ?? null,
+      userId: null,
       addressId: null,
       placeId: null,
       lat: explicit.lat,
@@ -172,14 +194,5 @@ export async function resolveStoreListDeliveryOrigin(
     };
   }
 
-  return {
-    source: "none",
-    userId: userId ?? null,
-    addressId: null,
-    placeId: null,
-    lat: null,
-    lng: null,
-    addressIdentity: null,
-    cacheKeyPart: "none",
-  };
+  return noneOrigin(null);
 }

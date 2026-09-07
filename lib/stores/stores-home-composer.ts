@@ -151,6 +151,8 @@ function buildRepresentativeFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodE
     deliveryFeeStrikePhp: strike ?? null,
     discountEvidence,
     menuAuthority: "owner_representative",
+    distanceOutOfRange: store.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
   };
 }
 
@@ -173,6 +175,8 @@ function buildSlot2PopularFoodEntry(store: StoreHomeFeedItem): StoresHomeFoodEnt
       deliveryFeeStrikePhp: strike ?? null,
       discountEvidence: resolveDeliveryFeeStrikeEvidence(store),
       menuAuthority: "platform_popular",
+      distanceOutOfRange: store.distanceOutOfRange === true,
+      maxDeliveryDistanceKm: store.maxDeliveryDistanceKm ?? null,
     };
   }
   return buildRepresentativeFoodEntry(store);

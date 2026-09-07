@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, type MouseEvent } from "react";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
@@ -30,6 +30,7 @@ import {
   buildDeliveryStoreCartHref,
   navigateToDeliveryStoreCart,
 } from "@/lib/navigation/navigate-to-delivery-store-cart";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 
 /**
  * 매장 메뉴 하단 스트립
@@ -64,9 +65,14 @@ export function StoreDetailBottomStrip({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
 
   const deliveryBlockedByDistance =
     distanceOutOfRange && fulfillmentMode === "local_delivery";
+  const addressChangeHref = buildMypageAddressesHrefFromPath(
+    pathname || `/stores/${encodeURIComponent(slug)}`,
+    "",
+  );
 
   const modeLabel = useMemo(() => {
     if (fulfillmentMode === "local_delivery") {
@@ -163,10 +169,10 @@ export function StoreDetailBottomStrip({
         </div>
         {active ? (
           deliveryBlockedByDistance ? (
-            <span
-              className={storeCommerceActionSideCtaClass(true)}
-              aria-disabled="true"
-              aria-label={t("store_err_delivery_out_of_range")}
+            <Link
+              href={addressChangeHref}
+              className={storeCommerceActionSideCtaClass(false)}
+              aria-label={t("store_cart_out_of_range_change_address")}
             >
               {cartQtyTotal > 0 ? (
                 <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
@@ -174,9 +180,9 @@ export function StoreDetailBottomStrip({
                 </span>
               ) : null}
               <span className={STORE_COMMERCE_ACTION_SIDE_CTA_LABEL_CLASS}>
-                {t("store_bottom_checkout_btn")}
+                {t("store_cart_out_of_range_change_address")}
               </span>
-            </span>
+            </Link>
           ) : (
             <Link
               href={cartHref}

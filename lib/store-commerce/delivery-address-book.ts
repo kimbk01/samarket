@@ -1,6 +1,7 @@
 /**
  * 장바구니 배달용 배송지 목록 (브라우저 localStorage).
- * 선택된 항목이 주문 API delivery_address_* 로 전달됩니다.
+ * Delivery checkout destination authority = MASTER only (CUT 6 OPTION A).
+ * 선택된 master id가 주문 API `delivery_user_address_id` 로 전달됩니다.
  */
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -35,7 +36,14 @@ export function parseUserAddressIdFromDeliverySelection(selectedId: string | nul
 
 type CartDeliveryProfileSnap = { userAddressId?: string | null } | null;
 
-/** 카트 배송지 라디오 — 현재 선택이 목록·프로필과 맞는지 */
+/** Master row among saved addresses (at most one). */
+export function findCartMasterDeliveryAddress(
+  savedAddresses: readonly UserAddressDTO[],
+): UserAddressDTO | null {
+  return savedAddresses.find((a) => a.isDefaultMaster && a.id) ?? null;
+}
+
+/** 카트 배송지 라디오 — 현재 선택이 목록·프로필과 맞는지 (master only). */
 export function isCartDeliverySelectionValid(
   selectedId: string | null,
   savedAddresses: readonly UserAddressDTO[],
@@ -48,6 +56,18 @@ export function isCartDeliverySelectionValid(
 }
 
 /**
+ * Accept a radio selection only when it resolves to master (or profile→master).
+ * Non-master `ua:` ids are rejected so UI cannot invent a false destination.
+ */
+export function canAcceptCartDeliverySelectionId(
+  selectionId: string,
+  savedAddresses: readonly UserAddressDTO[],
+  profileSnap: CartDeliveryProfileSnap,
+): boolean {
+  return isCartDeliverySelectionValid(selectionId, savedAddresses, profileSnap);
+}
+
+/**
  * 카트 배송지 라디오 기본값 — current USER address authority인 master만.
  * delivery/life/trade/profile legacy flags로 대체하지 않는다.
  */
@@ -55,7 +75,7 @@ export function resolveCartDefaultDeliverySelectionId(
   savedAddresses: readonly UserAddressDTO[],
   profileSnap: CartDeliveryProfileSnap
 ): string | null {
-  const master = savedAddresses.find((x) => x.isDefaultMaster);
+  const master = findCartMasterDeliveryAddress(savedAddresses);
   if (master?.id) {
     if (profileSnap?.userAddressId === master.id) return PROFILE_DELIVERY_SELECTION_ID;
     return userAddressDeliverySelectionId(master.id);

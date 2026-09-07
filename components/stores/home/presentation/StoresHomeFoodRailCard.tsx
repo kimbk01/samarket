@@ -14,6 +14,7 @@ import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import { DeliveryAdCustomerAdTag } from "@/components/stores/advertising/DeliveryAdCustomerAdTag";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
+import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
 import { STORES_HOME_PRESENTATION_SPEC } from "@/lib/stores/presentation/stores-home-presentation-spec";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -44,6 +45,12 @@ function StoresHomeFoodRailCardInner({
   const router = useRouter();
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
   const widthClass = presentation === "grid" ? "w-full" : "w-[7.5rem] shrink-0";
+  const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+    distanceOutOfRange: entry.distanceOutOfRange === true,
+    maxDeliveryDistanceKm: entry.maxDeliveryDistanceKm,
+    labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
+    labelGeneric: t("store_delivery_distance_out_of_range"),
+  });
 
   useLayoutEffect(() => {
     if (markStoreCardPerf) markStoresHomePerf("store-card");
@@ -125,7 +132,11 @@ function StoresHomeFoodRailCardInner({
         {benefit?.benefitLine ?
           <p className="line-clamp-2 text-[11.5px] font-medium leading-[1.02] text-signature">{benefit.benefitLine}</p>
         : null}
-        {entry.etaLabel ?
+        {outOfRangeLabel ?
+          <p className={`line-clamp-1 text-[12.5px] font-semibold leading-[1.02] text-sam-warning`}>
+            {outOfRangeLabel}
+          </p>
+        : entry.etaLabel ?
           <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.etaLabel}</p>
         : null}
         {entry.rating > 0 ?
@@ -133,10 +144,11 @@ function StoresHomeFoodRailCardInner({
             ★ {entry.rating.toFixed(1)}
           </p>
         : null}
-        {entry.deliveryFeeLabel ?
+        {!outOfRangeLabel && entry.deliveryFeeLabel ?
           <p className={`line-clamp-1 text-[12.5px] leading-[1.02] ${STORES_HOME_META}`}>{entry.deliveryFeeLabel}</p>
         : null}
-        {entry.discountEvidence === "delivery_fee_strike" &&
+        {!outOfRangeLabel &&
+        entry.discountEvidence === "delivery_fee_strike" &&
         entry.deliveryFeeStrikePhp != null &&
         entry.deliveryFeeStrikePhp > 0 ?
           <p className={`line-clamp-1 text-[12.5px] font-medium leading-[1.02] text-[color:var(--delivery-text-sub)]`}>

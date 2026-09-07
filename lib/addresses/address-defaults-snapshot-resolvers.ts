@@ -4,7 +4,7 @@ import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-s
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import {
   formatUserAddressFull,
-  formatUserAddressTitle,
+  formatUserAddressPublic,
 } from "@/lib/addresses/user-address-display-ssot";
 import { pickUserAddressMasterRow } from "@/lib/addresses/user-address-master-ssot";
 import {
@@ -31,13 +31,13 @@ function coerceDefaults(snapshot: AddressDefaultsSnapshot | null): UserAddressDe
   };
 }
 
-/** Philife·거래 탐색 헤더 — master TITLE only. */
+/** Philife·거래 탐색 헤더 — Community/Market PUBLIC City only (CUT 1). Delivery TITLE chip is separate. */
 export function resolveExplorationAddressLineFromSnapshot(snapshot: AddressDefaultsSnapshot | null): string | null {
   const defaults = coerceDefaults(snapshot);
   if (!defaults) return null;
   const master = defaults.master;
   if (master?.id) {
-    const chip = formatUserAddressTitle(master)?.trim();
+    const chip = formatUserAddressPublic(master)?.trim();
     if (chip) return chip;
   }
   return null;

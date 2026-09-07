@@ -1,5 +1,6 @@
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { CommunityActivityHubData } from "@/lib/mypage/community-activity-types";
+import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 
 function isMissingTableError(message: string, table: string): boolean {
   const lowered = message.toLowerCase();
@@ -119,7 +120,10 @@ export async function loadCommunityActivityHubServer(
         id: String(row.id ?? ""),
         postId,
         postTitle: typeof post?.title === "string" ? post.title : deletedTitle,
-        regionLabel: typeof post?.region_label === "string" ? post.region_label : null,
+        regionLabel:
+          typeof post?.region_label === "string"
+            ? formatCommunityPublicRegionLabel({ regionLabel: post.region_label })
+            : null,
         content: String(row.content ?? ""),
         createdAt: String(row.created_at ?? ""),
       };
@@ -131,7 +135,10 @@ export async function loadCommunityActivityHubServer(
         id: postId,
         postId,
         title: typeof post?.title === "string" ? post.title : deletedTitle,
-        regionLabel: typeof post?.region_label === "string" ? post.region_label : null,
+        regionLabel:
+          typeof post?.region_label === "string"
+            ? formatCommunityPublicRegionLabel({ regionLabel: post.region_label })
+            : null,
         createdAt: String(row.created_at ?? ""),
       };
     }),

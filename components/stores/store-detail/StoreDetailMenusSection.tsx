@@ -66,6 +66,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   sectionScrollMarginCss,
   menuSelectBlocked,
   menuSelectHint,
+  addActionsBlocked,
   onOpenProductSheet,
   onQuickAddProduct,
   onMenuFirstVisible,
@@ -99,6 +100,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   sectionScrollMarginCss: string;
   menuSelectBlocked: boolean;
   menuSelectHint?: string;
+  addActionsBlocked?: boolean;
   onOpenProductSheet: (id: string) => void;
   onQuickAddProduct: (p: StoreDetailProductCard) => boolean;
   onMenuFirstVisible?: (source: string) => void;
@@ -490,6 +492,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
             cards={popularMenuCards}
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}
+            addActionsBlocked={addActionsBlocked}
             onOpenProduct={onOpenProductSheet}
             onQuickAddProduct={onQuickAddProduct}
           />
@@ -497,6 +500,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
             cards={recommendedForUi}
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}
+            addActionsBlocked={addActionsBlocked}
             onOpenProduct={onOpenProductSheet}
             onQuickAddProduct={onQuickAddProduct}
           />
@@ -518,6 +522,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
             canSell={canSell}
             menuSelectBlocked={menuSelectBlocked}
             menuSelectHint={menuSelectHint}
+            addActionsBlocked={addActionsBlocked}
             sectionDomId={(i) => `store-sec-${i}`}
             sectionScrollMarginCss={sectionScrollMarginCss}
             onOpenProduct={onOpenProductSheet}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAcceptCartDeliverySelectionId,
   isCartDeliverySelectionValid,
   resolveCartDefaultDeliverySelectionId,
   userAddressDeliverySelectionId,
@@ -69,5 +70,16 @@ describe("resolveCartDefaultDeliverySelectionId", () => {
     const nonMaster = addr({ id: "d1", isDefaultDelivery: true });
     expect(isCartDeliverySelectionValid(userAddressDeliverySelectionId("m1"), [master, nonMaster], null)).toBe(true);
     expect(isCartDeliverySelectionValid(userAddressDeliverySelectionId("d1"), [master, nonMaster], null)).toBe(false);
+  });
+
+  it("canAcceptCartDeliverySelectionId mirrors master-only rule", () => {
+    const master = addr({ id: "m1", isDefaultMaster: true });
+    const nonMaster = addr({ id: "d1" });
+    expect(
+      canAcceptCartDeliverySelectionId(userAddressDeliverySelectionId("m1"), [master, nonMaster], null),
+    ).toBe(true);
+    expect(
+      canAcceptCartDeliverySelectionId(userAddressDeliverySelectionId("d1"), [master, nonMaster], null),
+    ).toBe(false);
   });
 });

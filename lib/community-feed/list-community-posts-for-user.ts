@@ -6,6 +6,7 @@ import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
+import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
 
@@ -116,7 +117,9 @@ function mapAuthorPostRow(
     title: String(r.title ?? ""),
     content: summaryRaw,
     summary: summaryRaw || "",
-    region_label: String(r.region_label ?? ""),
+    region_label: formatCommunityPublicRegionLabel({
+      regionLabel: String(r.region_label ?? ""),
+    }),
     is_question: !!r.is_question,
     is_meetup: !!r.is_meetup,
     meetup_date: r.meetup_date != null ? String(r.meetup_date) : null,

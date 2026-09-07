@@ -18,6 +18,8 @@ type Props = {
   p: StoreDetailProductCard;
   canInteract: boolean;
   menuSelectBlocked?: boolean;
+  /** CUT 8 — hide/disable add while still allowing menu browse / product open */
+  addActionsBlocked?: boolean;
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 };
@@ -27,6 +29,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
   p,
   canInteract,
   menuSelectBlocked,
+  addActionsBlocked,
   onOpenProduct,
   onQuickAddProduct,
 }: Props) {
@@ -40,6 +43,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
   const soldOut = cardIsMenuSoldOut(p);
   const thumbSrc = p.thumbnail_url?.trim() || "";
   const dimmed = soldOut || menuSelectBlocked;
+  const hideQuickAdd = Boolean(menuSelectBlocked || addActionsBlocked);
 
   const openSheet = useCallback(() => {
     onOpenProduct?.(p.id);
@@ -58,11 +62,11 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (soldOut) return;
+      if (soldOut || addActionsBlocked) return;
       if (onQuickAddProduct?.(p)) return;
       openSheet();
     },
-    [onQuickAddProduct, openSheet, p, soldOut]
+    [addActionsBlocked, onQuickAddProduct, openSheet, p, soldOut]
   );
 
   const sz = DibayMenuBoard.thumbSize;
@@ -127,7 +131,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
           roundedClassName="rounded-[var(--delivery-radius-thumb)]"
         />
         {soldOut ? <SoldOutOverlay /> : null}
-        {!menuSelectBlocked && onOpenProduct && !soldOut ? (
+        {!hideQuickAdd && onOpenProduct && !soldOut ? (
           <MenuQuickAddButton title={p.title} onPress={onAddPress} />
         ) : null}
       </div>

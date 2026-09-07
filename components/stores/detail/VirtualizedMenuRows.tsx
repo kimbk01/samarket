@@ -23,6 +23,7 @@ export function VirtualizedMenuRows({
   storeSlug,
   canInteract,
   menuSelectBlocked,
+  addActionsBlocked,
   onOpenProduct,
   onQuickAddProduct,
   onFirstRowPaint,
@@ -31,6 +32,7 @@ export function VirtualizedMenuRows({
   storeSlug: string;
   canInteract: boolean;
   menuSelectBlocked?: boolean;
+  addActionsBlocked?: boolean;
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
   onFirstRowPaint?: () => void;
@@ -63,6 +65,7 @@ export function VirtualizedMenuRows({
               p={p}
               canInteract={canInteract}
               menuSelectBlocked={menuSelectBlocked}
+              addActionsBlocked={addActionsBlocked}
               onOpenProduct={onOpenProduct}
               onQuickAddProduct={onQuickAddProduct}
             />

@@ -5,8 +5,9 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DeliveryAdBanner } from "@/components/stores/advertising/DeliveryAdBanner";
 import { inventoryViewFromKey } from "@/lib/stores/advertising/delivery-ad-banner-contract";
 import type { SearchTopBannerSlide } from "@/lib/stores/load-store-search-top-banners";
+import { formatStoreCardOutOfRangeLabel } from "@/lib/stores/presentation/resolve-store-list-card-badges";
 
-type DeliverySearchStore = {
+export type DeliverySearchStore = {
   id: string;
   slug: string;
   store_name: string;
@@ -17,9 +18,13 @@ type DeliverySearchStore = {
   district: string | null;
   city: string | null;
   region: string | null;
+  /** CUT 11 — search-delivery serviceability */
+  distanceOutOfRange?: boolean;
+  maxDeliveryDistanceKm?: number | null;
+  distanceKm?: number | null;
 };
 
-type DeliverySearchMenu = {
+export type DeliverySearchMenu = {
   id: string;
   store_id: string;
   store_slug: string;
@@ -116,31 +121,43 @@ export function DeliverySearchResults({
           <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_stores_empty")}</p>
         ) : (
           <ul className="space-y-2">
-            {stores.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  onClick={() => onClickStore(s.slug)}
-                  className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
-                >
-                  <SamarketThumbnail
-                    src={s.profile_image_url}
-                    size={48}
-                    roundedClassName="rounded-ui-rect"
-                    className="bg-sam-surface-muted"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
-                    {s.description ? (
-                      <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">{s.description}</p>
-                    ) : null}
-                    <p className="mt-1 sam-text-helper text-sam-meta">
-                      {(s.district || s.city || s.region || "").trim()}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            ))}
+            {stores.map((s) => {
+              const outOfRangeLabel = formatStoreCardOutOfRangeLabel({
+                distanceOutOfRange: s.distanceOutOfRange === true,
+                maxDeliveryDistanceKm: s.maxDeliveryDistanceKm,
+                labelWithMax: (km) => t("store_delivery_distance_out_of_range_with_max", { km }),
+                labelGeneric: t("store_delivery_distance_out_of_range"),
+              });
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => onClickStore(s.slug)}
+                    className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
+                    data-delivery-search-store-oor={outOfRangeLabel ? "true" : "false"}
+                  >
+                    <SamarketThumbnail
+                      src={s.profile_image_url}
+                      size={48}
+                      roundedClassName="rounded-ui-rect"
+                      className="bg-sam-surface-muted"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
+                      {s.description ? (
+                        <p className="mt-0.5 line-clamp-1 sam-text-body text-sam-muted">{s.description}</p>
+                      ) : null}
+                      <p className="mt-1 sam-text-helper text-sam-meta">
+                        {(s.district || s.city || s.region || "").trim()}
+                      </p>
+                      {outOfRangeLabel ? (
+                        <p className="mt-1 sam-text-helper font-semibold text-sam-warning">{outOfRangeLabel}</p>
+                      ) : null}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -9,6 +9,10 @@ import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { rankByRecommended } from "@/lib/community-feed/feed-ranking";
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import {
+  formatCommunityPublicRegionLabel,
+  loadLocationCitiesByIds,
+} from "@/lib/addresses/community-public-region-label";
+import {
   buildPhilifeTopicColorLookup,
   buildPhilifeTopicFeedListSkinLookup,
   buildPhilifeTopicNameEnLookup,
@@ -421,8 +425,17 @@ export async function listNeighborhoodFeed(options: {
     }
   })();
 
+  const locationCityPromise = loadLocationCitiesByIds(
+    sb,
+    rows.map((r) => String((r as { location_id?: unknown }).location_id ?? "")),
+  );
+
   const tNick0 = performance.now();
-  const [nickMap, meetings] = await Promise.all([nickPromise, meetingsPromise]);
+  const [nickMap, meetings, locationCityById] = await Promise.all([
+    nickPromise,
+    meetingsPromise,
+    locationCityPromise,
+  ]);
   nickMeetMs = performance.now() - tNick0;
 
   const tSyncB = performance.now();
@@ -464,7 +477,11 @@ export async function listNeighborhoodFeed(options: {
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
   const posts = rows.map((r) => {
     const uid = String(r.user_id ?? "");
-    const locationLabel = String(r.region_label ?? "").trim();
+    const locationId = String((r as { location_id?: unknown }).location_id ?? "").trim();
+    const locationLabel = formatCommunityPublicRegionLabel({
+      regionLabel: String(r.region_label ?? "").trim(),
+      locationCity: locationId ? locationCityById.get(locationId) ?? null : null,
+    });
     const enumCat = String(r.category ?? "etc").trim().toLowerCase() || "etc";
     const topicUiSlug = neighborhoodPostTopicUiSlug(r);
     let imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
@@ -693,15 +710,20 @@ export async function getNeighborhoodPostDetail(
   if (row.location_id == null || String(row.location_id).trim() === "") return null;
 
   const uid = String(row.user_id ?? "");
-  const [blocked, profileMap, topics, meetLink] = await Promise.all([
+  const [blocked, profileMap, topics, meetLink, locationCityById] = await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
     fetchMeetingLinkByPostId(sb, postId),
+    loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
   ]);
   if (v && blocked.has(uid)) return null;
 
-  const locationLabel = String(row.region_label ?? "").trim();
+  const locationId = String(row.location_id ?? "").trim();
+  const locationLabel = formatCommunityPublicRegionLabel({
+    regionLabel: String(row.region_label ?? "").trim(),
+    locationCity: locationId ? locationCityById.get(locationId) ?? null : null,
+  });
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicNameEnBySlug = buildPhilifeTopicNameEnLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);

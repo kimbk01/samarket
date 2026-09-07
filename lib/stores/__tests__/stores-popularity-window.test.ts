@@ -111,6 +111,8 @@ function browseCtx(sort: StoresBrowseRequestContext["sort"]): Pick<
       lat: null,
       lng: null,
       cacheGeoPart: "g:none",
+      addressId: null,
+      cacheAddressPart: "addr:none",
     },
   };
 }
@@ -302,6 +304,7 @@ describe("A1–A17 popularityWindowDays", () => {
       region: "",
       city: "",
       district: "",
+      addressPart: "addr:none",
       geoPart: "",
       page: "1",
       limit: "20",
@@ -315,6 +318,7 @@ describe("A1–A17 popularityWindowDays", () => {
       region: "",
       city: "",
       district: "",
+      addressPart: "addr:none",
       geoPart: "",
       page: "1",
       limit: "20",

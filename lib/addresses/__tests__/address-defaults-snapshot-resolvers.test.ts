@@ -63,7 +63,7 @@ function snapshot(partial: Partial<AddressDefaultsSnapshot>): AddressDefaultsSna
 }
 
 describe("address-defaults-snapshot-resolvers", () => {
-  it("does not fall back to neighborhoodFromLife when master TITLE is empty", () => {
+  it("does not fall back to neighborhoodFromLife when master PUBLIC City is empty", () => {
     const line = resolveExplorationAddressLineFromSnapshot(
       snapshot({
         defaults: {
@@ -84,6 +84,22 @@ describe("address-defaults-snapshot-resolvers", () => {
       })
     );
     expect(line).toBeNull();
+  });
+
+  it("exploration header uses PUBLIC City from master — not TITLE/building", () => {
+    const line = resolveExplorationAddressLineFromSnapshot(
+      snapshot({
+        defaults: {
+          master: addr({
+            id: "m1",
+            cityMunicipality: "Makati",
+            buildingName: "Ayala Tower",
+            streetAddress: "123 Ayala Ave",
+          }),
+        },
+      }),
+    );
+    expect(line).toBe("Makati");
   });
 
   it("picks master row for stores header TITLE chip", () => {
