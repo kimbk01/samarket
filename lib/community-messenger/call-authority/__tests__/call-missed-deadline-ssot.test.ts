@@ -166,6 +166,9 @@ describe("CUT2 server missed writer contracts", () => {
     );
     expect(iosVideo).toContain("scheduleMissedLocked");
     const iosVoice = readFileSync(join(ROOT, "ios/App/App/Call/NativeVoiceCallRuntime.swift"), "utf8");
-    expect(iosVoice).not.toContain("scheduleMissed");
+    // CUT7 — Voice gained scheduleMissedLocked; still proposer-only via missedAsync + server gate.
+    expect(iosVoice).toContain("scheduleMissedLocked");
+    expect(iosVoice).toContain("missedAsync");
+    expect(iosVoice).toContain("ring_deadline_not_reached");
   });
 });

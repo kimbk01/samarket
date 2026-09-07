@@ -5,14 +5,20 @@ import Foundation
  *
  * Owns at most one active voice session. Thread-safe via a dedicated serial queue.
  * Phase publish fan-out: NativeVoiceCallUiHost (incoming + outgoing voice UI).
+ *
+ * CUT7 — local missed timer is a PROPOSER only (parity with NativeVideoCallRuntime.scheduleMissedLocked).
+ * Canonical missed = server CUT2 deadline/CAS. Early `ring_deadline_not_reached` must not dismiss CallKit.
  */
 final class NativeVoiceCallRuntime: @unchecked Sendable {
   static let shared = NativeVoiceCallRuntime()
+
+  private static let missedTimeoutSeconds: TimeInterval = 30
 
   private let queue = DispatchQueue(label: "com.dibay.app.native-voice-call-runtime")
   private var session: NativeVoiceCallSession?
   private var phase: NativeVoiceCallPhase = .idle
   private var generation: UInt64 = 0
+  private var missedWorkItem: DispatchWorkItem?
 
   init() {}
 
@@ -42,6 +48,8 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
   func registerIncomingSession(_ session: NativeVoiceCallSession) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .incoming, presentedPhase: .incomingPresented)
+      let sid = session.sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+      scheduleMissedLocked(sessionId: sid)
       publishUiLocked(source: "register_incoming")
     }
   }
@@ -67,6 +75,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         }
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginAccept")
       }
+      cancelMissedLocked()
       phase = .accepting
       publishUiLocked(source: "begin_accept")
     }
@@ -78,6 +87,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       guard phase == .accepting else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptSucceeded")
       }
+      cancelMissedLocked()
       phase = .accepted
       publishUiLocked(source: "accept_succeeded")
     }
@@ -89,6 +99,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       guard phase == .accepting else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptFailed")
       }
+      cancelMissedLocked()
       phase = .failed(reason: .acceptFailed)
       publishUiLocked(source: "accept_failed")
     }
@@ -103,6 +114,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         return
       case .incomingPresented, .outgoingStarting, .accepting, .accepted, .tokenPending, .joining,
         .connected, .rejecting, .ending:
+        cancelMissedLocked()
         phase = .failed(reason: reason)
         publishUiLocked(source: "pipeline_failed")
       }
@@ -117,6 +129,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       guard phase == .accepted else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markTokenPending")
       }
+      cancelMissedLocked()
       phase = .tokenPending
       publishUiLocked(source: "token_pending")
     }
@@ -154,6 +167,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       guard phase == .joining else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markConnected")
       }
+      cancelMissedLocked()
       phase = .connected
       publishUiLocked(source: "connected")
     }
@@ -171,6 +185,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.duplicateAction
       case .incomingPresented, .accepting, .accepted, .tokenPending, .joining, .connected,
         .outgoingStarting, .failed:
+        cancelMissedLocked()
         phase = .rejecting
         publishUiLocked(source: "begin_reject")
       case .idle:
@@ -186,6 +201,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .ended, .failed(reason: .rejected):
         return
       case .rejecting:
+        cancelMissedLocked()
         phase = .failed(reason: .rejected)
         clearSessionLocked()
         publishIdleLocked(source: "rejected")
@@ -206,6 +222,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .idle:
         throw NativeVoiceCallRuntimeError.invalidSession
       default:
+        cancelMissedLocked()
         phase = .ending
         publishUiLocked(source: "begin_end")
       }
@@ -219,6 +236,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .ended, .failed(reason: .ended):
         return
       case .ending:
+        cancelMissedLocked()
         phase = .ended
         clearSessionLocked()
         publishIdleLocked(source: "ended")
@@ -236,6 +254,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let active = session, active.sessionId == trimmed else { return }
       }
+      cancelMissedLocked()
       clearSessionLocked()
       phase = .idle
       generation &+= 1
@@ -275,12 +294,13 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         if active.callUUID != normalized.callUUID {
           throw NativeVoiceCallRuntimeError.conflictingActiveCall
         }
-        // Idempotent re-register of the same session.
+        // Idempotent re-register of the same session — refresh missed timer below.
         return
       }
       if !canReplaceActiveSessionForNewCall(phase) {
         throw NativeVoiceCallRuntimeError.conflictingActiveCall
       }
+      cancelMissedLocked()
       clearSessionLocked()
       phase = .idle
     }
@@ -350,6 +370,138 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     let snap = NativeVoiceCallRuntimeSnapshot(session: nil, phase: .idle)
     DispatchQueue.main.async {
       NativeVoiceCallUiHost.handleRuntimeSnapshot(snap, source: source)
+    }
+  }
+
+  // MARK: - Missed proposer (CUT7 Voice ↔ Video parity)
+
+  private func scheduleMissedLocked(sessionId: String) {
+    cancelMissedLocked()
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    guard phase == .incomingPresented, let active = session, active.sessionId == sid else { return }
+    let expectedGeneration = generation
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
+    }
+    missedWorkItem = work
+    queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)
+    DibayCallLog.info(
+      "ios_native_voice_missed_timer_scheduled",
+      sessionId: sid,
+      detail: "timeoutSec=\(Int(Self.missedTimeoutSeconds)) generation=\(expectedGeneration)"
+    )
+  }
+
+  private func cancelMissedLocked() {
+    missedWorkItem?.cancel()
+    missedWorkItem = nil
+  }
+
+  /// Called only from `queue` (missed timer) — no `queue.sync` re-entry.
+  private func performMissedTimeoutIfCurrent(sessionId: String, generation expectedGeneration: UInt64) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
+      DibayCallLog.info(
+        "ios_native_voice_missed_timer_stale",
+        sessionId: sid,
+        detail: "reason=call_id_or_generation_mismatch"
+      )
+      return
+    }
+    guard phase == .incomingPresented else {
+      DibayCallLog.info(
+        "ios_native_voice_missed_timer_stale",
+        sessionId: sid,
+        detail: "reason=phase_not_ringing"
+      )
+      return
+    }
+    missedWorkItem = nil
+    DibayCallLog.info("ios_native_voice_missed_propose", sessionId: sid, detail: "source=local_timer")
+    NativeVoiceCallApi.missedAsync(callId: sid) { [weak self] ok, status, error in
+      guard let self else { return }
+      self.queue.async {
+        self.handleMissedProposeResultLocked(
+          sessionId: sid,
+          expectedGeneration: expectedGeneration,
+          ok: ok,
+          status: status,
+          error: error
+        )
+      }
+    }
+  }
+
+  private func handleMissedProposeResultLocked(
+    sessionId: String,
+    expectedGeneration: UInt64,
+    ok: Bool,
+    status: Int,
+    error: String?
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let err = (error ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    // Old timer must never dismiss a replaced/new call.
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
+      DibayCallLog.info(
+        "ios_native_voice_missed_propose_ignored",
+        sessionId: sid,
+        detail: "reason=stale_after_response"
+      )
+      return
+    }
+    guard phase == .incomingPresented else {
+      DibayCallLog.info(
+        "ios_native_voice_missed_propose_ignored",
+        sessionId: sid,
+        detail: "reason=no_longer_ringing"
+      )
+      return
+    }
+
+    if !ok && err == "ring_deadline_not_reached" {
+      DibayCallLog.info(
+        "ios_native_voice_missed_early_rejected",
+        sessionId: sid,
+        detail: "status=\(status) keep_presentation=1"
+      )
+      return
+    }
+
+    if !ok && (err == "already_answered" || err == "bad_action") {
+      // Accept/elsewhere won — do not invent missed UI; leave terminal push / accept path to dismiss.
+      DibayCallLog.info(
+        "ios_native_voice_missed_propose_blocked",
+        sessionId: sid,
+        detail: "error=\(err) keep_presentation=1"
+      )
+      return
+    }
+
+    // ok / idempotent success → dismiss presentation. Failures keep CallKit until another terminal.
+    if !ok {
+      DibayCallLog.info(
+        "ios_native_voice_missed_propose_failed",
+        sessionId: sid,
+        detail: "status=\(status) error=\(err) keep_presentation=1"
+      )
+      return
+    }
+
+    cancelMissedLocked()
+    phase = .failed(reason: .ended)
+    clearSessionLocked()
+    generation &+= 1
+    publishIdleLocked(source: "missed_timeout")
+    DibayCallLog.info(
+      "ios_native_voice_missed_local_dismiss",
+      sessionId: sid,
+      detail: "status=\(status)"
+    )
+    DispatchQueue.main.async {
+      CallKitProvider.shared.reportCallEnded(uuidString: sid)
     }
   }
 }
