@@ -1264,6 +1264,8 @@ export function collectAdminMenuPathEntries(
 
 /**
  * role 기준 메뉴 필터링. 항목/자식의 roles 미지정 시 전체 노출, 지정 시 해당 role만 노출.
+ * NOTE: does NOT strip `sidebarPublic: false` — workspace routing / deep-link match
+ * must still see ads-legacy paths. Use `filterMenuForPublicSidebar` for nav UI.
  */
 export function filterMenuByRole(
   menu: AdminMenuItem[],
@@ -1272,6 +1274,22 @@ export function filterMenuByRole(
   function filter(items: AdminMenuItem[]): AdminMenuItem[] {
     return items
       .filter((item) => !item.roles?.length || item.roles.includes(role))
+      .map((item) => ({
+        ...item,
+        children: item.children?.length ? filter(item.children) : undefined,
+      }))
+      .filter((item) => !item.children || item.children.length > 0 || item.path);
+  }
+  return filter(menu);
+}
+
+/**
+ * PUBLIC sidebar / workspace nav display — retires `sidebarPublic: false` leaves
+ * while keeping them in adminMenu for routing matchPaths / findAdminMenuByKey.
+ */
+export function filterMenuForPublicSidebar(menu: AdminMenuItem[]): AdminMenuItem[] {
+  function filter(items: AdminMenuItem[]): AdminMenuItem[] {
+    return items
       .filter((item) => item.sidebarPublic !== false)
       .map((item) => ({
         ...item,

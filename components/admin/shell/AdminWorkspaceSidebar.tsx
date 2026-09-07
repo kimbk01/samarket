@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  filterMenuForPublicSidebar,
   type AdminMenuItem,
 } from "@/components/admin/admin-menu";
 import { AdminSidebarGroup } from "@/components/admin/sidebar/AdminSidebarGroup";
@@ -30,7 +31,10 @@ export function AdminWorkspaceSidebar({
   roleLabel?: string;
 }) {
   const { t } = useI18n();
-  const sections = workspace.item.children ?? [];
+  const sections = useMemo(
+    () => filterMenuForPublicSidebar(workspace.item.children ?? []),
+    [workspace.item.children]
+  );
   const homeOnly = !sections.length && workspace.item.path;
 
   const pathsScope = useMemo(() => {

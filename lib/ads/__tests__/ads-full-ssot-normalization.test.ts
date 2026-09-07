@@ -11,7 +11,11 @@ import { FEED_AD_SLIDE_INTERVAL_MS } from "@/lib/ads/feed-ad-geometry";
 import { DELIVERY_AD_OWNER_PRICING_PRODUCT } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import { LAUNCH_BANNER_PLACEMENTS } from "@/lib/stores/advertising/delivery-ad-launch-placement-product";
 import { listActiveMemberPromotionProducts } from "@/lib/points/promotion-products";
-import { filterMenuByRole, adminMenu } from "@/components/admin/admin-menu";
+import {
+  adminMenu,
+  filterMenuByRole,
+  filterMenuForPublicSidebar,
+} from "@/components/admin/admin-menu";
 import { findAdminMenuByKey } from "@/lib/admin/find-admin-menu-item";
 
 describe("Ads FULL SSOT normalization", () => {
@@ -50,9 +54,13 @@ describe("Ads FULL SSOT normalization", () => {
     const legacy = findAdminMenuByKey(adminMenu, "ads-legacy");
     expect(legacy).toBeTruthy();
     expect(legacy?.sidebarPublic).toBe(false);
-    const publicAds = filterMenuByRole(adminMenu, "master").find((i) => i.key === "ads");
-    expect(publicAds?.children?.some((c) => c.key === "ads-legacy")).toBe(false);
-    const keys = (publicAds?.children ?? []).map((c) => c.key);
+    // Routing tree still includes ads-legacy (deep-link matchPaths).
+    const routingAds = filterMenuByRole(adminMenu, "master").find((i) => i.key === "ads");
+    expect(routingAds?.children?.some((c) => c.key === "ads-legacy")).toBe(true);
+    // PUBLIC sidebar retires ads-legacy.
+    const publicAds = filterMenuForPublicSidebar(routingAds?.children ?? []);
+    expect(publicAds.some((c) => c.key === "ads-legacy")).toBe(false);
+    const keys = publicAds.map((c) => c.key);
     expect(keys).toEqual([
       "ads-advertising-workspace",
       "ads-authority-boosts",

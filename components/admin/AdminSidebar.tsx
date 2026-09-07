@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   adminMenu,
   filterMenuByRole,
+  filterMenuForPublicSidebar,
   type AdminMenuItem,
   type AdminMenuRole,
 } from "@/components/admin/admin-menu";
@@ -50,7 +51,10 @@ export function AdminSidebar({
     () => resolveSidebarMenuRole(adminMe?.uiRole, adminMeLoading),
     [adminMe?.uiRole, adminMeLoading]
   );
-  const menu = useMemo(() => (role ? filterMenuByRole(adminMenu, role) : []), [role]);
+  const menu = useMemo(
+    () => (role ? filterMenuForPublicSidebar(filterMenuByRole(adminMenu, role)) : []),
+    [role]
+  );
 
   const asideClass = [
     "admin-sidebar sticky top-0 z-30 flex h-[100dvh] max-h-[100dvh] w-56 min-w-[14rem] shrink-0 flex-col border-r",
