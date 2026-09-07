@@ -17,6 +17,10 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch", ()
   startCallV4ConnectedTerminalWatch: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
+  callV4PatchConnected: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 describe("call-v4-phase-bridge", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();

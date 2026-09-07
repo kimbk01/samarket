@@ -566,6 +566,8 @@ export type CommunityMessengerCallSession = {
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;
   answeredAt: string | null;
+  /** CUT6 media connection — distinct from answeredAt (acceptance) */
+  connectedAt?: string | null;
   endedAt: string | null;
   /** DB `ended_reason` — 클라 연결 실패 등 계약 문자열 */
   endedReason?: string | null;

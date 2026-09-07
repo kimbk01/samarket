@@ -11,6 +11,7 @@ import {
   type CallV4ConnectedGateInput,
 } from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
 import { startCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
+import { callV4PatchConnected } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { acquireConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
@@ -94,6 +95,10 @@ export function markCallV4MediaConnected(
   if (gateInput.mediaType === "video") {
     acquireConnectedVideoScreenAwake(sid, source);
   }
+  // CUT6 — propose server connected_at (server clock). Native change = NONE.
+  void callV4PatchConnected(sid).catch(() => {
+    /* best-effort; terminal race may reject */
+  });
   return true;
 }
 

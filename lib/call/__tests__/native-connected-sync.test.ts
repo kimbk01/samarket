@@ -28,6 +28,7 @@ const terminalMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
   callV4FetchSession: vi.fn(),
+  callV4PatchConnected: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({

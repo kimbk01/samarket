@@ -19,7 +19,7 @@ SSOT modules:
 | Concern | Authority |
 |---|---|
 | Session status / ended_at / ended_reason / answered_at | `updateCommunityMessengerCallSession` (single HTTP PATCH path) |
-| Duration | `ended_at − answered_at` via `resolveAuthoritativeCallDurationSeconds` (DB has no `connected_at`; `answered_at` is connectedAt proxy) |
+| Duration | `ended_at − connected_at` via `resolveAuthoritativeCallDurationSeconds` (CUT6). `answered_at` = acceptance only; never-connected → duration 0 |
 | Busy | Server `peer_busy` on start + unique live indexes; Android native suppresses 2nd incoming UI **without** `reject`/`declined` |
 | Concurrent ringing (incoming policy) | `missed` + `incoming_policy_superseded` (not `reject`/`declined`); missed Bell skipped for that reason |
 | Missed notification | Room-bound missed is call_stub/B only. Only a genuinely roomless orphan may create Member A/Bell |

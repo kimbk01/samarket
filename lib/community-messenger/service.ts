@@ -256,6 +256,7 @@ import {
   normalizeAnswerClaimDeviceId,
 } from "@/lib/community-messenger/call-multi-device-authority";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
+import { evaluateConnectedProposal } from "@/lib/community-messenger/call-authority/call-connected-authority";
 import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
@@ -566,6 +567,7 @@ type CallSessionRow = {
   status: CommunityMessengerCallSessionStatus;
   started_at: string | null;
   answered_at: string | null;
+  connected_at?: string | null;
   answered_device_id?: string | null;
   ended_at: string | null;
   ended_reason?: string | null;
@@ -708,6 +710,8 @@ type DevCallSession = {
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;
   answeredAt: string | null;
+  /** CUT6 media connection */
+  connectedAt?: string | null;
   endedAt: string | null;
   /** 클라 연결 실패 등 — dev 전용 */
   endedReason?: string | null;
@@ -1030,7 +1034,7 @@ async function loadDirectCallSessionRowById(
   const { data: row } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
     )
     .eq("id", sid)
     .maybeSingle();
@@ -1102,7 +1106,7 @@ async function appendCommunityMessengerCallSessionEvent(
 }
 
 function endedReasonForSessionDelta(
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
   nextStatus: CommunityMessengerCallSessionStatus,
   clientEndedReason?: string | null,
   ctx?: {
@@ -1112,6 +1116,7 @@ function endedReasonForSessionDelta(
     answeredAt?: string | null;
   },
 ): string | null {
+  if (action === "connected") return null;
   return resolveTerminalEndedReason({
     action,
     nextStatus,
@@ -1188,9 +1193,10 @@ async function notifyRoomBoundMissedCallBestEffort(
 }
 
 function auditEventTypeForAction(
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
   nextStatus: CommunityMessengerCallSessionStatus
 ): string {
+  if (action === "connected") return "connected";
   if (action === "accept" || nextStatus === "active") return "accepted";
   if (action === "reject" || nextStatus === "rejected") return "declined";
   if (action === "cancel" || nextStatus === "cancelled") return "canceled";
@@ -4918,6 +4924,11 @@ async function mapCallSession(
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
     answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || null,
+    connectedAt: trimText(
+      isDbSession
+        ? (session as CallSessionRow).connected_at ?? ""
+        : (session as DevCallSession).connectedAt ?? ""
+    ) || null,
     endedAt: trimText(isDbSession ? session.ended_at : session.endedAt) || null,
     endedReason: isDbSession
       ? trimText((session as CallSessionRow).ended_reason ?? "") || null
@@ -5019,7 +5030,7 @@ async function getActiveCallSessionForRoom(
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
       )
       .eq("room_id", rid)
       .in("status", ["ringing", "active"])
@@ -5074,7 +5085,7 @@ export async function getCommunityMessengerCallSessionById(
       (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
         )
         .eq("id", id)
         .maybeSingle(),
@@ -18359,7 +18370,7 @@ export async function startCommunityMessengerCallSession(input: {
             .eq("id", existing.id)
             .eq("status", "ringing")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
             )
             .maybeSingle();
           if (bumped) {
@@ -18456,7 +18467,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -18535,7 +18546,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -18596,7 +18607,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
 export async function updateCommunityMessengerCallSession(input: {
   userId: string;
   sessionId: string;
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed";
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected";
   durationSeconds?: number;
   /** Agora/P2P 조인 실패 등 — `ended` 시 DB `ended_reason` (CHECK 없음) */
   clientEndedReason?: string;
@@ -18606,6 +18617,8 @@ export async function updateCommunityMessengerCallSession(input: {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
   const clientDurationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
+  const callSessionSelect =
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at";
   const resolveTerminalDurationSeconds = (
     session: CallSessionRow | DevCallSession,
     mapped: CommunityMessengerCallSession,
@@ -18616,6 +18629,12 @@ export async function updateCommunityMessengerCallSession(input: {
         ? trimText(session.answered_at ?? "")
         : trimText((session as DevCallSession).answeredAt ?? "")) ||
       null;
+    const connectedAt =
+      mapped.connectedAt ||
+      ("connected_at" in session
+        ? trimText((session as CallSessionRow).connected_at ?? "")
+        : trimText((session as DevCallSession).connectedAt ?? "")) ||
+      null;
     const endedAt =
       mapped.endedAt ||
       ("ended_at" in session
@@ -18625,7 +18644,9 @@ export async function updateCommunityMessengerCallSession(input: {
     return resolveAuthoritativeCallDurationSeconds({
       clientDurationSeconds,
       answeredAt,
+      connectedAt,
       endedAt,
+      connectedAtAuthority: true,
     });
   };
   const terminalLogStatus = (mapped: CommunityMessengerCallSession): CommunityMessengerCallStatus =>
@@ -18832,7 +18853,7 @@ export async function updateCommunityMessengerCallSession(input: {
     return null;
   };
   const resolveHangupReason = (
-    action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
+    action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
     nextStatus: CommunityMessengerCallSessionStatus
   ): "reject" | "cancel" | "missed" | "end" | null => {
     if (!isTerminalCallSessionStatus(nextStatus)) return null;
@@ -18886,9 +18907,7 @@ export async function updateCommunityMessengerCallSession(input: {
   if (sb) {
     const { data: row } = await (sb as any)
       .from("community_messenger_call_sessions")
-      .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
-      )
+      .select(callSessionSelect)
       .eq("id", sessionId)
       .maybeSingle();
     if (row) {
@@ -18906,6 +18925,78 @@ export async function updateCommunityMessengerCallSession(input: {
           return { ok: false, error: "blocked_target" };
         }
       }
+
+      if (input.action === "connected") {
+        const decision = evaluateConnectedProposal({
+          status: session.status,
+          answeredAt: session.answered_at,
+          connectedAt: session.connected_at,
+          actorUserId: input.userId,
+          initiatorUserId: session.initiator_user_id,
+          recipientUserId: session.recipient_user_id,
+          answeredDeviceId: session.answered_device_id,
+          requestDeviceId: input.answeredDeviceId,
+        });
+        if (!decision.ok) {
+          return { ok: false, error: decision.error };
+        }
+        if (decision.kind === "idempotent") {
+          const mapped = await mapCallSession(
+            input.userId,
+            session,
+            undefined,
+            undefined,
+            undefined,
+            "labels_only",
+          );
+          return { ok: true, session: mapped };
+        }
+        const now = nowIso();
+        const { data: updated, error: connectedErr } = await (sb as any)
+          .from("community_messenger_call_sessions")
+          .update({ connected_at: now, updated_at: now })
+          .eq("id", sessionId)
+          .eq("status", "active")
+          .is("connected_at", null)
+          .select(callSessionSelect)
+          .maybeSingle();
+        if (connectedErr) {
+          return { ok: false, error: "call_session_update_failed" };
+        }
+        if (!updated) {
+          const { data: freshRow } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .select(callSessionSelect)
+            .eq("id", sessionId)
+            .maybeSingle();
+          const fresh = (freshRow ?? null) as CallSessionRow | null;
+          if (!fresh) return { ok: false, error: "not_found" };
+          if (isTerminalCallSessionStatus(fresh.status as CommunityMessengerCallSessionStatus)) {
+            return { ok: false, error: "bad_action" };
+          }
+          if (trimText(fresh.connected_at ?? "")) {
+            const mapped = await mapCallSession(
+              input.userId,
+              fresh,
+              undefined,
+              undefined,
+              undefined,
+              "labels_only",
+            );
+            return { ok: true, session: mapped };
+          }
+          return { ok: false, error: "bad_action" };
+        }
+        const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+        await appendCommunityMessengerCallSessionEvent(sb, {
+          sessionId,
+          actorUserId: input.userId,
+          eventType: "connected",
+          payload: { source: "session_patch" },
+        });
+        return { ok: true, session: mapped };
+      }
+
       if ((session.session_mode ?? "direct") === "group") {
         const now = nowIso();
         const { data: participantRows } = await (sb as any)
@@ -18943,9 +19034,7 @@ export async function updateCommunityMessengerCallSession(input: {
               ended_reason: groupCancelReason,
             })
             .eq("id", sessionId)
-            .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
-            )
+            .select(callSessionSelect)
             .single();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
@@ -18998,9 +19087,7 @@ export async function updateCommunityMessengerCallSession(input: {
               ended_reason: groupEndReason,
             })
             .eq("id", sessionId)
-            .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
-            )
+            .select(callSessionSelect)
             .single();
           if (!updated) return { ok: false, error: "call_session_update_failed" };
           const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
@@ -19095,7 +19182,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("id", sessionId)
             .eq("status", "ringing")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
             )
             .maybeSingle();
           if (updated) {
@@ -19153,7 +19240,7 @@ export async function updateCommunityMessengerCallSession(input: {
           .update(updatePayload)
           .eq("id", sessionId)
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
           )
           .single();
         if (!updated) return { ok: false, error: "call_session_update_failed" };
@@ -19366,7 +19453,7 @@ export async function updateCommunityMessengerCallSession(input: {
         }
         const result = await updateBuilder
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at"
           )
           .maybeSingle();
         updated = (result.data as CallSessionRow | null) ?? null;
@@ -19378,7 +19465,7 @@ export async function updateCommunityMessengerCallSession(input: {
           const { data: freshRow } = await (sb as any)
             .from("community_messenger_call_sessions")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at"
             )
             .eq("id", sessionId)
             .maybeSingle();
@@ -19595,6 +19682,25 @@ export async function updateCommunityMessengerCallSession(input: {
   const dev = getDevState();
   const session = dev.callSessions.find((item) => item.id === sessionId);
   if (!session) return { ok: false, error: "not_found" };
+
+  if (input.action === "connected") {
+    const decision = evaluateConnectedProposal({
+      status: session.status,
+      answeredAt: session.answeredAt,
+      connectedAt: session.connectedAt ?? null,
+      actorUserId: input.userId,
+      initiatorUserId: session.initiatorUserId,
+      recipientUserId: session.recipientUserId,
+      answeredDeviceId: null,
+      requestDeviceId: input.answeredDeviceId,
+    });
+    if (!decision.ok) return { ok: false, error: decision.error };
+    if (decision.kind === "idempotent") {
+      return { ok: true, session: await mapCallSession(input.userId, session) };
+    }
+    session.connectedAt = nowIso();
+    return { ok: true, session: await mapCallSession(input.userId, session) };
+  }
 
   if (session.sessionMode === "group") {
     const mine = session.participants.find((item) => messengerUserIdsEqual(item.userId, input.userId));
@@ -19848,7 +19954,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
         )
         .eq("recipient_user_id", userId)
         .eq("session_mode", "direct")
@@ -19869,7 +19975,7 @@ export async function listIncomingCommunityMessengerCallSessions(
         (sb as any)
           .from("community_messenger_call_sessions")
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
           )
           .eq("recipient_user_id", userId)
           .eq("session_mode", "direct")
@@ -19895,7 +20001,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
         )
         .in("id", groupSessionIds)
         .eq("session_mode", "group")

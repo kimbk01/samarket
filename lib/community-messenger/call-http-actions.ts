@@ -55,6 +55,7 @@ export type PatchCommunityCallSessionAction =
   | "end"
   | "leave"
   | "missed"
+  | "connected"
   | "upgrade_to_video"
   | "downgrade_to_voice";
 
