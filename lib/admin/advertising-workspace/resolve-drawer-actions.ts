@@ -167,7 +167,8 @@ export function filterWorkspaceActionsByMode(
   mode: string
 ): WorkspaceDrawerAction[] {
   if (mode === "applications") {
-    return actions.filter((a) => ["approve", "reject", "request_changes"].includes(a));
+    // CUT R3: list primary CTA is 검토하기 → detail. No list-row approve/reject/hold.
+    return [];
   }
   if (mode === "boosts") {
     return actions.filter((a) => ["pause", "resume"].includes(a));

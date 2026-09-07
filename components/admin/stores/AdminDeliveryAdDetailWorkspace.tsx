@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminDeliveryCmsChrome } from "@/components/admin/shell/AdminDeliveryCmsChrome";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { DeliveryAdCampaignPlacementPreviews } from "@/components/stores/advertising/DeliveryAdCampaignPlacementPreviews";
@@ -47,6 +48,8 @@ import {
 import { DeliveryAdPerformancePanel } from "@/components/stores/advertising/DeliveryAdPerformancePanel";
 import { DeliveryAdOperationsPanel } from "@/components/stores/advertising/DeliveryAdOperationsPanel";
 import { DeliveryAdOwnerPhoneFrame } from "@/components/stores/advertising/DeliveryAdOwnerPhoneFrame";
+import { adsWorkspaceMutationConfirmCopy } from "@/lib/admin/ads-exposure/admin-mutation-confirm-copy";
+import type { WorkspaceDrawerAction } from "@/lib/admin/advertising-workspace/resolve-drawer-actions";
 import type {
   DeliveryAdAnalyticsDateRange,
   DeliveryAdPerformancePayload,
@@ -62,6 +65,22 @@ import {
 } from "@/lib/stores/advertising/delivery-ad-admin-r3-presentation";
 import { adminOperatorErrorMessage } from "@/lib/admin/operator-ux/operator-labels";
 import { adsRemainingPeriodLabel } from "@/lib/admin/domain-control/ads-operator-cta";
+
+const REVIEW_CONFIRM_ACTIONS = new Set<AdminDeliveryAdAction>([
+  "approve",
+  "reject",
+  "request_changes",
+]);
+
+function deliveryReviewToWorkspaceAction(
+  action: AdminDeliveryAdAction
+): WorkspaceDrawerAction | null {
+  if (action === "approve") return "approve";
+  if (action === "reject") return "reject";
+  if (action === "request_changes") return "request_changes";
+  return null;
+}
+
 const ACTIONS: AdminDeliveryAdAction[] = [
   "start_review",
   "request_changes",
@@ -111,6 +130,12 @@ export function AdminDeliveryAdDetailWorkspace({
   } | null>(null);
   const [reason, setReason] = useState("");
   const [confirmAction, setConfirmAction] = useState<AdminDeliveryAdAction | null>(null);
+  const [pendingReviewConfirm, setPendingReviewConfirm] = useState<AdminDeliveryAdAction | null>(
+    null
+  );
+  const [reviewSuccessKind, setReviewSuccessKind] = useState<
+    "approve" | "reject" | "request_changes" | null
+  >(null);
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [editInventoryKey, setEditInventoryKey] = useState<OwnerBannerInventoryKey>("STORES_HOME_HERO");
@@ -321,10 +346,23 @@ export function AdminDeliveryAdDetailWorkspace({
     return "border-sam-border bg-sam-surface text-sam-fg";
   }
 
-  async function runAction(action: AdminDeliveryAdAction) {
+  async function runAction(action: AdminDeliveryAdAction, opts?: { reason?: string; confirmed?: boolean }) {
     if (!campaign || busy) return;
+
+    if (REVIEW_CONFIRM_ACTIONS.has(action) && !opts?.confirmed) {
+      setConfirmAction(null);
+      setPendingReviewConfirm(action);
+      setError(null);
+      return;
+    }
+
+    const reasonValue = (opts?.reason ?? reason).trim();
     const needsReason = adminActionRequiresReason(action);
-    if (needsReason && !reason.trim()) {
+    if (needsReason && !reasonValue) {
+      if (REVIEW_CONFIRM_ACTIONS.has(action)) {
+        setPendingReviewConfirm(action);
+        return;
+      }
       setConfirmAction(action);
       setError(
         action === "reject"
@@ -348,7 +386,7 @@ export function AdminDeliveryAdDetailWorkspace({
       action === "terminate" ||
       action === "archive" ||
       action === "delete_safe_draft";
-    if (needsConfirm && confirmAction !== action) {
+    if (needsConfirm && !REVIEW_CONFIRM_ACTIONS.has(action) && confirmAction !== action) {
       setConfirmAction(action);
       setError(null);
       return;
@@ -367,8 +405,8 @@ export function AdminDeliveryAdDetailWorkspace({
             action,
             expectedLifecycle: campaign.lifecycleStatus,
             expectedUpdatedAt: campaign.updatedAt,
-            reason: reason.trim() || null,
-            ownerVisibleNotes: reason.trim() || null,
+            reason: reasonValue || null,
+            ownerVisibleNotes: reasonValue || null,
           }),
         }
       );
@@ -380,10 +418,15 @@ export function AdminDeliveryAdDetailWorkspace({
             : adminOperatorErrorMessage(json.error || "action_failed", lang !== "en")
         );
         setConfirmAction(null);
+        setPendingReviewConfirm(null);
         return;
       }
       setConfirmAction(null);
+      setPendingReviewConfirm(null);
       setReason("");
+      if (action === "approve" || action === "reject" || action === "request_changes") {
+        setReviewSuccessKind(action);
+      }
       if (action === "delete_safe_draft") {
         router.push(DELIVERY_AD_ADMIN_ROUTES.hub);
         return;
@@ -719,6 +762,56 @@ export function AdminDeliveryAdDetailWorkspace({
           </p>
         ) : null}
 
+        {reviewSuccessKind && campaign ? (
+          <section
+            className="rounded-ui-rect border border-sam-primary/30 bg-sam-primary/5 p-4"
+            data-admin-delivery-review-success="1"
+            data-success-kind={reviewSuccessKind}
+          >
+            <p className="text-[14px] font-semibold text-sam-fg">
+              {reviewSuccessKind === "approve"
+                ? lang === "en"
+                  ? "Ad approved."
+                  : "광고가 승인되었습니다."
+                : reviewSuccessKind === "request_changes"
+                  ? lang === "en"
+                    ? "Ad held."
+                    : "광고가 보류되었습니다."
+                  : lang === "en"
+                    ? "Ad rejected."
+                    : "광고가 반려되었습니다."}
+            </p>
+            {reviewSuccessKind === "approve" ? (
+              <div className="mt-2 space-y-1 text-[13px]">
+                <p className="font-semibold">{lang === "en" ? "Approved" : "승인 완료"}</p>
+                <p>
+                  <span className="text-sam-muted">{lang === "en" ? "Placement" : "노출 위치"}: </span>
+                  {(campaign.inventoryKeys ?? [])
+                    .map((k) => adminDeliveryAdInventoryHumanLabel(k, lang))
+                    .join(" · ") || "—"}
+                </p>
+                <p>
+                  <span className="text-sam-muted">{lang === "en" ? "Operating" : "운영 상태"}: </span>
+                  {safeT(
+                    `admin_delivery_ads_lifecycle_${campaign.lifecycleStatus.toLowerCase()}` as MessageKey,
+                    {
+                      fallbackKo: campaign.lifecycleStatus,
+                      fallbackEn: campaign.lifecycleStatus,
+                    }
+                  )}
+                </p>
+                <Link
+                  href="/admin/advertising/operations"
+                  className="mt-2 inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                  data-admin-delivery-ops-link="1"
+                >
+                  {lang === "en" ? "View in operations" : "노출 관리에서 보기"}
+                </Link>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         {campaign && requiredDecision ? (
           <>
             {/* A — 지금 해야 할 일 */}
@@ -807,12 +900,6 @@ export function AdminDeliveryAdDetailWorkspace({
                         fallbackKo: action,
                         fallbackEn: action,
                       })}
-                      {confirmAction === action
-                        ? ` · ${safeT("admin_delivery_ads_confirm_again", {
-                            fallbackKo: "다시 눌러 확인",
-                            fallbackEn: "Tap again to confirm",
-                          })}`
-                        : ""}
                     </button>
                     );
                   })}
@@ -827,7 +914,9 @@ export function AdminDeliveryAdDetailWorkspace({
                     : "승인이 비활성인 이유: 배너 소재가 아직 준비되지 않았습니다."}
                 </p>
               ) : null}
-              {confirmAction && adminActionRequiresReason(confirmAction) ? (
+              {confirmAction &&
+              adminActionRequiresReason(confirmAction) &&
+              !REVIEW_CONFIRM_ACTIONS.has(confirmAction) ? (
                 <div
                   className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3"
                   data-admin-delivery-ads-reason-panel="1"
@@ -1596,6 +1685,35 @@ export function AdminDeliveryAdDetailWorkspace({
           </>
         ) : null}
       </div>
+      {pendingReviewConfirm && campaign
+        ? (() => {
+            const ws = deliveryReviewToWorkspaceAction(pendingReviewConfirm);
+            if (!ws) return null;
+            const family =
+              campaign.productKind === "store_sponsored"
+                ? "delivery_sponsored"
+                : "delivery_banner";
+            const copy = adsWorkspaceMutationConfirmCopy(ws, lang !== "en", { family });
+            return (
+              <AdminActionConfirmDialog
+                open
+                title={copy.title}
+                description={copy.body}
+                confirmLabel={copy.confirmLabel}
+                cancelLabel={copy.cancelLabel}
+                tone={copy.tone}
+                reasonRequired={copy.reasonRequired}
+                reasonLabel={copy.reasonLabel}
+                pending={busy}
+                onCancel={() => setPendingReviewConfirm(null)}
+                onConfirm={(enteredReason) => {
+                  const action = pendingReviewConfirm;
+                  void runAction(action, { reason: enteredReason, confirmed: true });
+                }}
+              />
+            );
+          })()
+        : null}
     </AdminDeliveryCmsChrome>
   );
 }

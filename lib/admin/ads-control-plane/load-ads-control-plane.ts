@@ -69,7 +69,9 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     listDeliveryAdAdminActionQueue(sb, { limit: 40 }),
     sb
       .from("feed_ad_requests")
-      .select("id, user_id, status, start_at, end_at, created_at, placement, title")
+      .select(
+        "id, user_id, status, start_at, end_at, created_at, placement, domain, product_id, destination_type, destination_id, target_topic_slug"
+      )
       .order("created_at", { ascending: false })
       .limit(FAMILY_LIMIT),
     sb
@@ -136,7 +138,40 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     !isMissing(boostPromoRes.error, /point_promotion_orders|schema cache|does not exist/i);
   const popupCampaignsUnavailable = !popupCampaignsRes.ok;
 
-  const feedRows = feedUnavailable ? [] : ((feedRes.data ?? []) as FeedRequestRow[]);
+  const feedRowsRaw = feedUnavailable ? [] : ((feedRes.data ?? []) as FeedRequestRow[]);
+  const feedCreativeByRequest = new Map<string, string>();
+  if (feedRowsRaw.length > 0) {
+    const feedIds = feedRowsRaw
+      .map((r) => String(r.id ?? "").trim())
+      .filter(Boolean);
+    if (feedIds.length > 0) {
+      const creativeRes = await sb
+        .from("feed_ad_request_creatives")
+        .select("request_id, image_url, sort_order")
+        .in("request_id", feedIds)
+        .order("sort_order", { ascending: true });
+      if (
+        creativeRes.error &&
+        !isMissing(creativeRes.error, /feed_ad_request_creatives|schema cache|does not exist/i)
+      ) {
+        sectionErrors.push(`feed_creatives:${creativeRes.error.message}`);
+      } else {
+        for (const row of creativeRes.data ?? []) {
+          const rid = String((row as { request_id?: unknown }).request_id ?? "").trim();
+          const url = String((row as { image_url?: unknown }).image_url ?? "").trim();
+          if (!rid || !url || feedCreativeByRequest.has(rid)) continue;
+          feedCreativeByRequest.set(rid, url);
+        }
+      }
+    }
+  }
+  const feedRows: FeedRequestRow[] = feedRowsRaw.map((r) => {
+    const id = String(r.id ?? "").trim();
+    return {
+      ...r,
+      creative_image_url: feedCreativeByRequest.get(id) ?? null,
+    };
+  });
   const popupRows = popupUnavailable ? [] : ((popupRes.data ?? []) as PopupRequestRow[]);
   const boostRows = boostUnavailable
     ? []

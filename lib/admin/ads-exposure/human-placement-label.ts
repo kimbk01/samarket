@@ -111,13 +111,13 @@ export function productKindLabel(kind: string, ko: boolean): string {
     return ko ? "기존 거래 광고" : "Legacy trade ad";
   }
   if (k.includes("sponsored") || k === "store_promote") {
-    return ko ? "배달 매장 홍보" : "Delivery store promotion";
+    return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";
   }
   if (k.includes("banner") && (k.includes("feed") || k === "feed_ad" || k === "feed_banner")) {
-    return ko ? "피드 배너" : "Feed banner";
+    return ko ? "[Community/거래] 배너" : "[Feed] Banner";
   }
   if (k.includes("banner") || k === "delivery_banner" || k === "banner_hero") {
-    return ko ? "배달 홈 상단 배너" : "Delivery home top banner";
+    return ko ? "[배달] 홈 상단 배너" : "[Delivery] Home top banner";
   }
   if (k.includes("popup")) return ko ? "팝업" : "Popup";
   if (k.includes("community") && (k.includes("boost") || k.includes("promo") || k.includes("promote"))) {

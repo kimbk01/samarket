@@ -28,6 +28,7 @@ import {
 import {
   filterShellRowsByProductFamily,
   filterShellRowsByTab,
+  isAdsApprovalQueueRow,
   toAdsShellListRow,
   type AdsShellListRow,
   type AdsShellProductFamily,
@@ -231,8 +232,8 @@ function modeDescription(mode: AdvertisingWorkspaceMode, ko: boolean): string {
   }
   if (mode === "applications") {
     return ko
-      ? "배너·팝업·매장홍보 신청만 확인중/보류/승인합니다. Community/Trade 상위노출은 상위노출 관리에서 봅니다."
-      : "Approve Banner/Popup/Delivery sponsored only. Community/Trade boosts are in Boost management.";
+      ? "사람 승인이 필요한 배너·매장홍보 신청만 검토합니다. Community/Trade 상위노출·Admin Direct·팝업은 여기 없습니다."
+      : "Human-approval Banner and store promotion only. Boosts, Admin Direct, and Popup are excluded.";
   }
   if (mode === "boosts") {
     return ko
@@ -269,10 +270,7 @@ function filterRowsByMode(rows: AdsShellListRow[], mode: AdvertisingWorkspaceMod
   if (mode === "applications") {
     return rows.filter(
       (r) =>
-        !isBoostDomain(r.domain) &&
-        !(r.domain === "popup" && String(r.id).startsWith("popup_campaign:")) &&
-        r.applicationStatusLabel !== "—" &&
-        ["pending", "incomplete", "rejected"].includes(r.statusTab)
+        isAdsApprovalQueueRow(r) && ["pending", "incomplete", "rejected"].includes(r.statusTab)
     );
   }
   if (mode === "history") {
@@ -701,14 +699,22 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                       : "Ops"}
                 </th>
                 <th className="px-2 py-2 font-medium">{ko ? "실제 노출 상태" : "Runtime"}</th>
-                <th className="px-2 py-2 font-medium">{ko ? "관리" : "Manage"}</th>
+                <th className="px-2 py-2 font-medium">
+                  {mode === "applications" ? (ko ? "검토" : "Review") : ko ? "관리" : "Manage"}
+                </th>
               </tr>
             </thead>
             <tbody>
               {shellRows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-sam-muted">
-                    {ko ? "표시할 광고가 없습니다." : "No ads in this filter."}
+                    {mode === "applications"
+                      ? ko
+                        ? "승인 대기 중인 광고가 없습니다."
+                        : "No applications awaiting approval."
+                      : ko
+                        ? "표시할 광고가 없습니다."
+                        : "No ads in this filter."}
                   </td>
                 </tr>
               ) : (
@@ -771,73 +777,120 @@ export function AdminAdvertisingWorkspace({ mode = "all" }: { mode?: Advertising
                         ) : null}
                       </td>
                       <td className="relative px-2 py-2">
-                        <button
-                          type="button"
-                          className="text-sam-brand underline"
-                          data-shell-manage="1"
-                          onClick={() => {
-                            setManageOpenId(open ? null : r.id);
-                            if (item) setSelected(item);
-                          }}
-                        >
-                          {ko ? "관리 ▼" : "Manage ▼"}
-                        </button>
-                        {open && item ? (
-                          <div
-                            className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
-                            data-shell-manage-menu="1"
-                          >
+                        {mode === "applications" ? (
+                          <div className="flex flex-col items-start gap-1">
                             <Link
                               href={r.href}
-                              className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                              className="inline-flex rounded-ui-rect bg-sam-primary px-3 py-1.5 text-[12px] font-semibold text-sam-on-primary"
+                              data-admin-ads-review-cta="1"
+                              data-shell-review="1"
                             >
-                              {ko ? "상세" : "Detail"}
+                              {ko ? "검토하기" : "Review"}
                             </Link>
-                            {r.previewSupported ? (
-                              <Link
-                                href={r.previewHref}
-                                className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                            <button
+                              type="button"
+                              className="text-[11px] text-sam-muted underline"
+                              data-shell-manage="1"
+                              onClick={() => {
+                                setManageOpenId(open ? null : r.id);
+                                if (item) setSelected(item);
+                              }}
+                            >
+                              {ko ? "더보기" : "More"}
+                            </button>
+                            {open && item ? (
+                              <div
+                                className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
+                                data-shell-manage-menu="1"
                               >
-                                {ko ? "미리보기" : "Preview"}
-                              </Link>
-                            ) : null}
-                            {r.liveHref ? (
-                              <a
-                                href={r.liveHref}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
-                              >
-                                {ko ? "실제 노출 보기" : "View live"}
-                              </a>
-                            ) : null}
-                            {actions.map((a) => (
-                              <button
-                                key={a}
-                                type="button"
-                                className="block w-full px-2 py-1.5 text-left text-[12px] hover:bg-sam-app"
-                                disabled={busyAction != null || pendingMutation != null}
-                                onClick={() => requestDrawerAction(a, item)}
-                              >
-                                {mode === "boosts" && a === "pause"
-                                  ? ko
-                                    ? "제재(노출 중지)"
-                                    : "Sanction (pause)"
-                                  : ko
-                                    ? ACTION_LABEL[a].ko
-                                    : ACTION_LABEL[a].en}
-                              </button>
-                            ))}
-                            {mode === "operations" && r.domain === "delivery" ? (
-                              <Link
-                                href="/admin/advertising/placements"
-                                className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
-                              >
-                                {ko ? "순서 변경" : "Reorder"}
-                              </Link>
+                                <Link
+                                  href={r.href}
+                                  className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                >
+                                  {ko ? "상세" : "Detail"}
+                                </Link>
+                                {r.previewSupported ? (
+                                  <Link
+                                    href={r.previewHref}
+                                    className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                  >
+                                    {ko ? "미리보기" : "Preview"}
+                                  </Link>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
-                        ) : null}
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="text-sam-brand underline"
+                              data-shell-manage="1"
+                              onClick={() => {
+                                setManageOpenId(open ? null : r.id);
+                                if (item) setSelected(item);
+                              }}
+                            >
+                              {ko ? "관리 ▼" : "Manage ▼"}
+                            </button>
+                            {open && item ? (
+                              <div
+                                className="absolute right-0 z-20 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-md"
+                                data-shell-manage-menu="1"
+                              >
+                                <Link
+                                  href={r.href}
+                                  className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                >
+                                  {ko ? "상세" : "Detail"}
+                                </Link>
+                                {r.previewSupported ? (
+                                  <Link
+                                    href={r.previewHref}
+                                    className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                  >
+                                    {ko ? "미리보기" : "Preview"}
+                                  </Link>
+                                ) : null}
+                                {r.liveHref ? (
+                                  <a
+                                    href={r.liveHref}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                  >
+                                    {ko ? "실제 노출 보기" : "View live"}
+                                  </a>
+                                ) : null}
+                                {actions.map((a) => (
+                                  <button
+                                    key={a}
+                                    type="button"
+                                    className="block w-full px-2 py-1.5 text-left text-[12px] hover:bg-sam-app"
+                                    disabled={busyAction != null || pendingMutation != null}
+                                    onClick={() => requestDrawerAction(a, item)}
+                                  >
+                                    {mode === "boosts" && a === "pause"
+                                      ? ko
+                                        ? "제재(노출 중지)"
+                                        : "Sanction (pause)"
+                                      : ko
+                                        ? ACTION_LABEL[a].ko
+                                        : ACTION_LABEL[a].en}
+                                  </button>
+                                ))}
+                                {mode === "operations" && r.domain === "delivery" ? (
+                                  <Link
+                                    href="/admin/advertising/placements"
+                                    className="block px-2 py-1.5 text-[12px] hover:bg-sam-app"
+                                  >
+                                    {ko ? "순서 변경" : "Reorder"}
+                                  </Link>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
                       </td>
                     </tr>
                   );

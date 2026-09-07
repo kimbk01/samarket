@@ -41,9 +41,20 @@ export function adsWorkspaceMutationConfirmCopy(
   opts?: { boostSanction?: boolean; family?: string | null }
 ): AdminMutationConfirmCopy {
   const cancelLabel = ko ? "취소" : "Cancel";
-  const reasonLabel = ko ? "사유" : "Reason";
   const reasonRequired = adsWorkspaceActionNeedsReason(action, opts?.family ?? null);
   const boostSanction = Boolean(opts?.boostSanction) && action === "pause";
+  const reasonLabel =
+    action === "request_changes"
+      ? ko
+        ? "보류 사유"
+        : "Hold reason"
+      : action === "reject"
+        ? ko
+          ? "반려 사유"
+          : "Rejection reason"
+        : ko
+          ? "사유"
+          : "Reason";
 
   if (boostSanction) {
     return {
@@ -64,7 +75,7 @@ export function adsWorkspaceMutationConfirmCopy(
       return {
         title: ko ? "광고를 승인하시겠습니까?" : "Approve this ad?",
         body: ko
-          ? "승인 후 설정 조건을 충족하면 광고가 노출될 수 있습니다."
+          ? "승인 후 노출 조건을 충족하면 광고가 노출될 수 있습니다."
           : "After approval, the ad may expose when conditions are met.",
         confirmLabel: ko ? "승인" : "Approve",
         cancelLabel,
@@ -88,7 +99,7 @@ export function adsWorkspaceMutationConfirmCopy(
       return {
         title: ko ? "광고를 반려하시겠습니까?" : "Reject this ad?",
         body: ko
-          ? "반려 후 신청은 노출되지 않습니다."
+          ? "반려 후 해당 신청은 노출되지 않습니다."
           : "After rejection, the application will not expose.",
         confirmLabel: ko ? "반려" : "Reject",
         cancelLabel,

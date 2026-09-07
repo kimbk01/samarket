@@ -10761,44 +10761,78 @@ export async function setCommunityMessengerGroupMemberRole(input: {
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId);
   const targetUserId = trimText(input.targetUserId);
-  if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
+  const actorUserId = trimText(input.userId);
+  const nextRole = input.nextRole === "admin" ? "admin" : "member";
+  if (!roomId || !targetUserId || !actorUserId) return { ok: false, error: "bad_target" };
+  if (targetUserId === actorUserId) return { ok: false, error: "bad_target" };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any).rpc("community_messenger_set_group_member_role", {
-      p_room_id: roomId,
-      p_target_user_id: targetUserId,
-      p_next_role: input.nextRole,
-    });
-    if (!error) {
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row || row.ok) {
-        const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
-        await appendCommunityMessengerSystemMessage({
-          userId: input.userId,
-          roomId,
-          content: cmMgmtAdminRoleContent(input.nextRole, target?.label),
-        });
-        return { ok: true };
-      }
-      return { ok: false, error: String(row.error ?? "update_failed") };
+    /**
+     * Actor-scoped write — API uses service_role, so auth.uid()-only RPC returns `unauthorized`.
+     * Authority already gated in `updateGroupMemberRole`; re-check owner here for defense in depth.
+     */
+    const { data: roomRow } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_type, owner_user_id")
+      .eq("id", roomId)
+      .maybeSingle();
+    const roomType = trimText(roomRow?.room_type);
+    if (!roomRow || (roomType !== "private_group" && roomType !== "open_group")) {
+      return { ok: false, error: "not_group_room" };
     }
-    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+    const { data: meRow } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("role, left_at")
+      .eq("room_id", roomId)
+      .eq("user_id", actorUserId)
+      .maybeSingle();
+    if (!meRow || meRow.left_at != null) return { ok: false, error: "forbidden" };
+    const ownerId = trimText(roomRow.owner_user_id);
+    const actorIsOwner = trimText(meRow.role) === "owner" || (ownerId !== "" && ownerId === actorUserId);
+    if (!actorIsOwner) return { ok: false, error: "forbidden" };
+
+    const { data: targetRow } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("role, left_at")
+      .eq("room_id", roomId)
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+    if (!targetRow || targetRow.left_at != null) return { ok: false, error: "target_not_found" };
+    if (trimText(targetRow.role) === "owner" || (ownerId !== "" && ownerId === targetUserId)) {
+      return { ok: false, error: "forbidden" };
+    }
+
+    const { error: updErr } = await (sb as any)
+      .from("community_messenger_participants")
+      .update({ role: nextRole })
+      .eq("room_id", roomId)
+      .eq("user_id", targetUserId)
+      .is("left_at", null);
+    if (updErr) return { ok: false, error: String(updErr.message ?? "update_failed") };
+
+    const target = (await hydrateProfiles(actorUserId, [targetUserId]))[0];
+    await appendCommunityMessengerSystemMessage({
+      userId: actorUserId,
+      roomId,
+      content: cmMgmtAdminRoleContent(nextRole, target?.label),
+    });
+    return { ok: true };
   }
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
   if (!fallback.ok) return fallback;
   const dev = getDevState();
   const room = dev.rooms.find((item) => item.id === roomId);
-  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
+  const me = dev.participants.find((item) => item.roomId === roomId && item.userId === actorUserId);
   const target = dev.participants.find((item) => item.roomId === roomId && item.userId === targetUserId);
   if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
   if (!me || !target) return { ok: false, error: "target_not_found" };
   if (me.role !== "owner" || target.role === "owner" || room.ownerUserId === targetUserId) return { ok: false, error: "forbidden" };
-  target.role = input.nextRole;
-  const targetProfile = (await hydrateProfiles(input.userId, [targetUserId]))[0];
+  target.role = nextRole;
+  const targetProfile = (await hydrateProfiles(actorUserId, [targetUserId]))[0];
   await appendCommunityMessengerSystemMessage({
-    userId: input.userId,
+    userId: actorUserId,
     roomId,
-    content: cmMgmtAdminRoleContent(input.nextRole, targetProfile?.label),
+    content: cmMgmtAdminRoleContent(nextRole, targetProfile?.label),
   });
   return { ok: true };
 }

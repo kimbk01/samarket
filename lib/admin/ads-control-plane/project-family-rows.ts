@@ -319,7 +319,13 @@ export type FeedRequestRow = {
   end_at?: unknown;
   created_at?: unknown;
   placement?: unknown;
-  title?: unknown;
+  domain?: unknown;
+  product_id?: unknown;
+  destination_type?: unknown;
+  destination_id?: unknown;
+  target_topic_slug?: unknown;
+  /** First creative image URL when loaded by control plane. */
+  creative_image_url?: unknown;
 };
 
 export function feedRequestOpsStatus(r: FeedRequestRow): AdsOpsStatus {
@@ -335,17 +341,28 @@ export function projectFeedRequestToActionItem(r: FeedRequestRow): AdsActionItem
   const userId = String(r.user_id ?? "");
   const at = String(r.created_at ?? "");
   const ops = feedRequestOpsStatus(r);
+  const domainRaw = String(r.domain ?? "trade").toLowerCase();
+  const isCommunity = domainRaw === "community";
+  const topic = String(r.target_topic_slug ?? "").trim();
+  const destId = String(r.destination_id ?? "").trim();
+  const productId = String(r.product_id ?? "").trim();
+  const title =
+    topic ||
+    destId ||
+    productId ||
+    id.slice(0, 8);
+  const creativeUrl = String(r.creative_image_url ?? "").trim() || null;
 
   return {
     id: `feed:${id}`,
     domain: "feed",
-    product: "feed_ad",
+    product: isCommunity ? "feed_banner_community" : "feed_banner_trade",
     entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
-    applicantLabel: String(r.title ?? "").trim() || id.slice(0, 8),
+    applicantLabel: userId ? `회원 ${userId.slice(0, 8)}` : "Member",
     storeId: null,
     memberId: userId || null,
-    creativeHint: null,
-    placementHint: r.placement ? String(r.placement) : "거래/커뮤니티 피드",
+    creativeHint: creativeUrl,
+    placementHint: r.placement ? String(r.placement) : isCommunity ? "COMMUNITY_HOME" : "TRADE_HOME",
     amountLabel: null,
     currency: "POINT",
     status: opsLabel(ops),
@@ -370,6 +387,12 @@ export function projectFeedRequestToActionItem(r: FeedRequestRow): AdsActionItem
     statementHref: null,
     financeHref: "/admin/finance#point",
     memberHref: userId ? memberHref(userId) : null,
+    title,
+    creativeImageUrl: creativeUrl,
+    lifecycleStatusLabel: opsLabel(ops),
+    operatingStatusLabel: opsLabel(ops),
+    sourceKind: "member",
+    previewHref: `/admin/feed-ad-requests/${encodeURIComponent(id)}?focus=preview`,
   };
 }
 

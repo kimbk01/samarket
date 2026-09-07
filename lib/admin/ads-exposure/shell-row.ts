@@ -112,20 +112,47 @@ export function adsShellKindLabel(domain: string, product: string, ko: boolean):
   }
   if (d === "feed" || (p.includes("feed") && p.includes("banner"))) {
     if (p.includes("community") || d.includes("community")) {
-      return ko ? "Community 배너" : "Community banner";
+      return ko ? "[Community] 배너" : "[Community] Banner";
     }
     if (p.includes("trade") || d.includes("trade")) {
-      return ko ? "거래 배너" : "Trade banner";
+      return ko ? "[거래] 배너" : "[Trade] Banner";
     }
-    return ko ? "피드 배너" : "Feed banner";
+    return ko ? "[Community/거래] 배너" : "[Feed] Banner";
   }
   if (p.includes("sponsored") || p.includes("store_promote")) {
-    return ko ? "배달 매장 홍보" : "Delivery store promotion";
+    return ko ? "[배달] 매장 상위홍보" : "[Delivery] Store promotion";
   }
   if (d === "delivery" || p.includes("banner")) {
     return productKindLabel(product || "banner", ko);
   }
   return productKindLabel(product || domain, ko);
+}
+
+/**
+ * CUT R3 — applications queue product inclusion (human-approval products only).
+ * Excludes Boost, Admin Direct, Popup, and feed campaign hub rows.
+ */
+export function isAdsApprovalQueueRow(
+  row: Pick<AdsShellListRow, "domain" | "product" | "sourceKind" | "id" | "applicationStatusLabel">
+): boolean {
+  if (row.applicationStatusLabel === "—") return false;
+  if (row.sourceKind === "admin_direct") return false;
+  if (isBoostShellDomain(row.domain)) return false;
+  if (String(row.domain).toLowerCase() === "popup") return false;
+  const id = String(row.id ?? "");
+  if (id.startsWith("feed_campaign:")) return false;
+  const d = String(row.domain ?? "").toLowerCase();
+  const p = String(row.product ?? "").toLowerCase();
+  if (d === "feed" && id.startsWith("feed:")) return true;
+  if (d === "delivery") {
+    return (
+      p.includes("sponsored") ||
+      p.includes("store_promote") ||
+      p === "banner" ||
+      p.includes("banner")
+    );
+  }
+  return false;
 }
 
 /** Resolve inventory / promote / popup key for humanPlacementLabel. */
