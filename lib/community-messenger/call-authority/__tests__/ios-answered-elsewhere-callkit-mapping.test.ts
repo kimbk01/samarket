@@ -15,9 +15,7 @@ describe("CUT7 #3 answered_elsewhere → CallKit .answeredElsewhere (AE1–AE12 
   it("AE1: VoIP call_answered_elsewhere loser passes .answeredElsewhere", () => {
     const src = voip();
     expect(src).toContain('kind == "call_answered_elsewhere"');
-    expect(src).toContain(
-      'kind == "call_answered_elsewhere" ? .answeredElsewhere : .remoteEnded',
-    );
+    expect(src).toContain("callKitEndReason = .answeredElsewhere");
     expect(src).toContain("reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)");
   });
 
@@ -31,16 +29,15 @@ describe("CUT7 #3 answered_elsewhere → CallKit .answeredElsewhere (AE1–AE12 
   it("AE3/AE4: default reportCallEnded remains .remoteEnded (caller cancel / remote end)", () => {
     const src = callkit();
     expect(src).toContain("endedReason: CXCallEndedReason = .remoteEnded");
-    // Missed / cancel / plugin paths still call reportCallEnded without overriding reason.
-    expect(voip()).toContain(
-      'kind == "call_answered_elsewhere" ? .answeredElsewhere : .remoteEnded',
-    );
+    // Non-elsewhere / non-missed VoIP terminals keep .remoteEnded.
+    expect(voip()).toContain("callKitEndReason = .remoteEnded");
   });
 
-  it("AE5: missed_timeout does not map to .unanswered", () => {
-    const src = callkit();
-    expect(src).not.toContain(".unanswered");
-    expect(voip()).not.toContain(".unanswered");
+  it("AE5: #3 lock — answered_elsewhere remains .answeredElsewhere (missed uses separate mapping)", () => {
+    expect(voip()).toContain("callKitEndReason = .answeredElsewhere");
+    expect(voiceIncoming()).toContain("endedReason: .answeredElsewhere");
+    expect(videoIncoming()).toContain("endedReason: .answeredElsewhere");
+    // Accept coordinators must not project missed unanswered.
     expect(voiceIncoming()).not.toContain(".unanswered");
     expect(videoIncoming()).not.toContain(".unanswered");
   });

@@ -116,10 +116,18 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     }
 
     let terminalReason = "ios_voip_terminal_\(kind)"
-    // CUT7 #3: only loser answered_elsewhere maps to CallKit `.answeredElsewhere`.
-    // All other terminal kinds keep default `.remoteEnded` (incl. missed_timeout / cancel).
-    let callKitEndReason: CXCallEndedReason =
-      kind == "call_answered_elsewhere" ? .answeredElsewhere : .remoteEnded
+    // CUT7 CallKit presentation mapping (server taxonomy unchanged):
+    // - call_answered_elsewhere → .answeredElsewhere (#3)
+    // - missed_call → .unanswered (#4, canonical missed_timeout)
+    // - otherwise (cancel / reject / end) → .remoteEnded
+    let callKitEndReason: CXCallEndedReason
+    if kind == "call_answered_elsewhere" {
+      callKitEndReason = .answeredElsewhere
+    } else if kind == "missed_call" {
+      callKitEndReason = .unanswered
+    } else {
+      callKitEndReason = .remoteEnded
+    }
     if isVoipTerminalIncomingSession(sessionId: sessionId) {
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,

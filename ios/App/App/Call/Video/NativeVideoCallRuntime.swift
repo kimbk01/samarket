@@ -1,3 +1,4 @@
+import CallKit
 import Foundation
 
 /**
@@ -363,7 +364,8 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
     NativeVideoCallUiHost.finishIfActive(callId: sid)
     DispatchQueue.main.async {
-      CallKitProvider.shared.reportCallEnded(uuidString: sid)
+      // CUT7 #4: only after server accepted canonical missed — project .unanswered (not timer alone).
+      CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .unanswered)
     }
   }
 

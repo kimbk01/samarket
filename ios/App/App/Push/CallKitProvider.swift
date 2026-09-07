@@ -206,8 +206,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
   /**
    * Dismiss CallKit for a known session UUID.
-   * - Default `endedReason` = `.remoteEnded` (caller cancel / remote end / missed preserve).
-   * - CUT7 #3: loser `answered_elsewhere` passes `.answeredElsewhere` only.
+   * - Default `endedReason` = `.remoteEnded` (caller cancel / remote end preserve).
+   * - CUT7 #3: loser `answered_elsewhere` passes `.answeredElsewhere`.
+   * - CUT7 #4: canonical `missed_timeout` / VoIP `missed_call` passes `.unanswered`.
    */
   func reportCallEnded(
     uuidString: String,
@@ -322,6 +323,13 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     if reason == .answeredElsewhere {
       DibayCallLog.info(
         "ios_callkit_ended_answered_elsewhere",
+        sessionId: sid,
+        detail: "reason=\(logDetail)"
+      )
+    }
+    if reason == .unanswered {
+      DibayCallLog.info(
+        "ios_callkit_ended_unanswered",
         sessionId: sid,
         detail: "reason=\(logDetail)"
       )
