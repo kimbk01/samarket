@@ -237,7 +237,12 @@ export function AdminAdsHistoryLedgerView() {
   }, [rows]);
 
   return (
-    <div className="space-y-5" data-admin-ads-history="1" data-admin-ads-r7="1">
+    <div
+      className="space-y-5"
+      data-admin-ads-history="1"
+      data-admin-ads-r7="1"
+      data-ads-history-mutation="0"
+    >
       <header className="space-y-1">
         <h1 className="text-[20px] font-bold text-sam-fg">{ko ? "광고 이력" : "Ads history"}</h1>
         <p className="text-[13px] text-sam-muted">
