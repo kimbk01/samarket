@@ -32,6 +32,7 @@ export const IOS_AUTH_PACKAGE_CLASSES = [
 /** Delivery / other App-target plugins */
 export const IOS_DELIVERY_PACKAGE_CLASSES = [
   "DibayAppIconDeliveryPlugin",
+  "MessengerPhotoLibraryPlugin",
 ];
 
 /**

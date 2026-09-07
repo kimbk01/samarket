@@ -26,6 +26,7 @@
 		C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */ = {isa = PBXBuildFile; fileRef = C7B5J0012FED79650016851F /* dibay-call-lane.json */; };
 		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
+		C7MPL0022FED79650016851F /* MessengerPhotoLibraryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */; };
 		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
 		C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */; };
 		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
@@ -94,6 +95,7 @@
 		C7B5J0012FED79650016851F /* dibay-call-lane.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "dibay-call-lane.json"; sourceTree = "<group>"; };
 		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
 		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
+		C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessengerPhotoLibraryPlugin.swift; sourceTree = "<group>"; };
 		C7KAK0202AAA248700AAC8A2 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = release.xcconfig; path = ../release.xcconfig; sourceTree = SOURCE_ROOT; };
 		C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallServicePlugin.swift; sourceTree = "<group>"; };
 		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 				C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */,
 				C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */,
 				C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */,
+				C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */,
 				C7AID0012FED79650016851F /* DibayAppIconDeliveryAdapter.swift */,
 				C7AID0112FED79650016851F /* DibayAppIconDeliveryPlugin.swift */,
 			);
@@ -492,6 +495,7 @@
 				C7VID0B22FED79650016851F /* NativeVideoCallBridge.swift in Sources */,
 				C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
+				C7MPL0022FED79650016851F /* MessengerPhotoLibraryPlugin.swift in Sources */,
 				C7AID0022FED79650016851F /* DibayAppIconDeliveryAdapter.swift in Sources */,
 				C7AID0122FED79650016851F /* DibayAppIconDeliveryPlugin.swift in Sources */,
 			);

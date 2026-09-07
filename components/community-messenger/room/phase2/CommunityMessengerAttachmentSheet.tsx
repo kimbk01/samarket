@@ -19,10 +19,21 @@ import {
 import {
   listMessengerAttachmentRecent,
   MESSENGER_ATTACHMENT_ALBUM_PICK_MAX,
+  MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT,
   messengerAttachmentDeviceLibrarySupported,
   rememberMessengerAttachmentRecent,
   type MessengerAttachmentRecentItem,
 } from "@/lib/community-messenger/attachment/messenger-attachment-recent-store";
+import {
+  getPermissionState as getMessengerPhotoLibraryPermissionState,
+  getRecentPhotos as getMessengerPhotoLibraryRecentPhotos,
+  messengerPhotoPayloadToFile,
+  pickPhotos as pickMessengerPhotoLibraryPhotos,
+  requestPermission as requestMessengerPhotoLibraryPermission,
+  resolvePhotos as resolveMessengerPhotoLibraryPhotos,
+  type MessengerPhotoLibraryPermissionState,
+  type MessengerPhotoLibraryRecentPhoto,
+} from "@/lib/community-messenger/attachment/messenger-photo-library";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 
 export type CommunityMessengerAttachmentSheetProps = {
@@ -52,6 +63,20 @@ function toggleSelectionOrder(prev: string[], id: string, max: number): string[]
   return [...prev, id];
 }
 
+type AttachmentStripItem =
+  | {
+      id: string;
+      kind: "session";
+      previewUrl: string;
+      file: File;
+    }
+  | {
+      id: string;
+      kind: "native";
+      previewUrl: string;
+      nativeId: string;
+    };
+
 export function CommunityMessengerAttachmentSheet({
   roomUnavailable,
   busy,
@@ -76,6 +101,9 @@ export function CommunityMessengerAttachmentSheet({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const sendingLockRef = useRef(false);
   const [recent, setRecent] = useState<MessengerAttachmentRecentItem[]>([]);
+  const [nativeRecent, setNativeRecent] = useState<MessengerPhotoLibraryRecentPhoto[]>([]);
+  const [photoPermissionState, setPhotoPermissionState] =
+    useState<MessengerPhotoLibraryPermissionState>("unavailable");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [callChooserOpen, setCallChooserOpen] = useState(false);
@@ -102,11 +130,51 @@ export function CommunityMessengerAttachmentSheet({
 
   useEffect(() => {
     setRecent(listMessengerAttachmentRecent());
+    setNativeRecent([]);
+    setPhotoPermissionState("unavailable");
     setSelectedIds([]);
     setCallChooserOpen(false);
     sendingLockRef.current = false;
     setSending(false);
+
+    let cancelled = false;
+    async function loadNativeRecent() {
+      if (!messengerAttachmentDeviceLibrarySupported()) return;
+      let state = await getMessengerPhotoLibraryPermissionState();
+      if (cancelled) return;
+      if (state === "prompt") {
+        state = await requestMessengerPhotoLibraryPermission();
+        if (cancelled) return;
+      }
+      setPhotoPermissionState(state);
+      if (state !== "authorized" && state !== "limited") return;
+      const result = await getMessengerPhotoLibraryRecentPhotos(MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT);
+      if (cancelled) return;
+      setPhotoPermissionState(result.state);
+      setNativeRecent(result.photos);
+    }
+
+    void loadNativeRecent();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const stripItems = useMemo<AttachmentStripItem[]>(() => {
+    const sessionItems: AttachmentStripItem[] = recent.map((item) => ({
+      id: item.id,
+      kind: "session",
+      previewUrl: item.previewUrl,
+      file: item.file,
+    }));
+    const nativeItems: AttachmentStripItem[] = nativeRecent.map((item) => ({
+      id: `native:${item.id}`,
+      kind: "native",
+      previewUrl: item.thumbnailDataUrl,
+      nativeId: item.id,
+    }));
+    return [...sessionItems, ...nativeItems];
+  }, [nativeRecent, recent]);
 
   const selectedOrderIndex = useMemo(() => {
     const map = new Map<string, number>();
@@ -139,19 +207,33 @@ export function CommunityMessengerAttachmentSheet({
     if (sendingLockRef.current || selectedIds.length === 0 || uploadBlocked) return;
     sendingLockRef.current = true;
     setSending(true);
-    const byId = new Map(recent.map((r) => [r.id, r]));
+    const byId = new Map(stripItems.map((item) => [item.id, item]));
     const files: File[] = [];
+    const previewUrls: string[] = [];
+    const nativeIds: string[] = [];
     for (const id of selectedIds) {
       const item = byId.get(id);
       if (!item) continue;
-      files.push(item.file);
+      if (item.kind === "session") {
+        files.push(item.file);
+        previewUrls.push(item.previewUrl);
+      } else {
+        nativeIds.push(item.nativeId);
+      }
+    }
+    if (nativeIds.length > 0) {
+      const payloads = await resolveMessengerPhotoLibraryPhotos(nativeIds);
+      payloads.forEach((payload, index) => {
+        const file = messengerPhotoPayloadToFile(payload, files.length + index);
+        files.push(file);
+        previewUrls.push(URL.createObjectURL(file));
+      });
     }
     if (files.length === 0) {
       sendingLockRef.current = false;
       setSending(false);
       return;
     }
-    const previewUrls = files.map((f) => URL.createObjectURL(f));
     try {
       await onSendImages(files, previewUrls);
       setSelectedIds([]);
@@ -160,7 +242,7 @@ export function CommunityMessengerAttachmentSheet({
       sendingLockRef.current = false;
       setSending(false);
     }
-  }, [onDismiss, onSendImages, recent, selectedIds, uploadBlocked]);
+  }, [onDismiss, onSendImages, selectedIds, stripItems, uploadBlocked]);
 
   const onGalleryChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -189,6 +271,23 @@ export function CommunityMessengerAttachmentSheet({
     [onDismiss, onSendImages, refreshRecent, t, uploadBlocked]
   );
 
+  const onNativePhotoPick = useCallback(async () => {
+    if (uploadBlocked || sendingLockRef.current) return;
+    sendingLockRef.current = true;
+    setSending(true);
+    try {
+      const payloads = await pickMessengerPhotoLibraryPhotos(MESSENGER_ATTACHMENT_ALBUM_PICK_MAX);
+      if (payloads.length === 0) return;
+      const files = payloads.map((payload, index) => messengerPhotoPayloadToFile(payload, index));
+      const previewUrls = files.map((file) => URL.createObjectURL(file));
+      await onSendImages(files, previewUrls);
+      onDismiss();
+    } finally {
+      sendingLockRef.current = false;
+      setSending(false);
+    }
+  }, [onDismiss, onSendImages, uploadBlocked]);
+
   const onCameraChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const picked = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/"));
@@ -213,6 +312,10 @@ export function CommunityMessengerAttachmentSheet({
       if (roomUnavailable || outboundBusy || sending) return;
       if (id === "photo") {
         if (uploadBlocked) return;
+        if (messengerAttachmentDeviceLibrarySupported()) {
+          void onNativePhotoPick();
+          return;
+        }
         galleryInputRef.current?.click();
         return;
       }
@@ -237,6 +340,7 @@ export function CommunityMessengerAttachmentSheet({
       onGiftFriendRequired,
       onOpenGift,
       onSendLocation,
+      onNativePhotoPick,
       outboundBusy,
       roomUnavailable,
       sending,
@@ -262,6 +366,8 @@ export function CommunityMessengerAttachmentSheet({
   };
 
   const deviceLibrary = messengerAttachmentDeviceLibrarySupported();
+  const showPermissionHint =
+    deviceLibrary && (photoPermissionState === "denied" || photoPermissionState === "unavailable");
   const sendEnabled = selectedIds.length >= 1 && !uploadBlocked && !sending;
 
   return (
@@ -316,7 +422,7 @@ export function CommunityMessengerAttachmentSheet({
             <span className="text-[11px] font-medium text-[#666]">{t("cm_ui_camera")}</span>
           </button>
 
-          {recent.map((item) => {
+          {stripItems.map((item) => {
             const order = selectedOrderIndex.get(item.id);
             const selected = typeof order === "number";
             return (
@@ -345,7 +451,15 @@ export function CommunityMessengerAttachmentSheet({
             );
           })}
 
-          {recent.length === 0 ? (
+          {showPermissionHint ? (
+            <div className="flex h-[88px] min-w-[180px] shrink-0 items-center rounded-[10px] px-2">
+              <p className="text-[12px] leading-snug text-[#888888]">
+                {t("cm_ui_attach_photo_permission_hint")}
+              </p>
+            </div>
+          ) : null}
+
+          {stripItems.length === 0 && !showPermissionHint ? (
             <div className="flex h-[88px] min-w-[140px] shrink-0 items-center rounded-[10px] px-2">
               <p className="text-[12px] leading-snug text-[#888888]">{t("cm_ui_attach_recent_empty")}</p>
             </div>

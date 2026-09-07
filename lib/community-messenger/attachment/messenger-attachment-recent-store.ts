@@ -2,13 +2,15 @@
  * Session-scoped recent photos for Kakao-parity + sheet strip.
  *
  * FIRST DIVERGENCE (platform):
- * Capacitor WebView has no MediaStore/PHPicker photo-library bridge.
- * Device camera-roll enumeration requires a new native plugin (out of scope).
+ * Native MediaStore/PHPicker recent photos live in MessengerPhotoLibrary.
  * This store keeps images the user already picked/captured in-session.
  */
 
+import { isMessengerPhotoLibraryNativeAvailable } from "@/lib/community-messenger/attachment/messenger-photo-library";
+
 export const MESSENGER_ATTACHMENT_ALBUM_PICK_MAX = 10;
 export const MESSENGER_ATTACHMENT_RECENT_MAX = 30;
+export const MESSENGER_ATTACHMENT_NATIVE_RECENT_LIMIT = 24;
 
 export type MessengerAttachmentRecentItem = {
   id: string;
@@ -54,5 +56,5 @@ export function rememberMessengerAttachmentRecent(files: File[]): MessengerAttac
 }
 
 export function messengerAttachmentDeviceLibrarySupported(): boolean {
-  return false;
+  return isMessengerPhotoLibraryNativeAvailable();
 }

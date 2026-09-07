@@ -27,6 +27,7 @@
 		"NativeAppleAuthPlugin",
 		"NativeKakaoAuthPlugin",
 		"NativeOAuthLauncherPlugin",
-		"DibayAppIconDeliveryPlugin"
+		"DibayAppIconDeliveryPlugin",
+		"MessengerPhotoLibraryPlugin"
 	]
 }
