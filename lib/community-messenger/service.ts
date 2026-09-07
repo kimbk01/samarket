@@ -448,6 +448,8 @@ type ParticipantRow = {
   joined_at: string | null;
   last_read_at?: string | null;
   last_read_message_id?: string | null;
+  /** GROUP active membership — list/bootstrap count authority (`left_at IS NULL`) */
+  left_at?: string | null;
 };
 
 type RoomProfileRow = {
@@ -634,6 +636,7 @@ type DevParticipant = {
   joinedAt: string;
   lastReadAt?: string | null;
   lastReadMessageId?: string | null;
+  leftAt?: string | null;
 };
 
 type DevRoomProfile = {
@@ -2359,6 +2362,16 @@ async function listFollowingIds(userId: string, relationType: "neighbor_follow" 
   return [...result];
 }
 
+function participantMembershipLeftAt(item: ParticipantRow | DevParticipant): string | null {
+  if ("left_at" in item) return trimText((item as ParticipantRow).left_at) || null;
+  if ("leftAt" in item) return trimText((item as DevParticipant).leftAt) || null;
+  return null;
+}
+
+function isActiveMembershipParticipantRow(item: ParticipantRow | DevParticipant): boolean {
+  return participantMembershipLeftAt(item) == null;
+}
+
 function buildRoomSummaryFromHydratedMembers(
   userId: string,
   room: RoomRow | DevRoom,
@@ -2372,6 +2385,7 @@ function buildRoomSummaryFromHydratedMembers(
   const roomId = room.id;
   const isDbRoom = "room_type" in room;
   const roomType = (isDbRoom ? room.room_type : room.roomType) as CommunityMessengerRoomType;
+  const isGroupRoomType = roomType === "private_group" || roomType === "open_group";
   const roomStatus = normalizeRoomStatus(isDbRoom ? room.room_status : room.roomStatus);
   const visibility = normalizeRoomVisibility(isDbRoom ? room.visibility : room.visibility, roomType);
   const joinPolicy = normalizeRoomJoinPolicy(isDbRoom ? room.join_policy : room.joinPolicy, roomType);
@@ -2417,7 +2431,11 @@ function buildRoomSummaryFromHydratedMembers(
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
   const isArchivedByViewer = participantViewerArchived(me);
   const isBlockedHiddenByViewer = participantViewerBlockedHiddenFromRow(me);
-  const memberIds = dedupeParticipantUserIds(participants);
+  // GROUP: member count / peer resolution from ACTIVE membership only (left_at IS NULL).
+  const countParticipants = isGroupRoomType
+    ? participants.filter(isActiveMembershipParticipantRow)
+    : participants;
+  const memberIds = dedupeParticipantUserIds(countParticipants);
   const effectiveMemberCount = meta?.totalMemberCount ?? memberIds.length;
   const peers = memberIds.filter((id) => id !== userId);
   const peerProfilesBase = memberProfilesRaw.filter((profile) => profile.id !== userId);
@@ -2495,7 +2513,8 @@ function buildRoomSummaryFromHydratedMembers(
     title,
     subtitle,
     summary: roomSummary,
-    avatarUrl: roomAvatar || peerProfilesBase[0]?.avatarUrl || null,
+    // GROUP HARD LOCK: list identity = room profile only — never peer avatar fallback.
+    avatarUrl: isGroupRoomType ? roomAvatar : roomAvatar || peerProfilesBase[0]?.avatarUrl || null,
     unreadCount: unreadCountVal,
     isMuted: "is_muted" in (me ?? {}) ? (me as ParticipantRow).is_muted === true : false,
     isPinned: "is_pinned" in (me ?? {}) ? (me as ParticipantRow).is_pinned === true : false,
@@ -3308,14 +3327,43 @@ export async function fetchMyRoomsPayload(
       const tFallbackP = performance.now();
       const { data: myParticipants, error: myParticipantsError } = await (sb as any)
         .from("community_messenger_participants")
-        .select("room_id")
+        .select("room_id, left_at")
         .eq("user_id", userId);
       if (homeSyncBreakdownEnabled() && diagnostics) {
         logHomeSyncBreakdown("my_rooms_fallback_participants_room_ids_ms", performance.now() - tFallbackP, {});
       }
       if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
+        const rows = (myParticipants ?? []) as Array<{ room_id?: string | null; left_at?: string | null }>;
+        const leftRoomIds = dedupeIds(
+          rows
+            .filter((row) => row.left_at != null && String(row.left_at).trim() !== "")
+            .map((row) => String(row.room_id ?? ""))
+        );
+        let leftGroupIdSet = new Set<string>();
+        if (leftRoomIds.length > 0) {
+          const { data: leftRooms } = await (sb as any)
+            .from("community_messenger_rooms")
+            .select("id, room_type")
+            .in("id", leftRoomIds);
+          leftGroupIdSet = new Set(
+            ((leftRooms ?? []) as Array<{ id?: string; room_type?: string }>)
+              .filter((r) => {
+                const rt = String(r.room_type ?? "").trim();
+                return rt === "private_group" || rt === "open_group";
+              })
+              .map((r) => String(r.id ?? ""))
+              .filter(Boolean)
+          );
+        }
         roomIds = dedupeIds(
-          ((myParticipants ?? []) as Array<{ room_id?: string | null }>).map((row) => String(row.room_id ?? ""))
+          rows
+            .filter((row) => {
+              const rid = String(row.room_id ?? "");
+              if (!rid) return false;
+              if (leftGroupIdSet.has(rid)) return false;
+              return true;
+            })
+            .map((row) => String(row.room_id ?? ""))
         );
         if (diagnostics) diagnostics.roomIdsBeforeCap = roomIds.length;
         if (diagnostics) diagnostics.round1RoomIdCount = roomIds.length;
@@ -3405,7 +3453,7 @@ export async function fetchMyRoomsPayload(
         const tParticipantsQuery = performance.now();
         const result = await (sb as any)
           .from("community_messenger_participants")
-          .select("room_id, user_id, unread_count, is_muted, is_pinned, is_archived")
+          .select("room_id, user_id, unread_count, is_muted, is_pinned, is_archived, left_at")
           .in("room_id", roomIds);
         diagnostics && (diagnostics.round2ParticipantsMs = Math.round(performance.now() - tParticipantsQuery));
         return result;
@@ -3514,7 +3562,7 @@ async function fetchRoomsPayloadByRoomIds(
             .in("id", uniqueRoomIds),
           (sb as any)
             .from("community_messenger_participants")
-            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, left_at")
             .in("room_id", uniqueRoomIds),
         ]);
         if (roomFetchTimings) {
@@ -13989,6 +14037,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       snapshotBootstrapInitialMessageLimit = snapWaveA.waveA.snapshotBootstrapInitialMessageLimit;
       snapshotHasMoreOlderMessages = snapWaveA.waveA.snapshotHasMoreOlderMessages;
       messagesFetchMs = 0;
+      // GROUP: reconcile active membership count even when RPC omitted left_at filtering.
+      const waveRoomType = trimText((room as RoomRow).room_type);
+      if (waveRoomType === "private_group" || waveRoomType === "open_group") {
+        const { countActiveParticipants } = await import(
+          "@/lib/community-messenger/group/group-room-repository"
+        );
+        roomTotalMemberCount = await countActiveParticipants(sb as never, id);
+        participants = (participants as ParticipantRow[]).filter(
+          (p) => !trimText((p as ParticipantRow).left_at)
+        );
+      }
       if (diagnostics) {
         diagnostics.snapshotQueryAParallelEndMs = snapWaveA.breakdown.db_ms;
       }
@@ -14011,7 +14070,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
   if (sb && !snapshotWaveAFromRpc) {
     const participantSelectCols =
-      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id";
+      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id, left_at";
     /**
      * 멤버 전원 로드(`hydrateFullMemberList`)가 아닐 때만 embed — 행 수가 캡으로 한정되어 페이로드가 폭증하지 않음.
      * defer/critical 에 한정하지 않고 기본 full 부트스트랩에도 적용해 `hydrateProfilesLabelsOnlyWithMap` 의 `fetchProfilesByIds` 왕복을 줄인다.
@@ -14107,6 +14166,22 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     if (room && trimText(room.deleted_at)) {
       return null;
     }
+    // GROUP ACTIVE MEMBERSHIP — left/kicked/banned cannot hydrate room snapshot.
+    if (room) {
+      const rt = trimText((room as RoomRow).room_type);
+      if (rt === "private_group" || rt === "open_group") {
+        const { assertActiveGroupMembershipIfGroup } = await import(
+          "@/lib/community-messenger/group/group-active-membership-gate"
+        );
+        const gate = await assertActiveGroupMembershipIfGroup({
+          userId,
+          roomId: id,
+          supabase: sb,
+          roomType: rt,
+        });
+        if (!gate.ok) return null;
+      }
+    }
     const listSplit = embeddedProfilesFromParticipantQueryRows(participantData);
     const mineSplit = embeddedProfilesFromParticipantQueryRows(
       myParticipantData && typeof myParticipantData === "object" ? [myParticipantData] : []
@@ -14121,27 +14196,39 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     if (room && !rawParticipantRows.some((p) => p.user_id === userId)) {
       room = null;
     } else if (room) {
-      // `count: exact` 는 불필요하게 비싸다. 부트스트랩은 표시용이므로 기본은 로드된 rows 수로 충분.
-      roomTotalMemberCount = rawParticipantRows.length;
       const roomType = (roomData as RoomRow | null)?.room_type as CommunityMessengerRoomType | undefined;
+      const isGroupRoom =
+        roomType != null && isCommunityMessengerGroupRoomType(roomType);
+      // GROUP: active membership only for display + count (left_at IS NULL).
+      const rowsForRoom = isGroupRoom
+        ? rawParticipantRows.filter((p) => !trimText((p as ParticipantRow).left_at))
+        : rawParticipantRows;
+      if (isGroupRoom) {
+        const { countActiveParticipants } = await import(
+          "@/lib/community-messenger/group/group-room-repository"
+        );
+        roomTotalMemberCount = await countActiveParticipants(sb as never, id);
+      } else {
+        // `count: exact` 는 불필요하게 비싸다. 비그룹 부트스트랩은 로드된 rows 수로 충분.
+        roomTotalMemberCount = rowsForRoom.length;
+      }
       if (
         roomData &&
-        roomType &&
-        isCommunityMessengerGroupRoomType(roomType) &&
-        rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
+        isGroupRoom &&
+        rowsForRoom.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
       ) {
         const sliced = sliceGroupParticipantsForRoomBootstrap(
-          rawParticipantRows,
+          rowsForRoom,
           userId,
           COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
         );
         participants = sliced.rows;
         membersTruncated = sliced.truncated;
-      } else if (!hydrateFullMemberList && rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
-        participants = rawParticipantRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
+      } else if (!hydrateFullMemberList && rowsForRoom.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
+        participants = rowsForRoom.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
         membersTruncated = true;
       } else {
-        participants = rawParticipantRows;
+        participants = rowsForRoom;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
       {
@@ -15699,6 +15786,19 @@ export async function sendCommunityMessengerMessage(input: {
   const replyToMessageIdOpt = trimText(input.replyToMessageId ?? "");
   const membershipPreflightDone = input.membershipPreflightDone === true;
   const sb = getSupabaseOrNull();
+  if (sb) {
+    const { assertActiveGroupMembershipIfGroup } = await import(
+      "@/lib/community-messenger/group/group-active-membership-gate"
+    );
+    const groupGate = await assertActiveGroupMembershipIfGroup({
+      userId: input.userId,
+      roomId,
+      supabase: sb,
+    });
+    if (!groupGate.ok) {
+      return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
+    }
+  }
   if (sb) {
     const blockGate = await assertDirectRoomCommunicationNotBlocked({
       viewerUserId: input.userId,

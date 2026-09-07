@@ -86,15 +86,47 @@ export async function resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdo
   }
 
   const tParticipant0 = performance.now();
-  const { data: participantAt } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("room_id")
-    .eq("room_id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
+  const [{ data: participantAt }, { data: roomMetaAt }] = await Promise.all([
+    (sb as any)
+      .from("community_messenger_participants")
+      .select("room_id")
+      .eq("room_id", id)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    (sb as any).from("community_messenger_rooms").select("id, room_type").eq("id", id).maybeSingle(),
+  ]);
   const permission_db_query_ms = Math.round(performance.now() - tParticipant0);
   const atRoom = trimText((participantAt as { room_id?: unknown } | null)?.room_id as string);
+  const roomType = trimText((roomMetaAt as { room_type?: unknown } | null)?.room_type);
+  const isGroupRoom = roomType === "private_group" || roomType === "open_group";
+
   if (atRoom) {
+    // GROUP: participant row alone is insufficient — require active membership.
+    if (isGroupRoom) {
+      const { assertActiveGroupMembershipIfGroup } = await import(
+        "@/lib/community-messenger/group/group-active-membership-gate"
+      );
+      const gate = await assertActiveGroupMembershipIfGroup({
+        userId,
+        roomId: atRoom,
+        supabase: sb,
+        roomType,
+      });
+      if (!gate.ok) {
+        return {
+          ok: false,
+          error: "room_not_found",
+          breakdown: {
+            permission_db_query_ms,
+            permission_room_fetch_ms: 0,
+            permission_canonical_build_ms: 0,
+            permission_profile_join_ms: 0,
+            permission_cache_store_ms: 0,
+            permission_source: "room_exists_not_member",
+          },
+        };
+      }
+    }
     const tStore0 = performance.now();
     rememberMessengerRoomMembershipCache(userId, id, atRoom);
     return {
@@ -111,14 +143,8 @@ export async function resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdo
     };
   }
 
-  const tRoom0 = performance.now();
-  const { data: roomAtId } = await (sb as any)
-    .from("community_messenger_rooms")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  const permission_room_fetch_ms = Math.round(performance.now() - tRoom0);
-  if (roomAtId?.id) {
+  const permission_room_fetch_ms = 0;
+  if (roomMetaAt?.id) {
     return {
       ok: false,
       error: "room_not_found",

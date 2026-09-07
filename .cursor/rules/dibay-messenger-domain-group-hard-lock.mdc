@@ -1,0 +1,50 @@
+---
+description: HARD LOCK — DIBAY Messenger 4-domain separation + GROUP Telegram/Kakao structural SSOT
+alwaysApply: false
+globs:
+  - lib/community-messenger/**
+  - lib/chat-domain/**
+  - lib/messenger/contracts/**
+  - components/community-messenger/**
+  - app/api/community-messenger/**
+  - app/api/group-chat/**
+---
+
+# DIBAY Messenger Domain + GROUP HARD LOCK
+
+**HARD LOCK DECLARED (2026-09-07).** Full doc: `docs/dibay-messenger-domain-group-hard-lock.md`.
+
+## Boundary
+
+```text
+DIRECT ≠ GROUP ≠ TRADE ≠ ORDER
+```
+
+Shared transport OK. Shared authority **FAIL**.
+
+## GROUP chain (only)
+
+```text
+ROOM → PROFILE → ACTIVE MEMBERSHIP → ROLE → MESSAGE
+  → ROOM REALTIME → PER-MEMBER READ → MEMBERSHIP NOTIFY → MANAGEMENT
+```
+
+ACTIVE = participant + `left_at IS NULL` + not banned.  
+Gate: `lib/community-messenger/group/group-active-membership-gate.ts`.
+
+## DO NOT
+
+- Peer/`otherUser`/`recipientId` as GROUP room identity (header or list)
+- GROUP admin/kick/ban on DIRECT/TRADE/ORDER
+- Revive `/api/group-chat` or `group_rooms` as product SSOT
+- Global `left_at` filter on non-group CM contracts
+- Owner leave without transfer or archive (OPTION C locked)
+
+## Header
+
+GROUP = room title + room avatar + **active** member count + manage CTA.  
+Not counterpart. Domain Header Factory: `domain-room-header-chrome.ts`.
+
+## Preserve
+
+Membership authority source close. 4-domain freeze. Soft delete tombstone. Per-member mute/read.

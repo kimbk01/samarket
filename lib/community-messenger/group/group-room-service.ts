@@ -313,6 +313,14 @@ export async function kickGroupMember(input: {
   // P0: RPC `community_messenger_kick_group_member` is service_role-only — use gated participant update.
   const left = await markParticipantLeft(sb, roomId, targetUserId);
   if (!left.ok) return { ok: false, error: left.error ?? GROUP_ROOM_ERROR.KICK_FAILED };
+  try {
+    const { forgetMessengerRoomMembershipCache } = await import(
+      "@/lib/community-messenger/server/messenger-room-membership-cache"
+    );
+    forgetMessengerRoomMembershipCache(targetUserId, roomId);
+  } catch {
+    /* cache best-effort */
+  }
 
   const targetMap = await fetchProfileLabels(sb, [targetUserId]);
   await appendGroupMgmtSystemMessage(sb, {
@@ -349,6 +357,14 @@ export async function leaveGroupRoom(input: {
     const row = (Array.isArray(data) ? data[0] : data) as { ok?: boolean; error?: string } | null;
     if (row && row.ok === false) {
       return { ok: false, error: String(row.error ?? GROUP_ROOM_ERROR.LEAVE_FAILED) };
+    }
+    try {
+      const { forgetMessengerRoomMembershipCache } = await import(
+        "@/lib/community-messenger/server/messenger-room-membership-cache"
+      );
+      forgetMessengerRoomMembershipCache(userId, roomId);
+    } catch {
+      /* cache best-effort */
     }
     await publishGroupRoomListBump({ roomId, fromUserId: userId });
     return { ok: true };
@@ -399,6 +415,14 @@ export async function leaveGroupRoom(input: {
     if (!left.ok) return { ok: false, error: left.error ?? GROUP_ROOM_ERROR.LEAVE_FAILED };
   }
 
+  try {
+    const { forgetMessengerRoomMembershipCache } = await import(
+      "@/lib/community-messenger/server/messenger-room-membership-cache"
+    );
+    forgetMessengerRoomMembershipCache(userId, roomId);
+  } catch {
+    /* cache best-effort */
+  }
   await publishGroupRoomListBump({ roomId, fromUserId: userId });
   return { ok: true };
 }
@@ -514,8 +538,17 @@ export async function assertActivePrivateGroupSender(input: {
   if (roomDeletedError(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_DELETED };
   if (roomUnavailable(room)) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_UNAVAILABLE };
 
-  const participant = await fetchActiveParticipant(sb, roomId, userId);
-  if (!participant) return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
+  const { assertActiveGroupMembershipIfGroup } = await import(
+    "@/lib/community-messenger/group/group-active-membership-gate"
+  );
+  const gate = await assertActiveGroupMembershipIfGroup({
+    userId,
+    roomId,
+    supabase: sb,
+    roomType: "private_group",
+  });
+  if (!gate.ok) return { ok: false, error: gate.error };
+  if (gate.skipped) return { ok: false, error: GROUP_ROOM_ERROR.NOT_GROUP_ROOM };
 
-  return { ok: true, room, participant };
+  return { ok: true, room, participant: gate.participant };
 }

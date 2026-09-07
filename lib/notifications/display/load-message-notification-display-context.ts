@@ -153,12 +153,12 @@ async function loadRoomContext(
   }
 
   if (roomKind === "group") {
-    const { data: groupRoom } = await sb.from("group_rooms").select("title").eq("id", id).maybeSingle();
-    const title = trimText((groupRoom as { title?: string | null } | null)?.title);
+    // Product GROUP SSOT is community_messenger_rooms only.
+    // Experimental group_rooms must never be a product notification authority.
     return {
-      name: title || notifySafeT(language, "notify_group_fallback"),
+      name: notifySafeT(language, "notify_group_fallback"),
       contextLabel: null,
-      roomType: "private_group",
+      roomType: null,
       directKey: null,
       chatDomain: "group",
       domainIdentityKey: `group:${id}`,

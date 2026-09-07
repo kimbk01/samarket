@@ -92,6 +92,15 @@ export async function banGroupMember(input: {
   const row = (Array.isArray(data) ? data[0] : data) as { ok?: boolean; error?: string; already_banned?: boolean } | null;
   if (!row?.ok) return { ok: false, error: String(row?.error ?? GROUP_ROOM_ERROR.FORBIDDEN) };
 
+  try {
+    const { forgetMessengerRoomMembershipCache } = await import(
+      "@/lib/community-messenger/server/messenger-room-membership-cache"
+    );
+    forgetMessengerRoomMembershipCache(targetUserId, roomId);
+  } catch {
+    /* cache best-effort */
+  }
+
   if (!row.already_banned) {
     const labels = await fetchProfileLabels(sb, [targetUserId]);
     await insertGroupSystemMessage(sb, {

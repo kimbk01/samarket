@@ -22,7 +22,7 @@ type StoreOrderRoomContext = {
   ownerUserId: string | null;
 };
 
-type MessengerRoomBadgeKind = "general" | "trade" | "delivery";
+type MessengerRoomBadgeKind = "general" | "group" | "trade" | "delivery";
 
 async function loadStoreOrderRoomContext(
   sb: SupabaseClient<any>,
@@ -82,12 +82,15 @@ function orderIdFromDirectKey(directKey: string | null | undefined): string | nu
 
 function resolveMessengerRoomBadgeKind(
   orderCtx: StoreOrderRoomContext | null,
-  directKey: string | null
+  directKey: string | null,
+  roomType?: string | null
 ): MessengerRoomBadgeKind {
   if (orderCtx?.orderId) return "delivery";
   const dk = directKey?.trim() ?? "";
   if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return "trade";
   if (dk.startsWith("store_order:") || dk.startsWith("trade_order:")) return "delivery";
+  const rt = (roomType ?? "").trim();
+  if (rt === "private_group" || rt === "open_group") return "group";
   return "general";
 }
 
@@ -171,18 +174,42 @@ export async function bumpMessengerRoomTargetsForRecipients(
   const fromUserId = opts.fromUserId.trim();
   if (!roomId || !fromUserId) return;
 
-  const [{ data: participants }, orderCtx, directKey] = await Promise.all([
-    sb.from("community_messenger_participants").select("user_id").eq("room_id", roomId),
+  const [{ data: roomRow }, { data: participants }, orderCtx, directKey] = await Promise.all([
+    sb.from("community_messenger_rooms").select("room_type, chat_domain").eq("id", roomId).maybeSingle(),
+    sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
     loadStoreOrderRoomContext(sb, roomId),
     loadMessengerRoomDirectKey(sb, roomId),
   ]);
 
-  const kind = resolveMessengerRoomBadgeKind(orderCtx, directKey);
+  const roomType =
+    roomRow && typeof roomRow === "object" && typeof (roomRow as { room_type?: unknown }).room_type === "string"
+      ? String((roomRow as { room_type: string }).room_type).trim()
+      : "";
+  const isGroupRoom = roomType === "private_group" || roomType === "open_group";
+  const kind = resolveMessengerRoomBadgeKind(orderCtx, directKey, roomType);
 
-  for (const row of (participants ?? []) as Array<{ user_id?: unknown }>) {
-    const uid = typeof row.user_id === "string" ? row.user_id.trim() : "";
-    if (!uid || uid === fromUserId) continue;
+  let recipientIds: string[];
+  if (isGroupRoom) {
+    const { listActiveGroupRecipientUserIds } = await import(
+      "@/lib/community-messenger/group/group-active-membership-gate"
+    );
+    recipientIds =
+      (await listActiveGroupRecipientUserIds({
+        roomId,
+        excludeUserId: fromUserId,
+        roomType,
+        supabase: sb,
+      })) ?? [];
+  } else {
+    recipientIds = [];
+    for (const row of (participants ?? []) as Array<{ user_id?: unknown }>) {
+      const uid = typeof row.user_id === "string" ? row.user_id.trim() : "";
+      if (!uid || uid === fromUserId) continue;
+      recipientIds.push(uid);
+    }
+  }
 
+  for (const uid of recipientIds) {
     if (kind === "trade") {
       await bumpTradeTargetForMessengerRoomRecipients(sb, {
         roomId,
@@ -213,11 +240,18 @@ export async function clearMessengerRoomNotificationTargetAfterRead(
   const rid = roomId.trim();
   if (!uid || !rid) return;
 
-  const [orderCtx, directKey] = await Promise.all([
+  const [orderCtx, directKey, roomRow] = await Promise.all([
     loadStoreOrderRoomContext(sb, rid),
     loadMessengerRoomDirectKey(sb, rid),
+    sb.from("community_messenger_rooms").select("room_type").eq("id", rid).maybeSingle(),
   ]);
-  const kind = resolveMessengerRoomBadgeKind(orderCtx, directKey);
+  const roomType =
+    roomRow.data &&
+    typeof roomRow.data === "object" &&
+    typeof (roomRow.data as { room_type?: unknown }).room_type === "string"
+      ? String((roomRow.data as { room_type: string }).room_type).trim()
+      : "";
+  const kind = resolveMessengerRoomBadgeKind(orderCtx, directKey, roomType);
 
   if (kind === "trade") {
     await clearTradeTargetForMessengerRoomUser(sb, uid, rid);

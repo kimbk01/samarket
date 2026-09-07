@@ -63,6 +63,7 @@ import { formatDeliveryChatListShortTimestamp } from "@/lib/community-messenger/
 import { buildDeliveryChatListPreviewLine } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-preview";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveCommerceChatListPresentation } from "@/lib/community-messenger/commerce-chat-list-presentation";
@@ -1256,6 +1257,14 @@ function AvatarCircle({
   sizeClassName: string;
   textClassName: string;
 }) {
+  const safeSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : "";
+  const [imageFailed, setImageFailed] = useState(false);
+  const initial = label.trim().slice(0, 1).toUpperCase() || "?";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [safeSrc]);
+
   if (roomType === "direct") {
     return (
       <SamarketUserAvatarThumb
@@ -1267,13 +1276,9 @@ function AvatarCircle({
     );
   }
 
-  const safeSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : "";
-  const [imageFailed, setImageFailed] = useState(false);
-  const initial = label.trim().slice(0, 1).toUpperCase() || "?";
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [safeSrc]);
+  if (roomType === "private_group" || roomType === "open_group") {
+    return <GroupDomainAvatar imageUrl={src} size={52} className={`bg-ui-hover ${sizeClassName}`} />;
+  }
 
   return (
     <SamarketThumbnail

@@ -111,23 +111,28 @@ export function parseRoomBootstrapSnapshotPayload(
   if (!viewerInList) return null;
 
   const roomType = trimText(roomRaw.room_type) as CommunityMessengerRoomType;
-  let participants: unknown[] = rawParticipantRows;
-  let membersTruncated = false;
-  const roomTotalMemberCount = rawParticipantRows.length;
+  const isGroup = isCommunityMessengerGroupRoomType(roomType);
+  const activeRows = isGroup
+    ? rawParticipantRows.filter((p) => {
+        const left = trimText((p as Record<string, unknown>).left_at);
+        return !left;
+      })
+    : rawParticipantRows;
 
-  if (
-    isCommunityMessengerGroupRoomType(roomType) &&
-    rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
-  ) {
+  let participants: unknown[] = activeRows;
+  let membersTruncated = false;
+  const roomTotalMemberCount = activeRows.length;
+
+  if (isGroup && activeRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
     const sliced = sliceGroupParticipantsForRoomBootstrap(
-      rawParticipantRows as Parameters<typeof sliceGroupParticipantsForRoomBootstrap>[0],
+      activeRows as Parameters<typeof sliceGroupParticipantsForRoomBootstrap>[0],
       userId,
       COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP
     );
     participants = sliced.rows;
     membersTruncated = sliced.truncated;
-  } else if (rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
-    participants = rawParticipantRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
+  } else if (activeRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
+    participants = activeRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
     membersTruncated = true;
   }
 

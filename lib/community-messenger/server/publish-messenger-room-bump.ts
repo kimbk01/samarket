@@ -65,7 +65,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
         .select("room_type, direct_key, chat_domain, domain_identity")
         .eq("id", canon)
         .maybeSingle(),
-      sbForBadge.from("community_messenger_participants").select("user_id").eq("room_id", canon),
+      sbForBadge.from("community_messenger_participants").select("user_id, left_at").eq("room_id", canon),
     ]);
     roomMeta =
       roomRow && typeof roomRow === "object"
@@ -76,13 +76,27 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
             domain_identity?: unknown;
           })
         : null;
-    recipientUserIds = (participantRows ?? [])
-      .map((row) =>
-        row && typeof row === "object" && typeof (row as { user_id?: unknown }).user_id === "string"
-          ? (row as { user_id: string }).user_id.trim()
-          : ""
-      )
-      .filter(Boolean);
+    const roomType = typeof roomMeta?.room_type === "string" ? roomMeta.room_type.trim() : "";
+    const isGroupRoom = roomType === "private_group" || roomType === "open_group";
+    if (isGroupRoom) {
+      const { listActiveGroupRecipientUserIds } = await import(
+        "@/lib/community-messenger/group/group-active-membership-gate"
+      );
+      const activeIds = await listActiveGroupRecipientUserIds({
+        roomId: canon,
+        roomType,
+        supabase: sbForBadge,
+      });
+      recipientUserIds = activeIds ?? [];
+    } else {
+      recipientUserIds = (participantRows ?? [])
+        .map((row) =>
+          row && typeof row === "object" && typeof (row as { user_id?: unknown }).user_id === "string"
+            ? (row as { user_id: string }).user_id.trim()
+            : ""
+        )
+        .filter(Boolean);
+    }
     invalidateRoomBootstrapSnapshotCache(canon, dedupeParticipantUserIds(fromUserId, recipientUserIds));
   } catch {
     /* domain/badge meta best-effort */

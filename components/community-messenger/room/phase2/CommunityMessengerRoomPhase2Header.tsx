@@ -25,6 +25,7 @@ import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { GroupDomainAvatar } from "@/components/community-messenger/domain-shell-canary/GroupDomainAvatar";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { translate } from "@/lib/i18n/messages";
@@ -406,6 +407,29 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               </div>
             </button>
           </>
+        ) : vm.isGroupRoom ? (
+          <button
+            type="button"
+            onClick={() => vm.setActiveSheet("menu")}
+            className="flex min-w-0 flex-1 items-center gap-2 self-center text-left active:opacity-80"
+            aria-label={vm.t("nav_messenger_open_group_settings")}
+            data-group-header-identity="1"
+          >
+            <div className="relative h-9 w-9 shrink-0 self-center overflow-hidden rounded-full">
+              <GroupDomainAvatar
+                imageUrl={vm.snapshot.room.avatarUrl}
+                size={36}
+                fill
+                className="h-full w-full"
+              />
+            </div>
+            <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
+              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+                {vm.snapshot.room.title}
+              </p>
+              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+            </div>
+          </button>
         ) : canOpenPeerFriendProfile ? (
           <button
             type="button"
@@ -485,7 +509,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
           ) : null}
-          {vm.isPrivateGroupRoom ? (
+          {vm.isGroupRoom ? (
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}

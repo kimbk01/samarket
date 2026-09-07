@@ -71,6 +71,16 @@ export function probeMessengerRoomMembershipCache(
   };
 }
 
+/** Leave/kick/ban — drop cached permission so next resolve re-checks active membership. */
+export function forgetMessengerRoomMembershipCache(userId: string, roomId: string): void {
+  const uid = trimText(userId);
+  const rid = trimText(roomId);
+  if (!uid || !rid) return;
+  const cache = getMembershipCacheMap();
+  cache.delete(membershipCacheKey(uid, rid));
+  cache.delete(membershipCacheKey(uid, rid.toLowerCase()));
+}
+
 export function rememberMessengerRoomMembershipCache(
   userId: string,
   rawRoomId: string,
