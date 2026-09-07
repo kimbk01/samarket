@@ -24,6 +24,7 @@ import { stripMentionTokensForPreview } from "@/lib/community-messenger/group/gr
 import {
   getCallStubTimelineStatusLine,
   inferResolvedEventFromStoredCallStatus,
+  resolveCallStubEventFromMessageMetadata,
 } from "@/lib/community-messenger/call-event-message";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomMessageListHost } from "@/components/community-messenger/room/MessengerRoomMessageListHost";
@@ -2085,17 +2086,26 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     videoCallLabel={vm.t("nav_video_call_label")}
                     callStatusLabel={
                       item.messageType === "call_stub"
-                        ? getCallStubTimelineStatusLine({
-                            callKind: item.callKind ?? "voice",
-                            resolvedEvent: inferResolvedEventFromStoredCallStatus(item.callStatus),
-                            callStatusFallback: item.callStatus,
-                            viewerUserId: vm.snapshot.viewerUserId ?? "",
-                            senderUserId: item.senderId,
-                            durationSeconds:
-                              typeof item.metadata?.durationSeconds === "number"
-                                ? item.metadata.durationSeconds
-                                : null,
-                          })
+                        ? (() => {
+                            const fromMeta = resolveCallStubEventFromMessageMetadata(
+                              item.metadata as Record<string, unknown> | null | undefined
+                            );
+                            return getCallStubTimelineStatusLine({
+                              callKind: item.callKind ?? "voice",
+                              resolvedEvent:
+                                fromMeta.resolvedEvent ??
+                                inferResolvedEventFromStoredCallStatus(item.callStatus),
+                              callStatusFallback: item.callStatus,
+                              viewerUserId: vm.snapshot.viewerUserId ?? "",
+                              senderUserId: item.senderId,
+                              initiatorUserId: fromMeta.initiatorUserId,
+                              recipientUserId: fromMeta.recipientUserId,
+                              durationSeconds:
+                                typeof item.metadata?.durationSeconds === "number"
+                                  ? item.metadata.durationSeconds
+                                  : null,
+                            });
+                          })()
                         : vm.tt(formatRoomCallStatus(item.callStatus))
                     }
                     stubBusy={stubBusy}

@@ -132,15 +132,28 @@ function resolveViewerRoleFromSender(
 /**
  * 타임라인 한 줄 — viewer 관점 SSOT (`call-event-presentation`).
  */
+function resolveViewerRoleForStub(args: {
+  viewerUserId: string;
+  senderUserId: string | null | undefined;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
+}): CallSessionViewerRole | null {
+  const fromParties = resolveViewerCallRole(args.viewerUserId, args.initiatorUserId, args.recipientUserId);
+  if (fromParties) return fromParties;
+  return resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
+}
+
 export function getCallStubTimelineSecondLine(args: {
   callKind: CommunityMessengerCallKind;
   resolvedEvent: CallSessionResolvedEvent | null;
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
   durationSeconds?: number | null;
 }): string {
-  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
+  const viewerRole = resolveViewerRoleForStub(args);
   const inferred =
     args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
@@ -159,9 +172,11 @@ export function getCallStubTimelineStatusLine(args: {
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
   durationSeconds?: number | null;
 }): string {
-  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
+  const viewerRole = resolveViewerRoleForStub(args);
   const inferred =
     args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
@@ -173,7 +188,28 @@ export function getCallStubTimelineStatusLine(args: {
   }).resultLabel;
 }
 
-/** 단일 진입 — 타임라인·로컬 스텁 content 공통 */
+export function resolveCallStubEventFromMessageMetadata(meta: Record<string, unknown> | null | undefined): {
+  resolvedEvent: CallSessionResolvedEvent | null;
+  initiatorUserId: string | null;
+  recipientUserId: string | null;
+  endedReason: string | null;
+} {
+  if (!meta || typeof meta !== "object") {
+    return { resolvedEvent: null, initiatorUserId: null, recipientUserId: null, endedReason: null };
+  }
+  const rawEvent = meta.callResolvedEvent;
+  const resolvedEvent =
+    typeof rawEvent === "string" && rawEvent.trim()
+      ? (rawEvent.trim() as CallSessionResolvedEvent)
+      : null;
+  return {
+    resolvedEvent,
+    initiatorUserId: typeof meta.initiatorUserId === "string" ? meta.initiatorUserId.trim() || null : null,
+    recipientUserId: typeof meta.recipientUserId === "string" ? meta.recipientUserId.trim() || null : null,
+    endedReason: typeof meta.endedReason === "string" ? meta.endedReason.trim() || null : null,
+  };
+}
+
 export function getCallMessageText(input: {
   callKind: CommunityMessengerCallKind;
   eventType: CallSessionResolvedEvent;
@@ -187,6 +223,7 @@ export function getCallMessageText(input: {
     callStatusFallback: mapResolvedEventToCallStatus(input.eventType),
     viewerUserId: input.viewerUserId,
     senderUserId: input.initiatorUserId,
+    initiatorUserId: input.initiatorUserId,
     durationSeconds: input.durationSeconds,
   });
 }

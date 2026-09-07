@@ -264,9 +264,16 @@ import {
   resolveTerminalEndedReason,
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 import {
+  buildCallStubProjectionMetadata,
+  resolveCallStubIdempotencyKey,
+  resolveProjectionFromSession,
+  shouldPersistCallStubProjection,
+} from "@/lib/community-messenger/call-authority/call-chat-projection-authority";
+import {
   evaluateMissedTransitionGate,
   resolveCanonicalRingTimeoutSeconds,
 } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
+import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
@@ -5153,22 +5160,46 @@ export async function appendCommunityMessengerCallStubMessage(input: {
    * CONTRACT: 1:1 은 dialing stub 미발행(2026-07-29) → terminal INSERT/UPDATE 는 true 필수.
    */
   bumpRoomLastMessageAt?: boolean;
+  /** CUT4 — session wire reason + parties for projection metadata */
+  endedReason?: string | null;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
+  answeredAt?: string | null;
+  terminalActorUserId?: string | null;
+  resolvedEvent?: CallSessionResolvedEvent | null;
 }) {
   if (!input.roomId) return;
-  const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status, input.durationSeconds);
-  const tmp = trimText(input.tmpSessionId ?? "");
-  const metadata = {
-    callKind: input.callKind,
-    callStatus: input.status,
-    sessionId: trimText(input.sessionId ?? "") || null,
-    ...(tmp ? { tmpSessionId: tmp } : {}),
-    durationSeconds:
-      input.status === "ended" && Math.max(0, Number(input.durationSeconds ?? 0)) > 0
-        ? Math.max(0, Math.floor(Number(input.durationSeconds ?? 0)))
-        : null,
-  };
-  const shouldIncrementUnread = input.incrementUnread ?? true;
   const sessionId = trimText(input.sessionId ?? "");
+  const tmp = trimText(input.tmpSessionId ?? "");
+  const projection = resolveProjectionFromSession({
+    status: input.status,
+    endedReason: input.endedReason,
+    answeredAt: input.answeredAt,
+    terminalActorUserId: input.terminalActorUserId ?? input.userId,
+    initiatorUserId: input.initiatorUserId,
+    recipientUserId: input.recipientUserId,
+  });
+  const resolvedEvent = input.resolvedEvent ?? projection.resolvedEvent;
+  const callStatus = input.status;
+  const label = buildCommunityMessengerCallStubLabel(
+    input.callKind,
+    callStatus,
+    input.durationSeconds,
+    resolvedEvent,
+  );
+  const metadata = buildCallStubProjectionMetadata({
+    callKind: input.callKind,
+    callStatus,
+    sessionId,
+    tmpSessionId: tmp || null,
+    durationSeconds: input.durationSeconds,
+    endedReason: input.endedReason ?? null,
+    canonicalReason: projection.canonical,
+    resolvedEvent,
+    initiatorUserId: input.initiatorUserId,
+    recipientUserId: input.recipientUserId,
+  });
+  const shouldIncrementUnread = input.incrementUnread ?? true;
   const bumpRoomLastMessageAt = input.bumpRoomLastMessageAt !== false;
   const listActivityAt =
     trimText(input.listActivityAt ?? "") || trimText(input.createdAt) || nowIso();
@@ -5286,7 +5317,13 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       metadata,
       createdAt,
       countsAsUnread: shouldIncrementUnread,
-      idempotencyKey: `cm_call_stub:${input.userId}:${input.roomId}:${sessionId || tmp || createdAt}:${label}:${shouldIncrementUnread ? "u" : "n"}`,
+      /** CUT4: one stub per session — do not include actor/label in key */
+      idempotencyKey: resolveCallStubIdempotencyKey({
+        sessionId,
+        tmpSessionId: tmp,
+        roomId: input.roomId,
+        createdAt,
+      }),
     });
     if (!appended.ok) {
       console.error("[room_unread_v1] call_stub_append", {
@@ -17620,6 +17657,11 @@ export async function createCommunityMessengerCallLog(input: {
   startedAt?: string | null;
   /** terminal occurred_at — 목록 last_message_at forward-only 권위 */
   endedAt?: string | null;
+  /** CUT4 projection fields — from session, never client room rewrite */
+  endedReason?: string | null;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
+  answeredAt?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
@@ -17631,6 +17673,33 @@ export async function createCommunityMessengerCallLog(input: {
     context: "createCommunityMessengerCallLog",
   });
   const listActivityAt = trimText(input.endedAt ?? "") || startedAt;
+  const projection = resolveProjectionFromSession({
+    status: input.status,
+    endedReason: input.endedReason,
+    answeredAt: input.answeredAt,
+    terminalActorUserId: stubActorUserId,
+    initiatorUserId: input.initiatorUserId ?? input.userId,
+    recipientUserId: input.recipientUserId ?? input.peerUserId,
+  });
+  const stubInput = {
+    userId: stubActorUserId,
+    roomId,
+    sessionId,
+    callKind: input.callKind,
+    status: input.status,
+    createdAt: startedAt,
+    listActivityAt,
+    replaceExisting: input.replaceExistingStub,
+    incrementUnread: true as const,
+    bumpRoomLastMessageAt: true as const,
+    durationSeconds: input.durationSeconds,
+    endedReason: input.endedReason ?? null,
+    initiatorUserId: input.initiatorUserId ?? input.userId,
+    recipientUserId: input.recipientUserId ?? input.peerUserId,
+    answeredAt: input.answeredAt ?? null,
+    terminalActorUserId: stubActorUserId,
+    resolvedEvent: projection.resolvedEvent,
+  };
   const payload = {
     session_id: sessionId,
     room_id: roomId,
@@ -17645,39 +17714,14 @@ export async function createCommunityMessengerCallLog(input: {
   if (sb) {
     const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
-      await appendCommunityMessengerCallStubMessage({
-        userId: stubActorUserId,
-        roomId,
-        sessionId,
-        callKind: input.callKind,
-        status: input.status,
-        createdAt: startedAt,
-        listActivityAt,
-        replaceExisting: input.replaceExistingStub,
-        incrementUnread: true,
-        /**
-         * CONTRACT: dialing stub 미발행 이후 direct terminal 도 last_message_at bump 필수.
-         * (구: replaceExistingStub 이면 bump false — dial 선 bump 전제, 2026-07-29 회귀)
-         */
-        bumpRoomLastMessageAt: true,
-        durationSeconds: input.durationSeconds,
-      });
+      await appendCommunityMessengerCallStubMessage(stubInput);
       return { ok: true };
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
       await appendCommunityMessengerCallStubMessage({
-        userId: stubActorUserId,
-        roomId,
-        sessionId,
-        callKind: input.callKind,
-        status: input.status,
-        createdAt: startedAt,
-        listActivityAt,
+        ...stubInput,
         replaceExisting: input.replaceExistingStub ?? true,
-        incrementUnread: true,
-        bumpRoomLastMessageAt: true,
-        durationSeconds: input.durationSeconds,
       });
       return { ok: true };
     }
@@ -17696,19 +17740,7 @@ export async function createCommunityMessengerCallLog(input: {
     durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     startedAt,
   });
-  await appendCommunityMessengerCallStubMessage({
-    userId: stubActorUserId,
-    roomId,
-    sessionId,
-    callKind: input.callKind,
-    status: input.status,
-    createdAt: startedAt,
-    listActivityAt,
-    replaceExisting: input.replaceExistingStub,
-    incrementUnread: true,
-    bumpRoomLastMessageAt: true,
-    durationSeconds: input.durationSeconds,
-  });
+  await appendCommunityMessengerCallStubMessage(stubInput);
   return { ok: true };
 }
 
@@ -18558,6 +18590,43 @@ export async function updateCommunityMessengerCallSession(input: {
     mapped: CommunityMessengerCallSession
   ) => {
     if (!isTerminalCallSessionStatus(mapped.status)) return;
+    const isDbSession = "initiator_user_id" in session;
+    const roomId = trimText(isDbSession ? session.room_id : session.roomId);
+    const initiatorUserId = trimText(
+      isDbSession ? session.initiator_user_id : session.initiatorUserId
+    );
+    const recipientUserId = trimText(
+      isDbSession ? session.recipient_user_id : session.recipientUserId
+    );
+    const endedReason = trimText(
+      isDbSession
+        ? (session.ended_reason ?? mapped.endedReason ?? "")
+        : (session.endedReason ?? mapped.endedReason ?? "")
+    ) || null;
+    const answeredAt = trimText(
+      isDbSession
+        ? (session.answered_at ?? mapped.answeredAt ?? "")
+        : (session.answeredAt ?? mapped.answeredAt ?? "")
+    ) || null;
+    const actorUserId = resolveTerminalStubActorUserId(session, mapped);
+    const projection = resolveProjectionFromSession({
+      status: mapped.status,
+      endedReason,
+      answeredAt,
+      terminalActorUserId: actorUserId,
+      initiatorUserId,
+      recipientUserId,
+    });
+    if (
+      !shouldPersistCallStubProjection({
+        sessionId,
+        roomId,
+        status: mapped.status,
+        canonical: projection.canonical,
+      })
+    ) {
+      return;
+    }
     const sessionStartedAt =
       "started_at" in session
         ? trimText(session.started_at ?? "")
@@ -18575,8 +18644,8 @@ export async function updateCommunityMessengerCallSession(input: {
         : trimText(session.endedAt ?? "")) ||
       nowIso();
     await appendCommunityMessengerCallStubMessage({
-      userId: resolveTerminalStubActorUserId(session, mapped),
-      roomId: "room_id" in session ? session.room_id : session.roomId,
+      userId: actorUserId,
+      roomId,
       sessionId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status: terminalLogStatus(mapped),
@@ -18587,6 +18656,12 @@ export async function updateCommunityMessengerCallSession(input: {
       /** INSERT·UPDATE 모두 listActivityAt(terminal) forward-only bump */
       bumpRoomLastMessageAt: true,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
+      endedReason,
+      initiatorUserId,
+      recipientUserId,
+      answeredAt,
+      terminalActorUserId: actorUserId,
+      resolvedEvent: projection.resolvedEvent,
     });
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
@@ -18625,6 +18700,14 @@ export async function updateCommunityMessengerCallSession(input: {
       replaceExistingStub: mapped.sessionMode === "direct",
       startedAt: sessionStartedAt || undefined,
       endedAt,
+      endedReason: trimText(
+        isDbSession ? (session.ended_reason ?? mapped.endedReason ?? "") : (session.endedReason ?? mapped.endedReason ?? "")
+      ) || null,
+      initiatorUserId,
+      recipientUserId,
+      answeredAt: trimText(
+        isDbSession ? (session.answered_at ?? mapped.answeredAt ?? "") : (session.answeredAt ?? mapped.answeredAt ?? "")
+      ) || null,
     });
   };
 

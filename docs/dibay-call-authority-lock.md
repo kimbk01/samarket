@@ -66,6 +66,20 @@ Writer SSOT: `resolveTerminalEndedReason` → all terminal mutations in `updateC
 Do not parse raw `ended_reason` with substring in UI.
 Do not invent a second reason resolver.
 
+## Chat projection (CUT4)
+
+| Concern | Authority |
+|---|---|
+| Terminal → chat row | `ensureTerminalCallStub` / `createCommunityMessengerCallLog` → `appendCommunityMessengerCallStubMessage` |
+| callId binding | `metadata.sessionId` = `community_messenger_call_sessions.id` |
+| room binding | session `room_id` only (never client-supplied rewrite) |
+| Idempotency | find-by-sessionId + `cm_call_stub:session:{id}` |
+| Presentation input | CUT3 canonical → `callResolvedEvent` + viewer role from initiator/recipient metadata |
+| Client local append | UI reconcile only — not a second persisted writer |
+| stub-message API | DEAD product caller — CUT9 |
+
+Do not invent a second chat call writer.
+
 ## Missed policy (LOCKED)
 
 - `missed_timeout` / `status=missed` with a canonical room → callee unread
