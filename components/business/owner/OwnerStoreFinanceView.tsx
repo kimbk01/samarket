@@ -1,22 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
-import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerBusinessCashView } from "@/components/business/owner/OwnerBusinessCashView";
 import { OwnerCoinWithdrawalPanel } from "@/components/business/owner/OwnerCoinWithdrawalPanel";
+import { OwnerFinanceNav } from "@/components/finance/OwnerFinanceNav";
+import { OwnerFinanceStoreSwitcher } from "@/components/finance/OwnerFinanceStoreSwitcher";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { fetchOwnerStoreSettlementsDeduped } from "@/lib/business/fetch-owner-store-settlements-deduped";
 import { mapFinancialSummaryToOwner } from "@/lib/business/summarize-owner-store-settlements";
-import type {
-  OwnerStoreSettlementSummary,
-} from "@/lib/business/summarize-owner-store-settlements";
+import type { OwnerStoreSettlementSummary } from "@/lib/business/summarize-owner-store-settlements";
 import type { OwnerStoreSettlementsServerSummary } from "@/lib/business/owner-store-settlement-types";
+import {
+  COIN_TO_CASH_LABEL_KO,
+  COIN_WITHDRAWAL_LABEL_KO,
+} from "@/lib/finance/product-decision-lock";
+import { ownerFinanceSectionHref } from "@/lib/finance/routes";
+import { formatFinanceAmount } from "@/lib/finance/presentation";
 
 type LedgerRow = {
   id: string;
@@ -24,6 +30,7 @@ type LedgerRow = {
   amount?: number;
   amountMinor?: number;
   direction?: string;
+  relatedId?: string | null;
   createdAt: string;
 };
 
@@ -37,15 +44,25 @@ type FinancePayload = {
   saleFeeObligations?: {
     outstandingMinor?: number;
     openCount?: number;
+    rows?: Array<{
+      id: string;
+      orderId: string;
+      confirmedRevenuePhp: number;
+      feeDueMinor: number;
+      feePaidMinor: number;
+      feeOutstandingMinor: number;
+      status: string;
+      createdAt: string;
+    }>;
   };
 };
 
 function mapCoinLedgerTitle(language: "ko" | "en", kind: string): string {
   switch (kind) {
     case "SALE_EARN":
-      return ownerUiCopy(language, "판매 수익", "Sale earning");
+      return ownerUiCopy(language, "판매 적립", "Sale earning");
     case "REVERSAL":
-      return ownerUiCopy(language, "환불 취소", "Refund reversal");
+      return ownerUiCopy(language, "취소/반전", "Reversal");
     case "GIFT_REDEMPTION_EARN":
       return ownerUiCopy(language, "상품권 사용 수익", "Gift redemption earning");
     case "CONVERT_TO_BUSINESS_CASH":
@@ -68,17 +85,17 @@ function mapCashLedgerTitle(language: "ko" | "en", kind: string): string {
     case "CONVERT_FROM_STORE_POINTS":
       return ownerUiCopy(language, "Coin 전환", "Coin conversion");
     case "AD_SPEND":
-      return ownerUiCopy(language, "광고 지출", "Ad spend");
+      return ownerUiCopy(language, "광고", "Ad spend");
     case "AD_REFUND":
       return ownerUiCopy(language, "광고 환불", "Ad refund");
     case "PARTNER_SPEND":
-      return ownerUiCopy(language, "파트너 지출", "Partner spend");
+      return ownerUiCopy(language, "Partner", "Partner spend");
     case "PARTNER_REFUND":
-      return ownerUiCopy(language, "파트너 환불", "Partner refund");
+      return ownerUiCopy(language, "Partner 환불", "Partner refund");
     case "SALE_FEE":
-      return ownerUiCopy(language, "판매 수수료", "Sale fee");
+      return ownerUiCopy(language, "수수료", "Sale fee");
     case "SALE_FEE_SETTLEMENT":
-      return ownerUiCopy(language, "판매 수수료 정산", "Sale fee settlement");
+      return ownerUiCopy(language, "미납 회수", "Fee settlement");
     default:
       return ownerUiCopy(language, "Cash 내역", "Cash entry");
   }
@@ -89,28 +106,33 @@ function signedCashMinor(row: LedgerRow): number {
   const dir = String(row.direction ?? "").toLowerCase();
   if (dir === "debit" || dir === "out" || dir === "spend") return -minor;
   if (dir === "credit" || dir === "in") return minor;
-  // Prefer explicit signed amount when direction is absent.
-  const raw = Math.trunc(Number(row.amountMinor ?? row.amount) || 0);
-  return raw;
+  return Math.trunc(Number(row.amountMinor ?? row.amount) || 0);
 }
 
 /**
- * Finance story (STORE OS) — real fields only.
- * A settlement summary → B fees → C Coin/Cash → D convert → E withdraw → F history.
+ * Owner Finance — same read-model story as Admin, owner-scoped section shell.
  */
 export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
   const { t, safeT, language } = useI18n();
+  const ko = language !== "en";
+  const searchParams = useSearchParams();
+  const section = (searchParams.get("section") || "transactions").trim();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coinBalance, setCoinBalance] = useState(0);
   const [cashBalanceMinor, setCashBalanceMinor] = useState(0);
   const [saleFeeOutstandingMinor, setSaleFeeOutstandingMinor] = useState(0);
+  const [obligationRows, setObligationRows] = useState<
+    NonNullable<NonNullable<FinancePayload["saleFeeObligations"]>["rows"]>
+  >([]);
   const [coinLedger, setCoinLedger] = useState<LedgerRow[]>([]);
   const [cashLedger, setCashLedger] = useState<LedgerRow[]>([]);
   const [settleSummary, setSettleSummary] = useState<OwnerStoreSettlementSummary | null>(null);
-  const financeHref = OwnerRoutes.finance(storeId);
+
   const settlementsHref = OwnerRoutes.settlements(storeId);
-  const cashManageHref = `${financeHref}#cash-manage`;
+  const convertHref = ownerFinanceSectionHref(storeId, "convert");
+  const withdrawHref = ownerFinanceSectionHref(storeId, "withdraw");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +152,7 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
       setCoinBalance(Math.trunc(Number(json.assets?.storePoints?.balance) || 0));
       setCashBalanceMinor(Math.trunc(Number(json.assets?.businessCash?.balanceMinor) || 0));
       setSaleFeeOutstandingMinor(Math.trunc(Number(json.saleFeeObligations?.outstandingMinor) || 0));
+      setObligationRows(json.saleFeeObligations?.rows ?? []);
       setCoinLedger(json.storePointsLedger ?? []);
       setCashLedger(json.businessCashLedger ?? []);
 
@@ -138,7 +161,6 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
           ok?: boolean;
           summary?: OwnerStoreSettlementsServerSummary | null;
         };
-        // Server summary is financial SSOT — never invent KPI from a truncated page of rows.
         if (body.ok !== false && body.summary) {
           setSettleSummary(mapFinancialSummaryToOwner(body.summary));
         } else {
@@ -158,24 +180,34 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (loading) return;
-    const hash = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "").trim() : "";
-    if (!hash) return;
-    const el = document.getElementById(hash);
-    if (!el) return;
-    const id = window.requestAnimationFrame(() => {
-      el.scrollIntoView({ block: "start", behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [loading, settleSummary, coinLedger.length, cashLedger.length]);
+  const periodCoinIn = useMemo(
+    () =>
+      coinLedger
+        .filter((r) => Math.trunc(Number(r.amount) || 0) > 0)
+        .reduce((a, r) => a + Math.trunc(Number(r.amount) || 0), 0),
+    [coinLedger]
+  );
+  const periodCoinConvert = useMemo(
+    () =>
+      coinLedger
+        .filter((r) => r.entryKind === "CONVERT_TO_BUSINESS_CASH")
+        .reduce((a, r) => a + Math.abs(Math.trunc(Number(r.amount) || 0)), 0),
+    [coinLedger]
+  );
+  const periodCoinWithdraw = useMemo(
+    () =>
+      coinLedger
+        .filter((r) => r.entryKind.startsWith("WITHDRAWAL"))
+        .reduce((a, r) => a + Math.abs(Math.trunc(Number(r.amount) || 0)), 0),
+    [coinLedger]
+  );
 
   if (loading) {
     return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
 
   return (
-    <div className="space-y-5" data-owner-store-finance="1">
+    <div className="space-y-4 pb-8" data-owner-store-finance="1">
       <div>
         <h1 className="text-lg font-semibold text-sam-fg">
           {safeT("owner_finance_title", {
@@ -185,233 +217,184 @@ export function OwnerStoreFinanceView({ storeId }: { storeId: string }) {
         </h1>
         <p className="mt-1 text-sm text-sam-muted">
           {safeT("owner_finance_description", {
-            fallbackKo:
-              "매출·수수료·정산은 정산 내역에서, Coin·Cash·충전·전환·환전은 아래에서 확인합니다. 없는 숫자는 만들지 않습니다.",
-            fallbackEn:
-              "Sales, fees, and settlement live under Settlements; Coin, Cash, top-up, convert, and withdraw are below. Missing values are not invented.",
+            fallbackKo: "Admin과 같은 재무 데이터·흐름입니다. 매장 범위만 적용됩니다.",
+            fallbackEn: "Same finance data and flow as Admin, scoped to your store.",
           })}
         </p>
       </div>
 
+      <OwnerFinanceStoreSwitcher storeId={storeId} section={section} ko={ko} />
+      <OwnerFinanceNav storeId={storeId} ko={ko} />
+
       {error ? <p className="text-sm text-sam-danger">{error}</p> : null}
 
-      <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "A. 매출 · 정산 요약", "A. Sales · settlement summary")}
-      >
-        <p className="mb-3 text-xs text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "주문별 gross / 수수료 / net / 지급 상태는 정산 화면이 권위입니다.",
-            "Per-order gross, fees, net, and payout status are authoritative on Settlements."
-          )}
-        </p>
-        {settleSummary ? (
-          <dl className="mb-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+      {section === "transactions" || section === "orders" ? (
+        <section className="space-y-3" data-owner-finance-section={section}>
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
               <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "건수", "Count")}</dt>
-              <dd className="font-semibold text-sam-fg">{settleSummary.count}</dd>
+              <dd className="font-semibold">{settleSummary?.count ?? "—"}</dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "Gross", "Gross")}</dt>
-              <dd className="font-semibold text-sam-fg">
-                ₱{Math.trunc(settleSummary.gross).toLocaleString()}
+              <dt className="text-xs text-sam-muted">Gross</dt>
+              <dd className="font-semibold">
+                {settleSummary
+                  ? formatFinanceAmount({ wallet: "CASH", amount: settleSummary.gross * 100, isMinor: true })
+                  : "—"}
               </dd>
             </div>
             <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">
-                {ownerUiCopy(language, "플랫폼 수수료", "Platform fee")}
-              </dt>
-              <dd className="font-semibold text-sam-fg">
-                ₱{Math.trunc(settleSummary.platformFee).toLocaleString()}
-              </dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "환불", "Refund")}</dt>
-              <dd className="font-semibold text-sam-fg">
-                ₱{Math.trunc(settleSummary.refund).toLocaleString()}
-              </dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">
-                {ownerUiCopy(language, "지급 예정 net", "Pending net")}
-              </dt>
-              <dd className="font-semibold text-sam-fg">
-                ₱{Math.trunc(settleSummary.pendingNet).toLocaleString()}
-              </dd>
-            </div>
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-              <dt className="text-xs text-sam-muted">
-                {ownerUiCopy(language, "지급 완료 net", "Paid net")}
-              </dt>
-              <dd className="font-semibold text-sam-fg">
-                ₱{Math.trunc(settleSummary.paidNet).toLocaleString()}
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "플랫폼 수수료", "Platform fee")}</dt>
+              <dd className="font-semibold">
+                {settleSummary
+                  ? formatFinanceAmount({
+                      wallet: "CASH",
+                      amount: settleSummary.platformFee * 100,
+                      isMinor: true,
+                    })
+                  : "—"}
               </dd>
             </div>
           </dl>
-        ) : (
-          <p className="mb-3 text-xs text-sam-muted" data-owner-finance-missing="settlement_summary">
+          <Link href={settlementsHref} className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}>
+            {ownerUiCopy(language, "주문별 정산 열기", "Open order settlements")}
+          </Link>
+          <p className="text-xs text-sam-muted">
             {ownerUiCopy(
               language,
-              "정산 요약을 이번 로드에서 가져오지 못했습니다. 정산 내역에서 확인하세요.",
-              "Settlement summary is unavailable on this load. Open Settlements for details."
+              "주문별 Money Chain은 정산 화면의 주문 행에서 확인합니다.",
+              "Per-order Money Chain opens from settlement order rows."
             )}
           </p>
-        )}
-        <Link
-          href={settlementsHref}
-          className={`${OwnerCta.primary} ${OwnerCta.block} sm:w-auto`}
-          data-owner-finance-settlements-cta="1"
-        >
-          {ownerUiCopy(language, "정산 내역 열기", "Open settlements")}
-        </Link>
-      </OwnerStoreAdminDashSection>
+        </section>
+      ) : null}
 
-      <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "B. 수수료 · 차감", "B. Fees · deductions")}
-      >
-        {saleFeeOutstandingMinor > 0 ? (
-          <div
-            className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-3 text-sm"
-            data-sale-fee-outstanding="1"
-          >
-            <p className="font-semibold text-sam-fg">
-              {safeT("owner_finance_sale_fee_title", {
-                fallbackKo: "미납 판매 수수료",
-                fallbackEn: "Outstanding sale fees",
-              })}
-            </p>
-            <p className="mt-1 text-sam-muted">
-              <span className="font-medium text-sam-fg">
-                ₱{Math.trunc(saleFeeOutstandingMinor / 100).toLocaleString()}
-              </span>
-              {" — "}
-              {safeT("owner_finance_sale_fee_body", {
-                fallbackKo: "캐시 충전 또는 Coin→캐시 전환 시 우선 정산됩니다.",
-                fallbackEn: "Settled first on Cash top-up or Coin→Cash conversion.",
-              })}
-            </p>
+      {section === "outstanding" ? (
+        <section className="space-y-3" data-owner-finance-section="outstanding">
+          <p className="text-sm font-semibold">
+            {formatFinanceAmount({
+              wallet: "CASH",
+              amount: saleFeeOutstandingMinor,
+              isMinor: true,
+            })}{" "}
+            {ownerUiCopy(language, "미납", "outstanding")}
+          </p>
+          {obligationRows.length === 0 ? (
+            <p className="text-sm text-sam-muted">{ownerUiCopy(language, "미납 판매 수수료 없음.", "No outstanding sale fees.")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {obligationRows.map((r) => (
+                <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm">
+                  <Link
+                    href={`${settlementsHref}${settlementsHref.includes("?") ? "&" : "?"}orderId=${encodeURIComponent(r.orderId)}`}
+                    className="font-semibold text-signature hover:underline"
+                  >
+                    {ownerUiCopy(language, "주문 상세", "Order detail")} · {r.orderId.slice(0, 8)}…
+                  </Link>
+                  <p className="mt-1 tabular-nums text-sam-muted">
+                    {formatFinanceAmount({ wallet: "CASH", amount: r.feeOutstandingMinor, isMinor: true })}{" "}
+                    / {formatFinanceAmount({ wallet: "CASH", amount: r.feeDueMinor, isMinor: true })}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {section === "coin" ? (
+        <section className="space-y-3" data-owner-finance-section="coin">
+          <CurrencyBalanceCard currency="coin" amount={coinBalance} />
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 적립", "Earned")}</dt>
+              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinIn })}</dd>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 전환", "Converted")}</dt>
+              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinConvert })}</dd>
+            </div>
+            <div className="rounded-ui-rect border border-sam-border px-3 py-2">
+              <dt className="text-xs text-sam-muted">{ownerUiCopy(language, "기간 출금", "Withdrawn")}</dt>
+              <dd className="font-semibold">{formatFinanceAmount({ wallet: "COIN", amount: periodCoinWithdraw })}</dd>
+            </div>
+          </dl>
+          <div className="flex flex-wrap gap-2">
+            <Link href={convertHref} className={OwnerCta.primary} data-owner-finance-cta="convert">
+              {ko ? COIN_TO_CASH_LABEL_KO : "Convert Coin to Cash"}
+            </Link>
+            <Link href={withdrawHref} className={OwnerCta.secondary} data-owner-finance-cta="withdraw">
+              {ko ? COIN_WITHDRAWAL_LABEL_KO : "Request Coin withdrawal"}
+            </Link>
           </div>
-        ) : (
-          <p className="text-sm text-sam-muted">
-            {ownerUiCopy(
-              language,
-              "미납 판매 수수료 없음. 주문 수수료 상세는 정산 내역의 주문별 행을 보세요.",
-              "No outstanding sale fees. Per-order commission detail is on each settlement row."
-            )}
-          </p>
-        )}
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "C. Coin · Cash 잔액", "C. Coin · Cash balances")}
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <CurrencyBalanceCard
-            currency="coin"
-            amount={coinBalance}
-            actions={[
-              { id: "convert_to_cash", href: cashManageHref, primary: true },
-              { id: "history", href: `${financeHref}#coin-history` },
-            ]}
-          />
-          <CurrencyBalanceCard
-            currency="cash"
-            amount={cashBalanceMinor}
-            isMinor
-            actions={[
-              { id: "top_up", href: cashManageHref, primary: true },
-              { id: "history", href: `${financeHref}#cash-history` },
-            ]}
-          />
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "D. 내부 전환 (Coin → Cash)", "D. Internal conversion (Coin → Cash)")}
-      >
-        <p className="mb-3 text-xs text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "DIBAY 내부에서 Coin을 Cash로 바꿉니다. 외부 은행/GCash 출금과 다릅니다.",
-            "Converts Coin to Cash inside DIBAY. This is not an external bank/GCash payout."
-          )}
-        </p>
-        <div id="cash-manage">
-          <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={load} />
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={ownerUiCopy(language, "E. 외부 출금 · 환전", "E. External payout / withdrawal")}
-      >
-        <p className="mb-3 text-xs text-sam-muted">
-          {ownerUiCopy(
-            language,
-            "Coin을 외부 계좌·GCash로 보내는 신청입니다. 내부 Coin→Cash 전환과 분리됩니다.",
-            "Request to send Coin to an external account/GCash. Separate from internal Coin→Cash conversion."
-          )}
-        </p>
-        <div id="coin-withdraw">
-          <OwnerCoinWithdrawalPanel storeId={storeId} onSubmitted={load} />
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_finance_coin_history", {
-          fallbackKo: "F. Coin 내역",
-          fallbackEn: "F. Coin history",
-        })}
-      >
-        <ul id="coin-history" className="space-y-2">
-          {coinLedger.length === 0 ? (
-            <li className="text-sm text-sam-muted">{t("store_owner_point_ledger_empty")}</li>
-          ) : (
-            coinLedger.slice(0, 20).map((row) => (
-              <CurrencyHistoryRow
-                key={row.id}
-                currency="coin"
-                title={mapCoinLedgerTitle(language, row.entryKind)}
-                amount={Math.trunc(Number(row.amount) || 0)}
-                signed
-                createdAt={row.createdAt}
-              />
-            ))
-          )}
-        </ul>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection
-        title={safeT("owner_finance_cash_history_title", {
-          fallbackKo: "G. 캐시 내역",
-          fallbackEn: "G. Cash history",
-        })}
-      >
-        <ul id="cash-history" className="space-y-2">
-          {cashLedger.length === 0 ? (
-            <li className="text-sm text-sam-muted">
-              {safeT("owner_finance_history_empty", {
-                fallbackKo: "내역이 없습니다.",
-                fallbackEn: "No history yet.",
-              })}
-            </li>
-          ) : (
-            cashLedger.slice(0, 20).map((row) => {
-              const signedMinor = signedCashMinor(row);
-              return (
+          <ul className="space-y-2">
+            {coinLedger.length === 0 ? (
+              <li className="text-sm text-sam-muted">{t("store_owner_point_ledger_empty")}</li>
+            ) : (
+              coinLedger.slice(0, 40).map((row) => (
                 <CurrencyHistoryRow
                   key={row.id}
-                  currency="cash"
-                  title={mapCashLedgerTitle(language, row.entryKind)}
-                  amount={signedMinor}
-                  isMinor
+                  currency="coin"
+                  title={mapCoinLedgerTitle(language, row.entryKind)}
+                  amount={Math.trunc(Number(row.amount) || 0)}
                   signed
                   createdAt={row.createdAt}
                 />
-              );
-            })
-          )}
-        </ul>
-      </OwnerStoreAdminDashSection>
+              ))
+            )}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === "cash" || section === "ads" ? (
+        <section className="space-y-3" data-owner-finance-section={section}>
+          <CurrencyBalanceCard currency="cash" amount={cashBalanceMinor} isMinor />
+          <ul className="space-y-2">
+            {(section === "ads"
+              ? cashLedger.filter((r) => r.entryKind === "AD_SPEND" || r.entryKind === "AD_REFUND" || r.entryKind === "PARTNER_SPEND")
+              : cashLedger
+            ).length === 0 ? (
+              <li className="text-sm text-sam-muted">
+                {safeT("owner_finance_history_empty", {
+                  fallbackKo: "거래가 없습니다.",
+                  fallbackEn: "No transactions.",
+                })}
+              </li>
+            ) : (
+              (section === "ads"
+                ? cashLedger.filter((r) =>
+                    ["AD_SPEND", "AD_REFUND", "PARTNER_SPEND", "PARTNER_REFUND"].includes(r.entryKind)
+                  )
+                : cashLedger
+              )
+                .slice(0, 40)
+                .map((row) => (
+                  <CurrencyHistoryRow
+                    key={row.id}
+                    currency="cash"
+                    title={mapCashLedgerTitle(language, row.entryKind)}
+                    amount={signedCashMinor(row)}
+                    isMinor
+                    signed
+                    createdAt={row.createdAt}
+                  />
+                ))
+            )}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === "convert" ? (
+        <section className="space-y-3" data-owner-finance-section="convert">
+          <OwnerBusinessCashView storeId={storeId} manageOnly onChanged={load} />
+        </section>
+      ) : null}
+
+      {section === "withdraw" ? (
+        <section className="space-y-3" data-owner-finance-section="withdraw">
+          <OwnerCoinWithdrawalPanel storeId={storeId} onSubmitted={load} />
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
+import { COIN_WITHDRAWAL_LABEL_KO } from "@/lib/finance/product-decision-lock";
 
 type WithdrawalRow = {
   id: string;
@@ -191,8 +192,8 @@ export function OwnerCoinWithdrawalPanel({
           data-owner-cta="primary"
         >
           {safeT("owner_finance_withdraw_submit", {
-            fallbackKo: "외부 출금 신청",
-            fallbackEn: "Submit withdrawal",
+            fallbackKo: COIN_WITHDRAWAL_LABEL_KO,
+            fallbackEn: "Request Coin withdrawal",
           })}
         </button>
       </div>

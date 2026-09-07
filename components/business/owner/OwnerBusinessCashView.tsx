@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { CurrencyBalanceCard, CurrencyHistoryRow } from "@/components/currency";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
@@ -15,6 +16,10 @@ import {
   OWNER_FORM_INPUT_GROW_CLASS,
   OwnerCta,
 } from "@/lib/business/owner-cta-classes";
+import {
+  COIN_TO_CASH_LABEL_KO,
+  COIN_WITHDRAWAL_LABEL_KO,
+} from "@/lib/finance/product-decision-lock";
 
 type Quote = {
   ratePesosPerPoint: number;
@@ -68,6 +73,7 @@ export function OwnerBusinessCashView({
   const [convertPoints, setConvertPoints] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
+  const [convertConfirmOpen, setConvertConfirmOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -241,8 +247,8 @@ export function OwnerBusinessCashView({
       }
       setNotice(
         safeT("owner_finance_cash_convert_success", {
-          fallbackKo: "Coin이 캐시로 전환되었습니다.",
-          fallbackEn: "Coin converted to Cash.",
+          fallbackKo: `${points.toLocaleString(locale)} Coin이 Cash로 전환되었습니다.`,
+          fallbackEn: `${points.toLocaleString(locale)} Coin converted to Cash.`,
         })
       );
       setConvertPoints("");
@@ -403,18 +409,52 @@ export function OwnerBusinessCashView({
               type="button"
               className={`${OwnerCta.formPrimary} ${OwnerCta.block}`}
               disabled={busy}
-              onClick={() => void submitConvert()}
+              onClick={() => setConvertConfirmOpen(true)}
               data-owner-cta="primary"
+              data-owner-convert-open-confirm="1"
             >
               {safeT("owner_bc_convert_confirm", {
-                fallbackKo: "전환 확인",
-                fallbackEn: "Confirm convert",
+                fallbackKo: COIN_TO_CASH_LABEL_KO,
+                fallbackEn: "Convert Coin to Cash",
               })}
             </button>
+            <p className="sam-text-xxs text-sam-muted">
+              {safeT("owner_finance_convert_vs_withdraw", {
+                fallbackKo: `${COIN_TO_CASH_LABEL_KO}(Coin→Cash)과 ${COIN_WITHDRAWAL_LABEL_KO}(Coin 지급)은 다른 기능입니다.`,
+                fallbackEn: "Convert (Coin→Cash) is separate from withdrawal (Coin payout).",
+              })}
+            </p>
           </div>
         ) : null}
       </OwnerStoreAdminDashSection>
       </div>
+
+      <OwnerStoreAdminConfirmModal
+        open={convertConfirmOpen}
+        titleId="owner-coin-cash-convert-confirm"
+        title={safeT("owner_finance_convert_confirm_title", {
+          fallbackKo: `${(quote?.requestedPoints ?? 0).toLocaleString(locale)} Coin을 Cash로 전환하시겠습니까?`,
+          fallbackEn: `Convert ${(quote?.requestedPoints ?? 0).toLocaleString(locale)} Coin to Cash?`,
+        })}
+        description={
+          quote
+            ? safeT("owner_finance_convert_confirm_body", {
+                fallbackKo: `Coin ${quote.storePointsBalance.toLocaleString(locale)} → ${(quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale)}\nCash ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor)} → ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor)}\n비율 1 Coin = ₱${quote.ratePesosPerPoint}`,
+                fallbackEn: `Coin ${quote.storePointsBalance.toLocaleString(locale)} → ${(quote.storePointsBalance - quote.requestedPoints).toLocaleString(locale)}\nCash ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor)} → ${formatDeliveryAdPhpMinor(quote.businessCashBalanceMinor + quote.expectedBusinessCashMinor)}\nRate 1 Coin = ₱${quote.ratePesosPerPoint}`,
+              })
+            : null
+        }
+        confirmLabel={safeT("owner_finance_convert_do", {
+          fallbackKo: COIN_TO_CASH_LABEL_KO,
+          fallbackEn: "Convert",
+        })}
+        busy={busy}
+        onCancel={() => setConvertConfirmOpen(false)}
+        onConfirm={async () => {
+          await submitConvert();
+          setConvertConfirmOpen(false);
+        }}
+      />
 
       {!manageOnly ? (
         <OwnerStoreAdminDashSection

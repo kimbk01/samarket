@@ -123,4 +123,12 @@ export type FinanceControlPlaneModel = {
     frequency: "REALTIME_CRITICAL" | "DAILY" | "FREQUENT" | "OCCASIONAL" | "ARCHIVE";
   }>;
   sectionErrors: string[];
+  todaySummary: {
+    day: string;
+    cashInMinor: number | null;
+    cashOutMinor: number | null;
+    coinEarned: number | null;
+    coinConverted: number | null;
+    unavailable: boolean;
+  };
 };

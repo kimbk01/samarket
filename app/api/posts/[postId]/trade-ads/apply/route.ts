@@ -9,6 +9,7 @@ import { resolveServiceSegment } from "@/lib/posts/listing-service-segment";
 import { loadTradeAdProductById } from "@/lib/trade-ads/load-trade-ad-product";
 import { holdPointsForTradePostAdApply } from "@/lib/trade-ads/trade-post-ad-point-flow";
 import { evaluateTradePostAdEligibility } from "@/lib/trade-ads/trade-post-ad-policy";
+import { assertTradePostAdsNewWriteAllowed } from "@/lib/trade-ads/trade-post-ads-legacy-gate";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 export const runtime = "nodejs";
@@ -17,9 +18,24 @@ export const dynamic = "force-dynamic";
 type Body = { ad_product_id?: string };
 
 /**
- * POST /api/posts/[postId]/trade-ads/apply — 판매자 거래 광고 신청(보류 포인트).
+ * POST /api/posts/[postId]/trade-ads/apply — LEGACY blocked (AD-P0-3).
+ * Canonical member trade exposure = trade_boost / feed banner.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
+  const legacyGate = assertTradePostAdsNewWriteAllowed();
+  if (!legacyGate.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: legacyGate.error,
+        message:
+          "trade_post_ads 신규 신청은 종료되었습니다. 거래 상위노출(Boost) 또는 배너를 이용해 주세요.",
+        legacy: true,
+      },
+      { status: 410 }
+    );
+  }
+
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);

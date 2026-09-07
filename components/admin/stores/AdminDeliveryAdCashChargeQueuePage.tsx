@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { formatDeliveryAdPhpMinor } from "@/lib/stores/advertising/delivery-ad-commercial-labels";
 import { businessCcFinancialStatementHref } from "@/lib/admin-business/business-control-center-links";
@@ -42,6 +43,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ id: string; op: "approve" | "reject" } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -282,7 +284,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-[#0A823E] px-3 text-[12px] font-semibold text-[#0A823E]"
                     disabled={busyId === r.id}
-                    onClick={() => void act(r.id, "approve")}
+                    onClick={() => setConfirm({ id: r.id, op: "approve" })}
                     data-admin-cash-charge-complete={r.id}
                   >
                     {safeT("admin_delivery_ads_cash_charges_complete", {
@@ -294,7 +296,7 @@ export function AdminDeliveryAdCashChargeQueuePage() {
                     type="button"
                     className="min-h-[40px] rounded-ui-rect border border-red-300 px-3 text-[12px] font-semibold text-red-700"
                     disabled={busyId === r.id}
-                    onClick={() => void act(r.id, "reject")}
+                    onClick={() => setConfirm({ id: r.id, op: "reject" })}
                     data-admin-cash-charge-reject={r.id}
                   >
                     {safeT("admin_delivery_ads_cash_charges_reject", {
@@ -308,6 +310,41 @@ export function AdminDeliveryAdCashChargeQueuePage() {
           </ul>
         )}
       </AdminCard>
+
+      <AdminActionConfirmDialog
+        open={Boolean(confirm)}
+        title={
+          confirm?.op === "approve"
+            ? language === "en"
+              ? "Credit Cash for this top-up?"
+              : "이 충전 건을 Cash로 적립하시겠습니까?"
+            : language === "en"
+              ? "Reject this Cash top-up?"
+              : "이 Cash 충전 신청을 거절하시겠습니까?"
+        }
+        description={
+          confirm
+            ? (() => {
+                const row = rows.find((r) => r.id === confirm.id);
+                if (!row) return "";
+                return language === "en"
+                  ? `Store ${row.store_id.slice(0, 8)}… · ${formatDeliveryAdPhpMinor(row.amount_minor)}`
+                  : `매장 ${row.store_id.slice(0, 8)}… · ${formatDeliveryAdPhpMinor(row.amount_minor)}`;
+              })()
+            : ""
+        }
+        confirmLabel={confirm?.op === "approve" ? (language === "en" ? "Credit" : "적립") : language === "en" ? "Reject" : "거절"}
+        cancelLabel={language === "en" ? "Cancel" : "취소"}
+        tone={confirm?.op === "reject" ? "danger" : "primary"}
+        pending={busyId != null}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          if (!confirm) return;
+          const { id, op } = confirm;
+          setConfirm(null);
+          void act(id, op);
+        }}
+      />
     </div>
   );
 }

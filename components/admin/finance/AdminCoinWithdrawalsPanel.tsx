@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminActionConfirmDialog } from "@/components/admin/ui/AdminActionConfirmDialog";
 
 type WithdrawalRow = {
   id: string;
@@ -14,12 +15,16 @@ type WithdrawalRow = {
   created_at: string;
 };
 
+type PendingAct = { requestId: string; action: "reject" | "mark_paid"; amount: number };
+
 export function AdminCoinWithdrawalsPanel() {
-  const { safeT } = useI18n();
+  const { safeT, language } = useI18n();
+  const ko = language !== "en";
   const [rows, setRows] = useState<WithdrawalRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState<PendingAct | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,12 +33,13 @@ export function AdminCoinWithdrawalsPanel() {
       const res = await fetch("/api/admin/coin-withdrawals?status=REQUESTED", { cache: "no-store" });
       const json = (await res.json()) as { ok?: boolean; requests?: WithdrawalRow[] };
       if (res.ok && json.ok) setRows(json.requests ?? []);
-      else setError(
-        safeT("admin_store_finance_withdrawals_load_failed", {
-          fallbackKo: "Coin 출금 요청을 불러오지 못했습니다.",
-          fallbackEn: "Couldn’t load Coin withdrawal requests.",
-        })
-      );
+      else
+        setError(
+          safeT("admin_store_finance_withdrawals_load_failed", {
+            fallbackKo: "Coin 출금 요청을 불러오지 못했습니다.",
+            fallbackEn: "Couldn’t load Coin withdrawal requests.",
+          })
+        );
     } catch {
       setError(
         safeT("common_network_error", {
@@ -68,6 +74,7 @@ export function AdminCoinWithdrawalsPanel() {
         );
         return;
       }
+      setPending(null);
       await load();
     } catch {
       setError(
@@ -120,22 +127,24 @@ export function AdminCoinWithdrawalsPanel() {
                   type="button"
                   disabled={busyId === r.id}
                   className="rounded-ui-rect border border-sam-border px-2 py-1 text-xs font-semibold"
-                  onClick={() => void act(r.id, "reject")}
+                  onClick={() => setPending({ requestId: r.id, action: "reject", amount: r.amount })}
+                  data-finance-cta="reject-withdrawal"
                 >
                   {safeT("admin_store_finance_withdrawals_reject", {
-                    fallbackKo: "거절",
-                    fallbackEn: "Reject",
+                    fallbackKo: "출금 반려",
+                    fallbackEn: "Reject withdrawal",
                   })}
                 </button>
                 <button
                   type="button"
                   disabled={busyId === r.id}
                   className="rounded-ui-rect bg-[var(--currency-coin-accent)] px-2 py-1 text-xs font-semibold text-white"
-                  onClick={() => void act(r.id, "mark_paid")}
+                  onClick={() => setPending({ requestId: r.id, action: "mark_paid", amount: r.amount })}
+                  data-finance-cta="mark-withdrawal-paid"
                 >
                   {safeT("admin_store_finance_withdrawals_paid", {
-                    fallbackKo: "지급 완료",
-                    fallbackEn: "Mark paid",
+                    fallbackKo: "출금 지급 완료",
+                    fallbackEn: "Mark withdrawal paid",
                   })}
                 </button>
               </div>
@@ -143,6 +152,42 @@ export function AdminCoinWithdrawalsPanel() {
           ))}
         </ul>
       )}
+
+      <AdminActionConfirmDialog
+        open={!!pending}
+        title={
+          pending?.action === "reject"
+            ? ko
+              ? "출금을 반려하시겠습니까?"
+              : "Reject this withdrawal?"
+            : ko
+              ? "출금 지급을 완료 처리하시겠습니까?"
+              : "Mark this withdrawal as paid?"
+        }
+        description={
+          pending
+            ? ko
+              ? `${pending.amount.toLocaleString()} Coin 출금 요청을 ${pending.action === "reject" ? "반려" : "지급 완료"}합니다.`
+              : `${pending.amount.toLocaleString()} Coin withdrawal will be ${pending.action === "reject" ? "rejected" : "marked paid"}.`
+            : ""
+        }
+        confirmLabel={
+          pending?.action === "reject"
+            ? ko
+              ? "출금 반려"
+              : "Reject withdrawal"
+            : ko
+              ? "출금 지급 완료"
+              : "Mark paid"
+        }
+        cancelLabel={ko ? "취소" : "Cancel"}
+        pending={busyId === pending?.requestId}
+        onCancel={() => setPending(null)}
+        onConfirm={() => {
+          if (!pending) return;
+          void act(pending.requestId, pending.action);
+        }}
+      />
     </section>
   );
 }

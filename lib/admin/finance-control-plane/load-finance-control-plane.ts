@@ -16,6 +16,7 @@ import type {
   FinanceControlPlaneModel,
   FinanceSectionRow,
 } from "@/lib/admin/finance-control-plane/types";
+import { loadFinanceTodaySummary } from "@/lib/finance/today-summary/load-finance-today-summary";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -61,6 +62,7 @@ export async function loadFinanceControlPlane(
     obligationRes,
     coinLedgerRes,
     cashLedgerRes,
+    todaySummary,
   ] = await Promise.all([
     sb
       .from("point_charge_requests")
@@ -111,6 +113,7 @@ export async function loadFinanceControlPlane(
       )
       .order("created_at", { ascending: false })
       .limit(40),
+    loadFinanceTodaySummary(sb),
   ]);
 
   if (pointRes.error && !isMissing(pointRes.error, /point_charge_requests|schema cache|does not exist/i)) {
@@ -788,5 +791,13 @@ export async function loadFinanceControlPlane(
       },
     ],
     sectionErrors,
+    todaySummary: {
+      day: todaySummary.day,
+      cashInMinor: todaySummary.cashInMinor,
+      cashOutMinor: todaySummary.cashOutMinor,
+      coinEarned: todaySummary.coinEarned,
+      coinConverted: todaySummary.coinConverted,
+      unavailable: todaySummary.unavailable,
+    },
   };
 }

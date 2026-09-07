@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminCoinWithdrawalsPanel } from "@/components/admin/finance/AdminCoinWithdrawalsPanel";
 import { AdminFinanceControlPlane } from "@/components/admin/finance/AdminFinanceControlPlane";
+import { AdminFinanceTransparentPanels } from "@/components/admin/finance/AdminFinanceTransparentPanels";
 import { AdminStoreFinancialStatement } from "@/components/admin/finance/AdminStoreFinancialStatement";
 import { CurrencyBadge } from "@/components/currency/CurrencyBadge";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -115,6 +116,8 @@ export function AdminStoreFinancePanels() {
     <div className="space-y-4" data-admin-store-finance-panels="1">
       {/* ARO-OPS-UX-002-B4: Control Plane always first. B3 Statement is store drill-down. */}
       <AdminFinanceControlPlane />
+
+      <AdminFinanceTransparentPanels />
 
       {statementStoreId ? (
         <div id="store-financial-statement">

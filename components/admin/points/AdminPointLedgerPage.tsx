@@ -7,6 +7,7 @@ import type {
   PointFinancialHistoryItem,
 } from "@/lib/points/point-financial-history";
 import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
+import { AdminPointAdjustPanel } from "@/components/admin/points/AdminPointAdjustPanel";
 
 function formatSigned(signed: number): string {
   const abs = Math.abs(signed).toLocaleString();
@@ -68,6 +69,8 @@ export function AdminPointLedgerPage() {
   return (
     <div className="space-y-4">
       <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_points_ledger_page")}</h1>
+
+      <AdminPointAdjustPanel onChanged={() => void load()} />
 
       <div className="flex flex-wrap gap-2">
         <input
