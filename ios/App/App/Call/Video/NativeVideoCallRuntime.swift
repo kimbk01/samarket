@@ -4,7 +4,10 @@ import Foundation
  * Phase B2 — iOS Native Video Call Runtime state machine.
  *
  * Owns at most one active video session. Thread-safe via a dedicated serial queue.
- * Mirrors Android `NativeVideoCallRuntime` states without CallKit / HTTP / Agora wiring.
+ * Mirrors Android `NativeVideoCallRuntime` states without CallKit / Agora wiring in this file.
+ *
+ * CUT7 #2 — local missed timer is a PROPOSER only (parity with NativeVoiceCallRuntime).
+ * Canonical missed = server CUT2 deadline/CAS. Early `ring_deadline_not_reached` must not dismiss CallKit.
  */
 final class NativeVideoCallRuntime: @unchecked Sendable {
   static let shared = NativeVideoCallRuntime()
@@ -247,12 +250,14 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   func markMissed(sessionId: String) throws {
     try queue.sync {
-      try markMissedLocked(sessionId: sessionId)
+      // Public force path unused by timer; timer uses propose-first. Keep for explicit terminal apply.
+      try applyMissedDismissLocked(sessionId: sessionId)
     }
   }
 
   func reset(sessionId: String?) {
     queue.sync {
+      cancelMissedLocked()
       if let sessionId {
         let sid = normalize(sessionId)
         guard let active = session, active.sessionId == sid else { return }
@@ -347,24 +352,106 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     generation &+= 1
   }
 
-  private func markMissedLocked(sessionId: String) throws {
+  private func applyMissedDismissLocked(sessionId: String) throws {
     let sid = normalize(sessionId)
     guard let active = session, active.sessionId == sid else { return }
     guard state == .ringing else { return }
     cancelMissedLocked()
     state = .failed
-    NativeVideoCallLog.info("missed_timeout", callId: sid)
+    NativeVideoCallLog.info("missed_timeout", callId: sid, details: "source=server_accepted")
     publishUiLocked(sessionId: sid)
     clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
     NativeVideoCallUiHost.finishIfActive(callId: sid)
+    DispatchQueue.main.async {
+      CallKitProvider.shared.reportCallEnded(uuidString: sid)
+    }
   }
 
   /// Called only from `queue` (missed timer) — no `queue.sync` re-entry.
   private func performMissedTimeoutIfCurrent(sessionId: String, generation expectedGeneration: UInt64) {
     let sid = normalize(sessionId)
-    guard let active = session, active.sessionId == sid, generation == expectedGeneration else { return }
-    guard state == .ringing else { return }
-    try? markMissedLocked(sessionId: sid)
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
+      NativeVideoCallLog.info(
+        "missed_timer_stale",
+        callId: sid,
+        details: "reason=call_id_or_generation_mismatch"
+      )
+      return
+    }
+    guard state == .ringing else {
+      NativeVideoCallLog.info("missed_timer_stale", callId: sid, details: "reason=state_not_ringing")
+      return
+    }
+    missedWorkItem = nil
+    NativeVideoCallLog.info("missed_propose", callId: sid, details: "source=local_timer")
+    NativeVideoCallApi.missedAsync(callId: sid) { [weak self] ok, status, error in
+      guard let self else { return }
+      self.queue.async {
+        self.handleMissedProposeResultLocked(
+          sessionId: sid,
+          expectedGeneration: expectedGeneration,
+          ok: ok,
+          status: status,
+          error: error
+        )
+      }
+    }
+  }
+
+  private func handleMissedProposeResultLocked(
+    sessionId: String,
+    expectedGeneration: UInt64,
+    ok: Bool,
+    status: Int,
+    error: String?
+  ) {
+    let sid = normalize(sessionId)
+    let err = (error ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
+      NativeVideoCallLog.info(
+        "missed_propose_ignored",
+        callId: sid,
+        details: "reason=stale_after_response"
+      )
+      return
+    }
+    guard state == .ringing else {
+      NativeVideoCallLog.info(
+        "missed_propose_ignored",
+        callId: sid,
+        details: "reason=no_longer_ringing"
+      )
+      return
+    }
+
+    if !ok && err == "ring_deadline_not_reached" {
+      NativeVideoCallLog.info(
+        "missed_early_rejected",
+        callId: sid,
+        details: "status=\(status) keep_presentation=1"
+      )
+      return
+    }
+
+    if !ok && (err == "already_answered" || err == "bad_action") {
+      NativeVideoCallLog.info(
+        "missed_propose_blocked",
+        callId: sid,
+        details: "error=\(err) keep_presentation=1"
+      )
+      return
+    }
+
+    if !ok {
+      NativeVideoCallLog.info(
+        "missed_propose_failed",
+        callId: sid,
+        details: "status=\(status) error=\(err) keep_presentation=1"
+      )
+      return
+    }
+
+    try? applyMissedDismissLocked(sessionId: sid)
   }
 
   private func scheduleMissedLocked(sessionId: String) {
