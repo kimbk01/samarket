@@ -82,7 +82,7 @@ import {
 import {
   countUnreadMessagesBelow,
   resolveFirstUnreadMessageId,
-  resolveNextUnreadMessageId,
+  resolveJumpToLatestFabAction,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
 import {
   captureMessengerRoomEntryUnread,
@@ -1002,14 +1002,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       }),
     [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
   );
-  const nextUnreadMessageId = useMemo(
+  const jumpLatestFabAction = useMemo(
     () =>
-      resolveNextUnreadMessageId({
+      resolveJumpToLatestFabAction({
         messages: vm.displayRoomMessages,
         lastReadMessageId,
-        afterMessageId: lastVisibleMessageId,
+        lastVisibleMessageId,
+        remainingUnreadCount,
       }),
-    [lastReadMessageId, lastVisibleMessageId, vm.displayRoomMessages]
+    [lastReadMessageId, lastVisibleMessageId, remainingUnreadCount, vm.displayRoomMessages]
   );
   const dividerStillUnread = useMemo(() => {
     if (!dividerFirstUnreadId) return false;
@@ -2179,10 +2180,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         roomId={vm.streamRoomId}
         remainingUnreadCount={remainingUnreadCount}
         onJumpToUnread={() => {
-          if (nextUnreadMessageId) vm.scrollToRoomMessage(nextUnreadMessageId);
-          else vm.scrollMessengerToBottom();
+          if (jumpLatestFabAction.kind === "first_unread") {
+            vm.scrollToRoomMessage(jumpLatestFabAction.messageId, { align: "start" });
+            return;
+          }
+          vm.scrollMessengerToBottom({ reason: "explicit", force: true });
         }}
-        onJumpToLatest={vm.scrollMessengerToBottom}
+        onJumpToLatest={() => vm.scrollMessengerToBottom({ reason: "explicit", force: true })}
       />
       <MessengerImageLightbox
         open={imageLightbox != null}

@@ -110,3 +110,42 @@ export function resolveJumpToLatestFabState(input: {
   }
   return { visible: true, badgeCount: 0 };
 }
+
+/**
+ * Telegram pagedown contract (ChatActivity.pagedownButton):
+ * - Still above first-unread boundary → jump to that message once
+ * - Otherwise (catch-up below / no boundary) → jump to latest
+ * Never step one-unread-at-a-time through the remaining badge count.
+ */
+export type JumpToLatestFabAction =
+  | { kind: "first_unread"; messageId: string }
+  | { kind: "latest" };
+
+export function resolveJumpToLatestFabAction(input: {
+  messages: readonly FirstUnreadMessageRow[];
+  lastReadMessageId: string | null | undefined;
+  lastVisibleMessageId: string | null | undefined;
+  remainingUnreadCount: number;
+}): JumpToLatestFabAction {
+  const remaining = Math.max(0, Math.floor(Number(input.remainingUnreadCount) || 0));
+  if (remaining <= 0) return { kind: "latest" };
+
+  const firstUnread = resolveFirstUnreadMessageId({
+    messages: input.messages,
+    lastReadMessageId: input.lastReadMessageId,
+  });
+  if (!firstUnread) return { kind: "latest" };
+
+  const firstIdx = input.messages.findIndex((row) => row.id === firstUnread);
+  if (firstIdx < 0) return { kind: "latest" };
+
+  const after =
+    typeof input.lastVisibleMessageId === "string" ? input.lastVisibleMessageId.trim() : "";
+  const visibleIdx = after ? input.messages.findIndex((row) => row.id === after) : -1;
+
+  /** Viewport has not reached the first-unread row yet → Telegram createUnreadMessageAfterId jump. */
+  if (visibleIdx < 0 || visibleIdx < firstIdx) {
+    return { kind: "first_unread", messageId: firstUnread };
+  }
+  return { kind: "latest" };
+}

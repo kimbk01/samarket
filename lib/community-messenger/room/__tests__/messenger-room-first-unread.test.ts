@@ -3,6 +3,7 @@ import {
   countUnreadMessagesBelow,
   formatUnreadBadgeCount,
   resolveFirstUnreadMessageId,
+  resolveJumpToLatestFabAction,
   resolveJumpToLatestFabState,
   resolveNextUnreadMessageId,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
@@ -105,5 +106,43 @@ describe("messenger-room-first-unread", () => {
       visible: true,
       badgeCount: 3,
     });
+  });
+
+  it("FAB action jumps to first unread once, then latest (Telegram pagedown)", () => {
+    expect(
+      resolveJumpToLatestFabAction({
+        messages: msgs,
+        lastReadMessageId: "b",
+        lastVisibleMessageId: "a",
+        remainingUnreadCount: 2,
+      })
+    ).toEqual({ kind: "first_unread", messageId: "c" });
+
+    expect(
+      resolveJumpToLatestFabAction({
+        messages: msgs,
+        lastReadMessageId: "b",
+        lastVisibleMessageId: "c",
+        remainingUnreadCount: 1,
+      })
+    ).toEqual({ kind: "latest" });
+
+    expect(
+      resolveJumpToLatestFabAction({
+        messages: msgs,
+        lastReadMessageId: "b",
+        lastVisibleMessageId: "d",
+        remainingUnreadCount: 0,
+      })
+    ).toEqual({ kind: "latest" });
+
+    expect(
+      resolveJumpToLatestFabAction({
+        messages: msgs,
+        lastReadMessageId: "missing",
+        lastVisibleMessageId: "a",
+        remainingUnreadCount: 3,
+      })
+    ).toEqual({ kind: "latest" });
   });
 });

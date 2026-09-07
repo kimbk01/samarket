@@ -9,7 +9,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
 /**
  * Telegram-style jump-to-latest FAB (bottom-right).
- * Unread remains → next canonical unread. No unread → latest.
+ * Remaining unread above first-unread → jump first unread once; else → latest.
  */
 export function MessengerRoomNewMessagesBelowChip({
   roomId,
@@ -35,8 +35,8 @@ export function MessengerRoomNewMessagesBelowChip({
   const badge = formatUnreadBadgeCount(fab.badgeCount);
   const aria = badge
     ? safeT("cm_ui_jump_latest_unread_aria", {
-        fallbackKo: `다음 읽지 않은 메시지로 이동, ${badge}개 남음`,
-        fallbackEn: `Jump to next unread, ${badge} remaining`,
+        fallbackKo: `읽지 않은 메시지로 이동, ${badge}개 남음`,
+        fallbackEn: `Jump to unread, ${badge} remaining`,
         vars: { count: badge },
       })
     : safeT("cm_ui_jump_latest_aria", {

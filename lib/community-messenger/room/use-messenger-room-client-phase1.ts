@@ -1718,7 +1718,8 @@ export function useMessengerRoomClientPhase1({
     stickToBottomRef,
     messagesViewportRef,
     messageEndRef,
-    roomMessages,
+    /** Must match virtualizer row list — raw seed includes filtered stubs. */
+    roomMessages: displayRoomMessages,
     virtualizer: chatVirtualizer,
     messageCount: displayRoomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
@@ -1801,9 +1802,9 @@ export function useMessengerRoomClientPhase1({
   }, [snapshot, roomMembersDisplay, phase1EntryLightPass, phase1PerfTrack]);
   if (phase1PerfTrack) endTradePhase1BreakdownSection("participants_normalize");
   const scrollToRoomMessage = useCallback(
-    (messageId: string) => {
+    (messageId: string, opts?: { align?: "start" | "center" | "end" | "auto" }) => {
       dismissRoomSheet();
-      scrollMessengerToMessage(messageId);
+      scrollMessengerToMessage(messageId, opts);
     },
     [dismissRoomSheet, scrollMessengerToMessage]
   );

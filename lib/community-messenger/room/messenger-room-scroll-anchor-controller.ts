@@ -145,9 +145,14 @@ function resolveLastVisibleTimelineMessageId(viewport: HTMLElement | null): stri
  * - Resize/keyboard/chrome: settled 이후 preserve/follow 만 — 재 entry·tail settle 금지
  * - scrollTop 조작은 ChatThreadScrollEngine 만
  */
+export type ScrollToMessageAlign = "start" | "center" | "end" | "auto";
+
 export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControllerOpts): {
   scrollMessengerToBottom: (request?: { reason?: CmScrollOwnerReason; force?: boolean }) => void;
-  scrollMessengerToMessage: (messageId: string) => boolean;
+  scrollMessengerToMessage: (
+    messageId: string,
+    opts?: { align?: ScrollToMessageAlign }
+  ) => boolean;
   updateStickToBottomFromScroll: () => void;
   persistScrollPosition: () => void;
   enqueueScrollAnchor: (request: MessengerRoomScrollAnchorRequest) => void;
@@ -384,6 +389,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (force) {
         engine.scrollToBottomExplicit(buildCtx());
         stickToBottomRef.current = true;
+        const tip = roomMessages[roomMessages.length - 1]?.id?.trim() || null;
+        const reader = useMessengerRoomReaderStateStore.getState();
+        reader.setScrollPosition(roomId, "at-bottom");
+        if (tip) reader.setLastVisibleMessageId(roomId, tip);
         markCmScrollRun(reason, reason === "own_message_append" ? "self_send_follow" : "explicit");
         return;
       }
@@ -399,6 +408,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       engine,
       markCmScrollRun,
       messageCount,
+      roomId,
+      roomMessages,
       stickToBottomRef,
       tryCompleteEntry,
     ]
@@ -413,21 +424,60 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   );
 
   const scrollMessengerToMessage = useCallback(
-    (messageId: string): boolean => {
+    (messageId: string, scrollOpts?: { align?: ScrollToMessageAlign }): boolean => {
       const mid = messageId.trim();
       if (!mid) return false;
+      /** Index must match virtualizer count (`displayRoomMessages`), not raw seed list. */
       const index = roomMessages.findIndex((message) => String(message.id ?? "").trim() === mid);
-      if (index < 0) return false;
-      const applied = engine.scrollToIndexExplicit(buildCtx(), index, "center");
+      if (index < 0 || index >= messageCount) return false;
+      const align = scrollOpts?.align ?? "center";
+      const ctx = buildCtx();
+      /** Empty stub reports size 0 — do not treat no-op scrollToIndex as success. */
+      const virtualizerReady =
+        messageCount > 0 && (ctx.virtualizer?.getTotalSize?.() ?? 0) > 0 && Boolean(ctx.virtualizer?.scrollToIndex);
+      let applied = virtualizerReady ? engine.scrollToIndexExplicit(ctx, index, align) : false;
+
+      const vp = messagesViewportRef.current;
+      const row =
+        typeof document !== "undefined"
+          ? (document.getElementById(`cm-room-msg-${mid}`) as HTMLElement | null)
+          : null;
+      if (vp && row && vp.contains(row)) {
+        const vpRect = vp.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        const inView =
+          rowRect.bottom > vpRect.top + 8 && rowRect.top < vpRect.bottom - 8;
+        if (!inView || !applied) {
+          const rowTop = rowRect.top - vpRect.top + vp.scrollTop;
+          if (align === "center") {
+            vp.scrollTop = Math.max(0, rowTop - vp.clientHeight / 2 + rowRect.height / 2);
+          } else if (align === "end") {
+            vp.scrollTop = Math.max(0, rowTop - vp.clientHeight + rowRect.height);
+          } else {
+            vp.scrollTop = Math.max(0, rowTop);
+          }
+          applied = true;
+        }
+      } else if (virtualizerReady && applied) {
+        /** Row not mounted yet — virtualizer jump still owns the scroll; keep applied. */
+      }
+
       if (applied) {
         stickToBottomRef.current = false;
-        useMessengerRoomReaderStateStore
-          .getState()
-          .setScrollPosition(roomId, "reading-history");
+        const reader = useMessengerRoomReaderStateStore.getState();
+        reader.setScrollPosition(roomId, "reading-history");
+        /** FAB math must advance immediately — do not wait for a user scroll event. */
+        reader.setLastVisibleMessageId(roomId, mid);
+        window.requestAnimationFrame(() => {
+          const resolved = resolveLastVisibleTimelineMessageId(messagesViewportRef.current);
+          if (resolved) {
+            useMessengerRoomReaderStateStore.getState().setLastVisibleMessageId(roomId, resolved);
+          }
+        });
       }
       return applied;
     },
-    [buildCtx, engine, roomId, roomMessages, stickToBottomRef]
+    [buildCtx, engine, messageCount, messagesViewportRef, roomId, roomMessages, stickToBottomRef]
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
