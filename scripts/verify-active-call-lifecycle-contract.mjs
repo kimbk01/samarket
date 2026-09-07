@@ -144,6 +144,14 @@ const staleRoute = read("app/api/community-messenger/calls/sessions/stale-cleanu
 if (!staleRoute.includes("cleanupStaleActiveCommunityMessengerCallSessions")) {
   fail("stale-cleanup route must call TS cleanup (canonical writer path)");
 }
+if (!staleRoute.includes("cleanupExpiredRingingCommunityMessengerCallSessions")) {
+  fail("CUT2: stale-cleanup must also expire ringing → missed");
+}
+
+const missedAuth = read("lib/community-messenger/call-authority/call-missed-deadline-authority.ts");
+if (!missedAuth.includes("evaluateMissedTransitionGate") || !missedAuth.includes("isRingingMissedDeadlineReached")) {
+  fail("CUT2 missed deadline authority missing");
+}
 
 const staleCronLegacy = read("supabase/migrations/20260618150000_community_messenger_call_stale_cron.sql");
 if (!staleCronLegacy.includes("cleanup_stale_community_messenger_call_sessions") || !staleCronLegacy.includes("pg_cron")) {

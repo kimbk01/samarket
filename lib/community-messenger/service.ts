@@ -263,6 +263,10 @@ import {
   isTrustedClientEndedReason,
   resolveTerminalEndedReason,
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
+import {
+  evaluateMissedTransitionGate,
+  resolveCanonicalRingTimeoutSeconds,
+} from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
 import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
@@ -875,12 +879,8 @@ export async function reconcileUserLiveCallSessions(
     const staleActive = isStaleActiveRowForReconcile(row);
     if (!staleRinging && !staleActive) continue;
 
-    const action: "cancel" | "missed" | "end" =
-      status === "ringing"
-        ? messengerUserIdsEqual(row.initiator_user_id, uid)
-          ? "cancel"
-          : "missed"
-        : "end";
+    // CUT2: expired ringing → always missed (never cancel). Cancel = explicit caller intent only.
+    const action: "missed" | "end" = status === "ringing" ? "missed" : "end";
     const patched = await updateCommunityMessengerCallSession({
       userId: uid,
       sessionId: sid,
@@ -18872,6 +18872,23 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("user_id", input.userId);
         } else if (input.action === "missed") {
           if (session.status !== "ringing") return { ok: false, error: "bad_action" };
+          const callPolicy = await getMessengerCallAdminPolicyCached();
+          const missedGate = evaluateMissedTransitionGate({
+            status: session.status,
+            startedAt: session.started_at,
+            answeredAt: session.answered_at,
+            answeredDeviceId: session.answered_device_id,
+            endedAt: session.ended_at,
+            ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
+          });
+          if (!missedGate.ok) {
+            if ("idempotent" in missedGate && missedGate.idempotent) {
+              const mapped = await mapCallSession(input.userId, session);
+              await ensureTerminalCallStub(session, mapped);
+              return { ok: true, session: mapped };
+            }
+            return { ok: false, error: missedGate.error };
+          }
           await (sb as any)
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
@@ -18880,10 +18897,11 @@ export async function updateCommunityMessengerCallSession(input: {
             .from("community_messenger_call_sessions")
             .update({ status: "missed", ended_at: now, updated_at: now, ended_reason: "missed" })
             .eq("id", sessionId)
+            .eq("status", "ringing")
             .select(
               "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
             )
-            .single();
+            .maybeSingle();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
             invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
@@ -19042,6 +19060,32 @@ export async function updateCommunityMessengerCallSession(input: {
           return { ok: true, session: mapped };
         }
         return { ok: false, error: "bad_action" };
+      }
+      if (input.action === "missed") {
+        const callPolicy = await getMessengerCallAdminPolicyCached();
+        const missedGate = evaluateMissedTransitionGate({
+          status: session.status,
+          startedAt: session.started_at,
+          answeredAt: session.answered_at,
+          answeredDeviceId: session.answered_device_id,
+          endedAt: session.ended_at,
+          ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
+        });
+        if (!missedGate.ok) {
+          if ("idempotent" in missedGate && missedGate.idempotent) {
+            const mapped = await mapCallSession(
+              input.userId,
+              session,
+              undefined,
+              undefined,
+              undefined,
+              "labels_only",
+            );
+            await ensureTerminalCallStub(session, mapped);
+            return { ok: true, session: mapped };
+          }
+          return { ok: false, error: missedGate.error };
+        }
       }
       const requestDeviceId = normalizeAnswerClaimDeviceId(input.answeredDeviceId);
       if (input.action === "accept" && messengerUserIdsEqual(session.recipient_user_id, input.userId)) {
@@ -19425,6 +19469,24 @@ export async function updateCommunityMessengerCallSession(input: {
       return { ok: true, session: mapped };
     }
     return { ok: false, error: "bad_action" };
+  }
+  if (input.action === "missed") {
+    const callPolicy = await getMessengerCallAdminPolicyCached();
+    const preGate = evaluateMissedTransitionGate({
+      status: "ringing",
+      startedAt: session.startedAt,
+      answeredAt: session.answeredAt,
+      answeredDeviceId: null,
+      endedAt: null,
+      ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
+    });
+    if (!preGate.ok) {
+      if ("idempotent" in preGate && preGate.idempotent) {
+        const mapped = await mapCallSession(input.userId, session);
+        return { ok: true, session: mapped };
+      }
+      return { ok: false, error: preGate.error };
+    }
   }
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;

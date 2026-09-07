@@ -141,9 +141,10 @@ describe("connected poll / reason contracts (T6–T9 source)", () => {
   });
 
   // T8
-  it("T8 stale-active reconcile writer uses reconcile_stale_active", () => {
+  it("T8 stale-active reconcile writer uses reconcile_stale_active; ringing uses missed", () => {
     const service = readFileSync(join(ROOT, "lib/community-messenger/service.ts"), "utf8");
     expect(service).toContain('status === "ringing" ? "reconcile_stale_ringing" : "reconcile_stale_active"');
+    expect(service).toContain('status === "ringing" ? "missed" : "end"');
     expect(service).toContain("canEndActiveCallForPresenceStale");
   });
 

@@ -3,7 +3,6 @@ import type { MessengerCallAdminPolicy } from "@/lib/community-messenger/messeng
 import {
   isDirectRingingSessionExpired,
   isStaleRingingRow,
-  STALE_RINGING_GRACE_MS,
 } from "@/lib/community-messenger/call-stale-ringing-cleanup";
 
 const TEST_POLICY: MessengerCallAdminPolicy = {
@@ -14,10 +13,10 @@ const TEST_POLICY: MessengerCallAdminPolicy = {
   suppress_incoming_local_notifications: false,
 };
 
-describe("call-stale-ringing-cleanup", () => {
-  it("treats ringing past timeout+grace as expired", () => {
+describe("call-stale-ringing-cleanup (CUT2 deadline)", () => {
+  it("treats ringing at exact timeout as expired (no grace on miss truth)", () => {
     const now = Date.now();
-    const startedAt = new Date(now - 30_000 - STALE_RINGING_GRACE_MS - 1).toISOString();
+    const startedAt = new Date(now - 30_000).toISOString();
     expect(isDirectRingingSessionExpired(startedAt, TEST_POLICY, now)).toBe(true);
   });
 
