@@ -37,8 +37,10 @@ describe("ARO-OPS-UX-002-B5 ads / exposure control plane", () => {
   });
 
   it("Control Plane owns /admin/delivery-ads; Delivery hub is /manage (no dual mount)", () => {
+    // Owner Policy LOCK: PUBLIC control hub redirects to advertising workspace
     const controlPage = read("app/admin/delivery-ads/page.tsx");
-    expect(controlPage).toContain("AdminAdsExposureControlPlane");
+    expect(controlPage).toContain("redirect");
+    expect(controlPage).toContain("/admin/advertising");
     expect(controlPage).not.toContain("AdminDeliveryAdsControlPlane");
 
     const managePage = read("app/admin/delivery-ads/manage/page.tsx");

@@ -87,10 +87,14 @@ describe("P1-2 report / sanction / ad authority contract", () => {
 
   it("ad applications keep separate writers (no unified ads table)", () => {
     const src = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(src).toContain('data-admin-writer="point_promotion_orders"');
+    expect(src).toContain("point_promotion_orders");
     expect(src).toContain("feed_ad_requests");
     expect(src).toContain("NOT a unified ads table");
+    expect(src).toContain("AdminCommunityPromotionQueue");
+    expect(src).toContain("AdminFeedAdRequestQueue");
     expect(src).not.toContain("unified_ads");
+    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
+    expect(queue).toContain("point_promotion_orders");
   });
 
   it("looksLikeProfileUserId accepts UUID only", () => {

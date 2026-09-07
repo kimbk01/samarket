@@ -50,10 +50,14 @@ describe("ADS dual-stack removal — Delivery operator authority", () => {
     const hub = read("components/admin/stores/AdminDeliveryAdsControlPlane.tsx");
     expect(hub).not.toContain("AdminAdsExposureControlPlane");
 
+    // Owner Policy LOCK: PUBLIC /admin/delivery-ads hub → 전체 광고; CP component KEEP
     const controlPage = read("app/admin/delivery-ads/page.tsx");
-    expect(controlPage).toContain("AdminAdsExposureControlPlane");
+    expect(controlPage).toContain("redirect");
+    expect(controlPage).toContain("/admin/advertising");
     expect(controlPage).not.toContain("AdminDeliveryAdsControlPlane");
-    expect(controlPage).toContain("shouldHandoffToDeliveryHub");
+    expect(existsSync(resolve(process.cwd(), "components/admin/ads/AdminAdsExposureControlPlane.tsx"))).toBe(
+      true
+    );
 
     const legacyInsertions = read("app/admin/store-insertions/page.tsx");
     expect(legacyInsertions).toContain("DELIVERY_AD_ADMIN_ROUTES.hub");

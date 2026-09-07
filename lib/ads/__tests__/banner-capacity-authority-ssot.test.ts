@@ -119,9 +119,9 @@ describe("HERO capacity / rotation / authority SSOT", () => {
   });
 
   it("authority matrix exposes writer-backed CTAs only", () => {
-    // Owner LOCK: Promote has no Pause/Resume/End writers
-    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(false);
-    expect(isAdminAuthorityCtaAllowed("boost_community", "APPROVE")).toBe(true);
+    // Owner LOCK: Boost 사후 제재 = pause/resume/end writers (Y); CREATE stays family-gated
+    expect(isAdminAuthorityCtaAllowed("boost_community", "PAUSE")).toBe(true);
+    expect(isAdminAuthorityCtaAllowed("boost_community", "RESUME")).toBe(true);
     expect(isAdminAuthorityCtaAllowed("delivery_sponsored", "CREATE")).toBe(false);
     expect(isAdminAuthorityCtaAllowed("delivery_banner", "CREATE")).toBe(true);
   });

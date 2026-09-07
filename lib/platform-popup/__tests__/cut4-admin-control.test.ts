@@ -48,7 +48,10 @@ const validSnap = {
 
 describe("CUT4 Admin routes + preview authority", () => {
   it("admin pages exist under /admin/platform-popup", () => {
-    expect(readRepo("app/admin/platform-popup/page.tsx")).toContain("AdminPlatformPopupHubPage");
+    // Owner Policy LOCK: PUBLIC hub retires → 노출 관리; detail routes KEEP
+    const hub = readRepo("app/admin/platform-popup/page.tsx");
+    expect(hub).toContain("redirect");
+    expect(hub).toContain("/admin/advertising/operations");
     expect(readRepo("app/admin/platform-popup/[campaignId]/page.tsx")).toContain(
       "AdminPlatformPopupDetailWorkspace"
     );

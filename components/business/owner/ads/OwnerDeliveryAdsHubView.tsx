@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
 import { PLATFORM_POPUP_OWNER_ROUTES } from "@/lib/platform-popup/platform-popup-owner-routes";
+import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 import { deliveryAdPlacementI18nKeys } from "@/lib/stores/advertising/delivery-ad-placement-language";
 import type { DeliveryAdOwnerProductKind } from "@/lib/stores/advertising/delivery-ad-owner-next-action";
 import type { OwnerSponsoredCampaignRow } from "@/lib/stores/advertising/owner-store-sponsored-writer";
@@ -563,22 +564,44 @@ export function OwnerDeliveryAdsHubView() {
             ctaLabel={t("owner_ads_product_select_apply")}
             onNavigate={() => setProductSelectOpen(false)}
           />
-          <DeliveryAdOwnerProductSelectCard
-            href={PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}
-            productKind="platform_popup"
-            title={safeT("owner_platform_popup_product_title", {
-              fallbackKo: "글로벌 팝업 광고",
-              fallbackEn: "Global Popup Ad",
-            })}
-            description={safeT("owner_platform_popup_product_desc", {
-              fallbackKo:
-                "앱 화면 하단 팝업(36:25). 전체·커뮤니티·거래·배달·마이페이지에 노출. Cash 결제 후 관리자 심사 필요 — 결제만으로 즉시 노출되지 않습니다.",
-              fallbackEn:
-                "Bottom popup (36:25) on All/Community/Trade/Delivery/My Page. Cash + admin review required — payment alone never goes live.",
-            })}
-            ctaLabel={t("owner_ads_product_select_apply")}
-            onNavigate={() => setProductSelectOpen(false)}
-          />
+          {OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED ? (
+            <DeliveryAdOwnerProductSelectCard
+              href={PLATFORM_POPUP_OWNER_ROUTES.createPlatformPopup}
+              productKind="platform_popup"
+              title={safeT("owner_platform_popup_product_title", {
+                fallbackKo: "글로벌 팝업 광고",
+                fallbackEn: "Global Popup Ad",
+              })}
+              description={safeT("owner_platform_popup_product_desc", {
+                fallbackKo:
+                  "앱 화면 하단 팝업(36:25). 전체·커뮤니티·거래·배달·마이페이지에 노출. Cash 결제 후 관리자 심사 필요 — 결제만으로 즉시 노출되지 않습니다.",
+                fallbackEn:
+                  "Bottom popup (36:25) on All/Community/Trade/Delivery/My Page. Cash + admin review required — payment alone never goes live.",
+              })}
+              ctaLabel={t("owner_ads_product_select_apply")}
+              onNavigate={() => setProductSelectOpen(false)}
+            />
+          ) : (
+            <div
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+              data-owner-platform-popup-new-sales="disabled"
+            >
+              <p className="font-semibold text-sam-fg">
+                {safeT("owner_platform_popup_product_title", {
+                  fallbackKo: "글로벌 팝업 광고",
+                  fallbackEn: "Global Popup Ad",
+                })}
+              </p>
+              <p className="mt-1 text-sm text-sam-muted">
+                {safeT("owner_platform_popup_new_sales_disabled", {
+                  fallbackKo:
+                    "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
+                  fallbackEn:
+                    "New Owner Popup applications are closed. Existing requests remain viewable.",
+                })}
+              </p>
+            </div>
+          )}
         </div>
       </DibayBottomSheet>
 

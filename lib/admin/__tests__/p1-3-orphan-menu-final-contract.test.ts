@@ -35,7 +35,8 @@ describe("P1-3 Admin orphan / menu finalization", () => {
   it("ads-legacy is demoted partial (routes KEEP)", () => {
     const legacy = findAdminMenuByKey(adminMenu, "ads-legacy");
     expect(legacy?.status).toBe("partial");
-    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.status).toBe("done");
+    // Owner Policy LOCK: Feed hub absorbed under legacy (PUBLIC → advertising workspace)
+    expect(findAdminMenuByKey(adminMenu, "ads-feed")?.status).toBe("partial");
     expect(findAdminMenuByKey(adminMenu, "ads-applications")?.path).toBe(
       "/admin/ad-applications?domain=trade"
     );

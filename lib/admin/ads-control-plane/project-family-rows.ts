@@ -492,14 +492,23 @@ export function projectPopupRequestToActionItem(r: PopupRequestRow): AdsActionIt
 }
 
 export function popupCampaignOpsStatus(
-  c: Pick<PlatformPopupAdminListItem, "status" | "approvalStatus" | "startAt" | "endAt">
+  c: Pick<PlatformPopupAdminListItem, "status" | "approvalStatus" | "startAt" | "endAt">,
+  options: { adminDirect?: boolean } = {}
 ): AdsOpsStatus {
   const approval = String(c.approvalStatus ?? "").toLowerCase();
-  if (approval === "rejected" || String(c.status).toLowerCase() === "rejected") {
+  const status = String(c.status ?? "").toLowerCase();
+  if (approval === "rejected" || status === "rejected") {
     return "rejected";
   }
-  if (approval === "pending_review" || String(c.status).toLowerCase() === "pending_review") {
+  // Human approval queue — Owner/Member only. Admin Direct never maps to pending.
+  if (
+    !options.adminDirect &&
+    (approval === "pending_review" || status === "pending_review")
+  ) {
     return "pending";
+  }
+  if (options.adminDirect && (approval === "pending_review" || status === "pending_review")) {
+    return "draft";
   }
   return projectAdsOpsStatus({
     rawStatus: String(c.status ?? ""),
@@ -518,13 +527,13 @@ export function projectPopupCampaignToActionItem(
     >;
   } = {}
 ): AdsActionItem {
-  const ops = popupCampaignOpsStatus(c);
   const id = String(c.id ?? "");
   const storeId = c.ownerStoreId?.trim() || null;
   const at = String(c.updatedAt || c.startAt || "");
   const surfaceHint =
     c.surfaces?.length > 0 ? c.surfaces.join(",") : "GLOBAL";
   const adminDirect = !c.ownerStoreId && !c.ownerRequestId;
+  const ops = popupCampaignOpsStatus(c, { adminDirect });
   const completeness = classifyPopupCampaignCompleteness({
     status: c.status,
     approvalStatus: c.approvalStatus,
@@ -532,6 +541,7 @@ export function projectPopupCampaignToActionItem(
     startAt: c.startAt,
     endAt: c.endAt,
     name: c.name,
+    adminDirect,
   });
   const runtime = projectPopupRuntimeDisplay({
     opsStatus: ops,
@@ -580,11 +590,18 @@ export function projectPopupCampaignToActionItem(
     ? adsPaymentLabel("ADMIN_DIRECT", "N_A", true)
     : adsPaymentLabel(null, "CASH", true);
 
+  // Admin Direct = operations/execution authority always (never application / 승인 전).
+  const entity: AdsActionItem["entity"] = adminDirect
+    ? "execution"
+    : isAdsShellExecutionOps(ops)
+      ? "execution"
+      : "application";
+
   return {
     id: `popup_campaign:${id}`,
     domain: "popup",
     product: "platform_popup",
-    entity: isAdsShellExecutionOps(ops) ? "execution" : "application",
+    entity,
     applicantLabel: adminDirect
       ? "Admin 직접 등록"
       : storeId
@@ -598,7 +615,7 @@ export function projectPopupCampaignToActionItem(
     currency: adminDirect ? ("N_A" satisfies AdsBillingCurrency) : ("CASH" satisfies AdsBillingCurrency),
     status: completeness.operatingLabelKo,
     whyActionable:
-      completeness.completeness === "pending_review"
+      !adminDirect && completeness.completeness === "pending_review"
         ? "팝업 광고 신청 심사가 필요합니다."
         : completeness.completeness === "orphan_partial" ||
             completeness.completeness === "incomplete"
@@ -641,8 +658,10 @@ export function projectPopupCampaignToActionItem(
 export function projectPopupCampaignToExecutionRow(
   c: PlatformPopupAdminListItem
 ): AdsExecutionRow | null {
-  const ops = popupCampaignOpsStatus(c);
-  if (!isAdsShellExecutionOps(ops)) return null;
+  const adminDirect = !c.ownerStoreId && !c.ownerRequestId;
+  const ops = popupCampaignOpsStatus(c, { adminDirect });
+  if (!adminDirect && !isAdsShellExecutionOps(ops)) return null;
+  if (adminDirect && ops === "rejected") return null;
   const id = String(c.id ?? "");
   const storeId = c.ownerStoreId?.trim() || null;
   return {
@@ -655,7 +674,7 @@ export function projectPopupCampaignToExecutionRow(
     eligibility: exposureFromOps(ops),
     period: formatPeriod(c.startAt, c.endAt),
     remainingLabel: adsRemainingPeriodLabel(c.startAt, c.endAt, true) || null,
-    currency: "CASH",
+    currency: adminDirect ? "N_A" : "CASH",
     href: `/admin/platform-popup/${encodeURIComponent(id)}`,
     statementHref: storeId ? businessCcFinancialStatementHref(storeId) : null,
     source: "platform_popup_campaigns",

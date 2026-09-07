@@ -7,6 +7,8 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_product_title: "글로벌 팝업 광고",
     owner_platform_popup_product_desc:
       "앱 전역에 뜨는 팝업 광고를 신청합니다. 결제 후에도 관리자 승인 전까지는 노출되지 않습니다.",
+    owner_platform_popup_new_sales_disabled:
+      "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
     owner_platform_popup_apply_title: "팝업 광고 신청",
     owner_platform_popup_detail_title: "팝업 광고 신청 상세",
     owner_platform_popup_section_store: "광고할 매장",
@@ -77,6 +79,8 @@ export const platformPopupOwnerMessages = {
     owner_platform_popup_product_title: "Global Popup Ad",
     owner_platform_popup_product_desc:
       "Apply for a platform-wide popup. Payment alone does not start delivery — admin approval is required.",
+    owner_platform_popup_new_sales_disabled:
+      "New Owner Popup applications are closed. Existing requests remain viewable.",
     owner_platform_popup_apply_title: "Apply for Popup Ad",
     owner_platform_popup_detail_title: "Popup Ad Request",
     owner_platform_popup_section_store: "Store",

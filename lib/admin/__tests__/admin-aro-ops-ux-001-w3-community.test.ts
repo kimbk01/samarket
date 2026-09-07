@@ -121,9 +121,15 @@ describe("ARO-OPS-UX-001-W3 community domain migration", () => {
 
   it("C12–C13 promotion + point policy owners/cross-links preserved", () => {
     const promo = read("components/admin/ads/AdminAdApplicationsPage.tsx");
-    expect(promo).toContain(`data-admin-writer="${ARO_IA_001_OWNERS.promotion}"`);
     expect(promo).toContain("community-promo-to-ads");
     expect(promo).toContain('data-aro-ops-ux-001-w3="1"');
+    expect(promo).toContain("AdminCommunityPromotionQueue");
+    expect(ARO_IA_001_OWNERS.promotion).toBe("point_promotion_orders");
+    const queue = read("components/admin/ads/AdminCommunityPromotionQueue.tsx");
+    expect(queue).toContain("point_promotion_orders");
+    // Owner Policy LOCK: PUBLIC /admin/community/promotions → boosts (no in-place approval queue)
+    const promoPage = read("app/admin/community/promotions/page.tsx");
+    expect(promoPage).toContain("/admin/advertising/boosts");
     const point = read("components/admin/community/AdminCommunityPointPoliciesPage.tsx");
     expect(point).toContain("community-point-to-finance");
     expect(point).toContain('data-admin-writer="board_point_policies"');

@@ -28,12 +28,16 @@ describe("ads from-scratch recovery contracts", () => {
   });
 
   it("Ads menu uses product axes; Feed labeled as Banner ad", () => {
+    // Owner Policy LOCK: 7 PUBLIC leaves + ads-legacy absorb
     const adsKids = (findAdminMenuByKey(adminMenu, "ads")?.children ?? []).map((c) => c.key);
     expect(adsKids[0]).toBe("ads-advertising-workspace");
     expect(adsKids.at(-1)).toBe("ads-legacy");
-    expect(adsKids).toContain("ads-applications-group");
-    expect(adsKids).toContain("ads-execution-group");
-    expect(adsKids).toContain("ads-products-group");
+    expect(adsKids).toContain("ads-authority-boosts");
+    expect(adsKids).toContain("ads-authority-applications");
+    expect(adsKids).toContain("ads-authority-operations");
+    expect(adsKids).toContain("ads-authority-placements");
+    expect(adsKids).toContain("ads-authority-products");
+    expect(adsKids).toContain("ads-authority-history");
     expect(findAdminMenuByKey(adminMenu, "ads-feed-applications")?.path).toBe(
       "/admin/ad-applications?domain=feed"
     );

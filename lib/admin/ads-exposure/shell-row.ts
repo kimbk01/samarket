@@ -166,10 +166,12 @@ export function toAdsShellListRow(
   const placementKey = resolveShellPlacementKey(item);
   const kind = inferPlacementProductKind(item.domain, item.product);
   const slideN = parseSlideIndex(item.placementHint) ?? parseSlideIndex(item.creativeHint);
+  // Admin Direct Popup is never approval-queue authority (Owner Policy LOCK).
   const isApplication =
-    mode === "applications" ||
-    item.entity === "application" ||
-    item.entity === "approval";
+    item.sourceKind !== "admin_direct" &&
+    (mode === "applications" ||
+      item.entity === "application" ||
+      item.entity === "approval");
   const placementMode = isApplication ? "requested" : "actual";
   const placementLabel = formatPlacementByMode(placementMode, {
     kind,

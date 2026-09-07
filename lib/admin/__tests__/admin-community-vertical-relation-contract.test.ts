@@ -8,11 +8,12 @@ const read = (rel: string) => readFileSync(join(process.cwd(), rel), "utf8");
  * Slice 3 — COMMUNITY vertical relation/presentation (no new writers / correlation / badge).
  */
 describe("Admin Community vertical relation contract", () => {
-  it("Community promotions page renders queue in-place (not redirect-only)", () => {
+  it("Community promotions page redirects to Boost management (Owner LOCK)", () => {
+    // Boost = no approval queue; PUBLIC community promotions → 상위노출 관리
     const page = read("app/admin/community/promotions/page.tsx");
-    expect(page).toContain("AdminAdApplicationsPage");
-    expect(page).toContain('forcedDomain="community"');
-    expect(page).not.toMatch(/redirect\(/);
+    expect(page).toContain("redirect");
+    expect(page).toContain("/admin/advertising/boosts");
+    expect(page).not.toContain("AdminAdApplicationsPage");
   });
 
   it("Post detail links comments, reports, and promotions", () => {

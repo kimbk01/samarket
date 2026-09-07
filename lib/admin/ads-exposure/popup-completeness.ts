@@ -19,6 +19,8 @@ export function classifyPopupCampaignCompleteness(input: {
   startAt?: string | null;
   endAt?: string | null;
   name?: string | null;
+  /** Admin Direct has no human approval queue — never classify as pending_review. */
+  adminDirect?: boolean;
 }): {
   completeness: PopupCompletenessClass;
   missing: PopupMissingField[];
@@ -31,8 +33,10 @@ export function classifyPopupCampaignCompleteness(input: {
   const missing: PopupMissingField[] = [];
   if (!input.hasReadyCreative) missing.push("creative");
   if (!hasPeriod) missing.push("schedule");
+  const adminDirect = Boolean(input.adminDirect);
 
-  if (status === "pending_review" || approval === "pending_review") {
+  // Owner/Member human review only. Admin Direct pending_review = incomplete re-registration.
+  if (!adminDirect && (status === "pending_review" || approval === "pending_review")) {
     return {
       completeness: "pending_review",
       missing,
@@ -41,7 +45,20 @@ export function classifyPopupCampaignCompleteness(input: {
     };
   }
 
-  if (status === "draft" || status === "not_submitted" || approval === "not_submitted") {
+  if (
+    status === "draft" ||
+    status === "not_submitted" ||
+    approval === "not_submitted" ||
+    (adminDirect && (status === "pending_review" || approval === "pending_review"))
+  ) {
+    if (adminDirect && (status === "pending_review" || approval === "pending_review")) {
+      return {
+        completeness: "incomplete",
+        missing,
+        operatingLabelKo: "불완전",
+        operatingLabelEn: "Incomplete",
+      };
+    }
     if (missing.length >= 2 || (!input.hasReadyCreative && !hasPeriod)) {
       return {
         completeness: "orphan_partial",

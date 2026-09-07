@@ -53,6 +53,7 @@ import {
   type PlatformPopupClientImageMeta,
 } from "@/lib/platform-popup/client-creative-crop-preview";
 import { DIBAY_CANONICAL_POPUP_CREATIVE_SIZE } from "@/lib/platform-popup/creative-pixel-ssot";
+import { OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED } from "@/lib/platform-popup/owner-popup-new-sales-gate";
 
 type EligibleStore = {
   id: string;
@@ -395,6 +396,28 @@ export function OwnerPlatformPopupApplyView() {
       style={formPadStyle}
       data-owner-platform-popup-apply="1"
     >
+      {!OWNER_PLATFORM_POPUP_NEW_SALES_ENABLED && !preloadRequestId ? (
+        <div
+          className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+          data-owner-platform-popup-new-sales="disabled"
+        >
+          <h1 className="text-lg font-bold text-sam-fg">
+            {safeT("owner_platform_popup_apply_title", {
+              fallbackKo: "팝업 광고 신청",
+              fallbackEn: "Apply for Popup Ad",
+            })}
+          </h1>
+          <p className="mt-2 text-sm text-sam-muted">
+            {safeT("owner_platform_popup_new_sales_disabled", {
+              fallbackKo:
+                "Owner Popup 신규 신청은 종료되었습니다. 기존 신청 내역은 계속 조회할 수 있습니다.",
+              fallbackEn:
+                "New Owner Popup applications are closed. Existing requests remain viewable.",
+            })}
+          </p>
+        </div>
+      ) : (
+        <>
       <h1 className="text-lg font-bold text-sam-fg">
         {safeT("owner_platform_popup_apply_title", {
           fallbackKo: "팝업 광고 신청",
@@ -872,6 +895,8 @@ export function OwnerPlatformPopupApplyView() {
           </div>
         </div>
       ) : null}
+        </>
+      )}
     </div>
   );
 }
