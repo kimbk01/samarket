@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
@@ -68,6 +69,25 @@ export function AdminFinanceTransactionsView({ basePath = "/admin/finance/transa
   return (
     <div className="space-y-4" data-admin-finance-transactions="1">
       <FinanceAdminNav ko={ko} />
+      {filters.wallet === "POINT" ? (
+        <div
+          className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2"
+          data-finance-point-actions="1"
+        >
+          <Link
+            href="/admin/points/ledger"
+            className="rounded-ui-rect bg-signature px-3 py-2 text-sm font-semibold text-white"
+            data-finance-cta="point-credit-panel"
+          >
+            {ko ? "Point 지급 / 회수" : "Credit / reclaim Point"}
+          </Link>
+          <p className="sam-text-helper self-center text-sam-muted">
+            {ko
+              ? "조정은 기존 Point ledger confirm 계약을 사용합니다."
+              : "Adjustments use the existing Point ledger confirm contract."}
+          </p>
+        </div>
+      ) : null}
       <FinanceFilterBar ko={ko} basePath={basePath} />
       <FinanceTransactionList
         ko={ko}

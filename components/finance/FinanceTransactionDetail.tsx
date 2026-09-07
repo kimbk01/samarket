@@ -29,12 +29,24 @@ export function FinanceTransactionDetail({
   const credit = tx.direction === "credit";
   const backHref = financeTransactionListHref(filters);
 
+  const ek = String(tx.entryKind || "").toUpperCase();
+  const orderLinkId =
+    tx.orderId ||
+    (ek.includes("SALE_FEE") || ek.includes("SALE_EARN") || ek.includes("OBLIGATION")
+      ? tx.relatedId
+      : null);
+  const adLinkId =
+    tx.adId ||
+    (ek.includes("AD_") || ek.includes("PARTNER_")
+      ? tx.relatedId ||
+        (tx.meta.application_id == null ? null : String(tx.meta.application_id)) ||
+        (tx.meta.ad_id == null ? null : String(tx.meta.ad_id))
+      : null);
   const adFamily =
     tx.wallet === "POINT"
       ? resolveAdFamilyFromPointSource(tx.relatedType ?? "")
       : resolveAdFamilyFromCashRelated(tx.relatedType ?? "", String(tx.meta.product_kind ?? ""));
-  const adHref =
-    tx.adId && adFamily ? adminAdDetailHref({ family: adFamily, id: tx.adId }) : null;
+  const adHref = adLinkId && adFamily ? adminAdDetailHref({ family: adFamily, id: adLinkId }) : null;
 
   return (
     <article className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-finance-tx-detail="1">
@@ -87,12 +99,34 @@ export function FinanceTransactionDetail({
             <dd>{financeStatusLabel(tx.status, ko)}</dd>
           </div>
         ) : null}
+        {tx.entryKind === "CONVERT_FROM_STORE_POINTS" || tx.entryKind === "CONVERT_TO_BUSINESS_CASH" ? (
+          <>
+            <div>
+              <dt className="text-sam-muted">{ko ? "적용 Rate snapshot" : "Applied rate snapshot"}</dt>
+              <dd>
+                {tx.meta.rate_pesos_per_point != null
+                  ? `1:${Number(tx.meta.rate_pesos_per_point)}${
+                      tx.meta.rate_version != null ? ` · v${tx.meta.rate_version}` : ""
+                    }`
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sam-muted">{ko ? "Coin Out (meta)" : "Coin out (meta)"}</dt>
+              <dd>
+                {tx.meta.sp_debited != null
+                  ? formatFinanceAmount({ wallet: "COIN", amount: Number(tx.meta.sp_debited) })
+                  : "—"}
+              </dd>
+            </div>
+          </>
+        ) : null}
       </dl>
 
       <div className="flex flex-wrap gap-2 border-t border-sam-border pt-3">
-        {tx.orderId ? (
+        {orderLinkId ? (
           <Link
-            href={financeOrderHref(tx.orderId, filters)}
+            href={financeOrderHref(orderLinkId, filters)}
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="order-detail"
           >
@@ -116,9 +150,9 @@ export function FinanceTransactionDetail({
           >
             {ko ? "광고 상세" : "Ad detail"}
           </Link>
-        ) : tx.adId ? (
+        ) : adLinkId ? (
           <Link
-            href={financeAdsHref({ ...filters, adId: tx.adId })}
+            href={financeAdsHref({ ...filters, adId: adLinkId })}
             className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold text-signature"
             data-finance-cta="ad-funding"
           >

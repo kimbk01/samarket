@@ -7,6 +7,7 @@ import {
   parseFinanceFilters,
   type FinanceFilterState,
 } from "@/lib/finance/routes";
+import { financeTypeFilterOptions } from "@/lib/finance/presentation";
 
 export function FinanceFilterBar({
   ko,
@@ -19,6 +20,7 @@ export function FinanceFilterBar({
   const sp = useSearchParams();
   const initial = useMemo(() => parseFinanceFilters(new URLSearchParams(sp.toString())), [sp]);
   const [draft, setDraft] = useState<FinanceFilterState>(initial);
+  const typeOptions = useMemo(() => financeTypeFilterOptions(ko), [ko]);
 
   useEffect(() => {
     setDraft(initial);
@@ -58,12 +60,18 @@ export function FinanceFilterBar({
       </label>
       <label className="sam-text-helper">
         <span className="text-sam-muted">{ko ? "유형" : "Type"}</span>
-        <input
-          className="mt-1 block rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
+        <select
+          className="mt-1 block max-w-[14rem] rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5"
           value={draft.type ?? ""}
           onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value || null }))}
-          placeholder="SALE_FEE"
-        />
+        >
+          <option value="">{ko ? "전체" : "All"}</option>
+          {typeOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="sam-text-helper">
         <span className="text-sam-muted">{ko ? "매장 ID" : "Store ID"}</span>

@@ -5,21 +5,24 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FinanceAdminNav } from "@/components/finance/FinanceAdminNav";
 import { FinanceSummaryStrip, type FinanceSummaryStripModel } from "@/components/finance/FinanceSummaryStrip";
+import { FinanceTransactionList } from "@/components/finance/FinanceTransactionList";
 import { AdminFinanceControlPlane } from "@/components/admin/finance/AdminFinanceControlPlane";
-import {
-  financeOrdersHref,
-  financeOutstandingHref,
-  financeSettingsHref,
-  financeTransactionListHref,
-  financeWithdrawalsHref,
-} from "@/lib/finance/routes";
+import type { FinanceUnifiedTx } from "@/lib/finance/unified-transaction/types";
+import { financeTransactionListHref } from "@/lib/finance/routes";
 
+/**
+ * Finance Control Plane root — summary strip + operational list first.
+ * Action-required queue is secondary (not a card dashboard).
+ */
 export function AdminFinanceHubView() {
   const { language } = useI18n();
   const ko = language !== "en";
   const [summary, setSummary] = useState<FinanceSummaryStripModel | null>(null);
+  const [rows, setRows] = useState<FinanceUnifiedTx[]>([]);
+  const [txLoading, setTxLoading] = useState(true);
+  const [txError, setTxError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const loadSummary = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/finance-control-plane", {
         credentials: "include",
@@ -61,7 +64,6 @@ export function AdminFinanceHubView() {
         return;
       }
       setSummary({
-        // Preserve 0 — do not coerce via || null
         todayCashInMinor:
           today && today.cashInMinor != null ? Math.trunc(Number(today.cashInMinor)) : null,
         todayCashOutMinor:
@@ -76,55 +78,76 @@ export function AdminFinanceHubView() {
     }
   }, []);
 
+  const loadRecent = useCallback(async () => {
+    setTxLoading(true);
+    setTxError(null);
+    try {
+      const res = await fetch("/api/admin/finance/transactions?limit=40", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        transactions?: FinanceUnifiedTx[];
+        error?: string;
+      };
+      if (!res.ok || !json.ok) {
+        setTxError(json.error || "load_failed");
+        setRows([]);
+        return;
+      }
+      setRows(json.transactions ?? []);
+    } catch {
+      setTxError("network");
+      setRows([]);
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadSummary();
+    void loadRecent();
+  }, [loadSummary, loadRecent]);
 
   return (
     <div className="space-y-4" data-admin-finance-hub="1">
       <FinanceAdminNav ko={ko} />
       <FinanceSummaryStrip ko={ko} model={summary} />
 
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={financeTransactionListHref()}
-          className="rounded-ui-rect bg-signature px-3 py-2 text-sm font-semibold text-white"
-          data-finance-cta="open-transactions"
-        >
-          {ko ? "전체 거래 열기" : "Open all transactions"}
-        </Link>
-        <Link
-          href={financeOutstandingHref()}
-          className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold"
-          data-finance-cta="open-outstanding"
-        >
-          {ko ? "미납 내역 보기" : "Outstanding fees"}
-        </Link>
-        <Link
-          href={financeOrdersHref()}
-          className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold"
-          data-finance-cta="open-orders"
-        >
-          {ko ? "주문별 정산" : "Order settlements"}
-        </Link>
-        <Link
-          href={financeWithdrawalsHref()}
-          className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold"
-          data-finance-cta="open-withdrawals"
-        >
-          {ko ? "출금 대기" : "Withdrawals"}
-        </Link>
-        <Link
-          href={financeSettingsHref()}
-          className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm font-semibold"
-          data-finance-cta="open-settings"
-        >
-          {ko ? "전환 정책 설정" : "Conversion settings"}
-        </Link>
-      </div>
+      <section className="space-y-2" data-admin-finance-hub-ops-list="1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold text-sam-fg">
+            {ko ? "최근 재무 거래" : "Recent finance transactions"}
+          </h2>
+          <Link
+            href={financeTransactionListHref()}
+            className="text-sm font-semibold text-signature hover:underline"
+            data-finance-cta="open-transactions"
+          >
+            {ko ? "전체 거래 열기" : "Open all transactions"}
+          </Link>
+        </div>
+        <p className="sam-text-helper text-sam-muted">
+          {ko
+            ? "매장·유형·금액·원인으로 추적합니다. 행을 누르면 거래 상세로 이동합니다."
+            : "Trace by store, type, amount, and cause. Row opens transaction detail."}
+        </p>
+        <FinanceTransactionList
+          ko={ko}
+          rows={rows}
+          loading={txLoading}
+          error={txError}
+          onRetry={() => void loadRecent()}
+        />
+      </section>
 
-      {/* Action required — keep Control Plane list, not balance card dashboard */}
-      <AdminFinanceControlPlane />
+      <section className="space-y-2 border-t border-sam-border pt-4" data-admin-finance-hub-actions="1">
+        <h2 className="text-base font-semibold text-sam-fg">
+          {ko ? "처리 대기" : "Action required"}
+        </h2>
+        <AdminFinanceControlPlane />
+      </section>
     </div>
   );
 }

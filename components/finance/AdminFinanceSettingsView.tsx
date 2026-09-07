@@ -97,7 +97,60 @@ export function AdminFinanceSettingsView() {
       {loading ? <p className="text-sam-muted">{ko ? "불러오는 중…" : "Loading…"}</p> : null}
       {error ? <p className="text-amber-900">{error}</p> : null}
       {policy ? (
-        <div className="max-w-xl space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
+          <div
+            className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-4"
+            data-finance-policy-current="1"
+          >
+            <h3 className="font-semibold">{ko ? "현재 정책" : "Current policy"}</h3>
+            <dl className="space-y-1 sam-text-body-secondary">
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">enabled</dt>
+                <dd>{policy.enabled ? "true" : "false"}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">rate</dt>
+                <dd>1 Coin = ₱{policy.ratePesosPerPoint}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">minimum</dt>
+                <dd>{policy.minimumCoin}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">unit</dt>
+                <dd>{policy.conversionUnit}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">day / week / month count</dt>
+                <dd>
+                  {policy.maximumConversionsPerDay ?? "—"} / {policy.maximumConversionsPerWeek ?? "—"} /{" "}
+                  {policy.maximumConversionsPerMonth ?? "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">interval (h)</dt>
+                <dd>{policy.minimumIntervalHours ?? "—"}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">daily / monthly Coin cap</dt>
+                <dd>
+                  {policy.dailyLimitCoin ?? "—"} / {policy.monthlyLimitCoin ?? "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-sam-muted">version / effective</dt>
+                <dd>
+                  v{policy.version}
+                  {policy.effectiveFrom
+                    ? ` · ${new Date(policy.effectiveFrom).toLocaleString()}`
+                    : ""}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4" data-finance-policy-edit="1">
+            <h3 className="font-semibold">{ko ? "변경값" : "Draft changes"}</h3>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -141,6 +194,7 @@ export function AdminFinanceSettingsView() {
           >
             {ko ? "전환 정책 저장" : "Save conversion policy"}
           </button>
+          </div>
         </div>
       ) : null}
 

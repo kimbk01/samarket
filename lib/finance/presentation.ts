@@ -118,6 +118,45 @@ export function financeFundingRailLabel(
   return rail;
 }
 
+/** Human-readable linked source for list rows (order / ad / related). */
+export function financeRelatedTargetLabel(
+  row: {
+    orderId?: string | null;
+    adId?: string | null;
+    relatedType?: string | null;
+    relatedId?: string | null;
+    entryKind?: string | null;
+  },
+  ko: boolean
+): string {
+  if (row.orderId) {
+    return ko ? `주문 · ${row.orderId.slice(0, 8)}…` : `Order · ${row.orderId.slice(0, 8)}…`;
+  }
+  if (row.adId) {
+    const family = String(row.relatedType || "").trim();
+    const prefix = family
+      ? family.replace(/_/g, " ")
+      : ko
+        ? "광고"
+        : "Ad";
+    return `${prefix} · ${row.adId.slice(0, 8)}…`;
+  }
+  if (row.relatedId) {
+    const kind = String(row.relatedType || row.entryKind || "").trim();
+    const label = kind ? financeTypeLabel(kind, ko) : ko ? "연결" : "Related";
+    return `${label} · ${row.relatedId.slice(0, 8)}…`;
+  }
+  return "—";
+}
+
+/** Known entry kinds for filter select (label + value). */
+export function financeTypeFilterOptions(ko: boolean): Array<{ value: string; label: string }> {
+  return Object.entries(TYPE_LABELS).map(([value, labels]) => ({
+    value,
+    label: ko ? labels.ko : labels.en,
+  }));
+}
+
 /** Forbidden generic CTA tokens — contract tests / lint helpers. */
 export const FINANCE_FORBIDDEN_CTA_LABELS = [
   "관리",

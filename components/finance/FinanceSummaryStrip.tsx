@@ -6,7 +6,6 @@ import {
   financeCashOutTodayHref,
   financeCoinEarnedTodayHref,
   financeOutstandingHref,
-  financeTransactionListHref,
   financeWithdrawalsHref,
 } from "@/lib/finance/routes";
 import { formatFinanceAmount } from "@/lib/finance/presentation";
@@ -48,12 +47,6 @@ export function FinanceSummaryStrip({
   const loading = model == null;
   const items = [
     {
-      key: "all",
-      label: ko ? "전체 거래" : "All transactions",
-      value: ko ? "목록" : "List",
-      href: financeTransactionListHref(),
-    },
-    {
       key: "cash_in",
       label: ko ? "오늘 Cash 유입" : "Cash in today",
       value: cashOrDash(model?.todayCashInMinor, { loading }),
@@ -91,7 +84,7 @@ export function FinanceSummaryStrip({
 
   return (
     <div
-      className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
       data-finance-summary-strip="1"
     >
       {items.map((it) => (

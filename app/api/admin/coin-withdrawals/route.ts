@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   let q = gate.sb
     .from(COIN_WITHDRAWAL_REQUESTS_TABLE)
     .select(
-      "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at"
+      "id, store_id, owner_user_id, amount, status, destination_type, account_number, account_name, bank_name, source_kind, created_at, paid_at, paid_by, rejected_by, rejected_at, approved_by"
     )
     .order("created_at", { ascending: false })
     .limit(100);

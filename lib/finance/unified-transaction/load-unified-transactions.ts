@@ -50,21 +50,35 @@ export async function loadUnifiedFinanceTransactions(
       const meta = asMeta(row.meta);
       const relatedType = String(row.related_type ?? "");
       const relatedId = String(row.related_id ?? "");
+      const entryKind = String(row.entry_kind ?? "");
+      const rt = relatedType.toLowerCase();
+      const ek = entryKind.toUpperCase();
       let adId: string | null = null;
       if (
-        relatedType.includes("delivery") ||
-        relatedType.includes("ad") ||
-        String(row.entry_kind).includes("AD_") ||
-        String(row.entry_kind).includes("PARTNER_")
+        rt.includes("delivery") ||
+        rt.includes("ad") ||
+        ek.includes("AD_") ||
+        ek.includes("PARTNER_")
       ) {
-        adId = relatedId || (meta.application_id == null ? null : String(meta.application_id));
+        adId =
+          relatedId ||
+          (meta.application_id == null ? null : String(meta.application_id)) ||
+          (meta.ad_id == null ? null : String(meta.ad_id));
       }
+      const orderLinked =
+        Boolean(relatedId) &&
+        (ek.includes("SALE_FEE") ||
+          ek.includes("SALE_EARN") ||
+          rt.includes("order") ||
+          rt.includes("sale_fee") ||
+          rt.includes("settlement") ||
+          (Boolean(orderId) && relatedId.includes(String(orderId))));
       out.push({
         id,
         txKey: `cash:${id}`,
         occurredAt: String(row.created_at ?? ""),
         wallet: "CASH",
-        entryKind: String(row.entry_kind ?? ""),
+        entryKind,
         direction: dir,
         amount: minor / 100,
         amountMinor: minor,
@@ -75,7 +89,7 @@ export async function loadUnifiedFinanceTransactions(
         ownerId: row.actor_user_id == null ? null : String(row.actor_user_id),
         memberId: null,
         memberLabel: null,
-        orderId: relatedId.includes("-") && relatedType.includes("order") ? relatedId : orderId && relatedId.includes(orderId) ? relatedId : relatedType.includes("sale_fee") || relatedType.includes("order") ? relatedId : null,
+        orderId: orderLinked ? relatedId : null,
         adId,
         status: null,
         relatedType: relatedType || null,
@@ -104,12 +118,16 @@ export async function loadUnifiedFinanceTransactions(
       const id = String(row.id ?? "");
       const amt = Math.trunc(Number(row.amount) || 0);
       const relatedId = String(row.related_id ?? "");
+      const entryKind = String(row.entry_kind ?? "");
+      const meta = asMeta(row.meta);
+      const orderFromMeta =
+        meta.order_id == null ? null : String(meta.order_id).trim() || null;
       out.push({
         id,
         txKey: `coin:${id}`,
         occurredAt: String(row.created_at ?? ""),
         wallet: "COIN",
-        entryKind: String(row.entry_kind ?? ""),
+        entryKind,
         direction: amt >= 0 ? "credit" : "debit",
         amount: Math.abs(amt),
         amountMinor: null,
@@ -120,13 +138,13 @@ export async function loadUnifiedFinanceTransactions(
         ownerId: row.actor_user_id == null ? null : String(row.actor_user_id),
         memberId: null,
         memberLabel: null,
-        orderId: relatedId || null,
+        orderId: relatedId || orderFromMeta,
         adId: null,
         status: null,
         relatedType: row.related_type == null ? null : String(row.related_type),
         relatedId: relatedId || null,
         sourceTable: STORE_ECONOMIC_POINT_LEDGER_TABLE,
-        meta: asMeta(row.meta),
+        meta,
       });
     }
   }

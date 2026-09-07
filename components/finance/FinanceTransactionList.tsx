@@ -6,11 +6,19 @@ import {
   formatFinanceAmount,
   financeTypeLabel,
   financeWalletLabel,
+  financeRelatedTargetLabel,
 } from "@/lib/finance/presentation";
 import {
   financeTransactionDetailHref,
+  financeOrderHref,
+  financeAdsHref,
   type FinanceFilterState,
 } from "@/lib/finance/routes";
+import {
+  adminAdDetailHref,
+  resolveAdFamilyFromCashRelated,
+  resolveAdFamilyFromPointSource,
+} from "@/lib/finance/deep-links";
 
 export function FinanceTransactionList({
   ko,
@@ -89,18 +97,20 @@ export function FinanceTransactionList({
 
   return (
     <>
-      {/* Desktop table */}
-      <div className="hidden overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface md:block" data-finance-tx-list="desktop">
-        <table className="w-full min-w-[56rem] text-left sam-text-body-secondary">
+      <div
+        className="hidden overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface md:block"
+        data-finance-tx-list="desktop"
+      >
+        <table className="w-full min-w-[64rem] text-left sam-text-body-secondary">
           <thead className="border-b border-sam-border sam-text-xxs text-sam-muted">
             <tr>
               <th className="px-3 py-2">{ko ? "일시" : "When"}</th>
-              <th className="px-3 py-2">{ko ? "거래번호" : "Tx"}</th>
-              <th className="px-3 py-2">{ko ? "자산" : "Wallet"}</th>
-              <th className="px-3 py-2">{ko ? "유형" : "Type"}</th>
+              <th className="px-3 py-2">{ko ? "구분" : "Type"}</th>
               <th className="px-3 py-2">{ko ? "매장/회원" : "Store/Member"}</th>
-              <th className="px-3 py-2">{ko ? "입금" : "In"}</th>
-              <th className="px-3 py-2">{ko ? "출금" : "Out"}</th>
+              <th className="px-3 py-2">{ko ? "연결 대상" : "Linked to"}</th>
+              <th className="px-3 py-2">{ko ? "유입" : "In"}</th>
+              <th className="px-3 py-2">{ko ? "유출" : "Out"}</th>
+              <th className="px-3 py-2">{ko ? "자산" : "Wallet"}</th>
               <th className="px-3 py-2">{ko ? "잔액" : "Balance"}</th>
             </tr>
           </thead>
@@ -126,11 +136,45 @@ export function FinanceTransactionList({
                   <td className="whitespace-nowrap px-3 py-2 sam-text-xxs">
                     {r.occurredAt ? new Date(r.occurredAt).toLocaleString() : "—"}
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs">{r.id.slice(0, 8)}…</td>
-                  <td className="px-3 py-2">{financeWalletLabel(r.wallet, ko)}</td>
-                  <td className="px-3 py-2">{financeTypeLabel(r.entryKind, ko)}</td>
+                  <td className="px-3 py-2">
+                    <span className="font-medium text-sam-fg">{financeTypeLabel(r.entryKind, ko)}</span>
+                    <span className="mt-0.5 block font-mono sam-text-xxs text-sam-muted">{r.entryKind}</span>
+                  </td>
                   <td className="max-w-[10rem] truncate px-3 py-2">
-                    {r.storeName || r.memberId?.slice(0, 8) || "—"}
+                    {r.storeName || r.memberLabel || r.memberId?.slice(0, 8) || "—"}
+                  </td>
+                  <td className="max-w-[12rem] truncate px-3 py-2 sam-text-xxs">
+                    {r.orderId ? (
+                      <a
+                        href={financeOrderHref(r.orderId, filters)}
+                        className="font-semibold text-signature hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {financeRelatedTargetLabel(r, ko)}
+                      </a>
+                    ) : r.adId ? (
+                      (() => {
+                        const family =
+                          resolveAdFamilyFromCashRelated(
+                            r.relatedType ?? "",
+                            String(r.meta.product_kind ?? "")
+                          ) || resolveAdFamilyFromPointSource(r.relatedType ?? "");
+                        const href = family
+                          ? adminAdDetailHref({ family, id: r.adId })
+                          : financeAdsHref({ ...filters, adId: r.adId });
+                        return (
+                          <a
+                            href={href || financeAdsHref({ ...filters, adId: r.adId })}
+                            className="font-semibold text-signature hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {financeRelatedTargetLabel(r, ko)}
+                          </a>
+                        );
+                      })()
+                    ) : (
+                      financeRelatedTargetLabel(r, ko)
+                    )}
                   </td>
                   <td className="px-3 py-2 tabular-nums text-emerald-700">
                     {credit
@@ -150,6 +194,7 @@ export function FinanceTransactionList({
                         })
                       : "—"}
                   </td>
+                  <td className="px-3 py-2">{financeWalletLabel(r.wallet, ko)}</td>
                   <td className="px-3 py-2 tabular-nums">
                     {r.wallet === "CASH"
                       ? formatFinanceAmount({
@@ -168,7 +213,6 @@ export function FinanceTransactionList({
         </table>
       </div>
 
-      {/* Mobile list */}
       <ul className="space-y-2 md:hidden" data-finance-tx-list="mobile">
         {rows.map((r) => {
           const href = financeTransactionDetailHref(r.txKey, filters);
@@ -185,8 +229,10 @@ export function FinanceTransactionList({
                   <div>
                     <p className="font-medium text-sam-fg">{financeTypeLabel(r.entryKind, ko)}</p>
                     <p className="sam-text-xxs text-sam-muted">
-                      {financeWalletLabel(r.wallet, ko)} · {r.storeName || r.memberId?.slice(0, 8) || "—"}
+                      {financeWalletLabel(r.wallet, ko)} ·{" "}
+                      {r.storeName || r.memberLabel || r.memberId?.slice(0, 8) || "—"}
                     </p>
+                    <p className="sam-text-xxs text-sam-muted">{financeRelatedTargetLabel(r, ko)}</p>
                     <p className="sam-text-xxs text-sam-muted">
                       {r.occurredAt ? new Date(r.occurredAt).toLocaleString() : "—"}
                     </p>

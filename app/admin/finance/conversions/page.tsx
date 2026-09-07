@@ -1,16 +1,15 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminFinanceConversionsView } from "@/components/finance/AdminFinanceConversionsView";
 
-/** Conversions = filtered transaction list (CONVERT*). Preserve filters. */
-export default async function AdminFinanceConversionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const sp = await searchParams;
-  const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(sp)) {
-    if (typeof v === "string" && v.trim()) qs.set(k, v);
-  }
-  if (!qs.has("type")) qs.set("type", "CONVERT_TO_BUSINESS_CASH");
-  redirect(`/admin/finance/transactions?${qs.toString()}`);
+/** Coin→Cash conversion list — not a redirect to raw filtered txs. */
+export default function AdminFinanceConversionsPage() {
+  return (
+    <div className="space-y-4 p-4">
+      <AdminPageHeader titleKey="admin_page_store_finance" />
+      <Suspense fallback={null}>
+        <AdminFinanceConversionsView />
+      </Suspense>
+    </div>
+  );
 }
