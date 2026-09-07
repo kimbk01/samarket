@@ -6,6 +6,7 @@ import {
   formatPreApprovalRuntimeStatus,
   formatRequestedPlacement,
   parseAdsInstant,
+  resolveBoostStoredPeriodBounds,
 } from "@/lib/admin/ads-exposure/canonical-location-period";
 
 describe("canonical-location-period", () => {
@@ -74,5 +75,27 @@ describe("canonical-location-period", () => {
   it("pre-approval runtime is not live/waiting", () => {
     expect(formatPreApprovalRuntimeStatus(true)).toBe("승인 전");
     expect(formatPreApprovalRuntimeStatus(true)).not.toMatch(/노출/);
+  });
+
+  it("Boost recovers end from stored duration_days when end_at is epoch", () => {
+    const bounds = resolveBoostStoredPeriodBounds({
+      startAt: "2026-08-10T13:40:34.73051+00:00",
+      endAt: "1970-01-01T00:00:00+00:00",
+      durationDays: 3,
+    });
+    expect(bounds.recoveredEndFromDuration).toBe(true);
+    expect(bounds.startAt).toMatch(/^2026-08-10T13:40:34\.730/);
+    expect(bounds.endAt).toMatch(/^2026-08-13T13:40:34\.730/);
+    const period = formatAdsPeriodRange(bounds.startAt, bounds.endAt, true);
+    expect(period.valid).toBe(true);
+    expect(period.label).not.toMatch(/기간 정보 오류|1970/);
+    const rem = formatAdsRemaining(
+      bounds.startAt,
+      bounds.endAt,
+      Date.parse("2026-09-07T00:00:00.000Z"),
+      true
+    );
+    expect(rem.kind).toBe("ended");
+    expect(rem.label).toBe("종료됨");
   });
 });

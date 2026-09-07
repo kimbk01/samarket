@@ -80,7 +80,7 @@ export async function loadAdsControlPlane(sb: SupabaseClient): Promise<AdsContro
     sb
       .from("point_promotion_orders")
       .select(
-        "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at"
+        "id, user_id, domain, order_status, created_at, target_id, target_title, product_id, point_cost, start_at, end_at, duration_days"
       )
       .in("domain", ["trade", "community"])
       .order("created_at", { ascending: false })

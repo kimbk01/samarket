@@ -65,6 +65,41 @@ export function formatAdsPeriodRange(
   return { label: `${fmt(s)} ~ ${fmt(e)}`, valid: true, error: false };
 }
 
+/**
+ * Boost order period bounds for Admin projection.
+ * When end_at is epoch/invalid but start_at + stored duration_days exist on the order,
+ * recover end = start + duration_days (order commercial window — not catalog SKU invent).
+ */
+export function resolveBoostStoredPeriodBounds(input: {
+  startAt: string | null | undefined;
+  endAt: string | null | undefined;
+  durationDays: number | null | undefined;
+}): { startAt: string | null; endAt: string | null; recoveredEndFromDuration: boolean } {
+  const start = parseAdsInstant(input.startAt);
+  const end = parseAdsInstant(input.endAt);
+  if (start && end) {
+    return {
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      recoveredEndFromDuration: false,
+    };
+  }
+  const days = Math.trunc(Number(input.durationDays));
+  if (start && !end && Number.isFinite(days) && days >= 1) {
+    const recovered = new Date(start.getTime() + days * 86_400_000);
+    return {
+      startAt: start.toISOString(),
+      endAt: recovered.toISOString(),
+      recoveredEndFromDuration: true,
+    };
+  }
+  return {
+    startAt: start ? start.toISOString() : null,
+    endAt: end ? end.toISOString() : null,
+    recoveredEndFromDuration: false,
+  };
+}
+
 function formatDurationParts(ms: number, ko: boolean): string {
   const totalHours = Math.max(0, Math.floor(ms / 3_600_000));
   const days = Math.floor(totalHours / 24);

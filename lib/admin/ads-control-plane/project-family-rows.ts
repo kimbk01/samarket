@@ -35,7 +35,7 @@ import {
   popupWaitingReasonLabel,
 } from "@/lib/admin/ads-exposure/popup-completeness";
 import { popupOperationalDisplayTitle } from "@/lib/admin/ads-exposure/untitled-display-title";
-import { formatAdsPeriodRange } from "@/lib/admin/ads-exposure/canonical-location-period";
+import { formatAdsPeriodRange, resolveBoostStoredPeriodBounds } from "@/lib/admin/ads-exposure/canonical-location-period";
 
 function ageHours(iso: string): number | null {
   const t = new Date(iso).getTime();
@@ -242,14 +242,20 @@ export type PromoteOrderRow = {
   point_cost?: unknown;
   start_at?: unknown;
   end_at?: unknown;
+  duration_days?: unknown;
 };
 
 export function promoteOrderOpsStatus(r: PromoteOrderRow): AdsOpsStatus {
+  const bounds = resolveBoostStoredPeriodBounds({
+    startAt: typeof r.start_at === "string" ? r.start_at : null,
+    endAt: typeof r.end_at === "string" ? r.end_at : null,
+    durationDays: r.duration_days != null ? Number(r.duration_days) : null,
+  });
   const raw = String(r.order_status ?? "");
   return projectAdsOpsStatus({
     rawStatus: raw,
-    startAt: typeof r.start_at === "string" ? r.start_at : null,
-    endAt: typeof r.end_at === "string" ? r.end_at : null,
+    startAt: bounds.startAt,
+    endAt: bounds.endAt,
   });
 }
 
@@ -262,6 +268,11 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
     domainRaw === "community" ? "community_promote" : "trade_promote";
   const ops = promoteOrderOpsStatus(r);
   const isCommunity = domain === "community_promote";
+  const periodBounds = resolveBoostStoredPeriodBounds({
+    startAt: typeof r.start_at === "string" ? r.start_at : null,
+    endAt: typeof r.end_at === "string" ? r.end_at : null,
+    durationDays: r.duration_days != null ? Number(r.duration_days) : null,
+  });
 
   return {
     id: `${isCommunity ? "community_promo" : "trade_promo"}:${id}`,
@@ -284,16 +295,9 @@ export function projectPromoteOrderToActionItem(r: PromoteOrderRow): AdsActionIt
           : "레거시 승인 대기 거래 상위노출(신규 flow는 즉시 Point 결제)."
         : null,
     paymentLabel: adsPaymentLabel(null, "POINT", true),
-    periodLabel: formatPeriod(
-      typeof r.start_at === "string" ? r.start_at : null,
-      typeof r.end_at === "string" ? r.end_at : null
-    ),
+    periodLabel: formatPeriod(periodBounds.startAt, periodBounds.endAt),
     remainingLabel:
-      adsRemainingPeriodLabel(
-        typeof r.start_at === "string" ? r.start_at : null,
-        typeof r.end_at === "string" ? r.end_at : null,
-        true
-      ) || null,
+      adsRemainingPeriodLabel(periodBounds.startAt, periodBounds.endAt, true) || null,
     exposureLabel: exposureFromOps(ops),
     eligibility: exposureFromOps(ops),
     ageHours: ageHours(at),

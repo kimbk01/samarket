@@ -9,6 +9,7 @@ import {
   resolveShellPlacementKey,
   toAdsShellListRow,
 } from "@/lib/admin/ads-exposure/shell-row";
+import { projectPromoteOrderToActionItem } from "@/lib/admin/ads-control-plane/project-family-rows";
 
 function item(partial: Partial<AdsActionItem>): AdsActionItem {
   return {
@@ -295,6 +296,31 @@ describe("Boost shell runtime — never Pre-approval / 승인 전", () => {
     );
     expect(onAll.runtimeExposureStatusLabel).toBe("예약");
     assertBoostRuntime(onAll.runtimeExposureStatusLabel);
+  });
+
+  it("Kkk-shaped ended Boost: period not 기간 정보 오류; runtime stays Ended", () => {
+    const action = projectPromoteOrderToActionItem({
+      id: "de06f845-c12a-43a1-8b34-e7ec75afa388",
+      user_id: "83ce3d18-5340-4ed9-8834-77e404d3bedb",
+      domain: "community",
+      order_status: "ended",
+      product_id: "community_promote_3",
+      point_cost: 10000,
+      target_title: "Kkk",
+      start_at: "2026-08-10T13:40:34.73051+00:00",
+      end_at: "1970-01-01T00:00:00+00:00",
+      duration_days: 3,
+      created_at: "2026-08-10T13:40:34.73051+00:00",
+    });
+    expect(action.periodLabel).toBeTruthy();
+    expect(action.periodLabel).not.toMatch(/기간 정보 오류|1970/);
+    expect(action.remainingLabel).toBe("종료됨");
+
+    const row = toAdsShellListRow(action, true, "boosts");
+    expect(row.runtimeExposureStatusLabel).toBe("종료");
+    assertBoostRuntime(row.runtimeExposureStatusLabel);
+    expect(row.periodLabel).not.toMatch(/기간 정보 오류|1970/);
+    expect(row.remainingLabel).not.toMatch(/기간 정보 오류|1970/);
   });
 });
 
