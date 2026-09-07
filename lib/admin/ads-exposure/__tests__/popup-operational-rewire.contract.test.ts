@@ -30,6 +30,9 @@ describe("popup operational rewire source contracts", () => {
     expect(workspace).toContain("selectedShell.creativeImageUrl");
     expect(workspace).toContain("r.previewHref");
     expect(workspace).toContain("selectedShell.previewHref");
-    expect(workspace).toContain("수정 / 상세");
+    /** Preview CTA ≠ product detail — labels stay separate (not a combined edit/detail). */
+    expect(workspace).toContain('ko ? "미리보기" : "Preview"');
+    expect(workspace).toContain('ko ? "상품 상세" : "Product detail"');
+    expect(workspace).not.toContain("수정 / 상세");
   });
 });

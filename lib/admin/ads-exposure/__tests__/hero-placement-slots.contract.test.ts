@@ -46,8 +46,11 @@ describe("hero-placement-slots contract", () => {
 
   it("placement HERO slides do not depend on control-plane execution rows", () => {
     const view = read("components/admin/ads/AdminAdsPlacementManagementView.tsx");
+    const inventory = read("lib/admin/ads-exposure/placement-inventory.ts");
     expect(view).not.toContain("model.currentExecution");
-    expect(view).toContain("/api/admin/advertising/hero-placement-slots");
+    /** R5: board loads via placement-inventory (server embeds loadHeroPlacementSlots). */
+    expect(view).toContain("/api/admin/advertising/placement-inventory");
+    expect(inventory).toContain("loadHeroPlacementSlots");
     expect(view).toContain("/api/admin/advertising/reorder-hero-banners");
   });
 });
