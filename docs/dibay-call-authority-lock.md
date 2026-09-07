@@ -80,6 +80,19 @@ Do not invent a second reason resolver.
 
 Do not invent a second chat call writer.
 
+## Missed attention (CUT5)
+
+| Concern | Authority |
+|---|---|
+| Missed terminal | CUT2 |
+| call_stub unread (Conversation B) | CUT4 |
+| Logical missed notification | `notifyRoomBoundMissedCallBestEffort` → `createAndDispatchNotificationEvent` (`missed_call:{session}:{callee}`) |
+| Recipient | callee only |
+| Deeplink | `/community-messenger/rooms/{session.room_id}` exact — never `/calls/{sessionId}` |
+| Bell digit | room-bound missed excluded (`isRoomBoundMissedCallEvent`) |
+| App Icon orphan | room_id null only |
+| incoming_call | ringing transport — not missed product notification |
+
 ## Missed policy (LOCKED)
 
 - `missed_timeout` / `status=missed` with a canonical room → callee unread

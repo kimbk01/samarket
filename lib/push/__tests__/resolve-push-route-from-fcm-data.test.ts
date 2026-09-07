@@ -34,23 +34,23 @@ describe("resolvePushRouteFromFcmData — legacy", () => {
     ).toBe("/community?banner=camp-1");
   });
 
-  it("resolves missed_call to logs with callId", () => {
+  it("resolves missed_call without room to messenger home (CUT5)", () => {
     expect(
       resolvePushRouteFromFcmData({
         type: "missed_call",
         callId: "sess-9",
       })
-    ).toBe("/community-messenger/calls/logs?callId=sess-9");
+    ).toBe("/community-messenger");
   });
 
-  it("resolves missed_call with roomId to call-history room focus like Android", () => {
+  it("resolves missed_call with roomId to exact room (CUT5)", () => {
     expect(
       resolvePushRouteFromFcmData({
         type: "missed_call",
         roomId: "room-9",
         callId: "sess-9",
       })
-    ).toBe("/community-messenger/rooms/room-9?focus=call-history&callId=sess-9");
+    ).toBe("/community-messenger/rooms/room-9");
   });
 
   it("resolves chat, trade, order, and community route payloads", () => {

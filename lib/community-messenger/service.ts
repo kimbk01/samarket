@@ -273,6 +273,10 @@ import {
   evaluateMissedTransitionGate,
   resolveCanonicalRingTimeoutSeconds,
 } from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
+import {
+  buildRoomBoundMissedCallNotificationInput,
+  decideRoomBoundMissedCallNotification,
+} from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
 import {
@@ -1117,6 +1121,70 @@ function endedReasonForSessionDelta(
     recipientUserId: ctx?.recipientUserId,
     answeredAt: ctx?.answeredAt,
   });
+}
+
+/**
+ * CUT5 — one logical room-bound missed_call notification for callee.
+ * Conversation B unread remains call_stub; Bell digit excludes room-bound missed.
+ */
+async function notifyRoomBoundMissedCallBestEffort(
+  session: CallSessionRow | DevCallSession,
+  mapped: CommunityMessengerCallSession,
+): Promise<void> {
+  if (mapped.status !== "missed") return;
+  const isDbSession = "initiator_user_id" in session;
+  const roomId = trimText(isDbSession ? session.room_id : session.roomId);
+  const callSessionId = trimText(mapped.id) || trimText(isDbSession ? session.id : session.id);
+  const initiatorUserId = trimText(
+    isDbSession ? session.initiator_user_id : session.initiatorUserId,
+  );
+  const recipientUserId = trimText(
+    isDbSession ? session.recipient_user_id : session.recipientUserId,
+  );
+  const endedReason = trimText(
+    isDbSession
+      ? (session.ended_reason ?? mapped.endedReason ?? "")
+      : (session.endedReason ?? mapped.endedReason ?? ""),
+  );
+  const callKind = (isDbSession ? session.call_kind : session.callKind) ?? mapped.callKind ?? "voice";
+  const sessionMode = isDbSession
+    ? (session.session_mode ?? mapped.sessionMode ?? "direct")
+    : (session.sessionMode ?? mapped.sessionMode ?? "direct");
+  const decision = decideRoomBoundMissedCallNotification({
+    status: mapped.status,
+    endedReason,
+    sessionMode,
+    roomId,
+    callSessionId,
+    initiatorUserId,
+    recipientUserId,
+    callKind,
+  });
+  if (!decision.notify) return;
+  const sb = getSupabaseOrNull();
+  if (!sb) return;
+  let callerDisplayName = "";
+  try {
+    const profiles = await hydrateProfiles(decision.recipientUserId, [decision.actorUserId]);
+    callerDisplayName = trimText(profiles[0]?.label ?? "");
+  } catch {
+    /* best-effort */
+  }
+  const { createAndDispatchNotificationEvent } = await import(
+    "@/lib/notifications/pipeline/notification-event-dispatcher"
+  );
+  await createAndDispatchNotificationEvent(
+    sb as any,
+    buildRoomBoundMissedCallNotificationInput({
+      recipientUserId: decision.recipientUserId,
+      roomId: decision.roomId,
+      callSessionId: decision.callSessionId,
+      actorUserId: decision.actorUserId,
+      callKind: decision.callKind,
+      callerDisplayName: callerDisplayName || null,
+      chatDomain: "general_direct",
+    }),
+  ).catch(() => {});
 }
 
 function auditEventTypeForAction(
@@ -19496,8 +19564,9 @@ export async function updateCommunityMessengerCallSession(input: {
           },
         });
         /**
-         * Room-bound missed is the terminal call_stub Conversation B fact.
-         * Do not create a second notification_events/Bell fact for the same session.
+         * Room-bound missed: call_stub = Conversation B unread (CUT4).
+         * CUT5 adds ONE logical notification_events.missed_call for callee
+         * (Bell digit still excludes room-bound via attention projection).
          */
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
@@ -19507,6 +19576,9 @@ export async function updateCommunityMessengerCallSession(input: {
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
           else await ensureTerminalCallStub(session, mapped);
+        }
+        if (mapped.status === "missed") {
+          void notifyRoomBoundMissedCallBestEffort(session, mapped);
         }
         return { ok: true, session: mapped };
       }
@@ -19663,6 +19735,9 @@ export async function updateCommunityMessengerCallSession(input: {
   if (isTerminalCallSessionStatus(mapped.status)) {
     if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
     else await ensureTerminalCallStub(session, mapped);
+  }
+  if (mapped.status === "missed") {
+    void notifyRoomBoundMissedCallBestEffort(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)

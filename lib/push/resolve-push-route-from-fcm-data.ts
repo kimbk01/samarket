@@ -73,9 +73,13 @@ function resolveLegacyTypeRoute(data: FcmRouteData): string | null {
 
   if (type === "missed_call" && callId) {
     if (roomId) {
-      return `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call-history&callId=${encodeURIComponent(callId)}`;
+      return (
+        buildCanonicalNotificationRoomHref({ roomId, chatDomain: "general_direct" }) ??
+        `/community-messenger/rooms/${encodeURIComponent(roomId)}`
+      );
     }
-    return `/community-messenger/calls/logs?callId=${encodeURIComponent(callId)}`;
+    // Room missing: safe inbox fallback — never invent /calls/{session} for terminal missed.
+    return "/community-messenger";
   }
   if (type === "incoming_call" && callId) {
     return `/community-messenger/calls/${encodeURIComponent(callId)}`;
