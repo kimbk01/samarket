@@ -84,4 +84,18 @@ describe("push-route-consume-contract", () => {
     expect(pathsMatchForPushConsume("/community-messenger?section=chats", ROOM)).toBe(false);
     expect(pathsMatchForPushConsume("/", ROOM)).toBe(false);
   });
+
+  it("T2 parent route must not decide ack for room pending", () => {
+    expect(
+      decidePushRouteAck({
+        targetPath: ROOM,
+        currentPath: "/community-messenger",
+        authGate: "allow",
+      })
+    ).toEqual({ action: "hold", reason: "awaiting_navigation" });
+  });
+
+  it("T4 different room must not ack", () => {
+    expect(pathsMatchForPushConsume(ROOM, "/community-messenger/rooms/other-id")).toBe(false);
+  });
 });

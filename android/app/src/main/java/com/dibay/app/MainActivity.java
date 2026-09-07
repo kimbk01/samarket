@@ -1005,31 +1005,23 @@ public class MainActivity extends BridgeActivity {
 
   /**
    * SPA confirmed route consumption — only clear authority for chat push pending.
+   * ACKED_ROUTE must equal PENDING_ROUTE after canonical normalize (no prefix / empty ACK).
    */
   public static void ackPushRouteConsumed(
       android.content.Context context, String path, String notificationId) {
     if (context == null) return;
     String target = path != null ? path.trim() : "";
+    if (target.isEmpty()) {
+      Log.i(ROUTE_LOG_TAG, "[push-route] route_consumed_ignored path= empty");
+      return;
+    }
     android.os.Bundle pending = readPersistedPendingPushRoute(context);
     String pendingPath = pending.getString(PENDING_PATH_KEY);
-    String pendingId = pending.getString(PENDING_NOTIFICATION_ID_KEY);
-    boolean pathOk =
-        target.isEmpty()
-            || pendingPath == null
-            || pendingPath.isEmpty()
-            || pendingPath.equals(target)
-            || pendingPath.startsWith(target.split("\\?", 2)[0]);
-    boolean idOk =
-        notificationId == null
-            || notificationId.trim().isEmpty()
-            || pendingId == null
-            || pendingId.isEmpty()
-            || pendingId.equals(notificationId.trim());
-    if (pendingPath != null
-        && !pendingPath.isEmpty()
-        && !target.isEmpty()
-        && !pathOk
-        && !idOk) {
+    if (pendingPath == null || pendingPath.isEmpty()) {
+      Log.i(ROUTE_LOG_TAG, "[push-route] route_consumed_ignored pending=none");
+      return;
+    }
+    if (!PushRouteAckMatch.matches(target, pendingPath)) {
       Log.i(
           ROUTE_LOG_TAG,
           "[push-route] route_consumed_ignored path="
@@ -1039,18 +1031,16 @@ public class MainActivity extends BridgeActivity {
       return;
     }
     clearPersistedPendingPushRoute(context);
-    Log.i(
-        ROUTE_LOG_TAG,
-        "[push-route] route_consumed path=" + (target.isEmpty() ? pendingPath : target));
+    Log.i(ROUTE_LOG_TAG, "[push-route] route_consumed path=" + target);
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_cleared");
     MainActivity act = activeInstance;
     if (act != null) {
       act.mainHandler.post(
           () -> {
+            // Chat ACK: clear push pending memory only — do not touch call overlay UI.
             act.pendingAppPath = null;
             act.pendingNotificationId = null;
             act.routeInjectedForCurrentPending = true;
-            act.hideCallRouteLoadingOverlay();
           });
     }
   }

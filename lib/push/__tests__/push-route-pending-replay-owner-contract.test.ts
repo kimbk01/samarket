@@ -16,8 +16,33 @@ describe("push-route pending replay owner contract", () => {
     expect(main).toContain("onPushRouteConsumerReady");
     expect(main).toContain("ackPushRouteConsumed");
     expect(main).toContain("pending_route_cleared");
+    expect(main).toContain("PushRouteAckMatch.matches");
     // Chat inject must not mark routeInjected before ACK (call branch still may).
     expect(main).toMatch(/webview_route_delivered_awaiting_ack[\s\S]*return false;/);
+  });
+
+  it("T5 chat ACK must not hide call overlay", () => {
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const ackStart = main.indexOf("public static void ackPushRouteConsumed");
+    const ackEnd = main.indexOf("/** JS mount fallback when sessionStorage inject missed", ackStart);
+    expect(ackStart).toBeGreaterThan(-1);
+    expect(ackEnd).toBeGreaterThan(ackStart);
+    const ackBody = main.slice(ackStart, ackEnd);
+    expect(ackBody).not.toContain("hideCallRouteLoadingOverlay");
+    expect(ackBody).toContain("PushRouteAckMatch.matches");
+    expect(ackBody).toContain("path= empty");
+  });
+
+  it("ACK rejects prefix/empty (source contract)", () => {
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const match = read("android/app/src/main/java/com/dibay/app/PushRouteAckMatch.java");
+    expect(main).not.toMatch(
+      /ackPushRouteConsumed[\s\S]{0,800}pendingPath\.startsWith\(target/
+    );
+    expect(main).toMatch(
+      /ackPushRouteConsumed[\s\S]{0,400}if \(target\.isEmpty\(\)\)/
+    );
+    expect(match).toContain("ACKED_ROUTE == PENDING_ROUTE");
   });
 
   it("plugin exposes consumer ready + ack on existing NativeIncomingCall bridge", () => {

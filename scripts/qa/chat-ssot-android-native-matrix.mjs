@@ -715,13 +715,19 @@ async function main() {
     .split(",")
     .map((s) => s.trim().toUpperCase())
     .filter(Boolean);
+  const onlyStates = (process.env.CHAT_SSOT_ANDROID_STATES || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
   const want = (d) => !only.length || only.includes(d);
+  const wantState = (s) => !onlyStates.length || onlyStates.includes(s);
 
   if (!group?.id) {
     report.android.GROUP = { result: "NOT_PROVEN", reason: "no_group_room" };
   } else if (want("GROUP")) {
-    report.android.GROUP = {
-      foreground: await proveCase({
+    report.android.GROUP = {};
+    if (wantState("foreground")) {
+      report.android.GROUP.foreground = await proveCase({
         domain: "GROUP",
         state: "foreground",
         room: group,
@@ -729,8 +735,10 @@ async function main() {
         cookieB: b.cookie,
         userB: b.userId,
         report,
-      }),
-      background: await proveCase({
+      });
+    }
+    if (wantState("background")) {
+      report.android.GROUP.background = await proveCase({
         domain: "GROUP",
         state: "background",
         room: group,
@@ -738,8 +746,10 @@ async function main() {
         cookieB: b.cookie,
         userB: b.userId,
         report,
-      }),
-      terminated: await proveCase({
+      });
+    }
+    if (wantState("terminated")) {
+      report.android.GROUP.terminated = await proveCase({
         domain: "GROUP",
         state: "terminated",
         room: group,
@@ -747,8 +757,8 @@ async function main() {
         cookieB: b.cookie,
         userB: b.userId,
         report,
-      }),
-    };
+      });
+    }
   } else {
     report.android.GROUP = { result: "SKIPPED" };
   }
