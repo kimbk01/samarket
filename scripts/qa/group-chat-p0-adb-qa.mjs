@@ -373,8 +373,30 @@ async function main() {
   }
   const cookieA = authA.cookie;
   const cookieB = authB.cookie;
-  const authC = userC ? await authForUserId(userC) : null;
-  const cookieC = authC?.cookie ?? null;
+  /** Prefer explicit LOGIN_C when friend-peer resolves to a broken/withdrawn account (e.g. aaaa). */
+  let authC = null;
+  let cookieC = null;
+  if (userC) {
+    try {
+      authC = await authForUserId(userC);
+      cookieC = authC.cookie;
+    } catch (e) {
+      log(`WARN: C auth failed (${userC}): ${e?.message ?? e} — retry LOGIN_C=${LOGIN_C}`);
+      try {
+        const forcedC = await resolveProfileUserId(LOGIN_C);
+        await ensureAcceptedFriendPair(userA, forcedC);
+        userC = forcedC;
+        authC = await authForUserId(userC);
+        cookieC = authC.cookie;
+        report.evidence.userIds = { A: userA, B: userB, C: userC };
+      } catch (e2) {
+        log(`WARN: C unavailable — continue 2-device push QA (${e2?.message ?? e2})`);
+        userC = null;
+        authC = null;
+        cookieC = null;
+      }
+    }
+  }
 
   // --- APK WebView CDP preflight (A/B) — Chrome/VIEW 금지 ---
   log("--- APK WebView preflight A ---");

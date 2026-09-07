@@ -82,10 +82,26 @@ export async function runCommunityMessengerSendPostAckEffects(
       createdAt: effects.createdAt,
     }).catch(() => {});
   }
-  const roomKind = resolveGroupMessageRoomKind(
-    String(effects.roomType ?? ""),
-    effects.directKey ?? null
-  );
+  /**
+   * Atomic send RPC historically omitted `room_type` from the payload (membership migration
+   * return shape). Without a fallback lookup, private_group/open_group notify as `direct`
+   * → `chat_message` FCM kind. Resolve from room row when effects.roomType is missing.
+   */
+  let roomType = typeof effects.roomType === "string" ? effects.roomType.trim() : "";
+  let directKey = effects.directKey ?? null;
+  if (!roomType && roomId) {
+    const { data: roomRow } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("room_type, direct_key")
+      .eq("id", roomId)
+      .maybeSingle();
+    roomType = typeof roomRow?.room_type === "string" ? String(roomRow.room_type).trim() : "";
+    if (directKey == null || String(directKey).trim() === "") {
+      directKey =
+        typeof roomRow?.direct_key === "string" ? String(roomRow.direct_key).trim() || null : null;
+    }
+  }
+  const roomKind = resolveGroupMessageRoomKind(roomType, directKey);
   let mentionUserIds: string[] = [];
   if (roomKind === "group" && messageId) {
     mentionUserIds = await resolveMentionUserIdsForGroupRoom(sb, roomId, content).catch(() => []);

@@ -15860,7 +15860,7 @@ export async function sendCommunityMessengerMessage(input: {
     }
     const roomQ = (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_status, is_readonly, direct_key, deleted_at")
+      .select("id, room_status, is_readonly, direct_key, deleted_at, room_type")
       .eq("id", roomId)
       .maybeSingle();
     const dedupeQ =
@@ -16015,6 +16015,10 @@ export async function sendCommunityMessengerMessage(input: {
         .filter((uid) => Boolean(uid?.trim()));
       const hasMention = /@\S/.test(content);
       const directKeyStr = String((roomData as { direct_key?: unknown }).direct_key ?? "").trim() || null;
+      const roomTypeStr =
+        typeof (roomData as { room_type?: unknown }).room_type === "string"
+          ? String((roomData as { room_type: string }).room_type).trim()
+          : null;
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       const insRow = insertedMessage as MessageRow;
       const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
@@ -16039,6 +16043,7 @@ export async function sendCommunityMessengerMessage(input: {
           itemTradeLedgerId,
           messageId: insertedMessageId,
           directKey: directKeyStr,
+          roomType: roomTypeStr,
           hasMention,
         },
       };
