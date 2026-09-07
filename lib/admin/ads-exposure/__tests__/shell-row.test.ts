@@ -203,6 +203,101 @@ describe("adsShellKindLabel + filters", () => {
   });
 });
 
+describe("Boost shell runtime — never Pre-approval / 승인 전", () => {
+  const forbidden = [/Pre-approval/i, /승인\s*전/, /확인중/, /심사중/, /Pending approval/i];
+
+  function assertBoostRuntime(label: string) {
+    for (const re of forbidden) {
+      expect(label).not.toMatch(re);
+    }
+  }
+
+  it("Community Boost + legacy entity=application + mode=boosts uses operational runtime", () => {
+    const live = toAdsShellListRow(
+      item({
+        id: "community_promo:kkk",
+        domain: "community_promote",
+        product: "community_promote_7",
+        entity: "application",
+        sourceKind: "member",
+        storeId: null,
+        memberId: "83ce3d18-aaaa",
+        applicantLabel: "Kkk",
+        title: "Kkk",
+        status: "노출 중",
+        exposureLabel: "노출 중",
+        runtimeDisplayStatus: "live_now",
+        periodLabel: "2026-09-01 → 2026-09-10",
+      }),
+      false,
+      "boosts"
+    );
+    expect(live.runtimeExposureStatusLabel).toBe("Live now");
+    assertBoostRuntime(live.runtimeExposureStatusLabel);
+
+    const legacyPending = toAdsShellListRow(
+      item({
+        id: "community_promo:legacy",
+        domain: "community_promote",
+        product: "community_promote_3",
+        entity: "application",
+        sourceKind: "member",
+        storeId: null,
+        memberId: "m1",
+        applicantLabel: "Legacy",
+        status: "승인 대기",
+        exposureLabel: "승인 대기",
+        periodLabel: null,
+      }),
+      true,
+      "boosts"
+    );
+    expect(legacyPending.runtimeExposureStatusLabel).toBe("비노출");
+    assertBoostRuntime(legacyPending.runtimeExposureStatusLabel);
+    expect(legacyPending.applicationStatusLabel).toBe("—");
+  });
+
+  it("Trade Boost + entity=application never uses approval runtime on boosts/all", () => {
+    const paused = toAdsShellListRow(
+      item({
+        id: "trade_promo:1",
+        domain: "trade_promote",
+        product: "trade_promote_7",
+        entity: "application",
+        sourceKind: "member",
+        storeId: null,
+        memberId: "m2",
+        status: "일시중지",
+        exposureLabel: "일시중지",
+        runtimeDisplayStatus: "paused",
+      }),
+      true,
+      "boosts"
+    );
+    expect(paused.runtimeExposureStatusLabel).toBe("제재 중");
+    assertBoostRuntime(paused.runtimeExposureStatusLabel);
+
+    const onAll = toAdsShellListRow(
+      item({
+        id: "trade_promo:2",
+        domain: "trade_promote",
+        product: "trade_promote_7",
+        entity: "application",
+        sourceKind: "member",
+        storeId: null,
+        memberId: "m2",
+        status: "예약",
+        exposureLabel: "예약",
+        runtimeDisplayStatus: "scheduled",
+      }),
+      true,
+      "all"
+    );
+    expect(onAll.runtimeExposureStatusLabel).toBe("예약");
+    assertBoostRuntime(onAll.runtimeExposureStatusLabel);
+  });
+});
+
 describe("ADS_FEEDBACK Owner LOCK copy", () => {
   it("uses Owner capacity / order language", () => {
     expect(ADS_FEEDBACK.capacityFull.ko).toBe(

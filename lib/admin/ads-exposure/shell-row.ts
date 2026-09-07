@@ -164,6 +164,32 @@ function isCreativeUrl(hint: string | null | undefined): boolean {
   return /^https?:\/\//i.test(hint) || hint.includes("supabase");
 }
 
+/** Community/Trade Boost — never approval-queue presentation (Owner Policy LOCK). */
+export function isBoostShellDomain(domain: string | null | undefined): boolean {
+  const d = String(domain ?? "").toLowerCase();
+  return d === "community_promote" || d === "trade_promote";
+}
+
+/**
+ * Boost runtime column — operational exposure, not human-approval vocabulary.
+ * Maps shell tabs onto: 현재 노출 / 노출 대기 / 예약 / 비노출 / 제재 중 (+ 종료).
+ */
+function boostRuntimeLabelFromTab(
+  statusTab: Exclude<AdsShellStatusTab, "all">,
+  ko: boolean
+): string | null {
+  if (statusTab === "live") return ko ? "현재 노출" : "Live now";
+  if (statusTab === "waiting") return ko ? "노출 대기" : "Waiting";
+  if (statusTab === "scheduled") return ko ? "예약" : "Scheduled";
+  if (statusTab === "paused") return ko ? "제재 중" : "Sanctioned";
+  // Legacy pending_review / draft-shaped boosts: not exposing (no approval wait).
+  if (statusTab === "pending" || statusTab === "incomplete") {
+    return ko ? "비노출" : "Not exposing";
+  }
+  if (statusTab === "ended" || statusTab === "rejected") return ko ? "종료" : "Ended";
+  return null;
+}
+
 export function toAdsShellListRow(
   item: AdsActionItem,
   ko: boolean,
@@ -172,8 +198,11 @@ export function toAdsShellListRow(
   const placementKey = resolveShellPlacementKey(item);
   const kind = inferPlacementProductKind(item.domain, item.product);
   const slideN = parseSlideIndex(item.placementHint) ?? parseSlideIndex(item.creativeHint);
+  const boostDomain = isBoostShellDomain(item.domain);
+  // Boost product semantics outrank legacy entity=application shape.
   // Admin Direct Popup is never approval-queue authority (Owner Policy LOCK).
   const isApplication =
+    !boostDomain &&
     item.sourceKind !== "admin_direct" &&
     (mode === "applications" ||
       item.entity === "application" ||
@@ -229,6 +258,9 @@ export function toAdsShellListRow(
   let runtimeLabel: string;
   if (isApplication) {
     runtimeLabel = formatPreApprovalRuntimeStatus(ko);
+  } else if (boostDomain) {
+    runtimeLabel =
+      boostRuntimeLabelFromTab(statusTab, ko) || (ko ? "비노출" : "Not exposing");
   } else if (runtimeStatus) {
     runtimeLabel = popupRuntimeDisplayLabel(runtimeStatus, ko);
   } else {
