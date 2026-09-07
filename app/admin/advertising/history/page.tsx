@@ -1,5 +1,5 @@
-import { AdminAdvertisingWorkspace } from "@/components/admin/ads/AdminAdvertisingWorkspace";
+import { AdminAdsHistoryLedgerView } from "@/components/admin/ads/AdminAdsHistoryLedgerView";
 
 export default function AdminAdvertisingHistoryPage() {
-  return <AdminAdvertisingWorkspace mode="history" />;
+  return <AdminAdsHistoryLedgerView />;
 }
