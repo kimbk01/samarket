@@ -1094,8 +1094,22 @@ function endedReasonForSessionDelta(
   action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
   nextStatus: CommunityMessengerCallSessionStatus,
   clientEndedReason?: string | null,
+  ctx?: {
+    actorUserId?: string | null;
+    initiatorUserId?: string | null;
+    recipientUserId?: string | null;
+    answeredAt?: string | null;
+  },
 ): string | null {
-  return resolveTerminalEndedReason({ action, nextStatus, clientEndedReason });
+  return resolveTerminalEndedReason({
+    action,
+    nextStatus,
+    clientEndedReason,
+    actorUserId: ctx?.actorUserId,
+    initiatorUserId: ctx?.initiatorUserId,
+    recipientUserId: ctx?.recipientUserId,
+    answeredAt: ctx?.answeredAt,
+  });
 }
 
 function auditEventTypeForAction(
@@ -18762,9 +18776,21 @@ export async function updateCommunityMessengerCallSession(input: {
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId);
+          const groupCancelReason =
+            endedReasonForSessionDelta("cancel", "cancelled", input.clientEndedReason, {
+              actorUserId: input.userId,
+              initiatorUserId: session.initiator_user_id,
+              recipientUserId: session.recipient_user_id,
+              answeredAt: session.answered_at,
+            }) ?? "canceled";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({ status: "cancelled", ended_at: now, updated_at: now, ended_reason: "canceled" })
+            .update({
+              status: "cancelled",
+              ended_at: now,
+              updated_at: now,
+              ended_reason: groupCancelReason,
+            })
             .eq("id", sessionId)
             .select(
               "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
@@ -18805,13 +18831,20 @@ export async function updateCommunityMessengerCallSession(input: {
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId)
             .in("participation_status", ["joined", "invited"]);
+          const groupEndReason =
+            endedReasonForSessionDelta("end", "ended", input.clientEndedReason, {
+              actorUserId: input.userId,
+              initiatorUserId: session.initiator_user_id,
+              recipientUserId: session.recipient_user_id,
+              answeredAt: session.answered_at ?? (session.status === "active" ? now : null),
+            }) ?? "ended";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
             .update({
               status: "ended",
               ended_at: now,
               updated_at: now,
-              ended_reason: "ended",
+              ended_reason: groupEndReason,
             })
             .eq("id", sessionId)
             .select(
@@ -18893,9 +18926,21 @@ export async function updateCommunityMessengerCallSession(input: {
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId);
+          const groupMissedReason =
+            endedReasonForSessionDelta("missed", "missed", input.clientEndedReason, {
+              actorUserId: input.userId,
+              initiatorUserId: session.initiator_user_id,
+              recipientUserId: session.recipient_user_id,
+              answeredAt: session.answered_at,
+            }) ?? "missed";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({ status: "missed", ended_at: now, updated_at: now, ended_reason: "missed" })
+            .update({
+              status: "missed",
+              ended_at: now,
+              updated_at: now,
+              ended_reason: groupMissedReason,
+            })
             .eq("id", sessionId)
             .eq("status", "ringing")
             .select(
@@ -18941,6 +18986,14 @@ export async function updateCommunityMessengerCallSession(input: {
           input.action,
           nextStatus as CommunityMessengerCallSessionStatus,
           input.clientEndedReason,
+          {
+            actorUserId: input.userId,
+            initiatorUserId: session.initiator_user_id,
+            recipientUserId: session.recipient_user_id,
+            answeredAt:
+              (typeof updatePayload.answered_at === "string" ? updatePayload.answered_at : null) ??
+              session.answered_at,
+          },
         );
         if (erG) updatePayload.ended_reason = erG;
         else if (nextStatus === "active") updatePayload.ended_reason = null;
@@ -19126,14 +19179,13 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
-        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason);
-        const fr = trimText(input.clientEndedReason ?? "");
-        const useClientFailure =
-          input.action === "end" &&
-          next.nextStatus === "ended" &&
-          isTrustedClientEndedReason(fr);
-        if (useClientFailure) updatePayload.ended_reason = fr;
-        else if (er) updatePayload.ended_reason = er;
+        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason, {
+          actorUserId: input.userId,
+          initiatorUserId: session.initiator_user_id,
+          recipientUserId: session.recipient_user_id,
+          answeredAt: next.answeredAt ?? session.answered_at,
+        });
+        if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         if (next.nextStatus === "active") {
           const hbSeed = nowIso();
@@ -19496,6 +19548,12 @@ export async function updateCommunityMessengerCallSession(input: {
       input.action,
       next.nextStatus,
       input.clientEndedReason,
+      {
+        actorUserId: input.userId,
+        initiatorUserId: session.initiatorUserId ?? (session as { initiator_user_id?: string }).initiator_user_id,
+        recipientUserId: session.recipientUserId ?? (session as { recipient_user_id?: string }).recipient_user_id,
+        answeredAt: next.answeredAt ?? session.answeredAt ?? (session as { answered_at?: string }).answered_at,
+      },
     );
   }
   for (const participant of session.participants) {

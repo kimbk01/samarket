@@ -45,21 +45,30 @@ SSOT modules:
 - Late `missed` overwriting `rejected` / `cancelled`
 - Second incoming UI while RINGING/ACCEPTING/CONNECTING/CONNECTED on same device (Android)
 
-## Status ↔ product endReason
+## Status ↔ product endReason (CUT3 canonical)
 
-| DB status | Typical ended_reason | Product |
+| DB status | Typical ended_reason (wire) | Canonical (CUT3) |
 |---|---|---|
 | cancelled | canceled | caller_cancelled |
 | rejected | declined | callee_rejected |
-| missed | missed | ring_timeout |
-| ended | ended | local_ended / remote_ended (UI direction) |
-| ended | failed_* / heartbeat_timeout | media_failed / network_lost |
-| ended | redial_replaced | superseded |
-| (API error) | peer_busy | callee_busy (no session or local stub) |
+| missed | missed | missed_timeout |
+| ended | ended / ended_by_caller / ended_by_callee | ended_by_caller / ended_by_callee (actor) |
+| ended | failed_network (pre-answer) | failed_network |
+| ended | failed_network (post-answer) | disconnected |
+| ended | failed_* (other) | failed_setup |
+| ended | heartbeat_timeout | disconnected |
+| ended | redial_replaced / incoming_policy_superseded | superseded |
+| (API error) | peer_busy | busy (no session terminal) |
+| (API / device) | answered_elsewhere | answered_elsewhere (device presentation; session stays winner) |
+
+Reader SSOT: `resolveCanonicalTerminalReason` (`call-terminal-reason-authority.ts`).
+Writer SSOT: `resolveTerminalEndedReason` → all terminal mutations in `updateCommunityMessengerCallSession`.
+Do not parse raw `ended_reason` with substring in UI.
+Do not invent a second reason resolver.
 
 ## Missed policy (LOCKED)
 
-- `ring_timeout` / `status=missed` with a canonical room → callee unread
+- `missed_timeout` / `status=missed` with a canonical room → callee unread
   `community_messenger_messages.call_stub` (Conversation B), not Member A/Bell
 - A genuinely roomless orphan missed call may create Member A/Bell; evidence is
   `notification_deliveries` call_ringing sent/nativeAck or

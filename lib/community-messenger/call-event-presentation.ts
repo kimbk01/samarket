@@ -64,6 +64,8 @@ export function resolveCallEventCanonical(input: {
   }
   if (fs === "incoming") return "incoming_received";
   if (ev === "peer_busy") return "remote_busy";
+  if (ev === "failed") return "failed";
+  if (ev === "disconnected") return "interrupted";
   if (ev === "ended" || fs === "ended") return "connected_ended";
   if (ev === "rejected_by_callee" || fs === "rejected") {
     return role === "callee" ? "local_rejected" : "remote_rejected";
