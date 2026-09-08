@@ -10,6 +10,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.IncomingCallSessionStatusProbe;
 import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
@@ -63,6 +64,7 @@ public final class NativeVoiceCallRuntime {
   private static final long MISSED_RETRY_DELAY_MS = 2_000L;
   private static final int MISSED_RETRY_MAX_ATTEMPTS = 30;
   private static final long TERMINAL_PATCH_BOUND_MS = 8_000L;
+  private static final long OUTGOING_TERMINAL_OBSERVER_POLL_MS = 1_000L;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
@@ -70,9 +72,14 @@ public final class NativeVoiceCallRuntime {
   private static final ConcurrentHashMap<String, Boolean> MISSED_PROPOSE_INFLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Boolean> PATCH_REQUESTED = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> PATCH_BOUNDS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Runnable> OUTGOING_TERMINAL_OBSERVERS = new ConcurrentHashMap<>();
 
   interface TerminalPatchDispatcher {
     void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
+  }
+
+  interface SessionStatusObserver {
+    String fetch(Context app, String callId);
   }
 
   private static final TerminalPatchDispatcher DEFAULT_PATCH_DISPATCHER =
@@ -87,6 +94,7 @@ public final class NativeVoiceCallRuntime {
       };
 
   static volatile TerminalPatchDispatcher terminalPatchDispatcherForTests;
+  static volatile SessionStatusObserver sessionStatusObserverForTests;
   static volatile boolean skipAgoraLeaveForTests;
   /** When true, leave path throws before engine leave — mandatory cleanup must still complete. */
   static volatile boolean injectLeaveFailureForTests;
@@ -262,6 +270,7 @@ public final class NativeVoiceCallRuntime {
     NativeVoiceCallService.startConnecting(app, sid);
     NativeOutgoingRingbackOwner.start(app, sid, "voice");
     startOutgoingDialingActivity(app, session);
+    startOutgoingTerminalObserver(app, sid);
     startCallerAgoraJoin(app, session);
   }
 
@@ -275,6 +284,7 @@ public final class NativeVoiceCallRuntime {
     }
     String sid = session.callId;
     NativeOutgoingRingbackOwner.stop(sid, "connected");
+    stopOutgoingTerminalObserver(sid);
     setState(app, session, State.CONNECTED);
     NativeVoiceCallLog.info("state_connected", sid);
     NativeVoiceCallService.startConnected(app, sid);
@@ -468,6 +478,7 @@ public final class NativeVoiceCallRuntime {
     try {
       NativeOutgoingRingbackOwner.stop(sid, reason);
       cancelMissed(sid);
+      stopOutgoingTerminalObserver(sid);
       if (!skipAgoraLeaveForTests) {
       NativeVoiceCallLog.info(
             "agora_leave_async", sid, "thread=" + Thread.currentThread().getName());
@@ -674,10 +685,22 @@ public final class NativeVoiceCallRuntime {
       MAIN.removeCallbacks(posted);
     }
     PATCH_BOUNDS.clear();
+    for (Runnable posted : OUTGOING_TERMINAL_OBSERVERS.values()) {
+      MAIN.removeCallbacks(posted);
+    }
+    OUTGOING_TERMINAL_OBSERVERS.clear();
     NativeVoiceCallTerminalOnce.clearForTests();
     terminalPatchDispatcherForTests = null;
+    sessionStatusObserverForTests = null;
     skipAgoraLeaveForTests = false;
     injectLeaveFailureForTests = false;
+  }
+
+  static void handleOutgoingTerminalObserverStatusForTests(
+      Context context, String callId, String status) {
+    if (context == null || callId == null) return;
+    handleOutgoingTerminalObserverStatus(
+        context.getApplicationContext(), callId.trim(), status, null);
   }
 
   static int missedRetryAttemptsForTests(String callId) {
@@ -724,6 +747,74 @@ public final class NativeVoiceCallRuntime {
     if (runnable != null) MAIN.removeCallbacks(runnable);
     MISSED_RETRY_ATTEMPTS.remove(sid);
     MISSED_PROPOSE_INFLIGHT.remove(sid);
+  }
+
+  private static void startOutgoingTerminalObserver(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    stopOutgoingTerminalObserver(sid);
+    Runnable runnable =
+        new Runnable() {
+          @Override
+          public void run() {
+            Session session = SESSIONS.get(sid);
+            if (session == null || !session.initiator || session.state != State.CONNECTING) {
+              OUTGOING_TERMINAL_OBSERVERS.remove(sid, this);
+              return;
+            }
+            new Thread(
+                    () -> {
+                      SessionStatusObserver observer = sessionStatusObserverForTests;
+                      String status =
+                          observer != null
+                              ? observer.fetch(app, sid)
+                              : IncomingCallSessionStatusProbe.fetchStatus(app, sid);
+                      MAIN.post(
+                          () -> handleOutgoingTerminalObserverStatus(app, sid, status, this));
+                    })
+                .start();
+          }
+        };
+    OUTGOING_TERMINAL_OBSERVERS.put(sid, runnable);
+    MAIN.postDelayed(runnable, OUTGOING_TERMINAL_OBSERVER_POLL_MS);
+    NativeVoiceCallLog.info(
+        "caller_terminal_observer_start",
+        sid,
+        "pollMs=" + OUTGOING_TERMINAL_OBSERVER_POLL_MS);
+  }
+
+  private static void handleOutgoingTerminalObserverStatus(
+      Context app, String sid, String status, Runnable runnable) {
+    Session session = SESSIONS.get(sid);
+    if (session == null || !session.initiator || session.state != State.CONNECTING) {
+      if (runnable != null) OUTGOING_TERMINAL_OBSERVERS.remove(sid, runnable);
+      return;
+    }
+    String normalized = normalizeTerminalReason(status);
+    if (isObservedOutgoingMissedStatus(normalized)) {
+      NativeVoiceCallLog.info(
+          "caller_terminal_observer_detected", sid, "status=" + safe(normalized));
+      if (runnable != null) OUTGOING_TERMINAL_OBSERVERS.remove(sid, runnable);
+      onRemoteTerminal(app, sid, normalized, "server_session_observer");
+      return;
+    }
+    if (runnable != null) MAIN.postDelayed(runnable, OUTGOING_TERMINAL_OBSERVER_POLL_MS);
+  }
+
+  private static boolean isObservedOutgoingMissedStatus(String status) {
+    if (status == null) return false;
+    return "missed".equals(status.trim().toLowerCase());
+  }
+
+  private static void stopOutgoingTerminalObserver(String callId) {
+    if (callId == null) return;
+    String sid = callId.trim();
+    Runnable runnable = OUTGOING_TERMINAL_OBSERVERS.remove(sid);
+    if (runnable != null) {
+      MAIN.removeCallbacks(runnable);
+      NativeVoiceCallLog.info("caller_terminal_observer_stop", sid);
+    }
   }
 
   private static void setState(Context context, Session session, State state) {
