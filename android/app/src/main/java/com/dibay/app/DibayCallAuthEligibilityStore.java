@@ -12,6 +12,10 @@ import java.util.Map;
  * AUTHENTICATED → eligible + bound user id; LOGGED_OUT / TERMINAL_GUEST / logout-pending →
  * ineligible (fail-closed: missing key means ineligible).
  *
+ * <p>Contract (aligned with iOS {@code DibayMemberEventEligibilityStore}):
+ * eligible=true REQUIRES non-empty bound member user id in the same durable write.
+ * eligible=true with empty bound is illegal and is coerced to ineligible (clears both).
+ *
  * <p>Global auth authority remains web/session ({@code dibay-session-manager}).
  */
 public final class DibayCallAuthEligibilityStore {
@@ -22,41 +26,100 @@ public final class DibayCallAuthEligibilityStore {
 
   private DibayCallAuthEligibilityStore() {}
 
-  public static void setEligible(Context context, boolean eligible, String reason) {
-    if (context == null) return;
+  public static final class WriteResult {
+    public final boolean eligible;
+    public final boolean boundUserSet;
+
+    private WriteResult(boolean eligible, boolean boundUserSet) {
+      this.eligible = eligible;
+      this.boundUserSet = boundUserSet;
+    }
+  }
+
+  /**
+   * Atomic durable write — sole mutation entry for call presentation eligibility.
+   *
+   * @return applied eligible flag and whether bound was set
+   */
+  public static WriteResult setMemberCallEligibility(
+      Context context, boolean eligible, String boundUserId, String reason) {
+    if (context == null) {
+      return new WriteResult(false, false);
+    }
+    String safeReason =
+        reason != null && !reason.trim().isEmpty() ? reason.trim() : "unspecified";
+    String bound = boundUserId != null ? boundUserId.trim() : "";
+
     SharedPreferences prefs =
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    SharedPreferences.Editor editor = prefs.edit().putBoolean(KEY_ELIGIBLE, eligible);
-    if (!eligible) {
-      editor.remove(KEY_BOUND_USER_ID);
+
+    if (eligible && bound.isEmpty()) {
+      // Fail-closed: never persist eligible-without-bound.
+      prefs.edit().putBoolean(KEY_ELIGIBLE, false).remove(KEY_BOUND_USER_ID).apply();
+      Log.i(
+          TAG,
+          "member_call_eligible_set eligible=false reason="
+              + safeReason
+              + ":eligible_requires_bound_user");
+      Log.i(
+          TAG,
+          "bound_member_user_set has_user=false reason="
+              + safeReason
+              + ":eligible_requires_bound_user");
+      return new WriteResult(false, false);
     }
-    editor.apply();
-    Log.i(
-        TAG,
-        "member_call_eligible_set eligible="
-            + eligible
-            + " reason="
-            + (reason != null ? reason : "unspecified"));
+
+    if (!eligible) {
+      prefs.edit().putBoolean(KEY_ELIGIBLE, false).remove(KEY_BOUND_USER_ID).apply();
+      Log.i(TAG, "member_call_eligible_set eligible=false reason=" + safeReason);
+      Log.i(TAG, "bound_member_user_set has_user=false reason=" + safeReason);
+      return new WriteResult(false, false);
+    }
+
+    prefs.edit().putBoolean(KEY_ELIGIBLE, true).putString(KEY_BOUND_USER_ID, bound).apply();
+    Log.i(TAG, "member_call_eligible_set eligible=true reason=" + safeReason);
+    Log.i(TAG, "bound_member_user_set has_user=true reason=" + safeReason);
+    return new WriteResult(true, true);
+  }
+
+  /**
+   * @deprecated Prefer {@link #setMemberCallEligibility}. Clears bound when ineligible; eligible-only
+   *     writes coerce using current bound (may fail-closed).
+   */
+  public static void setEligible(Context context, boolean eligible, String reason) {
+    if (!eligible) {
+      setMemberCallEligibility(context, false, null, reason);
+      return;
+    }
+    setMemberCallEligibility(
+        context,
+        true,
+        getBoundMemberUserId(context),
+        (reason != null ? reason : "unspecified") + ":setEligible_requires_existing_bound");
   }
 
   public static void setBoundMemberUserId(Context context, String userId, String reason) {
-    if (context == null) return;
     String id = userId != null ? userId.trim() : "";
-    SharedPreferences prefs =
-        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    SharedPreferences.Editor editor = prefs.edit();
+    String safeReason = reason != null ? reason : "unspecified";
     if (id.isEmpty()) {
-      editor.remove(KEY_BOUND_USER_ID);
-    } else {
-      editor.putString(KEY_BOUND_USER_ID, id);
+      setMemberCallEligibility(context, false, null, safeReason + ":bound_cleared");
+      return;
     }
-    editor.apply();
+    SharedPreferences prefs =
+        context == null
+            ? null
+            : context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    boolean eligibleFlag = prefs != null && prefs.getBoolean(KEY_ELIGIBLE, false);
+    if (eligibleFlag) {
+      setMemberCallEligibility(context, true, id, safeReason);
+      return;
+    }
+    // Bound-only update while ineligible — do not enable presentation.
+    if (context == null) return;
+    prefs.edit().putString(KEY_BOUND_USER_ID, id).apply();
     Log.i(
         TAG,
-        "bound_member_user_set has_user="
-            + (!id.isEmpty())
-            + " reason="
-            + (reason != null ? reason : "unspecified"));
+        "bound_member_user_set has_user=true reason=" + safeReason + " eligible=false");
   }
 
   public static String getBoundMemberUserId(Context context) {
@@ -67,12 +130,25 @@ public final class DibayCallAuthEligibilityStore {
     return id != null ? id.trim() : "";
   }
 
-  /** Fail-closed: never-set or false → ineligible. */
+  /** Presentable: eligible flag ∧ non-empty bound (fail-closed). */
   public static boolean isMemberCallEligible(Context context) {
     if (context == null) return false;
+    healIllegalDurableStateIfNeeded(context);
     SharedPreferences prefs =
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    return prefs.getBoolean(KEY_ELIGIBLE, false);
+    return prefs.getBoolean(KEY_ELIGIBLE, false) && !getBoundMemberUserId(context).isEmpty();
+  }
+
+  /** Clear legacy durable corruption: eligible=true with empty bound. */
+  public static void healIllegalDurableStateIfNeeded(Context context) {
+    if (context == null) return;
+    SharedPreferences prefs =
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    boolean eligibleFlag = prefs.getBoolean(KEY_ELIGIBLE, false);
+    String bound = getBoundMemberUserId(context);
+    if (eligibleFlag && bound.isEmpty()) {
+      setMemberCallEligibility(context, false, null, "heal_eligible_without_bound");
+    }
   }
 
   /**
@@ -85,7 +161,13 @@ public final class DibayCallAuthEligibilityStore {
   }
 
   public static PresentDecision presentDecision(Context context, String payloadRecipientUserId) {
-    if (!isMemberCallEligible(context)) {
+    if (context == null) {
+      return PresentDecision.drop("member_event_ineligible");
+    }
+    healIllegalDurableStateIfNeeded(context);
+    SharedPreferences prefs =
+        context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    if (!prefs.getBoolean(KEY_ELIGIBLE, false)) {
       return PresentDecision.drop("member_event_ineligible");
     }
     String bound = getBoundMemberUserId(context);

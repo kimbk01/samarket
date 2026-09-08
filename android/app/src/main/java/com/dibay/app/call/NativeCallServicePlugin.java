@@ -363,23 +363,27 @@ public class NativeCallServicePlugin extends Plugin {
     call.resolve(new JSObject().put("ok", true));
   }
 
-  /** Member private-event eligibility + optional bound user — logout/guest must set false first. */
+  /**
+   * Member private-event eligibility + bound user — logout/guest must set false first.
+   * Atomic: eligible=true requires non-empty boundUserId (mirrors iOS CUT7 contract).
+   */
   @PluginMethod
   public void setMemberCallEligible(PluginCall call) {
     boolean eligible = Boolean.TRUE.equals(call.getBoolean("eligible", false));
     String reason = call.getString("reason", "js_bridge");
     String boundUserId = call.getString("boundUserId", "");
-    com.dibay.app.DibayCallAuthEligibilityStore.setEligible(getContext(), eligible, reason);
-    if (eligible) {
-      com.dibay.app.DibayCallAuthEligibilityStore.setBoundMemberUserId(
-          getContext(), boundUserId != null ? boundUserId : "", reason);
-    }
+    String safeReason =
+        reason != null && !reason.trim().isEmpty() ? reason.trim() : "js_bridge";
+    com.dibay.app.DibayCallAuthEligibilityStore.WriteResult result =
+        com.dibay.app.DibayCallAuthEligibilityStore.setMemberCallEligibility(
+            getContext(),
+            eligible,
+            boundUserId != null ? boundUserId : "",
+            safeReason);
     call.resolve(
         new JSObject()
             .put("ok", true)
-            .put("eligible", eligible)
-            .put(
-                "boundUserSet",
-                eligible && boundUserId != null && !boundUserId.trim().isEmpty()));
+            .put("eligible", result.eligible)
+            .put("boundUserSet", result.boundUserSet));
   }
 }

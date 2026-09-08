@@ -64,6 +64,8 @@ describe("logout device unbind + native call eligibility contract", () => {
     const session = read("lib/auth/dibay-session-manager.ts");
     expect(register).toContain("cacheDeviceUnbindPushToken");
     expect(register).toContain("setNativeMemberCallEligible(true");
+    expect(register).toContain("projectEligibleAfterDeviceRegisterSuccess");
+    expect(register).toContain("eligibility_projection_skipped_empty_uid");
     expect(register).toContain("id.userId");
     expect(register).toContain("async function registerVoipToken(token: string, userId?: string)");
     expect(register).toContain("user_id: resolvedUserId || undefined");
@@ -73,5 +75,23 @@ describe("logout device unbind + native call eligibility contract", () => {
     expect(session).toContain("projectMemberEventEligibility(false");
     expect(session).toContain("applyAuthenticatedPhase");
     expect(session).toContain("applyTerminalGuestPhase");
+  });
+
+  it("Android eligibility store is atomic and register skips identity without userId", () => {
+    const store = read(
+      "android/app/src/main/java/com/dibay/app/DibayCallAuthEligibilityStore.java",
+    );
+    const helper = read(
+      "android/app/src/main/java/com/dibay/app/nativepush/NativePushRegisterHelper.java",
+    );
+    const plugin = read(
+      "android/app/src/main/java/com/dibay/app/call/NativeCallServicePlugin.java",
+    );
+    expect(store).toContain("setMemberCallEligibility");
+    expect(store).toContain("eligible_requires_bound_user");
+    expect(store).toContain("heal_eligible_without_bound");
+    expect(helper).toContain("setMemberCallEligibility");
+    expect(helper).not.toMatch(/setEligible\(context,\s*true,\s*"native_register_success"\)/);
+    expect(plugin).toContain("setMemberCallEligibility");
   });
 });

@@ -160,10 +160,11 @@ public final class NativePushRegisterHelper {
       boolean ok = status >= 200 && status < 300 && responseOk;
       if (ok) {
         DibayBoundPushTokenStore.save(context, request.pushToken, request.pushProvider);
-        DibayCallAuthEligibilityStore.setEligible(context, true, "native_register_success");
-        if (request.userId != null && !request.userId.trim().isEmpty()) {
-          DibayCallAuthEligibilityStore.setBoundMemberUserId(
-              context, request.userId, "native_register_success");
+        // Transport success must not wipe durable identity when userId is absent.
+        String uid = request.userId != null ? request.userId.trim() : "";
+        if (!uid.isEmpty()) {
+          DibayCallAuthEligibilityStore.setMemberCallEligibility(
+              context, true, uid, "native_register_success");
         }
         logStep(
             "native_register_post_done",

@@ -47,6 +47,24 @@ function bodyToDeviceRegisterIdentity(body: Record<string, unknown>): DeviceRegi
   return { userId, deviceId, pushToken, platform, pushProvider };
 }
 
+/**
+ * Device/token register is transport — never CLEAR or overwrite durable identity when uid is absent.
+ * Non-empty authenticated uid → re-affirm eligible+bound projection.
+ */
+function projectEligibleAfterDeviceRegisterSuccess(
+  userId: string | null | undefined,
+  reason: string,
+): void {
+  const uid = typeof userId === "string" ? userId.trim() : "";
+  if (!uid) {
+    logPushRegister("eligibility_projection_skipped_empty_uid", { reason });
+    return;
+  }
+  void import("@/lib/push/native/member-call-eligibility-bridge").then(({ setNativeMemberCallEligible }) =>
+    setNativeMemberCallEligible(true, reason, uid),
+  );
+}
+
 let nativePushOrchestrationInflight: Promise<RegisterResult> | null = null;
 let nativePushOrchestrationKey = "";
 
@@ -144,9 +162,7 @@ async function postDeviceRegistration(
     cacheDeviceUnbindPushToken(body.push_token, provider);
   }
   const id = bodyToDeviceRegisterIdentity(body);
-  void import("@/lib/push/native/member-call-eligibility-bridge").then(({ setNativeMemberCallEligible }) =>
-    setNativeMemberCallEligible(true, "device_register_success", id?.userId || null),
-  );
+  projectEligibleAfterDeviceRegisterSuccess(id?.userId, "device_register_success");
   if (orchestrationSettled) {
     logPushRegister("api_post_late_after_timeout", {
       ...baseDetail,
@@ -215,10 +231,7 @@ async function postDeviceRegistrationWithNativeFirst(
         void persistCanonicalDeviceIdToNative(id.deviceId);
         const { cacheDeviceUnbindPushToken } = await import("@/lib/push/device-unbind-token-cache");
         cacheDeviceUnbindPushToken(id.pushToken, id.pushProvider);
-        void import("@/lib/push/native/member-call-eligibility-bridge").then(
-          ({ setNativeMemberCallEligible }) =>
-            setNativeMemberCallEligible(true, "native_device_register_success", id.userId || null),
-        );
+        projectEligibleAfterDeviceRegisterSuccess(id.userId, "native_device_register_success");
         logPushRegister("success", {
           http_status: nativeResult.http_status ?? 200,
           device_row_id: nativeResult.device_row_id ?? null,
