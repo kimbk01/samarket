@@ -14,12 +14,16 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
   static let shared = NativeVideoCallRuntime()
 
   private static let missedTimeoutSeconds: TimeInterval = 30
+  /** CUT7 #4 CASE B — after early `ring_deadline_not_reached`, re-propose until server accepts or session leaves ringing. */
+  private static let missedRetryDelaySeconds: TimeInterval = 2
+  private static let missedRetryMaxAttempts = 30
 
   private let queue = DispatchQueue(label: "com.dibay.app.native-video-call-runtime")
   private var session: NativeVideoCallSession?
   private var state: NativeVideoCallRuntimeState = .ended
   private var generation: UInt64 = 0
   private var missedWorkItem: DispatchWorkItem?
+  private var missedRetryAttempt: Int = 0
 
   init() {}
 
@@ -432,6 +436,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         callId: sid,
         details: "status=\(status) keep_presentation=1"
       )
+      scheduleMissedRetryLocked(sessionId: sid, expectedGeneration: expectedGeneration)
       return
     }
 
@@ -458,6 +463,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   private func scheduleMissedLocked(sessionId: String) {
     cancelMissedLocked()
+    missedRetryAttempt = 0
     let sid = normalize(sessionId)
     let expectedGeneration = generation
     let work = DispatchWorkItem { [weak self] in
@@ -466,6 +472,35 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     }
     missedWorkItem = work
     queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)
+  }
+
+  private func scheduleMissedRetryLocked(sessionId: String, expectedGeneration: UInt64) {
+    let sid = normalize(sessionId)
+    guard !sid.isEmpty else { return }
+    guard state == .ringing, let active = session, active.sessionId == sid else { return }
+    guard generation == expectedGeneration else { return }
+    missedRetryAttempt += 1
+    let attempt = missedRetryAttempt
+    guard attempt <= Self.missedRetryMaxAttempts else {
+      NativeVideoCallLog.info(
+        "missed_retry_exhausted",
+        callId: sid,
+        details: "attempts=\(attempt) keep_presentation=1"
+      )
+      return
+    }
+    cancelMissedLocked()
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
+    }
+    missedWorkItem = work
+    queue.asyncAfter(deadline: .now() + Self.missedRetryDelaySeconds, execute: work)
+    NativeVideoCallLog.info(
+      "missed_retry_scheduled",
+      callId: sid,
+      details: "delaySec=\(Int(Self.missedRetryDelaySeconds)) attempt=\(attempt) generation=\(expectedGeneration)"
+    )
   }
 
   private func cancelMissedLocked() {

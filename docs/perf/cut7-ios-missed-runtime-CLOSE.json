@@ -1,0 +1,65 @@
+{
+  "CUT": "CUT7 iOS MISSED #4 — RUNTIME CLOSE",
+  "HEAD": "95c04b4bc",
+  "WORKTREE_BEFORE": "dirty — iOS eligibility fix",
+  "WORKTREE_AFTER": "dirty — iOS eligibility fix + missed early-reject retry",
+  "DEVICE": "iPhonebk",
+  "UDID": "00008120-000025C826F3C01E",
+  "STATE": "LOCKED",
+  "HISTORICAL_MISSED_4": {
+    "voice": "CONTAMINATED (Accept)",
+    "video": "CONTAMINATED (bound_user_missing)",
+    "note": "Not valid unanswered lifecycle evidence"
+  },
+  "FIRST_DIVERGENCE_BEFORE_FIX": {
+    "CASE": "B — proposer fires too early → server rejects → no later retry",
+    "evidence_call_id": "7e03b1e0-d6b8-4795-b7bd-e3cdbb5617b6",
+    "chain": "timer armed PASS → propose PASS → ring_deadline_not_reached PASS → NO RETRY FAIL → CallKit stays → later server missed without iOS consume",
+    "ROOT": "NativeVoice/Video handleMissedProposeResult returned on ring_deadline_not_reached without reschedule",
+    "SOURCE_OWNER": "NativeVoiceCallRuntime.swift / NativeVideoCallRuntime.swift"
+  },
+  "CODE_CHANGE": "YES",
+  "NATIVE_FILES": [
+    "ios/App/App/Call/NativeVoiceCallRuntime.swift",
+    "ios/App/App/Call/Video/NativeVideoCallRuntime.swift"
+  ],
+  "SERVER_CHANGE": "NONE",
+  "FIX": "On ring_deadline_not_reached: keep presentation + scheduleMissedRetryLocked (2s, max 30) until server accepts missed or session leaves ringing",
+  "VOICE_CALL_ID_AFTER": "30966477-81b5-4937-adbe-8a6bcc583db6",
+  "VOICE": {
+    "CALLKIT_PRESENT": "PASS",
+    "TIMER_ARMED": "YES",
+    "TIMER_FIRED": "YES",
+    "MISSED_REQUEST": "YES (propose + retries 1–5)",
+    "SERVER_RESULT": "missed status=200 after retry",
+    "SESSION_FINAL": "missed / ended_reason=missed",
+    "TERMINAL_RECEIVED": "local dismiss after server ok (missed_local_dismiss)",
+    "CALLKIT_END_REASON": "unanswered (ios_callkit_ended_unanswered)",
+    "UI_REMOVED": "YES (InCallService disconnected + notification withdrawn)",
+    "RINGTONE_STOP": "YES (implied by CallKit end / disconnect)",
+    "AFTER": "PASS"
+  },
+  "VIDEO_CALL_ID_AFTER": "b169a6e7-7916-4180-b462-f284206b93c4",
+  "VIDEO": {
+    "CALLKIT_PRESENT": "PASS",
+    "TIMER_ARMED": "YES (scheduleMissedLocked; NSLog markers not in DIBAY_CALL syslog filter)",
+    "SERVER_RESULT": "missed",
+    "CALLKIT_END_REASON": "unanswered",
+    "UI_REMOVED": "YES",
+    "AFTER": "PASS",
+    "note": "NativeVideoCallLog NSLog not captured in DIBAY_CALL filter; product chain proven via CallKit unanswered + server missed"
+  },
+  "VOICE_MISSED_AFTER": "PASS",
+  "VIDEO_MISSED_AFTER": "PASS",
+  "VOICE_ACCEPT_CONTROL": "NOT_REMEASURED — Accept path untouched; prior TERMINATED Accept PASS this device/session preserved",
+  "VIDEO_ACCEPT_CONTROL": "NOT_REMEASURED — same",
+  "IOS_ELIGIBILITY_FIX": "PRESERVED",
+  "ANDROID_LOCKED": "PRESERVED PASS",
+  "ANDROID_DUPLICATE_RINGTONE": "KNOWN FAIL — HOLD",
+  "FIRST_DIVERGENCE_AFTER_FIX": "NONE for iOS MISSED #4 boundary",
+  "CUT7": "NOT CLOSED",
+  "NEXT": "iOS late terminal #5 runtime proof",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "STOP": true
+}

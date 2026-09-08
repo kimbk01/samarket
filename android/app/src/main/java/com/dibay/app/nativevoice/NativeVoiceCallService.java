@@ -185,7 +185,7 @@ public class NativeVoiceCallService extends Service {
     if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
     // DEFAULT — this channel is only the foreground-service-required / CallStyle chip
     // notification (this class), never the actual incoming-ring alert (that is
-    // NativeVoiceCallNotification's separate dibay_native_voice_incoming channel).
+    // NativeVoiceCallNotification's separate dibay_native_voice_incoming_v2 channel).
     // DEFAULT shows the status-bar chip reliably but never triggers a heads-up popup
     // (heads-up requires IMPORTANCE_HIGH specifically).
     NotificationChannel channel =

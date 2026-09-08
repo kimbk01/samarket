@@ -37,11 +37,13 @@ describe("CUT7 #2 iOS Video missed proposer parity (V1–V11 source)", () => {
     expect(handle.indexOf("if !ok")).toBeLessThan(handle.indexOf("applyMissedDismissLocked"));
   });
 
-  it("V4: early ring_deadline_not_reached keeps presentation", () => {
+  it("V4: early ring_deadline_not_reached keeps presentation and retries", () => {
     const src = videoRuntime();
     expect(src).toContain("ring_deadline_not_reached");
     expect(src).toContain("keep_presentation=1");
     expect(src).toContain("missed_early_rejected");
+    expect(src).toContain("scheduleMissedRetryLocked");
+    expect(src).toContain("missed_retry_scheduled");
   });
 
   it("V5: Accept cancels timer before accepting", () => {

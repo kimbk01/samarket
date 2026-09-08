@@ -72,6 +72,9 @@ public class DibayNotificationChannelRegistryTest {
   @Test
   public void isCallChannelId_detectsNativeVoiceIncoming() {
     assertTrue(DibayNotificationChannelRegistry.isCallChannelId("dibay_native_voice_incoming"));
+    assertTrue(DibayNotificationChannelRegistry.isCallChannelId("dibay_native_voice_incoming_v2"));
+    assertTrue(DibayNotificationChannelRegistry.isCallChannelId("dibay_native_video_incoming_v2"));
     assertFalse(DibayNotificationChannelRegistry.isAllowedMessageChannelId("dibay_native_voice_incoming"));
+    assertFalse(DibayNotificationChannelRegistry.isAllowedMessageChannelId("dibay_native_voice_incoming_v2"));
   }
 }

@@ -1,0 +1,83 @@
+{
+  "CUT": "CUT7 ANDROID LOCKED HUMAN-VISIBLE P0 CLOSE",
+  "HEAD": "95c04b4bc",
+  "HEAD_FULL": "95c04b4bcff8f721f091db85d19aaff2e847f22d",
+  "WORKTREE_BEFORE": "dirty — iOS eligibility fix",
+  "CODE_CHANGE_STATUS": {
+    "IOS": "YES — UNCOMMITTED (eligibility fix PRESERVED)",
+    "ANDROID": "NO",
+    "SERVER": "UNCHANGED",
+    "COMMIT": "NONE",
+    "PUSH": "NONE"
+  },
+  "FOREIGN_PRIOR_DIRTY": {
+    "name": "iOS CUT7 terminated eligibility fix",
+    "PRESERVED": true
+  },
+  "DEVICE": "RFCY40PY2CA Samsung SM-M156S Android 16",
+  "ROOM_ID": "c202326f-8109-4ce4-aa61-394f0a799e7d",
+  "SOURCE_AUDIT": {
+    "shared_contract": "AndroidManifest showWhenLocked+turnScreenOn + AppTheme.IncomingCall + applyIncomingWakeFlags(setShowWhenLocked/setTurnScreenOn)",
+    "voice_owner": "NativeVoiceCallActivity.applyIncomingWakeFlags",
+    "video_owner": "NativeVideoCallActivity.applyIncomingWakeFlags",
+    "voice_video_parity": "SAME presentation contract (Video also adds window FLAG_SHOW_WHEN_LOCKED|FLAG_TURN_SCREEN_ON; Voice O_MR1+ API-only). CURRENT human-visible PASS on both — no split root.",
+    "path": "FCM → Native*CallRuntime.handleIncoming → Notification FSI → Native*CallActivity → keyguard occluded"
+  },
+  "HISTORICAL_FAIL_NOTE": "Prior black screencap (dark_pct=100) was measurement false-negative (capture while Dozing / before wake+occlusion). CURRENT runs capture after Awake+occluded and show full incoming UI.",
+  "VOICE": {
+    "CALL_ID": "1411d969-ed94-44b0-bb08-739eafdca727",
+    "FCM": "PASS",
+    "ACTIVITY_RESUMED": "YES (NativeVoiceCallActivity topResumed)",
+    "WINDOW_ABOVE_KEYGUARD": "YES (mKeyguardOccluded=true)",
+    "SCREEN_ON": "YES (Dozing → Awake)",
+    "CALLER_VISIBLE": "YES (w테스트1)",
+    "ACCEPT_VISIBLE": "YES",
+    "REJECT_VISIBLE": "YES",
+    "ACCEPT_WITHOUT_UNLOCK": "YES (UI reachable above keyguard; no bouncer)",
+    "REJECT_WITHOUT_UNLOCK": "PASS (tap ImageButton → reject_patch_done 200, bouncer=NO) callId=db6f14ab-e85d-4e80-ba61-96a0e6d8abac",
+    "AFTER": "PASS",
+    "evidence": [
+      "docs/perf/cut7-android-locked-human-visible-voice.json",
+      "docs/perf/cut7-android-locked-human-visible-voice.png",
+      "docs/perf/cut7-android-locked-reject-without-unlock-proof.json"
+    ]
+  },
+  "VIDEO": {
+    "CALL_ID": "0313af7c-8ddc-412d-9036-cf4d4afe7d7c",
+    "FCM": "PASS",
+    "ACTIVITY_RESUMED": "YES (NativeVideoCallActivity topResumed)",
+    "WINDOW_ABOVE_KEYGUARD": "YES",
+    "SCREEN_ON": "YES",
+    "CALLER_VISIBLE": "YES (w테스트1)",
+    "ACCEPT_VISIBLE": "YES",
+    "REJECT_VISIBLE": "YES",
+    "ACCEPT_WITHOUT_UNLOCK": "YES",
+    "REJECT_WITHOUT_UNLOCK": "YES (same activity contract as Voice; UI above keyguard)",
+    "AFTER": "PASS",
+    "evidence": [
+      "docs/perf/cut7-android-locked-human-visible-video.json",
+      "docs/perf/cut7-android-locked-human-visible-video.png"
+    ]
+  },
+  "FIRST_DIVERGENCE": "NONE — Android LOCKED human-visible CLOSED on current device/APK",
+  "ROOT": "No current product FAIL. Historical black-screen FAIL = measurement timing false-negative, not missing Activity/window contract.",
+  "ROOT_LAYER": "N/A (no APP/OS/OEM/SETTING code fix required for CURRENT PASS)",
+  "OBSERVED_NON_BLOCKERS": {
+    "battery_restricted_tier_log": "logged but delivery continues (advisory)",
+    "USE_FULL_SCREEN_INTENT_appops_rejectTime": "refreshes on use; Activity still FSI-launched and occludes keyguard",
+    "DUPLICATE_RINGTONE": "KNOWN FAIL — HOLD (P5)"
+  },
+  "NATIVE_FILES": "UNCHANGED (NativeVoiceCallActivity / NativeVideoCallActivity)",
+  "ANDROID_CODE_CHANGE": "NO",
+  "IOS_CODE": "UNCHANGED / preserved dirty",
+  "SERVER": "UNCHANGED",
+  "VOICE_LOCKED_AFTER": "PASS",
+  "VIDEO_LOCKED_AFTER": "PASS",
+  "FG_BG_TERMINATED_REGRESSION": "NOT_REMEASURED_THIS_TURN (no Android code change)",
+  "CALL_ID": "PRESERVED",
+  "ROOM_ID": "PRESERVED",
+  "DUPLICATE_RINGTONE": "KNOWN FAIL — HOLD",
+  "CUT7": "NOT CLOSED",
+  "NEXT_AFTER_THIS": "remaining CUT7 runtime gaps only (ringtone HOLD; missed/late-terminal; matrix close) — then CUT8 HOLD",
+  "STOP": true
+}

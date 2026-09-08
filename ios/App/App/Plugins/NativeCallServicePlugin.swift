@@ -474,19 +474,21 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   /// Member event eligibility + bound user — logout/guest must set false before VoIP presents CallKit.
+  /// Atomic: eligible=true requires non-empty boundUserId (CUT7 terminated cold-wake contract).
   @objc func setMemberCallEligible(_ call: CAPPluginCall) {
     let eligible = call.getBool("eligible") ?? false
     let reason = (call.getString("reason") ?? "js_bridge").trimmingCharacters(in: .whitespacesAndNewlines)
     let boundUserId = (call.getString("boundUserId") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let safeReason = reason.isEmpty ? "js_bridge" : reason
-    DibayMemberEventEligibilityStore.setEligible(eligible, reason: safeReason)
-    if eligible {
-      DibayMemberEventEligibilityStore.setBoundMemberUserId(boundUserId, reason: safeReason)
-    }
+    let result = DibayMemberEventEligibilityStore.setMemberCallEligibility(
+      eligible: eligible,
+      boundUserId: boundUserId,
+      reason: safeReason
+    )
     call.resolve([
       "ok": true,
-      "eligible": eligible,
-      "boundUserSet": eligible && !boundUserId.isEmpty,
+      "eligible": result.eligible,
+      "boundUserSet": result.boundUserSet,
     ])
   }
 }

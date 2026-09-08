@@ -1,0 +1,37 @@
+{
+  "TITLE": "CUT7 iOS LATE INCOMING — DEVICE RUNTIME",
+  "HEAD": "95c04b4bc",
+  "WORKTREE": "dirty — current 4 CUT7 fixes",
+  "DEVICE": "iPhonebk",
+  "KIND": "voice",
+  "CODE_CHANGE": "NONE",
+  "VERDICT": "NOT_PROVEN",
+  "FIRST_DIVERGENCE": "E.late incoming itself cannot be realistically delivered — environment blocker",
+  "ENVIRONMENT_BLOCKERS": [
+    "APNs VoIP inject credentials unavailable — /tmp/cut7-apns.env absent; .env/.env.local have no APNS_KEY_P8/KEY_ID/TEAM_ID (required for delayed incoming_call PushKit delivery via existing sendVoipApnsImpl path used by cut7-ios-late-terminal-runtime.mjs)"
+  ],
+  "LATE_INCOMING_DELIVERY_METHOD": "intended: existing APNs voip_apns inject (sendVoipApnsImpl path) → PushKit → VoIPPushRegistry.reportIncomingFromVoipPayload",
+  "ANSWERED_ELSEWHERE_LOSER": "NOT_PROVEN — DEFERRED",
+  "CUT7": "NOT CLOSED — FINAL LEDGER REQUIRED",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "CUT8": "HOLD",
+  "DEVICE_CONNECTIVITY": {
+    "idevice_id": "00008120-000025C826F3C01E PRESENT",
+    "coredevice": "iPhonebk B01DDF12-… connected",
+    "note": "Device is available; late-incoming payload injection blocked solely by missing APNs credentials"
+  },
+  "VOICE": "NOT_PROVEN",
+  "VIDEO": "NOT_PROVEN — Voice delivery blocked first",
+  "CALL_TYPE": "Voice (not started)",
+  "LATE_INCOMING_RECEIVED": "NOT_PROVEN",
+  "PRESENTATION_GATE": "NOT_REACHED",
+  "CALLKIT_RESURRECTION": "NOT_REACHED",
+  "RINGTONE_RESURRECTION": "NOT_REACHED",
+  "RUNTIME_RESURRECTION": "NOT_REACHED",
+  "STALE_UI": "NOT_REACHED",
+  "IOS_LATE_INCOMING": "NOT_PROVEN",
+  "ANDROID_MISSED": "PRESERVED PASS",
+  "IOS_MISSED": "PRESERVED PASS",
+  "IOS_LATE_TERMINAL_5": "PRESERVED PASS"
+}

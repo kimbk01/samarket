@@ -1,0 +1,17 @@
+{
+  "TITLE": "DIBAY CALL CUT7 — FINAL CLOSE LEDGER",
+  "HEAD_BEFORE": "95c04b4bc",
+  "CUT7_OVERALL": "CLOSED WITH DEFERRED ENVIRONMENT PROOFS",
+  "REMAINING_FAIL": "NONE",
+  "DEFERRED_NOT_PROVEN": [
+    "iOS late incoming — APNs credentials unavailable",
+    "iOS answered_elsewhere loser — multi-device environment unavailable"
+  ],
+  "OWNED_CHANGES": [
+    "iOS terminated durable eligibility",
+    "iOS missed early-reject bounded retry",
+    "Android silent incoming channel v2",
+    "Android missed proposer-only + bounded retry"
+  ],
+  "CUT8": "READY TO START"
+}

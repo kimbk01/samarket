@@ -47,11 +47,13 @@ describe("CUT7 iOS Voice missed presentation parity (NV1–NV10 source)", () => 
     expect(voiceApi()).toContain('action: "missed"');
   });
 
-  it("NV7: early missed keeps presentation (ring_deadline_not_reached)", () => {
+  it("NV7: early missed keeps presentation and retries (ring_deadline_not_reached)", () => {
     const src = voiceRuntime();
     expect(src).toContain("ring_deadline_not_reached");
     expect(src).toContain("keep_presentation=1");
     expect(src).toContain("ios_native_voice_missed_early_rejected");
+    expect(src).toContain("scheduleMissedRetryLocked");
+    expect(src).toContain("ios_native_voice_missed_retry_scheduled");
   });
 
   it("NV8/NV9: callId + generation guard; ok dismiss only", () => {

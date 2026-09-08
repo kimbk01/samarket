@@ -1,0 +1,49 @@
+{
+  "CUT": "CUT7 iOS LATE TERMINAL #5 — DEVICE RUNTIME",
+  "HEAD": "95c04b4bc",
+  "WORKTREE": "dirty — eligibility + missed retry",
+  "DEVICE": "iPhonebk",
+  "UDID": "00008120-000025C826F3C01E",
+  "CODE_CHANGE_FOR_5": "NONE",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "STALE_PRODUCTION_METHOD": "production accept CAS → answered_elsewhere VoIP → PushKit → VoIPPushRegistry.handleTerminalVoipPush (winner ignore). call_canceled local APNS inject BLOCKED (Vercel env pull redacts sensitive APNS_* as [SENSITIVE]).",
+  "VOICE": {
+    "CALL_ID": "28d51ade-203d-4ec2-81dc-8a3bb57ca36a",
+    "STALE_TYPE": "call_answered_elsewhere",
+    "ANSWER": "PASS",
+    "ACTIVE_CONNECTED": "PASS",
+    "STALE_RECEIVED": "PASS",
+    "STALE_GUARD": "SUPPRESS",
+    "SURVIVES": "PASS",
+    "VALID_CALL_ENDED": "PASS"
+  },
+  "VIDEO": {
+    "CALL_ID": "5791ee42-b009-4a74-a245-0ce784dd4bce",
+    "STALE_TYPE": "call_answered_elsewhere",
+    "ANSWER": "PASS",
+    "ACTIVE_CONNECTED": "PASS",
+    "STALE_RECEIVED": "PASS",
+    "STALE_GUARD": "SUPPRESS",
+    "SURVIVES": "PASS",
+    "VALID_CALL_ENDED": "PASS"
+  },
+  "ANSWERED_ELSEWHERE_DEVICE": {
+    "WINNER_POST_ACCEPT": "PASS",
+    "LOSER_MULTI_DEVICE": "NOT_PROVEN — multi-device unavailable"
+  },
+  "CALL_CANCELED_POST_ACCEPT_INJECT": "NOT_PROVEN — APNS credentials redacted locally; same consumer unused for call_canceled this run",
+  "FIRST_DIVERGENCE": "NONE",
+  "IOS_ELIGIBILITY_FIX": "PRESERVED",
+  "IOS_MISSED_FIX": "PRESERVED",
+  "ANDROID": "UNCHANGED",
+  "CUT7_5": "DEVICE CLOSED",
+  "CUT7": "NOT CLOSED",
+  "NEXT": "Android duplicate audible incoming alert",
+  "ARTIFACTS": [
+    "docs/perf/cut7-ios-late-terminal-voice.json",
+    "docs/perf/cut7-ios-late-terminal-video.json",
+    "scripts/qa/cut7-ios-late-terminal-runtime.mjs"
+  ],
+  "STOP": true
+}

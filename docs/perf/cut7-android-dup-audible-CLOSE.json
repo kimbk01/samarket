@@ -1,0 +1,76 @@
+{
+  "CUT": "CUT7 ANDROID DUPLICATE AUDIBLE ALERT — CLOSE",
+  "HEAD": "95c04b4bc",
+  "WORKTREE_BEFORE": "dirty — iOS eligibility + missed retry",
+  "WORKTREE_AFTER": "dirty — iOS eligibility + missed retry + Android silent incoming v2 channels",
+  "DEVICE": "RFCY40PY2CA",
+  "VOICE_CHANNEL_BEFORE": "dibay_native_voice_incoming",
+  "VIDEO_CHANNEL_BEFORE": "dibay_native_video_incoming",
+  "VOICE_CHANNEL_SOUND_BEFORE": "content://settings/system/notification_sound",
+  "VIDEO_CHANNEL_SOUND_BEFORE": "content://settings/system/notification_sound",
+  "VOICE_CHANNEL_AFTER": "dibay_native_voice_incoming_v2",
+  "VIDEO_CHANNEL_AFTER": "dibay_native_video_incoming_v2",
+  "VOICE_CHANNEL_SOUND_AFTER": "null (importance=4 HIGH)",
+  "VIDEO_CHANNEL_SOUND_AFTER": "null (importance=4 HIGH)",
+  "RINGOWNER": "IncomingCallRingOwner → DibayForegroundRingtone (preserved sole audible owner)",
+  "FIRST_DIVERGENCE": "RingOwner ring_start=1 + HIGH channel mSound=system notification_sound → second audible (Samsung Spaceline)",
+  "ROOT": "NativeVoice/VideoCallNotification.ensureChannel created HIGH channel without setSound(null); Android persists channel sound forever for same id",
+  "CHANNEL_PERSISTENCE_IMPACT": "CASE B — versioned replacement required; in-place setSound cannot mute existing installed channel",
+  "FIX": "CHANNEL_ID → *_incoming_v2 with IMPORTANCE_HIGH + setSound(null); deleteNotificationChannel(legacy)",
+  "ANDROID_FILES": [
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java",
+    "android/app/src/main/java/com/dibay/app/DibayNotificationChannelRegistry.java",
+    "android/app/src/test/java/com/dibay/app/DibayNotificationChannelRegistryTest.java",
+    "lib/call/__tests__/native-video-fgs-channel-v2-contract.test.ts",
+    "lib/call/__tests__/native-incoming-silent-channel-v2-contract.test.ts"
+  ],
+  "IOS_DIRTY": "PRESERVED",
+  "SERVER": "UNCHANGED",
+  "BEFORE_VOICE_BG": {
+    "CALL_ID": "08d7c878-6858-4a6f-9440-5c3ddc837618",
+    "ringStart": 1,
+    "channel_sound": "content://settings/system/notification_sound",
+    "audible_alert_estimate": 2,
+    "presentation": "PASS"
+  },
+  "VOICE_BG_AFTER": {
+    "CALL_ID": "c7d2921e-4a32-4a13-9624-725c64b14a3a",
+    "PRESENTATION": "PASS",
+    "ONE_RINGTONE": "YES (ring_start=1)",
+    "SYSTEM_DING": "NONE (channel sound=null)",
+    "RESULT": "PASS"
+  },
+  "VOICE_LOCKED_AFTER": {
+    "CALL_ID": "c2e3bbe7-ea1d-482e-848c-55b1e27cbe4b",
+    "HUMAN_VISIBLE": "PASS",
+    "ONE_RINGTONE": "YES",
+    "REJECT_WITHOUT_UNLOCK": "PASS (f9ae3e09… decline tap, no bouncer, ring_stop)"
+  },
+  "VIDEO_BG_AFTER": {
+    "CALL_ID": "894ccff8-030e-4b16-89af-23cfe1d8d797",
+    "PRESENTATION": "PASS",
+    "ONE_RINGTONE": "YES",
+    "SYSTEM_DING": "NONE",
+    "RESULT": "PASS"
+  },
+  "VIDEO_LOCKED_AFTER": {
+    "CALL_ID": "f8198f07-b7d2-4ac3-a514-82c68239402f",
+    "PRESENTATION": "PASS",
+    "ONE_RINGTONE": "YES",
+    "HUMAN_VISIBLE": "PASS",
+    "RESULT": "PASS"
+  },
+  "ACCEPT_STOP": "PASS (9077a0a9… accepted + ring_stop)",
+  "REJECT_STOP": "PASS (a48f75c5… ring_stop)",
+  "LATE_PUSH_6": "PRESERVED PASS (no change to late-incoming probe path)",
+  "CALL_ID": "PRESERVED",
+  "ROOM_ID": "PRESERVED",
+  "FIRST_DIVERGENCE_AFTER_FIX": "NONE",
+  "CODE_CHANGE": "YES",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "CUT7": "NOT CLOSED",
+  "NEXT": "CUT7 final remaining runtime ledger only",
+  "STOP": true
+}

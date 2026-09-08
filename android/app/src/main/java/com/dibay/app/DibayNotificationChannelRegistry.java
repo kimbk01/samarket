@@ -39,7 +39,9 @@ public final class DibayNotificationChannelRegistry {
     CALL_CHANNEL_IDS.add("dibay_calls_missed_v1");
     CALL_CHANNEL_IDS.add("dibay_calls_missed");
     CALL_CHANNEL_IDS.add("dibay_native_voice_incoming");
+    CALL_CHANNEL_IDS.add("dibay_native_voice_incoming_v2");
     CALL_CHANNEL_IDS.add("dibay_native_video_incoming");
+    CALL_CHANNEL_IDS.add("dibay_native_video_incoming_v2");
     CALL_CHANNEL_IDS.add("dibay_native_voice_call");
     CALL_CHANNEL_IDS.add("dibay_native_video_call");
     CALL_CHANNEL_IDS.add("dibay_native_video_call_v2");

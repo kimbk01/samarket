@@ -44,7 +44,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     DibayCallLog.infoCall(
       "[voip] received",
       callId: sessionId,
-      detail: "kind=\(kind ?? "incoming")"
+      detail: "kind=\(kind ?? "incoming") \(DibayMemberEventEligibilityStore.durableSnapshotDetail())"
     )
     NativeVideoCallLog.corr("I0", callId: sessionId, details: "event=voip_push_received kind=\(kind ?? "incoming")")
 

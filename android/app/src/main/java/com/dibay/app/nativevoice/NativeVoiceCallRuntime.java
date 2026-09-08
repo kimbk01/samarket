@@ -57,11 +57,17 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
+  /** Local UX timer — proposer only. Canonical missed = server CUT2 deadline/CAS. */
   private static final long MISSED_TIMEOUT_MS = 30_000L;
+  /** After early `ring_deadline_not_reached`, re-propose (parity with iOS missedRetryDelaySeconds). */
+  private static final long MISSED_RETRY_DELAY_MS = 2_000L;
+  private static final int MISSED_RETRY_MAX_ATTEMPTS = 30;
   private static final long TERMINAL_PATCH_BOUND_MS = 8_000L;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Integer> MISSED_RETRY_ATTEMPTS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Boolean> MISSED_PROPOSE_INFLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Boolean> PATCH_REQUESTED = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> PATCH_BOUNDS = new ConcurrentHashMap<>();
 
@@ -392,8 +398,12 @@ public final class NativeVoiceCallRuntime {
     beginLocalTerminal(context, callId, "end");
   }
 
+  /**
+   * CUT7 — local missed is a PROPOSER only. Do not terminal-cleanup until server accepts missed.
+   * Early `ring_deadline_not_reached` keeps ringing + schedules bounded retry.
+   */
   public static void missed(Context context, String callId) {
-    beginLocalTerminal(context, callId, "missed");
+    proposeMissed(context, callId, "local_timer");
   }
 
   public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
@@ -449,11 +459,15 @@ public final class NativeVoiceCallRuntime {
   }
 
   /**
-   * Local hangup/reject/missed: local resources are released immediately. Server PATCH is
-   * best-effort and must never block cleanup.
+   * Local hangup/reject: local resources are released immediately. Server PATCH is best-effort
+   * and must never block cleanup. Missed must NOT use this path (proposer-only).
    */
   private static void beginLocalTerminal(Context context, String callId, String action) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
+    if ("missed".equals(action)) {
+      proposeMissed(context, callId, "local_timer");
+      return;
+    }
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
@@ -462,6 +476,92 @@ public final class NativeVoiceCallRuntime {
     cancelMissed(sid);
     cleanup(app, sid, action);
     requestTerminalPatchBestEffort(app, sid, action);
+  }
+
+  private static void proposeMissed(Context context, String callId, String source) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session == null || session.state != State.RINGING) {
+      NativeVoiceCallLog.info(
+          "missed_propose_skipped", sid, "source=" + safe(source) + " reason=not_ringing");
+      return;
+    }
+    if (MISSED_PROPOSE_INFLIGHT.putIfAbsent(sid, Boolean.TRUE) != null) {
+      NativeVoiceCallLog.info(
+          "missed_propose_inflight_skip", sid, "source=" + safe(source));
+      return;
+    }
+    NativeVoiceCallLog.info("missed_propose", sid, "source=" + safe(source));
+    NativeVoiceCallApi.PatchCallback done =
+        (ok, status, error) -> handleMissedProposeResult(app, sid, ok, status, error);
+    TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
+    if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
+    dispatcher.dispatch(app, sid, "missed", done);
+  }
+
+  private static void handleMissedProposeResult(
+      Context app, String sid, boolean ok, int status, String error) {
+    MISSED_PROPOSE_INFLIGHT.remove(sid);
+    Session session = SESSIONS.get(sid);
+    String err = safe(error);
+    if (session == null || session.state != State.RINGING) {
+      NativeVoiceCallLog.info(
+          "missed_propose_ignored",
+          sid,
+          "reason=no_longer_ringing status=" + status + " err=" + err);
+      return;
+    }
+    if (!ok && "ring_deadline_not_reached".equals(err)) {
+      NativeVoiceCallLog.info(
+          "missed_early_rejected", sid, "status=" + status + " keep_presentation=1");
+      scheduleMissedRetry(app, sid);
+      return;
+    }
+    if (!ok && ("already_answered".equals(err) || "bad_action".equals(err))) {
+      NativeVoiceCallLog.info(
+          "missed_propose_blocked", sid, "error=" + err + " keep_presentation=1");
+      cancelMissed(sid);
+      return;
+    }
+    if (!ok) {
+      NativeVoiceCallLog.info(
+          "missed_propose_failed",
+          sid,
+          "status=" + status + " error=" + err + " keep_presentation=1");
+      return;
+    }
+    cancelMissed(sid);
+    NativeVoiceCallLog.info("missed_canonical_accepted", sid, "status=" + status);
+    cleanup(app, sid, "missed");
+  }
+
+  private static void scheduleMissedRetry(Context app, String callId) {
+    if (app == null || callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    Session session = SESSIONS.get(sid);
+    if (session == null || session.state != State.RINGING) return;
+    int attempt = MISSED_RETRY_ATTEMPTS.merge(sid, 1, Integer::sum);
+    if (attempt > MISSED_RETRY_MAX_ATTEMPTS) {
+      NativeVoiceCallLog.info(
+          "missed_retry_exhausted", sid, "attempts=" + attempt + " keep_presentation=1");
+      return;
+    }
+    Runnable previous = MISSED_TIMEOUTS.remove(sid);
+    if (previous != null) MAIN.removeCallbacks(previous);
+    Runnable runnable =
+        () -> {
+          Session live = SESSIONS.get(sid);
+          if (live == null || live.state != State.RINGING) return;
+          proposeMissed(app, sid, "retry");
+        };
+    MISSED_TIMEOUTS.put(sid, runnable);
+    MAIN.postDelayed(runnable, MISSED_RETRY_DELAY_MS);
+    NativeVoiceCallLog.info(
+        "missed_retry_scheduled",
+        sid,
+        "delayMs=" + MISSED_RETRY_DELAY_MS + " attempt=" + attempt);
   }
 
   private static void requestTerminalPatchBestEffort(Context app, String sid, String action) {
@@ -507,8 +607,13 @@ public final class NativeVoiceCallRuntime {
   }
 
   static void resetForTests() {
+    for (Runnable posted : MISSED_TIMEOUTS.values()) {
+      MAIN.removeCallbacks(posted);
+    }
     SESSIONS.clear();
     MISSED_TIMEOUTS.clear();
+    MISSED_RETRY_ATTEMPTS.clear();
+    MISSED_PROPOSE_INFLIGHT.clear();
     PATCH_REQUESTED.clear();
     for (Runnable posted : PATCH_BOUNDS.values()) {
       MAIN.removeCallbacks(posted);
@@ -519,21 +624,50 @@ public final class NativeVoiceCallRuntime {
     skipAgoraLeaveForTests = false;
   }
 
+  static int missedRetryAttemptsForTests(String callId) {
+    if (callId == null) return 0;
+    Integer n = MISSED_RETRY_ATTEMPTS.get(callId.trim());
+    return n == null ? 0 : n;
+  }
+
+  static void fireMissedTimerForTests(Context context, String callId) {
+    proposeMissed(context, callId, "local_timer");
+  }
+
+  static void advanceMissedRetryForTests(Context context, String callId) {
+    if (context == null || callId == null) return;
+    String sid = callId.trim();
+    Runnable runnable = MISSED_TIMEOUTS.remove(sid);
+    if (runnable != null) {
+      MAIN.removeCallbacks(runnable);
+      runnable.run();
+    }
+  }
+
   private static void scheduleMissed(Context context, String callId) {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    Runnable runnable = () -> {
-      Session session = SESSIONS.get(sid);
-      if (session == null || session.state != State.RINGING) return;
-      missed(app, sid);
-    };
-    MISSED_TIMEOUTS.put(sid, runnable);
+    MISSED_RETRY_ATTEMPTS.remove(sid);
+    Runnable runnable =
+        () -> {
+          Session session = SESSIONS.get(sid);
+          if (session == null || session.state != State.RINGING) return;
+          proposeMissed(app, sid, "local_timer");
+        };
+    Runnable previous = MISSED_TIMEOUTS.put(sid, runnable);
+    if (previous != null) MAIN.removeCallbacks(previous);
     MAIN.postDelayed(runnable, MISSED_TIMEOUT_MS);
+    NativeVoiceCallLog.info(
+        "missed_timer_scheduled", sid, "timeoutMs=" + MISSED_TIMEOUT_MS);
   }
 
   private static void cancelMissed(String callId) {
-    Runnable runnable = MISSED_TIMEOUTS.remove(callId);
+    if (callId == null) return;
+    String sid = callId.trim();
+    Runnable runnable = MISSED_TIMEOUTS.remove(sid);
     if (runnable != null) MAIN.removeCallbacks(runnable);
+    MISSED_RETRY_ATTEMPTS.remove(sid);
+    MISSED_PROPOSE_INFLIGHT.remove(sid);
   }
 
   private static void setState(Context context, Session session, State state) {

@@ -18,13 +18,17 @@ export async function projectNativeMemberEventEligibility(
 ): Promise<void> {
   if (!isCapacitorNativePlatform()) return;
   const reason = String(input.reason ?? "").trim() || "unspecified";
-  const eligible = input.eligible === true;
-  const boundUserId = eligible ? String(input.boundUserId ?? "").trim() : "";
+  const eligibleRequested = input.eligible === true;
+  const boundUserId = eligibleRequested ? String(input.boundUserId ?? "").trim() : "";
+  // CUT7: never project eligible=true without bound member id (cold-wake bound_user_missing).
+  const eligible = eligibleRequested && boundUserId.length > 0;
+  const projectedReason =
+    eligibleRequested && !eligible ? `${reason}:eligible_requires_bound_user` : reason;
   try {
     await invokeNativeCallServicePlugin("setMemberCallEligible", {
       eligible,
-      reason,
-      boundUserId,
+      reason: projectedReason,
+      boundUserId: eligible ? boundUserId : "",
     });
   } catch {
     /* best-effort — local prefs may still update on next successful bridge */

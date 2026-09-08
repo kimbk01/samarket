@@ -1,0 +1,83 @@
+{
+  "TITLE": "DIBAY CALL CUT7 — FINAL RUNTIME LEDGER",
+  "HEAD": "95c04b4bc",
+  "WORKTREE": "dirty — eligibility + missed retry + Android channel v2",
+  "CODE_CHANGE_THIS_LEDGER": "NONE",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "AUTHORITY": "CURRENT device CLOSE docs supersede historical parity FAIL rows (locked human-visible, dup ringtone, iOS terminated/missed/#5).",
+  "LEDGER": {
+    "Voice FG incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Voice BG incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Voice TERMINATED incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Voice LOCKED incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Video FG incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Video BG incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Video TERMINATED incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Video LOCKED incoming": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Caller identity": { "ANDROID": "PASS", "IOS": "PASS" },
+    "CallId": { "ANDROID": "PASS", "IOS": "PASS" },
+    "RoomId": { "ANDROID": "PASS", "IOS": "PASS" },
+    "One presentation": { "ANDROID": "PASS", "IOS": "PASS" },
+    "One ringtone": { "ANDROID": "PASS", "IOS": "PASS" },
+    "Accept": {
+      "ANDROID": "PASS",
+      "IOS": "PASS",
+      "evidence": "Android FG/TERMINATED + accept-stop; iOS TERMINATED Voice/Video CallKit Answer CASE_A"
+    },
+    "Reject": {
+      "ANDROID": "PASS",
+      "IOS": "PASS",
+      "evidence": "Android BG/LOCKED reject + reject-without-unlock + ring_stop; iOS Voice BG/LOCKED rejectApi PASS; iOS Video BG reject PASS; iOS Video TERMINATED reject PASS. Historical Video LOCKED reject PARTIAL (cancel fallback) superseded by other Video reject proofs."
+    },
+    "Missed": {
+      "ANDROID": "NOT_PROVEN",
+      "IOS": "PASS",
+      "android_note": "No CUT7 artifact shows Android callee no-answer → server status=missed → UI/ringtone clear. Prior cells used reject/cancel."
+    },
+    "Cancel dismiss": {
+      "ANDROID": "PASS",
+      "IOS": "PASS",
+      "evidence": "Android call_canceled_native_handled + TERMINAL_DISMISS; iOS VoIP call_canceled while ringing ends CallKit (parity FG/cancel cells)"
+    },
+    "Late incoming suppression": {
+      "ANDROID": "PASS",
+      "IOS": "NOT_PROVEN",
+      "android_note": "CUT7 #6 terminal session does not resurrect",
+      "ios_note": "No exact device proof of late incoming after terminal session on iOS"
+    },
+    "Late terminal suppression": {
+      "ANDROID": "N/A — Android late-terminal VoIP phase-guard not in CUT7 device matrix; FCM terminal path covered by cancel/end dismiss proofs",
+      "IOS": "PASS",
+      "ios_note": "#5 winner answered_elsewhere suppress + legitimate call_ended APPLY (Voice+Video)"
+    },
+    "Legitimate terminal close": {
+      "ANDROID": "PASS",
+      "IOS": "PASS"
+    },
+    "Account isolation": {
+      "ANDROID": "N/A — iOS eligibility/logout path measured",
+      "IOS": "PASS"
+    },
+    "Answered elsewhere winner": { "IOS": "PASS" },
+    "Answered elsewhere loser": {
+      "IOS": "NOT_PROVEN — MULTI-DEVICE ENVIRONMENT UNAVAILABLE",
+      "blocking": false,
+      "classification": "explicit deferred runtime proof"
+    }
+  },
+  "CHAT_LEAK": "NONE OBSERVED IN CUT7 RUNTIME",
+  "REMAINING_FAIL": "NONE",
+  "REMAINING_NOT_PROVEN": [
+    "Android Missed (no-answer → server missed → presentation/ringtone clear)",
+    "iOS late incoming suppression (post-terminal incoming must not resurrect)",
+    "iOS answered_elsewhere LOSER (deferred — multi-device unavailable; non-blocking)"
+  ],
+  "FIRST_REMAINING_CUT7_DIVERGENCE": "Android Missed — no exact device runtime proof of unanswered ringing → server missed → UI/ringtone dismiss on Samsung",
+  "CUT1_6": "PRESERVED",
+  "CUT7_SOURCE": "CLOSED",
+  "CUT7_DEVICE_RUNTIME": "PARTIAL",
+  "CUT7_OVERALL": "NOT CLOSED",
+  "CUT8": "HOLD",
+  "STOP": true
+}
