@@ -65,6 +65,9 @@ describe("logout device unbind + native call eligibility contract", () => {
     expect(register).toContain("cacheDeviceUnbindPushToken");
     expect(register).toContain("setNativeMemberCallEligible(true");
     expect(register).toContain("id.userId");
+    expect(register).toContain("async function registerVoipToken(token: string, userId?: string)");
+    expect(register).toContain("user_id: resolvedUserId || undefined");
+    expect(register).toContain("registerVoipToken(token, uid)");
     expect(session).toContain("projectNativeMemberEventEligibility");
     expect(session).toContain("projectMemberEventEligibility(true");
     expect(session).toContain("projectMemberEventEligibility(false");

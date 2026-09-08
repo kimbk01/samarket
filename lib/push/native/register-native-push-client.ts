@@ -451,7 +451,7 @@ export function navigateFromDibayDeepLink(deepLink: string): boolean {
 let lastVoipPushToken: string | null = null;
 let voipAuthUnsubscribe: (() => void) | null = null;
 
-async function registerVoipToken(token: string): Promise<RegisterResult> {
+async function registerVoipToken(token: string, userId?: string): Promise<RegisterResult> {
   const normalized = token.trim();
   if (!normalized) {
     return { ok: false, error: "empty_voip_token" };
@@ -460,8 +460,9 @@ async function registerVoipToken(token: string): Promise<RegisterResult> {
 
   const deviceId = ensureClientInstanceId();
   const appVersion = await getAppVersion();
+  const resolvedUserId = userId?.trim() || "";
   const identity: DeviceRegisterIdentity = {
-    userId: "",
+    userId: resolvedUserId,
     deviceId,
     pushToken: normalized,
     platform: "ios",
@@ -473,6 +474,7 @@ async function registerVoipToken(token: string): Promise<RegisterResult> {
       device_id: deviceId,
       push_token: normalized,
       push_provider: "voip_apns",
+      user_id: resolvedUserId || undefined,
       app_version: appVersion,
     }),
   );
@@ -493,7 +495,7 @@ export function retryVoipTokenRegistration(reason: string, userId?: string): voi
     prepareDeviceRegisterAfterLogin(uid);
   }
   logPushRegister("voip_token_register_retry", { reason, ...(uid ? { user_id: uid } : {}) });
-  void registerVoipToken(token).catch((err: unknown) => {
+  void registerVoipToken(token, uid).catch((err: unknown) => {
     logPushRegisterFail("voip_token_register_exception", {
       reason,
       error: err instanceof Error ? err.message : String(err),
