@@ -53,7 +53,9 @@ describe("auth login/logout lifecycle SSOT contract (L1–L12)", () => {
   it("L5–L7 A→B: register/session project B; canPresent mismatch DROP; match PRESENT", () => {
     const register = read("lib/push/native/register-native-push-client.ts");
     const session = read("lib/auth/dibay-session-manager.ts");
-    expect(register).toContain("id.userId || null");
+    // Boundary A — empty uid must not project eligible; authenticated uid re-affirms.
+    expect(register).toContain("eligibility_projection_skipped_empty_uid");
+    expect(register).toContain("projectEligibleAfterDeviceRegisterSuccess");
     expect(session).toContain("boundUserId: eligible ? boundUserId : null");
 
     expect(

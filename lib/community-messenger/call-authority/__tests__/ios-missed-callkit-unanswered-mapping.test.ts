@@ -21,48 +21,42 @@ describe("CUT7 #4 missed_timeout → CallKit .unanswered (M1–M12 source)", () 
     expect(src).toContain("reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)");
   });
 
-  it("M2: Voice local missed proposal accepted → .unanswered", () => {
+  it("M2: Voice NORMAL local missed dismiss → .unanswered (no propose/early-hold)", () => {
     const src = voiceRuntime();
     expect(src).toContain("missedAsync");
     expect(src).toContain("ios_native_voice_missed_local_dismiss");
     expect(src).toContain("endedReason: .unanswered");
-    const early = src.slice(
-      src.indexOf("ios_native_voice_missed_early_rejected"),
-      src.indexOf("ios_native_voice_missed_local_dismiss"),
-    );
-    expect(early).toContain("keep_presentation=1");
-    expect(early).not.toContain(".unanswered");
+    expect(src).not.toContain("ios_native_voice_missed_early_rejected");
+    expect(src).not.toContain("keep_presentation=1");
+    expect(src).not.toContain("ring_deadline_not_reached");
+    expect(src).not.toContain("scheduleMissedRetryLocked");
   });
 
-  it("M3: Video local missed proposal accepted → .unanswered", () => {
+  it("M3: Video NORMAL local missed dismiss → .unanswered (no propose-first)", () => {
     const src = videoRuntime();
     expect(src).toContain("missedAsync");
-    expect(src).toContain('details: "source=server_accepted"');
+    expect(src).toContain("markMissedLocked");
     expect(src).toContain("endedReason: .unanswered");
+    expect(src).not.toContain('details: "source=server_accepted"');
+    expect(src).not.toContain("missed_early_rejected");
+    expect(src).not.toContain("handleMissedProposeResultLocked");
+    expect(src).not.toContain("ring_deadline_not_reached");
   });
 
-  it("M4: Voice early missed proposal rejected → no dismiss / no .unanswered", () => {
+  it("M4: Voice has no early-missed propose reject path", () => {
     const src = voiceRuntime();
-    expect(src).toContain("ios_native_voice_missed_early_rejected");
-    expect(src).toContain("keep_presentation=1");
-    const earlyBlock = src.slice(
-      src.indexOf("ios_native_voice_missed_early_rejected"),
-      src.indexOf("ios_native_voice_missed_propose_blocked"),
-    );
-    expect(earlyBlock).not.toContain("reportCallEnded");
-    expect(earlyBlock).not.toContain(".unanswered");
+    expect(src).not.toContain("ios_native_voice_missed_early_rejected");
+    expect(src).not.toContain("keep_presentation=1");
+    expect(src).not.toContain("ios_native_voice_missed_propose_blocked");
+    expect(src).toContain("performMissedTimeoutIfCurrent");
   });
 
-  it("M5: Video early missed proposal rejected → no dismiss / no .unanswered", () => {
+  it("M5: Video has no early-missed propose reject path", () => {
     const src = videoRuntime();
-    expect(src).toContain("missed_early_rejected");
-    expect(src).toContain("keep_presentation=1");
-    const earlyBlock = src.slice(
-      src.indexOf('"missed_early_rejected"'),
-      src.indexOf("missed_propose_blocked"),
-    );
-    expect(earlyBlock).not.toContain("reportCallEnded");
-    expect(earlyBlock).not.toContain(".unanswered");
+    expect(src).not.toContain("missed_early_rejected");
+    expect(src).not.toContain("keep_presentation=1");
+    expect(src).not.toContain("missed_propose_blocked");
+    expect(src).toContain("performMissedTimeoutIfCurrent");
   });
 
   it("M6: caller_cancelled → .remoteEnded preserved", () => {
@@ -110,12 +104,13 @@ describe("CUT7 #4 missed_timeout → CallKit .unanswered (M1–M12 source)", () 
     expect(callkit()).toContain("ios_callkit_ended_unanswered");
   });
 
-  it("M12: CUT7 #1–#3 regression guards", () => {
-    // #1/#2 propose-first + early keep presentation
-    expect(voiceRuntime()).toContain("ring_deadline_not_reached");
-    expect(videoRuntime()).toContain("ring_deadline_not_reached");
+  it("M12: NORMAL local dismiss + CUT7 elsewhere/default locks", () => {
+    // NORMAL — local dismiss + best-effort missedAsync; no propose/early-hold
+    expect(voiceRuntime()).toContain("ios_native_voice_missed_local_dismiss");
     expect(voiceRuntime()).toContain("missedAsync");
     expect(videoRuntime()).toContain("missedAsync");
+    expect(voiceRuntime()).not.toContain("ring_deadline_not_reached");
+    expect(videoRuntime()).not.toContain("ring_deadline_not_reached");
     // #3 elsewhere lock
     expect(voip()).toContain("callKitEndReason = .answeredElsewhere");
     expect(callkit()).not.toContain(".declinedElsewhere");

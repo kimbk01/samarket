@@ -153,22 +153,25 @@ describe("CUT2 server missed writer contracts", () => {
     expect(cleanup).not.toMatch(/action:\s*"cancel"/);
   });
 
-  it("client native timers remain proposers only (no native change in CUT2)", () => {
+  it("client native timers: NORMAL local dismiss + best-effort missedAsync (no propose/early-hold)", () => {
     const androidVoice = readFileSync(
       join(ROOT, "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java"),
       "utf8",
     );
     expect(androidVoice).toContain("MISSED_TIMEOUT_MS");
     expect(androidVoice).toContain("missedAsync");
+    expect(androidVoice).not.toContain("ring_deadline_not_reached");
+    expect(androidVoice).not.toContain("proposeMissed");
     const iosVideo = readFileSync(
       join(ROOT, "ios/App/App/Call/Video/NativeVideoCallRuntime.swift"),
       "utf8",
     );
     expect(iosVideo).toContain("scheduleMissedLocked");
+    expect(iosVideo).not.toContain("ring_deadline_not_reached");
     const iosVoice = readFileSync(join(ROOT, "ios/App/App/Call/NativeVoiceCallRuntime.swift"), "utf8");
-    // CUT7 — Voice gained scheduleMissedLocked; still proposer-only via missedAsync + server gate.
     expect(iosVoice).toContain("scheduleMissedLocked");
     expect(iosVoice).toContain("missedAsync");
-    expect(iosVoice).toContain("ring_deadline_not_reached");
+    expect(iosVoice).toContain("ios_native_voice_missed_local_dismiss");
+    expect(iosVoice).not.toContain("ring_deadline_not_reached");
   });
 });

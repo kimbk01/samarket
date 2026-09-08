@@ -39,6 +39,7 @@ export default defineConfig({
       /** Local QA copies / nested worktrees must not be collected as duplicate suites. */
       "**/.qa-logs/**",
       "**/.worktrees/**",
+      "**/.recovery/**",
     ],
   },
 });
