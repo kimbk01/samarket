@@ -46,6 +46,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".qa-logs/**",
     ".worktrees/**",
+    ".recovery/**",
   ]),
   {
     plugins: {

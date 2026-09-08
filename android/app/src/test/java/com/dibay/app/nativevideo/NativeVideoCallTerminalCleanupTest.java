@@ -1,14 +1,12 @@
 package com.dibay.app.nativevideo;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
 
 import android.app.Application;
 import android.content.Context;
 import androidx.test.core.app.ApplicationProvider;
-import com.dibay.app.nativecall.NativeCallTerminalLifecycle;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,6 +14,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
+/** NORMAL Video cleanup/finish — no TerminalLifecycle phase machine. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34, application = Application.class)
 public class NativeVideoCallTerminalCleanupTest {
@@ -34,31 +33,17 @@ public class NativeVideoCallTerminalCleanupTest {
   }
 
   @Test
-  public void remoteTerminal_completesLifecycle() {
+  public void remoteTerminal_cleansAndRemovesSession() {
     String callId = "video-remote";
     putConnected(callId);
 
     NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
 
     assertNull(NativeVideoCallRuntime.getSession(callId));
-    assertTrue(NativeCallTerminalLifecycle.isCompleted(callId));
   }
 
   @Test
-  public void duplicateDuringInProgress_noParallelCleanup() {
-    String callId = "video-in-progress";
-    putConnected(callId);
-    assertTrue(NativeCallTerminalLifecycle.tryBegin(callId));
-
-    NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "plugin_end_call");
-    NativeVideoCallRuntime.cleanup(context, callId, "repeat");
-
-    assertEquals(NativeCallTerminalLifecycle.Phase.IN_PROGRESS, NativeCallTerminalLifecycle.phase(callId));
-    assertFalse(NativeCallTerminalLifecycle.isCompleted(callId));
-  }
-
-  @Test
-  public void leaveFailure_stillCompletesMandatoryCleanup() {
+  public void leaveFailure_stillRunsCleanupFinish() {
     String callId = "video-leave-fail";
     putConnected(callId);
     NativeVideoCallRuntime.skipAgoraLeaveForTests = false;
@@ -67,12 +52,11 @@ public class NativeVideoCallTerminalCleanupTest {
     NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
 
     assertNull(NativeVideoCallRuntime.getSession(callId));
-    assertTrue(NativeCallTerminalLifecycle.isCompleted(callId));
   }
 
   @Test
-  public void endingStateAlone_doesNotBlockCleanup() {
-    String callId = "video-ending-recover";
+  public void endingState_skipsRemoteTerminal_likeNormal() {
+    String callId = "video-ending";
     NativeVideoCallRuntime.Session session =
         new NativeVideoCallRuntime.Session(callId, "room", "peer", "Peer", "video", true);
     session.state = NativeVideoCallRuntime.State.ENDING;
@@ -80,19 +64,21 @@ public class NativeVideoCallTerminalCleanupTest {
 
     NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
 
+    // NORMAL: ENDING skips onRemoteTerminal; explicit cleanup still works.
+    assertNotNull(NativeVideoCallRuntime.getSession(callId));
+    assertEquals(NativeVideoCallRuntime.State.ENDING, NativeVideoCallRuntime.getSession(callId).state);
+
+    NativeVideoCallRuntime.cleanup(context, callId, "ended");
     assertNull(NativeVideoCallRuntime.getSession(callId));
-    assertTrue(NativeCallTerminalLifecycle.isCompleted(callId));
   }
 
   @Test
-  public void voiceVideoShareSameLifecycleAuthority() {
-    String callId = "shared-lifecycle";
-    assertTrue(NativeCallTerminalLifecycle.tryBegin(callId));
+  public void duplicateCleanup_isSafe() {
+    String callId = "video-dup";
     putConnected(callId);
-
-    NativeVideoCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
-
-    assertEquals(NativeCallTerminalLifecycle.Phase.IN_PROGRESS, NativeCallTerminalLifecycle.phase(callId));
+    NativeVideoCallRuntime.cleanup(context, callId, "ended");
+    NativeVideoCallRuntime.cleanup(context, callId, "ended_again");
+    assertNull(NativeVideoCallRuntime.getSession(callId));
   }
 
   private void putConnected(String callId) {

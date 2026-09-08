@@ -10,82 +10,45 @@ const voiceRuntime = () =>
 const videoApi = () =>
   readFileSync(join(ROOT, "ios/App/App/Call/Video/NativeVideoCallApi.swift"), "utf8");
 
-describe("CUT7 #2 iOS Video missed proposer parity (V1–V11 source)", () => {
-  it("V1: Video incoming register schedules missed timer", () => {
+describe("NORMAL iOS Video missed dismiss (source)", () => {
+  it("incoming register schedules missed timer", () => {
     const src = videoRuntime();
     expect(src).toContain("scheduleMissedLocked(sessionId: sid)");
     expect(src).toContain("func registerIncomingSession");
   });
 
-  it("V2: timeout while ringing calls missedAsync (propose-first)", () => {
+  it("timeout dismisses via markMissedLocked (not propose-first)", () => {
     const src = videoRuntime();
+    expect(src).toContain("markMissedLocked");
     expect(src).toContain("NativeVideoCallApi.missedAsync");
-    expect(src).toContain("missed_propose");
+    expect(src).not.toContain("handleMissedProposeResultLocked");
+    expect(src).not.toContain("scheduleMissedRetryLocked");
+    expect(src).not.toContain("ring_deadline_not_reached");
     const perform = src.slice(
       src.indexOf("performMissedTimeoutIfCurrent"),
-      src.indexOf("handleMissedProposeResultLocked"),
+      src.indexOf("private func scheduleMissedLocked"),
     );
-    expect(perform).toContain("missedAsync");
-    expect(perform).not.toContain("applyMissedDismissLocked");
+    expect(perform).toContain("markMissedLocked");
   });
 
-  it("V3: server accept path dismisses only after ok", () => {
-    const src = videoRuntime();
-    const handle = src.slice(src.indexOf("handleMissedProposeResultLocked"));
-    expect(handle).toContain("if !ok");
-    expect(handle).toContain("try? applyMissedDismissLocked");
-    expect(handle.indexOf("if !ok")).toBeLessThan(handle.indexOf("applyMissedDismissLocked"));
-  });
-
-  it("V4: early ring_deadline_not_reached keeps presentation and retries", () => {
-    const src = videoRuntime();
-    expect(src).toContain("ring_deadline_not_reached");
-    expect(src).toContain("keep_presentation=1");
-    expect(src).toContain("missed_early_rejected");
-    expect(src).toContain("scheduleMissedRetryLocked");
-    expect(src).toContain("missed_retry_scheduled");
-  });
-
-  it("V5: Accept cancels timer before accepting", () => {
+  it("Accept/Reject cancel timer", () => {
     const src = videoRuntime();
     const beginAccept = src.slice(src.indexOf("func beginAccept"), src.indexOf("func markConnecting"));
     expect(beginAccept).toContain("cancelMissedLocked()");
-    expect(beginAccept.indexOf("cancelMissedLocked()")).toBeLessThan(
-      beginAccept.indexOf("state = .accepting"),
-    );
-  });
-
-  it("V6: Reject cancels timer", () => {
-    const src = videoRuntime();
     const beginReject = src.slice(src.indexOf("func beginReject"), src.indexOf("func markRejected"));
     expect(beginReject).toContain("cancelMissedLocked()");
   });
 
-  it("V7: End / reset cancel timer", () => {
-    const src = videoRuntime();
-    expect(src).toContain("func beginEnd");
-    const reset = src.slice(src.indexOf("func reset"), src.indexOf("func findOtherLiveSessionCallId"));
-    expect(reset).toContain("cancelMissedLocked()");
-  });
-
-  it("V8/V9: generation + ringing guard; CallKit end only after accept", () => {
-    const src = videoRuntime();
-    expect(src).toContain("generation == expectedGeneration");
-    expect(src).toContain("state == .ringing");
-    expect(src).toContain("CallKitProvider.shared.reportCallEnded");
-  });
-
-  it("V10: missedAsync action exists on Video API (no API rewrite required)", () => {
+  it("missedAsync action exists on Video API", () => {
     expect(videoApi()).toContain('action: "missed"');
   });
 
-  it("V11: Voice/Video both propose-first", () => {
+  it("Voice/Video both local-dismiss", () => {
     const voice = voiceRuntime();
     const video = videoRuntime();
     expect(voice).toContain("missedAsync");
-    expect(voice).toContain("ring_deadline_not_reached");
     expect(video).toContain("missedAsync");
-    expect(video).toContain("ring_deadline_not_reached");
-    expect(video).toContain("PROPOSER only");
+    expect(voice).not.toContain("ring_deadline_not_reached");
+    expect(video).not.toContain("ring_deadline_not_reached");
   });
 });

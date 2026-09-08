@@ -18,7 +18,6 @@ import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
-import com.dibay.app.nativecall.NativeCallTerminalLifecycle;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,21 +60,12 @@ public final class NativeVideoCallRuntime {
     }
   }
 
-  /** Local UX timer — proposer only. Canonical missed = server CUT2 deadline/CAS. */
+  /** Local UX missed timer — NORMAL scheduleMissed → terminalPatch. */
   private static final long MISSED_TIMEOUT_MS = 30_000L;
-  private static final long MISSED_RETRY_DELAY_MS = 2_000L;
-  private static final int MISSED_RETRY_MAX_ATTEMPTS = 30;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
-  private static final ConcurrentHashMap<String, Integer> MISSED_RETRY_ATTEMPTS = new ConcurrentHashMap<>();
-  private static final ConcurrentHashMap<String, Boolean> MISSED_PROPOSE_INFLIGHT = new ConcurrentHashMap<>();
 
-  interface MissedProposeDispatcher {
-    void dispatch(Context app, String callId, NativeVideoCallApi.PatchCallback callback);
-  }
-
-  static volatile MissedProposeDispatcher missedProposeDispatcherForTests;
   static volatile boolean skipAgoraLeaveForTests;
   static volatile boolean injectLeaveFailureForTests;
 
@@ -421,12 +411,8 @@ public final class NativeVideoCallRuntime {
     terminalPatch(context, callId, "end");
   }
 
-  /**
-   * CUT7 — local missed is a PROPOSER only. Do not terminal-cleanup until server accepts missed.
-   * Early `ring_deadline_not_reached` keeps ringing + schedules bounded retry.
-   */
   public static void missed(Context context, String callId) {
-    proposeMissed(context, callId, "local_timer");
+    terminalPatch(context, callId, "missed");
   }
 
   public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
@@ -442,18 +428,12 @@ public final class NativeVideoCallRuntime {
       cancelMissed(sid);
       return;
     }
-    if (NativeCallTerminalLifecycle.isCompleted(sid)) {
+    if (session != null
+        && (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED)) {
       NativeVideoCallLog.info(
-          "native_terminal_already_completed",
+          "native_terminal_skip",
           sid,
-          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
-      return;
-    }
-    if (NativeCallTerminalLifecycle.isInProgress(sid)) {
-      NativeVideoCallLog.info(
-          "native_terminal_in_progress",
-          sid,
-          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
+          "kind=" + reason + " source=" + safe(source) + " state=" + session.state.name().toLowerCase());
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
@@ -464,28 +444,7 @@ public final class NativeVideoCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    if (!NativeCallTerminalLifecycle.tryBegin(sid)) {
-      if (NativeCallTerminalLifecycle.isInProgress(sid)) {
-        NativeVideoCallLog.info(
-            "runtime_cleanup_in_progress",
-            sid,
-            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-      } else {
-        NativeVideoCallLog.info(
-            "runtime_cleanup_already_completed",
-            sid,
-            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-      }
-      return;
-    }
-    NativeVideoCallLog.info(
-        "runtime_cleanup_start",
-        sid,
-        "reason="
-            + safe(reason)
-            + " thread="
-            + Thread.currentThread().getName()
-            + " phase=IN_PROGRESS");
+    NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
       NativeVideoCallAcceptTiming.clear(sid);
       NativeOutgoingRingbackOwner.stop(sid, reason);
@@ -497,6 +456,7 @@ public final class NativeVideoCallRuntime {
           if (injectLeaveFailureForTests) {
             throw new RuntimeException("forced_leave_failure");
           }
+          // MERGE: leaveChannel without destroy (CURRENT). Do not restore NORMAL destroy().
           NativeVideoCallAgoraEngine.leave(reason);
         } catch (RuntimeException error) {
           NativeVideoCallLog.warn(
@@ -504,16 +464,6 @@ public final class NativeVideoCallRuntime {
         }
       }
     } finally {
-      runMandatoryCleanup(app, sid, reason);
-    }
-  }
-
-  private static void runMandatoryCleanup(Context app, String sid, String reason) {
-    NativeVideoCallLog.info(
-        "mandatory_cleanup_start",
-        sid,
-        "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-    try {
       NativeVideoCallNotification.dismiss(app, sid);
       NativeVideoCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
       NativeVideoCallService.stop(app, sid, reason);
@@ -522,27 +472,15 @@ public final class NativeVideoCallRuntime {
       SESSIONS.remove(sid);
       IncomingCallActionCoordinator.complete(sid, reason);
       DibayActiveCallSessionManager.clearSession();
+      NativeVideoCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVideoCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
-      NativeVideoCallLog.info(
-          "activity_finish", sid, "thread=" + Thread.currentThread().getName());
       NativeVideoCallActivity.finishIfActive(sid);
-    } finally {
-      NativeCallTerminalLifecycle.markCompleted(sid);
-      NativeVideoCallLog.info(
-          "cleanup_done",
-          sid,
-          "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName() + " phase=COMPLETED");
     }
   }
 
-  /** Reject/end only — missed uses {@link #proposeMissed}. */
   private static void terminalPatch(Context context, String callId, String action) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
-    if ("missed".equals(action)) {
-      proposeMissed(context, callId, "local_timer");
-      return;
-    }
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
@@ -553,122 +491,11 @@ public final class NativeVideoCallRuntime {
         (ok, status, error) -> cleanup(app, sid, ok ? action : action + "_patch_failed");
     if ("reject".equals(action)) {
       NativeVideoCallApi.rejectAsync(app, sid, done);
+    } else if ("missed".equals(action)) {
+      NativeVideoCallApi.missedAsync(app, sid, done);
     } else {
       NativeVideoCallApi.endAsync(app, sid, done);
     }
-  }
-
-  private static void proposeMissed(Context context, String callId, String source) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return;
-    Context app = context.getApplicationContext();
-    String sid = callId.trim();
-    Session session = SESSIONS.get(sid);
-    if (session == null || session.state != State.RINGING) {
-      NativeVideoCallLog.info(
-          "missed_propose_skipped", sid, "source=" + safe(source) + " reason=not_ringing");
-      return;
-    }
-    if (MISSED_PROPOSE_INFLIGHT.putIfAbsent(sid, Boolean.TRUE) != null) {
-      NativeVideoCallLog.info("missed_propose_inflight_skip", sid, "source=" + safe(source));
-      return;
-    }
-    NativeVideoCallLog.info("missed_propose", sid, "source=" + safe(source));
-    NativeVideoCallApi.PatchCallback done =
-        (ok, status, error) -> handleMissedProposeResult(app, sid, ok, status, error);
-    MissedProposeDispatcher dispatcher = missedProposeDispatcherForTests;
-    if (dispatcher != null) {
-      dispatcher.dispatch(app, sid, done);
-    } else {
-      NativeVideoCallApi.missedAsync(app, sid, done);
-    }
-  }
-
-  private static void handleMissedProposeResult(
-      Context app, String sid, boolean ok, int status, String error) {
-    MISSED_PROPOSE_INFLIGHT.remove(sid);
-    Session session = SESSIONS.get(sid);
-    String err = safe(error);
-    if (session == null || session.state != State.RINGING) {
-      NativeVideoCallLog.info(
-          "missed_propose_ignored",
-          sid,
-          "reason=no_longer_ringing status=" + status + " err=" + err);
-      return;
-    }
-    if (!ok && "ring_deadline_not_reached".equals(err)) {
-      NativeVideoCallLog.info(
-          "missed_early_rejected", sid, "status=" + status + " keep_presentation=1");
-      scheduleMissedRetry(app, sid);
-      return;
-    }
-    if (!ok && ("already_answered".equals(err) || "bad_action".equals(err))) {
-      NativeVideoCallLog.info(
-          "missed_propose_blocked", sid, "error=" + err + " keep_presentation=1");
-      cancelMissed(sid);
-      return;
-    }
-    if (!ok) {
-      NativeVideoCallLog.info(
-          "missed_propose_failed",
-          sid,
-          "status=" + status + " error=" + err + " keep_presentation=1");
-      return;
-    }
-    cancelMissed(sid);
-    NativeVideoCallLog.info("missed_canonical_accepted", sid, "status=" + status);
-    cleanup(app, sid, "missed");
-  }
-
-  private static void scheduleMissedRetry(Context app, String callId) {
-    if (app == null || callId == null || callId.trim().isEmpty()) return;
-    String sid = callId.trim();
-    Session session = SESSIONS.get(sid);
-    if (session == null || session.state != State.RINGING) return;
-    int attempt = MISSED_RETRY_ATTEMPTS.merge(sid, 1, Integer::sum);
-    if (attempt > MISSED_RETRY_MAX_ATTEMPTS) {
-      NativeVideoCallLog.info(
-          "missed_retry_exhausted", sid, "attempts=" + attempt + " keep_presentation=1");
-      return;
-    }
-    Runnable previous = MISSED_TIMEOUTS.remove(sid);
-    if (previous != null) MAIN.removeCallbacks(previous);
-    Runnable runnable =
-        () -> {
-          Session live = SESSIONS.get(sid);
-          if (live == null || live.state != State.RINGING) return;
-          proposeMissed(app, sid, "retry");
-        };
-    MISSED_TIMEOUTS.put(sid, runnable);
-    MAIN.postDelayed(runnable, MISSED_RETRY_DELAY_MS);
-    NativeVideoCallLog.info(
-        "missed_retry_scheduled",
-        sid,
-        "delayMs=" + MISSED_RETRY_DELAY_MS + " attempt=" + attempt);
-  }
-
-  private static void scheduleMissed(Context context, String callId) {
-    Context app = context.getApplicationContext();
-    String sid = callId.trim();
-    MISSED_RETRY_ATTEMPTS.remove(sid);
-    Runnable runnable =
-        () -> {
-          Session session = SESSIONS.get(sid);
-          if (session == null || session.state != State.RINGING) return;
-          proposeMissed(app, sid, "local_timer");
-        };
-    Runnable previous = MISSED_TIMEOUTS.put(sid, runnable);
-    if (previous != null) MAIN.removeCallbacks(previous);
-    MAIN.postDelayed(runnable, MISSED_TIMEOUT_MS);
-    NativeVideoCallLog.info("missed_timer_scheduled", sid, "timeoutMs=" + MISSED_TIMEOUT_MS);
-  }
-
-  private static void cancelMissed(String callId) {
-    if (callId == null) return;
-    String sid = callId.trim();
-    Runnable runnable = MISSED_TIMEOUTS.remove(sid);
-    if (runnable != null) MAIN.removeCallbacks(runnable);
-    MISSED_RETRY_ATTEMPTS.remove(sid);
-    MISSED_PROPOSE_INFLIGHT.remove(sid);
   }
 
   static void putSessionForTests(Session session) {
@@ -682,32 +509,34 @@ public final class NativeVideoCallRuntime {
     }
     SESSIONS.clear();
     MISSED_TIMEOUTS.clear();
-    MISSED_RETRY_ATTEMPTS.clear();
-    MISSED_PROPOSE_INFLIGHT.clear();
-    missedProposeDispatcherForTests = null;
     skipAgoraLeaveForTests = false;
     injectLeaveFailureForTests = false;
-    NativeCallTerminalLifecycle.clearForTests();
-  }
-
-  static int missedRetryAttemptsForTests(String callId) {
-    if (callId == null) return 0;
-    Integer n = MISSED_RETRY_ATTEMPTS.get(callId.trim());
-    return n == null ? 0 : n;
   }
 
   static void fireMissedTimerForTests(Context context, String callId) {
-    proposeMissed(context, callId, "local_timer");
+    terminalPatch(context, callId, "missed");
   }
 
-  static void advanceMissedRetryForTests(Context context, String callId) {
-    if (context == null || callId == null) return;
+  private static void scheduleMissed(Context context, String callId) {
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    Runnable runnable =
+        () -> {
+          Session session = SESSIONS.get(sid);
+          if (session == null || session.state != State.RINGING) return;
+          terminalPatch(app, sid, "missed");
+        };
+    Runnable previous = MISSED_TIMEOUTS.put(sid, runnable);
+    if (previous != null) MAIN.removeCallbacks(previous);
+    MAIN.postDelayed(runnable, MISSED_TIMEOUT_MS);
+    NativeVideoCallLog.info("missed_timer_scheduled", sid, "timeoutMs=" + MISSED_TIMEOUT_MS);
+  }
+
+  private static void cancelMissed(String callId) {
+    if (callId == null) return;
     String sid = callId.trim();
     Runnable runnable = MISSED_TIMEOUTS.remove(sid);
-    if (runnable != null) {
-      MAIN.removeCallbacks(runnable);
-      runnable.run();
-    }
+    if (runnable != null) MAIN.removeCallbacks(runnable);
   }
 
   private static void setState(Context context, Session session, State state) {

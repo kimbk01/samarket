@@ -7,23 +7,18 @@ import Foundation
  * Owns at most one active voice session. Thread-safe via a dedicated serial queue.
  * Phase publish fan-out: NativeVoiceCallUiHost (incoming + outgoing voice UI).
  *
- * CUT7 — local missed timer is a PROPOSER only (parity with NativeVideoCallRuntime.scheduleMissedLocked).
- * Canonical missed = server CUT2 deadline/CAS. Early `ring_deadline_not_reached` must not dismiss CallKit.
+ * Missed timer dismisses locally (NORMAL) — no propose/retry hold.
  */
 final class NativeVoiceCallRuntime: @unchecked Sendable {
   static let shared = NativeVoiceCallRuntime()
 
   private static let missedTimeoutSeconds: TimeInterval = 30
-  /** CUT7 #4 CASE B — after early `ring_deadline_not_reached`, re-propose until server accepts or session leaves ringing. */
-  private static let missedRetryDelaySeconds: TimeInterval = 2
-  private static let missedRetryMaxAttempts = 30
 
   private let queue = DispatchQueue(label: "com.dibay.app.native-voice-call-runtime")
   private var session: NativeVoiceCallSession?
   private var phase: NativeVoiceCallPhase = .idle
   private var generation: UInt64 = 0
   private var missedWorkItem: DispatchWorkItem?
-  private var missedRetryAttempt: Int = 0
 
   init() {}
 
@@ -378,11 +373,10 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     }
   }
 
-  // MARK: - Missed proposer (CUT7 Voice ↔ Video parity)
+  // MARK: - Missed dismiss (NORMAL)
 
   private func scheduleMissedLocked(sessionId: String) {
     cancelMissedLocked()
-    missedRetryAttempt = 0
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
     guard phase == .incomingPresented, let active = session, active.sessionId == sid else { return }
@@ -405,39 +399,6 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     missedWorkItem = nil
   }
 
-  /// Re-arm proposer after early server reject (deadline not reached yet). Same generation; short delay.
-  private func scheduleMissedRetryLocked(
-    sessionId: String,
-    expectedGeneration: UInt64
-  ) {
-    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !sid.isEmpty else { return }
-    guard phase == .incomingPresented, let active = session, active.sessionId == sid else { return }
-    guard generation == expectedGeneration else { return }
-    missedRetryAttempt += 1
-    let attempt = missedRetryAttempt
-    guard attempt <= Self.missedRetryMaxAttempts else {
-      DibayCallLog.info(
-        "ios_native_voice_missed_retry_exhausted",
-        sessionId: sid,
-        detail: "attempts=\(attempt) keep_presentation=1"
-      )
-      return
-    }
-    cancelMissedLocked()
-    let work = DispatchWorkItem { [weak self] in
-      guard let self else { return }
-      self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
-    }
-    missedWorkItem = work
-    queue.asyncAfter(deadline: .now() + Self.missedRetryDelaySeconds, execute: work)
-    DibayCallLog.info(
-      "ios_native_voice_missed_retry_scheduled",
-      sessionId: sid,
-      detail: "delaySec=\(Int(Self.missedRetryDelaySeconds)) attempt=\(attempt) generation=\(expectedGeneration)"
-    )
-  }
-
   /// Called only from `queue` (missed timer) — no `queue.sync` re-entry.
   private func performMissedTimeoutIfCurrent(sessionId: String, generation expectedGeneration: UInt64) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -458,79 +419,6 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       return
     }
     missedWorkItem = nil
-    DibayCallLog.info("ios_native_voice_missed_propose", sessionId: sid, detail: "source=local_timer")
-    NativeVoiceCallApi.missedAsync(callId: sid) { [weak self] ok, status, error in
-      guard let self else { return }
-      self.queue.async {
-        self.handleMissedProposeResultLocked(
-          sessionId: sid,
-          expectedGeneration: expectedGeneration,
-          ok: ok,
-          status: status,
-          error: error
-        )
-      }
-    }
-  }
-
-  private func handleMissedProposeResultLocked(
-    sessionId: String,
-    expectedGeneration: UInt64,
-    ok: Bool,
-    status: Int,
-    error: String?
-  ) {
-    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-    let err = (error ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    // Old timer must never dismiss a replaced/new call.
-    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
-      DibayCallLog.info(
-        "ios_native_voice_missed_propose_ignored",
-        sessionId: sid,
-        detail: "reason=stale_after_response"
-      )
-      return
-    }
-    guard phase == .incomingPresented else {
-      DibayCallLog.info(
-        "ios_native_voice_missed_propose_ignored",
-        sessionId: sid,
-        detail: "reason=no_longer_ringing"
-      )
-      return
-    }
-
-    if !ok && err == "ring_deadline_not_reached" {
-      DibayCallLog.info(
-        "ios_native_voice_missed_early_rejected",
-        sessionId: sid,
-        detail: "status=\(status) keep_presentation=1"
-      )
-      // Keep CallKit, but must retry — a single early reject left unanswered UI forever (CUT7 #4 CASE B).
-      scheduleMissedRetryLocked(sessionId: sid, expectedGeneration: expectedGeneration)
-      return
-    }
-
-    if !ok && (err == "already_answered" || err == "bad_action") {
-      // Accept/elsewhere won — do not invent missed UI; leave terminal push / accept path to dismiss.
-      DibayCallLog.info(
-        "ios_native_voice_missed_propose_blocked",
-        sessionId: sid,
-        detail: "error=\(err) keep_presentation=1"
-      )
-      return
-    }
-
-    // ok / idempotent success → dismiss presentation. Failures keep CallKit until another terminal.
-    if !ok {
-      DibayCallLog.info(
-        "ios_native_voice_missed_propose_failed",
-        sessionId: sid,
-        detail: "status=\(status) error=\(err) keep_presentation=1"
-      )
-      return
-    }
-
     cancelMissedLocked()
     phase = .failed(reason: .ended)
     clearSessionLocked()
@@ -539,11 +427,12 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     DibayCallLog.info(
       "ios_native_voice_missed_local_dismiss",
       sessionId: sid,
-      detail: "status=\(status)"
+      detail: "source=local_timer"
     )
     DispatchQueue.main.async {
-      // CUT7 #4: only after server accepted canonical missed — project .unanswered (not timer alone).
       CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .unanswered)
     }
+    // Best-effort server PATCH — must not block local dismiss (NORMAL).
+    NativeVoiceCallApi.missedAsync(callId: sid) { _, _, _ in }
   }
 }

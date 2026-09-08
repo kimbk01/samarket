@@ -10,7 +10,6 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
-import com.dibay.app.IncomingCallSessionStatusProbe;
 import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
@@ -58,28 +57,17 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
-  /** Local UX timer — proposer only. Canonical missed = server CUT2 deadline/CAS. */
+  /** Local UX missed timer — fires beginLocalTerminal (NORMAL). */
   private static final long MISSED_TIMEOUT_MS = 30_000L;
-  /** After early `ring_deadline_not_reached`, re-propose (parity with iOS missedRetryDelaySeconds). */
-  private static final long MISSED_RETRY_DELAY_MS = 2_000L;
-  private static final int MISSED_RETRY_MAX_ATTEMPTS = 30;
   private static final long TERMINAL_PATCH_BOUND_MS = 8_000L;
-  private static final long OUTGOING_TERMINAL_OBSERVER_POLL_MS = 1_000L;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Session> SESSIONS = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUTS = new ConcurrentHashMap<>();
-  private static final ConcurrentHashMap<String, Integer> MISSED_RETRY_ATTEMPTS = new ConcurrentHashMap<>();
-  private static final ConcurrentHashMap<String, Boolean> MISSED_PROPOSE_INFLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Boolean> PATCH_REQUESTED = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> PATCH_BOUNDS = new ConcurrentHashMap<>();
-  private static final ConcurrentHashMap<String, Runnable> OUTGOING_TERMINAL_OBSERVERS = new ConcurrentHashMap<>();
 
   interface TerminalPatchDispatcher {
     void dispatch(Context app, String callId, String action, NativeVoiceCallApi.PatchCallback callback);
-  }
-
-  interface SessionStatusObserver {
-    String fetch(Context app, String callId);
   }
 
   private static final TerminalPatchDispatcher DEFAULT_PATCH_DISPATCHER =
@@ -94,7 +82,6 @@ public final class NativeVoiceCallRuntime {
       };
 
   static volatile TerminalPatchDispatcher terminalPatchDispatcherForTests;
-  static volatile SessionStatusObserver sessionStatusObserverForTests;
   static volatile boolean skipAgoraLeaveForTests;
   /** When true, leave path throws before engine leave — mandatory cleanup must still complete. */
   static volatile boolean injectLeaveFailureForTests;
@@ -270,7 +257,6 @@ public final class NativeVoiceCallRuntime {
     NativeVoiceCallService.startConnecting(app, sid);
     NativeOutgoingRingbackOwner.start(app, sid, "voice");
     startOutgoingDialingActivity(app, session);
-    startOutgoingTerminalObserver(app, sid);
     startCallerAgoraJoin(app, session);
   }
 
@@ -284,7 +270,6 @@ public final class NativeVoiceCallRuntime {
     }
     String sid = session.callId;
     NativeOutgoingRingbackOwner.stop(sid, "connected");
-    stopOutgoingTerminalObserver(sid);
     setState(app, session, State.CONNECTED);
     NativeVoiceCallLog.info("state_connected", sid);
     NativeVoiceCallService.startConnected(app, sid);
@@ -410,12 +395,8 @@ public final class NativeVoiceCallRuntime {
     beginLocalTerminal(context, callId, "end");
   }
 
-  /**
-   * CUT7 — local missed is a PROPOSER only. Do not terminal-cleanup until server accepts missed.
-   * Early `ring_deadline_not_reached` keeps ringing + schedules bounded retry.
-   */
   public static void missed(Context context, String callId) {
-    proposeMissed(context, callId, "local_timer");
+    beginLocalTerminal(context, callId, "missed");
   }
 
   public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
@@ -431,18 +412,11 @@ public final class NativeVoiceCallRuntime {
       cancelMissed(sid);
       return;
     }
-    if (NativeVoiceCallTerminalOnce.isCompleted(sid)) {
+    if (NativeVoiceCallTerminalOnce.isClaimed(sid)) {
       NativeVoiceCallLog.info(
-          "native_terminal_already_completed",
+          "native_terminal_skip",
           sid,
-          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
-      return;
-    }
-    if (NativeVoiceCallTerminalOnce.isInProgress(sid)) {
-      NativeVoiceCallLog.info(
-          "native_terminal_in_progress",
-          sid,
-          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
+          "kind=" + reason + " source=" + safe(source) + " state=already_cleaned");
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
@@ -453,39 +427,22 @@ public final class NativeVoiceCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    if (!NativeVoiceCallTerminalOnce.tryBegin(sid)) {
-      if (NativeVoiceCallTerminalOnce.isInProgress(sid)) {
-        NativeVoiceCallLog.info(
-            "runtime_cleanup_in_progress",
-            sid,
-            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-      } else {
-        NativeVoiceCallLog.info(
-            "runtime_cleanup_already_completed",
-            sid,
-            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-      }
+    if (!NativeVoiceCallTerminalOnce.claim(sid)) {
+      NativeVoiceCallLog.info("runtime_cleanup_idempotent_skip", sid, "reason=" + safe(reason));
       return;
     }
-    NativeVoiceCallLog.info(
-        "runtime_cleanup_start",
-        sid,
-        "reason="
-            + safe(reason)
-            + " thread="
-            + Thread.currentThread().getName()
-            + " phase=IN_PROGRESS");
+    NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
       NativeOutgoingRingbackOwner.stop(sid, reason);
       cancelMissed(sid);
-      stopOutgoingTerminalObserver(sid);
       if (!skipAgoraLeaveForTests) {
-      NativeVoiceCallLog.info(
+        NativeVoiceCallLog.info(
             "agora_leave_async", sid, "thread=" + Thread.currentThread().getName());
         try {
           if (injectLeaveFailureForTests) {
             throw new RuntimeException("forced_leave_failure");
           }
+          // MERGE: leaveChannel without destroy (CURRENT). Do not restore NORMAL destroy().
           NativeVoiceCallAgoraEngine.leave(reason);
         } catch (RuntimeException error) {
           NativeVoiceCallLog.warn(
@@ -493,15 +450,6 @@ public final class NativeVoiceCallRuntime {
         }
       }
     } finally {
-      runMandatoryCleanup(app, sid, reason);
-    }
-  }
-
-  /** Always runs after RTC teardown attempt — never skipped by leave stall/failure within leave(). */
-  private static void runMandatoryCleanup(Context app, String sid, String reason) {
-    NativeVoiceCallLog.info(
-        "mandatory_cleanup_start", sid, "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
-    try {
       NativeVoiceCallNotification.dismiss(app, sid);
       NativeVoiceCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
       NativeVoiceCallService.stop(app, sid, reason);
@@ -510,30 +458,19 @@ public final class NativeVoiceCallRuntime {
       SESSIONS.remove(sid);
       IncomingCallActionCoordinator.complete(sid, reason);
       DibayActiveCallSessionManager.clearSession();
+      NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVoiceCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
-      NativeVoiceCallLog.info(
-          "activity_finish", sid, "thread=" + Thread.currentThread().getName());
       NativeVoiceCallActivity.finishIfActive(sid);
-    } finally {
-      NativeVoiceCallTerminalOnce.markCompleted(sid);
-      NativeVoiceCallLog.info(
-          "cleanup_done",
-          sid,
-          "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName() + " phase=COMPLETED");
     }
   }
 
   /**
-   * Local hangup/reject: local resources are released immediately. Server PATCH is best-effort
-   * and must never block cleanup. Missed must NOT use this path (proposer-only).
+   * Local hangup/reject/missed: local resources are released immediately. Server PATCH is
+   * best-effort and must never block cleanup.
    */
   private static void beginLocalTerminal(Context context, String callId, String action) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
-    if ("missed".equals(action)) {
-      proposeMissed(context, callId, "local_timer");
-      return;
-    }
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
@@ -542,92 +479,6 @@ public final class NativeVoiceCallRuntime {
     cancelMissed(sid);
     cleanup(app, sid, action);
     requestTerminalPatchBestEffort(app, sid, action);
-  }
-
-  private static void proposeMissed(Context context, String callId, String source) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return;
-    Context app = context.getApplicationContext();
-    String sid = callId.trim();
-    Session session = SESSIONS.get(sid);
-    if (session == null || session.state != State.RINGING) {
-      NativeVoiceCallLog.info(
-          "missed_propose_skipped", sid, "source=" + safe(source) + " reason=not_ringing");
-      return;
-    }
-    if (MISSED_PROPOSE_INFLIGHT.putIfAbsent(sid, Boolean.TRUE) != null) {
-      NativeVoiceCallLog.info(
-          "missed_propose_inflight_skip", sid, "source=" + safe(source));
-      return;
-    }
-    NativeVoiceCallLog.info("missed_propose", sid, "source=" + safe(source));
-    NativeVoiceCallApi.PatchCallback done =
-        (ok, status, error) -> handleMissedProposeResult(app, sid, ok, status, error);
-    TerminalPatchDispatcher dispatcher = terminalPatchDispatcherForTests;
-    if (dispatcher == null) dispatcher = DEFAULT_PATCH_DISPATCHER;
-    dispatcher.dispatch(app, sid, "missed", done);
-  }
-
-  private static void handleMissedProposeResult(
-      Context app, String sid, boolean ok, int status, String error) {
-    MISSED_PROPOSE_INFLIGHT.remove(sid);
-    Session session = SESSIONS.get(sid);
-    String err = safe(error);
-    if (session == null || session.state != State.RINGING) {
-      NativeVoiceCallLog.info(
-          "missed_propose_ignored",
-          sid,
-          "reason=no_longer_ringing status=" + status + " err=" + err);
-      return;
-    }
-    if (!ok && "ring_deadline_not_reached".equals(err)) {
-      NativeVoiceCallLog.info(
-          "missed_early_rejected", sid, "status=" + status + " keep_presentation=1");
-      scheduleMissedRetry(app, sid);
-      return;
-    }
-    if (!ok && ("already_answered".equals(err) || "bad_action".equals(err))) {
-      NativeVoiceCallLog.info(
-          "missed_propose_blocked", sid, "error=" + err + " keep_presentation=1");
-      cancelMissed(sid);
-      return;
-    }
-    if (!ok) {
-      NativeVoiceCallLog.info(
-          "missed_propose_failed",
-          sid,
-          "status=" + status + " error=" + err + " keep_presentation=1");
-      return;
-    }
-    cancelMissed(sid);
-    NativeVoiceCallLog.info("missed_canonical_accepted", sid, "status=" + status);
-    cleanup(app, sid, "missed");
-  }
-
-  private static void scheduleMissedRetry(Context app, String callId) {
-    if (app == null || callId == null || callId.trim().isEmpty()) return;
-    String sid = callId.trim();
-    Session session = SESSIONS.get(sid);
-    if (session == null || session.state != State.RINGING) return;
-    int attempt = MISSED_RETRY_ATTEMPTS.merge(sid, 1, Integer::sum);
-    if (attempt > MISSED_RETRY_MAX_ATTEMPTS) {
-      NativeVoiceCallLog.info(
-          "missed_retry_exhausted", sid, "attempts=" + attempt + " keep_presentation=1");
-      return;
-    }
-    Runnable previous = MISSED_TIMEOUTS.remove(sid);
-    if (previous != null) MAIN.removeCallbacks(previous);
-    Runnable runnable =
-        () -> {
-          Session live = SESSIONS.get(sid);
-          if (live == null || live.state != State.RINGING) return;
-          proposeMissed(app, sid, "retry");
-        };
-    MISSED_TIMEOUTS.put(sid, runnable);
-    MAIN.postDelayed(runnable, MISSED_RETRY_DELAY_MS);
-    NativeVoiceCallLog.info(
-        "missed_retry_scheduled",
-        sid,
-        "delayMs=" + MISSED_RETRY_DELAY_MS + " attempt=" + attempt);
   }
 
   private static void requestTerminalPatchBestEffort(Context app, String sid, String action) {
@@ -678,60 +529,29 @@ public final class NativeVoiceCallRuntime {
     }
     SESSIONS.clear();
     MISSED_TIMEOUTS.clear();
-    MISSED_RETRY_ATTEMPTS.clear();
-    MISSED_PROPOSE_INFLIGHT.clear();
     PATCH_REQUESTED.clear();
     for (Runnable posted : PATCH_BOUNDS.values()) {
       MAIN.removeCallbacks(posted);
     }
     PATCH_BOUNDS.clear();
-    for (Runnable posted : OUTGOING_TERMINAL_OBSERVERS.values()) {
-      MAIN.removeCallbacks(posted);
-    }
-    OUTGOING_TERMINAL_OBSERVERS.clear();
     NativeVoiceCallTerminalOnce.clearForTests();
     terminalPatchDispatcherForTests = null;
-    sessionStatusObserverForTests = null;
     skipAgoraLeaveForTests = false;
     injectLeaveFailureForTests = false;
   }
 
-  static void handleOutgoingTerminalObserverStatusForTests(
-      Context context, String callId, String status) {
-    if (context == null || callId == null) return;
-    handleOutgoingTerminalObserverStatus(
-        context.getApplicationContext(), callId.trim(), status, null);
-  }
-
-  static int missedRetryAttemptsForTests(String callId) {
-    if (callId == null) return 0;
-    Integer n = MISSED_RETRY_ATTEMPTS.get(callId.trim());
-    return n == null ? 0 : n;
-  }
-
   static void fireMissedTimerForTests(Context context, String callId) {
-    proposeMissed(context, callId, "local_timer");
-  }
-
-  static void advanceMissedRetryForTests(Context context, String callId) {
-    if (context == null || callId == null) return;
-    String sid = callId.trim();
-    Runnable runnable = MISSED_TIMEOUTS.remove(sid);
-    if (runnable != null) {
-      MAIN.removeCallbacks(runnable);
-      runnable.run();
-    }
+    beginLocalTerminal(context, callId, "missed");
   }
 
   private static void scheduleMissed(Context context, String callId) {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    MISSED_RETRY_ATTEMPTS.remove(sid);
     Runnable runnable =
         () -> {
           Session session = SESSIONS.get(sid);
           if (session == null || session.state != State.RINGING) return;
-          proposeMissed(app, sid, "local_timer");
+          beginLocalTerminal(app, sid, "missed");
         };
     Runnable previous = MISSED_TIMEOUTS.put(sid, runnable);
     if (previous != null) MAIN.removeCallbacks(previous);
@@ -745,76 +565,6 @@ public final class NativeVoiceCallRuntime {
     String sid = callId.trim();
     Runnable runnable = MISSED_TIMEOUTS.remove(sid);
     if (runnable != null) MAIN.removeCallbacks(runnable);
-    MISSED_RETRY_ATTEMPTS.remove(sid);
-    MISSED_PROPOSE_INFLIGHT.remove(sid);
-  }
-
-  private static void startOutgoingTerminalObserver(Context context, String callId) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return;
-    Context app = context.getApplicationContext();
-    String sid = callId.trim();
-    stopOutgoingTerminalObserver(sid);
-    Runnable runnable =
-        new Runnable() {
-          @Override
-          public void run() {
-            Session session = SESSIONS.get(sid);
-            if (session == null || !session.initiator || session.state != State.CONNECTING) {
-              OUTGOING_TERMINAL_OBSERVERS.remove(sid, this);
-              return;
-            }
-            new Thread(
-                    () -> {
-                      SessionStatusObserver observer = sessionStatusObserverForTests;
-                      String status =
-                          observer != null
-                              ? observer.fetch(app, sid)
-                              : IncomingCallSessionStatusProbe.fetchStatus(app, sid);
-                      MAIN.post(
-                          () -> handleOutgoingTerminalObserverStatus(app, sid, status, this));
-                    })
-                .start();
-          }
-        };
-    OUTGOING_TERMINAL_OBSERVERS.put(sid, runnable);
-    MAIN.postDelayed(runnable, OUTGOING_TERMINAL_OBSERVER_POLL_MS);
-    NativeVoiceCallLog.info(
-        "caller_terminal_observer_start",
-        sid,
-        "pollMs=" + OUTGOING_TERMINAL_OBSERVER_POLL_MS);
-  }
-
-  private static void handleOutgoingTerminalObserverStatus(
-      Context app, String sid, String status, Runnable runnable) {
-    Session session = SESSIONS.get(sid);
-    if (session == null || !session.initiator || session.state != State.CONNECTING) {
-      if (runnable != null) OUTGOING_TERMINAL_OBSERVERS.remove(sid, runnable);
-      return;
-    }
-    String normalized = normalizeTerminalReason(status);
-    if (isObservedOutgoingMissedStatus(normalized)) {
-      NativeVoiceCallLog.info(
-          "caller_terminal_observer_detected", sid, "status=" + safe(normalized));
-      if (runnable != null) OUTGOING_TERMINAL_OBSERVERS.remove(sid, runnable);
-      onRemoteTerminal(app, sid, normalized, "server_session_observer");
-      return;
-    }
-    if (runnable != null) MAIN.postDelayed(runnable, OUTGOING_TERMINAL_OBSERVER_POLL_MS);
-  }
-
-  private static boolean isObservedOutgoingMissedStatus(String status) {
-    if (status == null) return false;
-    return "missed".equals(status.trim().toLowerCase());
-  }
-
-  private static void stopOutgoingTerminalObserver(String callId) {
-    if (callId == null) return;
-    String sid = callId.trim();
-    Runnable runnable = OUTGOING_TERMINAL_OBSERVERS.remove(sid);
-    if (runnable != null) {
-      MAIN.removeCallbacks(runnable);
-      NativeVoiceCallLog.info("caller_terminal_observer_stop", sid);
-    }
   }
 
   private static void setState(Context context, Session session, State state) {
