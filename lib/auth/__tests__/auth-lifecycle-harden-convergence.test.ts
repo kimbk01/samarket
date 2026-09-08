@@ -108,12 +108,9 @@ describe("auth lifecycle harden — convergence / intent / eligibility", () => {
       "utf8",
     );
     expect(store).toContain("dibay_member_event_eligible");
-    expect(store).toContain("setMemberCallEligibility");
-    expect(store).toContain("eligible_requires_bound_user");
     expect(plugin).toContain("setMemberCallEligible");
-    expect(plugin).toContain("DibayMemberEventEligibilityStore.setMemberCallEligibility");
+    expect(plugin).toContain("DibayMemberEventEligibilityStore.setEligible");
     expect(voip).toContain("isMemberEventEligible");
     expect(voip).toContain("incoming_blocked_guest_ineligible");
-    expect(voip).toContain("durableSnapshotDetail");
   });
 });

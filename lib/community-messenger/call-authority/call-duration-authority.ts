@@ -1,35 +1,23 @@
 /**
- * Call duration Authority — SSOT (CUT6).
+ * Call duration Authority — SSOT.
  *
  * CONTRACT:
- *   if connected_at present:
- *     durationSeconds = max(0, floor((endedAt - connectedAt) / 1000))
- *   else when connectedAtAuthority (terminal write after CUT6):
- *     durationSeconds = 0  (accepted but never connected / missed / cancel / reject)
- *   else legacy / display:
- *     answered_at proxy OR persisted clientDurationSeconds
+ *   durationSeconds = max(0, floor((endedAt - connectedAt) / 1000))
+ * where connectedAt is session `answered_at` (signaling accept / media-eligible start).
  *
  * DO NOT:
- * - use ringing started_at as connectedAt
- * - repurpose answered_at as connected_at
- * - invent duration for never-connected new sessions
- * - let caller/callee local timers be independent truth when connected_at exists
+ * - use ringing `started_at` as connectedAt
+ * - trust client timer as sole write when answered_at + ended_at exist
+ * - invent duration for cancel / reject / missed / busy (no answered_at)
  */
 
 export type CallDurationInputs = {
-  /** Client-supplied hint (optional). Used only when timestamps unavailable / display of stored logs. */
+  /** Client-supplied hint (optional). Used only when timestamps unavailable. */
   clientDurationSeconds?: number | null;
-  /** Session answered_at ISO — acceptance only (not media connected). */
+  /** Session answered_at ISO — Authority connectedAt proxy */
   answeredAt?: string | null;
-  /** Session connected_at ISO — media establishment (CUT6). */
-  connectedAt?: string | null;
   /** Session ended_at ISO */
   endedAt?: string | null;
-  /**
-   * Terminal writer path after CUT6: when connected_at is absent, duration is 0
-   * even if answered_at is set (never-connected after accept).
-   */
-  connectedAtAuthority?: boolean;
 };
 
 function toMs(iso: string | null | undefined): number | null {
@@ -41,24 +29,16 @@ function toMs(iso: string | null | undefined): number | null {
 
 /**
  * Resolve authoritative call duration for call_logs write and history UI.
+ * Returns 0 when never connected (no answered_at) or timestamps invalid.
  */
 export function resolveAuthoritativeCallDurationSeconds(input: CallDurationInputs): number {
-  const connectedMs = toMs(input.connectedAt);
-  const endedMs = toMs(input.endedAt);
-  if (connectedMs != null && endedMs != null && endedMs >= connectedMs) {
-    return Math.max(0, Math.floor((endedMs - connectedMs) / 1000));
-  }
-
-  if (input.connectedAtAuthority === true) {
-    return 0;
-  }
-
-  // Legacy pre-CUT6 / rows without connected_at column in payload: answered_at proxy.
   const answeredMs = toMs(input.answeredAt);
+  const endedMs = toMs(input.endedAt);
   if (answeredMs != null && endedMs != null && endedMs >= answeredMs) {
     return Math.max(0, Math.floor((endedMs - answeredMs) / 1000));
   }
-
   const client = Math.max(0, Math.floor(Number(input.clientDurationSeconds ?? 0) || 0));
+  // Client duration is only a fallback when we lack answered_at (legacy rows).
+  // Never inflate from ringing start — that path is intentionally removed.
   return client;
 }

@@ -100,7 +100,6 @@ import {
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import {
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
@@ -1245,7 +1244,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       if (!guard.ok) {
         if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
-        else alertOutgoingCallFailure(guard.userMessage);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
       }
       outgoingDialSyncGuardRef.current = true;
@@ -1300,7 +1299,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         releaseDialGuard();
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
-          alertOutgoingCallFailure(result.userMessage);
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();
       return true;

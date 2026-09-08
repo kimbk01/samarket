@@ -302,8 +302,8 @@ export function buildFcmDataFields(
         appendCallFields(fields, meta, sessionId);
         const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
         fields.url = roomId
-          ? `/community-messenger/rooms/${encodeURIComponent(roomId)}`
-          : "/community-messenger";
+          ? `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call-history&callId=${encodeURIComponent(sessionId)}`
+          : `/community-messenger/calls/logs?callId=${encodeURIComponent(sessionId)}`;
         fields.call_push_kind = opts?.call_push_kind ?? "missed_call";
         const callerId = meta ? trimText(meta.caller_id ?? meta.callerId) : "";
         const callerName = meta ? trimText(meta.caller_name ?? meta.callerName) : "";

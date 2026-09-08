@@ -32,12 +32,10 @@ export function isServerCallSessionTerminalStatus(status: string): boolean {
 
 export function isIdempotentCallSessionPatch(
   currentStatus: string,
-  action: "accept" | "reject" | "cancel" | "end" | "missed" | "leave" | "connected",
+  action: "accept" | "reject" | "cancel" | "end" | "missed" | "leave",
 ): boolean {
   // accept + active must go through device claim (answered_elsewhere).
   if (action === "accept" && currentStatus === "active") return false;
-  // connected + active must go through connected_at CAS / device gate.
-  if (action === "connected") return false;
   if (action === "reject" && currentStatus === "rejected") return true;
   if (action === "cancel" && currentStatus === "cancelled") return true;
   if (action === "end" && currentStatus === "ended") return true;

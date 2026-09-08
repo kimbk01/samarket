@@ -21,17 +21,9 @@ import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Native Video Runtime incoming notification. Accept/FSI/content use Activity PendingIntent only.
- *
- * <p>CUT7 duplicate audible: HIGH/FSI channel must be silent — RingOwner owns ringtone. v2 replaces
- * legacy id because Android cannot change channel sound after creation.
- */
+/** Native Video Runtime incoming notification. Accept/FSI/content use Activity PendingIntent only. */
 public final class NativeVideoCallNotification {
-  /** Silent HIGH incoming channel (RingOwner = sole audible owner). */
-  public static final String CHANNEL_ID = "dibay_native_video_incoming_v2";
-  /** Pre-v2 channel — may still have system notification_sound on installed devices. */
-  public static final String LEGACY_CHANNEL_ID = "dibay_native_video_incoming";
+  public static final String CHANNEL_ID = "dibay_native_video_incoming";
   private static final int NOTIFICATION_BASE_ID = 95001;
   private static final int SUPPRESS_CANCEL_MAX_ATTEMPTS = 8;
   private static final long SUPPRESS_CANCEL_RETRY_MS = 100L;
@@ -311,27 +303,13 @@ public final class NativeVideoCallNotification {
   private static void ensureChannel(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
-    if (nm == null) return;
-    if (nm.getNotificationChannel(LEGACY_CHANNEL_ID) != null) {
-      nm.deleteNotificationChannel(LEGACY_CHANNEL_ID);
-      NativeVideoCallLog.info(
-          "incoming_notification_legacy_channel_deleted",
-          null,
-          "legacy=" + LEGACY_CHANNEL_ID + " next=" + CHANNEL_ID);
-    }
-    if (nm.getNotificationChannel(CHANNEL_ID) != null) return;
+    if (nm == null || nm.getNotificationChannel(CHANNEL_ID) != null) return;
     NotificationChannel channel =
         new NotificationChannel(CHANNEL_ID, "DIBAY Native Video", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("Native Video Runtime incoming — UI/FSI only (ring via RingOwner)");
+    channel.setDescription("Native Video Runtime incoming calls");
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     channel.enableVibration(true);
-    channel.setSound(null, null);
-    channel.setShowBadge(false);
     nm.createNotificationChannel(channel);
-    NativeVideoCallLog.info(
-        "incoming_notification_channel_created",
-        null,
-        "channelId=" + CHANNEL_ID + " importance=HIGH sound=null");
   }
 
   private static boolean canPostNotifications(Context context) {

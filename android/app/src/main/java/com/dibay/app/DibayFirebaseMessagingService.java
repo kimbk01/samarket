@@ -218,41 +218,20 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       return;
     }
-    // CUT7 #6: always validate canonical session before presentation.
-    // deliveryDelayMs must not create a <10s blind zone; receive-grace must not
-    // resurrect non-ringing sessions after serverExpiresAt.
-    String serverStatus = IncomingCallSessionStatusProbe.fetchStatus(this, callId);
-    boolean serverRingWindowExpired =
-        expiry.serverExpiresAtMs > 0L && receivedAtMs > expiry.serverExpiresAtMs;
-    if (IncomingCallSessionStatusProbe.isTerminalStatus(serverStatus)) {
-      DibayCallPushLog.info(
-          "incoming_late_terminal_blocked",
-          callId,
-          "status="
-              + serverStatus
-              + " deliveryDelayMs="
-              + expiry.deliveryDelayMs
-              + " serverRingWindowExpired="
-              + serverRingWindowExpired);
-      String kind =
-          "active".equalsIgnoreCase(serverStatus) ? "call_answered_elsewhere" : serverStatus;
-      IncomingCallTerminalHandler.handle(this, callId, kind, "incoming_status_probe");
-      return;
-    }
-    if (!IncomingCallSessionStatusProbe.shouldAllowIncomingPresentation(
-        serverStatus, serverRingWindowExpired)) {
-      DibayCallPushLog.info(
-          "incoming_stale_presentation_blocked",
-          callId,
-          "status="
-              + (serverStatus != null ? serverStatus : "null")
-              + " deliveryDelayMs="
-              + expiry.deliveryDelayMs
-              + " serverRingWindowExpired="
-              + serverRingWindowExpired);
-      DibayCallConsumedStore.mark(this, callId, "stale_incoming_blocked");
-      IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
-      return;
+    if (IncomingCallSessionStatusProbe.shouldProbe(expiry)) {
+      String serverStatus = IncomingCallSessionStatusProbe.fetchStatus(this, callId);
+      if (IncomingCallSessionStatusProbe.isTerminalStatus(serverStatus)) {
+        DibayCallPushLog.info(
+            "incoming_late_terminal_blocked",
+            callId,
+            "status=" + serverStatus + " deliveryDelayMs=" + expiry.deliveryDelayMs);
+        String kind =
+            "active".equalsIgnoreCase(serverStatus)
+                ? "call_answered_elsewhere"
+                : serverStatus;
+        IncomingCallTerminalHandler.handle(this, callId, kind, "incoming_status_probe");
+        return;
+      }
     }
     if (expiry.effectiveExpiresAtMs > 0L) {
       payload = payload.withExpiresAt(formatIsoUtc(expiry.effectiveExpiresAtMs));

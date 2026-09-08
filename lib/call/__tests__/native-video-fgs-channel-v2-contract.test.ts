@@ -25,14 +25,10 @@ describe("native video FGS channel CUT3 contract", () => {
     expect(service).toContain("setSilent(true)");
     expect(service).not.toMatch(/new NotificationChannel\(\s*CHANNEL_ID[\s\S]*IMPORTANCE_HIGH/);
 
-    expect(incoming).toContain('CHANNEL_ID = "dibay_native_video_incoming_v2"');
-    expect(incoming).toContain('LEGACY_CHANNEL_ID = "dibay_native_video_incoming"');
+    expect(incoming).toContain('CHANNEL_ID = "dibay_native_video_incoming"');
     expect(incoming).toContain("IMPORTANCE_HIGH");
-    expect(incoming).toContain("setSound(null, null)");
-    expect(incoming).toContain("deleteNotificationChannel(LEGACY_CHANNEL_ID)");
 
     expect(registry).toContain("dibay_native_video_call_v2");
     expect(registry).toContain("dibay_native_video_incoming");
-    expect(registry).toContain("dibay_native_video_incoming_v2");
   });
 });

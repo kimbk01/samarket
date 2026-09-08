@@ -96,7 +96,7 @@ import {
   cmCallIncomingTracePatch,
   cmCallIncomingTraceRegisterRingingRoom,
 } from "@/lib/community-messenger/cm-call-debug";
-import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
@@ -243,7 +243,7 @@ function clearIncomingMissedTimer(
 
 export function GlobalCommunityMessengerIncomingCall() {
   if (isCallV4TelegramLaneEnabled()) return null;
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const pathnameRef = useRef<string | null>(null);
@@ -2153,7 +2153,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       const patchResult = await runIncomingCallReject({ sessionId, source: "incoming_banner_reject" });
       if (!patchResult.ok) {
-        alertOutgoingCallFailure(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
         return;
       }
       logCallFlow("call_reject_sent", { sessionId });
@@ -2205,12 +2205,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
       if (session.sessionMode === "group") {
         if (!isCmGroupCallEnabled()) {
-          alertOutgoingCallFailure(
-            safeT("cm_ui_call_direct_voice_only", {
-              fallbackKo: "지금은 1:1 음성 통화만 사용할 수 있습니다.",
-              fallbackEn: "Only 1:1 voice calls are available right now.",
-            }),
-          );
+          showMessengerSnackbar("지금은 1:1 음성 통화만 사용할 수 있습니다.", { variant: "error" });
           return;
         }
         setBusyId(`accept:${session.id}`);
@@ -2219,7 +2214,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           try {
             const permission = await ensureCallMediaForUserGesture(session.callKind);
             if (!permission.ok) {
-              alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(session.callKind)));
+              showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
               return;
             }
             const result = await acceptIncomingCallOnce({
@@ -2231,10 +2226,10 @@ export function GlobalCommunityMessengerIncomingCall() {
             });
             if (!result.ok) {
               if (result.reason === "permission_denied") {
-                alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(session.callKind)));
+                showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
               } else {
                 await refresh(true, { bypassDevSafeIncomingThrottle: true });
-                alertOutgoingCallFailure(MESSENGER_CALL_USER_MSG.sessionActionFailed);
+                showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
               }
               return;
             }
@@ -2285,17 +2280,17 @@ export function GlobalCommunityMessengerIncomingCall() {
             });
             logCallFlow("call_cleanup_done", { sessionId: session.id, reason: "accept_1to1" });
           } else if (result.reason === "permission_denied") {
-            alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(session.callKind)));
+            showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
           } else if (result.reason === "patch_failed") {
             await refresh(true, { bypassDevSafeIncomingThrottle: true });
-            alertOutgoingCallFailure(MESSENGER_CALL_USER_MSG.sessionActionFailed);
+            showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
           }
         } finally {
           setBusyId(null);
         }
       })();
     },
-    [busyId, refresh, router, safeT, t]
+    [busyId, refresh, router, t]
   );
 
   const ringTimeoutSeconds =

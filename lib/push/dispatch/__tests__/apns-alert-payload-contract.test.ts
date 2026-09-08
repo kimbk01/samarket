@@ -98,7 +98,7 @@ describe("APNS alert payload contract", () => {
 
     const body = buildApnsAlertBody({ title: "Missed", body: "Call", data: missed.data });
     expect(body.aps).toMatchObject({ badge: 3, category: "missed_call" });
-    expect(body.url).toBe("/community-messenger/rooms/room-1");
+    expect(body.url).toBe("/community-messenger/rooms/room-1?focus=call-history&callId=sess-1");
     expect(missed.data.call_push_kind).toBe("missed_call");
   });
 });

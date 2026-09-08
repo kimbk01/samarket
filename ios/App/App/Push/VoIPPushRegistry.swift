@@ -44,7 +44,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     DibayCallLog.infoCall(
       "[voip] received",
       callId: sessionId,
-      detail: "kind=\(kind ?? "incoming") \(DibayMemberEventEligibilityStore.durableSnapshotDetail())"
+      detail: "kind=\(kind ?? "incoming")"
     )
     NativeVideoCallLog.corr("I0", callId: sessionId, details: "event=voip_push_received kind=\(kind ?? "incoming")")
 
@@ -104,55 +104,19 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           owner: "terminal",
           reason: "report_then_end"
         )
-        fulfillOrphanTerminalVoipPush(
-          sessionId: sessionId,
-          kind: kind,
-          data: data,
-          callKitEndReason: .remoteEnded,
-          completion: completion
-        )
+        fulfillOrphanTerminalVoipPush(sessionId: sessionId, kind: kind, data: data, completion: completion)
         return
       }
     }
 
-    // CUT7 #5: ringing-era terminals must not tear down post-accept / connected winner.
-    // call_ended always applies (legitimate active hangup). Never blanket-ignore all terminals.
-    if !shouldApplyVoipTerminal(kind: kind, sessionId: sessionId) {
-      DibayCallLog.infoCallV4(
-        "ios_voip_terminal_stale_suppressed",
-        callId: sessionId,
-        owner: "terminal",
-        reason: "kind=\(kind)_post_accept"
-      )
-      DibayCallLog.infoCall(
-        "[voip] completion",
-        callId: sessionId,
-        detail: "stale_terminal_suppressed kind=\(kind)"
-      )
-      completion()
-      return
-    }
-
     let terminalReason = "ios_voip_terminal_\(kind)"
-    // CUT7 CallKit presentation mapping (server taxonomy unchanged):
-    // - call_answered_elsewhere → .answeredElsewhere (#3)
-    // - missed_call → .unanswered (#4, canonical missed_timeout)
-    // - otherwise (cancel / reject / end) → .remoteEnded
-    let callKitEndReason: CXCallEndedReason
-    if kind == "call_answered_elsewhere" {
-      callKitEndReason = .answeredElsewhere
-    } else if kind == "missed_call" {
-      callKitEndReason = .unanswered
-    } else {
-      callKitEndReason = .remoteEnded
-    }
     if isVoipTerminalIncomingSession(sessionId: sessionId) {
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,
         owner: "terminal",
         reason: terminalReason
       )
-      callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
+      callProvider.reportCallEnded(uuidString: sessionId)
       DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_incoming_end")
       completion()
       return
@@ -164,7 +128,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         owner: "terminal",
         reason: terminalReason
       )
-      callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
+      callProvider.reportCallEnded(uuidString: sessionId)
       DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_outgoing_end")
       completion()
       return
@@ -176,7 +140,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         owner: "terminal",
         reason: terminalReason
       )
-      callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
+      callProvider.reportCallEnded(uuidString: sessionId)
       DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_callkit_end")
       completion()
       return
@@ -185,80 +149,13 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     // Orphan terminal (cancel/missed before map / cold wake): PushKit still requires
     // reportNewIncomingCall — reuse terminal-suppress → report → immediate end.
     // DO NOT invent a random CallKit UUID; uuidFromSession uses sessionId when it is a UUID.
-    fulfillOrphanTerminalVoipPush(
-      sessionId: sessionId,
-      kind: kind,
-      data: data,
-      callKitEndReason: callKitEndReason,
-      completion: completion
-    )
-  }
-
-  /**
-   * CUT7 #5 — VoIP terminal applicability (kind + local phase + same session).
-   *
-   * Server evidence (`service.ts` resolveNext):
-   * - cancel → `cancelled` only from ringing; active cancel remaps to `ended` → `call_ended`
-   * - reject → `rejected` only from ringing
-   * - missed → only from ringing
-   * - end → `ended` from active (must always apply)
-   *
-   * Therefore late `missed_call` / `call_canceled` / `call_rejected` after local
-   * accepting|accepted|connecting|connected are stale delivery vs winner session.
-   * `call_ended` must never be suppressed.
-   */
-  private func shouldApplyVoipTerminal(kind: String, sessionId: String) -> Bool {
-    if kind == "call_ended" {
-      return true
-    }
-    let postAccept = isPostAcceptEstablishedSession(sessionId: sessionId)
-    if kind == "call_answered_elsewhere" {
-      // Loser still ringing/incoming → apply. Post-accept on this device ⇒ winner/stale.
-      if postAccept {
-        return false
-      }
-      return true
-    }
-    if kind == "missed_call" || kind == "call_canceled" || kind == "call_rejected" {
-      return !postAccept
-    }
-    return true
-  }
-
-  /// Local runtime has already advanced past ringing for this exact sessionId.
-  private func isPostAcceptEstablishedSession(sessionId: String) -> Bool {
-    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !sid.isEmpty else { return false }
-
-    let voice = NativeVoiceCallRuntime.shared.snapshot()
-    if let active = voice.session, active.sessionId == sid {
-      switch voice.phase {
-      case .accepting, .accepted, .tokenPending, .joining, .connected:
-        return true
-      case .idle, .incomingPresented, .outgoingStarting, .rejecting, .ending, .ended, .failed:
-        return false
-      }
-    }
-
-    if NativeVideoCallLane.isEnabled() {
-      let video = NativeVideoCallRuntime.shared.snapshot()
-      if let active = video.session, active.sessionId == sid {
-        switch video.state {
-        case .accepting, .connecting, .connected:
-          return true
-        case .ringing, .ending, .ended, .failed:
-          return false
-        }
-      }
-    }
-    return false
+    fulfillOrphanTerminalVoipPush(sessionId: sessionId, kind: kind, data: data, completion: completion)
   }
 
   private func fulfillOrphanTerminalVoipPush(
     sessionId: String,
     kind: String,
     data: [AnyHashable: Any],
-    callKitEndReason: CXCallEndedReason,
     completion: @escaping () -> Void
   ) {
     let terminalReason = "ios_voip_terminal_\(kind)"
@@ -275,12 +172,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     )
     // Mark first so reportIncomingCall takes the existing report-then-end path
     // (no ghost ring). Deterministic UUID from sessionId — no random invent.
-    // CUT7 #3: stage CallKit end reason for orphan dismiss (answeredElsewhere vs remoteEnded).
-    callProvider.markTerminalSuppressed(
-      sessionId: sessionId,
-      reason: terminalReason,
-      callKitEndReason: callKitEndReason
-    )
+    callProvider.markTerminalSuppressed(sessionId: sessionId, reason: terminalReason)
     let identity = IncomingCallCallerIdentity.resolve(from: data)
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])

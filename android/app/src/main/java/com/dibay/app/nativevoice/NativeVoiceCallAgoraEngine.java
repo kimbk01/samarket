@@ -6,7 +6,6 @@ import io.agora.rtc2.Constants;
 import io.agora.rtc2.IRtcEngineEventHandler;
 import io.agora.rtc2.RtcEngine;
 import io.agora.rtc2.RtcEngineConfig;
-import java.util.concurrent.CountDownLatch;
 
 /** Agora Android SDK wrapper for voice-only Native Runtime. */
 public final class NativeVoiceCallAgoraEngine {
@@ -27,14 +26,6 @@ public final class NativeVoiceCallAgoraEngine {
   private static Listener listener;
   private static boolean callerJoinActive;
   private static int remoteUid;
-  /**
-   * leaveChannel in flight — join awaits this (usually ms). Cleanup must never await.
-   *
-   * <p>Normal leave does NOT call {@link RtcEngine#destroy()}: destroy is process-global and can
-   * stall ~seconds on OEM devices, which previously blocked end UX and re-dial. Engine is reused
-   * across calls; destroy only via {@link #releaseZombieEngine(String)}.
-   */
-  private static volatile CountDownLatch pendingChannelLeave;
 
   private NativeVoiceCallAgoraEngine() {}
 
@@ -71,7 +62,6 @@ public final class NativeVoiceCallAgoraEngine {
     new Thread(
             () -> {
               try {
-                NativeVoiceCallAgoraEngine.awaitPendingChannelLeave(sid);
                 RtcEngine rtc = ensureEngine(context.getApplicationContext(), token.appId);
                 rtc.enableAudio();
                 rtc.disableVideo();
@@ -121,16 +111,31 @@ public final class NativeVoiceCallAgoraEngine {
   }
 
   /**
-   * Detach occupancy immediately, then schedule leaveChannel without blocking cleanup/UI.
+   * Reclaim engine with no occupant (zombie). Does not touch engines bound to an active callId.
    *
-   * <p>Does not destroy the process-global RtcEngine (destroy stalls end/re-dial). Join awaits
-   * {@link #awaitPendingChannelLeave(String)} then reuses the engine.
+   * @return true when a zombie engine was released
    */
+  public static boolean releaseZombieEngine(String reason) {
+    synchronized (LOCK) {
+      if (engine == null) return false;
+      if (activeCallId != null && !activeCallId.isEmpty()) return false;
+      listener = null;
+      remoteUid = 0;
+      try {
+        engine.leaveChannel();
+      } catch (RuntimeException error) {
+        NativeVoiceCallLog.warn(
+            "error_terminal", "unknown", "agora_zombie_leave=" + error.getClass().getSimpleName());
+      }
+      RtcEngine.destroy();
+      engine = null;
+      return true;
+    }
+  }
+
   public static void leave(String reason) {
     Listener currentListener;
     String sid;
-    RtcEngine engineToLeave;
-    CountDownLatch latch;
     synchronized (LOCK) {
       currentListener = listener;
       sid = activeCallId;
@@ -138,143 +143,18 @@ public final class NativeVoiceCallAgoraEngine {
       activeCallId = null;
       callerJoinActive = false;
       remoteUid = 0;
-      engineToLeave = engine;
-      latch = engineToLeave != null ? new CountDownLatch(1) : null;
-      if (latch != null) {
-        pendingChannelLeave = latch;
+      if (engine != null) {
+        engine.leaveChannel();
+        RtcEngine.destroy();
+        engine = null;
       }
-    }
-    if (engineToLeave != null) {
-      if (sid != null) {
-        NativeVoiceCallLog.info(
-            "agora_leave_scheduled",
-            sid,
-            "thread="
-                + Thread.currentThread().getName()
-                + " reason="
-                + (reason != null ? reason : "")
-                + " destroy=false");
-      }
-      scheduleLeaveChannel(engineToLeave, sid, latch);
     }
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
     }
   }
 
-  /**
-   * Reclaim engine with no occupant (zombie). Only path that may call {@link RtcEngine#destroy()}.
-   *
-   * @return true when a zombie engine was released
-   */
-  public static boolean releaseZombieEngine(String reason) {
-    RtcEngine engineToDestroy;
-    CountDownLatch latch;
-    synchronized (LOCK) {
-      if (engine == null) return false;
-      if (activeCallId != null && !activeCallId.isEmpty()) return false;
-      listener = null;
-      remoteUid = 0;
-      engineToDestroy = engine;
-      engine = null;
-      latch = new CountDownLatch(1);
-      pendingChannelLeave = latch;
-    }
-    scheduleDestroyEngine(engineToDestroy, "zombie", latch);
-    return true;
-  }
-
-  /** Join-only: wait until prior leaveChannel finished so the next joinChannel is safe. */
-  static void awaitPendingChannelLeave(String callId) {
-    CountDownLatch latch = pendingChannelLeave;
-    if (latch == null) return;
-    String sid = callId != null ? callId : "unknown";
-    NativeVoiceCallLog.info(
-        "agora_leave_await_join", sid, "thread=" + Thread.currentThread().getName());
-    try {
-      latch.await();
-    } catch (InterruptedException error) {
-      Thread.currentThread().interrupt();
-      NativeVoiceCallLog.warn("error_terminal", sid, "agora_leave_await_interrupted");
-    }
-  }
-
-  private static void scheduleLeaveChannel(RtcEngine engineToLeave, String sid, CountDownLatch latch) {
-    new Thread(
-            () -> {
-              try {
-                if (sid != null) {
-                  NativeVoiceCallLog.info(
-                      "before_agora_leave", sid, "thread=" + Thread.currentThread().getName());
-                }
-                engineToLeave.leaveChannel();
-                if (sid != null) {
-                  NativeVoiceCallLog.info(
-                      "after_agora_leave", sid, "thread=" + Thread.currentThread().getName());
-                }
-              } catch (RuntimeException error) {
-                if (sid != null) {
-                  NativeVoiceCallLog.warn(
-                      "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
-                }
-              } finally {
-                if (latch != null) {
-                  latch.countDown();
-                  synchronized (LOCK) {
-                    if (pendingChannelLeave == latch) {
-                      pendingChannelLeave = null;
-                    }
-                  }
-                }
-              }
-            },
-            "dibay-voice-agora-leave")
-        .start();
-  }
-
-  private static void scheduleDestroyEngine(
-      RtcEngine engineToDestroy, String sid, CountDownLatch latch) {
-    new Thread(
-            () -> {
-              try {
-                if (sid != null) {
-                  NativeVoiceCallLog.info(
-                      "before_agora_leave", sid, "thread=" + Thread.currentThread().getName());
-                }
-                engineToDestroy.leaveChannel();
-                if (sid != null) {
-                  NativeVoiceCallLog.info(
-                      "after_agora_leave", sid, "thread=" + Thread.currentThread().getName());
-                  NativeVoiceCallLog.info(
-                      "before_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
-                }
-                RtcEngine.destroy();
-                if (sid != null) {
-                  NativeVoiceCallLog.info(
-                      "after_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
-                }
-              } catch (RuntimeException error) {
-                if (sid != null) {
-                  NativeVoiceCallLog.warn(
-                      "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
-                }
-              } finally {
-                if (latch != null) {
-                  latch.countDown();
-                  synchronized (LOCK) {
-                    if (pendingChannelLeave == latch) {
-                      pendingChannelLeave = null;
-                    }
-                  }
-                }
-              }
-            },
-            "dibay-voice-agora-destroy")
-        .start();
-  }
-
   private static RtcEngine ensureEngine(Context context, String appId) throws Exception {
-    awaitPendingChannelLeave(activeCallId != null ? activeCallId : "ensure");
     synchronized (LOCK) {
       if (engine != null) return engine;
       RtcEngineConfig config = new RtcEngineConfig();

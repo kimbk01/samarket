@@ -1,29 +1,21 @@
-import CallKit
 import Foundation
 
 /**
  * Phase B2 — iOS Native Video Call Runtime state machine.
  *
  * Owns at most one active video session. Thread-safe via a dedicated serial queue.
- * Mirrors Android `NativeVideoCallRuntime` states without CallKit / Agora wiring in this file.
- *
- * CUT7 #2 — local missed timer is a PROPOSER only (parity with NativeVoiceCallRuntime).
- * Canonical missed = server CUT2 deadline/CAS. Early `ring_deadline_not_reached` must not dismiss CallKit.
+ * Mirrors Android `NativeVideoCallRuntime` states without CallKit / HTTP / Agora wiring.
  */
 final class NativeVideoCallRuntime: @unchecked Sendable {
   static let shared = NativeVideoCallRuntime()
 
   private static let missedTimeoutSeconds: TimeInterval = 30
-  /** CUT7 #4 CASE B — after early `ring_deadline_not_reached`, re-propose until server accepts or session leaves ringing. */
-  private static let missedRetryDelaySeconds: TimeInterval = 2
-  private static let missedRetryMaxAttempts = 30
 
   private let queue = DispatchQueue(label: "com.dibay.app.native-video-call-runtime")
   private var session: NativeVideoCallSession?
   private var state: NativeVideoCallRuntimeState = .ended
   private var generation: UInt64 = 0
   private var missedWorkItem: DispatchWorkItem?
-  private var missedRetryAttempt: Int = 0
 
   init() {}
 
@@ -255,14 +247,12 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   func markMissed(sessionId: String) throws {
     try queue.sync {
-      // Public force path unused by timer; timer uses propose-first. Keep for explicit terminal apply.
-      try applyMissedDismissLocked(sessionId: sessionId)
+      try markMissedLocked(sessionId: sessionId)
     }
   }
 
   func reset(sessionId: String?) {
     queue.sync {
-      cancelMissedLocked()
       if let sessionId {
         let sid = normalize(sessionId)
         guard let active = session, active.sessionId == sid else { return }
@@ -357,113 +347,28 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     generation &+= 1
   }
 
-  private func applyMissedDismissLocked(sessionId: String) throws {
+  private func markMissedLocked(sessionId: String) throws {
     let sid = normalize(sessionId)
     guard let active = session, active.sessionId == sid else { return }
     guard state == .ringing else { return }
     cancelMissedLocked()
     state = .failed
-    NativeVideoCallLog.info("missed_timeout", callId: sid, details: "source=server_accepted")
+    NativeVideoCallLog.info("missed_timeout", callId: sid)
     publishUiLocked(sessionId: sid)
     clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
     NativeVideoCallUiHost.finishIfActive(callId: sid)
-    DispatchQueue.main.async {
-      // CUT7 #4: only after server accepted canonical missed — project .unanswered (not timer alone).
-      CallKitProvider.shared.reportCallEnded(uuidString: sid, endedReason: .unanswered)
-    }
   }
 
   /// Called only from `queue` (missed timer) — no `queue.sync` re-entry.
   private func performMissedTimeoutIfCurrent(sessionId: String, generation expectedGeneration: UInt64) {
     let sid = normalize(sessionId)
-    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
-      NativeVideoCallLog.info(
-        "missed_timer_stale",
-        callId: sid,
-        details: "reason=call_id_or_generation_mismatch"
-      )
-      return
-    }
-    guard state == .ringing else {
-      NativeVideoCallLog.info("missed_timer_stale", callId: sid, details: "reason=state_not_ringing")
-      return
-    }
-    missedWorkItem = nil
-    NativeVideoCallLog.info("missed_propose", callId: sid, details: "source=local_timer")
-    NativeVideoCallApi.missedAsync(callId: sid) { [weak self] ok, status, error in
-      guard let self else { return }
-      self.queue.async {
-        self.handleMissedProposeResultLocked(
-          sessionId: sid,
-          expectedGeneration: expectedGeneration,
-          ok: ok,
-          status: status,
-          error: error
-        )
-      }
-    }
-  }
-
-  private func handleMissedProposeResultLocked(
-    sessionId: String,
-    expectedGeneration: UInt64,
-    ok: Bool,
-    status: Int,
-    error: String?
-  ) {
-    let sid = normalize(sessionId)
-    let err = (error ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let active = session, active.sessionId == sid, generation == expectedGeneration else {
-      NativeVideoCallLog.info(
-        "missed_propose_ignored",
-        callId: sid,
-        details: "reason=stale_after_response"
-      )
-      return
-    }
-    guard state == .ringing else {
-      NativeVideoCallLog.info(
-        "missed_propose_ignored",
-        callId: sid,
-        details: "reason=no_longer_ringing"
-      )
-      return
-    }
-
-    if !ok && err == "ring_deadline_not_reached" {
-      NativeVideoCallLog.info(
-        "missed_early_rejected",
-        callId: sid,
-        details: "status=\(status) keep_presentation=1"
-      )
-      scheduleMissedRetryLocked(sessionId: sid, expectedGeneration: expectedGeneration)
-      return
-    }
-
-    if !ok && (err == "already_answered" || err == "bad_action") {
-      NativeVideoCallLog.info(
-        "missed_propose_blocked",
-        callId: sid,
-        details: "error=\(err) keep_presentation=1"
-      )
-      return
-    }
-
-    if !ok {
-      NativeVideoCallLog.info(
-        "missed_propose_failed",
-        callId: sid,
-        details: "status=\(status) error=\(err) keep_presentation=1"
-      )
-      return
-    }
-
-    try? applyMissedDismissLocked(sessionId: sid)
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else { return }
+    guard state == .ringing else { return }
+    try? markMissedLocked(sessionId: sid)
   }
 
   private func scheduleMissedLocked(sessionId: String) {
     cancelMissedLocked()
-    missedRetryAttempt = 0
     let sid = normalize(sessionId)
     let expectedGeneration = generation
     let work = DispatchWorkItem { [weak self] in
@@ -472,35 +377,6 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     }
     missedWorkItem = work
     queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)
-  }
-
-  private func scheduleMissedRetryLocked(sessionId: String, expectedGeneration: UInt64) {
-    let sid = normalize(sessionId)
-    guard !sid.isEmpty else { return }
-    guard state == .ringing, let active = session, active.sessionId == sid else { return }
-    guard generation == expectedGeneration else { return }
-    missedRetryAttempt += 1
-    let attempt = missedRetryAttempt
-    guard attempt <= Self.missedRetryMaxAttempts else {
-      NativeVideoCallLog.info(
-        "missed_retry_exhausted",
-        callId: sid,
-        details: "attempts=\(attempt) keep_presentation=1"
-      )
-      return
-    }
-    cancelMissedLocked()
-    let work = DispatchWorkItem { [weak self] in
-      guard let self else { return }
-      self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
-    }
-    missedWorkItem = work
-    queue.asyncAfter(deadline: .now() + Self.missedRetryDelaySeconds, execute: work)
-    NativeVideoCallLog.info(
-      "missed_retry_scheduled",
-      callId: sid,
-      details: "delaySec=\(Int(Self.missedRetryDelaySeconds)) attempt=\(attempt) generation=\(expectedGeneration)"
-    )
   }
 
   private func cancelMissedLocked() {

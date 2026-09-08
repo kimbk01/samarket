@@ -127,8 +127,7 @@ export async function PATCH(
       body.action !== "cancel" &&
       body.action !== "end" &&
       body.action !== "leave" &&
-      body.action !== "missed" &&
-      body.action !== "connected"
+      body.action !== "missed"
     ) {
       return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
     }
@@ -148,7 +147,7 @@ export async function PATCH(
       existing &&
       isIdempotentCallSessionPatch(
         existing.status,
-        body.action as "accept" | "reject" | "cancel" | "end" | "missed" | "leave" | "connected"
+        body.action as "accept" | "reject" | "cancel" | "end" | "missed" | "leave"
       )
     ) {
       return NextResponse.json({ ok: true, session: existing, idempotent: true });

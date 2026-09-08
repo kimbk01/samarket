@@ -74,8 +74,6 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     answeredAt: input.answeredAt ?? null,
     hangupReason: input.hangupReason ?? null,
     endedReason: input.endedReason ?? null,
-    initiatorUserId: input.initiatorUserId,
-    recipientUserId: input.recipientUserId ?? null,
   });
   if (!resolved) return;
 

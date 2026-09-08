@@ -165,7 +165,7 @@ export function buildCallV3ScreenViewModel(input: BuildCallV3ScreenViewModelInpu
 
   const peerLabel =
     identity.peerLabel?.trim() ||
-    safeT("cm_ui_call_peer_unknown", {
+    safeT("common_content_unavailable", {
       fallbackKo: "알 수 없음",
       fallbackEn: "Unknown",
     });

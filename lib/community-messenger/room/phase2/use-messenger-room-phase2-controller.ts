@@ -50,7 +50,6 @@ import { logCallPermission, type DirectCallDenyCode } from "@/lib/community-mess
 import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import {
   cmReceiveLatencyKey,
@@ -586,7 +585,7 @@ export function useMessengerRoomPhase2Controller() {
   const openCallPermissionHelp = useCallback(() => {
     const kind = callPanel?.kind ?? "voice";
     if (openCommunityMessengerPermissionSettings()) return;
-    alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(kind)));
+    showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
   }, [callPanel?.kind, t]);
 
   const retryCallDevicePermission = useCallback(() => {
@@ -595,7 +594,7 @@ export function useMessengerRoomPhase2Controller() {
     void ensureCallCanUseMedia(kind)
       .then(async (permission) => {
         if (!permission.ok) {
-          alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(kind)));
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
           openCommunityMessengerPermissionSettings();
           return;
         }
@@ -608,7 +607,7 @@ export function useMessengerRoomPhase2Controller() {
         }
       })
       .catch(() => {
-        alertOutgoingCallFailure(t(getCallMediaPermissionBlockedMessageKey(kind)));
+        showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
       });
   }, [call, callPanel, t]);
 
@@ -645,7 +644,7 @@ export function useMessengerRoomPhase2Controller() {
             code,
             callKind: kind,
           });
-          alertOutgoingCallFailure(resolveDirectCallDenyUserMessage(code));
+          showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
           return false;
         }
       }
@@ -656,7 +655,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!guard.ok) {
         if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
-        else alertOutgoingCallFailure(guard.userMessage);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
       }
       outgoingDialSyncGuardRef.current = true;
@@ -700,7 +699,7 @@ export function useMessengerRoomPhase2Controller() {
         setOutgoingDialLocked(false);
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
-          alertOutgoingCallFailure(result.userMessage);
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();
       return true;
@@ -1876,7 +1875,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!guard.ok) {
         if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
-        else alertOutgoingCallFailure(guard.userMessage);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
       }
       outgoingDialSyncGuardRef.current = true;
@@ -1922,7 +1921,7 @@ export function useMessengerRoomPhase2Controller() {
         setOutgoingDialLocked(false);
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
-          alertOutgoingCallFailure(result.userMessage);
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();
       return true;
@@ -2208,7 +2207,7 @@ export function useMessengerRoomPhase2Controller() {
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
       if (!canStartGroupCall) {
-        alertOutgoingCallFailure(translateCmUi("cm_ui_group_member_call_forbidden"));
+        showMessengerSnackbar(translateCmUi("cm_ui_group_member_call_forbidden"), { variant: "error" });
         return;
       }
       const permission = await ensureCallMediaForUserGesture(kind);

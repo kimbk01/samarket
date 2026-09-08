@@ -40,11 +40,6 @@ enum NativeVoiceCallApi {
     patchAsync(callId: callId, action: "end", completion: completion)
   }
 
-  /** CUT7 — local ring timeout proposer only; server CUT2 deadline/CAS remains authority. */
-  static func missedAsync(callId: String, completion: @escaping PatchCallback) {
-    patchAsync(callId: callId, action: "missed", completion: completion)
-  }
-
   static func startCallerJoinAsync(
     callId: String,
     roomId: String,

@@ -1,5 +1,3 @@
-import { buildCanonicalNotificationRoomHref } from "@/lib/chat-domain/push/canonical-notification-room-route";
-
 export function buildChatRoomDeepLink(roomId: string): string {
   return `dibay://chat/${encodeURIComponent(roomId.trim())}`;
 }
@@ -8,13 +6,8 @@ export function buildChatRoomWebPath(roomId: string): string {
   return `/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`;
 }
 
-export function buildMissedCallWebPath(roomId: string, _callSessionId?: string): string {
-  /** CUT5: exact room deeplink — callId is payload identity, not path authority. */
-  void _callSessionId;
-  return (
-    buildCanonicalNotificationRoomHref({ roomId, chatDomain: "general_direct" }) ??
-    `/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`
-  );
+export function buildMissedCallWebPath(roomId: string, callSessionId: string): string {
+  return `/community-messenger/rooms/${encodeURIComponent(roomId.trim())}?focus=call-history&callId=${encodeURIComponent(callSessionId.trim())}`;
 }
 
 /** @deprecated Legacy experimental `group_rooms` surface. Product GROUP notifications MUST use CM room path (`buildCanonicalNotificationRoomHref` / `buildDomainRoomRoute`). */

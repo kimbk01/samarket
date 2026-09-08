@@ -10,7 +10,6 @@ import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
 import androidx.test.core.app.ApplicationProvider;
-import com.dibay.app.nativecall.NativeCallTerminalLifecycle;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
@@ -48,14 +47,11 @@ public class NativeVoiceCallTerminalCleanupTest {
   }
 
   @Test
-  public void terminalLifecycle_notStartedToInProgressToCompleted() {
-    assertEquals(NativeCallTerminalLifecycle.Phase.NOT_STARTED, NativeVoiceCallTerminalOnce.phase("a"));
-    assertTrue(NativeVoiceCallTerminalOnce.tryBegin("a"));
-    assertEquals(NativeCallTerminalLifecycle.Phase.IN_PROGRESS, NativeVoiceCallTerminalOnce.phase("a"));
-    assertFalse(NativeVoiceCallTerminalOnce.tryBegin("a"));
-    NativeVoiceCallTerminalOnce.markCompleted("a");
-    assertEquals(NativeCallTerminalLifecycle.Phase.COMPLETED, NativeVoiceCallTerminalOnce.phase("a"));
-    assertFalse(NativeVoiceCallTerminalOnce.tryBegin("a"));
+  public void terminalOnce_endingIsNotCleanupComplete() {
+    assertFalse(NativeVoiceCallTerminalOnce.isClaimed("a"));
+    assertTrue(NativeVoiceCallTerminalOnce.claim("a"));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed("a"));
+    assertFalse(NativeVoiceCallTerminalOnce.claim("a"));
   }
 
   @Test
@@ -66,55 +62,50 @@ public class NativeVoiceCallTerminalCleanupTest {
     NativeVoiceCallRuntime.end(context, callId);
 
     assertNull(NativeVoiceCallRuntime.getSession(callId));
-    assertTrue(NativeVoiceCallTerminalOnce.isCompleted(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
     assertEquals(1, patchCalls.get());
     assertNotNull(lastPatchCallback);
+    assertNull(NativeVoiceCallRuntime.findOtherLiveSessionCallId("other"));
+    assertNull(NativeVoiceCallRuntime.findStaleSessionCallId("other"));
   }
 
   @Test
-  public void duplicateDuringInProgress_doesNotParallelCleanup_andNotCompletedLog() {
-    String callId = "voice-in-progress";
-    putConnected(callId);
-    assertTrue(NativeVoiceCallTerminalOnce.tryBegin(callId));
-
-    NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
-    NativeVoiceCallRuntime.cleanup(context, callId, "repeat");
-
-    assertNotNull("session remains until owner cleanup finishes", NativeVoiceCallRuntime.getSession(callId));
-    assertTrue(NativeVoiceCallTerminalOnce.isInProgress(callId));
-    assertFalse(NativeVoiceCallTerminalOnce.isCompleted(callId));
-  }
-
-  @Test
-  public void duplicateAfterCompleted_safeNoOp() {
-    String callId = "voice-completed";
+  public void patchSuccess_afterLocalCleanup_doesNotRecreateSession() {
+    String callId = "voice-patch-ok";
     putConnected(callId);
     NativeVoiceCallRuntime.end(context, callId);
-    assertTrue(NativeVoiceCallTerminalOnce.isCompleted(callId));
+    assertNull(NativeVoiceCallRuntime.getSession(callId));
 
-    NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
-    NativeVoiceCallRuntime.cleanup(context, callId, "repeat");
-    NativeVoiceCallRuntime.end(context, callId);
+    lastPatchCallback.onDone(true, 200, null);
 
     assertNull(NativeVoiceCallRuntime.getSession(callId));
     assertEquals(1, patchCalls.get());
   }
 
   @Test
-  public void leaveFailure_stillRunsMandatoryCleanup() {
-    String callId = "voice-leave-fail";
+  public void patchFail_doesNotBlockLocalCleanup() {
+    String callId = "voice-patch-fail";
     putConnected(callId);
-    NativeVoiceCallRuntime.skipAgoraLeaveForTests = false;
-    NativeVoiceCallRuntime.injectLeaveFailureForTests = true;
-
-    NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
+    NativeVoiceCallRuntime.end(context, callId);
+    lastPatchCallback.onDone(false, 500, "forced");
 
     assertNull(NativeVoiceCallRuntime.getSession(callId));
-    assertTrue(NativeVoiceCallTerminalOnce.isCompleted(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
   }
 
   @Test
-  public void fcmDuringEnding_beforeBegin_stillCleans() {
+  public void patchHang_stillReleasesLocalTerminal() {
+    String callId = "voice-patch-hang";
+    putConnected(callId);
+    NativeVoiceCallRuntime.end(context, callId);
+
+    assertNull("HTTP hang must not keep session", NativeVoiceCallRuntime.getSession(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
+    assertEquals(1, patchCalls.get());
+  }
+
+  @Test
+  public void fcmDuringEnding_doesNotSkipCleanup() {
     String callId = "voice-fcm-ending";
     NativeVoiceCallRuntime.Session session =
         new NativeVoiceCallRuntime.Session(callId, "room", "peer", "Peer", "voice", true);
@@ -124,7 +115,8 @@ public class NativeVoiceCallTerminalCleanupTest {
     NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
 
     assertNull(NativeVoiceCallRuntime.getSession(callId));
-    assertTrue(NativeVoiceCallTerminalOnce.isCompleted(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
+    assertEquals(0, patchCalls.get());
   }
 
   @Test
@@ -136,19 +128,39 @@ public class NativeVoiceCallTerminalCleanupTest {
 
     assertNull(NativeVoiceCallRuntime.getSession(callId));
     assertEquals(0, patchCalls.get());
-    assertTrue(NativeVoiceCallTerminalOnce.isCompleted(callId));
   }
 
   @Test
-  public void pluginTerminalDuringCleanup_doesNotDoubleDestroy() {
-    String callId = "voice-plugin";
+  public void cleanup_isIdempotent_acrossHangupAndFcm() {
+    String callId = "voice-idempotent";
     putConnected(callId);
-    assertTrue(NativeVoiceCallTerminalOnce.tryBegin(callId));
 
-    NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "plugin_end_call");
+    NativeVoiceCallRuntime.end(context, callId);
+    NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
+    NativeVoiceCallRuntime.end(context, callId);
+    NativeVoiceCallRuntime.cleanup(context, callId, "repeat");
 
-    assertTrue(NativeVoiceCallTerminalOnce.isInProgress(callId));
-    assertNotNull(NativeVoiceCallRuntime.getSession(callId));
+    assertNull(NativeVoiceCallRuntime.getSession(callId));
+    assertEquals(1, patchCalls.get());
+  }
+
+  @Test
+  public void callStyleAndDockHangup_useSameEndAuthority() {
+    String callId = "voice-same-authority";
+    putConnected(callId);
+    NativeVoiceCallRuntime.end(context, callId);
+    assertNull(NativeVoiceCallRuntime.getSession(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
+  }
+
+  @Test
+  public void nextIncoming_isNotBusySuppressedByCleanedCall() {
+    String ended = "voice-ended-a";
+    putConnected(ended);
+    NativeVoiceCallRuntime.end(context, ended);
+
+    assertNull(NativeVoiceCallRuntime.findOtherLiveSessionCallId("voice-incoming-b"));
+    assertNull(NativeVoiceCallRuntime.findStaleSessionCallId("voice-incoming-b"));
   }
 
   @Test
@@ -161,23 +173,6 @@ public class NativeVoiceCallTerminalCleanupTest {
     intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
     ActivityController<NativeVoiceCallActivity> controller =
         Robolectric.buildActivity(NativeVoiceCallActivity.class, intent).setup();
-    assertTrue(controller.get().isFinishing());
-    controller.pause().stop().destroy();
-  }
-
-  @Test
-  public void activityFinish_afterCleanup() {
-    String callId = "voice-finish";
-    putConnected(callId);
-    Intent intent = new Intent(context, NativeVoiceCallActivity.class);
-    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
-    intent.putExtra(NativeVoiceCallActivity.EXTRA_UI_MODE, NativeVoiceCallActivity.UI_MODE_OUTGOING);
-    ActivityController<NativeVoiceCallActivity> controller =
-        Robolectric.buildActivity(NativeVoiceCallActivity.class, intent).setup();
-    assertFalse(controller.get().isFinishing());
-
-    NativeVoiceCallRuntime.end(context, callId);
-
     assertTrue(controller.get().isFinishing());
     controller.pause().stop().destroy();
   }

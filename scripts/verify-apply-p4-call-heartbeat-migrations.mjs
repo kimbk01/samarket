@@ -3,7 +3,6 @@
  * P4 call heartbeat migrations — verify + idempotent apply.
  * - 20260618140000_community_messenger_call_heartbeat.sql
  * - 20260618150000_community_messenger_call_stale_cron.sql
- * - 20261210120000_cm_call_terminal_writer_ssot_cut1.sql (CUT1 detect-only)
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -14,7 +13,6 @@ const { Client } = pg;
 const MIGRATIONS = [
   "20260618140000_community_messenger_call_heartbeat.sql",
   "20260618150000_community_messenger_call_stale_cron.sql",
-  "20261210120000_cm_call_terminal_writer_ssot_cut1.sql",
 ];
 
 function loadEnvLocal() {
@@ -139,14 +137,12 @@ async function main() {
       process.exit(1);
     }
 
-    if (state.pg_cron_ext && state.stale_cron_jobs > 0) {
-      console.warn(
-        "WARN: CUT1 — pg_cron job cleanup_stale_cm_call_sessions still registered; apply 20261210120000 to unschedule (SQL must not end sessions)",
-      );
+    if (state.pg_cron_ext && state.stale_cron_jobs < 1) {
+      console.warn("WARN: pg_cron ext present but cleanup_stale_cm_call_sessions job not registered");
     } else if (!state.pg_cron_ext) {
-      console.log("OK: pg_cron extension not installed — app stale-cleanup cron is terminal owner");
+      console.warn("WARN: pg_cron extension not installed — use POST stale-cleanup API + CRON_SECRET");
     } else {
-      console.log("OK: CUT1 — mutating pg_cron job cleanup_stale_cm_call_sessions not registered");
+      console.log("OK: pg_cron job cleanup_stale_cm_call_sessions registered");
     }
 
     console.log("PASS: P4 heartbeat migration state verified");

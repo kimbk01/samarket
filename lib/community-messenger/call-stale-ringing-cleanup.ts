@@ -1,20 +1,13 @@
 /**
- * Expired RINGING → MISSED (CUT 2).
- * Distinct from ACTIVE presence stale cleanup (CUT 1 heartbeat_timeout).
- *
- * Canonical deadline: started_at + admin incoming_ring_timeout_seconds (server clock).
- * Always transitions via updateCommunityMessengerCallSession action=missed.
+ * DB에 남은 만료 `ringing` direct 세션이 수신 목록·busy·live 판정을 막는 것을 방지한다.
+ * (발신 종료 PATCH 실패·앱 강종 등으로 zombie ringing 이 남을 때 연속 발신·수신 불가)
  */
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type { MessengerCallAdminPolicy } from "@/lib/community-messenger/messenger-call-admin-policy";
-import {
-  isCanonicalRingingExpiredForMissed,
-  resolveCanonicalRingTimeoutSeconds,
-} from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
-import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
-import { getMessengerCallAdminPolicyCached } from "@/lib/community-messenger/messenger-call-admin-policy";
+import { clampIncomingRingTimeoutSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
 
-/** @deprecated CUT2 — prefer isCanonicalRingingExpiredForMissed (no extra grace on miss truth). */
-export const STALE_RINGING_GRACE_MS = 0;
+/** 링 타임아웃 직후 네트워크·PATCH 지연 여유 */
+export const STALE_RINGING_GRACE_MS = 15_000;
 
 export type StaleRingingSessionRow = {
   id: string;
@@ -31,42 +24,45 @@ function trimText(value: unknown): string {
 export function isDirectRingingSessionExpired(
   startedAt: string | null | undefined,
   policy: MessengerCallAdminPolicy,
-  nowMs = Date.now(),
+  nowMs = Date.now()
 ): boolean {
-  return isCanonicalRingingExpiredForMissed(startedAt, policy, nowMs);
+  const startMs = new Date(trimText(startedAt) || "").getTime();
+  if (!Number.isFinite(startMs)) return false;
+  const timeoutMs = clampIncomingRingTimeoutSeconds(policy.incoming_ring_timeout_seconds) * 1000;
+  return nowMs > startMs + timeoutMs + STALE_RINGING_GRACE_MS;
 }
 
 export function isStaleRingingRow(
   row: Pick<StaleRingingSessionRow, "status" | "started_at">,
   policy: MessengerCallAdminPolicy,
-  nowMs = Date.now(),
+  nowMs = Date.now()
 ): boolean {
   return trimText(row.status) === "ringing" && isDirectRingingSessionExpired(row.started_at, policy, nowMs);
 }
 
-async function terminalOneExpiredRingingAsMissed(
+async function terminalOneStaleRingingSession(
   actorUserId: string,
-  row: StaleRingingSessionRow,
+  row: StaleRingingSessionRow
 ): Promise<boolean> {
   const sid = trimText(row.id);
   const uid = trimText(actorUserId);
   if (!sid || !uid) return false;
   const { updateCommunityMessengerCallSession } = await import("@/lib/community-messenger/service");
-  // CUT2: ringing deadline expiry is always MISSED — never cancel (cancel = caller intent).
+  const action = messengerUserIdsEqual(row.initiator_user_id, uid) ? "cancel" : "missed";
   const result = await updateCommunityMessengerCallSession({
     userId: uid,
     sessionId: sid,
-    action: "missed",
+    action,
     clientEndedReason: "stale_ringing_expired",
   }).catch(() => ({ ok: false as const }));
   return result.ok === true;
 }
 
-/** viewer 관련 ringing direct 중 링 deadline 지난 세션을 MISSED 처리 */
+/** viewer 관련 ringing direct 중 링 타임아웃 지난 세션을 terminal 처리 */
 export async function terminalStaleRingingDirectSessionsForUser(
   sb: unknown,
   userId: string,
-  policy: MessengerCallAdminPolicy,
+  policy: MessengerCallAdminPolicy
 ): Promise<number> {
   const uid = trimText(userId);
   if (!uid) return 0;
@@ -82,44 +78,7 @@ export async function terminalStaleRingingDirectSessionsForUser(
   const rows = ((data ?? []) as StaleRingingSessionRow[]).filter((row) => isStaleRingingRow(row, policy));
   let closed = 0;
   for (const row of rows) {
-    const actor =
-      trimText(row.recipient_user_id) ||
-      trimText(row.initiator_user_id) ||
-      uid;
-    if (await terminalOneExpiredRingingAsMissed(actor, row)) closed += 1;
+    if (await terminalOneStaleRingingSession(uid, row)) closed += 1;
   }
   return closed;
-}
-
-/**
- * Cron/job — expire all direct ringing past canonical deadline → MISSED.
- * Separated from active both-stale heartbeat cleanup.
- */
-export async function cleanupExpiredRingingCommunityMessengerCallSessions(): Promise<{
-  missed: number;
-  ringTimeoutSeconds: number;
-}> {
-  const sb = resolveServiceSupabaseForApi();
-  const policy = await getMessengerCallAdminPolicyCached();
-  const ringTimeoutSeconds = resolveCanonicalRingTimeoutSeconds(policy);
-  if (!sb) return { missed: 0, ringTimeoutSeconds };
-
-  const { data: rows } = await (sb as any)
-    .from("community_messenger_call_sessions")
-    .select("id, status, started_at, initiator_user_id, recipient_user_id")
-    .eq("status", "ringing")
-    .order("started_at", { ascending: true })
-    .limit(100);
-
-  const nowMs = Date.now();
-  let missed = 0;
-  for (const row of (rows ?? []) as StaleRingingSessionRow[]) {
-    if (!isStaleRingingRow(row, policy, nowMs)) continue;
-    const actor =
-      trimText(row.recipient_user_id) ||
-      trimText(row.initiator_user_id);
-    if (!actor) continue;
-    if (await terminalOneExpiredRingingAsMissed(actor, row)) missed += 1;
-  }
-  return { missed, ringTimeoutSeconds };
 }

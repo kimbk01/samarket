@@ -180,7 +180,6 @@ import {
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import {
   buildSyntheticTempOutgoingCallSession,
   consumeCommunityMessengerCallNavigationSeed,
@@ -5018,10 +5017,10 @@ export function CommunityMessengerCallClient({
         );
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
-          alertOutgoingCallFailure(result.userMessage);
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       } catch {
-        alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
+        showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
       }
     })();
   };

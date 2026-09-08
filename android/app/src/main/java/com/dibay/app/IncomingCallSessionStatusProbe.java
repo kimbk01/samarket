@@ -11,21 +11,12 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
 
-/**
- * Short server truth probe for incoming-call FCM delivery.
- *
- * <p>CUT7 #6: presentation must not depend on {@code deliveryDelayMs >= 10s}. Probe (or
- * server-expiry + ringing confirmation) runs before Native Runtime / RingOwner.
- */
+/** Short server truth probe for late incoming-call FCM delivery. */
 public final class IncomingCallSessionStatusProbe {
   private IncomingCallSessionStatusProbe() {}
 
-  /**
-   * Historically delay-gated. CUT7 #6: always probe — terminal resurrection must not skip
-   * validation for {@code deliveryDelayMs < 10_000}.
-   */
   public static boolean shouldProbe(DibayCallPushLog.ExpiryDecision expiry) {
-    return true;
+    return expiry != null && expiry.deliveryDelayMs >= 10_000L;
   }
 
   public static String fetchStatus(Context context, String callId) {
@@ -59,16 +50,11 @@ public final class IncomingCallSessionStatusProbe {
       String sessionStatus = session != null ? session.optString("status", "") : "";
       return sessionStatus != null && !sessionStatus.trim().isEmpty() ? sessionStatus.trim() : null;
     } catch (Exception error) {
-      DibayCallPushLog.warn(
-          "incoming_status_probe_failed", callId, "err=" + error.getClass().getSimpleName());
+      DibayCallPushLog.warn("incoming_status_probe_failed", callId, "err=" + error.getClass().getSimpleName());
       return null;
     } finally {
       if (conn != null) conn.disconnect();
     }
-  }
-
-  public static boolean isRingingStatus(String status) {
-    return status != null && "ringing".equalsIgnoreCase(status.trim());
   }
 
   public static boolean isTerminalStatus(String status) {
@@ -89,25 +75,6 @@ public final class IncomingCallSessionStatusProbe {
   /** Late incoming must not present after another device accepted. */
   public static boolean shouldDismissIncomingForStatus(String status) {
     return isTerminalStatus(status);
-  }
-
-  /**
-   * CUT7 #6 presentation gate after probe.
-   *
-   * <ul>
-   *   <li>terminal / active → never present
-   *   <li>ringing → present (even if serverExpiresAt passed — confirmed still ringing)
-   *   <li>probe null/unknown + server ring window still open → fail-open (existing reliability)
-   *   <li>probe null/unknown + server ring window expired → block (15s receive-grace must not
-   *       resurrect terminal / expired sessions)
-   * </ul>
-   */
-  public static boolean shouldAllowIncomingPresentation(
-      String serverStatus, boolean serverRingWindowExpired) {
-    if (isTerminalStatus(serverStatus)) return false;
-    if (isRingingStatus(serverStatus)) return true;
-    // Probe failed or unknown status.
-    return !serverRingWindowExpired;
   }
 
   private static String readBody(InputStream input) throws Exception {

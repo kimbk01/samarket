@@ -44,11 +44,6 @@ import {
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import {
-  alertOutgoingCallFailure,
-  outgoingCallStartFailedMessage,
-  outgoingCallVoiceOnlyMessage,
-} from "@/lib/community-messenger/call-outgoing-failure-alert";
-import {
   acquireCallActionLock,
   bindCallActionLockCallId,
   releaseCallActionLock,
@@ -62,6 +57,7 @@ import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/communit
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import {
   clearCallEngineNavigationSeed,
@@ -707,7 +703,7 @@ async function applyOutgoingTempCallBootstrapResult(
     stopCommunityMessengerCallTone();
     discardPrimedCommunityMessengerDevicePermission();
     if (!isOutgoingCallPhoneVerificationRequired(result) && result.userMessage.trim()) {
-      alertOutgoingCallFailure(result.userMessage);
+      showMessengerSnackbar(result.userMessage, { variant: "error" });
     }
     if (result.blockedCallId) {
       callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
@@ -774,7 +770,13 @@ export function ensureOutgoingTempCallBootstrap(args: {
       stopCommunityMessengerCallTone();
       discardPrimedCommunityMessengerDevicePermission();
       releaseCallActionLock("bootstrap_unhandled_error");
-      alertOutgoingCallFailure(outgoingCallStartFailedMessage());
+      showMessengerSnackbar(
+        safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+          fallbackKo: "통화를 시작할 수 없습니다.",
+          fallbackEn: "Could not start the call.",
+        }),
+        { variant: "error" }
+      );
       navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(args.router) }, args.roomId);
     }
   })();
@@ -884,7 +886,13 @@ export async function launchOutgoingDirectCall(
     return callV4LaunchOutgoingDirectCall(input, router);
   }
   if (!isCmCallVideoEnabled() && input.kind === "video") {
-    alertOutgoingCallFailure(outgoingCallVoiceOnlyMessage());
+    showMessengerSnackbar(
+      safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+        fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
+        fallbackEn: "Only voice calls are available right now.",
+      }),
+      { variant: "error" }
+    );
     return { ok: false, userMessage: "" };
   }
   if (isDibayCallV3SafeLaneEnabled()) {
@@ -953,7 +961,7 @@ export async function launchOutgoingDirectCall(
     if (!prime.ok) {
       if (input.kind === "video") {
         stopCommunityMessengerCallTone();
-        alertOutgoingCallFailure(outgoingCallMediaPrimeFailureMessage("video"));
+        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
       }
     }
   })();

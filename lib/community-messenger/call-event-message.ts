@@ -7,7 +7,6 @@ import type {
   CommunityMessengerMessage,
 } from "@/lib/community-messenger/types";
 import { formatCallEventForViewer } from "@/lib/community-messenger/call-event-presentation";
-import { resolveCanonicalTerminalReason } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 
 export type CallSessionViewerRole = "caller" | "callee";
 
@@ -19,8 +18,6 @@ export type CallSessionResolvedEvent =
   | "rejected_by_callee"
   | "missed"
   | "ended"
-  | "failed"
-  | "disconnected"
   /** 세션 미생성 peer_busy — 로컬 스텁 전용 */
   | "peer_busy";
 
@@ -44,19 +41,17 @@ function trimLower(s: unknown): string {
 
 /**
  * DB 세션 상태·타임스탬프·hangup 사유로 표시할 이벤트 타입 결정.
- * cancel / reject 혼동 방지: DB status 우선, ended_reason → CUT3 canonical.
+ * cancel / reject 혼동 방지: DB status 우선, 보조로 hangupReason.
  */
 export function resolveCallSessionEventType(input: {
   status: string;
   answeredAt?: string | null;
   hangupReason?: string | null;
   endedReason?: string | null;
-  terminalActorUserId?: string | null;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
 }): CallSessionResolvedEvent | null {
   const status = trimLower(input.status);
   const hr = trimLower(input.hangupReason);
+  const er = trimLower(input.endedReason);
   const answered = typeof input.answeredAt === "string" && input.answeredAt.trim().length > 0;
 
   if (status === "ringing" || status === "active") return null;
@@ -64,33 +59,24 @@ export function resolveCallSessionEventType(input: {
   if (hr === "callee_reject" || hr === "rejected_by_callee") return "rejected_by_callee";
   if (hr === "caller_cancel" || hr === "cancelled_by_caller") return "cancelled_by_caller";
 
-  const canonical = resolveCanonicalTerminalReason({
-    status: input.status,
-    endedReason: input.endedReason,
-    terminalActorUserId: input.terminalActorUserId,
-    initiatorUserId: input.initiatorUserId,
-    recipientUserId: input.recipientUserId,
-    answeredAt: input.answeredAt,
-  });
+  if (status === "rejected") return "rejected_by_callee";
 
-  if (canonical === "callee_rejected" || status === "rejected") return "rejected_by_callee";
-  if (canonical === "missed_timeout" || status === "missed" || status === "timeout") return "missed";
-  if (canonical === "caller_cancelled" || status === "cancelled") return "cancelled_by_caller";
-  if (canonical === "busy") return "peer_busy";
-  if (canonical === "failed_setup" || canonical === "failed_network") return "failed";
-  if (canonical === "disconnected") return "disconnected";
-  if (canonical === "ended_by_caller" || canonical === "ended_by_callee") {
-    return answered ? "ended" : "cancelled_by_caller";
-  }
+  if (status === "missed" || status === "timeout") return "missed";
+
+  /** DB `cancelled` 는 발신 취소 — hangup 사유로 거절로 바꾸지 않는다 */
+  if (status === "cancelled") return "cancelled_by_caller";
+
   if (status === "ended") {
     if (answered) return "ended";
     return "cancelled_by_caller";
   }
 
   if (status === "failed") {
-    return "failed";
+    if (hr === "reject" || hr === "rejected" || hr === "decline") return "rejected_by_callee";
+    return "cancelled_by_caller";
   }
 
+  void er;
   return null;
 }
 
@@ -108,9 +94,6 @@ export function mapResolvedEventToCallStatus(ev: CallSessionResolvedEvent): Comm
     case "missed":
       return "missed";
     case "ended":
-    case "disconnected":
-      return "ended";
-    case "failed":
       return "ended";
     case "peer_busy":
       return "cancelled";
@@ -132,28 +115,15 @@ function resolveViewerRoleFromSender(
 /**
  * 타임라인 한 줄 — viewer 관점 SSOT (`call-event-presentation`).
  */
-function resolveViewerRoleForStub(args: {
-  viewerUserId: string;
-  senderUserId: string | null | undefined;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
-}): CallSessionViewerRole | null {
-  const fromParties = resolveViewerCallRole(args.viewerUserId, args.initiatorUserId, args.recipientUserId);
-  if (fromParties) return fromParties;
-  return resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
-}
-
 export function getCallStubTimelineSecondLine(args: {
   callKind: CommunityMessengerCallKind;
   resolvedEvent: CallSessionResolvedEvent | null;
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
   durationSeconds?: number | null;
 }): string {
-  const viewerRole = resolveViewerRoleForStub(args);
+  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
   const inferred =
     args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
@@ -172,11 +142,9 @@ export function getCallStubTimelineStatusLine(args: {
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
   durationSeconds?: number | null;
 }): string {
-  const viewerRole = resolveViewerRoleForStub(args);
+  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
   const inferred =
     args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
@@ -188,28 +156,7 @@ export function getCallStubTimelineStatusLine(args: {
   }).resultLabel;
 }
 
-export function resolveCallStubEventFromMessageMetadata(meta: Record<string, unknown> | null | undefined): {
-  resolvedEvent: CallSessionResolvedEvent | null;
-  initiatorUserId: string | null;
-  recipientUserId: string | null;
-  endedReason: string | null;
-} {
-  if (!meta || typeof meta !== "object") {
-    return { resolvedEvent: null, initiatorUserId: null, recipientUserId: null, endedReason: null };
-  }
-  const rawEvent = meta.callResolvedEvent;
-  const resolvedEvent =
-    typeof rawEvent === "string" && rawEvent.trim()
-      ? (rawEvent.trim() as CallSessionResolvedEvent)
-      : null;
-  return {
-    resolvedEvent,
-    initiatorUserId: typeof meta.initiatorUserId === "string" ? meta.initiatorUserId.trim() || null : null,
-    recipientUserId: typeof meta.recipientUserId === "string" ? meta.recipientUserId.trim() || null : null,
-    endedReason: typeof meta.endedReason === "string" ? meta.endedReason.trim() || null : null,
-  };
-}
-
+/** 단일 진입 — 타임라인·로컬 스텁 content 공통 */
 export function getCallMessageText(input: {
   callKind: CommunityMessengerCallKind;
   eventType: CallSessionResolvedEvent;
@@ -223,7 +170,6 @@ export function getCallMessageText(input: {
     callStatusFallback: mapResolvedEventToCallStatus(input.eventType),
     viewerUserId: input.viewerUserId,
     senderUserId: input.initiatorUserId,
-    initiatorUserId: input.initiatorUserId,
     durationSeconds: input.durationSeconds,
   });
 }

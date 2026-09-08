@@ -254,25 +254,6 @@ export async function callV4PatchEnd(
   return result;
 }
 
-export async function callV4PatchConnected(
-  callId: string
-): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
-  const sid = callId.trim();
-  if (!sid) return { ok: false, error: "session_required" };
-  logCallV4("connected_patch_start", { callId: sid });
-  const result = await patchCommunityMessengerCallSession(sid, "connected");
-  if (result.ok) {
-    logCallV4("connected_patch_done", {
-      callId: sid,
-      connectedAt: result.session?.connectedAt ?? null,
-      status: result.session?.status ?? null,
-    });
-  } else {
-    logCallV4("connected_patch_failed", { callId: sid, error: result.error ?? null });
-  }
-  return result;
-}
-
 export async function callV4PatchMissed(
   callId: string
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {

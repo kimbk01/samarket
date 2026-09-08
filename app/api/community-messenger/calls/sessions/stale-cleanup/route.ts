@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanupStaleActiveCommunityMessengerCallSessions } from "@/lib/community-messenger/call-session-heartbeat";
-import { cleanupExpiredRingingCommunityMessengerCallSessions } from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 
 export const runtime = "nodejs";
@@ -14,28 +13,16 @@ async function runStaleCleanup(req: NextRequest) {
   if (!verifyCronRequestAuthorization(req, secret)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  // CUT1: active both-stale → ended/heartbeat_timeout
-  const active = await cleanupStaleActiveCommunityMessengerCallSessions();
-  // CUT2: ringing past deadline → missed (separate authority from active presence)
-  const ringing = await cleanupExpiredRingingCommunityMessengerCallSessions();
-  return NextResponse.json({
-    ok: true,
-    ended: active.ended,
-    missed: ringing.missed,
-    ringTimeoutSeconds: ringing.ringTimeoutSeconds,
-  });
+  const result = await cleanupStaleActiveCommunityMessengerCallSessions();
+  return NextResponse.json({ ok: true, ...result });
 }
 
-/**
- * Scheduled terminal cleanup owner (Vercel cron).
- * - Active presence stale (CUT1)
- * - Ringing deadline → MISSED (CUT2)
- * Both mutate only via updateCommunityMessengerCallSession.
- */
+/** Service/cron — one-sided stale active call cleanup + peer notify (TS path) */
 export async function POST(req: NextRequest) {
   return runStaleCleanup(req);
 }
 
+/** Vercel Cron (GET) — enable via vercel.json when pg_cron is not the stale cleanup owner */
 export async function GET(req: NextRequest) {
   return runStaleCleanup(req);
 }

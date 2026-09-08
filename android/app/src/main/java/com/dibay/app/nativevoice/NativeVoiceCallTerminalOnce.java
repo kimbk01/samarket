@@ -1,41 +1,28 @@
 package com.dibay.app.nativevoice;
 
-import com.dibay.app.nativecall.NativeCallTerminalLifecycle;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Voice facade over {@link NativeCallTerminalLifecycle}.
+ * Once-guard for Native Voice terminal cleanup.
  *
- * <p>CONTRACT: IN_PROGRESS ≠ COMPLETED. Do not treat begin as cleaned.
+ * CONTRACT: {@code State.ENDING} is a transition, not cleanup-complete. Remote FCM / Agora
+ * must still be allowed to run cleanup until this claim succeeds.
  */
 final class NativeVoiceCallTerminalOnce {
+  private static final ConcurrentHashMap<String, Boolean> CLAIMED = new ConcurrentHashMap<>();
+
   private NativeVoiceCallTerminalOnce() {}
 
-  static NativeCallTerminalLifecycle.Phase phase(String callId) {
-    return NativeCallTerminalLifecycle.phase(callId);
+  static boolean claim(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    return CLAIMED.putIfAbsent(callId.trim(), Boolean.TRUE) == null;
   }
 
-  static boolean tryBegin(String callId) {
-    return NativeCallTerminalLifecycle.tryBegin(callId);
-  }
-
-  static void markCompleted(String callId) {
-    NativeCallTerminalLifecycle.markCompleted(callId);
-  }
-
-  static boolean isInProgress(String callId) {
-    return NativeCallTerminalLifecycle.isInProgress(callId);
-  }
-
-  static boolean isCompleted(String callId) {
-    return NativeCallTerminalLifecycle.isCompleted(callId);
-  }
-
-  /** @deprecated Prefer {@link #isCompleted(String)} — historically meant claim-or-done. */
   static boolean isClaimed(String callId) {
-    return isCompleted(callId) || isInProgress(callId);
+    return callId != null && CLAIMED.containsKey(callId.trim());
   }
 
   static void clearForTests() {
-    NativeCallTerminalLifecycle.clearForTests();
+    CLAIMED.clear();
   }
 }

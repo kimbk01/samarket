@@ -64,8 +64,6 @@ export function resolveCallEventCanonical(input: {
   }
   if (fs === "incoming") return "incoming_received";
   if (ev === "peer_busy") return "remote_busy";
-  if (ev === "failed") return "failed";
-  if (ev === "disconnected") return "interrupted";
   if (ev === "ended" || fs === "ended") return "connected_ended";
   if (ev === "rejected_by_callee" || fs === "rejected") {
     return role === "callee" ? "local_rejected" : "remote_rejected";
@@ -187,28 +185,23 @@ export function formatCallEventForViewer(input: {
 /**
  * DB `rooms.last_message` / call_stub.content 저장용 — viewer 비의존 shared 라벨.
  * (목록은 이 문자열을 preview 로 사용; 타임라인은 formatCallEventForViewer 재계산)
- * CUT4: optional resolvedEvent distinguishes failed / disconnected from generic ended.
  */
 export function formatCallEventSharedListLabel(
   callKind: CommunityMessengerCallKind,
   status: CommunityMessengerCallStatus,
-  durationSeconds?: number,
-  resolvedEvent?: CallSessionResolvedEvent | null,
+  durationSeconds?: number
 ): string {
   const kind = kindLabel(callKind);
   const dur = Math.max(0, Math.floor(Number(durationSeconds ?? 0)));
-  if (resolvedEvent === "failed") return `${kind} · 연결 실패`;
-  if (resolvedEvent === "disconnected") return `${kind} · 연결 끊김`;
-  if (resolvedEvent === "peer_busy") return `${kind} · 통화 중`;
-  if ((resolvedEvent === "ended" || status === "ended") && dur > 0) {
+  if (status === "ended" && dur > 0) {
     return `${kind} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
   }
-  if (resolvedEvent === "missed" || status === "missed") {
+  if (status === "missed") {
     return kind === "영상 통화" ? "부재중 영상 통화" : "부재중 음성 통화";
   }
-  if (resolvedEvent === "rejected_by_callee" || status === "rejected") return `${kind} · 거절됨`;
-  if (resolvedEvent === "cancelled_by_caller" || status === "cancelled") return `${kind} · 취소됨`;
-  if (resolvedEvent === "ended" || status === "ended") return `${kind} · 통화 종료`;
+  if (status === "rejected") return `${kind} · 거절됨`;
+  if (status === "cancelled") return `${kind} · 취소됨`;
+  if (status === "ended") return `${kind} · 통화 종료`;
   if (status === "incoming") return `${kind} · 수신 중`;
   return `${kind} · 발신 중`;
 }

@@ -121,9 +121,10 @@ function resolveByRegistryKey(
     }
     case "missed_call": {
       const callSessionId = String(context.callSessionId ?? "").trim();
-      href = roomId
-        ? buildMissedCallWebPath(roomId, callSessionId || undefined)
-        : "/community-messenger";
+      href =
+        roomId && callSessionId
+          ? buildMissedCallWebPath(roomId, callSessionId)
+          : "/community-messenger?surface=call-logs";
       break;
     }
     case "display_route":

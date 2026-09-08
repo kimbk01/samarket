@@ -9,11 +9,7 @@ import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basi
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
-import {
-  alertOutgoingCallFailure,
-  outgoingCallStartFailedMessage,
-  outgoingCallVoiceOnlyMessage,
-} from "@/lib/community-messenger/call-outgoing-failure-alert";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { cleanupCallV3 } from "@/lib/community-messenger/call-v3/call-v3-cleanup";
 import { logCallV3, logCallV3LaunchEntry } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import {
@@ -91,7 +87,10 @@ function outgoingMissingRoomMessage(): string {
 }
 
 function outgoingGenericErrorMessage(): string {
-  return outgoingCallStartFailedMessage();
+  return safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+    fallbackKo: "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    fallbackEn: "Could not start the call. Please try again.",
+  });
 }
 
 export async function callV3CreateOutgoing(input: {
@@ -169,7 +168,13 @@ export async function callV3LaunchOutgoingDirectCall(
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
   if (!isCmCallVideoEnabled() && input.kind === "video") {
-    alertOutgoingCallFailure(outgoingCallVoiceOnlyMessage());
+    showMessengerSnackbar(
+      safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+        fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
+        fallbackEn: "Only voice calls are available right now.",
+      }),
+      { variant: "error" }
+    );
     return { ok: false, userMessage: "" };
   }
 

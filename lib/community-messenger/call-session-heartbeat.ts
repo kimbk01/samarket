@@ -1,12 +1,3 @@
-/**
- * Active-call heartbeat PATCH + stale cleanup (CUT1 Terminal Writer SSOT).
- *
- * Heartbeat never mutates terminal status.
- * Stale end MUST call updateCommunityMessengerCallSession — never SQL direct UPDATE.
- * Presence predicate: canEndActiveCallForPresenceStale (both-stale AND only).
- *
- * @see CALL_TERMINAL_SESSION_WRITER
- */
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import {
   CALL_SERVER_HEARTBEAT_ENDED_REASON,
@@ -81,7 +72,6 @@ async function endStaleCallSessionWithPeerNotify(row: CallSessionHeartbeatRow): 
   const initiator = trimText(row.initiator_user_id);
   if (!sid || !initiator) return false;
 
-  // CUT1: sole terminal writer for heartbeat-stale — updateCommunityMessengerCallSession
   const { updateCommunityMessengerCallSession } = await import("@/lib/community-messenger/service");
   const result = await updateCommunityMessengerCallSession({
     userId: initiator,

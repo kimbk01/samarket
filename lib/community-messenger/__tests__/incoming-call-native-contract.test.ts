@@ -179,8 +179,7 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("logIncomingReceived");
     expect(fcm).toContain("resolveIncomingExpiry");
     expect(fcm).toContain("IncomingCallPushAckHelper.sendAsync");
-    expect(fcm).toContain("IncomingCallSessionStatusProbe.fetchStatus");
-    expect(fcm).toContain("shouldAllowIncomingPresentation");
+    expect(fcm).toContain("IncomingCallSessionStatusProbe.shouldProbe");
     expect(fcm).toContain("incoming_late_terminal_blocked");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
     expect(fcm).toContain("MainActivity.persistCallPendingRoute");

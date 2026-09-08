@@ -256,7 +256,6 @@ import {
   normalizeAnswerClaimDeviceId,
 } from "@/lib/community-messenger/call-multi-device-authority";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
-import { evaluateConnectedProposal } from "@/lib/community-messenger/call-authority/call-connected-authority";
 import {
   resolveCanonicalCallLogPeerUserId,
 } from "@/lib/community-messenger/call-authority/call-history-peer-authority";
@@ -264,21 +263,6 @@ import {
   isTrustedClientEndedReason,
   resolveTerminalEndedReason,
 } from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
-import {
-  buildCallStubProjectionMetadata,
-  resolveCallStubIdempotencyKey,
-  resolveProjectionFromSession,
-  shouldPersistCallStubProjection,
-} from "@/lib/community-messenger/call-authority/call-chat-projection-authority";
-import {
-  evaluateMissedTransitionGate,
-  resolveCanonicalRingTimeoutSeconds,
-} from "@/lib/community-messenger/call-authority/call-missed-deadline-authority";
-import {
-  buildRoomBoundMissedCallNotificationInput,
-  decideRoomBoundMissedCallNotification,
-} from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
-import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
 import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
@@ -567,7 +551,6 @@ type CallSessionRow = {
   status: CommunityMessengerCallSessionStatus;
   started_at: string | null;
   answered_at: string | null;
-  connected_at?: string | null;
   answered_device_id?: string | null;
   ended_at: string | null;
   ended_reason?: string | null;
@@ -710,8 +693,6 @@ type DevCallSession = {
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;
   answeredAt: string | null;
-  /** CUT6 media connection */
-  connectedAt?: string | null;
   endedAt: string | null;
   /** 클라 연결 실패 등 — dev 전용 */
   endedReason?: string | null;
@@ -894,8 +875,12 @@ export async function reconcileUserLiveCallSessions(
     const staleActive = isStaleActiveRowForReconcile(row);
     if (!staleRinging && !staleActive) continue;
 
-    // CUT2: expired ringing → always missed (never cancel). Cancel = explicit caller intent only.
-    const action: "missed" | "end" = status === "ringing" ? "missed" : "end";
+    const action: "cancel" | "missed" | "end" =
+      status === "ringing"
+        ? messengerUserIdsEqual(row.initiator_user_id, uid)
+          ? "cancel"
+          : "missed"
+        : "end";
     const patched = await updateCommunityMessengerCallSession({
       userId: uid,
       sessionId: sid,
@@ -1034,7 +1019,7 @@ async function loadDirectCallSessionRowById(
   const { data: row } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
     )
     .eq("id", sid)
     .maybeSingle();
@@ -1106,97 +1091,17 @@ async function appendCommunityMessengerCallSessionEvent(
 }
 
 function endedReasonForSessionDelta(
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
   nextStatus: CommunityMessengerCallSessionStatus,
   clientEndedReason?: string | null,
-  ctx?: {
-    actorUserId?: string | null;
-    initiatorUserId?: string | null;
-    recipientUserId?: string | null;
-    answeredAt?: string | null;
-  },
 ): string | null {
-  if (action === "connected") return null;
-  return resolveTerminalEndedReason({
-    action,
-    nextStatus,
-    clientEndedReason,
-    actorUserId: ctx?.actorUserId,
-    initiatorUserId: ctx?.initiatorUserId,
-    recipientUserId: ctx?.recipientUserId,
-    answeredAt: ctx?.answeredAt,
-  });
-}
-
-/**
- * CUT5 — one logical room-bound missed_call notification for callee.
- * Conversation B unread remains call_stub; Bell digit excludes room-bound missed.
- */
-async function notifyRoomBoundMissedCallBestEffort(
-  session: CallSessionRow | DevCallSession,
-  mapped: CommunityMessengerCallSession,
-): Promise<void> {
-  if (mapped.status !== "missed") return;
-  const isDbSession = "initiator_user_id" in session;
-  const roomId = trimText(isDbSession ? session.room_id : session.roomId);
-  const callSessionId = trimText(mapped.id) || trimText(isDbSession ? session.id : session.id);
-  const initiatorUserId = trimText(
-    isDbSession ? session.initiator_user_id : session.initiatorUserId,
-  );
-  const recipientUserId = trimText(
-    isDbSession ? session.recipient_user_id : session.recipientUserId,
-  );
-  const endedReason = trimText(
-    isDbSession
-      ? (session.ended_reason ?? mapped.endedReason ?? "")
-      : (session.endedReason ?? mapped.endedReason ?? ""),
-  );
-  const callKind = (isDbSession ? session.call_kind : session.callKind) ?? mapped.callKind ?? "voice";
-  const sessionMode = isDbSession
-    ? (session.session_mode ?? mapped.sessionMode ?? "direct")
-    : (session.sessionMode ?? mapped.sessionMode ?? "direct");
-  const decision = decideRoomBoundMissedCallNotification({
-    status: mapped.status,
-    endedReason,
-    sessionMode,
-    roomId,
-    callSessionId,
-    initiatorUserId,
-    recipientUserId,
-    callKind,
-  });
-  if (!decision.notify) return;
-  const sb = getSupabaseOrNull();
-  if (!sb) return;
-  let callerDisplayName = "";
-  try {
-    const profiles = await hydrateProfiles(decision.recipientUserId, [decision.actorUserId]);
-    callerDisplayName = trimText(profiles[0]?.label ?? "");
-  } catch {
-    /* best-effort */
-  }
-  const { createAndDispatchNotificationEvent } = await import(
-    "@/lib/notifications/pipeline/notification-event-dispatcher"
-  );
-  await createAndDispatchNotificationEvent(
-    sb as any,
-    buildRoomBoundMissedCallNotificationInput({
-      recipientUserId: decision.recipientUserId,
-      roomId: decision.roomId,
-      callSessionId: decision.callSessionId,
-      actorUserId: decision.actorUserId,
-      callKind: decision.callKind,
-      callerDisplayName: callerDisplayName || null,
-      chatDomain: "general_direct",
-    }),
-  ).catch(() => {});
+  return resolveTerminalEndedReason({ action, nextStatus, clientEndedReason });
 }
 
 function auditEventTypeForAction(
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
   nextStatus: CommunityMessengerCallSessionStatus
 ): string {
-  if (action === "connected") return "connected";
   if (action === "accept" || nextStatus === "active") return "accepted";
   if (action === "reject" || nextStatus === "rejected") return "declined";
   if (action === "cancel" || nextStatus === "cancelled") return "canceled";
@@ -4924,11 +4829,6 @@ async function mapCallSession(
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
     answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || null,
-    connectedAt: trimText(
-      isDbSession
-        ? (session as CallSessionRow).connected_at ?? ""
-        : (session as DevCallSession).connectedAt ?? ""
-    ) || null,
     endedAt: trimText(isDbSession ? session.ended_at : session.endedAt) || null,
     endedReason: isDbSession
       ? trimText((session as CallSessionRow).ended_reason ?? "") || null
@@ -5030,7 +4930,7 @@ async function getActiveCallSessionForRoom(
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
       )
       .eq("room_id", rid)
       .in("status", ["ringing", "active"])
@@ -5085,7 +4985,7 @@ export async function getCommunityMessengerCallSessionById(
       (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .eq("id", id)
         .maybeSingle(),
@@ -5239,46 +5139,22 @@ export async function appendCommunityMessengerCallStubMessage(input: {
    * CONTRACT: 1:1 은 dialing stub 미발행(2026-07-29) → terminal INSERT/UPDATE 는 true 필수.
    */
   bumpRoomLastMessageAt?: boolean;
-  /** CUT4 — session wire reason + parties for projection metadata */
-  endedReason?: string | null;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
-  answeredAt?: string | null;
-  terminalActorUserId?: string | null;
-  resolvedEvent?: CallSessionResolvedEvent | null;
 }) {
   if (!input.roomId) return;
-  const sessionId = trimText(input.sessionId ?? "");
+  const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status, input.durationSeconds);
   const tmp = trimText(input.tmpSessionId ?? "");
-  const projection = resolveProjectionFromSession({
-    status: input.status,
-    endedReason: input.endedReason,
-    answeredAt: input.answeredAt,
-    terminalActorUserId: input.terminalActorUserId ?? input.userId,
-    initiatorUserId: input.initiatorUserId,
-    recipientUserId: input.recipientUserId,
-  });
-  const resolvedEvent = input.resolvedEvent ?? projection.resolvedEvent;
-  const callStatus = input.status;
-  const label = buildCommunityMessengerCallStubLabel(
-    input.callKind,
-    callStatus,
-    input.durationSeconds,
-    resolvedEvent,
-  );
-  const metadata = buildCallStubProjectionMetadata({
+  const metadata = {
     callKind: input.callKind,
-    callStatus,
-    sessionId,
-    tmpSessionId: tmp || null,
-    durationSeconds: input.durationSeconds,
-    endedReason: input.endedReason ?? null,
-    canonicalReason: projection.canonical,
-    resolvedEvent,
-    initiatorUserId: input.initiatorUserId,
-    recipientUserId: input.recipientUserId,
-  });
+    callStatus: input.status,
+    sessionId: trimText(input.sessionId ?? "") || null,
+    ...(tmp ? { tmpSessionId: tmp } : {}),
+    durationSeconds:
+      input.status === "ended" && Math.max(0, Number(input.durationSeconds ?? 0)) > 0
+        ? Math.max(0, Math.floor(Number(input.durationSeconds ?? 0)))
+        : null,
+  };
   const shouldIncrementUnread = input.incrementUnread ?? true;
+  const sessionId = trimText(input.sessionId ?? "");
   const bumpRoomLastMessageAt = input.bumpRoomLastMessageAt !== false;
   const listActivityAt =
     trimText(input.listActivityAt ?? "") || trimText(input.createdAt) || nowIso();
@@ -5396,13 +5272,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       metadata,
       createdAt,
       countsAsUnread: shouldIncrementUnread,
-      /** CUT4: one stub per session — do not include actor/label in key */
-      idempotencyKey: resolveCallStubIdempotencyKey({
-        sessionId,
-        tmpSessionId: tmp,
-        roomId: input.roomId,
-        createdAt,
-      }),
+      idempotencyKey: `cm_call_stub:${input.userId}:${input.roomId}:${sessionId || tmp || createdAt}:${label}:${shouldIncrementUnread ? "u" : "n"}`,
     });
     if (!appended.ok) {
       console.error("[room_unread_v1] call_stub_append", {
@@ -17736,11 +17606,6 @@ export async function createCommunityMessengerCallLog(input: {
   startedAt?: string | null;
   /** terminal occurred_at — 목록 last_message_at forward-only 권위 */
   endedAt?: string | null;
-  /** CUT4 projection fields — from session, never client room rewrite */
-  endedReason?: string | null;
-  initiatorUserId?: string | null;
-  recipientUserId?: string | null;
-  answeredAt?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
@@ -17752,33 +17617,6 @@ export async function createCommunityMessengerCallLog(input: {
     context: "createCommunityMessengerCallLog",
   });
   const listActivityAt = trimText(input.endedAt ?? "") || startedAt;
-  const projection = resolveProjectionFromSession({
-    status: input.status,
-    endedReason: input.endedReason,
-    answeredAt: input.answeredAt,
-    terminalActorUserId: stubActorUserId,
-    initiatorUserId: input.initiatorUserId ?? input.userId,
-    recipientUserId: input.recipientUserId ?? input.peerUserId,
-  });
-  const stubInput = {
-    userId: stubActorUserId,
-    roomId,
-    sessionId,
-    callKind: input.callKind,
-    status: input.status,
-    createdAt: startedAt,
-    listActivityAt,
-    replaceExisting: input.replaceExistingStub,
-    incrementUnread: true as const,
-    bumpRoomLastMessageAt: true as const,
-    durationSeconds: input.durationSeconds,
-    endedReason: input.endedReason ?? null,
-    initiatorUserId: input.initiatorUserId ?? input.userId,
-    recipientUserId: input.recipientUserId ?? input.peerUserId,
-    answeredAt: input.answeredAt ?? null,
-    terminalActorUserId: stubActorUserId,
-    resolvedEvent: projection.resolvedEvent,
-  };
   const payload = {
     session_id: sessionId,
     room_id: roomId,
@@ -17793,14 +17631,39 @@ export async function createCommunityMessengerCallLog(input: {
   if (sb) {
     const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
-      await appendCommunityMessengerCallStubMessage(stubInput);
+      await appendCommunityMessengerCallStubMessage({
+        userId: stubActorUserId,
+        roomId,
+        sessionId,
+        callKind: input.callKind,
+        status: input.status,
+        createdAt: startedAt,
+        listActivityAt,
+        replaceExisting: input.replaceExistingStub,
+        incrementUnread: true,
+        /**
+         * CONTRACT: dialing stub 미발행 이후 direct terminal 도 last_message_at bump 필수.
+         * (구: replaceExistingStub 이면 bump false — dial 선 bump 전제, 2026-07-29 회귀)
+         */
+        bumpRoomLastMessageAt: true,
+        durationSeconds: input.durationSeconds,
+      });
       return { ok: true };
     }
     /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
     if (isUniqueViolationError(error) && sessionId) {
       await appendCommunityMessengerCallStubMessage({
-        ...stubInput,
+        userId: stubActorUserId,
+        roomId,
+        sessionId,
+        callKind: input.callKind,
+        status: input.status,
+        createdAt: startedAt,
+        listActivityAt,
         replaceExisting: input.replaceExistingStub ?? true,
+        incrementUnread: true,
+        bumpRoomLastMessageAt: true,
+        durationSeconds: input.durationSeconds,
       });
       return { ok: true };
     }
@@ -17819,7 +17682,19 @@ export async function createCommunityMessengerCallLog(input: {
     durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     startedAt,
   });
-  await appendCommunityMessengerCallStubMessage(stubInput);
+  await appendCommunityMessengerCallStubMessage({
+    userId: stubActorUserId,
+    roomId,
+    sessionId,
+    callKind: input.callKind,
+    status: input.status,
+    createdAt: startedAt,
+    listActivityAt,
+    replaceExisting: input.replaceExistingStub,
+    incrementUnread: true,
+    bumpRoomLastMessageAt: true,
+    durationSeconds: input.durationSeconds,
+  });
   return { ok: true };
 }
 
@@ -18370,7 +18245,7 @@ export async function startCommunityMessengerCallSession(input: {
             .eq("id", existing.id)
             .eq("status", "ringing")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
             )
             .maybeSingle();
           if (bumped) {
@@ -18467,7 +18342,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -18546,7 +18421,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -18607,7 +18482,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
 export async function updateCommunityMessengerCallSession(input: {
   userId: string;
   sessionId: string;
-  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected";
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed";
   durationSeconds?: number;
   /** Agora/P2P 조인 실패 등 — `ended` 시 DB `ended_reason` (CHECK 없음) */
   clientEndedReason?: string;
@@ -18617,8 +18492,6 @@ export async function updateCommunityMessengerCallSession(input: {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
   const clientDurationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
-  const callSessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at";
   const resolveTerminalDurationSeconds = (
     session: CallSessionRow | DevCallSession,
     mapped: CommunityMessengerCallSession,
@@ -18629,12 +18502,6 @@ export async function updateCommunityMessengerCallSession(input: {
         ? trimText(session.answered_at ?? "")
         : trimText((session as DevCallSession).answeredAt ?? "")) ||
       null;
-    const connectedAt =
-      mapped.connectedAt ||
-      ("connected_at" in session
-        ? trimText((session as CallSessionRow).connected_at ?? "")
-        : trimText((session as DevCallSession).connectedAt ?? "")) ||
-      null;
     const endedAt =
       mapped.endedAt ||
       ("ended_at" in session
@@ -18644,9 +18511,7 @@ export async function updateCommunityMessengerCallSession(input: {
     return resolveAuthoritativeCallDurationSeconds({
       clientDurationSeconds,
       answeredAt,
-      connectedAt,
       endedAt,
-      connectedAtAuthority: true,
     });
   };
   const terminalLogStatus = (mapped: CommunityMessengerCallSession): CommunityMessengerCallStatus =>
@@ -18679,43 +18544,6 @@ export async function updateCommunityMessengerCallSession(input: {
     mapped: CommunityMessengerCallSession
   ) => {
     if (!isTerminalCallSessionStatus(mapped.status)) return;
-    const isDbSession = "initiator_user_id" in session;
-    const roomId = trimText(isDbSession ? session.room_id : session.roomId);
-    const initiatorUserId = trimText(
-      isDbSession ? session.initiator_user_id : session.initiatorUserId
-    );
-    const recipientUserId = trimText(
-      isDbSession ? session.recipient_user_id : session.recipientUserId
-    );
-    const endedReason = trimText(
-      isDbSession
-        ? (session.ended_reason ?? mapped.endedReason ?? "")
-        : (session.endedReason ?? mapped.endedReason ?? "")
-    ) || null;
-    const answeredAt = trimText(
-      isDbSession
-        ? (session.answered_at ?? mapped.answeredAt ?? "")
-        : (session.answeredAt ?? mapped.answeredAt ?? "")
-    ) || null;
-    const actorUserId = resolveTerminalStubActorUserId(session, mapped);
-    const projection = resolveProjectionFromSession({
-      status: mapped.status,
-      endedReason,
-      answeredAt,
-      terminalActorUserId: actorUserId,
-      initiatorUserId,
-      recipientUserId,
-    });
-    if (
-      !shouldPersistCallStubProjection({
-        sessionId,
-        roomId,
-        status: mapped.status,
-        canonical: projection.canonical,
-      })
-    ) {
-      return;
-    }
     const sessionStartedAt =
       "started_at" in session
         ? trimText(session.started_at ?? "")
@@ -18733,8 +18561,8 @@ export async function updateCommunityMessengerCallSession(input: {
         : trimText(session.endedAt ?? "")) ||
       nowIso();
     await appendCommunityMessengerCallStubMessage({
-      userId: actorUserId,
-      roomId,
+      userId: resolveTerminalStubActorUserId(session, mapped),
+      roomId: "room_id" in session ? session.room_id : session.roomId,
       sessionId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status: terminalLogStatus(mapped),
@@ -18745,12 +18573,6 @@ export async function updateCommunityMessengerCallSession(input: {
       /** INSERT·UPDATE 모두 listActivityAt(terminal) forward-only bump */
       bumpRoomLastMessageAt: true,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
-      endedReason,
-      initiatorUserId,
-      recipientUserId,
-      answeredAt,
-      terminalActorUserId: actorUserId,
-      resolvedEvent: projection.resolvedEvent,
     });
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
@@ -18789,14 +18611,6 @@ export async function updateCommunityMessengerCallSession(input: {
       replaceExistingStub: mapped.sessionMode === "direct",
       startedAt: sessionStartedAt || undefined,
       endedAt,
-      endedReason: trimText(
-        isDbSession ? (session.ended_reason ?? mapped.endedReason ?? "") : (session.endedReason ?? mapped.endedReason ?? "")
-      ) || null,
-      initiatorUserId,
-      recipientUserId,
-      answeredAt: trimText(
-        isDbSession ? (session.answered_at ?? mapped.answeredAt ?? "") : (session.answeredAt ?? mapped.answeredAt ?? "")
-      ) || null,
     });
   };
 
@@ -18853,7 +18667,7 @@ export async function updateCommunityMessengerCallSession(input: {
     return null;
   };
   const resolveHangupReason = (
-    action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "connected",
+    action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
     nextStatus: CommunityMessengerCallSessionStatus
   ): "reject" | "cancel" | "missed" | "end" | null => {
     if (!isTerminalCallSessionStatus(nextStatus)) return null;
@@ -18907,7 +18721,9 @@ export async function updateCommunityMessengerCallSession(input: {
   if (sb) {
     const { data: row } = await (sb as any)
       .from("community_messenger_call_sessions")
-      .select(callSessionSelect)
+      .select(
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
+      )
       .eq("id", sessionId)
       .maybeSingle();
     if (row) {
@@ -18925,78 +18741,6 @@ export async function updateCommunityMessengerCallSession(input: {
           return { ok: false, error: "blocked_target" };
         }
       }
-
-      if (input.action === "connected") {
-        const decision = evaluateConnectedProposal({
-          status: session.status,
-          answeredAt: session.answered_at,
-          connectedAt: session.connected_at,
-          actorUserId: input.userId,
-          initiatorUserId: session.initiator_user_id,
-          recipientUserId: session.recipient_user_id,
-          answeredDeviceId: session.answered_device_id,
-          requestDeviceId: input.answeredDeviceId,
-        });
-        if (!decision.ok) {
-          return { ok: false, error: decision.error };
-        }
-        if (decision.kind === "idempotent") {
-          const mapped = await mapCallSession(
-            input.userId,
-            session,
-            undefined,
-            undefined,
-            undefined,
-            "labels_only",
-          );
-          return { ok: true, session: mapped };
-        }
-        const now = nowIso();
-        const { data: updated, error: connectedErr } = await (sb as any)
-          .from("community_messenger_call_sessions")
-          .update({ connected_at: now, updated_at: now })
-          .eq("id", sessionId)
-          .eq("status", "active")
-          .is("connected_at", null)
-          .select(callSessionSelect)
-          .maybeSingle();
-        if (connectedErr) {
-          return { ok: false, error: "call_session_update_failed" };
-        }
-        if (!updated) {
-          const { data: freshRow } = await (sb as any)
-            .from("community_messenger_call_sessions")
-            .select(callSessionSelect)
-            .eq("id", sessionId)
-            .maybeSingle();
-          const fresh = (freshRow ?? null) as CallSessionRow | null;
-          if (!fresh) return { ok: false, error: "not_found" };
-          if (isTerminalCallSessionStatus(fresh.status as CommunityMessengerCallSessionStatus)) {
-            return { ok: false, error: "bad_action" };
-          }
-          if (trimText(fresh.connected_at ?? "")) {
-            const mapped = await mapCallSession(
-              input.userId,
-              fresh,
-              undefined,
-              undefined,
-              undefined,
-              "labels_only",
-            );
-            return { ok: true, session: mapped };
-          }
-          return { ok: false, error: "bad_action" };
-        }
-        const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
-        await appendCommunityMessengerCallSessionEvent(sb, {
-          sessionId,
-          actorUserId: input.userId,
-          eventType: "connected",
-          payload: { source: "session_patch" },
-        });
-        return { ok: true, session: mapped };
-      }
-
       if ((session.session_mode ?? "direct") === "group") {
         const now = nowIso();
         const { data: participantRows } = await (sb as any)
@@ -19018,23 +18762,13 @@ export async function updateCommunityMessengerCallSession(input: {
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId);
-          const groupCancelReason =
-            endedReasonForSessionDelta("cancel", "cancelled", input.clientEndedReason, {
-              actorUserId: input.userId,
-              initiatorUserId: session.initiator_user_id,
-              recipientUserId: session.recipient_user_id,
-              answeredAt: session.answered_at,
-            }) ?? "canceled";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({
-              status: "cancelled",
-              ended_at: now,
-              updated_at: now,
-              ended_reason: groupCancelReason,
-            })
+            .update({ status: "cancelled", ended_at: now, updated_at: now, ended_reason: "canceled" })
             .eq("id", sessionId)
-            .select(callSessionSelect)
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            )
             .single();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
@@ -19071,23 +18805,18 @@ export async function updateCommunityMessengerCallSession(input: {
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId)
             .in("participation_status", ["joined", "invited"]);
-          const groupEndReason =
-            endedReasonForSessionDelta("end", "ended", input.clientEndedReason, {
-              actorUserId: input.userId,
-              initiatorUserId: session.initiator_user_id,
-              recipientUserId: session.recipient_user_id,
-              answeredAt: session.answered_at ?? (session.status === "active" ? now : null),
-            }) ?? "ended";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
             .update({
               status: "ended",
               ended_at: now,
               updated_at: now,
-              ended_reason: groupEndReason,
+              ended_reason: "ended",
             })
             .eq("id", sessionId)
-            .select(callSessionSelect)
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            )
             .single();
           if (!updated) return { ok: false, error: "call_session_update_failed" };
           const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
@@ -19143,48 +18872,18 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("user_id", input.userId);
         } else if (input.action === "missed") {
           if (session.status !== "ringing") return { ok: false, error: "bad_action" };
-          const callPolicy = await getMessengerCallAdminPolicyCached();
-          const missedGate = evaluateMissedTransitionGate({
-            status: session.status,
-            startedAt: session.started_at,
-            answeredAt: session.answered_at,
-            answeredDeviceId: session.answered_device_id,
-            endedAt: session.ended_at,
-            ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
-          });
-          if (!missedGate.ok) {
-            if ("idempotent" in missedGate && missedGate.idempotent) {
-              const mapped = await mapCallSession(input.userId, session);
-              await ensureTerminalCallStub(session, mapped);
-              return { ok: true, session: mapped };
-            }
-            return { ok: false, error: missedGate.error };
-          }
           await (sb as any)
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
             .eq("session_id", sessionId);
-          const groupMissedReason =
-            endedReasonForSessionDelta("missed", "missed", input.clientEndedReason, {
-              actorUserId: input.userId,
-              initiatorUserId: session.initiator_user_id,
-              recipientUserId: session.recipient_user_id,
-              answeredAt: session.answered_at,
-            }) ?? "missed";
           const { data: updated } = await (sb as any)
             .from("community_messenger_call_sessions")
-            .update({
-              status: "missed",
-              ended_at: now,
-              updated_at: now,
-              ended_reason: groupMissedReason,
-            })
+            .update({ status: "missed", ended_at: now, updated_at: now, ended_reason: "missed" })
             .eq("id", sessionId)
-            .eq("status", "ringing")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
             )
-            .maybeSingle();
+            .single();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
             invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
@@ -19224,14 +18923,6 @@ export async function updateCommunityMessengerCallSession(input: {
           input.action,
           nextStatus as CommunityMessengerCallSessionStatus,
           input.clientEndedReason,
-          {
-            actorUserId: input.userId,
-            initiatorUserId: session.initiator_user_id,
-            recipientUserId: session.recipient_user_id,
-            answeredAt:
-              (typeof updatePayload.answered_at === "string" ? updatePayload.answered_at : null) ??
-              session.answered_at,
-          },
         );
         if (erG) updatePayload.ended_reason = erG;
         else if (nextStatus === "active") updatePayload.ended_reason = null;
@@ -19240,7 +18931,7 @@ export async function updateCommunityMessengerCallSession(input: {
           .update(updatePayload)
           .eq("id", sessionId)
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
           .single();
         if (!updated) return { ok: false, error: "call_session_update_failed" };
@@ -19352,32 +19043,6 @@ export async function updateCommunityMessengerCallSession(input: {
         }
         return { ok: false, error: "bad_action" };
       }
-      if (input.action === "missed") {
-        const callPolicy = await getMessengerCallAdminPolicyCached();
-        const missedGate = evaluateMissedTransitionGate({
-          status: session.status,
-          startedAt: session.started_at,
-          answeredAt: session.answered_at,
-          answeredDeviceId: session.answered_device_id,
-          endedAt: session.ended_at,
-          ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
-        });
-        if (!missedGate.ok) {
-          if ("idempotent" in missedGate && missedGate.idempotent) {
-            const mapped = await mapCallSession(
-              input.userId,
-              session,
-              undefined,
-              undefined,
-              undefined,
-              "labels_only",
-            );
-            await ensureTerminalCallStub(session, mapped);
-            return { ok: true, session: mapped };
-          }
-          return { ok: false, error: missedGate.error };
-        }
-      }
       const requestDeviceId = normalizeAnswerClaimDeviceId(input.answeredDeviceId);
       if (input.action === "accept" && messengerUserIdsEqual(session.recipient_user_id, input.userId)) {
         const claim = evaluateAcceptDeviceClaim({
@@ -19417,13 +19082,14 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
-        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason, {
-          actorUserId: input.userId,
-          initiatorUserId: session.initiator_user_id,
-          recipientUserId: session.recipient_user_id,
-          answeredAt: next.answeredAt ?? session.answered_at,
-        });
-        if (er) updatePayload.ended_reason = er;
+        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason);
+        const fr = trimText(input.clientEndedReason ?? "");
+        const useClientFailure =
+          input.action === "end" &&
+          next.nextStatus === "ended" &&
+          isTrustedClientEndedReason(fr);
+        if (useClientFailure) updatePayload.ended_reason = fr;
+        else if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         if (next.nextStatus === "active") {
           const hbSeed = nowIso();
@@ -19453,7 +19119,7 @@ export async function updateCommunityMessengerCallSession(input: {
         }
         const result = await updateBuilder
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
           )
           .maybeSingle();
         updated = (result.data as CallSessionRow | null) ?? null;
@@ -19465,7 +19131,7 @@ export async function updateCommunityMessengerCallSession(input: {
           const { data: freshRow } = await (sb as any)
             .from("community_messenger_call_sessions")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, answered_device_id, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
             )
             .eq("id", sessionId)
             .maybeSingle();
@@ -19651,9 +19317,8 @@ export async function updateCommunityMessengerCallSession(input: {
           },
         });
         /**
-         * Room-bound missed: call_stub = Conversation B unread (CUT4).
-         * CUT5 adds ONE logical notification_events.missed_call for callee
-         * (Bell digit still excludes room-bound via attention projection).
+         * Room-bound missed is the terminal call_stub Conversation B fact.
+         * Do not create a second notification_events/Bell fact for the same session.
          */
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
@@ -19663,9 +19328,6 @@ export async function updateCommunityMessengerCallSession(input: {
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
           else await ensureTerminalCallStub(session, mapped);
-        }
-        if (mapped.status === "missed") {
-          void notifyRoomBoundMissedCallBestEffort(session, mapped);
         }
         return { ok: true, session: mapped };
       }
@@ -19682,25 +19344,6 @@ export async function updateCommunityMessengerCallSession(input: {
   const dev = getDevState();
   const session = dev.callSessions.find((item) => item.id === sessionId);
   if (!session) return { ok: false, error: "not_found" };
-
-  if (input.action === "connected") {
-    const decision = evaluateConnectedProposal({
-      status: session.status,
-      answeredAt: session.answeredAt,
-      connectedAt: session.connectedAt ?? null,
-      actorUserId: input.userId,
-      initiatorUserId: session.initiatorUserId,
-      recipientUserId: session.recipientUserId,
-      answeredDeviceId: null,
-      requestDeviceId: input.answeredDeviceId,
-    });
-    if (!decision.ok) return { ok: false, error: decision.error };
-    if (decision.kind === "idempotent") {
-      return { ok: true, session: await mapCallSession(input.userId, session) };
-    }
-    session.connectedAt = nowIso();
-    return { ok: true, session: await mapCallSession(input.userId, session) };
-  }
 
   if (session.sessionMode === "group") {
     const mine = session.participants.find((item) => messengerUserIdsEqual(item.userId, input.userId));
@@ -19783,24 +19426,6 @@ export async function updateCommunityMessengerCallSession(input: {
     }
     return { ok: false, error: "bad_action" };
   }
-  if (input.action === "missed") {
-    const callPolicy = await getMessengerCallAdminPolicyCached();
-    const preGate = evaluateMissedTransitionGate({
-      status: "ringing",
-      startedAt: session.startedAt,
-      answeredAt: session.answeredAt,
-      answeredDeviceId: null,
-      endedAt: null,
-      ringTimeoutSeconds: resolveCanonicalRingTimeoutSeconds(callPolicy),
-    });
-    if (!preGate.ok) {
-      if ("idempotent" in preGate && preGate.idempotent) {
-        const mapped = await mapCallSession(input.userId, session);
-        return { ok: true, session: mapped };
-      }
-      return { ok: false, error: preGate.error };
-    }
-  }
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;
@@ -19809,12 +19434,6 @@ export async function updateCommunityMessengerCallSession(input: {
       input.action,
       next.nextStatus,
       input.clientEndedReason,
-      {
-        actorUserId: input.userId,
-        initiatorUserId: session.initiatorUserId ?? (session as { initiator_user_id?: string }).initiator_user_id,
-        recipientUserId: session.recipientUserId ?? (session as { recipient_user_id?: string }).recipient_user_id,
-        answeredAt: next.answeredAt ?? session.answeredAt ?? (session as { answered_at?: string }).answered_at,
-      },
     );
   }
   for (const participant of session.participants) {
@@ -19841,9 +19460,6 @@ export async function updateCommunityMessengerCallSession(input: {
   if (isTerminalCallSessionStatus(mapped.status)) {
     if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
     else await ensureTerminalCallStub(session, mapped);
-  }
-  if (mapped.status === "missed") {
-    void notifyRoomBoundMissedCallBestEffort(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)
@@ -19954,7 +19570,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .eq("recipient_user_id", userId)
         .eq("session_mode", "direct")
@@ -19975,7 +19591,7 @@ export async function listIncomingCommunityMessengerCallSessions(
         (sb as any)
           .from("community_messenger_call_sessions")
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
           .eq("recipient_user_id", userId)
           .eq("session_mode", "direct")
@@ -20001,7 +19617,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, connected_at, ended_at, ended_reason, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .in("id", groupSessionIds)
         .eq("session_mode", "group")

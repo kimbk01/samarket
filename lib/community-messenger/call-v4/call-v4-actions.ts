@@ -11,12 +11,7 @@ import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/commu
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
-import {
-  alertOutgoingCallFailure,
-  outgoingCallMediaPermissionMessage,
-  outgoingCallStartFailedMessage,
-  outgoingCallVoiceOnlyMessage,
-} from "@/lib/community-messenger/call-outgoing-failure-alert";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
@@ -304,7 +299,10 @@ function outgoingMissingRoomMessage(): string {
 }
 
 function outgoingGenericErrorMessage(): string {
-  return outgoingCallStartFailedMessage();
+  return safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+    fallbackKo: "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    fallbackEn: "Could not start the call. Please try again.",
+  });
 }
 
 function resolveCallV4PeerUserId(identity: CallV4Identity): string {
@@ -655,7 +653,13 @@ export async function callV4LaunchOutgoingDirectCall(
   }
   if (!isCallV4VideoEnabled() && input.kind === "video") {
     logCallV4("call_v4_video_preflight_failed", { reason: "video_flag_disabled" });
-    alertOutgoingCallFailure(outgoingCallVoiceOnlyMessage());
+    showMessengerSnackbar(
+      safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+        fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
+        fallbackEn: "Only voice calls are available right now.",
+      }),
+      { variant: "error" }
+    );
     return { ok: false, userMessage: "" };
   }
   {
@@ -679,7 +683,17 @@ export async function callV4LaunchOutgoingDirectCall(
         microphone: perm.state.microphone,
         camera: perm.state.camera,
       });
-      alertOutgoingCallFailure(outgoingCallMediaPermissionMessage(input.kind));
+      showMessengerSnackbar(
+        safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+          fallbackKo:
+            input.kind === "video" ? "카메라·마이크 권한이 필요합니다." : "마이크 권한이 필요합니다.",
+          fallbackEn:
+            input.kind === "video"
+              ? "Camera and microphone permissions are required."
+              : "Microphone permission is required.",
+        }),
+        { variant: "error" },
+      );
       return { ok: false, userMessage: "" };
     }
     logCallV4("call_v4_media_preflight_done", {

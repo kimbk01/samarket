@@ -1,26 +1,12 @@
--- P4 Active Call heartbeat catch-up (Dashboard SQL Editor — run once)
--- Combines:
---   20260618140000_community_messenger_call_heartbeat.sql
---   20260618150000_community_messenger_call_stale_cron.sql
+-- FULL PRE-SSOT Call DB contract restore (forward revert)
+-- Restores a1f483bb6 Call runtime contract after CUT1/CUT6.
+-- Does NOT touch Finance/Gift/Chat/Ads/Address/Store Admin objects.
+-- Migration history of CUT1/CUT6 files is removed from repo; this forward
+-- migration is the Production apply path (no migration table tamper).
 
--- === heartbeat columns ===
-alter table public.community_messenger_call_sessions
-  add column if not exists caller_last_heartbeat_at timestamptz,
-  add column if not exists callee_last_heartbeat_at timestamptz,
-  add column if not exists reconnecting_since timestamptz;
+BEGIN;
 
-comment on column public.community_messenger_call_sessions.caller_last_heartbeat_at is
-  'Initiator last client heartbeat while status=active (P4 active call SSOT)';
-comment on column public.community_messenger_call_sessions.callee_last_heartbeat_at is
-  'Recipient last client heartbeat while status=active (P4 active call SSOT)';
-comment on column public.community_messenger_call_sessions.reconnecting_since is
-  'When either peer entered reconnecting (optional observability)';
-
-create index if not exists community_messenger_call_sessions_active_heartbeat_idx
-  on public.community_messenger_call_sessions (status, caller_last_heartbeat_at, callee_last_heartbeat_at)
-  where status = 'active';
-
--- === stale cleanup function + pg_cron ===
+-- 1) CUT1 reverse: restore mutating one-sided OR stale cleanup + pg_cron
 CREATE OR REPLACE FUNCTION public.cleanup_stale_community_messenger_call_sessions()
 RETURNS integer
 LANGUAGE plpgsql
@@ -66,6 +52,9 @@ BEGIN
 END;
 $$;
 
+COMMENT ON FUNCTION public.cleanup_stale_community_messenger_call_sessions() IS
+  'Pre-SSOT Call contract: one-sided OR stale → terminal UPDATE (heartbeat_timeout).';
+
 REVOKE ALL ON FUNCTION public.cleanup_stale_community_messenger_call_sessions() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.cleanup_stale_community_messenger_call_sessions() TO service_role;
 
@@ -81,9 +70,15 @@ BEGIN
       '*/2 * * * *',
       $cron$SELECT public.cleanup_stale_community_messenger_call_sessions();$cron$
     );
-    RAISE NOTICE 'cleanup_stale_cm_call_sessions: cron.schedule registered (*/2 * * * *)';
+    RAISE NOTICE 'pre-SSOT restore: scheduled cleanup_stale_cm_call_sessions (*/2 * * * *)';
   END IF;
 EXCEPTION
   WHEN undefined_table THEN NULL;
   WHEN undefined_function THEN NULL;
 END $$;
+
+-- 2) CUT6 reverse: remove connected_at Call contract (pre-SSOT code has zero dependency)
+ALTER TABLE public.community_messenger_call_sessions
+  DROP COLUMN IF EXISTS connected_at;
+
+COMMIT;

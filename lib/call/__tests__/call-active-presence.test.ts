@@ -141,20 +141,18 @@ describe("connected poll / reason contracts (T6–T9 source)", () => {
   });
 
   // T8
-  it("T8 stale-active reconcile writer uses reconcile_stale_active; ringing uses missed", () => {
+  it("T8 stale-active reconcile writer uses reconcile_stale_active", () => {
     const service = readFileSync(join(ROOT, "lib/community-messenger/service.ts"), "utf8");
     expect(service).toContain('status === "ringing" ? "reconcile_stale_ringing" : "reconcile_stale_active"');
-    expect(service).toContain('status === "ringing" ? "missed" : "end"');
     expect(service).toContain("canEndActiveCallForPresenceStale");
   });
 
   // T9
-  it("T9 heartbeat cleanup writer uses heartbeat_timeout via Presence both-stale", () => {
+  it("T9 heartbeat cleanup writer uses heartbeat_timeout", () => {
     const hb = readFileSync(join(ROOT, "lib/call/call-server-heartbeat.ts"), "utf8");
     const cleanup = readFileSync(join(ROOT, "lib/community-messenger/call-session-heartbeat.ts"), "utf8");
     expect(hb).toContain('CALL_SERVER_HEARTBEAT_ENDED_REASON = "heartbeat_timeout"');
     expect(cleanup).toContain("CALL_SERVER_HEARTBEAT_ENDED_REASON");
     expect(cleanup).toContain("canEndActiveCallForPresenceStale");
-    expect(cleanup).toContain("updateCommunityMessengerCallSession");
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import type { PluginListenerHandle } from "@capacitor/core";
-import { callV4FetchSession, callV4PatchConnected } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
@@ -124,10 +124,6 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
   });
   logCallV4("native_connected_store_hydrate", { callId: sid, direction: payload.direction });
   startNativeConnectedSideEffects(payload);
-  // CUT6 — propose server connected_at (server clock). Native change = NONE.
-  void callV4PatchConnected(sid).catch(() => {
-    /* best-effort; terminal race may reject */
-  });
 }
 
 /** O3 — subscribe to Native Runtime connected events (Android + iOS native voice parity). */
