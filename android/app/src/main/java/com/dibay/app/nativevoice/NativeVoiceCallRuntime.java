@@ -88,6 +88,8 @@ public final class NativeVoiceCallRuntime {
 
   static volatile TerminalPatchDispatcher terminalPatchDispatcherForTests;
   static volatile boolean skipAgoraLeaveForTests;
+  /** When true, leave path throws before engine leave — mandatory cleanup must still complete. */
+  static volatile boolean injectLeaveFailureForTests;
 
   private NativeVoiceCallRuntime() {}
 
@@ -419,11 +421,18 @@ public final class NativeVoiceCallRuntime {
       cancelMissed(sid);
       return;
     }
-    if (NativeVoiceCallTerminalOnce.isClaimed(sid)) {
+    if (NativeVoiceCallTerminalOnce.isCompleted(sid)) {
       NativeVoiceCallLog.info(
-          "native_terminal_skip",
+          "native_terminal_already_completed",
           sid,
-          "kind=" + reason + " source=" + safe(source) + " state=already_cleaned");
+          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
+      return;
+    }
+    if (NativeVoiceCallTerminalOnce.isInProgress(sid)) {
+      NativeVoiceCallLog.info(
+          "native_terminal_in_progress",
+          sid,
+          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
@@ -434,28 +443,74 @@ public final class NativeVoiceCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    if (!NativeVoiceCallTerminalOnce.claim(sid)) {
-      NativeVoiceCallLog.info("runtime_cleanup_idempotent_skip", sid, "reason=" + safe(reason));
+    if (!NativeVoiceCallTerminalOnce.tryBegin(sid)) {
+      if (NativeVoiceCallTerminalOnce.isInProgress(sid)) {
+        NativeVoiceCallLog.info(
+            "runtime_cleanup_in_progress",
+            sid,
+            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+      } else {
+        NativeVoiceCallLog.info(
+            "runtime_cleanup_already_completed",
+            sid,
+            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+      }
       return;
     }
-    NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
-    NativeOutgoingRingbackOwner.stop(sid, reason);
-    cancelMissed(sid);
-    if (!skipAgoraLeaveForTests) {
-      NativeVoiceCallAgoraEngine.leave(reason);
+    NativeVoiceCallLog.info(
+        "runtime_cleanup_start",
+        sid,
+        "reason="
+            + safe(reason)
+            + " thread="
+            + Thread.currentThread().getName()
+            + " phase=IN_PROGRESS");
+    try {
+      NativeOutgoingRingbackOwner.stop(sid, reason);
+      cancelMissed(sid);
+      if (!skipAgoraLeaveForTests) {
+      NativeVoiceCallLog.info(
+            "agora_leave_async", sid, "thread=" + Thread.currentThread().getName());
+        try {
+          if (injectLeaveFailureForTests) {
+            throw new RuntimeException("forced_leave_failure");
+          }
+          NativeVoiceCallAgoraEngine.leave(reason);
+        } catch (RuntimeException error) {
+          NativeVoiceCallLog.warn(
+              "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
+        }
+      }
+    } finally {
+      runMandatoryCleanup(app, sid, reason);
     }
-    NativeVoiceCallNotification.dismiss(app, sid);
-    NativeVoiceCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
-    NativeVoiceCallService.stop(app, sid, reason);
-    IncomingCallRingOwner.stop(app, sid);
-    DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
-    SESSIONS.remove(sid);
-    IncomingCallActionCoordinator.complete(sid, reason);
-    DibayActiveCallSessionManager.clearSession();
-    NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
-    NativeVoiceCallOwner.release(sid, reason);
-    NativeCallVisibleSurfaceOwner.release(sid, reason);
-    NativeVoiceCallActivity.finishIfActive(sid);
+  }
+
+  /** Always runs after RTC teardown attempt — never skipped by leave stall/failure within leave(). */
+  private static void runMandatoryCleanup(Context app, String sid, String reason) {
+    NativeVoiceCallLog.info(
+        "mandatory_cleanup_start", sid, "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+    try {
+      NativeVoiceCallNotification.dismiss(app, sid);
+      NativeVoiceCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
+      NativeVoiceCallService.stop(app, sid, reason);
+      IncomingCallRingOwner.stop(app, sid);
+      DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
+      SESSIONS.remove(sid);
+      IncomingCallActionCoordinator.complete(sid, reason);
+      DibayActiveCallSessionManager.clearSession();
+      NativeVoiceCallOwner.release(sid, reason);
+      NativeCallVisibleSurfaceOwner.release(sid, reason);
+      NativeVoiceCallLog.info(
+          "activity_finish", sid, "thread=" + Thread.currentThread().getName());
+      NativeVoiceCallActivity.finishIfActive(sid);
+    } finally {
+      NativeVoiceCallTerminalOnce.markCompleted(sid);
+      NativeVoiceCallLog.info(
+          "cleanup_done",
+          sid,
+          "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName() + " phase=COMPLETED");
+    }
   }
 
   /**
@@ -622,6 +677,7 @@ public final class NativeVoiceCallRuntime {
     NativeVoiceCallTerminalOnce.clearForTests();
     terminalPatchDispatcherForTests = null;
     skipAgoraLeaveForTests = false;
+    injectLeaveFailureForTests = false;
   }
 
   static int missedRetryAttemptsForTests(String callId) {

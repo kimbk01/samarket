@@ -68,6 +68,11 @@ public final class NativeVideoCallAgoraEngine {
   private static volatile boolean remoteVideoRendered;
   private static volatile String reattachInFlightCallId;
   private static volatile String localReattachInFlightCallId;
+  /**
+   * leaveChannel in flight — join awaits (usually ms). Cleanup must never await.
+   * Normal leave does not destroy; destroy only via {@link #releaseZombieEngine(String)}.
+   */
+  private static volatile CountDownLatch pendingChannelLeave;
 
   private NativeVideoCallAgoraEngine() {}
 
@@ -118,6 +123,7 @@ public final class NativeVideoCallAgoraEngine {
     new Thread(
             () -> {
               try {
+                awaitPendingChannelLeave(sid);
                 Context app = context.getApplicationContext();
                 RtcEngine rtc = ensureEngine(app, token.appId);
                 rtc.enableAudio();
@@ -414,12 +420,13 @@ public final class NativeVideoCallAgoraEngine {
   }
 
   /**
-   * Reclaim engine with no occupant (zombie). Does not touch engines bound to an active callId.
+   * Reclaim engine with no occupant (zombie). Only path that may call {@link RtcEngine#destroy()}.
    *
    * @return true when a zombie engine was released
    */
   public static boolean releaseZombieEngine(String reason) {
     RtcEngine engineToDestroy;
+    CountDownLatch latch;
     synchronized (LOCK) {
       if (engine == null) return false;
       if (activeCallId != null && !activeCallId.isEmpty()) return false;
@@ -432,15 +439,22 @@ public final class NativeVideoCallAgoraEngine {
       localReattachInFlightCallId = null;
       engineToDestroy = engine;
       engine = null;
+      latch = new CountDownLatch(1);
+      pendingChannelLeave = latch;
     }
-    tearDownEngine(engineToDestroy, null);
+    scheduleDestroyEngine(engineToDestroy, "zombie", latch);
     return true;
   }
 
+  /**
+   * Detach occupancy immediately; schedule leaveChannel + surface clear without destroy.
+   * Cleanup/UI must not await. Join awaits {@link #awaitPendingChannelLeave(String)} then reuses engine.
+   */
   public static void leave(String reason) {
     Listener currentListener;
     String sid;
-    RtcEngine engineToDestroy;
+    RtcEngine engineToLeave;
+    CountDownLatch latch;
     synchronized (LOCK) {
       currentListener = listener;
       sid = activeCallId;
@@ -453,54 +467,159 @@ public final class NativeVideoCallAgoraEngine {
       remoteVideoRendered = false;
       reattachInFlightCallId = null;
       localReattachInFlightCallId = null;
-      engineToDestroy = engine;
-      engine = null;
+      engineToLeave = engine;
+      latch = engineToLeave != null ? new CountDownLatch(1) : null;
+      if (latch != null) {
+        pendingChannelLeave = latch;
+      }
     }
-    if (engineToDestroy != null) {
-      tearDownEngine(engineToDestroy, sid);
+    if (engineToLeave != null) {
+      if (sid != null) {
+        NativeVideoCallLog.info(
+            "agora_leave_scheduled",
+            sid,
+            "thread="
+                + Thread.currentThread().getName()
+                + " reason="
+                + (reason != null ? reason : "")
+                + " destroy=false");
+      }
+      scheduleLeaveChannel(engineToLeave, sid, latch);
     }
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
     }
   }
 
-  /** Preview/surfaces are on the main thread; do not hold LOCK during Agora destroy. */
-  private static void tearDownEngine(RtcEngine engineToDestroy, String sid) {
-    Runnable teardown =
-        () -> {
-          try {
-            NativeVideoCallActivity.clearVideoSurfaces(sid);
-            engineToDestroy.stopPreview();
-            engineToDestroy.leaveChannel();
-            RtcEngine.destroy();
-          } catch (RuntimeException error) {
-            if (sid != null) {
-              NativeVideoCallLog.warn(
-                  "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
-            }
-          }
-        };
-    if (Looper.myLooper() == Looper.getMainLooper()) {
-      teardown.run();
-      return;
-    }
-    CountDownLatch latch = new CountDownLatch(1);
-    MAIN.post(
-        () -> {
-          try {
-            teardown.run();
-          } finally {
-            latch.countDown();
-          }
-        });
+  static void awaitPendingChannelLeave(String callId) {
+    CountDownLatch latch = pendingChannelLeave;
+    if (latch == null) return;
+    String sid = callId != null ? callId : "unknown";
+    NativeVideoCallLog.info(
+        "agora_leave_await_join", sid, "thread=" + Thread.currentThread().getName());
     try {
-      latch.await(8, TimeUnit.SECONDS);
+      latch.await();
     } catch (InterruptedException error) {
       Thread.currentThread().interrupt();
+      NativeVideoCallLog.warn("error_terminal", sid, "agora_leave_await_interrupted");
     }
   }
 
+  /** Surfaces cleared on main; leaveChannel on worker — no destroy. Cleanup must not await. */
+  private static void scheduleLeaveChannel(RtcEngine engineToLeave, String sid, CountDownLatch latch) {
+    new Thread(
+            () -> {
+              try {
+                CountDownLatch surfacesDone = new CountDownLatch(1);
+                MAIN.post(
+                    () -> {
+                      try {
+                        NativeVideoCallActivity.clearVideoSurfaces(sid);
+                        try {
+                          engineToLeave.stopPreview();
+                        } catch (RuntimeException ignored) {
+                          /* preview may already be stopped */
+                        }
+                      } finally {
+                        surfacesDone.countDown();
+                      }
+                    });
+                try {
+                  surfacesDone.await(2, TimeUnit.SECONDS);
+                } catch (InterruptedException error) {
+                  Thread.currentThread().interrupt();
+                }
+                if (sid != null) {
+                  NativeVideoCallLog.info(
+                      "before_agora_leave", sid, "thread=" + Thread.currentThread().getName());
+                }
+                engineToLeave.leaveChannel();
+                if (sid != null) {
+                  NativeVideoCallLog.info(
+                      "after_agora_leave", sid, "thread=" + Thread.currentThread().getName());
+                }
+              } catch (RuntimeException error) {
+                if (sid != null) {
+                  NativeVideoCallLog.warn(
+                      "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
+                }
+              } finally {
+                if (latch != null) {
+                  latch.countDown();
+                  synchronized (LOCK) {
+                    if (pendingChannelLeave == latch) {
+                      pendingChannelLeave = null;
+                    }
+                  }
+                }
+              }
+            },
+            "dibay-video-agora-leave")
+        .start();
+  }
+
+  private static void scheduleDestroyEngine(
+      RtcEngine engineToDestroy, String sid, CountDownLatch latch) {
+    new Thread(
+            () -> {
+              try {
+                CountDownLatch surfacesDone = new CountDownLatch(1);
+                MAIN.post(
+                    () -> {
+                      try {
+                        NativeVideoCallActivity.clearVideoSurfaces(sid);
+                        try {
+                          engineToDestroy.stopPreview();
+                        } catch (RuntimeException ignored) {
+                          /* preview may already be stopped */
+                        }
+                      } finally {
+                        surfacesDone.countDown();
+                      }
+                    });
+                try {
+                  surfacesDone.await(2, TimeUnit.SECONDS);
+                } catch (InterruptedException error) {
+                  Thread.currentThread().interrupt();
+                }
+                if (sid != null) {
+                  NativeVideoCallLog.info(
+                      "before_agora_leave", sid, "thread=" + Thread.currentThread().getName());
+                }
+                engineToDestroy.leaveChannel();
+                if (sid != null) {
+                  NativeVideoCallLog.info(
+                      "after_agora_leave", sid, "thread=" + Thread.currentThread().getName());
+                  NativeVideoCallLog.info(
+                      "before_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
+                }
+                RtcEngine.destroy();
+                if (sid != null) {
+                  NativeVideoCallLog.info(
+                      "after_agora_destroy", sid, "thread=" + Thread.currentThread().getName());
+                }
+              } catch (RuntimeException error) {
+                if (sid != null) {
+                  NativeVideoCallLog.warn(
+                      "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
+                }
+              } finally {
+                if (latch != null) {
+                  latch.countDown();
+                  synchronized (LOCK) {
+                    if (pendingChannelLeave == latch) {
+                      pendingChannelLeave = null;
+                    }
+                  }
+                }
+              }
+            },
+            "dibay-video-agora-destroy")
+        .start();
+  }
+
   private static RtcEngine ensureEngine(Context context, String appId) throws Exception {
+    awaitPendingChannelLeave(activeCallId != null ? activeCallId : "ensure");
     synchronized (LOCK) {
       if (engine != null) return engine;
       RtcEngineConfig config = new RtcEngineConfig();

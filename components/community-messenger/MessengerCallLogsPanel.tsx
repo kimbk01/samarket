@@ -24,6 +24,7 @@ import {
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { guardInstantOutgoingCallStart, isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
@@ -222,7 +223,7 @@ export function MessengerCallLogsPanel({
       const guard = guardInstantOutgoingCallStart({ peerUserId, kind, roomId });
       if (!guard.ok) {
         if (isOutgoingCallPhoneVerificationRequired(guard)) return;
-        showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        alertOutgoingCallFailure(guard.userMessage);
         return;
       }
       const dialInput = roomId?.trim()
@@ -234,7 +235,7 @@ export function MessengerCallLogsPanel({
       const result = await launchOutgoingDirectCall(dialInput, router);
       if (!result.ok) {
         if (isOutgoingCallPhoneVerificationRequired(result)) return;
-        showMessengerSnackbar(result.userMessage, { variant: "error" });
+        alertOutgoingCallFailure(result.userMessage);
       }
     },
     [router]
@@ -354,12 +355,11 @@ export function MessengerCallLogsPanel({
       (peerUserId ? resolveRoomIdForPeer(peerUserId, next.call.roomId) : null);
 
     if (!peerUserId && !roomId) {
-      showMessengerSnackbar(
+      alertOutgoingCallFailure(
         safeT("cm_ui_call_outgoing_missing_room", {
           fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
           fallbackEn: "Cannot start the call. Peer information is missing.",
         }),
-        { variant: "error" }
       );
       return;
     }
@@ -389,7 +389,7 @@ export function MessengerCallLogsPanel({
         try {
           await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
         } catch {
-          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+          alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
         } finally {
           setOutgoingBusy(false);
         }
@@ -416,7 +416,7 @@ export function MessengerCallLogsPanel({
       try {
         await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
       } catch {
-        showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+        alertOutgoingCallFailure(t("cm_ui_network_error_could_not_start_call"));
       } finally {
         setOutgoingBusy(false);
       }

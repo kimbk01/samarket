@@ -1,0 +1,22 @@
+{
+  "TITLE": "CUT8 ANDROID TERMINAL CLEANUP — ROOT FIX RESULT",
+  "HEAD_BEFORE": "ede3aac3da77c4a23dd368e3badd8a65c052af20",
+  "HEAD_AFTER": "ede3aac3da77c4a23dd368e3badd8a65c052af20 (uncommitted working tree)",
+  "CODE_CHANGE": "YES",
+  "COMMIT": "NONE",
+  "PUSH": "NONE",
+  "XIAOMI_CALL_ID": "9d8f5d2e-c798-42b8-ad49-d35505a69b89",
+  "DEVICE_PROOF": "docs/perf/cut8-android-terminal-cleanup-device-proof.json",
+  "KEY_RUNTIME_EVIDENCE": {
+    "cleanup_start_thread": "AgoraEvent",
+    "leave_hop": "main",
+    "leave_timeout_then_mandatory": true,
+    "cleanup_done_phase": "COMPLETED",
+    "already_cleaned_mislabel": "NONE"
+  },
+  "CELL_1_TERMINAL_CLEANUP": "CLOSED",
+  "CELL_1_PHYSICAL_AUDIBILITY": "NOT_PROVEN",
+  "CELL_1_OVERALL": "NOT CLOSED",
+  "RTC_USER_OFFLINE_AUTHORITY": "UNCHANGED — SEPARATE DIVERGENCE",
+  "NEXT": "physical audible-media proof only"
+}

@@ -1,0 +1,57 @@
+{
+  "TITLE": "ANDROID TERMINAL CLEANUP ROOT AUDIT",
+  "PRODUCTION_SHA": "ede3aac3da77c4a23dd368e3badd8a65c052af20",
+  "CODE_CHANGE": "NONE",
+  "PHASE": "AUDIT ONLY — STOP for owner approval",
+  "CALL_ID": "66a1ba7d-b056-4961-82ad-603270b7ad36",
+  "FIRST_DIVERGENCE": "ANDROID CALLER TERMINAL CLEANUP COMPLETION",
+  "CELL_1_LEDGER_CORRECTION": {
+    "SESSION_CREATE": "PASS",
+    "PUSH": "PASS",
+    "INCOMING": "PASS",
+    "ACCEPT": "PASS",
+    "RTC_JOIN": "PASS",
+    "CONNECTED": "PASS",
+    "TERMINAL_SERVER": "PASS",
+    "CALLER_TERMINAL_CLEANUP": "FAIL",
+    "CALLEE_TERMINAL_CLEANUP": "PASS",
+    "PHYSICAL_AUDIBILITY": "NOT_PROVEN",
+    "CELL_1": "FAIL / NOT CLOSED",
+    "INVALIDATED": ["CALLER CLEANUP PASS", "CELL RESULT PASS"]
+  },
+  "TERMINAL_OWNER": "NativeVoiceCallRuntime (via NativeCallRuntimeEndDispatcher for FCM/plugin; Agora Listener.onRemotePeerLeft for USER_OFFLINE_QUIT)",
+  "TERMINALONCE_SEMANTICS": "CLAIMED == cleanup started (putIfAbsent at cleanup entry) — NOT cleanup completed; log label already_cleaned is false for in-progress stall",
+  "CLEANUP_COMPLETION_OWNER": "NativeVoiceCallRuntime.cleanup() only after leave() returns — cleanup_done + finishIfActive are after leave",
+  "AGORA_LEAVE_THREAD": "calling thread of cleanup(); when entered via onUserOffline → Agora IRtcEngineEventHandler callback thread (NOT main); leaveChannel+destroy under synchronized(LOCK) on that thread — STALL SUSPECTED NOT THREAD-PROVEN",
+  "AGORA_DESTROY_THREAD": "same as leave (Voice: inside leave() holding LOCK on caller thread); Video: tearDownEngine posts to main + await latch up to 8s",
+  "EXACT_LAST_SUCCESSFUL_LINE": "runtime_cleanup_start reason=ended (13:19:31.773)",
+  "EXACT_FIRST_NON_COMPLETED_BOUNDARY": "NativeVoiceCallAgoraEngine.leave() — no cleanup_done / native_call_service_stop / finish after claim",
+  "WHY_FCM_CANNOT_RECOVER": "onRemoteTerminal checks NativeVoiceCallTerminalOnce.isClaimed → native_terminal_skip state=already_cleaned before any completion check",
+  "WHY_PLUGIN_CANNOT_RECOVER": "same EndDispatcher → onRemoteTerminal → isClaimed skip",
+  "RTC_USER_OFFLINE_AUTHORITY": "lifecycle-authority today (Voice: USER_OFFLINE_QUIT → onRemoteTerminal(ended)); conflicts with locked RTC=media-only — architectural divergence separate from claim/completion bug",
+  "VOICE_VIDEO_SHARED": {
+    "shared_teardown_semantics": "PARTIAL — both cleanup then leave then finish; Voice has TerminalOnce claim-at-start; Video skips on session ENDING/ENDED without TerminalOnce",
+    "shared_TerminalOnce": "NO — Voice only",
+    "same_Agora_callback_risk": "PARTIAL — Voice has onUserOffline→lifecycle terminal + sync leave on callback thread; Video has no onUserOffline terminal promotion; Video leave uses main-thread tearDown + latch"
+  },
+  "GENERIC_OR_OEM_SPECIFIC": "GENERIC runtime owner flaw (Xiaomi exposed; Samsung callee completed different path)",
+  "MINIMUM_ROOT_FIX": "Separate cleanup-in-progress from cleanup-completed; never treat claim-start as already_cleaned; make RTC leave off blocking critical path so Activity finish/notification/RingOwner/release always reach completion (or recoverable by later terminal while in-progress); reclassify USER_OFFLINE→ended vs media-only before behavior change",
+  "FILES_REQUIRED": [
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallTerminalOnce.java",
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java",
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallAgoraEngine.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallAgoraEngine.java",
+    "android/app/src/test/java/com/dibay/app/nativevoice/NativeVoiceCallTerminalCleanupTest.java"
+  ],
+  "FILES_NOT_REQUIRED": [
+    "Xiaomi OEM-specific branches",
+    "Handler.postDelayed finish band-aid",
+    "Server/session schema",
+    "CUT7 presentation paths unless shared EndDispatcher contract changes require re-proof"
+  ],
+  "NATIVE_CHANGE_REQUIRED": "YES (after owner approval)",
+  "SERVER_CHANGE_REQUIRED": "NO",
+  "CUT7_IMPACT": "Shared NativeVoiceCallRuntime terminal/cleanup owner — re-proof Voice terminal cleanup + Video parity T1–T14 after fix; do not reopen unrelated CUT7 presentation locks unless touched",
+  "HOLD": ["APK→APK VIDEO", "APK→iOS", "iOS→APK", "iOS→iOS", "CUT9", "audible-media proof"]
+}

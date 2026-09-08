@@ -18,6 +18,7 @@ import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
+import com.dibay.app.nativecall.NativeCallTerminalLifecycle;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,6 +77,7 @@ public final class NativeVideoCallRuntime {
 
   static volatile MissedProposeDispatcher missedProposeDispatcherForTests;
   static volatile boolean skipAgoraLeaveForTests;
+  static volatile boolean injectLeaveFailureForTests;
 
   private NativeVideoCallRuntime() {}
 
@@ -440,12 +442,18 @@ public final class NativeVideoCallRuntime {
       cancelMissed(sid);
       return;
     }
-    if (session != null
-        && (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED)) {
+    if (NativeCallTerminalLifecycle.isCompleted(sid)) {
       NativeVideoCallLog.info(
-          "native_terminal_skip",
+          "native_terminal_already_completed",
           sid,
-          "kind=" + reason + " source=" + safe(source) + " state=" + session.state.name().toLowerCase());
+          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
+      return;
+    }
+    if (NativeCallTerminalLifecycle.isInProgress(sid)) {
+      NativeVideoCallLog.info(
+          "native_terminal_in_progress",
+          sid,
+          "kind=" + reason + " source=" + safe(source) + " thread=" + Thread.currentThread().getName());
       return;
     }
     if (session != null) setState(app, session, State.ENDING);
@@ -456,25 +464,76 @@ public final class NativeVideoCallRuntime {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
-    NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
-    NativeVideoCallAcceptTiming.clear(sid);
-    NativeOutgoingRingbackOwner.stop(sid, reason);
-    cancelMissed(sid);
-    if (!skipAgoraLeaveForTests) {
-      NativeVideoCallAgoraEngine.leave(reason);
+    if (!NativeCallTerminalLifecycle.tryBegin(sid)) {
+      if (NativeCallTerminalLifecycle.isInProgress(sid)) {
+        NativeVideoCallLog.info(
+            "runtime_cleanup_in_progress",
+            sid,
+            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+      } else {
+        NativeVideoCallLog.info(
+            "runtime_cleanup_already_completed",
+            sid,
+            "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+      }
+      return;
     }
-    NativeVideoCallNotification.dismiss(app, sid);
-    NativeVideoCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
-    NativeVideoCallService.stop(app, sid, reason);
-    IncomingCallRingOwner.stop(app, sid);
-    DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
-    SESSIONS.remove(sid);
-    IncomingCallActionCoordinator.complete(sid, reason);
-    DibayActiveCallSessionManager.clearSession();
-    NativeVideoCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
-    NativeVideoCallOwner.release(sid, reason);
-    NativeCallVisibleSurfaceOwner.release(sid, reason);
-    NativeVideoCallActivity.finishIfActive(sid);
+    NativeVideoCallLog.info(
+        "runtime_cleanup_start",
+        sid,
+        "reason="
+            + safe(reason)
+            + " thread="
+            + Thread.currentThread().getName()
+            + " phase=IN_PROGRESS");
+    try {
+      NativeVideoCallAcceptTiming.clear(sid);
+      NativeOutgoingRingbackOwner.stop(sid, reason);
+      cancelMissed(sid);
+      if (!skipAgoraLeaveForTests) {
+        NativeVideoCallLog.info(
+            "agora_leave_async", sid, "thread=" + Thread.currentThread().getName());
+        try {
+          if (injectLeaveFailureForTests) {
+            throw new RuntimeException("forced_leave_failure");
+          }
+          NativeVideoCallAgoraEngine.leave(reason);
+        } catch (RuntimeException error) {
+          NativeVideoCallLog.warn(
+              "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
+        }
+      }
+    } finally {
+      runMandatoryCleanup(app, sid, reason);
+    }
+  }
+
+  private static void runMandatoryCleanup(Context app, String sid, String reason) {
+    NativeVideoCallLog.info(
+        "mandatory_cleanup_start",
+        sid,
+        "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName());
+    try {
+      NativeVideoCallNotification.dismiss(app, sid);
+      NativeVideoCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
+      NativeVideoCallService.stop(app, sid, reason);
+      IncomingCallRingOwner.stop(app, sid);
+      DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
+      SESSIONS.remove(sid);
+      IncomingCallActionCoordinator.complete(sid, reason);
+      DibayActiveCallSessionManager.clearSession();
+      NativeVideoCallOwner.release(sid, reason);
+      NativeCallVisibleSurfaceOwner.release(sid, reason);
+      NativeVideoCallLog.info(
+          "activity_finish", sid, "thread=" + Thread.currentThread().getName());
+      NativeVideoCallActivity.finishIfActive(sid);
+    } finally {
+      NativeCallTerminalLifecycle.markCompleted(sid);
+      NativeVideoCallLog.info(
+          "cleanup_done",
+          sid,
+          "reason=" + safe(reason) + " thread=" + Thread.currentThread().getName() + " phase=COMPLETED");
+    }
   }
 
   /** Reject/end only — missed uses {@link #proposeMissed}. */
@@ -627,6 +686,8 @@ public final class NativeVideoCallRuntime {
     MISSED_PROPOSE_INFLIGHT.clear();
     missedProposeDispatcherForTests = null;
     skipAgoraLeaveForTests = false;
+    injectLeaveFailureForTests = false;
+    NativeCallTerminalLifecycle.clearForTests();
   }
 
   static int missedRetryAttemptsForTests(String callId) {

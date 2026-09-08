@@ -1,0 +1,92 @@
+{
+  "PROOF": "cut8-android-hangup-latency",
+  "FIX": "leaveChannel without RtcEngine.destroy on normal leave; cleanup does not await Agora",
+  "CLEANUP_BUDGET_MS": 1500,
+  "RESULT": "PASS",
+  "probeA": {
+    "ok": true,
+    "userId": "edc8c2f0-2673-4ca8-9d63-92a609d556f4",
+    "username": "wwww"
+  },
+  "probeB": {
+    "ok": true,
+    "userId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+    "username": "qqqq"
+  },
+  "room": {
+    "roomId": "c202326f-8109-4ce4-aa61-394f0a799e7d",
+    "via": "known_fallback",
+    "status": 200
+  },
+  "placed": {
+    "status": 200,
+    "callId": "44d68c20-57fd-466d-9c8a-8095bf6b0c6f",
+    "err": null,
+    "nativeHandoff": {
+      "ok": true,
+      "nativeOwned": true
+    }
+  },
+  "acceptTap": {
+    "ok": false
+  },
+  "connected": true,
+  "endTap": {
+    "ok": true,
+    "x": 1151,
+    "y": 620
+  },
+  "callerMeasure": {
+    "cleanupStart": "09-08 13:50:35.860 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] runtime_cleanup_start callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main phase=IN_PROGRESS",
+    "leaveScheduled": "09-08 13:50:35.860 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] agora_leave_async callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=main",
+    "mandatory": "09-08 13:50:35.861 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] mandatory_cleanup_start callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main",
+    "owner": "09-08 13:50:35.897 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] owner_released callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f owner=native_voice reason=end",
+    "finish": "09-08 13:50:35.898 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] activity_finish callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=main",
+    "done": "09-08 13:50:35.921 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] cleanup_done callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main phase=COMPLETED",
+    "destroyOnLeaveCount": 0,
+    "leaveTimeoutCount": 0,
+    "destroyFalse": false,
+    "cleanupDeltaMs": 61,
+    "sample": [
+      "09-08 13:50:35.860 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] runtime_cleanup_start callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main phase=IN_PROGRESS",
+      "09-08 13:50:35.860 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] agora_leave_async callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=main",
+      "09-08 13:50:35.860 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] agora_leave_scheduled callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=main reason=end destroy=false",
+      "09-08 13:50:35.861 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] mandatory_cleanup_start callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main",
+      "09-08 13:50:35.864 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] before_agora_leave callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=dibay-voice-agora-leave",
+      "09-08 13:50:35.880 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] after_agora_leave callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=dibay-voice-agora-leave",
+      "09-08 13:50:35.897 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] owner_released callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f owner=native_voice reason=end",
+      "09-08 13:50:35.898 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] activity_finish callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f thread=main",
+      "09-08 13:50:35.921 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] cleanup_done callId=44d68c20-57fd-466d-9c8a-8095bf6b0c6f reason=end thread=main phase=COMPLETED"
+    ]
+  },
+  "xiaomiTopNativeVoice": "NONE",
+  "CLEANUP_DELTA_MS": 61,
+  "NO_DESTROY_ON_LEAVE": "PASS",
+  "NO_LEAVE_TIMEOUT": "PASS",
+  "DESTROY_FALSE_LOG": "PASS",
+  "CLEANUP_WITHIN_BUDGET": "PASS",
+  "ACTIVITY_GONE": "PASS",
+  "redialPlace": {
+    "callId": "eb2620b4-207b-4b95-b627-9ca007074c0e",
+    "status": 200,
+    "nativeHandoff": {
+      "ok": true,
+      "nativeOwned": true
+    }
+  },
+  "redial": {
+    "callId": "eb2620b4-207b-4b95-b627-9ca007074c0e",
+    "handoffOk": true,
+    "awaitJoinLine": "09-08 13:50:40.266 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] agora_leave_await_join callId=eb2620b4-207b-4b95-b627-9ca007074c0e thread=Thread-20",
+    "joinStartLine": "09-08 13:50:40.258 I/DIBAY_NATIVE_VOICE(32025): [DIBAY_NATIVE_VOICE] caller_agora_native_join_start callId=eb2620b4-207b-4b95-b627-9ca007074c0e channel=eb2620b4-207b-4b95-b627-9ca007074c0e",
+    "awaitJoinMs": 300
+  },
+  "HISTORICAL_COMPARE": {
+    "before_cleanup_delta_ms": 8006,
+    "after_cleanup_delta_ms": 61,
+    "before_blocker": "RtcEngine.destroy awaited on end path",
+    "after": "leaveChannel async destroy=false; cleanup 61ms"
+  },
+  "CELL_1_TERMINAL_CLEANUP_LATENCY": "PASS",
+  "CELL_1_OVERALL": "NOT CLOSED — physical audibility still NOT_PROVEN"
+}
