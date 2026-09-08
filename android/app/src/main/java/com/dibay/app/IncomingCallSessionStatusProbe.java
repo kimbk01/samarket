@@ -14,18 +14,15 @@ import org.json.JSONObject;
 /**
  * Short server truth probe for incoming-call FCM delivery.
  *
- * <p>CUT7 #6: presentation must not depend on {@code deliveryDelayMs >= 10s}. Probe (or
- * server-expiry + ringing confirmation) runs before Native Runtime / RingOwner.
+ * <p>Wave-1 R2/M2: H1 delay-gated probe ({@code deliveryDelayMs >= 10s}). Terminal resurrection
+ * deny remains in {@link #shouldAllowIncomingPresentation}.
  */
 public final class IncomingCallSessionStatusProbe {
   private IncomingCallSessionStatusProbe() {}
 
-  /**
-   * Historically delay-gated. CUT7 #6: always probe — terminal resurrection must not skip
-   * validation for {@code deliveryDelayMs < 10_000}.
-   */
+  /** H1 NORMAL: probe only when delivery is already late (≥10s). */
   public static boolean shouldProbe(DibayCallPushLog.ExpiryDecision expiry) {
-    return true;
+    return expiry != null && expiry.deliveryDelayMs >= 10_000L;
   }
 
   public static String fetchStatus(Context context, String callId) {

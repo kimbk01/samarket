@@ -1262,6 +1262,12 @@ public class MainActivity extends BridgeActivity {
         "voice".equalsIgnoreCase(mediaType)
             || "audio".equalsIgnoreCase(mediaType);
     if (!isVideo && !isVoice) return false;
+    // Wave-1 M3: Native Video Activity owns PiP via minimizeConnectedCall when showing.
+    if (isVideo
+        && com.dibay.app.nativevideo.NativeVideoCallActivity.requestMinimizeConnectedCall(
+            "main_activity_back")) {
+      return true;
+    }
     if (isInPictureInPictureMode()) return true;
     try {
       Rational aspect = isVideo ? new Rational(9, 16) : new Rational(16, 9);

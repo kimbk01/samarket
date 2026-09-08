@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 
-/** NORMAL TerminalOnce boolean claim + immediate local hangup cleanup. */
+/** Wave-1 R1 / H1 NORMAL: terminalPatch → cleanup on callback (+ TerminalOnce). */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34, application = Application.class)
 public class NativeVoiceCallTerminalCleanupTest {
@@ -56,20 +56,22 @@ public class NativeVoiceCallTerminalCleanupTest {
   }
 
   @Test
-  public void localHangup_cleansImmediately_withoutHttpCallback() {
+  public void localHangup_patchesFirst_thenCleansOnCallback() {
     String callId = "voice-hangup-a";
     putConnected(callId);
 
     NativeVoiceCallRuntime.end(context, callId);
 
-    assertNull(NativeVoiceCallRuntime.getSession(callId));
-    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
+    assertNotNull(NativeVoiceCallRuntime.getSession(callId));
     assertEquals(1, patchCalls.get());
     assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
+    assertNull(NativeVoiceCallRuntime.getSession(callId));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
   }
 
   @Test
-  public void missed_cleansImmediately_bestEffortPatch() {
+  public void missed_patchesThenCleansOnCallback() {
     String callId = "voice-missed-a";
     NativeVoiceCallRuntime.Session session =
         new NativeVoiceCallRuntime.Session(callId, "room", "peer", "Peer", "voice", false);
@@ -78,10 +80,12 @@ public class NativeVoiceCallTerminalCleanupTest {
 
     NativeVoiceCallRuntime.missed(context, callId);
 
+    assertNotNull(NativeVoiceCallRuntime.getSession(callId));
+    assertEquals(1, patchCalls.get());
+    assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
     assertNull(NativeVoiceCallRuntime.getSession(callId));
     assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
-    assertEquals(1, patchCalls.get());
-    assertEquals("missed", "missed"); // patch dispatched via beginLocalTerminal
   }
 
   @Test
@@ -89,6 +93,8 @@ public class NativeVoiceCallTerminalCleanupTest {
     String callId = "voice-completed";
     putConnected(callId);
     NativeVoiceCallRuntime.end(context, callId);
+    assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
     assertTrue(NativeVoiceCallTerminalOnce.isClaimed(callId));
 
     NativeVoiceCallRuntime.onRemoteTerminal(context, callId, "ended", "fcm:call_ended");
@@ -129,6 +135,8 @@ public class NativeVoiceCallTerminalCleanupTest {
     String callId = "voice-stale-reopen";
     putConnected(callId);
     NativeVoiceCallRuntime.end(context, callId);
+    assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
 
     Intent intent = new Intent(context, NativeVoiceCallActivity.class);
     intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
@@ -150,6 +158,8 @@ public class NativeVoiceCallTerminalCleanupTest {
     assertFalse(controller.get().isFinishing());
 
     NativeVoiceCallRuntime.end(context, callId);
+    assertNotNull(lastPatchCallback);
+    lastPatchCallback.onDone(true, 200, null);
 
     assertTrue(controller.get().isFinishing());
     controller.pause().stop().destroy();

@@ -274,6 +274,21 @@ public class NativeVideoCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  /**
+   * Wave-1 M3: MainActivity back/home must prefer Native Video Activity minimize
+   * ({@link #minimizeConnectedCall}) over MainActivity system PiP.
+   */
+  public static boolean requestMinimizeConnectedCall(String source) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null) return false;
+    String src = source != null ? source : "external";
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      return activity.minimizeConnectedCall(src);
+    }
+    activity.runOnUiThread(() -> activity.minimizeConnectedCall(src));
+    return true;
+  }
+
   public String getBoundCallId() {
     return callId != null ? callId : "";
   }
@@ -295,6 +310,12 @@ public class NativeVideoCallActivity extends Activity {
       finish();
       return;
     }
+    // Wave-1 R4: H1/Voice twin — no session ⇒ no zombie shell (before surface claim).
+    if (NativeVideoCallRuntime.getSession(callId) == null) {
+      NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
+      finish();
+      return;
+    }
     if (!claimVisibleSurface()) {
       finish();
       return;
@@ -309,11 +330,16 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
-    if (session != null && session.state == NativeVideoCallRuntime.State.CONNECTED) {
+    if (session == null) {
+      NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
+      finish();
+      return;
+    }
+    if (session.state == NativeVideoCallRuntime.State.CONNECTED) {
       currentState = session.state;
       syncOutgoingFlagsForConnectedLayoutRestore();
     }
-    applyState(session != null ? session.state : defaultStateForMode());
+    applyState(session.state);
     maybeHandleNotificationAccept(getIntent());
     maybeReattachSurfacesAfterConnectedRestore();
     if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
@@ -346,7 +372,12 @@ public class NativeVideoCallActivity extends Activity {
     setIntent(intent);
     if (!bindIntent(intent)) return;
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
-    applyState(session != null ? session.state : defaultStateForMode());
+    if (session == null) {
+      NativeVideoCallLog.info("stale_activity_finish", callId, "reason=no_session");
+      finish();
+      return;
+    }
+    applyState(session.state);
     maybeHandleNotificationAccept(intent);
     maybeReattachSurfacesAfterConnectedRestore();
     if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
@@ -1578,13 +1609,6 @@ public class NativeVideoCallActivity extends Activity {
           "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=api_below_26");
       return false;
     }
-    if (!hasSystemPipFeature()) {
-      NativeVideoCallLog.info(
-          "native_video_pip_request_rejected",
-          callId,
-          buildPipLogDetails(lastPipSource) + " reason=feature_picture_in_picture_false");
-      return false;
-    }
     if (inPipMode || isInPictureInPictureMode() || pipState == PipState.PIP_ACTIVE) {
       pipState = PipState.PIP_ACTIVE;
       NativeVideoCallLog.info(
@@ -1649,11 +1673,6 @@ public class NativeVideoCallActivity extends Activity {
 
   private void clearPipRequestVerification() {
     mainHandler.removeCallbacks(requestVerificationRunnable);
-  }
-
-  private boolean hasSystemPipFeature() {
-    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-        && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
   }
 
   private boolean isRemoteSurfaceAttached() {

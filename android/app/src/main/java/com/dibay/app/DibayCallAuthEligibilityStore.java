@@ -14,7 +14,8 @@ import java.util.Map;
  *
  * <p>Contract (aligned with iOS {@code DibayMemberEventEligibilityStore}):
  * eligible=true REQUIRES non-empty bound member user id in the same durable write.
- * eligible=true with empty bound is illegal and is coerced to ineligible (clears both).
+ * eligible=true with empty bound is refused without clearing existing presentable (Wave-1 M1).
+ * eligible=false (logout/guest) clears both.
  *
  * <p>Global auth authority remains web/session ({@code dibay-session-manager}).
  */
@@ -54,19 +55,18 @@ public final class DibayCallAuthEligibilityStore {
         context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
 
     if (eligible && bound.isEmpty()) {
-      // Fail-closed: never persist eligible-without-bound.
-      prefs.edit().putBoolean(KEY_ELIGIBLE, false).remove(KEY_BOUND_USER_ID).apply();
+      // Wave-1 M1: refuse illegal eligible-without-bound WITHOUT clearing existing presentable.
+      // Guest/logout CLEAR remains the !eligible branch below.
+      boolean currentEligible = prefs.getBoolean(KEY_ELIGIBLE, false);
+      String currentBound = getBoundMemberUserId(context);
+      boolean presentable = currentEligible && !currentBound.isEmpty();
       Log.i(
           TAG,
-          "member_call_eligible_set eligible=false reason="
+          "member_call_eligible_set skipped_no_clear reason="
               + safeReason
-              + ":eligible_requires_bound_user");
-      Log.i(
-          TAG,
-          "bound_member_user_set has_user=false reason="
-              + safeReason
-              + ":eligible_requires_bound_user");
-      return new WriteResult(false, false);
+              + ":eligible_requires_bound_user presentable="
+              + presentable);
+      return new WriteResult(presentable, !currentBound.isEmpty());
     }
 
     if (!eligible) {

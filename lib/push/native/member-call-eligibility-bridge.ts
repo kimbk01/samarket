@@ -12,6 +12,9 @@ export type NativeMemberEventProjection = Readonly<{
 /**
  * Native member private-event eligibility + bound user projection.
  * AUTHENTICATED → eligible + boundUserId; terminal guest / logout → ineligible (bound cleared).
+ *
+ * Wave-1 M1: eligible=true with empty bound must NOT CLEAR durable presentable —
+ * skip native mutation (same as empty-uid register skip).
  */
 export async function projectNativeMemberEventEligibility(
   input: NativeMemberEventProjection,
@@ -20,14 +23,15 @@ export async function projectNativeMemberEventEligibility(
   const reason = String(input.reason ?? "").trim() || "unspecified";
   const eligibleRequested = input.eligible === true;
   const boundUserId = eligibleRequested ? String(input.boundUserId ?? "").trim() : "";
-  // CUT7: never project eligible=true without bound member id (cold-wake bound_user_missing).
-  const eligible = eligibleRequested && boundUserId.length > 0;
-  const projectedReason =
-    eligibleRequested && !eligible ? `${reason}:eligible_requires_bound_user` : reason;
+  if (eligibleRequested && boundUserId.length === 0) {
+    // Do not project eligible=false — that would CLEAR existing bound/eligible.
+    return;
+  }
+  const eligible = eligibleRequested;
   try {
     await invokeNativeCallServicePlugin("setMemberCallEligible", {
       eligible,
-      reason: projectedReason,
+      reason,
       boundUserId: eligible ? boundUserId : "",
     });
   } catch {

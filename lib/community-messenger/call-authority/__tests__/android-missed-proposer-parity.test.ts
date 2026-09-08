@@ -15,9 +15,10 @@ const video = () =>
   );
 
 describe("NORMAL Android missed dismiss (source)", () => {
-  it("Voice missed uses beginLocalTerminal immediate cleanup", () => {
+  it("Voice missed uses terminalPatch → cleanup (H1 twin / Wave-1 R1)", () => {
     const v = voice();
-    expect(v).toContain('beginLocalTerminal(context, callId, "missed")');
+    expect(v).toContain('terminalPatch(context, callId, "missed")');
+    expect(v).not.toContain("beginLocalTerminal");
     expect(v).not.toContain("proposeMissed");
     expect(v).not.toContain("scheduleMissedRetry");
     expect(v).not.toContain("ring_deadline_not_reached");

@@ -40,7 +40,7 @@ public class IncomingCallSessionStatusProbePresentationGateTest {
   }
 
   @Test
-  public void shouldProbe_noLongerDelayGated() {
-    assertTrue(IncomingCallSessionStatusProbe.shouldProbe(null));
+  public void shouldProbe_isDelayGated_h1Normal() {
+    assertFalse(IncomingCallSessionStatusProbe.shouldProbe(null));
   }
 }

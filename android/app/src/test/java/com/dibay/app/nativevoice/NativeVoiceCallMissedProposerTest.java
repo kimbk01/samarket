@@ -17,7 +17,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
-/** NORMAL Voice missed = immediate beginLocalTerminal cleanup + best-effort PATCH. */
+/** Wave-1 R1 / H1 NORMAL: missed → terminalPatch → cleanup on callback. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34, application = Application.class)
 public class NativeVoiceCallMissedProposerTest {
@@ -46,7 +46,7 @@ public class NativeVoiceCallMissedProposerTest {
   }
 
   @Test
-  public void timerOrMissed_cleansImmediately_andPatchesBestEffort() {
+  public void timerOrMissed_patchesThenCleansOnCallback() {
     String callId = "v-missed-normal";
     putRinging(callId);
 

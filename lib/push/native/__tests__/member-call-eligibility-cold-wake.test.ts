@@ -16,7 +16,7 @@ describe("projectNativeMemberEventEligibility CUT7 cold-wake contract", () => {
     invoke.mockClear();
   });
 
-  it("I1 refuses eligible=true without boundUserId (fail-closed)", async () => {
+  it("I1 refuses eligible=true without boundUserId without CLEAR", async () => {
     const { projectNativeMemberEventEligibility } = await import(
       "@/lib/push/native/member-call-eligibility-bridge"
     );
@@ -25,14 +25,8 @@ describe("projectNativeMemberEventEligibility CUT7 cold-wake contract", () => {
       boundUserId: "",
       reason: "session_authenticated:test",
     });
-    expect(invoke).toHaveBeenCalledWith(
-      "setMemberCallEligible",
-      expect.objectContaining({
-        eligible: false,
-        boundUserId: "",
-        reason: expect.stringContaining("eligible_requires_bound_user"),
-      }),
-    );
+    // Wave-1 M1: skip native mutation — empty-uid must not CLEAR presentable.
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("I1b projects eligible=true with bound user", async () => {

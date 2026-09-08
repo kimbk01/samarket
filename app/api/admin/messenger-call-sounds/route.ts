@@ -129,7 +129,7 @@ export async function PATCH(req: NextRequest) {
     call_end_sound_url: null as string | null,
     use_custom_sounds: true,
     default_fallback_sound_url: null as string | null,
-    incoming_ring_timeout_seconds: 45,
+    incoming_ring_timeout_seconds: 30,
     incoming_ringtone_volume: 0.72,
     busy_auto_reject_enabled: false,
     repeated_call_cooldown_seconds: 0,

@@ -9,9 +9,10 @@ import Foundation
  * NOT global auth SSOT — projection of web/session authenticated state.
  * Fail-closed: missing key ⇒ ineligible.
  *
- * CONTRACT (CUT7 terminated cold-wake):
+ * CONTRACT (Wave-1 M1):
  *   eligible=true REQUIRES non-empty bound member user id in the same durable write.
- *   eligible=true with empty bound is illegal and is coerced to ineligible (clears both).
+ *   eligible=true with empty bound is refused without clearing existing presentable.
+ *   eligible=false (logout/guest) clears both.
  *   Persistence must survive process death for PushKit wake before WebView bootstrap.
  */
 enum DibayMemberEventEligibilityStore {
@@ -31,21 +32,16 @@ enum DibayMemberEventEligibilityStore {
     let bound = (boundUserId ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 
     if eligible && bound.isEmpty {
-      // Fail-closed: never persist eligible-without-bound (cold-wake → bound_user_missing).
-      UserDefaults.standard.set(false, forKey: eligibleKey)
-      UserDefaults.standard.removeObject(forKey: boundUserKey)
-      UserDefaults.standard.synchronize()
+      // Wave-1 M1: refuse illegal eligible-without-bound WITHOUT clearing existing presentable.
+      let currentEligible = UserDefaults.standard.bool(forKey: eligibleKey)
+      let currentBound = boundMemberUserId()
+      let presentable = currentEligible && !currentBound.isEmpty
       DibayCallLog.infoCall(
         "[auth] member_event_eligible_set",
         callId: "none",
-        detail: "eligible=false reason=\(safeReason):eligible_requires_bound_user"
+        detail: "skipped_no_clear reason=\(safeReason):eligible_requires_bound_user presentable=\(presentable)"
       )
-      DibayCallLog.infoCall(
-        "[auth] bound_member_user_set",
-        callId: "none",
-        detail: "has_user=false reason=\(safeReason):eligible_requires_bound_user"
-      )
-      return (false, false)
+      return (presentable, !currentBound.isEmpty)
     }
 
     if !eligible {
