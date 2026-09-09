@@ -751,6 +751,7 @@ export const adminMessages = {
     admin_menu_dev_system: "시스템관리",
     admin_menu_dev_backup: "백업/복구",
     admin_menu_prelaunch_reset: "운영 시작 전 테스트 데이터 정리",
+    admin_menu_data_reset: "데이터 초기화",
     admin_page_prelaunch_reset: "운영 시작 전 테스트 데이터 정리",
     admin_prelaunch_reset_danger_title: "위험 · 복구 불가할 수 있음",
     admin_prelaunch_reset_danger_body:
@@ -3566,6 +3567,7 @@ export const adminMessages = {
     admin_menu_dev_system: "System management",
     admin_menu_dev_backup: "Backup/recovery",
     admin_menu_prelaunch_reset: "Pre-launch test data cleanup",
+    admin_menu_data_reset: "Data reset",
     admin_page_prelaunch_reset: "Pre-launch test data cleanup",
     admin_prelaunch_reset_danger_title: "Danger · may be irreversible",
     admin_prelaunch_reset_danger_body:

@@ -66,6 +66,7 @@ export const ORDER_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   allowedBulkActions: ["cancel"],
   hardDeleteAvailable: false,
   softMutationOwner: null,
+  /** B2: POST /api/admin/store-orders/bulk-delete returns 410 — finance/gift boundary. */
   hardMutationOwner: null,
   softConfirmMode: "blocked",
   hardConfirmMode: "blocked",
@@ -126,8 +127,9 @@ export const COMMUNITY_COMMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
 
 /**
  * Chat room list — hide is Admin personal/session list filter only (not room lifecycle).
- * Hard delete: trade/general storage via bulk-delete API; CM wipe via Prelaunch Reset scope=chat.
- * Do not merge these mutation owners.
+ * Legacy trade storage: POST /api/admin/chat/rooms/bulk-delete (chat_rooms|product_chats).
+ * CM (community_messenger_rooms): B4 soft tombstone via Prelaunch chat scope + chat-reset-policy
+ * (hard-reset-only is future HIGH-RISK — not Prelaunch default).
  */
 export const CHAT_ROOM_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "chat_room",
@@ -141,7 +143,7 @@ export const CHAT_ROOM_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   hardDeleteAvailable: true,
   softMutationOwner: "AdminChatListPage listHiddenIds (session UI filter only)",
   hardMutationOwner:
-    "POST /api/admin/chat/rooms/bulk-delete (chat_rooms|product_chats) · CM wipe = Prelaunch Reset scopes=chat",
+    "POST /api/admin/chat/rooms/bulk-delete (legacy chat_rooms|product_chats) · CM = soft tombstone (lib/admin/data-reset/chat-reset-policy)",
   softConfirmMode: "danger_confirm",
   hardConfirmMode: "strong_danger_confirm",
 };

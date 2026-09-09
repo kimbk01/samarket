@@ -107,6 +107,11 @@ describe("ARO-RST-COV-001 Reset Coverage Expansion", () => {
     expect(exec).toContain("feed_ad_requests");
     expect(exec).toContain("support_cases");
     expect(exec).toContain("notification_events");
+    expect(exec).toContain("chatDataResetUsesSoftTombstone");
+    expect(exec).toContain("deleted_at");
+    expect(exec).not.toMatch(
+      /from\("community_messenger_rooms"\)[\s\S]{0,200}\.delete\(/
+    );
     expect(exec).not.toContain("point_ledger");
     expect(exec).not.toContain("business_cash_ledger");
     expect(exec).not.toContain("store_settlements");

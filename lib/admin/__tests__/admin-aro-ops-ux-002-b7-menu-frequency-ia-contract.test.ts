@@ -124,8 +124,9 @@ describe("ARO-OPS-UX-002-B7 menu / frequency final IA", () => {
     expect(resolveActiveWorkspace("/admin/support", "master").id).toBe("support");
     expect(resolveActiveWorkspace("/admin/chats/messenger", "master").id).toBe("messenger");
     expect(findAdminMenuByKey(adminMenu, "system-prelaunch-reset")?.path).toBe(
-      "/admin/prelaunch-reset"
+      "/admin/system/data-reset"
     );
+    expect(resolveActiveWorkspace("/admin/system/data-reset", "master").id).toBe("system");
     expect(resolveActiveWorkspace("/admin/prelaunch-reset", "master").id).toBe("system");
   });
 

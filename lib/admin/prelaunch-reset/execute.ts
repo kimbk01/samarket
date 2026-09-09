@@ -18,6 +18,10 @@ import type {
   PrelaunchResetPreset,
   PrelaunchResetSelector,
 } from "@/lib/admin/prelaunch-reset/types";
+import {
+  chatDataResetIsDetachOnly,
+  chatDataResetUsesSoftTombstone,
+} from "@/lib/admin/data-reset/chat-reset-policy";
 
 export type ExecutePrelaunchResetInput = {
   sb: SupabaseClient;
@@ -348,37 +352,43 @@ export async function executePrelaunchReset(
         dbDeleted.notification_events = (dbDeleted.notification_events ?? 0) + (count ?? 0);
       }
       if (step.table === "community_messenger_rooms" && plan.selector.chatRoomIds.length) {
+        // B4: product + Prelaunch default = soft tombstone for general_direct/group.
+        // trade/store_order = detach-only (never wipe room from chat scope).
         const { data: rooms, error: roomErr } = await input.sb
           .from("community_messenger_rooms")
-          .select("id, chat_domain, domain_identity_key")
+          .select("id, chat_domain, domain_identity_key, deleted_at")
           .in("id", plan.selector.chatRoomIds);
         if (roomErr) throw new Error(roomErr.message);
-        const safeIds: string[] = [];
+        const softIds: string[] = [];
         for (const row of rooms ?? []) {
           const r = row as {
             id?: string;
             chat_domain?: string;
             domain_identity_key?: string | null;
+            deleted_at?: string | null;
           };
           const domain = String(r.chat_domain ?? "");
-          const identity = String(r.domain_identity_key ?? "");
-          const protectedChat =
-            domain === "trade" ||
-            domain === "store_order" ||
-            identity.startsWith("trade_") ||
-            identity.startsWith("store_order:");
-          if (!protectedChat && (domain === "general_direct" || domain === "group") && r.id) {
-            safeIds.push(String(r.id));
-          }
+          if (chatDataResetIsDetachOnly(domain)) continue;
+          if (!chatDataResetUsesSoftTombstone(domain)) continue;
+          if (r.deleted_at) continue;
+          if (r.id) softIds.push(String(r.id));
         }
-        if (safeIds.length) {
+        if (softIds.length) {
+          const now = new Date().toISOString();
           const { error, count } = await input.sb
             .from("community_messenger_rooms")
-            .delete({ count: "exact" })
-            .in("id", safeIds);
+            .update(
+              {
+                deleted_at: now,
+                deleted_by: input.actorUserId,
+              },
+              { count: "exact" }
+            )
+            .in("id", softIds)
+            .is("deleted_at", null);
           if (error) throw new Error(error.message);
-          dbDeleted.community_messenger_rooms =
-            (dbDeleted.community_messenger_rooms ?? 0) + (count ?? 0);
+          dbDeleted.community_messenger_rooms_soft =
+            (dbDeleted.community_messenger_rooms_soft ?? 0) + (count ?? 0);
         }
       }
     }
@@ -398,7 +408,7 @@ export async function executePrelaunchReset(
           (dbDeleted.platform_popup_campaigns ?? 0) +
           (dbDeleted.platform_popup_owner_requests ?? 0),
         messages:
-          (dbDeleted.support_cases ?? 0) + (dbDeleted.community_messenger_rooms ?? 0),
+          (dbDeleted.support_cases ?? 0) + (dbDeleted.community_messenger_rooms_soft ?? 0),
         notifications: dbDeleted.notification_events ?? 0,
         other:
           (dbDeleted.store_coupon_campaigns ?? 0) + (dbDeleted.coupon_user_entitlements ?? 0),

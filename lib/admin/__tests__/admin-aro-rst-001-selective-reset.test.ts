@@ -25,6 +25,7 @@ describe("ARO-RST-001 Selective Reset", () => {
     expect(byKey.community_comments.support).toBe("SUPPORTED");
     expect(byKey.trade_content.support).toBe("SUPPORTED");
     expect(byKey.chat.support).toBe("PARTIAL");
+    expect(byKey.friend.support).toBe("NOT_SUPPORTED");
     expect(byKey.orders.support).toBe("BLOCKED");
     expect(byKey.delivery_ads.support).toBe("SUPPORTED");
     expect(byKey.feed_ads.support).toBe("SUPPORTED");

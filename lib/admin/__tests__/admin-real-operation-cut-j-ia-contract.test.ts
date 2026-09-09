@@ -100,7 +100,8 @@ describe("CUT J IA separation hard lock", () => {
     expect(workspaceOf("/admin/notifications")).toBe("notifications");
   });
 
-  it("J16 /admin/prelaunch-reset → system", () => {
+  it("J16 /admin/system/data-reset → system (prelaunch redirects)", () => {
+    expect(workspaceOf("/admin/system/data-reset")).toBe("system");
     expect(workspaceOf("/admin/prelaunch-reset")).toBe("system");
   });
 
@@ -156,7 +157,7 @@ describe("CUT J IA separation hard lock", () => {
       J31_store: { workspace: "delivery", route: "/admin/stores" },
       J32_partner: { workspace: "ads", route: "/admin/delivery-ads/commercial-settings" },
       J33_notification: { workspace: "notifications", route: "/admin/notifications" },
-      J34_reset: { workspace: "system", route: "/admin/prelaunch-reset" },
+      J34_reset: { workspace: "system", route: "/admin/system/data-reset" },
     };
     for (const [id, { workspace, route }] of Object.entries(findability)) {
       expect(workspaceOf(route), id).toBe(workspace);

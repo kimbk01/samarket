@@ -20,6 +20,7 @@ import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
 import { fetchAdminStoreOrdersListDeduped } from "@/lib/admin/fetch-admin-store-orders-deduped";
 import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { canHardDelete, ORDER_ENTITY_ACTION_POLICY } from "@/lib/admin/management";
 
 export function DeliveryOrdersDashboardClient() {
   const { t } = useI18n();
@@ -350,14 +351,16 @@ export function DeliveryOrdersDashboardClient() {
             >
               {t("admin_do_dashboard_hide_from_list")}
             </button>
-            <button
-              type="button"
-              disabled={selectedIds.size === 0 || actionBusy}
-              onClick={() => void deleteSelectedFromDb()}
-              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
-            >
-              {t("admin_do_dashboard_delete_from_db")}
-            </button>
+            {canHardDelete(ORDER_ENTITY_ACTION_POLICY) ? (
+              <button
+                type="button"
+                disabled={selectedIds.size === 0 || actionBusy}
+                onClick={() => void deleteSelectedFromDb()}
+                className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
+              >
+                {t("admin_do_dashboard_delete_from_db")}
+              </button>
+            ) : null}
           </div>
         ) : null}
         {actionMessage ? (

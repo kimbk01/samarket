@@ -13,6 +13,7 @@ import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { canHardDelete, ORDER_ENTITY_ACTION_POLICY } from "@/lib/admin/management";
 
 type Row = {
   id: string;
@@ -457,14 +458,16 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           >
             {t("admin_stores_orders_deselect")}
           </button>
-          <button
-            type="button"
-            disabled={selectedIds.size === 0 || bulkBusy}
-            onClick={() => void deleteSelectedFromDb()}
-            className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
-          >
-            {bulkBusy ? t("admin_stores_orders_deleting") : t("admin_stores_orders_delete_db")}
-          </button>
+          {canHardDelete(ORDER_ENTITY_ACTION_POLICY) ? (
+            <button
+              type="button"
+              disabled={selectedIds.size === 0 || bulkBusy}
+              onClick={() => void deleteSelectedFromDb()}
+              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
+            >
+              {bulkBusy ? t("admin_stores_orders_deleting") : t("admin_stores_orders_delete_db")}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

@@ -219,10 +219,10 @@ const REGISTRY: readonly OperationalFrequencyEntry[] = [
     id: "system-prelaunch-reset",
     workspace: "SYSTEM",
     section: "reset",
-    route: "/admin/prelaunch-reset",
+    route: "/admin/system/data-reset",
     frequency: "OCCASIONAL",
     order: 40,
-    purpose: "Pre-launch selective reset (not domain bulk)",
+    purpose: "Domain Data Reset SSOT (prelaunch-reset redirects here)",
   },
   {
     id: "system-settings",

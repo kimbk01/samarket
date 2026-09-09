@@ -89,16 +89,15 @@ describe("ARO-OPS-UX-002-B1R delete operation UX", () => {
     expect(chats).toContain('typed.trim() !== "DELETE"');
   });
 
-  it("R14 Domain reset entry prefills scopes", () => {
+  it("R14 Domain reset entry prefills domain on Data Reset SSOT", () => {
     expect(buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.trade)).toBe(
-      "/admin/prelaunch-reset?scopes=trade_content"
+      "/admin/system/data-reset?domain=market"
     );
     expect(buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.community)).toContain(
-      "community_posts"
+      "domain=community"
     );
-    expect(buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.chat)).toContain("chat");
-    const resetPage = read("components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx");
-    expect(resetPage).toContain('searchParams.get("scopes")');
+    expect(buildAdminPrelaunchResetHref(DOMAIN_RESET_SCOPE_PRESETS.chat)).toContain("domain=chat");
+    expect(read("app/admin/system/data-reset/page.tsx")).toContain("AdminDataResetPage");
     const trade = read("components/admin/posts-management/AdminPostsManagementTable.tsx");
     expect(trade).toContain('data-admin-domain-reset-entry="trade"');
   });

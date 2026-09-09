@@ -103,17 +103,17 @@ export function AdminSystemPage() {
         className="rounded-ui-rect border-2 border-red-400 bg-red-50 px-4 py-4"
         data-admin-system-danger="1"
       >
-        <p className="text-sm font-bold text-red-950">Danger Zone · Prelaunch Reset</p>
+        <p className="text-sm font-bold text-red-950">Danger Zone · Data Reset</p>
         <p className="mt-1 sam-text-body-secondary text-red-900">
           {ko
             ? "일반 삭제와 분리된 파괴적 리셋입니다. 운영 목록·콘텐츠 관리와 섞지 마세요."
             : "Destructive reset, separate from normal delete. Keep out of content ops lists."}
         </p>
         <Link
-          href="/admin/prelaunch-reset"
+          href="/admin/system/data-reset"
           className="mt-3 inline-flex rounded-ui-rect bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
         >
-          {ko ? "Prelaunch Reset 열기" : "Open Prelaunch Reset"}
+          {ko ? "데이터 초기화 열기" : "Open Data Reset"}
         </Link>
       </div>
 

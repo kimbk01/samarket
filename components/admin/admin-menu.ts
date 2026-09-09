@@ -312,7 +312,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "system-release-migration": "admin_menu_dev_production",
   "system-manage": "admin_menu_dev_system",
   "system-backup": "admin_menu_dev_backup",
-  "system-prelaunch-reset": "admin_menu_prelaunch_reset",
+  "system-prelaunch-reset": "admin_menu_data_reset",
   "system-dr": "admin_menu_dev_dr",
   "system-security": "admin_menu_dev_security",
   "system-performance": "admin_menu_dev_performance",
@@ -1264,7 +1264,8 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
                   {
                     key: "system-prelaunch-reset",
                     title: "",
-                    path: "/admin/prelaunch-reset",
+                    path: "/admin/system/data-reset",
+                    matchPaths: ["/admin/system/data-reset", "/admin/prelaunch-reset"],
                     status: "done",
                   },
                   { key: "system-dr", title: "", path: "/admin/dr", status: "done" },

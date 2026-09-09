@@ -104,12 +104,14 @@ describe("CUT H Pre-launch Reset", () => {
     expect(execLib).toContain("atomicClaim: false");
   });
 
-  it("UI danger + no wipe-all wiring", () => {
+  it("UI danger + no wipe-all wiring · menu points to Data Reset SSOT", () => {
     const ui = read("components/admin/prelaunch-reset/AdminPrelaunchResetPage.tsx");
     expect(ui).toContain("data-admin-prelaunch-reset");
     expect(ui).not.toContain("wipe-all-app-data");
     expect(ui).toContain("typedConfirmation");
     expect(ui).toContain("data-admin-prelaunch-reset-phase-counts");
-    expect(read("components/admin/admin-menu.ts")).toContain("/admin/prelaunch-reset");
+    // Operational Admin SSOT route (prelaunch page redirects here)
+    expect(read("components/admin/admin-menu.ts")).toContain("/admin/system/data-reset");
+    expect(read("app/admin/prelaunch-reset/page.tsx")).toContain("redirect");
   });
 });

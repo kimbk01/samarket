@@ -24,6 +24,7 @@ export type PrelaunchResetDomainId =
   | "CALL"
   | "COMMUNITY"
   | "TRADE"
+  | "FRIEND"
   | "COUPON"
   | "GIFT"
   | "NOTIFICATIONS"
@@ -277,6 +278,18 @@ export const PRELAUNCH_RESET_DOMAIN_INVENTORY: readonly PrelaunchDomainInventory
     resetEligibleDefault: true,
     protectedDefault: false,
     notes: "Listings/content; not payment",
+  },
+  {
+    id: "FRIEND",
+    tablesHint: ["user_social_relations"],
+    systemData: false,
+    userData: true,
+    financialData: false,
+    auditData: false,
+    resetEligibleDefault: true,
+    protectedDefault: false,
+    notes:
+      "B5: write SSOT user_social_relations; friend:user either_endpoint · friend:all. Never wipe chat/member/finance. Execute deferred.",
   },
   {
     id: "COUPON",

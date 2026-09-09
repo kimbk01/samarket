@@ -170,7 +170,7 @@ describe("platform admin menu SSOT contract (CUT J)", () => {
       "/admin/notifications"
     );
     expect(findAdminMenuByKey(adminMenu, "system-prelaunch-reset")?.path).toBe(
-      "/admin/prelaunch-reset"
+      "/admin/system/data-reset"
     );
     // AST-002 store point charges not primary
     expect(findAdminMenuByKey(adminMenu, "store-point-charges-admin")).toBeUndefined();

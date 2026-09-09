@@ -36,10 +36,20 @@ export const ARO_RST_COV_001_DEPENDENCY_MATRIX = [
     scope: "chat",
     canonicalOwner: "community_messenger_rooms",
     rootTable: "community_messenger_rooms",
-    childTables: "community_messenger_messages / participants (CASCADE)",
-    financeEffect: "gate — trade/store_order rooms protected",
+    childTables: "messages/participants retained under soft tombstone",
+    financeEffect: "gate — trade/store_order detach-only",
     safe: "PARTIAL",
-    blocker: "only general_direct|group disposable rooms by explicit chatRoomIds",
+    blocker:
+      "B4: soft deleted_at for general_direct|group by explicit chatRoomIds — hard DELETE = hard-reset-only (not Prelaunch default)",
+  },
+  {
+    scope: "friend",
+    canonicalOwner: "user_social_relations",
+    rootTable: "user_social_relations",
+    childTables: "none (graph rows only)",
+    financeEffect: "none",
+    safe: "NOT_SUPPORTED",
+    blocker: "B5 policy SSOT present; FRIEND_RESET_EXECUTE_IMPLEMENTED=false until next CUT",
   },
   {
     scope: "feed_ads",
