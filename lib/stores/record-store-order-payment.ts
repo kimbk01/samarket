@@ -28,6 +28,66 @@ export type RecordPaidErr = {
 
 export type RecordPaidResult = RecordPaidOk | RecordPaidErr;
 
+type PaymentConflictRow = {
+  id: string;
+  order_id: string;
+  provider_payment_id: string | null;
+};
+
+/**
+ * CUT 15 — Prove 23505 is same-order replay before reconcile.
+ * Prefer existing row lookup over brittle constraint-name parsing.
+ */
+export async function resolveStorePaymentUniqueConflict(
+  sb: SupabaseClient,
+  input: { orderId: string; providerPaymentId: string }
+): Promise<{ ok: true; payment: PaymentConflictRow } | RecordPaidErr> {
+  const orderId = input.orderId.trim();
+  const providerPaymentId = String(input.providerPaymentId ?? "").trim();
+
+  const byOrder = await sb
+    .from("store_payments")
+    .select("id, order_id, provider_payment_id")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (byOrder.error) {
+    return { ok: false, error: byOrder.error.message, httpStatus: 500 };
+  }
+  if (byOrder.data) {
+    return { ok: true, payment: byOrder.data as PaymentConflictRow };
+  }
+
+  if (providerPaymentId) {
+    const byProvider = await sb
+      .from("store_payments")
+      .select("id, order_id, provider_payment_id")
+      .eq("provider_payment_id", providerPaymentId)
+      .maybeSingle();
+    if (byProvider.error) {
+      return { ok: false, error: byProvider.error.message, httpStatus: 500 };
+    }
+    if (byProvider.data) {
+      const row = byProvider.data as PaymentConflictRow;
+      if (String(row.order_id) === orderId) {
+        return { ok: true, payment: row };
+      }
+      return {
+        ok: false,
+        error: "provider_payment_id_conflict",
+        httpStatus: 409,
+        hint: "provider_payment_id already bound to another order",
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    error: "payment_unique_conflict_unresolved",
+    httpStatus: 409,
+    hint: "23505 without same-order payment row",
+  };
+}
+
 /**
  * 주문 결제 성공 기록: store_payments + store_orders.payment_status=paid (멱등)
  */
@@ -80,11 +140,12 @@ export async function recordStoreOrderPaid(
 
   const amount = expected;
   const meta = { ...opts.meta, provider: opts.provider };
+  const providerPaymentId = String(opts.providerPaymentId ?? "").trim();
 
   const { error: insErr } = await sb.from("store_payments").insert({
     order_id: oid,
     provider: opts.provider,
-    provider_payment_id: opts.providerPaymentId,
+    provider_payment_id: providerPaymentId,
     amount,
     status: "succeeded",
     meta,
@@ -92,6 +153,17 @@ export async function recordStoreOrderPaid(
 
   if (insErr) {
     if (insErr.code === "23505") {
+      /**
+       * CUT 15 — 23505 may be UNIQUE(order_id) or UNIQUE(provider_payment_id).
+       * Reconcile current order only when an existing payment row proves same-order identity.
+       * Cross-order provider_payment_id collision must not mark this order paid.
+       */
+      const conflict = await resolveStorePaymentUniqueConflict(sb, {
+        orderId: oid,
+        providerPaymentId,
+      });
+      if (!conflict.ok) return conflict;
+
       const { error: uOnly } = await sb.from("store_orders").update({ payment_status: "paid" }).eq("id", oid);
       if (uOnly) {
         return { ok: false, error: uOnly.message, httpStatus: 500 };
