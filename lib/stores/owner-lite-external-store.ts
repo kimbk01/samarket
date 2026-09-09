@@ -40,7 +40,8 @@ export type OwnerLiteStoreState = {
   ownerStores: StoreRow[];
 };
 
-export { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+/** Re-export for existing consumers (OwnerLite badge helpers). */
+export { pickPreferredOwnerStore };
 
 const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStores: [] };
 const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";
@@ -51,14 +52,9 @@ function pickOwnerLiteActiveStore(stores: readonly StoreRow[]): StoreRow | null 
   if (!stores.length) return null;
   const approved = stores.filter((s) => String(s.approval_status) === "approved");
   const pool = approved.length > 0 ? approved : stores;
-  return (
-    resolveOwnerActiveStoreRow(pool, {
-      preferredStoreId: readOwnerActiveStoreIdFromSession(),
-    }) ??
-    pickPreferredOwnerStore([...stores]) ??
-    stores[0] ??
-    null
-  );
+  return resolveOwnerActiveStoreRow(pool, {
+    preferredStoreId: readOwnerActiveStoreIdFromSession(),
+  });
 }
 
 function readOwnerLiteSessionSnapshot(): OwnerLiteStoreState | null {

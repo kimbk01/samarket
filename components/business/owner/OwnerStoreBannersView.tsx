@@ -7,6 +7,7 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { invalidateStoreBannersPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import {
@@ -122,7 +123,10 @@ export function OwnerStoreBannersView() {
     void (async () => {
       const { json } = await fetchMeStoresListDeduped();
       const j = json as { ok?: boolean; stores?: { id: string }[] };
-      const id = j?.ok && j.stores?.[0]?.id ? String(j.stores[0].id) : "";
+      const id =
+        j?.ok && Array.isArray(j.stores)
+          ? resolveOwnerActiveStoreIdFromOwnedList(j.stores, null) ?? ""
+          : "";
       setResolvedStoreId(id);
     })();
   }, [storeId]);

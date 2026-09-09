@@ -52,6 +52,32 @@ export function resolveOwnerActiveStoreRow<T extends { id: string }>(
   return stores.find((s) => s.id === id) ?? null;
 }
 
+/**
+ * Client owned-list → MODEL A id.
+ * Wires session preferred into existing `resolveOwnerActiveStoreId` — not a second authority.
+ */
+export function resolveOwnerActiveStoreIdFromOwnedList(
+  stores: readonly { id: string }[],
+  routeStoreId?: string | null
+): string | null {
+  return resolveOwnerActiveStoreId({
+    stores,
+    routeStoreId,
+    preferredStoreId: readOwnerActiveStoreIdFromSession(),
+  });
+}
+
+/** Client owned-list → MODEL A row (same priority as `resolveOwnerActiveStoreId`). */
+export function resolveOwnerActiveStoreRowFromOwnedList<T extends { id: string }>(
+  stores: readonly T[],
+  routeStoreId?: string | null
+): T | null {
+  return resolveOwnerActiveStoreRow(stores, {
+    routeStoreId,
+    preferredStoreId: readOwnerActiveStoreIdFromSession(),
+  });
+}
+
 export function readOwnerActiveStoreIdFromSession(): string | null {
   if (typeof window === "undefined") return null;
   try {

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerNotificationSettings } from "@/components/stores/owner/OwnerNotificationSettings";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 
 /** Canonical Owner notification settings — `/stores/owner/notification-settings?storeId=`. */
 export function OwnerStoreNotificationSettingsView() {
@@ -30,7 +31,9 @@ export function OwnerStoreNotificationSettingsView() {
           return;
         }
         const stores = (json as { ok?: boolean; stores?: { id: string }[] })?.stores;
-        const sid = Array.isArray(stores) && stores[0]?.id ? stores[0].id : "";
+        const sid = Array.isArray(stores)
+          ? resolveOwnerActiveStoreIdFromOwnedList(stores, null) ?? ""
+          : "";
         if (!sid) {
           setErr(t("store_not_found_short"));
           return;

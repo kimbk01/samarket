@@ -313,12 +313,10 @@ export function BusinessAdminShell({
 
   const selectedRow = useMemo(() => {
     if (!stores || stores.length === 0) return null;
-    return (
-      resolveOwnerActiveStoreRow(stores, {
-        routeStoreId: storeIdParam,
-        preferredStoreId: readOwnerActiveStoreIdFromSession(),
-      }) ?? stores[0]!
-    );
+    return resolveOwnerActiveStoreRow(stores, {
+      routeStoreId: storeIdParam,
+      preferredStoreId: readOwnerActiveStoreIdFromSession(),
+    });
   }, [stores, storeIdParam]);
 
   useEffect(() => {

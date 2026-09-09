@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
@@ -33,8 +34,15 @@ export function OwnerProductNewStoreIdRedirect({
           return;
         }
         const body = json as { ok?: boolean; stores?: { id?: string }[] };
-        const sid =
-          body?.ok && Array.isArray(body.stores) ? String(body.stores[0]?.id ?? "").trim() : "";
+        const owned =
+          body?.ok && Array.isArray(body.stores)
+            ? body.stores
+                .map((s) => ({ id: String(s.id ?? "").trim() }))
+                .filter((s) => s.id)
+            : [];
+        const sid = owned.length
+          ? resolveOwnerActiveStoreIdFromOwnedList(owned, null) ?? ""
+          : "";
         if (!sid) {
           setFailed(true);
           return;

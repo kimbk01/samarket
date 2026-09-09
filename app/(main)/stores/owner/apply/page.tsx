@@ -30,6 +30,7 @@ import {
   fetchMeStoresListDeduped,
   parseStoreRowsFromMeStoresJson,
 } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import {
   evaluateClientProfileRequirements,
   requireProfileCompletionClient,
@@ -127,7 +128,11 @@ export default function BusinessApplyRoute() {
         const { status, json } = await fetchMeStoresListDeduped();
         if (cancelled) return;
         const stores = status === 200 ? parseStoreRowsFromMeStoresJson(json) ?? [] : [];
-        setExistingStore((HAS_ANY_STORE && stores.length > 0 ? stores[0] : null) ?? null);
+        const existing =
+          HAS_ANY_STORE && stores.length > 0
+            ? resolveOwnerActiveStoreRowFromOwnedList(stores, null)
+            : null;
+        setExistingStore(existing);
         const uname = String(profileSeed?.username ?? "").trim().replace(/^@+/, "");
         const base = uname
           .toLowerCase()

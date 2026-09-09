@@ -16,7 +16,10 @@ import {
   type StoreProductRow,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import {
@@ -117,9 +120,14 @@ export function MyBusinessPage({
         setState({ kind: "empty" });
         return;
       }
-      const byPreferred =
-        preferredStoreId.length > 0 ? stores.find((s) => s.id === preferredStoreId) : undefined;
-      const row = byPreferred ?? pickPreferredOwnerStore(stores) ?? stores[0]!;
+      const row = resolveOwnerActiveStoreRow(stores, {
+        routeStoreId: preferredStoreId,
+        preferredStoreId: readOwnerActiveStoreIdFromSession(),
+      });
+      if (!row) {
+        setState({ kind: "empty" });
+        return;
+      }
       let products: BusinessProduct[] = [];
       if (row.approval_status === "approved") {
         const pr = await fetch(`/api/me/stores/${row.id}/products`, {

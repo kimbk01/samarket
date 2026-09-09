@@ -27,6 +27,7 @@ import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 function renderAccountItem(
@@ -117,13 +118,7 @@ export function MyInfoStoreMenuSection({
       revision_note: s.revision_note ?? null,
     }));
     const gate = getOwnerStoreGateState(forGate);
-    const approvedId =
-      stores.find((s) => String(s.approval_status ?? "") === "approved")?.id?.trim() ?? null;
-    const preferredId = ownerLite.ownerStore?.id?.trim() || null;
-    const firstId =
-      gate.kind === "approved"
-        ? preferredId || approvedId || stores[0]?.id?.trim() || null
-        : stores[0]?.id?.trim() || null;
+    const firstId = resolveOwnerActiveStoreIdFromOwnedList(stores, null);
     return { gate, firstId };
   };
 

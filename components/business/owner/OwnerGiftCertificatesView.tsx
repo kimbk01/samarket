@@ -13,6 +13,7 @@ import {
 } from "@/lib/business/owner-admin-list-ui";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { Sam } from "@/lib/ui/css-vars";
 import { OwnerGiftMoneyOpsPanel } from "@/components/business/owner/OwnerGiftMoneyOpsPanel";
 import { GiftVisualCard } from "@/components/gift-certificate/GiftVisualCard";
@@ -142,7 +143,10 @@ function OwnerGiftCertificatesInner() {
     void (async () => {
       const { json } = await fetchMeStoresListDeduped();
       const j = json as { ok?: boolean; stores?: { id: string }[] };
-      const id = j?.ok && j.stores?.[0]?.id ? String(j.stores[0].id) : "";
+      const id =
+        j?.ok && Array.isArray(j.stores)
+          ? resolveOwnerActiveStoreIdFromOwnedList(j.stores, null) ?? ""
+          : "";
       setResolvedStoreId(id);
     })();
   }, [storeIdQ]);

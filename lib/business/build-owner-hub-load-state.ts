@@ -1,6 +1,9 @@
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
 import { dbStoreToBusinessProfile, type StoreRow } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import {
+  readOwnerActiveStoreIdFromSession,
+  resolveOwnerActiveStoreRow,
+} from "@/lib/delivery/owner/resolve-owner-active-store";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import {
   parseStoreRowsFromMeStoresJson,
@@ -30,12 +33,23 @@ function dashboardPackFromPeek(storeId: string): OwnerHubDashboardPack | null {
 
 export function buildOwnerHubLoadStateFromStoreRows(
   stores: StoreRow[],
-  preferredStoreId: string
+  /** URL `?storeId=` */
+  routeStoreId: string,
+  /** Optional explicit preferred; client default = session */
+  preferredStoreId?: string | null
 ): OwnerHubPageLoadState {
   if (stores.length === 0) return { kind: "empty" };
-  const preferred = preferredStoreId.trim();
-  const byPreferred = preferred ? stores.find((s) => s.id === preferred) : undefined;
-  const row = byPreferred ?? pickPreferredOwnerStore(stores) ?? stores[0]!;
+  const preferred =
+    preferredStoreId !== undefined
+      ? preferredStoreId
+      : typeof window !== "undefined"
+        ? readOwnerActiveStoreIdFromSession()
+        : null;
+  const row = resolveOwnerActiveStoreRow(stores, {
+    routeStoreId,
+    preferredStoreId: preferred,
+  });
+  if (!row) return { kind: "empty" };
   const profile = dbStoreToBusinessProfile(row);
   return {
     kind: "remote",

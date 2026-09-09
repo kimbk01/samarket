@@ -8,6 +8,7 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreRowFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
@@ -78,10 +79,11 @@ export function OwnerStoreInquiriesView() {
         return;
       }
       const stores = sj.stores as { id: string; store_name?: string }[];
-      const store =
-        preferredStoreId && stores.some((s) => s.id === preferredStoreId)
-          ? stores.find((s) => s.id === preferredStoreId)!
-          : stores[0];
+      const store = resolveOwnerActiveStoreRowFromOwnedList(stores, preferredStoreId);
+      if (!store) {
+        setState({ kind: "no_store" });
+        return;
+      }
       // Single-flight must share parsed JSON — Response body can only be read once.
       const payload = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, async () => {
         const ir = await fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {

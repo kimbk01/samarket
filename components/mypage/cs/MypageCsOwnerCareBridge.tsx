@@ -6,6 +6,7 @@ import { MemberCsNoteListClient } from "@/components/mypage/cs/MemberCsNoteListC
 import { MemberCsNoteThreadClient } from "@/components/mypage/cs/MemberCsNoteThreadClient";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import {
   buildOwnerCareAdminNoteRoute,
 } from "@/lib/notifications/member-admin-notes";
@@ -31,10 +32,15 @@ export function MypageCsOwnerCareBridge({
     void (async () => {
       const { status, json } = await fetchMeStoresListDeduped();
       const stores = (json as { stores?: { id?: string }[] } | null)?.stores;
-      const storeId =
-        status === 200 && Array.isArray(stores) && stores[0]?.id
-          ? String(stores[0].id)
-          : "";
+      const owned =
+        status === 200 && Array.isArray(stores)
+          ? stores
+              .map((s) => ({ id: String(s.id ?? "").trim() }))
+              .filter((s) => s.id)
+          : [];
+      const storeId = owned.length
+        ? resolveOwnerActiveStoreIdFromOwnedList(owned, null) ?? ""
+        : "";
       if (cancelled) return;
       if (storeId) {
         if (mode === "thread" && threadId) {

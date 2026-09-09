@@ -37,15 +37,18 @@ export default async function StoresOwnerLayout({ children }: { children: React.
           cookieStore.get(OWNER_ACTIVE_STORE_COOKIE)?.value?.trim() ||
           readOwnerActiveStoreIdFromCookieHeader(h.get("cookie")) ||
           null;
-        const hubRow =
-          resolveOwnerActiveStoreRow(pack.stores, {
-            preferredStoreId: preferredFromCookie,
-          }) ?? pack.stores[0]!;
-        const dashboard = await loadOwnerHubDashboardPackServer(hubRow.id);
-        if (dashboard) {
-          hubDashboardSeed = (
-            <OwnerHubDashboardOrdersCacheSeed storeId={hubRow.id} pack={dashboard} />
-          );
+        const hubRow = resolveOwnerActiveStoreRow(pack.stores, {
+          preferredStoreId: preferredFromCookie,
+        });
+        if (!hubRow) {
+          /* no owned store — skip dashboard seed */
+        } else {
+          const dashboard = await loadOwnerHubDashboardPackServer(hubRow.id);
+          if (dashboard) {
+            hubDashboardSeed = (
+              <OwnerHubDashboardOrdersCacheSeed storeId={hubRow.id} pack={dashboard} />
+            );
+          }
         }
       }
     }

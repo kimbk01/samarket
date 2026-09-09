@@ -10,6 +10,7 @@ import {
   invalidateMeStoresListDedupedCache,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS } from "@/lib/business/owner-store-business-guard-layout";
@@ -58,7 +59,8 @@ function resolvedPhaseFromStoresApi(status: number, raw: unknown): ResolvedPhase
   if (gate.kind === "approved") {
     return { kind: "ok" };
   }
-  const firstStoreId = stores[0]?.id;
+  const firstStoreId =
+    resolveOwnerActiveStoreIdFromOwnedList(stores, null) ?? undefined;
   return { kind: "blocked", state: gate, firstStoreId };
 }
 

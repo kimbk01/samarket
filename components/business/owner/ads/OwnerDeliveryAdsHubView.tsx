@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { DELIVERY_AD_OWNER_ROUTES } from "@/lib/stores/advertising/delivery-ad-routes";
@@ -23,6 +24,7 @@ import { DeliveryAdOwnerProductSelectCard } from "@/components/stores/advertisin
 import type { OwnerAdsSummaryBucket } from "@/lib/stores/advertising/owner-store-sponsored-contract";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerDeliveryAdCashChargeSheet } from "@/components/business/owner/ads/OwnerDeliveryAdCashChargeSheet";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 
 type HubStore = {
   id: string;
@@ -92,6 +94,8 @@ const ENDED_HUB_CAMPAIGN_STATUSES = new Set<HubCampaign["lifecycleStatus"]>([
 
 export function OwnerDeliveryAdsHubView() {
   const { t, safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const routeStoreId = searchParams.get("storeId")?.trim() ?? "";
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [campaigns, setCampaigns] = useState<HubCampaign[]>([]);
@@ -249,6 +253,11 @@ export function OwnerDeliveryAdsHubView() {
     });
   }, [sortedCampaigns, unreadByCampaignId]);
 
+  const activeStoreId = useMemo(
+    () => resolveOwnerActiveStoreIdFromOwnedList(stores, routeStoreId) ?? "",
+    [stores, routeStoreId]
+  );
+
   const greetingText = ownerDisplayName
     ? t("owner_ads_hub_greeting", { name: ownerDisplayName })
     : t("owner_ads_hub_greeting_fallback");
@@ -278,12 +287,12 @@ export function OwnerDeliveryAdsHubView() {
             actions={[
               {
                 id: "top_up",
-                href: `${OwnerRoutes.finance(stores[0]?.id || "")}#cash-manage`,
+                href: `${OwnerRoutes.finance(activeStoreId)}#cash-manage`,
                 primary: true,
               },
               {
                 id: "history",
-                href: `${OwnerRoutes.finance(stores[0]?.id || "")}#cash-history`,
+                href: `${OwnerRoutes.finance(activeStoreId)}#cash-history`,
               },
             ]}
             footer={
@@ -516,8 +525,8 @@ export function OwnerDeliveryAdsHubView() {
 
           <Link
             href={
-              stores[0]
-                ? `${DELIVERY_AD_OWNER_ROUTES.partner}?storeId=${encodeURIComponent(stores[0].id)}`
+              activeStoreId
+                ? `${DELIVERY_AD_OWNER_ROUTES.partner}?storeId=${encodeURIComponent(activeStoreId)}`
                 : DELIVERY_AD_OWNER_ROUTES.partner
             }
             className="block rounded-ui-rect border border-[#BDBDBD] bg-white p-4"
@@ -535,7 +544,7 @@ export function OwnerDeliveryAdsHubView() {
       <OwnerDeliveryAdCashChargeSheet
         open={cashChargeOpen}
         onClose={() => setCashChargeOpen(false)}
-        storeId={stores[0]?.id ?? null}
+        storeId={activeStoreId || null}
       />
 
       <DibayBottomSheet

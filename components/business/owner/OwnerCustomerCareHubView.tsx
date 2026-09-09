@@ -11,6 +11,7 @@ import { OwnerCta } from "@/lib/business/owner-cta-classes";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { useOwnerFabOrderChatBadgeCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { listOwnerCustomerHubEntries } from "@/lib/business/owner-nav-registry";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
@@ -51,8 +52,11 @@ export function OwnerCustomerCareHubView() {
     if (!sid) {
       const { status, json } = await fetchMeStoresListDeduped();
       const stores = (json as { stores?: { id?: string }[] } | null)?.stores;
-      if (status === 200 && Array.isArray(stores) && stores[0]?.id) {
-        sid = String(stores[0].id);
+      if (status === 200 && Array.isArray(stores)) {
+        const owned = stores
+          .map((s) => ({ id: String(s.id ?? "").trim() }))
+          .filter((s) => s.id);
+        sid = resolveOwnerActiveStoreIdFromOwnedList(owned, null) ?? "";
       }
     }
     setResolvedStoreId(sid || null);

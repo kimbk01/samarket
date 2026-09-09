@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
@@ -46,7 +47,10 @@ export function OwnerStoreReviewsView() {
           setRows([]);
           return;
         }
-        sid = j?.ok && Array.isArray(j.stores) && j.stores[0]?.id ? j.stores[0].id : "";
+        sid =
+          j?.ok && Array.isArray(j.stores)
+            ? resolveOwnerActiveStoreIdFromOwnedList(j.stores, null) ?? ""
+            : "";
       }
       if (!sid) {
         setErr("load_failed");

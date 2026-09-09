@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { resolveOwnerActiveStoreIdFromOwnedList } from "@/lib/delivery/owner/resolve-owner-active-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ownerUiCopy } from "@/lib/business/owner-ui-copy";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -65,7 +66,10 @@ export function OwnerStoreCouponsView() {
     void (async () => {
       const { json } = await fetchMeStoresListDeduped();
       const j = json as { ok?: boolean; stores?: { id: string }[] };
-      const id = j?.ok && j.stores?.[0]?.id ? String(j.stores[0].id) : "";
+      const id =
+        j?.ok && Array.isArray(j.stores)
+          ? resolveOwnerActiveStoreIdFromOwnedList(j.stores, null) ?? ""
+          : "";
       setResolvedStoreId(id);
     })();
   }, [storeId]);

@@ -23,7 +23,6 @@ import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
-import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 import {
   readOwnerActiveStoreIdFromSession,
   resolveOwnerActiveStoreRow,
@@ -58,15 +57,10 @@ const Ctx = createContext<OwnerHubRuntimeValue | null>(null);
 
 function pickRow(stores: StoreRow[], storeIdParam: string): StoreRow | null {
   if (stores.length === 0) return null;
-  return (
-    resolveOwnerActiveStoreRow(stores, {
-      routeStoreId: storeIdParam,
-      preferredStoreId: readOwnerActiveStoreIdFromSession(),
-    }) ??
-    pickPreferredOwnerStore(stores) ??
-    stores[0] ??
-    null
-  );
+  return resolveOwnerActiveStoreRow(stores, {
+    routeStoreId: storeIdParam,
+    preferredStoreId: readOwnerActiveStoreIdFromSession(),
+  });
 }
 
 function orderCountsStoreIdFromRow(row: StoreRow | null): string | null {
