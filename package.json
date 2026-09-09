@@ -245,6 +245,7 @@
     "check:i18n-staged": "node scripts/check-i18n-staged-keys.mjs --staged",
     "check:i18n-hardcoded": "node scripts/check-hardcoded-korean.mjs",
     "verify:i18n-key-exposure": "node scripts/verify-i18n-key-exposure.mjs",
+    "verify:schema-authority": "node scripts/verify-schema-authority.mjs",
     "verify:i18n-phase3-my-components": "node scripts/verify-i18n-phase3-my-components.mjs",
     "test:e2e:i18n-my-profile": "playwright test tests/e2e/i18n-my-profile-language.spec.ts",
     "e2e:ensure-aaaa-manual-auth": "node scripts/ensure-e2e-aaaa-manual-auth.mjs",

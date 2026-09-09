@@ -327,11 +327,26 @@ ACTUAL: <…>
 
 ## 9. Canonical execution path
 
-**Single authority path (v1):**
+**Single authority path (v1) — implementation binding (CUT 7-F):**
 
 ```text
-node scripts/verify-schema-authority.mjs
-  → load expected JSON under supabase/schema-authority/**
+Fingerprint root:
+  supabase/schema-authority/<schema>/<table>/v<N>.fingerprint.json
+
+Verifier:
+  scripts/verify-schema-authority.mjs
+
+npm:
+  npm run verify:schema-authority
+  npm run verify:schema-authority -- --fixtures
+  npm run verify:schema-authority -- --compat
+  npm run verify:schema-authority -- --live
+```
+
+Flow:
+
+```text
+load expected JSON under supabase/schema-authority/**
   → read-only pooler/catalog inspect
   → MATCH → exit 0
   → else print structured diffs → exit ≠ 0
@@ -340,12 +355,10 @@ node scripts/verify-schema-authority.mjs
 | Context | Role |
 |---|---|
 | Local / operator | **Canonical** |
-| CI | Allowed later to call the same script — **not required in CUT 7-E** |
+| CI | Allowed later to call the same script — optional |
 | Migration precondition | **Forbidden** as primary authority (migrations are mutation vehicles) |
 
 Production safety: SELECT/catalog only. **No DDL** in the verifier.
-
-Package script name (when implemented): `verify:schema-authority`.
 
 ## 10. Recovery eligibility (including UNKNOWN origin)
 

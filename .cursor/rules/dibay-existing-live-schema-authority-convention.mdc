@@ -35,7 +35,10 @@ Versioned JSON under:
 
 `supabase/schema-authority/<schema>/<table>/v<N>.fingerprint.json`
 
-Canonical check (when implemented): `scripts/verify-schema-authority.mjs` (read-only catalog).
+Canonical verifier: `scripts/verify-schema-authority.mjs`  
+npm: `npm run verify:schema-authority` (`--fixtures` / `--compat` / `--live`)
+
+First anchored tables: `public.store_payments` · `public.store_payment_events` (v1).
 
 ## Payment note
 

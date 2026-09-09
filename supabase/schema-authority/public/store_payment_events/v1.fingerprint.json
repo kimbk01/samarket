@@ -1,0 +1,144 @@
+{
+  "convention": "dibay.existing_live_schema_authority",
+  "convention_version": 1,
+  "schema": "public",
+  "table": "store_payment_events",
+  "contract_version": 1,
+  "metadata": {
+    "source": "LIVE_EXACT_FINGERPRINT",
+    "verified_at": "2026-09-10T00:00:00.000Z",
+    "verified_environment": "production",
+    "origin": "UNKNOWN",
+    "creation_origin": "unknown",
+    "recovery_kind": "existing_live_repository_authority",
+    "auto_create": false,
+    "auto_repair": false
+  },
+  "columns": [
+    {
+      "name": "id",
+      "udt": "uuid",
+      "nullable": false,
+      "default_norm": "gen_random_uuid()",
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "source",
+      "udt": "text",
+      "nullable": false,
+      "default_norm": null,
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "order_id",
+      "udt": "uuid",
+      "nullable": true,
+      "default_norm": null,
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "event_type",
+      "udt": "text",
+      "nullable": false,
+      "default_norm": null,
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "provider",
+      "udt": "text",
+      "nullable": true,
+      "default_norm": null,
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "transmission_id",
+      "udt": "text",
+      "nullable": true,
+      "default_norm": null,
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "payload",
+      "udt": "jsonb",
+      "nullable": false,
+      "default_norm": "'{}'::jsonb",
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    },
+    {
+      "name": "created_at",
+      "udt": "timestamptz",
+      "nullable": false,
+      "default_norm": "now()",
+      "is_identity": false,
+      "identity_generation": null,
+      "is_generated": "NEVER",
+      "generation_expression_norm": null
+    }
+  ],
+  "primary_key": {
+    "name": "store_payment_events_pkey",
+    "columns": ["id"],
+    "deferrable": false,
+    "initially_deferred": false
+  },
+  "foreign_keys": [
+    {
+      "name": "store_payment_events_order_id_fkey",
+      "columns": ["order_id"],
+      "ref_schema": "public",
+      "ref_table": "store_orders",
+      "ref_columns": ["id"],
+      "on_update": "NO ACTION",
+      "on_delete": "SET NULL",
+      "deferrable": false,
+      "initially_deferred": false
+    }
+  ],
+  "uniques": [],
+  "checks": [],
+  "indexes": [
+    {
+      "name": "idx_store_payment_events_created",
+      "method": "btree",
+      "unique": false,
+      "columns_norm": ["created_at DESC"],
+      "predicate_norm": null,
+      "definition_norm": "CREATE INDEX idx_store_payment_events_created ON public.store_payment_events USING btree (created_at DESC)"
+    },
+    {
+      "name": "idx_store_payment_events_order",
+      "method": "btree",
+      "unique": false,
+      "columns_norm": ["order_id", "created_at DESC"],
+      "predicate_norm": null,
+      "definition_norm": "CREATE INDEX idx_store_payment_events_order ON public.store_payment_events USING btree (order_id, created_at DESC)"
+    }
+  ],
+  "rls": {
+    "enabled": true,
+    "forced": false
+  },
+  "policies": [],
+  "triggers": []
+}
