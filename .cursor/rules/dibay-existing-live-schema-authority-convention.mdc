@@ -1,0 +1,42 @@
+---
+description: Fail-fast existing-live table schema authority recovery — no IF NOT EXISTS authority close, no silent ALTER repair
+alwaysApply: true
+---
+
+# DIBAY Existing-Live Schema Authority
+
+**ADOPTED.** Full contract: `docs/dibay-existing-live-schema-authority-convention.md`
+
+## When it applies
+
+Live table exists **and** repo CREATE authority is missing → use this convention only.
+
+## Outcomes
+
+| Result | Action |
+|---|---|
+| MATCH | NO-OP / PASS |
+| DRIFT / EXTRA | FAIL-FAST — no auto-fix |
+| MISSING table | BLOCK — no auto-CREATE on recovery path |
+
+**ASSERT BEFORE MUTATE.** Recovery ≠ Creation ≠ Repair.
+
+## DO NOT
+
+- Close authority with `CREATE TABLE IF NOT EXISTS` alone
+- Silent catch-up `ALTER` / policy/index “repair” as recovery
+- DDL inside recovery fingerprints or `verify:schema-authority`
+- Invent ORM/DSL/new DB framework for this
+- Expand beyond TABLE SCHEMA AUTHORITY without Owner decision
+
+## Expected form
+
+Versioned JSON under:
+
+`supabase/schema-authority/<schema>/<table>/v<N>.fingerprint.json`
+
+Canonical check (when implemented): `scripts/verify-schema-authority.mjs` (read-only catalog).
+
+## Payment note
+
+`store_payments` / `store_payment_events` use this global convention — not a one-off exception.
