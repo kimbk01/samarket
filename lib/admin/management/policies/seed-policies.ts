@@ -128,8 +128,8 @@ export const COMMUNITY_COMMENT_ENTITY_ACTION_POLICY: EntityActionPolicy = {
 /**
  * Chat room list — hide is Admin personal/session list filter only (not room lifecycle).
  * Legacy trade storage: POST /api/admin/chat/rooms/bulk-delete (chat_rooms|product_chats).
- * CM (community_messenger_rooms): B4 soft tombstone via Prelaunch chat scope + chat-reset-policy
- * (hard-reset-only is future HIGH-RISK — not Prelaunch default).
+ * CM (community_messenger_rooms): B4 soft tombstone via Data Reset SSOT (chat-reset-policy);
+ * Prelaunch Reset redirects to /admin/system/data-reset (not a separate CM hard-wipe owner).
  */
 export const CHAT_ROOM_ENTITY_ACTION_POLICY: EntityActionPolicy = {
   entityKind: "chat_room",

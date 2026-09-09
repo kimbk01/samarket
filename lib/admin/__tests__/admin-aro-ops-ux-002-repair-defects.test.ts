@@ -68,6 +68,8 @@ describe("ARO-OPS-UX-002 repair — DEF-009/010 chat authority", () => {
     const seed = read("lib/admin/management/policies/seed-policies.ts");
     expect(seed).toContain("CHAT_ROOM_ENTITY_ACTION_POLICY");
     expect(seed).toContain("listHiddenIds");
+    expect(seed).toContain("Data Reset SSOT");
+    expect(seed).toContain("chat-reset-policy");
     expect(seed).toContain("Prelaunch Reset");
     const catalog = read("lib/i18n/catalog/admin.ts");
     expect(catalog).toMatch(/방 상태·DB는 변경되지 않습니다/);
