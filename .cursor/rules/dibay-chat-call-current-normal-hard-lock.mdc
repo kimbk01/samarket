@@ -1,0 +1,50 @@
+---
+description: CURRENT NORMAL Chat+Call HARD LOCK — freeze Native/CallKit/RTC and Call SSOT; Owner gate required
+alwaysApply: true
+---
+
+# DIBAY Chat + Call — CURRENT NORMAL HARD LOCK
+
+**ACTIVE.** Full contract: `docs/dibay-chat-call-current-normal-hard-lock.md`  
+Master audit (accepted): `.recovery/.../chat-call-ssot-hard-lock-master-audit-20260909/DIBAY_CHAT_CALL_CURRENT_NORMAL_BASELINE_SSOT_HARD_LOCK_MASTER_AUDIT.md`
+
+## Baseline (do not conflate)
+
+- **NORMAL authority:** `4b093a61645a3eedac1c5ca42a9fc09a401bf4f5`
+- Later HEAD commits ≠ automatic PASS expansion
+- Dirty `NativeOutgoingRingbackOwner.java` ≠ PASS evidence
+
+## HARD LOCK A — Native / CallKit / PushKit / RTC
+
+Owner 승인 없이 Android/iOS Native Call lifecycle 수정 금지.
+
+금지 예: refactor · cleanup · duplication removal · Voice/Video 통합 · Native→Web ownership 이동 · CallKit/PushKit/RTC lifecycle 변경.
+
+Native 수정 전 필수 보고: WHY NATIVE · FIRST DIVERGENCE · WHY WEB/SERVER INSUFFICIENT · exact owner · Voice/Video · Android/iOS · CallKit/PushKit · RTC · server · projection · tests · device matrix · rollback.
+
+## HARD LOCK B — Server session
+
+Sole writer: `updateCommunityMessengerCallSession`  
+Owns: status / answered_at / connected_at / ended_at / ended_reason / answered_device_id  
+Proposers (Native/JS/V4/cron/admin) OK. Second canonical writer FORBIDDEN.  
+Do **not** “fix” dual proposers by merging/removing them without Owner phase.
+
+## HARD LOCK C — Projection
+
+SESSION → stub / history / notification only. Reverse FORBIDDEN.
+
+## HARD LOCK D — Presentation
+
+DB STATUS ≠ TERMINAL REASON ≠ DISPLAY LABEL. Consume canonical reasons only.
+
+## Chat four-domain
+
+`general_direct` ≠ `group` ≠ `trade` ≠ `store_order` — see `docs/dibay-messenger-domain-group-hard-lock.md`.
+
+## Violation → STOP
+
+“구조 정리 / 중복 제거 / 리팩터링 / SSOT 개선 / 공통화”로 A/B/C를 건드리면 **STOP**.  
+PRODUCT FAIL first divergence 없으면 NORMAL Call lifecycle 수정 금지.  
+P0/P1 구현은 별도 Owner phase — 이 rule만으로 구현 시작 금지.
+
+Detail owners remain: `docs/dibay-call-authority-lock.md` · `docs/dibay-call-native-runtime-ssot.md` · O2/O3/O4 · lifecycle SSOT. Do not invent a second parallel SSOT.

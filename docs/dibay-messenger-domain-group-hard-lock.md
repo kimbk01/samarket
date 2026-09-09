@@ -1,6 +1,7 @@
 # DIBAY Messenger Domain Separation + GROUP Chat HARD LOCK
 
 **HARD LOCK DECLARED:** 2026-09-07  
+**CURRENT NORMAL Chat+Call umbrella (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` — four-domain separation stays **this** document’s authority (linked, not duplicated).  
 **Preserves:** GROUP ACTIVE MEMBERSHIP AUTHORITY (source close — list/bootstrap/send/bump/push)  
 **Runtime / Production:** NOT_PROVEN this declaration  
 **Related:** `lib/chat-domain/four-domain-freeze.ts` · `docs/community-messenger/2026-07-23-four-domain-phase-b-freeze.md` · `lib/community-messenger/group/group-active-membership-gate.ts`

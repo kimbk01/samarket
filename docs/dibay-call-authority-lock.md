@@ -1,8 +1,10 @@
 # DIBAY Call Authority LOCK
 
-**Status:** AUTHORITY LOCK · TERMINAL UNREAD CONTRACT UPDATED (2026-08-04)
+**Status:** AUTHORITY LOCK · TERMINAL UNREAD CONTRACT UPDATED (2026-08-04)  
+**CURRENT NORMAL umbrella (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` — this file remains the **HARD LOCK B + C + D detail** owner (session writer · projection · terminal reasons). Do not fork a second authority doc.
+
 **Replaces / supersedes for terminal·duration·busy·missed contracts:** ad-hoc patches that conflict with this doc.  
-**Does not blindly reopen:** O2 / O3 / O4 / Track①③④ / Voice UI / Video UI / PiP / Dock — those remain unless a listed P0/P1 root cause required a minimal native change (see § Conflicts).
+**Does not blindly reopen:** O2 / O3 / O4 / Track①③④ / Voice UI / Video UI / PiP / Dock — those remain unless a listed P0/P1 root cause required a minimal native change (see § Conflicts). Under CURRENT NORMAL HARD LOCK, Native changes also require the Native Change Gate in the umbrella doc.
 
 Messenger terminal unread SSOT:
 `docs/dibay-messenger-final-stabilization-contract.md`. Existing Native call

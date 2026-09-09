@@ -12,7 +12,8 @@ globs:
 
 # DIBAY Messenger Domain + GROUP HARD LOCK
 
-**HARD LOCK DECLARED (2026-09-07).** Full doc: `docs/dibay-messenger-domain-group-hard-lock.md`.
+**HARD LOCK DECLARED (2026-09-07).** Full doc: `docs/dibay-messenger-domain-group-hard-lock.md`.  
+Linked by CURRENT NORMAL Chat+Call umbrella: `docs/dibay-chat-call-current-normal-hard-lock.md` (four-domain stays this lock — no duplicate domain SSOT).
 
 ## Boundary
 

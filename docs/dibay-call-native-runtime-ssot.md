@@ -1,6 +1,8 @@
 # DIBAY Call Native Runtime SSOT
 
-이 문서는 DIBAY Call 개발의 최상위 SSOT다. 기존 구현 방향, 성능 패치, V4/Web 보완 방향보다 우선한다.
+이 문서는 DIBAY Call **Native Runtime** 개발의 상위 SSOT다. 기존 구현 방향, 성능 패치, V4/Web 보완 방향보다 우선한다.
+
+**CURRENT NORMAL umbrella (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` — Native/CallKit/PushKit/RTC는 **HARD LOCK A**. Owner 승인 + Native Change Gate 없이 수정 금지. 이 파일은 런타임 경로·quarantine 상세 owner로 유지한다 (병렬 SSOT 신설 금지).
 
 ## 변경 금지 목표
 

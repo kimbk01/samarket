@@ -1,12 +1,13 @@
 # DIBAY Call Native Runtime — Android COMPLETE HARD LOCK
 
-Status: **HARD LOCK — PROJECT CLOSED** (2026-06-28, Track ④ Final Regression PASS)
+Status: **HARD LOCK — PROJECT CLOSED** (2026-06-28, Track ④ Final Regression PASS)  
+**CURRENT NORMAL umbrella (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` (HARD LOCK A). Historical Track ④ PASS remains HISTORICAL EVIDENCE; CURRENT NORMAL authority commit is recorded in the umbrella (do not conflate).
 
 ## Lock Statement
 
 **Native Call Runtime Android COMPLETE HARD LOCK.** Voice and Video calls establish, connect, present UI, PiP, Dock, and end cleanup through **Native Runtime only**. WebView / CallV4Screen / JS Agora are not establishment requirements. **Track ④ Final Regression PASS** (post Track ③ commit `561a98e1`) is the closing umbrella proof. **Native Telegram Runtime project is CLOSED.**
 
-SSOT: `docs/dibay-call-native-runtime-ssot.md` · Cursor rule: `.cursor/rules/dibay-call-native-runtime-ssot.mdc`
+SSOT: `docs/dibay-call-native-runtime-ssot.md` · Cursor rule: `.cursor/rules/dibay-call-native-runtime-ssot.mdc` · CURRENT NORMAL: `.cursor/rules/dibay-chat-call-current-normal-hard-lock.mdc`
 
 ## Final Regression Gates (all PASS required)
 

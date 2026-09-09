@@ -1,6 +1,7 @@
 # DIBAY Call Lifecycle SSOT
 
 **Status:** structural contract  
+**CURRENT NORMAL umbrella (2026-09-09):** `docs/dibay-chat-call-current-normal-hard-lock.md` — lifecycle step owners remain here; Native/server change gates follow the umbrella.  
 **Scope:** 1:1 community messenger call lifecycle from dial to local cleanup
 
 ## Lifecycle
@@ -60,3 +61,4 @@
 | Date | Change |
 |------|--------|
 | 2026-06-22 | DIBAY call lifecycle SSOT: removed tmp route handoff, moved lifecycle PATCH to gateways, and made native/local cleanup peer-PATCH-free. |
+| 2026-09-09 | Linked under CURRENT NORMAL HARD LOCK umbrella (`docs/dibay-chat-call-current-normal-hard-lock.md`). Product code unchanged. |
