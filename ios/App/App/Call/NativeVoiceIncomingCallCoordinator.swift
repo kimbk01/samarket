@@ -348,6 +348,14 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     log("ios_native_voice_cleanup_started", sid, "reason=\(reason)")
 
+    // Durable late-push authority BEFORE Runtime reset / CallKit map clear.
+    // endCallKitSession is UI-only and does not mark; without this, late call_ended
+    // looks like a true cold orphan and report_then_end resurrects CallKit.
+    // Same authority as reportCallEnded → markTerminalSuppressed (existing, not new state).
+    if reportCallKitEnded {
+      CallKitProvider.shared.markTerminalSuppressed(sessionId: sid, reason: reason)
+    }
+
     if let serverAction {
       if serverAction == "end" {
         NativeVoiceCallApi.endAsync(callId: sid) { _, _, _ in }

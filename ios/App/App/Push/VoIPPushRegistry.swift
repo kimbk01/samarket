@@ -97,7 +97,25 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           completion()
           return
         }
-        // Untracked winner wake still requires PushKit → CallKit fulfillment.
+        // Already-terminal known session (e.g. call_ended cleared CallKit map +
+        // terminalSuppressed) is NOT a true cold orphan. Completion-only — do not
+        // re-report CallKit (no generation bump / re-bell / resurrection).
+        if callProvider.isTerminalSuppressed(sessionId: sessionId) {
+          DibayCallLog.infoCallV4(
+            "ios_voip_answered_elsewhere_winner_terminal_suppressed",
+            callId: sessionId,
+            owner: "terminal",
+            reason: "completion_only"
+          )
+          DibayCallLog.infoCall(
+            "[voip] completion",
+            callId: sessionId,
+            detail: "winner_untracked_terminal_suppressed"
+          )
+          completion()
+          return
+        }
+        // True cold orphan: untracked winner wake still requires PushKit → CallKit fulfillment.
         DibayCallLog.infoCallV4(
           "ios_voip_answered_elsewhere_winner_untracked",
           callId: sessionId,
@@ -178,6 +196,25 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       )
       callProvider.reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)
       DibayCallLog.infoCall("[voip] completion", callId: sessionId, detail: "tracked_callkit_end")
+      completion()
+      return
+    }
+
+    // Already terminal-suppressed (e.g. fail_after_fulfill marked before map clear):
+    // not a true cold orphan — completion-only. fulfillOrphan would still
+    // reportNewIncomingCall (will_report_then_end) and cause visible resurrection.
+    if callProvider.isTerminalSuppressed(sessionId: sessionId) {
+      DibayCallLog.infoCallV4(
+        "ios_voip_terminal_already_suppressed",
+        callId: sessionId,
+        owner: "terminal",
+        reason: "completion_only kind=\(kind)"
+      )
+      DibayCallLog.infoCall(
+        "[voip] completion",
+        callId: sessionId,
+        detail: "already_terminal_suppressed kind=\(kind)"
+      )
       completion()
       return
     }
