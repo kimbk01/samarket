@@ -54,3 +54,32 @@ export function resolveCoinFinanceGate(result: { n: number; error?: string }): {
     guard: result.n > 0 ? `coin_ledger_rows=${result.n}` : null,
   };
 }
+
+/**
+ * CUT 4 — cash / point / orders protection counts (non-Coin).
+ * Same fail-closed contract as Coin: query error ≠ known zero.
+ * Does not change Coin resolver (`resolveCoinFinanceGate`).
+ */
+export const FINANCE_AUTHORITY_UNREADABLE_BLOCKER = "finance_authority_unreadable" as const;
+
+export function resolveFinanceProtectionCountGate(
+  result: { n: number; error?: string },
+  opts: { guardPrefix: string }
+): {
+  delta: number;
+  blocker: typeof FINANCE_AUTHORITY_UNREADABLE_BLOCKER | null;
+  guard: string | null;
+} {
+  if (result.error) {
+    return {
+      delta: 0,
+      blocker: FINANCE_AUTHORITY_UNREADABLE_BLOCKER,
+      guard: `${opts.guardPrefix}_query_error=${result.error}`,
+    };
+  }
+  return {
+    delta: result.n,
+    blocker: null,
+    guard: null,
+  };
+}

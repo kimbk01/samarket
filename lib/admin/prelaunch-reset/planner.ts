@@ -44,6 +44,7 @@ import {
 import {
   countCanonicalCoinFinanceRows,
   resolveCoinFinanceGate,
+  resolveFinanceProtectionCountGate,
 } from "@/lib/admin/prelaunch-reset/coin-finance-gate";
 
 async function countEq(
@@ -703,33 +704,52 @@ export async function buildPrelaunchResetPlan(
   }
 
   // --- Finance / gift / orders gates (count only; default BLOCK on non-zero) ---
+  // CUT 4: cash/point/orders query error → fail-closed (never n:0 as SAFE). Gift remains optional.
   let finance = 0;
   let gift = 0;
   let orders = 0;
 
   if (storeIds.length) {
     const cashLedger = await countIn(input.sb, "business_cash_ledger", "store_id", storeIds);
-    finance += cashLedger.n;
-    if (cashLedger.error) warnings.push(cashLedger.error);
+    const cashLedgerGate = resolveFinanceProtectionCountGate(cashLedger, {
+      guardPrefix: "cash_ledger",
+    });
+    finance += cashLedgerGate.delta;
+    if (cashLedgerGate.guard) financialGuards.push(cashLedgerGate.guard);
+    if (cashLedgerGate.blocker) blockers.push(cashLedgerGate.blocker);
+
     const cashReq = await countIn(input.sb, "business_cash_charge_requests", "store_id", storeIds);
-    finance += cashReq.n;
+    const cashReqGate = resolveFinanceProtectionCountGate(cashReq, {
+      guardPrefix: "cash_charge_requests",
+    });
+    finance += cashReqGate.delta;
+    if (cashReqGate.guard) financialGuards.push(cashReqGate.guard);
+    if (cashReqGate.blocker) blockers.push(cashReqGate.blocker);
+
     // CUT 1 — Coin gate uses Currency SSOT only; query error → fail-closed (never n:0 as SAFE)
     const coinLedger = await countCanonicalCoinFinanceRows(input.sb, storeIds);
     const coinGate = resolveCoinFinanceGate(coinLedger);
     finance += coinGate.financeDelta;
     if (coinGate.guard) financialGuards.push(coinGate.guard);
     if (coinGate.blocker) blockers.push(coinGate.blocker);
+
     const ord = await countIn(input.sb, "store_orders", "store_id", storeIds);
-    orders += ord.n;
-    if (ord.error) warnings.push(ord.error);
+    const ordGate = resolveFinanceProtectionCountGate(ord, { guardPrefix: "store_orders" });
+    orders += ordGate.delta;
+    if (ordGate.guard) financialGuards.push(ordGate.guard);
+    if (ordGate.blocker) blockers.push(ordGate.blocker);
   }
   if (safeMemberIds.length) {
     const point = await countIn(input.sb, "point_charge_requests", "user_id", safeMemberIds);
-    finance += point.n;
-    if (point.error) warnings.push(point.error);
+    const pointGate = resolveFinanceProtectionCountGate(point, {
+      guardPrefix: "point_charge_requests",
+    });
+    finance += pointGate.delta;
+    if (pointGate.guard) financialGuards.push(pointGate.guard);
+    if (pointGate.blocker) blockers.push(pointGate.blocker);
   }
 
-  // Gift — try common table names; missing table → warning only
+  // Gift — try common table names; missing table → warning only (intentional optional / non-blocking)
   if (storeIds.length || safeMemberIds.length) {
     const giftStore = storeIds.length
       ? await countIn(input.sb, "gift_certificate_instances", "store_id", storeIds)
