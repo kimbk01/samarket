@@ -8,6 +8,7 @@
  *   updateCommunityMessengerCallSession
  *     → ensureTerminalCallStub / createCommunityMessengerCallLog
  *     → appendCommunityMessengerCallStubMessage
+ *     → publishMessengerRoomBumpAfterMutation (CUT-1 parity with text send; projection only)
  *
  * Client local paths (IncomingCall / CallClient / peer_busy) may reconcile UI only;
  * they must not invent a second persisted stub.

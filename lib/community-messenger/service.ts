@@ -5294,6 +5294,32 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     return null;
   };
 
+  /**
+   * CUT-1: terminal call_stub projection → same room-bump authority as text send.
+   * Only after successful stub write. Best-effort — does not invent session terminal.
+   */
+  const publishTerminalCallStubRoomBumpBestEffort = async (args: {
+    messageId?: string | null;
+  }): Promise<void> => {
+    const roomId = trimText(input.roomId);
+    const fromUserId = trimText(input.userId);
+    if (!roomId || !fromUserId) return;
+    try {
+      const { publishMessengerRoomBumpAfterMutation } = await import(
+        "@/lib/community-messenger/server/publish-messenger-room-bump"
+      );
+      await publishMessengerRoomBumpAfterMutation({
+        rawRouteRoomId: roomId,
+        canonicalRoomId: roomId,
+        fromUserId,
+        messageId: trimText(args.messageId ?? "") || undefined,
+        messageCreatedAt: listActivityAt,
+      });
+    } catch {
+      /* best-effort — postgres_changes remains */
+    }
+  };
+
   const updateExistingStub = async (existing: CallStubExistingRow) => {
     const stubStartedAt = trimText(existing.createdAt) || trimText(input.createdAt);
     const sb = getSupabaseOrNull();
@@ -5368,6 +5394,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existing = await findCallStubRowBySessionId(input.roomId, sessionId);
     if (existing) {
       await updateExistingStub(existing);
+      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existing.id });
       return;
     }
   }
@@ -5375,6 +5402,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existingByTmp = await findCallStubRowBySessionId(input.roomId, tmp);
     if (existingByTmp) {
       await updateExistingStub(existingByTmp);
+      await publishTerminalCallStubRoomBumpBestEffort({ messageId: existingByTmp.id });
       return;
     }
   }
@@ -5429,12 +5457,14 @@ export async function appendCommunityMessengerCallStubMessage(input: {
           .eq("id", input.roomId);
       }
     }
+    await publishTerminalCallStubRoomBumpBestEffort({ messageId: appended.messageId });
     return;
   }
 
   const dev = getDevState();
+  const newId = randomUUID();
   dev.messages.push({
-    id: randomUUID(),
+    id: newId,
     roomId: input.roomId,
     senderId: input.userId,
     messageType: "call_stub",
@@ -5451,10 +5481,12 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       if (bumped) room.lastMessageAt = bumped;
     }
   }
-  if (!shouldIncrementUnread) return;
-  for (const participant of dev.participants.filter((item) => item.roomId === input.roomId)) {
-    participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
+  if (shouldIncrementUnread) {
+    for (const participant of dev.participants.filter((item) => item.roomId === input.roomId)) {
+      participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
+    }
   }
+  await publishTerminalCallStubRoomBumpBestEffort({ messageId: newId });
 }
 
 async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
