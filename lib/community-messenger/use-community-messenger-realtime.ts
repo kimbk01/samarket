@@ -1022,16 +1022,33 @@ export function useCommunityMessengerRoomRealtime(args: {
     if (!rid) return;
     const roomKey = rid.toLowerCase();
 
+    /** Dead stub (`getSupabaseClient()` null at create) has no notify/bind — never cache it. */
     let bundle = globalMessengerRoomBundleByViewer.get(viewerForChannel);
+    if (bundle && typeof bundle.notifyRoomListenersChanged !== "function") {
+      try {
+        bundle.stop();
+      } catch {
+        /* ignore */
+      }
+      globalMessengerRoomBundleByViewer.delete(viewerForChannel);
+      bundle = undefined;
+    }
     if (!bundle) {
+      if (!getSupabaseClient()) return;
       bundle = createGlobalMessengerRoomBundleEntry({
         viewerForChannel,
         onStopped: () => {
           globalMessengerRoomBundleByViewer.delete(viewerForChannel);
         },
       });
+      if (typeof bundle.notifyRoomListenersChanged !== "function") {
+        return;
+      }
       globalMessengerRoomBundleByViewer.set(viewerForChannel, bundle);
     }
+
+    const notifyRoomListenersChanged = bundle.notifyRoomListenersChanged;
+    if (typeof notifyRoomListenersChanged !== "function") return;
 
     let set = bundle.listenersByRoom.get(roomKey);
     if (!set) {
@@ -1041,7 +1058,7 @@ export function useCommunityMessengerRoomRealtime(args: {
     set.add(listenerRef);
     recordCmRoomEntryMilestone("realtime_ready_ms");
     noteTradeChatRoomRealtimeReadyForShellBreakdown();
-    bundle.notifyRoomListenersChanged?.();
+    notifyRoomListenersChanged();
     let idleOnFirstRoomListener = -1;
     if (bundle.channelSubscribed && set.size === 1) {
       idleOnFirstRoomListener = scheduleWhenBrowserIdle(() => {

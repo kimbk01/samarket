@@ -583,12 +583,24 @@ export function createGlobalMessengerRoomBundleEntry(args: {
     bindFilteredPostgresSubscriptions();
   };
 
+  /**
+   * CUT-R1: listener registration must be able to kick bind even when auth-bridge
+   * `onReady` has not flipped `roomBound` yet. Previously `!roomBound` made this a
+   * hard no-op, so a hung/raced auth bridge left open rooms with zero
+   * `global-messenger:bundle:*` subscriptions (Production first divergence).
+   * `subscribeWithRetry` still waits for Realtime JWT before phx_join.
+   */
   entry.notifyRoomListenersChanged = () => {
-    if (!roomBound || cancelled) return;
+    if (cancelled) return;
     clearNotifyDebounce();
     notifyDebounceTimer = setTimeout(() => {
       notifyDebounceTimer = null;
-      if (!cancelled && roomBound) bindFilteredPostgresSubscriptions();
+      if (cancelled) return;
+      if (!roomBound) {
+        bindGlobalRoomBundle();
+        return;
+      }
+      bindFilteredPostgresSubscriptions();
     }, 80);
   };
 
