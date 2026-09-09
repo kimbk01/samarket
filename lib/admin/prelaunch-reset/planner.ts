@@ -41,6 +41,10 @@ import {
   planPrelaunchResetAuthTargets,
   planPrelaunchResetStorageObjects,
 } from "@/lib/admin/prelaunch-reset/storage-auth-plan";
+import {
+  countCanonicalCoinFinanceRows,
+  resolveCoinFinanceGate,
+} from "@/lib/admin/prelaunch-reset/coin-finance-gate";
 
 async function countEq(
   sb: SupabaseClient,
@@ -709,9 +713,12 @@ export async function buildPrelaunchResetPlan(
     if (cashLedger.error) warnings.push(cashLedger.error);
     const cashReq = await countIn(input.sb, "business_cash_charge_requests", "store_id", storeIds);
     finance += cashReq.n;
-    const coinLedger = await countIn(input.sb, "business_coin_ledger", "store_id", storeIds);
-    finance += coinLedger.n;
-    if (coinLedger.error) warnings.push(coinLedger.error);
+    // CUT 1 — Coin gate uses Currency SSOT only; query error → fail-closed (never n:0 as SAFE)
+    const coinLedger = await countCanonicalCoinFinanceRows(input.sb, storeIds);
+    const coinGate = resolveCoinFinanceGate(coinLedger);
+    finance += coinGate.financeDelta;
+    if (coinGate.guard) financialGuards.push(coinGate.guard);
+    if (coinGate.blocker) blockers.push(coinGate.blocker);
     const ord = await countIn(input.sb, "store_orders", "store_id", storeIds);
     orders += ord.n;
     if (ord.error) warnings.push(ord.error);

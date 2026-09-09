@@ -160,14 +160,14 @@ export const PRELAUNCH_RESET_DOMAIN_INVENTORY: readonly PrelaunchDomainInventory
   },
   {
     id: "COIN",
-    tablesHint: ["business_coin_accounts", "business_coin_ledger"],
+    tablesHint: ["store_economic_point_accounts", "store_economic_point_ledger"],
     systemData: false,
     userData: true,
     financialData: true,
     auditData: false,
     resetEligibleDefault: false,
     protectedDefault: true,
-    notes: "Economic asset — BLOCK unless proven isolated test",
+    notes: "Currency SSOT COIN — BLOCK unless proven isolated test",
   },
   {
     id: "CASH",

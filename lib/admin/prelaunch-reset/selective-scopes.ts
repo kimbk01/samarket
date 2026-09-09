@@ -349,7 +349,7 @@ export const PRELAUNCH_RESET_SELECTIVE_MATRIX: readonly PrelaunchResetSelectiveM
     labelEn: "Coin",
     support: "BLOCKED",
     selectAllEligible: false,
-    dbOwner: "business_coin_*",
+    dbOwner: "store_economic_point_accounts / store_economic_point_ledger",
     dependencies: "store finance",
     financeRisk: "block",
     storage: "n/a",
