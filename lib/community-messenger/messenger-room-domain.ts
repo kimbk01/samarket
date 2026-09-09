@@ -85,29 +85,21 @@ export function communityMessengerRoomInboxGroupKind(
   return "general";
 }
 
+/**
+ * Trade domain gate for list/badge/filter callers.
+ * CUT 3: aliases confirmed authority — title/summary keyword regex is NOT domain authority.
+ * Legacy without `chatDomain`: contextMeta.kind / commerce `direct_key` only (via Confirmed*).
+ */
 export function communityMessengerRoomIsTrade(room: CommunityMessengerRoomSummary): boolean {
-  if (room.contextMeta?.kind === "trade") return true;
-  const dk = room.messengerDirectKey?.trim() ?? "";
-  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return true;
-  // 키워드 폴백: contextMeta·directKey 가 모두 없을 때만 사용.
-  // 단어 경계 정규식으로 "거래처" 등 복합어 오분류 방지.
-  // DO NOT: contextMeta 가 있는데 kind 가 다른 방에 이 폴백을 적용하면 필터 정합이 깨진다.
-  if (room.contextMeta?.kind || dk) return false;
-  const text = `${room.title ?? ""} ${room.summary ?? ""} ${room.subtitle ?? ""}`;
-  return /(?<![가-힣])거래(?![가-힣])/.test(text);
+  return communityMessengerRoomIsConfirmedTrade(room);
 }
 
+/**
+ * Store-order (delivery) domain gate for list/badge/filter callers.
+ * CUT 3: aliases confirmed authority — title/summary keyword regex is NOT domain authority.
+ */
 export function communityMessengerRoomIsDelivery(room: CommunityMessengerRoomSummary): boolean {
-  if (room.contextMeta?.kind === "delivery") return true;
-  const dk = room.messengerDirectKey?.trim() ?? "";
-  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
-  if (dk.startsWith("store_order:")) return true;
-  if (dk.startsWith("trade_order:")) return true;
-  // 키워드 폴백: contextMeta·directKey 가 모두 없을 때만 사용.
-  // "주문" 단어는 일반 대화에서도 쓰이므로 "배달"만 단독 검사, "주문" 은 더 좁은 맥락에서만.
-  if (room.contextMeta?.kind || dk) return false;
-  const text = `${room.title ?? ""} ${room.summary ?? ""} ${room.subtitle ?? ""}`;
-  return /(?<![가-힣])배달(?![가-힣])/.test(text) || /배달[^\s]*주문|주문[^\s]*배달/.test(text);
+  return communityMessengerRoomIsConfirmedDelivery(room);
 }
 
 /**
