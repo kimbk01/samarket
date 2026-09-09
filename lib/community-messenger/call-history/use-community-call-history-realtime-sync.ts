@@ -9,11 +9,53 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const CALL_LOGS_FETCH_FLIGHT_KEY = "cm:call-logs-list";
 
-/** call_logs postgres_changes — 짧게 묶어 연속 INSERT burst 만 흡수 */
-const CALL_HISTORY_TABLE_DEBOUNCE_MS = 60;
+/**
+ * CUT-2C: single History refresh coalesce window.
+ * Was: table 60ms + terminal 120ms (two owners → up to 2 GET /calls).
+ * 120ms keeps prior terminal wait for call_logs INSERT after session/bus,
+ * while trailing debounce merges the whole burst into one schedule.
+ */
+export const CALL_HISTORY_REFETCH_COALESCE_MS = 120;
 
-/** 세션 터미널 bus / call_sessions UPDATE 후 log INSERT 대기 */
-const CALL_HISTORY_TERMINAL_REFETCH_DELAY_MS = 120;
+type CallHistoryRefreshScheduler = {
+  schedule: () => void;
+  cancel: () => void;
+  hasPending: () => boolean;
+};
+
+/** Testable trailing debounce — every invalidation source shares one timer. */
+export function createCallHistoryRefreshScheduler(
+  run: () => void,
+  options?: {
+    coalesceMs?: number;
+    isCancelled?: () => boolean;
+  }
+): CallHistoryRefreshScheduler {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const coalesceMs = Math.max(
+    0,
+    Math.floor(Number(options?.coalesceMs ?? CALL_HISTORY_REFETCH_COALESCE_MS) || CALL_HISTORY_REFETCH_COALESCE_MS)
+  );
+  const schedule = () => {
+    if (options?.isCancelled?.()) return;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (options?.isCancelled?.()) return;
+      run();
+    }, coalesceMs);
+  };
+  const cancel = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+  };
+  return {
+    schedule,
+    cancel,
+    hasPending: () => timer != null,
+  };
+}
 
 export type CommunityMessengerCallLogsClientPage = {
   calls: CommunityMessengerCallLog[];
@@ -77,7 +119,7 @@ type Args = {
 
 /**
  * 통화 목록 Realtime — `community_messenger_call_logs` · `call_sessions` · 터미널 bus.
- * 취소·종료 직후 목록에 바로 반영되도록 call_logs 보다 짧은 debounce + bus 즉시 refetch.
+ * CUT-2C: all same-purpose invalidations → one coalesce scheduler → one first-page refetch.
  * CUT-2B: refetch = first page replace (Panel clears older pages).
  */
 export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onRefetch }: Args): void {
@@ -92,45 +134,17 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
     if (!sb) return;
 
     let cancelled = false;
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let terminalTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduler = createCallHistoryRefreshScheduler(
+      () => {
+        if (cancelled) return;
+        void onRefetchRef.current();
+      },
+      { isCancelled: () => cancelled }
+    );
 
-    const clearDebounce = () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
-    };
-
-    const clearTerminalTimer = () => {
-      if (terminalTimer) {
-        clearTimeout(terminalTimer);
-        terminalTimer = null;
-      }
-    };
-
-    const runRefetch = () => {
-      if (cancelled) return;
-      void onRefetchRef.current();
-    };
-
-    const scheduleTableRefetch = () => {
-      if (cancelled) return;
-      clearDebounce();
-      debounceTimer = setTimeout(() => {
-        debounceTimer = null;
-        runRefetch();
-      }, CALL_HISTORY_TABLE_DEBOUNCE_MS);
-    };
-
-    /** 발신 취소·종료·수신 거절 — DB log INSERT 전에도 bus 로 먼저 당김 */
-    const scheduleTerminalRefetch = () => {
-      if (cancelled) return;
-      clearTerminalTimer();
-      terminalTimer = setTimeout(() => {
-        terminalTimer = null;
-        runRefetch();
-      }, CALL_HISTORY_TERMINAL_REFETCH_DELAY_MS);
+    /** Same-purpose History refresh — producers stay independent; scheduling is shared. */
+    const scheduleHistoryRefetch = () => {
+      scheduler.schedule();
     };
 
     const bound = subscribeWithRetry({
@@ -148,7 +162,7 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
               table: "community_messenger_call_logs",
               filter: `caller_user_id=eq.${userId}`,
             },
-            () => scheduleTableRefetch()
+            () => scheduleHistoryRefetch()
           )
           .on(
             "postgres_changes",
@@ -158,7 +172,7 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
               table: "community_messenger_call_logs",
               filter: `peer_user_id=eq.${userId}`,
             },
-            () => scheduleTableRefetch()
+            () => scheduleHistoryRefetch()
           )
           .on(
             "postgres_changes",
@@ -168,7 +182,7 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
               table: "community_messenger_call_sessions",
               filter: `initiator_user_id=eq.${userId}`,
             },
-            () => scheduleTerminalRefetch()
+            () => scheduleHistoryRefetch()
           )
           .on(
             "postgres_changes",
@@ -178,16 +192,17 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
               table: "community_messenger_call_sessions",
               filter: `recipient_user_id=eq.${userId}`,
             },
-            () => scheduleTerminalRefetch()
+            () => scheduleHistoryRefetch()
           ),
     });
 
     const unsubBus = onCommunityMessengerBusEvent((ev) => {
       if (ev.type !== "cm.call.session_terminal") return;
-      scheduleTerminalRefetch();
+      scheduleHistoryRefetch();
     });
 
     if (cancelled) {
+      scheduler.cancel();
       bound.stop();
       unsubBus();
       return;
@@ -195,8 +210,7 @@ export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onR
 
     return () => {
       cancelled = true;
-      clearDebounce();
-      clearTerminalTimer();
+      scheduler.cancel();
       bound.stop();
       unsubBus();
     };
