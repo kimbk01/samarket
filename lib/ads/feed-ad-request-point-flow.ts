@@ -52,7 +52,27 @@ export async function holdPointsForFeedAdRequest(
     .select("id")
     .maybeSingle();
 
-  if (he) return { ok: false, error: he.message };
+  if (he) {
+    // CUT 9: spend already committed with relatedId hold:${requestId}.
+    // Without this reverse, apply route deletes the request and retry mints a new
+    // requestId → second debit (orphan ledger, no held row, no RELEASE path).
+    const rolled = await creditUserPoints(sb, {
+      userId: params.userId,
+      amount: cost,
+      entryType: "ad_hold_release",
+      relatedType: "feed_ad_request",
+      relatedId: `hold_insert_fail_release:${params.requestId}`,
+      description: "피드 광고 신청 — 보류 행 생성 실패 환급",
+      actorType: "system",
+    });
+    if (!rolled.ok) {
+      return {
+        ok: false,
+        error: mapHubError(rolled.error, rolled.code) || he.message,
+      };
+    }
+    return { ok: false, error: he.message };
+  }
   return { ok: true, holdId: row?.id ? String(row.id) : undefined };
 }
 
