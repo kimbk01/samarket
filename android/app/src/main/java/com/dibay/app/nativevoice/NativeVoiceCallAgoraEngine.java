@@ -125,13 +125,29 @@ public final class NativeVoiceCallAgoraEngine {
    *
    * <p>Does not destroy the process-global RtcEngine (destroy stalls end/re-dial). Join awaits
    * {@link #awaitPendingChannelLeave(String)} then reuses the engine.
+   *
+   * <p>When {@code callId} is non-null and does not match the current occupant, skip leave so a
+   * failed new dial cannot tear down a foreign live session's channel while that session map entry
+   * still blocks {@code native_engine_busy}.
    */
-  public static void leave(String reason) {
+  public static void leave(String callId, String reason) {
     Listener currentListener;
     String sid;
     RtcEngine engineToLeave;
     CountDownLatch latch;
     synchronized (LOCK) {
+      String occupant = activeCallId;
+      if (callId != null
+          && !callId.trim().isEmpty()
+          && occupant != null
+          && !occupant.isEmpty()
+          && !callId.trim().equals(occupant)) {
+        NativeVoiceCallLog.info(
+            "agora_leave_skip_foreign_occupant",
+            callId.trim(),
+            "occupant=" + occupant + " reason=" + (reason != null ? reason : ""));
+        return;
+      }
       currentListener = listener;
       sid = activeCallId;
       listener = null;
@@ -160,6 +176,10 @@ public final class NativeVoiceCallAgoraEngine {
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
     }
+  }
+
+  public static void leave(String reason) {
+    leave(null, reason);
   }
 
   /**

@@ -1,16 +1,15 @@
 /**
- * Outgoing / redial call failure UX — Dibay popup only (no bottom snackbar banner).
+ * Outgoing / redial call failure UX — canonical Call in-app notice (not Dibay modal / snackbar).
  */
-import { dibayAlert } from "@/components/ui/dibay-overlay/DibayAppDialogProvider";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
-import { useMessengerSnackbarStore } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  resolveCallInAppNoticeMessage,
+  showCallInAppNoticeFromFailureMessage,
+} from "@/lib/community-messenger/stores/call-in-app-notice-store";
 
 export function outgoingCallStartFailedMessage(): string {
-  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_failed", {
-    fallbackKo: "통화를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-    fallbackEn: "Could not start the call. Please try again.",
-  });
+  return resolveCallInAppNoticeMessage("call_failed");
 }
 
 export function outgoingCallVoiceOnlyMessage(): string {
@@ -27,20 +26,10 @@ export function outgoingCallMediaPermissionMessage(kind: "voice" | "video"): str
       fallbackEn: "Microphone and camera access required",
     });
   }
-  return safeTranslate(getRuntimeAppLanguage(), "cm_ui_mic_permission_required", {
-    fallbackKo: "마이크 권한이 필요합니다",
-    fallbackEn: "Microphone access required",
-  });
+  return resolveCallInAppNoticeMessage("permission_required");
 }
 
-/** Clear any lingering bottom snackbar, then show canonical Dibay alert popup. */
+/** Canonical Call notice — replaces Dibay alert popup for outgoing call failures. */
 export function alertOutgoingCallFailure(message: string): void {
-  const text = message.trim();
-  if (!text) return;
-  try {
-    useMessengerSnackbarStore.getState().dismiss();
-  } catch {
-    /* store may be unavailable outside client */
-  }
-  void dibayAlert({ title: text });
+  showCallInAppNoticeFromFailureMessage(message);
 }

@@ -321,8 +321,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let identity = IncomingCallCallerIdentity.resolve(from: data)
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
-    let iosSoundName = stringField(data, keys: ["ios_sound_name", "iosSoundName", "sound"])
-    let ringtonePolicy = stringField(data, keys: ["ringtone_policy", "ringtonePolicy"])
+    // Terminal orphan fulfillment is not a real incoming — force silent (same as guest/ineligible).
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       callerDisplayName: identity.displayName,
@@ -330,8 +329,8 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       hasVideo: identity.hasVideo,
       roomId: roomId,
       callerId: callerId,
-      iosSoundName: iosSoundName,
-      ringtonePolicy: ringtonePolicy
+      iosSoundName: nil,
+      ringtonePolicy: "silent"
     ) { error in
       if let error = error {
         DibayCallLog.infoCallV4(

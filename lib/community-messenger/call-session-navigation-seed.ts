@@ -48,6 +48,7 @@ import {
   outgoingCallStartFailedMessage,
   outgoingCallVoiceOnlyMessage,
 } from "@/lib/community-messenger/call-outgoing-failure-alert";
+import { resolveCallInAppNoticeMessage } from "@/lib/community-messenger/stores/call-in-app-notice-store";
 import {
   acquireCallActionLock,
   bindCallActionLockCallId,
@@ -581,7 +582,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
         });
       }
       cmCallFlow("outgoing_peer_busy", { roomId, callKind: args.kind, peerUserId: args.peerUserId?.trim() });
-      return fail("상대방이 현재 통화중입니다.", "create_failed");
+      return fail(resolveCallInAppNoticeMessage("peer_busy"), "create_failed");
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
       return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");

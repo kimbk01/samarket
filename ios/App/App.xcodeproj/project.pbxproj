@@ -24,6 +24,7 @@
 		C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */; };
 		C7AWK0022FED79650016851F /* ScreenAwakeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */; };
 		C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */ = {isa = PBXBuildFile; fileRef = C7B5J0012FED79650016851F /* dibay-call-lane.json */; };
+		C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */ = {isa = PBXBuildFile; fileRef = C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */; };
 		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
 		C7MPL0022FED79650016851F /* MessengerPhotoLibraryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */; };
@@ -38,6 +39,7 @@
 		C7NVL0022FED79650016851F /* NativeVoiceCallLane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVL0012FED79650016851F /* NativeVoiceCallLane.swift */; };
 		C7NVU0022FED79650016851F /* NativeVoiceCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */; };
 		C7NVU0122FED79650016851F /* NativeVoiceCallUiPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */; };
+		C7CIN0012FED79650016851F /* NativeCallInAppNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7CIN0002FED79650016851F /* NativeCallInAppNotice.swift */; };
 		C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */; };
 		C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCL0012FED79650016851F /* DibayCallLog.swift */; };
 		C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */; };
@@ -93,6 +95,7 @@
 		C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallAudioSessionController.swift; sourceTree = "<group>"; };
 		C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAwakeBridge.swift; sourceTree = "<group>"; };
 		C7B5J0012FED79650016851F /* dibay-call-lane.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "dibay-call-lane.json"; sourceTree = "<group>"; };
+		C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = CallKitSilentRingtone.caf; sourceTree = "<group>"; };
 		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
 		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
 		C7MPL0012FED79650016851F /* MessengerPhotoLibraryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessengerPhotoLibraryPlugin.swift; sourceTree = "<group>"; };
@@ -107,6 +110,7 @@
 		C7NVL0012FED79650016851F /* NativeVoiceCallLane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallLane.swift; sourceTree = "<group>"; };
 		C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiHost.swift; sourceTree = "<group>"; };
 		C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiPresenter.swift; sourceTree = "<group>"; };
+		C7CIN0002FED79650016851F /* NativeCallInAppNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallInAppNotice.swift; sourceTree = "<group>"; };
 		C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallViewController.swift; sourceTree = "<group>"; };
 		C7DCL0012FED79650016851F /* DibayCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallLog.swift; sourceTree = "<group>"; };
 		C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCanonicalDeviceIdStore.swift; sourceTree = "<group>"; };
@@ -266,6 +270,7 @@
 				C7P4O0012FED79650016851F /* NativeVoiceCallOwner.swift */,
 				C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */,
 				C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */,
+				C7CIN0002FED79650016851F /* NativeCallInAppNotice.swift */,
 				C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */,
 				C7DCL0012FED79650016851F /* DibayCallLog.swift */,
 				C7DEV0012FED79650016851F /* DibayCanonicalDeviceIdStore.swift */,
@@ -283,6 +288,7 @@
 				C7PUSH0312FED79650016851F /* IncomingCallCallerIdentity.swift */,
 				C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */,
 				C7PUSH0112FED79650016851F /* CallKitProvider.swift */,
+				C7SLNT0012FED79650016851F /* CallKitSilentRingtone.caf */,
 				C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */,
 				C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */,
 			);
@@ -424,6 +430,7 @@
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */,
+				C7SLNT0022FED79650016851F /* CallKitSilentRingtone.caf in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 			);
@@ -474,6 +481,7 @@
 				C7NVL0022FED79650016851F /* NativeVoiceCallLane.swift in Sources */,
 				C7NVU0022FED79650016851F /* NativeVoiceCallUiHost.swift in Sources */,
 				C7NVU0122FED79650016851F /* NativeVoiceCallUiPresenter.swift in Sources */,
+				C7CIN0012FED79650016851F /* NativeCallInAppNotice.swift in Sources */,
 				C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */,
 				C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */,
 				C7DEV0022FED79650016851F /* DibayCanonicalDeviceIdStore.swift in Sources */,

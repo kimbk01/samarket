@@ -13,6 +13,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
   private var agoraGenerationBySession: [String: UInt64] = [:]
   private var cleanupInFlight: Set<String> = []
   private var callkitFulfilled: Set<String> = []
+  private var pendingLocalEndCompletion: [String: () -> Void] = [:]
 
   private init() {}
 
@@ -199,14 +200,78 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
   // MARK: - Reject / End / Terminal
 
-  func handleRejectOrEnd(sessionId: String, completion: @escaping () -> Void) {
+  /**
+   * Local reject/end.
+   * - If CallKit still tracks this UUID and this is NOT already the CXEnd perform callback,
+   *   request CXEndCallAction first (primary local terminal). Cleanup runs from performEnd.
+   * - `fromCallKitEndAction`: CallKit already terminating — cleanup without provider.reportCall(ended).
+   */
+  func handleRejectOrEnd(
+    sessionId: String,
+    fromCallKitEndAction: Bool = false,
+    completion: @escaping () -> Void
+  ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {
       completion()
       return
     }
+
+    if !fromCallKitEndAction,
+      CallKitProvider.shared.hasTrackedCallKitSession(sessionId: sid),
+      !CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+    {
+      syncQueue.sync { pendingLocalEndCompletion[sid] = completion }
+      CallKitProvider.shared.requestLocalEndCallAction(sessionId: sid, logDetail: "voice_local_end") {
+        [weak self] error in
+        guard let self else { return }
+        if error != nil {
+          let pending = self.syncQueue.sync { self.pendingLocalEndCompletion.removeValue(forKey: sid) }
+          self.performLocalRejectOrEnd(
+            sessionId: sid,
+            reportCallKitEnded: true,
+            completion: {
+              pending?()
+              completion()
+            }
+          )
+        }
+        // Success: CXEnd → performEndCallAction → handleRejectOrEnd(fromCallKitEndAction: true)
+      }
+      return
+    }
+
+    performLocalRejectOrEnd(
+      sessionId: sid,
+      reportCallKitEnded: false,
+      completion: { [weak self] in
+        guard let self else {
+          completion()
+          return
+        }
+        let pending = self.syncQueue.sync { self.pendingLocalEndCompletion.removeValue(forKey: sid) }
+        pending?()
+        completion()
+      }
+    )
+  }
+
+  private func performLocalRejectOrEnd(
+    sessionId: String,
+    reportCallKitEnded: Bool,
+    completion: @escaping () -> Void
+  ) {
+    let sid = sessionId
     let snap = NativeVoiceCallRuntime.shared.snapshot()
     guard let active = snap.session, active.sessionId == sid else {
+      if reportCallKitEnded {
+        CallKitProvider.shared.markTerminalSuppressed(sessionId: sid, reason: "local_end_idle")
+        CallKitProvider.shared.endCallKitSession(
+          sessionId: sid,
+          reason: .remoteEnded,
+          logDetail: "local_end_idle"
+        )
+      }
       completion()
       return
     }
@@ -219,7 +284,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         self?.cleanup(
           sessionId: sid,
           reason: "reject",
-          reportCallKitEnded: false,
+          reportCallKitEnded: reportCallKitEnded,
           serverAction: nil
         )
         completion()
@@ -233,13 +298,18 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         self?.cleanup(
           sessionId: sid,
           reason: "local_end",
-          reportCallKitEnded: false,
+          reportCallKitEnded: reportCallKitEnded,
           serverAction: nil
         )
         completion()
       }
     default:
-      cleanup(sessionId: sid, reason: "end_idle", reportCallKitEnded: false, serverAction: nil)
+      cleanup(
+        sessionId: sid,
+        reason: "end_idle",
+        reportCallKitEnded: reportCallKitEnded,
+        serverAction: nil
+      )
       completion()
     }
   }
@@ -248,7 +318,20 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
     let snap = NativeVoiceCallRuntime.shared.snapshot()
-    guard let active = snap.session, active.sessionId == sid else { return }
+    guard let active = snap.session, active.sessionId == sid else {
+      // Runtime already idle — still close CallKit if UUID tracked (cancel-before-answer race).
+      if CallKitProvider.shared.hasTrackedCallKitSession(sessionId: sid),
+        !CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+      {
+        CallKitProvider.shared.markTerminalSuppressed(sessionId: sid, reason: "remote_terminal_no_runtime")
+        CallKitProvider.shared.endCallKitSession(
+          sessionId: sid,
+          reason: .remoteEnded,
+          logDetail: "remote_terminal_no_runtime"
+        )
+      }
+      return
+    }
     do {
       try NativeVoiceCallRuntime.shared.beginEnd(sessionId: sid)
       try NativeVoiceCallRuntime.shared.markEnded(sessionId: sid)
@@ -256,7 +339,16 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sid, reason: .ended)
     }
     log("ios_native_voice_remote_terminal", sid, "state=\(snap.phase)")
-    cleanup(sessionId: sid, reason: "remote_terminal", reportCallKitEnded: false, serverAction: nil)
+    // If CallKit still tracked (plugin path / not yet ended), close it here.
+    // VoIP reportCallEnded ends CallKit first → hasTracked false → cleanup without double end.
+    let stillTracked = CallKitProvider.shared.hasTrackedCallKitSession(sessionId: sid)
+      && !CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+    cleanup(
+      sessionId: sid,
+      reason: "remote_terminal",
+      reportCallKitEnded: stillTracked,
+      serverAction: nil
+    )
   }
 
   // MARK: - Agora Listener
@@ -287,6 +379,16 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     if case .ending = snap.phase { return }
     if case .ended = snap.phase { return }
     if case .failed = snap.phase { return }
+    // Explicit remote/server terminal (or prior CallKit end) already owns cleanup —
+    // Agora disconnect must not reclassify as mediaFailed.
+    if CallKitProvider.shared.isTerminalSuppressed(sessionId: sid)
+      || CallKitProvider.shared.isCallKitEndCompleted(sessionId: sid)
+    {
+      log("ios_native_voice_agora_disconnect_after_terminal", sid, "reason=\(reason)")
+      return
+    }
+    let inFlight = syncQueue.sync { cleanupInFlight.contains(sid) }
+    if inFlight { return }
     failAfterFulfill(sessionId: sid, reason: .mediaFailed, serverAction: "end")
   }
 
@@ -322,20 +424,33 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     log("ios_native_voice_callkit_failed", sessionId, "reason=\(String(describing: reason))")
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_before_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(
+      sessionId: sessionId,
+      reason: "fail_before_fulfill",
+      reportCallKitEnded: true,
+      callKitEndedReason: .failed,
+      serverAction: serverAction
+    )
     completion(false)
   }
 
   private func failAfterFulfill(sessionId: String, reason: NativeVoiceCallFailure, serverAction: String?) {
     log("ios_native_voice_cleanup_started", sessionId, "reason=\(String(describing: reason))")
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_after_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(
+      sessionId: sessionId,
+      reason: "fail_after_fulfill",
+      reportCallKitEnded: true,
+      callKitEndedReason: .failed,
+      serverAction: serverAction
+    )
   }
 
   private func cleanup(
     sessionId: String,
     reason: String,
     reportCallKitEnded: Bool,
+    callKitEndedReason: CXCallEndedReason = .remoteEnded,
     serverAction: String?
   ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -354,6 +469,12 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     // Same authority as reportCallEnded → markTerminalSuppressed (existing, not new state).
     if reportCallKitEnded {
       CallKitProvider.shared.markTerminalSuppressed(sessionId: sid, reason: reason)
+      // CallKit system UI first — do not leave InCallService residual while Runtime cleans up.
+      CallKitProvider.shared.endCallKitSession(
+        sessionId: sid,
+        reason: callKitEndedReason,
+        logDetail: reason
+      )
     }
 
     if let serverAction {
@@ -373,13 +494,6 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       DibayActiveCallSessionManager.shared.clearSession()
     }
 
-    if reportCallKitEnded {
-      CallKitProvider.shared.endCallKitSession(
-        sessionId: sid,
-        reason: .remoteEnded,
-        logDetail: reason
-      )
-    }
     NativeVoiceCallOwner.release(callId: sid, reason: reason)
 
     syncQueue.sync {
@@ -387,6 +501,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       agoraGenerationBySession.removeValue(forKey: sid)
       callkitFulfilled.remove(sid)
       cleanupInFlight.remove(sid)
+      pendingLocalEndCompletion.removeValue(forKey: sid)
     }
     log("ios_native_voice_cleanup_done", sid, "reason=\(reason)")
   }

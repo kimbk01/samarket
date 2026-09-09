@@ -53,8 +53,9 @@ describe("iOS post-terminal terminalSuppressed writer+reader MERGE", () => {
     const resetIdx = cleanup.indexOf("NativeVoiceCallRuntime.shared.reset(sessionId: sid)");
     const endIdx = cleanup.indexOf("endCallKitSession(");
     expect(markIdx).toBeGreaterThanOrEqual(0);
-    expect(markIdx).toBeLessThan(resetIdx);
     expect(markIdx).toBeLessThan(endIdx);
+    expect(endIdx).toBeLessThan(resetIdx);
+    // CallKit end before Runtime wipe — residual InCallService guard.
     // Only when reportCallKitEnded — not inventing always-on mark.
     const beforeMark = cleanup.slice(0, markIdx);
     expect(beforeMark).toMatch(/if reportCallKitEnded/);
@@ -94,6 +95,8 @@ describe("iOS post-terminal terminalSuppressed writer+reader MERGE", () => {
     expect(src).toContain("fulfillOrphanTerminalVoipPush(");
     const orphanFn = src.slice(src.indexOf("func fulfillOrphanTerminalVoipPush"));
     expect(orphanFn).toContain("reportIncomingCall(");
+    // Terminal orphan must force silent — not payload default (audible one-ring).
+    expect(orphanFn).toContain('ringtonePolicy: "silent"');
     // Tracked normal path still uses reportCallEnded.
     expect(src).toContain("tracked_incoming_end");
     expect(src).toContain("reportCallEnded(uuidString: sessionId, endedReason: callKitEndReason)");

@@ -66,7 +66,13 @@ import {
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, isIOSNativeVideoOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import {
+  isAndroidNativeOutgoingShell,
+  isIOSNativeOutgoingShell,
+  isIOSNativeVideoOutgoingShell,
+  isNativeEstablishmentOwned,
+  startNativeOutgoingEstablishment,
+} from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -357,6 +363,19 @@ async function finalizeCallV4Terminal(
       error: error instanceof Error ? error.message : String(error),
     });
   }
+  // Transient Call notice — skip when Native Activity/VC owns visible establishment (they render notice).
+  void (async () => {
+    try {
+      const nativeOwned = await isNativeEstablishmentOwned(sid);
+      if (nativeOwned) return;
+      const { showCallInAppNoticeFromTerminalReason } = await import(
+        "@/lib/community-messenger/stores/call-in-app-notice-store"
+      );
+      showCallInAppNoticeFromTerminalReason(reasonStr);
+    } catch {
+      /* notice is best-effort */
+    }
+  })();
   runCallV4ScreenExitAfterTerminalCleanup(sid, reasonStr, router, wasOutgoingPresentationRoute);
 }
 
@@ -507,7 +526,15 @@ export async function callV4CreateOutgoing(input: {
         roomId: roomResolved.roomId,
         error: err || "unknown",
       });
-      return { ok: false as const, userMessage: err || outgoingGenericErrorMessage() };
+      const {
+        inferCallInAppNoticeEventFromFailureMessage,
+        resolveCallInAppNoticeMessage,
+      } = await import("@/lib/community-messenger/stores/call-in-app-notice-store");
+      const noticeEvent = inferCallInAppNoticeEventFromFailureMessage(err || "call_failed");
+      return {
+        ok: false as const,
+        userMessage: resolveCallInAppNoticeMessage(noticeEvent, err || null),
+      };
     }
 
     const createWallMs = Date.now() - createStartedAt;

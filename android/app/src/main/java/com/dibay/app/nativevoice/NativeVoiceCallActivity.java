@@ -24,6 +24,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
+import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -67,6 +68,8 @@ public class NativeVoiceCallActivity extends Activity {
   private NativeVoiceCallRuntime.State currentState = NativeVoiceCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
+  private NativeCallInAppNoticeOverlay noticeOverlay;
+  private boolean finishingWithNotice;
   private final Runnable durationTick =
       new Runnable() {
         @Override
@@ -83,9 +86,13 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   public static void finishIfActive(String callId) {
+    finishIfActive(callId, null);
+  }
+
+  public static void finishIfActive(String callId, String reason) {
     NativeVoiceCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
-    activity.runOnUiThread(activity::finish);
+    activity.runOnUiThread(() -> activity.finishWithNotice(reason));
   }
 
   public static boolean isShowing(String callId) {
@@ -126,11 +133,24 @@ public class NativeVoiceCallActivity extends Activity {
     }
     setContentView(R.layout.activity_native_voice_call);
     bindViews();
+    noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
     bindActions();
     logSurfaceShown();
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(getIntent());
+  }
+
+  private void finishWithNotice(String reason) {
+    if (isFinishing()) return;
+    if (finishingWithNotice) return;
+    NativeCallInAppNoticeOverlay.Event event = NativeCallInAppNoticeOverlay.mapTerminalReason(reason);
+    if (event == null || noticeOverlay == null) {
+      finish();
+      return;
+    }
+    finishingWithNotice = true;
+    noticeOverlay.showThen(event, this::finish);
   }
 
   @Override

@@ -2,4 +2,12 @@
 <resources>
     <string name="dibay_app_icon_summary_title">DIBAY</string>
     <string name="dibay_app_icon_summary_body">You have %1$d unread notifications. Tap to review.</string>
+    <string name="dibay_call_notice_peer_busy">The other person is currently on another call.</string>
+    <string name="dibay_call_notice_peer_declined">The other person declined the call</string>
+    <string name="dibay_call_notice_call_failed">Could not start the call. Please try again.</string>
+    <string name="dibay_call_notice_remote_ended">Call ended</string>
+    <string name="dibay_call_notice_missed">Missed call</string>
+    <string name="dibay_call_notice_reconnecting">Reconnecting…</string>
+    <string name="dibay_call_notice_network_warning">Check your network connection.</string>
+    <string name="dibay_call_notice_permission_required">Microphone access required</string>
 </resources>

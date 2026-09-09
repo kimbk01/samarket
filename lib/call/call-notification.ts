@@ -5,6 +5,10 @@
 
 "use client";
 
+import {
+  isCapacitorNativePlatform,
+} from "@/lib/platform/capacitor-native";
+
 /** 이 탭에서 연 수신 통화 알림 — 링 종료 시 스크립트로 닫기 */
 const localIncomingCallNotificationsBySessionId = new Map<string, Notification>();
 
@@ -28,6 +32,8 @@ function defaultCallDeepLink(sessionId: string): string {
 export function showIncomingCallBrowserNotification(input: LocalIncomingCallNotificationInput): boolean {
   if (typeof window === "undefined") return false;
   if (input.suppressed) return false;
+  // Capacitor native shell: CallKit / Android FSI+Native Activity own incoming — suppress browser Notification duplicate.
+  if (isCapacitorNativePlatform()) return false;
   if (!("Notification" in window)) return false;
   if (Notification.permission !== "granted") return false;
 

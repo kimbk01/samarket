@@ -37,6 +37,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
+import com.dibay.app.nativecall.NativeCallInAppNoticeOverlay;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -117,6 +118,8 @@ public class NativeVideoCallActivity extends Activity {
   private String lastPipSource = "";
   private long lastPipRequestAt = 0L;
   private boolean dockMode = false;
+  private NativeCallInAppNoticeOverlay noticeOverlay;
+  private boolean finishingWithNotice;
   private boolean acceptStarted = false;
   private boolean acceptMediaPromptIssued = false;
   private String pendingAcceptSource;
@@ -252,9 +255,13 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   public static void finishIfActive(String callId) {
+    finishIfActive(callId, null);
+  }
+
+  public static void finishIfActive(String callId, String reason) {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return;
-    activity.runOnUiThread(activity::finish);
+    activity.runOnUiThread(() -> activity.finishWithNotice(reason));
   }
 
   public static void clearVideoSurfaces(String callId) {
@@ -326,6 +333,7 @@ public class NativeVideoCallActivity extends Activity {
     }
     setContentView(R.layout.activity_native_video_call);
     bindViews();
+    noticeOverlay = NativeCallInAppNoticeOverlay.attach(this);
     bindActions();
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
     logSurfaceShown();
@@ -346,6 +354,18 @@ public class NativeVideoCallActivity extends Activity {
       restoreConnectedFullscreenVideoLayout("connected_restore");
     }
     registerNativeVideoBackCallback();
+  }
+
+  private void finishWithNotice(String reason) {
+    if (isFinishing()) return;
+    if (finishingWithNotice) return;
+    NativeCallInAppNoticeOverlay.Event event = NativeCallInAppNoticeOverlay.mapTerminalReason(reason);
+    if (event == null || noticeOverlay == null) {
+      finish();
+      return;
+    }
+    finishingWithNotice = true;
+    noticeOverlay.showThen(event, this::finish);
   }
 
   @Override

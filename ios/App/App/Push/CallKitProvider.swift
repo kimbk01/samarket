@@ -17,12 +17,19 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    */
   private var terminalSuppressedSessionIds: Set<String> = []
   /**
+   * Idempotent CallKit terminal gate — provider.reportCall(ended:) / CXEnd fulfill once per session.
+   * Prevents double end from local CXEnd + remote reportCallEnded + mediaFailed races.
+   */
+  private var callKitEndCompletedSessionIds: Set<String> = []
+  /**
    * CUT7 #3: orphan report-then-end for loser `answered_elsewhere` must use `.answeredElsewhere`
    * (not invent a global default). Cleared when the matching session is ended.
    */
   private var pendingCallKitEndReasonBySessionId: [String: CXCallEndedReason] = [:]
   /** Last applied bundle ringtone filename (nil = system default). */
   private var appliedRingtoneSound: String?
+  /** Shared controller for Voice local CXEndCallAction (Video keeps its own bridge). */
+  private let localEndCallController = CXCallController()
 
   private override init() {
     let config = CXProviderConfiguration(localizedName: "DIBAY")
@@ -43,19 +50,19 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    * Apply SSOT ios_sound_name before reporting incoming.
    * - custom bundle name present → CXProviderConfiguration.ringtoneSound
    * - nil / "default" → system CallKit ringtone
-   * - silent policy: IOS_CALLKIT_SILENT_POLICY_BLOCKED — Apple does not guarantee silence
-   *   while presenting CallKit UI; we only avoid setting a custom sound (no AVAudioPlayer overlay).
+   * - silent policy → bundled near-silent CAF (guest/ineligible + terminal orphan report_then_end)
    */
   func applyIncomingRingtoneSsot(iosSoundName: String?, policy: String?) {
     let mode = (policy ?? "default").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     if mode == "silent" {
+      // Canonical silent: CallKit requires a bundle ringtone name — use near-silent CAF.
+      // Do not fall back to system default (that caused orphan one-ring on report_then_end).
+      setProviderRingtoneSound(Self.silentRingtoneSoundName)
       DibayCallLog.info(
         "ios_callkit_ringtone_policy",
         sessionId: "",
-        detail: "mode=silent blocked=IOS_CALLKIT_SILENT_POLICY_BLOCKED"
+        detail: "mode=silent source=bundle name=\(Self.silentRingtoneSoundName)"
       )
-      // Keep system default presentation; do not dual-play AVAudioPlayer.
-      setProviderRingtoneSound(nil)
       return
     }
     let name = iosSoundName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -72,6 +79,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       detail: "mode=custom source=bundle name=\(name)"
     )
   }
+
+  /// Bundle resource for CallKit silent policy (guest / ineligible / terminal orphan).
+  private static let silentRingtoneSoundName = "CallKitSilentRingtone.caf"
 
   private func setProviderRingtoneSound(_ soundName: String?) {
     if appliedRingtoneSound == soundName { return }
@@ -97,16 +107,19 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let handleValue = remoteHandle.trimmingCharacters(in: .whitespacesAndNewlines)
     let resolvedDisplayName = displayName.isEmpty ? "수신 통화" : displayName
     let resolvedRemoteHandle = handleValue.isEmpty ? resolvedDisplayName : handleValue
-    applyIncomingRingtoneSsot(iosSoundName: iosSoundName, policy: ringtonePolicy)
+    // Terminal-suppress report_then_end (orphan / guest) must never use audible default ringtone.
+    let terminalAlreadySeen = isTerminalSuppressed(sessionId: sessionId)
+    let effectivePolicy = terminalAlreadySeen ? "silent" : ringtonePolicy
+    let effectiveSound = terminalAlreadySeen ? nil : iosSoundName
+    applyIncomingRingtoneSsot(iosSoundName: effectiveSound, policy: effectivePolicy)
     reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
     hasVideoBySessionId[sessionId] = hasVideo
-    let terminalAlreadySeen = isTerminalSuppressed(sessionId: sessionId)
     DibayCallLog.infoCall(
       "[voip] uuid resolved",
       callId: sessionId,
-      detail: "uuid=\(DibayCallLog.mask(uuid.uuidString)) terminalSuppressed=\(terminalAlreadySeen)"
+      detail: "uuid=\(DibayCallLog.mask(uuid.uuidString)) terminalSuppressed=\(terminalAlreadySeen) ringtonePolicy=\(effectivePolicy ?? "default")"
     )
 
     // Phase 2 — voice only: register Native Voice Runtime before CallKit presents.
@@ -186,11 +199,6 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       }
       if terminalAlreadySeen {
         // PushKit required an incoming CallKit report for this wake; dismiss immediately — no ghost ring.
-        if !hasVideo {
-          NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
-        } else if NativeVideoCallLane.isEnabled() {
-          NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
-        }
         // CUT7 #3: loser answered_elsewhere may have staged `.answeredElsewhere`; else `.remoteEnded`.
         let endReason =
           self.pendingCallKitEndReasonBySessionId.removeValue(forKey: sessionId) ?? .remoteEnded
@@ -199,6 +207,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
           reason: endReason,
           logDetail: "terminal_suppress_after_incoming"
         )
+        if !hasVideo {
+          NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
+        } else if NativeVideoCallLane.isEnabled() {
+          NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
+        }
       }
       completion(error)
     }
@@ -209,6 +222,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    * - Default `endedReason` = `.remoteEnded` (caller cancel / remote end preserve).
    * - CUT7 #3: loser `answered_elsewhere` passes `.answeredElsewhere`.
    * - CUT7 #4: canonical `missed_timeout` / VoIP `missed_call` passes `.unanswered`.
+   *
+   * Order: CallKit terminal first (correct endedReason), then Native runtime/UI cleanup.
+   * Does not mix CXEndCallAction + reportCall(ended) on the same local-user end.
    */
   func reportCallEnded(
     uuidString: String,
@@ -217,7 +233,10 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let sid = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
     markTerminalSuppressed(sessionId: sid, reason: "report_call_ended")
     pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
+    // Snapshot video flag before map clear inside endCallKitSession.
     let isVideo = hasVideoBySessionId[sid] ?? false
+    // CallKit UI / system terminal BEFORE Runtime wipe so residual InCallService cannot linger.
+    endCallKitSession(sessionId: sid, reason: endedReason, logDetail: "report_call_ended")
     // Terminal VoIP / remote cleanup — Native Voice path only when Runtime still owns session.
     if !isVideo {
       let snap = NativeVoiceCallRuntime.shared.snapshot()
@@ -230,7 +249,6 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
       }
     }
-    endCallKitSession(sessionId: sid, reason: endedReason, logDetail: "report_call_ended")
   }
 
   /**
@@ -304,6 +322,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   /**
    * Dismiss CallKit in-call UI only — no runtime terminal fan-out.
    * Use when the app already ran native cleanup (native VC end button).
+   * Idempotent per sessionId (local CXEnd / remote report / mediaFailed races).
    */
   func endCallKitSession(
     sessionId: String,
@@ -311,6 +330,15 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     logDetail: String = "end_callkit_session_only"
   ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    if callKitEndCompletedSessionIds.contains(sid) {
+      DibayCallLog.info(
+        "ios_native_voice_callkit_end_idempotent",
+        sessionId: sid,
+        detail: "reason=\(logDetail)"
+      )
+      return
+    }
     guard let uuid = callUuidBySessionId[sid] ?? UUID(uuidString: sid) else { return }
     let isVideo = hasVideoBySessionId[sid] ?? false
     if !isVideo {
@@ -334,11 +362,59 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         detail: "reason=\(logDetail)"
       )
     }
+    callKitEndCompletedSessionIds.insert(sid)
     provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     callUuidBySessionId.removeValue(forKey: sid)
     pendingCallKitEndReasonBySessionId.removeValue(forKey: sid)
     hasVideoBySessionId.removeValue(forKey: sid)
     outgoingSessionIds.remove(sid)
+  }
+
+  /**
+   * Voice local End / Reject — primary path is CXEndCallAction (not provider.reportCall ended).
+   * CallKit performEndCallAction → NativeVoiceIncomingCallCoordinator.handleRejectOrEnd(fromCallKitEndAction:).
+   */
+  func requestLocalEndCallAction(
+    sessionId: String,
+    logDetail: String = "voice_local_end",
+    completion: ((Error?) -> Void)? = nil
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else {
+      completion?(nil)
+      return
+    }
+    if callKitEndCompletedSessionIds.contains(sid) {
+      completion?(nil)
+      return
+    }
+    guard let uuid = callUuidBySessionId[sid] ?? UUID(uuidString: sid) else {
+      completion?(nil)
+      return
+    }
+    DibayCallLog.info(
+      "ios_native_voice_callkit_end_requested",
+      sessionId: sid,
+      detail: "reason=\(logDetail)"
+    )
+    let action = CXEndCallAction(call: uuid)
+    let transaction = CXTransaction(action: action)
+    localEndCallController.request(transaction) { error in
+      if let error {
+        DibayCallLog.info(
+          "ios_native_voice_callkit_end_request_failed",
+          sessionId: sid,
+          detail: "reason=\(logDetail) err=\(error.localizedDescription)"
+        )
+      }
+      completion?(error)
+    }
+  }
+
+  func isCallKitEndCompleted(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    return callKitEndCompletedSessionIds.contains(sid)
   }
 
   /** P4 — outgoing/active CallKit session for connected calls */
@@ -573,6 +649,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         sessionId: sessionId,
         detail: "reason=callkit_end_outgoing_runtime_cleared"
       )
+      markTerminalSuppressed(sessionId: sessionId, reason: "callkit_end_outgoing_runtime_cleared")
+      callKitEndCompletedSessionIds.insert(sessionId)
       action.fulfill()
       callUuidBySessionId.removeValue(forKey: sessionId)
       hasVideoBySessionId.removeValue(forKey: sessionId)
@@ -585,6 +663,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         sessionId: sessionId,
         detail: "reason=callkit_end_action_runtime_unowned"
       )
+      markTerminalSuppressed(sessionId: sessionId, reason: "callkit_end_action_runtime_unowned")
+      callKitEndCompletedSessionIds.insert(sessionId)
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,
         owner: "terminal",
@@ -603,7 +683,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       sessionId: sessionId,
       detail: "reason=callkit_end_action"
     )
-    NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sessionId) {
+    // Local CXEnd is the CallKit terminal writer — suppress late orphan re-report; do not
+    // also call provider.reportCall(ended:) (no double terminal).
+    markTerminalSuppressed(sessionId: sessionId, reason: "callkit_end_action")
+    callKitEndCompletedSessionIds.insert(sessionId)
+    NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(
+      sessionId: sessionId,
+      fromCallKitEndAction: true
+    ) {
       DispatchQueue.main.async {
         action.fulfill()
         self.callUuidBySessionId.removeValue(forKey: sessionId)

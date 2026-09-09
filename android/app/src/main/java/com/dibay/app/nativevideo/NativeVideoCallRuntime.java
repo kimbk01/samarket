@@ -475,7 +475,7 @@ public final class NativeVideoCallRuntime {
       NativeVideoCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVideoCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
-      NativeVideoCallActivity.finishIfActive(sid);
+      NativeVideoCallActivity.finishIfActive(sid, reason);
     }
   }
 

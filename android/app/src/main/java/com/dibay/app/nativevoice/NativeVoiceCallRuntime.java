@@ -218,6 +218,22 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
+  /**
+   * New outgoing must not leave a prior CONNECTING/RINGING session as live occupancy.
+   * Proven: cancel/UI switch without {@code end_tapped} left {@code live_voice_session} stuck
+   * → next dial {@code native_engine_busy}. Clear prior via canonical cleanup (not engine destroy).
+   */
+  private static void releasePriorLiveSessionsForOutgoing(Context app, String newCallId) {
+    String priorVoice = findOtherLiveSessionCallId(newCallId);
+    if (priorVoice != null) {
+      NativeVoiceCallLog.info(
+          "outgoing_supersede_prior_live", newCallId, "prior=" + priorVoice + " lane=voice");
+      // Best-effort server terminal; occupancy release is sync cleanup below.
+      NativeVoiceCallApi.endAsync(app, priorVoice, (ok, status, error) -> {});
+      cleanup(app, priorVoice, "superseded_by_new_outgoing");
+    }
+  }
+
   /** Outgoing caller path — token fetch and Agora join without WebView establishment. */
   public static void handleOutgoing(
       Context context,
@@ -233,6 +249,7 @@ public final class NativeVoiceCallRuntime {
         "caller_outgoing_start",
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    releasePriorLiveSessionsForOutgoing(app, sid);
     if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_start")) return;
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
     if (!NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
@@ -272,17 +289,41 @@ public final class NativeVoiceCallRuntime {
     NativeVoiceCallBridge.syncConnected(app, sid);
   }
 
+  private static boolean isCallerJoinStillLive(String sid) {
+    if (NativeVoiceCallTerminalOnce.isClaimed(sid)) return false;
+    Session live = SESSIONS.get(sid);
+    if (live == null) return false;
+    return live.state == State.CONNECTING
+        || live.state == State.RINGING
+        || live.state == State.ACCEPTING
+        || live.state == State.CONNECTED;
+  }
+
   private static void startCallerAgoraJoin(Context app, Session session) {
     String sid = session.callId;
     NativeVoiceCallApi.fetchTokenAsync(
         app,
         sid,
         (connection, tokenError) -> {
+          if (!isCallerJoinStillLive(sid)) {
+            NativeVoiceCallLog.info(
+                "caller_token_stale_skip",
+                sid,
+                "reason=session_not_live_after_token");
+            return;
+          }
           if (connection == null) {
             fail(app, sid, "token_fetch_failed " + safe(tokenError));
             return;
           }
           if (!prepareJoinGuard(app, sid)) return;
+          if (!isCallerJoinStillLive(sid)) {
+            NativeVoiceCallLog.info(
+                "caller_join_stale_skip",
+                sid,
+                "reason=session_not_live_after_guard");
+            return;
+          }
           NativeVoiceCallAgoraEngine.joinCaller(
               app,
               sid,
@@ -290,6 +331,11 @@ public final class NativeVoiceCallRuntime {
               new NativeVoiceCallAgoraEngine.Listener() {
                 @Override
                 public void onConnected() {
+                  if (!isCallerJoinStillLive(sid)) {
+                    NativeVoiceCallLog.info(
+                        "caller_connected_stale_skip", sid, "reason=session_not_live");
+                    return;
+                  }
                   promoteCallerToConnectedIfEligible(app, session);
                 }
 
@@ -305,6 +351,11 @@ public final class NativeVoiceCallRuntime {
 
                 @Override
                 public void onError(String reason) {
+                  if (!isCallerJoinStillLive(sid)) {
+                    NativeVoiceCallLog.info(
+                        "caller_agora_error_stale_skip", sid, "reason=" + safe(reason));
+                    return;
+                  }
                   fail(app, sid, "agora " + safe(reason));
                 }
               });
@@ -439,7 +490,8 @@ public final class NativeVoiceCallRuntime {
             throw new RuntimeException("forced_leave_failure");
           }
           // MERGE: leaveChannel without destroy (CURRENT). Do not restore NORMAL destroy().
-          NativeVoiceCallAgoraEngine.leave(reason);
+          // Only leave if this call still owns the engine (busy-fail must not leave a foreign occupant).
+          NativeVoiceCallAgoraEngine.leave(sid, reason);
         } catch (RuntimeException error) {
           NativeVoiceCallLog.warn(
               "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
@@ -457,7 +509,7 @@ public final class NativeVoiceCallRuntime {
       NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
       NativeVoiceCallOwner.release(sid, reason);
       NativeCallVisibleSurfaceOwner.release(sid, reason);
-      NativeVoiceCallActivity.finishIfActive(sid);
+      NativeVoiceCallActivity.finishIfActive(sid, reason);
     }
   }
 

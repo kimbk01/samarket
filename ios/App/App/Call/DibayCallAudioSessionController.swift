@@ -29,7 +29,12 @@ final class DibayCallAudioSessionController {
     let session = AVAudioSession.sharedInstance()
     do {
       let mode: AVAudioSession.Mode = video ? .videoChat : .voiceChat
-      try session.setCategory(.playAndRecord, mode: mode, options: [.allowBluetooth, .defaultToSpeaker])
+      // Voice must NOT defaultToSpeaker (receiver contract). Video keeps speaker default.
+      var options: AVAudioSession.CategoryOptions = [.allowBluetooth]
+      if video {
+        options.insert(.defaultToSpeaker)
+      }
+      try session.setCategory(.playAndRecord, mode: mode, options: options)
       try session.setActive(true)
       DibayCallLog.info("ios_audio_session_activated", detail: "video=\(video ? "true" : "false")")
     } catch {
@@ -61,6 +66,88 @@ final class DibayCallAudioSessionController {
     } catch {
       DibayCallLog.info("ios_audio_session_failed", detail: "err=\(error.localizedDescription)")
     }
+  }
+
+  /**
+   * Outgoing ringback only — activate session + built-in route BEFORE ringback play.
+   * EXTERNAL BT/wired → preserve. VOICE → receiver. VIDEO → speaker.
+   * Does not own CallKit incoming ringtone.
+   */
+  func prepareOutgoingRingbackRoute(mediaType: String, callId: String) {
+    let media = Self.canonicalRingbackMedia(mediaType)
+    let session = AVAudioSession.sharedInstance()
+    do {
+      if media == "video" {
+        try session.setCategory(
+          .playAndRecord,
+          mode: .videoChat,
+          options: [.allowBluetooth, .defaultToSpeaker]
+        )
+      } else {
+        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
+      }
+      try session.setActive(true, options: [])
+
+      if Self.hasExternalAudioRoute(session) {
+        DibayCallLog.info(
+          "ringback_route_prepare",
+          sessionId: callId,
+          detail: "media=\(media) route=external"
+        )
+        return
+      }
+
+      if media == "video" {
+        try session.overrideOutputAudioPort(.speaker)
+        DibayCallLog.info(
+          "ringback_route_prepare",
+          sessionId: callId,
+          detail: "media=video route=speaker"
+        )
+      } else {
+        try session.overrideOutputAudioPort(.none)
+        DibayCallLog.info(
+          "ringback_route_prepare",
+          sessionId: callId,
+          detail: "media=voice route=receiver"
+        )
+      }
+    } catch {
+      DibayCallLog.info(
+        "ringback_route_prepare",
+        sessionId: callId,
+        detail: "media=\(media) route=failed err=\(error.localizedDescription)"
+      )
+    }
+  }
+
+  /** Clear ringback-only speaker override when ringback stops (non-connected). */
+  func clearOutgoingRingbackRouteOverride() {
+    let session = AVAudioSession.sharedInstance()
+    do {
+      try session.overrideOutputAudioPort(.none)
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  static func canonicalRingbackMedia(_ mediaType: String) -> String {
+    if NativeVideoCallLane.isVideoMediaType(mediaType) { return "video" }
+    if NativeVoiceCallLane.isVoiceMediaType(mediaType) { return "voice" }
+    let normalized = mediaType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return normalized.contains("video") ? "video" : "voice"
+  }
+
+  private static func hasExternalAudioRoute(_ session: AVAudioSession) -> Bool {
+    for output in session.currentRoute.outputs {
+      switch output.portType {
+      case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE, .headphones, .headsetMic, .usbAudio:
+        return true
+      default:
+        continue
+      }
+    }
+    return false
   }
 
   /** Clears outgoing join gate state — call at outgoing start and after native voice cleanup. */

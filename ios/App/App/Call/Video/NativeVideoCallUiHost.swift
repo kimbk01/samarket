@@ -22,7 +22,7 @@ enum NativeVideoCallUiHost {
       switch snapshot.state {
       case .ended, .failed:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId)
+        finishIfActive(callId: callId, reason: snapshot.state == .failed ? "failed" : "ended")
         return
       case .ending:
         renderState(callId: callId, state: snapshot.state)
@@ -139,18 +139,25 @@ enum NativeVideoCallUiHost {
     }
   }
 
-  static func finishIfActive(callId: String) {
+  static func finishIfActive(callId: String, reason: String? = nil) {
     onMain {
       clearDeferredPresentation(callId: callId)
       guard let controller = controller(for: callId) else { return }
-      controller.stopPipIfActive()
-      DibayCallPipPlugin.clearPipEmitGuards(callId: callId)
-      sync.lock()
-      if activeController === controller {
-        activeController = nil
+      let dismissBlock = {
+        controller.stopPipIfActive()
+        DibayCallPipPlugin.clearPipEmitGuards(callId: callId)
+        sync.lock()
+        if activeController === controller {
+          activeController = nil
+        }
+        sync.unlock()
+        controller.dismiss(animated: true)
       }
-      sync.unlock()
-      controller.dismiss(animated: true)
+      if let event = NativeCallInAppNotice.mapTerminalReason(reason) {
+        controller.presentCallInAppNoticeThenDismiss(event: event, then: dismissBlock)
+      } else {
+        dismissBlock()
+      }
     }
   }
 

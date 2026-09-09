@@ -5,7 +5,8 @@ import WebKit
 /**
  * iOS outgoing ringback owner — SSOT custom/default/silent.
  * Parity with Android NativeOutgoingRingbackOwner.
- * Does not permanently own AVAudioSession (Call audio stays DibayCallAudioSessionController).
+ * Route: VOICE=receiver, VIDEO=speaker, EXTERNAL=preserve — prepared BEFORE play.
+ * Does not own CallKit incoming ringtone.
  */
 final class NativeOutgoingRingbackOwner {
   static let shared = NativeOutgoingRingbackOwner()
@@ -22,7 +23,7 @@ final class NativeOutgoingRingbackOwner {
   func start(callId: String, mediaType: String) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
-    let media = mediaType.lowercased().contains("video") ? "video" : "voice"
+    let media = DibayCallAudioSessionController.canonicalRingbackMedia(mediaType)
 
     lock.lock()
     if activeCallId == sid {
@@ -35,6 +36,12 @@ final class NativeOutgoingRingbackOwner {
     generation &+= 1
     let gen = generation
     lock.unlock()
+
+    // ROUTE PREPARE BEFORE RINGBACK PLAY (video speaker must be ready before first tone).
+    DibayCallAudioSessionController.shared.prepareOutgoingRingbackRoute(
+      mediaType: media,
+      callId: sid
+    )
 
     NativeMessengerCallSoundConfigFetcher.shared.fetchOutgoing(mediaType: media, callId: sid) { [weak self] policy in
       guard let self else { return }
@@ -68,6 +75,9 @@ final class NativeOutgoingRingbackOwner {
     let stopped = activeCallId ?? sid
     releaseLocked(reason: reason)
     lock.unlock()
+    if reason != "connected" {
+      DibayCallAudioSessionController.shared.clearOutgoingRingbackRouteOverride()
+    }
     if !stopped.isEmpty {
       DibayCallLog.info("native_outgoing_ringback_stop", sessionId: stopped, detail: "reason=\(reason)")
     }

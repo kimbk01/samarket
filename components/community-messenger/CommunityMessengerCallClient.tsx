@@ -1322,7 +1322,11 @@ export function CommunityMessengerCallClient({
     stopCommunityMessengerCallTone();
     if (st === "missed") {
       void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
-      showMessengerSnackbar(t("cm_ui_missed_call_notification"), { variant: "error" });
+      void import("@/lib/community-messenger/stores/call-in-app-notice-store").then(
+        ({ showCallInAppNoticeEvent }) => {
+          showCallInAppNoticeEvent("missed");
+        }
+      );
     } else if (st === "ended") {
       void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
     }

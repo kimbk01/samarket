@@ -21,7 +21,7 @@ enum NativeVoiceCallUiHost {
     DispatchQueue.main.async {
       guard let session = snapshot.session else {
         if isTerminalPhase(snapshot.phase) {
-          finishIfActiveAny()
+          finishIfActiveAny(reason: noticeReason(for: snapshot.phase))
         }
         return
       }
@@ -40,10 +40,19 @@ enum NativeVoiceCallUiHost {
         renderState(callId: callId, snapshot: snapshot, source: source)
       case .ending:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId)
-      case .rejecting, .ended, .failed, .idle:
+        finishIfActive(callId: callId, reason: "ended")
+      case .rejecting:
         clearDeferredPresentation(callId: callId)
-        finishIfActive(callId: callId)
+        finishIfActive(callId: callId, reason: "rejected")
+      case .ended:
+        clearDeferredPresentation(callId: callId)
+        finishIfActive(callId: callId, reason: "ended")
+      case .failed(let failure):
+        clearDeferredPresentation(callId: callId)
+        finishIfActive(callId: callId, reason: voiceFailureReason(failure))
+      case .idle:
+        clearDeferredPresentation(callId: callId)
+        finishIfActive(callId: callId, reason: nil)
       }
     }
   }
@@ -118,13 +127,20 @@ enum NativeVoiceCallUiHost {
     )
   }
 
-  static func finishIfActive(callId: String) {
+  static func finishIfActive(callId: String, reason: String? = nil) {
     onMain {
       clearDeferredPresentation(callId: callId)
       let targets = controllers(for: callId)
       guard !targets.isEmpty else { return }
+      let event = NativeCallInAppNotice.mapTerminalReason(reason)
       for controller in targets {
-        dismissController(controller, sessionId: callId)
+        if let event {
+          controller.presentCallInAppNoticeThenDismiss(event: event) {
+            dismissController(controller, sessionId: callId)
+          }
+        } else {
+          dismissController(controller, sessionId: callId)
+        }
       }
     }
   }
@@ -133,10 +149,34 @@ enum NativeVoiceCallUiHost {
     !controllers(for: callId).isEmpty
   }
 
-  private static func finishIfActiveAny() {
+  private static func finishIfActiveAny(reason: String? = nil) {
     let callIds = Set(presentedControllers.allObjects.map(\.boundCallId))
     for callId in callIds {
-      finishIfActive(callId: callId)
+      finishIfActive(callId: callId, reason: reason)
+    }
+  }
+
+  private static func noticeReason(for phase: NativeVoiceCallPhase) -> String? {
+    switch phase {
+    case .failed(let failure):
+      return voiceFailureReason(failure)
+    case .rejecting:
+      return "rejected"
+    case .ending, .ended:
+      return "ended"
+    default:
+      return nil
+    }
+  }
+
+  private static func voiceFailureReason(_ failure: NativeVoiceCallFailure) -> String {
+    switch failure {
+    case .rejected:
+      return "rejected"
+    case .ended:
+      return "ended"
+    default:
+      return "failed"
     }
   }
 

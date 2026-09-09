@@ -165,6 +165,26 @@ public class NativeVoiceCallTerminalCleanupTest {
     controller.pause().stop().destroy();
   }
 
+  @Test
+  public void newOutgoing_supersedesPriorLiveConnectingSession() {
+    String prior = "voice-prior-live";
+    NativeVoiceCallRuntime.Session priorSession =
+        new NativeVoiceCallRuntime.Session(prior, "room", "peer", "Peer", "voice", true);
+    priorSession.state = NativeVoiceCallRuntime.State.CONNECTING;
+    NativeVoiceCallRuntime.putSessionForTests(priorSession);
+    NativeVoiceCallOwner.claimNative(prior, "test");
+
+    assertEquals(prior, NativeVoiceCallRuntime.findOtherLiveSessionCallId("voice-new"));
+
+    NativeVoiceCallRuntime.handleOutgoing(
+        context, "voice-new", "room2", "peer2", "Peer2", "voice");
+
+    assertNull(NativeVoiceCallRuntime.getSession(prior));
+    assertTrue(NativeVoiceCallTerminalOnce.isClaimed(prior));
+    assertNotNull(NativeVoiceCallRuntime.getSession("voice-new"));
+    assertNull(NativeVoiceCallRuntime.findOtherLiveSessionCallId("voice-new"));
+  }
+
   private void putConnected(String callId) {
     NativeVoiceCallRuntime.Session session =
         new NativeVoiceCallRuntime.Session(callId, "room", "peer", "Peer", "voice", true);

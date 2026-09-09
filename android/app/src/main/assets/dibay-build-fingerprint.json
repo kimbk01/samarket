@@ -1,10 +1,12 @@
 {
-  "gitSha": "4f9071f7e0d9",
-  "gitShaFull": "4f9071f7e0d9341ca29744f3648300be56051cac",
+  "gitSha": "416b6eb0243e",
+  "gitShaFull": "416b6eb0243e49ac613015742cdd321f595ec4d8",
   "gitDirty": true,
-  "buildTimestamp": "2026-08-04T01:09:32.603Z",
+  "buildTimestamp": "2026-09-08T18:35:11.853Z",
   "buildConfiguration": "debug",
   "bundleId": "com.dibay.app",
   "webDeploySha": null,
-  "environment": "development"
+  "environment": "development",
+  "wave1": "NORMAL_CALL_RECOVERY_WAVE1",
+  "headAtBuild": "416b6eb0243e49ac613015742cdd321f595ec4d8"
 }

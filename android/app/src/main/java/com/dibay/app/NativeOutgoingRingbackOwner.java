@@ -11,8 +11,15 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import com.dibay.app.nativevideo.NativeVideoCallLane;
+import com.dibay.app.nativevoice.NativeVoiceCallLane;
 
-/** Single owner for native outgoing ringback. Never owns incoming ringtone. */
+/**
+ * Single owner for native outgoing ringback. Never owns incoming ringtone.
+ *
+ * <p>ROUTE CONTRACT (product lock): VOICE → receiver/earpiece; VIDEO → speaker; EXTERNAL →
+ * preserve. Connected Agora routing is owned elsewhere — do not extend this class into RTC.
+ */
 public final class NativeOutgoingRingbackOwner {
   private static final String TAG = "DIBAY_CALL";
   private static final Object LOCK = new Object();
@@ -28,7 +35,10 @@ public final class NativeOutgoingRingbackOwner {
   private static Runnable tonePulse;
   private static int generation;
   private static Context ringbackAppContext;
+  /** True when this owner applied setCommunicationDevice / legacy speakerphone for ringback. */
   private static boolean communicationRoutePinned;
+  /** "earpiece" | "speaker" | null — last built-in route this owner pinned. */
+  private static String pinnedBuiltInRoute;
 
   private NativeOutgoingRingbackOwner() {}
 
@@ -101,6 +111,8 @@ public final class NativeOutgoingRingbackOwner {
       Context app, String callId, String mediaType, int gen) {
     if (!isStillActive(callId, gen)) return;
     try {
+      // Route must be pinned BEFORE ToneGenerator so video speaker / voice receiver apply.
+      pinRingbackBeforeStart(app, null, callId, mediaType);
       int stream = AudioManager.STREAM_VOICE_CALL;
       ToneGenerator tone = new ToneGenerator(stream, 60);
       Handler handler = new Handler(Looper.getMainLooper());
@@ -188,7 +200,7 @@ public final class NativeOutgoingRingbackOwner {
               return;
             }
             try {
-              pinRingbackBeforeStart(app, prepared, callId);
+              pinRingbackBeforeStart(app, prepared, callId, mediaType);
               prepared.start();
               Log.i(
                   TAG,
@@ -232,31 +244,59 @@ public final class NativeOutgoingRingbackOwner {
     }
   }
 
-  /** Prefer earpiece for ringback track before playback; never block call start on pin failure. */
-  private static void pinRingbackBeforeStart(Context app, MediaPlayer player, String callId) {
+  /**
+   * Pin built-in ringback route by media type before playback.
+   *
+   * <ul>
+   *   <li>VOICE → earpiece / speakerphone OFF
+   *   <li>VIDEO → speaker / speakerphone ON
+   *   <li>EXTERNAL BT/wired → preserve (no override)
+   * </ul>
+   *
+   * @param player may be null for ToneGenerator path (communication-device / speakerphone only)
+   */
+  private static void pinRingbackBeforeStart(
+      Context app, MediaPlayer player, String callId, String mediaType) {
     AudioManager audioManager = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
     if (audioManager == null) {
-      logRouteSkip(callId, "audio_manager_missing");
+      logRouteSkip(callId, mediaType, "audio_manager_missing");
       return;
     }
     if (hasExternalOutputDevice(audioManager)) {
-      logRouteSkip(callId, "external_output_active");
+      logRingbackRoute(callId, mediaType, "external");
+      logRouteSkip(callId, mediaType, "external_output_active");
       return;
     }
 
+    boolean video = "video".equals(mediaType);
+    if (video) {
+      pinSpeakerRoute(audioManager, player, callId);
+    } else {
+      pinEarpieceRoute(audioManager, player, callId);
+    }
+  }
+
+  private static void pinEarpieceRoute(
+      AudioManager audioManager, MediaPlayer player, String callId) {
     AudioDeviceInfo earpiece = findBuiltinEarpiece(audioManager);
     if (earpiece == null) {
-      logRouteSkip(callId, "earpiece_unavailable");
+      logRouteSkip(callId, "voice", "earpiece_unavailable");
+      applyLegacySpeakerOffFallback(audioManager, callId);
+      logRingbackRoute(callId, "voice", "earpiece");
       return;
     }
 
     boolean preferredApplied = false;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+    if (player != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       preferredApplied = player.setPreferredDevice(earpiece);
       logRoutePin(callId, "preferredDevice", preferredApplied ? "ok" : "fail");
     }
 
-    if (preferredApplied) return;
+    if (preferredApplied) {
+      pinnedBuiltInRoute = "earpiece";
+      logRingbackRoute(callId, "voice", "earpiece");
+      return;
+    }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       AudioDeviceInfo communicationEarpiece = findCommunicationEarpiece(audioManager);
@@ -266,16 +306,64 @@ public final class NativeOutgoingRingbackOwner {
           boolean applied = audioManager.setCommunicationDevice(communicationEarpiece);
           if (applied) {
             communicationRoutePinned = true;
+            pinnedBuiltInRoute = "earpiece";
           }
           logRoutePin(callId, "setCommunicationDevice", applied ? "ok" : "fail");
         } catch (Exception error) {
           logRoutePin(callId, "setCommunicationDevice", "fail");
         }
+        logRingbackRoute(callId, "voice", "earpiece");
         return;
       }
     }
 
     applyLegacySpeakerOffFallback(audioManager, callId);
+    logRingbackRoute(callId, "voice", "earpiece");
+  }
+
+  private static void pinSpeakerRoute(
+      AudioManager audioManager, MediaPlayer player, String callId) {
+    AudioDeviceInfo speaker = findBuiltinSpeaker(audioManager);
+    if (speaker == null) {
+      logRouteSkip(callId, "video", "speaker_unavailable");
+      applyLegacySpeakerOnFallback(audioManager, callId);
+      logRingbackRoute(callId, "video", "speaker");
+      return;
+    }
+
+    boolean preferredApplied = false;
+    if (player != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      preferredApplied = player.setPreferredDevice(speaker);
+      logRoutePin(callId, "preferredDevice", preferredApplied ? "ok" : "fail");
+    }
+
+    if (preferredApplied) {
+      pinnedBuiltInRoute = "speaker";
+      logRingbackRoute(callId, "video", "speaker");
+      return;
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      AudioDeviceInfo communicationSpeaker = findCommunicationSpeaker(audioManager);
+      if (communicationSpeaker != null) {
+        try {
+          audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+          boolean applied = audioManager.setCommunicationDevice(communicationSpeaker);
+          if (applied) {
+            communicationRoutePinned = true;
+            pinnedBuiltInRoute = "speaker";
+          }
+          logRoutePin(callId, "setCommunicationDevice", applied ? "ok" : "fail");
+        } catch (Exception error) {
+          logRoutePin(callId, "setCommunicationDevice", "fail");
+        }
+        logRingbackRoute(callId, "video", "speaker");
+        return;
+      }
+    }
+
+    applyLegacySpeakerOnFallback(audioManager, callId);
+    logRingbackRoute(callId, "video", "speaker");
   }
 
   @SuppressWarnings("deprecation")
@@ -283,6 +371,21 @@ public final class NativeOutgoingRingbackOwner {
     try {
       audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
       audioManager.setSpeakerphoneOn(false);
+      communicationRoutePinned = true;
+      pinnedBuiltInRoute = "earpiece";
+      logRoutePin(callId, "setSpeakerphoneOn", "ok");
+    } catch (Exception error) {
+      logRoutePin(callId, "setSpeakerphoneOn", "fail");
+    }
+  }
+
+  @SuppressWarnings("deprecation")
+  private static void applyLegacySpeakerOnFallback(AudioManager audioManager, String callId) {
+    try {
+      audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+      audioManager.setSpeakerphoneOn(true);
+      communicationRoutePinned = true;
+      pinnedBuiltInRoute = "speaker";
       logRoutePin(callId, "setSpeakerphoneOn", "ok");
     } catch (Exception error) {
       logRoutePin(callId, "setSpeakerphoneOn", "fail");
@@ -297,10 +400,26 @@ public final class NativeOutgoingRingbackOwner {
     return null;
   }
 
+  private static AudioDeviceInfo findBuiltinSpeaker(AudioManager audioManager) {
+    if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null;
+    for (AudioDeviceInfo device : audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+      if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) return device;
+    }
+    return null;
+  }
+
   private static AudioDeviceInfo findCommunicationEarpiece(AudioManager audioManager) {
     if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
     for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
       if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return device;
+    }
+    return null;
+  }
+
+  private static AudioDeviceInfo findCommunicationSpeaker(AudioManager audioManager) {
+    if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
+    for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+      if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) return device;
     }
     return null;
   }
@@ -326,19 +445,43 @@ public final class NativeOutgoingRingbackOwner {
   }
 
   private static void releasePinnedCommunicationRoute(Context app, String reason) {
-    if (!communicationRoutePinned || app == null) return;
+    if (!communicationRoutePinned || app == null) {
+      pinnedBuiltInRoute = null;
+      return;
+    }
     if ("connected".equals(reason)) {
+      // Leave route for Agora connected ownership; clear our pin bookkeeping only.
       communicationRoutePinned = false;
+      pinnedBuiltInRoute = null;
       return;
     }
     AudioManager audioManager = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
-    if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (audioManager != null) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+          audioManager.clearCommunicationDevice();
+        } catch (Exception ignored) {
+        }
+      }
       try {
-        audioManager.clearCommunicationDevice();
+        // Clear legacy speakerphone regardless of prior earpiece/speaker pin.
+        audioManager.setSpeakerphoneOn(false);
       } catch (Exception ignored) {
       }
     }
     communicationRoutePinned = false;
+    pinnedBuiltInRoute = null;
+  }
+
+  private static void logRingbackRoute(String callId, String mediaType, String route) {
+    Log.i(
+        TAG,
+        "[DIBAY_CALL] ringback_route callId="
+            + safe(callId)
+            + " media="
+            + safe(mediaType)
+            + " route="
+            + safe(route));
   }
 
   private static void logRoutePin(String callId, String api, String result) {
@@ -352,11 +495,13 @@ public final class NativeOutgoingRingbackOwner {
             + result);
   }
 
-  private static void logRouteSkip(String callId, String reason) {
+  private static void logRouteSkip(String callId, String mediaType, String reason) {
     Log.i(
         TAG,
         "[DIBAY_CALL] native_outgoing_ringback_route_skip callId="
             + safe(callId)
+            + " media="
+            + safe(mediaType)
             + " reason="
             + safe(reason));
   }
@@ -455,6 +600,9 @@ public final class NativeOutgoingRingbackOwner {
   }
 
   private static String normalizeMediaType(String mediaType) {
+    // Canonical lane helpers: audio → voice; only video is VIDEO.
+    if (NativeVideoCallLane.isVideoMediaType(mediaType)) return "video";
+    if (NativeVoiceCallLane.isVoiceMediaType(mediaType)) return "voice";
     String value = mediaType != null ? mediaType.trim().toLowerCase() : "";
     return "video".equals(value) ? "video" : "voice";
   }
