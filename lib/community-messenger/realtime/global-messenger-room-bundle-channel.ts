@@ -4,8 +4,9 @@
  * 시청자(viewer)당 Realtime 채널을 **열려 있는 방 id 청크** 단위로만 유지한다.
  * 대부분 `postgres_changes`는 `room_id=in.(…)` / `id=in.(…)` 필터.
  * `community_messenger_call_logs` 만 Home/History와 동일하게
- * `caller_user_id=eq` / `peer_user_id=eq` (viewer) — `room_id=in` 은 ACK 되지만
- * Production에서 Home meta에는 오고 bundle에는 오지 않음이 증명됨 (CUT-R1 delivery).
+ * `caller_user_id=eq` / `peer_user_id=eq` (viewer).
+ * `community_messenger_message_reactions` 는 구독하지 않는다 — publication 미등록
+ * binding이 multiplex 채널 전체를 data-silent로 만드는 것이 증명됨 (CUT-R1).
  * 콜백은 열린 방(`listenersByRoom`)만 스케줄한다.
  * 방 리스너 추가·제거 시 `notifyRoomListenersChanged()` 로 청크를 재바인딩한다.
  *
@@ -323,23 +324,12 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       }
     );
 
-    c = c.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "community_messenger_message_reactions",
-        filter: roomScopedFilter,
-      },
-      (payload) => {
-        if (staleBind()) return;
-        const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-        const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-        const roomKey = normalizeRoomKey(rid);
-        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).messageFallback.schedule();
-      }
-    );
+    /**
+     * CUT-R1 delivery: do NOT bind community_messenger_message_reactions.
+     * Table is not on supabase_realtime publication → async system error after
+     * phx_reply ok poisons the entire multiplex channel (zero postgres frames).
+     * Reactions continue via HTTP bootstrap / mutation response only.
+     */
 
     c = c.on(
       "postgres_changes",
