@@ -3,9 +3,11 @@
 /**
  * 시청자(viewer)당 Realtime 채널을 **열려 있는 방 id 청크** 단위로만 유지한다.
  * 대부분 `postgres_changes`는 `room_id=in.(…)` / `id=in.(…)` 필터.
- * `community_messenger_call_logs` 만 Home/History와 동일하게
- * `caller_user_id=eq` / `peer_user_id=eq` (viewer).
- * `community_messenger_message_reactions` 는 구독하지 않는다 — publication 미등록
+ * `community_messenger_call_logs` 는 **구독하지 않는다** — Home meta가 sole owner
+ * (`caller_user_id=eq` / `peer_user_id=eq`). 동일 filter를 Bundle에 중복 등록하면
+ * subscription ID 충돌로 Home+Bundle 모두 call_log frame 0 (CUT-R1).
+ * Open-room terminal catch-up은 Home → `notifyOpenRoomTerminalCatchUpFromCallLog`.
+ * `community_messenger_message_reactions` 도 구독하지 않는다 — publication 미등록
  * binding이 multiplex 채널 전체를 data-silent로 만드는 것이 증명됨 (CUT-R1).
  * 콜백은 열린 방(`listenersByRoom`)만 스케줄한다.
  * 방 리스너 추가·제거 시 `notifyRoomListenersChanged()` 로 청크를 재바인딩한다.
@@ -113,10 +115,34 @@ function emitRoomRefreshForRoom(entry: GlobalMessengerRoomBundleEntry, streamRoo
 /** Room keys with a pending CUT-B terminal catch-up timer (same-purpose HTTP only). */
 const openRoomTerminalCatchUpPendingKeys = new Set<string>();
 
+/**
+ * Active open-room bundle entries by viewer — Home call_logs sole-owner fanout target.
+ * Populated only for live entries (`getSupabaseClient()` present); cleared on `stop()`.
+ */
+const activeOpenRoomBundlesByViewer = new Map<string, GlobalMessengerRoomBundleEntry>();
+
 /** CUT-1 bump after=/silent skip when coalesce already owns the burst. */
 export function isOpenRoomTerminalCatchUpPendingForRoom(roomId: string): boolean {
   const key = normalizeRoomKey(roomId);
   return Boolean(key) && openRoomTerminalCatchUpPendingKeys.has(key);
+}
+
+/**
+ * CUT-R1 single-owner: Home meta owns `community_messenger_call_logs` postgres_changes.
+ * When a matching call_log arrives, notify only currently-open rooms on this viewer’s bundle.
+ * Does not create a second Realtime subscription.
+ */
+export function notifyOpenRoomTerminalCatchUpFromCallLog(
+  viewerUserId: string,
+  roomId: string
+): void {
+  const viewer = viewerUserId.trim();
+  const roomKey = normalizeRoomKey(roomId);
+  if (!viewer || !roomKey) return;
+  const entry = activeOpenRoomBundlesByViewer.get(viewer);
+  if (!entry) return;
+  if (!entry.listenersByRoom.has(roomKey)) return;
+  scheduleOpenRoomTerminalCatchUp(entry, roomKey);
 }
 
 /**
@@ -239,6 +265,11 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   };
   if (!sb) return entry;
 
+  const viewerKey = args.viewerForChannel.trim();
+  if (viewerKey) {
+    activeOpenRoomBundlesByViewer.set(viewerKey, entry);
+  }
+
   let cancelled = false;
   const channels: Array<{ stop: () => void }> = [];
   let cancelBundleSchedulers: (() => void) | null = null;
@@ -329,6 +360,10 @@ export function createGlobalMessengerRoomBundleEntry(args: {
      * Table is not on supabase_realtime publication → async system error after
      * phx_reply ok poisons the entire multiplex channel (zero postgres frames).
      * Reactions continue via HTTP bootstrap / mutation response only.
+     *
+     * CUT-R1 ownership: do NOT bind community_messenger_call_logs here either.
+     * Home meta is the sole postgres_changes owner; open-room catch-up is
+     * `notifyOpenRoomTerminalCatchUpFromCallLog` (in-process fanout).
      */
 
     c = c.on(
@@ -399,48 +434,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       }
     );
 
-    /**
-     * CUT-R1 delivery: call_logs must use viewer identity filters (Home-proven),
-     * not `room_id=in.(…)`. Wire ACK for room_id filter ≠ delivery.
-     * Dispatch still gates on open-room listeners via row.room_id.
-     */
-    const onCallLogPostgres = (payload: {
-      eventType?: string;
-      new: unknown;
-      old: unknown;
-    }) => {
-      if (staleBind()) return;
-      const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-      const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-      const roomKey = normalizeRoomKey(rid);
-      if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-      if (!cancelled) scheduleOpenRoomTerminalCatchUp(entry, roomKey);
-    };
-    const viewerId = args.viewerForChannel.trim();
-    const callLogCallerFilter = `caller_user_id=eq.${viewerId}`;
-    const callLogPeerFilter = `peer_user_id=eq.${viewerId}`;
-
     return c
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_logs",
-          filter: callLogCallerFilter,
-        },
-        onCallLogPostgres
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_logs",
-          filter: callLogPeerFilter,
-        },
-        onCallLogPostgres
-      )
       .on(
         "postgres_changes",
         {
@@ -468,7 +462,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           if (status === "ended" || status === "cancelled" || status === "rejected" || status === "missed") {
             /**
              * CUT-B: was immediate emitRoomRefreshForRoom (bypass roomCallBundle).
-             * Now same trailing owner as call_logs / stub / rooms tip.
+             * Now same trailing owner as stub / rooms tip / Home call_log fanout.
              */
             scheduleOpenRoomTerminalCatchUp(entry, roomKey);
             return;
@@ -645,6 +639,9 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
   entry.stop = () => {
     cancelled = true;
+    if (viewerKey && activeOpenRoomBundlesByViewer.get(viewerKey) === entry) {
+      activeOpenRoomBundlesByViewer.delete(viewerKey);
+    }
     unsubscribeTokenRefresh();
     if (tokenRebindTimer != null) {
       clearTimeout(tokenRebindTimer);

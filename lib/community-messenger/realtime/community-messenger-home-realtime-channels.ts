@@ -31,6 +31,7 @@ import {
   cmRtHs4DiagnosisLog,
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
+import { notifyOpenRoomTerminalCatchUpFromCallLog } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
 
@@ -200,8 +201,15 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               table: "community_messenger_call_logs",
               filter: `caller_user_id=eq.${args.userId}`,
             },
-            () => {
-              if (!cancelled()) refreshScheduler.schedule();
+            (payload) => {
+              if (cancelled()) return;
+              /** Sole call_logs Realtime owner (CUT-R1) — Home list refresh. */
+              refreshScheduler.schedule();
+              const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+              const roomId = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+              if (roomId) {
+                notifyOpenRoomTerminalCatchUpFromCallLog(args.userId, roomId);
+              }
             }
           )
           .on(
@@ -212,8 +220,14 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               table: "community_messenger_call_logs",
               filter: `peer_user_id=eq.${args.userId}`,
             },
-            () => {
-              if (!cancelled()) refreshScheduler.schedule();
+            (payload) => {
+              if (cancelled()) return;
+              refreshScheduler.schedule();
+              const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+              const roomId = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+              if (roomId) {
+                notifyOpenRoomTerminalCatchUpFromCallLog(args.userId, roomId);
+              }
             }
           ),
     });

@@ -100,17 +100,15 @@ describe("CUT-R1 remove invalid reactions binding", () => {
     return { entry, onRefresh, listenerRef };
   }
 
-  it("registers exactly 7 postgres_changes; no message_reactions", async () => {
+  it("registers exactly 5 postgres_changes; no message_reactions; no call_logs", async () => {
     const viewer = "edc8c2f0-2673-4ca8-9d63-92a609d556f4";
     const roomId = "c202326f-8109-4ce4-aa61-394f0a799e7d";
     await bindOpenRoom(viewer, roomId);
 
     const pg = onCalls.filter((c) => c.event === "postgres_changes");
-    expect(pg).toHaveLength(7);
+    expect(pg).toHaveLength(5);
     expect(pg.map((c) => c.opts.table).sort()).toEqual(
       [
-        "community_messenger_call_logs",
-        "community_messenger_call_logs",
         "community_messenger_call_session_participants",
         "community_messenger_call_sessions",
         "community_messenger_messages",
@@ -119,12 +117,7 @@ describe("CUT-R1 remove invalid reactions binding", () => {
       ].sort()
     );
     expect(pg.some((c) => c.opts.table === "community_messenger_message_reactions")).toBe(false);
-
-    const callLogs = pg.filter((c) => c.opts.table === "community_messenger_call_logs");
-    expect(callLogs).toHaveLength(2);
-    expect(callLogs.map((c) => c.opts.filter).sort()).toEqual(
-      [`caller_user_id=eq.${viewer}`, `peer_user_id=eq.${viewer}`].sort()
-    );
+    expect(pg.some((c) => c.opts.table === "community_messenger_call_logs")).toBe(false);
 
     expect(pg.some((c) => c.opts.table === "community_messenger_messages")).toBe(true);
     expect(pg.some((c) => c.opts.table === "community_messenger_rooms")).toBe(true);
@@ -138,5 +131,6 @@ describe("CUT-R1 remove invalid reactions binding", () => {
       "utf8"
     );
     expect(src).not.toMatch(/table:\s*"community_messenger_message_reactions"/);
+    expect(src).not.toMatch(/table:\s*"community_messenger_call_logs"/);
   });
 });
