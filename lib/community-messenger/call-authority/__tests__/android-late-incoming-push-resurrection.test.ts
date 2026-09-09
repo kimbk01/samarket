@@ -95,18 +95,24 @@ describe("CUT7 #6 Android late incoming push resurrection (LP1–LP13 source)", 
     expect(videoRuntime()).toContain("IncomingCallRingOwner.start");
   });
 
-  it("LP13: delay blind zone removed; iOS #5 preserved", () => {
+  it("LP13: H1 delay-gated probe MERGE; presentation deny kept; iOS #5 preserved", () => {
     expect(probe()).toContain("shouldProbe");
-    expect(probe()).toMatch(/public static boolean shouldProbe[\s\S]*return true/);
-    expect(fcm()).not.toContain("shouldProbe(expiry)");
+    expect(probe()).toContain("deliveryDelayMs >= 10_000");
+    expect(fcm()).toContain("shouldProbe(expiry)");
     expect(fcm()).toContain("fetchStatus(this, callId)");
+    expect(fcm()).toContain("shouldAllowIncomingPresentation");
     // iOS #5 lock untouched
     expect(voip()).toContain("shouldApplyVoipTerminal");
     expect(voip()).toContain("ios_voip_terminal_stale_suppressed");
   });
 
-  it("boundary: presentation gate independent of 10s threshold", () => {
-    expect(probe()).not.toContain("deliveryDelayMs >= 10_000");
+  it("boundary: 10s gates probe only; presentation uses status/window", () => {
+    // H1: probe WHEN is delay-gated.
+    expect(probe()).toMatch(
+      /public static boolean shouldProbe[\s\S]*deliveryDelayMs >= 10_000/,
+    );
+    // FCM must not hard-code the threshold; it goes through shouldProbe.
     expect(fcm()).not.toContain("deliveryDelayMs >= 10_000");
+    expect(fcm()).toContain("shouldAllowIncomingPresentation");
   });
 });

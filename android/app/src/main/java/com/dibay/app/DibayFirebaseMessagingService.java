@@ -218,10 +218,13 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       return;
     }
-    // CUT7 #6: always validate canonical session before presentation.
-    // deliveryDelayMs must not create a <10s blind zone; receive-grace must not
-    // resurrect non-ringing sessions after serverExpiresAt.
-    String serverStatus = IncomingCallSessionStatusProbe.fetchStatus(this, callId);
+    // Wave-1 R5/M2 MERGE: H1 delay-gated probe + KEEP terminal presentation deny.
+    // Fresh (<10s) deliveries skip network probe; late deliveries validate server truth.
+    // Receive-grace must not resurrect non-ringing sessions after serverExpiresAt.
+    String serverStatus = null;
+    if (IncomingCallSessionStatusProbe.shouldProbe(expiry)) {
+      serverStatus = IncomingCallSessionStatusProbe.fetchStatus(this, callId);
+    }
     boolean serverRingWindowExpired =
         expiry.serverExpiresAtMs > 0L && receivedAtMs > expiry.serverExpiresAtMs;
     if (IncomingCallSessionStatusProbe.isTerminalStatus(serverStatus)) {
