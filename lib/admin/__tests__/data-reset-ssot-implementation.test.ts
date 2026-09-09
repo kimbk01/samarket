@@ -175,6 +175,8 @@ describe("DATA RESET SSOT implementation", () => {
     const exec = read("lib/admin/data-reset/execute.ts");
     expect(exec).not.toContain("wipe-all-app-data");
     expect(exec).not.toContain("TRUNCATE");
+    expect(exec).toContain("storageTargets");
+    expect(read("lib/admin/data-reset/planner.ts")).toContain("storageTargetsHashIdentity");
   });
 
   it("preview and execute share buildDomainResetPlan authority", () => {

@@ -40,6 +40,7 @@ export type {
   DataResetPlan,
   DataResetExecuteResult,
   DataResetDomainSummaryRow,
+  DataResetStorageTarget,
 } from "@/lib/admin/data-reset/types";
 export { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
 export {
@@ -49,3 +50,7 @@ export {
 } from "@/lib/admin/data-reset/planner";
 export { executeDomainReset, previewOneTimeTokenForPlan } from "@/lib/admin/data-reset/execute";
 export { loadDataResetDomainSummaries } from "@/lib/admin/data-reset/summary";
+export {
+  resolveStorageObjectsForReset,
+  storageTargetsHashIdentity,
+} from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";

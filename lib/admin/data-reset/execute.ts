@@ -18,6 +18,8 @@ import {
   type DataResetPhaseResult,
   type DataResetRequest,
 } from "@/lib/admin/data-reset/types";
+import { POST_IMAGES_BUCKET } from "@/lib/media/post-images-storage-ownership";
+import { storageTargetsHashIdentity } from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
 
 export type ExecuteDomainResetInput = {
   sb: SupabaseClient;
@@ -28,6 +30,51 @@ export type ExecuteDomainResetInput = {
   typedConfirmation: string;
   oneTimeToken?: string;
 };
+
+/** Delete only hash-bound owned Storage paths. No bucket list / prefix purge. */
+async function runStorageActions(
+  sb: SupabaseClient,
+  plan: Awaited<ReturnType<typeof buildDomainResetPlan>>
+): Promise<{ removed: number; errors: string[]; detail: string }> {
+  const owned = plan.storageTargets.filter((t) => t.cleanupPolicy === "DELETE");
+  if (!owned.length) {
+    return {
+      removed: 0,
+      errors: [],
+      detail: plan.domain === "chat" ? "chat_storage_preserve" : "no_owned_storage_targets",
+    };
+  }
+
+  // Re-bind: only identities present on this plan (preview hash already verified).
+  const bound = storageTargetsHashIdentity(owned);
+  const byBucket = new Map<string, string[]>();
+  for (const t of bound) {
+    if (t.bucket !== POST_IMAGES_BUCKET) {
+      // Refuse unknown buckets — no expansion beyond ownership SSOT.
+      continue;
+    }
+    const list = byBucket.get(t.bucket) ?? [];
+    list.push(t.path);
+    byBucket.set(t.bucket, list);
+  }
+
+  let removed = 0;
+  const errors: string[] = [];
+  for (const [bucket, paths] of byBucket) {
+    for (let i = 0; i < paths.length; i += 100) {
+      const chunk = paths.slice(i, i + 100);
+      const { error } = await sb.storage.from(bucket).remove(chunk);
+      if (error) errors.push(`${bucket}:${error.message}`);
+      else removed += chunk.length;
+    }
+  }
+
+  return {
+    removed,
+    errors,
+    detail: `owned_post_images_removed_${removed}_of_${bound.length}`,
+  };
+}
 
 async function runDbActions(
   sb: SupabaseClient,
@@ -335,12 +382,30 @@ export async function executeDomainReset(
     phases.push({ phase: "DB", status: "PASS", detail: "db_actions_ok", counts });
   }
 
-  // Storage: shared bucket → report PARTIAL / skip bucket-wide
-  if (plan.storage.length) {
+  // Storage: only plan.storageTargets with cleanupPolicy=DELETE (hash-bound). Never bucket-wide.
+  if (plan.storageTargets.some((t) => t.cleanupPolicy === "DELETE")) {
+    const storage = await runStorageActions(input.sb, plan);
+    phases.push({
+      phase: "STORAGE",
+      status: storage.errors.length
+        ? storage.removed
+          ? "PARTIAL"
+          : "FAIL"
+        : "PASS",
+      detail: storage.detail + (storage.errors.length ? ` | ${storage.errors.join(" | ")}` : ""),
+      counts: { storage_removed: storage.removed },
+    });
+    if (storage.errors.length && !errors.length && !storage.removed) {
+      // keep overall based on DB + storage
+    }
+  } else if (plan.storage.length) {
     phases.push({
       phase: "STORAGE",
       status: "SKIPPED",
-      detail: "storage_entity_cleanup_partial_shared_bucket_not_auto_purged",
+      detail:
+        plan.domain === "chat"
+          ? "chat_attachments_preserve_b4"
+          : "no_owned_storage_targets_or_preserve_only",
     });
   } else {
     phases.push({ phase: "STORAGE", status: "SKIPPED", detail: "no_storage_steps" });

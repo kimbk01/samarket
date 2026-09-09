@@ -44,6 +44,18 @@ export type DataResetTableAction = {
   phase: "DB" | "STORAGE" | "DERIVED";
 };
 
+/** Entity-owned Storage object bound into planHash (preview === execute). */
+export type DataResetStorageTarget = {
+  bucket: string;
+  path: string;
+  domain: string;
+  entityType: string;
+  entityId: string;
+  ownership: string;
+  cleanupPolicy: "DELETE" | "PRESERVE" | "SKIP_AMBIGUOUS";
+  reference: string;
+};
+
 export type DataResetPlan = {
   planId: string;
   domain: DataResetDomain;
@@ -58,6 +70,8 @@ export type DataResetPlan = {
   preserve: string[];
   blocked: string[];
   storage: DataResetTableAction[];
+  /** Concrete post-images (and only planned) object identities — hash-bound. */
+  storageTargets: DataResetStorageTarget[];
   derivedState: string[];
   estimatedCounts: Record<string, number>;
   deleteCounts: Record<string, number>;

@@ -20,6 +20,10 @@ import {
 } from "@/lib/admin/data-reset/count-helpers";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
 import {
+  resolveStorageObjectsForReset,
+  storageTargetsHashIdentity,
+} from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
+import {
   DATA_RESET_B1B2_MIGRATION,
   DATA_RESET_DOMAINS,
   DATA_RESET_PLAN_TTL_MS,
@@ -31,6 +35,7 @@ import {
   type DataResetRequest,
   type DataResetRiskLevel,
   type DataResetScope,
+  type DataResetStorageTarget,
   type DataResetTableAction,
 } from "@/lib/admin/data-reset/types";
 import { loadProtectedAdminUserIds } from "@/lib/admin/prelaunch-reset/protection";
@@ -85,6 +90,7 @@ function emptyPlanBase(
     preserve: [],
     blocked: [],
     storage: [],
+    storageTargets: [] as DataResetStorageTarget[],
     derivedState: [],
     estimatedCounts: {},
     deleteCounts: {},
@@ -131,6 +137,7 @@ function finalizePlan(
     detach: draft.detach,
     resetState: draft.resetState,
     storage: draft.storage,
+    storageTargets: storageTargetsHashIdentity(draft.storageTargets),
     estimatedCounts: draft.estimatedCounts,
     blockers: draft.blockers,
     preserve: draft.preserve,
@@ -173,6 +180,63 @@ function act(
   phase: DataResetTableAction["phase"] = "DB"
 ): DataResetTableAction {
   return { table, action, filterDescription, estimatedRows, phase };
+}
+
+async function attachPostImagesStoragePlan(
+  sb: SupabaseClient,
+  draft: ReturnType<typeof emptyPlanBase>,
+  domain: "community" | "market" | "chat"
+): Promise<void> {
+  if (draft.blockers.length) return;
+
+  const entityIds =
+    draft.scope === "single" && draft.entityId ? [draft.entityId] : null;
+  const resolved = await resolveStorageObjectsForReset({
+    sb,
+    domain,
+    entityIds,
+  });
+  for (const w of resolved.warnings) draft.warnings.push(w);
+
+  draft.storageTargets.push(...resolved.ownedObjects);
+
+  if (resolved.preservedObjects.length) {
+    draft.warnings.push(`storage_preserved_cross_domain_${resolved.preservedObjects.length}`);
+  }
+  if (resolved.ambiguousObjects.length) {
+    draft.warnings.push(`storage_ambiguous_skipped_${resolved.ambiguousObjects.length}`);
+  }
+
+  draft.preserveSummary = [
+    ...draft.preserveSummary,
+    "post-images profile avatars PRESERVE",
+    "post-images chat attachments PRESERVE",
+    "post-images AMBIGUOUS SKIP (no guess delete)",
+  ];
+
+  if (domain === "chat") {
+    draft.storage.push(
+      act(
+        "storage.objects",
+        "PRESERVE",
+        "chat attachments PRESERVE (B4 soft/detach — no hard storage delete)",
+        0,
+        "STORAGE"
+      )
+    );
+    return;
+  }
+
+  const n = resolved.ownedObjects.length;
+  draft.storage.push(
+    act(
+      "storage.objects",
+      "DELETE",
+      `entity-owned post-images via resolveStorageObjectsForReset (${domain}; ${n} paths)`,
+      n,
+      "STORAGE"
+    )
+  );
 }
 
 async function planCommunity(
@@ -223,16 +287,6 @@ async function planCommunity(
     draft.delete.push(
       act("community_posts", "DELETE", `id=${draft.entityId}`, post.n)
     );
-    draft.storage.push(
-      act(
-        "storage.objects",
-        "DELETE",
-        `entity-owned post-images for community_posts:${draft.entityId} (path-derived; shared bucket)`,
-        0,
-        "STORAGE"
-      )
-    );
-    draft.warnings.push("storage_cleanup_partial_shared_post_images_bucket");
     return;
   }
 
@@ -253,7 +307,6 @@ async function planCommunity(
   pushCount(draft, "community_post_likes", likes.n);
   pushCount(draft, "community_post_saves", saves.n);
   draft.delete.push(act("community_posts", "DELETE", "all rows (children CASCADE)", posts.n));
-  draft.warnings.push("storage_cleanup_partial_shared_post_images_bucket");
 }
 
 async function planMarket(
@@ -290,7 +343,6 @@ async function planMarket(
         0
       )
     );
-    draft.warnings.push("storage_cleanup_partial_shared_post_images_bucket");
     return;
   }
 
@@ -306,7 +358,6 @@ async function planMarket(
   draft.detach.push(
     act("community_messenger_rooms", "DETACH", "trade chat_domain rooms preserved", 0)
   );
-  draft.warnings.push("storage_cleanup_partial_shared_post_images_bucket");
 }
 
 async function planDelivery(
@@ -682,6 +733,7 @@ async function planFull(
     draft.detach.push(...child.detach);
     draft.resetState.push(...child.resetState);
     draft.storage.push(...child.storage);
+    draft.storageTargets.push(...child.storageTargets);
     draft.warnings.push(...child.warnings.map((w) => `${part.domain}:${w}`));
     for (const [k, v] of Object.entries(child.estimatedCounts)) {
       draft.estimatedCounts[`${part.domain}.${k}`] = v;
@@ -749,15 +801,18 @@ export async function buildDomainResetPlan(
   switch (domain) {
     case "community":
       await planCommunity(input.sb, draft);
+      await attachPostImagesStoragePlan(input.sb, draft, "community");
       break;
     case "market":
       await planMarket(input.sb, draft);
+      await attachPostImagesStoragePlan(input.sb, draft, "market");
       break;
     case "delivery":
       await planDelivery(input.sb, draft);
       break;
     case "chat":
       await planChat(input.sb, draft);
+      await attachPostImagesStoragePlan(input.sb, draft, "chat");
       break;
     case "friend":
       await planFriend(input.sb, draft);
