@@ -2,7 +2,11 @@
 
 /**
  * 시청자(viewer)당 Realtime 채널을 **열려 있는 방 id 청크** 단위로만 유지한다.
- * `postgres_changes`에는 항상 `room_id=in.(…)` / `id=in.(…)` 필터를 걸어 전 테이블 구독을 피한다.
+ * 대부분 `postgres_changes`는 `room_id=in.(…)` / `id=in.(…)` 필터.
+ * `community_messenger_call_logs` 만 Home/History와 동일하게
+ * `caller_user_id=eq` / `peer_user_id=eq` (viewer) — `room_id=in` 은 ACK 되지만
+ * Production에서 Home meta에는 오고 bundle에는 오지 않음이 증명됨 (CUT-R1 delivery).
+ * 콜백은 열린 방(`listenersByRoom`)만 스케줄한다.
  * 방 리스너 추가·제거 시 `notifyRoomListenersChanged()` 로 청크를 재바인딩한다.
  *
  * `useMessengerRoomClientPhase1` → `useMessengerRoomRealtimeMessageIngest` →
@@ -405,6 +409,27 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       }
     );
 
+    /**
+     * CUT-R1 delivery: call_logs must use viewer identity filters (Home-proven),
+     * not `room_id=in.(…)`. Wire ACK for room_id filter ≠ delivery.
+     * Dispatch still gates on open-room listeners via row.room_id.
+     */
+    const onCallLogPostgres = (payload: {
+      eventType?: string;
+      new: unknown;
+      old: unknown;
+    }) => {
+      if (staleBind()) return;
+      const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+      const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+      const roomKey = normalizeRoomKey(rid);
+      if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+      if (!cancelled) scheduleOpenRoomTerminalCatchUp(entry, roomKey);
+    };
+    const viewerId = args.viewerForChannel.trim();
+    const callLogCallerFilter = `caller_user_id=eq.${viewerId}`;
+    const callLogPeerFilter = `peer_user_id=eq.${viewerId}`;
+
     return c
       .on(
         "postgres_changes",
@@ -412,16 +437,19 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           event: "*",
           schema: "public",
           table: "community_messenger_call_logs",
-          filter: roomScopedFilter,
+          filter: callLogCallerFilter,
         },
-        (payload) => {
-          if (staleBind()) return;
-          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-          const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-          const roomKey = normalizeRoomKey(rid);
-          if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-          if (!cancelled) scheduleOpenRoomTerminalCatchUp(entry, roomKey);
-        }
+        onCallLogPostgres
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_logs",
+          filter: callLogPeerFilter,
+        },
+        onCallLogPostgres
       )
       .on(
         "postgres_changes",

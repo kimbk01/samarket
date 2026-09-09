@@ -117,6 +117,8 @@ describe("CUT-B open-room terminal catch-up coalesce", () => {
     expect(src).toContain("openRoomTerminalCatchUp");
     expect(src).toContain("MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS");
     expect(src).toContain('table: "community_messenger_call_logs"');
+    expect(src).toContain("caller_user_id=eq.");
+    expect(src).toContain("peer_user_id=eq.");
     expect(src).toContain('table: "community_messenger_call_sessions"');
     expect(src).toContain('messageType === "call_stub"');
     expect(src).toContain('table: "community_messenger_rooms"');
