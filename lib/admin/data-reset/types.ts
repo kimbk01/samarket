@@ -4,6 +4,9 @@
  */
 
 import { createHash } from "node:crypto";
+import type { DataResetDerivedTarget } from "@/lib/admin/data-reset/derived-state";
+
+export type { DataResetDerivedTarget };
 
 export const DATA_RESET_DOMAINS = [
   "community",
@@ -72,6 +75,11 @@ export type DataResetPlan = {
   storage: DataResetTableAction[];
   /** Concrete post-images (and only planned) object identities — hash-bound. */
   storageTargets: DataResetStorageTarget[];
+  /** Structured derived targets (hash-bound via derivedTargetsHashIdentity). */
+  derivedStateTargets: DataResetDerivedTarget[];
+  /** Client invalidation namespaces for browser apply after execute. */
+  clientInvalidation: string[];
+  /** Human-readable derived labels (kind:operation). */
   derivedState: string[];
   estimatedCounts: Record<string, number>;
   deleteCounts: Record<string, number>;
@@ -114,6 +122,7 @@ export type DataResetExecuteResult = {
   phases: DataResetPhaseResult[];
   executedCounts: Record<string, number>;
   clientSessionInvalidationRequired: boolean;
+  clientInvalidation?: string[];
 };
 
 export type DataResetDomainSummaryRow = {

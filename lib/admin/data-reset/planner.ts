@@ -24,6 +24,12 @@ import {
   storageTargetsHashIdentity,
 } from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
 import {
+  clientInvalidationHashIdentity,
+  derivedTargetsHashIdentity,
+  resolveDerivedStateResetPlan,
+  type DataResetDerivedTarget,
+} from "@/lib/admin/data-reset/derived-state";
+import {
   DATA_RESET_B1B2_MIGRATION,
   DATA_RESET_DOMAINS,
   DATA_RESET_PLAN_TTL_MS,
@@ -91,6 +97,8 @@ function emptyPlanBase(
     blocked: [],
     storage: [],
     storageTargets: [] as DataResetStorageTarget[],
+    derivedStateTargets: [] as DataResetDerivedTarget[],
+    clientInvalidation: [] as string[],
     derivedState: [],
     estimatedCounts: {},
     deleteCounts: {},
@@ -138,6 +146,8 @@ function finalizePlan(
     resetState: draft.resetState,
     storage: draft.storage,
     storageTargets: storageTargetsHashIdentity(draft.storageTargets),
+    derivedStateTargets: derivedTargetsHashIdentity(draft.derivedStateTargets),
+    clientInvalidation: clientInvalidationHashIdentity(draft.clientInvalidation),
     estimatedCounts: draft.estimatedCounts,
     blockers: draft.blockers,
     preserve: draft.preserve,
@@ -170,6 +180,36 @@ function pushCount(
   if (bucket === "delete") draft.deleteCounts[key] = (draft.deleteCounts[key] ?? 0) + n;
   if (bucket === "soft") draft.softDeleteCounts[key] = (draft.softDeleteCounts[key] ?? 0) + n;
   if (bucket === "detach") draft.detachCounts[key] = (draft.detachCounts[key] ?? 0) + n;
+}
+
+function attachDerived(draft: ReturnType<typeof emptyPlanBase>): void {
+  const d = resolveDerivedStateResetPlan({ domain: draft.domain, scope: draft.scope });
+  draft.derivedStateTargets = d.derivedStateTargets;
+  draft.clientInvalidation = d.clientInvalidation;
+  for (const w of d.warnings) draft.warnings.push(w);
+  draft.derivedState = d.derivedStateTargets.map((t) => `${t.kind}:${t.operation}`);
+}
+
+function mergeUniqueDerivedTargets(
+  into: DataResetDerivedTarget[],
+  from: readonly DataResetDerivedTarget[]
+): void {
+  const seen = new Set(into.map((t) => `${t.kind}|${t.identity}|${t.operation}`));
+  for (const t of from) {
+    const key = `${t.kind}|${t.identity}|${t.operation}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    into.push(t);
+  }
+}
+
+function mergeUniqueClientInvalidation(into: string[], from: readonly string[]): void {
+  const seen = new Set(into);
+  for (const ns of from) {
+    if (seen.has(ns)) continue;
+    seen.add(ns);
+    into.push(ns);
+  }
 }
 
 function act(
@@ -734,6 +774,8 @@ async function planFull(
     draft.resetState.push(...child.resetState);
     draft.storage.push(...child.storage);
     draft.storageTargets.push(...child.storageTargets);
+    mergeUniqueDerivedTargets(draft.derivedStateTargets, child.derivedStateTargets);
+    mergeUniqueClientInvalidation(draft.clientInvalidation, child.clientInvalidation);
     draft.warnings.push(...child.warnings.map((w) => `${part.domain}:${w}`));
     for (const [k, v] of Object.entries(child.estimatedCounts)) {
       draft.estimatedCounts[`${part.domain}.${k}`] = v;
@@ -749,6 +791,8 @@ async function planFull(
     }
   }
 
+  draft.derivedState = draft.derivedStateTargets.map((t) => `${t.kind}:${t.operation}`);
+  draft.clientInvalidation = clientInvalidationHashIdentity(draft.clientInvalidation);
   draft.blocked.push("finance_hard_reset");
   draft.blocked.push("auth_users_wipe");
   draft.blocked.push("wipe_all_app_data_sql");
@@ -802,26 +846,33 @@ export async function buildDomainResetPlan(
     case "community":
       await planCommunity(input.sb, draft);
       await attachPostImagesStoragePlan(input.sb, draft, "community");
+      attachDerived(draft);
       break;
     case "market":
       await planMarket(input.sb, draft);
       await attachPostImagesStoragePlan(input.sb, draft, "market");
+      attachDerived(draft);
       break;
     case "delivery":
       await planDelivery(input.sb, draft);
+      attachDerived(draft);
       break;
     case "chat":
       await planChat(input.sb, draft);
       await attachPostImagesStoragePlan(input.sb, draft, "chat");
+      attachDerived(draft);
       break;
     case "friend":
       await planFriend(input.sb, draft);
+      attachDerived(draft);
       break;
     case "member":
       await planMember(input.sb, draft, protectedIds);
+      attachDerived(draft);
       break;
     case "finance":
       await planFinance(input.sb, draft);
+      attachDerived(draft);
       break;
     case "full":
       await planFull(input.sb, draft, input.actorUserId);

@@ -131,6 +131,23 @@ export function invalidateStoreHomeFeedClientCache(pathAndQuery = ""): void {
   }
 }
 
+/** Data Reset — clear all store-home-feed client memory + session prefix keys. */
+export function clearAllStoreHomeFeedClientCaches(): void {
+  storeHomeFeedCache.clear();
+  if (typeof window === "undefined") return;
+  try {
+    const removeKeys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (!key || !key.startsWith(STORE_HOME_FEED_SESSION_KEY_PREFIX)) continue;
+      removeKeys.push(key);
+    }
+    for (const key of removeKeys) sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 export type PrewarmStoreHomeFeedClientCacheOptions = {
   language?: AppLanguageCode | string;
   clientCallSource?: StoresHomeClientCallSource;

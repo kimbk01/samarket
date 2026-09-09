@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
+import { executeDerivedStateReset } from "@/lib/admin/data-reset/derived-state";
 import {
   buildDomainResetPlan,
   confirmationMatchesPlan,
@@ -382,9 +383,30 @@ export async function executeDomainReset(
     phases.push({ phase: "DB", status: "PASS", detail: "db_actions_ok", counts });
   }
 
+  // Derived server state — after DB, before Storage (client namespaces returned for browser).
+  const derived = await executeDerivedStateReset({
+    sb: input.sb,
+    targets: plan.derivedStateTargets,
+  });
+  const derivedStatus: DataResetPhaseResult["status"] = derived.errors.length
+    ? Object.keys(derived.counts).length
+      ? "PARTIAL"
+      : "FAIL"
+    : "PASS";
+  phases.push({
+    phase: "DERIVED",
+    status: derivedStatus,
+    detail: derived.detail + (derived.errors.length ? ` | ${derived.errors.join(" | ")}` : ""),
+    counts: derived.counts,
+  });
+
   // Storage: only plan.storageTargets with cleanupPolicy=DELETE (hash-bound). Never bucket-wide.
+  let storageErrors = 0;
+  let storageRemoved = 0;
   if (plan.storageTargets.some((t) => t.cleanupPolicy === "DELETE")) {
     const storage = await runStorageActions(input.sb, plan);
+    storageErrors = storage.errors.length;
+    storageRemoved = storage.removed;
     phases.push({
       phase: "STORAGE",
       status: storage.errors.length
@@ -396,7 +418,7 @@ export async function executeDomainReset(
       counts: { storage_removed: storage.removed },
     });
     if (storage.errors.length && !errors.length && !storage.removed) {
-      // keep overall based on DB + storage
+      // keep overall based on DB + derived + storage
     }
   } else if (plan.storage.length) {
     phases.push({
@@ -411,18 +433,22 @@ export async function executeDomainReset(
     phases.push({ phase: "STORAGE", status: "SKIPPED", detail: "no_storage_steps" });
   }
 
-  phases.push({
-    phase: "DERIVED",
-    status: "SKIPPED",
-    detail: "client_session_invalidation_required",
-  });
-
-  const overall =
-    errors.length === 0
-      ? "SUCCESS"
-      : Object.keys(counts).length > 0
-        ? "PARTIAL"
-        : "FAILED";
+  const dbSuccessCounts = Object.keys(counts).length;
+  const derivedHadErrors = derived.errors.length > 0;
+  let overall: DataResetExecuteResult["overall"];
+  if (derivedHadErrors && dbSuccessCounts === 0 && errors.length > 0) {
+    overall = "FAILED";
+  } else if (derivedHadErrors && dbSuccessCounts === 0 && errors.length === 0) {
+    // DB reported ok/noop but derived failed — treat as FAIL when no DB success counts
+    overall = "FAILED";
+  } else if (errors.length === 0 && !derivedHadErrors && storageErrors === 0) {
+    overall = "SUCCESS";
+  } else if (errors.length > 0 && dbSuccessCounts === 0 && !derivedHadErrors && storageRemoved === 0) {
+    overall = "FAILED";
+  } else {
+    // DB ok/partial but derived errors → PARTIAL; or mixed DB/storage
+    overall = "PARTIAL";
+  }
 
   await appendAuditLog(input.sb, {
     actor_type: "admin",
@@ -439,9 +465,11 @@ export async function executeDomainReset(
     after_json: {
       overall,
       executedCounts: counts,
-      errors,
+      derivedCounts: derived.counts,
+      errors: [...errors, ...derived.errors],
       completedAt: new Date().toISOString(),
       clientSessionInvalidationRequired: true,
+      clientInvalidation: plan.clientInvalidation,
     },
   });
   phases.push({ phase: "AUDIT", status: "PASS", detail: "audit_logs_appended" });
@@ -451,8 +479,9 @@ export async function executeDomainReset(
     overall,
     plan,
     phases,
-    executedCounts: counts,
+    executedCounts: { ...counts, ...derived.counts },
     clientSessionInvalidationRequired: true,
+    clientInvalidation: plan.clientInvalidation,
   };
 }
 

@@ -78,6 +78,11 @@ export function clearHomePostsFavoriteCacheKeysForViewerPrefix(userId: string): 
   }
 }
 
+/** Data Reset derived execute — drop process-local home feed memory. */
+export function clearHomePostsServerMemoryCache(): void {
+  homePostsServerCache.clear();
+}
+
 function normalizeSort(raw: string | null): HomePostsQuerySort {
   if (raw === "popular") return "popular";
   if (parseMarketplaceSort(raw) === "distance") return "distance";

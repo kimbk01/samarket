@@ -129,6 +129,28 @@ export function invalidateStoresBrowseSessionCache(
   }
 }
 
+/** Data Reset — remove all stores-browse session keys (prefix only; no sessionStorage.clear). */
+export function clearAllStoresBrowseSessionCaches(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const removeKeys: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i);
+      if (
+        !key ||
+        (!key.startsWith(STORES_BROWSE_SESSION_QS_PREFIX) &&
+          !key.startsWith(STORES_BROWSE_SESSION_ROUTE_PREFIX))
+      ) {
+        continue;
+      }
+      removeKeys.push(key);
+    }
+    for (const key of removeKeys) sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** `useState` 초기화·Provider 전 — cookie/localStorage 와 동일 파티션 */
 export function resolveBrowseSessionLanguageClient(): AppLanguageCode {
   if (typeof window === "undefined") return "en";

@@ -225,19 +225,33 @@ export function AdminDataResetPage() {
         overall?: string;
         error?: string;
         clientSessionInvalidationRequired?: boolean;
+        clientInvalidation?: string[];
         executedCounts?: Record<string, number>;
       };
       if (!res.ok) {
         setResultMsg(data.error ?? data.overall ?? "execute_blocked");
         return;
       }
+      let clientApplied = 0;
+      const namespaces = data.clientInvalidation ?? [];
+      if (namespaces.length) {
+        const { applyDataResetClientInvalidation } = await import(
+          "@/lib/admin/data-reset/client-invalidation"
+        );
+        const applied = applyDataResetClientInvalidation(namespaces);
+        clientApplied = applied.applied.length;
+      }
       setResultMsg(
         `${data.overall ?? "DONE"}${
-          data.clientSessionInvalidationRequired
+          namespaces.length
             ? ko
-              ? " · 클라이언트 세션 무효화 필요"
-              : " · CLIENT SESSION INVALIDATION REQUIRED"
-            : ""
+              ? ` · 클라이언트 무효화 ${clientApplied}/${namespaces.length}`
+              : ` · client invalidation ${clientApplied}/${namespaces.length}`
+            : data.clientSessionInvalidationRequired
+              ? ko
+                ? " · 클라이언트 세션 무효화 필요"
+                : " · CLIENT SESSION INVALIDATION REQUIRED"
+              : ""
         }`
       );
       await loadSummary();
@@ -460,6 +474,31 @@ export function AdminDataResetPage() {
               {plan.preserveSummary.map((p) => (
                 <li key={p}>{p}</li>
               ))}
+            </ul>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold text-sam-fg">
+              {ko ? "서버 Derived Reset" : "SERVER DERIVED RESET"}
+            </h3>
+            <ul className="text-sm text-sam-muted">
+              {(plan.derivedStateTargets ?? []).map((t) => (
+                <li key={`${t.kind}:${t.identity}`}>
+                  {t.ownerDomain.toUpperCase()} {t.kind}: {t.operation}
+                  {t.estimatedRows >= 0 ? ` (${t.estimatedRows})` : ""}
+                </li>
+              ))}
+              {!(plan.derivedStateTargets ?? []).length ? <li>—</li> : null}
+            </ul>
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold text-sam-fg">
+              {ko ? "클라이언트 Invalidation" : "CLIENT INVALIDATION"}
+            </h3>
+            <ul className="text-sm text-sam-muted">
+              {(plan.clientInvalidation ?? []).map((ns) => (
+                <li key={ns}>{ns}</li>
+              ))}
+              {!(plan.clientInvalidation ?? []).length ? <li>—</li> : null}
             </ul>
           </section>
           {plan.blockers.length ? (

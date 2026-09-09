@@ -86,6 +86,7 @@ export async function POST(req: Request) {
       phases: result.phases,
       executedCounts: result.executedCounts,
       clientSessionInvalidationRequired: result.clientSessionInvalidationRequired,
+      clientInvalidation: result.clientInvalidation ?? result.plan.clientInvalidation,
     },
     { status }
   );

@@ -54,3 +54,21 @@ export {
   resolveStorageObjectsForReset,
   storageTargetsHashIdentity,
 } from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
+export {
+  DATA_RESET_DERIVED_INVENTORY,
+  DATA_RESET_CLIENT_INVALIDATION_FORBIDDEN,
+  resolveDerivedStateResetPlan,
+  derivedTargetsHashIdentity,
+  clientInvalidationHashIdentity,
+  executeDerivedStateReset,
+} from "@/lib/admin/data-reset/derived-state";
+export type {
+  DataResetDerivedTarget,
+  DataResetClientInvalidationNamespace,
+  DerivedStateOperation,
+} from "@/lib/admin/data-reset/derived-state";
+export {
+  applyDataResetClientInvalidation,
+  DATA_RESET_CLIENT_INVALIDATION_SOURCE_FORBIDDEN,
+} from "@/lib/admin/data-reset/client-invalidation";
+export type { ApplyDataResetClientInvalidationResult } from "@/lib/admin/data-reset/client-invalidation";
