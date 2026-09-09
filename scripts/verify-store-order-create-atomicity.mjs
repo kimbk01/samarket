@@ -109,6 +109,29 @@ if (!migMoney.includes("FROM public.gift_certificate_products")) {
   fails.push("money migration missing live-compat gift fee from gift_certificate_products");
 }
 
+const migMinCoupon = fs.readFileSync(
+  path.join(
+    root,
+    "supabase/migrations/20261217120000_create_store_order_atomic_min_order_coupon_authority.sql"
+  ),
+  "utf8"
+);
+if (!migMinCoupon.includes("below_min_order")) {
+  fails.push("min/coupon migration missing below_min_order");
+}
+if (!migMinCoupon.includes("v_discount_auth")) {
+  fails.push("min/coupon migration missing v_discount_auth");
+}
+if (migMinCoupon.includes("v_discount := round(coalesce((p_order->>'discount_amount')::numeric, 0))")) {
+  fails.push("min/coupon migration still trusts payload discount_amount");
+}
+if (!migMinCoupon.includes("v_discount := round(v_discount_auth)")) {
+  fails.push("min/coupon migration missing authoritative discount assignment");
+}
+if (/gift_certificate_instance_redeem_fee_rate\s*\(/.test(migMinCoupon)) {
+  fails.push("min/coupon migration must not depend on unapplied gift fee helper");
+}
+
 if (fails.length) {
   console.error("FAIL: store-order-create-atomicity\n" + fails.join("\n"));
   process.exit(1);
