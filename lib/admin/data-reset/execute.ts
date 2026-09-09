@@ -1,11 +1,17 @@
 /**
- * executeDomainReset — same planner as preview; hash-bound; Production execute forbidden.
+ * executeDomainReset — same planner as preview; hash-bound.
+ * Production: DATA_RESET_PRODUCTION_EXECUTE opt-in + per-scope allowlist.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
 import { executeDerivedStateReset } from "@/lib/admin/data-reset/derived-state";
+import {
+  assertDataResetFailClosedDomain,
+  isDataResetProductionScopeEnabled,
+} from "@/lib/admin/data-reset/production-enable-policy";
+import { verifyDataResetL2ReauthProof } from "@/lib/admin/data-reset/l2-reauth";
 import {
   buildDomainResetPlan,
   confirmationMatchesPlan,
@@ -28,8 +34,12 @@ export type ExecuteDomainResetInput = {
   request: Omit<DataResetRequest, "mode">;
   planId: string;
   expectedHash: string;
+  /** Preview plan.createdAt — required for hash + expiry binding. */
+  createdAt: string;
   typedConfirmation: string;
   oneTimeToken?: string;
+  /** L2 only — reserved; never logged. Absent/invalid while L2 reauth unimplemented → BLOCK. */
+  reauthProof?: string | null;
 };
 
 /** Delete only hash-bound owned Storage paths. No bucket list / prefix purge. */
@@ -280,11 +290,69 @@ export async function executeDomainReset(
       actorUserId: input.actorUserId,
       request: input.request,
       planId: input.planId,
+      createdAt: input.createdAt,
     });
     phases.push({
       phase: "VERIFY",
       status: "BLOCKED",
       detail: env.reasons.join(",") || "execute_forbidden",
+    });
+    return {
+      ok: false,
+      overall: "BLOCKED",
+      plan,
+      phases,
+      executedCounts: {},
+      clientSessionInvalidationRequired: false,
+    };
+  }
+
+  const failClosed = assertDataResetFailClosedDomain({
+    domain: input.request.domain,
+    subtype: input.request.subtype,
+  });
+  if (!failClosed.ok) {
+    const plan = await buildDomainResetPlan({
+      sb: input.sb,
+      actorUserId: input.actorUserId,
+      request: input.request,
+      planId: input.planId,
+      createdAt: input.createdAt,
+    });
+    phases.push({
+      phase: "VERIFY",
+      status: "BLOCKED",
+      detail: failClosed.reason,
+    });
+    return {
+      ok: false,
+      overall: "BLOCKED",
+      plan,
+      phases,
+      executedCounts: {},
+      clientSessionInvalidationRequired: false,
+    };
+  }
+
+  if (
+    env.tier === "production" &&
+    !isDataResetProductionScopeEnabled({
+      domain: input.request.domain,
+      scope: input.request.scope,
+      subtype: input.request.subtype,
+    })
+  ) {
+    const plan = await buildDomainResetPlan({
+      sb: input.sb,
+      actorUserId: input.actorUserId,
+      request: input.request,
+      planId: input.planId,
+      createdAt: input.createdAt,
+    });
+    phases.push({
+      phase: "VERIFY",
+      status: "BLOCKED",
+      detail: "PRODUCTION_SCOPE_BLOCKED",
     });
     return {
       ok: false,
@@ -305,6 +373,7 @@ export async function executeDomainReset(
     request: input.request,
     planId: input.planId,
     expectedHash: input.expectedHash,
+    createdAt: input.createdAt,
   });
   if (!reval.ok) {
     phases.push({ phase: "VERIFY", status: "BLOCKED", detail: reval.reason });
@@ -345,6 +414,25 @@ export async function executeDomainReset(
       executedCounts: {},
       clientSessionInvalidationRequired: false,
     };
+  }
+
+  // L2: typed phrase AND server re-auth. No Admin re-auth SSOT → fail-closed.
+  if (plan.confirmationLevel === 2) {
+    const reauth = verifyDataResetL2ReauthProof({
+      actorUserId: input.actorUserId,
+      reauthProof: input.reauthProof,
+    });
+    if (!reauth.ok) {
+      phases.push({ phase: "VERIFY", status: "BLOCKED", detail: reauth.reason });
+      return {
+        ok: false,
+        overall: "BLOCKED",
+        plan,
+        phases,
+        executedCounts: {},
+        clientSessionInvalidationRequired: false,
+      };
+    }
   }
 
   if (plan.confirmationLevel >= 3) {

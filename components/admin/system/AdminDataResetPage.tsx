@@ -216,6 +216,7 @@ export function AdminDataResetPage() {
           entityId: entityId.trim() || undefined,
           planId: plan.planId,
           planHash: plan.planHash,
+          planCreatedAt: plan.createdAt,
           typedConfirmation: typed,
           oneTimeToken: oneTimeToken ?? undefined,
         }),

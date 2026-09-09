@@ -24,7 +24,7 @@ export async function POST(req: Request) {
         ok: false,
         error: "execute_forbidden",
         reasons: envGate.reasons,
-        hint: "Production execute is always blocked. Non-prod requires DATA_RESET_ENABLED or PRELAUNCH_RESET_ENABLED.",
+        hint: "Production execute requires DATA_RESET_PRODUCTION_EXECUTE=1 and an allowlisted scope. Non-prod requires DATA_RESET_ENABLED or PRELAUNCH_RESET_ENABLED.",
       },
       { status: 403 }
     );
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     subtype?: string;
     planId?: string;
     planHash?: string;
+    planCreatedAt?: string;
     typedConfirmation?: string;
     oneTimeToken?: string;
   };
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   const scope = String(body.scope ?? "").trim() as DataResetScope;
   const planId = String(body.planId ?? "").trim();
   const planHash = String(body.planHash ?? "").trim();
+  const planCreatedAt = String(body.planCreatedAt ?? "").trim();
   if (!(DATA_RESET_DOMAINS as readonly string[]).includes(domain)) {
     return NextResponse.json({ ok: false, error: "invalid_domain" }, { status: 400 });
   }
@@ -58,6 +60,9 @@ export async function POST(req: Request) {
   }
   if (!planId || !planHash) {
     return NextResponse.json({ ok: false, error: "planId_and_planHash_required" }, { status: 400 });
+  }
+  if (!planCreatedAt) {
+    return NextResponse.json({ ok: false, error: "planCreatedAt_required" }, { status: 400 });
   }
 
   const result = await executeDomainReset({
@@ -71,6 +76,7 @@ export async function POST(req: Request) {
     },
     planId,
     expectedHash: planHash,
+    createdAt: planCreatedAt,
     typedConfirmation: String(body.typedConfirmation ?? ""),
     oneTimeToken: body.oneTimeToken,
   });

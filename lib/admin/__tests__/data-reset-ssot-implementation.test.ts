@@ -210,7 +210,7 @@ describe("DATA RESET SSOT implementation", () => {
     ).toBe(false);
   });
 
-  it("production execute always forbidden via env gate", () => {
+  it("production execute default forbidden; opt-in + allowlist required", () => {
     const gate = resolveDataResetEnvGate({
       NEXT_PUBLIC_APP_DEPLOY_TIER: "production",
       PRELAUNCH_RESET_ENABLED: "1",
@@ -218,6 +218,7 @@ describe("DATA RESET SSOT implementation", () => {
     } as NodeJS.ProcessEnv);
     expect(gate.executeAllowed).toBe(false);
     expect(gate.reasons).toContain("production_execute_forbidden");
+    expect(DATA_RESET_FORBIDDEN_OPS.productionExecuteDefaultForbidden).toBe(true);
   });
 
   it("domain policies: community/market/delivery/chat/friend/member/finance/full", async () => {

@@ -20,6 +20,11 @@ import {
 } from "@/lib/admin/data-reset/count-helpers";
 import { resolveDataResetEnvGate } from "@/lib/admin/data-reset/environment";
 import {
+  assertDataResetFailClosedDomain,
+  inspectFullResetSafety,
+  isDataResetProductionScopeEnabled,
+} from "@/lib/admin/data-reset/production-enable-policy";
+import {
   resolveStorageObjectsForReset,
   storageTargetsHashIdentity,
 } from "@/lib/admin/data-reset/resolve-storage-objects-for-reset";
@@ -73,13 +78,14 @@ function emptyPlanBase(
     scope: DataResetScope;
     entityId: string | null;
     subtype: string | null;
+    createdAt?: string;
   },
   env: ReturnType<typeof resolveDataResetEnvGate>
 ): Omit<DataResetPlan, "planHash" | "typedConfirmationPhrase"> & {
   planHash?: string;
   typedConfirmationPhrase?: string;
 } {
-  const createdAt = new Date().toISOString();
+  const createdAt = input.createdAt ?? new Date().toISOString();
   return {
     planId: randomUUID(),
     domain: input.domain,
@@ -140,6 +146,7 @@ function finalizePlan(
     scope: draft.scope,
     entityId: draft.entityId,
     subtype: draft.subtype,
+    createdAt: draft.createdAt,
     delete: draft.delete,
     softDelete: draft.softDelete,
     detach: draft.detach,
@@ -155,9 +162,18 @@ function finalizePlan(
   const planHash = hashDataResetPayload(hashPayload);
   const typedConfirmationPhrase = phraseFor(draft.domain, draft.riskLevel, planHash);
 
+  const productionScopeOk =
+    env.tier !== "production" ||
+    isDataResetProductionScopeEnabled({
+      domain: draft.domain,
+      scope: draft.scope,
+      subtype: draft.subtype,
+    });
+
   const executeAllowed =
     env.executeAllowed &&
     draft.blockers.length === 0 &&
+    productionScopeOk &&
     (draft.delete.length > 0 || draft.softDelete.length > 0 || draft.detach.length > 0);
 
   return {
@@ -805,6 +821,8 @@ export type BuildDomainResetPlanInput = {
   actorUserId: string;
   request: Omit<DataResetRequest, "mode"> & { mode?: DataResetMode };
   planId?: string;
+  /** Preserve preview clock so expiry + planHash stay bound across execute revalidate. */
+  createdAt?: string;
 };
 
 export async function buildDomainResetPlan(
@@ -821,6 +839,7 @@ export async function buildDomainResetPlan(
       scope: (DATA_RESET_SCOPES as readonly string[]).includes(scope) ? scope : "all",
       entityId: input.request.entityId?.trim() || null,
       subtype: input.request.subtype?.trim() || null,
+      createdAt: input.createdAt,
     },
     env
   );
@@ -884,9 +903,44 @@ export async function buildDomainResetPlan(
   // Storage aggregate
   draft.storageCount = draft.storage.reduce((a, s) => a + s.estimatedRows, 0);
 
-  // Production: never execute
+  // Fail-closed finance / auth (server authority — not UI-only).
+  const failClosed = assertDataResetFailClosedDomain({
+    domain: draft.domain,
+    subtype: draft.subtype,
+  });
+  if (!failClosed.ok) {
+    if (!draft.blockers.includes(failClosed.reason.toLowerCase()) && !draft.blockedReason) {
+      draft.blockers.push(failClosed.reason.toLowerCase());
+      draft.blockedReason = failClosed.reason;
+    }
+  }
+
+  // Full safety contract — any forbidden delete ⇒ block execute.
+  if (draft.domain === "full") {
+    const safety = inspectFullResetSafety(draft as DataResetPlan);
+    if (!safety.ok) {
+      draft.blockers.push("full_reset_safety_violation");
+      draft.blockedReason = "FULL_RESET_BLOCKED";
+      draft.warnings.push(`full_safety:${safety.violations.join(",")}`);
+    }
+  }
+
   if (env.tier === "production") {
-    draft.warnings.push("production_execute_forbidden");
+    if (!env.executeAllowed) {
+      draft.warnings.push("production_execute_forbidden");
+    } else if (
+      !isDataResetProductionScopeEnabled({
+        domain: draft.domain,
+        scope: draft.scope,
+        subtype: draft.subtype,
+      })
+    ) {
+      draft.blockers.push("production_scope_not_allowlisted");
+      draft.blockedReason = "PRODUCTION_SCOPE_BLOCKED";
+      draft.warnings.push("production_scope_not_allowlisted");
+    } else {
+      draft.warnings.push("production_execute_opt_in_scope_allowlisted");
+    }
   }
 
   return finalizePlan(draft, env);
@@ -898,12 +952,26 @@ export async function revalidateDomainResetPlan(input: {
   request: Omit<DataResetRequest, "mode">;
   planId: string;
   expectedHash: string;
+  /** Must match preview plan.createdAt (bound into planHash). */
+  createdAt: string;
 }): Promise<{ ok: true; plan: DataResetPlan } | { ok: false; reason: string; plan: DataResetPlan }> {
+  const createdAt = String(input.createdAt ?? "").trim();
+  if (!createdAt || !Number.isFinite(Date.parse(createdAt))) {
+    const plan = await buildDomainResetPlan({
+      sb: input.sb,
+      actorUserId: input.actorUserId,
+      request: input.request,
+      planId: input.planId,
+    });
+    return { ok: false, reason: "plan_created_at_required", plan };
+  }
+
   const plan = await buildDomainResetPlan({
     sb: input.sb,
     actorUserId: input.actorUserId,
     request: input.request,
     planId: input.planId,
+    createdAt,
   });
   if (plan.planHash !== input.expectedHash) {
     return { ok: false, reason: "plan_hash_mismatch_preview_required_again", plan };

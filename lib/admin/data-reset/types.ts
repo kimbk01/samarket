@@ -168,7 +168,8 @@ export const DATA_RESET_FORBIDDEN_OPS = {
   bucketWidePurge: true,
   financeHardResetDefault: true,
   authAccountDeleteDefault: true,
-  productionExecute: true,
+  /** Default Production ban; opt-in + allowlist via production-enable-policy. */
+  productionExecuteDefaultForbidden: true,
 } as const;
 
 export const DATA_RESET_CANONICAL_ROUTE = "/admin/system/data-reset" as const;

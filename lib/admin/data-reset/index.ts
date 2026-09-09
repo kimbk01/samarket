@@ -72,3 +72,20 @@ export {
   DATA_RESET_CLIENT_INVALIDATION_SOURCE_FORBIDDEN,
 } from "@/lib/admin/data-reset/client-invalidation";
 export type { ApplyDataResetClientInvalidationResult } from "@/lib/admin/data-reset/client-invalidation";
+export {
+  DATA_RESET_PRODUCTION_ENABLE_MATRIX,
+  isDataResetProductionScopeEnabled,
+  resolveDataResetProductionScopeKey,
+  inspectFullResetSafety,
+  assertDataResetFailClosedDomain,
+} from "@/lib/admin/data-reset/production-enable-policy";
+export type {
+  DataResetProductionEnableDecision,
+  DataResetProductionScopeKey,
+  DataResetProductionMatrixRow,
+  FullResetSafetyInspection,
+} from "@/lib/admin/data-reset/production-enable-policy";
+export {
+  DATA_RESET_L2_REAUTH,
+  verifyDataResetL2ReauthProof,
+} from "@/lib/admin/data-reset/l2-reauth";
