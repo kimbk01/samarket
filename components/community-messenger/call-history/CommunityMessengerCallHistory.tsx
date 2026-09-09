@@ -31,6 +31,11 @@ type Props = {
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
   onListScrollStart?: () => void;
+  /** CUT-2B keyset Load more */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  loadMoreError?: string | null;
+  onLoadMore?: () => void;
 };
 
 function useCallHistoryRedialBlocked(): boolean {
@@ -53,8 +58,12 @@ export function CommunityMessengerCallHistory({
   openedSwipeItemId,
   onOpenSwipeItem,
   onListScrollStart,
+  hasMore = false,
+  loadingMore = false,
+  loadMoreError = null,
+  onLoadMore,
 }: Props) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const globalRedialBlocked = useCallHistoryRedialBlocked();
   useSyncExternalStore(subscribeActiveCallSession, getActiveCallSessionCallId, () => null);
 
@@ -73,7 +82,7 @@ export function CommunityMessengerCallHistory({
   if (loading && !merged.length) {
     return <p className="px-4 py-8 text-center sam-text-body text-sam-fg-muted">{t("cm_ui_loading_conversation")}</p>;
   }
-  if (error) {
+  if (error && !merged.length) {
     return <p className="px-4 py-8 text-center sam-text-body text-red-600">{error}</p>;
   }
   if (!merged.length) {
@@ -81,27 +90,51 @@ export function CommunityMessengerCallHistory({
   }
 
   return (
-    <ul
-      onScrollCapture={() => {
-        if (!openedSwipeItemId) return;
-        onListScrollStart?.();
-      }}
-    >
-      {merged.map((call) => (
-        <CommunityMessengerCallRow
-          key={call.id}
-          call={call}
-          onNavigate={onNavigate}
-          onRequestOutgoingConfirm={onRequestOutgoingConfirm}
-          onDeleteRequest={onDeleteRequest}
-          globalRedialBlocked={globalRedialBlocked}
-          openedSwipeItemId={openedSwipeItemId}
-          onOpenSwipeItem={onOpenSwipeItem}
-          swipeSurfaceDataAttr={
-            openedSwipeItemId === communityMessengerCallLogSwipeItemId(call.id) ? "open" : undefined
-          }
-        />
-      ))}
-    </ul>
+    <div>
+      <ul
+        onScrollCapture={() => {
+          if (!openedSwipeItemId) return;
+          onListScrollStart?.();
+        }}
+      >
+        {merged.map((call) => (
+          <CommunityMessengerCallRow
+            key={call.id}
+            call={call}
+            onNavigate={onNavigate}
+            onRequestOutgoingConfirm={onRequestOutgoingConfirm}
+            onDeleteRequest={onDeleteRequest}
+            globalRedialBlocked={globalRedialBlocked}
+            openedSwipeItemId={openedSwipeItemId}
+            onOpenSwipeItem={onOpenSwipeItem}
+            swipeSurfaceDataAttr={
+              openedSwipeItemId === communityMessengerCallLogSwipeItemId(call.id) ? "open" : undefined
+            }
+          />
+        ))}
+      </ul>
+      {hasMore ? (
+        <div className="border-t border-sam-border px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+          {loadMoreError ? (
+            <p className="mb-2 text-center sam-text-helper text-red-600">{loadMoreError}</p>
+          ) : null}
+          <button
+            type="button"
+            disabled={loadingMore}
+            onClick={() => onLoadMore?.()}
+            className="w-full rounded-ui-rect bg-sam-brand py-3 sam-text-body font-medium text-white active:opacity-90 disabled:opacity-60"
+          >
+            {loadingMore
+              ? t("cm_ui_loading_conversation")
+              : safeT("cm_ui_call_peer_history_more", {
+                  fallbackKo: "통화 이력 더보기",
+                  fallbackEn: "See more call history",
+                })}
+          </button>
+        </div>
+      ) : (
+        <div className="pb-[max(12px,env(safe-area-inset-bottom))]" />
+      )}
+    </div>
   );
 }

@@ -408,7 +408,8 @@ export async function GET(request: NextRequest) {
   /** 첫 페인트 이후 통화 기록만 합류 — `listCommunityMessengerCallLogs` 단일 경로 */
   if (request.nextUrl.searchParams.get("callsLog") === "1") {
     const t1 = performance.now();
-    const calls = await listCommunityMessengerCallLogs(auth.userId);
+    const listed = await listCommunityMessengerCallLogs(auth.userId);
+    const calls = listed.ok ? listed.calls : [];
     recordMessengerApiTiming(
       "GET /api/community-messenger/bootstrap?callsLog=1",
       Math.round(performance.now() - t1),

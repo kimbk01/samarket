@@ -15,23 +15,58 @@ const CALL_HISTORY_TABLE_DEBOUNCE_MS = 60;
 /** 세션 터미널 bus / call_sessions UPDATE 후 log INSERT 대기 */
 const CALL_HISTORY_TERMINAL_REFETCH_DELAY_MS = 120;
 
-export async function fetchCommunityMessengerCallLogsClient(): Promise<CommunityMessengerCallLog[] | null> {
+export type CommunityMessengerCallLogsClientPage = {
+  calls: CommunityMessengerCallLog[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
+export async function fetchCommunityMessengerCallLogsClient(options?: {
+  cursor?: string | null;
+}): Promise<CommunityMessengerCallLogsClientPage | null> {
+  const cursor = options?.cursor?.trim() || "";
+  const flightKey = cursor ? `${CALL_LOGS_FETCH_FLIGHT_KEY}:cursor:${cursor}` : CALL_LOGS_FETCH_FLIGHT_KEY;
   try {
-    return await runSingleFlight(CALL_LOGS_FETCH_FLIGHT_KEY, async () => {
-      const res = await fetch("/api/community-messenger/calls", {
+    return await runSingleFlight(flightKey, async () => {
+      const url = cursor
+        ? `/api/community-messenger/calls?cursor=${encodeURIComponent(cursor)}`
+        : "/api/community-messenger/calls";
+      const res = await fetch(url, {
         credentials: "include",
         cache: "no-store",
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         calls?: CommunityMessengerCallLog[];
+        nextCursor?: string | null;
+        hasMore?: boolean;
+        error?: string;
       };
       if (!res.ok || !json.ok) return null;
-      return json.calls ?? [];
+      return {
+        calls: json.calls ?? [],
+        nextCursor: typeof json.nextCursor === "string" ? json.nextCursor : null,
+        hasMore: Boolean(json.hasMore),
+      };
     });
   } catch {
     return null;
   }
+}
+
+/** Append page rows by id; preserve existing order then append unseen in server order. */
+export function appendCommunityMessengerCallLogsById(
+  existing: CommunityMessengerCallLog[],
+  incoming: CommunityMessengerCallLog[]
+): CommunityMessengerCallLog[] {
+  const seen = new Set(existing.map((row) => row.id));
+  const out = [...existing];
+  for (const row of incoming) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
 }
 
 type Args = {
@@ -43,6 +78,7 @@ type Args = {
 /**
  * 통화 목록 Realtime — `community_messenger_call_logs` · `call_sessions` · 터미널 bus.
  * 취소·종료 직후 목록에 바로 반영되도록 call_logs 보다 짧은 debounce + bus 즉시 refetch.
+ * CUT-2B: refetch = first page replace (Panel clears older pages).
  */
 export function useCommunityCallHistoryRealtimeSync({ enabled, viewerUserId, onRefetch }: Args): void {
   const onRefetchRef = useRef(onRefetch);

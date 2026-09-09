@@ -148,8 +148,12 @@ describe("CUT-2A call history list query consolidation", () => {
   });
 
   it("1. empty history", async () => {
-    const logs = await listCommunityMessengerCallLogs(CALLER);
-    expect(logs).toEqual([]);
+    const listed = await listCommunityMessengerCallLogs(CALLER);
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    expect(listed.calls).toEqual([]);
+    expect(listed.hasMore).toBe(false);
+    expect(listed.nextCursor).toBeNull();
   });
 
   it("2–6. single/multiple/same-room/voice+video/caller+callee views", async () => {
@@ -181,7 +185,10 @@ describe("CUT-2A call history list query consolidation", () => {
       endedAt: "2026-06-09T11:00:13.000Z",
     });
 
-    const asCaller = await listCommunityMessengerCallLogs(CALLER);
+    const asCallerListed = await listCommunityMessengerCallLogs(CALLER);
+    expect(asCallerListed.ok).toBe(true);
+    if (!asCallerListed.ok) return;
+    const asCaller = asCallerListed.calls;
     expect(asCaller).toHaveLength(2);
     expect(asCaller.map((c) => c.id)).toEqual(["c-video", "c-voice"]);
     expect(asCaller[0]?.callKind).toBe("video");
@@ -193,7 +200,10 @@ describe("CUT-2A call history list query consolidation", () => {
     expect(asCaller[1]?.roomId).toBe(ROOM);
     expect(asCaller[1]?.sessionId).toBe("s-voice");
 
-    const asCallee = await listCommunityMessengerCallLogs(CALLEE);
+    const asCalleeListed = await listCommunityMessengerCallLogs(CALLEE);
+    expect(asCalleeListed.ok).toBe(true);
+    if (!asCalleeListed.ok) return;
+    const asCallee = asCalleeListed.calls;
     expect(asCallee).toHaveLength(2);
     expect(asCallee.find((c) => c.id === "c-voice")?.isOutgoing).toBe(false);
     expect(asCallee.find((c) => c.id === "c-video")?.isOutgoing).toBe(true);
@@ -257,7 +267,10 @@ describe("CUT-2A call history list query consolidation", () => {
       endedReason: "failed_media",
     });
 
-    const logs = await listCommunityMessengerCallLogs(CALLER);
+    const listed = await listCommunityMessengerCallLogs(CALLER);
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    const logs = listed.calls;
     const byId = Object.fromEntries(logs.map((c) => [c.id, c]));
     expect(byId["c-missed"]?.displayType).toBe("missed_outgoing");
     expect(byId["c-missed"]?.endedReason).toBe("missed_timeout");
@@ -298,7 +311,10 @@ describe("CUT-2A call history list query consolidation", () => {
       .__samarketCommunityMessengerState;
     state.callSessions = state.callSessions.filter((s) => s.id !== "s-orphan");
 
-    const logs = await listCommunityMessengerCallLogs(CALLER);
+    const listed = await listCommunityMessengerCallLogs(CALLER);
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    const logs = listed.calls;
     expect(logs.map((c) => c.id)).toEqual(["c-new", "c-old"]);
     expect(logs[0]?.peerUserId).toBe(CALLEE);
     expect(logs[0]?.durationSeconds).toBe(7);
@@ -306,7 +322,7 @@ describe("CUT-2A call history list query consolidation", () => {
     expect(logs[0]?.sessionId).toBe("s-orphan");
   });
 
-  it("16–17. LIMIT 30 preserved + call_sessions queried once (DB path)", async () => {
+  it("16–17. FETCH 31 + call_sessions queried once (DB path)", async () => {
     const logRows = Array.from({ length: 3 }, (_, i) => ({
       id: `log-${i}`,
       session_id: `sess-${i}`,
@@ -402,14 +418,17 @@ describe("CUT-2A call history list query consolidation", () => {
       } as never;
     });
 
-    const logs = await listCommunityMessengerCallLogs(CALLER);
+    const listed = await listCommunityMessengerCallLogs(CALLER);
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) return;
+    const logs = listed.calls;
     expect(logs.length).toBe(3);
     expect(logs[0]?.peerUserId).toBe(CALLEE);
     expect(logs.every((c) => c.roomId === ROOM)).toBe(true);
 
     const logHits = queryHits.filter((h) => h.table === "community_messenger_call_logs");
     expect(logHits.length).toBeGreaterThanOrEqual(1);
-    expect(logHits.some((h) => h.limit === 30)).toBe(true);
+    expect(logHits.some((h) => h.limit === 31)).toBe(true);
 
     const sessionHits = queryHits.filter((h) => h.table === "community_messenger_call_sessions");
     expect(sessionHits).toHaveLength(1);

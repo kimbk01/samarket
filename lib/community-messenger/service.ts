@@ -9,6 +9,15 @@ import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { resolveCallLogDisplayPeerUserId } from "@/lib/community-messenger/call-history/call-log-display-peer";
 import {
+  COMMUNITY_MESSENGER_CALL_LOGS_FETCH_SIZE,
+  COMMUNITY_MESSENGER_CALL_LOGS_PAGE_SIZE,
+  compareCallHistoryKeysetDesc,
+  decodeCommunityMessengerCallHistoryCursor,
+  encodeCommunityMessengerCallHistoryCursor,
+  isCallHistoryRowStrictlyOlderThanCursor,
+  quotePostgrestLiteral,
+} from "@/lib/community-messenger/call-history/call-history-cursor";
+import {
   parseCommunityMessengerRoomContextMeta,
   serializeCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
@@ -4094,19 +4103,39 @@ function sessionEndedFieldsFromMeta(
   };
 }
 
-async function fetchCallLogRowsOnly(userId: string): Promise<CallLogRowsWithSessionMeta> {
+async function fetchCallLogRowsOnly(
+  userId: string,
+  options?: {
+    cursor?: { startedAt: string; id: string } | null;
+    /** CUT-2B: PAGE_SIZE+1 (31) for hasMore; bootstrap/first callers pass same */
+    limit?: number;
+  }
+): Promise<CallLogRowsWithSessionMeta> {
+  const fetchLimit = Math.max(
+    1,
+    Math.min(100, Number(options?.limit ?? COMMUNITY_MESSENGER_CALL_LOGS_PAGE_SIZE) || COMMUNITY_MESSENGER_CALL_LOGS_PAGE_SIZE)
+  );
+  const cursor = options?.cursor ?? null;
   const sb = getSupabaseOrNull();
   let rows: Array<CallRow | DevCall> = [];
   const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
   if (sb) {
-    const { data, error } = await (sb as any)
+    let query = (sb as any)
       .from("community_messenger_call_logs")
       .select(
         "id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at"
       )
-      .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`)
+      .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`);
+    if (cursor) {
+      const ts = quotePostgrestLiteral(cursor.startedAt);
+      const idLit = quotePostgrestLiteral(cursor.id);
+      /** keyset: strictly older than (started_at DESC, id DESC) */
+      query = query.or(`started_at.lt.${ts},and(started_at.eq.${ts},id.lt.${idLit})`);
+    }
+    const { data, error } = await query
       .order("started_at", { ascending: false })
-      .limit(30);
+      .order("id", { ascending: false })
+      .limit(fetchLimit);
     if (!error || !isMissingTableError(error)) {
       const base = (data ?? []) as CallRow[];
       const sessionIds = dedupeIds(base.map((r) => trimText(r.session_id ?? "")).filter(Boolean));
@@ -4134,7 +4163,13 @@ async function fetchCallLogRowsOnly(userId: string): Promise<CallLogRowsWithSess
   if (!rows.length) {
     rows = getDevState()
       .calls.filter((row) => row.callerUserId === userId || row.peerUserId === userId)
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .filter((row) =>
+        cursor
+          ? isCallHistoryRowStrictlyOlderThanCursor(row.startedAt, row.id, cursor)
+          : true
+      )
+      .sort((a, b) => compareCallHistoryKeysetDesc(a.startedAt, a.id, b.startedAt, b.id))
+      .slice(0, fetchLimit)
       .map((row) => enrichDevCallLogRowWithSession(row));
     for (const row of rows) {
       const sid = callLogSessionId(row);
@@ -4404,8 +4439,29 @@ function buildCallLogEntriesFromRows(
   });
 }
 
-export async function listCommunityMessengerCallLogs(userId: string): Promise<CommunityMessengerCallLog[]> {
-  const { rows, sessionMap: preloadedSessionMap } = await fetchCallLogRowsOnly(userId);
+export type CommunityMessengerCallLogsListResult =
+  | {
+      ok: true;
+      calls: CommunityMessengerCallLog[];
+      nextCursor: string | null;
+      hasMore: boolean;
+    }
+  | { ok: false; error: "invalid_cursor" };
+
+export async function listCommunityMessengerCallLogs(
+  userId: string,
+  options?: { cursor?: string | null }
+): Promise<CommunityMessengerCallLogsListResult> {
+  const decoded = decodeCommunityMessengerCallHistoryCursor(options?.cursor);
+  if (!decoded.ok) return { ok: false, error: "invalid_cursor" };
+
+  const { rows: fetchedRows, sessionMap: preloadedSessionMap } = await fetchCallLogRowsOnly(userId, {
+    cursor: decoded.cursor,
+    limit: COMMUNITY_MESSENGER_CALL_LOGS_FETCH_SIZE,
+  });
+  const hasMore = fetchedRows.length > COMMUNITY_MESSENGER_CALL_LOGS_PAGE_SIZE;
+  const rows = hasMore ? fetchedRows.slice(0, COMMUNITY_MESSENGER_CALL_LOGS_PAGE_SIZE) : fetchedRows;
+
   const roomIds = dedupeIds(
     rows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
   );
@@ -4449,13 +4505,32 @@ export async function listCommunityMessengerCallLogs(userId: string): Promise<Co
       profileById
     ).map((s) => [s.id, s])
   );
+  /** CUT-2A: reuse request-local sessionMap; only enrich the returned page rows */
+  const pageSessionIds = new Set(sessionIds);
+  const pagePreload = new Map<string, CallSessionMetaRow | DevCallSession>();
+  for (const [sid, meta] of preloadedSessionMap) {
+    if (pageSessionIds.has(sid)) pagePreload.set(sid, meta);
+  }
   const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(
     userId,
     sessionIds,
     profileById,
-    preloadedSessionMap
+    pagePreload
   );
-  return buildCallLogEntriesFromRows(userId, rows, profileById, roomMetaMap, sessionMap, participantsBySession);
+  const calls = buildCallLogEntriesFromRows(
+    userId,
+    rows,
+    profileById,
+    roomMetaMap,
+    sessionMap,
+    participantsBySession
+  );
+  const last = calls[calls.length - 1];
+  const nextCursor =
+    hasMore && last
+      ? encodeCommunityMessengerCallHistoryCursor({ startedAt: last.startedAt, id: last.id })
+      : null;
+  return { ok: true, calls, nextCursor, hasMore };
 }
 
 export async function deleteCommunityMessengerCallLog(

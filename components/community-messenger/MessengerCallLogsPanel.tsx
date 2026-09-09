@@ -20,6 +20,7 @@ import {
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
+  appendCommunityMessengerCallLogsById,
   fetchCommunityMessengerCallLogsClient,
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
@@ -109,8 +110,14 @@ export function MessengerCallLogsPanel({
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   const [outgoingBusy, setOutgoingBusy] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const mountRefreshDoneRef = useRef(false);
   const skipMountRefetchOnceRef = useRef(false);
+  const nextCursorRef = useRef<string | null>(null);
+  nextCursorRef.current = nextCursor;
 
   const enrichCalls = useCallback(
     (entries: CommunityMessengerCallLog[]) =>
@@ -118,10 +125,14 @@ export function MessengerCallLogsPanel({
     [peerProfiles]
   );
 
-  const applyServerCalls = useCallback(
-    (entries: CommunityMessengerCallLog[]) => {
-      const enriched = enrichCalls(entries);
+  /** CUT-2B: realtime / visibility / mount — replace with first page only; clear older pages */
+  const applyFirstPageFromServer = useCallback(
+    (page: { calls: CommunityMessengerCallLog[]; nextCursor: string | null; hasMore: boolean }) => {
+      const enriched = enrichCalls(page.calls);
       setCalls(enriched);
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+      setLoadMoreError(null);
       setLoading(false);
       setError(null);
       onBootstrapCallsChange?.(enriched);
@@ -132,14 +143,34 @@ export function MessengerCallLogsPanel({
   const refetchCallLogsFromServer = useCallback(async () => {
     const fetched = await fetchCommunityMessengerCallLogsClient();
     if (fetched) {
-      applyServerCalls(fetched);
+      applyFirstPageFromServer(fetched);
       return;
     }
     if (calls.length === 0) {
       setError(t("cm_ui_call_logs_load_failed"));
       setLoading(false);
     }
-  }, [applyServerCalls, calls.length, t]);
+  }, [applyFirstPageFromServer, calls.length, t]);
+
+  const onLoadMore = useCallback(async () => {
+    const cursor = nextCursorRef.current?.trim();
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(null);
+    const page = await fetchCommunityMessengerCallLogsClient({ cursor });
+    setLoadingMore(false);
+    if (!page) {
+      setLoadMoreError(t("cm_ui_call_logs_load_failed"));
+      return;
+    }
+    setCalls((prev) => {
+      const merged = appendCommunityMessengerCallLogsById(prev, enrichCalls(page.calls));
+      onBootstrapCallsChange?.(merged);
+      return merged;
+    });
+    setNextCursor(page.nextCursor);
+    setHasMore(page.hasMore);
+  }, [enrichCalls, loadingMore, onBootstrapCallsChange, t]);
 
   useCommunityCallHistoryRealtimeSync({
     enabled: Boolean(resolvedViewerUserId),
@@ -192,6 +223,9 @@ export function MessengerCallLogsPanel({
 
   useEffect(() => {
     setCalls(enrichCalls(seedCalls));
+    setNextCursor(null);
+    setHasMore(false);
+    setLoadMoreError(null);
     if (!callsHydrating) {
       setLoading(false);
     }
@@ -469,6 +503,12 @@ export function MessengerCallLogsPanel({
           if (!openedSwipeItemId) return;
           closeCallLogSwipe();
           onListScrollStart?.();
+        }}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        loadMoreError={loadMoreError}
+        onLoadMore={() => {
+          void onLoadMore();
         }}
       />
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId, requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
-
   createCommunityMessengerCallLog,
   listCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/service";
@@ -23,8 +22,19 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const calls = await listCommunityMessengerCallLogs(auth.userId);
-  return NextResponse.json({ ok: true, calls });
+  const cursorRaw = req.nextUrl.searchParams.get("cursor");
+  const listed = await listCommunityMessengerCallLogs(auth.userId, {
+    cursor: cursorRaw,
+  });
+  if (!listed.ok) {
+    return NextResponse.json({ ok: false, error: listed.error }, { status: 400 });
+  }
+  return NextResponse.json({
+    ok: true,
+    calls: listed.calls,
+    nextCursor: listed.nextCursor,
+    hasMore: listed.hasMore,
+  });
 }
 
 export async function POST(req: NextRequest) {
