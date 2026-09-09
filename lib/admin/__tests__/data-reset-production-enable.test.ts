@@ -396,9 +396,12 @@ describe("plan hash / expiry / confirmation contracts", () => {
 
   it("L3 one-time token enforced in execute source; typed confirmation always", () => {
     const execute = read("lib/admin/data-reset/execute.ts");
+    const claimMod = read("lib/admin/data-reset/l3-one-time-token.ts");
     expect(execute).toContain("confirmationMatchesPlan");
     expect(execute).toContain("confirmationLevel >= 3");
-    expect(execute).toContain("one_time_token_invalid");
+    expect(execute).toContain("claimDataResetL3OneTimeToken");
+    expect(claimMod).toContain("one_time_token_invalid");
+    expect(claimMod).toContain("one_time_token_replay");
     expect(execute).toContain("assertDataResetFailClosedDomain");
     expect(execute).toContain("PRODUCTION_SCOPE_BLOCKED");
   });

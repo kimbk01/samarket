@@ -175,3 +175,7 @@ export const DATA_RESET_FORBIDDEN_OPS = {
 export const DATA_RESET_CANONICAL_ROUTE = "/admin/system/data-reset" as const;
 export const DATA_RESET_B1B2_MIGRATION =
   "supabase/migrations/20261213120000_data_reset_blocker_close_b1_b2_fk.sql" as const;
+
+/** L3 one-time token consume table (stateful claim; confirmationLevel >= 3). */
+export const DATA_RESET_L3_TOKEN_CLAIMS_MIGRATION =
+  "supabase/migrations/20261214120000_data_reset_l3_one_time_token_claims.sql" as const;

@@ -29,10 +29,16 @@ export {
   DATA_RESET_FORBIDDEN_OPS,
   DATA_RESET_DOMAINS,
   DATA_RESET_B1B2_MIGRATION,
+  DATA_RESET_L3_TOKEN_CLAIMS_MIGRATION,
   hashDataResetPayload,
   issueDataResetOneTimeToken,
   verifyDataResetOneTimeToken,
 } from "@/lib/admin/data-reset/types";
+export {
+  DATA_RESET_L3_TOKEN_CLAIMS_TABLE,
+  claimDataResetL3OneTimeToken,
+  hashDataResetL3TokenForStorage,
+} from "@/lib/admin/data-reset/l3-one-time-token";
 export type {
   DataResetDomain,
   DataResetScope,

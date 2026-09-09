@@ -12,6 +12,7 @@ import {
   isDataResetProductionScopeEnabled,
 } from "@/lib/admin/data-reset/production-enable-policy";
 import { verifyDataResetL2ReauthProof } from "@/lib/admin/data-reset/l2-reauth";
+import { claimDataResetL3OneTimeToken } from "@/lib/admin/data-reset/l3-one-time-token";
 import {
   buildDomainResetPlan,
   confirmationMatchesPlan,
@@ -20,7 +21,6 @@ import {
 import {
   DATA_RESET_FORBIDDEN_OPS,
   issueDataResetOneTimeToken,
-  verifyDataResetOneTimeToken,
   type DataResetExecuteResult,
   type DataResetPhaseResult,
   type DataResetRequest,
@@ -435,16 +435,20 @@ export async function executeDomainReset(
     }
   }
 
+  // L3: material binding + DB-backed one-time claim BEFORE any destructive mutation.
+  // Same token / same plan replay → BLOCKED. Failed execute after claim needs fresh preview.
   if (plan.confirmationLevel >= 3) {
-    const tok = String(input.oneTimeToken ?? "");
-    if (
-      !verifyDataResetOneTimeToken(tok, {
-        planId: plan.planId,
-        planHash: plan.planHash,
-        actorUserId: input.actorUserId,
-      })
-    ) {
-      phases.push({ phase: "VERIFY", status: "BLOCKED", detail: "one_time_token_invalid" });
+    const claim = await claimDataResetL3OneTimeToken({
+      sb: input.sb,
+      rawToken: String(input.oneTimeToken ?? ""),
+      planId: plan.planId,
+      planHash: plan.planHash,
+      actorUserId: input.actorUserId,
+      issuedAt: plan.createdAt,
+      expiresAt: plan.expiresAt,
+    });
+    if (!claim.ok) {
+      phases.push({ phase: "VERIFY", status: "BLOCKED", detail: claim.reason });
       return {
         ok: false,
         overall: "BLOCKED",
