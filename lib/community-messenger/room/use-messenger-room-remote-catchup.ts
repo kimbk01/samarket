@@ -11,6 +11,7 @@ import {
   runMessengerRoomCatchUpSingleFlight,
   selectNewestConfirmedMessageAnchor,
 } from "@/lib/community-messenger/room/messenger-room-catchup-anchor";
+import { isOpenRoomTerminalCatchUpPendingForRoom } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 
@@ -168,6 +169,15 @@ export function useMessengerRoomRemoteCatchup({
         if (meta?.domain === "store_order" && meta.orderStatus) {
           void refresh(true, { triggerReason: "store_order_status_bump" });
         }
+        return;
+      }
+      /**
+       * CUT-B: when open-room terminal catch-up already owns this burst, skip duplicate
+       * after=/silent_delta. messages/{id} above remains the CUT-1 same-id path.
+       * Miss/fallback: no pending coalesce → full catch-up below.
+       */
+      const pendingRoom = (snapshotRef.current?.room?.id?.trim() || streamRoomId?.trim() || roomId?.trim() || "").trim();
+      if (pendingRoom && isOpenRoomTerminalCatchUpPendingForRoom(pendingRoom)) {
         return;
       }
       const backoffMs = [14, 32, 72];

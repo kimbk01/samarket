@@ -30,15 +30,22 @@ import {
   MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
   MESSENGER_ROOM_META_DEBOUNCE_MS,
   MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS,
+  MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS,
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
-import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
+import {
+  createRefreshScheduler,
+  createTrailingRefreshScheduler,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { recordMessengerGlobalBundleSupabaseChannelGaugeDelta } from "@/lib/runtime/samarket-runtime-debug";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { logRtRebindTrace } from "@/lib/community-messenger/realtime/cm-rt-rebind-trace";
 
 /** Supabase postgres_changes `in` 필터 값 한도 — Realtime 채널 수와 WAL 부하 균형 */
 const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
+
+/** Re-export for targeted tests — CUT-B coalesce window. */
+export { MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS };
 
 export type GlobalRoomRealtimeListenerRef = MutableRefObject<{
   onRefresh: () => void;
@@ -59,6 +66,8 @@ type RoomSchedulers = {
   messageFallback: ReturnType<typeof createRefreshScheduler>;
   meta: ReturnType<typeof createRefreshScheduler>;
   roomCallBundle: ReturnType<typeof createRefreshScheduler>;
+  /** CUT-B: session terminal + call_logs + call_stub + rooms tip → one trailing onRefresh */
+  openRoomTerminalCatchUp: ReturnType<typeof createTrailingRefreshScheduler>;
   voice: ReturnType<typeof createRefreshScheduler>;
   subscribedResync: ReturnType<typeof createRefreshScheduler>;
 };
@@ -94,6 +103,27 @@ function emitRoomRefreshForRoom(entry: GlobalMessengerRoomBundleEntry, streamRoo
   const set = entry.listenersByRoom.get(key);
   if (!set) return;
   for (const ref of set) ref.current.onRefresh();
+}
+
+/** Room keys with a pending CUT-B terminal catch-up timer (same-purpose HTTP only). */
+const openRoomTerminalCatchUpPendingKeys = new Set<string>();
+
+/** CUT-1 bump after=/silent skip when coalesce already owns the burst. */
+export function isOpenRoomTerminalCatchUpPendingForRoom(roomId: string): boolean {
+  const key = normalizeRoomKey(roomId);
+  return Boolean(key) && openRoomTerminalCatchUpPendingKeys.has(key);
+}
+
+/**
+ * CUT-B: same-purpose open-room HTTP catch-up only.
+ * Cancels competing leading timers so session/log/stub/rooms tip share one trailing fire.
+ * Does not touch Call UI lifecycle (outside this channel).
+ */
+function scheduleOpenRoomTerminalCatchUp(entry: GlobalMessengerRoomBundleEntry, roomKey: string): void {
+  const sched = getOrCreateRoomSchedulers(entry, roomKey);
+  sched.roomCallBundle.cancel();
+  sched.meta.cancel();
+  sched.openRoomTerminalCatchUp.schedule();
 }
 
 function emitRoomParticipantPostgresForRoom(
@@ -132,6 +162,26 @@ function getOrCreateRoomSchedulers(entry: GlobalMessengerRoomBundleEntry, roomKe
       { current: () => emitRoomRefreshForRoom(entry, roomKey) },
       MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS
     ),
+    openRoomTerminalCatchUp: (() => {
+      const inner = createTrailingRefreshScheduler(
+        () => {
+          openRoomTerminalCatchUpPendingKeys.delete(roomKey);
+          emitRoomRefreshForRoom(entry, roomKey);
+        },
+        { coalesceMs: MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS }
+      );
+      return {
+        schedule: () => {
+          openRoomTerminalCatchUpPendingKeys.add(roomKey);
+          inner.schedule();
+        },
+        cancel: () => {
+          inner.cancel();
+          openRoomTerminalCatchUpPendingKeys.delete(roomKey);
+        },
+        hasPending: () => inner.hasPending(),
+      };
+    })(),
     voice: createRefreshScheduler(
       { current: () => emitRoomRefreshForRoom(entry, roomKey) },
       MESSENGER_VOICE_AUX_DEBOUNCE_MS
@@ -152,9 +202,21 @@ export function disposeGlobalMessengerRoomSchedulers(entry: GlobalMessengerRoomB
   sched.messageFallback.cancel();
   sched.meta.cancel();
   sched.roomCallBundle.cancel();
+  sched.openRoomTerminalCatchUp.cancel();
+  openRoomTerminalCatchUpPendingKeys.delete(roomKeyNorm);
   sched.voice.cancel();
   sched.subscribedResync.cancel();
   entry.roomSchedulers.delete(roomKeyNorm);
+}
+
+/** Test/harness: schedule same-purpose terminal catch-up on an entry. */
+export function scheduleOpenRoomTerminalCatchUpForTests(
+  entry: GlobalMessengerRoomBundleEntry,
+  roomId: string
+): void {
+  const roomKey = normalizeRoomKey(roomId);
+  if (!roomKey) return;
+  scheduleOpenRoomTerminalCatchUp(entry, roomKey);
 }
 
 export function createGlobalMessengerRoomBundleEntry(args: {
@@ -246,7 +308,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
             }
           }
           if (nextMessage.messageType === "call_stub" && !cancelled) {
-            sched.roomCallBundle.schedule();
+            scheduleOpenRoomTerminalCatchUp(entry, roomKey);
           }
           if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
             sched.voice.schedule();
@@ -339,7 +401,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         const rid = typeof row?.id === "string" ? row.id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
         if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+        if (!cancelled) scheduleOpenRoomTerminalCatchUp(entry, roomKey);
       }
     );
 
@@ -358,7 +420,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
           const roomKey = normalizeRoomKey(rid);
           if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-          if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).roomCallBundle.schedule();
+          if (!cancelled) scheduleOpenRoomTerminalCatchUp(entry, roomKey);
         }
       )
       .on(
@@ -379,15 +441,18 @@ export function createGlobalMessengerRoomBundleEntry(args: {
           const sched = getOrCreateRoomSchedulers(entry, roomKey);
           if (cancelled) return;
           if (eventType === "DELETE") {
-            sched.roomCallBundle.cancel();
-            emitRoomRefreshForRoom(entry, rid);
+            /** HTTP catch-up coalesced; Call UI cleanup is not owned here. */
+            scheduleOpenRoomTerminalCatchUp(entry, roomKey);
             return;
           }
           const next = payload.new as Record<string, unknown> | null;
           const status = typeof next?.status === "string" ? next.status.trim() : "";
           if (status === "ended" || status === "cancelled" || status === "rejected" || status === "missed") {
-            sched.roomCallBundle.cancel();
-            emitRoomRefreshForRoom(entry, rid);
+            /**
+             * CUT-B: was immediate emitRoomRefreshForRoom (bypass roomCallBundle).
+             * Now same trailing owner as call_logs / stub / rooms tip.
+             */
+            scheduleOpenRoomTerminalCatchUp(entry, roomKey);
             return;
           }
           sched.roomCallBundle.schedule();
@@ -566,10 +631,12 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       ch.messageFallback.cancel();
       ch.meta.cancel();
       ch.roomCallBundle.cancel();
+      ch.openRoomTerminalCatchUp.cancel();
       ch.voice.cancel();
       ch.subscribedResync.cancel();
     }
     entry.roomSchedulers.clear();
+    openRoomTerminalCatchUpPendingKeys.clear();
     const bundleChannelStopCount = channels.length;
     for (const bundle of channels) bundle.stop();
     channels.length = 0;

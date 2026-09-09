@@ -222,13 +222,25 @@ export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
 );
 
 /**
- * 방 번들: `call_sessions`·`call_session_participants`·`call_logs`·call_stub 가 같은 버스트로 올 때
- * 동일 디바운스로 `onRefresh` 1회만 스케줄 — 테이블별 이중 타이머로 GET 이 연속 발생하던 경로 제거.
+ * 방 번들: non-terminal call_sessions / call_session_participants 등
+ * (terminal burst 는 `MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS` trailing owner).
  */
 export const MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_ROOM_CALL_SESSION_RT_DEBOUNCE_MS",
   50,
   0,
+  500
+);
+
+/**
+ * CUT-B: open-room same-purpose terminal catch-up trailing window.
+ * Aligns with rooms meta (200ms) so session → log → stub → rooms tip merge into one onRefresh.
+ * Does not invent longer than existing meta wait; Call UI cleanup stays outside this timer.
+ */
+export const MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_ROOM_TERMINAL_CATCHUP_COALESCE_MS",
+  200,
+  80,
   500
 );
 
