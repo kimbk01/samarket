@@ -39,6 +39,14 @@ export {
   claimDataResetL3OneTimeToken,
   hashDataResetL3TokenForStorage,
 } from "@/lib/admin/data-reset/l3-one-time-token";
+export {
+  resolveDataResetUiCapability,
+  dataResetUiExecuteBlocked,
+} from "@/lib/admin/data-reset/ui-capability";
+export type {
+  DataResetUiCapability,
+  DataResetUiExecutePosture,
+} from "@/lib/admin/data-reset/ui-capability";
 export type {
   DataResetDomain,
   DataResetScope,

@@ -16,6 +16,10 @@ import type {
   DataResetPlan,
   DataResetScope,
 } from "@/lib/admin/data-reset/types";
+import {
+  dataResetUiExecuteBlocked,
+  resolveDataResetUiCapability,
+} from "@/lib/admin/data-reset/ui-capability";
 
 type View = "list" | "detail" | "preview";
 
@@ -53,20 +57,39 @@ const DOMAIN_SCOPES: Record<
   ],
   chat: [
     { scope: "all", labelKo: "채팅 전체 (soft/detach)", labelEn: "All chat (soft/detach)" },
-    { scope: "type", subtype: "general_direct", labelKo: "1:1 soft", labelEn: "1:1 soft" },
-    { scope: "type", subtype: "group", labelKo: "그룹 soft", labelEn: "Group soft" },
-    { scope: "type", subtype: "trade", labelKo: "거래방 detach", labelEn: "Trade detach" },
+    {
+      scope: "type",
+      subtype: "general_direct",
+      labelKo: "1:1 soft (운영 실행 불가)",
+      labelEn: "1:1 soft (execute unavailable)",
+    },
+    {
+      scope: "type",
+      subtype: "group",
+      labelKo: "그룹 soft (운영 실행 불가)",
+      labelEn: "Group soft (execute unavailable)",
+    },
+    {
+      scope: "type",
+      subtype: "trade",
+      labelKo: "거래방 detach (운영 실행 불가)",
+      labelEn: "Trade detach (execute unavailable)",
+    },
     {
       scope: "type",
       subtype: "store_order",
-      labelKo: "주문방 detach",
-      labelEn: "Order room detach",
+      labelKo: "주문방 detach (운영 실행 불가)",
+      labelEn: "Order room detach (execute unavailable)",
     },
     { scope: "single", labelKo: "개별 방", labelEn: "Single room" },
   ],
   friend: [
     { scope: "all", labelKo: "친구관계 전체", labelEn: "All friend/block" },
-    { scope: "user", labelKo: "회원 1명 그래프", labelEn: "One user graph" },
+    {
+      scope: "user",
+      labelKo: "회원 1명 그래프 (운영 실행 불가)",
+      labelEn: "One user graph (execute unavailable)",
+    },
   ],
   member: [
     {
@@ -83,8 +106,36 @@ const DOMAIN_SCOPES: Record<
     },
   ],
   finance: [{ scope: "all", labelKo: "재무 Hard Reset (미리보기만)", labelEn: "Finance hard (preview only)" }],
-  full: [{ scope: "all", labelKo: "Full Service Reset", labelEn: "Full Service Reset" }],
+  full: [
+    {
+      scope: "all",
+      labelKo: "Full Service Reset (고위험 · 실측 미증명)",
+      labelEn: "Full Service Reset (high-risk · not runtime-proven)",
+    },
+  ],
 };
+
+function executeUnavailableMessage(
+  plan: DataResetPlan,
+  ko: boolean,
+  scopeBlocked: boolean,
+  scopeReason: string
+): string {
+  if (scopeBlocked) return scopeReason;
+  if (plan.blockers.length) {
+    return ko
+      ? `현재 실행이 차단되어 있습니다. (${plan.blockedReason ?? plan.blockers.join(", ")})`
+      : `Execute is blocked. (${plan.blockedReason ?? plan.blockers.join(", ")})`;
+  }
+  if (plan.warnings.includes("production_execute_forbidden")) {
+    return ko
+      ? "Production 실행은 기본 비활성입니다. 운영 옵트인이 있을 때만 실행할 수 있습니다."
+      : "Production execute is off by default. Explicit operational opt-in is required.";
+  }
+  return ko
+    ? "실행 불가 (환경 게이트 / blocker / Production)."
+    : "Execute unavailable (env gate / blockers / Production).";
+}
 
 export function AdminDataResetPage() {
   const { language } = useI18n();
@@ -149,6 +200,19 @@ export function AdminDataResetPage() {
   const scopeOptions = domain ? DOMAIN_SCOPES[domain] : [];
   const selectedScope = scopeOptions[scopeIdx] ?? scopeOptions[0];
 
+  const selectedCapability = useMemo(() => {
+    if (!domain || !selectedScope) return null;
+    return resolveDataResetUiCapability({
+      domain,
+      scope: selectedScope.scope,
+      subtype: selectedScope.subtype,
+    });
+  }, [domain, selectedScope]);
+
+  const scopeExecuteBlocked = selectedCapability
+    ? dataResetUiExecuteBlocked(selectedCapability)
+    : false;
+
   const needsEntity = useMemo(() => {
     const s = selectedScope?.scope;
     return s === "single" || s === "user";
@@ -194,6 +258,14 @@ export function AdminDataResetPage() {
 
   async function runExecute() {
     if (!plan || !domain || !selectedScope) return;
+    if (scopeExecuteBlocked) {
+      setResultMsg(
+        ko
+          ? selectedCapability?.reasonKo ?? "execute_blocked"
+          : selectedCapability?.reasonEn ?? "execute_blocked"
+      );
+      return;
+    }
     if (
       !(await dibayConfirm({
         title: ko ? "초기화를 실행할까요? (복구 불가)" : "Execute reset? (irreversible)",
@@ -269,8 +341,8 @@ export function AdminDataResetPage() {
         title={ko ? "데이터 초기화" : "Data Reset"}
         description={
           ko
-            ? "도메인별 SSOT 초기화 · Preview → Execute · Production 실행 금지"
-            : "Domain SSOT reset · Preview → Execute · Production execute forbidden"
+            ? "도메인별 SSOT 초기화 · Preview → Execute · Production 실행은 기본 비활성(별도 옵트인)"
+            : "Domain SSOT reset · Preview → Execute · Production execute off by default (opt-in)"
         }
       />
 
@@ -356,8 +428,15 @@ export function AdminDataResetPage() {
                 setView("detail");
               }}
             >
-              Full Service Reset
+              {ko
+                ? "Full Service Reset (고위험 · 실측 미증명)"
+                : "Full Service Reset (high-risk · not runtime-proven)"}
             </button>
+            <p className="mt-2 text-xs text-sam-muted">
+              {ko
+                ? "미리보기는 가능합니다. Production 파괴 실행은 기본 비활성이며 운영 실측은 아직 없습니다."
+                : "Preview is available. Production destructive execute stays off by default and is not runtime-proven."}
+            </p>
           </div>
         </div>
       ) : null}
@@ -416,6 +495,18 @@ export function AdminDataResetPage() {
                 placeholder="uuid"
               />
             </label>
+          ) : null}
+
+          {selectedCapability ? (
+            <p
+              className={
+                scopeExecuteBlocked
+                  ? "rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-sm text-amber-950"
+                  : "rounded border border-sam-border bg-sam-app px-2 py-1.5 text-sm text-sam-muted"
+              }
+            >
+              {ko ? selectedCapability.reasonKo : selectedCapability.reasonEn}
+            </p>
           ) : null}
 
           <button
@@ -502,14 +593,26 @@ export function AdminDataResetPage() {
               {!(plan.clientInvalidation ?? []).length ? <li>—</li> : null}
             </ul>
           </section>
-          {plan.blockers.length ? (
+          {plan.blockers.length || scopeExecuteBlocked ? (
             <p className="rounded border border-red-200 bg-red-50 px-2 py-1 text-sm text-red-900">
-              BLOCKED: {plan.blockedReason ?? plan.blockers.join(", ")}
+              {ko ? "실행 차단" : "Execute blocked"}
+              {": "}
+              {scopeExecuteBlocked
+                ? ko
+                  ? selectedCapability?.reasonKo
+                  : selectedCapability?.reasonEn
+                : (plan.blockedReason ?? plan.blockers.join(", "))}
             </p>
           ) : null}
           {plan.warnings.length ? (
             <p className="text-xs text-sam-muted">{plan.warnings.slice(0, 5).join(" · ")}</p>
           ) : null}
+
+          <p className="text-xs text-sam-muted">
+            {ko
+              ? "미리보기 성공이 곧 실행 허용을 의미하지 않습니다."
+              : "A successful preview does not mean execute is allowed."}
+          </p>
 
           <label className="block text-sm text-sam-fg">
             {ko ? "확인 문구 입력" : "Type confirmation phrase"}
@@ -518,6 +621,7 @@ export function AdminDataResetPage() {
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               placeholder={plan.typedConfirmationPhrase}
+              disabled={scopeExecuteBlocked}
             />
           </label>
           <p className="text-xs text-sam-muted">
@@ -538,6 +642,7 @@ export function AdminDataResetPage() {
               type="button"
               disabled={
                 busy ||
+                scopeExecuteBlocked ||
                 !plan.executeAllowed ||
                 plan.blockers.length > 0 ||
                 typed.trim() !== plan.typedConfirmationPhrase
@@ -548,11 +653,14 @@ export function AdminDataResetPage() {
               {busy ? "…" : ko ? "초기화 진행" : "Execute"}
             </button>
           </div>
-          {!plan.executeAllowed ? (
+          {scopeExecuteBlocked || !plan.executeAllowed || plan.blockers.length > 0 ? (
             <p className="text-xs text-amber-800">
-              {ko
-                ? "실행 불가 (환경 게이트 / blocker / Production)."
-                : "Execute unavailable (env gate / blockers / Production)."}
+              {executeUnavailableMessage(
+                plan,
+                ko,
+                scopeExecuteBlocked,
+                (ko ? selectedCapability?.reasonKo : selectedCapability?.reasonEn) ?? ""
+              )}
             </p>
           ) : null}
         </div>
