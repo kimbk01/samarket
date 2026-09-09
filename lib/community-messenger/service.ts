@@ -545,7 +545,7 @@ type CallRow = {
   duration_seconds: number | null;
   started_at: string | null;
   ended_at?: string | null;
-  /** `fetchCallLogRowsOnly` 에서 sessions 배치 조회로 합성 */
+  /** request-local sessions 배치(`fetchCallLogRowsOnly`)에서 합성 */
   sessionEndedAt?: string | null;
   sessionEndedReason?: string | null;
 };
@@ -554,6 +554,15 @@ type CallSessionMetaRow = {
   id: string;
   room_id: string;
   session_mode: CommunityMessengerCallSessionMode | null;
+  /** history endedAt / displayType — same batch as room_id/session_mode (CUT-2A) */
+  ended_at?: string | null;
+  ended_reason?: string | null;
+};
+
+/** `fetchCallLogRowsOnly` → `loadSessionMapsForCallLogs` request-local reuse */
+type CallLogRowsWithSessionMeta = {
+  rows: Array<CallRow | DevCall>;
+  sessionMap: Map<string, CallSessionMetaRow | DevCallSession>;
 };
 
 type CallSessionRow = {
@@ -4069,9 +4078,26 @@ export async function getOpenGroupJoinPreview(
   return { ok: true, group };
 }
 
-async function fetchCallLogRowsOnly(userId: string): Promise<Array<CallRow | DevCall>> {
+function sessionEndedFieldsFromMeta(
+  session: CallSessionMetaRow | DevCallSession | undefined
+): { sessionEndedAt: string | null; sessionEndedReason: string | null } {
+  if (!session) return { sessionEndedAt: null, sessionEndedReason: null };
+  if ("sessionMode" in session) {
+    return {
+      sessionEndedAt: session.endedAt ?? null,
+      sessionEndedReason: session.endedReason ?? null,
+    };
+  }
+  return {
+    sessionEndedAt: session.ended_at ?? null,
+    sessionEndedReason: session.ended_reason ?? null,
+  };
+}
+
+async function fetchCallLogRowsOnly(userId: string): Promise<CallLogRowsWithSessionMeta> {
   const sb = getSupabaseOrNull();
   let rows: Array<CallRow | DevCall> = [];
+  const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
   if (sb) {
     const { data, error } = await (sb as any)
       .from("community_messenger_call_logs")
@@ -4084,27 +4110,23 @@ async function fetchCallLogRowsOnly(userId: string): Promise<Array<CallRow | Dev
     if (!error || !isMissingTableError(error)) {
       const base = (data ?? []) as CallRow[];
       const sessionIds = dedupeIds(base.map((r) => trimText(r.session_id ?? "")).filter(Boolean));
-      const sessionById = new Map<string, { ended_at: string | null; ended_reason: string | null }>();
       if (sessionIds.length) {
+        /** CUT-2A: single sessions batch — ended_* + room_id/session_mode for later maps */
         const { data: srows } = await (sb as any)
           .from("community_messenger_call_sessions")
-          .select("id, ended_at, ended_reason")
+          .select("id, room_id, session_mode, ended_at, ended_reason")
           .in("id", sessionIds);
-        for (const s of (srows ?? []) as Array<{
-          id: string;
-          ended_at: string | null;
-          ended_reason: string | null;
-        }>) {
-          sessionById.set(s.id, { ended_at: s.ended_at, ended_reason: s.ended_reason });
+        for (const s of (srows ?? []) as CallSessionMetaRow[]) {
+          sessionMap.set(s.id, s);
         }
       }
       rows = base.map((r) => {
         const sid = trimText(r.session_id ?? "");
-        const s = sid ? sessionById.get(sid) : undefined;
+        const ended = sessionEndedFieldsFromMeta(sid ? sessionMap.get(sid) : undefined);
         return {
           ...r,
-          sessionEndedAt: s?.ended_at ?? null,
-          sessionEndedReason: s?.ended_reason ?? null,
+          sessionEndedAt: ended.sessionEndedAt,
+          sessionEndedReason: ended.sessionEndedReason,
         };
       });
     }
@@ -4114,8 +4136,14 @@ async function fetchCallLogRowsOnly(userId: string): Promise<Array<CallRow | Dev
       .calls.filter((row) => row.callerUserId === userId || row.peerUserId === userId)
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .map((row) => enrichDevCallLogRowWithSession(row));
+    for (const row of rows) {
+      const sid = callLogSessionId(row);
+      if (!sid || sessionMap.has(sid)) continue;
+      const sess = getDevState().callSessions.find((item) => item.id === sid);
+      if (sess) sessionMap.set(sid, sess);
+    }
   }
-  return rows;
+  return { rows, sessionMap };
 }
 
 async function fetchCallSessionParticipantUserIds(sessionIds: string[]): Promise<string[]> {
@@ -4148,27 +4176,39 @@ async function fetchCallSessionParticipantUserIds(sessionIds: string[]): Promise
 async function loadSessionMapsForCallLogs(
   userId: string,
   sessionIds: string[],
-  profileById: Map<string, CommunityMessengerProfileLite>
+  profileById: Map<string, CommunityMessengerProfileLite>,
+  /**
+   * CUT-2A: when provided (including empty Map), skip a second `call_sessions` round-trip
+   * and reuse the request-local batch from `fetchCallLogRowsOnly`.
+   */
+  preloadedSessionMap?: Map<string, CallSessionMetaRow | DevCallSession>
 ): Promise<{
   sessionMap: Map<string, CallSessionMetaRow | DevCallSession>;
   participantsBySession: Map<string, CommunityMessengerCallParticipant[]>;
 }> {
-  const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
+  const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>(
+    preloadedSessionMap ? preloadedSessionMap.entries() : []
+  );
   const participantsBySession = new Map<string, CommunityMessengerCallParticipant[]>();
   const sb = getSupabaseOrNull();
   if (sb && sessionIds.length) {
+    const reuseSessions = preloadedSessionMap !== undefined;
     const [{ data: sessionRows }, { data: sessionParticipantRows }] = await Promise.all([
-      (sb as any)
-        .from("community_messenger_call_sessions")
-        .select("id, room_id, session_mode")
-        .in("id", sessionIds),
+      reuseSessions
+        ? Promise.resolve({ data: null as CallSessionMetaRow[] | null })
+        : (sb as any)
+            .from("community_messenger_call_sessions")
+            .select("id, room_id, session_mode, ended_at, ended_reason")
+            .in("id", sessionIds),
       (sb as any)
         .from("community_messenger_call_session_participants")
         .select("session_id, user_id, participation_status, joined_at, left_at, created_at")
         .in("session_id", sessionIds),
     ]);
-    for (const session of (sessionRows ?? []) as CallSessionMetaRow[]) {
-      sessionMap.set(session.id, session);
+    if (!reuseSessions) {
+      for (const session of (sessionRows ?? []) as CallSessionMetaRow[]) {
+        sessionMap.set(session.id, session);
+      }
     }
     const participantRows = (sessionParticipantRows ?? []) as Array<{
       session_id?: string | null;
@@ -4195,7 +4235,7 @@ async function loadSessionMapsForCallLogs(
     }
   } else {
     for (const session of getDevState().callSessions.filter((item) => sessionIds.includes(item.id))) {
-      sessionMap.set(session.id, session);
+      if (!sessionMap.has(session.id)) sessionMap.set(session.id, session);
       const participants = await loadCallSessionParticipants(userId, session);
       participantsBySession.set(session.id, participants);
     }
@@ -4365,7 +4405,7 @@ function buildCallLogEntriesFromRows(
 }
 
 export async function listCommunityMessengerCallLogs(userId: string): Promise<CommunityMessengerCallLog[]> {
-  const rows = await fetchCallLogRowsOnly(userId);
+  const { rows, sessionMap: preloadedSessionMap } = await fetchCallLogRowsOnly(userId);
   const roomIds = dedupeIds(
     rows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
   );
@@ -4409,7 +4449,12 @@ export async function listCommunityMessengerCallLogs(userId: string): Promise<Co
       profileById
     ).map((s) => [s.id, s])
   );
-  const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+  const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(
+    userId,
+    sessionIds,
+    profileById,
+    preloadedSessionMap
+  );
   return buildCallLogEntriesFromRows(userId, rows, profileById, roomMetaMap, sessionMap, participantsBySession);
 }
 
@@ -5745,14 +5790,17 @@ export async function getCommunityMessengerBootstrap(
         })
       : null;
   const callRowsPromise = deferCallLog
-    ? Promise.resolve<Array<CallRow | DevCall>>([])
+    ? Promise.resolve<CallLogRowsWithSessionMeta>({
+        rows: [],
+        sessionMap: new Map<string, CallSessionMetaRow | DevCallSession>(),
+      })
     : (async () => {
         const tCalls = performance.now();
-        const rows = await fetchCallLogRowsOnly(userId);
+        const result = await fetchCallLogRowsOnly(userId);
         const elapsed = Math.round(performance.now() - tCalls);
         diagnostics && (diagnostics.callsLogMs += elapsed);
         diagnostics && (diagnostics.callsLogRowsFetchMs = elapsed);
-        return rows;
+        return result;
       })();
   const emptyDiscoverableState = (): DiscoverableOpenGroupsRawState => ({
     roomRows: [],
@@ -5771,6 +5819,7 @@ export async function getCommunityMessengerBootstrap(
   let myPayload: Awaited<ReturnType<typeof fetchMyRoomsPayload>>;
   let discState: DiscoverableOpenGroupsRawState;
   let callRows: Array<CallRow | DevCall>;
+  let callSessionMapPreload = new Map<string, CallSessionMetaRow | DevCallSession>();
 
   const tParallelInitial = performance.now();
   if (isMinimalLiteBootstrap) {
@@ -5804,6 +5853,7 @@ export async function getCommunityMessengerBootstrap(
     diagnostics && (diagnostics.parallelDiscoverableFetchMs = 0);
     discState = emptyDiscoverableState();
     callRows = [];
+    callSessionMapPreload = new Map();
     scheduleBootstrapLiteSocialGraphBackgroundHydration(userId, () =>
       fetchBootstrapLiteSocialGraphSnapshot(userId)
     );
@@ -5866,7 +5916,11 @@ export async function getCommunityMessengerBootstrap(
     requestRows = fullParallel[5]!;
     myPayload = fullParallel[6]!;
     discState = fullParallel[8]!;
-    callRows = fullParallel[9]!;
+    {
+      const callFetch = fullParallel[9]!;
+      callRows = callFetch.rows;
+      callSessionMapPreload = callFetch.sessionMap;
+    }
     diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "full_fetch");
     diagnostics && (diagnostics.bootstrapLiteRoomsFetchMs = diagnostics.roomsQueryMs);
     diagnostics && (diagnostics.bootstrapLiteFriendsFetchMs = diagnostics.parallelAcceptedFriendsBundleMs);
@@ -6157,7 +6211,12 @@ export async function getCommunityMessengerBootstrap(
   const { sessionMap, participantsBySession } = shouldHydrateCallData
     ? await (async () => {
         const tSessionMaps = performance.now();
-        const maps = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+        const maps = await loadSessionMapsForCallLogs(
+          userId,
+          sessionIds,
+          profileById,
+          callSessionMapPreload
+        );
         diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tSessionMaps));
         return maps;
       })()
