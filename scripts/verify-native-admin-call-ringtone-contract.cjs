@@ -82,6 +82,26 @@ assertContains(
 );
 assertContains(
   "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
+  "USAGE_NOTIFICATION_RINGTONE",
+  "incoming ringtone usage is NOTIFICATION_RINGTONE (ringer domain)"
+);
+assertContains(
+  "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
+  "STREAM_RING",
+  "incoming ringtone legacy stream is STREAM_RING"
+);
+{
+  const ring = read("android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java");
+  if (ring.includes("USAGE_VOICE_COMMUNICATION_SIGNALLING")) {
+    fail(
+      "incoming DibayForegroundRingtone must not use USAGE_VOICE_COMMUNICATION_SIGNALLING (maps volume off STREAM_RING)"
+    );
+  } else {
+    pass("incoming ringtone does not use VOICE_COMMUNICATION_SIGNALLING");
+  }
+}
+assertContains(
+  "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
   "activePlayer.release()",
   "MediaPlayer release exists"
 );

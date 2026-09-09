@@ -2,6 +2,7 @@ package com.dibay.app;
 
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -9,7 +10,13 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
-/** Incoming ring SSOT — notification channel stays silent to avoid double ring. */
+/**
+ * Incoming ring SSOT — notification channel stays silent to avoid double ring.
+ *
+ * <p>Volume-domain contract (product): HW volume keys during incoming ring MUST adjust
+ * {@link AudioManager#STREAM_RING}, never STREAM_MUSIC. Do not reuse outgoing ringback's
+ * in-call signalling usage here — that maps volume away from ringer.
+ */
 public final class DibayForegroundRingtone {
   private static final String TAG = "DIBAY_CALL";
   private static Ringtone active;
@@ -58,14 +65,19 @@ public final class DibayForegroundRingtone {
     startDefaultRingtone(app, sid);
   }
 
+  /**
+   * Incoming ringtone volume domain = system ringer.
+   *
+   * <p>Always {@link AudioAttributes#USAGE_NOTIFICATION_RINGTONE} + legacy {@link
+   * AudioManager#STREAM_RING}. On API 36 devices, the prior API≥34 branch that used in-call
+   * signalling usage for incoming MediaPlayer left MODE_NORMAL volume keys on STREAM_MUSIC while
+   * RING index stayed unchanged — product failure for ringer volume control.
+   */
   private static AudioAttributes buildRingAudioAttributes() {
-    int usage =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-            ? AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING
-            : AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
     return new AudioAttributes.Builder()
-        .setUsage(usage)
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .setLegacyStreamType(AudioManager.STREAM_RING)
         .build();
   }
 
