@@ -4,7 +4,13 @@
  */
 
 import type { TestCrawlPreviewItem } from "@/lib/community-crawler/core/preview-types";
-import { TRAVEL_PH_NEXT_DATA_COVER_PATH } from "@/lib/community-crawler/core/next-data-cover";
+
+/**
+ * Client-safe path label only — do not import travel-philippines / safe-url here.
+ * Value matches TRAVEL_PH_NEXT_DATA_COVER_PATH in adapters/travel-philippines.
+ */
+const TRAVEL_PH_NEXT_DATA_COVER_PATH =
+  "props.pageProps.data.article.coverImage.url" as const;
 
 export type MediaPublishPolicy = "PREVIEW_EXTERNAL_ONLY" | "BLOCKED_POLICY" | "ALLOWED_REHOST";
 
