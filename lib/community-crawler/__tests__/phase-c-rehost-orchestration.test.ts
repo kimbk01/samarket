@@ -4,14 +4,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommunityCrawlItemRow, CommunityCrawlSourceRow } from "@/lib/community-crawler/crawl-ssot";
 
-const insertEvent = vi.fn(async () => undefined);
-const findByHash = vi.fn();
-const demote = vi.fn(async () => undefined);
-const promote = vi.fn(async () => undefined);
-const insertRow = vi.fn();
-const upload = vi.fn();
-const removeAsset = vi.fn(async () => undefined);
-const safeFetch = vi.fn();
+const {
+  insertEvent,
+  findByHash,
+  demote,
+  promote,
+  insertRow,
+  upload,
+  removeAsset,
+  safeFetch,
+} = vi.hoisted(() => ({
+  insertEvent: vi.fn(async () => undefined),
+  findByHash: vi.fn(),
+  demote: vi.fn(async () => undefined),
+  promote: vi.fn(async () => undefined),
+  insertRow: vi.fn(),
+  upload: vi.fn(),
+  removeAsset: vi.fn(async () => undefined),
+  safeFetch: vi.fn(),
+}));
 
 vi.mock("@/lib/community-crawler/core/run-events", () => ({
   insertCommunityCrawlRunEvent: insertEvent,
