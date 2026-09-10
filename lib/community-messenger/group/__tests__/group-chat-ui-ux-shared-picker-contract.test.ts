@@ -51,14 +51,26 @@ describe("group chat UI/UX shared picker + surface contracts", () => {
     expect(header).toContain('pt-[var(--safe-top)]');
   });
 
-  it("shared overlay max-width SSOT is used; BottomNav left-rail not introduced", () => {
+  it("shared overlay max-width SSOT; BottomNav + home sheet left-pane classes", () => {
     const layout = read("lib/ui/messenger-split-pane-layout.ts");
     const sheets = read(
       "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx"
     );
+    const sheetUi = read("components/community-messenger/MessengerSheetUi.tsx");
     expect(layout).toContain("MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS");
-    expect(layout).not.toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
+    expect(layout).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
+    expect(layout).toContain("MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS");
     expect(sheets).toContain("MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS");
+    expect(sheetUi).toContain("absolute inset-x-0 w-full");
+    expect(sheetUi).not.toMatch(/splitListSheet\s*\?/);
+  });
+
+  it("wide room header grows with safe-top (presentation after 48px lock)", () => {
+    const presentation = read("app/messenger-presentation.css");
+    const transitions = read("app/messenger-view-transitions.css");
+    expect(presentation).toContain("min-height: calc(48px + var(--safe-top, 0px))");
+    expect(presentation).toContain("padding-right: max(12px, var(--safe-right, 0px))");
+    expect(transitions).toContain("min-height: calc(48px + var(--safe-top, 0px))");
   });
 
   it("create panel remains two-step (members → details)", () => {

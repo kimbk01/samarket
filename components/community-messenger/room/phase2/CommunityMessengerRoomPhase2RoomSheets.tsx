@@ -62,6 +62,7 @@ import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerG
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
+import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 import { CommunityMessengerGroupMemberPicker } from "@/components/community-messenger/group/CommunityMessengerGroupMemberPicker";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
@@ -792,9 +793,24 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("nav_messenger_me")}</span>
                             ) : null}
                           </div>
-                          {member.subtitle ? (
-                            <p className="mt-1 sam-text-helper text-sam-muted">{member.subtitle}</p>
-                          ) : null}
+                          <p className="mt-1 sam-text-helper text-sam-muted">
+                            {vm.isGroupRoom ? (
+                              <GroupMemberPresenceLabel
+                                userId={member.id}
+                                fallback={
+                                  member.subtitle ??
+                                  (member.identityMode === "alias"
+                                    ? vm.t("nav_messenger_member_alias_joined")
+                                    : vm.t("nav_messenger_member_joined"))
+                                }
+                              />
+                            ) : (
+                              member.subtitle ??
+                              (member.identityMode === "alias"
+                                ? vm.t("nav_messenger_member_alias_joined")
+                                : vm.t("nav_messenger_member_joined"))
+                            )}
+                          </p>
                         </div>
                         {!messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
                           <span className="pt-1 sam-text-page-title leading-none text-sam-meta">···</span>

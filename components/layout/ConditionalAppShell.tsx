@@ -33,6 +33,7 @@ import {
   subscribeSupportModalMainBottomNavSuppressed,
 } from "@/lib/support/support-modal-main-bottom-nav-suppress";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import {
   mainBottomNavPrefetchTriggerKey,
   type MainBottomNavPrefetchDomain,
@@ -384,11 +385,23 @@ export function ConditionalAppShell({
         <BottomNav
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
-          extraOuterClassName={
+          extraOuterClassName={[
             bottomNavScrollHideEnabled
               ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
-              : ""
-          }
+              : "",
+            /**
+             * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
+             * Avoids SSR false → full-width flash then shrink.
+             * ≥768 split: BottomNav = left list pane only (APK/iOS/Windows/tablet 동일).
+             * <768 phone: class present, media inactive → viewport 전폭.
+             */
+            pathname === "/community-messenger" ||
+            (pathname?.startsWith("/community-messenger/") ?? false)
+              ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         />
       ) : null}
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (

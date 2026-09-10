@@ -16,6 +16,10 @@ export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom
  * - `above-bottom-nav`: 하단 탭 상단에 맞춤(알림 등)
  * - `device-bottom`: 기기 최하단에서 뷰포트 비율만큼 올라옴(설정·그룹 생성, 기본 70%)
  * - `center`: 화면 중앙 팝업(친구 추가)
+ *
+ * CONTRACT: 패널은 항상 `absolute inset-x-0 w-full`(또는 center fixed).
+ * ≥768 list-pane 폭은 `MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS` + CSS media 만.
+ * DO NOT 클래스 유무로 inset-x 를 제거 (폰 APK/iOS 전폭 붕괴).
  */
 export function MessengerHomeBottomSheetShell({
   onClose,

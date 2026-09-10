@@ -24,6 +24,7 @@ import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
   MessengerChatRoomActionSheet,
@@ -3360,22 +3361,33 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           closeAriaLabel={t("nav_close")}
           dialogAriaLabel={t("cm_ui_create_group")}
           anchor="device-bottom"
+          panelClassName={MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}
+          deviceHeightRatio={0.86}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-            <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
+          <div
+            className="flex shrink-0 items-center justify-between border-b border-[color:var(--overlay-border)] px-4 py-3"
+            data-cm-group-create-outer-chrome=""
+          >
+            <p className="sam-text-section-title font-semibold text-[color:var(--overlay-text-primary)]">
               {t("cm_ui_create_group")}
             </p>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-[var(--messenger-radius-sm)] sam-text-body-lg leading-none active:bg-[color:var(--messenger-primary-soft)]"
-              style={{ color: "var(--messenger-text-secondary)" }}
+              className="flex h-10 w-10 items-center justify-center rounded-[length:var(--overlay-radius-md)] sam-text-body-lg leading-none text-[color:var(--overlay-text-secondary)] active:bg-[color:var(--overlay-secondary)]"
               onClick={() => setGroupCreateStep("closed")}
               aria-label={t("nav_close")}
             >
               ×
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--overlay-surface)] px-4 pb-[max(1rem,var(--safe-bottom))] pt-3">
+            <div
+              className={
+                groupCreateStep === "private_group" && privateGroupSubStep === "members"
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                  : "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+              }
+            >
             {groupCreateStep === "select" ? (
               <>
                 <p className="sam-text-body-secondary font-medium text-sam-fg">{t("cm_ui_create_group")}</p>
@@ -3387,7 +3399,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                       setPrivateGroupSubStep("members");
                       setGroupCreateStep("private_group");
                     }}
-                    className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
+                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"
                   >
                     <p className="sam-text-helper text-sam-muted">{t("cm_ui_friend_invite_type")}</p>
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_private_group")}</p>
@@ -3396,7 +3408,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("open_group")}
-                    className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
+                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left transition active:bg-sam-app"
                   >
                     <p className="sam-text-helper text-sam-muted">{t("cm_svc_open_group_room")}</p>
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_open_group")}</p>
@@ -3591,7 +3603,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             ) : null}
 
             {groupCreateStep === "private_group" || groupCreateStep === "open_group" ? (
-              <div className="mt-5">
+              <div className="mt-5 shrink-0">
                 {groupCreateStep === "private_group" && privateGroupSubStep === "details" ? (
                     <button
                       type="button"
@@ -3601,7 +3613,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                         groupMembers.length === 0 ||
                         !groupTitle.trim()
                       }
-                      className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                      className="dibay-overlay-btn dibay-overlay-btn--primary w-full disabled:opacity-40"
                     >
                       {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_group_submit")}
                     </button>
@@ -3616,13 +3628,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                       (openGroupJoinPolicy === "password" && !openGroupPassword.trim()) ||
                       (openGroupCreatorIdentityMode === "alias" && !openGroupCreatorAliasName.trim())
                     }
-                    className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                    className="dibay-overlay-btn dibay-overlay-btn--primary w-full disabled:opacity-40"
                   >
                     {busyId === "create-open-group" ? t("cm_ui_creating") : t("cm_ui_create_open_group_chat")}
                   </button>
                 ) : null}
               </div>
             ) : null}
+            </div>
           </div>
         </MessengerHomeBottomSheetShell>
       ) : null}

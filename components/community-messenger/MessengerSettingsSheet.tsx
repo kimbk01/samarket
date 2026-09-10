@@ -11,6 +11,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
 type MessengerNotificationSettings = {
   trade_chat_enabled: boolean;
@@ -78,6 +79,7 @@ export function MessengerSettingsSheet({
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("common_settings")}
       anchor="device-bottom"
+      panelClassName={MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}
     >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>

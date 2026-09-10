@@ -157,14 +157,25 @@
     padding-top: 0 !important;
   }
 
+  /* SplitTopBar list-column-only — room Phase2Header owns safe-top.
+   * Fixed 48px + pt(safe-top) crushed icons / overflowed past the room pane.
+   * Height must grow with safe-top; right padding respects safe-right. */
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell > .chat-header,
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell > [data-chat-header],
   [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell [data-chat-header].chat-header {
     margin: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    min-height: calc(48px + var(--safe-top, 0px)) !important;
+    max-height: none !important;
+    box-sizing: border-box !important;
+    padding-top: var(--safe-top, 0px) !important;
+    padding-right: max(12px, var(--safe-right, 0px)) !important;
+    padding-left: max(12px, var(--safe-left, 0px)) !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    overflow: hidden !important;
   }
 
   /* segment inline shell — z-0 배경; 본문(z-1) 로드 전 split 우측 빈 화면 방지 */

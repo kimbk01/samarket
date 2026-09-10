@@ -12,6 +12,7 @@ import type { MessengerFriendStateModel } from "@/lib/community-messenger/messen
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { MessengerChatsScreen } from "@/components/community-messenger/MessengerChatsScreen";
+import { MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
 type ChatsProps = Omit<
   ComponentProps<typeof MessengerChatsScreen>,
@@ -112,7 +113,7 @@ export function MessengerArchiveScreen({
           closeAriaLabel={t("nav_close")}
           dialogAriaLabel={t(archiveSectionTitleKey(selectedArchiveSection))}
           anchor="device-bottom"
-          panelClassName="flex min-h-0 flex-col overflow-hidden"
+          panelClassName={`flex min-h-0 flex-col overflow-hidden ${MESSENGER_HOME_SPLIT_LIST_SHEET_CLASS}`}
         >
           <MessengerArchiveSectionPanel
             section={selectedArchiveSection}
