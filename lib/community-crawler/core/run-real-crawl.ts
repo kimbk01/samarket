@@ -10,7 +10,9 @@ import { upsertCommunityCrawlItem } from "@/lib/community-crawler/crawl-item-sto
 import { classifyCrawlDetailPageHtml } from "@/lib/community-crawler/core/classify-detail-page";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
 import { resolveCommunityCrawlAdapterKey } from "@/lib/community-crawler/core/resolve-adapter-key";
+import { insertCommunityCrawlRunEvent } from "@/lib/community-crawler/core/run-events";
 import { safeFetchHtml } from "@/lib/community-crawler/core/safe-fetch";
+import { rehostCommunityCrawlItemMedia } from "@/lib/community-crawler/media/rehost-item-media";
 import type {
   CommunityCrawlBoardRow,
   CommunityCrawlItemRow,
@@ -102,6 +104,18 @@ export async function runCommunityRealCrawl(input: {
         if (invalid.kind === "SOURCE_INVALID") {
           skippedInvalidCount += 1;
           skippedInvalid.push({ sourceUrl: listItem.detailUrl, reason: invalid.reason });
+          await insertCommunityCrawlRunEvent(sb, {
+            runId,
+            sourceId: source.id,
+            boardId: board.id,
+            sourcePostId: listItem.sourcePostId,
+            canonicalUrl: listItem.detailUrl,
+            phase: "VALIDATE",
+            classification: "SKIPPED_INVALID",
+            errorCode: invalid.reason,
+            errorMessage: invalid.reason,
+            httpStatus: detailFetch.status,
+          });
           continue;
         }
 
@@ -130,21 +144,76 @@ export async function runCommunityRealCrawl(input: {
           },
         });
 
+        const eventBase = {
+          runId,
+          sourceId: source.id,
+          boardId: board.id,
+          sourcePostId: detail.sourcePostId ?? listItem.sourcePostId,
+          canonicalUrl: listItem.detailUrl,
+        };
+
+        if (
+          detail.representativeImageUrl &&
+          upsert.outcome !== "failed" &&
+          upsert.item &&
+          !upsert.item.source_cover_url
+        ) {
+          await insertCommunityCrawlRunEvent(sb, {
+            ...eventBase,
+            phase: "MEDIA_RESOLVE",
+            classification: "MEDIA_INVALID",
+            errorCode: "COVER_CANDIDATE_INVALID",
+            errorMessage: upsert.item.source_cover_candidate_url || detail.representativeImageUrl,
+          });
+        }
+
         if (upsert.outcome === "inserted") {
           insertedCount += 1;
           items.push(upsert.item);
+          await insertCommunityCrawlRunEvent(sb, {
+            ...eventBase,
+            phase: "UPSERT",
+            classification: "INSERTED",
+          });
         } else if (upsert.outcome === "updated") {
           updatedCount += 1;
           items.push(upsert.item);
+          await insertCommunityCrawlRunEvent(sb, {
+            ...eventBase,
+            phase: "UPSERT",
+            classification: "UPDATED",
+          });
         } else if (upsert.outcome === "duplicate") {
           duplicateCount += 1;
           items.push(upsert.item);
+          await insertCommunityCrawlRunEvent(sb, {
+            ...eventBase,
+            phase: "DEDUPE",
+            classification: "DUPLICATE",
+          });
         } else {
           failedCount += 1;
           failures.push({
             sourceUrl: upsert.canonicalUrl,
             errorCode: upsert.errorCode,
             errorMessage: upsert.errorMessage,
+          });
+          await insertCommunityCrawlRunEvent(sb, {
+            ...eventBase,
+            phase: "UPSERT",
+            classification: "FAILED",
+            errorCode: upsert.errorCode,
+            errorMessage: upsert.errorMessage,
+          });
+        }
+
+        if (upsert.outcome !== "failed" && upsert.item) {
+          // PHASE C: media pipeline only; IMAGE_OPTIONAL — never fails the article upsert.
+          await rehostCommunityCrawlItemMedia({
+            sb,
+            item: upsert.item,
+            source,
+            runId,
           });
         }
       } catch (e) {
@@ -158,6 +227,17 @@ export async function runCommunityRealCrawl(input: {
           errorCode: err.code,
           errorMessage: err.message,
         });
+        await insertCommunityCrawlRunEvent(sb, {
+          runId,
+          sourceId: source.id,
+          boardId: board.id,
+          sourcePostId: listItem.sourcePostId,
+          canonicalUrl: listItem.detailUrl,
+          phase: "FETCH",
+          classification: "FAILED",
+          errorCode: err.code,
+          errorMessage: err.message,
+        });
       }
     }
   } catch (e) {
@@ -168,6 +248,15 @@ export async function runCommunityRealCrawl(input: {
     fatalCode = err.code;
     fatalMessage = err.message;
     failedCount += 1;
+    await insertCommunityCrawlRunEvent(sb, {
+      runId,
+      sourceId: source.id,
+      boardId: board.id,
+      phase: "DISCOVER",
+      classification: "FAILED",
+      errorCode: err.code,
+      errorMessage: err.message,
+    });
   }
 
   let status: RealCrawlResult["status"] = "FAILED";

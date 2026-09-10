@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dibayAlert, dibayConfirm } from "@/components/ui/dibay-overlay";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { CommunityCrawlItemRow } from "@/lib/community-crawler/crawl-ssot";
+import type { CommunityCrawlItemOpsDto } from "@/lib/community-crawler/admin-item-ops-dto";
+import type { CommunityCrawlBoardRow } from "@/lib/community-crawler/crawl-ssot";
 
 const btnPrimary =
   "rounded-ui-rect bg-sam-primary px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50";
@@ -37,12 +38,23 @@ function statusLabel(status: string, t: (k: MessageKey) => string): string {
       return t("admin_community_crawl_item_status_published");
     case "FAILED":
       return t("admin_community_crawl_item_status_failed");
+    case "SKIPPED":
+      return t("admin_community_crawl_item_status_skipped");
     default:
       return t("admin_community_crawl_item_status_other");
   }
 }
 
-/** Never leave a white broken <img> box — dead URL → explicit none fallback. */
+function mediaStatusLabel(s: CommunityCrawlItemOpsDto["media_status"], t: (k: MessageKey) => string): string {
+  if (s === "DURABLE_COVER") return t("admin_community_crawl_media_status_durable");
+  if (s === "CANDIDATE_ONLY") return t("admin_community_crawl_media_status_candidate");
+  return t("admin_community_crawl_media_status_none");
+}
+
+/**
+ * Durable COVER thumb only. Never hotlink source_cover_candidate_url.
+ * Missing/broken → explicit fallback (no white broken box).
+ */
 function CoverPreview(props: { url: string | null; noneLabel: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -50,36 +62,59 @@ function CoverPreview(props: { url: string | null; noneLabel: string }) {
   }, [props.url]);
   if (!props.url || failed) {
     return (
-      <div className="flex h-20 w-28 items-center justify-center rounded-ui-rect bg-sam-surface sam-text-helper text-sam-muted text-center px-1">
+      <div className="flex h-20 w-28 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface sam-text-helper text-sam-muted text-center px-1">
         {props.noneLabel}
       </div>
     );
   }
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- admin external preview
+    // eslint-disable-next-line @next/next/no-img-element -- admin durable thumb
     <img
       src={props.url}
       alt=""
-      className="h-20 w-28 rounded-ui-rect object-cover bg-sam-surface"
+      className="h-20 w-28 shrink-0 rounded-ui-rect object-cover bg-sam-surface"
       onError={() => setFailed(true)}
     />
   );
 }
 
+function asOps(item: CommunityCrawlItemOpsDto | Record<string, unknown>): CommunityCrawlItemOpsDto {
+  const it = item as CommunityCrawlItemOpsDto;
+  return {
+    ...it,
+    source_name: it.source_name ?? null,
+    topic_name: it.topic_name ?? null,
+    thumb_url: it.thumb_url ?? null,
+    media_status: it.media_status ?? "NO_MEDIA",
+    published: it.published ?? (it.status === "PUBLISHED" || Boolean(it.published_post_id)),
+  };
+}
+
 export function AdminCommunityCrawlItemsPanel(props: {
   boardId: string | null;
-  onItemsChange?: (items: CommunityCrawlItemRow[]) => void;
+  boards?: CommunityCrawlBoardRow[];
+  onBoardIdChange?: (boardId: string) => void;
+  onItemsChange?: (items: CommunityCrawlItemOpsDto[]) => void;
 }) {
   const { t } = useI18n();
-  const [items, setItems] = useState<CommunityCrawlItemRow[]>([]);
+  const [items, setItems] = useState<CommunityCrawlItemOpsDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [edit, setEdit] = useState<CommunityCrawlItemRow | null>(null);
+  const [edit, setEdit] = useState<CommunityCrawlItemOpsDto | null>(null);
+  const [preview, setPreview] = useState<CommunityCrawlItemOpsDto | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("");
   const [dateIso, setDateIso] = useState("");
   const [views, setViews] = useState("0");
+
+  const applyList = useCallback(
+    (list: CommunityCrawlItemOpsDto[]) => {
+      setItems(list);
+      props.onItemsChange?.(list);
+    },
+    [props]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,34 +123,41 @@ export function AdminCommunityCrawlItemsPanel(props: {
         ? `?boardId=${encodeURIComponent(props.boardId)}&limit=50`
         : "?limit=50";
       const res = await fetch(`/api/admin/community/crawl/items${q}`, { credentials: "include" });
-      const j = (await res.json()) as { ok?: boolean; items?: CommunityCrawlItemRow[]; error?: string };
+      const j = (await res.json()) as {
+        ok?: boolean;
+        items?: CommunityCrawlItemOpsDto[];
+        error?: string;
+      };
       if (!j.ok) {
         await dibayAlert({ title: String(j.error ?? "items_load_failed") });
         return;
       }
-      const list = j.items ?? [];
-      setItems(list);
-      props.onItemsChange?.(list);
+      applyList((j.items ?? []).map(asOps));
     } finally {
       setLoading(false);
     }
-  }, [props.boardId, props.onItemsChange]);
+  }, [props.boardId, applyList]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  function openEdit(item: CommunityCrawlItemRow) {
-    setEdit(item);
-    setTitle(item.dibay_title || item.source_title);
-    setBody(item.dibay_body || item.source_body_normalized);
-    setAuthor(item.display_author_name ?? "");
-    setDateIso(item.display_date ?? "");
-    setViews(String(item.display_view_seed ?? 0));
+  function openEdit(item: CommunityCrawlItemOpsDto) {
+    const it = asOps(item);
+    setEdit(it);
+    setTitle(it.dibay_title || it.source_title);
+    setBody(it.dibay_body || it.source_body_normalized);
+    setAuthor(it.display_author_name ?? "");
+    setDateIso(it.display_date ?? "");
+    setViews(String(it.display_view_seed ?? 0));
   }
 
   async function saveEdit() {
     if (!edit) return;
+    if (!body.trim()) {
+      await dibayAlert({ title: t("admin_community_crawl_body_required") });
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/crawl/items/${edit.id}`, {
@@ -130,19 +172,86 @@ export function AdminCommunityCrawlItemsPanel(props: {
           display_view_seed: Number(views) || 0,
         }),
       });
-      const j = (await res.json()) as { ok?: boolean; item?: CommunityCrawlItemRow; error?: string };
+      const j = (await res.json()) as {
+        ok?: boolean;
+        item?: CommunityCrawlItemOpsDto;
+        error?: string;
+      };
       if (!j.ok || !j.item) {
-        await dibayAlert({ title: String(j.error ?? "save_failed") });
+        await dibayAlert({
+          title:
+            j.error === "body_required"
+              ? t("admin_community_crawl_body_required")
+              : String(j.error ?? "save_failed"),
+        });
         return;
       }
-      setItems((prev) => prev.map((it) => (it.id === j.item!.id ? j.item! : it)));
-      setEdit(null);
+      const next = asOps(j.item);
+      // D4: ACK → local replace; no refresh() required for visibility.
+      setItems((prev) => prev.map((it) => (it.id === next.id ? next : it)));
+      setEdit(next);
     } finally {
       setBusy(false);
     }
   }
 
-  async function publishItem(item: CommunityCrawlItemRow) {
+  async function excludeItem(item: CommunityCrawlItemOpsDto) {
+    const ok = await dibayConfirm({
+      title: t("admin_community_crawl_item_exclude_title"),
+      description: t("admin_community_crawl_item_exclude_body"),
+      confirmLabel: t("admin_community_crawl_item_exclude"),
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/items/${item.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "SKIPPED" }),
+      });
+      const j = (await res.json()) as { ok?: boolean; item?: CommunityCrawlItemOpsDto; error?: string };
+      if (!j.ok || !j.item) {
+        await dibayAlert({ title: String(j.error ?? "exclude_failed") });
+        return;
+      }
+      const next = asOps(j.item);
+      setItems((prev) => prev.map((it) => (it.id === next.id ? next : it)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteItem(item: CommunityCrawlItemOpsDto) {
+    const ok = await dibayConfirm({
+      title: t("admin_community_crawl_item_delete_title"),
+      description: t("admin_community_crawl_item_delete_body"),
+      confirmLabel: t("admin_community_crawl_item_delete"),
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/items/${item.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!j.ok) {
+        await dibayAlert({ title: String(j.error ?? "delete_failed") });
+        return;
+      }
+      setItems((prev) => prev.filter((it) => it.id !== item.id));
+      if (edit?.id === item.id) setEdit(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publishItem(item: CommunityCrawlItemOpsDto) {
+    if (item.status === "SKIPPED" || item.status === "PUBLISHED") {
+      await dibayAlert({ title: t("admin_community_crawl_publish_blocked_hint") });
+      return;
+    }
     const ok = await dibayConfirm({
       title: t("admin_community_crawl_import_confirm_title"),
       description: t("admin_community_crawl_import_confirm_body"),
@@ -159,50 +268,65 @@ export function AdminCommunityCrawlItemsPanel(props: {
         ok?: boolean;
         error?: string;
         communityPostId?: string;
-        policyStatus?: string;
+        detail?: string;
       };
       if (!j.ok) {
-        await dibayAlert({
-          title:
-            j.error === "BLOCKED_POLICY"
-              ? t("admin_community_crawl_prepare_blocked_publish")
-              : String(j.error ?? "publish_failed"),
-        });
+        const msg =
+          j.error === "BLOCKED_POLICY" || j.error === "source_disabled"
+            ? t("admin_community_crawl_import_blocked_disabled")
+            : j.error === "board_collect_only"
+              ? t("admin_community_crawl_import_blocked_collect")
+              : j.error === "already_published"
+                ? `${t("admin_community_crawl_import_success")} · ${j.communityPostId ?? ""}`
+                : String(j.error ?? j.detail ?? "publish_failed");
+        await dibayAlert({ title: msg });
         return;
       }
       setItems((prev) =>
         prev.map((it) =>
           it.id === item.id
-            ? { ...it, status: "PUBLISHED", published_post_id: j.communityPostId ?? it.published_post_id }
+            ? {
+                ...it,
+                status: "PUBLISHED",
+                published: true,
+                published_post_id: j.communityPostId ?? it.published_post_id,
+              }
             : it
         )
       );
+      await dibayAlert({
+        title: `${t("admin_community_crawl_import_success")}${
+          j.communityPostId ? ` · /philife/${j.communityPostId}` : ""
+        }`,
+      });
     } finally {
       setBusy(false);
     }
   }
 
-  /** Materialize from crawl ACK without waiting for re-fetch. */
-  function materializeFromCrawl(ackItems: CommunityCrawlItemRow[]) {
+  function materializeFromCrawl(ackItems: CommunityCrawlItemOpsDto[]) {
     if (!ackItems.length) return;
     setItems((prev) => {
       const map = new Map(prev.map((i) => [i.id, i]));
-      for (const it of ackItems) map.set(it.id, it);
+      for (const raw of ackItems) {
+        const it = asOps(raw);
+        if (props.boardId && it.board_id !== props.boardId) continue;
+        map.set(it.id, it);
+      }
       return [...map.values()].sort(
         (a, b) => Date.parse(b.last_crawled_at) - Date.parse(a.last_crawled_at)
       );
     });
   }
 
-  // Expose materialize via custom event from parent crawl button
   useEffect(() => {
     const handler = (ev: Event) => {
-      const detail = (ev as CustomEvent<CommunityCrawlItemRow[]>).detail;
+      const detail = (ev as CustomEvent<CommunityCrawlItemOpsDto[]>).detail;
       if (Array.isArray(detail)) materializeFromCrawl(detail);
     };
     window.addEventListener("community-crawl-items-ack", handler);
     return () => window.removeEventListener("community-crawl-items-ack", handler);
-  }, []);
+  }, [props.boardId]);
 
   return (
     <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -210,9 +334,27 @@ export function AdminCommunityCrawlItemsPanel(props: {
         <h2 className="sam-text-section-title font-semibold text-sam-fg">
           {t("admin_community_crawl_items_title")}
         </h2>
-        <button type="button" className={btnGhost} disabled={loading || busy} onClick={() => void load()}>
-          {t("admin_community_crawl_items_refresh")}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {props.boards && props.boards.length > 0 && props.onBoardIdChange ? (
+            <label className="flex items-center gap-2 sam-text-helper text-sam-muted">
+              {t("admin_community_crawl_items_board_filter")}
+              <select
+                className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sam-fg"
+                value={props.boardId ?? ""}
+                onChange={(e) => props.onBoardIdChange?.(e.target.value)}
+              >
+                {props.boards.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button type="button" className={btnGhost} disabled={loading || busy} onClick={() => void load()}>
+            {t("admin_community_crawl_items_refresh")}
+          </button>
+        </div>
       </div>
       <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_items_hint")}</p>
       {loading ? (
@@ -228,45 +370,100 @@ export function AdminCommunityCrawlItemsPanel(props: {
             >
               <div className="flex flex-wrap gap-3">
                 <CoverPreview
-                  url={it.source_cover_url}
+                  url={it.thumb_url}
                   noneLabel={t("admin_community_crawl_preview_rep_none")}
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <div className="font-semibold text-sam-fg break-words">{it.dibay_title || it.source_title}</div>
-                  <div className="sam-text-helper text-sam-muted">
-                    {statusLabel(it.status, t)} · {it.display_author_name || "—"} ·{" "}
-                    {formatWhen(it.display_date)} · views {it.display_view_seed}
+                  <div className="font-semibold text-sam-fg break-words">
+                    {it.dibay_title || it.source_title}
                   </div>
-                  <p className="sam-text-helper text-sam-muted line-clamp-2">
+                  <div className="sam-text-helper text-sam-muted break-words">
+                    {statusLabel(it.status, t)} ·{" "}
+                    {it.published
+                      ? t("admin_community_crawl_item_published_yes")
+                      : t("admin_community_crawl_item_published_no")}{" "}
+                    · {it.display_author_name || "—"} · {formatWhen(it.display_date)} · views{" "}
+                    {it.display_view_seed}
+                  </div>
+                  <div className="sam-text-helper text-sam-muted break-words">
+                    {t("admin_community_crawl_item_category")}: {it.topic_name || "—"} ·{" "}
+                    {t("admin_community_crawl_item_source")}: {it.source_name || "—"} ·{" "}
+                    {t("admin_community_crawl_item_last_crawled")}: {formatWhen(it.last_crawled_at)} ·{" "}
+                    {t("admin_community_crawl_item_media_status")}: {mediaStatusLabel(it.media_status, t)}
+                  </div>
+                  <p className="sam-text-helper text-sam-muted line-clamp-2 break-words">
                     {(it.dibay_body || it.source_body_normalized).slice(0, 160)}
                   </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button type="button" className={btnGhost} disabled={busy} onClick={() => setPreview(it)}>
+                  {t("admin_community_crawl_item_preview")}
+                </button>
                 <button type="button" className={btnPrimary} disabled={busy} onClick={() => openEdit(it)}>
                   {t("admin_community_crawl_item_edit")}
-                </button>
-                <button
-                  type="button"
-                  className={btnGhost}
-                  disabled={busy || it.status === "PUBLISHED"}
-                  onClick={() => void publishItem(it)}
-                >
-                  {t("admin_community_crawl_import_publish")}
                 </button>
                 <a
                   href={it.canonical_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="sam-text-helper text-sam-primary self-center"
+                  className={`${btnGhost} inline-flex items-center no-underline`}
                 >
                   {t("admin_community_crawl_item_original")}
                 </a>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy || it.status === "SKIPPED"}
+                  onClick={() => void excludeItem(it)}
+                >
+                  {t("admin_community_crawl_item_exclude")}
+                </button>
+                <button type="button" className={btnGhost} disabled={busy} onClick={() => void deleteItem(it)}>
+                  {t("admin_community_crawl_item_delete")}
+                </button>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy || it.status === "PUBLISHED" || it.status === "SKIPPED"}
+                  title={t("admin_community_crawl_publish_blocked_hint")}
+                  onClick={() => void publishItem(it)}
+                >
+                  {t("admin_community_crawl_import_publish")}
+                </button>
               </div>
             </li>
           ))}
         </ul>
       )}
+
+      {preview ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-xl rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg">
+            <div className="flex items-center justify-between border-b border-sam-border px-4 py-3">
+              <h3 className="font-semibold text-sam-fg">{t("admin_community_crawl_item_preview")}</h3>
+              <button type="button" className="text-sam-muted" onClick={() => setPreview(null)}>
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4 max-h-[min(80vh,720px)] overflow-y-auto">
+              <CoverPreview
+                url={preview.thumb_url}
+                noneLabel={t("admin_community_crawl_preview_rep_none")}
+              />
+              <h4 className="font-semibold text-sam-fg break-words">
+                {preview.dibay_title || preview.source_title}
+              </h4>
+              <p className="sam-text-body text-sam-fg whitespace-pre-wrap break-words">
+                {preview.dibay_body || preview.source_body_normalized}
+              </p>
+              <p className="sam-text-helper text-sam-muted break-all">
+                {t("admin_community_crawl_source_url")}: {preview.canonical_url}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {edit ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
@@ -277,11 +474,18 @@ export function AdminCommunityCrawlItemsPanel(props: {
                 ×
               </button>
             </div>
-            <div className="space-y-3 px-4 py-4">
+            <div className="space-y-3 px-4 py-4 max-h-[min(80vh,720px)] overflow-y-auto">
               <CoverPreview
-                url={edit.source_cover_url}
+                url={edit.thumb_url}
                 noneLabel={t("admin_community_crawl_preview_rep_none")}
               />
+              <p className="sam-text-helper text-sam-muted">
+                {t("admin_community_crawl_item_media_status")}: {mediaStatusLabel(edit.media_status, t)} ·{" "}
+                {t("admin_community_crawl_item_category")}: {edit.topic_name || "—"}
+              </p>
+              <p className="sam-text-helper text-sam-muted break-all">
+                {t("admin_community_crawl_source_url")}: {edit.canonical_url}
+              </p>
               <label className="block">
                 <span className={labelClass}>{t("admin_community_crawl_import_title")}</span>
                 <input className={fieldClass} value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -289,7 +493,7 @@ export function AdminCommunityCrawlItemsPanel(props: {
               <label className="block">
                 <span className={labelClass}>{t("admin_community_crawl_import_body")}</span>
                 <textarea
-                  className={`${fieldClass} min-h-[160px]`}
+                  className={`${fieldClass} min-h-[220px]`}
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                 />

@@ -31,6 +31,8 @@ function mapItem(row: Record<string, unknown>): CommunityCrawlItemRow {
     source_author: row.source_author != null ? String(row.source_author) : null,
     source_published_at: row.source_published_at != null ? String(row.source_published_at) : null,
     source_cover_url: row.source_cover_url != null ? String(row.source_cover_url) : null,
+    source_cover_candidate_url:
+      row.source_cover_candidate_url != null ? String(row.source_cover_candidate_url) : null,
     source_body_images: images,
     content_fingerprint: String(row.content_fingerprint ?? ""),
     display_author_name: row.display_author_name != null ? String(row.display_author_name) : null,
@@ -106,6 +108,10 @@ export async function upsertCommunityCrawlItem(input: {
   const now = new Date().toISOString();
   /** Dead/non-image candidates must not be stored as durable covers. */
   const durableCoverUrl = await resolveDurableCoverUrl(detail.representativeImageUrl);
+  const coverCandidateUrl =
+    detail.representativeImageUrl && /^https?:\/\//i.test(detail.representativeImageUrl.trim())
+      ? detail.representativeImageUrl.trim()
+      : null;
   const fingerprint = contentFingerprint(detail.title, detail.contentMarkdown, durableCoverUrl);
 
   let existingQuery = sb.from("community_crawl_items").select("*").eq("board_id", board.id);
@@ -126,6 +132,9 @@ export async function upsertCommunityCrawlItem(input: {
           last_crawled_at: now,
           run_id: runId,
           updated_at: now,
+          source_cover_candidate_url: coverCandidateUrl,
+          source_cover_url: durableCoverUrl,
+          source_body_images: detail.bodyImageUrls,
         })
         .eq("id", existing.id)
         .select("*")
@@ -138,6 +147,7 @@ export async function upsertCommunityCrawlItem(input: {
       source_body_normalized: detail.contentMarkdown,
       source_author: detail.author,
       source_cover_url: durableCoverUrl,
+      source_cover_candidate_url: coverCandidateUrl,
       source_body_images: detail.bodyImageUrls,
       content_fingerprint: fingerprint,
       last_seen_at: now,
@@ -219,6 +229,7 @@ export async function upsertCommunityCrawlItem(input: {
     source_author: detail.author,
     source_published_at: date.sourcePublishedAt,
     source_cover_url: durableCoverUrl,
+    source_cover_candidate_url: coverCandidateUrl,
     source_body_images: detail.bodyImageUrls,
     content_fingerprint: fingerprint,
     display_author_name: author.displayName,
@@ -286,4 +297,10 @@ export async function updateCommunityCrawlItemDraft(
     .single();
   if (error || !data) throw new Error(error?.message ?? "item_update_failed");
   return mapItem(data as Record<string, unknown>);
+}
+
+/** Hard-delete crawler operational item (does not delete community_posts). */
+export async function deleteCommunityCrawlItem(sb: SupabaseClient, id: string): Promise<void> {
+  const { error } = await sb.from("community_crawl_items").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }

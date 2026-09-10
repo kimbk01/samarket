@@ -11,6 +11,7 @@ function source(partial: Partial<CommunityCrawlSourceRow>): CommunityCrawlSource
     adapter_key: "travel_philippines",
     status: "ACTIVE",
     policy_status: "REVIEW_REQUIRED",
+    media_policy: "MEDIA_REVIEW_REQUIRED",
     publish_mode: "REFERENCE_SUMMARY",
     created_at: "",
     updated_at: "",

@@ -22,7 +22,8 @@ import { buildReferenceSummaryImportDraft } from "@/lib/community-crawler/manual
 import type { PreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
 import { buildPreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
 import { AdminCommunityCrawlItemsPanel } from "@/components/admin/community/AdminCommunityCrawlItemsPanel";
-import type { CommunityCrawlItemRow } from "@/lib/community-crawler/crawl-ssot";
+import type { CommunityCrawlItemOpsDto } from "@/lib/community-crawler/admin-item-ops-dto";
+import type { CommunityCrawlMediaPolicy } from "@/lib/community-crawler/crawl-ssot";
 
 type TopicOpt = { id: string; name: string; slug: string };
 
@@ -102,15 +103,36 @@ function crawlRunStatusLabel(status: string, t: (k: MessageKey) => string): stri
 function crawlRunCountsLabel(
   r: Pick<
     CommunityCrawlRunRow,
-    "duplicate_count" | "skipped_invalid_count" | "failed_count"
+    | "fetched_count"
+    | "inserted_count"
+    | "updated_count"
+    | "duplicate_count"
+    | "skipped_invalid_count"
+    | "failed_count"
   >,
   t: (k: MessageKey) => string
 ): string {
   return [
+    `${t("admin_community_crawl_run_fetched_count")} ${r.fetched_count ?? 0}`,
+    `${t("admin_community_crawl_run_inserted_count")} ${r.inserted_count ?? 0}`,
+    `${t("admin_community_crawl_run_updated_count")} ${r.updated_count ?? 0}`,
     `${t("admin_community_crawl_run_duplicate_count")} ${r.duplicate_count ?? 0}`,
     `${t("admin_community_crawl_run_skipped_invalid_count")} ${r.skipped_invalid_count ?? 0}`,
     `${t("admin_community_crawl_run_failed_count")} ${r.failed_count ?? 0}`,
   ].join(" · ");
+}
+
+function mediaPolicyLabel(p: CommunityCrawlMediaPolicy | string, t: (k: MessageKey) => string): string {
+  if (p === "MEDIA_ALLOWED") return t("admin_community_crawl_media_policy_allowed");
+  if (p === "MEDIA_DISABLED") return t("admin_community_crawl_media_policy_disabled");
+  return t("admin_community_crawl_media_policy_review");
+}
+
+function runEventClassLabel(c: string, t: (k: MessageKey) => string): string {
+  if (c === "SKIPPED_INVALID") return t("admin_community_crawl_run_event_class_skipped");
+  if (c === "FAILED") return t("admin_community_crawl_run_event_class_failed");
+  if (c === "MEDIA_INVALID") return t("admin_community_crawl_run_event_class_media");
+  return t("admin_community_crawl_run_event_class_other");
 }
 
 function ModalShell({
@@ -163,6 +185,21 @@ export function AdminCommunityExternalSourcesPage() {
     | null
   >(null);
   const [manageBoardId, setManageBoardId] = useState<string | null>(null);
+  const [itemsBoardId, setItemsBoardId] = useState<string | null>(null);
+  const [runEventsOpenId, setRunEventsOpenId] = useState<string | null>(null);
+  const [runEvents, setRunEvents] = useState<
+    Array<{
+      id: string;
+      canonical_url: string | null;
+      phase: string;
+      classification: string;
+      error_code: string | null;
+      error_message: string | null;
+      http_status: number | null;
+      created_at: string;
+    }>
+  >([]);
+  const [runEventsLoading, setRunEventsLoading] = useState(false);
 
   const [srcName, setSrcName] = useState("");
   const [srcUrl, setSrcUrl] = useState("");
@@ -252,6 +289,36 @@ export function AdminCommunityExternalSourcesPage() {
     () => boards.find((b) => b.id === manageBoardId) ?? null,
     [boards, manageBoardId]
   );
+
+  useEffect(() => {
+    if (!boards.length) {
+      setItemsBoardId(null);
+      return;
+    }
+    if (itemsBoardId && boards.some((b) => b.id === itemsBoardId)) return;
+    const preferred =
+      boards.find((b) => b.id === "3ff35075-c7af-46bd-805b-a0cf210223cf") ?? boards[0]!;
+    setItemsBoardId(preferred.id);
+  }, [boards, itemsBoardId]);
+
+  async function openRunEvents(runId: string) {
+    setRunEventsOpenId(runId);
+    setRunEventsLoading(true);
+    setRunEvents([]);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/runs/${runId}/events`, {
+        credentials: "include",
+      });
+      const j = (await res.json()) as { ok?: boolean; events?: typeof runEvents; error?: string };
+      if (!j.ok) {
+        await dibayAlert({ title: String(j.error ?? "events_load_failed") });
+        return;
+      }
+      setRunEvents(j.events ?? []);
+    } finally {
+      setRunEventsLoading(false);
+    }
+  }
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -597,6 +664,7 @@ export function AdminCommunityExternalSourcesPage() {
   async function runRealCrawl(boardId: string) {
     setBusy(true);
     setManageBoardId(null);
+    setItemsBoardId(boardId);
     try {
       const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/crawl`, {
         method: "POST",
@@ -606,7 +674,7 @@ export function AdminCommunityExternalSourcesPage() {
       });
       const j = (await res.json()) as {
         ok?: boolean;
-        items?: CommunityCrawlItemRow[];
+        items?: CommunityCrawlItemOpsDto[];
         result?: {
           status?: CommunityCrawlRunRow["status"];
           runId?: string | null;
@@ -651,6 +719,9 @@ export function AdminCommunityExternalSourcesPage() {
           crawlRunStatusLabel(result?.status ?? "SUCCESS", t),
           crawlRunCountsLabel(
             {
+              fetched_count: result?.fetchedCount ?? 0,
+              inserted_count: result?.insertedCount ?? 0,
+              updated_count: result?.updatedCount ?? 0,
               duplicate_count: result?.duplicateCount ?? 0,
               skipped_invalid_count: result?.skippedInvalidCount ?? 0,
               failed_count: result?.failedCount ?? 0,
@@ -942,9 +1013,13 @@ export function AdminCommunityExternalSourcesPage() {
                             ? t("admin_community_crawl_source_active")
                             : t("admin_community_crawl_source_paused")}
                           {" · "}
+                          {t("admin_community_crawl_content_policy_label")}:{" "}
                           {s.policy_status === "REVIEW_REQUIRED"
                             ? t("admin_community_crawl_policy_review")
                             : s.policy_status}
+                          {" · "}
+                          {t("admin_community_crawl_media_policy_label")}:{" "}
+                          {mediaPolicyLabel(s.media_policy, t)}
                         </span>
                         <button type="button" className={btnGhost} disabled={busy} onClick={() => openEditSource(s)}>
                           {t("admin_community_crawl_edit")}
@@ -1004,7 +1079,10 @@ export function AdminCommunityExternalSourcesPage() {
                             <button
                               type="button"
                               className={btnGhost}
-                              onClick={() => setManageBoardId(b.id)}
+                              onClick={() => {
+                                setItemsBoardId(b.id);
+                                setManageBoardId(b.id);
+                              }}
                             >
                               {t("admin_community_crawl_manage")}
                             </button>
@@ -1018,7 +1096,11 @@ export function AdminCommunityExternalSourcesPage() {
             )}
           </section>
 
-          <AdminCommunityCrawlItemsPanel boardId={boards[0]?.id ?? null} />
+          <AdminCommunityCrawlItemsPanel
+            boardId={itemsBoardId}
+            boards={boards}
+            onBoardIdChange={(id) => setItemsBoardId(id)}
+          />
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
             <h3 className="sam-text-section-title font-semibold text-sam-fg">
@@ -1029,14 +1111,23 @@ export function AdminCommunityExternalSourcesPage() {
             ) : (
               <ul className="mt-2 space-y-2">
                 {runs.slice(0, 15).map((r) => (
-                  <li key={r.id} className="sam-text-body text-sam-fg">
-                    <span className="text-sam-muted">{crawlRunKindLabel(r.run_kind, t)}</span>
-                    {" · "}
-                    {crawlRunStatusLabel(r.status, t)}
-                    {" · "}
-                    {formatWhen(r.started_at)}
-                    {" · "}
-                    {crawlRunCountsLabel(r, t)}
+                  <li
+                    key={r.id}
+                    className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg space-y-1 overflow-hidden"
+                  >
+                    <div className="break-words">
+                      <span className="text-sam-muted">{crawlRunKindLabel(r.run_kind, t)}</span>
+                      {" · "}
+                      {crawlRunStatusLabel(r.status, t)}
+                      {" · "}
+                      {formatWhen(r.started_at)}
+                    </div>
+                    <div className="sam-text-helper text-sam-muted break-words">
+                      {crawlRunCountsLabel(r, t)}
+                    </div>
+                    <button type="button" className={btnGhost} onClick={() => void openRunEvents(r.id)}>
+                      {t("admin_community_crawl_run_events")}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1044,6 +1135,48 @@ export function AdminCommunityExternalSourcesPage() {
           </section>
         </>
       )}
+
+      {runEventsOpenId ? (
+        <ModalShell
+          title={t("admin_community_crawl_run_events")}
+          onClose={() => {
+            setRunEventsOpenId(null);
+            setRunEvents([]);
+          }}
+        >
+          {runEventsLoading ? (
+            <p className="sam-text-body text-sam-muted">{t("admin_community_crawl_loading")}</p>
+          ) : runEvents.length === 0 ? (
+            <p className="sam-text-body text-sam-muted">{t("admin_community_crawl_run_events_empty")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {runEvents.map((ev) => (
+                <li
+                  key={ev.id}
+                  className={`rounded-ui-rect border px-3 py-2 sam-text-helper break-words ${
+                    ev.classification === "FAILED"
+                      ? "border-red-300 bg-red-50 text-sam-fg"
+                      : ev.classification === "SKIPPED_INVALID"
+                        ? "border-amber-300 bg-amber-50 text-sam-fg"
+                        : "border-sam-border bg-sam-app text-sam-fg"
+                  }`}
+                >
+                  <div className="font-medium">
+                    {runEventClassLabel(ev.classification, t)} · {ev.phase}
+                    {ev.http_status != null ? ` · HTTP ${ev.http_status}` : ""}
+                  </div>
+                  <div className="text-sam-muted">{formatWhen(ev.created_at)}</div>
+                  <div className="break-all">{ev.canonical_url || "—"}</div>
+                  <div>
+                    {ev.error_code || "—"}
+                    {ev.error_message ? ` · ${ev.error_message}` : ""}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </ModalShell>
+      ) : null}
 
       {manageBoard ? (
         <ModalShell title={t("admin_community_crawl_manage_title")} onClose={() => setManageBoardId(null)}>

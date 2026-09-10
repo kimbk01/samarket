@@ -9,6 +9,15 @@ export type CommunityCrawlSourceStatus = (typeof COMMUNITY_CRAWL_SOURCE_STATUSES
 export const COMMUNITY_CRAWL_POLICY_STATUSES = ["ALLOWED", "REVIEW_REQUIRED", "DISABLED"] as const;
 export type CommunityCrawlPolicyStatus = (typeof COMMUNITY_CRAWL_POLICY_STATUSES)[number];
 
+/** Image rehost authority — independent of content policy_status. */
+export const COMMUNITY_CRAWL_MEDIA_POLICIES = [
+  "MEDIA_REVIEW_REQUIRED",
+  "MEDIA_ALLOWED",
+  "MEDIA_DISABLED",
+] as const;
+export type CommunityCrawlMediaPolicy = (typeof COMMUNITY_CRAWL_MEDIA_POLICIES)[number];
+export const COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY: CommunityCrawlMediaPolicy = "MEDIA_REVIEW_REQUIRED";
+
 export const COMMUNITY_CRAWL_TYPES = ["generic_html", "custom_adapter"] as const;
 export type CommunityCrawlType = (typeof COMMUNITY_CRAWL_TYPES)[number];
 
@@ -84,6 +93,8 @@ export type CommunityCrawlSourceRow = {
   crawler_type: CommunityCrawlType;
   adapter_key: string | null;
   policy_status: CommunityCrawlPolicyStatus;
+  /** Image rehost gate — independent of policy_status (content). */
+  media_policy: CommunityCrawlMediaPolicy;
   /** STEP4: REFERENCE_SUMMARY — never full external body/image copy. */
   publish_mode: import("@/lib/community-crawler/publish-mode").CommunityCrawlPublishMode;
   created_at: string;
@@ -131,6 +142,8 @@ export type CommunityCrawlItemRow = {
   source_author: string | null;
   source_published_at: string | null;
   source_cover_url: string | null;
+  /** Raw extracted cover candidate (may be dead). Validated display URL is source_cover_url. */
+  source_cover_candidate_url: string | null;
   source_body_images: string[];
   content_fingerprint: string;
   display_author_name: string | null;

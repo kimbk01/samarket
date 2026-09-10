@@ -6,6 +6,7 @@ import {
   getCommunityCrawlSource,
 } from "@/lib/community-crawler/admin-crawl-store";
 import { COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE } from "@/lib/community-crawler/crawl-ssot";
+import { enrichCommunityCrawlItemsForAdmin } from "@/lib/community-crawler/admin-item-ops-dto";
 import { runCommunityRealCrawl } from "@/lib/community-crawler/core/run-real-crawl";
 
 export const runtime = "nodejs";
@@ -55,10 +56,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       maxPostsOverride: maxPosts,
     });
 
+    const items = await enrichCommunityCrawlItemsForAdmin(sb, result.items);
+
     return NextResponse.json({
       ok: result.status !== "FAILED" || result.items.length > 0,
       result,
-      items: result.items,
+      items,
       writes: {
         community_crawl_items:
           result.insertedCount + result.updatedCount + result.duplicateCount,

@@ -52,6 +52,16 @@ export type PostImagesWriterInventoryRow = {
  */
 export const POST_IMAGES_ACTIVE_WRITERS: readonly PostImagesWriterInventoryRow[] = [
   {
+    writer: "community-crawler media rehost (PHASE C)",
+    domain: "community",
+    entity: "community_crawl_item_media (pre-publish)",
+    pathShape: "community-crawler/{sourceId}/{crawlItemId}/{hash}.{ext}",
+    dbColumn: "community_crawl_item_media.storage_path · public_url",
+    deleteOwner: "crawl item CASCADE + Data Reset community (path-derived)",
+    runtimeActive: true,
+    ownershipFromPath: "OWNERSHIP_EXPLICIT",
+  },
+  {
     writer: "POST /api/community/upload-image",
     domain: "community",
     entity: "community_post (pre-bind upload)",
@@ -183,6 +193,9 @@ export function classifyPostImagesPath(storagePath: string): ClassifiedPostImage
   };
   if (!path || path.includes("..")) return base;
 
+  if (/^community-crawler\//.test(path)) {
+    return { ...base, domain: "community", ownership: "OWNERSHIP_EXPLICIT" };
+  }
   if (/(^|\/)profile\//.test(path)) {
     return { ...base, domain: "profile", ownership: "OWNERSHIP_EXPLICIT" };
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { enrichCommunityCrawlItemsForAdmin } from "@/lib/community-crawler/admin-item-ops-dto";
 import { listCommunityCrawlItems } from "@/lib/community-crawler/crawl-item-store";
 
 export const runtime = "nodejs";
@@ -24,7 +25,8 @@ export async function GET(req: Request) {
 
   try {
     const items = await listCommunityCrawlItems(sb, { boardId, sourceId, limit });
-    return NextResponse.json({ ok: true, items });
+    const enriched = await enrichCommunityCrawlItemsForAdmin(sb, items);
+    return NextResponse.json({ ok: true, items: enriched });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },

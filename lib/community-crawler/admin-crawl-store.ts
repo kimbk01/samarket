@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   COMMUNITY_CRAWL_AUTHOR_POLICIES,
   COMMUNITY_CRAWL_DATE_POLICIES,
+  COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY,
   COMMUNITY_CRAWL_INGEST_MODES,
+  COMMUNITY_CRAWL_MEDIA_POLICIES,
   COMMUNITY_CRAWL_POLICY_STATUSES,
   COMMUNITY_CRAWL_SOURCE_STATUSES,
   COMMUNITY_CRAWL_TYPES,
@@ -16,6 +18,7 @@ import {
   type CommunityCrawlBoardRow,
   type CommunityCrawlDatePolicy,
   type CommunityCrawlIngestMode,
+  type CommunityCrawlMediaPolicy,
   type CommunityCrawlPolicyStatus,
   type CommunityCrawlRunRow,
   type CommunityCrawlSourceRow,
@@ -44,6 +47,9 @@ function mapSource(row: Record<string, unknown>): CommunityCrawlSourceRow {
     policy_status: (COMMUNITY_CRAWL_POLICY_STATUSES.includes(row.policy_status as CommunityCrawlPolicyStatus)
       ? row.policy_status
       : "REVIEW_REQUIRED") as CommunityCrawlPolicyStatus,
+    media_policy: (COMMUNITY_CRAWL_MEDIA_POLICIES.includes(row.media_policy as CommunityCrawlMediaPolicy)
+      ? row.media_policy
+      : COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY) as CommunityCrawlMediaPolicy,
     publish_mode: normalizeCommunityCrawlPublishMode(row.publish_mode),
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
@@ -131,6 +137,7 @@ export async function createCommunityCrawlSource(
     crawler_type?: CommunityCrawlType;
     adapter_key?: string | null;
     policy_status?: CommunityCrawlPolicyStatus;
+    media_policy?: CommunityCrawlMediaPolicy;
   }
 ): Promise<CommunityCrawlSourceRow> {
   const name = input.name.trim();
@@ -146,6 +153,7 @@ export async function createCommunityCrawlSource(
       crawler_type: input.crawler_type ?? "generic_html",
       adapter_key: input.adapter_key?.trim() || null,
       policy_status: input.policy_status ?? "REVIEW_REQUIRED",
+      media_policy: input.media_policy ?? COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY,
       publish_mode: "REFERENCE_SUMMARY",
       updated_at: new Date().toISOString(),
     })
@@ -165,6 +173,7 @@ export async function updateCommunityCrawlSource(
     crawler_type: CommunityCrawlType;
     adapter_key: string | null;
     policy_status: CommunityCrawlPolicyStatus;
+    media_policy: CommunityCrawlMediaPolicy;
   }>
 ): Promise<CommunityCrawlSourceRow> {
   const next: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -190,6 +199,10 @@ export async function updateCommunityCrawlSource(
   if (patch.policy_status != null) {
     if (!COMMUNITY_CRAWL_POLICY_STATUSES.includes(patch.policy_status)) throw new Error("invalid_policy_status");
     next.policy_status = patch.policy_status;
+  }
+  if (patch.media_policy != null) {
+    if (!COMMUNITY_CRAWL_MEDIA_POLICIES.includes(patch.media_policy)) throw new Error("invalid_media_policy");
+    next.media_policy = patch.media_policy;
   }
   const { data, error } = await sb.from("community_crawl_sources").update(next).eq("id", id).select("*").single();
   if (error || !data) throw new Error(error?.message ?? "update_failed");
