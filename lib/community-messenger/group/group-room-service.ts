@@ -16,7 +16,7 @@ import {
   type GroupRoomPermissionContext,
 } from "@/lib/community-messenger/group/group-room-permissions";
 import { publishGroupRoomListBump } from "@/lib/community-messenger/group/group-room-realtime";
-import { publishHomeListRoomInsertForInviteesBestEffort } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast";
+import { publishHomeListRoomInsertForInviteesBestEffort } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast-server";
 import {
   countActiveParticipants,
   dedupeGroupMemberIds,

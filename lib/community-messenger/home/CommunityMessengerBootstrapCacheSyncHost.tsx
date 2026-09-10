@@ -12,7 +12,7 @@ import {
   onCommunityMessengerBusEvent,
   type MessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
-import { useHomeListRoomInsertBroadcast } from "@/lib/community-messenger/realtime/use-home-list-room-insert-broadcast";
+import { useHomeListRoomInsertBroadcast } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast-client";
 
 const HOST_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
   "cm.room.message_sent",

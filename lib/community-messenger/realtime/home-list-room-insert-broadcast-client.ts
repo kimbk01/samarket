@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Browser-safe subscription for home list INSERT broadcasts (invitee / create peer).
+ * Server publish is a separate module — do not import it from this client graph.
+ */
 import { useEffect, useRef } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -7,12 +11,12 @@ import {
   CM_HOME_LIST_ROOM_INSERT_EVENT,
   communityMessengerHomeListChannelName,
   isCanonicalHomeListRoomSummaryPayload,
-} from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast";
+} from "@/lib/community-messenger/realtime/home-list-room-insert-contract";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 
 /**
- * Subscribe to user-scoped home list INSERT broadcasts (invitee / create peer).
+ * Subscribe to user-scoped home list INSERT broadcasts.
  * Materializes via existing `cm.home.merge_room_summary` → insert_room_summary path.
  * Does NOT fabricate summaries; validates server payload only.
  */
