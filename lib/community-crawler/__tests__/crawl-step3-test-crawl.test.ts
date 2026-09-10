@@ -128,14 +128,16 @@ describe("community crawler STEP3 core", () => {
     expect(manualRoute).toContain("status: 501");
   });
 
-  it("UI enables TEST and keeps MANUAL disabled", () => {
+  it("UI enables TEST preview + REAL crawl; removes obsolete MANUAL CTA", () => {
     const ui = readFileSync(
       join(process.cwd(), "components/admin/community/AdminCommunityExternalSourcesPage.tsx"),
       "utf8"
     );
     expect(ui).toContain("runTestCrawl");
+    expect(ui).toContain("runRealCrawl");
     expect(ui).toContain("admin_community_crawl_test");
-    expect(ui).toMatch(/admin_community_crawl_manual[\s\S]*disabled|disabled[\s\S]*admin_community_crawl_manual/);
+    expect(ui).toContain("admin_community_crawl_run_now");
+    expect(ui).not.toContain("admin_community_crawl_manual");
     expect(ui).toContain("detailLinkSelector");
     expect(ui).not.toContain("mock crawl");
   });

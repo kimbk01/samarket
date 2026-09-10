@@ -80,13 +80,26 @@ function CoverPreview(props: { url: string | null; noneLabel: string }) {
 
 function asOps(item: CommunityCrawlItemOpsDto | Record<string, unknown>): CommunityCrawlItemOpsDto {
   const it = item as CommunityCrawlItemOpsDto;
+  const published = it.published ?? (it.status === "PUBLISHED" || Boolean(it.published_post_id));
+  const source_policy_status = it.source_policy_status ?? null;
+  const source_media_policy = it.source_media_policy ?? null;
+  const publish_cta_eligible =
+    typeof it.publish_cta_eligible === "boolean"
+      ? it.publish_cta_eligible
+      : source_policy_status === "ALLOWED" &&
+        !published &&
+        it.status !== "SKIPPED" &&
+        it.status !== "FAILED";
   return {
     ...it,
     source_name: it.source_name ?? null,
     topic_name: it.topic_name ?? null,
     thumb_url: it.thumb_url ?? null,
     media_status: it.media_status ?? "NO_MEDIA",
-    published: it.published ?? (it.status === "PUBLISHED" || Boolean(it.published_post_id)),
+    published,
+    source_policy_status,
+    source_media_policy,
+    publish_cta_eligible,
   };
 }
 
@@ -422,15 +435,26 @@ export function AdminCommunityCrawlItemsPanel(props: {
                 <button type="button" className={btnGhost} disabled={busy} onClick={() => void deleteItem(it)}>
                   {t("admin_community_crawl_item_delete")}
                 </button>
-                <button
-                  type="button"
-                  className={btnGhost}
-                  disabled={busy || it.status === "PUBLISHED" || it.status === "SKIPPED"}
-                  title={t("admin_community_crawl_publish_blocked_hint")}
-                  onClick={() => void publishItem(it)}
-                >
-                  {t("admin_community_crawl_import_publish")}
-                </button>
+                {it.publish_cta_eligible ? (
+                  <button
+                    type="button"
+                    className={btnGhost}
+                    disabled={busy}
+                    onClick={() => void publishItem(it)}
+                  >
+                    {t("admin_community_crawl_import_publish")}
+                  </button>
+                ) : it.published || it.status === "PUBLISHED" ? null : (
+                  <span
+                    className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted"
+                    title={t("admin_community_crawl_publish_blocked_hint")}
+                  >
+                    {it.source_policy_status === "REVIEW_REQUIRED" ||
+                    it.source_media_policy === "MEDIA_REVIEW_REQUIRED"
+                      ? t("admin_community_crawl_publish_waiting_policy")
+                      : t("admin_community_crawl_publish_not_ready")}
+                  </span>
+                )}
               </div>
             </li>
           ))}

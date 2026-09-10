@@ -8,7 +8,6 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import {
   COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
   COMMUNITY_CRAWL_INTERVAL_MINUTES,
-  COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE,
   type CommunityCrawlAuthorPolicy,
   type CommunityCrawlBoardRow,
   type CommunityCrawlDatePolicy,
@@ -17,10 +16,7 @@ import {
   type CommunityCrawlUpdatePolicy,
   type CommunityCrawlViewPolicy,
 } from "@/lib/community-crawler/crawl-ssot";
-import type { TestCrawlPreviewItem, TestCrawlResult } from "@/lib/community-crawler/core/preview-types";
-import { buildReferenceSummaryImportDraft } from "@/lib/community-crawler/manual-import-draft";
-import type { PreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
-import { buildPreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
+import type { TestCrawlResult } from "@/lib/community-crawler/core/preview-types";
 import { AdminCommunityCrawlItemsPanel } from "@/components/admin/community/AdminCommunityCrawlItemsPanel";
 import type { CommunityCrawlItemOpsDto } from "@/lib/community-crawler/admin-item-ops-dto";
 import type { CommunityCrawlMediaPolicy } from "@/lib/community-crawler/crawl-ssot";
@@ -237,37 +233,8 @@ export function AdminCommunityExternalSourcesPage() {
   const [selSourceId, setSelSourceId] = useState("");
   const [selNextPage, setSelNextPage] = useState("");
   const [testLoading, setTestLoading] = useState(false);
-  const [prepareModeLoading, setPrepareModeLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestCrawlResult | null>(null);
   const [testBoardId, setTestBoardId] = useState<string | null>(null);
-  const [selectedPreviewUrls, setSelectedPreviewUrls] = useState<Record<string, boolean>>({});
-  const [preparedItems, setPreparedItems] = useState<PreparedCrawlItem[]>([]);
-  const [prepareSummary, setPrepareSummary] = useState<{
-    prepared: number;
-    withCover: number;
-    uniqueAuthors: number;
-    uniqueDates: number;
-    uniqueViews: number;
-    publicPublish: string;
-    mediaPublish: string;
-    sourcePolicy: string;
-  } | null>(null);
-  const [importedSourceUrls, setImportedSourceUrls] = useState<Record<string, string>>({});
-  const [importEditor, setImportEditor] = useState<{
-    boardId: string;
-    sourceName: string;
-    preview: TestCrawlPreviewItem;
-    title: string;
-    content: string;
-    author: string;
-    dateIso: string;
-    views: string;
-    sourceBody: string;
-  } | null>(null);
-  const [importSuccess, setImportSuccess] = useState<{
-    postId: string;
-    sourceUrl: string;
-  } | null>(null);
 
   const topicNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -739,12 +706,8 @@ export function AdminCommunityExternalSourcesPage() {
 
   async function runTestCrawl(boardId: string) {
     setTestLoading(true);
-    setPrepareModeLoading(false);
     setTestBoardId(boardId);
     setTestResult(null);
-    setSelectedPreviewUrls({});
-    setPreparedItems([]);
-    setPrepareSummary(null);
     setManageBoardId(null);
     try {
       const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/test`, {
@@ -761,197 +724,11 @@ export function AdminCommunityExternalSourcesPage() {
         return;
       }
       setTestResult(j.result);
-      const sel: Record<string, boolean> = {};
-      for (const p of j.result.previews) sel[p.sourceUrl] = true;
-      setSelectedPreviewUrls(sel);
       await refresh();
     } catch (e) {
       await dibayAlert({ title: e instanceof Error ? e.message : "test_failed" });
     } finally {
       setTestLoading(false);
-    }
-  }
-
-  async function runPrepareCrawl(boardId: string) {
-    setTestLoading(true);
-    setPrepareModeLoading(true);
-    setTestBoardId(boardId);
-    setTestResult(null);
-    setSelectedPreviewUrls({});
-    setPreparedItems([]);
-    setPrepareSummary(null);
-    setManageBoardId(null);
-    try {
-      const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/prepare`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ maxPosts: 15 }),
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        result?: TestCrawlResult;
-        prepared?: PreparedCrawlItem[];
-        summary?: {
-          prepared: number;
-          withCover: number;
-          uniqueAuthors: number;
-          uniqueDates: number;
-          uniqueViews: number;
-          publicPublish: string;
-          mediaPublish: string;
-          sourcePolicy: string;
-        };
-        error?: string;
-      };
-      if (!j.result) {
-        await dibayAlert({ title: String(j.error ?? "prepare_failed") });
-        return;
-      }
-      setTestResult(j.result);
-      setPreparedItems(j.prepared ?? []);
-      setPrepareSummary(j.summary ?? null);
-      const sel: Record<string, boolean> = {};
-      for (const p of j.result.previews) sel[p.sourceUrl] = true;
-      setSelectedPreviewUrls(sel);
-      await refresh();
-    } catch (e) {
-      await dibayAlert({ title: e instanceof Error ? e.message : "prepare_failed" });
-    } finally {
-      setTestLoading(false);
-    }
-  }
-
-  function togglePreviewSelected(url: string) {
-    setSelectedPreviewUrls((prev) => ({ ...prev, [url]: !prev[url] }));
-  }
-
-  function markSelectedAsPrepared() {
-    if (!testResult) return;
-    const selected = testResult.previews.filter((p) => selectedPreviewUrls[p.sourceUrl]);
-    if (selected.length === 0) {
-      void dibayAlert({ title: t("admin_community_crawl_prepare_clear") });
-      return;
-    }
-    const source = testBoardId
-      ? sources.find((s) => s.id === boards.find((b) => b.id === testBoardId)?.source_id)
-      : null;
-    const policy = source?.policy_status ?? testResult.policyStatus;
-    const items = selected.map((preview) =>
-      buildPreparedCrawlItem({ preview, policyStatus: policy })
-    );
-    setPreparedItems(items);
-    setPrepareSummary({
-      prepared: items.length,
-      withCover: items.filter((i) => Boolean(i.representativeImageUrl)).length,
-      uniqueAuthors: new Set(items.map((i) => i.displayAuthorName)).size,
-      uniqueDates: new Set(items.map((i) => i.displayDateIso ?? "").filter(Boolean)).size,
-      uniqueViews: new Set(items.map((i) => i.viewCount)).size,
-      publicPublish: policy === "ALLOWED" ? "ALLOWED" : "BLOCKED_POLICY",
-      mediaPublish: policy === "ALLOWED" ? "ALLOWED_REHOST" : "BLOCKED_POLICY",
-      sourcePolicy: policy,
-    });
-  }
-
-  async function openImportEditor(preview: TestCrawlPreviewItem) {
-    if (!testBoardId || !COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE) return;
-    const board = boards.find((b) => b.id === testBoardId);
-    const source = board ? sources.find((s) => s.id === board.source_id) : null;
-    const sourceName = source?.name ?? "Travel Philippines — Department of Tourism";
-
-    const checkRes = await fetch(`/api/admin/community/crawl/boards/${testBoardId}/import`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        checkOnly: true,
-        canonicalUrl: preview.sourceUrl,
-        sourcePostId: preview.sourcePostId,
-      }),
-    });
-    const checkJ = (await checkRes.json()) as {
-      ok?: boolean;
-      alreadyImported?: boolean;
-      communityPostId?: string;
-      error?: string;
-    };
-    if (checkJ.alreadyImported && checkJ.communityPostId) {
-      setImportedSourceUrls((prev) => ({ ...prev, [preview.sourceUrl]: checkJ.communityPostId! }));
-      await dibayAlert({ title: t("admin_community_crawl_already_imported") });
-      return;
-    }
-
-    const draft = buildReferenceSummaryImportDraft({ preview, sourceName });
-    setImportEditor({
-      boardId: testBoardId,
-      sourceName,
-      preview,
-      title: draft.draft.title,
-      content: "",
-      author: draft.draft.displayAuthorName,
-      dateIso: draft.draft.displayDateIso ?? new Date().toISOString(),
-      views: String(draft.draft.viewCount),
-      sourceBody: draft.source.sourceBodyMarkdown,
-    });
-  }
-
-  async function submitImportPublish() {
-    if (!importEditor) return;
-    const ok = await dibayConfirm({
-      title: t("admin_community_crawl_import_confirm_title"),
-      description: t("admin_community_crawl_import_confirm_body"),
-      confirmLabel: t("admin_community_crawl_import_publish"),
-    });
-    if (!ok) return;
-
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/community/crawl/boards/${importEditor.boardId}/import`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          canonicalUrl: importEditor.preview.sourceUrl,
-          sourcePostId: importEditor.preview.sourcePostId,
-          sourcePublishedAt: importEditor.preview.sourcePublishedAt,
-          sourceBodyMarkdown: importEditor.sourceBody,
-          title: importEditor.title,
-          content: importEditor.content,
-          displayAuthorName: importEditor.author,
-          createdAtIso: importEditor.dateIso || null,
-          viewCount: Number(importEditor.views) || 0,
-        }),
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        communityPostId?: string;
-        error?: string;
-      };
-      if (!j.ok || !j.communityPostId) {
-        await dibayAlert({
-          title:
-            j.error === "already_imported"
-              ? t("admin_community_crawl_already_imported")
-              : String(j.error ?? "import_failed"),
-        });
-        if (j.error === "already_imported" && j.communityPostId) {
-          setImportedSourceUrls((prev) => ({
-            ...prev,
-            [importEditor.preview.sourceUrl]: j.communityPostId!,
-          }));
-        }
-        return;
-      }
-      setImportedSourceUrls((prev) => ({
-        ...prev,
-        [importEditor.preview.sourceUrl]: j.communityPostId!,
-      }));
-      setImportSuccess({ postId: j.communityPostId, sourceUrl: importEditor.preview.sourceUrl });
-      setImportEditor(null);
-    } catch (e) {
-      await dibayAlert({ title: e instanceof Error ? e.message : "import_failed" });
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -1205,27 +982,11 @@ export function AdminCommunityExternalSourcesPage() {
               </button>
               <button
                 type="button"
-                className={btnPrimary}
+                className={btnGhost}
                 disabled={busy || testLoading}
                 onClick={() => void runTestCrawl(manageBoard.id)}
               >
                 {testLoading ? t("admin_community_crawl_test_running") : t("admin_community_crawl_test")}
-              </button>
-              <button
-                type="button"
-                className={btnPrimary}
-                disabled={busy || testLoading}
-                onClick={() => void runPrepareCrawl(manageBoard.id)}
-              >
-                {testLoading ? t("admin_community_crawl_prepare_running") : t("admin_community_crawl_prepare")}
-              </button>
-              <button
-                type="button"
-                className={btnGhost}
-                disabled
-                title={COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON}
-              >
-                {t("admin_community_crawl_manual")}
               </button>
               <button
                 type="button"
@@ -1246,20 +1007,14 @@ export function AdminCommunityExternalSourcesPage() {
                 {t("admin_community_crawl_delete")}
               </button>
             </div>
-            <p className="sam-text-helper text-sam-muted">
-              {t("admin_community_crawl_manual_still_unavailable")}: {COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON}
-            </p>
+            <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_test_preview_only_hint")}</p>
           </div>
         </ModalShell>
       ) : null}
 
       {testLoading ? (
         <ModalShell title={t("admin_community_crawl_preview_title")} onClose={() => {}}>
-          <p className="sam-text-body text-sam-muted">
-            {prepareModeLoading
-              ? t("admin_community_crawl_prepare_running")
-              : t("admin_community_crawl_test_running")}
-          </p>
+          <p className="sam-text-body text-sam-muted">{t("admin_community_crawl_test_running")}</p>
         </ModalShell>
       ) : null}
 
@@ -1269,9 +1024,6 @@ export function AdminCommunityExternalSourcesPage() {
           onClose={() => {
             setTestResult(null);
             setTestBoardId(null);
-            setSelectedPreviewUrls({});
-            setPreparedItems([]);
-            setPrepareSummary(null);
           }}
         >
           <div className="space-y-4">
@@ -1286,62 +1038,13 @@ export function AdminCommunityExternalSourcesPage() {
             <p className="sam-text-helper text-sam-muted">
               {t("admin_community_crawl_preview_external_only")} · policy={testResult.policyStatus}
             </p>
-            {prepareSummary ? (
-              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 space-y-1">
-                <p className="sam-text-body text-sam-fg">
-                  {t("admin_community_crawl_prepare_summary").replace(
-                    "{count}",
-                    String(prepareSummary.prepared)
-                  )}
-                </p>
-                <p className="sam-text-helper text-sam-muted">
-                  cover={prepareSummary.withCover} · authors={prepareSummary.uniqueAuthors} · dates=
-                  {prepareSummary.uniqueDates} · views={prepareSummary.uniqueViews} · media=
-                  {prepareSummary.mediaPublish}
-                </p>
-                {prepareSummary.publicPublish === "BLOCKED_POLICY" ? (
-                  <p className="sam-text-helper text-sam-muted">
-                    {t("admin_community_crawl_prepare_blocked_publish")}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={btnGhost}
-                onClick={() => {
-                  const sel: Record<string, boolean> = {};
-                  for (const p of testResult.previews) sel[p.sourceUrl] = true;
-                  setSelectedPreviewUrls(sel);
-                }}
-              >
-                {t("admin_community_crawl_prepare_select_all")}
-              </button>
-              <button type="button" className={btnGhost} onClick={() => setSelectedPreviewUrls({})}>
-                {t("admin_community_crawl_prepare_clear")}
-              </button>
-              <button type="button" className={btnPrimary} onClick={markSelectedAsPrepared}>
-                {t("admin_community_crawl_prepare_selected")}
-              </button>
-            </div>
+            <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_preview_no_register")}</p>
             {testResult.previews.map((p) => (
               <article
                 key={p.sourceUrl}
                 className="rounded-ui-rect border border-sam-border bg-sam-app p-3 space-y-2 overflow-hidden"
               >
-                <label className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={Boolean(selectedPreviewUrls[p.sourceUrl])}
-                    onChange={() => togglePreviewSelected(p.sourceUrl)}
-                  />
-                  <span className="font-semibold text-sam-fg break-words">{p.title}</span>
-                </label>
-                {preparedItems.some((x) => x.sourceUrl === p.sourceUrl) ? (
-                  <p className="sam-text-helper text-sam-primary">{t("admin_community_crawl_prepared_badge")}</p>
-                ) : null}
+                <div className="font-semibold text-sam-fg break-words">{p.title}</div>
                 {p.representativeImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- admin preview external URL only
                   <img
@@ -1358,15 +1061,20 @@ export function AdminCommunityExternalSourcesPage() {
                 <p className="sam-text-body text-sam-fg whitespace-pre-wrap break-words">{p.contentPreview}</p>
                 <div className="sam-text-helper text-sam-muted space-y-1">
                   <div>
-                    {t("admin_community_crawl_preview_author")}: {p.authorDisplayName || t("admin_community_crawl_preview_author_missing")}
+                    {t("admin_community_crawl_preview_author")}:{" "}
+                    {p.authorDisplayName || t("admin_community_crawl_preview_author_missing")}
                   </div>
                   <div>
                     {t("admin_community_crawl_preview_date")}:{" "}
-                    {p.displayDateIso ? formatWhen(p.displayDateIso) : t("admin_community_crawl_preview_date_missing")}
+                    {p.displayDateIso
+                      ? formatWhen(p.displayDateIso)
+                      : t("admin_community_crawl_preview_date_missing")}
                   </div>
                   <div>
                     {t("admin_community_crawl_preview_views")}:{" "}
-                    {p.viewCount != null ? String(p.viewCount) : t("admin_community_crawl_preview_views_missing")}
+                    {p.viewCount != null
+                      ? String(p.viewCount)
+                      : t("admin_community_crawl_preview_views_missing")}
                   </div>
                   <div>
                     {t("admin_community_crawl_preview_category")}: {p.dibayTopicName ?? p.dibayTopicId}
@@ -1386,32 +1094,6 @@ export function AdminCommunityExternalSourcesPage() {
                     {t("admin_community_crawl_preview_source_url")}: {p.sourceUrl}
                   </a>
                 </div>
-                <div className="pt-2">
-                  {importedSourceUrls[p.sourceUrl] ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="sam-text-body font-medium text-sam-fg">
-                        {t("admin_community_crawl_already_imported")}
-                      </span>
-                      <a
-                        href={`/philife/${encodeURIComponent(importedSourceUrls[p.sourceUrl]!)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="sam-text-helper text-sam-primary"
-                      >
-                        {t("admin_community_crawl_import_view_post")}
-                      </a>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className={btnPrimary}
-                      disabled={busy || !testBoardId || !COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE}
-                      onClick={() => void openImportEditor(p)}
-                    >
-                      {t("admin_community_crawl_write_dibay_post")}
-                    </button>
-                  )}
-                </div>
               </article>
             ))}
             {testResult.failures.length > 0 ? (
@@ -1425,7 +1107,6 @@ export function AdminCommunityExternalSourcesPage() {
                 ))}
               </div>
             ) : null}
-            <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_preview_no_register")}</p>
             <div className="flex flex-wrap gap-2 pt-2">
               <button
                 type="button"
@@ -1434,14 +1115,6 @@ export function AdminCommunityExternalSourcesPage() {
                 onClick={() => testBoardId && void runTestCrawl(testBoardId)}
               >
                 {t("admin_community_crawl_test_again")}
-              </button>
-              <button
-                type="button"
-                className={btnGhost}
-                disabled={!testBoardId || busy}
-                onClick={() => testBoardId && void runPrepareCrawl(testBoardId)}
-              >
-                {t("admin_community_crawl_prepare")}
               </button>
               <button
                 type="button"
@@ -1456,131 +1129,6 @@ export function AdminCommunityExternalSourcesPage() {
                 }}
               >
                 {t("admin_community_crawl_edit_settings")}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
-      ) : null}
-
-      {importEditor ? (
-        <ModalShell
-          title={t("admin_community_crawl_import_editor_title")}
-          onClose={() => setImportEditor(null)}
-        >
-          <div className="space-y-4">
-            <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_import_publish_mode")}</p>
-            <section className="rounded-ui-rect border border-sam-border bg-sam-app p-3 space-y-2">
-              <h3 className="font-semibold text-sam-fg">{t("admin_community_crawl_import_source_ref")}</h3>
-              <p className="sam-text-helper text-sam-muted">{importEditor.sourceName}</p>
-              <p className="sam-text-body font-medium text-sam-fg break-words">{importEditor.preview.title}</p>
-              <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words sam-text-helper text-sam-muted">
-                {importEditor.sourceBody.slice(0, 4000) || "—"}
-              </pre>
-              <a
-                href={importEditor.preview.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="sam-text-helper text-sam-primary break-all"
-              >
-                {importEditor.preview.sourceUrl}
-              </a>
-            </section>
-            <section className="rounded-ui-rect border border-sam-primary/30 bg-sam-surface p-3 space-y-3">
-              <h3 className="font-semibold text-sam-fg">{t("admin_community_crawl_import_dibay_section")}</h3>
-              <label className="block">
-                <span className={labelClass}>{t("admin_community_crawl_import_title")}</span>
-                <input
-                  className={fieldClass}
-                  value={importEditor.title}
-                  onChange={(e) => setImportEditor({ ...importEditor, title: e.target.value })}
-                />
-              </label>
-              <label className="block">
-                <span className={labelClass}>{t("admin_community_crawl_import_body")}</span>
-                <textarea
-                  className={`${fieldClass} min-h-[140px]`}
-                  value={importEditor.content}
-                  onChange={(e) => setImportEditor({ ...importEditor, content: e.target.value })}
-                />
-                <span className="mt-1 block sam-text-helper text-sam-muted">
-                  {t("admin_community_crawl_import_body_hint")}
-                </span>
-              </label>
-              <label className="block">
-                <span className={labelClass}>{t("admin_community_crawl_import_author")}</span>
-                <input
-                  className={fieldClass}
-                  value={importEditor.author}
-                  onChange={(e) => setImportEditor({ ...importEditor, author: e.target.value })}
-                />
-              </label>
-              <label className="block">
-                <span className={labelClass}>{t("admin_community_crawl_import_date")}</span>
-                <input
-                  className={fieldClass}
-                  value={importEditor.dateIso}
-                  onChange={(e) => setImportEditor({ ...importEditor, dateIso: e.target.value })}
-                />
-              </label>
-              <label className="block">
-                <span className={labelClass}>{t("admin_community_crawl_import_views")}</span>
-                <input
-                  className={fieldClass}
-                  value={importEditor.views}
-                  onChange={(e) => setImportEditor({ ...importEditor, views: e.target.value })}
-                />
-              </label>
-              <div className="sam-text-helper text-sam-muted">
-                {t("admin_community_crawl_import_category")}:{" "}
-                {importEditor.preview.dibayTopicName ?? importEditor.preview.dibayTopicId}
-              </div>
-              <div className="sam-text-helper text-sam-muted">
-                {t("admin_community_crawl_import_source_name")}: {importEditor.sourceName}
-              </div>
-            </section>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" className={btnGhost} onClick={() => setImportEditor(null)}>
-                {t("admin_community_crawl_cancel")}
-              </button>
-              <button
-                type="button"
-                className={btnPrimary}
-                disabled={busy || !importEditor.title.trim() || !importEditor.content.trim()}
-                onClick={() => void submitImportPublish()}
-              >
-                {t("admin_community_crawl_import_publish")}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
-      ) : null}
-
-      {importSuccess ? (
-        <ModalShell
-          title={t("admin_community_crawl_import_success")}
-          onClose={() => setImportSuccess(null)}
-        >
-          <div className="space-y-3">
-            <p className="sam-text-body text-sam-fg">{t("admin_community_crawl_import_success")}</p>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={`/philife/${encodeURIComponent(importSuccess.postId)}`}
-                target="_blank"
-                rel="noreferrer"
-                className={btnPrimary}
-              >
-                {t("admin_community_crawl_import_view_post")}
-              </a>
-              <a
-                href={importSuccess.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={btnGhost}
-              >
-                {t("admin_community_crawl_import_view_source")}
-              </a>
-              <button type="button" className={btnGhost} onClick={() => setImportSuccess(null)}>
-                {t("admin_community_crawl_cancel")}
               </button>
             </div>
           </div>

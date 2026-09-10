@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE } from "@/lib/community-crawler/crawl-ssot";
 import {
   findExistingCommunityCrawlPostLink,
   publishCommunityManualImportReferenceSummary,
@@ -28,6 +29,18 @@ type Body = {
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
+
+  if (!COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "MANUAL_IMPORT_RETIRED",
+        detail:
+          "TEST→per-item import is retired from product authority. Use durable crawl items + policy-gated publish.",
+      },
+      { status: 410 }
+    );
+  }
 
   const { id } = await ctx.params;
   const boardId = id?.trim();

@@ -14,6 +14,11 @@ export type CommunityCrawlItemOpsDto = CommunityCrawlItemRow & {
   thumb_url: string | null;
   media_status: "DURABLE_COVER" | "NO_MEDIA" | "CANDIDATE_ONLY";
   published: boolean;
+  /** Source content policy — publish CTA honesty (≠ media_policy). */
+  source_policy_status: string | null;
+  source_media_policy: string | null;
+  /** True only when content policy ALLOWED and item not terminal. Writer unchanged. */
+  publish_cta_eligible: boolean;
 };
 
 export async function enrichCommunityCrawlItemsForAdmin(
@@ -27,7 +32,10 @@ export async function enrichCommunityCrawlItemsForAdmin(
   const itemIds = items.map((i) => i.id);
 
   const [{ data: sources }, { data: topics }, mediaRes] = await Promise.all([
-    sb.from("community_crawl_sources").select("id,name").in("id", sourceIds),
+    sb
+      .from("community_crawl_sources")
+      .select("id,name,policy_status,media_policy")
+      .in("id", sourceIds),
     sb.from("community_topics").select("id,name").in("id", topicIds),
     sb
       .from("community_crawl_item_media")
@@ -38,8 +46,19 @@ export async function enrichCommunityCrawlItemsForAdmin(
   ]);
 
   const sourceName = new Map<string, string>();
+  const sourcePolicy = new Map<string, { policy_status: string; media_policy: string }>();
   for (const r of sources ?? []) {
-    sourceName.set(String((r as { id: string }).id), String((r as { name: string }).name ?? ""));
+    const row = r as {
+      id: string;
+      name: string;
+      policy_status?: string;
+      media_policy?: string;
+    };
+    sourceName.set(String(row.id), String(row.name ?? ""));
+    sourcePolicy.set(String(row.id), {
+      policy_status: String(row.policy_status ?? ""),
+      media_policy: String(row.media_policy ?? ""),
+    });
   }
   const topicName = new Map<string, string>();
   for (const r of topics ?? []) {
@@ -64,13 +83,26 @@ export async function enrichCommunityCrawlItemsForAdmin(
     if (thumb) media_status = "DURABLE_COVER";
     else if (hasCandidate) media_status = "CANDIDATE_ONLY";
 
+    const pol = sourcePolicy.get(it.source_id);
+    const source_policy_status = pol?.policy_status || null;
+    const source_media_policy = pol?.media_policy || null;
+    const published = it.status === "PUBLISHED" || Boolean(it.published_post_id);
+    const publish_cta_eligible =
+      source_policy_status === "ALLOWED" &&
+      !published &&
+      it.status !== "SKIPPED" &&
+      it.status !== "FAILED";
+
     return {
       ...it,
       source_name: sourceName.get(it.source_id) ?? null,
       topic_name: topicName.get(it.target_topic_id) ?? null,
       thumb_url: thumb,
       media_status,
-      published: it.status === "PUBLISHED" || Boolean(it.published_post_id),
+      published,
+      source_policy_status,
+      source_media_policy,
+      publish_cta_eligible,
     };
   });
 }

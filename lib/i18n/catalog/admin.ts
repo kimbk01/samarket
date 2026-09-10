@@ -594,7 +594,11 @@ export const adminMessages = {
     admin_community_crawl_preview_external_only: "외부 이미지 미리보기 (저장 안 함)",
     admin_community_crawl_preview_failures: "실패한 항목",
     admin_community_crawl_preview_no_register:
-      "테스트 수집만 완료된 상태입니다. 게시하려면 항목별 「DIBAY 게시물 작성」을 사용하세요.",
+      "미리보기만 수행 · 저장하지 않음. durable 저장은 「수집 실행」을 사용하세요.",
+    admin_community_crawl_test_preview_only_hint:
+      "「테스트 수집」은 미리보기만 수행하며 저장하지 않습니다. 운영 수집은 「수집 실행」입니다.",
+    admin_community_crawl_publish_waiting_policy: "게시 대기 · 정책 검토 필요",
+    admin_community_crawl_publish_not_ready: "게시 불가 · 조건 미충족",
     admin_community_crawl_manual_still_unavailable: "일괄 지금 수집은 아직 사용할 수 없습니다.",
     admin_community_crawl_write_dibay_post: "DIBAY 게시물 작성",
     admin_community_crawl_already_imported: "이미 등록됨",
@@ -3627,7 +3631,11 @@ export const adminMessages = {
     admin_community_crawl_preview_external_only: "External image preview only (not stored)",
     admin_community_crawl_preview_failures: "Failed items",
     admin_community_crawl_preview_no_register:
-      "Test crawl only. To publish, use 「Write DIBAY post」 on each item.",
+      "Preview only · nothing is saved. Use 「Run crawl」 to store durable items.",
+    admin_community_crawl_test_preview_only_hint:
+      "「Test crawl」 is preview-only and does not save. Operational collection uses 「Run crawl」.",
+    admin_community_crawl_publish_waiting_policy: "Publish waiting · policy review required",
+    admin_community_crawl_publish_not_ready: "Publish unavailable · requirements not met",
     admin_community_crawl_manual_still_unavailable: "Bulk manual crawl is still unavailable.",
     admin_community_crawl_write_dibay_post: "Write DIBAY post",
     admin_community_crawl_already_imported: "Already registered",

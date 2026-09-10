@@ -27,7 +27,7 @@ describe("community crawl SSOT (STEP2)", () => {
     expect(COMMUNITY_CRAWL_INTERVAL_MINUTES).toEqual([30, 60, 180, 360, 720, 1440]);
   });
 
-  it("keeps MANUAL CTA reason contract (TEST is STEP3)", () => {
+  it("keeps MANUAL API 501 reason constant (legacy bulk path)", () => {
     expect(COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON).toBe("NOT_AVAILABLE_UNTIL_CRAWLER_CORE");
   });
 
@@ -55,18 +55,22 @@ describe("community crawl SSOT (STEP2)", () => {
     expect(menu).toContain('"community-external-sources": "admin_menu_community_external_sources"');
   });
 
-  it("UI keeps MANUAL bulk crawl disabled; TEST + Manual Import Editor are wired", () => {
+  it("Admin UI primary authority is REAL crawl; TEST is preview-only; old STEP3 publish copy unreachable", () => {
     const ui = readFileSync(
       join(process.cwd(), "components/admin/community/AdminCommunityExternalSourcesPage.tsx"),
       "utf8"
     );
-    expect(ui).toContain("COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON");
-    expect(ui).toContain("admin_community_crawl_test");
-    expect(ui).toContain("admin_community_crawl_manual");
+    expect(ui).toContain("runRealCrawl");
     expect(ui).toContain("runTestCrawl");
-    expect(ui).toContain("admin_community_crawl_write_dibay_post");
-    expect(ui).toContain("submitImportPublish");
-    expect(ui).toMatch(/admin_community_crawl_manual[\s\S]{0,200}disabled|disabled[\s\S]{0,200}admin_community_crawl_manual/);
+    expect(ui).toContain("admin_community_crawl_run_now");
+    expect(ui).toContain("admin_community_crawl_test");
+    expect(ui).toContain("admin_community_crawl_test_preview_only_hint");
+    expect(ui).toContain("admin_community_crawl_preview_no_register");
+    expect(ui).not.toContain("admin_community_crawl_write_dibay_post");
+    expect(ui).not.toContain("runPrepareCrawl");
+    expect(ui).not.toContain("submitImportPublish");
+    expect(ui).not.toContain("admin_community_crawl_prepare");
+    expect(ui).not.toContain("admin_community_crawl_manual");
     expect(ui).not.toContain("mock crawl");
     expect(ui).not.toContain("fake success");
   });

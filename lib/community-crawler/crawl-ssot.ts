@@ -76,11 +76,15 @@ export {
  */
 export const COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON = "NOT_AVAILABLE_UNTIL_CRAWLER_CORE" as const;
 
-/** STEP3: TEST crawl fetch→parse→normalize→preview is available (no content write). */
+/** TEST crawl: same adapter resolver as REAL; preview only (no crawl_items write). */
 export const COMMUNITY_CRAWL_TEST_AVAILABLE = true as const;
 
-/** STEP4: per-item Manual Import Editor → atomic post+link (REFERENCE_SUMMARY). */
-export const COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE = true as const;
+/**
+ * Legacy STEP4 per-item Manual Import from TEST preview.
+ * Operational Admin must not expose this — publish belongs to durable items (PHASE F).
+ * Keep API for historical tests; product UI reachability = false.
+ */
+export const COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE = false as const;
 
 /** REAL crawl → durable community_crawl_items upsert. */
 export const COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE = true as const;
