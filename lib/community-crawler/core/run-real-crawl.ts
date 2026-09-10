@@ -1,8 +1,3 @@
-/**
- * REAL crawl: fetch → parse → normalize → upsert durable community_crawl_items.
- * Distinct from TEST crawl (write 0 / preview only).
- */
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseGenericHtmlAdapterConfig } from "@/lib/community-crawler/adapters/generic-html-config";
 import { parseDetailPage, parseListPage } from "@/lib/community-crawler/adapters/generic-html";
@@ -12,6 +7,7 @@ import {
   TRAVEL_PHILIPPINES_ADAPTER_KEY,
 } from "@/lib/community-crawler/adapters/travel-philippines";
 import { upsertCommunityCrawlItem } from "@/lib/community-crawler/crawl-item-store";
+import { classifyCrawlDetailPageHtml } from "@/lib/community-crawler/core/classify-detail-page";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
 import { safeFetchHtml } from "@/lib/community-crawler/core/safe-fetch";
 import type {
@@ -30,11 +26,13 @@ export type RealCrawlResult = {
   insertedCount: number;
   updatedCount: number;
   duplicateCount: number;
+  skippedInvalidCount: number;
   failedCount: number;
   errorCode: string | null;
   errorMessage: string | null;
   items: CommunityCrawlItemRow[];
   failures: Array<{ sourceUrl: string | null; errorCode: string; errorMessage: string }>;
+  skippedInvalid: Array<{ sourceUrl: string | null; reason: string }>;
 };
 
 function resolveAdapterKey(source: CommunityCrawlSourceRow, board: CommunityCrawlBoardRow): string {
@@ -73,11 +71,13 @@ export async function runCommunityRealCrawl(input: {
   if (runRow) runId = String((runRow as { id: string }).id);
 
   const failures: RealCrawlResult["failures"] = [];
+  const skippedInvalid: RealCrawlResult["skippedInvalid"] = [];
   const items: CommunityCrawlItemRow[] = [];
   let fetchedCount = 0;
   let insertedCount = 0;
   let updatedCount = 0;
   let duplicateCount = 0;
+  let skippedInvalidCount = 0;
   let failedCount = 0;
   let fatalCode: string | null = null;
   let fatalMessage: string | null = null;
@@ -99,6 +99,14 @@ export async function runCommunityRealCrawl(input: {
       try {
         const detailFetch = await safeFetchHtml(listItem.detailUrl);
         fetchedCount += 1;
+
+        const invalid = classifyCrawlDetailPageHtml(detailFetch.bodyText);
+        if (invalid.kind === "SOURCE_INVALID") {
+          skippedInvalidCount += 1;
+          skippedInvalid.push({ sourceUrl: listItem.detailUrl, reason: invalid.reason });
+          continue;
+        }
+
         const detail =
           adapterKey === TRAVEL_PHILIPPINES_ADAPTER_KEY
             ? parseTravelPhilippinesDetailPage(detailFetch.bodyText, detailFetch.finalUrl)
@@ -165,9 +173,13 @@ export async function runCommunityRealCrawl(input: {
   }
 
   let status: RealCrawlResult["status"] = "FAILED";
-  if (items.length > 0 && failedCount === 0 && !fatalCode) status = "SUCCESS";
-  else if (items.length > 0) status = "PARTIAL";
-  else status = "FAILED";
+  if (failedCount === 0 && !fatalCode && (items.length > 0 || skippedInvalidCount > 0)) {
+    status = "SUCCESS";
+  } else if (items.length > 0 && failedCount > 0) {
+    status = "PARTIAL";
+  } else {
+    status = "FAILED";
+  }
 
   const now = new Date().toISOString();
   if (runId) {
@@ -180,6 +192,7 @@ export async function runCommunityRealCrawl(input: {
         inserted_count: insertedCount,
         updated_count: updatedCount,
         duplicate_count: duplicateCount,
+        skipped_invalid_count: skippedInvalidCount,
         failed_count: failedCount,
         error_code: fatalCode,
         error_message: fatalMessage,
@@ -208,10 +221,12 @@ export async function runCommunityRealCrawl(input: {
     insertedCount,
     updatedCount,
     duplicateCount,
+    skippedInvalidCount,
     failedCount,
     errorCode: fatalCode,
     errorMessage: fatalMessage,
     items,
     failures,
+    skippedInvalid,
   };
 }

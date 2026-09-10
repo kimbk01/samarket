@@ -71,6 +71,48 @@ function formatWhen(iso: string | null): string {
   }
 }
 
+function crawlRunKindLabel(kind: string, t: (k: MessageKey) => string): string {
+  switch (kind) {
+    case "MANUAL":
+      return t("admin_community_crawl_run_kind_manual");
+    case "SCHEDULED":
+      return t("admin_community_crawl_run_kind_scheduled");
+    case "TEST":
+      return t("admin_community_crawl_run_kind_test");
+    default:
+      return t("admin_community_crawl_run_kind_other");
+  }
+}
+
+function crawlRunStatusLabel(status: string, t: (k: MessageKey) => string): string {
+  switch (status) {
+    case "SUCCESS":
+      return t("admin_community_crawl_run_status_success");
+    case "PARTIAL":
+      return t("admin_community_crawl_run_status_partial");
+    case "FAILED":
+      return t("admin_community_crawl_run_status_failed");
+    case "RUNNING":
+      return t("admin_community_crawl_run_status_running");
+    default:
+      return t("admin_community_crawl_run_status_other");
+  }
+}
+
+function crawlRunCountsLabel(
+  r: Pick<
+    CommunityCrawlRunRow,
+    "duplicate_count" | "skipped_invalid_count" | "failed_count"
+  >,
+  t: (k: MessageKey) => string
+): string {
+  return [
+    `${t("admin_community_crawl_run_duplicate_count")} ${r.duplicate_count ?? 0}`,
+    `${t("admin_community_crawl_run_skipped_invalid_count")} ${r.skipped_invalid_count ?? 0}`,
+    `${t("admin_community_crawl_run_failed_count")} ${r.failed_count ?? 0}`,
+  ].join(" · ");
+}
+
 function ModalShell({
   title,
   onClose,
@@ -565,17 +607,57 @@ export function AdminCommunityExternalSourcesPage() {
       const j = (await res.json()) as {
         ok?: boolean;
         items?: CommunityCrawlItemRow[];
-        result?: { status?: string; insertedCount?: number; failedCount?: number };
+        result?: {
+          status?: CommunityCrawlRunRow["status"];
+          runId?: string | null;
+          insertedCount?: number;
+          updatedCount?: number;
+          duplicateCount?: number;
+          skippedInvalidCount?: number;
+          failedCount?: number;
+          fetchedCount?: number;
+        };
         error?: string;
       };
       if (!j.ok) {
         await dibayAlert({ title: String(j.error ?? "crawl_failed") });
         return;
       }
+      // ACK → LIST: materialize from crawl payload only (no overview refresh GET).
       window.dispatchEvent(new CustomEvent("community-crawl-items-ack", { detail: j.items ?? [] }));
-      await refresh();
+      const result = j.result;
+      if (result?.runId) {
+        const now = new Date().toISOString();
+        const row: CommunityCrawlRunRow = {
+          id: result.runId,
+          board_id: boardId,
+          run_kind: "MANUAL",
+          status: result.status ?? "SUCCESS",
+          started_at: now,
+          finished_at: now,
+          fetched_count: result.fetchedCount ?? 0,
+          inserted_count: result.insertedCount ?? 0,
+          updated_count: result.updatedCount ?? 0,
+          duplicate_count: result.duplicateCount ?? 0,
+          skipped_invalid_count: result.skippedInvalidCount ?? 0,
+          failed_count: result.failedCount ?? 0,
+          error_code: null,
+          error_message: null,
+        };
+        setRuns((prev) => [row, ...prev.filter((r) => r.id !== row.id)]);
+      }
       await dibayAlert({
-        title: `${j.result?.status ?? "OK"} · +${j.result?.insertedCount ?? 0} / fail ${j.result?.failedCount ?? 0}`,
+        title: [
+          crawlRunStatusLabel(result?.status ?? "SUCCESS", t),
+          crawlRunCountsLabel(
+            {
+              duplicate_count: result?.duplicateCount ?? 0,
+              skipped_invalid_count: result?.skippedInvalidCount ?? 0,
+              failed_count: result?.failedCount ?? 0,
+            },
+            t
+          ),
+        ].join(" · "),
       });
     } catch (e) {
       await dibayAlert({ title: e instanceof Error ? e.message : "crawl_failed" });
@@ -948,13 +1030,13 @@ export function AdminCommunityExternalSourcesPage() {
               <ul className="mt-2 space-y-2">
                 {runs.slice(0, 15).map((r) => (
                   <li key={r.id} className="sam-text-body text-sam-fg">
-                    <span className="text-sam-muted">{r.run_kind}</span> · {r.status} ·{" "}
+                    <span className="text-sam-muted">{crawlRunKindLabel(r.run_kind, t)}</span>
+                    {" · "}
+                    {crawlRunStatusLabel(r.status, t)}
+                    {" · "}
                     {formatWhen(r.started_at)}
-                    {r.failed_count > 0 ? (
-                      <span className="ml-2 text-sam-danger">
-                        {t("admin_community_crawl_run_failed_count")}: {r.failed_count}
-                      </span>
-                    ) : null}
+                    {" · "}
+                    {crawlRunCountsLabel(r, t)}
                   </li>
                 ))}
               </ul>

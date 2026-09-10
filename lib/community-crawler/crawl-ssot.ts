@@ -163,6 +163,7 @@ export type CommunityCrawlRunRow = {
   inserted_count: number;
   updated_count: number;
   duplicate_count: number;
+  skipped_invalid_count: number;
   failed_count: number;
   error_code: string | null;
   error_message: string | null;

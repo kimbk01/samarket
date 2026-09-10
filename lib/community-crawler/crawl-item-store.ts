@@ -6,6 +6,7 @@ import {
   assignDisplayViewOnce,
   contentFingerprint,
 } from "@/lib/community-crawler/core/assign-display-once";
+import { resolveDurableCoverUrl } from "@/lib/community-crawler/core/validate-cover-candidate";
 import type {
   CommunityCrawlAuthorConfig,
   CommunityCrawlBoardRow,
@@ -103,11 +104,9 @@ export async function upsertCommunityCrawlItem(input: {
 }): Promise<UpsertCrawlItemResult> {
   const { sb, board, source, runId, canonicalUrl, detail } = input;
   const now = new Date().toISOString();
-  const fingerprint = contentFingerprint(
-    detail.title,
-    detail.contentMarkdown,
-    detail.representativeImageUrl
-  );
+  /** Dead/non-image candidates must not be stored as durable covers. */
+  const durableCoverUrl = await resolveDurableCoverUrl(detail.representativeImageUrl);
+  const fingerprint = contentFingerprint(detail.title, detail.contentMarkdown, durableCoverUrl);
 
   let existingQuery = sb.from("community_crawl_items").select("*").eq("board_id", board.id);
   if (detail.sourcePostId) {
@@ -138,7 +137,7 @@ export async function upsertCommunityCrawlItem(input: {
       source_title: detail.title,
       source_body_normalized: detail.contentMarkdown,
       source_author: detail.author,
-      source_cover_url: detail.representativeImageUrl,
+      source_cover_url: durableCoverUrl,
       source_body_images: detail.bodyImageUrls,
       content_fingerprint: fingerprint,
       last_seen_at: now,
@@ -219,7 +218,7 @@ export async function upsertCommunityCrawlItem(input: {
     source_body_normalized: detail.contentMarkdown,
     source_author: detail.author,
     source_published_at: date.sourcePublishedAt,
-    source_cover_url: detail.representativeImageUrl,
+    source_cover_url: durableCoverUrl,
     source_body_images: detail.bodyImageUrls,
     content_fingerprint: fingerprint,
     display_author_name: author.displayName,

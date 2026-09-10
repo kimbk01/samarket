@@ -42,6 +42,30 @@ function statusLabel(status: string, t: (k: MessageKey) => string): string {
   }
 }
 
+/** Never leave a white broken <img> box — dead URL → explicit none fallback. */
+function CoverPreview(props: { url: string | null; noneLabel: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [props.url]);
+  if (!props.url || failed) {
+    return (
+      <div className="flex h-20 w-28 items-center justify-center rounded-ui-rect bg-sam-surface sam-text-helper text-sam-muted text-center px-1">
+        {props.noneLabel}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- admin external preview
+    <img
+      src={props.url}
+      alt=""
+      className="h-20 w-28 rounded-ui-rect object-cover bg-sam-surface"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function AdminCommunityCrawlItemsPanel(props: {
   boardId: string | null;
   onItemsChange?: (items: CommunityCrawlItemRow[]) => void;
@@ -203,18 +227,10 @@ export function AdminCommunityCrawlItemsPanel(props: {
               className="rounded-ui-rect border border-sam-border bg-sam-app p-3 space-y-2 overflow-hidden"
             >
               <div className="flex flex-wrap gap-3">
-                {it.source_cover_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- admin external preview
-                  <img
-                    src={it.source_cover_url}
-                    alt=""
-                    className="h-20 w-28 rounded-ui-rect object-cover bg-sam-surface"
-                  />
-                ) : (
-                  <div className="flex h-20 w-28 items-center justify-center rounded-ui-rect bg-sam-surface sam-text-helper text-sam-muted">
-                    {t("admin_community_crawl_preview_rep_none")}
-                  </div>
-                )}
+                <CoverPreview
+                  url={it.source_cover_url}
+                  noneLabel={t("admin_community_crawl_preview_rep_none")}
+                />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="font-semibold text-sam-fg break-words">{it.dibay_title || it.source_title}</div>
                   <div className="sam-text-helper text-sam-muted">
@@ -262,14 +278,10 @@ export function AdminCommunityCrawlItemsPanel(props: {
               </button>
             </div>
             <div className="space-y-3 px-4 py-4">
-              {edit.source_cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={edit.source_cover_url}
-                  alt=""
-                  className="max-h-40 w-auto max-w-full rounded-ui-rect object-contain"
-                />
-              ) : null}
+              <CoverPreview
+                url={edit.source_cover_url}
+                noneLabel={t("admin_community_crawl_preview_rep_none")}
+              />
               <label className="block">
                 <span className={labelClass}>{t("admin_community_crawl_import_title")}</span>
                 <input className={fieldClass} value={title} onChange={(e) => setTitle(e.target.value)} />

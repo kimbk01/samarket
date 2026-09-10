@@ -99,13 +99,19 @@ describe.runIf(runLive)("Community crawl operational LIVE proof", () => {
       for (const it of result.items.slice(0, 10)) {
         expect(it.dibay_title.length).toBeGreaterThan(3);
         expect(it.dibay_body.length).toBeGreaterThan(40);
-        expect(it.source_cover_url).toBeTruthy();
+        // Cover URL PRESENT ≠ COVER VALID — dead assets must persist as null.
+        if (it.source_cover_url) {
+          expect(it.source_cover_url).toMatch(/^https?:\/\//i);
+        }
         expect(it.display_author_name).toBeTruthy();
         expect(it.display_author_name).not.toMatch(/travel philippines/i);
         expect(it.display_author_name).not.toBe("예시 작성자");
         expect(it.display_date).toBeTruthy();
         expect(it.display_view_seed).toBeGreaterThanOrEqual(12);
-        expect(it.display_view_seed).toBeLessThanOrEqual(480);
+        // manual_override may retain an edited view seed outside board random range.
+        if (!it.manual_override) {
+          expect(it.display_view_seed).toBeLessThanOrEqual(480);
+        }
       }
 
       const again = await runCommunityRealCrawl({

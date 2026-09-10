@@ -106,6 +106,7 @@ function mapRun(row: Record<string, unknown>): CommunityCrawlRunRow {
     inserted_count: Number(row.inserted_count ?? 0),
     updated_count: Number(row.updated_count ?? 0),
     duplicate_count: Number(row.duplicate_count ?? 0),
+    skipped_invalid_count: Number(row.skipped_invalid_count ?? 0),
     failed_count: Number(row.failed_count ?? 0),
     error_code: row.error_code != null ? String(row.error_code) : null,
     error_message: row.error_message != null ? String(row.error_message) : null,

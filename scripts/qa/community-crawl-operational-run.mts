@@ -28,12 +28,15 @@ async function main() {
   console.log(
     JSON.stringify({
       status: result.status,
+      runId: result.runId,
       inserted: result.insertedCount,
       updated: result.updatedCount,
       dup: result.duplicateCount,
+      skippedInvalid: result.skippedInvalidCount,
       failed: result.failedCount,
       items: result.items.length,
       failures: result.failures.slice(0, 5),
+      skipped: result.skippedInvalid.slice(0, 8),
       sample: result.items.slice(0, 3).map((i) => ({
         title: i.dibay_title,
         author: i.display_author_name,
