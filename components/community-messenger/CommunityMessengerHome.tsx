@@ -1182,7 +1182,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             const { description: _desc, ...roomSummary } = json.snapshot.room;
             commitHomeListPatch(
               setData,
-              { kind: "merge_room_summary", summary: roomSummary },
+              { kind: "insert_room_summary", summary: roomSummary },
               "bootstrap"
             );
             if (uid) {
@@ -1633,13 +1633,35 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           memberIds,
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      if (res.ok && json.ok && json.roomId) {
-        /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
-        void refresh(false);
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        roomId?: string;
+        room?: CommunityMessengerRoomSummary;
+        error?: string;
+      };
+      if (res.ok && json.ok && json.roomId && json.room) {
+        /** ACK → local INSERT (no refresh / no post-ACK home-summary). */
+        const summary = json.room;
+        commitHomeListPatch(setData, { kind: "insert_room_summary", summary }, "bootstrap");
+        const uid = data?.me?.id?.trim();
+        if (uid) {
+          postCommunityMessengerBusEvent({
+            type: "cm.home.merge_room_summary",
+            viewerUserId: uid,
+            summary,
+            at: Date.now(),
+          });
+        }
+        requestMessengerHubBadgeResync("direct_room_created");
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoomWithViewer(json.roomId);
+        navigateToCommunityRoomWithViewer(json.roomId, {
+          roomForPrime: summary,
+        });
+        return;
+      }
+      if (res.ok && json.ok && json.roomId && !json.room) {
+        setActionError(getMessengerActionErrorMessage("room_summary_unavailable"));
         return;
       }
       if (
@@ -1660,15 +1682,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setBusyId(null);
     }
   }, [
+    data?.me?.id,
     getMessengerActionErrorMessage,
     groupMembers,
     groupTitle,
     navigateToCommunityRoomWithViewer,
     messengerListPathname,
-    refresh,
     resetGroupCreateDraft,
     router,
     setAuthRequired,
+    setData,
     setPageError,
     t,
   ]);
@@ -1700,13 +1723,35 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-      if (res.ok && json.ok && json.roomId) {
-        /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
-        void refresh(false);
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        roomId?: string;
+        room?: CommunityMessengerRoomSummary;
+        error?: string;
+      };
+      if (res.ok && json.ok && json.roomId && json.room) {
+        /** ACK → local INSERT (no refresh / no post-ACK home-summary). */
+        const summary = json.room;
+        commitHomeListPatch(setData, { kind: "insert_room_summary", summary }, "bootstrap");
+        const uid = data?.me?.id?.trim();
+        if (uid) {
+          postCommunityMessengerBusEvent({
+            type: "cm.home.merge_room_summary",
+            viewerUserId: uid,
+            summary,
+            at: Date.now(),
+          });
+        }
+        requestMessengerHubBadgeResync("direct_room_created");
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoomWithViewer(json.roomId);
+        navigateToCommunityRoomWithViewer(json.roomId, {
+          roomForPrime: summary,
+        });
+        return;
+      }
+      if (res.ok && json.ok && json.roomId && !json.room) {
+        setActionError(getMessengerActionErrorMessage("room_summary_unavailable"));
         return;
       }
       if (
@@ -1727,6 +1772,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setBusyId(null);
     }
   }, [
+    data?.me?.id,
     getMessengerActionErrorMessage,
     navigateToCommunityRoomWithViewer,
     openGroupCreatorAliasAvatarUrl,
@@ -1741,10 +1787,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     openGroupSummary,
     openGroupTitle,
     messengerListPathname,
-    refresh,
     resetGroupCreateDraft,
     router,
     setAuthRequired,
+    setData,
     setPageError,
     t,
   ]);
@@ -1994,6 +2040,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     refresh,
     setData,
     shadowDispatch,
+    onSocialGraphChanged: hydrateMessengerFriends,
   });
 
   useDomainListPillarBootstrapRefresh({

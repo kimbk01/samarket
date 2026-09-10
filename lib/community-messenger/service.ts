@@ -75,6 +75,7 @@ import {
   cmTradePostTitleFallback,
   isWeakTradeMessengerHeadline,
 } from "@/lib/community-messenger/cm-service-copy";
+import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import {
   cmMgmtAdminRoleContent,
   cmMgmtMemberInviteContent,
@@ -10663,7 +10664,12 @@ export async function createPrivateGroupRoom(input: {
   userId: string;
   title: string;
   memberIds: string[];
-}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  roomId?: string;
+  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary;
+  error?: string;
+}> {
   const sb = getSupabaseOrNull();
   if (sb) {
     const { createGroupRoom } = await import("@/lib/community-messenger/group/group-room-service");
@@ -10738,7 +10744,12 @@ export async function createOpenGroupRoom(input: {
   identityPolicy?: CommunityMessengerRoomIdentityPolicy;
   creatorIdentityMode?: CommunityMessengerIdentityMode;
   creatorAliasProfile?: Partial<CommunityMessengerRoomAliasProfile> | null;
-}): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  roomId?: string;
+  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary;
+  error?: string;
+}> {
   const title = trimText(input.title);
   const summary = trimText(input.summary);
   const password = trimText(input.password);
@@ -10805,7 +10816,17 @@ export async function createOpenGroupRoom(input: {
           identityMode: creatorIdentityMode,
           aliasProfile: input.creatorAliasProfile,
         });
-        if (roomProfile.ok) return { ok: true, roomId: insertedId };
+        if (roomProfile.ok) {
+          try {
+            const room = await getCommunityMessengerSingleRoomSummaryForViewer(input.userId, insertedId);
+            if (room) return { ok: true, roomId: insertedId, room };
+            const retry = await getCommunityMessengerSingleRoomSummaryForViewer(input.userId, insertedId);
+            if (retry) return { ok: true, roomId: insertedId, room: retry };
+          } catch {
+            /* fall through */
+          }
+          return { ok: false, error: "room_summary_unavailable", roomId: insertedId };
+        }
         return roomProfile;
       }
       await (sb as any).from("community_messenger_rooms").delete().eq("id", insertedId);
@@ -10886,7 +10907,11 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   userId: string;
   roomId: string;
   memberIds: string[];
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  error?: string;
+  room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary;
+}> {
   const roomId = trimText(input.roomId);
   const memberIds = dedupeIds(input.memberIds);
   if (!roomId || !memberIds.length) return { ok: false, error: "members_required" };
@@ -16554,12 +16579,24 @@ export async function sendCommunityMessengerImageMessage(input: {
   const lastPreview = cmLastPreviewPhotoAlbum(items.length);
   const sb = getSupabaseOrNull();
   if (sb) {
+    const { assertActiveGroupMembershipIfGroup } = await import(
+      "@/lib/community-messenger/group/group-active-membership-gate"
+    );
+    const groupGate = await assertActiveGroupMembershipIfGroup({
+      userId: input.userId,
+      roomId,
+      supabase: sb,
+    });
+    if (!groupGate.ok) {
+      return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
+    }
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
         .select("id")
         .eq("room_id", roomId)
         .eq("user_id", input.userId)
+        .is("left_at", null)
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
@@ -17033,12 +17070,24 @@ export async function sendCommunityMessengerFileMessage(input: {
   const metadata: Record<string, unknown> = { storagePath, mimeType, fileName, fileSizeBytes };
   const sb = getSupabaseOrNull();
   if (sb) {
+    const { assertActiveGroupMembershipIfGroup } = await import(
+      "@/lib/community-messenger/group/group-active-membership-gate"
+    );
+    const groupGate = await assertActiveGroupMembershipIfGroup({
+      userId: input.userId,
+      roomId,
+      supabase: sb,
+    });
+    if (!groupGate.ok) {
+      return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
+    }
     const [{ data: participant }, { data: roomData }] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
         .select("id")
         .eq("room_id", roomId)
         .eq("user_id", input.userId)
+        .is("left_at", null)
         .maybeSingle(),
       (sb as any)
         .from("community_messenger_rooms")
@@ -17158,29 +17207,12 @@ function messengerLastPreviewFromRow(row: {
   content?: string;
   metadata?: unknown;
 }): { preview: string; messageType: string } {
-  const mt = trimText(row.message_type);
-  if (mt === "voice") return { preview: cmLastPreviewVoice(), messageType: "voice" };
-  if (mt === "call_stub") return { preview: cmLastPreviewCall(trimText(row.content)), messageType: "call_stub" };
-  if (mt === "image") return { preview: cmLastPreviewImage(), messageType: "image" };
-  if (mt === "sticker") return { preview: cmLastPreviewSticker(), messageType: "sticker" };
-  if (mt === "community_post_share") {
-    return { preview: cmLastPreviewNotification(trimText(row.content)), messageType: "community_post_share" };
-  }
-  if (mt === "gift_certificate") {
-    return { preview: cmLastPreviewGiftCertificate(), messageType: "gift_certificate" };
-  }
-  if (mt === "file") {
-    return {
-      preview: cmLastPreviewFile(
-        trimText((row.metadata as { fileName?: string } | undefined)?.fileName)
-      ),
-      messageType: "file",
-    };
-  }
-  if (mt === "system") return { preview: cmLastPreviewNotification(trimText(row.content)), messageType: "system" };
-  const c = trimText(row.content);
-  const preview = cmMessagePreviewFallback(c);
-  return { preview, messageType: mt || "text" };
+  const semantic = canonicalRoomListPreviewFromMessageFields({
+    messageType: row.message_type,
+    content: row.content,
+    metadata: row.metadata,
+  });
+  return { preview: semantic.lastMessage, messageType: semantic.lastMessageType };
 }
 
 async function recomputeCommunityMessengerRoomLastMessage(sb: SupabaseLike, roomId: string) {

@@ -267,6 +267,8 @@ export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   refresh: (silent?: boolean) => Promise<void>;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
   shadowDispatch?: MessengerHomeShadowDispatch;
+  /** Canonical friends replace on social RT */
+  onSocialGraphChanged?: () => void;
 };
 
 function patchFromRealtimeMessageRow(roomId: string, row: Record<string, unknown>): CanonicalMessengerHomeRoomPatch {
@@ -294,6 +296,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   refresh,
   setData,
   shadowDispatch,
+  onSocialGraphChanged,
 }: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
   useCmDevRenderTrace("useCommunityMessengerHomeRealtimeBootstrapList");
   useCmStrictModeEffectProbe("useCommunityMessengerHomeRealtimeBootstrapList");
@@ -492,7 +495,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             setData((prev) => {
               const merged = applyHomeListPatch(
                 prev,
-                { kind: "merge_room_summary", summary: json.room! },
+                { kind: "insert_room_summary", summary: json.room! },
                 "realtime"
               );
               const resolved = resolveMessengerHomeBootstrapSetData(
@@ -864,7 +867,11 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         shadowDispatch?.dispatchRoomSummary("multi_tab", nextShadowGeneration(), ev.summary);
         scheduleListPatch(
           (prev) => {
-            const next = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: ev.summary }, "multi-tab");
+            const next = applyHomeListPatch(
+              prev,
+              { kind: "insert_room_summary", summary: ev.summary },
+              "multi-tab"
+            );
             if (!next || next === prev) return prev;
             return next;
           },
@@ -1277,5 +1284,6 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     onRealtimeMessageUpdateBatch: applyRealtimeMessageUpdateBatch,
     onRealtimeRoomTipUpdateBatch: applyRealtimeRoomTipUpdateBatch,
     onParticipantUnreadDelta: applyParticipantUnreadDelta,
+    onSocialGraphChanged,
   });
 }

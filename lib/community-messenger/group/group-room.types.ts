@@ -25,8 +25,8 @@ export type CreateGroupRoomInput = {
 };
 
 export type CreateGroupRoomResult =
-  | { ok: true; roomId: string }
-  | { ok: false; error: string };
+  | { ok: true; roomId: string; room: CommunityMessengerRoomSummary }
+  | { ok: false; error: string; roomId?: string };
 
 export type GroupRoomRow = {
   id: string;

@@ -90,6 +90,10 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary): string 
   if (lastMessageType === "voice") return translateCmUi("cm_home_preview_voice");
   if (lastMessageType === "file") {
     if (!lastMessage) return translateCmUi("cm_home_preview_file");
+    /** Typed file tip may store fileName or legacy generic token — never treat as URL by extension. */
+    if (/^https?:\/\//i.test(lastMessage) || lastMessage.startsWith("//")) {
+      return translateCmUi("cm_home_preview_file");
+    }
     return LEGACY_FILE_PREVIEW.has(lastMessage)
       ? translateCmUi("cm_home_preview_file")
       : translateCmUi("cm_home_preview_file_named", { name: lastMessage });
@@ -103,6 +107,7 @@ export function getRoomPreviewText(room: CommunityMessengerRoomSummary): string 
       ? lastMessage
       : translateCmUi("cm_home_preview_call_named", { detail: lastMessage });
   }
+  /** TEXT: show content as-is (including https://…jpg) — no URL→photo heuristic. */
   if (lastMessage) return lastMessage;
   const meta = room.contextMeta;
   if (meta?.headline) return meta.headline;

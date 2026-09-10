@@ -97,7 +97,7 @@ function resolveBusPatch(
     case "cm.home.merge_room_summary": {
       if (ev.viewerUserId.trim() !== viewerUserId) return null;
       return {
-        patch: { kind: "merge_room_summary", summary: ev.summary },
+        patch: { kind: "insert_room_summary", summary: ev.summary },
         source: "multi-tab",
         roomId: ev.summary.id,
       };

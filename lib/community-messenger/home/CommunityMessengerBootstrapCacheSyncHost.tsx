@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import {
   onCommunityMessengerBusEvent,
   type MessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
+import { useHomeListRoomInsertBroadcast } from "@/lib/community-messenger/realtime/use-home-list-room-insert-broadcast";
 
 const HOST_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
   "cm.room.message_sent",
@@ -28,6 +29,9 @@ const HOST_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
 export function CommunityMessengerBootstrapCacheSyncHost() {
   const userIdRef = useRef<string | null>(null);
   const subscriptionCountRef = useRef(0);
+  const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+
+  useHomeListRoomInsertBroadcast(viewerUserId);
 
   useEffect(() => {
     let alive = true;
@@ -36,6 +40,7 @@ export function CommunityMessengerBootstrapCacheSyncHost() {
         if (!alive) return;
         const next = id?.trim() || null;
         userIdRef.current = next;
+        setViewerUserId(next);
         noteBootstrapCacheBusWriterViewerUserId(next);
         if (process.env.NODE_ENV !== "production") {
           // eslint-disable-next-line no-console -- mount scope diagnostics

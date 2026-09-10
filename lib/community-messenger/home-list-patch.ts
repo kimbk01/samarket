@@ -13,7 +13,10 @@ import {
   mergeRoomListsPreserveRefs,
   roomSummaryListRowShallowEqual,
 } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
-import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
+import {
+  insertBootstrapRoomSummaryIntoLists,
+  mergeBootstrapRoomSummaryIntoLists,
+} from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import {
   patchBootstrapRoomListForRealtimeMessageUpdate,
   patchBootstrapRoomListForRoomTipUpdate,
@@ -67,8 +70,19 @@ export type HomeListPatch =
       requests?: CommunityMessengerBootstrap["requests"];
       friends?: CommunityMessengerBootstrap["friends"];
       roomMode?: "replace" | "critical_patch" | "partial_upsert";
+      /**
+       * friends merge: `union` (default) never shrinks below hydrated Contact set (lite-safe).
+       * `replace` = authoritative `/friends` SSOT hydrate (allows removals).
+       */
+      /**
+       * `union` (default) = partial lite/bootstrap subset — never shrink contact set.
+       * `replace` = authoritative `/friends` SSOT hydrate or social-graph RT reconcile (allows removals + empty).
+       */
+      friendsMode?: "union" | "replace";
     }
   | { kind: "merge_room_summary"; summary: CommunityMessengerRoomSummary }
+  /** create/invite ACK · membership missing-room — INSERT allowed (M1b merge remains no-insert) */
+  | { kind: "insert_room_summary"; summary: CommunityMessengerRoomSummary }
   | {
       kind: "realtime_message_insert";
       roomId: string;
@@ -261,6 +275,33 @@ function roomSummaryListsDisplayEqual(
 function logHomeListOwner(stats: HomeListPatchStats): void {
   if (!homeListOwnerTraceEnabled()) return;
   messengerTraceConsoleDebug("[cm-list-owner]", stats);
+}
+
+/**
+ * Contact friend UI projection — never shrink below already-hydrated friend set.
+ * lite/bootstrap subset must not overwrite full `user_social_relations` SSOT projection.
+ * incoming empty with non-empty base → preserve base.
+ */
+function mergeFriendsNeverShrinkContactSet(
+  prev: CommunityMessengerBootstrap["friends"],
+  incoming: CommunityMessengerBootstrap["friends"]
+): CommunityMessengerBootstrap["friends"] {
+  const base = prev ?? [];
+  const next = incoming ?? [];
+  if (!next.length) return base.length ? base : next;
+  if (!base.length) return next;
+  const byId = new Map<string, (typeof base)[number]>();
+  for (const row of base) {
+    const id = String(row.id ?? "").trim();
+    if (id) byId.set(id, row);
+  }
+  for (const row of next) {
+    const id = String(row.id ?? "").trim();
+    if (!id) continue;
+    const prevRow = byId.get(id);
+    byId.set(id, prevRow ? { ...prevRow, ...row } : row);
+  }
+  return Array.from(byId.values());
 }
 
 /**
@@ -544,9 +585,9 @@ function applyHomeSyncPatch(
     roomMode === "critical_patch"
       ? base.friends
       : patch.friends !== undefined
-        ? patch.friends.length === 0 && (base.friends ?? []).length > 0
-          ? base.friends
-          : patch.friends
+        ? patch.friendsMode === "replace"
+          ? patch.friends
+          : mergeFriendsNeverShrinkContactSet(base.friends ?? [], patch.friends)
         : base.friends;
 
   const beforeIds = new Set([...(base.chats ?? []), ...(base.groups ?? [])].map((r) => r.id));
@@ -698,11 +739,10 @@ export function applyHomeListPatch(
             (requestsMerged ?? []) as Array<Record<string, unknown>>
           );
           const requests = requestsMerge.list as CommunityMessengerBootstrap["requests"];
-          const friendsMerge = mergeJsonRecordsPreserveRefs(
-            (base.friends ?? []) as Array<Record<string, unknown>>,
-            ((incoming.friends ?? base.friends) ?? []) as Array<Record<string, unknown>>
+          const friends = mergeFriendsNeverShrinkContactSet(
+            base.friends ?? [],
+            (incoming.friends ?? base.friends) ?? []
           );
-          const friends = friendsMerge.list as CommunityMessengerBootstrap["friends"];
           const followingMerge = mergeJsonRecordsPreserveRefs(
             (base.following ?? []) as Array<Record<string, unknown>>,
             ((incoming.following ?? base.following) ?? []) as Array<Record<string, unknown>>
@@ -748,11 +788,15 @@ export function applyHomeListPatch(
             tabs.groups === base.tabs.groups &&
             tabs.friends === base.tabs.friends &&
             tabs.calls === base.tabs.calls;
+          const friendsUnchanged =
+            friends === base.friends ||
+            (friends.length === (base.friends ?? []).length &&
+              friends.every((row, i) => row === (base.friends ?? [])[i]));
           const bootstrapStable =
             chatMerge.listReferenceStable &&
             groupMerge.listReferenceStable &&
             requestsMerge.listReferenceStable &&
-            friendsMerge.listReferenceStable &&
+            friendsUnchanged &&
             followingMerge.listReferenceStable &&
             hiddenMerge.listReferenceStable &&
             blockedMerge.listReferenceStable &&
@@ -810,6 +854,12 @@ export function applyHomeListPatch(
         case "merge_room_summary": {
           incomingPatchRooms = 1;
           next = mergeBootstrapRoomSummaryIntoLists(base, patch.summary);
+          appliedRooms = next === base ? 0 : 1;
+          break;
+        }
+        case "insert_room_summary": {
+          incomingPatchRooms = 1;
+          next = insertBootstrapRoomSummaryIntoLists(base, patch.summary);
           appliedRooms = next === base ? 0 : 1;
           break;
         }

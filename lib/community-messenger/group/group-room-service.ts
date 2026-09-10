@@ -16,6 +16,7 @@ import {
   type GroupRoomPermissionContext,
 } from "@/lib/community-messenger/group/group-room-permissions";
 import { publishGroupRoomListBump } from "@/lib/community-messenger/group/group-room-realtime";
+import { publishHomeListRoomInsertForInviteesBestEffort } from "@/lib/community-messenger/realtime/home-list-room-insert-broadcast";
 import {
   countActiveParticipants,
   dedupeGroupMemberIds,
@@ -204,14 +205,45 @@ export async function createGroupRoom(input: CreateGroupRoomInput): Promise<Crea
   })();
 
   await publishGroupRoomListBump({ roomId: roomInsert.roomId, fromUserId: userId });
-  return { ok: true, roomId: roomInsert.roomId };
+
+  let roomSummary: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary | null = null;
+  try {
+    const { getCommunityMessengerSingleRoomSummaryForViewer } = await import(
+      "@/lib/community-messenger/service"
+    );
+    roomSummary = await getCommunityMessengerSingleRoomSummaryForViewer(userId, roomInsert.roomId);
+    if (!roomSummary) {
+      roomSummary = await getCommunityMessengerSingleRoomSummaryForViewer(userId, roomInsert.roomId);
+    }
+  } catch {
+    roomSummary = null;
+  }
+  if (!roomSummary) {
+    /**
+     * Partial creation: room + participants already committed.
+     * Do not ACK success without canonical summary (client must not navigate without list INSERT).
+     */
+    return {
+      ok: false,
+      error: GROUP_ROOM_ERROR.ROOM_SUMMARY_UNAVAILABLE,
+      roomId: roomInsert.roomId,
+    };
+  }
+
+  void publishHomeListRoomInsertForInviteesBestEffort({
+    fromUserId: userId,
+    roomId: roomInsert.roomId,
+    inviteeUserIds: memberIds.filter((id) => id !== userId),
+  });
+
+  return { ok: true, roomId: roomInsert.roomId, room: roomSummary };
 }
 
 export async function inviteGroupMembers(input: {
   userId: string;
   roomId: string;
   memberIds: string[];
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; room?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary }> {
   const userId = trimText(input.userId);
   const roomId = trimText(input.roomId);
   const memberIds = dedupeGroupMemberIds(input.memberIds);
@@ -277,6 +309,25 @@ export async function inviteGroupMembers(input: {
     })();
   }
 
+  await publishGroupRoomListBump({ roomId, fromUserId: userId });
+
+  void publishHomeListRoomInsertForInviteesBestEffort({
+    fromUserId: userId,
+    roomId,
+    inviteeUserIds: upsert.newlyInvitedMemberIds,
+  });
+
+  try {
+    const { getCommunityMessengerSingleRoomSummaryForViewer } = await import(
+      "@/lib/community-messenger/service"
+    );
+    const roomSummary = await getCommunityMessengerSingleRoomSummaryForViewer(userId, roomId);
+    if (roomSummary) {
+      return { ok: true, room: roomSummary };
+    }
+  } catch {
+    /* inviter tip optional — invitee uses user-channel INSERT */
+  }
   return { ok: true };
 }
 

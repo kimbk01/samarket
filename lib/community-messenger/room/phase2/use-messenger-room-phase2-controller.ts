@@ -51,7 +51,7 @@ import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/dire
 import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
-import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { type CommunityMessengerMessage, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import {
   cmReceiveLatencyKey,
   cmReceiveLatencyMark,
@@ -99,7 +99,10 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
-import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  postCommunityMessengerBusEvent,
+  syncMessengerHomeAfterOutboundSend,
+} from "@/lib/community-messenger/multi-tab-bus";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
@@ -1691,7 +1694,11 @@ export function useMessengerRoomPhase2Controller() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "invite", memberIds: inviteIds }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        room?: CommunityMessengerRoomSummary;
+      };
       if (!res.ok || !json.ok) {
         if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
@@ -1699,11 +1706,30 @@ export function useMessengerRoomPhase2Controller() {
       }
       setInviteIds([]);
       setInviteSearchQuery("");
+      /** ACK → home list materialize (inviter tip + multi-tab). Invitee uses membership RT + insert_room_summary. */
+      if (json.room) {
+        const uid = snapshot?.viewerUserId?.trim();
+        if (uid) {
+          postCommunityMessengerBusEvent({
+            type: "cm.home.merge_room_summary",
+            viewerUserId: uid,
+            summary: json.room,
+            at: Date.now(),
+          });
+        }
+      }
       await refresh(true);
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, inviteIds, redirectIfMessengerAuthBlocked, refresh, streamRoomId]);
+  }, [
+    getRoomActionErrorMessage,
+    inviteIds,
+    redirectIfMessengerAuthBlocked,
+    refresh,
+    snapshot?.viewerUserId,
+    streamRoomId,
+  ]);
 
   const savePrivateGroupNotice = useCallback(async () => {
     if (!isPrivateGroupRoom && !isOpenGroupRoom) return;

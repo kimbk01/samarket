@@ -3,6 +3,7 @@ import {
   versionMsFromIso,
 } from "@/lib/community-messenger/consistency/messenger-consistency-version";
 import { setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
+import { canonicalRoomListPreviewFromMessageFields } from "@/lib/community-messenger/room-list-semantic-preview";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerMessage,
@@ -75,14 +76,13 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
     }
   }
   let lastMessage = content;
-  if (messageType === "image") lastMessage = lastMessage || "사진";
-  if (messageType === "file") {
-    const meta = row.metadata;
-    const name =
-      typeof meta === "object" && meta !== null && typeof (meta as { fileName?: unknown }).fileName === "string"
-        ? String((meta as { fileName: string }).fileName).trim()
-        : "";
-    lastMessage = name || "파일";
+  if (messageType === "image" || messageType === "file") {
+    const semantic = canonicalRoomListPreviewFromMessageFields({
+      messageType,
+      content,
+      metadata: row.metadata,
+    });
+    lastMessage = semantic.lastMessage;
   }
   if (messageType === "voice") lastMessage = lastMessage || "음성 메시지";
   if (messageType === "sticker") lastMessage = lastMessage || "스티커";

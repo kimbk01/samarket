@@ -98,6 +98,8 @@ type HomeRealtimeListener = {
   onRealtimeMessageUpdateBatch?: (hints: CommunityMessengerHomeRealtimeMessageUpdateHint[]) => void;
   onRealtimeRoomTipUpdateBatch?: (hints: CommunityMessengerHomeRealtimeRoomTipUpdateHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
+  /** Canonical contact graph change — friends replace hydrate */
+  onSocialGraphChanged?: () => void;
 };
 
 type RoomRealtimeListener = {
@@ -122,6 +124,7 @@ type HomeRealtimeEntry = {
   roomTipBatchRafId: number | null;
   participantUnreadBatchQueue: CommunityMessengerHomeRealtimeParticipantUnreadHint[];
   participantUnreadBatchRafId: number | null;
+  socialGraphChangedRef: MutableRefObject<(() => void) | undefined>;
   stop: () => void;
   /** `home_rooms_in` — stable map key + fingerprint diff rebind */
   updateRoomsFingerprint?: (fingerprint: string, visibleTradeRoomCount?: number) => void;
@@ -468,7 +471,13 @@ function createHomeRealtimeEntry(args: {
     roomTipBatchRafId: null,
     participantUnreadBatchQueue: [],
     participantUnreadBatchRafId: null,
+    socialGraphChangedRef: { current: undefined },
     stop: () => undefined,
+  };
+  entry.socialGraphChangedRef.current = () => {
+    for (const ref of entry.listeners) {
+      ref.current.onSocialGraphChanged?.();
+    }
   };
   if (!sb) return entry;
 
@@ -528,6 +537,7 @@ function createHomeRealtimeEntry(args: {
       },
       participantUnreadDeltaRef: { current: (hint) => enqueueHomeParticipantUnreadForEntry(entry, hint) },
       onRefreshRef: { current: () => emitHomeRefresh(entry) },
+      onSocialGraphChangedRef: entry.socialGraphChangedRef,
     });
     cancelSchedulers = cancel;
     for (const item of next) channels.push(item);
@@ -670,6 +680,7 @@ export function useCommunityMessengerHomeRealtime(args: {
   onRealtimeMessageUpdateBatch?: (hints: CommunityMessengerHomeRealtimeMessageUpdateHint[]) => void;
   onRealtimeRoomTipUpdateBatch?: (hints: CommunityMessengerHomeRealtimeRoomTipUpdateHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
+  onSocialGraphChanged?: () => void;
 }) {
   useCmDevRenderTrace("useCommunityMessengerHomeRealtime");
   const listenerRef = useRef<HomeRealtimeListener>({
@@ -679,6 +690,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     onRealtimeMessageUpdateBatch: args.onRealtimeMessageUpdateBatch,
     onRealtimeRoomTipUpdateBatch: args.onRealtimeRoomTipUpdateBatch,
     onParticipantUnreadDelta: args.onParticipantUnreadDelta,
+    onSocialGraphChanged: args.onSocialGraphChanged,
   });
   const roomIdsContentKey = messengerHomeRealtimeRoomIdsContentKey(args.roomIds);
   const extraRoomIdsContentKey = messengerHomeRealtimeRoomIdsContentKey(args.extraRoomIds);
@@ -790,6 +802,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     listenerRef.current.onRealtimeMessageUpdateBatch = args.onRealtimeMessageUpdateBatch;
     listenerRef.current.onRealtimeRoomTipUpdateBatch = args.onRealtimeRoomTipUpdateBatch;
     listenerRef.current.onParticipantUnreadDelta = args.onParticipantUnreadDelta;
+    listenerRef.current.onSocialGraphChanged = args.onSocialGraphChanged;
   }, [
     args.onRefresh,
     args.onRealtimeMessageInsert,
@@ -797,6 +810,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     args.onRealtimeMessageUpdateBatch,
     args.onRealtimeRoomTipUpdateBatch,
     args.onParticipantUnreadDelta,
+    args.onSocialGraphChanged,
   ]);
 
   useEffect(() => {

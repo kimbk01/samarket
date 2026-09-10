@@ -52,6 +52,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     ((hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void) | undefined
   >;
   onRefreshRef: MutableRefObject<() => void>;
+  /** Canonical friendship contact changes — trigger /friends replace hydrate (not never-shrink silent sync). */
+  onSocialGraphChangedRef?: MutableRefObject<(() => void) | undefined>;
 }): { channels: Array<{ stop: () => void }>; cancelSchedulers: () => void } {
   const channels: Array<{ stop: () => void }> = [];
   const refreshScheduler = createRefreshScheduler(args.onRefreshRef, MESSENGER_HOME_META_DEBOUNCE_MS);
@@ -166,7 +168,9 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               filter: `owner_user_id=eq.${args.userId}`,
             },
             () => {
-              if (!cancelled()) refreshScheduler.schedule();
+              if (cancelled()) return;
+              args.onSocialGraphChangedRef?.current?.();
+              refreshScheduler.schedule();
             }
           )
           .on(
@@ -178,7 +182,9 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               filter: `user_id=eq.${args.userId}`,
             },
             () => {
-              if (!cancelled()) refreshScheduler.schedule();
+              if (cancelled()) return;
+              args.onSocialGraphChangedRef?.current?.();
+              refreshScheduler.schedule();
             }
           )
           .on(
@@ -190,7 +196,9 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               filter: `user_id=eq.${args.userId}`,
             },
             () => {
-              if (!cancelled()) refreshScheduler.schedule();
+              if (cancelled()) return;
+              args.onSocialGraphChangedRef?.current?.();
+              refreshScheduler.schedule();
             }
           )
           .on(

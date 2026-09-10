@@ -1629,7 +1629,7 @@ export function useCommunityMessengerHomeBootstrap({
         const incomingFriends = json.friends ?? [];
         const next = applyHomeListPatch(
           prev,
-          { kind: "home_sync", friends: incomingFriends, roomMode: "replace" },
+          { kind: "home_sync", friends: incomingFriends, roomMode: "replace", friendsMode: "replace" },
           "bootstrap"
         );
         const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {
@@ -1649,11 +1649,7 @@ export function useCommunityMessengerHomeBootstrap({
   }, []);
 
   const hydrateMessengerFriends = useCallback(async () => {
-    const cur = dataRef.current;
-    if (!cur) return;
-    const friendsEmpty = (cur.friends ?? []).length === 0;
-    const criticalTier = cur.clientHydrationTier === "critical";
-    if (!friendsEmpty && !criticalTier) return;
+    /** Always re-fetch Contact SSOT — lite projection must not permanently starve picker. */
     await mergeDeferredMessengerFriends();
   }, [mergeDeferredMessengerFriends]);
 

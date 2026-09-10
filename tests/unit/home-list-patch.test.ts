@@ -403,4 +403,89 @@ describe("applyHomeListPatch home_sync partial_upsert", () => {
     expect(next?.chats.find((r) => r.id === "b")).toBe(originalB);
     expect(next?.chats.find((r) => r.id === "c")).toBe(originalC);
   });
+
+  it("insert_room_summary inserts unknown group id (M1b merge still no-insert)", () => {
+    const prev = bootstrap([room("a")]);
+    const group: CommunityMessengerRoomSummary = {
+      ...room("new-group"),
+      roomType: "private_group",
+      title: "새 그룹",
+      lastMessage: "그룹이 생성되었습니다",
+      lastMessageType: "system",
+    };
+    const merged = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: group }, "realtime");
+    expect(merged?.groups ?? []).toHaveLength(0);
+    expect(merged?.chats).toHaveLength(1);
+
+    const inserted = applyHomeListPatch(prev, { kind: "insert_room_summary", summary: group }, "bootstrap");
+    expect(inserted?.groups).toHaveLength(1);
+    expect(inserted?.groups[0]?.id).toBe("new-group");
+    expect(inserted?.chats).toHaveLength(1);
+  });
+
+  it("home_sync friends default never shrinks contact set", () => {
+    const friend = (id: string) =>
+      ({
+        id,
+        label: id,
+        subtitle: "",
+        bio: null,
+        avatarUrl: null,
+        following: false,
+        blocked: false,
+        isFriend: true,
+        isFavoriteFriend: false,
+      }) as CommunityMessengerBootstrap["friends"][number];
+    const prev = {
+      ...bootstrap([]),
+      friends: [friend("f1"), friend("f2"), friend("f3")],
+    };
+    const shrunk = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", friends: [friend("f1")], roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    expect(shrunk?.friends.map((f) => f.id).sort()).toEqual(["f1", "f2", "f3"]);
+
+    const replaced = applyHomeListPatch(
+      prev,
+      {
+        kind: "home_sync",
+        friends: [friend("f1")],
+        roomMode: "partial_upsert",
+        friendsMode: "replace",
+      },
+      "home-sync"
+    );
+    expect(replaced?.friends.map((f) => f.id)).toEqual(["f1"]);
+
+    const emptied = applyHomeListPatch(
+      prev,
+      {
+        kind: "home_sync",
+        friends: [],
+        roomMode: "partial_upsert",
+        friendsMode: "replace",
+      },
+      "home-sync"
+    );
+    expect(emptied?.friends).toEqual([]);
+  });
+
+  it("insert_room_summary is idempotent for same room id", () => {
+    const prev = bootstrap([]);
+    const group: CommunityMessengerRoomSummary = {
+      ...room("g1"),
+      roomType: "private_group",
+      title: "G",
+    };
+    const once = applyHomeListPatch(prev, { kind: "insert_room_summary", summary: group }, "bootstrap");
+    const twice = applyHomeListPatch(
+      once,
+      { kind: "insert_room_summary", summary: { ...group, lastMessage: "updated" } },
+      "realtime"
+    );
+    expect(twice?.groups).toHaveLength(1);
+    expect(twice?.groups[0]?.lastMessage).toBe("updated");
+  });
 });

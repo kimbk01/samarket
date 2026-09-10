@@ -63,6 +63,8 @@ function mergeSummaryIntoDescSortedBucket(
  * 홈 부트스트랩 `chats` / `groups` 에 **기존 id** 방 요약을 PATCH 한다.
  * CONTRACT (M1b): absent `summary.id` → no-op (INSERT 금지).
  * 잘못된 버킷에 있던 동일 id 행은 제거한다(방 타입 변경 등 희귀 케이스).
+ *
+ * 신규 방 INSERT는 `insertBootstrapRoomSummaryIntoLists` (create/invite ACK explicit writer)만.
  */
 export function mergeBootstrapRoomSummaryIntoLists(
   data: CommunityMessengerBootstrap,
@@ -75,6 +77,34 @@ export function mergeBootstrapRoomSummaryIntoLists(
   const sameIndex = target0.findIndex((r) => sameMessengerListRoomId(r.id, summary.id));
   const existsInOther = (data[otherKey] ?? []).some((r) => sameMessengerListRoomId(r.id, summary.id));
   if (sameIndex < 0 && !existsInOther) {
+    return data;
+  }
+  return applyRoomSummaryIntoLists(data, summary, { allowInsert: false });
+}
+
+/**
+ * create / invite ACK · missing-membership materialization 전용 INSERT writer.
+ * M1b(`merge_room_summary`)는 그대로 INSERT 금지 — 이 경로만 unknown id를 목록에 넣는다.
+ */
+export function insertBootstrapRoomSummaryIntoLists(
+  data: CommunityMessengerBootstrap,
+  summary: CommunityMessengerRoomSummary
+): CommunityMessengerBootstrap {
+  return applyRoomSummaryIntoLists(data, summary, { allowInsert: true });
+}
+
+function applyRoomSummaryIntoLists(
+  data: CommunityMessengerBootstrap,
+  summary: CommunityMessengerRoomSummary,
+  opts: { allowInsert: boolean }
+): CommunityMessengerBootstrap {
+  const isGroup = isCommunityMessengerPrivateGroupListRoomType(summary.roomType);
+  const targetKey = isGroup ? "groups" : "chats";
+  const otherKey = isGroup ? "chats" : "groups";
+  const target0 = data[targetKey] ?? [];
+  const sameIndex = target0.findIndex((r) => sameMessengerListRoomId(r.id, summary.id));
+  const existsInOther = (data[otherKey] ?? []).some((r) => sameMessengerListRoomId(r.id, summary.id));
+  if (sameIndex < 0 && !existsInOther && !opts.allowInsert) {
     return data;
   }
   bumpMessengerRenderPerf("messenger_room_summary_merge");
@@ -95,12 +125,13 @@ export function mergeBootstrapRoomSummaryIntoLists(
   const prevRow =
     (data[targetKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id)) ??
     (data[otherKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id));
+  const eventType = opts.allowInsert ? "insert_room_summary" : "merge_room_summary";
   const summaryMerged = prevRow
     ? coalesceRoomSummarySnapshotRow(prevRow, summary, {
         surface: "room_list",
         roomId: summary.id,
-        source: "merge_room_summary",
-        eventType: "merge_room_summary",
+        source: eventType,
+        eventType,
       })
     : summary;
   let mergedTarget: CommunityMessengerRoomSummary[];

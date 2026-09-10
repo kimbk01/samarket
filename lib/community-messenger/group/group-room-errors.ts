@@ -31,6 +31,7 @@ export const GROUP_ROOM_ERROR = {
   ROOM_DELETED: "room_deleted",
   DELETE_FAILED: "delete_failed",
   NOT_OWNER: "not_owner",
+  ROOM_SUMMARY_UNAVAILABLE: "room_summary_unavailable",
 } as const;
 
 export type GroupRoomErrorCode = (typeof GROUP_ROOM_ERROR)[keyof typeof GROUP_ROOM_ERROR];
