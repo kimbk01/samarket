@@ -23,9 +23,10 @@ import type {
   CommunityCrawlViewConfig,
 } from "@/lib/community-crawler/crawl-ssot";
 
-/** TEST crawl: 1 page, up to 5 previews. Never writes community_posts / post_links / media. */
+/** TEST crawl default cap. STEP5 prepare may raise via options (≤ board.max_posts, ≤ 15). */
 export const TEST_CRAWL_MAX_POSTS = 5;
 export const TEST_CRAWL_MAX_PAGES = 1;
+export const PREPARE_CRAWL_MAX_POSTS = 15;
 
 const CONTENT_PREVIEW_LEN = 280;
 
@@ -35,6 +36,8 @@ export async function runCommunityTestCrawl(input: {
   source: CommunityCrawlSourceRow;
   topicName: string | null;
   recordRun?: boolean;
+  /** STEP5 prepare: raise cap (still capped by PREPARE_CRAWL_MAX_POSTS / board.max_posts). */
+  maxPostsOverride?: number;
 }): Promise<TestCrawlResult> {
   const { sb, board, source, topicName } = input;
   const recordRun = input.recordRun !== false;
@@ -159,7 +162,12 @@ export async function runCommunityTestCrawl(input: {
   }
   const config = cfgParsed.config;
 
-  const maxPosts = Math.min(TEST_CRAWL_MAX_POSTS, Math.max(1, board.max_posts || TEST_CRAWL_MAX_POSTS));
+  const requestedCap =
+    typeof input.maxPostsOverride === "number" && Number.isFinite(input.maxPostsOverride)
+      ? Math.max(1, Math.floor(input.maxPostsOverride))
+      : TEST_CRAWL_MAX_POSTS;
+  const hardCap = Math.min(PREPARE_CRAWL_MAX_POSTS, Math.max(1, board.max_posts || PREPARE_CRAWL_MAX_POSTS));
+  const maxPosts = Math.min(hardCap, requestedCap);
   const maxPages = Math.min(TEST_CRAWL_MAX_PAGES, Math.max(1, board.max_pages || 1));
 
   const listItems: Array<{ detailUrl: string; sourcePostId: string | null }> = [];
@@ -256,6 +264,7 @@ export async function runCommunityTestCrawl(input: {
         bodyImageUrls: detail.bodyImageUrls,
         bodyImageCount: detail.bodyImageUrls.length,
         authorDisplayName: author.displayName,
+        sourceAuthorRaw: detail.author,
         authorNote: author.note,
         displayDateIso: date.displayDateIso,
         sourcePublishedAt: date.sourcePublishedAt,

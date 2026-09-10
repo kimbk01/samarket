@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   COMMUNITY_CRAWL_AUTHOR_POLICIES,
   COMMUNITY_CRAWL_DATE_POLICIES,
+  COMMUNITY_CRAWL_INGEST_MODES,
   COMMUNITY_CRAWL_POLICY_STATUSES,
   COMMUNITY_CRAWL_SOURCE_STATUSES,
   COMMUNITY_CRAWL_TYPES,
@@ -14,6 +15,7 @@ import {
   type CommunityCrawlAuthorPolicy,
   type CommunityCrawlBoardRow,
   type CommunityCrawlDatePolicy,
+  type CommunityCrawlIngestMode,
   type CommunityCrawlPolicyStatus,
   type CommunityCrawlRunRow,
   type CommunityCrawlSourceRow,
@@ -81,6 +83,9 @@ function mapBoard(row: Record<string, unknown>): CommunityCrawlBoardRow {
     next_run_at: row.next_run_at != null ? String(row.next_run_at) : null,
     max_pages: Math.max(1, Math.min(50, Number(row.max_pages ?? 3) || 3)),
     max_posts: Math.max(1, Math.min(200, Number(row.max_posts ?? 20) || 20)),
+    ingest_mode: (COMMUNITY_CRAWL_INGEST_MODES.includes(row.ingest_mode as CommunityCrawlIngestMode)
+      ? row.ingest_mode
+      : "REVIEW_THEN_PUBLISH") as CommunityCrawlIngestMode,
     last_run_at: row.last_run_at != null ? String(row.last_run_at) : null,
     last_success_at: row.last_success_at != null ? String(row.last_success_at) : null,
     last_error: row.last_error != null ? String(row.last_error) : null,
@@ -252,6 +257,7 @@ export async function createCommunityCrawlBoard(
     crawl_interval_minutes?: number | null;
     max_pages?: number;
     max_posts?: number;
+    ingest_mode?: CommunityCrawlIngestMode;
   }
 ): Promise<CommunityCrawlBoardRow> {
   const name = input.name.trim();
@@ -298,6 +304,7 @@ export async function createCommunityCrawlBoard(
       next_run_at,
       max_pages: input.max_pages ?? 3,
       max_posts: input.max_posts ?? 20,
+      ingest_mode: input.ingest_mode ?? "REVIEW_THEN_PUBLISH",
       updated_at: new Date().toISOString(),
     })
     .select("*")
@@ -372,6 +379,12 @@ export async function updateCommunityCrawlBoard(
   }
   if (typeof patch.max_pages === "number") next.max_pages = Math.max(1, Math.min(50, patch.max_pages));
   if (typeof patch.max_posts === "number") next.max_posts = Math.max(1, Math.min(200, patch.max_posts));
+  if (typeof patch.ingest_mode === "string") {
+    if (!COMMUNITY_CRAWL_INGEST_MODES.includes(patch.ingest_mode as CommunityCrawlIngestMode)) {
+      throw new Error("invalid_ingest_mode");
+    }
+    next.ingest_mode = patch.ingest_mode;
+  }
 
   if (next.schedule_enabled === true) {
     const interval = Number(next.crawl_interval_minutes);

@@ -89,6 +89,11 @@ async function fetchAuthorPostRows(
     }
     logListCommunityPostsForUserIssue(withOrigin ? "base_columns" : "base_columns_no_origin", uid, q3.error);
     if (q3.error && isMissingDbColumnError(q3.error, "status")) {
+      logListCommunityPostsForUserIssue(
+        withOrigin ? "base_columns_no_status" : "base_columns_no_status_no_origin",
+        uid,
+        q3.error
+      );
       const q4 = await runAuthorPostsSelect(sb, BASE_WITH_ORIGIN(withOrigin), uid, rowLimit, false);
       if (!q4.error && Array.isArray(q4.data)) {
         return q4.data as Record<string, unknown>[];

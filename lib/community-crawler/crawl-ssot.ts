@@ -36,6 +36,24 @@ export type CommunityCrawlRunStatus = (typeof COMMUNITY_CRAWL_RUN_STATUSES)[numb
 export const COMMUNITY_CRAWL_LINK_SOURCE_STATUSES = ["ACTIVE", "SOURCE_MISSING"] as const;
 export type CommunityCrawlLinkSourceStatus = (typeof COMMUNITY_CRAWL_LINK_SOURCE_STATUSES)[number];
 
+export const COMMUNITY_CRAWL_ITEM_STATUSES = [
+  "DISCOVERED",
+  "READY",
+  "REVIEW_REQUIRED",
+  "PUBLISHED",
+  "FAILED",
+  "SKIPPED",
+  "SOURCE_MISSING",
+] as const;
+export type CommunityCrawlItemStatus = (typeof COMMUNITY_CRAWL_ITEM_STATUSES)[number];
+
+export const COMMUNITY_CRAWL_INGEST_MODES = [
+  "COLLECT_ONLY",
+  "REVIEW_THEN_PUBLISH",
+  "AUTO_PUBLISH",
+] as const;
+export type CommunityCrawlIngestMode = (typeof COMMUNITY_CRAWL_INGEST_MODES)[number];
+
 export {
   COMMUNITY_CRAWL_DEFAULT_PUBLISH_MODE,
   COMMUNITY_CRAWL_PUBLISH_MODES,
@@ -44,9 +62,8 @@ export {
 } from "@/lib/community-crawler/publish-mode";
 
 /**
- * Board-level MANUAL bulk crawl / SCHEDULED still unavailable.
- * STEP4 Manual Import (per-preview REFERENCE_SUMMARY) is separate and available.
- * TEST crawl is wired in STEP3 — do not use this reason to disable TEST.
+ * Legacy flag: bulk MANUAL without durable items was unavailable.
+ * REAL crawl + durable items are available after crawl-items dataset.
  */
 export const COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON = "NOT_AVAILABLE_UNTIL_CRAWLER_CORE" as const;
 
@@ -55,6 +72,9 @@ export const COMMUNITY_CRAWL_TEST_AVAILABLE = true as const;
 
 /** STEP4: per-item Manual Import Editor → atomic post+link (REFERENCE_SUMMARY). */
 export const COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE = true as const;
+
+/** REAL crawl → durable community_crawl_items upsert. */
+export const COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE = true as const;
 
 export type CommunityCrawlSourceRow = {
   id: string;
@@ -91,9 +111,43 @@ export type CommunityCrawlBoardRow = {
   next_run_at: string | null;
   max_pages: number;
   max_posts: number;
+  ingest_mode: CommunityCrawlIngestMode;
   last_run_at: string | null;
   last_success_at: string | null;
   last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CommunityCrawlItemRow = {
+  id: string;
+  source_id: string;
+  board_id: string;
+  run_id: string | null;
+  source_post_id: string | null;
+  canonical_url: string;
+  source_title: string;
+  source_body_normalized: string;
+  source_author: string | null;
+  source_published_at: string | null;
+  source_cover_url: string | null;
+  source_body_images: string[];
+  content_fingerprint: string;
+  display_author_name: string | null;
+  display_author_avatar_url: string | null;
+  display_date: string | null;
+  display_view_seed: number;
+  dibay_title: string;
+  dibay_body: string;
+  target_topic_id: string;
+  status: CommunityCrawlItemStatus;
+  manual_override: boolean;
+  published_post_id: string | null;
+  error_code: string | null;
+  error_message: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_crawled_at: string;
   created_at: string;
   updated_at: string;
 };

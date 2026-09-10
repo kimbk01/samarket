@@ -19,6 +19,10 @@ import {
 } from "@/lib/community-crawler/crawl-ssot";
 import type { TestCrawlPreviewItem, TestCrawlResult } from "@/lib/community-crawler/core/preview-types";
 import { buildReferenceSummaryImportDraft } from "@/lib/community-crawler/manual-import-draft";
+import type { PreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
+import { buildPreparedCrawlItem } from "@/lib/community-crawler/prepare-crawl-draft";
+import { AdminCommunityCrawlItemsPanel } from "@/components/admin/community/AdminCommunityCrawlItemsPanel";
+import type { CommunityCrawlItemRow } from "@/lib/community-crawler/crawl-ssot";
 
 type TopicOpt = { id: string; name: string; slug: string };
 
@@ -154,8 +158,21 @@ export function AdminCommunityExternalSourcesPage() {
   const [selSourceId, setSelSourceId] = useState("");
   const [selNextPage, setSelNextPage] = useState("");
   const [testLoading, setTestLoading] = useState(false);
+  const [prepareModeLoading, setPrepareModeLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestCrawlResult | null>(null);
   const [testBoardId, setTestBoardId] = useState<string | null>(null);
+  const [selectedPreviewUrls, setSelectedPreviewUrls] = useState<Record<string, boolean>>({});
+  const [preparedItems, setPreparedItems] = useState<PreparedCrawlItem[]>([]);
+  const [prepareSummary, setPrepareSummary] = useState<{
+    prepared: number;
+    withCover: number;
+    uniqueAuthors: number;
+    uniqueDates: number;
+    uniqueViews: number;
+    publicPublish: string;
+    mediaPublish: string;
+    sourcePolicy: string;
+  } | null>(null);
   const [importedSourceUrls, setImportedSourceUrls] = useState<Record<string, string>>({});
   const [importEditor, setImportEditor] = useState<{
     boardId: string;
@@ -535,10 +552,46 @@ export function AdminCommunityExternalSourcesPage() {
     }
   }
 
+  async function runRealCrawl(boardId: string) {
+    setBusy(true);
+    setManageBoardId(null);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/crawl`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxPosts: 15 }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        items?: CommunityCrawlItemRow[];
+        result?: { status?: string; insertedCount?: number; failedCount?: number };
+        error?: string;
+      };
+      if (!j.ok) {
+        await dibayAlert({ title: String(j.error ?? "crawl_failed") });
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("community-crawl-items-ack", { detail: j.items ?? [] }));
+      await refresh();
+      await dibayAlert({
+        title: `${j.result?.status ?? "OK"} · +${j.result?.insertedCount ?? 0} / fail ${j.result?.failedCount ?? 0}`,
+      });
+    } catch (e) {
+      await dibayAlert({ title: e instanceof Error ? e.message : "crawl_failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runTestCrawl(boardId: string) {
     setTestLoading(true);
+    setPrepareModeLoading(false);
     setTestBoardId(boardId);
     setTestResult(null);
+    setSelectedPreviewUrls({});
+    setPreparedItems([]);
+    setPrepareSummary(null);
     setManageBoardId(null);
     try {
       const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/test`, {
@@ -555,12 +608,96 @@ export function AdminCommunityExternalSourcesPage() {
         return;
       }
       setTestResult(j.result);
+      const sel: Record<string, boolean> = {};
+      for (const p of j.result.previews) sel[p.sourceUrl] = true;
+      setSelectedPreviewUrls(sel);
       await refresh();
     } catch (e) {
       await dibayAlert({ title: e instanceof Error ? e.message : "test_failed" });
     } finally {
       setTestLoading(false);
     }
+  }
+
+  async function runPrepareCrawl(boardId: string) {
+    setTestLoading(true);
+    setPrepareModeLoading(true);
+    setTestBoardId(boardId);
+    setTestResult(null);
+    setSelectedPreviewUrls({});
+    setPreparedItems([]);
+    setPrepareSummary(null);
+    setManageBoardId(null);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/boards/${boardId}/prepare`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxPosts: 15 }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        result?: TestCrawlResult;
+        prepared?: PreparedCrawlItem[];
+        summary?: {
+          prepared: number;
+          withCover: number;
+          uniqueAuthors: number;
+          uniqueDates: number;
+          uniqueViews: number;
+          publicPublish: string;
+          mediaPublish: string;
+          sourcePolicy: string;
+        };
+        error?: string;
+      };
+      if (!j.result) {
+        await dibayAlert({ title: String(j.error ?? "prepare_failed") });
+        return;
+      }
+      setTestResult(j.result);
+      setPreparedItems(j.prepared ?? []);
+      setPrepareSummary(j.summary ?? null);
+      const sel: Record<string, boolean> = {};
+      for (const p of j.result.previews) sel[p.sourceUrl] = true;
+      setSelectedPreviewUrls(sel);
+      await refresh();
+    } catch (e) {
+      await dibayAlert({ title: e instanceof Error ? e.message : "prepare_failed" });
+    } finally {
+      setTestLoading(false);
+    }
+  }
+
+  function togglePreviewSelected(url: string) {
+    setSelectedPreviewUrls((prev) => ({ ...prev, [url]: !prev[url] }));
+  }
+
+  function markSelectedAsPrepared() {
+    if (!testResult) return;
+    const selected = testResult.previews.filter((p) => selectedPreviewUrls[p.sourceUrl]);
+    if (selected.length === 0) {
+      void dibayAlert({ title: t("admin_community_crawl_prepare_clear") });
+      return;
+    }
+    const source = testBoardId
+      ? sources.find((s) => s.id === boards.find((b) => b.id === testBoardId)?.source_id)
+      : null;
+    const policy = source?.policy_status ?? testResult.policyStatus;
+    const items = selected.map((preview) =>
+      buildPreparedCrawlItem({ preview, policyStatus: policy })
+    );
+    setPreparedItems(items);
+    setPrepareSummary({
+      prepared: items.length,
+      withCover: items.filter((i) => Boolean(i.representativeImageUrl)).length,
+      uniqueAuthors: new Set(items.map((i) => i.displayAuthorName)).size,
+      uniqueDates: new Set(items.map((i) => i.displayDateIso ?? "").filter(Boolean)).size,
+      uniqueViews: new Set(items.map((i) => i.viewCount)).size,
+      publicPublish: policy === "ALLOWED" ? "ALLOWED" : "BLOCKED_POLICY",
+      mediaPublish: policy === "ALLOWED" ? "ALLOWED_REHOST" : "BLOCKED_POLICY",
+      sourcePolicy: policy,
+    });
   }
 
   async function openImportEditor(preview: TestCrawlPreviewItem) {
@@ -799,6 +936,8 @@ export function AdminCommunityExternalSourcesPage() {
             )}
           </section>
 
+          <AdminCommunityCrawlItemsPanel boardId={boards[0]?.id ?? null} />
+
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
             <h3 className="sam-text-section-title font-semibold text-sam-fg">
               {t("admin_community_crawl_recent_runs")}
@@ -845,9 +984,25 @@ export function AdminCommunityExternalSourcesPage() {
                 type="button"
                 className={btnPrimary}
                 disabled={busy || testLoading}
+                onClick={() => void runRealCrawl(manageBoard.id)}
+              >
+                {busy ? t("admin_community_crawl_run_running") : t("admin_community_crawl_run_now")}
+              </button>
+              <button
+                type="button"
+                className={btnPrimary}
+                disabled={busy || testLoading}
                 onClick={() => void runTestCrawl(manageBoard.id)}
               >
                 {testLoading ? t("admin_community_crawl_test_running") : t("admin_community_crawl_test")}
+              </button>
+              <button
+                type="button"
+                className={btnPrimary}
+                disabled={busy || testLoading}
+                onClick={() => void runPrepareCrawl(manageBoard.id)}
+              >
+                {testLoading ? t("admin_community_crawl_prepare_running") : t("admin_community_crawl_prepare")}
               </button>
               <button
                 type="button"
@@ -885,7 +1040,11 @@ export function AdminCommunityExternalSourcesPage() {
 
       {testLoading ? (
         <ModalShell title={t("admin_community_crawl_preview_title")} onClose={() => {}}>
-          <p className="sam-text-body text-sam-muted">{t("admin_community_crawl_test_running")}</p>
+          <p className="sam-text-body text-sam-muted">
+            {prepareModeLoading
+              ? t("admin_community_crawl_prepare_running")
+              : t("admin_community_crawl_test_running")}
+          </p>
         </ModalShell>
       ) : null}
 
@@ -895,6 +1054,9 @@ export function AdminCommunityExternalSourcesPage() {
           onClose={() => {
             setTestResult(null);
             setTestBoardId(null);
+            setSelectedPreviewUrls({});
+            setPreparedItems([]);
+            setPrepareSummary(null);
           }}
         >
           <div className="space-y-4">
@@ -906,12 +1068,62 @@ export function AdminCommunityExternalSourcesPage() {
             <p className="sam-text-helper text-sam-muted">
               {t("admin_community_crawl_preview_external_only")} · policy={testResult.policyStatus}
             </p>
+            {prepareSummary ? (
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 space-y-1">
+                <p className="sam-text-body text-sam-fg">
+                  {t("admin_community_crawl_prepare_summary").replace(
+                    "{count}",
+                    String(prepareSummary.prepared)
+                  )}
+                </p>
+                <p className="sam-text-helper text-sam-muted">
+                  cover={prepareSummary.withCover} · authors={prepareSummary.uniqueAuthors} · dates=
+                  {prepareSummary.uniqueDates} · views={prepareSummary.uniqueViews} · media=
+                  {prepareSummary.mediaPublish}
+                </p>
+                {prepareSummary.publicPublish === "BLOCKED_POLICY" ? (
+                  <p className="sam-text-helper text-sam-muted">
+                    {t("admin_community_crawl_prepare_blocked_publish")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() => {
+                  const sel: Record<string, boolean> = {};
+                  for (const p of testResult.previews) sel[p.sourceUrl] = true;
+                  setSelectedPreviewUrls(sel);
+                }}
+              >
+                {t("admin_community_crawl_prepare_select_all")}
+              </button>
+              <button type="button" className={btnGhost} onClick={() => setSelectedPreviewUrls({})}>
+                {t("admin_community_crawl_prepare_clear")}
+              </button>
+              <button type="button" className={btnPrimary} onClick={markSelectedAsPrepared}>
+                {t("admin_community_crawl_prepare_selected")}
+              </button>
+            </div>
             {testResult.previews.map((p) => (
               <article
                 key={p.sourceUrl}
                 className="rounded-ui-rect border border-sam-border bg-sam-app p-3 space-y-2 overflow-hidden"
               >
-                <h3 className="font-semibold text-sam-fg break-words">{p.title}</h3>
+                <label className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={Boolean(selectedPreviewUrls[p.sourceUrl])}
+                    onChange={() => togglePreviewSelected(p.sourceUrl)}
+                  />
+                  <span className="font-semibold text-sam-fg break-words">{p.title}</span>
+                </label>
+                {preparedItems.some((x) => x.sourceUrl === p.sourceUrl) ? (
+                  <p className="sam-text-helper text-sam-primary">{t("admin_community_crawl_prepared_badge")}</p>
+                ) : null}
                 {p.representativeImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- admin preview external URL only
                   <img
@@ -1004,6 +1216,14 @@ export function AdminCommunityExternalSourcesPage() {
                 onClick={() => testBoardId && void runTestCrawl(testBoardId)}
               >
                 {t("admin_community_crawl_test_again")}
+              </button>
+              <button
+                type="button"
+                className={btnGhost}
+                disabled={!testBoardId || busy}
+                onClick={() => testBoardId && void runPrepareCrawl(testBoardId)}
+              >
+                {t("admin_community_crawl_prepare")}
               </button>
               <button
                 type="button"
@@ -1224,39 +1444,6 @@ export function AdminCommunityExternalSourcesPage() {
               </select>
             </label>
 
-            <fieldset className="space-y-2 rounded-ui-rect border border-sam-border p-3">
-              <legend className={labelClass}>{t("admin_community_crawl_selectors_title")}</legend>
-              <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_sel_required_hint")}</p>
-              {(
-                [
-                  ["list", selListItem, setSelListItem, "admin_community_crawl_sel_list_item", false],
-                  ["detail", selDetailLink, setSelDetailLink, "admin_community_crawl_sel_detail_link", true],
-                  ["title", selTitle, setSelTitle, "admin_community_crawl_sel_title", true],
-                  ["content", selContent, setSelContent, "admin_community_crawl_sel_content", true],
-                  ["author", selAuthor, setSelAuthor, "admin_community_crawl_sel_author", false],
-                  ["date", selDate, setSelDate, "admin_community_crawl_sel_date", false],
-                  ["view", selView, setSelView, "admin_community_crawl_sel_view", false],
-                  ["image", selImage, setSelImage, "admin_community_crawl_sel_image", false],
-                  ["rep", selRepImage, setSelRepImage, "admin_community_crawl_sel_rep_image", false],
-                  ["sid", selSourceId, setSelSourceId, "admin_community_crawl_sel_source_id", false],
-                  ["next", selNextPage, setSelNextPage, "admin_community_crawl_sel_next_page", false],
-                ] as const
-              ).map(([key, value, setter, labelKey, required]) => (
-                <label key={key} className="block">
-                  <span className={labelClass}>
-                    {t(labelKey)}
-                    {required ? " *" : ""}
-                  </span>
-                  <input
-                    className={fieldClass}
-                    value={value}
-                    onChange={(e) => setter(e.target.value)}
-                    placeholder="CSS selector"
-                  />
-                </label>
-              ))}
-            </fieldset>
-
             <label className="block">
               <span className={labelClass}>{t("admin_community_crawl_update_policy")}</span>
               <select
@@ -1411,16 +1598,50 @@ export function AdminCommunityExternalSourcesPage() {
                 : t("admin_community_crawl_show_advanced")}
             </button>
             {showAdvanced ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block">
-                  <span className={labelClass}>{t("admin_community_crawl_max_posts")}</span>
-                  <input className={fieldClass} value={maxPosts} onChange={(e) => setMaxPosts(e.target.value)} />
-                </label>
-                <label className="block">
-                  <span className={labelClass}>{t("admin_community_crawl_max_pages")}</span>
-                  <input className={fieldClass} value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
-                </label>
-              </div>
+              <>
+                <fieldset className="space-y-2 rounded-ui-rect border border-sam-border p-3">
+                  <legend className={labelClass}>{t("admin_community_crawl_selectors_title")}</legend>
+                  <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_sel_required_hint")}</p>
+                  {(
+                    [
+                      ["list", selListItem, setSelListItem, "admin_community_crawl_sel_list_item", false],
+                      ["detail", selDetailLink, setSelDetailLink, "admin_community_crawl_sel_detail_link", true],
+                      ["title", selTitle, setSelTitle, "admin_community_crawl_sel_title", true],
+                      ["content", selContent, setSelContent, "admin_community_crawl_sel_content", true],
+                      ["author", selAuthor, setSelAuthor, "admin_community_crawl_sel_author", false],
+                      ["date", selDate, setSelDate, "admin_community_crawl_sel_date", false],
+                      ["view", selView, setSelView, "admin_community_crawl_sel_view", false],
+                      ["image", selImage, setSelImage, "admin_community_crawl_sel_image", false],
+                      ["rep", selRepImage, setSelRepImage, "admin_community_crawl_sel_rep_image", false],
+                      ["sid", selSourceId, setSelSourceId, "admin_community_crawl_sel_source_id", false],
+                      ["next", selNextPage, setSelNextPage, "admin_community_crawl_sel_next_page", false],
+                    ] as const
+                  ).map(([key, value, setter, labelKey, required]) => (
+                    <label key={key} className="block">
+                      <span className={labelClass}>
+                        {t(labelKey)}
+                        {required ? " *" : ""}
+                      </span>
+                      <input
+                        className={fieldClass}
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        placeholder="CSS selector"
+                      />
+                    </label>
+                  ))}
+                </fieldset>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="block">
+                    <span className={labelClass}>{t("admin_community_crawl_max_posts")}</span>
+                    <input className={fieldClass} value={maxPosts} onChange={(e) => setMaxPosts(e.target.value)} />
+                  </label>
+                  <label className="block">
+                    <span className={labelClass}>{t("admin_community_crawl_max_pages")}</span>
+                    <input className={fieldClass} value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
+                  </label>
+                </div>
+              </>
             ) : null}
 
             <div className="flex flex-wrap justify-end gap-2 pt-2">
@@ -1435,9 +1656,8 @@ export function AdminCommunityExternalSourcesPage() {
                   !boardName.trim() ||
                   !boardUrl.trim() ||
                   !topicId ||
-                  !selDetailLink.trim() ||
-                  !selTitle.trim() ||
-                  !selContent.trim()
+                  (!/philippines\.travel/i.test(boardUrl) &&
+                    (!selDetailLink.trim() || !selTitle.trim() || !selContent.trim()))
                 }
                 onClick={() => void saveBoard()}
               >

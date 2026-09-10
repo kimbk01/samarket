@@ -6,7 +6,10 @@ export type TestCrawlPreviewItem = {
   representativeImageUrl: string | null;
   bodyImageUrls: string[];
   bodyImageCount: number;
+  /** DIBAY display author after board author policy (import-time). */
   authorDisplayName: string;
+  /** Raw source author text when extracted (metadata only — not user-facing DIBAY author). */
+  sourceAuthorRaw?: string | null;
   authorNote?: string;
   displayDateIso: string | null;
   sourcePublishedAt: string | null;

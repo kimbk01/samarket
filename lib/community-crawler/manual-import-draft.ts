@@ -57,7 +57,9 @@ export function buildReferenceSummaryImportDraft(input: {
       sourcePostId: p.sourcePostId,
       sourceTitle: suggestedTitle,
       sourceBodyMarkdown: sourceBody,
-      sourceAuthorDisplayName: p.authorDisplayName || COMMUNITY_IMPORTED_AUTHOR_FALLBACK,
+      sourceAuthorDisplayName:
+        (p.sourceAuthorRaw && String(p.sourceAuthorRaw).trim()) ||
+        COMMUNITY_IMPORTED_AUTHOR_FALLBACK,
       sourcePublishedAt: p.sourcePublishedAt,
     },
     draft: {

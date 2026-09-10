@@ -1,5 +1,4 @@
 import * as cheerio from "cheerio";
-import type { Element } from "domhandler";
 import type { GenericHtmlAdapterConfig } from "@/lib/community-crawler/adapters/generic-html-config";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
 import {

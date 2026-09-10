@@ -65,14 +65,14 @@ export function normalizePreviewAuthor(input: {
   if (input.policy === "RANDOM_POOL") {
     const pool = Array.isArray(input.config.random_pool) ? input.config.random_pool : [];
     if (pool.length === 0) {
-      return { displayName: "예시 작성자", avatarUrl: null, note: "random_pool_empty_example" };
+      return { displayName: "", avatarUrl: null, note: "AUTHOR_POOL_EMPTY" };
     }
     const idx = stableHash32(input.stableKey) % pool.length;
     const pick = pool[idx]!;
     return {
-      displayName: String(pick.display_name ?? "").trim() || "예시 작성자",
+      displayName: String(pick.display_name ?? "").trim() || "",
       avatarUrl: pick.avatar_url ? String(pick.avatar_url) : null,
-      note: "deterministic_pool_pick",
+      note: pick.display_name ? "deterministic_pool_pick" : "AUTHOR_POOL_EMPTY",
     };
   }
   const src = (input.sourceAuthor ?? "").trim();
