@@ -36,6 +36,7 @@ export function useMessengerRoomReaderScrollBottom({
     | "attach-confirm"
     | "menu"
     | "members"
+    | "invite"
     | "info"
     | "search"
     | "media"

@@ -859,12 +859,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const friendUserSearchSeqRef = useRef(0);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
-  const [groupInviteSearchQuery, setGroupInviteSearchQuery] = useState("");
-  const [groupInviteSearchResults, setGroupInviteSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
-  const [groupInviteSearchBusy, setGroupInviteSearchBusy] = useState(false);
-  const [groupInviteSearchFailed, setGroupInviteSearchFailed] = useState(false);
   const [groupSelectedProfiles, setGroupSelectedProfiles] = useState<Record<string, CommunityMessengerProfileLite>>({});
-  const groupInviteSearchSeqRef = useRef(0);
   const [groupCreateStep, setGroupCreateStep] = useState<"closed" | "select" | "private_group" | "open_group">("closed");
   const [privateGroupSubStep, setPrivateGroupSubStep] = useState<"members" | "details">("members");
   const [openGroupTitle, setOpenGroupTitle] = useState("");
@@ -893,10 +888,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const resetGroupCreateDraft = useCallback(() => {
     setGroupTitle((prev) => (prev === "" ? prev : ""));
     setGroupMembers((prev) => (prev.length === 0 ? prev : []));
-    setGroupInviteSearchQuery((prev) => (prev === "" ? prev : ""));
-    setGroupInviteSearchResults((prev) => (prev.length === 0 ? prev : []));
-    setGroupInviteSearchBusy((prev) => (prev ? false : prev));
-    setGroupInviteSearchFailed((prev) => (prev ? false : prev));
     setGroupSelectedProfiles((prev) => (Object.keys(prev).length === 0 ? prev : {}));
     setPrivateGroupSubStep("members");
     setOpenGroupTitle((prev) => (prev === "" ? prev : ""));
@@ -1359,60 +1350,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }, 300);
     return () => window.clearTimeout(timer);
   }, [friendManagerOpen, searchKeyword]);
-
-  useEffect(() => {
-    if (groupCreateStep !== "private_group") return;
-    const keyword = groupInviteSearchQuery.trim();
-    if (!keyword) {
-      groupInviteSearchSeqRef.current += 1;
-      setGroupInviteSearchResults([]);
-      setGroupInviteSearchBusy(false);
-      setGroupInviteSearchFailed(false);
-      return;
-    }
-    const viewerId = data?.me?.id ?? "";
-    const seq = ++groupInviteSearchSeqRef.current;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        setGroupInviteSearchBusy(true);
-        setGroupInviteSearchFailed(false);
-        try {
-          const res = await fetch(`/api/community-messenger/users?q=${encodeURIComponent(keyword)}`, {
-            cache: "no-store",
-          });
-          if (seq !== groupInviteSearchSeqRef.current) return;
-          const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerUserSearchResult[] };
-          if (!res.ok || !json.ok) {
-            setGroupInviteSearchResults([]);
-            setGroupInviteSearchFailed(true);
-            return;
-          }
-          const users = (json.users ?? []).map(
-            (row): CommunityMessengerProfileLite => ({
-              id: row.id,
-              label: row.displayName,
-              subtitle: row.publicId ? `@${row.publicId}` : undefined,
-              avatarUrl: row.avatarUrl,
-              following: false,
-              blocked: row.isBlockedByMe || row.isBlockedByPeer,
-              isFriend: row.isFriend,
-              isFavoriteFriend: false,
-            })
-          );
-          setGroupInviteSearchResults(viewerId ? users.filter((user) => user.id !== viewerId) : users);
-        } catch {
-          if (seq !== groupInviteSearchSeqRef.current) return;
-          setGroupInviteSearchResults([]);
-          setGroupInviteSearchFailed(true);
-        } finally {
-          if (seq === groupInviteSearchSeqRef.current) {
-            setGroupInviteSearchBusy(false);
-          }
-        }
-      })();
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [data?.me?.id, groupCreateStep, groupInviteSearchQuery]);
 
   const addFriendSaved = useCallback(
     async (targetUserId: string) => {
@@ -2267,25 +2204,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       return true;
     });
   }, [data?.hidden, groupMembers, sortedFriends]);
-  const groupInviteSearchNormalized = groupInviteSearchQuery.trim().toLowerCase();
-  const filteredGroupSelectableFriends = useMemo(() => {
-    if (!groupInviteSearchNormalized) return groupSelectableFriends;
-    return groupSelectableFriends.filter((friend) =>
-      [friend.label, friend.subtitle ?? ""].join(" ").toLowerCase().includes(groupInviteSearchNormalized)
-    );
-  }, [groupInviteSearchNormalized, groupSelectableFriends]);
-  const groupInviteNonFriendResults = useMemo(() => {
-    if (!groupInviteSearchQuery.trim()) return [];
-    return groupInviteSearchResults.filter((user) => !groupInviteFriendIdSet.has(user.id));
-  }, [groupInviteFriendIdSet, groupInviteSearchQuery, groupInviteSearchResults]);
   const selectedGroupMemberProfiles = useMemo(() => {
     const friendMap = new Map(
       [...(data?.friends ?? []), ...(data?.hidden ?? [])].map((friend) => [friend.id, friend] as const)
     );
-    const searchMap = new Map(groupInviteSearchResults.map((user) => [user.id, user] as const));
     return groupMembers
       .map((id) => {
-        const known = groupSelectedProfiles[id] ?? friendMap.get(id) ?? searchMap.get(id);
+        const known = groupSelectedProfiles[id] ?? friendMap.get(id);
         if (known) return known;
         return {
           id,
@@ -2297,7 +2222,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           isFavoriteFriend: false,
         } satisfies CommunityMessengerProfileLite;
       });
-  }, [data?.friends, data?.hidden, groupInviteSearchResults, groupMembers, groupSelectedProfiles, t]);
+  }, [data?.friends, data?.hidden, groupMembers, groupSelectedProfiles, t]);
   const groupTitlePreview = useMemo(() => {
     const explicitTitle = groupTitle.trim();
     if (explicitTitle) return explicitTitle;
@@ -2311,30 +2236,34 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }
     return labels.join(", ");
   }, [groupMembers.length, groupTitle, selectedGroupMemberProfiles, t]);
-  const showGroupInviteSearchEmpty = Boolean(
-    groupInviteSearchQuery.trim() &&
-      !groupInviteSearchBusy &&
-      !groupInviteSearchFailed &&
-      !groupInviteSearchResults.length
+  const setPrivateGroupSelectedIds = useCallback(
+    (ids: string[]) => {
+      const next = ids.filter((id) => groupInviteFriendIdSet.has(id));
+      setGroupMembers(next);
+      setGroupSelectedProfiles((prev) => {
+        const kept: Record<string, CommunityMessengerProfileLite> = {};
+        for (const id of next) {
+          if (prev[id]) kept[id] = prev[id];
+        }
+        return kept;
+      });
+    },
+    [groupInviteFriendIdSet]
   );
-  const togglePrivateGroupMember = useCallback((user: CommunityMessengerProfileLite, checked: boolean) => {
-    setGroupMembers((prev) =>
-      checked ? (prev.includes(user.id) ? prev : [...prev, user.id]) : prev.filter((id) => id !== user.id)
-    );
-    setGroupSelectedProfiles((prev) => {
-      if (!checked) {
-        if (!prev[user.id]) return prev;
-        const next = { ...prev };
-        delete next[user.id];
-        return next;
-      }
-      return { ...prev, [user.id]: user };
-    });
-  }, []);
+  const rememberPrivateGroupSelectedProfile = useCallback((user: CommunityMessengerProfileLite) => {
+    if (!user.isFriend && !groupInviteFriendIdSet.has(user.id)) return;
+    setGroupSelectedProfiles((prev) => ({ ...prev, [user.id]: user }));
+  }, [groupInviteFriendIdSet]);
   const clearPrivateGroupSelection = useCallback(() => {
     setGroupMembers([]);
     setGroupSelectedProfiles({});
   }, []);
+  const onPrivateGroupFriendRequest = useCallback(
+    async (user: CommunityMessengerProfileLite) => {
+      await addFriendSaved(user.id);
+    },
+    [addFriendSaved]
+  );
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
     const missedCallItems: MessengerNotificationCenterItem[] = sortedCalls
@@ -3486,8 +3415,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                 groupTitlePreview={groupTitlePreview}
                 groupMembers={groupMembers}
                 selectedMemberProfiles={selectedGroupMemberProfiles}
+                selectedProfilesById={groupSelectedProfiles}
+                onSelectedProfilesRemember={rememberPrivateGroupSelectedProfile}
+                onSelectedIdsChange={setPrivateGroupSelectedIds}
                 onClearSelection={clearPrivateGroupSelection}
-                onToggleMember={togglePrivateGroupMember}
+                onContinueFromMembers={() => setPrivateGroupSubStep("details")}
+                viewerUserId={data?.me?.id}
+                friends={groupSelectableFriends}
+                onFriendRequest={onPrivateGroupFriendRequest}
+                friendRequestBusyUserId={
+                  busyId?.startsWith("friend-add:") ? busyId.slice("friend-add:".length) : null
+                }
                 onBack={() => {
                   if (privateGroupSubStep === "details") {
                     setPrivateGroupSubStep("members");
@@ -3495,14 +3433,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                   }
                   setGroupCreateStep("select");
                 }}
-                inviteSearchQuery={groupInviteSearchQuery}
-                onInviteSearchQueryChange={setGroupInviteSearchQuery}
-                inviteSearchBusy={groupInviteSearchBusy}
-                inviteSearchFailed={groupInviteSearchFailed}
-                filteredFriends={filteredGroupSelectableFriends}
-                nonFriendSearchResults={groupInviteNonFriendResults}
-                hasFriends={groupSelectableFriends.length > 0}
-                showInviteSearchEmpty={showGroupInviteSearchEmpty}
               />
             ) : null}
 
@@ -3662,17 +3592,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
             {groupCreateStep === "private_group" || groupCreateStep === "open_group" ? (
               <div className="mt-5">
-                {groupCreateStep === "private_group" ? (
-                  privateGroupSubStep === "members" ? (
-                    <button
-                      type="button"
-                      onClick={() => setPrivateGroupSubStep("details")}
-                      disabled={groupMembers.length === 0}
-                      className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                    >
-                      {t("cm_ui_next")}
-                    </button>
-                  ) : (
+                {groupCreateStep === "private_group" && privateGroupSubStep === "details" ? (
                     <button
                       type="button"
                       onClick={() => void createPrivateGroup()}
@@ -3685,7 +3605,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                     >
                       {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_group_submit")}
                     </button>
-                  )
                 ) : null}
                 {groupCreateStep === "open_group" ? (
                   <button

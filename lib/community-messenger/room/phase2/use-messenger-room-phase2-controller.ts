@@ -50,6 +50,10 @@ import { logCallPermission, type DirectCallDenyCode } from "@/lib/community-mess
 import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
 import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  communityMessengerFriendRequestFailureMessage,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { alertOutgoingCallFailure } from "@/lib/community-messenger/call-outgoing-failure-alert";
 import { type CommunityMessengerMessage, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import {
@@ -739,7 +743,7 @@ export function useMessengerRoomPhase2Controller() {
   }, [isOpenGroupRoom, snapshot]);
 
   useEffect(() => {
-    if (activeSheet !== "members" || !isPrivateGroupRoom || friendsLoaded) return;
+    if ((activeSheet !== "members" && activeSheet !== "invite") || !isPrivateGroupRoom || friendsLoaded) return;
     void loadFriends();
   }, [activeSheet, friendsLoaded, isPrivateGroupRoom, loadFriends]);
 
@@ -1706,6 +1710,7 @@ export function useMessengerRoomPhase2Controller() {
       }
       setInviteIds([]);
       setInviteSearchQuery("");
+      setActiveSheet(null);
       /** ACK → home list materialize (inviter tip + multi-tab). Invitee uses membership RT + insert_room_summary. */
       if (json.room) {
         const uid = snapshot?.viewerUserId?.trim();
@@ -1727,10 +1732,31 @@ export function useMessengerRoomPhase2Controller() {
     inviteIds,
     redirectIfMessengerAuthBlocked,
     refresh,
+    setActiveSheet,
     snapshot?.viewerUserId,
     streamRoomId,
   ]);
 
+  const requestGroupInviteFriend = useCallback(
+    async (userId: string) => {
+      const target = userId.trim();
+      if (!target) return;
+      setBusy(`friend-add:${target}`);
+      try {
+        const result = await postCommunityMessengerFriendRequestApi(target);
+        if (result.ok) {
+          showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
+          void loadFriends();
+          return;
+        }
+        const failureMessage = communityMessengerFriendRequestFailureMessage(result);
+        showMessengerSnackbar(failureMessage ?? t("cm_ui_friend_request_send_failed"), { variant: "error" });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [loadFriends, t]
+  );
   const savePrivateGroupNotice = useCallback(async () => {
     if (!isPrivateGroupRoom && !isOpenGroupRoom) return;
     setBusy("group-notice");
@@ -2707,6 +2733,7 @@ export function useMessengerRoomPhase2Controller() {
     toggleMessageReaction,
     blockPeerFromMessage,
     inviteMembers,
+    requestGroupInviteFriend,
     savePrivateGroupNotice,
     savePrivateGroupPermissions,
     updateGroupMemberRole,

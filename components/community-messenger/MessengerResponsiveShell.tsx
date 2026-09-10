@@ -69,7 +69,15 @@ function MessengerWideShellBody({ children }: Props) {
         splitMode="split"
         reserveBottomNavClearance
         showDetail={showDetail}
-        list={<MessengerSplitListPane scope={scope} />}
+        list={
+          roomId ? (
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-[calc(var(--sector-header-h,52px)+var(--safe-top))]">
+              <MessengerSplitListPane scope={scope} />
+            </div>
+          ) : (
+            <MessengerSplitListPane scope={scope} />
+          )
+        }
         detail={detail}
       />
     </div>

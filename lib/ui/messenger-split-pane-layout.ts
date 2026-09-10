@@ -11,3 +11,9 @@ export const MESSENGER_SPLIT_LIST_PANE_CLASS =
   "w-full min-[768px]:w-[clamp(360px,35vw,470px)] min-[768px]:max-w-[470px] min-[768px]:min-w-[360px]";
 
 export const MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS = `${MESSENGER_SPLIT_LIST_PANE_CLASS} min-[768px]:border-r border-sam-border`;
+
+/**
+ * Group Create/Invite/Members/Info overlay — tablet bounded width SSOT.
+ * Replaces ad-hoc `max-w-[420px]` / `max-w-[520px]` drift in room sheets.
+ */
+export const MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS = "max-w-[min(100%,420px)]";

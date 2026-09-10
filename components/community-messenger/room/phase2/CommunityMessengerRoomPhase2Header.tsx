@@ -352,7 +352,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
 
   return (
     <>
-    <MessengerHeader>
+    <MessengerHeader className={isMessengerSplit ? "pt-[var(--safe-top)]" : undefined}>
         <button
           type="button"
           onClick={handleBack}

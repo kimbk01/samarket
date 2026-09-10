@@ -685,6 +685,7 @@ export function useMessengerRoomClientPhase1({
     | "attach-confirm"
     | "menu"
     | "members"
+    | "invite"
     | "info"
     | "search"
     | "media"

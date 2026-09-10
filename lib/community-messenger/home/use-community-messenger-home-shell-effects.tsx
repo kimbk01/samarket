@@ -393,7 +393,7 @@ export function useCommunityMessengerHomeShellEffects({
     splitTitleText,
     pillar != null,
     splitBackHref,
-    headerActionsNode
+    roomIdFromPath ? null : headerActionsNode
   );
 
   useEffect(() => {

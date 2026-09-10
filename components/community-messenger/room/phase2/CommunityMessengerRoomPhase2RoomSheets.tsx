@@ -62,10 +62,11 @@ import { MessengerGiftOfferFlow } from "@/components/gift-certificate/MessengerG
 import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
 import { GroupBlockedMembersSection } from "@/components/community-messenger/group/GroupBlockedMembersSection";
 import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
-import { GroupMemberPresenceLabel } from "@/components/community-messenger/room/phase2/GroupMemberPresenceLabel";
 import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
+import { CommunityMessengerGroupMemberPicker } from "@/components/community-messenger/group/CommunityMessengerGroupMemberPicker";
 import { OverlayUi, OVERLAY_Z_CLASS } from "@/lib/ui/dibay-overlay-contract";
 import { patchPlatformPopupCriticalRuntimeFlags } from "@/lib/platform-popup/popup-critical-runtime-flags";
+import { MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -73,6 +74,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
   const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const [giftOfferOpen, setGiftOfferOpen] = useState(false);
   const [giftPreselectInstanceId, setGiftPreselectInstanceId] = useState<string | null>(null);
+  const [membersFilterQuery, setMembersFilterQuery] = useState("");
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   const roomChatDomain = String(vm.snapshot?.room?.chatDomain ?? "").trim();
@@ -124,7 +126,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           <div
             className={
               isGroupMenuDrawer
-                ? "relative z-[1] flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+                ? `relative z-[1] flex h-full min-h-0 w-full ${MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS} flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]`
                 : `relative z-[1] overflow-y-auto ${
                     vm.activeSheet === "attach"
                       ? "max-h-[min(78dvh,36rem)] w-full rounded-t-[20px] border-t border-[color:var(--cm-room-divider)] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
@@ -132,7 +134,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           vm.activeSheet === "stickers" ||
                           vm.activeSheet === "emoji"
                         ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,var(--safe-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
-                        : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
+                        : `mx-auto max-h-[min(86dvh,40rem)] w-full ${MESSENGER_GROUP_OVERLAY_SHEET_MAX_W_CLASS} rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
                             vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
                           }`
                   }`
@@ -357,6 +359,15 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </button>
                       <button
                         type="button"
+                        onClick={() =>
+                          vm.canInviteMembers ? vm.setActiveSheet("invite") : vm.setActiveSheet("members")
+                        }
+                        className="rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-3 text-left sam-text-helper font-semibold text-[#004C3F] transition active:bg-[#EAF4EF]"
+                      >
+                        {vm.t("nav_messenger_invite_members")}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => void vm.toggleRoomMute()}
                         disabled={vm.busy === "room-mute"}
                         className="rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-3 text-left sam-text-helper font-semibold text-[#004C3F] transition active:bg-[#EAF4EF] disabled:opacity-40"
@@ -430,23 +441,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <span className="min-w-0 flex-1">
                       <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_file")}</span>
                       <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
-                    </span>
-                    <span className="sam-text-page-title text-sam-meta">›</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      vm.dismissRoomSheet();
-                      vm.openFilePicker();
-                    }}
-                    disabled={vm.roomUnavailable || vm.busy === "send-file" || !vm.canUploadAttachments}
-                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app disabled:opacity-40"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500/12 text-slate-700">
-                      <FileIcon className="h-5 w-5 shrink-0" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_attach_send_file")}</span>
                     </span>
                     <span className="sam-text-page-title text-sam-meta">›</span>
                   </button>
@@ -726,56 +720,36 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("nav_messenger_participants")}</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("nav_messenger_participating_members")}</h2>
+                    <h2 className="sam-text-page-title font-semibold text-sam-fg">{vm.t("nav_messenger_participants")}</h2>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => vm.setActiveSheet("menu")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
-                  >
-                    {vm.t("tier1_back")}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {vm.isPrivateGroupRoom && vm.canInviteMembers ? (
+                      <button
+                        type="button"
+                        onClick={() => vm.setActiveSheet("invite")}
+                        className="rounded-ui-rect px-2 py-2 sam-text-helper font-semibold text-[color:var(--sam-brand,#2563eb)]"
+                      >
+                        + {vm.t("nav_messenger_invite_members")}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => vm.setActiveSheet("menu")}
+                      className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                    >
+                      {vm.t("tier1_back")}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <input
+                    value={membersFilterQuery}
+                    onChange={(e) => setMembersFilterQuery(e.target.value)}
+                    placeholder={vm.t("cm_ui_search_participants")}
+                    className="h-10 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body-secondary outline-none focus:border-sam-border"
+                  />
                 </div>
                 <div className="mt-4 grid gap-2">
-                  {vm.isGroupRoom ? (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {typeof vm.snapshot.room.onlineCount === "number"
-                            ? vm.t("cm_ui_group_members_online_line", {
-                                memberCount: vm.snapshot.room.memberCount,
-                                onlineCount: vm.snapshot.room.onlineCount,
-                              })
-                            : vm.roomTypeLabel}
-                        </p>
-                      </div>
-                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_online")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
-                          {typeof vm.snapshot.room.onlineCount === "number"
-                            ? vm.t("nav_chat_count_people", { count: vm.snapshot.room.onlineCount })
-                            : "—"}
-                        </p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_online_ssot_hint")}</p>
-                      </div>
-                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_operation_team")}</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_owner_admin_count", { count: vm.groupAdminCount })}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_operation_capacity")}</p>
-                      </div>
-                    </div>
-                  ) : null}
-                  {vm.isGroupRoom && vm.snapshot.room.memberCount > vm.roomMembersDisplay.length ? (
-                    <p className="sam-text-helper leading-5 text-sam-muted">
-                      {vm.t("cm_ui_loaded_member_profiles", {
-                        total: vm.snapshot.room.memberCount,
-                        loaded: vm.roomMembersDisplay.length,
-                      })}
-                    </p>
-                  ) : null}
                   {vm.isGroupRoom && vm.membersListNextOffset !== null ? (
                     <button
                       type="button"
@@ -786,15 +760,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       {vm.membersPagingBusy ? vm.t("common_loading") : vm.t("cm_ui_load_more_members")}
                     </button>
                   ) : null}
-                  {vm.isOwner && vm.isPrivateGroupRoom ? (
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_operation_guide")}</p>
-                      <p className="mt-1 sam-text-helper leading-5 text-sam-muted">
-                        {vm.t("cm_ui_member_action_guide")}
-                      </p>
-                    </div>
-                  ) : null}
-                  {vm.sortedMembers.map((member) => (
+                  {vm.sortedMembers
+                    .filter((member) => {
+                      const keyword = membersFilterQuery.trim().toLowerCase();
+                      if (!keyword) return true;
+                      const haystack = [member.label, member.subtitle ?? ""].join(" ").toLowerCase();
+                      return haystack.includes(keyword);
+                    })
+                    .map((member) => (
                     <button
                       key={member.id}
                       type="button"
@@ -812,135 +785,68 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               <GroupMemberRoleBadge role="owner" />
                             ) : member.memberRole === "admin" ? (
                               <GroupMemberRoleBadge role="admin" />
-                            ) : null}
+                            ) : (
+                              <GroupMemberRoleBadge role="member" />
+                            )}
                             {messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
                               <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("nav_messenger_me")}</span>
                             ) : null}
-                            {member.identityMode === "alias" ? (
-                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("cm_ui_nickname")}</span>
-                            ) : null}
                           </div>
-                          <p className="mt-1 sam-text-helper text-sam-muted">
-                            {vm.isGroupRoom ? (
-                              <GroupMemberPresenceLabel
-                                userId={member.id}
-                                fallback={
-                                  member.subtitle ??
-                                  (member.identityMode === "alias"
-                                    ? vm.t("nav_messenger_member_alias_joined")
-                                    : vm.t("nav_messenger_member_joined"))
-                                }
-                              />
-                            ) : (
-                              member.subtitle ??
-                              (member.identityMode === "alias"
-                                ? vm.t("nav_messenger_member_alias_joined")
-                                : vm.t("nav_messenger_member_joined"))
-                            )}
-                          </p>
-                          {!messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
-                            <p className="mt-2 sam-text-xxs text-sam-meta">
-                              {vm.isPrivateGroupRoom ? vm.t("cm_ui_tap_for_chat_role_kick") : vm.t("cm_ui_tap_for_chat_profile_actions")}
-                            </p>
+                          {member.subtitle ? (
+                            <p className="mt-1 sam-text-helper text-sam-muted">{member.subtitle}</p>
                           ) : null}
                         </div>
                         {!messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
-                          <span className="pt-1 sam-text-page-title leading-none text-sam-meta">›</span>
+                          <span className="pt-1 sam-text-page-title leading-none text-sam-meta">···</span>
                         ) : null}
                       </div>
                     </button>
                   ))}
                 </div>
-                {vm.isPrivateGroupRoom ? (
-                  <div className="mt-4 rounded-ui-rect bg-sam-app p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">{vm.t("nav_messenger_invite_members")}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.canInviteMembers ? vm.t("nav_messenger_invite_members_desc") : vm.t("cm_ui_member_invite_restricted")}
-                        </p>
-                      </div>
-                      <span className="rounded-ui-rect bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-muted">
-                        {vm.myRoleLabel}
-                      </span>
-                    </div>
-                    {vm.canInviteMembers && vm.inviteCandidates.length ? (
-                      <>
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_invite_candidate_selected_count", { candidates: vm.filteredInviteCandidates.length, selected: vm.inviteIds.length })}</p>
-                          {vm.inviteIds.length ? (
-                            <button
-                              type="button"
-                              onClick={() => vm.setInviteIds([])}
-                              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-medium text-sam-muted"
-                            >
-                              {vm.t("cm_ui_clear_selection")}
-                            </button>
-                          ) : null}
-                        </div>
-                        <input
-                          value={vm.inviteSearchQuery}
-                          onChange={(e) => vm.setInviteSearchQuery(e.target.value)}
-                          placeholder={vm.t("cm_ui_search_friends")}
-                          className="mt-3 h-10 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body-secondary outline-none focus:border-sam-border"
-                        />
-                        {vm.selectedInviteCandidates.length ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {vm.selectedInviteCandidates.map((friend) => (
-                              <button
-                                key={`invite-selected-${friend.id}`}
-                                type="button"
-                                onClick={() => vm.setInviteIds((prev) => prev.filter((id) => id !== friend.id))}
-                                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-                              >
-                                {friend.label} {vm.t("nav_close")}
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </>
-                    ) : null}
-                    <div className="mt-3 grid gap-2">
-                      {vm.canInviteMembers && vm.filteredInviteCandidates.length ? (
-                        vm.filteredInviteCandidates.map((friend) => (
-                          <label
-                            key={friend.id}
-                            className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3"
-                          >
-                            <div>
-                              <p className="sam-text-body-secondary font-semibold text-sam-fg">{friend.label}</p>
-                              <p className="sam-text-helper text-sam-muted">{friend.subtitle ?? vm.t("nav_messenger_friend")}</p>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={vm.inviteIds.includes(friend.id)}
-                              onChange={(e) => {
-                                vm.setInviteIds((prev) =>
-                                  e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
-                                );
-                              }}
-                              className="h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border"
-                            />
-                          </label>
-                        ))
-                      ) : vm.canInviteMembers && vm.inviteCandidates.length ? (
-                        <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_no_search_results")}</p>
-                      ) : vm.canInviteMembers ? (
-                        <p className="sam-text-helper text-sam-muted">{vm.t("nav_messenger_no_invitable_friends")}</p>
-                      ) : (
-                        <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_friend_invite_owner_allowed_only")}</p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void vm.inviteMembers()}
-                      disabled={!vm.canInviteMembers || vm.inviteIds.length === 0 || vm.busy === "invite"}
-                      className="mt-3 rounded-ui-rect bg-sam-ink px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
-                    >
-                      {vm.t("nav_messenger_invite_selected_friends")}
-                    </button>
-                  </div>
-                ) : null}
+              </>
+            ) : null}
+
+            {vm.activeSheet === "invite" ? (
+              <>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="sam-text-page-title font-semibold text-sam-fg">{vm.t("nav_messenger_invite_members")}</h2>
+                  <button
+                    type="button"
+                    onClick={() => vm.setActiveSheet("members")}
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
+                  >
+                    {vm.t("tier1_back")}
+                  </button>
+                </div>
+                {vm.canInviteMembers ? (
+                  <CommunityMessengerGroupMemberPicker
+                    t={vm.t}
+                    mode="invite"
+                    viewerUserId={vm.snapshot.viewerUserId}
+                    friends={vm.friends}
+                    memberIds={new Set(vm.roomMembersDisplay.map((m: { id: string }) => m.id))}
+                    selectedIds={vm.inviteIds}
+                    onSelectedIdsChange={vm.setInviteIds}
+                    onFriendRequest={(user) => void vm.requestGroupInviteFriend(user.id)}
+                    friendRequestBusyUserId={
+                      typeof vm.busy === "string" && vm.busy.startsWith("friend-add:")
+                        ? vm.busy.slice("friend-add:".length)
+                        : null
+                    }
+                    showFriendOnlyPolicyNotice
+                    primaryCta={{
+                      label:
+                        vm.inviteIds.length > 0
+                          ? vm.t("cm_ui_group_invite_with_n", { count: vm.inviteIds.length })
+                          : vm.t("cm_ui_group_invite_cta_zero"),
+                      disabled: vm.inviteIds.length === 0,
+                      busy: vm.busy === "invite",
+                      onClick: () => void vm.inviteMembers(),
+                    }}
+                  />
+                ) : (
+                  <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_friend_invite_owner_allowed_only")}</p>
+                )}
               </>
             ) : null}
 

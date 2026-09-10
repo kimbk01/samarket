@@ -29,5 +29,14 @@ export function GroupMemberRoleBadge({ role, className = "" }: GroupMemberRoleBa
       </span>
     );
   }
+  if (r === "member") {
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-semibold text-sam-muted ${className}`}
+      >
+        {safeT("cm_ui_group_role_member_badge", { fallbackKo: "멤버", fallbackEn: "Member" })}
+      </span>
+    );
+  }
   return null;
 }

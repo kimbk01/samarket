@@ -54,6 +54,7 @@ type ScrollAnchorControllerOpts = {
     | "attach-confirm"
     | "menu"
     | "members"
+    | "invite"
     | "info"
     | "search"
     | "media"
