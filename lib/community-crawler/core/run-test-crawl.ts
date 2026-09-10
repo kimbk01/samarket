@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseGenericHtmlAdapterConfig } from "@/lib/community-crawler/adapters/generic-html-config";
-import { parseDetailPage, parseListPage } from "@/lib/community-crawler/adapters/generic-html";
+import { parseGenericHtmlAdapterConfig, type GenericHtmlAdapterConfig } from "@/lib/community-crawler/adapters/generic-html-config";
+import { parseDetailPage, parseListPage, type ParsedDetail } from "@/lib/community-crawler/adapters/generic-html";
+import {
+  parseTravelPhilippinesDetailPage,
+  parseTravelPhilippinesListPage,
+  TRAVEL_PHILIPPINES_ADAPTER_KEY,
+} from "@/lib/community-crawler/adapters/travel-philippines";
+import { classifyCrawlDetailPageHtml } from "@/lib/community-crawler/core/classify-detail-page";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
 import {
   normalizePreviewAuthor,
@@ -14,6 +20,9 @@ import type {
   TestCrawlPreviewItem,
   TestCrawlResult,
 } from "@/lib/community-crawler/core/preview-types";
+import {
+  resolveCommunityCrawlAdapterKey,
+} from "@/lib/community-crawler/core/resolve-adapter-key";
 import { safeFetchHtml } from "@/lib/community-crawler/core/safe-fetch";
 import type {
   CommunityCrawlAuthorConfig,
@@ -41,10 +50,20 @@ export async function runCommunityTestCrawl(input: {
 }): Promise<TestCrawlResult> {
   const { sb, board, source, topicName } = input;
   const recordRun = input.recordRun !== false;
+  const adapterKey = resolveCommunityCrawlAdapterKey(source, board);
 
   const base: Omit<
     TestCrawlResult,
-    "status" | "previews" | "failures" | "fetchedCount" | "successCount" | "failedCount" | "errorCode" | "errorMessage" | "runId"
+    | "status"
+    | "previews"
+    | "failures"
+    | "fetchedCount"
+    | "successCount"
+    | "failedCount"
+    | "skippedInvalidCount"
+    | "errorCode"
+    | "errorMessage"
+    | "runId"
   > = {
     boardId: board.id,
     sourceId: source.id,
@@ -73,6 +92,7 @@ export async function runCommunityTestCrawl(input: {
         inserted_count: 0,
         updated_count: 0,
         duplicate_count: 0,
+        skipped_invalid_count: 0,
         failed_count: 0,
       })
       .select("id")
@@ -89,6 +109,7 @@ export async function runCommunityTestCrawl(input: {
       | "fetchedCount"
       | "successCount"
       | "failedCount"
+      | "skippedInvalidCount"
       | "errorCode"
       | "errorMessage"
     >
@@ -103,6 +124,7 @@ export async function runCommunityTestCrawl(input: {
           inserted_count: 0,
           updated_count: 0,
           duplicate_count: 0,
+          skipped_invalid_count: partial.skippedInvalidCount,
           failed_count: partial.failedCount,
           error_code: partial.errorCode,
           error_message: partial.errorMessage,
@@ -120,7 +142,9 @@ export async function runCommunityTestCrawl(input: {
     return { ...base, runId, ...partial };
   };
 
-  if (board.crawl_mode !== "generic_html" && source.crawler_type !== "generic_html") {
+  // Travel PH uses custom_adapter + adapter_key=travel_philippines (supported).
+  // Legacy STEP3 gate that rejected all non-generic_html was the screenshot first divergence.
+  if (!adapterKey) {
     return finish({
       status: "FAILED",
       previews: [],
@@ -129,38 +153,43 @@ export async function runCommunityTestCrawl(input: {
           ok: false,
           sourceUrl: board.list_url,
           errorCode: "ADAPTER_UNSUPPORTED",
-          errorMessage: "Only generic_html is supported in STEP3",
+          errorMessage: `Unsupported custom adapter: ${source.adapter_key || board.crawl_mode}`,
         },
       ],
       fetchedCount: 0,
       successCount: 0,
       failedCount: 1,
+      skippedInvalidCount: 0,
       errorCode: "ADAPTER_UNSUPPORTED",
-      errorMessage: "Only generic_html is supported in STEP3",
+      errorMessage: `Unsupported custom adapter: ${source.adapter_key || board.crawl_mode}`,
     });
   }
 
-  const cfgParsed = parseGenericHtmlAdapterConfig(board.adapter_config);
-  if (!cfgParsed.ok) {
-    return finish({
-      status: "FAILED",
-      previews: [],
-      failures: [
-        {
-          ok: false,
-          sourceUrl: board.list_url,
-          errorCode: "SELECTOR_CONFIG_INVALID",
-          errorMessage: cfgParsed.error,
-        },
-      ],
-      fetchedCount: 0,
-      successCount: 0,
-      failedCount: 1,
-      errorCode: "SELECTOR_CONFIG_INVALID",
-      errorMessage: cfgParsed.error,
-    });
+  let genericConfig: GenericHtmlAdapterConfig | null = null;
+  if (adapterKey === "generic_html") {
+    const cfgParsed = parseGenericHtmlAdapterConfig(board.adapter_config);
+    if (!cfgParsed.ok) {
+      return finish({
+        status: "FAILED",
+        previews: [],
+        failures: [
+          {
+            ok: false,
+            sourceUrl: board.list_url,
+            errorCode: "SELECTOR_CONFIG_INVALID",
+            errorMessage: cfgParsed.error,
+          },
+        ],
+        fetchedCount: 0,
+        successCount: 0,
+        failedCount: 1,
+        skippedInvalidCount: 0,
+        errorCode: "SELECTOR_CONFIG_INVALID",
+        errorMessage: cfgParsed.error,
+      });
+    }
+    genericConfig = cfgParsed.config;
   }
-  const config = cfgParsed.config;
 
   const requestedCap =
     typeof input.maxPostsOverride === "number" && Number.isFinite(input.maxPostsOverride)
@@ -179,7 +208,10 @@ export async function runCommunityTestCrawl(input: {
     while (pageUrl && pages < maxPages && listItems.length < maxPosts) {
       const listFetch = await safeFetchHtml(pageUrl);
       pages += 1;
-      const parsed = parseListPage(listFetch.bodyText, listFetch.finalUrl, config);
+      const parsed =
+        adapterKey === TRAVEL_PHILIPPINES_ADAPTER_KEY
+          ? parseTravelPhilippinesListPage(listFetch.bodyText, listFetch.finalUrl)
+          : parseListPage(listFetch.bodyText, listFetch.finalUrl, genericConfig!);
       for (const it of parsed.items) {
         if (listItems.some((x) => x.detailUrl === it.detailUrl)) continue;
         listItems.push(it);
@@ -209,6 +241,7 @@ export async function runCommunityTestCrawl(input: {
       fetchedCount: 0,
       successCount: 0,
       failedCount: 1,
+      skippedInvalidCount: 0,
       errorCode: hardError.code,
       errorMessage: hardError.message,
     });
@@ -217,12 +250,24 @@ export async function runCommunityTestCrawl(input: {
   const previews: TestCrawlPreviewItem[] = [];
   const failures: TestCrawlPreviewFailure[] = [];
   let fetchedCount = 0;
+  let skippedInvalidCount = 0;
 
   for (const item of listItems.slice(0, maxPosts)) {
     try {
       const detailFetch = await safeFetchHtml(item.detailUrl);
       fetchedCount += 1;
-      const detail = parseDetailPage(detailFetch.bodyText, detailFetch.finalUrl, config);
+
+      const invalid = classifyCrawlDetailPageHtml(detailFetch.bodyText);
+      if (invalid.kind === "SOURCE_INVALID") {
+        skippedInvalidCount += 1;
+        continue;
+      }
+
+      const detail: ParsedDetail =
+        adapterKey === TRAVEL_PHILIPPINES_ADAPTER_KEY
+          ? parseTravelPhilippinesDetailPage(detailFetch.bodyText, detailFetch.finalUrl)
+          : parseDetailPage(detailFetch.bodyText, detailFetch.finalUrl, genericConfig!);
+
       const stableKey = `${board.id}:${detail.sourcePostId ?? item.detailUrl}`;
       const sourceDateIso = parseSourceDate(detail.dateRaw);
       const sourceView = parseSourceViewCount(detail.viewRaw);
@@ -284,9 +329,10 @@ export async function runCommunityTestCrawl(input: {
       failures.push({
         ok: false,
         sourceUrl: item.detailUrl,
-        errorCode: err.code === "HTTP_ERROR" || err.code === "FETCH_TIMEOUT" || err.code === "FETCH_BLOCKED"
-          ? "DETAIL_FETCH_FAILED"
-          : err.code,
+        errorCode:
+          err.code === "HTTP_ERROR" || err.code === "FETCH_TIMEOUT" || err.code === "FETCH_BLOCKED"
+            ? "DETAIL_FETCH_FAILED"
+            : err.code,
         errorMessage: err.message,
       });
     }
@@ -295,7 +341,7 @@ export async function runCommunityTestCrawl(input: {
   const successCount = previews.length;
   const failedCount = failures.length;
   let status: TestCrawlResult["status"] = "FAILED";
-  if (successCount > 0 && failedCount === 0) status = "SUCCESS";
+  if (failedCount === 0 && (successCount > 0 || skippedInvalidCount > 0)) status = "SUCCESS";
   else if (successCount > 0 && failedCount > 0) status = "PARTIAL";
   else status = "FAILED";
 
@@ -306,6 +352,7 @@ export async function runCommunityTestCrawl(input: {
     fetchedCount,
     successCount,
     failedCount,
+    skippedInvalidCount,
     errorCode: status === "FAILED" && failures[0] ? failures[0].errorCode : null,
     errorMessage: status === "FAILED" && failures[0] ? failures[0].errorMessage : null,
   });

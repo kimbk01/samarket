@@ -9,6 +9,7 @@ import {
 import { upsertCommunityCrawlItem } from "@/lib/community-crawler/crawl-item-store";
 import { classifyCrawlDetailPageHtml } from "@/lib/community-crawler/core/classify-detail-page";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
+import { resolveCommunityCrawlAdapterKey } from "@/lib/community-crawler/core/resolve-adapter-key";
 import { safeFetchHtml } from "@/lib/community-crawler/core/safe-fetch";
 import type {
   CommunityCrawlBoardRow,
@@ -34,15 +35,6 @@ export type RealCrawlResult = {
   failures: Array<{ sourceUrl: string | null; errorCode: string; errorMessage: string }>;
   skippedInvalid: Array<{ sourceUrl: string | null; reason: string }>;
 };
-
-function resolveAdapterKey(source: CommunityCrawlSourceRow, board: CommunityCrawlBoardRow): string {
-  const key = (source.adapter_key || board.crawl_mode || "").trim();
-  if (key === TRAVEL_PHILIPPINES_ADAPTER_KEY) return TRAVEL_PHILIPPINES_ADAPTER_KEY;
-  if (/philippines\.travel/i.test(source.base_url) || /philippines\.travel/i.test(board.list_url)) {
-    return TRAVEL_PHILIPPINES_ADAPTER_KEY;
-  }
-  return "generic_html";
-}
 
 export async function runCommunityRealCrawl(input: {
   sb: SupabaseClient;
@@ -83,7 +75,13 @@ export async function runCommunityRealCrawl(input: {
   let fatalMessage: string | null = null;
 
   try {
-    const adapterKey = resolveAdapterKey(source, board);
+    const adapterKey = resolveCommunityCrawlAdapterKey(source, board);
+    if (!adapterKey) {
+      throw new CommunityCrawlError(
+        "ADAPTER_UNSUPPORTED",
+        `Unsupported custom adapter: ${source.adapter_key || board.crawl_mode}`
+      );
+    }
     const listFetch = await safeFetchHtml(board.list_url);
     let listItems: Array<{ detailUrl: string; sourcePostId: string | null }>;
 

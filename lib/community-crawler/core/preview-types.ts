@@ -42,6 +42,7 @@ export type TestCrawlResult = {
   fetchedCount: number;
   successCount: number;
   failedCount: number;
+  skippedInvalidCount: number;
   insertedCount: 0;
   updatedCount: 0;
   postLinkWriteCount: 0;

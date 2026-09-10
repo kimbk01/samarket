@@ -1146,6 +1146,9 @@ export function AdminCommunityExternalSourcesPage() {
               {t("admin_community_crawl_preview_status")}: <strong>{testResult.status}</strong>
               {" · "}
               {testResult.successCount}/{testResult.successCount + testResult.failedCount}
+              {(testResult.skippedInvalidCount ?? 0) > 0
+                ? ` · ${t("admin_community_crawl_run_skipped_invalid_count")} ${testResult.skippedInvalidCount}`
+                : null}
             </p>
             <p className="sam-text-helper text-sam-muted">
               {t("admin_community_crawl_preview_external_only")} · policy={testResult.policyStatus}
