@@ -53,6 +53,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
+import { communityPostAllowsMemberPeerCta } from "@/lib/community/community-post-origin";
 
 const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
@@ -387,6 +388,8 @@ export function CommunityDetail({
         : undefined;
 
   const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
+  const allowsMemberPeerCta = communityPostAllowsMemberPeerCta(post.origin_kind);
+  const memberPeerUserId = allowsMemberPeerCta ? post.author_id : null;
 
   const openReport = useCallback(() => {
     if (me?.id && me.id === post.author_id) return;
@@ -420,7 +423,7 @@ export function CommunityDetail({
             subline={authorSubline}
             showMoreMenu
             postId={post.id}
-            targetUserId={post.author_id}
+            targetUserId={memberPeerUserId}
             canReport={!me?.id || me.id !== post.author_id}
             onReport={openReport}
             isOwnPost={!!me?.id && me.id === post.author_id}
@@ -434,6 +437,22 @@ export function CommunityDetail({
             meetingHostDisplay={meetingHostDisplay}
             viewerJoinedMeeting={viewerJoinedMeeting}
           />
+          {post.source_attribution?.sourceName ? (
+            <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]">
+              <div className="font-medium text-[var(--cm-fg)]">{t("community_source_attribution_label")}</div>
+              <div className="mt-1">{post.source_attribution.sourceName}</div>
+              {post.source_attribution.canonicalUrl ? (
+                <a
+                  href={post.source_attribution.canonicalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block break-all text-[var(--cm-primary)]"
+                >
+                  {t("community_source_original_link")}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
 
           {!meeting ? <CommunityPostDetailTags tags={hashtags} /> : null}
           {!meeting ? (
@@ -450,8 +469,8 @@ export function CommunityDetail({
                 onSave={() => void onSave()}
                 onShare={() => communityShare.openSheet()}
               />
-              {me?.id && me.id !== post.author_id ? (
-                <CommunityNeighborPrompt authorName={post.author_name} targetUserId={post.author_id} />
+              {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
+                <CommunityNeighborPrompt authorName={post.author_name} targetUserId={memberPeerUserId} />
               ) : null}
             </>
           ) : null}
@@ -472,9 +491,9 @@ export function CommunityDetail({
               >
                 {t("community_stat_likes", { count: likeCount })}
               </button>
-              {me?.id && me.id !== post.author_id ? (
+              {me?.id && memberPeerUserId && me.id !== memberPeerUserId ? (
                 <div className={meetingToolbarWrap}>
-                  <NeighborFollowButton targetUserId={post.author_id} />
+                  <NeighborFollowButton targetUserId={memberPeerUserId} />
                 </div>
               ) : (
                 <div className="min-h-[44px]" aria-hidden />

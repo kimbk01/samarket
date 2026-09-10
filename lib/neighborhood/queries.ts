@@ -24,6 +24,12 @@ import {
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { fetchCommunityPostViewerState, fetchCommunityPostViewerStatesBatch } from "@/lib/community/post-engagement/viewer-state";
 import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
+import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
+import {
+  isCommunityImportedOrigin,
+  normalizeCommunityPostOriginKind,
+} from "@/lib/community/community-post-origin";
+import { loadCommunityImportSourceAttribution } from "@/lib/community-crawler/import-source-attribution";
 import type {
   NeighborhoodCommentNode,
   NeighborhoodFeedPostDTO,
@@ -240,13 +246,26 @@ export async function listNeighborhoodFeed(options: {
     topics
   );
 
+  const ORIGIN_TAIL = ", origin_kind, display_author_name, display_author_avatar_url";
   const FEED_SELECT_FULL =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    ORIGIN_TAIL;
   const FEED_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    ORIGIN_TAIL;
   const FEED_SELECT_BASE =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    ORIGIN_TAIL;
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    ORIGIN_TAIL;
+  const FEED_SELECT_FULL_LEGACY =
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const FEED_SELECT_BASE_LEGACY =
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+  const FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY =
     "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
   const buildFeedQuery = (
@@ -306,10 +325,18 @@ export async function listNeighborhoodFeed(options: {
   let useTopicSlug = true;
   let effectiveSelectCols = FEED_SELECT_FULL;
   let { data, error } = await runMainSelect(FEED_SELECT_FULL, true, rangeForPage);
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    ({ data, error } = await runMainSelect(FEED_SELECT_FULL_LEGACY, true, rangeForPage));
+    effectiveSelectCols = FEED_SELECT_FULL_LEGACY;
+  }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlug = false;
     ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG, false, rangeForPage));
     effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG;
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY, false, rangeForPage));
+      effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY;
+    }
   }
   if (
     error &&
@@ -319,6 +346,10 @@ export async function listNeighborhoodFeed(options: {
   ) {
     effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG;
     ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug, rangeForPage));
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE_LEGACY : FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY;
+      ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug, rangeForPage));
+    }
   }
 
   if (error || !Array.isArray(data)) {
@@ -502,6 +533,17 @@ export async function listNeighborhoodFeed(options: {
     const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
     const feedSkin = topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin;
     const topicColor = topicColorBySlug.get(topicUiSlug) ?? null;
+    const author = resolveCommunityAuthorForFeedRow(
+      {
+        origin_kind: r.origin_kind,
+        user_id: uid,
+        display_author_name: r.display_author_name,
+        display_author_avatar_url: r.display_author_avatar_url,
+        profile_display_name: nickMap.get(uid) ?? null,
+        profile_avatar_url: null,
+      },
+      (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+    );
     return {
       id: String(r.id),
       category: topicUiSlug,
@@ -522,8 +564,9 @@ export async function listNeighborhoodFeed(options: {
       like_count: Number(r.like_count ?? 0),
       comment_count: Number(r.comment_count ?? 0),
       created_at: String(r.created_at ?? ""),
-      author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
+      author_name: author.display_name,
       author_id: uid,
+      origin_kind: author.origin_kind,
       meeting_id: meet?.id ?? null,
       community_messenger_room_id: meet?.community_messenger_room_id ?? null,
       meeting_date:
@@ -668,13 +711,26 @@ export async function getNeighborhoodPostDetail(
   }
 
   const v = options?.viewerUserId?.trim() ?? "";
+  const DETAIL_ORIGIN = ", origin_kind, display_author_name, display_author_avatar_url";
   const DETAIL_SELECT_FULL =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    DETAIL_ORIGIN;
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG =
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    DETAIL_ORIGIN;
+  const DETAIL_SELECT_FULL_LEGACY =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_BASE_LEGACY =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY =
     "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
   const fetchDetailRow = async (cols: string) => {
@@ -689,9 +745,15 @@ export async function getNeighborhoodPostDetail(
 
   let useTopicSlugDetail = true;
   let { data, error } = await fetchDetailRow(DETAIL_SELECT_FULL);
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_LEGACY));
+  }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlugDetail = false;
     ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_NO_TOPIC_SLUG));
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY));
+    }
   }
   if (
     error &&
@@ -702,20 +764,29 @@ export async function getNeighborhoodPostDetail(
     ({ data, error } = await fetchDetailRow(
       useTopicSlugDetail ? DETAIL_SELECT_BASE : DETAIL_SELECT_BASE_NO_TOPIC_SLUG
     ));
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      ({ data, error } = await fetchDetailRow(
+        useTopicSlugDetail ? DETAIL_SELECT_BASE_LEGACY : DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY
+      ));
+    }
   }
 
   if (error || !data) return null;
   const row = data as unknown as Record<string, unknown>;
   if (!isCommunityPostPubliclyVisible(row as never) && String(row.user_id ?? "") !== v) return null;
-  if (row.location_id == null || String(row.location_id).trim() === "") return null;
+  // Missing location_id must not hide a publicly visible post (incl. imported travel info).
+  // Feed/Detail identity is community_posts.id — align with like/comment eligibility.
 
   const uid = String(row.user_id ?? "");
-  const [blocked, profileMap, topics, meetLink, locationCityById] = await Promise.all([
+  const [blocked, profileMap, topics, meetLink, locationCityById, sourceAttribution] = await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
     fetchMeetingLinkByPostId(sb, postId),
     loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
+    isCommunityImportedOrigin(row.origin_kind)
+      ? loadCommunityImportSourceAttribution(sb, postId)
+      : Promise.resolve(null),
   ]);
   if (v && blocked.has(uid)) return null;
 
@@ -747,6 +818,17 @@ export async function getNeighborhoodPostDetail(
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
   const authorProfile = profileMap.get(uid);
   const viewer = v ? await fetchCommunityPostViewerState(sb, v, postId, uid) : undefined;
+  const author = resolveCommunityAuthorForFeedRow(
+    {
+      origin_kind: row.origin_kind,
+      user_id: uid,
+      display_author_name: row.display_author_name,
+      display_author_avatar_url: row.display_author_avatar_url,
+      profile_display_name: authorProfile?.displayName ?? null,
+      profile_avatar_url: authorProfile?.avatarUrl ?? null,
+    },
+    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+  );
 
   return {
     id: String(row.id),
@@ -768,9 +850,17 @@ export async function getNeighborhoodPostDetail(
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
     created_at: String(row.created_at ?? ""),
-    author_name: authorProfile?.displayName ?? (uid ? uid.slice(0, 8) : "익명"),
-    author_avatar_url: authorProfile?.avatarUrl ?? null,
+    author_name: author.display_name,
+    author_avatar_url: author.avatar_url,
     author_id: uid,
+    origin_kind: author.origin_kind,
+    source_attribution: sourceAttribution
+      ? {
+          sourceName: sourceAttribution.sourceName,
+          canonicalUrl: sourceAttribution.canonicalUrl,
+          sourcePublishedAt: sourceAttribution.sourcePublishedAt,
+        }
+      : null,
     meeting_id: meetLink?.id ?? null,
     community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
     meeting_date:

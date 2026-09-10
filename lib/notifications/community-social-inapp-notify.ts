@@ -26,7 +26,8 @@ export async function notifyCommunityPostCommentReceived(
   const postId = trimText(args.postId);
   const postAuthorId = trimText(args.postAuthorUserId);
   const commenterId = trimText(args.commenterUserId);
-  if (!postId || !postAuthorId || !commenterId) return;
+  if (!postId || !commenterId) return;
+  // postAuthorUserId may be empty when caller skips author notify (e.g. imported origin).
 
   const nickMap = await fetchNicknamesForUserIds(sb, [commenterId]);
   const commenterLabel = nickMap.get(commenterId)?.trim() || notifySafeT("ko", "notify_peer_fallback");
@@ -34,9 +35,10 @@ export async function notifyCommunityPostCommentReceived(
   const linkUrl = POST_HREF(postId);
 
   const recipients = new Set<string>();
-  if (postAuthorId !== commenterId) recipients.add(postAuthorId);
+  if (postAuthorId && postAuthorId !== commenterId) recipients.add(postAuthorId);
   const parentAuthor = trimText(args.parentCommentAuthorUserId);
   if (parentAuthor && parentAuthor !== commenterId) recipients.add(parentAuthor);
+  if (recipients.size === 0) return;
 
   for (const uid of recipients) {
     const relation = await getBlockedRelation(uid, commenterId);

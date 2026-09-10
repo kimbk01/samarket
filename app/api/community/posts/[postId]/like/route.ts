@@ -9,16 +9,25 @@ import {
   toggleNeighborhoodDevSamplePostLike,
 } from "@/lib/neighborhood/dev-sample-data";
 import { notifyCommunityPostLikeReceived } from "@/lib/notifications/community-social-inapp-notify";
+import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
+import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function assertPostEngagementAllowed(sb: ReturnType<typeof getSupabaseServer>, postId: string, userId: string) {
-  const { data: postRow } = await sb
+  let { data: postRow, error } = await sb
     .from("community_posts")
-    .select("user_id, status, is_deleted, is_hidden")
+    .select("user_id, status, is_deleted, is_hidden, origin_kind")
     .eq("id", postId)
     .maybeSingle();
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    ({ data: postRow, error } = await sb
+      .from("community_posts")
+      .select("user_id, status, is_deleted, is_hidden")
+      .eq("id", postId)
+      .maybeSingle());
+  }
   const post = postRow as Record<string, unknown> | null;
   if (!post?.user_id) return { ok: false as const, status: 404, error: "not_found" };
   const authorId = String(post.user_id);
@@ -27,7 +36,11 @@ async function assertPostEngagementAllowed(sb: ReturnType<typeof getSupabaseServ
   if (await isBlockedEitherWay(userId, authorId)) {
     return { ok: false as const, status: 403, error: "community_like_blocked_relation" };
   }
-  return { ok: true as const, authorId };
+  return {
+    ok: true as const,
+    authorId,
+    originKind: String(post.origin_kind ?? "member"),
+  };
 }
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
@@ -80,7 +93,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
     const { data: postAfter } = await sb.from("community_posts").select("like_count").eq("id", id).maybeSingle();
     const likeCount = Number((postAfter as { like_count?: number } | null)?.like_count ?? 0);
 
-    if (liked && gate.authorId) {
+    if (liked && gate.authorId && !isCommunityImportedOrigin(gate.originKind)) {
       void notifyCommunityPostLikeReceived(sb, {
         postId: id,
         postAuthorUserId: gate.authorId,

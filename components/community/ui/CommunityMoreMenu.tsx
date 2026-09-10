@@ -18,7 +18,8 @@ import { CM_BTN_TEXT_CLASS } from "@/lib/community/community-ui-classes";
 
 type Props = {
   postId: string;
-  targetUserId: string;
+  /** Null for imported posts — peer follow/block CTAs hidden. */
+  targetUserId?: string | null;
   canReport?: boolean;
   onReport?: () => void;
 };
@@ -35,6 +36,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   const [blocked, setBlocked] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [undoHide, setUndoHide] = useState<(() => void) | null>(null);
+  const peerId = typeof targetUserId === "string" ? targetUserId.trim() : "";
+  const hasMemberPeer = Boolean(peerId);
 
   useEffect(() => {
     setMounted(true);
@@ -50,21 +53,22 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   }, []);
 
   const load = useCallback(async () => {
-    if (!me?.id || !targetUserId || me.id === targetUserId) return;
+    if (!me?.id || !peerId || me.id === peerId) return;
     try {
-      const relation = await fetchCommunityUserRelationSnapshot(targetUserId);
+      const relation = await fetchCommunityUserRelationSnapshot(peerId);
       setFollowing(relation.following);
       setBlocked(relation.blocked === true);
     } catch {
       /* ignore */
     }
-  }, [me?.id, targetUserId]);
+  }, [me?.id, peerId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const toggleFollow = async () => {
+    if (!hasMemberPeer) return;
     if (!me?.id) {
       void requireAction("friend_add", () => undefined);
       return;
@@ -74,10 +78,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
       const res = await fetch("/api/community/neighbor-relations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId }),
+        body: JSON.stringify({ targetUserId: peerId }),
       });
       const j = (await res.json()) as { ok?: boolean; following?: boolean };
-      invalidateCommunityUserRelationSnapshot(targetUserId);
+      invalidateCommunityUserRelationSnapshot(peerId);
       if (j.ok && typeof j.following === "boolean") setFollowing(j.following);
       else await load();
     } finally {
@@ -87,6 +91,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
   };
 
   const toggleBlock = async () => {
+    if (!hasMemberPeer) return;
     if (!me?.id) {
       void requireAction("community_report", () => undefined);
       return;
@@ -113,10 +118,10 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
       const res = await fetch("/api/community/block-relations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId }),
+        body: JSON.stringify({ targetUserId: peerId }),
       });
       const j = (await res.json()) as { ok?: boolean; blocked?: boolean };
-      invalidateCommunityUserRelationSnapshot(targetUserId);
+      invalidateCommunityUserRelationSnapshot(peerId);
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
         setBlocked(j.blocked);
         if (j.blocked) {
@@ -165,7 +170,8 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
     }
   };
 
-  if (!targetUserId || me?.id === targetUserId) return null;
+  if (hasMemberPeer && me?.id === peerId) return null;
+  if (!postId) return null;
 
   const itemClass = `block w-full px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
 
@@ -193,11 +199,13 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
               className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-card-bg)] py-1 shadow-lg sm:min-w-[12rem]"
               role="menu"
             >
-              <li role="none">
-                <button type="button" role="menuitem" disabled={busy} className={itemClass} onClick={() => void toggleFollow()}>
-                  {following ? t("community_neighbor_follow_remove") : t("community_neighbor_follow_add")}
-                </button>
-              </li>
+              {hasMemberPeer ? (
+                <li role="none">
+                  <button type="button" role="menuitem" disabled={busy} className={itemClass} onClick={() => void toggleFollow()}>
+                    {following ? t("community_neighbor_follow_remove") : t("community_neighbor_follow_add")}
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button type="button" role="menuitem" disabled={busy} className={itemClass} onClick={() => void hidePost()}>
                   {t("community_post_hide")}
@@ -218,17 +226,19 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
                   </button>
                 </li>
               ) : null}
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy}
-                  className={`${itemClass} text-[var(--cm-danger)]`}
-                  onClick={() => void toggleBlock()}
-                >
-                  {blocked ? t("community_unblock_neighbor") : t("community_block_neighbor")}
-                </button>
-              </li>
+              {hasMemberPeer ? (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={busy}
+                    className={`${itemClass} text-[var(--cm-danger)]`}
+                    onClick={() => void toggleBlock()}
+                  >
+                    {blocked ? t("community_unblock_neighbor") : t("community_block_neighbor")}
+                  </button>
+                </li>
+              ) : null}
             </ul>
           </>
         ) : null}

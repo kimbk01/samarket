@@ -7,8 +7,12 @@ import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-err
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
+import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
+import { normalizeCommunityPostOriginKind } from "@/lib/community/community-post-origin";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
+
+const ORIGIN_COLS = "origin_kind, display_author_name, display_author_avatar_url";
 
 const MINIMAL_POST_COLS =
   "id, section_slug, topic_slug, title, summary, region_label, view_count, like_count, comment_count, created_at, user_id, is_hidden";
@@ -16,10 +20,14 @@ const MINIMAL_POST_COLS =
 const BASE_POST_COLS =
   "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, is_deleted, is_hidden, status";
 
-const EMBED_WITH_SKIN =
-  `${BASE_POST_COLS}, community_topics ( name, name_en, slug, color, feed_list_skin )`;
-const EMBED_NO_SKIN =
-  `${BASE_POST_COLS}, community_topics ( name, name_en, slug, color )`;
+const EMBED_WITH_SKIN = (withOrigin: boolean) =>
+  `${BASE_POST_COLS}${withOrigin ? `, ${ORIGIN_COLS}` : ""}, community_topics ( name, name_en, slug, color, feed_list_skin )`;
+const EMBED_NO_SKIN = (withOrigin: boolean) =>
+  `${BASE_POST_COLS}${withOrigin ? `, ${ORIGIN_COLS}` : ""}, community_topics ( name, name_en, slug, color )`;
+const MINIMAL_WITH_ORIGIN = (withOrigin: boolean) =>
+  `${MINIMAL_POST_COLS}${withOrigin ? `, ${ORIGIN_COLS}` : ""}`;
+const BASE_WITH_ORIGIN = (withOrigin: boolean) =>
+  `${BASE_POST_COLS}${withOrigin ? `, ${ORIGIN_COLS}` : ""}`;
 
 function logListCommunityPostsForUserIssue(
   phase: string,
@@ -54,41 +62,50 @@ async function fetchAuthorPostRows(
   uid: string,
   rowLimit: number
 ): Promise<Record<string, unknown>[]> {
-  const q1 = await runAuthorPostsSelect(sb, EMBED_WITH_SKIN, uid, rowLimit, true);
-  if (!q1.error && Array.isArray(q1.data)) {
-    return q1.data as Record<string, unknown>[];
-  }
-  logListCommunityPostsForUserIssue("embed_with_skin", uid, q1.error);
+  const trySelect = async (cols: string) => runAuthorPostsSelect(sb, cols, uid, rowLimit, true);
 
-  if (q1.error && isMissingDbColumnError(q1.error, "feed_list_skin")) {
-    const q2 = await runAuthorPostsSelect(sb, EMBED_NO_SKIN, uid, rowLimit, true);
-    if (!q2.error && Array.isArray(q2.data)) {
-      return q2.data as Record<string, unknown>[];
+  for (const withOrigin of [true, false]) {
+    const q1 = await trySelect(EMBED_WITH_SKIN(withOrigin));
+    if (!q1.error && Array.isArray(q1.data)) {
+      return q1.data as Record<string, unknown>[];
     }
-    logListCommunityPostsForUserIssue("embed_no_skin", uid, q2.error);
-  }
-
-  const q3 = await runAuthorPostsSelect(sb, BASE_POST_COLS, uid, rowLimit, true);
-  if (!q3.error && Array.isArray(q3.data)) {
-    return q3.data as Record<string, unknown>[];
-  }
-  logListCommunityPostsForUserIssue("base_columns", uid, q3.error);
-
-  if (q3.error && isMissingDbColumnError(q3.error, "status")) {
-    const q4 = await runAuthorPostsSelect(sb, BASE_POST_COLS, uid, rowLimit, false);
-    if (!q4.error && Array.isArray(q4.data)) {
-      return q4.data as Record<string, unknown>[];
+    logListCommunityPostsForUserIssue(withOrigin ? "embed_with_skin" : "embed_with_skin_no_origin", uid, q1.error);
+    if (q1.error && isMissingDbColumnError(q1.error, "feed_list_skin")) {
+      const q2 = await trySelect(EMBED_NO_SKIN(withOrigin));
+      if (!q2.error && Array.isArray(q2.data)) {
+        return q2.data as Record<string, unknown>[];
+      }
+      logListCommunityPostsForUserIssue(withOrigin ? "embed_no_skin" : "embed_no_skin_no_origin", uid, q2.error);
     }
-    logListCommunityPostsForUserIssue("base_columns_no_status", uid, q4.error);
+    if (withOrigin && q1.error && isMissingDbColumnError(q1.error, "origin_kind")) {
+      continue;
+    }
   }
 
-  const q5 = await runAuthorPostsSelect(sb, MINIMAL_POST_COLS, uid, rowLimit, false);
-  if (q5.error) {
-    logListCommunityPostsForUserIssue("minimal_columns", uid, q5.error);
-    return [];
+  for (const withOrigin of [true, false]) {
+    const q3 = await trySelect(BASE_WITH_ORIGIN(withOrigin));
+    if (!q3.error && Array.isArray(q3.data)) {
+      return q3.data as Record<string, unknown>[];
+    }
+    logListCommunityPostsForUserIssue(withOrigin ? "base_columns" : "base_columns_no_origin", uid, q3.error);
+    if (q3.error && isMissingDbColumnError(q3.error, "status")) {
+      const q4 = await runAuthorPostsSelect(sb, BASE_WITH_ORIGIN(withOrigin), uid, rowLimit, false);
+      if (!q4.error && Array.isArray(q4.data)) {
+        return q4.data as Record<string, unknown>[];
+      }
+    }
+    if (withOrigin && q3.error && isMissingDbColumnError(q3.error, "origin_kind")) continue;
   }
-  if (!Array.isArray(q5.data)) return [];
-  return q5.data as Record<string, unknown>[];
+
+  for (const withOrigin of [true, false]) {
+    const q5 = await runAuthorPostsSelect(sb, MINIMAL_WITH_ORIGIN(withOrigin), uid, rowLimit, false);
+    if (!q5.error && Array.isArray(q5.data)) {
+      return q5.data as Record<string, unknown>[];
+    }
+    logListCommunityPostsForUserIssue(withOrigin ? "minimal_columns" : "minimal_no_origin", uid, q5.error);
+    if (withOrigin && q5.error && isMissingDbColumnError(q5.error, "origin_kind")) continue;
+  }
+  return [];
 }
 
 function mapAuthorPostRow(
@@ -106,6 +123,17 @@ function mapAuthorPostRow(
   } | null;
   const topicSlug = String(r.topic_slug ?? topic?.slug ?? "");
   const summaryRaw = r.summary != null ? String(r.summary) : "";
+  const author = resolveCommunityAuthorForFeedRow(
+    {
+      origin_kind: r.origin_kind,
+      user_id: String(r.user_id ?? uid),
+      display_author_name: r.display_author_name,
+      display_author_avatar_url: r.display_author_avatar_url,
+      profile_display_name: nickMap.get(uid) ?? null,
+      profile_avatar_url: null,
+    },
+    (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
+  );
   return {
     id: String(r.id),
     section_slug: String(r.section_slug ?? ""),
@@ -128,7 +156,8 @@ function mapAuthorPostRow(
     like_count: Number(r.like_count ?? 0),
     comment_count: Number(r.comment_count ?? 0),
     created_at: String(r.created_at ?? ""),
-    author_name: nickMap.get(uid) ?? uid.slice(0, 8),
+    author_name: author.display_name,
+    origin_kind: author.origin_kind ?? normalizeCommunityPostOriginKind(r.origin_kind),
     thumbnail_url: thumbByPost.get(String(r.id)) ?? null,
   };
 }

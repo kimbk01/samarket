@@ -1,5 +1,7 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
+import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
+import { normalizeCommunityPostOriginKind } from "@/lib/community/community-post-origin";
 import type {
   CommunityCommentDTO,
   CommunityFeedPostDTO,
@@ -20,6 +22,40 @@ import { parsePostgresBool } from "./parse-postgres-bool";
 import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
+
+const COMMUNITY_ORIGIN_SELECT =
+  "origin_kind, display_author_name, display_author_avatar_url";
+
+function memberAuthorNameFallback(uid: string): string {
+  return uid ? uid.slice(0, 8) : "익명";
+}
+
+function mapCommunityPostAuthorFields(
+  row: Record<string, unknown>,
+  nickMap: Map<string, string>
+): Pick<CommunityFeedPostDTO, "author_name" | "origin_kind"> & {
+  author_id: string;
+  author_avatar_url?: string | null;
+} {
+  const uid = String(row.user_id ?? "");
+  const author = resolveCommunityAuthorForFeedRow(
+    {
+      origin_kind: row.origin_kind,
+      user_id: uid,
+      display_author_name: row.display_author_name,
+      display_author_avatar_url: row.display_author_avatar_url,
+      profile_display_name: nickMap.get(uid) ?? null,
+      profile_avatar_url: null,
+    },
+    memberAuthorNameFallback
+  );
+  return {
+    author_id: author.owner_user_id,
+    author_name: author.display_name,
+    author_avatar_url: author.avatar_url,
+    origin_kind: author.origin_kind,
+  };
+}
 
 /** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
 export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
@@ -197,11 +233,12 @@ export async function listCommunityFeedPosts(options: {
 
   const poolCap = sortRecommended ? Math.min(Math.max(limit * 5, limit), 200) : limit;
 
-  const runFeedSelect = (topicCols: string) => {
+  const runFeedSelect = (topicCols: string, withOrigin: boolean) => {
+    const origin = withOrigin ? `, ${COMMUNITY_ORIGIN_SELECT}` : "";
     let q = sb
       .from("community_posts")
       .select(
-        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( ${topicCols} )`
+        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id${origin}, community_topics ( ${topicCols} )`
       )
       .eq("section_slug", sectionSlug)
       .eq("is_hidden", false);
@@ -220,13 +257,23 @@ export async function listCommunityFeedPosts(options: {
     return q.limit(poolCap);
   };
 
-  const fr1 = await runFeedSelect("name, slug, color, feed_list_skin");
+  let fr1 = await runFeedSelect("name, slug, color, feed_list_skin", true);
   let postsRaw: unknown = fr1.data;
   let error = fr1.error;
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    fr1 = await runFeedSelect("name, slug, color, feed_list_skin", false);
+    postsRaw = fr1.data;
+    error = fr1.error;
+  }
   if (error && isMissingDbColumnError(error, "feed_list_skin")) {
-    const fr2 = await runFeedSelect("name, slug, color");
+    const fr2 = await runFeedSelect("name, slug, color", true);
     postsRaw = fr2.data;
     error = fr2.error;
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      const fr3 = await runFeedSelect("name, slug, color", false);
+      postsRaw = fr3.data;
+      error = fr3.error;
+    }
   }
   if (error || !Array.isArray(postsRaw) || postsRaw.length === 0) return [];
 
@@ -256,7 +303,6 @@ export async function listCommunityFeedPosts(options: {
   }
 
   return rows.map((r) => {
-    const uid = String(r.user_id ?? "");
     const topic = r.community_topics as {
       name?: string;
       name_en?: string | null;
@@ -268,6 +314,7 @@ export async function listCommunityFeedPosts(options: {
       r.summary != null ? String(r.summary) : "",
       160
     );
+    const author = mapCommunityPostAuthorFields(r, nickMap);
     return {
       id: String(r.id),
       section_slug: String(r.section_slug ?? sectionSlug),
@@ -290,7 +337,8 @@ export async function listCommunityFeedPosts(options: {
       like_count: Number(r.like_count ?? 0),
       comment_count: Number(r.comment_count ?? 0),
       created_at: String(r.created_at ?? ""),
-      author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
+      author_name: author.author_name,
+      origin_kind: author.origin_kind ?? normalizeCommunityPostOriginKind(r.origin_kind),
       thumbnail_url: thumbByPost.get(String(r.id)) ?? null,
     };
   });
@@ -338,18 +386,48 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     return null;
   }
 
-  const selDetailWith =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color, feed_list_skin ), community_post_images ( id, image_url, sort_order )";
-  const selDetailNo =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color ), community_post_images ( id, image_url, sort_order )";
+  const selDetail = (topicCols: string, withOrigin: boolean) => {
+    const origin = withOrigin ? `, ${COMMUNITY_ORIGIN_SELECT}` : "";
+    return `id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id${origin}, community_topics ( ${topicCols} ), community_post_images ( id, image_url, sort_order )`;
+  };
 
-  const d1 = await sb.from("community_posts").select(selDetailWith).eq("id", postId).eq("is_hidden", false).maybeSingle();
+  let d1 = await sb
+    .from("community_posts")
+    .select(selDetail("name, name_en, slug, color, feed_list_skin", true))
+    .eq("id", postId)
+    .eq("is_hidden", false)
+    .maybeSingle();
   let detailRaw: unknown = d1.data;
   let error = d1.error;
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    d1 = await sb
+      .from("community_posts")
+      .select(selDetail("name, name_en, slug, color, feed_list_skin", false))
+      .eq("id", postId)
+      .eq("is_hidden", false)
+      .maybeSingle();
+    detailRaw = d1.data;
+    error = d1.error;
+  }
   if (error && isMissingDbColumnError(error, "feed_list_skin")) {
-    const d2 = await sb.from("community_posts").select(selDetailNo).eq("id", postId).eq("is_hidden", false).maybeSingle();
+    let d2 = await sb
+      .from("community_posts")
+      .select(selDetail("name, name_en, slug, color", true))
+      .eq("id", postId)
+      .eq("is_hidden", false)
+      .maybeSingle();
     detailRaw = d2.data;
     error = d2.error;
+    if (error && isMissingDbColumnError(error, "origin_kind")) {
+      d2 = await sb
+        .from("community_posts")
+        .select(selDetail("name, name_en, slug, color", false))
+        .eq("id", postId)
+        .eq("is_hidden", false)
+        .maybeSingle();
+      detailRaw = d2.data;
+      error = d2.error;
+    }
   }
   if (error || detailRaw == null || typeof detailRaw !== "object") return null;
 
@@ -379,6 +457,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
           sort_order: Number(x.sort_order ?? 0),
         }))
     : [];
+  const author = mapCommunityPostAuthorFields(row, nickMap);
 
   return {
     id: String(row.id),
@@ -402,8 +481,10 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
     created_at: String(row.created_at ?? ""),
-    author_id: uid,
-    author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
+    author_id: author.author_id,
+    author_name: author.author_name,
+    author_avatar_url: author.author_avatar_url ?? null,
+    origin_kind: author.origin_kind ?? normalizeCommunityPostOriginKind(row.origin_kind),
     thumbnail_url: images[0]?.url ?? null,
     images,
   };

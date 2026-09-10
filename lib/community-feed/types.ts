@@ -58,11 +58,14 @@ export type CommunityFeedPostDTO = {
   created_at: string;
   author_name: string;
   thumbnail_url: string | null;
+  /** member | admin | imported — default member when column absent */
+  origin_kind?: import("@/lib/community/community-post-origin").CommunityPostOriginKind;
 };
 
 export type CommunityPostDetailDTO = CommunityFeedPostDTO & {
   author_id: string;
   images: { id: string; url: string | null; sort_order: number }[];
+  author_avatar_url?: string | null;
 };
 
 export type CommunityCommentDTO = {

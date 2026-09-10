@@ -25,9 +25,17 @@ export type NeighborhoodFeedPostDTO = {
   comment_count: number;
   created_at: string;
   author_name: string;
-  /** profiles.avatar_url — 상세·카드 아바타 */
+  /** profiles.avatar_url — 상세·카드 아바타; imported → display_author_avatar_url */
   author_avatar_url?: string | null;
   author_id: string;
+  /** member | admin | imported — CTA peer gate uses this */
+  origin_kind?: import("@/lib/community/community-post-origin").CommunityPostOriginKind;
+  /** Imported only — from community_crawl_post_links (+ source name), not body footer. */
+  source_attribution?: {
+    sourceName: string;
+    canonicalUrl: string | null;
+    sourcePublishedAt: string | null;
+  } | null;
   meeting_id: string | null;
   /** 모임 연결 메신저 오픈그룹 방(있으면 목록에서 바로 `/community-messenger/rooms/...` 링크) */
   community_messenger_room_id: string | null;

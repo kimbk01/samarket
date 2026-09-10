@@ -33,6 +33,9 @@ import {
   evaluateCommunityContentAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
+import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
+import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +68,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
   }
   const { data: postRow } = await sb
     .from("community_posts")
-    .select("id, user_id, status, is_deleted, is_hidden, location_id")
+    .select("id, user_id, status, is_deleted, is_hidden")
     .eq("id", id)
     .maybeSingle();
   const row = postRow as {
@@ -74,18 +77,12 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
     status?: string;
     is_deleted?: boolean;
     is_hidden?: boolean;
-    location_id?: string | null;
   } | null;
   const ownerId = String(row?.user_id ?? "");
   const viewer = viewerUserId?.trim() ?? "";
   const isOwner = viewer.length > 0 && ownerId === viewer;
-  if (
-    !row?.id ||
-    row.is_deleted === true ||
-    row.is_hidden === true ||
-    String(row.location_id ?? "").trim() === "" ||
-    (!isOwner && String(row.status ?? "").trim().toLowerCase() !== "active")
-  ) {
+  // Align with like engagement: identity = community_posts.id; do not treat missing location_id as not_found.
+  if (!row?.id || (!isOwner && !isCommunityPostPubliclyVisible(row))) {
     return jsonError("not_found", 404);
   }
   if (viewer.length > 0) {
@@ -195,27 +192,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         }
       }
     }
-    const { data: post } = await sb
+    let { data: post, error: postErr } = await sb
       .from("community_posts")
-      .select("id, user_id, is_deleted, location_id, status, is_hidden")
+      .select("id, user_id, is_deleted, status, is_hidden, origin_kind")
       .eq("id", id)
-      .eq("status", "active")
       .maybeSingle();
+    if (postErr && isMissingDbColumnError(postErr, "origin_kind")) {
+      ({ data: post, error: postErr } = await sb
+        .from("community_posts")
+        .select("id, user_id, is_deleted, status, is_hidden")
+        .eq("id", id)
+        .maybeSingle());
+    }
     const prow = post as {
       id?: string;
       user_id?: string;
       is_deleted?: boolean;
-      location_id?: string | null;
       status?: string;
+      is_hidden?: boolean;
+      origin_kind?: string | null;
     } | null;
-    if (
-      !prow?.id ||
-      prow.is_deleted === true ||
-      prow.status === "deleted" ||
-      prow.status === "hidden" ||
-      prow.location_id == null ||
-      String(prow.location_id).trim() === ""
-    ) {
+    // Same existence contract as like (`assertPostEngagementAllowed`): public visibility only.
+    // Missing location_id must not fake not_found for a real community_posts.id (incl. imported).
+    if (!prow?.id || !isCommunityPostPubliclyVisible(prow)) {
       return jsonError("글을 찾을 수 없습니다.", 404);
     }
     const blocked = await fetchBlockedAuthorIdsForViewer(sb, auth.userId);
@@ -267,7 +266,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       });
     }
     const postAuthorId = String(prow.user_id ?? "").trim();
-    if (postAuthorId && postAuthorId !== auth.userId) {
+    const importedAuthor = isCommunityImportedOrigin(prow.origin_kind);
+    if (postAuthorId && postAuthorId !== auth.userId && !importedAuthor) {
       void bumpNotificationTarget(sb, {
         userId: postAuthorId,
         targetType: "community_post",
@@ -278,7 +278,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     }
     void notifyCommunityPostCommentReceived(sb, {
       postId: id,
-      postAuthorUserId: postAuthorId,
+      postAuthorUserId: importedAuthor ? "" : postAuthorId,
       commenterUserId: auth.userId,
       commentPreview: content,
       parentCommentAuthorUserId: parentCommentAuthorId,

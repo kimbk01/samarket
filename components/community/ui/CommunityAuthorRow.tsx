@@ -91,7 +91,7 @@ export function CommunityAuthorRow({
       {showMoreMenu && isOwnPost && onOwnShare && onOwnDelete ? (
         <CommunityOwnPostMoreMenu onShare={onOwnShare} onDelete={onOwnDelete} deleteBusy={ownDeleteBusy} />
       ) : null}
-      {showMoreMenu && targetUserId && postId && !isOwnPost ? (
+      {showMoreMenu && postId && !isOwnPost ? (
         <CommunityMoreMenu
           postId={postId}
           targetUserId={targetUserId}
