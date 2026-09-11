@@ -369,18 +369,23 @@ export function ConditionalAppShell({
       <CommunityMessengerRoomOpeningOverlayHostLazy />
       <WebConnectivityBanner />
       {f.showRegionBar ? <RegionBar /> : null}
-      {hubScrollColumn ? (
-        /**
-         * MAIN hub: Header+Body share ONE push-surface transform authority
-         * (`hubChromeHeader` inside `MainShellTabContentTransition`).
-         * BottomNav stays outside (tx=0).
-         */
-        mainBodyTransition
-      ) : (
-        <main className={`${mainSurfaceClass} ${mainBodyLockedClass} flex min-h-0 flex-1 flex-col`}>
-          {mainBodyTransition}
-        </main>
-      )}
+      {/**
+       * STABLE PARENT for `MainShellTabContentTransition` / `AppRouteTransition`.
+       * DO NOT ternary-swap hub vs locked branches around the transition host —
+       * `/stores/:slug` → `/cart` flips `hubScrollColumn` via viewport-lock and that
+       * remount wiped enter animation (R3: store/product → cart RIGHT→LEFT missing).
+       * Hub: Header+Body still share ONE push-surface via `hubChromeHeader`.
+       * BottomNav stays outside (tx=0).
+       */}
+      <main
+        className={
+          hubScrollColumn
+            ? "flex min-h-0 min-w-0 flex-1 flex-col"
+            : `${mainSurfaceClass} ${mainBodyLockedClass} flex min-h-0 flex-1 flex-col`
+        }
+      >
+        {mainBodyTransition}
+      </main>
       {showBottomNavMounted ? (
         <BottomNav
           initialTabs={initialMainBottomNavItems}
