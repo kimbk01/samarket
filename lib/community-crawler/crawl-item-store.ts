@@ -16,6 +16,8 @@ import type {
   CommunityCrawlSourceRow,
   CommunityCrawlViewConfig,
 } from "@/lib/community-crawler/crawl-ssot";
+import { applyCommunityCrawlReplacementRules } from "@/lib/community-crawler/replacement/apply-replacement-rules";
+import { loadReplacementRulesForBoard } from "@/lib/community-crawler/replacement/replacement-rule-store";
 
 function mapItem(row: Record<string, unknown>): CommunityCrawlItemRow {
   const images = Array.isArray(row.source_body_images) ? row.source_body_images.map(String) : [];
@@ -95,6 +97,9 @@ export type UpsertCrawlItemResult =
 /**
  * Upsert durable crawl item. Display author/date/view assigned once on INSERT only.
  * manual_override items: source fields may refresh; DIBAY draft fields preserved.
+ *
+ * Materialization (V2-2):
+ * SAVE source_* → COPY → APPLY replacement rules → SAVE dibay_* (AUTO only).
  */
 export async function upsertCommunityCrawlItem(input: {
   sb: SupabaseClient;
@@ -113,6 +118,16 @@ export async function upsertCommunityCrawlItem(input: {
       ? detail.representativeImageUrl.trim()
       : null;
   const fingerprint = contentFingerprint(detail.title, detail.contentMarkdown, durableCoverUrl);
+
+  const rules = await loadReplacementRulesForBoard(sb, {
+    sourceId: source.id,
+    boardId: board.id,
+  });
+  const materialized = applyCommunityCrawlReplacementRules({
+    sourceTitle: detail.title,
+    sourceBody: detail.contentMarkdown,
+    rules,
+  });
 
   let existingQuery = sb.from("community_crawl_items").select("*").eq("board_id", board.id);
   if (detail.sourcePostId) {
@@ -158,8 +173,8 @@ export async function upsertCommunityCrawlItem(input: {
       error_message: null,
     };
     if (!existing.manual_override) {
-      patch.dibay_title = detail.title;
-      patch.dibay_body = detail.contentMarkdown;
+      patch.dibay_title = materialized.dibay_title;
+      patch.dibay_body = materialized.dibay_body;
     }
     const { data, error } = await sb
       .from("community_crawl_items")
@@ -236,8 +251,8 @@ export async function upsertCommunityCrawlItem(input: {
     display_author_avatar_url: author.avatarUrl,
     display_date: date.displayDateIso,
     display_view_seed: view.viewSeed,
-    dibay_title: detail.title,
-    dibay_body: detail.contentMarkdown,
+    dibay_title: materialized.dibay_title,
+    dibay_body: materialized.dibay_body,
     target_topic_id: board.dibay_topic_id,
     status: initialStatus(source, board),
     manual_override: false,

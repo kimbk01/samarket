@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-crawler/crawl-ssot";
 import type { TestCrawlResult } from "@/lib/community-crawler/core/preview-types";
 import { AdminCommunityCrawlItemsPanel } from "@/components/admin/community/AdminCommunityCrawlItemsPanel";
+import { AdminCommunityCrawlReplacementRulesPanel } from "@/components/admin/community/AdminCommunityCrawlReplacementRulesPanel";
 import type { CommunityCrawlItemOpsDto } from "@/lib/community-crawler/admin-item-ops-dto";
 import type { CommunityCrawlMediaPolicy } from "@/lib/community-crawler/crawl-ssot";
 
@@ -1018,6 +1019,10 @@ export function AdminCommunityExternalSourcesPage() {
               </button>
             </div>
             <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_test_preview_only_hint")}</p>
+            <AdminCommunityCrawlReplacementRulesPanel
+              sourceId={manageBoard.source_id}
+              boardId={manageBoard.id}
+            />
           </div>
         </ModalShell>
       ) : null}
