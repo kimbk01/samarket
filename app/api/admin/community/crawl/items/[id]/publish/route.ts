@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getCommunityCrawlBoard, getCommunityCrawlSource } from "@/lib/community-crawler/admin-crawl-store";
 import { getCommunityCrawlItem } from "@/lib/community-crawler/crawl-item-store";
+import { loadCanonicalPublishImagesFromItemMedia } from "@/lib/community-crawler/media/canonical-publish-images";
 import { resolveCommunityCrawlPublishEligibility } from "@/lib/community-crawler/publish-eligibility";
 import { publishCommunityCrawlFullContent } from "@/lib/community-crawler/publish-full-content";
 
@@ -10,9 +11,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * V2-1 operational publish: crawl item → community_posts (FULL_CONTENT).
- * Does not mutate source_* snapshot. No community_post_images (V2-5).
- * Eligibility SSOT: resolveCommunityCrawlPublishEligibility (mode=manual).
+ * Canonical Admin publish: crawl item → posts + links + community_post_images (one RPC).
+ * Does not mutate source_* snapshot. Images from community_crawl_item_media only.
  */
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminApiUser();
@@ -43,19 +43,6 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       mode: "manual",
     });
     if (!eligibility.ok) {
-      if (
-        eligibility.reason === "ALREADY_PUBLISHED" ||
-        eligibility.reason === "ALREADY_LINKED"
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "already_published",
-            communityPostId: eligibility.detail ?? item.published_post_id,
-          },
-          { status: 409 }
-        );
-      }
       if (
         eligibility.reason === "SOURCE_POLICY_NOT_ALLOWED" ||
         eligibility.reason === "SOURCE_NOT_ACTIVE"
@@ -92,6 +79,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       canonical_url: item.canonical_url,
     };
 
+    const images = await loadCanonicalPublishImagesFromItemMedia(sb, item.id);
     const result = await publishCommunityCrawlFullContent(sb, {
       boardId: item.board_id,
       canonicalUrl: item.canonical_url,
@@ -103,6 +91,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       displayAuthorAvatarUrl: item.display_author_avatar_url,
       createdAtIso: item.display_date,
       viewCount: item.display_view_seed,
+      images,
     });
 
     if (!result.ok) {
@@ -143,7 +132,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       itemId: item.id,
       publishMode: result.publishMode,
       pointReward: 0,
-      mediaDelta: 0,
+      mediaDelta: result.mediaDelta,
+      updated: result.updated,
     });
   } catch (e) {
     return NextResponse.json(

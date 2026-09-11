@@ -130,14 +130,34 @@ describe("PHASE C rehostCommunityCrawlItemMedia", () => {
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it("manual_override → crawler does not overwrite", async () => {
+  it("manual_override → media still rehosts (text override independent)", async () => {
+    safeFetch.mockResolvedValue({
+      ok: true,
+      sourceUrl: "https://cdn.example.com/cover.jpg",
+      finalUrl: "https://cdn.example.com/cover.jpg",
+      buf: Buffer.from("x"),
+      mime: "image/jpeg",
+      byteSize: 10,
+      width: 100,
+      height: 80,
+      contentHash: "hash1",
+    });
+    findByHash.mockResolvedValue(null);
+    upload.mockResolvedValue({
+      originalPath: "community-crawler/src-1/item-1/hash1.webp",
+      publicUrl: "https://storage/example.webp",
+      derivativePaths: { thumb: "x.thumb.webp", feed: "x.feed.webp", detail: "x.detail.webp" },
+    });
+    insertRow.mockResolvedValue({ id: "m1", is_current: true });
+
     const stats = await rehostCommunityCrawlItemMedia({
       sb: {} as never,
       item: item({ manual_override: true }),
       source: source(),
     });
-    expect(stats.skippedManualOverride).toBe(true);
-    expect(safeFetch).not.toHaveBeenCalled();
+    expect(stats.skippedManualOverride).toBe(false);
+    expect(stats.uploaded).toBe(1);
+    expect(safeFetch).toHaveBeenCalled();
   });
 
   it("MEDIA_ALLOWED + valid jpeg → stored", async () => {

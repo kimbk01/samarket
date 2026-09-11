@@ -6,7 +6,7 @@ import {
   assignDisplayViewOnce,
   contentFingerprint,
 } from "@/lib/community-crawler/core/assign-display-once";
-import { resolveDurableCoverUrl } from "@/lib/community-crawler/core/validate-cover-candidate";
+import { resolveDurableCoverFromLadder } from "@/lib/community-crawler/core/validate-cover-candidate";
 import type {
   CommunityCrawlAuthorConfig,
   CommunityCrawlBoardRow,
@@ -111,12 +111,18 @@ export async function upsertCommunityCrawlItem(input: {
 }): Promise<UpsertCrawlItemResult> {
   const { sb, board, source, runId, canonicalUrl, detail } = input;
   const now = new Date().toISOString();
-  /** Dead/non-image candidates must not be stored as durable covers. */
-  const durableCoverUrl = await resolveDurableCoverUrl(detail.representativeImageUrl);
+  /** Cover ladder: validate in order; dead candidates never become durable covers. */
+  const ladder =
+    Array.isArray(detail.coverCandidateUrls) && detail.coverCandidateUrls.length
+      ? detail.coverCandidateUrls
+      : [detail.representativeImageUrl];
+  const coverResolved = await resolveDurableCoverFromLadder(ladder);
+  const durableCoverUrl = coverResolved.durableUrl;
   const coverCandidateUrl =
-    detail.representativeImageUrl && /^https?:\/\//i.test(detail.representativeImageUrl.trim())
+    coverResolved.primaryCandidate ||
+    (detail.representativeImageUrl && /^https?:\/\//i.test(detail.representativeImageUrl.trim())
       ? detail.representativeImageUrl.trim()
-      : null;
+      : null);
   const fingerprint = contentFingerprint(detail.title, detail.contentMarkdown, durableCoverUrl);
 
   const rules = await loadReplacementRulesForBoard(sb, {

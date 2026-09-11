@@ -10,6 +10,7 @@ import type {
   CommunityCrawlItemRow,
   CommunityCrawlSourceRow,
 } from "@/lib/community-crawler/crawl-ssot";
+import { loadCanonicalPublishImagesFromItemMedia } from "@/lib/community-crawler/media/canonical-publish-images";
 import { resolveCommunityCrawlPublishEligibility } from "@/lib/community-crawler/publish-eligibility";
 import { publishCommunityCrawlFullContent } from "@/lib/community-crawler/publish-full-content";
 
@@ -123,6 +124,7 @@ export async function attemptAutoPublishAfterCrawl(input: {
   }
 
   try {
+    const images = await loadCanonicalPublishImagesFromItemMedia(sb, item.id);
     const result = await publishCommunityCrawlFullContent(sb, {
       boardId: item.board_id,
       canonicalUrl: item.canonical_url,
@@ -134,6 +136,7 @@ export async function attemptAutoPublishAfterCrawl(input: {
       displayAuthorAvatarUrl: item.display_author_avatar_url,
       createdAtIso: item.display_date,
       viewCount: item.display_view_seed,
+      images,
     });
 
     if (!result.ok) {
@@ -171,16 +174,14 @@ export async function attemptAutoPublishAfterCrawl(input: {
       return { outcome: "failed", reason: result.error };
     }
 
-    const { data: updated, error: updErr } = await sb
+    const { error: updErr } = await sb
       .from("community_crawl_items")
       .update({
         status: "PUBLISHED",
         published_post_id: result.communityPostId,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", item.id)
-      .select("*")
-      .single();
+      .eq("id", item.id);
 
     if (updErr) {
       // Post exists; item mark failed — record but do not treat as crawl rollback.
@@ -194,25 +195,23 @@ export async function attemptAutoPublishAfterCrawl(input: {
       return { outcome: "failed", reason: "ITEM_PUBLISH_MARK_FAILED" };
     }
 
-    stats.published += 1;
+    if (result.updated) {
+      stats.alreadyPublished += 1;
+    } else {
+      stats.published += 1;
+    }
     await insertCommunityCrawlRunEvent(sb, {
       ...eventBase,
-      classification: "INSERTED",
-      errorCode: "AUTO_PUBLISHED",
+      classification: result.updated ? "UPDATED" : "INSERTED",
+      errorCode: result.updated ? "AUTO_PUBLISH_UPSERT" : "AUTO_PUBLISHED",
       errorMessage: result.communityPostId,
     });
 
-    const nextItem = updated
-      ? ({
-          ...item,
-          status: "PUBLISHED" as const,
-          published_post_id: result.communityPostId,
-        } satisfies CommunityCrawlItemRow)
-      : {
-          ...item,
-          status: "PUBLISHED" as const,
-          published_post_id: result.communityPostId,
-        };
+    const nextItem = {
+      ...item,
+      status: "PUBLISHED" as const,
+      published_post_id: result.communityPostId,
+    } satisfies CommunityCrawlItemRow;
 
     return {
       outcome: "published",

@@ -90,15 +90,26 @@ export async function safeFetchHtml(
     }
 
     const contentType = String(res.headers.get("content-type") ?? "").toLowerCase();
-    if (requireHtml && !contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
-      throw new CommunityCrawlError(
-        "CONTENT_TYPE_INVALID",
-        `Expected text/html, got: ${contentType || "(empty)"}`
-      );
-    }
-
     const buf = await readBodyLimited(res, maxBytes);
     const bodyText = new TextDecoder("utf-8", { fatal: false }).decode(buf);
+
+    if (requireHtml) {
+      const ctOk =
+        contentType.includes("text/html") || contentType.includes("application/xhtml");
+      // Some CDNs/object stores (incl. Supabase Storage public objects) serve HTML as text/plain.
+      const sniff = bodyText.trimStart().slice(0, 256).toLowerCase();
+      const looksHtml =
+        sniff.startsWith("<!doctype html") ||
+        sniff.startsWith("<html") ||
+        sniff.includes("<html");
+      if (!ctOk && !(contentType.includes("text/plain") && looksHtml) && !(contentType === "" && looksHtml)) {
+        throw new CommunityCrawlError(
+          "CONTENT_TYPE_INVALID",
+          `Expected text/html, got: ${contentType || "(empty)"}`
+        );
+      }
+    }
+
     return {
       finalUrl: validated.toString(),
       status: res.status,

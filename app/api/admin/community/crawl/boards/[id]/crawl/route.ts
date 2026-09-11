@@ -7,13 +7,13 @@ import {
 } from "@/lib/community-crawler/admin-crawl-store";
 import { COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE } from "@/lib/community-crawler/crawl-ssot";
 import { enrichCommunityCrawlItemsForAdmin } from "@/lib/community-crawler/admin-item-ops-dto";
-import { runCommunityRealCrawl } from "@/lib/community-crawler/core/run-real-crawl";
+import { runCommunityCrawlBoard } from "@/lib/community-crawler/core/run-real-crawl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-/** REAL crawl → durable community_crawl_items. Not TEST preview. */
+/** Admin “지금 수집”: list/detail → media → AUTO publish (when eligible). */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -48,7 +48,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     const source = await getCommunityCrawlSource(sb, board.source_id);
     if (!source) return NextResponse.json({ ok: false, error: "source_not_found" }, { status: 404 });
 
-    const result = await runCommunityRealCrawl({
+    const result = await runCommunityCrawlBoard({
       sb,
       board,
       source,
@@ -65,7 +65,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       writes: {
         community_crawl_items:
           result.insertedCount + result.updatedCount + result.duplicateCount,
-        community_posts: 0,
+        community_posts: result.publishedCount + result.alreadyPublishedCount,
       },
     });
   } catch (e) {

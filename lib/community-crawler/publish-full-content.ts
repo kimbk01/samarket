@@ -1,7 +1,8 @@
 /**
- * V2-1 canonical FULL_CONTENT publish writer (operational).
+ * Canonical Community crawler publisher (AUTO + REVIEW).
  * Does not mutate source_* snapshot fields.
- * No community_post_images (V2-5). No point reward.
+ * RPC transaction: community_posts + post_links + community_post_images.
+ * No point reward.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,11 +11,17 @@ import {
   getCommunityCrawlBoard,
   getCommunityCrawlSource,
 } from "@/lib/community-crawler/admin-crawl-store";
-import { findExistingCommunityCrawlPostLink } from "@/lib/community-crawler/manual-import-writer";
+import { findExistingCommunityCrawlPostLink } from "@/lib/community-crawler/post-link-store";
 import { validateFullContentDraftForPublish } from "@/lib/community-crawler/publish-full-content-draft";
 import { COMMUNITY_CRAWL_V2_PUBLISH_TARGET } from "@/lib/community-crawler/publish-mode";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
+
+export type CanonicalPublishImage = {
+  imageUrl: string;
+  storagePath: string;
+  sortOrder: number;
+};
 
 export type FullContentPublishInput = {
   boardId: string;
@@ -28,6 +35,8 @@ export type FullContentPublishInput = {
   createdAtIso: string | null;
   viewCount: number;
   regionLabel?: string;
+  /** DIBAY-rehosted assets only (from community_crawl_item_media). */
+  images?: CanonicalPublishImage[];
 };
 
 export type FullContentPublishResult =
@@ -38,8 +47,9 @@ export type FullContentPublishResult =
       originKind: "imported";
       publishMode: typeof COMMUNITY_CRAWL_V2_PUBLISH_TARGET;
       pointReward: 0;
-      mediaDelta: 0;
+      mediaDelta: number;
       alreadyImported: false;
+      updated: boolean;
     }
   | {
       ok: false;
@@ -107,26 +117,20 @@ export async function publishCommunityCrawlFullContent(
     return { ok: false, error: "section_not_found", httpStatus: 400 };
   }
 
-  const existing = await findExistingCommunityCrawlPostLink(sb, {
-    boardId: board.id,
-    sourcePostId: input.sourcePostId,
-    canonicalUrl: input.canonicalUrl,
-  });
-  if (existing) {
-    return {
-      ok: false,
-      error: "already_imported",
-      httpStatus: 409,
-      communityPostId: existing.communityPostId,
-    };
-  }
-
   const title = input.title.trim();
   const content = input.content.trim();
   const displayAuthorName = input.displayAuthorName.trim();
   if (!displayAuthorName) {
     return { ok: false, error: "display_author_required", httpStatus: 400 };
   }
+
+  const images = (input.images ?? [])
+    .map((img, idx) => ({
+      image_url: String(img.imageUrl || "").trim(),
+      storage_path: String(img.storagePath || "").trim(),
+      sort_order: Number.isFinite(img.sortOrder) ? Math.floor(img.sortOrder) : idx,
+    }))
+    .filter((img) => /^https?:\/\//i.test(img.image_url));
 
   const category = deriveCommunityPostCategoryBucket({
     topicOrCategoryRaw: topicSlug,
@@ -152,7 +156,15 @@ export async function publishCommunityCrawlFullContent(
     display_author_avatar_url: input.displayAuthorAvatarUrl?.trim() || null,
     created_at: input.createdAtIso,
     view_count: Math.max(0, Math.floor(Number(input.viewCount) || 0)),
+    images,
   };
+
+  // Pre-read for observability only; RPC upserts same identity (no second post).
+  void (await findExistingCommunityCrawlPostLink(sb, {
+    boardId: board.id,
+    sourcePostId: input.sourcePostId,
+    canonicalUrl: input.canonicalUrl,
+  }));
 
   const { data, error } = await sb.rpc("community_crawl_publish_full_content", {
     p_payload: payload,
@@ -176,8 +188,9 @@ export async function publishCommunityCrawlFullContent(
       originKind: "imported",
       publishMode: COMMUNITY_CRAWL_V2_PUBLISH_TARGET,
       pointReward: 0,
-      mediaDelta: 0,
+      mediaDelta: typeof row.media_delta === "number" ? row.media_delta : images.length,
       alreadyImported: false,
+      updated: row.updated === true,
     };
   }
 

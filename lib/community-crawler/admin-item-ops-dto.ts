@@ -1,5 +1,5 @@
 /**
- * Admin ops DTO enrichment for crawl items (PHASE D).
+ * Admin ops DTO enrichment for crawl items (PHASE D / V2-3 media status).
  * Thumbnail authority: durable COVER media only — never hotlink source_cover_candidate_url.
  */
 
@@ -12,7 +12,9 @@ export type CommunityCrawlItemOpsDto = CommunityCrawlItemRow & {
   topic_name: string | null;
   /** Canonical thumb from durable COVER media; null → Admin fallback (no broken img). */
   thumb_url: string | null;
-  media_status: "DURABLE_COVER" | "NO_MEDIA" | "CANDIDATE_ONLY";
+  media_status: "DURABLE_COVER" | "NO_MEDIA" | "CANDIDATE_ONLY" | "NO_VALID_IMAGE";
+  /** Current BODY media count (durable). */
+  body_media_count: number;
   published: boolean;
   /** Source content policy — publish CTA honesty (≠ media_policy). */
   source_policy_status: string | null;
@@ -41,7 +43,6 @@ export async function enrichCommunityCrawlItemsForAdmin(
       .from("community_crawl_item_media")
       .select("crawl_item_id,public_url,storage_path,is_current,role")
       .in("crawl_item_id", itemIds)
-      .eq("role", "COVER")
       .eq("is_current", true),
   ]);
 
@@ -66,12 +67,22 @@ export async function enrichCommunityCrawlItemsForAdmin(
   }
 
   const coverByItem = new Map<string, string>();
-  // media table may be missing on older envs — treat as empty
+  const bodyCountByItem = new Map<string, number>();
   if (!mediaRes.error) {
     for (const r of mediaRes.data ?? []) {
-      const row = r as { crawl_item_id: string; public_url: string | null; storage_path: string };
-      const raw = row.public_url?.trim() || null;
-      if (raw) coverByItem.set(String(row.crawl_item_id), raw);
+      const row = r as {
+        crawl_item_id: string;
+        public_url: string | null;
+        storage_path: string;
+        role: string;
+      };
+      const id = String(row.crawl_item_id);
+      if (row.role === "COVER") {
+        const raw = row.public_url?.trim() || null;
+        if (raw) coverByItem.set(id, raw);
+      } else if (row.role === "BODY") {
+        bodyCountByItem.set(id, (bodyCountByItem.get(id) ?? 0) + 1);
+      }
     }
   }
 
@@ -81,6 +92,7 @@ export async function enrichCommunityCrawlItemsForAdmin(
     const hasCandidate = Boolean(it.source_cover_candidate_url?.trim());
     let media_status: CommunityCrawlItemOpsDto["media_status"] = "NO_MEDIA";
     if (thumb) media_status = "DURABLE_COVER";
+    else if (hasCandidate && !it.source_cover_url) media_status = "NO_VALID_IMAGE";
     else if (hasCandidate) media_status = "CANDIDATE_ONLY";
 
     const pol = sourcePolicy.get(it.source_id);
@@ -99,6 +111,7 @@ export async function enrichCommunityCrawlItemsForAdmin(
       topic_name: topicName.get(it.target_topic_id) ?? null,
       thumb_url: thumb,
       media_status,
+      body_media_count: bodyCountByItem.get(it.id) ?? 0,
       published,
       source_policy_status,
       source_media_policy,

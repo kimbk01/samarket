@@ -1,6 +1,8 @@
 /**
- * PHASE C — rehost crawl item media into crawler durable authority.
+ * V2-3 — rehost crawl item media into crawler durable authority.
+ * SSOT: community_crawl_item_media only.
  * Does NOT write community_posts / community_post_images.
+ * Does NOT mutate dibay_title / dibay_body (media independent of textual override).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -11,6 +13,7 @@ import {
 } from "@/lib/media/canonical-image-upload.server";
 import { insertCommunityCrawlRunEvent } from "@/lib/community-crawler/core/run-events";
 import type { CommunityCrawlItemRow, CommunityCrawlSourceRow } from "@/lib/community-crawler/crawl-ssot";
+import { coverLadderFromItemFields } from "@/lib/community-crawler/media/cover-candidate-ladder";
 import {
   demoteCurrentCrawlItemMedia,
   findCrawlItemMediaByHash,
@@ -32,7 +35,10 @@ export type RehostItemMediaStats = {
   reused: number;
   invalid: number;
   skippedPolicy: boolean;
+  /** @deprecated V2-3: media is independent of textual manual_override; always false. */
   skippedManualOverride: boolean;
+  coverState: "VALID" | "NO_VALID_IMAGE" | "NO_CANDIDATE" | "SKIPPED";
+  bodyCurrentCount: number;
 };
 
 type Candidate = {
@@ -41,21 +47,14 @@ type Candidate = {
   sortOrder: number;
 };
 
-function collectCandidates(item: CommunityCrawlItemRow): Candidate[] {
+function collectBodyCandidates(item: CommunityCrawlItemRow, coverUrl: string | null): Candidate[] {
   const out: Candidate[] = [];
-  const cover =
-    (item.source_cover_candidate_url || item.source_cover_url || "").trim() || null;
-  if (cover) out.push({ url: cover, role: "COVER", sortOrder: 0 });
-
   const body = Array.isArray(item.source_body_images) ? item.source_body_images : [];
   let sort = 0;
   for (const raw of body) {
     const u = typeof raw === "string" ? raw.trim() : "";
     if (!u) continue;
-    if (cover && u === cover) {
-      // Same URL as cover: durable COVER row is enough; mapping still COVER-first.
-      continue;
-    }
+    if (coverUrl && u === coverUrl) continue;
     out.push({ url: u, role: "BODY", sortOrder: sort++ });
   }
   return out;
@@ -115,6 +114,16 @@ async function persistOne(input: {
       }
       await promoteCrawlItemMediaCurrent(sb, existing.id);
     }
+    if (candidate.role === "BODY" && existing.sort_order !== candidate.sortOrder) {
+      await sb
+        .from("community_crawl_item_media")
+        .update({
+          sort_order: candidate.sortOrder,
+          is_current: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+    }
     stats.reused += 1;
     return existing;
   }
@@ -139,7 +148,10 @@ async function persistOne(input: {
     stats.uploaded += 1;
 
     if (candidate.role === "COVER") {
-      await demoteCurrentCrawlItemMedia(sb, { crawlItemId: item.id, role: "COVER" });
+      await demoteCurrentCrawlItemMedia(sb, {
+        crawlItemId: item.id,
+        role: "COVER",
+      });
     }
 
     try {
@@ -190,7 +202,8 @@ async function persistOne(input: {
 
 /**
  * IMAGE_OPTIONAL: failures are logged; item stays reviewable.
- * Policy / manual_override short-circuit without network fetch.
+ * Policy short-circuit without network fetch.
+ * Manual textual override does NOT block media (V2-3).
  */
 export async function rehostCommunityCrawlItemMedia(input: {
   sb: SupabaseClient;
@@ -205,6 +218,8 @@ export async function rehostCommunityCrawlItemMedia(input: {
     invalid: 0,
     skippedPolicy: false,
     skippedManualOverride: false,
+    coverState: "SKIPPED",
+    bodyCurrentCount: 0,
   };
 
   if (!isCommunityCrawlMediaRehostPermitted(input.source.media_policy)) {
@@ -212,14 +227,45 @@ export async function rehostCommunityCrawlItemMedia(input: {
     return stats;
   }
 
-  if (input.item.manual_override) {
-    stats.skippedManualOverride = true;
-    return stats;
+  const coverLadder = coverLadderFromItemFields({
+    sourceCoverCandidateUrl: input.item.source_cover_candidate_url,
+    sourceCoverUrl: input.item.source_cover_url,
+    sourceBodyImages: input.item.source_body_images,
+  });
+
+  let coverUrl: string | null = null;
+  if (!coverLadder.length) {
+    stats.coverState = "NO_CANDIDATE";
+  } else {
+    let coverOk = false;
+    for (const url of coverLadder) {
+      const row = await persistOne({
+        sb: input.sb,
+        item: input.item,
+        source: input.source,
+        runId: input.runId ?? null,
+        candidate: { url, role: "COVER", sortOrder: 0 },
+        stats,
+      });
+      if (row) {
+        coverOk = true;
+        coverUrl = url;
+        break;
+      }
+    }
+    stats.coverState = coverOk ? "VALID" : "NO_VALID_IMAGE";
   }
 
-  const candidates = collectCandidates(input.item);
-  for (const candidate of candidates) {
-    await persistOne({
+  // BODY set replacement: clear previous current BODY, then materialize in article order.
+  await demoteCurrentCrawlItemMedia(input.sb, {
+    crawlItemId: input.item.id,
+    role: "BODY",
+  });
+
+  const bodyCandidates = collectBodyCandidates(input.item, coverUrl);
+  const keptBodyHashes = new Set<string>();
+  for (const candidate of bodyCandidates) {
+    const row = await persistOne({
       sb: input.sb,
       item: input.item,
       source: input.source,
@@ -227,6 +273,9 @@ export async function rehostCommunityCrawlItemMedia(input: {
       candidate,
       stats,
     });
+    if (row) keptBodyHashes.add(row.content_hash);
   }
+  stats.bodyCurrentCount = keptBodyHashes.size;
+
   return stats;
 }

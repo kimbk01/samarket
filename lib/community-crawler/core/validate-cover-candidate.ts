@@ -186,6 +186,52 @@ export async function resolveDurableCoverUrl(
   return v.ok ? v.url : null;
 }
 
+/**
+ * Walk cover ladder until one candidate validates.
+ * COVER URL PRESENT ≠ COVER VALID — returns NO_VALID_IMAGE when all fail.
+ */
+export async function resolveDurableCoverFromLadder(
+  candidates: Array<string | null | undefined>
+): Promise<{
+  durableUrl: string | null;
+  primaryCandidate: string | null;
+  attempted: number;
+  state: "VALID" | "NO_VALID_IMAGE" | "NO_CANDIDATE";
+}> {
+  const list = candidates
+    .map((c) => (typeof c === "string" ? c.trim() : ""))
+    .filter((c) => /^https?:\/\//i.test(c));
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const u of list) {
+    if (seen.has(u)) continue;
+    seen.add(u);
+    unique.push(u);
+  }
+  if (!unique.length) {
+    return { durableUrl: null, primaryCandidate: null, attempted: 0, state: "NO_CANDIDATE" };
+  }
+  let attempted = 0;
+  for (const u of unique) {
+    attempted += 1;
+    const v = await validateCoverImageCandidate(u);
+    if (v.ok) {
+      return {
+        durableUrl: v.url,
+        primaryCandidate: unique[0]!,
+        attempted,
+        state: "VALID",
+      };
+    }
+  }
+  return {
+    durableUrl: null,
+    primaryCandidate: unique[0]!,
+    attempted,
+    state: "NO_VALID_IMAGE",
+  };
+}
+
 async function readBodyLimited(res: Response, maxBytes: number): Promise<Uint8Array> {
   if (!res.body) {
     const ab = await res.arrayBuffer();

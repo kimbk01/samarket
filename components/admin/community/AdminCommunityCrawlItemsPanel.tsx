@@ -48,6 +48,7 @@ function statusLabel(status: string, t: (k: MessageKey) => string): string {
 function mediaStatusLabel(s: CommunityCrawlItemOpsDto["media_status"], t: (k: MessageKey) => string): string {
   if (s === "DURABLE_COVER") return t("admin_community_crawl_media_status_durable");
   if (s === "CANDIDATE_ONLY") return t("admin_community_crawl_media_status_candidate");
+  if (s === "NO_VALID_IMAGE") return t("admin_community_crawl_media_status_no_valid");
   return t("admin_community_crawl_media_status_none");
 }
 
@@ -96,6 +97,7 @@ function asOps(item: CommunityCrawlItemOpsDto | Record<string, unknown>): Commun
     topic_name: it.topic_name ?? null,
     thumb_url: it.thumb_url ?? null,
     media_status: it.media_status ?? "NO_MEDIA",
+    body_media_count: typeof it.body_media_count === "number" ? it.body_media_count : 0,
     published,
     source_policy_status,
     source_media_policy,
@@ -403,6 +405,9 @@ export function AdminCommunityCrawlItemsPanel(props: {
                     {t("admin_community_crawl_item_source")}: {it.source_name || "—"} ·{" "}
                     {t("admin_community_crawl_item_last_crawled")}: {formatWhen(it.last_crawled_at)} ·{" "}
                     {t("admin_community_crawl_item_media_status")}: {mediaStatusLabel(it.media_status, t)}
+                    {it.body_media_count > 0
+                      ? ` · ${t("admin_community_crawl_item_body_media_count", { n: it.body_media_count })}`
+                      : ""}
                   </div>
                   <p className="sam-text-helper text-sam-muted line-clamp-2 break-words">
                     {(it.dibay_body || it.source_body_normalized).slice(0, 160)}

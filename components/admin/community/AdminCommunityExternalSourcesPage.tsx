@@ -8,7 +8,6 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import {
   COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
   COMMUNITY_CRAWL_INTERVAL_MINUTES,
-  COMMUNITY_CRAWL_SCHEDULER_FROZEN,
   type CommunityCrawlAuthorPolicy,
   type CommunityCrawlBoardRow,
   type CommunityCrawlDatePolicy,
@@ -99,25 +98,33 @@ function crawlRunStatusLabel(status: string, t: (k: MessageKey) => string): stri
 }
 
 function crawlRunCountsLabel(
-  r: Pick<
-    CommunityCrawlRunRow,
-    | "fetched_count"
-    | "inserted_count"
-    | "updated_count"
-    | "duplicate_count"
-    | "skipped_invalid_count"
-    | "failed_count"
-  >,
+  r: {
+    fetched_count?: number | null;
+    inserted_count?: number | null;
+    updated_count?: number | null;
+    duplicate_count?: number | null;
+    skipped_invalid_count?: number | null;
+    failed_count?: number | null;
+    published_count?: number | null;
+    already_published_count?: number | null;
+    publish_skipped?: number | null;
+  },
   t: (k: MessageKey) => string
 ): string {
-  return [
+  const parts = [
     `${t("admin_community_crawl_run_fetched_count")} ${r.fetched_count ?? 0}`,
     `${t("admin_community_crawl_run_inserted_count")} ${r.inserted_count ?? 0}`,
     `${t("admin_community_crawl_run_updated_count")} ${r.updated_count ?? 0}`,
     `${t("admin_community_crawl_run_duplicate_count")} ${r.duplicate_count ?? 0}`,
     `${t("admin_community_crawl_run_skipped_invalid_count")} ${r.skipped_invalid_count ?? 0}`,
     `${t("admin_community_crawl_run_failed_count")} ${r.failed_count ?? 0}`,
-  ].join(" · ");
+  ];
+  if (r.published_count != null || r.already_published_count != null || r.publish_skipped != null) {
+    parts.push(`${t("admin_community_crawl_run_published_count")} ${r.published_count ?? 0}`);
+    parts.push(`${t("admin_community_crawl_run_publish_upsert_count")} ${r.already_published_count ?? 0}`);
+    parts.push(`${t("admin_community_crawl_run_publish_skipped_count")} ${r.publish_skipped ?? 0}`);
+  }
+  return parts.join(" · ");
 }
 
 function mediaPolicyLabel(p: CommunityCrawlMediaPolicy | string, t: (k: MessageKey) => string): string {
@@ -544,9 +551,8 @@ export function AdminCommunityExternalSourcesPage() {
         date_config: buildDateConfig(),
         view_policy: viewPolicy,
         view_config: buildViewConfig(),
-        schedule_enabled: COMMUNITY_CRAWL_SCHEDULER_FROZEN ? false : scheduleEnabled,
-        crawl_interval_minutes:
-          COMMUNITY_CRAWL_SCHEDULER_FROZEN || !scheduleEnabled ? null : intervalMinutes,
+        schedule_enabled: scheduleEnabled,
+        crawl_interval_minutes: !scheduleEnabled ? null : intervalMinutes,
         max_pages: Math.max(1, parseInt(maxPages, 10) || 3),
         max_posts: Math.max(1, parseInt(maxPosts, 10) || 20),
         enabled: boardEnabled,
@@ -584,10 +590,6 @@ export function AdminCommunityExternalSourcesPage() {
   }
 
   async function toggleBoardSchedule(board: CommunityCrawlBoardRow) {
-    if (COMMUNITY_CRAWL_SCHEDULER_FROZEN) {
-      await dibayAlert({ title: t("admin_community_crawl_scheduler_frozen") });
-      return;
-    }
     setBusy(true);
     try {
       const next = !board.schedule_enabled;
@@ -658,6 +660,10 @@ export function AdminCommunityExternalSourcesPage() {
           skippedInvalidCount?: number;
           failedCount?: number;
           fetchedCount?: number;
+          publishedCount?: number;
+          alreadyPublishedCount?: number;
+          publishSkippedPolicy?: number;
+          publishSkippedMode?: number;
         };
         error?: string;
       };
@@ -699,6 +705,10 @@ export function AdminCommunityExternalSourcesPage() {
               duplicate_count: result?.duplicateCount ?? 0,
               skipped_invalid_count: result?.skippedInvalidCount ?? 0,
               failed_count: result?.failedCount ?? 0,
+              published_count: result?.publishedCount ?? 0,
+              already_published_count: result?.alreadyPublishedCount ?? 0,
+              publish_skipped:
+                (result?.publishSkippedPolicy ?? 0) + (result?.publishSkippedMode ?? 0),
             },
             t
           ),
@@ -847,11 +857,9 @@ export function AdminCommunityExternalSourcesPage() {
                                 {topicNameById.get(b.dibay_topic_id) ?? b.dibay_topic_id}
                               </div>
                               <div className="sam-text-helper text-sam-muted">
-                                {COMMUNITY_CRAWL_SCHEDULER_FROZEN
-                                  ? t("admin_community_crawl_scheduler_frozen")
-                                  : b.schedule_enabled
-                                    ? `${t("admin_community_crawl_auto_on")} · ${intervalLabel(b.crawl_interval_minutes, t)}`
-                                    : t("admin_community_crawl_auto_off")}
+                                {b.schedule_enabled
+                                  ? `${t("admin_community_crawl_auto_on")} · ${intervalLabel(b.crawl_interval_minutes, t)}`
+                                  : t("admin_community_crawl_auto_off")}
                                 {" · "}
                                 {b.last_error
                                   ? t("admin_community_crawl_status_error")
@@ -1000,14 +1008,12 @@ export function AdminCommunityExternalSourcesPage() {
               <button
                 type="button"
                 className={btnGhost}
-                disabled={busy || COMMUNITY_CRAWL_SCHEDULER_FROZEN}
+                disabled={busy}
                 onClick={() => void toggleBoardSchedule(manageBoard)}
               >
-                {COMMUNITY_CRAWL_SCHEDULER_FROZEN
-                  ? t("admin_community_crawl_scheduler_frozen_short")
-                  : manageBoard.schedule_enabled
-                    ? t("admin_community_crawl_auto_turn_off")
-                    : t("admin_community_crawl_auto_turn_on")}
+                {manageBoard.schedule_enabled
+                  ? t("admin_community_crawl_auto_turn_off")
+                  : t("admin_community_crawl_auto_turn_on")}
               </button>
               <button
                 type="button"
@@ -1341,33 +1347,27 @@ export function AdminCommunityExternalSourcesPage() {
             </fieldset>
 
             <div className="space-y-2">
-              {COMMUNITY_CRAWL_SCHEDULER_FROZEN ? (
-                <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_scheduler_frozen")}</p>
-              ) : (
-                <>
-                  <label className="flex items-center gap-2 sam-text-body">
-                    <input
-                      type="checkbox"
-                      checked={scheduleEnabled}
-                      onChange={(e) => setScheduleEnabled(e.target.checked)}
-                    />
-                    {t("admin_community_crawl_auto_collect")}
-                  </label>
-                  {scheduleEnabled ? (
-                    <select
-                      className={fieldClass}
-                      value={intervalMinutes}
-                      onChange={(e) => setIntervalMinutes(Number(e.target.value))}
-                    >
-                      {COMMUNITY_CRAWL_INTERVAL_MINUTES.map((m) => (
-                        <option key={m} value={m}>
-                          {intervalLabel(m, t)}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                </>
-              )}
+              <label className="flex items-center gap-2 sam-text-body">
+                <input
+                  type="checkbox"
+                  checked={scheduleEnabled}
+                  onChange={(e) => setScheduleEnabled(e.target.checked)}
+                />
+                {t("admin_community_crawl_auto_collect")}
+              </label>
+              {scheduleEnabled ? (
+                <select
+                  className={fieldClass}
+                  value={intervalMinutes}
+                  onChange={(e) => setIntervalMinutes(Number(e.target.value))}
+                >
+                  {COMMUNITY_CRAWL_INTERVAL_MINUTES.map((m) => (
+                    <option key={m} value={m}>
+                      {intervalLabel(m, t)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </div>
 
             <label className="flex items-center gap-2 sam-text-body">

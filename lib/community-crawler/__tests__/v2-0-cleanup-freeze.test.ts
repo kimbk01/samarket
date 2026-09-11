@@ -12,20 +12,18 @@ import {
   COMMUNITY_CRAWL_V2_PUBLISH_TARGET as PUBLISH_TARGET,
 } from "@/lib/community-crawler/publish-mode";
 
-describe("community crawler V2-0 cleanup / SSOT freeze", () => {
-  it("freezes Production scheduler with machine-readable state", () => {
-    expect(COMMUNITY_CRAWL_SCHEDULER_FROZEN).toBe(true);
-    expect(COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE).toBe("CRAWLER_SCHEDULER_FROZEN");
+describe("community crawler V2-0 cleanup / scheduler cutover", () => {
+  it("scheduler runs due boards via runCommunityCrawlBoard", () => {
+    expect(COMMUNITY_CRAWL_SCHEDULER_FROZEN).toBe(false);
+    expect(COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE).toBe("CRAWLER_SCHEDULER_ACTIVE");
     const cron = readFileSync(
       join(process.cwd(), "app/api/cron/community-crawl-dispatcher/route.ts"),
       "utf8"
     );
-    expect(cron).toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
-    expect(cron).toContain("COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE");
-    expect(cron).toContain("runs_created: 0");
-    expect(cron).toContain("item_mutations: 0");
-    expect(cron).toContain("media_mutations: 0");
-    expect(cron).not.toContain("runCommunityRealCrawl");
+    expect(cron).toContain("runCommunityCrawlBoard");
+    expect(cron).toContain("schedule_enabled");
+    expect(cron).toContain("next_run_at");
+    expect(cron).not.toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
   });
 
   it("retires prepare route as 410 PREPARE_RETIRED", () => {
@@ -40,7 +38,7 @@ describe("community crawler V2-0 cleanup / SSOT freeze", () => {
     expect(prepare).not.toContain("buildPreparedCrawlItem");
   });
 
-  it("keeps import 410 and manual 501", () => {
+  it("keeps import/manual retired as 410", () => {
     const importRoute = readFileSync(
       join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/import/route.ts"),
       "utf8"
@@ -51,7 +49,8 @@ describe("community crawler V2-0 cleanup / SSOT freeze", () => {
     );
     expect(importRoute).toContain("MANUAL_IMPORT_RETIRED");
     expect(importRoute).toContain("status: 410");
-    expect(manualRoute).toContain("status: 501");
+    expect(importRoute).not.toContain("publishCommunityManualImportReferenceSummary");
+    expect(manualRoute).toContain("status: 410");
   });
 
   it("declares V2 publish target FULL_CONTENT as operational default", () => {

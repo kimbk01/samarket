@@ -81,16 +81,16 @@ describe("V2-1 FULL_CONTENT publish contract", () => {
     expect(route).not.toContain("source_body_copy_forbidden");
   });
 
-  it("legacy import route still references reference-summary writer behind 410", () => {
+  it("legacy import route is retired 410 without REFERENCE_SUMMARY writer", () => {
     const importRoute = readFileSync(
       join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/import/route.ts"),
       "utf8"
     );
     expect(importRoute).toContain("MANUAL_IMPORT_RETIRED");
-    expect(importRoute).toContain("publishCommunityManualImportReferenceSummary");
+    expect(importRoute).not.toContain("publishCommunityManualImportReferenceSummary");
   });
 
-  it("migration adds FULL_CONTENT RPC without touching community_post_images", () => {
+  it("historical V2-1 migration had posts+links only (superseded)", () => {
     const sql = readFileSync(
       join(
         process.cwd(),
@@ -98,18 +98,32 @@ describe("V2-1 FULL_CONTENT publish contract", () => {
       ),
       "utf8"
     );
-    expect(sql).toContain("FULL_CONTENT");
     expect(sql).toContain("community_crawl_publish_full_content");
-    expect(sql).toContain("community_crawl_post_links");
     expect(sql).not.toMatch(/INSERT\s+INTO\s+public\.community_post_images/i);
-    expect(sql).not.toContain("source_body_copy_forbidden");
   });
 
-  it("writer never calls point reward / member post API", () => {
+  it("canonical publish migration writes posts+links+images in one RPC", () => {
+    const sql = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/20261228120000_community_crawl_publish_canonical_images.sql"
+      ),
+      "utf8"
+    );
+    expect(sql).toContain("community_crawl_publish_full_content");
+    expect(sql).toMatch(/INSERT\s+INTO\s+public\.community_post_images/i);
+    expect(sql).toMatch(/DELETE\s+FROM\s+public\.community_post_images/i);
+    expect(sql).toContain("community_crawl_post_links");
+    expect(sql).toContain("'updated'");
+  });
+
+  it("writer uses post-link-store and accepts images payload", () => {
     const writer = readFileSync(
       join(process.cwd(), "lib/community-crawler/publish-full-content.ts"),
       "utf8"
     );
+    expect(writer).toContain('from "@/lib/community-crawler/post-link-store"');
+    expect(writer).toContain("images");
     expect(writer).toContain("FULL_CONTENT_PUBLISH_POINT_REWARD_FORBIDDEN");
     expect(writer).not.toMatch(/applyCommunityPointRewardOnPostWrite\s*\(/);
     expect(writer).not.toContain("/api/community/posts");

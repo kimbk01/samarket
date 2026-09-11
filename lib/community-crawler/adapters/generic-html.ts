@@ -6,6 +6,7 @@ import {
   normalizeTitleText,
 } from "@/lib/community-crawler/core/html-to-community-markdown";
 import { resolveCrawlUrl } from "@/lib/community-crawler/core/safe-url";
+import { extractCoverCandidateLadder } from "@/lib/community-crawler/media/cover-candidate-ladder";
 
 export type ParsedListItem = {
   detailUrl: string;
@@ -20,7 +21,10 @@ export type ParsedDetail = {
   dateRaw: string | null;
   viewRaw: string | null;
   bodyImageUrls: string[];
+  /** Primary cover candidate (ladder[0]); may be dead. */
   representativeImageUrl: string | null;
+  /** Ordered cover ladder (canonical → og → json-ld → body). */
+  coverCandidateUrls: string[];
   sourcePostId: string | null;
 };
 
@@ -137,7 +141,7 @@ export function parseDetailPage(
   const dateRaw = textOf($, root, config.dateSelector) || null;
   const viewRaw = textOf($, root, config.viewSelector) || null;
 
-  let representativeImageUrl: string | null = null;
+  let canonicalCover: string | null = null;
   if (config.representativeImageSelector) {
     const img = $(config.representativeImageSelector).first();
     const src =
@@ -145,20 +149,25 @@ export function parseDetailPage(
       img.attr("data-src") ||
       img.attr("data-original") ||
       pickSrcset(img.attr("srcset"));
-    representativeImageUrl = src ? resolveCrawlUrl(pageUrl, src) : null;
+    canonicalCover = src ? resolveCrawlUrl(pageUrl, src) : null;
   }
-  if (!representativeImageUrl && config.imageSelector) {
+  if (!canonicalCover && config.imageSelector) {
     const img = $(config.imageSelector).first();
     const src =
       img.attr("src") ||
       img.attr("data-src") ||
       img.attr("data-original") ||
       pickSrcset(img.attr("srcset"));
-    representativeImageUrl = src ? resolveCrawlUrl(pageUrl, src) : null;
+    canonicalCover = src ? resolveCrawlUrl(pageUrl, src) : null;
   }
-  if (!representativeImageUrl && imageUrls[0]) {
-    representativeImageUrl = imageUrls[0];
-  }
+
+  const coverCandidateUrls = extractCoverCandidateLadder({
+    pageUrl,
+    html,
+    canonicalCoverUrl: canonicalCover,
+    articleBodyImageUrls: imageUrls,
+  });
+  const representativeImageUrl = coverCandidateUrls[0] ?? null;
 
   let sourcePostId: string | null = null;
   if (config.sourcePostIdSelector) {
@@ -178,10 +187,8 @@ export function parseDetailPage(
     dateRaw,
     viewRaw,
     bodyImageUrls: imageUrls,
-    representativeImageUrl:
-      representativeImageUrl && /^https?:\/\//i.test(representativeImageUrl)
-        ? representativeImageUrl
-        : null,
+    representativeImageUrl,
+    coverCandidateUrls,
     sourcePostId,
   };
 }

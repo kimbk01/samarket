@@ -50,7 +50,29 @@ export type RealCrawlResult = {
   skippedInvalid: Array<{ sourceUrl: string | null; reason: string }>;
 };
 
+/** Canonical board crawl: list/detail → snapshot → media → AUTO/REVIEW publish. */
+export async function runCommunityCrawlBoard(input: {
+  sb: SupabaseClient;
+  board: CommunityCrawlBoardRow;
+  source: CommunityCrawlSourceRow;
+  runKind: CommunityCrawlRunKind;
+  maxPostsOverride?: number;
+}): Promise<RealCrawlResult> {
+  return runCommunityCrawlBoardImpl(input);
+}
+
+/** @deprecated use runCommunityCrawlBoard */
 export async function runCommunityRealCrawl(input: {
+  sb: SupabaseClient;
+  board: CommunityCrawlBoardRow;
+  source: CommunityCrawlSourceRow;
+  runKind: CommunityCrawlRunKind;
+  maxPostsOverride?: number;
+}): Promise<RealCrawlResult> {
+  return runCommunityCrawlBoardImpl(input);
+}
+
+async function runCommunityCrawlBoardImpl(input: {
   sb: SupabaseClient;
   board: CommunityCrawlBoardRow;
   source: CommunityCrawlSourceRow;

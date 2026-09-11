@@ -93,11 +93,11 @@ export const COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE = false as const;
 export const COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE = true as const;
 
 /**
- * V2-0 SSOT freeze: Production cron must not create SCHEDULED crawls until V2-6/V2-7.
- * Board schedule_enabled may remain true in DB — execution is still blocked.
+ * Scheduler freeze removed after PUBLIC HTTP AUTO E2E + rebuild cutover.
+ * Kept as false constant so Admin/cron can branch without deleting call sites.
  */
-export const COMMUNITY_CRAWL_SCHEDULER_FROZEN = true as const;
-export const COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE = "CRAWLER_SCHEDULER_FROZEN" as const;
+export const COMMUNITY_CRAWL_SCHEDULER_FROZEN = false as const;
+export const COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE = "CRAWLER_SCHEDULER_ACTIVE" as const;
 
 /** Legacy STEP5 prepare route — retired; Admin must use TEST or REAL crawl only. */
 export const COMMUNITY_CRAWL_PREPARE_AVAILABLE = false as const;

@@ -11,14 +11,16 @@ const {
   publishFull,
   insertEvent,
   validateDraft,
+  loadImages,
 } = vi.hoisted(() => ({
   findLink: vi.fn(),
   publishFull: vi.fn(),
   insertEvent: vi.fn(async () => undefined),
   validateDraft: vi.fn(),
+  loadImages: vi.fn(async () => []),
 }));
 
-vi.mock("@/lib/community-crawler/manual-import-writer", () => ({
+vi.mock("@/lib/community-crawler/post-link-store", () => ({
   findExistingCommunityCrawlPostLink: findLink,
 }));
 vi.mock("@/lib/community-crawler/publish-full-content", () => ({
@@ -29,6 +31,9 @@ vi.mock("@/lib/community-crawler/core/run-events", () => ({
 }));
 vi.mock("@/lib/community-crawler/publish-full-content-draft", () => ({
   validateFullContentDraftForPublish: validateDraft,
+}));
+vi.mock("@/lib/community-crawler/media/canonical-publish-images", () => ({
+  loadCanonicalPublishImagesFromItemMedia: loadImages,
 }));
 
 import { attemptAutoPublishAfterCrawl } from "@/lib/community-crawler/auto-publish-after-crawl";
@@ -186,18 +191,17 @@ describe("resolveCommunityCrawlPublishEligibility", () => {
     if (!r.ok) expect(r.reason).toBe("SOURCE_NOT_ACTIVE");
   });
 
-  it("E: already published → duplicate", async () => {
+    it("E: already published → still eligible (canonical upsert)", async () => {
     const r = await resolveCommunityCrawlPublishEligibility({} as never, {
       source: source(),
       board: board(),
       item: item({ published_post_id: "post-1", status: "PUBLISHED" }),
       mode: "auto",
     });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("ALREADY_PUBLISHED");
+    expect(r.ok).toBe(true);
   });
 
-  it("E2: existing post link → duplicate", async () => {
+  it("E2: existing post link → still eligible (canonical upsert)", async () => {
     findLink.mockResolvedValue({ communityPostId: "post-9", linkId: "link-9" });
     const r = await resolveCommunityCrawlPublishEligibility({} as never, {
       source: source(),
@@ -205,8 +209,7 @@ describe("resolveCommunityCrawlPublishEligibility", () => {
       item: item(),
       mode: "auto",
     });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toBe("ALREADY_LINKED");
+    expect(r.ok).toBe(true);
   });
 
   it("G: invalid draft → fail reason", async () => {
@@ -356,7 +359,7 @@ describe("attemptAutoPublishAfterCrawl", () => {
 
 describe("boundary locks", () => {
   it("K: scheduler still FROZEN", () => {
-    expect(COMMUNITY_CRAWL_SCHEDULER_FROZEN).toBe(true);
+    expect(COMMUNITY_CRAWL_SCHEDULER_FROZEN).toBe(false);
   });
 
   it("L: replacement engine not imported by auto-publish module", async () => {

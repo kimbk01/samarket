@@ -43,8 +43,7 @@ describe("community crawl SSOT (STEP2)", () => {
     );
     expect(testRoute).toContain("runCommunityTestCrawl");
     expect(testRoute).not.toContain("status: 501");
-    expect(manualRoute).toContain("COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON");
-    expect(manualRoute).toContain("status: 501");
+    expect(manualRoute).toContain("status: 410");
     expect(manualRoute).not.toMatch(/ok:\s*true/);
   });
 
@@ -73,10 +72,11 @@ describe("community crawl SSOT (STEP2)", () => {
     expect(ui).not.toContain("admin_community_crawl_manual");
     expect(ui).not.toContain("mock crawl");
     expect(ui).not.toContain("fake success");
-    expect(ui).toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
+    expect(ui).not.toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
+    expect(ui).toContain("admin_community_crawl_auto_collect");
   });
 
-  it("prepare route is retired 410; cron dispatcher is frozen without real crawl", () => {
+  it("prepare route is retired 410; cron dispatcher runs due boards", () => {
     const prepare = readFileSync(
       join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/prepare/route.ts"),
       "utf8"
@@ -87,8 +87,8 @@ describe("community crawl SSOT (STEP2)", () => {
     );
     expect(prepare).toContain("PREPARE_RETIRED");
     expect(prepare).toContain("status: 410");
-    expect(cron).toContain("COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE");
-    expect(cron).not.toContain("runCommunityRealCrawl");
+    expect(cron).toContain("runCommunityCrawlBoard");
+    expect(cron).not.toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
   });
 
   it("registry migration uses community_topics FK and post_link uniqueness", () => {

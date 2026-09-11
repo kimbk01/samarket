@@ -112,7 +112,7 @@ describe("community crawler STEP3 core", () => {
     expect(stableHash32("x")).toBe(stableHash32("x"));
   });
 
-  it("TEST API no longer returns 501; MANUAL still 501", () => {
+  it("TEST API available; MANUAL route retired 410", () => {
     const root = process.cwd();
     const testRoute = readFileSync(
       join(root, "app/api/admin/community/crawl/boards/[id]/test/route.ts"),
@@ -124,8 +124,8 @@ describe("community crawler STEP3 core", () => {
     );
     expect(testRoute).toContain("runCommunityTestCrawl");
     expect(testRoute).not.toContain("status: 501");
-    expect(manualRoute).toContain("COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON");
-    expect(manualRoute).toContain("status: 501");
+    expect(manualRoute).toContain("MANUAL_CRAWL_RETIRED");
+    expect(manualRoute).toContain("status: 410");
   });
 
   it("UI enables TEST preview + REAL crawl; removes obsolete MANUAL CTA", () => {

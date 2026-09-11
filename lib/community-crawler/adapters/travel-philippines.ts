@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-crawler/core/html-to-community-markdown";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
 import { resolveCrawlUrl } from "@/lib/community-crawler/core/safe-url";
+import { extractCoverCandidateLadder } from "@/lib/community-crawler/media/cover-candidate-ladder";
 
 export const TRAVEL_PHILIPPINES_ADAPTER_KEY = "travel_philippines" as const;
 
@@ -147,10 +148,17 @@ export function parseTravelPhilippinesDetailPage(html: string, pageUrl: string):
     throw new CommunityCrawlError("CONTENT_MISSING", "Travel PH content empty after normalize");
   }
 
-  const cover =
-    (isHttpUrl(article?.coverImage?.url) ? String(article!.coverImage!.url).trim() : null) ||
-    imageUrls[0] ||
-    null;
+  const canonicalCover = isHttpUrl(article?.coverImage?.url)
+    ? String(article!.coverImage!.url).trim()
+    : null;
+
+  const coverCandidateUrls = extractCoverCandidateLadder({
+    pageUrl,
+    html,
+    canonicalCoverUrl: canonicalCover,
+    articleBodyImageUrls: imageUrls,
+  });
+  const cover = coverCandidateUrls[0] ?? null;
 
   const authorName =
     article?.author && typeof article.author === "object" && typeof article.author.name === "string"
@@ -171,6 +179,7 @@ export function parseTravelPhilippinesDetailPage(html: string, pageUrl: string):
     viewRaw: null,
     bodyImageUrls: imageUrls,
     representativeImageUrl: cover,
+    coverCandidateUrls,
     sourcePostId: extractIdFromUrl(pageUrl),
   };
 }

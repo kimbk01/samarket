@@ -1,6 +1,7 @@
 /**
  * Canonical publish eligibility for Community crawler (Admin + AUTO_PUBLISH).
  * Permission/draft rules must not be weakened for orchestration convenience.
+ * Already-linked / already-published items remain eligible — RPC upserts same identity.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -9,7 +10,6 @@ import type {
   CommunityCrawlItemRow,
   CommunityCrawlSourceRow,
 } from "@/lib/community-crawler/crawl-ssot";
-import { findExistingCommunityCrawlPostLink } from "@/lib/community-crawler/manual-import-writer";
 import { validateFullContentDraftForPublish } from "@/lib/community-crawler/publish-full-content-draft";
 
 export type CommunityCrawlPublishMode = "auto" | "manual";
@@ -43,9 +43,10 @@ export type CommunityCrawlPublishEligibility =
  * Shared eligibility SSOT.
  * - mode "auto": also requires board.ingest_mode === AUTO_PUBLISH
  * - mode "manual": Admin path; AUTO_PUBLISH mode not required
+ * - existing post link / published_post_id: still ok (canonical upsert)
  */
 export async function resolveCommunityCrawlPublishEligibility(
-  sb: SupabaseClient,
+  _sb: SupabaseClient,
   input: {
     source: CommunityCrawlSourceRow;
     board: CommunityCrawlBoardRow;
@@ -86,29 +87,6 @@ export async function resolveCommunityCrawlPublishEligibility(
       reason: "BOARD_NOT_AUTO_PUBLISH",
       detail: `ingest_mode=${board.ingest_mode}`,
       eventClassification: "PUBLISH_BLOCKED_POLICY",
-    };
-  }
-
-  if (item.published_post_id) {
-    return {
-      ok: false,
-      reason: "ALREADY_PUBLISHED",
-      detail: item.published_post_id,
-      eventClassification: "DUPLICATE",
-    };
-  }
-
-  const existing = await findExistingCommunityCrawlPostLink(sb, {
-    boardId: item.board_id,
-    sourcePostId: item.source_post_id,
-    canonicalUrl: item.canonical_url,
-  });
-  if (existing) {
-    return {
-      ok: false,
-      reason: "ALREADY_LINKED",
-      detail: existing.communityPostId,
-      eventClassification: "DUPLICATE",
     };
   }
 

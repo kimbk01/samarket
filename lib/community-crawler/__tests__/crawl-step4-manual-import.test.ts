@@ -13,6 +13,7 @@ const preview: TestCrawlPreviewItem = {
   contentPreview: "long source body…",
   contentMarkdown: "This is the full external source body from Travel Philippines. Paragraph two.",
   representativeImageUrl: null,
+  sourcePostId: "example",
   bodyImageUrls: [],
   bodyImageCount: 0,
   authorDisplayName: "DOT Writer",
@@ -20,7 +21,6 @@ const preview: TestCrawlPreviewItem = {
   sourcePublishedAt: "2026-01-01T00:00:00.000Z",
   viewCount: 12,
   sourceUrl: "https://app.philippines.travel/articles/example",
-  sourcePostId: "example",
   dibayTopicId: "e0914e34-e44c-42f7-adcc-8f6cf8c7843a",
   dibayTopicName: "여행정보",
   imageMode: "PREVIEW_EXTERNAL_IMAGE_ONLY",
@@ -75,16 +75,17 @@ describe("STEP4 REFERENCE_SUMMARY manual import draft", () => {
     expect(sql).not.toContain("applyCommunityPointReward");
   });
 
-  it("writer never calls point reward", () => {
-    const writer = readFileSync(
-      join(process.cwd(), "lib/community-crawler/manual-import-writer.ts"),
-      "utf8"
-    );
-    expect(writer).not.toMatch(/applyCommunityPointRewardOnPostWrite\s*\(/);
-    expect(writer).toContain("MANUAL_IMPORT_POINT_REWARD_FORBIDDEN");
+  it("legacy REFERENCE_SUMMARY writer removed from product tree", () => {
+    let missing = false;
+    try {
+      readFileSync(join(process.cwd(), "lib/community-crawler/manual-import-writer.ts"), "utf8");
+    } catch {
+      missing = true;
+    }
+    expect(missing).toBe(true);
   });
 
-  it("import API route exists; bulk MANUAL crawl stays 501", () => {
+  it("import/manual routes are retired 410 stubs", () => {
     const importRoute = readFileSync(
       join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/import/route.ts"),
       "utf8"
@@ -93,8 +94,8 @@ describe("STEP4 REFERENCE_SUMMARY manual import draft", () => {
       join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/manual/route.ts"),
       "utf8"
     );
-    expect(importRoute).toContain("publishCommunityManualImportReferenceSummary");
-    expect(importRoute).not.toContain("applyCommunityPointRewardOnPostWrite");
-    expect(manualRoute).toContain("status: 501");
+    expect(importRoute).toContain("MANUAL_IMPORT_RETIRED");
+    expect(importRoute).not.toContain("publishCommunityManualImportReferenceSummary");
+    expect(manualRoute).toContain("status: 410");
   });
 });
