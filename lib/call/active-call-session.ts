@@ -291,7 +291,7 @@ export async function releaseLocalCallSession(
 async function runActiveCallSessionNativeTeardown(callId: string, reason: string): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
-  stopCallHeartbeatWatchdog(sid);
+  stopCallHeartbeatWatchdog(sid, `active_session_teardown:${reason}`);
   stopCallRingtone("active_session_hard_clear", sid);
   stopCommunityMessengerCallTone();
   clearAgoraJoinGuard(sid);

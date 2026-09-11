@@ -28,6 +28,8 @@ export type DibayCallFlowStep =
   | "agora_join_duplicate_blocked"
   | "call_heartbeat_ping"
   | "call_heartbeat_timeout"
+  | "call_heartbeat_watchdog_start"
+  | "call_heartbeat_watchdog_stop"
   | "accept_click"
   | "accept_start"
   | "accept_success"

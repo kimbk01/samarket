@@ -123,7 +123,11 @@ import {
 } from "@/lib/call/map-session-to-active-call";
 import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
-import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
+import {
+  resolveCallClientHeartbeatAction,
+  startCallHeartbeatWatchdog,
+  stopCallHeartbeatWatchdog,
+} from "@/lib/call/native/call-heartbeat-watchdog";
 import {
   reportNativeCallAppState,
   startNativeCallService,
@@ -1770,7 +1774,7 @@ export function CommunityMessengerCallClient({
     const s = session;
     if (!s?.id) return;
     if (isTerminalCallSessionStatus(s.status)) {
-      stopCallHeartbeatWatchdog(s.id);
+      stopCallHeartbeatWatchdog(s.id, "call_client_terminal");
       void hardClearActiveCallSession(s.id, "remote_ended");
       releaseCallActionLock("terminal");
       return;
@@ -1778,7 +1782,7 @@ export function CommunityMessengerCallClient({
     const phase = mapSessionStatusToActiveCallPhase(s, joined);
     const machinePhase = mapSessionStatusToMachinePhase(s, joined);
     if (phase === "idle") {
-      stopCallHeartbeatWatchdog(s.id);
+      stopCallHeartbeatWatchdog(s.id, "call_client_idle");
       return;
     }
     setActiveCallSession(
@@ -1797,11 +1801,20 @@ export function CommunityMessengerCallClient({
     if (s.status === "active") {
       void startNativeCallService(s.id, { callKind: s.callKind, phase: "active" });
     }
-    if (phase === "active" && joined) {
+    /**
+     * HB ownership SSOT — `!joined` alone must not stop Native-started watchdog.
+     * start: active + Web Agora joined; retain: active without joined; stop: non-active only.
+     */
+    const hbAction = resolveCallClientHeartbeatAction({
+      isTerminal: false,
+      phase,
+      joined,
+    });
+    if (hbAction === "start") {
       patchActiveCallSessionMachinePhase(s.id, "CONNECTED", "agora_joined");
-      startCallHeartbeatWatchdog(s.id);
-    } else {
-      stopCallHeartbeatWatchdog(s.id);
+      startCallHeartbeatWatchdog(s.id, "call_client_agora_joined");
+    } else if (hbAction === "stop") {
+      stopCallHeartbeatWatchdog(s.id, "call_client_non_active");
     }
   }, [joined, session]);
 

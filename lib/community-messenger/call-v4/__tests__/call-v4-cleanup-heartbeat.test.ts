@@ -76,7 +76,7 @@ describe("cleanupCallV4 heartbeat", () => {
 
   it("stops heartbeat watchdog before other teardown", async () => {
     await cleanupCallV4("call-hb", "ended");
-    expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-hb");
+    expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-hb", "v4_cleanup:ended");
     expect(heartbeatMocks.stop).toHaveBeenCalledTimes(1);
     expect(releaseAudioRouteMock).toHaveBeenCalledWith("call-hb", "v4_cleanup");
   });

@@ -44,7 +44,7 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   logCallV4("cleanup_start", { callId: sid, reason });
   releaseConnectedVideoScreenAwake(sid, String(reason));
   clearCallV4WebCallScreenReady(sid);
-  stopCallHeartbeatWatchdog(sid);
+  stopCallHeartbeatWatchdog(sid, `v4_cleanup:${String(reason)}`);
   logCallV4("call_heartbeat_watchdog_stop", { callId: sid, reason });
   stopCallV4CallerActivePoll();
   stopCallV4ConnectedTerminalWatch(sid);
