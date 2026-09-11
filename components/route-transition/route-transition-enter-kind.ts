@@ -235,6 +235,31 @@ export function computeRouteTransitionEnterKind(
     } else {
       kind = "none";
     }
+  } else if (isDeliveryConsumerStackPath(prevPath) && isDeliveryConsumerStackPath(nextPath)) {
+    /**
+     * ARCH B2 — browse (depth 1) ↔ store detail root (depth 2):
+     * DeliveryPresentationShell owns the slide. AppRouteTransition must not also transform.
+     * Hub ↔ browse and deeper store stacks keep prior depth RTL/LTR.
+     *
+     * Must run before commerce enter/exit: `/stores/:slug` is also a commerce host root
+     * (depth 0), which would otherwise steal hub/browse ↔ store as `none` / `ltr-back`.
+     */
+    const dPrev = deliveryConsumerStackDepth(prevPath);
+    const dNext = deliveryConsumerStackDepth(nextPath);
+    const browseStorePair =
+      (dPrev === 1 && dNext === 2) || (dPrev === 2 && dNext === 1);
+    if (browseStorePair) {
+      kind = "subtle";
+    } else if (opts.popstateBack) {
+      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
+    } else if (dNext > dPrev) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else if (dNext < dPrev) {
+      kind = "ltr-back";
+    } else {
+      kind = "subtle";
+    }
   } else if (isCommerceConsumerStackPath(prevPath) && isCommerceConsumerStackPath(nextPath)) {
     const dPrev = commerceConsumerStackDepth(prevPath);
     const dNext = commerceConsumerStackDepth(nextPath);
@@ -257,28 +282,6 @@ export function computeRouteTransitionEnterKind(
       opts.lastForwardAxisRef.current = "rtl";
     } else {
       kind = "none";
-    }
-  } else if (isDeliveryConsumerStackPath(prevPath) && isDeliveryConsumerStackPath(nextPath)) {
-    /**
-     * ARCH B2 — browse (depth 1) ↔ store detail root (depth 2):
-     * DeliveryPresentationShell owns the slide. AppRouteTransition must not also transform.
-     * Hub ↔ browse and deeper store stacks keep prior depth RTL/LTR.
-     */
-    const dPrev = deliveryConsumerStackDepth(prevPath);
-    const dNext = deliveryConsumerStackDepth(nextPath);
-    const browseStorePair =
-      (dPrev === 1 && dNext === 2) || (dPrev === 2 && dNext === 1);
-    if (browseStorePair) {
-      kind = "subtle";
-    } else if (opts.popstateBack) {
-      kind = dNext < dPrev ? "ltr-back" : "rtl-back";
-    } else if (dNext > dPrev) {
-      kind = "rtl-forward";
-      opts.lastForwardAxisRef.current = "rtl";
-    } else if (dNext < dPrev) {
-      kind = "ltr-back";
-    } else {
-      kind = "subtle";
     }
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
