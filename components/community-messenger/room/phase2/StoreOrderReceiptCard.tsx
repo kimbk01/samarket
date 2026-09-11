@@ -107,6 +107,7 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
         <MoneyRow label={t("store_delivery_fee")} value={view.totals.deliveryFee} always />
         <MoneyRow label={t("mypage_comp_discount_rate")} valueLabel={`${discountRate}%`} always />
         <MoneyRow label={t("store_discount_amount")} value={view.totals.discount} discount always />
+        <MoneyRow label={t("gift_u4_order_gift_line")} value={view.totals.giftRedemption} discount />
         <div className="mt-2 border-t border-[color:var(--delivery-border)] pt-2">
           <MoneyRow label={t("store_messenger_receipt_payment_total")} value={view.totals.paymentTotal} strong />
         </div>

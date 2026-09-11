@@ -120,9 +120,11 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
   const giftRedemption = money(order.gift_redemption_amount);
   const platformFunded = money(order.platform_funded_amount);
   const paymentTotal = money(order.payment_amount ?? order.total_amount);
-  const inferredDiscount = Math.max(0, itemsSubtotal + deliveryFee - giftRedemption - paymentTotal);
+  const amountBeforeGiftRaw = money(order.amount_before_gift);
+  const inferredDiscount =
+    amountBeforeGiftRaw > 0 ? Math.max(0, itemsSubtotal + deliveryFee - amountBeforeGiftRaw) : 0;
   const discount = rawDiscount > 0 ? rawDiscount : inferredDiscount;
-  const amountBeforeGift = money(order.amount_before_gift) || Math.max(0, itemsSubtotal + deliveryFee - discount);
+  const amountBeforeGift = amountBeforeGiftRaw || Math.max(0, itemsSubtotal + deliveryFee - discount);
   const merchantRevenue = Math.max(0, paymentTotal + giftRedemption + platformFunded);
   const orderCreatedAt = nullableText(order.created_at);
 
