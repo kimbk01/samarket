@@ -13,6 +13,11 @@ import { resolveCommunityCrawlAdapterKey } from "@/lib/community-crawler/core/re
 import { insertCommunityCrawlRunEvent } from "@/lib/community-crawler/core/run-events";
 import { safeFetchHtml } from "@/lib/community-crawler/core/safe-fetch";
 import { rehostCommunityCrawlItemMedia } from "@/lib/community-crawler/media/rehost-item-media";
+import {
+  attemptAutoPublishAfterCrawl,
+  emptyAutoPublishAttemptStats,
+  type AutoPublishAttemptStats,
+} from "@/lib/community-crawler/auto-publish-after-crawl";
 import type {
   CommunityCrawlBoardRow,
   CommunityCrawlItemRow,
@@ -31,6 +36,13 @@ export type RealCrawlResult = {
   duplicateCount: number;
   skippedInvalidCount: number;
   failedCount: number;
+  /** Auto-publish observability (in-memory; run_events hold durable reasons). */
+  publishAttempted: number;
+  publishedCount: number;
+  alreadyPublishedCount: number;
+  publishSkippedPolicy: number;
+  publishSkippedMode: number;
+  publishFailed: number;
   errorCode: string | null;
   errorMessage: string | null;
   items: CommunityCrawlItemRow[];
@@ -75,6 +87,7 @@ export async function runCommunityRealCrawl(input: {
   let failedCount = 0;
   let fatalCode: string | null = null;
   let fatalMessage: string | null = null;
+  const publishStats: AutoPublishAttemptStats = emptyAutoPublishAttemptStats();
 
   try {
     const adapterKey = resolveCommunityCrawlAdapterKey(source, board);
@@ -208,13 +221,28 @@ export async function runCommunityRealCrawl(input: {
         }
 
         if (upsert.outcome !== "failed" && upsert.item) {
-          // PHASE C: media pipeline only; IMAGE_OPTIONAL — never fails the article upsert.
+          // PHASE C / V2-3: media pipeline only; IMAGE_OPTIONAL — never fails the article upsert.
           await rehostCommunityCrawlItemMedia({
             sb,
             item: upsert.item,
             source,
             runId,
           });
+
+          // ROOT A fix: eligible AUTO_PUBLISH boards continue to canonical FULL_CONTENT publish.
+          const pub = await attemptAutoPublishAfterCrawl({
+            sb,
+            source,
+            board,
+            item: upsert.item,
+            runId,
+            stats: publishStats,
+          });
+          if (pub.outcome === "published") {
+            const idx = items.findIndex((it) => it.id === upsert.item.id);
+            if (idx >= 0) items[idx] = pub.item;
+          }
+          // Publish skip/fail must not undo crawl materialization or abort the run.
         }
       } catch (e) {
         failedCount += 1;
@@ -310,6 +338,12 @@ export async function runCommunityRealCrawl(input: {
     duplicateCount,
     skippedInvalidCount,
     failedCount,
+    publishAttempted: publishStats.attempted,
+    publishedCount: publishStats.published,
+    alreadyPublishedCount: publishStats.alreadyPublished,
+    publishSkippedPolicy: publishStats.skippedPolicy,
+    publishSkippedMode: publishStats.skippedMode,
+    publishFailed: publishStats.failed,
     errorCode: fatalCode,
     errorMessage: fatalMessage,
     items,
