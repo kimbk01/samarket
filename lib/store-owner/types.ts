@@ -58,6 +58,14 @@ export interface OwnerOrder {
   product_amount: number;
   option_amount: number;
   delivery_fee: number;
+  /** 상품권 적용 전 고객 결제 대상액 */
+  amount_before_gift?: number;
+  /** 상품권으로 결제된 금액 */
+  gift_redemption_amount?: number;
+  /** 고객이 별도 결제수단으로 지불해야 하는 잔여 결제액 */
+  customer_remaining_payment?: number;
+  /** 매장 귀속 매출 기준 */
+  merchant_revenue_amount?: number;
   total_amount: number;
   request_message: string | null;
   delivery_address: string | null;

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   let q = sb
     .from("store_orders")
     .select(
-      "id, order_no, buyer_user_id, store_id, payment_amount, payment_status, order_status, fulfillment_type, created_at"
+      "id, order_no, buyer_user_id, store_id, total_amount, discount_amount, amount_before_gift, gift_redemption_amount, platform_funded_amount, payment_amount, payment_status, order_status, fulfillment_type, community_messenger_room_id, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -60,7 +60,24 @@ export async function GET(req: NextRequest) {
     for (const s of stores ?? []) names[s.id as string] = (s.store_name as string) ?? "";
   }
 
-  const header = ["id", "order_no", "store_id", "store_name", "buyer_user_id", "payment_amount", "payment_status", "order_status", "fulfillment_type", "created_at"];
+  const header = [
+    "id",
+    "order_no",
+    "store_id",
+    "store_name",
+    "buyer_user_id",
+    "total_amount",
+    "discount_amount",
+    "amount_before_gift",
+    "gift_redemption_amount",
+    "customer_remaining_payment",
+    "merchant_revenue_amount",
+    "payment_status",
+    "order_status",
+    "fulfillment_type",
+    "community_messenger_room_id",
+    "created_at",
+  ];
   const lines = [
     header.join(","),
     ...rows.map((r) =>
@@ -70,10 +87,25 @@ export async function GET(req: NextRequest) {
         csvEscape(r.store_id as string),
         csvEscape(names[r.store_id as string] ?? ""),
         csvEscape(r.buyer_user_id as string),
+        csvEscape(String(r.total_amount ?? "")),
+        csvEscape(String(r.discount_amount ?? "")),
+        csvEscape(String(r.amount_before_gift ?? "")),
+        csvEscape(String(r.gift_redemption_amount ?? "")),
         csvEscape(String(r.payment_amount ?? "")),
+        csvEscape(
+          String(
+            Math.max(
+              0,
+              Math.round(Number(r.payment_amount) || 0) +
+                Math.round(Number(r.gift_redemption_amount) || 0) +
+                Math.round(Number(r.platform_funded_amount) || 0)
+            )
+          )
+        ),
         csvEscape(r.payment_status as string),
         csvEscape(r.order_status as string),
         csvEscape(r.fulfillment_type as string),
+        csvEscape(String(r.community_messenger_room_id ?? "")),
         csvEscape(r.created_at as string),
       ].join(",")
     ),

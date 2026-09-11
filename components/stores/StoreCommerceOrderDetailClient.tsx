@@ -12,7 +12,7 @@ import {
   parsePhMobileInput,
   telHrefFromPhDb09,
 } from "@/lib/utils/ph-mobile";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
@@ -37,7 +37,10 @@ type OrderDetail = {
   owner_user_id: string;
   buyer_user_id: string;
   total_amount: number;
+  discount_amount?: number | null;
   payment_amount: number;
+  amount_before_gift?: number | null;
+  gift_redemption_amount?: number | null;
   delivery_fee_amount?: number | null;
   payment_status: string;
   order_status: string;
@@ -67,7 +70,7 @@ export function StoreCommerceOrderDetailClient({
   storeSlug: string;
   orderId: string;
 }) {
-  const { t } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -127,9 +130,16 @@ export function StoreCommerceOrderDetailClient({
 
   const { order, items } = state;
   const df = Number(order.delivery_fee_amount) || 0;
-  const sub = Math.max(0, order.payment_amount - df);
+  const itemsSumPhp = items.reduce((sum, it) => sum + Math.max(0, Math.round(Number(it.subtotal) || 0)), 0);
+  const sub = itemsSumPhp || Math.max(0, Math.round(Number(order.total_amount) || 0) - df);
+  const discount = Math.max(0, Math.round(Number(order.discount_amount) || 0));
+  const giftUsed = Math.max(0, Math.round(Number(order.gift_redemption_amount) || 0));
+  const amountBeforeGift = Math.max(
+    0,
+    Math.round(Number(order.amount_before_gift) || Math.max(0, Math.round(Number(order.total_amount) || 0) - discount))
+  );
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
-  const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
   const fulfillmentLabel = buyerFulfillmentLabel(order.fulfillment_type, t);
 
   return (
@@ -173,7 +183,7 @@ export function StoreCommerceOrderDetailClient({
           </span>
         ) : (
           <Link
-            href={`/my/store-orders/${encodeURIComponent(order.id)}/chat`}
+            href={`/orders/store/${encodeURIComponent(order.id)}/chat`}
             className="delivery-ui mt-3 block w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] py-3 text-center text-sm font-bold text-[color:var(--delivery-primary)]"
           >
             {t("store_open_order_progress_chat")}
@@ -256,19 +266,52 @@ export function StoreCommerceOrderDetailClient({
             <span className="text-sam-muted">{t("store_product_label")}</span>
             <span>{formatMoneyPhp(sub)}</span>
           </div>
+          {discount > 0 ? (
+            <div className="flex justify-between">
+              <span className="text-sam-muted">{t("store_owner_order_coupon_discount")}</span>
+              <span>-{formatMoneyPhp(discount)}</span>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <span className="text-sam-muted">{t("store_delivery_fee")}</span>
             <span>{formatMoneyPhp(df)}</span>
           </div>
+          {giftUsed > 0 ? (
+            <>
+              <div className="flex justify-between">
+                <span className="text-sam-muted">
+                  {safeT("gift_u4_order_amount_before_gift", {
+                    fallbackKo: "상품권 적용 전 금액",
+                    fallbackEn: "Amount before gift",
+                  })}
+                </span>
+                <span>{formatMoneyPhp(amountBeforeGift)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sam-muted">
+                  {safeT("gift_u4_order_gift_line", {
+                    fallbackKo: "상품권 사용",
+                    fallbackEn: "Gift certificate",
+                  })}
+                </span>
+                <span>-{formatMoneyPhp(giftUsed)}</span>
+              </div>
+            </>
+          ) : null}
           <div className="flex justify-between font-bold">
-            <span>{t("store_total")}</span>
+            <span>
+              {safeT("store_order_customer_remaining_payment", {
+                fallbackKo: "추가 결제액",
+                fallbackEn: "Remaining payment",
+              })}
+            </span>
             <span>{formatMoneyPhp(order.payment_amount)}</span>
           </div>
         </div>
       </section>
 
       <Link
-        href={`/my/store-orders/${encodeURIComponent(order.id)}`}
+        href={`/orders?expand=${encodeURIComponent(order.id)}`}
         className="mt-4 block text-center text-sm text-signature underline"
       >
         {t("store_manage_in_my_orders")}

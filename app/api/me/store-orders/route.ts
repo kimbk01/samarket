@@ -28,12 +28,14 @@ import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import {
   ensureStoreOrderMessengerRoom,
 } from "@/lib/community-messenger/store-order-chat-service";
+import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import { loadBuyerStoreOrdersHubSummary } from "@/lib/delivery/customer/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import {
+  computeGiftRedemptionSplit,
   giftInstanceAllowsCheckoutStore,
   isGiftScope,
 } from "@/lib/gift-certificate/gift-certificate-domain-contract";
@@ -78,22 +80,25 @@ function makeOrderNo() {
   return `SO${Date.now()}${randomBytes(2).toString("hex")}`;
 }
 
-async function fetchExistingBuyerOrderByClientKey(
-  sb: SupabaseClient,
-  buyerUserId: string,
-  clientKey: string
-): Promise<{ id: string; order_no: string; payment_amount: number } | null> {
-  const { data, error } = await sb
-    .from("store_orders")
-    .select("id, order_no, payment_amount")
-    .eq("buyer_user_id", buyerUserId)
-    .eq("client_order_key", clientKey)
-    .maybeSingle();
-  if (error || !data?.id) return null;
+type StoreOrderChatAck = {
+  roomId: string | null;
+  chatHref: string;
+  orderChatReady: boolean;
+};
+
+function buyerStoreOrderChatEnsureHref(orderId: string): string {
+  return `/orders/store/${encodeURIComponent(orderId.trim())}/chat`;
+}
+
+function buyerStoreOrderDetailHref(orderId: string): string {
+  return `/orders?expand=${encodeURIComponent(orderId.trim())}`;
+}
+
+function fallbackStoreOrderChatAck(orderId: string): StoreOrderChatAck {
   return {
-    id: String(data.id),
-    order_no: String(data.order_no ?? ""),
-    payment_amount: Number(data.payment_amount ?? 0),
+    roomId: null,
+    chatHref: buyerStoreOrderChatEnsureHref(orderId),
+    orderChatReady: false,
   };
 }
 
@@ -237,16 +242,6 @@ export async function POST(req: NextRequest) {
   }
 
   const normalizedClientKey = normalizeStoreOrderClientKey(body.client_order_key);
-  if (normalizedClientKey) {
-    const existingHit = await fetchExistingBuyerOrderByClientKey(sb, buyerId, normalizedClientKey);
-    if (existingHit) {
-      return NextResponse.json({
-        ok: true,
-        order: existingHit,
-        idempotent: true,
-      });
-    }
-  }
 
   const storeId = String(body.store_id ?? "").trim();
   const items = Array.isArray(body.items) ? body.items : [];
@@ -381,6 +376,8 @@ export async function POST(req: NextRequest) {
     platformFundedAmount = split.platformFundedAmount;
   }
   const paymentAfterDiscount = Math.max(0, Math.round(paymentGrandTotal - discountAmount));
+  const amountBeforeGift = paymentAfterDiscount;
+  let paymentAfterGift = amountBeforeGift;
 
   // G7 — gift instance ids only (amounts computed inside create_store_order_atomic).
   // Accept legacy gift_redemptions[].instance_id shape for clients; ignore client amounts.
@@ -442,13 +439,15 @@ export async function POST(req: NextRequest) {
     if (status !== "ACTIVE" && status !== "PARTIALLY_REDEEMED") {
       return NextResponse.json({ ok: false, error: "gift_invalid_status" }, { status: 400 });
     }
-    if (Math.trunc(Number(row.remaining_balance) || 0) <= 0) {
+    const giftRemaining = Math.trunc(Number(row.remaining_balance) || 0);
+    if (giftRemaining <= 0) {
       return NextResponse.json({ ok: false, error: "gift_insufficient_remaining" }, { status: 400 });
     }
+    paymentAfterGift = computeGiftRedemptionSplit({
+      amountDueBeforeGift: amountBeforeGift,
+      giftRemaining,
+    }).remainingPayment;
   }
-  const amountBeforeGift = paymentAfterDiscount;
-  // Provisional payment; create_store_order_atomic recomputes when gift_instance_ids present.
-  const paymentAfterGift = amountBeforeGift;
 
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =
@@ -703,6 +702,29 @@ export async function POST(req: NextRequest) {
   const orderId = atomic.order.id;
   const resolvedOrderNo = atomic.order.order_no || orderNo;
   const paymentAmount = atomic.order.payment_amount;
+  const giftRedemptionAmount = Math.max(0, Math.round(amountBeforeGift - paymentAmount));
+  let orderChatAck = fallbackStoreOrderChatAck(orderId);
+
+  try {
+    const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, {
+      orderId,
+      userId: buyerId,
+    });
+    if (ens.ok) {
+      orderChatAck = {
+        roomId: ens.roomId,
+        chatHref: buildStoreOrderMessengerRoomHref(ens.roomId, {
+          entryOrigin: "delivery",
+          returnHref: buyerStoreOrderDetailHref(orderId),
+        }),
+        orderChatReady: true,
+      };
+    } else {
+      console.error("[POST store-orders] ensure order chat", ens.error);
+    }
+  } catch (e) {
+    console.error("[POST store-orders] ensure order chat", e);
+  }
 
   // G7: gift redemption is inside create_store_order_atomic (same TX). No post-order redeem.
 
@@ -753,7 +775,14 @@ export async function POST(req: NextRequest) {
         id: orderId,
         order_no: resolvedOrderNo,
         payment_amount: paymentAmount,
+        total_amount: Math.round(paymentGrandTotal),
+        discount_amount: Math.round(discountAmount),
+        amount_before_gift: Math.round(amountBeforeGift),
+        gift_redemption_amount: giftRedemptionAmount,
       },
+      roomId: orderChatAck.roomId,
+      chatHref: orderChatAck.chatHref,
+      order_chat_ready: orderChatAck.orderChatReady,
       idempotent: true,
     });
   }
@@ -846,16 +875,6 @@ export async function POST(req: NextRequest) {
     await Promise.allSettled(ownerNotifyTasks);
   }
 
-  try {
-    const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, {
-      orderId,
-      userId: buyerId,
-    });
-    if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
-  } catch (e) {
-    console.error("[POST store-orders] ensure order chat", e);
-  }
-
   const composedPlain = formatStoreOrderDeliveryAddressMultiline({
     summary: delivery_address_summary,
     detail: delivery_address_detail,
@@ -887,7 +906,18 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    order: { id: orderId, order_no: resolvedOrderNo, payment_amount: paymentAmount },
+    order: {
+      id: orderId,
+      order_no: resolvedOrderNo,
+      payment_amount: paymentAmount,
+      total_amount: Math.round(paymentGrandTotal),
+      discount_amount: Math.round(discountAmount),
+      amount_before_gift: Math.round(amountBeforeGift),
+      gift_redemption_amount: giftRedemptionAmount,
+    },
+    roomId: orderChatAck.roomId,
+    chatHref: orderChatAck.chatHref,
+    order_chat_ready: orderChatAck.orderChatReady,
     idempotent: false,
   });
 }

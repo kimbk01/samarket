@@ -1,6 +1,7 @@
 import type { MutableRefObject } from "react";
 import type { RouteTransitionEnterKind } from "@/components/route-transition/route-transition-config";
 import {
+  commerceConsumerChildHostKey,
   commerceConsumerStackDepth,
   isCommerceConsumerStackPath,
 } from "@/lib/delivery/customer/commerce-consumer-stack-slide";
@@ -28,6 +29,9 @@ export function shouldSuppressCommerceConsumerMainShellSlide(
   nextPath: string
 ): boolean {
   if (!isCommerceConsumerStackPath(prevPath) || !isCommerceConsumerStackPath(nextPath)) {
+    return false;
+  }
+  if (commerceConsumerChildHostKey(prevPath) !== commerceConsumerChildHostKey(nextPath)) {
     return false;
   }
   const dPrev = commerceConsumerStackDepth(prevPath);

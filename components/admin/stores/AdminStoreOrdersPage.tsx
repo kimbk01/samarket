@@ -21,7 +21,14 @@ type Row = {
   store_id: string;
   store_name: string;
   buyer_user_id: string;
+  total_amount?: number;
+  discount_amount?: number;
   payment_amount: number;
+  amount_before_gift?: number;
+  gift_redemption_amount?: number;
+  platform_funded_amount?: number;
+  merchant_revenue_amount?: number;
+  community_messenger_room_id?: string | null;
   payment_status: string;
   order_status: string;
   fulfillment_type: string;
@@ -103,7 +110,7 @@ function CsvExportLink({ filters }: { filters: OrderFilters }) {
 }
 
 export function AdminStoreOrdersPage({ initialFilters }: Props) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const locale = catalogDateLocale(language);
   const router = useRouter();
   const pathname = usePathname();
@@ -519,7 +526,37 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                   <td className="max-w-[140px] truncate px-3 py-2 text-sam-fg">
                     {r.store_name || r.store_id}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-medium">{formatMoneyPhp(r.payment_amount)}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <div className="font-medium">
+                      {formatMoneyPhp(
+                        Math.max(
+                          0,
+                          Math.round(
+                            Number(r.merchant_revenue_amount) ||
+                              Number(r.payment_amount) +
+                                Number(r.gift_redemption_amount ?? 0) +
+                                Number(r.platform_funded_amount ?? 0)
+                          )
+                        )
+                      )}
+                    </div>
+                    <div className="sam-text-xxs text-sam-muted">
+                      {safeT("admin_stores_orders_remaining_payment_line", {
+                        fallbackKo: "잔여 결제 {amount}",
+                        fallbackEn: "Remaining {amount}",
+                        vars: { amount: formatMoneyPhp(r.payment_amount) },
+                      })}
+                    </div>
+                    {Math.round(Number(r.gift_redemption_amount) || 0) > 0 ? (
+                      <div className="sam-text-xxs text-sam-muted">
+                        {safeT("admin_stores_orders_gift_line", {
+                          fallbackKo: "상품권 {amount}",
+                          fallbackEn: "Gift {amount}",
+                          vars: { amount: formatMoneyPhp(r.gift_redemption_amount ?? 0) },
+                        })}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2">{orderStatusLabel(r.order_status)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
                     {new Date(r.created_at).toLocaleString(locale)}

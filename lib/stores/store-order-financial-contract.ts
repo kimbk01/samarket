@@ -7,10 +7,13 @@
  *   discount       = store_orders.discount_amount (Stores A coupon at checkout)
  *   coupon         = store_coupon_campaigns + store_coupon_redemptions (server authority)
  *   customer_dpoint= NOT_SUPPORTED on store checkout
- *   payment_amount = item_gross + delivery_fee - discount_amount
+ *   amount_before_gift = item_gross + delivery_fee - discount_amount
+ *   gift_redemption_amount = gift certificate payment applied to amount_before_gift
+ *   payment_amount = customer remaining payment after gift redemption
  *
  * Commission recognition (order_status → completed):
- *   commission_base = store_orders.payment_amount (includes delivery_fee)
+ *   store-attributed revenue = payment_amount + gift_redemption_amount + platform_funded_amount
+ *   commission_base = confirmed store-attributed revenue (includes delivery_fee)
  *   platform_fee_amount = floor(commission_base * fee_percent / 100)
  *   Rounding: integer PHP, Math.floor percent — canonical calculator only
  *
@@ -34,7 +37,12 @@
  *     - commission_reversal_amount
  */
 export const STORE_ORDER_FINANCIAL_CONTRACT = {
-  commissionBaseField: "store_orders.payment_amount",
+  paymentAmountMeaning: "customer_remaining_payment_after_gift" as const,
+  amountBeforeGiftMeaning: "customer_due_after_coupon_before_gift" as const,
+  giftRedemptionAmountMeaning: "gift_certificate_payment_amount" as const,
+  merchantRevenueFormula:
+    "payment_amount + gift_redemption_amount + platform_funded_amount - refund_attributed_reversal" as const,
+  commissionBaseField: "confirmed_store_attributed_revenue",
   commissionBaseIncludesDeliveryFee: true,
   customerCouponSupported: true as const,
   customerDPointSupported: false as const,

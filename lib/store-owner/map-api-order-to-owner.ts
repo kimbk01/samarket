@@ -18,6 +18,10 @@ export type ApiStoreOrderRow = {
   order_no: string;
   buyer_user_id: string;
   total_amount: number;
+  discount_amount?: number | null;
+  amount_before_gift?: number | null;
+  gift_redemption_amount?: number | null;
+  platform_funded_amount?: number | null;
   payment_amount: number;
   delivery_fee_amount?: number | null;
   delivery_courier_label?: string | null;
@@ -71,7 +75,22 @@ export function mapApiOrderToOwnerOrder(
   const items = mapItems(row.items);
   const product_amount = items.reduce((s, i) => s + i.line_total, 0);
   const delivery_fee = Math.max(0, Math.round(Number(row.delivery_fee_amount) || 0));
-  const total = Number(row.payment_amount) || Number(row.total_amount) || product_amount + delivery_fee;
+  const customer_remaining_payment = Math.max(0, Math.round(Number(row.payment_amount) || 0));
+  const gift_redemption_amount = Math.max(0, Math.round(Number(row.gift_redemption_amount) || 0));
+  const platform_funded_amount = Math.max(0, Math.round(Number(row.platform_funded_amount) || 0));
+  const amount_before_gift =
+    row.amount_before_gift == null
+      ? Math.max(
+          0,
+          Math.round(Number(row.total_amount) || product_amount + delivery_fee) -
+            Math.max(0, Math.round(Number(row.discount_amount) || 0))
+        )
+      : Math.max(0, Math.round(Number(row.amount_before_gift) || 0));
+  const merchant_revenue_amount = Math.max(
+    0,
+    customer_remaining_payment + gift_redemption_amount + platform_funded_amount
+  );
+  const total = merchant_revenue_amount || Number(row.total_amount) || product_amount + delivery_fee;
 
   const rawDigits = parsePhMobileInput(row.buyer_phone ?? "");
   const buyer_phone_tel_href = rawDigits.length === 11 ? telHrefFromPhDb09(rawDigits) : null;
@@ -106,6 +125,10 @@ export function mapApiOrderToOwnerOrder(
     product_amount,
     option_amount: 0,
     delivery_fee,
+    amount_before_gift,
+    gift_redemption_amount,
+    customer_remaining_payment,
+    merchant_revenue_amount,
     total_amount: total,
     delivery_courier_label: row.delivery_courier_label?.trim() || null,
     request_message: row.buyer_note,

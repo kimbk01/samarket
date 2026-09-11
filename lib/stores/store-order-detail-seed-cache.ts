@@ -15,6 +15,9 @@ export type StoreOrderDetailSeed = {
   order_status: string;
   payment_amount: number;
   total_amount: number;
+  discount_amount?: number;
+  amount_before_gift?: number;
+  gift_redemption_amount?: number;
   created_at: string;
   idempotent?: boolean;
 };
@@ -146,11 +149,16 @@ export function buildStoreOrderDetailSeedFromPostSuccess(args: {
   orderId: string;
   order_no: string;
   payment_amount: number;
+  total_amount?: number;
+  discount_amount?: number;
+  amount_before_gift?: number;
+  gift_redemption_amount?: number;
   store_id: string;
   store_name: string;
   idempotent?: boolean;
 }): StoreOrderDetailSeed {
   const pa = Math.round(Number(args.payment_amount) || 0);
+  const total = Math.round(Number(args.total_amount) || pa);
   const now = new Date().toISOString();
   return {
     id: args.orderId.trim(),
@@ -159,7 +167,10 @@ export function buildStoreOrderDetailSeedFromPostSuccess(args: {
     store_name: String(args.store_name ?? "").trim() || "매장",
     order_status: "pending",
     payment_amount: pa,
-    total_amount: pa,
+    total_amount: total,
+    discount_amount: Math.max(0, Math.round(Number(args.discount_amount) || 0)),
+    amount_before_gift: Math.max(0, Math.round(Number(args.amount_before_gift) || total)),
+    gift_redemption_amount: Math.max(0, Math.round(Number(args.gift_redemption_amount) || 0)),
     created_at: now,
     idempotent: args.idempotent,
   };

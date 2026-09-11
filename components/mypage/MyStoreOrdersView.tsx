@@ -20,7 +20,7 @@ import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
 import { memberOrderStatusUserMessage } from "@/lib/member-orders/member-order-labels";
 import type { MemberOrderStatus, MemberOrderTab } from "@/lib/member-orders/types";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -70,6 +70,10 @@ type OrderRow = {
   /** `GET /api/me/store-orders` — 매장 상세·장바구니 경로용 */
   store_slug?: string;
   total_amount: number;
+  discount_amount?: number;
+  gift_redemption_amount?: number;
+  platform_funded_amount?: number;
+  merchant_revenue_amount?: number;
   payment_amount: number;
   payment_status: string;
   order_status: string;
@@ -96,6 +100,15 @@ function resolveBuyerStoreOrderChatHref(args: {
   ordersHubPaths: boolean;
   returnHref: string;
 }): string {
+  const contextPaymentAmount = Math.max(
+    0,
+    Math.round(
+      Number(args.order.merchant_revenue_amount) ||
+        Number(args.order.payment_amount) +
+          Number(args.order.gift_redemption_amount ?? 0) +
+          Number(args.order.platform_funded_amount ?? 0)
+    )
+  );
   const roomId = args.order.community_messenger_room_id?.trim() ?? "";
   if (roomId) {
     return buildStoreOrderMessengerRoomHref(roomId, {
@@ -107,7 +120,7 @@ function resolveBuyerStoreOrderChatHref(args: {
           storeId: args.order.store_id,
           fulfillmentType: args.order.fulfillment_type,
           orderStatus: args.order.order_status,
-          paymentAmount: args.order.payment_amount,
+          paymentAmount: contextPaymentAmount,
           firstLineProductTitle: args.order.items?.[0]?.product_title_snapshot ?? null,
           thumbnailUrl: args.order.store_profile_image_url ?? null,
         })
@@ -116,10 +129,7 @@ function resolveBuyerStoreOrderChatHref(args: {
       returnHref: args.returnHref,
     });
   }
-  if (args.ordersHubPaths) {
-    return `/orders/store/${encodeURIComponent(args.order.id)}/chat`;
-  }
-  return `/mypage/store-orders/${encodeURIComponent(args.order.id)}/chat`;
+  return `/orders/store/${encodeURIComponent(args.order.id)}/chat`;
 }
 
 const MEMBER_STATUSES = new Set<string>([
@@ -171,11 +181,11 @@ function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
 }
 
-function statusUserLine(status: string, lang: AppLanguageCode) {
+function statusUserLine(status: string, lang: AppLanguageCode, fulfillment: string) {
   if (isMemberOrderStatus(status)) {
     return memberOrderStatusUserMessage(status, lang);
   }
-  return BUYER_ORDER_STATUS_LABEL[status] ?? status;
+  return buyerOrderStatusLabel(status, lang, fulfillment);
 }
 
 function orderMenuSummaryLine(
@@ -310,19 +320,28 @@ function MyStoreOrderCard({
   const menuSummary = orderMenuSummaryLine(
     o.items,
     (first, count) => t("member_order_items_more", { first, count }),
-    statusUserLine(o.order_status, language)
+    statusUserLine(o.order_status, language, o.fulfillment_type)
   );
   const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm ${FB_BODY} ${FB_HOVER_ROW}`;
   const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm text-signature ${FB_HOVER_ROW}`;
   const storeHref = o.store_slug?.trim()
     ? `/stores/${encodeURIComponent(o.store_slug.trim())}`
     : null;
+  const displayOrderAmount = Math.max(
+    0,
+    Math.round(
+      Number(o.merchant_revenue_amount) ||
+        Number(o.payment_amount) +
+          Number(o.gift_redemption_amount ?? 0) +
+          Number(o.platform_funded_amount ?? 0)
+    )
+  );
 
   const summaryInner = (
     <div className="flex items-start justify-between gap-3">
       <p className={`min-w-0 flex-1 truncate sam-text-body font-semibold ${FB_BODY}`}>{menuSummary}</p>
       <span className={`shrink-0 sam-text-body font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
-        {formatMoneyPhp(o.payment_amount)}
+        {formatMoneyPhp(displayOrderAmount)}
       </span>
     </div>
   );
@@ -406,7 +425,7 @@ function MyStoreOrderCard({
                   <MemberOrderStatusBadge status={o.order_status} />
                 ) : (
                   <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
-                    {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
+                    {buyerOrderStatusLabel(o.order_status, language, o.fulfillment_type)}
                   </span>
                 )}
                 <span className="relative inline-flex shrink-0 overflow-visible">

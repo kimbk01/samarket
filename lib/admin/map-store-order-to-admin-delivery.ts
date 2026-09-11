@@ -18,7 +18,13 @@ export type StoreOrderRow = {
   store_id: string;
   total_amount: number;
   discount_amount?: number;
+  amount_before_gift?: number;
+  gift_redemption_amount?: number;
+  platform_funded_amount?: number;
+  store_funded_amount?: number;
   payment_amount: number;
+  commission_base_amount?: number;
+  community_messenger_room_id?: string | null;
   delivery_fee_amount?: number | null;
   payment_status: string;
   order_status: string;
@@ -102,6 +108,18 @@ export function mapStoreOrderToAdminDelivery(p: {
   const productAmount = items.reduce((s, it) => s + it.lineTotal, 0);
   const deliveryFee = Math.max(0, Math.round(Number(o.delivery_fee_amount) || 0));
   const discountAmount = Math.max(0, Math.round(Number(o.discount_amount) || 0));
+  const amountBeforeGift = Math.max(
+    0,
+    Math.round(Number(o.amount_before_gift) || Math.max(0, Number(o.total_amount) - discountAmount))
+  );
+  const giftRedemptionAmount = Math.max(0, Math.round(Number(o.gift_redemption_amount) || 0));
+  const customerRemainingPayment = Math.max(0, Math.round(Number(o.payment_amount) || 0));
+  const merchantRevenueAmount = Math.max(
+    0,
+    customerRemainingPayment +
+      giftRedemptionAmount +
+      Math.max(0, Math.round(Number(o.platform_funded_amount) || 0))
+  );
   const note = (o.buyer_note ?? "").trim();
   const os = o.order_status as string;
   const updatedAt = o.updated_at ?? o.created_at;
@@ -151,7 +169,11 @@ export function mapStoreOrderToAdminDelivery(p: {
     optionAmount: 0,
     deliveryFee,
     discountAmount,
-    finalAmount: Math.round(Number(o.payment_amount) || 0),
+    amountBeforeGift,
+    giftRedemptionAmount,
+    customerRemainingPayment,
+    merchantRevenueAmount,
+    finalAmount: merchantRevenueAmount,
     paymentStatus: o.payment_status as PaymentStatus,
     orderStatus: o.order_status as OrderStatus,
     // Settlement authority = store_settlements only. This projection is not settlement status.

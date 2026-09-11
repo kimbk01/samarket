@@ -2534,6 +2534,8 @@ export const adminMessages = {
     admin_stores_orders_link_chat: "주문 채팅",
     admin_stores_orders_link_messenger: "메신저(구매자 id)",
     admin_stores_orders_link_detail: "배달 주문 상세",
+    admin_stores_orders_remaining_payment_line: "잔여 결제 {amount}",
+    admin_stores_orders_gift_line: "상품권 {amount}",
     admin_stores_orders_approve_refund: "환불 승인",
     admin_stores_orders_confirm_delete:
       "선택 {count}건을 DB(store_orders)에서 영구 삭제합니다.\n연결된 품목·채팅 등이 함께 정리될 수 있습니다. 계속할까요?",
@@ -2755,9 +2757,9 @@ export const adminMessages = {
     admin_stores_fee_verify_mismatch: "불일치",
     admin_stores_fee_verify_empty: "검증할 정산 원장이 없습니다.",
     admin_stores_fee_footer_rule:
-      "정책 규칙: 결제액(payment_amount) 기준 · completed 시 정산 스냅샷 · 이후 정책 변경은 과거 주문 불변",
+      "정책 규칙: 매장 귀속 매출(잔여 결제+상품권+플랫폼 부담) 기준 · completed 시 정산 스냅샷 · 이후 정책 변경은 과거 주문 불변",
     admin_stores_fee_footer_formula:
-      "계산식: floor(결제액 × %) + 고정수수료 − 배달비수익(해당 시)",
+      "계산식: floor(매장 귀속 매출 × %) + 고정수수료 − 배달비수익(해당 시)",
     admin_stores_fee_manage: "관리",
     admin_stores_fee_open_sample: "샘플로 보기",
     admin_stores_fee_none_dash: "—",
@@ -5607,6 +5609,8 @@ export const adminMessages = {
     admin_stores_orders_link_chat: "Order chat",
     admin_stores_orders_link_messenger: "Messenger (buyer id)",
     admin_stores_orders_link_detail: "Delivery order detail",
+    admin_stores_orders_remaining_payment_line: "Remaining {amount}",
+    admin_stores_orders_gift_line: "Gift {amount}",
     admin_stores_orders_approve_refund: "Approve refund",
     admin_stores_orders_confirm_delete: "Permanently delete {count} row(s) from DB (store_orders)?\\nRelated items, chats, etc. may be removed. Continue?",
     admin_stores_orders_confirm_refund: "Approve refund? Order becomes refunded, stock is restored, and scheduled settlement is cancelled.",
@@ -5819,9 +5823,9 @@ export const adminMessages = {
     admin_stores_fee_verify_mismatch: "Mismatch",
     admin_stores_fee_verify_empty: "No settlement rows to verify.",
     admin_stores_fee_footer_rule:
-      "Rules: based on payment_amount · snapshotted on completed · later edits do not change past settlements",
+      "Rules: based on store-attributed revenue (remaining payment + gift + platform-funded discount) · snapshotted on completed · later edits do not change past settlements",
     admin_stores_fee_footer_formula:
-      "Formula: floor(payment × %) + fixed − delivery share (when percent mode)",
+      "Formula: floor(store-attributed revenue × %) + fixed − delivery share (when percent mode)",
     admin_stores_fee_manage: "Manage",
     admin_stores_fee_open_sample: "Open in sample",
     admin_stores_fee_none_dash: "—",

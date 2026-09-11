@@ -104,7 +104,21 @@ export async function tryLoadAdminStoreOrdersListFromSnapshot(
         store_id: sid,
         store_name: row.store_name,
         buyer_user_id: buyerId,
+        total_amount: Math.round(Number(row.order.total_amount) || 0),
+        discount_amount: Math.round(Number(row.order.discount_amount) || 0),
         payment_amount: Math.round(Number(row.order.payment_amount) || 0),
+        amount_before_gift: Math.round(Number(row.order.amount_before_gift) || 0),
+        gift_redemption_amount: Math.round(Number(row.order.gift_redemption_amount) || 0),
+        platform_funded_amount: Math.round(Number(row.order.platform_funded_amount) || 0),
+        store_funded_amount: Math.round(Number(row.order.store_funded_amount) || 0),
+        merchant_revenue_amount:
+          Math.round(Number(row.order.payment_amount) || 0) +
+          Math.round(Number(row.order.gift_redemption_amount) || 0) +
+          Math.round(Number(row.order.platform_funded_amount) || 0),
+        community_messenger_room_id:
+          typeof row.order.community_messenger_room_id === "string"
+            ? row.order.community_messenger_room_id.trim()
+            : null,
         payment_status: row.order.payment_status,
         order_status: row.order.order_status,
         fulfillment_type: row.order.fulfillment_type,

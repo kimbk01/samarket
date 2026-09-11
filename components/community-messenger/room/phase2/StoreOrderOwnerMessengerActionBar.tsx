@@ -7,7 +7,8 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerDeliveryOrderRef } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
-import { BUYER_ORDER_STATUS_LABEL, buyerDetailSixStepStates } from "@/lib/stores/store-order-process-criteria";
+import { buyerDetailSixStepStates } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
   buyerOrderTimelineDeliveryStepLabels,
   buyerOrderTimelinePickupStepLabels,
@@ -34,7 +35,7 @@ export function StoreOrderOwnerMessengerActionBar({
   onOpenOrderPanel,
 }: Props) {
   const { t, language } = useI18n();
-  const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language, order.fulfillment_type);
   const showActions = ownerOrderHasTransitionButtons(order);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
 

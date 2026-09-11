@@ -4,8 +4,9 @@ import {
   normalizeCheckoutPaymentMethodId,
 } from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
   buildStoreOrderSummaryTimelineSteps,
   type StoreOrderSummaryTimelineStep,
@@ -41,6 +42,10 @@ export type StoreOrderChatCardView = {
     itemsSubtotal: number;
     deliveryFee: number;
     discount: number;
+    amountBeforeGift: number;
+    giftRedemption: number;
+    merchantRevenue: number;
+    customerRemainingPayment: number;
     paymentTotal: number;
   };
   timeline: StoreOrderSummaryTimelineStep[];
@@ -111,10 +116,14 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
   });
   const itemsSubtotal = items.reduce((sum, it) => sum + it.subtotal, 0);
   const deliveryFee = money(order.delivery_fee_amount);
-  const paymentTotal = money(order.payment_amount ?? order.total_amount);
   const rawDiscount = money(order.discount_amount);
-  const inferredDiscount = Math.max(0, itemsSubtotal + deliveryFee - paymentTotal);
+  const giftRedemption = money(order.gift_redemption_amount);
+  const platformFunded = money(order.platform_funded_amount);
+  const paymentTotal = money(order.payment_amount ?? order.total_amount);
+  const inferredDiscount = Math.max(0, itemsSubtotal + deliveryFee - giftRedemption - paymentTotal);
   const discount = rawDiscount > 0 ? rawDiscount : inferredDiscount;
+  const amountBeforeGift = money(order.amount_before_gift) || Math.max(0, itemsSubtotal + deliveryFee - discount);
+  const merchantRevenue = Math.max(0, paymentTotal + giftRedemption + platformFunded);
   const orderCreatedAt = nullableText(order.created_at);
 
   return {
@@ -122,7 +131,7 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
     orderNo: text(order.order_no),
     storeName: input.storeName || text(order.store_name) || "매장",
     status,
-    statusLabel: BUYER_ORDER_STATUS_LABEL[status] ?? status,
+    statusLabel: buyerOrderStatusLabel(status, getRuntimeAppLanguage(), fulfillmentType),
     fulfillmentType,
     fulfillmentLabel: isDeliveryFulfillment(fulfillmentType) ? "배달" : "포장·픽업",
     isDelivery: isDeliveryFulfillment(fulfillmentType),
@@ -139,6 +148,10 @@ export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): Sto
       itemsSubtotal,
       deliveryFee,
       discount,
+      amountBeforeGift,
+      giftRedemption,
+      merchantRevenue,
+      customerRemainingPayment: paymentTotal,
       paymentTotal,
     },
     timeline: buildStoreOrderSummaryTimelineSteps({

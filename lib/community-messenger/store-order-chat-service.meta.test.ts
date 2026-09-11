@@ -6,7 +6,7 @@ import {
   buildMessengerContextInputFromStoreOrderSnapshot,
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 
 const publishMessengerRoomBumpAfterMutation = vi.fn().mockResolvedValue(undefined);
 
@@ -28,11 +28,39 @@ describe("store order messenger context meta", () => {
         fulfillmentType: "local_delivery",
         orderStatus: "preparing",
         paymentAmount: 500,
-      })
+      }, "ko")
     );
     expect(meta.kind).toBe("delivery");
-    expect(meta.stepLabel).toBe(BUYER_ORDER_STATUS_LABEL.preparing);
+    expect(meta.stepLabel).toBe(buyerOrderStatusLabel("preparing", "ko", "local_delivery"));
     expect(meta.stepLabel).not.toBe("preparing");
+  });
+
+  it("keeps pickup and delivery status labels fulfillment-aware", () => {
+    const delivery = buildMessengerContextMetaFromStoreOrder(
+      buildMessengerContextInputFromStoreOrderSnapshot({
+        orderId: "ord-delivery",
+        storeName: "Test Store",
+        orderNo: "1002",
+        storeId: "st-1",
+        fulfillmentType: "local_delivery",
+        orderStatus: "ready_for_pickup",
+        paymentAmount: 500,
+      }, "ko")
+    );
+    const pickup = buildMessengerContextMetaFromStoreOrder(
+      buildMessengerContextInputFromStoreOrderSnapshot({
+        orderId: "ord-pickup",
+        storeName: "Test Store",
+        orderNo: "1003",
+        storeId: "st-1",
+        fulfillmentType: "pickup",
+        orderStatus: "ready_for_pickup",
+        paymentAmount: 500,
+      }, "ko")
+    );
+    expect(delivery.stepLabel).toBe(buyerOrderStatusLabel("ready_for_pickup", "ko", "local_delivery"));
+    expect(pickup.stepLabel).toBe(buyerOrderStatusLabel("ready_for_pickup", "ko", "pickup"));
+    expect(delivery.stepLabel).not.toBe(pickup.stepLabel);
   });
 });
 

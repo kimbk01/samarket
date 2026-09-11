@@ -41,7 +41,7 @@ async function loadLegacyAdminStoreOrders(
   let q = sb
     .from("store_orders")
     .select(
-      "id, order_no, buyer_user_id, store_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, admin_flagged, admin_note, refund_approved_at, refunded_at, dispute_status, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
+      "id, order_no, buyer_user_id, store_id, total_amount, discount_amount, payment_amount, amount_before_gift, gift_redemption_amount, store_funded_amount, platform_funded_amount, delivery_fee_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, community_messenger_room_id, created_at, updated_at, auto_complete_at, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, admin_flagged, admin_note, refund_approved_at, refunded_at, dispute_status, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -147,7 +147,21 @@ async function loadLegacyAdminStoreOrders(
       store_id: sid,
       store_name: st.store_name ?? "",
       buyer_user_id: buyerId,
+      total_amount: Math.round(Number(r.total_amount) || 0),
+      discount_amount: Math.round(Number(r.discount_amount) || 0),
       payment_amount: Math.round(Number(r.payment_amount) || 0),
+      amount_before_gift: Math.round(Number((r as { amount_before_gift?: unknown }).amount_before_gift) || 0),
+      gift_redemption_amount: Math.round(Number((r as { gift_redemption_amount?: unknown }).gift_redemption_amount) || 0),
+      platform_funded_amount: Math.round(Number((r as { platform_funded_amount?: unknown }).platform_funded_amount) || 0),
+      store_funded_amount: Math.round(Number((r as { store_funded_amount?: unknown }).store_funded_amount) || 0),
+      merchant_revenue_amount:
+        Math.round(Number(r.payment_amount) || 0) +
+        Math.round(Number((r as { gift_redemption_amount?: unknown }).gift_redemption_amount) || 0) +
+        Math.round(Number((r as { platform_funded_amount?: unknown }).platform_funded_amount) || 0),
+      community_messenger_room_id:
+        typeof (r as { community_messenger_room_id?: unknown }).community_messenger_room_id === "string"
+          ? ((r as { community_messenger_room_id?: string }).community_messenger_room_id ?? "").trim()
+          : null,
       payment_status: r.payment_status as string,
       order_status: r.order_status as string,
       fulfillment_type: r.fulfillment_type as string,

@@ -49,4 +49,49 @@ describe("commerce-child-page-slide", () => {
     );
     expect(childKind).toBe("ltr-back");
   });
+
+  it("store product → cart → checkout uses child rtl-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      shouldSuppressCommerceConsumerMainShellSlide(
+        "/stores/test-store/p/prod-1",
+        "/stores/test-store/cart"
+      )
+    ).toBe(true);
+    expect(
+      computeCommerceChildTransitionKind("/stores/test-store/p/prod-1", "/stores/test-store/cart", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("rtl-forward");
+    expect(
+      computeCommerceChildTransitionKind("/stores/test-store/cart", "/stores/test-store/checkout", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("rtl-forward");
+  });
+
+  it("checkout back to cart uses child ltr-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as const };
+    expect(
+      computeCommerceChildTransitionKind("/stores/test-store/checkout", "/stores/test-store/cart", {
+        popstateBack: true,
+        lastForwardAxisRef,
+      })
+    ).toBe("ltr-back");
+  });
+
+  it("committed order chat route stays in the commerce stack and never points back to checkout", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      shouldSuppressCommerceConsumerMainShellSlide("/stores/test-store/checkout", "/orders/store/order-1/chat")
+    ).toBe(false);
+    expect(
+      computeRouteTransitionEnterKind("/stores/test-store/checkout", "/orders/store/order-1/chat", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("rtl-forward");
+  });
 });

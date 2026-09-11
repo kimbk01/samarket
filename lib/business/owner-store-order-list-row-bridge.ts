@@ -19,6 +19,15 @@ export type OwnerStoreOrderListRow = {
   total_amount: number;
   /** store_orders.discount_amount — checkout coupon snapshot, not recomputed */
   discount_amount?: number;
+  delivery_fee_amount?: number | null;
+  /** store_orders.amount_before_gift — coupon applied, before gift payment */
+  amount_before_gift?: number;
+  /** store_orders.gift_redemption_amount — gift payment applied in atomic RPC */
+  gift_redemption_amount?: number;
+  /** store-attributed sale revenue = payment + gift + platform-funded coupon */
+  merchant_revenue_amount?: number;
+  platform_funded_amount?: number;
+  store_funded_amount?: number;
   payment_amount: number;
   payment_status: string;
   order_status: string;
@@ -126,11 +135,38 @@ export function parseOwnerStoreOrderListRowFromApi(raw: unknown): OwnerStoreOrde
     discountRaw == null || discountRaw === ""
       ? undefined
       : Math.max(0, Math.round(Number(discountRaw) || 0));
+  const amount_before_gift =
+    r.amount_before_gift == null || r.amount_before_gift === ""
+      ? undefined
+      : Math.max(0, Math.round(Number(r.amount_before_gift) || 0));
+  const gift_redemption_amount =
+    r.gift_redemption_amount == null || r.gift_redemption_amount === ""
+      ? undefined
+      : Math.max(0, Math.round(Number(r.gift_redemption_amount) || 0));
+  const platform_funded_amount =
+    r.platform_funded_amount == null || r.platform_funded_amount === ""
+      ? undefined
+      : Math.max(0, Math.round(Number(r.platform_funded_amount) || 0));
+  const store_funded_amount =
+    r.store_funded_amount == null || r.store_funded_amount === ""
+      ? undefined
+      : Math.max(0, Math.round(Number(r.store_funded_amount) || 0));
+  const merchant_revenue_amount = Math.max(
+    0,
+    Math.round(Number(r.payment_amount) || 0) +
+      (gift_redemption_amount ?? 0) +
+      (platform_funded_amount ?? 0)
+  );
   return normalizeOwnerStoreOrderListRow({
     ...(raw as OwnerStoreOrderListRow),
     id,
     items,
     ...(discount_amount != null ? { discount_amount } : {}),
+    ...(amount_before_gift != null ? { amount_before_gift } : {}),
+    ...(gift_redemption_amount != null ? { gift_redemption_amount } : {}),
+    ...(platform_funded_amount != null ? { platform_funded_amount } : {}),
+    ...(store_funded_amount != null ? { store_funded_amount } : {}),
+    merchant_revenue_amount,
   });
 }
 
@@ -185,7 +221,7 @@ export function ownerOrderToListRow(
       order_no: o.order_no,
       order_status: o.order_status,
       payment_status: o.payment_status ?? prev.payment_status,
-      payment_amount: o.total_amount,
+      payment_amount: o.customer_remaining_payment ?? prev.payment_amount,
       total_amount: o.total_amount,
       fulfillment_type: fulfillmentFromOwnerOrder(o),
       buyer_note: o.request_message ?? prev.buyer_note,
@@ -206,6 +242,12 @@ export function ownerOrderToListRow(
       accepted_at: prev.accepted_at,
       review_status: prev.review_status,
       discount_amount: prev.discount_amount,
+      delivery_fee_amount: prev.delivery_fee_amount,
+      amount_before_gift: o.amount_before_gift ?? prev.amount_before_gift,
+      gift_redemption_amount: o.gift_redemption_amount ?? prev.gift_redemption_amount,
+      platform_funded_amount: prev.platform_funded_amount,
+      store_funded_amount: prev.store_funded_amount,
+      merchant_revenue_amount: o.merchant_revenue_amount ?? prev.merchant_revenue_amount,
     };
   }
 
@@ -217,7 +259,10 @@ export function ownerOrderToListRow(
     buyer_public_label: o.buyer_name || BUYER_PUBLIC_LABEL_FALLBACK,
     buyer_phone: o.buyer_phone !== "—" ? o.buyer_phone : null,
     total_amount: o.total_amount,
-    payment_amount: o.total_amount,
+    payment_amount: o.customer_remaining_payment ?? o.total_amount,
+    amount_before_gift: o.amount_before_gift,
+    gift_redemption_amount: o.gift_redemption_amount,
+    merchant_revenue_amount: o.merchant_revenue_amount ?? o.total_amount,
     payment_status: o.payment_status ?? "pending",
     order_status: o.order_status,
     fulfillment_type: fulfillmentFromOwnerOrder(o),

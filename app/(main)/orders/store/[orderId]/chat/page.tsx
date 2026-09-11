@@ -15,6 +15,7 @@ import {
 import { buildProfileEditHref } from "@/lib/profile/profile-completion-modal-client";
 import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 
 /** 주문 허브 매장 주문 채팅 — RSC 선로딩으로 첫 GET 제거 */
 export default function OrdersStoreOrderChatPage({
@@ -113,7 +114,7 @@ async function OrdersStoreOrderChatPageBody({
   });
   roomUrl.searchParams.set("cm_ctx", cmCtx);
   const cmReturn =
-    sanitizeMessengerRoomReturnHref("/orders") ?? "/orders";
+    sanitizeMessengerRoomReturnHref(buyerStoreOrderDetailPath(orderId)) ?? "/orders";
   roomUrl.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, cmReturn);
   redirect(`${roomUrl.pathname}${roomUrl.search}`);
 }

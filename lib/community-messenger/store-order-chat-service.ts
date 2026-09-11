@@ -44,7 +44,7 @@ import {
   chatMessageKeyWithPrep,
 } from "@/lib/stores/store-order-process-model";
 import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -77,6 +77,10 @@ type StoreOrderMessengerOrderRow = {
   fulfillment_type?: unknown;
   payment_amount?: unknown;
   total_amount?: unknown;
+  discount_amount?: unknown;
+  amount_before_gift?: unknown;
+  gift_redemption_amount?: unknown;
+  platform_funded_amount?: unknown;
   community_messenger_room_id?: unknown;
   stores?:
     | {
@@ -123,8 +127,10 @@ function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessen
   const orderNo = trimText(row.order_no);
   const fulfillmentType = trimText(row.fulfillment_type);
   const orderStatus = trimText(row.order_status);
-  const paymentRaw = Number(row.payment_amount ?? row.total_amount ?? 0);
-  const paymentAmount = Number.isFinite(paymentRaw) ? paymentRaw : 0;
+  const payment = Math.max(0, Math.round(Number(row.payment_amount) || 0));
+  const gift = Math.max(0, Math.round(Number(row.gift_redemption_amount) || 0));
+  const platform = Math.max(0, Math.round(Number(row.platform_funded_amount) || 0));
+  const paymentAmount = payment + gift + platform || Math.max(0, Math.round(Number(row.total_amount) || 0));
   const profileRaw = store?.profile_image_url;
   const thumbnailUrl =
     typeof profileRaw === "string" && profileRaw.trim() ? profileRaw.trim() : null;
@@ -175,11 +181,12 @@ async function loadStoreOrderSummaryFields(
   const row = data as StoreOrderSummaryRow;
   const store = storeRowFromOrder(row);
   const status = trimText(row.order_status);
+  const fulfillmentType = trimText(row.fulfillment_type);
   const order: ChatSummaryOrderFields = {
     store_name: trimText(store?.store_name) || "매장",
     order_no: trimText(row.order_no),
-    order_status: BUYER_ORDER_STATUS_LABEL[status] ?? status,
-    fulfillment_type: trimText(row.fulfillment_type),
+    order_status: buyerOrderStatusLabel(status, undefined, fulfillmentType),
+    fulfillment_type: fulfillmentType,
     delivery_address_summary:
       typeof row.delivery_address_summary === "string" ? row.delivery_address_summary : null,
     delivery_address_detail:
@@ -226,7 +233,7 @@ export async function syncStoreOrderMessengerRoomContextMeta(
   const { data: orderRow, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
+      "id, order_no, store_id, order_status, fulfillment_type, payment_amount, total_amount, discount_amount, amount_before_gift, gift_redemption_amount, platform_funded_amount, community_messenger_room_id, stores(store_name, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
     )
     .eq("id", oid)
     .maybeSingle();
@@ -409,7 +416,7 @@ export async function ensureStoreOrderMessengerRoom(
   const { data, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, owner_user_id, profile_image_url, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
+      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, discount_amount, amount_before_gift, gift_redemption_amount, platform_funded_amount, community_messenger_room_id, stores(store_name, owner_user_id, profile_image_url, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
     )
     .eq("id", orderId)
     .maybeSingle();

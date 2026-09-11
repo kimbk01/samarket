@@ -661,6 +661,10 @@ export const storeCommerceUiMessages = {
 
     store_order_total: "주문 합계",
 
+    store_order_customer_remaining_payment: "고객 추가 결제",
+
+    store_order_merchant_revenue_basis: "매장 귀속 금액",
+
     store_request_note: "요청사항",
 
     store_request_placeholder: "예: 덜 맵게, 양파 빼주세요",
@@ -2420,6 +2424,10 @@ export const storeCommerceUiMessages = {
     store_quantity: "Quantity",
 
     store_order_total: "Order total",
+
+    store_order_customer_remaining_payment: "Customer remaining payment",
+
+    store_order_merchant_revenue_basis: "Store revenue basis",
 
     store_request_note: "Special requests",
 

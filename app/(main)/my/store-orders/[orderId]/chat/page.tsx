@@ -23,7 +23,7 @@ async function MyStoreOrderChatBridgePageBody({
   const { orderId: raw } = await params;
   const orderId = typeof raw === "string" ? raw.trim() : "";
   if (!orderId) {
-    return redirect("/mypage/store-orders");
+    return redirect("/orders");
   }
-  return redirect(`/mypage/store-orders/${encodeURIComponent(orderId)}/chat`);
+  return redirect(`/orders/store/${encodeURIComponent(orderId)}/chat`);
 }

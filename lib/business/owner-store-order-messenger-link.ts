@@ -1,6 +1,6 @@
 import { buildStoreOrderMessengerRoomHref, storeOrderChatEnsureRedirectHref } from "@/lib/chats/surfaces/order-chat-surface";
 import { buildMessengerContextMetaFromStoreOrder } from "@/lib/community-messenger/store-order-messenger-context";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 
 export function buildOwnerStoreOrderMessengerContext(
@@ -19,7 +19,7 @@ export function buildOwnerStoreOrderMessengerContext(
     fulfillmentType: order.fulfillment_type,
     productTitle: headline,
     paymentAmount: order.payment_amount,
-    orderStatusLabel: BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status,
+    orderStatusLabel: buyerOrderStatusLabel(order.order_status, undefined, order.fulfillment_type),
   });
 }
 

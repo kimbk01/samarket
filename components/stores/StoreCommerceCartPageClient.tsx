@@ -117,7 +117,7 @@ import {
   buildStoreOrderDetailSeedFromPostSuccess,
   setStoreOrderDetailSeed,
 } from "@/lib/stores/store-order-detail-seed-cache";
-import { navigateToBuyerStoreOrderDetail } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
+import { navigateToBuyerStoreOrderChat } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
   STORE_ADDRESS_STREET_LABEL,
@@ -618,7 +618,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const remembered = getLastCheckoutOrderId(store.id);
     if (!remembered) return;
     clearLastCheckoutOrderId(store.id);
-    navigateToBuyerStoreOrderDetail(remembered, router, { storeSlug });
+    navigateToBuyerStoreOrderChat(remembered, router, { storeSlug });
   }, [cart.hydrated, store?.id, lines.length, router]);
 
   useEffect(() => {
@@ -1624,7 +1624,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         error?: string;
         message?: string;
         idempotent?: boolean;
-        order?: { id?: string; order_no?: string; payment_amount?: number };
+        order?: {
+          id?: string;
+          order_no?: string;
+          payment_amount?: number;
+          total_amount?: number;
+          discount_amount?: number;
+          amount_before_gift?: number;
+          gift_redemption_amount?: number;
+        };
+        roomId?: string | null;
+        chatHref?: string | null;
+        order_chat_ready?: boolean;
       };
       dibayPerfOnOrderApiDone(store.id, typeof orderJson.order?.id === "string" ? orderJson.order.id : undefined);
       if (orderJson?.ok === true && orderJson.idempotent === true) {
@@ -1676,6 +1687,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             orderId: oid,
             order_no: placed.order_no,
             payment_amount: placed.payment_amount,
+            total_amount: placed.total_amount,
+            discount_amount: placed.discount_amount,
+            amount_before_gift: placed.amount_before_gift,
+            gift_redemption_amount: placed.gift_redemption_amount,
             store_id: store.id,
             store_name: store.store_name,
             idempotent: orderJson.idempotent === true,
@@ -1694,9 +1709,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         /* ignore */
       }
       window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-      navigateToBuyerStoreOrderDetail(oid, router, {
+      navigateToBuyerStoreOrderChat(oid, router, {
         storeSlug,
         storeId: store.id,
+        chatHref: typeof orderJson.chatHref === "string" ? orderJson.chatHref : null,
       });
       cart.clearStoreCart(store.id);
     } catch {

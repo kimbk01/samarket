@@ -189,4 +189,36 @@ describe("POST store-orders atomic path contract", () => {
     expect(mig).toContain("store_coupon_redemptions");
     expect(mig).toContain("coupon_entitlement_required");
   });
+
+  it("store order API sends gift-aware remaining payment and returns canonical chat ACK", async () => {
+    const fs = await import("node:fs");
+    const src = fs.readFileSync("app/api/me/store-orders/route.ts", "utf8");
+    const giftBlock = src.slice(
+      src.indexOf("const amountBeforeGift = paymentAfterDiscount"),
+      src.indexOf("const commerceExtras")
+    );
+    expect(giftBlock).toContain("computeGiftRedemptionSplit");
+    expect(giftBlock).toContain("giftRemaining");
+    expect(giftBlock).toContain("paymentAfterGift");
+    expect(src).toContain("payment_amount: Math.round(paymentAfterGift)");
+    expect(src).toContain("ensureStoreOrderMessengerRoom");
+    expect(src).toContain("roomId: orderChatAck.roomId");
+    expect(src).toContain("chatHref: orderChatAck.chatHref");
+    expect(src).toContain("order_chat_ready: orderChatAck.orderChatReady");
+    expect(src).not.toContain("fetchExistingBuyerOrderByClientKey");
+  });
+
+  it("cart success navigation targets order chat with committed replace boundary", async () => {
+    const fs = await import("node:fs");
+    const cart = fs.readFileSync("components/stores/StoreCommerceCartPageClient.tsx", "utf8");
+    const nav = fs.readFileSync(
+      "lib/delivery/customer/navigate-to-buyer-store-order-detail.ts",
+      "utf8"
+    );
+    expect(cart).toContain("navigateToBuyerStoreOrderChat");
+    expect(cart).toContain("chatHref: typeof orderJson.chatHref === \"string\"");
+    expect(nav).toContain("commitOrderCommittedNavigationEntry");
+    expect(nav).toContain("router.replace(path)");
+    expect(nav).toContain("buyerStoreOrderChatPath");
+  });
 });

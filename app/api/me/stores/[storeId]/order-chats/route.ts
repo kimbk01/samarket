@@ -3,7 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import { buildMessengerContextMetaFromStoreOrder } from "@/lib/community-messenger/store-order-messenger-context";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   getCachedStoreIfOwner,
@@ -168,7 +168,7 @@ export async function GET(
         fulfillmentType: o.fulfillment_type,
         productTitle: headline,
         paymentAmount: o.payment_amount,
-        orderStatusLabel: BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status,
+        orderStatusLabel: buyerOrderStatusLabel(o.order_status, undefined, o.fulfillment_type),
       });
       return {
         order_id: o.id,
@@ -176,7 +176,7 @@ export async function GET(
         room_id: roomId,
         buyer_public_label: buyerLabel,
         order_status: o.order_status,
-        order_status_label: BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status,
+        order_status_label: buyerOrderStatusLabel(o.order_status, undefined, o.fulfillment_type),
         unread_count: unreadByRoom.get(roomId) ?? 0,
         last_message_at: meta?.last_message_at ?? o.updated_at ?? o.created_at,
         last_message_preview: meta?.last_message_preview?.trim() || "주문 채팅",

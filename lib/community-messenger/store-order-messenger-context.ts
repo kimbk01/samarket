@@ -120,7 +120,7 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
     fulfillmentType: fulfillmentForMeta,
     productTitle: headline,
     paymentAmount: args.paymentAmount,
-    orderStatusLabel: buyerOrderStatusLabel(args.orderStatus, lang),
+    orderStatusLabel: buyerOrderStatusLabel(args.orderStatus, lang, fulfillmentForMeta),
     orderStatusRaw: args.orderStatus,
     thumbnailUrl: args.thumbnailUrl ?? null,
     storeVoiceMessagesEnabled: args.storeVoiceMessagesEnabled ?? null,

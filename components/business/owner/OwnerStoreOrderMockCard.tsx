@@ -109,6 +109,26 @@ export function OwnerStoreOrderMockCard({
     detail: order.delivery_address_detail,
   });
   const menuSummary = summarizeMenu(order.items, t);
+  const itemSubtotal = order.items.reduce(
+    (sum, it) => sum + Math.max(0, Math.round(Number(it.subtotal || it.price_snapshot * it.qty) || 0)),
+    0
+  );
+  const deliveryFee = Math.max(0, Math.round(Number((order as { delivery_fee_amount?: unknown }).delivery_fee_amount) || 0));
+  const couponDiscount = Math.max(0, Math.round(Number(order.discount_amount) || 0));
+  const giftRedemption = Math.max(0, Math.round(Number(order.gift_redemption_amount) || 0));
+  const platformFunded = Math.max(0, Math.round(Number(order.platform_funded_amount) || 0));
+  const amountBeforeGift = Math.max(
+    0,
+    Math.round(Number(order.amount_before_gift) || Math.max(0, itemSubtotal + deliveryFee - couponDiscount))
+  );
+  const customerRemainingPayment = Math.max(0, Math.round(Number(order.payment_amount) || 0));
+  const merchantRevenue = Math.max(
+    0,
+    Math.round(
+      Number(order.merchant_revenue_amount) ||
+        customerRemainingPayment + giftRedemption + platformFunded
+    )
+  );
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type, language);
   const cancelPolicy = useMemo(
     () =>
@@ -364,7 +384,7 @@ export function OwnerStoreOrderMockCard({
             </div>
             <div className="text-right">
               <p className="text-[18px] font-bold leading-[1.2] tabular-nums text-[var(--biz-text)]">
-                {formatMoneyPhp(order.payment_amount)}
+                {formatMoneyPhp(merchantRevenue)}
               </p>
               <p className="mt-1 text-[11px] leading-[1.35] text-[#6B7280]">
                 {new Date(order.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
@@ -503,17 +523,59 @@ export function OwnerStoreOrderMockCard({
                 <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-2 text-[13px] leading-[1.35] text-[var(--biz-text)]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[#6B7280]">{t("store_product_amount")}</span>
-                    <span className="tabular-nums">{formatMoneyPhp(order.total_amount)}</span>
+                    <span className="tabular-nums">{formatMoneyPhp(itemSubtotal)}</span>
                   </div>
-                  {(order.discount_amount ?? 0) > 0 ? (
+                  {deliveryFee > 0 ? (
                     <div className="mt-1 flex items-center justify-between gap-2">
-                      <span className="text-[#6B7280]">{t("store_owner_order_coupon_discount")}</span>
-                      <span className="tabular-nums">-{formatMoneyPhp(order.discount_amount ?? 0)}</span>
+                      <span className="text-[#6B7280]">{t("store_delivery_fee")}</span>
+                      <span className="tabular-nums">{formatMoneyPhp(deliveryFee)}</span>
                     </div>
                   ) : null}
+                  {couponDiscount > 0 ? (
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <span className="text-[#6B7280]">{t("store_owner_order_coupon_discount")}</span>
+                      <span className="tabular-nums">-{formatMoneyPhp(couponDiscount)}</span>
+                    </div>
+                  ) : null}
+                  {giftRedemption > 0 ? (
+                    <>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span className="text-[#6B7280]">
+                          {safeT("gift_u4_order_amount_before_gift", {
+                            fallbackKo: "상품권 적용 전 금액",
+                            fallbackEn: "Amount before gift",
+                          })}
+                        </span>
+                        <span className="tabular-nums">{formatMoneyPhp(amountBeforeGift)}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span className="text-[#6B7280]">
+                          {safeT("gift_u4_order_gift_line", {
+                            fallbackKo: "상품권 사용",
+                            fallbackEn: "Gift certificate",
+                          })}
+                        </span>
+                        <span className="tabular-nums">-{formatMoneyPhp(giftRedemption)}</span>
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[#6B7280]">
+                      {safeT("store_order_customer_remaining_payment", {
+                        fallbackKo: "고객 추가 결제",
+                        fallbackEn: "Customer remaining payment",
+                      })}
+                    </span>
+                    <span className="tabular-nums">{formatMoneyPhp(customerRemainingPayment)}</span>
+                  </div>
                   <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-[var(--biz-card-border)] pt-1.5 font-bold">
-                    <span>{t("store_owner_payment_amount_label")}</span>
-                    <span className="tabular-nums">{formatMoneyPhp(order.payment_amount)}</span>
+                    <span>
+                      {safeT("store_order_merchant_revenue_basis", {
+                        fallbackKo: "매장 귀속 금액",
+                        fallbackEn: "Store revenue basis",
+                      })}
+                    </span>
+                    <span className="tabular-nums">{formatMoneyPhp(merchantRevenue)}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">

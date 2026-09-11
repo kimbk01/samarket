@@ -169,6 +169,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     ? `/orders/store/${encodeURIComponent(orderId)}`
     : `/mypage/store-orders/${encodeURIComponent(orderId)}`;
   const reviewHref = `${orderBase}/review`;
+  const canonicalOrderChatHref = `/orders/store/${encodeURIComponent(orderId)}/chat`;
 
   type ViewState =
     | { kind: "loading" }
@@ -499,8 +500,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const refundPending = order.order_status === "refund_requested";
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
-  const chatHref = `${orderBase}/chat`;
-  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language);
+  const chatHref = canonicalOrderChatHref;
+  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language, order.fulfillment_type);
   const eventLabels = storeOrderEventLabels(t);
   const prepClock = formatPrepClock(order.estimated_ready_at, dateLocale);
   const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);

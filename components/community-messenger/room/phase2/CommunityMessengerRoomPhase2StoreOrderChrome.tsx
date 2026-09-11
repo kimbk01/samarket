@@ -297,6 +297,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
           ""
         }
         paymentAmount={
+          snapshot?.orderCard?.totals.merchantRevenue ??
           snapshot?.orderCard?.totals.paymentTotal ??
           snapshot?.buyerOrder?.payment_amount ??
           null

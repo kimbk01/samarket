@@ -98,6 +98,10 @@ export interface AdminDeliveryOrder {
   optionAmount: number;
   deliveryFee: number;
   discountAmount: number;
+  amountBeforeGift?: number;
+  giftRedemptionAmount?: number;
+  customerRemainingPayment?: number;
+  merchantRevenueAmount?: number;
   finalAmount: number;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;

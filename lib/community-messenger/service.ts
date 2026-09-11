@@ -10573,7 +10573,7 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   if (!sb) return { ok: false, error: "server_unavailable" };
   const { data } = await (sb as any)
     .from("store_orders")
-    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id, profile_image_url)")
+    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, gift_redemption_amount, platform_funded_amount, stores(store_name, owner_user_id, profile_image_url)")
     .eq("id", oid)
     .maybeSingle();
   if (!data) return { ok: false, error: "store_order_not_found" };
@@ -10586,6 +10586,8 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     fulfillment_type?: unknown;
     payment_amount?: unknown;
     total_amount?: unknown;
+    gift_redemption_amount?: unknown;
+    platform_funded_amount?: unknown;
     stores?:
       | { store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }
       | Array<{ store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }>
@@ -10603,7 +10605,10 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   const orderNo = trimText(orderRow.order_no);
   const status = trimText(orderRow.order_status);
   const fulfillmentType = trimText(orderRow.fulfillment_type);
-  const amountRaw = Number(orderRow.payment_amount ?? orderRow.total_amount ?? 0);
+  const remainingPayment = Math.max(0, Math.round(Number(orderRow.payment_amount) || 0));
+  const giftRedemption = Math.max(0, Math.round(Number(orderRow.gift_redemption_amount) || 0));
+  const platformFunded = Math.max(0, Math.round(Number(orderRow.platform_funded_amount) || 0));
+  const amountRaw = remainingPayment + giftRedemption + platformFunded || Number(orderRow.total_amount ?? 0);
   const profileUrl = trimText(storeRow?.profile_image_url as string | undefined);
   const contextMeta: CommunityMessengerRoomContextMetaV1 = {
     v: 1,
@@ -10616,7 +10621,7 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     headline: cmStoreOrderHeadline(storeName, orderNo),
     ...(profileUrl ? { thumbnailUrl: profileUrl } : {}),
     ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
-    ...(status ? { stepLabel: buyerOrderStatusLabel(status) || status } : {}),
+    ...(status ? { stepLabel: buyerOrderStatusLabel(status, undefined, fulfillmentType) || status } : {}),
   };
   await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
   return { ok: true, roomId: out.roomId, peerUserId: peer };

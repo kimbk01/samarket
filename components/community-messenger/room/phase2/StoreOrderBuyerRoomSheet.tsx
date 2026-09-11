@@ -17,9 +17,10 @@ import {
   parsePhMobileInput,
   telHrefFromPhDb09,
 } from "@/lib/utils/ph-mobile";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { buyerStoreOrderDetailPath } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import {
   processStepIndex,
   processStepLabel,
@@ -136,7 +137,7 @@ export function StoreOrderBuyerRoomSheet({
   }, [open, onOpenChange]);
 
   const statusLabel =
-    order != null ? BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status : "";
+    order != null ? buyerOrderStatusLabel(order.order_status, getRuntimeAppLanguage(), order.fulfillment_type) : "";
 
   const phone09 =
     order?.buyer_phone != null && String(order.buyer_phone).trim()
@@ -318,7 +319,7 @@ function BuyerOrderDrawerActions({
 }) {
   if (peekDrawer) {
     return (
-      <div>
+      <div className="space-y-2">
         <button
           type="button"
           disabled={!canCancel || cancelBusy}
@@ -332,6 +333,13 @@ function BuyerOrderDrawerActions({
             {t("mypage_comp_orders_cancel_err_short")}
           </p>
         ) : null}
+        <Link
+          href={buyerStoreOrderDetailPath(orderId)}
+          onClick={onNavigate}
+          className="inline-flex h-10 w-full items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] px-3 sam-text-body font-bold text-[color:var(--delivery-primary)]"
+        >
+          {t("store_order_view_detail_btn")}
+        </Link>
       </div>
     );
   }
@@ -347,7 +355,7 @@ function BuyerOrderDrawerActions({
         {t("store_order_cancel_btn")}
       </button>
       <Link
-        href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
+        href={buyerStoreOrderDetailPath(orderId)}
         onClick={onNavigate}
         className="inline-flex h-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] px-3.5 text-[14px] font-semibold text-[color:var(--delivery-primary)]"
       >
