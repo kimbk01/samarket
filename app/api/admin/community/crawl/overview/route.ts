@@ -8,7 +8,10 @@ import {
 } from "@/lib/community-crawler/admin-crawl-store";
 import {
   COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
+  COMMUNITY_CRAWL_SCHEDULER_FROZEN,
+  COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE,
   COMMUNITY_CRAWL_TEST_AVAILABLE,
+  COMMUNITY_CRAWL_V2_PUBLISH_TARGET,
 } from "@/lib/community-crawler/crawl-ssot";
 
 export const runtime = "nodejs";
@@ -117,6 +120,9 @@ export async function GET() {
       crawlCoreUnavailableReason: COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
       testCrawlAvailable: COMMUNITY_CRAWL_TEST_AVAILABLE,
       manualCrawlAvailable: false,
+      schedulerFrozen: COMMUNITY_CRAWL_SCHEDULER_FROZEN,
+      schedulerFreezeState: COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE,
+      v2PublishTarget: COMMUNITY_CRAWL_V2_PUBLISH_TARGET,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

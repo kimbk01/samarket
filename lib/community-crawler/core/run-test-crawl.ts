@@ -35,6 +35,7 @@ import type {
 /** TEST crawl default cap. STEP5 prepare may raise via options (≤ board.max_posts, ≤ 15). */
 export const TEST_CRAWL_MAX_POSTS = 5;
 export const TEST_CRAWL_MAX_PAGES = 1;
+/** Hard cap for TEST preview fetch volume (legacy name kept for call sites). */
 export const PREPARE_CRAWL_MAX_POSTS = 15;
 
 const CONTENT_PREVIEW_LEN = 280;
@@ -45,7 +46,7 @@ export async function runCommunityTestCrawl(input: {
   source: CommunityCrawlSourceRow;
   topicName: string | null;
   recordRun?: boolean;
-  /** STEP5 prepare: raise cap (still capped by PREPARE_CRAWL_MAX_POSTS / board.max_posts). */
+  /** Optional raise of TEST preview cap (still capped by PREPARE_CRAWL_MAX_POSTS / board.max_posts). */
   maxPostsOverride?: number;
 }): Promise<TestCrawlResult> {
   const { sb, board, source, topicName } = input;

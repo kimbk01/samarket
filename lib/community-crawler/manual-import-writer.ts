@@ -1,5 +1,6 @@
 /**
- * STEP4 canonical Manual Import writer (server-only).
+ * LEGACY runtime publish writer (REFERENCE_SUMMARY) — still called by items/[id]/publish until V2-1.
+ * V2 operational TARGET = FULL_CONTENT (COMMUNITY_CRAWL_V2_PUBLISH_TARGET). Do not treat this as V2 SSOT.
  * Calls atomic RPC — no point reward, no media, no browser service role.
  */
 

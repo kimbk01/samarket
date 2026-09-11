@@ -73,6 +73,22 @@ describe("community crawl SSOT (STEP2)", () => {
     expect(ui).not.toContain("admin_community_crawl_manual");
     expect(ui).not.toContain("mock crawl");
     expect(ui).not.toContain("fake success");
+    expect(ui).toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
+  });
+
+  it("prepare route is retired 410; cron dispatcher is frozen without real crawl", () => {
+    const prepare = readFileSync(
+      join(process.cwd(), "app/api/admin/community/crawl/boards/[id]/prepare/route.ts"),
+      "utf8"
+    );
+    const cron = readFileSync(
+      join(process.cwd(), "app/api/cron/community-crawl-dispatcher/route.ts"),
+      "utf8"
+    );
+    expect(prepare).toContain("PREPARE_RETIRED");
+    expect(prepare).toContain("status: 410");
+    expect(cron).toContain("COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE");
+    expect(cron).not.toContain("runCommunityRealCrawl");
   });
 
   it("registry migration uses community_topics FK and post_link uniqueness", () => {

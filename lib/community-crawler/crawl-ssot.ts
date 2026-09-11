@@ -65,9 +65,12 @@ export type CommunityCrawlIngestMode = (typeof COMMUNITY_CRAWL_INGEST_MODES)[num
 
 export {
   COMMUNITY_CRAWL_DEFAULT_PUBLISH_MODE,
+  COMMUNITY_CRAWL_LEGACY_PUBLISH_MODE,
   COMMUNITY_CRAWL_PUBLISH_MODES,
+  COMMUNITY_CRAWL_V2_PUBLISH_TARGET,
   normalizeCommunityCrawlPublishMode,
   type CommunityCrawlPublishMode,
+  type CommunityCrawlV2PublishTarget,
 } from "@/lib/community-crawler/publish-mode";
 
 /**
@@ -81,13 +84,23 @@ export const COMMUNITY_CRAWL_TEST_AVAILABLE = true as const;
 
 /**
  * Legacy STEP4 per-item Manual Import from TEST preview.
- * Operational Admin must not expose this — publish belongs to durable items (PHASE F).
+ * Operational Admin must not expose this — publish belongs to durable items.
  * Keep API for historical tests; product UI reachability = false.
  */
 export const COMMUNITY_CRAWL_MANUAL_IMPORT_AVAILABLE = false as const;
 
 /** REAL crawl → durable community_crawl_items upsert. */
 export const COMMUNITY_CRAWL_REAL_CRAWL_AVAILABLE = true as const;
+
+/**
+ * V2-0 SSOT freeze: Production cron must not create SCHEDULED crawls until V2-6/V2-7.
+ * Board schedule_enabled may remain true in DB — execution is still blocked.
+ */
+export const COMMUNITY_CRAWL_SCHEDULER_FROZEN = true as const;
+export const COMMUNITY_CRAWL_SCHEDULER_FREEZE_STATE = "CRAWLER_SCHEDULER_FROZEN" as const;
+
+/** Legacy STEP5 prepare route — retired; Admin must use TEST or REAL crawl only. */
+export const COMMUNITY_CRAWL_PREPARE_AVAILABLE = false as const;
 
 export type CommunityCrawlSourceRow = {
   id: string;
@@ -99,7 +112,11 @@ export type CommunityCrawlSourceRow = {
   policy_status: CommunityCrawlPolicyStatus;
   /** Image rehost gate — independent of policy_status (content). */
   media_policy: CommunityCrawlMediaPolicy;
-  /** STEP4: REFERENCE_SUMMARY — never full external body/image copy. */
+  /**
+   * Persisted publish_mode (DB CHECK = REFERENCE_SUMMARY until V2-1).
+   * V2 operational TARGET = FULL_CONTENT — see COMMUNITY_CRAWL_V2_PUBLISH_TARGET.
+   * Current items/[id]/publish still uses legacy REFERENCE_SUMMARY writer until V2-1.
+   */
   publish_mode: import("@/lib/community-crawler/publish-mode").CommunityCrawlPublishMode;
   created_at: string;
   updated_at: string;

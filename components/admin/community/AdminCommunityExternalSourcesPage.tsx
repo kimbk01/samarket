@@ -8,6 +8,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import {
   COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
   COMMUNITY_CRAWL_INTERVAL_MINUTES,
+  COMMUNITY_CRAWL_SCHEDULER_FROZEN,
   type CommunityCrawlAuthorPolicy,
   type CommunityCrawlBoardRow,
   type CommunityCrawlDatePolicy,
@@ -542,8 +543,9 @@ export function AdminCommunityExternalSourcesPage() {
         date_config: buildDateConfig(),
         view_policy: viewPolicy,
         view_config: buildViewConfig(),
-        schedule_enabled: scheduleEnabled,
-        crawl_interval_minutes: scheduleEnabled ? intervalMinutes : null,
+        schedule_enabled: COMMUNITY_CRAWL_SCHEDULER_FROZEN ? false : scheduleEnabled,
+        crawl_interval_minutes:
+          COMMUNITY_CRAWL_SCHEDULER_FROZEN || !scheduleEnabled ? null : intervalMinutes,
         max_pages: Math.max(1, parseInt(maxPages, 10) || 3),
         max_posts: Math.max(1, parseInt(maxPosts, 10) || 20),
         enabled: boardEnabled,
@@ -581,6 +583,10 @@ export function AdminCommunityExternalSourcesPage() {
   }
 
   async function toggleBoardSchedule(board: CommunityCrawlBoardRow) {
+    if (COMMUNITY_CRAWL_SCHEDULER_FROZEN) {
+      await dibayAlert({ title: t("admin_community_crawl_scheduler_frozen") });
+      return;
+    }
     setBusy(true);
     try {
       const next = !board.schedule_enabled;
@@ -840,9 +846,11 @@ export function AdminCommunityExternalSourcesPage() {
                                 {topicNameById.get(b.dibay_topic_id) ?? b.dibay_topic_id}
                               </div>
                               <div className="sam-text-helper text-sam-muted">
-                                {b.schedule_enabled
-                                  ? `${t("admin_community_crawl_auto_on")} · ${intervalLabel(b.crawl_interval_minutes, t)}`
-                                  : t("admin_community_crawl_auto_off")}
+                                {COMMUNITY_CRAWL_SCHEDULER_FROZEN
+                                  ? t("admin_community_crawl_scheduler_frozen")
+                                  : b.schedule_enabled
+                                    ? `${t("admin_community_crawl_auto_on")} · ${intervalLabel(b.crawl_interval_minutes, t)}`
+                                    : t("admin_community_crawl_auto_off")}
                                 {" · "}
                                 {b.last_error
                                   ? t("admin_community_crawl_status_error")
@@ -991,12 +999,14 @@ export function AdminCommunityExternalSourcesPage() {
               <button
                 type="button"
                 className={btnGhost}
-                disabled={busy}
+                disabled={busy || COMMUNITY_CRAWL_SCHEDULER_FROZEN}
                 onClick={() => void toggleBoardSchedule(manageBoard)}
               >
-                {manageBoard.schedule_enabled
-                  ? t("admin_community_crawl_auto_turn_off")
-                  : t("admin_community_crawl_auto_turn_on")}
+                {COMMUNITY_CRAWL_SCHEDULER_FROZEN
+                  ? t("admin_community_crawl_scheduler_frozen_short")
+                  : manageBoard.schedule_enabled
+                    ? t("admin_community_crawl_auto_turn_off")
+                    : t("admin_community_crawl_auto_turn_on")}
               </button>
               <button
                 type="button"
@@ -1326,27 +1336,33 @@ export function AdminCommunityExternalSourcesPage() {
             </fieldset>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 sam-text-body">
-                <input
-                  type="checkbox"
-                  checked={scheduleEnabled}
-                  onChange={(e) => setScheduleEnabled(e.target.checked)}
-                />
-                {t("admin_community_crawl_auto_collect")}
-              </label>
-              {scheduleEnabled ? (
-                <select
-                  className={fieldClass}
-                  value={intervalMinutes}
-                  onChange={(e) => setIntervalMinutes(Number(e.target.value))}
-                >
-                  {COMMUNITY_CRAWL_INTERVAL_MINUTES.map((m) => (
-                    <option key={m} value={m}>
-                      {intervalLabel(m, t)}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
+              {COMMUNITY_CRAWL_SCHEDULER_FROZEN ? (
+                <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_scheduler_frozen")}</p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 sam-text-body">
+                    <input
+                      type="checkbox"
+                      checked={scheduleEnabled}
+                      onChange={(e) => setScheduleEnabled(e.target.checked)}
+                    />
+                    {t("admin_community_crawl_auto_collect")}
+                  </label>
+                  {scheduleEnabled ? (
+                    <select
+                      className={fieldClass}
+                      value={intervalMinutes}
+                      onChange={(e) => setIntervalMinutes(Number(e.target.value))}
+                    >
+                      {COMMUNITY_CRAWL_INTERVAL_MINUTES.map((m) => (
+                        <option key={m} value={m}>
+                          {intervalLabel(m, t)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
+                </>
+              )}
             </div>
 
             <label className="flex items-center gap-2 sam-text-body">
