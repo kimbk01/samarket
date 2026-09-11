@@ -573,9 +573,9 @@ function MyStoreOrderCard({
             {t("store_messenger_order_chat_label")}
           </span>
         ) : expandMode && onOpenChat ? (
-          <button type="button" onClick={onOpenChat} className={actionCellSignature}>
+          <Link href={chatHref} className={actionCellSignature} data-order-chat-expand-link="1">
             {t("store_messenger_order_chat_label")}
-          </button>
+          </Link>
         ) : (
           <Link
             href={chatHref}
