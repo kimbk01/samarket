@@ -3,6 +3,7 @@ import {
   COMMUNITY_CRAWL_AUTHOR_POLICIES,
   COMMUNITY_CRAWL_DATE_POLICIES,
   COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY,
+  COMMUNITY_CRAWL_DEFAULT_PUBLISH_MODE,
   COMMUNITY_CRAWL_INGEST_MODES,
   COMMUNITY_CRAWL_MEDIA_POLICIES,
   COMMUNITY_CRAWL_POLICY_STATUSES,
@@ -154,7 +155,7 @@ export async function createCommunityCrawlSource(
       adapter_key: input.adapter_key?.trim() || null,
       policy_status: input.policy_status ?? "REVIEW_REQUIRED",
       media_policy: input.media_policy ?? COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY,
-      publish_mode: "REFERENCE_SUMMARY",
+      publish_mode: COMMUNITY_CRAWL_DEFAULT_PUBLISH_MODE,
       updated_at: new Date().toISOString(),
     })
     .select("*")

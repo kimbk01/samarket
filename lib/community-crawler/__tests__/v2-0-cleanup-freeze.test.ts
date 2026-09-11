@@ -54,7 +54,7 @@ describe("community crawler V2-0 cleanup / SSOT freeze", () => {
     expect(manualRoute).toContain("status: 501");
   });
 
-  it("declares V2 publish target FULL_CONTENT while legacy remains REFERENCE_SUMMARY", () => {
+  it("declares V2 publish target FULL_CONTENT as operational default", () => {
     expect(COMMUNITY_CRAWL_V2_PUBLISH_TARGET).toBe("FULL_CONTENT");
     expect(PUBLISH_TARGET).toBe("FULL_CONTENT");
     expect(COMMUNITY_CRAWL_LEGACY_PUBLISH_MODE).toBe("REFERENCE_SUMMARY");

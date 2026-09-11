@@ -113,9 +113,8 @@ export type CommunityCrawlSourceRow = {
   /** Image rehost gate — independent of policy_status (content). */
   media_policy: CommunityCrawlMediaPolicy;
   /**
-   * Persisted publish_mode (DB CHECK = REFERENCE_SUMMARY until V2-1).
-   * V2 operational TARGET = FULL_CONTENT — see COMMUNITY_CRAWL_V2_PUBLISH_TARGET.
-   * Current items/[id]/publish still uses legacy REFERENCE_SUMMARY writer until V2-1.
+   * Persisted publish_mode (REFERENCE_SUMMARY legacy | FULL_CONTENT operational).
+   * Operational Admin publish uses FULL_CONTENT writer regardless of historical source row.
    */
   publish_mode: import("@/lib/community-crawler/publish-mode").CommunityCrawlPublishMode;
   created_at: string;

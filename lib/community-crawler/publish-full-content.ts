@@ -1,7 +1,7 @@
 /**
- * LEGACY REFERENCE_SUMMARY publish writer — isolated.
- * Operational Admin path uses publishCommunityCrawlFullContent (V2-1).
- * Only reachable via boards/[id]/import (product 410) / historical tests.
+ * V2-1 canonical FULL_CONTENT publish writer (operational).
+ * Does not mutate source_* snapshot fields.
+ * No community_post_images (V2-5). No point reward.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,35 +10,33 @@ import {
   getCommunityCrawlBoard,
   getCommunityCrawlSource,
 } from "@/lib/community-crawler/admin-crawl-store";
-import { validateReferenceSummaryDraftForPublish } from "@/lib/community-crawler/manual-import-draft";
-import { normalizeCommunityCrawlPublishMode } from "@/lib/community-crawler/publish-mode";
+import { findExistingCommunityCrawlPostLink } from "@/lib/community-crawler/manual-import-writer";
+import { validateFullContentDraftForPublish } from "@/lib/community-crawler/publish-full-content-draft";
+import { COMMUNITY_CRAWL_V2_PUBLISH_TARGET } from "@/lib/community-crawler/publish-mode";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
-export type ManualImportPublishInput = {
+export type FullContentPublishInput = {
   boardId: string;
   sourcePostId: string | null;
   canonicalUrl: string;
   sourcePublishedAt: string | null;
-  /** External body — reference only; never written to community_posts. */
-  sourceBodyMarkdown: string;
   title: string;
   content: string;
   displayAuthorName: string;
   displayAuthorAvatarUrl?: string | null;
-  /** Override created_at; if null, IMPORT now. */
   createdAtIso: string | null;
   viewCount: number;
   regionLabel?: string;
 };
 
-export type ManualImportPublishResult =
+export type FullContentPublishResult =
   | {
       ok: true;
       communityPostId: string;
       postLinkId: string;
       originKind: "imported";
-      publishMode: "REFERENCE_SUMMARY";
+      publishMode: typeof COMMUNITY_CRAWL_V2_PUBLISH_TARGET;
       pointReward: 0;
       mediaDelta: 0;
       alreadyImported: false;
@@ -51,44 +49,10 @@ export type ManualImportPublishResult =
       detail?: string;
     };
 
-export async function findExistingCommunityCrawlPostLink(
+export async function publishCommunityCrawlFullContent(
   sb: SupabaseClient,
-  input: { boardId: string; sourcePostId: string | null; canonicalUrl: string }
-): Promise<{ communityPostId: string; linkId: string } | null> {
-  const boardId = input.boardId.trim();
-  const sourcePostId = input.sourcePostId?.trim() || null;
-  const canonicalUrl = input.canonicalUrl.trim();
-  if (!boardId || (!sourcePostId && !canonicalUrl)) return null;
-
-  if (sourcePostId) {
-    const { data } = await sb
-      .from("community_crawl_post_links")
-      .select("id, community_post_id")
-      .eq("board_id", boardId)
-      .eq("source_post_id", sourcePostId)
-      .maybeSingle();
-    if (data?.community_post_id) {
-      return { communityPostId: String(data.community_post_id), linkId: String(data.id) };
-    }
-  }
-  if (canonicalUrl) {
-    const { data } = await sb
-      .from("community_crawl_post_links")
-      .select("id, community_post_id")
-      .eq("board_id", boardId)
-      .eq("canonical_url", canonicalUrl)
-      .maybeSingle();
-    if (data?.community_post_id) {
-      return { communityPostId: String(data.community_post_id), linkId: String(data.id) };
-    }
-  }
-  return null;
-}
-
-export async function publishCommunityManualImportReferenceSummary(
-  sb: SupabaseClient,
-  input: ManualImportPublishInput
-): Promise<ManualImportPublishResult> {
+  input: FullContentPublishInput
+): Promise<FullContentPublishResult> {
   const board = await getCommunityCrawlBoard(sb, input.boardId);
   if (!board) {
     return { ok: false, error: "board_not_found", httpStatus: 404 };
@@ -98,10 +62,6 @@ export async function publishCommunityManualImportReferenceSummary(
     return { ok: false, error: "source_not_found", httpStatus: 404 };
   }
 
-  const publishMode = normalizeCommunityCrawlPublishMode(source.publish_mode);
-  if (publishMode !== "REFERENCE_SUMMARY") {
-    return { ok: false, error: "publish_mode_unsupported", httpStatus: 400 };
-  }
   if (source.policy_status === "DISABLED") {
     return { ok: false, error: "source_policy_disabled", httpStatus: 400 };
   }
@@ -109,10 +69,9 @@ export async function publishCommunityManualImportReferenceSummary(
     return { ok: false, error: "source_not_active", httpStatus: 400 };
   }
 
-  const draftCheck = validateReferenceSummaryDraftForPublish({
+  const draftCheck = validateFullContentDraftForPublish({
     draftTitle: input.title,
     draftContent: input.content,
-    sourceBodyMarkdown: input.sourceBodyMarkdown,
   });
   if (!draftCheck.ok) {
     return { ok: false, error: draftCheck.error, httpStatus: 400 };
@@ -195,14 +154,14 @@ export async function publishCommunityManualImportReferenceSummary(
     view_count: Math.max(0, Math.floor(Number(input.viewCount) || 0)),
   };
 
-  const { data, error } = await sb.rpc("community_crawl_manual_import_reference_summary", {
+  const { data, error } = await sb.rpc("community_crawl_publish_full_content", {
     p_payload: payload,
   });
 
   if (error) {
     return {
       ok: false,
-      error: "manual_import_rpc_failed",
+      error: "full_content_rpc_failed",
       httpStatus: 500,
       detail: error.message,
     };
@@ -215,14 +174,14 @@ export async function publishCommunityManualImportReferenceSummary(
       communityPostId: String(row.community_post_id),
       postLinkId: String(row.post_link_id),
       originKind: "imported",
-      publishMode: "REFERENCE_SUMMARY",
+      publishMode: COMMUNITY_CRAWL_V2_PUBLISH_TARGET,
       pointReward: 0,
       mediaDelta: 0,
       alreadyImported: false,
     };
   }
 
-  const err = String(row.error ?? "manual_import_failed");
+  const err = String(row.error ?? "full_content_publish_failed");
   const httpStatus = typeof row.http_status === "number" ? row.http_status : 500;
   return {
     ok: false,
@@ -233,5 +192,5 @@ export async function publishCommunityManualImportReferenceSummary(
   };
 }
 
-/** Intentionally never call community point reward bridge from Manual Import. */
-export const MANUAL_IMPORT_POINT_REWARD_FORBIDDEN = true as const;
+/** Intentionally never call community point reward from crawler publish. */
+export const FULL_CONTENT_PUBLISH_POINT_REWARD_FORBIDDEN = true as const;
