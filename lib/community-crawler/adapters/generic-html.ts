@@ -7,6 +7,10 @@ import {
 } from "@/lib/community-crawler/core/html-to-community-markdown";
 import { resolveCrawlUrl } from "@/lib/community-crawler/core/safe-url";
 import { extractCoverCandidateLadder } from "@/lib/community-crawler/media/cover-candidate-ladder";
+import {
+  extractArticlesFromListPage,
+  extractArticleDetailFromHtml,
+} from "@/lib/community-crawler/core/generic-article-extractor";
 
 export type ParsedListItem = {
   detailUrl: string;
@@ -48,6 +52,11 @@ export function parseListPage(
   pageUrl: string,
   config: GenericHtmlAdapterConfig
 ): { items: ParsedListItem[]; nextPageUrl: string | null } {
+  // If no explicit detail link selector is configured, use semantic generic discovery
+  if (!config.detailLinkSelector?.trim()) {
+    return extractArticlesFromListPage(html, pageUrl);
+  }
+
   const $ = cheerio.load(html);
   const items: ParsedListItem[] = [];
   const seen = new Set<string>();
@@ -116,6 +125,11 @@ export function parseDetailPage(
   pageUrl: string,
   config: GenericHtmlAdapterConfig
 ): ParsedDetail {
+  // If no explicit title or content selector is configured, use semantic generic extractor
+  if (!config.titleSelector?.trim() || !config.contentSelector?.trim()) {
+    return extractArticleDetailFromHtml(html, pageUrl);
+  }
+
   const $ = cheerio.load(html);
   const root = $("body").length ? $("body") : $.root();
 

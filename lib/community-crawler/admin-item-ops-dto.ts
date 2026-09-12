@@ -88,10 +88,12 @@ export async function enrichCommunityCrawlItemsForAdmin(
 
   return items.map((it) => {
     const durable = coverByItem.get(it.id) ?? null;
-    const thumb = durable ? resolveCanonicalThumbImageUrl(durable) : null;
+    const thumb = durable
+      ? resolveCanonicalThumbImageUrl(durable)
+      : it.source_cover_url || it.source_cover_candidate_url || null;
     const hasCandidate = Boolean(it.source_cover_candidate_url?.trim());
     let media_status: CommunityCrawlItemOpsDto["media_status"] = "NO_MEDIA";
-    if (thumb) media_status = "DURABLE_COVER";
+    if (durable) media_status = "DURABLE_COVER";
     else if (hasCandidate && !it.source_cover_url) media_status = "NO_VALID_IMAGE";
     else if (hasCandidate) media_status = "CANDIDATE_ONLY";
 

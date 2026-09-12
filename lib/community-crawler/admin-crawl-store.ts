@@ -51,6 +51,7 @@ function mapSource(row: Record<string, unknown>): CommunityCrawlSourceRow {
     media_policy: (COMMUNITY_CRAWL_MEDIA_POLICIES.includes(row.media_policy as CommunityCrawlMediaPolicy)
       ? row.media_policy
       : COMMUNITY_CRAWL_DEFAULT_MEDIA_POLICY) as CommunityCrawlMediaPolicy,
+    attribution_requirement: (row.attribution_requirement === "MANDATORY" ? "MANDATORY" : "DISCRETIONARY"),
     publish_mode: normalizeCommunityCrawlPublishMode(row.publish_mode),
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
@@ -77,6 +78,11 @@ function mapBoard(row: Record<string, unknown>): CommunityCrawlBoardRow {
       ? row.author_policy
       : "SOURCE_AUTHOR") as CommunityCrawlAuthorPolicy,
     author_config: asRecord(row.author_config),
+    author_pool_id: row.author_pool_id != null ? String(row.author_pool_id) : null,
+    public_attribution_mode: row.public_attribution_mode === "HIDDEN" ? "HIDDEN" : "VISIBLE",
+    media_required: row.media_required !== false,
+    date_recent_min_days: typeof row.date_recent_min_days === "number" ? row.date_recent_min_days : 3,
+    date_recent_max_days: typeof row.date_recent_max_days === "number" ? row.date_recent_max_days : 7,
     date_policy: (COMMUNITY_CRAWL_DATE_POLICIES.includes(row.date_policy as CommunityCrawlDatePolicy)
       ? row.date_policy
       : "SOURCE_DATE") as CommunityCrawlDatePolicy,
@@ -264,6 +270,11 @@ export async function createCommunityCrawlBoard(
     update_policy?: CommunityCrawlUpdatePolicy;
     author_policy?: CommunityCrawlAuthorPolicy;
     author_config?: Record<string, unknown>;
+    author_pool_id?: string | null;
+    public_attribution_mode?: "VISIBLE" | "HIDDEN";
+    media_required?: boolean;
+    date_recent_min_days?: number;
+    date_recent_max_days?: number;
     date_policy?: CommunityCrawlDatePolicy;
     date_config?: Record<string, unknown>;
     view_policy?: CommunityCrawlViewPolicy;
@@ -310,6 +321,11 @@ export async function createCommunityCrawlBoard(
       update_policy: input.update_policy ?? "CREATE_ONLY",
       author_policy: input.author_policy ?? "SOURCE_AUTHOR",
       author_config: input.author_config ?? {},
+      author_pool_id: input.author_pool_id ?? null,
+      public_attribution_mode: input.public_attribution_mode ?? "VISIBLE",
+      media_required: input.media_required !== false,
+      date_recent_min_days: input.date_recent_min_days ?? 3,
+      date_recent_max_days: input.date_recent_max_days ?? 7,
       date_policy: input.date_policy ?? "SOURCE_DATE",
       date_config: input.date_config ?? {},
       view_policy: input.view_policy ?? "SOURCE_VIEW",
@@ -371,6 +387,23 @@ export async function updateCommunityCrawlBoard(
     next.author_policy = patch.author_policy;
   }
   if (patch.author_config && typeof patch.author_config === "object") next.author_config = patch.author_config;
+  if ("author_pool_id" in patch) {
+    next.author_pool_id = patch.author_pool_id ? String(patch.author_pool_id).trim() : null;
+  }
+  if (typeof patch.public_attribution_mode === "string") {
+    if (patch.public_attribution_mode === "VISIBLE" || patch.public_attribution_mode === "HIDDEN") {
+      next.public_attribution_mode = patch.public_attribution_mode;
+    }
+  }
+  if (typeof patch.media_required === "boolean") {
+    next.media_required = patch.media_required;
+  }
+  if (typeof patch.date_recent_min_days === "number") {
+    next.date_recent_min_days = Math.max(0, Math.floor(patch.date_recent_min_days));
+  }
+  if (typeof patch.date_recent_max_days === "number") {
+    next.date_recent_max_days = Math.max(0, Math.floor(patch.date_recent_max_days));
+  }
   if (typeof patch.date_policy === "string") {
     if (!COMMUNITY_CRAWL_DATE_POLICIES.includes(patch.date_policy as CommunityCrawlDatePolicy)) {
       throw new Error("invalid_date_policy");

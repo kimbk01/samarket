@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { getCommunityCrawlBoard, getCommunityCrawlSource } from "@/lib/community-crawler/admin-crawl-store";
+import {
+  getCommunityCrawlBoard,
+  getCommunityCrawlSource,
+} from "@/lib/community-crawler/admin-crawl-store";
 import { getCommunityCrawlItem } from "@/lib/community-crawler/crawl-item-store";
-import { loadCanonicalPublishImagesFromItemMedia } from "@/lib/community-crawler/media/canonical-publish-images";
-import { resolveCommunityCrawlPublishEligibility } from "@/lib/community-crawler/publish-eligibility";
-import { publishCommunityCrawlFullContent } from "@/lib/community-crawler/publish-full-content";
+import { materializeAndPublishItem } from "@/lib/community-crawler/core/materialize-item-persona";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Canonical Admin publish: crawl item → posts + links + community_post_images (one RPC).
- * Does not mutate source_* snapshot. Images from community_crawl_item_media only.
+ * Canonical Admin [DIBAY 적용]:
+ * Materializes persona ONCE (if not already done), rehosts media, and publishes.
+ * Does not mutate source_* snapshot.
+ * Writes via materializeAndPublishItem -> publishCommunityCrawlFullContent
  */
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminApiUser();
@@ -36,41 +39,24 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ ok: false, error: "board_or_source_missing" }, { status: 404 });
     }
 
-    const eligibility = await resolveCommunityCrawlPublishEligibility(sb, {
-      source,
-      board,
-      item,
-      mode: "manual",
-    });
-    if (!eligibility.ok) {
-      if (
-        eligibility.reason === "SOURCE_POLICY_NOT_ALLOWED" ||
-        eligibility.reason === "SOURCE_NOT_ACTIVE"
-      ) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "BLOCKED_POLICY",
-            detail: eligibility.detail ?? eligibility.reason,
-            policyStatus: source.policy_status,
-          },
-          { status: 403 }
-        );
-      }
-      if (eligibility.reason === "AUTHOR_MISSING") {
-        return NextResponse.json({ ok: false, error: "AUTHOR_POOL_EMPTY" }, { status: 400 });
-      }
+    if (source.policy_status !== "ALLOWED") {
       return NextResponse.json(
         {
           ok: false,
-          error: eligibility.reason,
-          detail: eligibility.detail,
+          error: "BLOCKED_POLICY",
+          detail: `source.policy_status=${source.policy_status}`,
         },
-        { status: 400 }
+        { status: 403 }
+      );
+    }
+    if (source.status !== "ACTIVE") {
+      return NextResponse.json(
+        { ok: false, error: "SOURCE_NOT_ACTIVE" },
+        { status: 403 }
       );
     }
 
-    // Snapshot before publish — must remain unchanged after writer.
+    // Source snapshot before publish — must remain unchanged
     const sourceSnapshot = {
       source_title: item.source_title,
       source_body_normalized: item.source_body_normalized,
@@ -79,39 +65,20 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       canonical_url: item.canonical_url,
     };
 
-    const images = await loadCanonicalPublishImagesFromItemMedia(sb, item.id);
-    const result = await publishCommunityCrawlFullContent(sb, {
-      boardId: item.board_id,
-      canonicalUrl: item.canonical_url,
-      sourcePostId: item.source_post_id,
-      sourcePublishedAt: item.source_published_at,
-      title: eligibility.title,
-      content: eligibility.content,
-      displayAuthorName: eligibility.displayAuthorName,
-      displayAuthorAvatarUrl: item.display_author_avatar_url,
-      createdAtIso: item.display_date,
-      viewCount: item.display_view_seed,
-      images,
+    const result = await materializeAndPublishItem(sb, {
+      item,
+      board,
+      source,
     });
 
     if (!result.ok) {
-      const error =
-        result.error === "already_imported" ? "already_published" : result.error;
       return NextResponse.json(
-        { ...result, error },
-        { status: result.httpStatus ?? 500 }
+        { ok: false, error: result.error, detail: result.detail },
+        { status: result.httpStatus ?? 400 }
       );
     }
 
-    await sb
-      .from("community_crawl_items")
-      .update({
-        status: "PUBLISHED",
-        published_post_id: result.communityPostId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", item.id);
-
+    // Verify snapshot was not mutated
     const after = await getCommunityCrawlItem(sb, id);
     if (
       after &&
@@ -130,10 +97,10 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       communityPostId: result.communityPostId,
       postLinkId: result.postLinkId,
       itemId: item.id,
-      publishMode: result.publishMode,
-      pointReward: 0,
+      initialViewSeed: result.initialViewSeed,
+      displayAuthorName: result.displayAuthorName,
+      displayDate: result.displayDate,
       mediaDelta: result.mediaDelta,
-      updated: result.updated,
     });
   } catch (e) {
     return NextResponse.json(

@@ -24,11 +24,24 @@ export type CommunityCrawlType = (typeof COMMUNITY_CRAWL_TYPES)[number];
 export const COMMUNITY_CRAWL_UPDATE_POLICIES = ["CREATE_ONLY", "SYNC_UPDATE"] as const;
 export type CommunityCrawlUpdatePolicy = (typeof COMMUNITY_CRAWL_UPDATE_POLICIES)[number];
 
-export const COMMUNITY_CRAWL_AUTHOR_POLICIES = ["SOURCE_AUTHOR", "FIXED", "RANDOM_POOL"] as const;
+export const COMMUNITY_CRAWL_AUTHOR_POLICIES = ["SOURCE_AUTHOR", "FIXED", "RANDOM_POOL", "POOL"] as const;
 export type CommunityCrawlAuthorPolicy = (typeof COMMUNITY_CRAWL_AUTHOR_POLICIES)[number];
 
-export const COMMUNITY_CRAWL_DATE_POLICIES = ["SOURCE_DATE", "IMPORT_DATE", "RANDOM_RANGE"] as const;
+export const COMMUNITY_CRAWL_DATE_POLICIES = [
+  "SOURCE_DATE",
+  "IMPORT_DATE",
+  "RANDOM_RANGE",
+  "RECENT_RANDOM",
+] as const;
 export type CommunityCrawlDatePolicy = (typeof COMMUNITY_CRAWL_DATE_POLICIES)[number];
+
+export const COMMUNITY_CRAWL_ATTRIBUTION_REQUIREMENTS = ["MANDATORY", "DISCRETIONARY"] as const;
+export type CommunityCrawlAttributionRequirement =
+  (typeof COMMUNITY_CRAWL_ATTRIBUTION_REQUIREMENTS)[number];
+
+export const COMMUNITY_CRAWL_PUBLIC_ATTRIBUTION_MODES = ["VISIBLE", "HIDDEN"] as const;
+export type CommunityCrawlPublicAttributionMode =
+  (typeof COMMUNITY_CRAWL_PUBLIC_ATTRIBUTION_MODES)[number];
 
 export const COMMUNITY_CRAWL_VIEW_POLICIES = ["SOURCE_VIEW", "FIXED", "RANDOM_RANGE"] as const;
 export type CommunityCrawlViewPolicy = (typeof COMMUNITY_CRAWL_VIEW_POLICIES)[number];
@@ -112,6 +125,8 @@ export type CommunityCrawlSourceRow = {
   policy_status: CommunityCrawlPolicyStatus;
   /** Image rehost gate — independent of policy_status (content). */
   media_policy: CommunityCrawlMediaPolicy;
+  /** Legal attribution requirement on source level. */
+  attribution_requirement?: CommunityCrawlAttributionRequirement;
   /**
    * Persisted publish_mode (REFERENCE_SUMMARY legacy | FULL_CONTENT operational).
    * Operational Admin publish uses FULL_CONTENT writer regardless of historical source row.
@@ -133,6 +148,11 @@ export type CommunityCrawlBoardRow = {
   update_policy: CommunityCrawlUpdatePolicy;
   author_policy: CommunityCrawlAuthorPolicy;
   author_config: Record<string, unknown>;
+  author_pool_id?: string | null;
+  public_attribution_mode?: CommunityCrawlPublicAttributionMode;
+  media_required?: boolean;
+  date_recent_min_days?: number;
+  date_recent_max_days?: number;
   date_policy: CommunityCrawlDatePolicy;
   date_config: Record<string, unknown>;
   view_policy: CommunityCrawlViewPolicy;
@@ -176,6 +196,7 @@ export type CommunityCrawlItemRow = {
   status: CommunityCrawlItemStatus;
   manual_override: boolean;
   published_post_id: string | null;
+  persona_materialized_at?: string | null;
   error_code: string | null;
   error_message: string | null;
   first_seen_at: string;
@@ -211,6 +232,8 @@ export type CommunityCrawlAuthorConfig = {
 export type CommunityCrawlDateConfig = {
   random_min?: string;
   random_max?: string;
+  recent_min_days?: number;
+  recent_max_days?: number;
 };
 
 export type CommunityCrawlViewConfig = {

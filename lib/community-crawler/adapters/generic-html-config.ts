@@ -1,8 +1,8 @@
 export type GenericHtmlAdapterConfig = {
   listItemSelector?: string;
-  detailLinkSelector: string;
-  titleSelector: string;
-  contentSelector: string;
+  detailLinkSelector?: string;
+  titleSelector?: string;
+  contentSelector?: string;
   authorSelector?: string;
   dateSelector?: string;
   viewSelector?: string;
@@ -30,12 +30,7 @@ export function parseGenericHtmlAdapterConfig(raw: Record<string, unknown> | nul
   const detailLinkSelector = str("detailLinkSelector") ?? str("detail_link_selector");
   const titleSelector = str("titleSelector") ?? str("title_selector");
   const contentSelector = str("contentSelector") ?? str("content_selector");
-  if (!detailLinkSelector || !titleSelector || !contentSelector) {
-    return {
-      ok: false,
-      error: "detailLinkSelector, titleSelector, contentSelector are required",
-    };
-  }
+  // Selectors are optional now for generic semantic extraction!
   return {
     ok: true,
     config: {

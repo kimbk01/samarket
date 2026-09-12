@@ -117,6 +117,21 @@ export function AdminCommunityCrawlItemsPanel(props: {
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<CommunityCrawlItemOpsDto | null>(null);
   const [preview, setPreview] = useState<CommunityCrawlItemOpsDto | null>(null);
+  const [pureReadPreviewData, setPureReadPreviewData] = useState<{
+    dibay_title: string;
+    dibay_body: string;
+    display_author_name: string;
+    display_date: string;
+    display_view_seed: number;
+    cover_image_url: string | null;
+    source_title: string;
+    canonical_url: string;
+    public_attribution_mode: string;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [crawlingBoard, setCrawlingBoard] = useState(false);
+  const [applyingBatch, setApplyingBatch] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [author, setAuthor] = useState("");
@@ -319,6 +334,133 @@ export function AdminCommunityCrawlItemsPanel(props: {
     }
   }
 
+  async function openPureReadPreview(item: CommunityCrawlItemOpsDto) {
+    setPreview(item);
+    setPreviewLoading(true);
+    setPureReadPreviewData(null);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/items/${item.id}/preview`, { credentials: "include" });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        preview?: {
+          dibay_title: string;
+          dibay_body: string;
+          display_author_name: string;
+          display_date: string;
+          display_view_seed: number;
+          cover_image_url: string | null;
+          source_title: string;
+          canonical_url: string;
+          public_attribution_mode: string;
+        };
+      };
+      if (j.ok && j.preview) {
+        setPureReadPreviewData(j.preview);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function crawlBoardNow() {
+    if (!props.boardId) {
+      await dibayAlert({ title: "게시판을 먼저 선택해주세요." });
+      return;
+    }
+    setCrawlingBoard(true);
+    try {
+      const res = await fetch(`/api/admin/community/crawl/boards/${props.boardId}/crawl`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string; insertedCount?: number };
+      if (!j.ok) {
+        await dibayAlert({ title: String(j.error ?? "수집 실패") });
+        return;
+      }
+      await dibayAlert({
+        title: `게시판 글 불러오기 완료 (${j.insertedCount ?? 0}건 신규 발견)`,
+      });
+      await load();
+    } finally {
+      setCrawlingBoard(false);
+    }
+  }
+
+  function toggleSelectItem(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(items.map((i) => i.id)));
+    }
+  }
+
+  async function applyBatchSelected() {
+    const unapplied = items.filter((i) => selectedIds.has(i.id) && !i.published && i.status !== "PUBLISHED");
+    if (unapplied.length === 0) {
+      await dibayAlert({ title: "선택된 항목 중 적용 가능한 글이 없습니다." });
+      return;
+    }
+    const ok = await dibayConfirm({
+      title: "선택 항목 DIBAY 일괄 적용",
+      description: `선택한 ${unapplied.length}건의 글을 DIBAY 커뮤니티에 실제 적용 및 발행하시겠습니까?\n(작성자 풀, 랜덤 날짜, 초기 조회수 시드가 1회 확정되어 게시글로 등록됩니다)`,
+      confirmLabel: "일괄 적용 및 발행",
+    });
+    if (!ok) return;
+
+    setApplyingBatch(true);
+    let successCount = 0;
+    const errors: string[] = [];
+    try {
+      for (const it of unapplied) {
+        try {
+          const res = await fetch(`/api/admin/community/crawl/items/${it.id}/publish`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const j = (await res.json()) as { ok?: boolean; error?: string; communityPostId?: string };
+          if (j.ok) {
+            successCount++;
+            setItems((prev) =>
+              prev.map((item) =>
+                item.id === it.id
+                  ? {
+                      ...item,
+                      status: "PUBLISHED",
+                      published: true,
+                      published_post_id: j.communityPostId ?? item.published_post_id,
+                    }
+                  : item
+              )
+            );
+          } else {
+            errors.push(`${it.source_title}: ${j.error}`);
+          }
+        } catch (e) {
+          errors.push(`${it.source_title}: ${String(e)}`);
+        }
+      }
+      setSelectedIds(new Set());
+      await dibayAlert({
+        title: `일괄 적용 완료: ${successCount}건 성공${errors.length > 0 ? `, ${errors.length}건 실패` : ""}`,
+      });
+    } finally {
+      setApplyingBatch(false);
+    }
+  }
+
   function materializeFromCrawl(ackItems: CommunityCrawlItemOpsDto[]) {
     if (!ackItems.length) return;
     setItems((prev) => {
@@ -366,11 +508,46 @@ export function AdminCommunityCrawlItemsPanel(props: {
               </select>
             </label>
           ) : null}
+          {props.boardId ? (
+            <button
+              type="button"
+              className="rounded-ui-rect bg-sam-primary px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50"
+              disabled={loading || busy || crawlingBoard}
+              onClick={() => void crawlBoardNow()}
+            >
+              {crawlingBoard ? "글 불러오는 중…" : "게시판 글 불러오기"}
+            </button>
+          ) : null}
           <button type="button" className={btnGhost} disabled={loading || busy} onClick={() => void load()}>
             {t("admin_community_crawl_items_refresh")}
           </button>
         </div>
       </div>
+
+      {/* Batch toolbar */}
+      {items.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-2.5">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-sam-fg font-medium">
+            <input
+              type="checkbox"
+              checked={selectedIds.size > 0 && selectedIds.size === items.length}
+              onChange={toggleSelectAll}
+            />
+            전체 선택 ({selectedIds.size}/{items.length})
+          </label>
+          {selectedIds.size > 0 ? (
+            <button
+              type="button"
+              className={btnPrimary}
+              disabled={busy || applyingBatch}
+              onClick={() => void applyBatchSelected()}
+            >
+              {applyingBatch ? "적용 중…" : `선택 항목 DIBAY 적용 (${selectedIds.size}건)`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="sam-text-helper text-sam-muted">{t("admin_community_crawl_items_hint")}</p>
       {loading ? (
         <p className="sam-text-body text-sam-muted">{t("admin_community_crawl_loading")}</p>
@@ -381,24 +558,52 @@ export function AdminCommunityCrawlItemsPanel(props: {
           {items.map((it) => (
             <li
               key={it.id}
-              className="rounded-ui-rect border border-sam-border bg-sam-app p-3 space-y-2 overflow-hidden"
+              className={`rounded-ui-rect border p-3 space-y-2 overflow-hidden transition-colors ${
+                selectedIds.has(it.id)
+                  ? "border-sam-primary bg-sam-primary/5"
+                  : "border-sam-border bg-sam-app"
+              }`}
             >
               <div className="flex flex-wrap gap-3">
+                <div className="flex items-center pt-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(it.id)}
+                    onChange={() => toggleSelectItem(it.id)}
+                    className="h-4 w-4 rounded"
+                  />
+                </div>
                 <CoverPreview
                   url={it.thumb_url}
                   noneLabel={t("admin_community_crawl_preview_rep_none")}
                 />
                 <div className="min-w-0 flex-1 space-y-1">
-                  <div className="font-semibold text-sam-fg break-words">
-                    {it.dibay_title || it.source_title}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-semibold text-sam-fg break-words">
+                      {it.dibay_title || it.source_title}
+                    </div>
+                    {it.published || it.status === "PUBLISHED" ? (
+                      <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
+                        DIBAY 적용 완료
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-sam-surface px-2 py-0.5 text-xs text-sam-muted border border-sam-border">
+                        대기 중 (Snapshot)
+                      </span>
+                    )}
                   </div>
                   <div className="sam-text-helper text-sam-muted break-words">
-                    {statusLabel(it.status, t)} ·{" "}
-                    {it.published
-                      ? t("admin_community_crawl_item_published_yes")
-                      : t("admin_community_crawl_item_published_no")}{" "}
-                    · {it.display_author_name || "—"} · {formatWhen(it.display_date)} · views{" "}
-                    {it.display_view_seed}
+                    {it.display_author_name ? (
+                      <span>{it.display_author_name} · </span>
+                    ) : (
+                      <span className="italic text-sam-muted">적용 시 필명 배정 · </span>
+                    )}
+                    {it.display_date ? (
+                      <span>{formatWhen(it.display_date)} · </span>
+                    ) : (
+                      <span className="italic text-sam-muted">적용 시 날짜 배정 · </span>
+                    )}
+                    views {it.display_view_seed}
                   </div>
                   <div className="sam-text-helper text-sam-muted break-words">
                     {t("admin_community_crawl_item_category")}: {it.topic_name || "—"} ·{" "}
@@ -414,11 +619,16 @@ export function AdminCommunityCrawlItemsPanel(props: {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className={btnGhost} disabled={busy} onClick={() => setPreview(it)}>
-                  {t("admin_community_crawl_item_preview")}
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sam-border/60">
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy}
+                  onClick={() => void openPureReadPreview(it)}
+                >
+                  PURE READ 미리보기
                 </button>
-                <button type="button" className={btnPrimary} disabled={busy} onClick={() => openEdit(it)}>
+                <button type="button" className={btnGhost} disabled={busy} onClick={() => openEdit(it)}>
                   {t("admin_community_crawl_item_edit")}
                 </button>
                 <a
@@ -440,16 +650,31 @@ export function AdminCommunityCrawlItemsPanel(props: {
                 <button type="button" className={btnGhost} disabled={busy} onClick={() => void deleteItem(it)}>
                   {t("admin_community_crawl_item_delete")}
                 </button>
-                {it.publish_cta_eligible ? (
+
+                {/* Published link or Apply button */}
+                {it.published || it.status === "PUBLISHED" ? (
+                  it.published_post_id ? (
+                    <a
+                      href={`/philife/${it.published_post_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center rounded-ui-rect bg-emerald-500/20 px-3 py-2 sam-text-body font-medium text-emerald-400 border border-emerald-500/30 no-underline"
+                    >
+                      DIBAY 게시글 보기 →
+                    </a>
+                  ) : (
+                    <span className="sam-text-helper text-emerald-400">발행 완료</span>
+                  )
+                ) : it.publish_cta_eligible ? (
                   <button
                     type="button"
-                    className={btnGhost}
+                    className={btnPrimary}
                     disabled={busy}
                     onClick={() => void publishItem(it)}
                   >
-                    {t("admin_community_crawl_import_publish")}
+                    DIBAY 적용
                   </button>
-                ) : it.published || it.status === "PUBLISHED" ? null : (
+                ) : (
                   <span
                     className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted"
                     title={t("admin_community_crawl_publish_blocked_hint")}
@@ -466,29 +691,121 @@ export function AdminCommunityCrawlItemsPanel(props: {
         </ul>
       )}
 
+      {/* Pure Read Preview Modal (DB WRITE = 0) */}
       {preview ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
-          <div className="w-full max-w-xl rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg">
-            <div className="flex items-center justify-between border-b border-sam-border px-4 py-3">
-              <h3 className="font-semibold text-sam-fg">{t("admin_community_crawl_item_preview")}</h3>
-              <button type="button" className="text-sam-muted" onClick={() => setPreview(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-12">
+          <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-app shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-sam-border px-4 py-3 bg-sam-surface">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sam-fg">DIBAY 모바일 미리보기</span>
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-400 border border-blue-500/30">
+                  DB WRITE = 0
+                </span>
+              </div>
+              <button
+                type="button"
+                className="text-sam-muted hover:text-sam-fg text-lg leading-none"
+                onClick={() => {
+                  setPreview(null);
+                  setPureReadPreviewData(null);
+                }}
+              >
                 ×
               </button>
             </div>
-            <div className="space-y-3 px-4 py-4 max-h-[min(80vh,720px)] overflow-y-auto">
-              <CoverPreview
-                url={preview.thumb_url}
-                noneLabel={t("admin_community_crawl_preview_rep_none")}
-              />
-              <h4 className="font-semibold text-sam-fg break-words">
-                {preview.dibay_title || preview.source_title}
-              </h4>
-              <p className="sam-text-body text-sam-fg whitespace-pre-wrap break-words">
-                {preview.dibay_body || preview.source_body_normalized}
-              </p>
-              <p className="sam-text-helper text-sam-muted break-all">
-                {t("admin_community_crawl_source_url")}: {preview.canonical_url}
-              </p>
+
+            {/* Mobile Viewport Simulation */}
+            <div className="space-y-4 p-4 max-h-[min(80vh,680px)] overflow-y-auto">
+              {previewLoading ? (
+                <div className="py-12 text-center text-sam-muted sam-text-body">가상 미리보기 계산 중…</div>
+              ) : pureReadPreviewData ? (
+                <div className="space-y-3">
+                  {/* Persona Header */}
+                  <div className="flex items-center justify-between border-b border-sam-border/60 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-9 w-9 rounded-full bg-sam-primary/20 text-sam-primary font-bold flex items-center justify-center text-sm">
+                        {pureReadPreviewData.display_author_name.slice(0, 1)}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-sam-fg">
+                          {pureReadPreviewData.display_author_name}
+                        </div>
+                        <div className="text-xs text-sam-muted">
+                          {formatWhen(pureReadPreviewData.display_date)} · 조회 {pureReadPreviewData.display_view_seed}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs text-sam-muted">{preview.topic_name}</span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="text-lg font-bold text-sam-fg leading-snug break-words">
+                    {pureReadPreviewData.dibay_title}
+                  </h3>
+
+                  {/* Representative Cover Image */}
+                  {pureReadPreviewData.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={pureReadPreviewData.cover_image_url}
+                      alt=""
+                      className="w-full rounded-ui-rect object-cover max-h-72 bg-sam-surface"
+                    />
+                  ) : null}
+
+                  {/* Body Content */}
+                  <div className="text-sm text-sam-fg whitespace-pre-wrap break-words leading-relaxed pt-1">
+                    {pureReadPreviewData.dibay_body}
+                  </div>
+
+                  {/* Attribution if visible */}
+                  {pureReadPreviewData.public_attribution_mode === "VISIBLE" ? (
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-2.5 text-xs text-sam-muted space-y-1">
+                      <div>출처: {preview.source_name}</div>
+                      <div className="break-all text-[11px] text-sam-muted/80">
+                        {pureReadPreviewData.canonical_url}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sam-fg">{preview.dibay_title || preview.source_title}</h4>
+                  <p className="text-sm text-sam-fg whitespace-pre-wrap break-words">
+                    {preview.dibay_body || preview.source_body_normalized}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 border-t border-sam-border bg-sam-surface p-3">
+              <button
+                type="button"
+                className={btnGhost}
+                onClick={() => {
+                  setPreview(null);
+                  setPureReadPreviewData(null);
+                }}
+              >
+                닫기
+              </button>
+              {!preview.published && preview.status !== "PUBLISHED" ? (
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={busy}
+                  onClick={() => {
+                    const it = preview;
+                    setPreview(null);
+                    setPureReadPreviewData(null);
+                    void publishItem(it);
+                  }}
+                >
+                  이 글 DIBAY 적용 및 발행
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

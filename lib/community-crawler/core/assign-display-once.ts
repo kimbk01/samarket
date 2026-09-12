@@ -47,7 +47,7 @@ export function assignDisplayAuthorOnce(input: {
     return { ok: true, displayName: pick.displayName, avatarUrl: pick.avatarUrl };
   }
   const src = (input.sourceAuthor ?? "").trim();
-  return { ok: true, displayName: src || "원본 작성자 없음", avatarUrl: null };
+  return { ok: true, displayName: src || "DIBAY 에디터", avatarUrl: null };
 }
 
 export function assignDisplayDateOnce(input: {
@@ -62,6 +62,16 @@ export function assignDisplayDateOnce(input: {
   const sourcePublishedAt = parseSourceDate(input.sourceDateRaw);
   if (input.policy === "IMPORT_DATE") {
     return { ok: true, displayDateIso: now, sourcePublishedAt };
+  }
+  if (input.policy === "RECENT_RANDOM") {
+    const minDays = typeof input.config.recent_min_days === "number" ? Math.max(0, input.config.recent_min_days) : 3;
+    const maxDays = typeof input.config.recent_max_days === "number" ? Math.max(minDays, input.config.recent_max_days) : 7;
+    const nowMs = Date.parse(now);
+    const minMs = nowMs - maxDays * 86_400_000;
+    const maxMs = nowMs - minDays * 86_400_000;
+    const span = Math.max(0, maxMs - minMs);
+    const pick = minMs + (span > 0 ? randomInt(0, span) : 0);
+    return { ok: true, displayDateIso: new Date(pick).toISOString(), sourcePublishedAt };
   }
   if (input.policy === "RANDOM_RANGE") {
     const minMs = input.config.random_min ? Date.parse(input.config.random_min) : NaN;

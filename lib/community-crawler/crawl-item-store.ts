@@ -7,6 +7,7 @@ import {
   contentFingerprint,
 } from "@/lib/community-crawler/core/assign-display-once";
 import { resolveDurableCoverFromLadder } from "@/lib/community-crawler/core/validate-cover-candidate";
+import { parseSourceDate } from "@/lib/community-crawler/core/normalize";
 import type {
   CommunityCrawlAuthorConfig,
   CommunityCrawlBoardRow,
@@ -48,6 +49,8 @@ function mapItem(row: Record<string, unknown>): CommunityCrawlItemRow {
     status: row.status as CommunityCrawlItemStatus,
     manual_override: row.manual_override === true,
     published_post_id: row.published_post_id != null ? String(row.published_post_id) : null,
+    persona_materialized_at:
+      row.persona_materialized_at != null ? String(row.persona_materialized_at) : null,
     error_code: row.error_code != null ? String(row.error_code) : null,
     error_message: row.error_message != null ? String(row.error_message) : null,
     first_seen_at: String(row.first_seen_at),
@@ -199,45 +202,7 @@ export async function upsertCommunityCrawlItem(input: {
     return { outcome: "updated", item: mapItem(data as Record<string, unknown>) };
   }
 
-  const author = assignDisplayAuthorOnce({
-    policy: board.author_policy,
-    config: board.author_config as CommunityCrawlAuthorConfig,
-    sourceAuthor: detail.author,
-  });
-  if (!author.ok) {
-    return {
-      outcome: "failed",
-      errorCode: author.error,
-      errorMessage: author.error,
-      canonicalUrl,
-    };
-  }
-  const date = assignDisplayDateOnce({
-    policy: board.date_policy,
-    config: board.date_config as CommunityCrawlDateConfig,
-    sourceDateRaw: detail.dateRaw,
-  });
-  if (!date.ok) {
-    return {
-      outcome: "failed",
-      errorCode: date.error,
-      errorMessage: date.error,
-      canonicalUrl,
-    };
-  }
-  const view = assignDisplayViewOnce({
-    policy: board.view_policy,
-    config: board.view_config as CommunityCrawlViewConfig,
-    sourceViewRaw: detail.viewRaw,
-  });
-  if (!view.ok) {
-    return {
-      outcome: "failed",
-      errorCode: view.error,
-      errorMessage: view.error,
-      canonicalUrl,
-    };
-  }
+  const sourcePublishedAt = parseSourceDate(detail.dateRaw);
 
   const insertRow = {
     source_id: source.id,
@@ -248,20 +213,21 @@ export async function upsertCommunityCrawlItem(input: {
     source_title: detail.title,
     source_body_normalized: detail.contentMarkdown,
     source_author: detail.author,
-    source_published_at: date.sourcePublishedAt,
+    source_published_at: sourcePublishedAt,
     source_cover_url: durableCoverUrl,
     source_cover_candidate_url: coverCandidateUrl,
     source_body_images: detail.bodyImageUrls,
     content_fingerprint: fingerprint,
-    display_author_name: author.displayName,
-    display_author_avatar_url: author.avatarUrl,
-    display_date: date.displayDateIso,
-    display_view_seed: view.viewSeed,
-    dibay_title: materialized.dibay_title,
-    dibay_body: materialized.dibay_body,
+    display_author_name: null,
+    display_author_avatar_url: null,
+    display_date: null,
+    display_view_seed: 0,
+    dibay_title: "",
+    dibay_body: "",
     target_topic_id: board.dibay_topic_id,
-    status: initialStatus(source, board),
+    status: "DISCOVERED" as CommunityCrawlItemStatus,
     manual_override: false,
+    persona_materialized_at: null,
     first_seen_at: now,
     last_seen_at: now,
     last_crawled_at: now,

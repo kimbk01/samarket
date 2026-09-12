@@ -72,6 +72,18 @@ export async function POST(req: NextRequest) {
         body.author_config && typeof body.author_config === "object"
           ? (body.author_config as Record<string, unknown>)
           : undefined,
+      author_pool_id:
+        body.author_pool_id != null ? String(body.author_pool_id).trim() : undefined,
+      public_attribution_mode:
+        body.public_attribution_mode === "VISIBLE" || body.public_attribution_mode === "HIDDEN"
+          ? body.public_attribution_mode
+          : undefined,
+      media_required:
+        typeof body.media_required === "boolean" ? body.media_required : undefined,
+      date_recent_min_days:
+        body.date_recent_min_days != null ? Number(body.date_recent_min_days) : undefined,
+      date_recent_max_days:
+        body.date_recent_max_days != null ? Number(body.date_recent_max_days) : undefined,
       date_policy: body.date_policy as CommunityCrawlDatePolicy | undefined,
       date_config:
         body.date_config && typeof body.date_config === "object"

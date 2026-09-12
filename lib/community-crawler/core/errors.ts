@@ -15,6 +15,8 @@ export const COMMUNITY_CRAWL_ERROR_CODES = [
   "SELECTOR_CONFIG_INVALID",
   "REDIRECT_BLOCKED",
   "RESPONSE_TOO_LARGE",
+  "UNSUPPORTED_JS",
+  "LIST_DISCOVERY_EMPTY",
 ] as const;
 
 export type CommunityCrawlErrorCode = (typeof COMMUNITY_CRAWL_ERROR_CODES)[number];

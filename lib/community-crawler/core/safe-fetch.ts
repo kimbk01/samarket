@@ -52,6 +52,8 @@ export async function safeFetchHtml(
         headers: {
           Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
           "User-Agent": USER_AGENT,
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
         },
       });
     } catch (e) {

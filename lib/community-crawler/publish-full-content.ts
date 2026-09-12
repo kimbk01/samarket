@@ -34,6 +34,8 @@ export type FullContentPublishInput = {
   displayAuthorAvatarUrl?: string | null;
   createdAtIso: string | null;
   viewCount: number;
+  initialViewSeed?: number;
+  publicAttributionMode?: "VISIBLE" | "HIDDEN";
   regionLabel?: string;
   /** DIBAY-rehosted assets only (from community_crawl_item_media). */
   images?: CanonicalPublishImage[];
@@ -156,6 +158,11 @@ export async function publishCommunityCrawlFullContent(
     display_author_avatar_url: input.displayAuthorAvatarUrl?.trim() || null,
     created_at: input.createdAtIso,
     view_count: Math.max(0, Math.floor(Number(input.viewCount) || 0)),
+    initial_view_seed:
+      input.initialViewSeed != null
+        ? Math.max(0, Math.floor(Number(input.initialViewSeed) || 0))
+        : Math.max(0, Math.floor(Number(input.viewCount) || 0)),
+    public_attribution_mode: input.publicAttributionMode ?? board.public_attribution_mode ?? "VISIBLE",
     images,
   };
 

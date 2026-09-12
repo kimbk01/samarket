@@ -6,6 +6,7 @@ import {
   listCommunityCrawlRuns,
   listCommunityCrawlSources,
 } from "@/lib/community-crawler/admin-crawl-store";
+import { listAuthorPools } from "@/lib/community-crawler/author-pool-store";
 import {
   COMMUNITY_CRAWL_CORE_UNAVAILABLE_REASON,
   COMMUNITY_CRAWL_SCHEDULER_FROZEN,
@@ -38,10 +39,11 @@ export async function GET() {
   }
 
   try {
-    const [sources, boards, runs] = await Promise.all([
+    const [sources, boards, runs, authorPools] = await Promise.all([
       listCommunityCrawlSources(sb),
       listCommunityCrawlBoards(sb),
       listCommunityCrawlRuns(sb, { limit: 40 }),
+      listAuthorPools(sb).catch(() => []),
     ]);
 
     const topicIds = Array.from(new Set(boards.map((b) => b.dibay_topic_id).filter(Boolean)));
@@ -109,6 +111,7 @@ export async function GET() {
       boards,
       runs,
       topics,
+      authorPools,
       summary: {
         activeBoards,
         errorBoards,
