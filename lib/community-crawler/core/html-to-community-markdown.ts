@@ -37,6 +37,70 @@ function pickSrcset(srcset: string | undefined): string | undefined {
 }
 
 /**
+ * Extract image URLs from markdown image syntax: ![alt](url)
+ */
+export function extractMarkdownImages(
+  markdown: string,
+  baseUrl: string
+): { content: string; imageUrls: string[] } {
+  const imageUrls: string[] = [];
+  const seen = new Set<string>();
+  const mdImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+  const content = markdown.replace(mdImgRegex, (match, alt, rawUrl) => {
+    const cleanUrl = rawUrl.trim().split(/\s+/)[0];
+    const abs = resolveCrawlUrl(baseUrl, cleanUrl);
+    if (abs && /^https?:\/\//i.test(abs)) {
+      if (!seen.has(abs)) {
+        seen.add(abs);
+        imageUrls.push(abs);
+      }
+      return `![${alt}](${abs})`;
+    }
+    return match;
+  });
+
+  return { content, imageUrls };
+}
+
+/**
+ * Normalizes article body whether it is HTML or Markdown.
+ * Preserves paragraphs, links, headings, and images with exact ordering.
+ */
+export function normalizeArticleBodyContent(
+  raw: string,
+  baseUrl: string
+): { content: string; imageUrls: string[] } {
+  if (!raw || !raw.trim()) {
+    return { content: "", imageUrls: [] };
+  }
+
+  const isHtml = /<(?:p|div|br|article|section|h[1-6]|ul|ol|li|img|a)\b[^>]*>/i.test(raw);
+
+  if (isHtml) {
+    const htmlResult = htmlFragmentToCommunityMarkdown(raw, baseUrl);
+    // Even if HTML, check if raw markdown images were embedded in text
+    const mdResult = extractMarkdownImages(htmlResult.content, baseUrl);
+    const combinedImages = Array.from(new Set([...htmlResult.imageUrls, ...mdResult.imageUrls]));
+    return { content: mdResult.content, imageUrls: combinedImages };
+  }
+
+  // Pure Markdown / Plaintext
+  const mdResult = extractMarkdownImages(raw, baseUrl);
+  let content = decodeHtmlEntities(mdResult.content)
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (content.length > MAX_BODY) {
+    content = content.slice(0, MAX_BODY).trim();
+  }
+
+  return { content, imageUrls: mdResult.imageUrls };
+}
+
+/**
  * Convert sanitized HTML fragment to Community-compatible markdown/text.
  * Preserves: paragraphs, breaks, headings, lists, links, image positions.
  */

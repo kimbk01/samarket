@@ -12,6 +12,7 @@ import * as cheerio from "cheerio";
 import type { ParsedDetail, ParsedListItem } from "@/lib/community-crawler/adapters/generic-html";
 import {
   htmlFragmentToCommunityMarkdown,
+  normalizeArticleBodyContent,
   normalizeTitleText,
 } from "@/lib/community-crawler/core/html-to-community-markdown";
 import { CommunityCrawlError } from "@/lib/community-crawler/core/errors";
@@ -143,7 +144,7 @@ export function parseTravelPhilippinesDetailPage(html: string, pageUrl: string):
     throw new CommunityCrawlError("CONTENT_MISSING", "Travel PH article content missing");
   }
 
-  const { content: contentMarkdown, imageUrls } = htmlFragmentToCommunityMarkdown(contentHtml, pageUrl);
+  const { content: contentMarkdown, imageUrls } = normalizeArticleBodyContent(contentHtml, pageUrl);
   if (!contentMarkdown.trim()) {
     throw new CommunityCrawlError("CONTENT_MISSING", "Travel PH content empty after normalize");
   }

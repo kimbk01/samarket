@@ -855,6 +855,14 @@ export function AdminCommunityExternalSourcesPage() {
                               <div className="sam-text-helper text-sam-muted">
                                 {t("admin_community_crawl_to_topic")}:{" "}
                                 {topicNameById.get(b.dibay_topic_id) ?? b.dibay_topic_id}
+                                {" · "}
+                                <span className="font-medium">
+                                  {b.ingest_mode === "AUTO_PUBLISH"
+                                    ? "자동 게시 (AUTO)"
+                                    : b.ingest_mode === "REVIEW_THEN_PUBLISH"
+                                      ? "검토 후 게시 (REVIEW)"
+                                      : "수집 전용 (COLLECT)"}
+                                </span>
                               </div>
                               <div className="sam-text-helper text-sam-muted">
                                 {b.schedule_enabled
@@ -1048,6 +1056,38 @@ export function AdminCommunityExternalSourcesPage() {
           }}
         >
           <div className="space-y-4">
+            {(() => {
+              const b = boards.find((x) => x.id === testBoardId);
+              const s = b ? sources.find((x) => x.id === b.source_id) : null;
+              const hasPreviews = testResult.previews.length > 0;
+              const isAllowed = s?.policy_status === "ALLOWED" && s?.media_policy === "MEDIA_ALLOWED";
+
+              let badge = {
+                title: "소스 오류 (SOURCE INVALID)",
+                desc: "기사 목록 또는 본문 상세를 가져올 수 없습니다. URL 및 파서를 확인하세요.",
+                cls: "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400",
+              };
+              if (hasPreviews && isAllowed) {
+                badge = {
+                  title: "자동 수집 준비 완료 (READY FOR AUTO)",
+                  desc: "제목, 본문, 이미지 추출 및 발행 권한이 모두 확인되어 자동 수집 및 게시가 가능합니다.",
+                  cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+                };
+              } else if (hasPreviews) {
+                badge = {
+                  title: "수동 검토 대상 (REVIEW ONLY)",
+                  desc: "기사 추출은 가능하지만 소스 또는 미디어 정책이 승인(ALLOWED)되지 않아 자동 게시되지 않고 검토 대기 처리됩니다.",
+                  cls: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                };
+              }
+
+              return (
+                <div className={`rounded-ui-rect border p-3 ${badge.cls}`}>
+                  <div className="font-semibold">{badge.title}</div>
+                  <div className="sam-text-helper mt-1">{badge.desc}</div>
+                </div>
+              );
+            })()}
             <p className="sam-text-body text-sam-fg">
               {t("admin_community_crawl_preview_status")}: <strong>{testResult.status}</strong>
               {" · "}
