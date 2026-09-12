@@ -289,7 +289,11 @@ import {
   decideRoomBoundMissedCallNotification,
 } from "@/lib/community-messenger/call-authority/call-missed-notification-authority";
 import type { CallSessionResolvedEvent } from "@/lib/community-messenger/call-event-message";
-import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
+import {
+  canEndActiveCallForPresenceStale,
+  evaluateActiveCallPresenceDetail,
+  shadowPresenceLeaseUntilIso,
+} from "@/lib/call/call-active-presence";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
   type RoomDomainEnvelope,
@@ -860,6 +864,8 @@ type LiveReconcileRow = {
   session_mode: CommunityMessengerCallSessionMode | null;
   caller_last_heartbeat_at?: string | null;
   callee_last_heartbeat_at?: string | null;
+  caller_presence_lease_until?: string | null;
+  callee_presence_lease_until?: string | null;
 };
 
 /** Active stale-end uses Presence SSOT only — never updated_at alone (2026-09-01). */
@@ -867,16 +873,27 @@ function isStaleActiveRowForReconcile(row: LiveReconcileRow, nowMs = Date.now())
   if (trimText(row.status) !== "active") return false;
   if (trimText(row.ended_at ?? "")) return true;
   if (!trimText(row.answered_at ?? "")) return true;
-  return canEndActiveCallForPresenceStale(
-    {
-      status: row.status,
-      answered_at: row.answered_at,
-      ended_at: row.ended_at,
-      caller_last_heartbeat_at: row.caller_last_heartbeat_at ?? null,
-      callee_last_heartbeat_at: row.callee_last_heartbeat_at ?? null,
-    },
-    nowMs,
-  );
+  const presenceRow = {
+    status: row.status,
+    answered_at: row.answered_at,
+    ended_at: row.ended_at,
+    caller_last_heartbeat_at: row.caller_last_heartbeat_at ?? null,
+    callee_last_heartbeat_at: row.callee_last_heartbeat_at ?? null,
+    caller_presence_lease_until: row.caller_presence_lease_until ?? null,
+    callee_presence_lease_until: row.callee_presence_lease_until ?? null,
+  };
+  const detail = evaluateActiveCallPresenceDetail(presenceRow, nowMs);
+  // Shadow compare only — leaseTerminationEligible MUST NOT drive end this CUT.
+  console.info("[cm-call-presence-shadow]", {
+    sessionId: row.id,
+    path: "reconcile",
+    productionAuthority: detail.productionAuthority,
+    legacyPresence: detail.legacyPresence,
+    leaseEvaluation: detail.leaseEvaluation,
+    leasePresence: detail.leasePresence,
+    leaseTerminationEligible: detail.leaseTerminationEligible,
+  });
+  return canEndActiveCallForPresenceStale(presenceRow, nowMs);
 }
 
 export async function reconcileUserLiveCallSessions(
@@ -894,7 +911,7 @@ export async function reconcileUserLiveCallSessions(
   const { data, error } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, status, started_at, answered_at, ended_at, updated_at, initiator_user_id, recipient_user_id, session_mode, created_at, caller_last_heartbeat_at, callee_last_heartbeat_at"
+      "id, status, started_at, answered_at, ended_at, updated_at, initiator_user_id, recipient_user_id, session_mode, created_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until"
     )
     .eq("session_mode", "direct")
     .or(`initiator_user_id.eq.${uid},recipient_user_id.eq.${uid}`)
@@ -19630,8 +19647,12 @@ export async function updateCommunityMessengerCallSession(input: {
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         if (next.nextStatus === "active") {
           const hbSeed = nowIso();
+          // Shadow lease seed — NOT client lease-capable proof (legacy+legacy also get both columns).
+          const shadowLeaseUntil = shadowPresenceLeaseUntilIso();
           updatePayload.caller_last_heartbeat_at = hbSeed;
           updatePayload.callee_last_heartbeat_at = hbSeed;
+          updatePayload.caller_presence_lease_until = shadowLeaseUntil;
+          updatePayload.callee_presence_lease_until = shadowLeaseUntil;
         }
         if (input.action === "accept" && (next.nextStatus === "active" || softClaimActiveWithoutDevice)) {
           if (requestDeviceId) updatePayload.answered_device_id = requestDeviceId;

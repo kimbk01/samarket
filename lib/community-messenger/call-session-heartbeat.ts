@@ -5,6 +5,10 @@
  * Stale end MUST call updateCommunityMessengerCallSession — never SQL direct UPDATE.
  * Presence predicate: canEndActiveCallForPresenceStale (both-stale AND only).
  *
+ * Shadow lease: HB may provisionally extend party *_presence_lease_until.
+ * That is secondary/compat observation — NOT lease-capability proof.
+ * leaseTerminationEligible is logged only; NEVER used for Production end this CUT.
+ *
  * @see CALL_TERMINAL_SESSION_WRITER
  */
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
@@ -13,7 +17,11 @@ import {
   CALL_SERVER_HEARTBEAT_STALE_MS,
   type CallSessionHeartbeatRow,
 } from "@/lib/call/call-server-heartbeat";
-import { canEndActiveCallForPresenceStale } from "@/lib/call/call-active-presence";
+import {
+  canEndActiveCallForPresenceStale,
+  evaluateActiveCallPresenceDetail,
+  shadowPresenceLeaseUntilIso,
+} from "@/lib/call/call-active-presence";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -58,11 +66,19 @@ export async function heartbeatCommunityMessengerCallSession(input: {
   if (!isCaller && !isCallee) return { ok: false, error: "forbidden" };
 
   const ts = nowIso();
+  const shadowLeaseUntil = shadowPresenceLeaseUntilIso();
   const patch: Record<string, string | null> = {
     reconnecting_since: input.reconnecting ? ts : null,
   };
-  if (isCaller) patch.caller_last_heartbeat_at = ts;
-  if (isCallee) patch.callee_last_heartbeat_at = ts;
+  if (isCaller) {
+    patch.caller_last_heartbeat_at = ts;
+    // secondary / compatibility observation — NOT authoritative lease capability
+    patch.caller_presence_lease_until = shadowLeaseUntil;
+  }
+  if (isCallee) {
+    patch.callee_last_heartbeat_at = ts;
+    patch.callee_presence_lease_until = shadowLeaseUntil;
+  }
 
   const { error } = await (sb as any)
     .from("community_messenger_call_sessions")
@@ -100,7 +116,7 @@ export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promis
   const { data: rows } = await (sb as any)
     .from("community_messenger_call_sessions")
     .select(
-      "id, status, initiator_user_id, recipient_user_id, answered_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at",
+      "id, status, initiator_user_id, recipient_user_id, answered_at, ended_at, caller_last_heartbeat_at, callee_last_heartbeat_at, caller_presence_lease_until, callee_presence_lease_until",
     )
     .eq("status", "active")
     .not("caller_last_heartbeat_at", "is", null)
@@ -109,20 +125,33 @@ export async function cleanupStaleActiveCommunityMessengerCallSessions(): Promis
   let ended = 0;
   const nowMs = Date.now();
   for (const row of (rows ?? []) as Array<
-    CallSessionHeartbeatRow & { status?: string | null; ended_at?: string | null }
+    CallSessionHeartbeatRow & {
+      status?: string | null;
+      ended_at?: string | null;
+      caller_presence_lease_until?: string | null;
+      callee_presence_lease_until?: string | null;
+    }
   >) {
-    if (
-      !canEndActiveCallForPresenceStale(
-        {
-          status: row.status ?? "active",
-          answered_at: row.answered_at,
-          ended_at: row.ended_at ?? null,
-          caller_last_heartbeat_at: row.caller_last_heartbeat_at,
-          callee_last_heartbeat_at: row.callee_last_heartbeat_at,
-        },
-        nowMs,
-      )
-    ) {
+    const presenceRow = {
+      status: row.status ?? "active",
+      answered_at: row.answered_at,
+      ended_at: row.ended_at ?? null,
+      caller_last_heartbeat_at: row.caller_last_heartbeat_at,
+      callee_last_heartbeat_at: row.callee_last_heartbeat_at,
+      caller_presence_lease_until: row.caller_presence_lease_until ?? null,
+      callee_presence_lease_until: row.callee_presence_lease_until ?? null,
+    };
+    const detail = evaluateActiveCallPresenceDetail(presenceRow, nowMs);
+    // Shadow compare only — leaseTerminationEligible MUST NOT drive end this CUT.
+    console.info("[cm-call-presence-shadow]", {
+      sessionId: row.id,
+      productionAuthority: detail.productionAuthority,
+      legacyPresence: detail.legacyPresence,
+      leaseEvaluation: detail.leaseEvaluation,
+      leasePresence: detail.leasePresence,
+      leaseTerminationEligible: detail.leaseTerminationEligible,
+    });
+    if (!canEndActiveCallForPresenceStale(presenceRow, nowMs)) {
       continue;
     }
     const ok = await endStaleCallSessionWithPeerNotify(row);
