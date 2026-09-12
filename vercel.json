@@ -18,7 +18,7 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/community-crawl-dispatcher",
+      "path": "/api/cron/board-import-auto-dispatcher",
       "schedule": "*/15 * * * *"
     },
     {
