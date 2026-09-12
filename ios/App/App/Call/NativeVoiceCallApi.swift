@@ -45,6 +45,19 @@ enum NativeVoiceCallApi {
     patchAsync(callId: callId, action: "missed", completion: completion)
   }
 
+  /**
+   * Native presence lease renew — Cookie PATCH heartbeat + nativePresenceCapable=true.
+   * WebView-independent. Capability = explicit body flag.
+   */
+  static func presenceRenewAsync(callId: String, completion: @escaping PatchCallback) {
+    patchAsync(
+      callId: callId,
+      action: "heartbeat",
+      extraBody: ["nativePresenceCapable": true],
+      completion: completion
+    )
+  }
+
   static func startCallerJoinAsync(
     callId: String,
     roomId: String,
@@ -134,6 +147,15 @@ enum NativeVoiceCallApi {
   // MARK: - Private
 
   private static func patchAsync(callId: String, action: String, completion: @escaping PatchCallback) {
+    patchAsync(callId: callId, action: action, extraBody: [:], completion: completion)
+  }
+
+  private static func patchAsync(
+    callId: String,
+    action: String,
+    extraBody: [String: Any],
+    completion: @escaping PatchCallback
+  ) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {
       completion(false, 0, "invalid_call_id")
@@ -159,6 +181,9 @@ enum NativeVoiceCallApi {
             request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
           }
           var bodyObj: [String: Any] = ["action": action]
+          for (k, v) in extraBody {
+            bodyObj[k] = v
+          }
           if let deviceId, !deviceId.isEmpty {
             bodyObj["deviceId"] = deviceId
           }

@@ -446,6 +446,7 @@ public final class NativeVideoCallRuntime {
     String sid = callId.trim();
     NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     try {
+      com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(sid, reason);
       NativeVideoCallAcceptTiming.clear(sid);
       NativeOutgoingRingbackOwner.stop(sid, reason);
       cancelMissed(sid);
@@ -511,6 +512,7 @@ public final class NativeVideoCallRuntime {
     MISSED_TIMEOUTS.clear();
     skipAgoraLeaveForTests = false;
     injectLeaveFailureForTests = false;
+    com.dibay.app.call.NativePresenceLeaseRenewOwner.resetForTests();
   }
 
   static void fireMissedTimerForTests(Context context, String callId) {
@@ -545,6 +547,9 @@ public final class NativeVideoCallRuntime {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_CONNECTING);
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
+      startPresenceRenew(context, session.callId);
+    } else if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
+      com.dibay.app.call.NativePresenceLeaseRenewOwner.stop(session.callId, state.name().toLowerCase());
     }
     ensureVideoUiVisible(context, session, state);
     NativeVideoCallActivity.renderState(session.callId, state);
@@ -557,6 +562,19 @@ public final class NativeVideoCallRuntime {
     if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
       MAIN.post(() -> ScreenAwakeBridge.release(sid, source));
     }
+  }
+
+  private static void startPresenceRenew(Context app, String sid) {
+    com.dibay.app.call.NativePresenceLeaseRenewOwner.start(
+        app,
+        sid,
+        (ctx, callId, cb) ->
+            NativeVideoCallApi.presenceRenewAsync(
+                ctx, callId, (ok, status, error) -> cb.onDone(ok, status, error)),
+        callId -> {
+          Session live = SESSIONS.get(callId);
+          return live != null && live.state == State.CONNECTED;
+        });
   }
 
   private static void ensureVideoUiVisible(Context context, Session session, State state) {

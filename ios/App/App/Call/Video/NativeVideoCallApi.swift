@@ -87,6 +87,18 @@ enum NativeVideoCallApi {
     )
   }
 
+  /** Native presence lease renew — Cookie PATCH + nativePresenceCapable=true. */
+  static func presenceRenewAsync(callId: String, completion: @escaping PatchCallback) {
+    patchAsync(
+      callId: callId,
+      action: "heartbeat",
+      startMarker: "presence_renew_patch_start",
+      doneMarker: "presence_renew_patch_done",
+      extraBody: ["nativePresenceCapable": true],
+      completion: completion
+    )
+  }
+
   static func fetchTokenAsync(callId: String, completion: @escaping TokenCallback) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {
@@ -167,6 +179,24 @@ enum NativeVideoCallApi {
     doneMarker: String,
     completion: @escaping PatchCallback
   ) {
+    patchAsync(
+      callId: callId,
+      action: action,
+      startMarker: startMarker,
+      doneMarker: doneMarker,
+      extraBody: [:],
+      completion: completion
+    )
+  }
+
+  private static func patchAsync(
+    callId: String,
+    action: String,
+    startMarker: String,
+    doneMarker: String,
+    extraBody: [String: Any],
+    completion: @escaping PatchCallback
+  ) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {
       completion(false, 0, "invalid_call_id")
@@ -194,6 +224,9 @@ enum NativeVideoCallApi {
           request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
         }
         var bodyObj: [String: Any] = ["action": action]
+        for (k, v) in extraBody {
+          bodyObj[k] = v
+        }
         if let deviceId, !deviceId.isEmpty {
           bodyObj["deviceId"] = deviceId
         }

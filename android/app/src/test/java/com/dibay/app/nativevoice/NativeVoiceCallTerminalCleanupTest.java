@@ -161,6 +161,8 @@ public class NativeVoiceCallTerminalCleanupTest {
     assertNotNull(lastPatchCallback);
     lastPatchCallback.onDone(true, 200, null);
 
+    // finishIfActive posts to UI thread; in-app notice may delay finish()
+    org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
     assertTrue(controller.get().isFinishing());
     controller.pause().stop().destroy();
   }

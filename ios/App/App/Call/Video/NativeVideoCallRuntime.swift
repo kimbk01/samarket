@@ -163,6 +163,16 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       NativeVideoCallLog.info("state_connected", callId: normalize(sessionId))
       publishUiLocked(sessionId: normalize(sessionId))
     }
+    NativePresenceLeaseRenewOwner.start(
+      callId: sessionId,
+      renewTransport: { callId, completion in
+        NativeVideoCallApi.presenceRenewAsync(callId: callId, completion: completion)
+      },
+      gate: { callId in
+        let snap = NativeVideoCallRuntime.shared.snapshot()
+        return snap.session?.sessionId == callId && snap.state == .connected
+      }
+    )
   }
 
   func markFailed(sessionId: String, reason: NativeVideoCallFailure) throws {
@@ -177,6 +187,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       clearSessionLocked(sessionId: sid, releaseOwnerReason: "failed")
       NativeVideoCallUiHost.finishIfActive(callId: sid)
     }
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "mark_failed")
   }
 
   // MARK: - Reject / End / Missed
@@ -195,6 +206,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         publishUiLocked(sessionId: normalize(sessionId))
       }
     }
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_reject")
   }
 
   func markRejected(sessionId: String) throws {
@@ -229,6 +241,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         publishUiLocked(sessionId: normalize(sessionId))
       }
     }
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_end")
   }
 
   func markEnded(sessionId: String) throws {

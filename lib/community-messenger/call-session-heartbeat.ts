@@ -44,6 +44,13 @@ export async function heartbeatCommunityMessengerCallSession(input: {
   userId: string;
   sessionId: string;
   reconnecting?: boolean;
+  /**
+   * Explicit Native capability signal (Cookie PATCH from Native*CallApi).
+   * First successful Native renew with this true establishes lease capability for the party.
+   * WebView HB MUST omit / leave false — never infer capability from non-null lease.
+   * Does NOT flip Production end authority (still legacy_hb).
+   */
+  nativePresenceCapable?: boolean;
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   const userId = trimText(input.userId);
@@ -67,17 +74,27 @@ export async function heartbeatCommunityMessengerCallSession(input: {
 
   const ts = nowIso();
   const shadowLeaseUntil = shadowPresenceLeaseUntilIso();
+  const nativeCapable = input.nativePresenceCapable === true;
   const patch: Record<string, string | null> = {
     reconnecting_since: input.reconnecting ? ts : null,
   };
   if (isCaller) {
     patch.caller_last_heartbeat_at = ts;
-    // secondary / compatibility observation — NOT authoritative lease capability
+    // Native capable renew OR WebView secondary/compat observation — Production authority unchanged
     patch.caller_presence_lease_until = shadowLeaseUntil;
   }
   if (isCallee) {
     patch.callee_last_heartbeat_at = ts;
     patch.callee_presence_lease_until = shadowLeaseUntil;
+  }
+  if (nativeCapable) {
+    // Capability signal received — LEASE CUTOVER still NO; legacy_hb Production end preserved.
+    console.info("[cm-call-presence-native-capable]", {
+      sessionId,
+      party: isCaller ? "caller" : "callee",
+      productionAuthority: "legacy_hb",
+      leaseCutover: false,
+    });
   }
 
   const { error } = await (sb as any)

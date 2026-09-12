@@ -10,8 +10,12 @@
  *
  * LEASE STATE (`*_presence_lease_until`) ≠ LEASE CAPABILITY.
  * NON_NULL lease columns MUST NEVER imply lease-capable / Production lease authority.
- * This CUT: productionAuthority = legacy_hb always; leaseEvaluation = shadow only.
- * Real LEASE CAPABILITY gate is DEFERRED until Native capability CUT.
+ * Production authority this generation: legacy_hb always; leaseEvaluation = shadow only.
+ * LEASE CUTOVER: NO until Native renew runtime is Production-proven.
+ *
+ * Native Capability CUT: authoritative renew is Native Cookie PATCH heartbeat with
+ * `nativePresenceCapable: true` (first successful Native renew establishes capability).
+ * WebView HB without that flag remains secondary/compat — never capability proof.
  *
  * reconcile stale-active end and heartbeat cleanup MUST both consume
  * `canEndActiveCallForPresenceStale` (legacy HB both-stale) for Production end.
@@ -32,6 +36,18 @@ export const CALL_ACTIVE_PRESENCE_FRESH_MS = CALL_SERVER_HEARTBEAT_STALE_MS;
  * Dependency from cleanup end decision → TEST FAIL.
  */
 export const CALL_PRESENCE_SHADOW_LEASE_TTL_MS = 300_000;
+
+/**
+ * Native sparse renew cadence — MUST stay derived from shadow lease TTL.
+ * Android/iOS named constants MUST mirror this value (TTL / 2).
+ * NOT a 10s heartbeat clone. NOT Production termination authority.
+ */
+export const CALL_PRESENCE_NATIVE_RENEW_INTERVAL_MS = Math.floor(
+  CALL_PRESENCE_SHADOW_LEASE_TTL_MS / 2,
+);
+
+/** Body flag on Native Cookie PATCH heartbeat — capability signal (not UA/version/non-null lease). */
+export const CALL_PRESENCE_NATIVE_CAPABLE_BODY_KEY = "nativePresenceCapable" as const;
 
 export type ActiveCallPresence = "LIVE" | "STALE" | "UNKNOWN";
 

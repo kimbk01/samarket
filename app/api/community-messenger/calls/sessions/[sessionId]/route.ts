@@ -82,6 +82,7 @@ export async function PATCH(
       durationSeconds?: number;
       clientEndedReason?: string;
       reconnecting?: boolean;
+      nativePresenceCapable?: boolean;
       deviceId?: string;
       answeredDeviceId?: string;
     };
@@ -117,6 +118,7 @@ export async function PATCH(
         userId: auth.userId,
         sessionId,
         reconnecting: body.reconnecting === true,
+        nativePresenceCapable: body.nativePresenceCapable === true,
       });
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
     }

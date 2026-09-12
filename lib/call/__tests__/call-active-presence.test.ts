@@ -384,8 +384,9 @@ describe("presence shadow lease SSOT (CUT1)", () => {
 
   it("T14 WebView HB renews lease → does NOT mark authoritative-lease-capable", () => {
     const cleanup = readFileSync(join(ROOT, "lib/community-messenger/call-session-heartbeat.ts"), "utf8");
-    expect(cleanup).toContain("NOT authoritative lease capability");
+    expect(cleanup).toContain("NOT lease-capability proof");
     expect(cleanup).toContain("shadowPresenceLeaseUntilIso");
+    expect(cleanup).toContain("WebView HB MUST omit");
     const row = {
       status: "active",
       answered_at: answered,

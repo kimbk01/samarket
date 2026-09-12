@@ -171,6 +171,16 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       phase = .connected
       publishUiLocked(source: "connected")
     }
+    NativePresenceLeaseRenewOwner.start(
+      callId: sessionId,
+      renewTransport: { callId, completion in
+        NativeVoiceCallApi.presenceRenewAsync(callId: callId, completion: completion)
+      },
+      gate: { callId in
+        let snap = NativeVoiceCallRuntime.shared.snapshot()
+        return snap.session?.sessionId == callId && snap.phase == .connected
+      }
+    )
   }
 
   // MARK: - Reject / End
@@ -192,6 +202,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidSession
       }
     }
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_reject")
   }
 
   func markRejected(sessionId: String) throws {
@@ -227,6 +238,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         publishUiLocked(source: "begin_end")
       }
     }
+    NativePresenceLeaseRenewOwner.stop(callId: sessionId, reason: "begin_end")
   }
 
   func markEnded(sessionId: String) throws {
@@ -253,6 +265,9 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       if let sessionId {
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let active = session, active.sessionId == trimmed else { return }
+        NativePresenceLeaseRenewOwner.stop(callId: trimmed, reason: "runtime_reset")
+      } else if let active = session {
+        NativePresenceLeaseRenewOwner.stop(callId: active.sessionId, reason: "runtime_reset")
       }
       cancelMissedLocked()
       clearSessionLocked()
