@@ -30,6 +30,10 @@ import {
   normalizeCommunityPostOriginKind,
 } from "@/lib/community/community-post-origin";
 import { loadCommunityImportSourceAttribution } from "@/lib/community-crawler/import-source-attribution";
+import {
+  communityFeedKeysetOrFilter,
+  communityPostPublicPublishedAt,
+} from "@/lib/community/community-publication-time";
 import type {
   NeighborhoodCommentNode,
   NeighborhoodFeedPostDTO,
@@ -113,12 +117,16 @@ export type NeighborhoodFeedPageResult = {
   /**
    * 이번 요청에서 Supabase `range`로 실제 읽은 행 수(필터 전).
    * 필터로 반환 건수가 줄어도 offset은 이 값만큼 진행해야 페이지 경계에서 중복이 나지 않음.
+   * latest keyset 모드에서는 scanned window length.
    */
   dbScannedCount: number;
   /**
-   * `nextOffset` = 요청 `offset` + `pagingOffsetAdvance` — `recommended` 랭크 모드는 `posts.length`(랭크 공간)를 쓰고, 그 외는 `dbScannedCount`(SQL 범위).
+   * `nextOffset` = 요청 `offset` + `pagingOffsetAdvance` — `recommended`/`popular` offset 모드.
+   * latest keyset 모드는 보통 `posts.length` (호환용).
    */
   pagingOffsetAdvance: number;
+  /** latest 계열 keyset — 다음 페이지 커서 (없으면 더 없음) */
+  nextCursor?: { publishedAt: string; id: string } | null;
   /** `NODE_ENV === "development"` 일 때만 채움 — 라우트가 응답 헤더로 노출 */
   serverCommunityPerf?: NeighborhoodFeedServerPerfMs;
 };
@@ -136,13 +144,19 @@ export async function listNeighborhoodFeed(options: {
   /** 페이지당 개수 (기본 20, 최대 40) */
   limit?: number;
   offset?: number;
+  /**
+   * latest 계열 keyset cursor. 있으면 offset 대신 (published_at,id) DESC seek.
+   * popular / recommended 는 무시하고 offset 유지.
+   */
+  cursor?: { publishedAt: string; id: string } | null;
   viewerUserId?: string | null;
   /** true면 로그인 필수 — 관심이웃 + 본인 글만 */
   neighborOnly?: boolean;
   /**
    * 글 정렬(기본 `latest`).
-   * - `popular` — `view_count`·`created_at` 내림차순(인기/조회 많은순).
-   * - `recommended` — `feed-ranking` 점수(풀 max 200행) 후 `offset` 으로 페이지 슬라이스; 추천 탭의 `최신순`은 `latest` 를 쓴다.
+   * - `popular` — `view_count`·`published_at` 내림차순.
+   * - `recommended` — `feed-ranking` 점수(풀 max 200행, age=`published_at`) 후 `offset` 슬라이스.
+   * - `latest` — `published_at DESC, id DESC` + keyset when cursor set.
    */
   feedSort?: CommunityFeedSortMode;
   /** 동네 섹션 주제 행 — 스킨·색·라벨 일치. 없으면 서버에서 로드 */
@@ -248,17 +262,27 @@ export async function listNeighborhoodFeed(options: {
 
   const ORIGIN_TAIL = ", origin_kind, display_author_name, display_author_avatar_url";
   const FEED_SELECT_FULL =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_BASE =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
+  /** published_at kept; origin columns stripped */
+  const FEED_SELECT_FULL_NO_ORIGIN =
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const FEED_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN =
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const FEED_SELECT_BASE_NO_ORIGIN =
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+  const FEED_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN =
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+  /** Pre-published_at DBs — no published_at, no origin */
   const FEED_SELECT_FULL_LEGACY =
     "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
@@ -268,21 +292,28 @@ export async function listNeighborhoodFeed(options: {
   const FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY =
     "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
+  const keysetCursor =
+    effSort === "latest" && options.cursor?.publishedAt?.trim() && options.cursor?.id?.trim()
+      ? { publishedAt: options.cursor.publishedAt.trim(), id: options.cursor.id.trim() }
+      : null;
+  const useKeyset = Boolean(keysetCursor);
+
   const buildFeedQuery = (
     selectCols: string,
     useTopicSlugFilter: boolean,
     rangeFrom: number,
-    rangeToInclusive: number
+    rangeToInclusive: number,
+    chronologyCol: "published_at" | "created_at" = "published_at"
   ) => {
     let qq = sb.from("community_posts").select(selectCols).eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
     if (effSort === "popular") {
       qq = qq
         .order("view_count", { ascending: false })
-        .order("created_at", { ascending: false })
+        .order(chronologyCol, { ascending: false })
         .order("id", { ascending: false });
     } else {
-      /* 추천(랭크) 풀도 최신 기준 200행만 가져온 뒤 메모리에서 `rankByRecommended` — 추가 페이지는 동일 풀을 슬라이스 */
-      qq = qq.order("created_at", { ascending: false }).order("id", { ascending: false });
+      /* latest + recommended pool: Public chronology */
+      qq = qq.order(chronologyCol, { ascending: false }).order("id", { ascending: false });
     }
     if (!allLocations) {
       qq = qq.eq("location_id", lid).not("location_id", "is", null);
@@ -290,10 +321,8 @@ export async function listNeighborhoodFeed(options: {
     if (filterCat) {
       if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
         if (filterCat === "meetup") {
-          /** Meetup subtype still stored on legacy enum column — not Topic identity */
           qq = qq.eq("category", "meetup");
         } else {
-          /** Topic identity filter — data baseline: all rows have topic_slug */
           qq = qq.eq("topic_slug", filterCat);
         }
       } else {
@@ -301,10 +330,15 @@ export async function listNeighborhoodFeed(options: {
       }
     }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
+    if (useKeyset && keysetCursor && chronologyCol === "published_at") {
+      qq = qq.or(communityFeedKeysetOrFilter(keysetCursor)).limit(fetchCount);
+      return qq;
+    }
     return qq.range(rangeFrom, rangeToInclusive);
   };
 
   const rangeForPage: [number, number] | null = effSort === "recommended" ? [0, 199] : null;
+  let chronologyCol: "published_at" | "created_at" = "published_at";
   const runMainSelect = async (
     selectCols: string,
     useTopicSlugFilter: boolean,
@@ -313,7 +347,7 @@ export async function listNeighborhoodFeed(options: {
     const r0 = range?.[0] ?? offset;
     const r1 = range?.[1] ?? offset + fetchCount - 1;
     const tPrep = performance.now();
-    const q = buildFeedQuery(selectCols, useTopicSlugFilter, r0, r1);
+    const q = buildFeedQuery(selectCols, useTopicSlugFilter, r0, r1, chronologyCol);
     mainPrepareMs += performance.now() - tPrep;
     const tDb = performance.now();
     const res = await q;
@@ -325,17 +359,30 @@ export async function listNeighborhoodFeed(options: {
   let useTopicSlug = true;
   let effectiveSelectCols = FEED_SELECT_FULL;
   let { data, error } = await runMainSelect(FEED_SELECT_FULL, true, rangeForPage);
-  if (error && isMissingDbColumnError(error, "origin_kind")) {
+  if (error && isMissingDbColumnError(error, "published_at")) {
+    chronologyCol = "created_at";
     ({ data, error } = await runMainSelect(FEED_SELECT_FULL_LEGACY, true, rangeForPage));
     effectiveSelectCols = FEED_SELECT_FULL_LEGACY;
   }
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    const noOrigin =
+      chronologyCol === "published_at" ? FEED_SELECT_FULL_NO_ORIGIN : FEED_SELECT_FULL_LEGACY;
+    ({ data, error } = await runMainSelect(noOrigin, true, rangeForPage));
+    effectiveSelectCols = noOrigin;
+  }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlug = false;
-    ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG, false, rangeForPage));
-    effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG;
+    const noTopic =
+      chronologyCol === "published_at" ? FEED_SELECT_FULL_NO_TOPIC_SLUG : FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY;
+    ({ data, error } = await runMainSelect(noTopic, false, rangeForPage));
+    effectiveSelectCols = noTopic;
     if (error && isMissingDbColumnError(error, "origin_kind")) {
-      ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY, false, rangeForPage));
-      effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY;
+      const noTopicNoOrigin =
+        chronologyCol === "published_at"
+          ? FEED_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN
+          : FEED_SELECT_FULL_NO_TOPIC_SLUG_LEGACY;
+      ({ data, error } = await runMainSelect(noTopicNoOrigin, false, rangeForPage));
+      effectiveSelectCols = noTopicNoOrigin;
     }
   }
   if (
@@ -344,10 +391,24 @@ export async function listNeighborhoodFeed(options: {
       isMissingDbColumnError(error, "is_meetup") ||
       isMissingDbColumnError(error, "meetup_place"))
   ) {
-    effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG;
+    effectiveSelectCols =
+      chronologyCol === "published_at"
+        ? useTopicSlug
+          ? FEED_SELECT_BASE
+          : FEED_SELECT_BASE_NO_TOPIC_SLUG
+        : useTopicSlug
+          ? FEED_SELECT_BASE_LEGACY
+          : FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY;
     ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug, rangeForPage));
     if (error && isMissingDbColumnError(error, "origin_kind")) {
-      effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE_LEGACY : FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY;
+      effectiveSelectCols =
+        chronologyCol === "published_at"
+          ? useTopicSlug
+            ? FEED_SELECT_BASE_NO_ORIGIN
+            : FEED_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN
+          : useTopicSlug
+            ? FEED_SELECT_BASE_LEGACY
+            : FEED_SELECT_BASE_NO_TOPIC_SLUG_LEGACY;
       ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug, rangeForPage));
     }
   }
@@ -563,7 +624,14 @@ export async function listNeighborhoodFeed(options: {
       view_count: Number(r.view_count ?? 0),
       like_count: Number(r.like_count ?? 0),
       comment_count: Number(r.comment_count ?? 0),
-      created_at: String(r.created_at ?? ""),
+      created_at: communityPostPublicPublishedAt({
+        published_at: r.published_at != null ? String(r.published_at) : null,
+        created_at: r.created_at != null ? String(r.created_at) : null,
+      }),
+      published_at: communityPostPublicPublishedAt({
+        published_at: r.published_at != null ? String(r.published_at) : null,
+        created_at: r.created_at != null ? String(r.created_at) : null,
+      }),
       author_name: author.display_name,
       author_id: uid,
       origin_kind: author.origin_kind,
@@ -606,12 +674,15 @@ export async function listNeighborhoodFeed(options: {
   const r0 = rangeForPage?.[0] ?? offset;
   const r1 = rangeForPage?.[1] ?? offset + fetchCount - 1;
   const main_query_order_summary = (() => {
+    const chrono = chronologyCol;
     const orderKey =
       effSort === "popular"
-        ? "view_count.desc+created_at.desc+id.desc"
+        ? `view_count.desc+${chrono}.desc+id.desc`
         : effSort === "recommended"
-          ? "pool.200.created_at+rankByRecommended+slice"
-          : "created_at.desc+id.desc";
+          ? `pool.200.${chrono}+rankByRecommended+slice`
+          : useKeyset
+            ? `${chrono}.desc+id.desc+keyset`
+            : `${chrono}.desc+id.desc`;
     return `order=${orderKey};range=${r0}-${r1};window=${fetchCount};feedSort=${effSort};rankOffset=${effSort === "recommended" ? offset : 0}`;
   })();
 
@@ -653,8 +724,26 @@ export async function listNeighborhoodFeed(options: {
       }
     : undefined;
 
-  const pagingOffsetAdvance = effSort === "recommended" ? finalPosts.length : dbScannedCount;
-  return { posts: finalPosts, hasMore, dbScannedCount, pagingOffsetAdvance, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
+  const pagingOffsetAdvance =
+    effSort === "recommended" || (effSort === "latest" && useKeyset)
+      ? finalPosts.length
+      : dbScannedCount;
+  const last = finalPosts[finalPosts.length - 1];
+  const nextCursor =
+    hasMore && effSort === "latest" && last
+      ? {
+          publishedAt: last.published_at || last.created_at,
+          id: last.id,
+        }
+      : null;
+  return {
+    posts: finalPosts,
+    hasMore,
+    dbScannedCount,
+    pagingOffsetAdvance,
+    nextCursor,
+    ...(serverCommunityPerf ? { serverCommunityPerf } : {}),
+  };
 }
 
 /** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */
@@ -713,17 +802,25 @@ export async function getNeighborhoodPostDetail(
   const v = options?.viewerUserId?.trim() ?? "";
   const DETAIL_ORIGIN = ", origin_kind, display_author_name, display_author_avatar_url";
   const DETAIL_SELECT_FULL =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status" +
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
+  const DETAIL_SELECT_FULL_NO_ORIGIN =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN =
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_BASE_NO_ORIGIN =
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
+  const DETAIL_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN =
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_LEGACY =
     "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY =
@@ -744,15 +841,28 @@ export async function getNeighborhoodPostDetail(
   };
 
   let useTopicSlugDetail = true;
+  let detailHasPublishedAt = true;
   let { data, error } = await fetchDetailRow(DETAIL_SELECT_FULL);
-  if (error && isMissingDbColumnError(error, "origin_kind")) {
+  if (error && isMissingDbColumnError(error, "published_at")) {
+    detailHasPublishedAt = false;
     ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_LEGACY));
+  }
+  if (error && isMissingDbColumnError(error, "origin_kind")) {
+    ({ data, error } = await fetchDetailRow(
+      detailHasPublishedAt ? DETAIL_SELECT_FULL_NO_ORIGIN : DETAIL_SELECT_FULL_LEGACY
+    ));
   }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlugDetail = false;
-    ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_NO_TOPIC_SLUG));
+    ({ data, error } = await fetchDetailRow(
+      detailHasPublishedAt ? DETAIL_SELECT_FULL_NO_TOPIC_SLUG : DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY
+    ));
     if (error && isMissingDbColumnError(error, "origin_kind")) {
-      ({ data, error } = await fetchDetailRow(DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY));
+      ({ data, error } = await fetchDetailRow(
+        detailHasPublishedAt
+          ? DETAIL_SELECT_FULL_NO_TOPIC_SLUG_NO_ORIGIN
+          : DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY
+      ));
     }
   }
   if (
@@ -762,11 +872,23 @@ export async function getNeighborhoodPostDetail(
       isMissingDbColumnError(error, "meetup_place"))
   ) {
     ({ data, error } = await fetchDetailRow(
-      useTopicSlugDetail ? DETAIL_SELECT_BASE : DETAIL_SELECT_BASE_NO_TOPIC_SLUG
+      detailHasPublishedAt
+        ? useTopicSlugDetail
+          ? DETAIL_SELECT_BASE
+          : DETAIL_SELECT_BASE_NO_TOPIC_SLUG
+        : useTopicSlugDetail
+          ? DETAIL_SELECT_BASE_LEGACY
+          : DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY
     ));
     if (error && isMissingDbColumnError(error, "origin_kind")) {
       ({ data, error } = await fetchDetailRow(
-        useTopicSlugDetail ? DETAIL_SELECT_BASE_LEGACY : DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY
+        detailHasPublishedAt
+          ? useTopicSlugDetail
+            ? DETAIL_SELECT_BASE_NO_ORIGIN
+            : DETAIL_SELECT_BASE_NO_TOPIC_SLUG_NO_ORIGIN
+          : useTopicSlugDetail
+            ? DETAIL_SELECT_BASE_LEGACY
+            : DETAIL_SELECT_BASE_NO_TOPIC_SLUG_LEGACY
       ));
     }
   }
@@ -849,7 +971,14 @@ export async function getNeighborhoodPostDetail(
     view_count: Number(row.view_count ?? 0),
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
-    created_at: String(row.created_at ?? ""),
+    created_at: communityPostPublicPublishedAt({
+      published_at: row.published_at != null ? String(row.published_at) : null,
+      created_at: row.created_at != null ? String(row.created_at) : null,
+    }),
+    published_at: communityPostPublicPublishedAt({
+      published_at: row.published_at != null ? String(row.published_at) : null,
+      created_at: row.created_at != null ? String(row.created_at) : null,
+    }),
     author_name: author.display_name,
     author_avatar_url: author.avatar_url,
     author_id: uid,

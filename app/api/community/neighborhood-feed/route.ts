@@ -21,6 +21,10 @@ import {
 } from "@/lib/neighborhood/neighborhood-feed-short-ttl-server";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
+import {
+  decodeCommunityFeedCursor,
+  encodeCommunityFeedCursor,
+} from "@/lib/community/community-publication-time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,6 +97,8 @@ export async function GET(req: NextRequest) {
       posts: [],
       hasMore: false,
       nextOffset: null,
+      nextCursor: null,
+      nextCursorToken: null,
       dbPageLength: 0,
       pagingOffsetAdvance: 0,
     });
@@ -118,6 +124,8 @@ export async function GET(req: NextRequest) {
     if ((c === "recommend" || c === "recommended") && !sortRaw) return "recommended";
     return normalizeFeedSort(sortRaw || undefined);
   })();
+  const feedCursor =
+    feedSort === "latest" ? decodeCommunityFeedCursor(req.nextUrl.searchParams.get("cursor")) : null;
 
   const dedupeKey = neighborhoodFeedDedupeUrlKey(req.nextUrl.pathname, req.nextUrl.searchParams);
   const cacheKey = `${viewerUserId ?? "anon"}::${dedupeKey}`;
@@ -134,7 +142,7 @@ export async function GET(req: NextRequest) {
         category ?? "all",
         authorId ?? "all",
         neighborOnly ? "neighbor-only" : "all-users",
-        String(offset),
+        feedCursor ? `c:${encodeCommunityFeedCursor(feedCursor)}` : String(offset),
         String(limit),
         feedSort,
       ].join(":");
@@ -143,15 +151,16 @@ export async function GET(req: NextRequest) {
           ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
           category: category ?? undefined,
           authorUserId: authorId,
-          offset,
+          offset: feedCursor ? 0 : offset,
           limit,
+          cursor: feedCursor,
           viewerUserId,
           neighborOnly,
           feedSort,
           topics,
         })
       );
-      const { posts, hasMore, pagingOffsetAdvance, serverCommunityPerf } = listResult;
+      const { posts, hasMore, pagingOffsetAdvance, nextCursor, serverCommunityPerf } = listResult;
 
       const perf = serverCommunityPerf;
       const queryMs = perf
@@ -166,6 +175,10 @@ export async function GET(req: NextRequest) {
         posts,
         hasMore,
         nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
+        nextCursor: nextCursor
+          ? { publishedAt: nextCursor.publishedAt, id: nextCursor.id }
+          : null,
+        nextCursorToken: nextCursor ? encodeCommunityFeedCursor(nextCursor) : null,
         dbPageLength: pagingOffsetAdvance,
         pagingOffsetAdvance,
       };

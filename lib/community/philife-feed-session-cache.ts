@@ -30,6 +30,8 @@ export type PhilifeFeedCacheSnapshot = {
   posts: NeighborhoodFeedPostDTO[];
   hasMore: boolean;
   nextOffset: number;
+  /** latest keyset continue token */
+  nextCursorToken?: string | null;
 };
 
 type StoredShape = Record<string, PhilifeFeedCacheSnapshot>;

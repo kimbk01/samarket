@@ -174,6 +174,7 @@ export function resolveInitialCommunityFeedSnapshot(args?: {
     posts: snap.posts,
     hasMore: snap.hasMore,
     nextOffset: snap.nextOffset,
+    nextCursorToken: snap.nextCursorToken ?? null,
     pagingOffsetAdvance: snap.posts.length,
     topicOptionsSeed: args?.topicOptions ?? undefined,
   };

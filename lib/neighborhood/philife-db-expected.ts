@@ -32,6 +32,7 @@ export const PHILIFE_COMMUNITY_POSTS_READ_EXTRA = [
   "like_count",
   "comment_count",
   "created_at",
+  "published_at",
   "is_deleted",
   "is_hidden",
 ] as const;

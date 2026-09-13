@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   let q = sb
     .from("community_posts")
     .select(
-      "id, user_id, location_id, category, topic_id, topic_slug, title, status, is_reported, report_count, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data"
+      "id, user_id, location_id, category, topic_id, topic_slug, title, status, is_reported, report_count, like_count, comment_count, view_count, created_at, published_at, updated_at, region_label, is_sample_data"
     )
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -63,7 +63,29 @@ export async function GET(req: NextRequest) {
   if (createdFrom) q = q.gte("created_at", createdFrom);
   if (createdTo) q = q.lte("created_at", createdTo);
 
-  const { data, error } = await q;
+  let { data, error } = await q;
+  if (error && /published_at/i.test(String(error.message ?? ""))) {
+    let qLegacy = sb
+      .from("community_posts")
+      .select(
+        "id, user_id, location_id, category, topic_id, topic_slug, title, status, is_reported, report_count, like_count, comment_count, view_count, created_at, updated_at, region_label, is_sample_data"
+      )
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (postId) qLegacy = qLegacy.eq("id", postId);
+    if (topicFilter) qLegacy = qLegacy.eq("topic_slug", topicFilter);
+    if (locationId) qLegacy = qLegacy.eq("location_id", locationId);
+    if (userId) qLegacy = qLegacy.eq("user_id", userId);
+    if (reportedOnly) qLegacy = qLegacy.eq("is_reported", true);
+    if (status && ["active", "hidden", "deleted"].includes(status)) {
+      qLegacy = qLegacy.eq("status", status);
+    }
+    if (createdFrom) qLegacy = qLegacy.gte("created_at", createdFrom);
+    if (createdTo) qLegacy = qLegacy.lte("created_at", createdTo);
+    const legacy = await qLegacy;
+    data = legacy.data as typeof data;
+    error = legacy.error;
+  }
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }

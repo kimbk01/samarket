@@ -22,6 +22,7 @@ import { parsePostgresBool } from "./parse-postgres-bool";
 import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 import { formatCommunityPublicRegionLabel } from "@/lib/addresses/community-public-region-label";
+import { communityPostPublicPublishedAt } from "@/lib/community/community-publication-time";
 
 const COMMUNITY_ORIGIN_SELECT =
   "origin_kind, display_author_name, display_author_avatar_url";
@@ -233,12 +234,14 @@ export async function listCommunityFeedPosts(options: {
 
   const poolCap = sortRecommended ? Math.min(Math.max(limit * 5, limit), 200) : limit;
 
-  const runFeedSelect = (topicCols: string, withOrigin: boolean) => {
+  const runFeedSelect = (topicCols: string, withOrigin: boolean, withPublishedAt: boolean) => {
     const origin = withOrigin ? `, ${COMMUNITY_ORIGIN_SELECT}` : "";
+    const published = withPublishedAt ? ", published_at" : "";
+    const chronologyCol = withPublishedAt ? "published_at" : "created_at";
     let q = sb
       .from("community_posts")
       .select(
-        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id${origin}, community_topics ( ${topicCols} )`
+        `id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} )`
       )
       .eq("section_slug", sectionSlug)
       .eq("is_hidden", false);
@@ -250,27 +253,34 @@ export async function listCommunityFeedPosts(options: {
         .order("like_count", { ascending: false })
         .order("comment_count", { ascending: false })
         .order("view_count", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order(chronologyCol, { ascending: false });
     } else {
-      q = q.order("created_at", { ascending: false });
+      q = q.order(chronologyCol, { ascending: false });
     }
     return q.limit(poolCap);
   };
 
-  let fr1 = await runFeedSelect("name, slug, color, feed_list_skin", true);
+  let fr1 = await runFeedSelect("name, slug, color, feed_list_skin", true, true);
   let postsRaw: unknown = fr1.data;
   let error = fr1.error;
+  let withPublishedAt = true;
+  if (error && isMissingDbColumnError(error, "published_at")) {
+    withPublishedAt = false;
+    fr1 = await runFeedSelect("name, slug, color, feed_list_skin", true, false);
+    postsRaw = fr1.data;
+    error = fr1.error;
+  }
   if (error && isMissingDbColumnError(error, "origin_kind")) {
-    fr1 = await runFeedSelect("name, slug, color, feed_list_skin", false);
+    fr1 = await runFeedSelect("name, slug, color, feed_list_skin", false, withPublishedAt);
     postsRaw = fr1.data;
     error = fr1.error;
   }
   if (error && isMissingDbColumnError(error, "feed_list_skin")) {
-    const fr2 = await runFeedSelect("name, slug, color", true);
+    const fr2 = await runFeedSelect("name, slug, color", true, withPublishedAt);
     postsRaw = fr2.data;
     error = fr2.error;
     if (error && isMissingDbColumnError(error, "origin_kind")) {
-      const fr3 = await runFeedSelect("name, slug, color", false);
+      const fr3 = await runFeedSelect("name, slug, color", false, withPublishedAt);
       postsRaw = fr3.data;
       error = fr3.error;
     }
@@ -336,7 +346,10 @@ export async function listCommunityFeedPosts(options: {
       view_count: Number(r.view_count ?? 0),
       like_count: Number(r.like_count ?? 0),
       comment_count: Number(r.comment_count ?? 0),
-      created_at: String(r.created_at ?? ""),
+      created_at: communityPostPublicPublishedAt({
+        published_at: r.published_at != null ? String(r.published_at) : null,
+        created_at: r.created_at != null ? String(r.created_at) : null,
+      }),
       author_name: author.author_name,
       origin_kind: author.origin_kind ?? normalizeCommunityPostOriginKind(r.origin_kind),
       thumbnail_url: thumbByPost.get(String(r.id)) ?? null,
@@ -386,23 +399,36 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     return null;
   }
 
-  const selDetail = (topicCols: string, withOrigin: boolean) => {
+  const selDetail = (topicCols: string, withOrigin: boolean, withPublishedAt: boolean) => {
     const origin = withOrigin ? `, ${COMMUNITY_ORIGIN_SELECT}` : "";
-    return `id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id${origin}, community_topics ( ${topicCols} ), community_post_images ( id, image_url, sort_order )`;
+    const published = withPublishedAt ? ", published_at" : "";
+    return `id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at${published}, user_id${origin}, community_topics ( ${topicCols} ), community_post_images ( id, image_url, sort_order )`;
   };
 
+  let withPublishedAt = true;
   let d1 = await sb
     .from("community_posts")
-    .select(selDetail("name, name_en, slug, color, feed_list_skin", true))
+    .select(selDetail("name, name_en, slug, color, feed_list_skin", true, true))
     .eq("id", postId)
     .eq("is_hidden", false)
     .maybeSingle();
   let detailRaw: unknown = d1.data;
   let error = d1.error;
+  if (error && isMissingDbColumnError(error, "published_at")) {
+    withPublishedAt = false;
+    d1 = await sb
+      .from("community_posts")
+      .select(selDetail("name, name_en, slug, color, feed_list_skin", true, false))
+      .eq("id", postId)
+      .eq("is_hidden", false)
+      .maybeSingle();
+    detailRaw = d1.data;
+    error = d1.error;
+  }
   if (error && isMissingDbColumnError(error, "origin_kind")) {
     d1 = await sb
       .from("community_posts")
-      .select(selDetail("name, name_en, slug, color, feed_list_skin", false))
+      .select(selDetail("name, name_en, slug, color, feed_list_skin", false, withPublishedAt))
       .eq("id", postId)
       .eq("is_hidden", false)
       .maybeSingle();
@@ -412,7 +438,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   if (error && isMissingDbColumnError(error, "feed_list_skin")) {
     let d2 = await sb
       .from("community_posts")
-      .select(selDetail("name, name_en, slug, color", true))
+      .select(selDetail("name, name_en, slug, color", true, withPublishedAt))
       .eq("id", postId)
       .eq("is_hidden", false)
       .maybeSingle();
@@ -421,7 +447,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     if (error && isMissingDbColumnError(error, "origin_kind")) {
       d2 = await sb
         .from("community_posts")
-        .select(selDetail("name, name_en, slug, color", false))
+        .select(selDetail("name, name_en, slug, color", false, withPublishedAt))
         .eq("id", postId)
         .eq("is_hidden", false)
         .maybeSingle();
@@ -480,7 +506,10 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     view_count: Number(row.view_count ?? 0),
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
-    created_at: String(row.created_at ?? ""),
+    created_at: communityPostPublicPublishedAt({
+      published_at: row.published_at != null ? String(row.published_at) : null,
+      created_at: row.created_at != null ? String(row.created_at) : null,
+    }),
     author_id: author.author_id,
     author_name: author.author_name,
     author_avatar_url: author.author_avatar_url ?? null,

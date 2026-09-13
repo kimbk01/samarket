@@ -58,6 +58,7 @@ function prewarmPhilifeGlobalFeedVariant(
         posts?: Array<Record<string, unknown>>;
         hasMore?: boolean;
         nextOffset?: number | null;
+        nextCursorToken?: string | null;
         dbPageLength?: number;
       };
       if (!parsed.ok || !Array.isArray(parsed.posts) || parsed.posts.length === 0) return;
@@ -72,6 +73,10 @@ function prewarmPhilifeGlobalFeedVariant(
           posts: parsed.posts as NeighborhoodFeedPostDTO[],
           hasMore: !!parsed.hasMore,
           nextOffset,
+          nextCursorToken:
+            typeof parsed.nextCursorToken === "string" && parsed.nextCursorToken.trim()
+              ? parsed.nextCursorToken.trim()
+              : null,
         },
         sort
       );

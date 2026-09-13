@@ -23,7 +23,13 @@ export type NeighborhoodFeedPostDTO = {
   view_count: number;
   like_count: number;
   comment_count: number;
+  /**
+   * Public display clock (= published_at). Kept as `created_at` for card/timeago compat.
+   * DB audit `created_at` is not exposed on this public DTO.
+   */
   created_at: string;
+  /** Community-wide Public publication chronology (same as public display clock) */
+  published_at?: string;
   author_name: string;
   /** profiles.avatar_url — 상세·카드 아바타; imported → display_author_avatar_url */
   author_avatar_url?: string | null;

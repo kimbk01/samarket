@@ -330,6 +330,10 @@ export function CommunityFeed({
     canBootFromInitialGlobalFeed && typeof initialGlobalFeedRsc?.nextOffset === "number"
       ? initialGlobalFeedRsc.nextOffset
       : 0;
+  const bootNextCursorToken =
+    canBootFromInitialGlobalFeed && initialGlobalFeedRsc?.nextCursorToken
+      ? initialGlobalFeedRsc.nextCursorToken
+      : null;
   const [category, setCategory] = useState<string>(initialBootSelection.category);
   const [topicOptionsAuthority, setTopicOptionsAuthority] =
     useState(initialTopicOptions);
@@ -359,6 +363,8 @@ export function CommunityFeed({
   const [feedAdPool, setFeedAdPool] = useState<FeedAdCampaignView[] | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const nextOffsetRef = useRef(bootNextOffset);
+  /** latest continue — keyset token from last successful page */
+  const nextCursorTokenRef = useRef<string | null>(bootNextCursorToken);
   const loadMoreLockRef = useRef(false);
   const feedAbortRef = useRef<AbortController | null>(null);
   /** 지역·필터가 바뀌면 증가. 이전 요청 응답은 무시해 트래픽·경합 시 UI 꼬임 방지 */
@@ -665,12 +671,17 @@ export function CommunityFeed({
           setHasMore(false);
           return;
         }
+        const keysetCursor =
+          feedSort === "latest" && append && nextCursorTokenRef.current
+            ? nextCursorTokenRef.current
+            : null;
         const url = plan.globalFeed
           ? buildPhilifeNeighborhoodFeedClientUrl({
               globalFeed: true,
               category: category || undefined,
               neighborOnly,
-              offset: nextOffset,
+              offset: keysetCursor ? 0 : nextOffset,
+              cursor: keysetCursor,
               limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
               sort: feedSort,
             })
@@ -679,7 +690,8 @@ export function CommunityFeed({
               /** `plan.requiresRegion` 가드가 위에서 이미 통과했으므로 non-null */
               meta: locationMeta!,
               neighborOnly,
-              offset: nextOffset,
+              offset: keysetCursor ? 0 : nextOffset,
+              cursor: keysetCursor,
               limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
               sort: feedSort,
             });
@@ -706,6 +718,7 @@ export function CommunityFeed({
           hasMore?: boolean;
           error?: string;
           nextOffset?: number | null;
+          nextCursorToken?: string | null;
           dbPageLength?: number;
         };
         let jsonParseMs = 0;
@@ -769,6 +782,10 @@ export function CommunityFeed({
         const resolvedNextOffset =
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
         nextOffsetRef.current = resolvedNextOffset;
+        nextCursorTokenRef.current =
+          typeof j.nextCursorToken === "string" && j.nextCursorToken.trim()
+            ? j.nextCursorToken.trim()
+            : null;
 
         if (!append && session === feedSessionRef.current && patchedRows.length > 0 && feedSessionKey) {
           writePhilifeFeedCache(
@@ -780,6 +797,7 @@ export function CommunityFeed({
               posts: patchedRows,
               hasMore: !!j.hasMore,
               nextOffset: resolvedNextOffset,
+              nextCursorToken: nextCursorTokenRef.current,
             },
             feedSort
           );
@@ -901,6 +919,7 @@ export function CommunityFeed({
     feedSessionRef.current += 1;
     const session = feedSessionRef.current;
     nextOffsetRef.current = 0;
+    nextCursorTokenRef.current = null;
     loadMoreLockRef.current = false;
 
     /** RSC 시드: URL 과 선택한 주제·정렬이 일치할 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
@@ -926,6 +945,7 @@ export function CommunityFeed({
       setHasMore(s.hasMore);
       const resolvedNext = typeof s.nextOffset === "number" ? s.nextOffset : 0;
       nextOffsetRef.current = resolvedNext;
+      nextCursorTokenRef.current = s.nextCursorToken?.trim() || null;
       setErr("");
       if (merged.length) {
         writePhilifeFeedCache(
@@ -937,6 +957,7 @@ export function CommunityFeed({
             posts: merged,
             hasMore: s.hasMore,
             nextOffset: resolvedNext,
+            nextCursorToken: nextCursorTokenRef.current,
           },
           feedSort
         );
@@ -977,6 +998,10 @@ export function CommunityFeed({
       setHasMore(snapMeta.hasMore);
       nextOffsetRef.current =
         typeof snapMeta.nextOffset === "number" ? snapMeta.nextOffset : 0;
+      nextCursorTokenRef.current =
+        typeof snapMeta.nextCursorToken === "string" && snapMeta.nextCursorToken.trim()
+          ? snapMeta.nextCursorToken.trim()
+          : null;
       setErr("");
       setLoading(false);
     } else {
@@ -1235,6 +1260,7 @@ export function CommunityFeed({
             posts?: NeighborhoodFeedPostDTO[];
             hasMore?: boolean;
             nextOffset?: number | null;
+            nextCursorToken?: string | null;
             dbPageLength?: number;
           };
           if (!res.ok || !j.ok || !Array.isArray(j.posts) || j.posts.length === 0) return;
@@ -1249,6 +1275,10 @@ export function CommunityFeed({
               posts: dedupeNeighborhoodFeedById(j.posts),
               hasMore: !!j.hasMore,
               nextOffset: resolvedNextOffset,
+              nextCursorToken:
+                typeof j.nextCursorToken === "string" && j.nextCursorToken.trim()
+                  ? j.nextCursorToken.trim()
+                  : null,
             },
             targetSort
           );
@@ -1606,6 +1636,7 @@ export function CommunityFeed({
               posts?: NeighborhoodFeedPostDTO[];
               hasMore?: boolean;
               nextOffset?: number | null;
+              nextCursorToken?: string | null;
               dbPageLength?: number;
             };
             if (!res.ok || !j.ok || !Array.isArray(j.posts) || j.posts.length === 0) return;
@@ -1620,6 +1651,10 @@ export function CommunityFeed({
                 posts: dedupeNeighborhoodFeedById(j.posts),
                 hasMore: !!j.hasMore,
                 nextOffset: resolvedNextOffset,
+                nextCursorToken:
+                  typeof j.nextCursorToken === "string" && j.nextCursorToken.trim()
+                    ? j.nextCursorToken.trim()
+                    : null,
               },
               targetSort
             );

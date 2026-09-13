@@ -34,6 +34,11 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   authorUserId?: string;
   offset?: number;
   limit?: number;
+  /**
+   * latest keyset cursor token (`publishedAt` + unit separator + `id`).
+   * When set, server seeks after this row and ignores offset for latest.
+   */
+  cursor?: string | null;
   /** neighborhood-feed `sort` — local→latest, popular→popular */
   sort?: "latest" | "popular" | "recommended";
 }): string {
@@ -48,7 +53,13 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
     p.set("name", m?.name ?? (input.locationLabelFallback || input.regionLabel?.trim() || ""));
   }
   p.set("limit", String(input.limit ?? NEIGHBORHOOD_FEED_PAGE_SIZE));
-  p.set("offset", String(input.offset ?? 0));
+  const cursor = input.cursor?.trim() ?? "";
+  if (cursor) {
+    p.set("cursor", cursor);
+    p.set("offset", "0");
+  } else {
+    p.set("offset", String(input.offset ?? 0));
+  }
   if (input.category) p.set("category", input.category);
   if (input.sort) p.set("sort", input.sort);
   if (input.neighborOnly) p.set("neighborOnly", "1");

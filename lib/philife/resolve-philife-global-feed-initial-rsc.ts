@@ -18,6 +18,7 @@ import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { NEIGHBORHOOD_FEED_PAGE_SIZE } from "@/lib/philife/neighborhood-feed-client-url";
 import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
+import { encodeCommunityFeedCursor } from "@/lib/community/community-publication-time";
 
 export type PhilifeGlobalFeedInitialRsc = {
   /** `philifeFeedViewerSig` 와 일치할 때만 클라이언트가 시드 적용(로그인/비로그인) */
@@ -28,6 +29,8 @@ export type PhilifeGlobalFeedInitialRsc = {
   posts: NeighborhoodFeedPostDTO[];
   hasMore: boolean;
   nextOffset: number | null;
+  /** latest keyset — continue scroll */
+  nextCursorToken?: string | null;
   pagingOffsetAdvance: number;
   /**
    * 피드 목록과 동일 RSC 경로에서 주제 옵션을 채움 — 클라 마운트 전 2단 탭 공백 방지.
@@ -104,7 +107,7 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
     });
     return { listResult, topicOptionsSeed };
   });
-  const { posts, hasMore, pagingOffsetAdvance } = listResult;
+  const { posts, hasMore, pagingOffsetAdvance, nextCursor } = listResult;
   return {
     viewerKey,
     seededCategory: category,
@@ -112,6 +115,7 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
     posts,
     hasMore,
     nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
+    nextCursorToken: nextCursor ? encodeCommunityFeedCursor(nextCursor) : null,
     pagingOffsetAdvance,
     topicOptionsSeed,
   };
