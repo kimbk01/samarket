@@ -31,5 +31,9 @@ jobs:
         run: npm ci
 
       - name: Run checks (types, lint, test, contracts — no next build)
+        # ubuntu-latest default Node heap OOMs on full `npm run ci` → exit 134 (SIGABRT).
+        # Match local build memory budget; this is infra, not a product-contract gate.
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run ci
 
