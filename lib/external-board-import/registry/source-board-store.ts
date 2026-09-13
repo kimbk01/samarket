@@ -55,7 +55,7 @@ export async function getExternalBoardSource(
   return data ? mapSource(data as Record<string, unknown>) : null;
 }
 
-export type UpsertExternalBoardSourceInput = {
+export type CreateExternalBoardSourceInput = {
   sourceUrl: string;
   sourceBoardName?: string;
   siteName?: string;
@@ -76,9 +76,52 @@ export type UpsertExternalBoardSourceInput = {
   viewSeedMax?: number;
 };
 
-export async function upsertExternalBoardSource(
+/** @deprecated Use CreateExternalBoardSourceInput — create and edit are separate. */
+export type UpsertExternalBoardSourceInput = CreateExternalBoardSourceInput;
+
+export const SOURCE_BOARD_ALREADY_REGISTERED = "SOURCE_BOARD_ALREADY_REGISTERED" as const;
+
+export class ExternalBoardSourceDuplicateError extends Error {
+  readonly code = SOURCE_BOARD_ALREADY_REGISTERED;
+  readonly existingSource: ExternalBoardSourceRow;
+
+  constructor(existingSource: ExternalBoardSourceRow) {
+    super(SOURCE_BOARD_ALREADY_REGISTERED);
+    this.name = "ExternalBoardSourceDuplicateError";
+    this.existingSource = existingSource;
+  }
+}
+
+function isUniqueIdentityConflict(error: { code?: string; message?: string }): boolean {
+  const code = String(error.code ?? "");
+  const message = String(error.message ?? "");
+  if (code === "23505") return true;
+  return /duplicate|unique/i.test(message) && /site_key|board_key|external_board_sources_identity/i.test(message);
+}
+
+async function getExternalBoardSourceByIdentity(
   sb: SupabaseClient,
-  input: UpsertExternalBoardSourceInput
+  siteKey: string,
+  boardKey: string
+): Promise<ExternalBoardSourceRow | null> {
+  const { data, error } = await sb
+    .from("external_board_sources")
+    .select("*")
+    .eq("site_key", siteKey)
+    .eq("board_key", boardKey)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapSource(data as Record<string, unknown>) : null;
+}
+
+/**
+ * Registration CREATE — insert-only.
+ * Existing (site_key, board_key) must NOT be mutated; throws ExternalBoardSourceDuplicateError.
+ * Legitimate edits use patchExternalBoardSource only.
+ */
+export async function createExternalBoardSource(
+  sb: SupabaseClient,
+  input: CreateExternalBoardSourceInput
 ): Promise<ExternalBoardSourceRow> {
   const identity = deriveSourceBoardIdentity(input.sourceUrl);
   if (!identity) throw new Error("invalid_source_url");
@@ -108,14 +151,12 @@ export async function upsertExternalBoardSource(
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await sb
-    .from("external_board_sources")
-    .upsert(payload, { onConflict: "site_key,board_key" })
-    .select("*")
-    .single();
+  const { data, error } = await sb.from("external_board_sources").insert(payload).select("*").single();
   if (error) {
-    if (/duplicate|unique/i.test(error.message)) {
-      throw new Error("source_board_duplicate");
+    if (isUniqueIdentityConflict(error)) {
+      const existing = await getExternalBoardSourceByIdentity(sb, identity.siteKey, identity.boardKey);
+      if (existing) throw new ExternalBoardSourceDuplicateError(existing);
+      throw new Error("source_board_duplicate_lookup_miss");
     }
     throw new Error(error.message);
   }
@@ -142,7 +183,7 @@ export async function updateExternalBoardSourceCheck(
 export async function patchExternalBoardSource(
   sb: SupabaseClient,
   id: string,
-  patch: Partial<UpsertExternalBoardSourceInput>
+  patch: Partial<CreateExternalBoardSourceInput>
 ): Promise<ExternalBoardSourceRow> {
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.mode) updates.mode = patch.mode === "AUTO" ? "AUTO" : "MANUAL";

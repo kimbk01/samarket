@@ -205,6 +205,12 @@ export function AdminExternalBoardImportPage() {
                     }),
                   });
                   const j = await res.json();
+                  if (res.status === 409 || j.code === "SOURCE_BOARD_ALREADY_REGISTERED") {
+                    const existingId = j.existingSourceId || j.source?.id;
+                    if (existingId) setSelectedSourceId(String(existingId));
+                    await load();
+                    throw new Error(j.error || "이미 등록된 외부 게시판입니다.");
+                  }
                   if (!j.ok) throw new Error(j.error || "register_failed");
                   setSelectedSourceId(j.source.id);
                   await load();

@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+  SOURCE_BOARD_ALREADY_REGISTERED,
+  createExternalBoardSource,
+  ExternalBoardSourceDuplicateError,
   listExternalBoardSources,
-  upsertExternalBoardSource,
 } from "@/lib/external-board-import/registry/source-board-store";
 import type { ExternalBoardMode } from "@/lib/external-board-import/product-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const DUPLICATE_OPERATOR_MESSAGE = "이미 등록된 외부 게시판입니다.";
 
 export async function GET() {
   const admin = await requireAdminApiUser();
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "sourceUrl_required" }, { status: 400 });
     }
     const sb = getSupabaseServer();
-    const source = await upsertExternalBoardSource(sb, {
+    const source = await createExternalBoardSource(sb, {
       sourceUrl,
       sourceBoardName: body.sourceBoardName != null ? String(body.sourceBoardName) : undefined,
       siteName: body.siteName != null ? String(body.siteName) : undefined,
@@ -52,8 +56,20 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, source });
   } catch (e) {
+    if (e instanceof ExternalBoardSourceDuplicateError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: SOURCE_BOARD_ALREADY_REGISTERED,
+          error: DUPLICATE_OPERATOR_MESSAGE,
+          existingSourceId: e.existingSource.id,
+          source: e.existingSource,
+        },
+        { status: 409 }
+      );
+    }
     const msg = String((e as Error).message);
-    const status = msg === "source_board_duplicate" || msg === "invalid_source_url" ? 400 : 500;
+    const status = msg === "invalid_source_url" ? 400 : 500;
     return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }
