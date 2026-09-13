@@ -27,7 +27,10 @@ function loadEnvLocal() {
 }
 
 describe("DIBAY COMMUNITY CRAWLER — SCHEDULER 11TH ARTICLE AUTO TEST", () => {
-  it("detects 11th article via SCHEDULED run, rehosts media, and auto-publishes without admin click", async () => {
+  // Live Production crawl proof — not a CI unit suite (requires secrets + real boards).
+  const runLive = process.env.COMMUNITY_CRAWL_LIVE_PROOF === "1";
+
+  it.runIf(runLive)("detects 11th article via SCHEDULED run, rehosts media, and auto-publishes without admin click", async () => {
     loadEnvLocal();
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

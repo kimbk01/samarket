@@ -36,12 +36,13 @@ describe("community final dead cleanup contracts", () => {
   });
 
   it("no app route imports deleted community-board package", () => {
-    const boardPkg = ["@", "/components/community-board"].join("");
-    const libPkg = ["@", "/lib/community-board"].join("");
+    // Match deleted package only — NOT `@/lib/community-board-import` (deferred COMPLETE REMOVE).
+    const deletedLib = /@\/lib\/community-board(?![-/a-zA-Z0-9_])/;
+    const deletedComponents = /@\/components\/community-board(?![-/a-zA-Z0-9_])/;
     for (const file of walkTs(join(root, "app"))) {
       const src = readFileSync(file, "utf8");
-      expect(src, file).not.toContain(boardPkg);
-      expect(src, file).not.toContain(libPkg);
+      expect(src, file).not.toMatch(deletedLib);
+      expect(src, file).not.toMatch(deletedComponents);
     }
   });
 

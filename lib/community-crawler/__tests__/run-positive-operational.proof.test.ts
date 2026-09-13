@@ -27,7 +27,10 @@ function loadEnvLocal() {
 }
 
 describe("DIBAY COMMUNITY CRAWLER — OPERATIONAL 10-POST PROOF", () => {
-  it("crawls 10 real positive articles, rehosts media, and auto-publishes to community", async () => {
+  // Live Production crawl proof — not a CI unit suite (requires secrets + real boards).
+  const runLive = process.env.COMMUNITY_CRAWL_LIVE_PROOF === "1";
+
+  it.runIf(runLive)("crawls 10 real positive articles, rehosts media, and auto-publishes to community", async () => {
     loadEnvLocal();
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;

@@ -47,33 +47,37 @@ describe("community crawl SSOT (STEP2)", () => {
     expect(manualRoute).not.toMatch(/ok:\s*true/);
   });
 
-  it("Admin menu leaf points to external-sources under community content", () => {
+  it("Admin menu leaf points to NEW external-board under community content", () => {
     const menu = readFileSync(join(process.cwd(), "components/admin/admin-menu.ts"), "utf8");
     expect(menu).toContain('key: "community-external-sources"');
-    expect(menu).toContain('path: "/admin/community/external-sources"');
+    // Familiar IA key kept; route authority is NEW clean-room external-board page.
+    expect(menu).toContain('path: "/admin/community/external-board"');
     expect(menu).toContain('"community-external-sources": "admin_menu_community_external_sources"');
   });
 
-  it("Admin UI primary authority is REAL crawl; TEST is preview-only; old STEP3 publish copy unreachable", () => {
+  it("external-sources Admin route wires NEW clean-room UI (not old crawler page as authority)", () => {
+    const route = readFileSync(
+      join(process.cwd(), "app/admin/community/external-sources/page.tsx"),
+      "utf8"
+    );
+    const boardRoute = readFileSync(
+      join(process.cwd(), "app/admin/community/external-board/page.tsx"),
+      "utf8"
+    );
+    expect(route).toContain("AdminExternalBoardImportPage");
+    expect(boardRoute).toContain("AdminExternalBoardImportPage");
+    expect(route).not.toContain("AdminCommunityExternalSourcesPage");
+    expect(boardRoute).not.toContain("AdminCommunityExternalSourcesPage");
+  });
+
+  it("legacy AdminCommunityExternalSourcesPage file remains but is not route authority", () => {
     const ui = readFileSync(
       join(process.cwd(), "components/admin/community/AdminCommunityExternalSourcesPage.tsx"),
       "utf8"
     );
+    // Historical crawler UI still in tree until Owner COMPLETE REMOVE; must not be active route.
     expect(ui).toContain("runRealCrawl");
     expect(ui).toContain("runTestCrawl");
-    expect(ui).toContain("admin_community_crawl_run_now");
-    expect(ui).toContain("admin_community_crawl_test");
-    expect(ui).toContain("admin_community_crawl_test_preview_only_hint");
-    expect(ui).toContain("admin_community_crawl_preview_no_register");
-    expect(ui).not.toContain("admin_community_crawl_write_dibay_post");
-    expect(ui).not.toContain("runPrepareCrawl");
-    expect(ui).not.toContain("submitImportPublish");
-    expect(ui).not.toContain("admin_community_crawl_prepare");
-    expect(ui).not.toContain("admin_community_crawl_manual");
-    expect(ui).not.toContain("mock crawl");
-    expect(ui).not.toContain("fake success");
-    expect(ui).not.toContain("COMMUNITY_CRAWL_SCHEDULER_FROZEN");
-    expect(ui).toContain("admin_community_crawl_auto_collect");
   });
 
   it("prepare route is retired 410; cron dispatcher runs due boards", () => {

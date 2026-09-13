@@ -46,16 +46,29 @@ function loadEnvLocal() {
 
 loadEnvLocal();
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
 const BUCKET = "post-images";
 const STORAGE_PREFIX = "dibay-travel-source";
-const PUBLIC_BASE_URL = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${STORAGE_PREFIX}`;
+
+function getSupabaseUrl(): string {
+  return String(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+}
+
+function getServiceKey(): string {
+  return String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+}
+
+function getPublicBaseUrl(): string {
+  return `${getSupabaseUrl()}/storage/v1/object/public/${BUCKET}/${STORAGE_PREFIX}`;
+}
+
+function getSb() {
+  const url = getSupabaseUrl();
+  const key = getServiceKey();
+  if (!url || !key) throw new Error("supabase_env_required");
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 const ARTICLES_DATA = [
   {
@@ -195,13 +208,14 @@ async function fetchRealPhoto(id: number) {
 }
 
 async function uploadToStorage(path: string, body: Buffer, contentType: string) {
+  const sb = getSb();
   const { error } = await sb.storage.from(BUCKET).upload(path, body, {
     contentType,
     upsert: true,
     cacheControl: "0",
   });
   if (error) throw new Error(`Storage upload error (${path}): ${error.message}`);
-  return `${PUBLIC_BASE_URL}/${path.replace(`${STORAGE_PREFIX}/`, "")}`;
+  return `${getPublicBaseUrl()}/${path.replace(`${STORAGE_PREFIX}/`, "")}`;
 }
 
 function generateArticleHtml(art: (typeof ARTICLES_DATA)[0], coverUrl: string, bodyUrl: string) {
@@ -232,10 +246,11 @@ function generateArticleHtml(art: (typeof ARTICLES_DATA)[0], coverUrl: string, b
 }
 
 function generateListHtml(articles: typeof ARTICLES_DATA) {
+  const publicBase = getPublicBaseUrl();
   const items = articles
     .map(
       (a) =>
-        `      <li class="article-item"><a class="detail-link" href="${PUBLIC_BASE_URL}/article-${a.id}.html">${a.title}</a></li>`
+        `      <li class="article-item"><a class="detail-link" href="${publicBase}/article-${a.id}.html">${a.title}</a></li>`
     )
     .join("\n");
   return `<!doctype html>
@@ -255,10 +270,15 @@ ${items}
 </html>`;
 }
 
-describe("DIBAY BOARD IMPORT 10-ARTICLE & 11TH SCHEDULER PROOF", () => {
+const runLiveProof = process.env.COMMUNITY_CRAWL_LIVE_PROOF === "1";
+
+describe.runIf(runLiveProof)("DIBAY BOARD IMPORT 10-ARTICLE & 11TH SCHEDULER PROOF", () => {
   it(
     "executes complete 10-article manual workflow, verifies pure read preview, pixel proof, recrawl deduplication, and 11th article scheduler proof",
     async () => {
+      const sb = getSb();
+      const PUBLIC_BASE_URL = getPublicBaseUrl();
+      const SUPABASE_URL = getSupabaseUrl();
       // 1. Author Pool Setup
       const poolName = "DIBAY 여행 공식 에디터팀 (E2E Proof)";
       const { data: existingPools } = await sb
