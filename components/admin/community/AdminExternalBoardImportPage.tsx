@@ -18,6 +18,13 @@ type Source = {
   mode: string;
   target_topic_slug: string | null;
   author_pool_id: string | null;
+  last_checked_at?: string | null;
+  last_fetched_at?: string | null;
+  collected_count?: number;
+  unpublished_count?: number;
+  published_count?: number;
+  failed_count?: number;
+  last_error?: string | null;
 };
 
 type Article = {
@@ -25,11 +32,16 @@ type Article = {
   source_id: string;
   source_title: string;
   canonical_source_url: string;
+  source_author?: string | null;
+  source_published_at?: string | null;
+  source_page?: number | null;
+  source_sequence?: number | null;
   ops_status: string;
   article_signal: string | null;
   published_post_id: string | null;
   failure_code: string | null;
   failure_message: string | null;
+  has_image?: boolean;
   source_document?: { nodes?: unknown[] };
 };
 
@@ -69,6 +81,12 @@ export function AdminExternalBoardImportPage() {
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
   const [replaceFrom, setReplaceFrom] = useState("");
   const [replaceTo, setReplaceTo] = useState("");
+  const [collectLimit, setCollectLimit] = useState("10");
+  const [collectPageFrom, setCollectPageFrom] = useState("1");
+  const [collectPageTo, setCollectPageTo] = useState("1");
+  const [collectDateFrom, setCollectDateFrom] = useState("");
+  const [collectDateTo, setCollectDateTo] = useState("");
+  const [collectSummary, setCollectSummary] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,6 +250,14 @@ export function AdminExternalBoardImportPage() {
                       check={s.check_status ?? "—"} · rights={s.rights_status} · mode={s.mode} · topic=
                       {s.target_topic_slug ?? "—"}
                     </div>
+                    <div className="sam-text-caption mt-1">
+                      수집 {s.collected_count ?? 0} · 미게시 {s.unpublished_count ?? 0} · 게시{" "}
+                      {s.published_count ?? 0} · 실패 {s.failed_count ?? 0}
+                    </div>
+                    <div className="sam-text-caption text-sam-muted">
+                      last check={s.last_checked_at ?? "—"} · last collect={s.last_fetched_at ?? "—"}
+                      {s.last_error ? ` · error=${s.last_error}` : ""}
+                    </div>
                   </div>
                   <button type="button" className={btnGhost} onClick={() => setSelectedSourceId(s.id)}>
                     선택
@@ -264,19 +290,54 @@ export function AdminExternalBoardImportPage() {
                         const res = await fetch(`/api/admin/community/external-board/boards/${s.id}/discover`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ limit: 5 }),
+                          body: JSON.stringify({
+                            limit: Number(collectLimit) || 10,
+                            pageFrom: Number(collectPageFrom) || 1,
+                            pageTo: Number(collectPageTo) || 1,
+                            dateFrom: collectDateFrom || null,
+                            dateTo: collectDateTo || null,
+                          }),
                         });
                         const j = await res.json();
                         if (!j.ok) throw new Error(j.error || j.failureCode || "discover_failed");
+                        if (j.summary) {
+                          setCollectSummary(
+                            `pages ${j.summary.requestedPages} · discovered ${j.summary.discovered} · NEW ${j.summary.newCount} · UNCHANGED ${j.summary.unchanged} · SOURCE_UPDATED ${j.summary.sourceUpdated} · FAILED ${j.summary.failed}`
+                          );
+                        }
                         setSurface("articles");
                         setSelectedSourceId(s.id);
                         await load();
                       })
                     }
                   >
-                    글 수집
+                    게시물 불러오기
                   </button>
                 </div>
+                {selectedSourceId === s.id ? (
+                  <div className="mt-2 grid gap-2 border-t border-sam-border pt-3 sm:grid-cols-2">
+                    <label className="block text-sm">
+                      최근 N건
+                      <input className={field} value={collectLimit} onChange={(e) => setCollectLimit(e.target.value)} />
+                    </label>
+                    <label className="block text-sm">
+                      페이지 From~To
+                      <div className="mt-1 flex gap-2">
+                        <input className={field} value={collectPageFrom} onChange={(e) => setCollectPageFrom(e.target.value)} />
+                        <input className={field} value={collectPageTo} onChange={(e) => setCollectPageTo(e.target.value)} />
+                      </div>
+                    </label>
+                    <label className="block text-sm">
+                      작성일 FROM (ISO optional)
+                      <input className={field} value={collectDateFrom} onChange={(e) => setCollectDateFrom(e.target.value)} placeholder="2026-01-01" />
+                    </label>
+                    <label className="block text-sm">
+                      작성일 TO (ISO optional)
+                      <input className={field} value={collectDateTo} onChange={(e) => setCollectDateTo(e.target.value)} placeholder="2026-12-31" />
+                    </label>
+                    {collectSummary ? <p className="sam-text-caption text-sam-muted sm:col-span-2">{collectSummary}</p> : null}
+                  </div>
+                ) : null}
                 {selectedSourceId === s.id ? (
                   <div className="mt-2 space-y-2 border-t border-sam-border pt-3">
                     <div className="sam-text-caption text-sam-muted">Replacement rules (exact string)</div>
@@ -347,6 +408,11 @@ export function AdminExternalBoardImportPage() {
                 <li key={a.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2">
                   <div className="font-medium">{a.source_title || "(no title)"}</div>
                   <div className="sam-text-caption text-sam-muted break-all">{a.canonical_source_url}</div>
+                  <div className="sam-text-caption">
+                    원문 작성자={a.source_author ?? "—"} · 원문 날짜={a.source_published_at ?? "—"} · 페이지=
+                    {a.source_page ?? "—"} · seq={a.source_sequence ?? "—"} · 이미지=
+                    {a.has_image ? "Y" : "N"}
+                  </div>
                   <div className="sam-text-caption">
                     ops={a.ops_status} · signal={a.article_signal ?? "—"} · nodes=
                     {Array.isArray(a.source_document?.nodes) ? a.source_document!.nodes!.length : 0} · post=
@@ -443,6 +509,16 @@ export function AdminExternalBoardImportPage() {
                     >
                       MANUAL Publish
                     </button>
+                    {a.published_post_id ? (
+                      <a
+                        className={btnGhost}
+                        href={`/philife/${a.published_post_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        DIBAY 글 보기
+                      </a>
+                    ) : null}
                   </div>
                 </li>
               ))}

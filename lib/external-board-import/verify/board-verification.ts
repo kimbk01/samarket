@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveExternalBoardAdapter } from "@/lib/external-board-import/adapters/registry";
-import { assertExternalBoardRightsDeclared } from "@/lib/external-board-import/rights/rights-gate";
 import { updateExternalBoardSourceCheck } from "@/lib/external-board-import/registry/source-board-store";
 import type { ExternalBoardSourceRow } from "@/lib/external-board-import/types";
 import type { ExternalBoardCheckStatus } from "@/lib/external-board-import/product-lock";
@@ -18,28 +17,12 @@ export type BoardVerificationResult = {
 
 /**
  * READY requires real sample documents, not mere link discovery.
+ * Technical VERIFY is not blocked on rights — public publish remains rights-gated.
  */
 export async function verifyExternalBoard(
   sb: SupabaseClient,
   source: ExternalBoardSourceRow
 ): Promise<BoardVerificationResult> {
-  const rights = assertExternalBoardRightsDeclared({
-    rightsStatus: source.rights_status,
-    rightsBasis: source.rights_basis,
-  });
-  if (!rights.ok) {
-    const result: BoardVerificationResult = {
-      status: "UNSUPPORTED",
-      reasons: [rights.failureCode, rights.failureMessage],
-      samples: [],
-    };
-    await updateExternalBoardSourceCheck(sb, source.id, {
-      status: result.status,
-      reasons: result.reasons,
-    });
-    return result;
-  }
-
   const { ctx, adapter } = resolveExternalBoardAdapter(source.source_url);
   if (!adapter) {
     const result: BoardVerificationResult = {

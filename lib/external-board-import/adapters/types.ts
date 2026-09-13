@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { ExternalBoardDiscoverOpts } from "@/lib/external-board-import/extraction/discover-opts";
 import type {
   ExternalBoardDiscoverItem,
   ExternalBoardDocument,
@@ -23,7 +24,7 @@ export type ExternalBoardAdapter = {
   verifyBoard: (ctx: ExternalBoardAdapterContext) => Promise<ExternalBoardAdapterVerifyResult>;
   discoverArticles: (
     ctx: ExternalBoardAdapterContext,
-    opts?: { limit?: number }
+    opts?: ExternalBoardDiscoverOpts
   ) => Promise<ExternalBoardDiscoverItem[]>;
   fetchArticleDocument: (
     ctx: ExternalBoardAdapterContext,

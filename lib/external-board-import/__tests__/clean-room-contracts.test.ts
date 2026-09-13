@@ -72,6 +72,8 @@ function fakeArticle(partial: Partial<ExternalBoardArticleRow> = {}): ExternalBo
     source_document: { title: "t", canonicalUrl: "https://example.com/a/1", nodes: [] },
     source_author: null,
     source_published_at: null,
+    source_page: null,
+    source_sequence: null,
     chronology_case: null,
     operator_published_at: null,
     operator_batch_order: null,

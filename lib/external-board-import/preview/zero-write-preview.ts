@@ -4,7 +4,6 @@ import {
   computePreviewWriteDelta,
 } from "@/lib/external-board-import/preview/measure-write-delta";
 import { buildExternalBoardTransform } from "@/lib/external-board-import/publish/build-transform";
-import { assertExternalBoardRightsDeclared } from "@/lib/external-board-import/rights/rights-gate";
 import type {
   ExternalBoardArticleRow,
   ExternalBoardPreviewResult,
@@ -15,6 +14,7 @@ import type {
  * Preview uses the same transform authority as publish.
  * Measures forbidden write tables immediately before → after Preview.
  * Guarantees DB write delta = 0 (no Community insert, no media ledger, no claim).
+ * Technical preview is not rights-gated — publish remains rights-gated.
  */
 export async function previewExternalBoardArticle(
   sb: SupabaseClient,
@@ -22,23 +22,6 @@ export async function previewExternalBoardArticle(
   article: ExternalBoardArticleRow
 ): Promise<ExternalBoardPreviewResult & { writeViolations?: string[] }> {
   const before = await capturePreviewWriteSnapshot(sb, article.id);
-
-  const rights = assertExternalBoardRightsDeclared({
-    rightsStatus: source.rights_status,
-    rightsBasis: source.rights_basis,
-  });
-  if (!rights.ok) {
-    const after = await capturePreviewWriteSnapshot(sb, article.id);
-    const delta = computePreviewWriteDelta(before, after);
-    return {
-      ok: false,
-      writeDelta: 0,
-      failureStage: rights.failureStage,
-      failureCode: rights.failureCode,
-      failureMessage: rights.failureMessage,
-      writeViolations: delta.violations,
-    };
-  }
 
   const built = await buildExternalBoardTransform(sb, source, article);
   const after = await capturePreviewWriteSnapshot(sb, article.id);

@@ -54,5 +54,28 @@ export async function writeImportedCommunityPost(
       failureCode: "community_insert_failed",
     });
   }
-  return { postId: String((data as { id: string }).id) };
+  const postId = String((data as { id: string }).id);
+
+  // Feed thumbnail SSOT reads community_post_images (not only community_posts.images jsonb).
+  const imageUrls = Array.isArray(input.images)
+    ? input.images.filter((u) => typeof u === "string" && u.trim().length > 0)
+    : [];
+  if (imageUrls.length > 0) {
+    const rows = imageUrls.map((url, i) => ({
+      post_id: postId,
+      image_url: url.trim(),
+      storage_path: "",
+      sort_order: i,
+    }));
+    const { error: imgErr } = await sb.from("community_post_images").insert(rows);
+    if (imgErr) {
+      await sb.from("community_posts").delete().eq("id", postId);
+      throw Object.assign(new Error(imgErr.message), {
+        failureStage: "publish",
+        failureCode: "community_post_image_insert_failed",
+      });
+    }
+  }
+
+  return { postId };
 }

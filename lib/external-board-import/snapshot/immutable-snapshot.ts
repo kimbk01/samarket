@@ -3,30 +3,19 @@ import { resolveExternalBoardAdapter } from "@/lib/external-board-import/adapter
 import { fingerprintExternalBoardDocument } from "@/lib/external-board-import/identity/article-identity";
 import { validateExternalBoardDocument } from "@/lib/external-board-import/document/ordered-document";
 import { classifySourceUpdateSignal } from "@/lib/external-board-import/integrity/source-update";
-import { assertExternalBoardRightsDeclared } from "@/lib/external-board-import/rights/rights-gate";
 import type { ExternalBoardArticleRow, ExternalBoardDocument, ExternalBoardSourceRow } from "@/lib/external-board-import/types";
 import { getExternalBoardArticle } from "@/lib/external-board-import/discovery/article-discovery";
 
 /**
  * Fetch full article document and persist as an immutable snapshot version.
  * Never mutates prior snapshot bytes in place — bumps snapshot_version on change.
+ * Technical fetch is not a public-rights gate (publish remains gated).
  */
 export async function fetchAndPersistImmutableSnapshot(
   sb: SupabaseClient,
   source: ExternalBoardSourceRow,
   articleId: string
 ): Promise<ExternalBoardArticleRow> {
-  const rights = assertExternalBoardRightsDeclared({
-    rightsStatus: source.rights_status,
-    rightsBasis: source.rights_basis,
-  });
-  if (!rights.ok) {
-    throw Object.assign(new Error(rights.failureMessage), {
-      failureStage: rights.failureStage,
-      failureCode: rights.failureCode,
-    });
-  }
-
   const article = await getExternalBoardArticle(sb, articleId);
   if (!article || article.source_id !== source.id) {
     throw Object.assign(new Error("article_not_found"), {
@@ -43,13 +32,16 @@ export async function fetchAndPersistImmutableSnapshot(
     });
   }
 
-  const rawDoc = await adapter.fetchArticleDocument(ctx, {
+  const discoverItem = {
     stableArticleIdentity: article.stable_article_identity,
     identityKind: article.identity_kind,
     canonicalUrl: article.canonical_source_url,
     title: article.source_title,
     sampleDocument: article.source_document.nodes.length ? article.source_document : null,
-  });
+    sourceAuthor: article.source_author,
+    sourcePublishedAt: article.source_published_at,
+  };
+  const rawDoc = await adapter.fetchArticleDocument(ctx, discoverItem);
 
   const validated = validateExternalBoardDocument(rawDoc);
   if (!validated.ok) {
@@ -69,6 +61,8 @@ export async function fetchAndPersistImmutableSnapshot(
   const now = new Date().toISOString();
   const changed = fp !== article.content_fingerprint;
 
+  // Re-discover metadata via adapter discover of single URL when possible is host-specific;
+  // preserve existing author/date unless document title changes.
   const { error } = await sb
     .from("external_board_articles")
     .update({

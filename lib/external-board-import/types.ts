@@ -65,6 +65,10 @@ export type ExternalBoardArticleRow = {
   source_document: ExternalBoardDocument;
   source_author: string | null;
   source_published_at: string | null;
+  /** 1-based discovery page when known. */
+  source_page: number | null;
+  /** 0-based batch sequence when known. */
+  source_sequence: number | null;
   chronology_case: "A" | "B" | "C" | null;
   operator_published_at: string | null;
   operator_batch_order: number | null;
@@ -89,6 +93,16 @@ export type ExternalBoardDiscoverItem = {
   canonicalUrl: string;
   title: string;
   sampleDocument?: ExternalBoardDocument | null;
+  /** Original source author when extractable — not DIBAY public author. */
+  sourceAuthor?: string | null;
+  /** Parsed source published time as ISO when unambiguous; else null. */
+  sourcePublishedAt?: string | null;
+  /** 1-based list page where this item was discovered. */
+  sourcePage?: number | null;
+  /** 0-based order within the discovery batch (0 = first/newest collected). */
+  sourceSequence?: number | null;
+  /** Exact list/API URL fetched for this item's source page (page-range proof). */
+  visitedListUrl?: string | null;
 };
 
 export type ExternalBoardTransformResult = {

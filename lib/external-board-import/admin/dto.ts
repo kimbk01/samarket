@@ -27,6 +27,11 @@ export type ExternalBoardSourceAdminDto = {
   author_pool_id: string | null;
   last_checked_at: string | null;
   last_fetched_at: string | null;
+  collected_count: number;
+  unpublished_count: number;
+  published_count: number;
+  failed_count: number;
+  last_error: string | null;
 };
 
 export type ExternalBoardArticleAdminDto = {
@@ -35,6 +40,10 @@ export type ExternalBoardArticleAdminDto = {
   source_title: string;
   canonical_source_url: string;
   stable_article_identity: string;
+  source_author: string | null;
+  source_published_at: string | null;
+  source_page: number | null;
+  source_sequence: number | null;
   ops_status: string;
   article_signal: string | null;
   published_post_id: string | null;
@@ -45,10 +54,20 @@ export type ExternalBoardArticleAdminDto = {
   failure_code: string | null;
   failure_message: string | null;
   snapshot_version: number;
+  has_image: boolean;
   source_document: ExternalBoardArticleRow["source_document"];
 };
 
-export function toExternalBoardSourceAdminDto(row: ExternalBoardSourceRow): ExternalBoardSourceAdminDto {
+export function toExternalBoardSourceAdminDto(
+  row: ExternalBoardSourceRow,
+  metrics?: {
+    collected_count: number;
+    unpublished_count: number;
+    published_count: number;
+    failed_count: number;
+    last_error: string | null;
+  }
+): ExternalBoardSourceAdminDto {
   return {
     id: row.id,
     site_name: row.site_name,
@@ -69,16 +88,26 @@ export function toExternalBoardSourceAdminDto(row: ExternalBoardSourceRow): Exte
     author_pool_id: row.author_pool_id,
     last_checked_at: row.last_checked_at,
     last_fetched_at: row.last_fetched_at,
+    collected_count: metrics?.collected_count ?? 0,
+    unpublished_count: metrics?.unpublished_count ?? 0,
+    published_count: metrics?.published_count ?? 0,
+    failed_count: metrics?.failed_count ?? 0,
+    last_error: metrics?.last_error ?? null,
   };
 }
 
 export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): ExternalBoardArticleAdminDto {
+  const has_image = row.source_document.nodes.some((n) => n.type === "image");
   return {
     id: row.id,
     source_id: row.source_id,
     source_title: row.source_title,
     canonical_source_url: row.canonical_source_url,
     stable_article_identity: row.stable_article_identity,
+    source_author: row.source_author,
+    source_published_at: row.source_published_at,
+    source_page: row.source_page ?? null,
+    source_sequence: row.source_sequence ?? null,
     ops_status: row.ops_status,
     article_signal: row.article_signal,
     published_post_id: row.published_post_id,
@@ -89,6 +118,46 @@ export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): Ex
     failure_code: row.failure_code,
     failure_message: row.failure_message,
     snapshot_version: row.snapshot_version,
+    has_image,
     source_document: row.source_document,
   };
+}
+
+export function computeSourceArticleMetrics(articles: ExternalBoardArticleRow[]): Map<
+  string,
+  {
+    collected_count: number;
+    unpublished_count: number;
+    published_count: number;
+    failed_count: number;
+    last_error: string | null;
+  }
+> {
+  const map = new Map<
+    string,
+    {
+      collected_count: number;
+      unpublished_count: number;
+      published_count: number;
+      failed_count: number;
+      last_error: string | null;
+    }
+  >();
+  for (const a of articles) {
+    const cur = map.get(a.source_id) ?? {
+      collected_count: 0,
+      unpublished_count: 0,
+      published_count: 0,
+      failed_count: 0,
+      last_error: null,
+    };
+    cur.collected_count += 1;
+    if (a.ops_status === "published" || a.published_post_id) cur.published_count += 1;
+    else if (a.ops_status === "failed") {
+      cur.failed_count += 1;
+      if (!cur.last_error && a.failure_message) cur.last_error = a.failure_message;
+    } else cur.unpublished_count += 1;
+    map.set(a.source_id, cur);
+  }
+  return map;
 }

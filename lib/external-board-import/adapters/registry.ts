@@ -1,3 +1,7 @@
+import { helloCebuExternalBoardAdapter } from "@/lib/external-board-import/adapters/hello-cebu";
+import { manilaSeoulExternalBoardAdapter } from "@/lib/external-board-import/adapters/manilaseoul";
+import { philsamoExternalBoardAdapter } from "@/lib/external-board-import/adapters/philsamo";
+import { pinoyForumExternalBoardAdapter } from "@/lib/external-board-import/adapters/pinoy-forum";
 import {
   FIXTURE_ADAPTER_HOST,
   fixtureExternalBoardAdapter,
@@ -6,7 +10,17 @@ import {
 } from "@/lib/external-board-import/adapters/types";
 import { deriveSourceBoardIdentity } from "@/lib/external-board-import/identity/source-board-identity";
 
-const ADAPTERS: ExternalBoardAdapter[] = [fixtureExternalBoardAdapter];
+/**
+ * Real adapters first; fixture last for local-only host.
+ * Fixture PASS is never Production acceptance.
+ */
+const ADAPTERS: ExternalBoardAdapter[] = [
+  manilaSeoulExternalBoardAdapter,
+  pinoyForumExternalBoardAdapter,
+  philsamoExternalBoardAdapter,
+  helloCebuExternalBoardAdapter,
+  fixtureExternalBoardAdapter,
+];
 
 export function listExternalBoardAdapters(): readonly ExternalBoardAdapter[] {
   return ADAPTERS;

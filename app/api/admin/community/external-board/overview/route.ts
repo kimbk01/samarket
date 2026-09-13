@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+  computeSourceArticleMetrics,
   toExternalBoardArticleAdminDto,
   toExternalBoardSourceAdminDto,
 } from "@/lib/external-board-import/admin/dto";
@@ -25,10 +26,11 @@ export async function GET() {
       listExternalBoardArticles(sb),
       listAuthorPools(sb),
     ]);
+    const metrics = computeSourceArticleMetrics(articles);
     return NextResponse.json({
       ok: true,
       product: EXTERNAL_BOARD_PRODUCT_NAME,
-      sources: sources.map(toExternalBoardSourceAdminDto),
+      sources: sources.map((s) => toExternalBoardSourceAdminDto(s, metrics.get(s.id))),
       articles: articles.map(toExternalBoardArticleAdminDto),
       pools,
       ownerE2eGate: EXTERNAL_BOARD_OWNER_E2E_GATE,

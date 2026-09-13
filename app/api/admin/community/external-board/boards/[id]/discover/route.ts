@@ -14,15 +14,28 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!admin.ok) return admin.response;
   const { id } = await ctx.params;
   try {
-    const body = (await req.json().catch(() => ({}))) as { limit?: number };
+    const body = (await req.json().catch(() => ({}))) as {
+      limit?: number;
+      pageFrom?: number;
+      pageTo?: number;
+      dateFrom?: string | null;
+      dateTo?: string | null;
+    };
     const sb = getSupabaseServer();
     const source = await getExternalBoardSource(sb, id);
     if (!source) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    const result = await discoverExternalBoardArticles(sb, source, { limit: body.limit ?? 5 });
+    const result = await discoverExternalBoardArticles(sb, source, {
+      limit: body.limit,
+      pageFrom: body.pageFrom,
+      pageTo: body.pageTo,
+      dateFrom: body.dateFrom,
+      dateTo: body.dateTo,
+    });
     return NextResponse.json({
       ok: true,
       items: result.items,
       articles: result.upserted,
+      summary: result.summary,
     });
   } catch (e) {
     const err = e as { failureStage?: string; failureCode?: string; message?: string };
