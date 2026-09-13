@@ -19,6 +19,11 @@ export type CommunityAuthorResolveInput = {
   profile_display_name?: string | null;
   /** Member/admin: avatar from profiles batch. Ignored for imported. */
   profile_avatar_url?: string | null;
+  /**
+   * Peer CTA capability authority: true when owner is import system principal
+   * (not a real member peer). Prefer this over origin_kind product branching.
+   */
+  is_import_principal?: boolean;
 };
 
 export type CommunityAuthorResolved = {
@@ -46,6 +51,11 @@ function trimOrEmpty(v: unknown): string {
 export function resolveCommunityAuthor(input: CommunityAuthorResolveInput): CommunityAuthorResolved {
   const origin_kind = normalizeCommunityPostOriginKind(input.origin_kind);
   const owner_user_id = trimOrEmpty(input.user_id);
+  // Peer CTA = real member target exists. Import principal is never a peer target.
+  // Prefer explicit principal capability; fall back to provenance only when flag omitted.
+  const noMemberPeerTarget =
+    input.is_import_principal === true ||
+    (input.is_import_principal !== false && isCommunityImportedOrigin(origin_kind));
 
   if (isCommunityImportedOrigin(origin_kind)) {
     const name = trimOrEmpty(input.display_author_name);
@@ -55,7 +65,7 @@ export function resolveCommunityAuthor(input: CommunityAuthorResolveInput): Comm
       display_name: name || COMMUNITY_IMPORTED_AUTHOR_FALLBACK,
       avatar_url: avatar || null,
       owner_user_id,
-      member_peer_user_id: null,
+      member_peer_user_id: noMemberPeerTarget ? null : owner_user_id || null,
     };
   }
 
@@ -66,7 +76,7 @@ export function resolveCommunityAuthor(input: CommunityAuthorResolveInput): Comm
     display_name: profileName,
     avatar_url: profileAvatar || null,
     owner_user_id,
-    member_peer_user_id: owner_user_id || null,
+    member_peer_user_id: noMemberPeerTarget ? null : owner_user_id || null,
   };
 }
 

@@ -26,10 +26,10 @@ import { fetchCommunityPostViewerState, fetchCommunityPostViewerStatesBatch } fr
 import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
 import { resolveCommunityAuthorForFeedRow } from "@/lib/community/resolve-community-author";
 import {
-  isCommunityImportedOrigin,
-  normalizeCommunityPostOriginKind,
-} from "@/lib/community/community-post-origin";
-import { loadCommunityImportSourceAttribution } from "@/lib/community-crawler/import-source-attribution";
+  isSameCommunityImportPrincipal,
+  loadCommunityImportPrincipalUserId,
+} from "@/lib/community/community-import-principal";
+import { loadPublicSourceAttributionFromPost } from "@/lib/external-board-import/attribution/public-attribution";
 import {
   communityFeedKeysetOrFilter,
   communityPostPublicPublishedAt,
@@ -523,10 +523,11 @@ export async function listNeighborhoodFeed(options: {
   );
 
   const tNick0 = performance.now();
-  const [nickMap, meetings, locationCityById] = await Promise.all([
+  const [nickMap, meetings, locationCityById, importPrincipalId] = await Promise.all([
     nickPromise,
     meetingsPromise,
     locationCityPromise,
+    loadCommunityImportPrincipalUserId(sb),
   ]);
   nickMeetMs = performance.now() - tNick0;
 
@@ -602,6 +603,7 @@ export async function listNeighborhoodFeed(options: {
         display_author_avatar_url: r.display_author_avatar_url,
         profile_display_name: nickMap.get(uid) ?? null,
         profile_avatar_url: null,
+        is_import_principal: isSameCommunityImportPrincipal(uid, importPrincipalId),
       },
       (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
     );
@@ -633,8 +635,10 @@ export async function listNeighborhoodFeed(options: {
         created_at: r.created_at != null ? String(r.created_at) : null,
       }),
       author_name: author.display_name,
+      author_avatar_url: author.avatar_url,
       author_id: uid,
       origin_kind: author.origin_kind,
+      member_peer_user_id: author.member_peer_user_id,
       meeting_id: meet?.id ?? null,
       community_messenger_room_id: meet?.community_messenger_room_id ?? null,
       meeting_date:
@@ -900,15 +904,16 @@ export async function getNeighborhoodPostDetail(
   // Feed/Detail identity is community_posts.id — align with like/comment eligibility.
 
   const uid = String(row.user_id ?? "");
-  const [blocked, profileMap, topics, meetLink, locationCityById, sourceAttribution] = await Promise.all([
+  const [blocked, profileMap, topics, meetLink, locationCityById, sourceAttribution, importPrincipalId] =
+    await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
     fetchMeetingLinkByPostId(sb, postId),
     loadLocationCitiesByIds(sb, [String(row.location_id ?? "")]),
-    isCommunityImportedOrigin(row.origin_kind)
-      ? loadCommunityImportSourceAttribution(sb, postId)
-      : Promise.resolve(null),
+    // Explicit attribution policy columns on community_posts — NOT origin_kind.
+    loadPublicSourceAttributionFromPost(sb, postId),
+    loadCommunityImportPrincipalUserId(sb),
   ]);
   if (v && blocked.has(uid)) return null;
 
@@ -948,6 +953,7 @@ export async function getNeighborhoodPostDetail(
       display_author_avatar_url: row.display_author_avatar_url,
       profile_display_name: authorProfile?.displayName ?? null,
       profile_avatar_url: authorProfile?.avatarUrl ?? null,
+      is_import_principal: isSameCommunityImportPrincipal(uid, importPrincipalId),
     },
     (ownerId) => (ownerId ? ownerId.slice(0, 8) : "익명")
   );
@@ -983,6 +989,7 @@ export async function getNeighborhoodPostDetail(
     author_avatar_url: author.avatar_url,
     author_id: uid,
     origin_kind: author.origin_kind,
+    member_peer_user_id: author.member_peer_user_id,
     source_attribution: sourceAttribution
       ? {
           sourceName: sourceAttribution.sourceName,

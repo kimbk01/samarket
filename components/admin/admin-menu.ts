@@ -706,7 +706,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "community-external-sources",
             title: "",
-            path: "/admin/community/external-sources",
+            path: "/admin/community/external-board",
             status: "done",
           },
         ],

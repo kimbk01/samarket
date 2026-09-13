@@ -1,6 +1,9 @@
-import { AdminCommunityBoardImportPage } from "@/components/admin/community/AdminCommunityBoardImportPage";
+import { AdminExternalBoardImportPage } from "@/components/admin/community/AdminExternalBoardImportPage";
 
-/** Clean-room 외부 게시판 가져오기 — rejected crawler Admin UX 대체. */
+/**
+ * Familiar Admin IA path. Authority remains NEW external-board-import namespace —
+ * not the rejected board-import / crawler product.
+ */
 export default function AdminCommunityExternalSourcesRoute() {
-  return <AdminCommunityBoardImportPage />;
+  return <AdminExternalBoardImportPage />;
 }

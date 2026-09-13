@@ -34,9 +34,17 @@ export type NeighborhoodFeedPostDTO = {
   /** profiles.avatar_url — 상세·카드 아바타; imported → display_author_avatar_url */
   author_avatar_url?: string | null;
   author_id: string;
-  /** member | admin | imported — CTA peer gate uses this */
+  /** member | admin | imported — internal provenance; Public must not branch product type on this */
   origin_kind?: import("@/lib/community/community-post-origin").CommunityPostOriginKind;
-  /** Imported only — from community_crawl_post_links (+ source name), not body footer. */
+  /**
+   * Real member peer target for follow/block CTAs.
+   * Null when no real member target (e.g. import principal). Authority = capability, not origin_kind UI branch.
+   */
+  member_peer_user_id?: string | null;
+  /**
+   * Optional Public attribution when rights/attribution policy requires.
+   * Visibility is policy metadata — not origin_kind === imported.
+   */
   source_attribution?: {
     sourceName: string;
     canonicalUrl: string | null;

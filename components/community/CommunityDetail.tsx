@@ -53,7 +53,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
-import { communityPostAllowsMemberPeerCta } from "@/lib/community/community-post-origin";
 
 const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
@@ -388,8 +387,8 @@ export function CommunityDetail({
         : undefined;
 
   const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
-  const allowsMemberPeerCta = communityPostAllowsMemberPeerCta(post.origin_kind);
-  const memberPeerUserId = allowsMemberPeerCta ? post.author_id : null;
+  // Peer CTA authority = actual member target capability, not origin_kind product branch.
+  const memberPeerUserId = post.member_peer_user_id?.trim() || null;
 
   const openReport = useCallback(() => {
     if (me?.id && me.id === post.author_id) return;

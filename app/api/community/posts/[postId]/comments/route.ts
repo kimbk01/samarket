@@ -33,9 +33,8 @@ import {
   evaluateCommunityContentAcceptance,
 } from "@/lib/community-points/content-acceptance";
 import { applyCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
-import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
+import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
 import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
-import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -192,17 +191,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         }
       }
     }
-    let { data: post, error: postErr } = await sb
+    const { data: post, error: postErr } = await sb
       .from("community_posts")
-      .select("id, user_id, is_deleted, status, is_hidden, origin_kind")
+      .select("id, user_id, is_deleted, status, is_hidden")
       .eq("id", id)
       .maybeSingle();
-    if (postErr && isMissingDbColumnError(postErr, "origin_kind")) {
-      ({ data: post, error: postErr } = await sb
-        .from("community_posts")
-        .select("id, user_id, is_deleted, status, is_hidden")
-        .eq("id", id)
-        .maybeSingle());
+    if (postErr) {
+      return jsonError(safeErrorMessage(postErr, "글을 찾을 수 없습니다."), 500);
     }
     const prow = post as {
       id?: string;
@@ -210,7 +205,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       is_deleted?: boolean;
       status?: string;
       is_hidden?: boolean;
-      origin_kind?: string | null;
     } | null;
     // Same existence contract as like (`assertPostEngagementAllowed`): public visibility only.
     // Missing location_id must not fake not_found for a real community_posts.id (incl. imported).
@@ -266,8 +260,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       });
     }
     const postAuthorId = String(prow.user_id ?? "").trim();
-    const importedAuthor = isCommunityImportedOrigin(prow.origin_kind);
-    if (postAuthorId && postAuthorId !== auth.userId && !importedAuthor) {
+    const principalId = await loadCommunityImportPrincipalUserId(sb);
+    const recipientIsRealMember = Boolean(
+      postAuthorId && (!principalId || postAuthorId !== principalId)
+    );
+    if (postAuthorId && postAuthorId !== auth.userId && recipientIsRealMember) {
       void bumpNotificationTarget(sb, {
         userId: postAuthorId,
         targetType: "community_post",
@@ -278,7 +275,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     }
     void notifyCommunityPostCommentReceived(sb, {
       postId: id,
-      postAuthorUserId: importedAuthor ? "" : postAuthorId,
+      postAuthorUserId: recipientIsRealMember ? postAuthorId : "",
       commenterUserId: auth.userId,
       commentPreview: content,
       parentCommentAuthorUserId: parentCommentAuthorId,

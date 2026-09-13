@@ -69,12 +69,28 @@ describe("community post origin / author resolver STEP1", () => {
     expect(a.display_name).not.toBe(COMMUNITY_IMPORTED_AUTHOR_FALLBACK);
   });
 
-  it("T6 imported disables member-peer CTA", () => {
+  it("T6 peer CTA uses member capability (import principal), not origin product branch alone", () => {
+    // Legacy helper remains for provenance-aware callers; Public UI uses member_peer_user_id.
     expect(communityPostAllowsMemberPeerCta("imported")).toBe(false);
     expect(communityPostAllowsMemberPeerCta("member")).toBe(true);
-    expect(communityPostAllowsMemberPeerCta(undefined)).toBe(true);
     expect(isCommunityImportedOrigin("imported")).toBe(true);
     expect(normalizeCommunityPostOriginKind("ADMIN")).toBe("admin");
+
+    const principalPeer = resolveCommunityAuthor({
+      origin_kind: "member",
+      user_id: "principal-uuid",
+      profile_display_name: "ShouldNotMatter",
+      is_import_principal: true,
+    });
+    expect(principalPeer.member_peer_user_id).toBeNull();
+
+    const realMember = resolveCommunityAuthor({
+      origin_kind: "member",
+      user_id: "member-uuid",
+      profile_display_name: "이웃",
+      is_import_principal: false,
+    });
+    expect(realMember.member_peer_user_id).toBe("member-uuid");
   });
 });
 
@@ -96,7 +112,7 @@ describe("STEP1 reward/notify call-graph evidence (static)", () => {
     expect(crawlStore).not.toContain('from("community_posts")');
   });
 
-  it("T8 like/comment skip author notify for imported", async () => {
+  it("T8 like/comment skip author notify when recipient is not a real member", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const root = process.cwd();
@@ -105,8 +121,12 @@ describe("STEP1 reward/notify call-graph evidence (static)", () => {
       path.join(root, "app/api/community/posts/[postId]/comments/route.ts"),
       "utf8"
     );
-    expect(like).toContain("isCommunityImportedOrigin");
-    expect(like).toContain("!isCommunityImportedOrigin(gate.originKind)");
-    expect(comments).toContain("importedAuthor ? \"\" : postAuthorId");
+    // Authority = real member recipient capability (import principal), NOT origin_kind product branch.
+    expect(like).toContain("loadCommunityImportPrincipalUserId");
+    expect(like).toContain("recipientIsRealMember");
+    expect(like).not.toContain("isCommunityImportedOrigin(gate.originKind)");
+    expect(comments).toContain("loadCommunityImportPrincipalUserId");
+    expect(comments).toContain("recipientIsRealMember");
+    expect(comments).not.toContain("importedAuthor ? \"\" : postAuthorId");
   });
 });
