@@ -17,10 +17,23 @@ describe("community-operator-import multi-source registry", () => {
     expect(ids).toContain("rappler");
     expect(ids).toContain("inquirer");
     expect(ids).toContain("dof");
+    expect(ids).toContain("cesimo");
+    expect(ids).toContain("danielinclarkphp");
+    expect(ids).toContain("cebulife");
+    expect(ids).toContain("cebuevan");
     expect(ids).not.toContain("philgo");
+    expect(ids).not.toContain("tripstore");
+    expect(ids).not.toContain("midnightmanila");
+    expect(ids).not.toContain("manilaseoul");
     expect(NON_OPERATIONAL_SOURCES.some((s) => s.id === "philgo")).toBe(true);
+    expect(NON_OPERATIONAL_SOURCES.some((s) => s.id === "tripstore")).toBe(true);
+    expect(NON_OPERATIONAL_SOURCES.some((s) => s.id === "philmen_seo_cluster")).toBe(true);
+    expect(NON_OPERATIONAL_SOURCES.some((s) => s.id === "manilaseoul")).toBe(true);
     expect(isVerifiedSourceBoard("immigration", "advisory")).toBe(true);
     expect(isVerifiedSourceBoard("philstar", "headlines")).toBe(true);
+    expect(isVerifiedSourceBoard("cesimo", "feed")).toBe(true);
+    expect(isVerifiedSourceBoard("cebulife", "feed")).toBe(true);
+    expect(isVerifiedSourceBoard("cebuevan", "feed")).toBe(true);
   });
 
   it("normalizes WordPress JSON into ordered blocks with images", () => {

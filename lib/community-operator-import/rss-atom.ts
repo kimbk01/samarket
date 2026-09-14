@@ -221,7 +221,10 @@ export async function fetchRssDetail(
     const $ = cheerio.load(`<div id="rss-root">${item.contentHtml}</div>`);
     orderedContentBlocks = walkHtml($, $("#rss-root") as CheerioSel, item.link);
   }
-  if (orderedContentBlocks.filter((b) => b.type === "paragraph" || b.type === "heading").length < 1) {
+  const hasText = orderedContentBlocks.some((b) => b.type === "paragraph" || b.type === "heading");
+  const hasImages = orderedContentBlocks.some((b) => b.type === "image");
+  // Tistory/blog RSS often ships text-only description; enrich from public HTML when images missing.
+  if (!hasText || !hasImages) {
     try {
       const html = await fetchText(item.link);
       const $ = cheerio.load(html);
@@ -229,10 +232,20 @@ export async function fetchRssDetail(
       const $root =
         $("article").first().length
           ? $("article").first()
-          : $(".entry-content, .article__content, .post-content, main").first().length
-            ? $(".entry-content, .article__content, .post-content, main").first()
+          : $(".tt_article_useless_p_margin, .entry-content, .article__content, .post-content, main").first().length
+            ? $(".tt_article_useless_p_margin, .entry-content, .article__content, .post-content, main").first()
             : $("body");
-      orderedContentBlocks = walkHtml($, $root as CheerioSel, item.link);
+      const htmlBlocks = walkHtml($, $root as CheerioSel, item.link);
+      if (!hasText) {
+        orderedContentBlocks = htmlBlocks;
+      } else if (!hasImages) {
+        const htmlImages = htmlBlocks.filter((b) => b.type === "image");
+        if (htmlImages.length) {
+          // Prefer structured HTML body when it carries the article images.
+          const htmlTextCount = htmlBlocks.filter((b) => b.type === "paragraph" || b.type === "heading").length;
+          orderedContentBlocks = htmlTextCount >= 1 ? htmlBlocks : [...orderedContentBlocks, ...htmlImages];
+        }
+      }
     } catch {
       /* keep RSS snippet blocks if any */
     }

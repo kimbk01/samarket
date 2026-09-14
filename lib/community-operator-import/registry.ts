@@ -18,7 +18,8 @@ export type OperatorBoardCategory =
   | "immigration"
   | "government"
   | "finance"
-  | "safety";
+  | "safety"
+  | "nightlife";
 
 export type VerifiedOperatorSource = {
   id: string;
@@ -130,6 +131,39 @@ export const VERIFIED_SOURCES: readonly VerifiedOperatorSource[] = [
     status: "verified",
     priority: "P2",
   },
+  // Korean P0 Community seed (rss_atom / Tistory) — 2026-09 Korean-source coverage audit
+  {
+    id: "cesimo",
+    displayName: "세시모",
+    baseUrl: "https://cesimo.tistory.com",
+    engine: "rss_atom",
+    status: "verified",
+    priority: "P0",
+  },
+  {
+    id: "danielinclarkphp",
+    displayName: "다니엘가이드의 필리핀생활",
+    baseUrl: "https://danielinclarkphp.tistory.com",
+    engine: "rss_atom",
+    status: "verified",
+    priority: "P0",
+  },
+  {
+    id: "cebulife",
+    displayName: "세부사는 동생",
+    baseUrl: "https://cebulife.tistory.com",
+    engine: "rss_atom",
+    status: "verified",
+    priority: "P0",
+  },
+  {
+    id: "cebuevan",
+    displayName: "어메이징 에반",
+    baseUrl: "https://cebuevan.tistory.com",
+    engine: "rss_atom",
+    status: "verified",
+    priority: "P0",
+  },
 ] as const;
 
 export const VERIFIED_BOARDS: readonly VerifiedOperatorBoard[] = [
@@ -168,6 +202,12 @@ export const VERIFIED_BOARDS: readonly VerifiedOperatorBoard[] = [
   { sourceId: "rappler", boardId: "feed", displayName: "Rappler Feed", shortLabel: "피드", category: "news", engineKey: "/feed/", enabled: true, verification: "verified" },
   { sourceId: "inquirer", boardId: "feed", displayName: "Inquirer Feed", shortLabel: "피드", category: "news", engineKey: "/feed", enabled: true, verification: "verified" },
   { sourceId: "dof", boardId: "feed", displayName: "DOF Feed", shortLabel: "피드", category: "finance", engineKey: "/feed/", enabled: true, verification: "verified" },
+  // Korean P0 — single RSS board per organic blog (category = primary purpose)
+  { sourceId: "cesimo", boardId: "feed", displayName: "세시모 최신", shortLabel: "여행맛집", category: "travel", engineKey: "/rss", enabled: true, verification: "verified" },
+  { sourceId: "danielinclarkphp", boardId: "feed", displayName: "다니엘 필리핀생활", shortLabel: "생활", category: "living", engineKey: "/rss", enabled: true, verification: "verified" },
+  { sourceId: "cebulife", boardId: "feed", displayName: "세부 생활·주거", shortLabel: "주거", category: "living", engineKey: "/rss", enabled: true, verification: "verified" },
+  // Korean nightlife/travel mix — venue reviews (club/district) + Clark·Angeles editorial; not solicitation
+  { sourceId: "cebuevan", boardId: "feed", displayName: "에반 밤문화·클락여행", shortLabel: "밤문화", category: "nightlife", engineKey: "/rss", enabled: true, verification: "verified" },
 ] as const;
 
 /** Diagnostic-only; never shown as active operator choices. */
@@ -178,6 +218,73 @@ export const NON_OPERATIONAL_SOURCES = [
   { id: "taesarang", displayName: "TAESARANG", status: "not_proven" as const, reason: "CURRENT DNS/SSL unreachable" },
   { id: "tourism_gov_ph", displayName: "DOT tourism.gov.ph", status: "partial" as const, reason: "Home OK but RSS/WP empty corpus" },
   { id: "philsuda", displayName: "필수다", status: "partial" as const, reason: "Home OK; board list not proven" },
+  // Korean-source audit holds (candidate / blocked — not ACTIVE)
+  {
+    id: "tripstore",
+    displayName: "트립스토어",
+    status: "blocked" as const,
+    reason: "robots.txt User-agent:* Disallow:/ — Korean editorial blog exists but automated collect must not activate (no bypass)",
+  },
+  {
+    id: "trippang",
+    displayName: "TRIPPANG",
+    status: "partial" as const,
+    reason: "SPA shell; sitemap is static landings only — no Fresh list/detail corpus without new engine",
+  },
+  {
+    id: "naver_blog",
+    displayName: "네이버 블로그",
+    status: "partial" as const,
+    reason: "Keep candidate; robots Disallow many post paths; no formal open RSS/API proven for operator collect",
+  },
+  {
+    id: "naver_cafe",
+    displayName: "네이버 카페",
+    status: "blocked" as const,
+    reason: "robots.txt User-agent:* Disallow:/ — no activation without formal public path",
+  },
+  {
+    id: "philmen_seo_cluster",
+    displayName: "필맨/황제골프 Tistory cluster",
+    status: "blocked" as const,
+    reason: "SEO_DUP_NETWORK (philmen/cebu88/royalgolf/idea9890) — agency CTA overlap; do not multi-admit",
+  },
+  {
+    id: "manila_tistory_agency",
+    displayName: "한실장 마닐라 tistory",
+    status: "blocked" as const,
+    reason: "Casino/hotel agency SEO corpus — reject as Community seed authority",
+  },
+  {
+    id: "boracay_tistory",
+    displayName: "boracay.tistory.com",
+    status: "partial" as const,
+    reason: "RSS works but thin/repetitive folklore corpus — not admitted as organic authority",
+  },
+  {
+    id: "midnightmanila",
+    displayName: "Midnight Manila",
+    status: "not_proven" as const,
+    reason: "Korean club/district guides exist in public web index, but operator runtime fetch returned unreachable (no Fresh list/detail); do not invent engine",
+  },
+  {
+    id: "manilaseoul",
+    displayName: "마닐라서울",
+    status: "partial" as const,
+    reason: "High-value Korean PH expat newspaper with HTML list/detail; no RSS/WP — needs new GENERIC_SERVER_HTML engine (deferred)",
+  },
+  {
+    id: "magandaland",
+    displayName: "magandaland.tistory.com",
+    status: "blocked" as const,
+    reason: "Angeles K-Bar guides use girl-rental/도서대여 solicitation language — REJECT",
+  },
+  {
+    id: "bluemoona",
+    displayName: "bluemoona.tistory.com",
+    status: "partial" as const,
+    reason: "Has one strong Cebu massage review but feed is Korea-domestic mixed — not dedicated PH massage authority",
+  },
 ] as const;
 
 export function listVerifiedSources(): VerifiedOperatorSource[] {
