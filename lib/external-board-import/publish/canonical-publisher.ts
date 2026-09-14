@@ -6,6 +6,7 @@ import {
   claimExternalBoardPublish,
   releaseExternalBoardPublishClaim,
 } from "@/lib/external-board-import/integrity/duplicate-guard";
+import { assertPublishAllowedByPublicationState } from "@/lib/external-board-import/integrity/publication-tombstone";
 import { rehostDocumentImages } from "@/lib/external-board-import/media/fetch-rehost";
 import { buildExternalBoardTransform } from "@/lib/external-board-import/publish/build-transform";
 import { writeImportedCommunityPost } from "@/lib/external-board-import/publish/community-write";
@@ -30,6 +31,7 @@ async function markArticleFailed(
   code: string,
   message: string
 ) {
+  // LOCK 6: publish failure updates ops_status only — never force edit_status to published/failed.
   await sb
     .from("external_board_articles")
     .update({
@@ -79,14 +81,18 @@ export async function publishExternalBoardArticleCanonical(
     };
   }
 
-  if (article.published_post_id) {
+  const publishGate = assertPublishAllowedByPublicationState({
+    publicationState: article.publication_state,
+    publishedPostId: article.published_post_id,
+  });
+  if (!publishGate.ok) {
     return {
       ok: false,
       communityDelta: 0,
-      failureStage: "claim",
-      failureCode: "already_published",
-      failureMessage: "Same source article already published.",
-      alreadyPublishedPostId: article.published_post_id,
+      failureStage: publishGate.failureStage,
+      failureCode: publishGate.failureCode,
+      failureMessage: publishGate.failureMessage,
+      alreadyPublishedPostId: publishGate.alreadyPublishedPostId,
     };
   }
 
@@ -170,7 +176,8 @@ export async function publishExternalBoardArticleCanonical(
       title: communityBody.title,
       content: communityBody.content,
       summary: communityBody.summary,
-      images: rehosted.images,
+      // Role-filtered list from document (thumb + body/gallery); never decorative-only PASS.
+      images: communityBody.images,
       document: rehosted.document,
     });
 
@@ -179,6 +186,10 @@ export async function publishExternalBoardArticleCanonical(
       .update({
         published_post_id: postId,
         ops_status: "published",
+        edit_status: "published",
+        publication_state: "published",
+        suppressed_at: null,
+        suppression_reason: null,
         article_signal: "SAME_PUBLISHED",
         failure_stage: null,
         failure_code: null,

@@ -7,9 +7,24 @@ import type {
   ExternalBoardRightsStatus,
 } from "@/lib/external-board-import/product-lock";
 
+/** Body/gallery image roles only — never "thumbnail" (feed uses feedThumbnailSrc). */
+export type ExternalBoardImageRole = "body" | "gallery" | "decorative";
+
 export type ExternalBoardNode =
   | { type: "paragraph"; text: string }
-  | { type: "image"; src: string; alt?: string; mediaId?: string }
+  | { type: "heading"; level: 1 | 2 | 3 | 4; text: string }
+  | {
+      type: "image";
+      src: string;
+      alt?: string;
+      mediaId?: string;
+      role?: ExternalBoardImageRole;
+    }
+  | {
+      type: "gallery";
+      images: Array<{ src: string; alt?: string; mediaId?: string; role?: "gallery" | "body" }>;
+    }
+  | { type: "caption"; text: string }
   | { type: "list"; ordered: boolean; items: string[] }
   | { type: "quote"; text: string }
   | { type: "link"; href: string; text: string };
@@ -19,11 +34,14 @@ export type ExternalBoardDocument = {
   canonicalUrl: string;
   nodes: ExternalBoardNode[];
   /**
-   * Feed thumbnail candidate only (e.g. WP featured_media).
-   * Never serialized into Detail body markdown.
+   * Feed thumbnail authority only (e.g. WP featured_media).
+   * Never auto-copied into body nodes. Never serialized as Detail body image.
    */
   feedThumbnailSrc?: string | null;
 };
+
+export type ExternalBoardEditStatus = "collected" | "transformed" | "saved" | "published";
+export type ExternalBoardTranslationStatus = "unsupported" | "none" | "draft_ko";
 
 export type ExternalBoardIdentityKind = "stable_id" | "canonical_url" | "normalized_url";
 
@@ -50,6 +68,8 @@ export type ExternalBoardSourceRow = {
   board_sequence_verified: boolean;
   /** Operator 사용/중지 */
   enabled: boolean;
+  /** public | login_required | session_required — no plaintext credentials on this row. */
+  auth_mode: "public" | "login_required" | "session_required";
   author_pool_id: string | null;
   date_recent_min_days: number;
   date_recent_max_days: number;
@@ -74,9 +94,14 @@ export type ExternalBoardArticleRow = {
   draft_title: string | null;
   /** DIBAY editable document — raw source_document preserved */
   draft_document: ExternalBoardDocument | null;
-  edit_status: "collected" | "editing" | "saved" | "published" | "failed" | null;
+  /** Operator editing lifecycle — never substitute ops_status. */
+  edit_status: ExternalBoardEditStatus | null;
   source_author: string | null;
   source_published_at: string | null;
+  source_language: string | null;
+  detected_language: string | null;
+  display_language: string | null;
+  translation_status: ExternalBoardTranslationStatus | null;
   /** 1-based discovery page when known. */
   source_page: number | null;
   /** 0-based batch sequence when known. */
@@ -87,6 +112,17 @@ export type ExternalBoardArticleRow = {
   snapshot_version: number;
   ops_status: ExternalBoardOpsStatus;
   article_signal: ExternalBoardArticleSignal | null;
+  /** Tombstone / republish authority — independent of ops_status. */
+  publication_state:
+    | "none"
+    | "published"
+    | "hidden"
+    | "deleted"
+    | "suppressed"
+    | "republish_allowed"
+    | null;
+  suppressed_at: string | null;
+  suppression_reason: string | null;
   published_post_id: string | null;
   failure_stage: ExternalBoardFailureStage | null;
   failure_code: string | null;

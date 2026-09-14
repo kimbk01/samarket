@@ -80,6 +80,23 @@ export async function POST(req: NextRequest) {
   const deletedSet = new Set(deleted);
   const missing = ids.filter((id) => !deletedSet.has(id));
 
+  try {
+    const { suppressExternalBoardByCommunityPost } = await import(
+      "@/lib/external-board-import/integrity/publication-tombstone"
+    );
+    for (const postId of deleted) {
+      await suppressExternalBoardByCommunityPost({
+        sb,
+        postId,
+        state: "deleted",
+        actorId: admin.userId,
+        reason: "admin_community_post_bulk_delete",
+      });
+    }
+  } catch (e) {
+    console.error("[admin/community/posts/bulk-delete] external_board tombstone failed", e);
+  }
+
   for (const postId of deleted) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });
   }

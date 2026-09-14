@@ -19,6 +19,7 @@ type WpPost = {
   excerpt?: { rendered?: string };
   _embedded?: {
     author?: Array<{ name?: string }>;
+    "wp:featuredmedia"?: Array<{ source_url?: string }>;
   };
 };
 
@@ -73,6 +74,8 @@ async function fetchHelloCebuArticle(item: ExternalBoardDiscoverItem): Promise<E
     const desc = $('meta[property="og:description"]').attr("content");
     if (desc) doc.nodes.push({ type: "paragraph", text: String(desc).trim() });
   }
+  const ogImage = String($('meta[property="og:image"]').attr("content") || "").trim();
+  if (ogImage && !doc.feedThumbnailSrc) doc.feedThumbnailSrc = ogImage;
   return {
     ...item,
     title,
@@ -108,6 +111,7 @@ export const helloCebuExternalBoardAdapter: ExternalBoardAdapter = {
         const sourcePublishedAt = parseExternalBoardSourceDate(post.date || null);
         if (!withinDateRange(sourcePublishedAt, n.dateFrom, n.dateTo)) continue;
         const author = post._embedded?.author?.[0]?.name || null;
+        const featured = String(post._embedded?.["wp:featuredmedia"]?.[0]?.source_url ?? "").trim() || null;
         const base: ExternalBoardDiscoverItem = {
           stableArticleIdentity: `stable:hellocebu-${post.id}`,
           identityKind: "stable_id",
@@ -137,6 +141,12 @@ export const helloCebuExternalBoardAdapter: ExternalBoardAdapter = {
             sampleDocument: doc.nodes.length ? doc : null,
             sourceAuthor: full.sourceAuthor || author,
             sourcePublishedAt: full.sourcePublishedAt || sourcePublishedAt,
+          };
+        }
+        if (full.sampleDocument && featured && !full.sampleDocument.feedThumbnailSrc) {
+          full = {
+            ...full,
+            sampleDocument: { ...full.sampleDocument, feedThumbnailSrc: featured },
           };
         }
         collected.push({

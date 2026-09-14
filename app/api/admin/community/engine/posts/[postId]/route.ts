@@ -122,6 +122,20 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
 
   if (body.status === "hidden" || body.status === "deleted") {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
+    try {
+      const { suppressExternalBoardByCommunityPost } = await import(
+        "@/lib/external-board-import/integrity/publication-tombstone"
+      );
+      await suppressExternalBoardByCommunityPost({
+        sb,
+        postId: id,
+        state: body.status === "hidden" ? "hidden" : "deleted",
+        actorId: admin.userId,
+        reason: `admin_community_post_${body.status}`,
+      });
+    } catch (e) {
+      console.error("[admin/community/posts] external_board tombstone failed", e);
+    }
   }
 
   const meta = getAuditRequestMeta(req);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertProductionCollectGate } from "@/lib/external-board-import/catalog/collect-gate";
 import { assertWriteEligibleTopicId } from "@/lib/external-board-import/mapping/assert-write-eligible-topic";
 import {
   SOURCE_BOARD_ALREADY_REGISTERED,
@@ -35,6 +36,13 @@ export async function POST(req: NextRequest) {
     if (!sourceUrl) {
       return NextResponse.json({ ok: false, error: "게시판 URL이 필요합니다." }, { status: 400 });
     }
+    const gate = assertProductionCollectGate(sourceUrl);
+    if (!gate.ok) {
+      return NextResponse.json(
+        { ok: false, error: gate.failureMessage, failureCode: gate.failureCode },
+        { status: 400 }
+      );
+    }
     const targetTopicId = body.targetTopicId != null ? String(body.targetTopicId).trim() : "";
     if (!targetTopicId) {
       return NextResponse.json({ ok: false, error: "게시할 DIBAY 주제를 선택하세요." }, { status: 400 });
@@ -44,8 +52,7 @@ export async function POST(req: NextRequest) {
     if (!topic.ok) {
       return NextResponse.json({ ok: false, error: topic.failureMessage }, { status: 400 });
     }
-    const rightsBasis =
-      body.rightsBasis != null ? String(body.rightsBasis).trim() : "";
+    const rightsBasis = body.rightsBasis != null ? String(body.rightsBasis).trim() : "";
     const source = await createExternalBoardSource(sb, {
       sourceUrl,
       sourceBoardName: body.sourceBoardName != null ? String(body.sourceBoardName) : undefined,
@@ -56,7 +63,6 @@ export async function POST(req: NextRequest) {
       authorPoolId: body.authorPoolId != null ? String(body.authorPoolId) : null,
       attributionRequired: false,
       enabled: body.enabled != null ? Boolean(body.enabled) : true,
-      // Official catalog sources may declare public-republish rights without operator tech jargon.
       rightsBasis: rightsBasis || null,
       rightsStatus: rightsBasis ? "declared" : normalizeRightsStatus(body.rightsStatus),
     });

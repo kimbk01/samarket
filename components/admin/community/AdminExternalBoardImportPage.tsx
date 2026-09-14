@@ -4,12 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   TOPIC_GROUP_LABELS,
   TOPIC_GROUP_ORDER,
+  authModeLabel,
   catalogCapabilityLabel,
   filterCatalogByTopicGroup,
   findCatalogSection,
+  importKindLabel,
   sourceTypeLabel,
   type TopicGroupId,
 } from "@/lib/external-board-import/catalog/source-catalog";
+import { languageDisplayLabel } from "@/lib/external-board-import/catalog/language";
+import { buildExternalTopicProposal } from "@/lib/external-board-import/mapping/topic-proposal";
 
 type Topic = { id: string; name: string; slug: string; name_en: string | null };
 type Source = {
@@ -36,10 +40,13 @@ type Article = {
   source_published_at?: string | null;
   ops_status: string;
   edit_status?: string | null;
+  publication_state?: string | null;
   published_post_id: string | null;
   failure_message: string | null;
   has_image?: boolean;
   thumbnail_url?: string | null;
+  source_language?: string | null;
+  display_language?: string | null;
 };
 
 const field =
@@ -52,12 +59,30 @@ const btnGhost =
 type Surface = "boards" | "articles";
 type CollectMode = "recent" | "pages" | "dates";
 
-function operatorStatus(a: Article): string {
+function transformStatus(a: Article): string {
+  if (a.published_post_id || a.edit_status === "published") return "게시 완료";
+  if (a.edit_status === "saved") return "저장됨";
+  if (a.edit_status === "transformed" || a.edit_status === "editing") return "변환됨";
+  if (a.edit_status === "collected") return "미변환";
+  return "미변환";
+}
+
+function publishStatus(a: Article): string {
+  if (a.publication_state === "deleted" || a.publication_state === "suppressed") {
+    return "삭제됨 · 재게시 금지";
+  }
+  if (a.publication_state === "hidden") return "숨김 · 재게시 금지";
+  if (a.publication_state === "republish_allowed") return "다시 게시 허용";
   if (a.published_post_id || a.ops_status === "published") return "게시 완료";
   if (a.ops_status === "failed") return "게시 실패";
-  if (a.edit_status === "saved") return "저장됨";
-  if (a.edit_status === "editing") return "수정 중";
-  return "수집됨";
+  return "미게시";
+}
+
+function connectionResultLabel(s: Source): string {
+  if (s.enabled === false) return "확인 필요";
+  if ((s.failed_count ?? 0) > 0 && (s.collected_count ?? 0) === 0) return "연결 실패";
+  if (s.last_fetched_at) return "정상";
+  return "확인 필요";
 }
 
 export function AdminExternalBoardImportPage() {
@@ -92,6 +117,7 @@ export function AdminExternalBoardImportPage() {
 
   const [replaceFrom, setReplaceFrom] = useState("");
   const [replaceTo, setReplaceTo] = useState("");
+  const [articleSort, setArticleSort] = useState<"latest" | "oldest">("latest");
 
   const catalogSources = useMemo(
     () => filterCatalogByTopicGroup(topicGroup, catalogQuery),
@@ -142,21 +168,48 @@ export function AdminExternalBoardImportPage() {
     }
   }
 
-  const visibleArticles = useMemo(
-    () => articles.filter((a) => !selectedSourceId || a.source_id === selectedSourceId),
-    [articles, selectedSourceId]
-  );
+  const visibleArticles = useMemo(() => {
+    const filtered = articles.filter((a) => !selectedSourceId || a.source_id === selectedSourceId);
+    const sorted = [...filtered].sort((a, b) => {
+      const da = a.source_published_at || "";
+      const db = b.source_published_at || "";
+      if (!da && !db) return a.id < b.id ? 1 : -1;
+      if (!da) return 1;
+      if (!db) return -1;
+      const cmp = da < db ? -1 : da > db ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      return articleSort === "latest" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [articles, selectedSourceId, articleSort]);
   const selectable = useMemo(
-    () => visibleArticles.filter((a) => !a.published_post_id && a.ops_status !== "published"),
+    () =>
+      visibleArticles.filter((a) => {
+        const blocked =
+          a.publication_state === "deleted" ||
+          a.publication_state === "suppressed" ||
+          a.publication_state === "hidden";
+        if (blocked) return false;
+        if (a.published_post_id && a.publication_state !== "republish_allowed") return false;
+        if (a.ops_status === "published" && a.publication_state !== "republish_allowed") return false;
+        return true;
+      }),
     [visibleArticles]
   );
+
+  const topicProposal = useMemo(() => {
+    if (!selectedCatalog) return null;
+    return buildExternalTopicProposal({
+      recommendedTopicHint: selectedCatalog.section.recommendedTopicHint,
+      liveTopics: topics,
+    });
+  }, [selectedCatalog, topics]);
   const selectedCount = selectedIds.size;
   const publishLabel =
     selectedCount === 0
       ? "게시할 글을 선택하세요."
       : selectedCount === 1
-        ? "선택한 글 1개 게시"
-        : `선택한 글 ${selectedCount}개 게시`;
+        ? "선택 1건 게시"
+        : `선택 ${selectedCount}건 게시`;
 
   function toggleAll(on: boolean) {
     if (!on) {
@@ -189,14 +242,14 @@ export function AdminExternalBoardImportPage() {
 
       <nav className="flex flex-wrap gap-2">
         <button type="button" className={surface === "boards" ? btnPrimary : btnGhost} onClick={() => setSurface("boards")}>
-          Source 목록
+          정보 소스
         </button>
         <button
           type="button"
           className={surface === "articles" ? btnPrimary : btnGhost}
           onClick={() => setSurface("articles")}
         >
-          수집한 게시물
+          수집된 게시물
         </button>
         <button type="button" className={btnGhost} disabled={busy || loading} onClick={() => void load()}>
           새로고침
@@ -208,10 +261,18 @@ export function AdminExternalBoardImportPage() {
 
       {surface === "boards" ? (
         <section className="space-y-4">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-caption text-sam-muted">
+            <strong className="text-sam-fg">1. 정보 소스 선택</strong>
+            {" · "}카테고리 → 정보 소스 → 세부 게시판 → DIBAY 주제 등록
+            {" · "}
+            <strong className="text-sam-fg">2. 수집 범위 설정</strong>
+            {" · "}페이지/날짜 → 게시물 불러오기
+          </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
-            <h2 className="font-medium">필리핀 정보 Source Catalog</h2>
+            <h2 className="font-medium">필리핀 정보 소스</h2>
             <p className="sam-text-caption text-sam-muted">
-              Catalog에 보이는 것과 실제 불러오기 가능은 다릅니다. 상태가 「사용 가능」인 항목만 등록·수집할 수 있습니다.
+              목록에 보이는 것과 실제 불러오기 가능은 다릅니다. 상태가 「사용 가능」인 항목만 등록·수집할 수 있습니다.
+              현재 사용 가능이 0이면 수집 버튼이 비활성인 것이 정상입니다.
             </p>
             <label className="block text-sm">
               검색
@@ -219,7 +280,7 @@ export function AdminExternalBoardImportPage() {
                 className={field}
                 value={catalogQuery}
                 onChange={(e) => setCatalogQuery(e.target.value)}
-                placeholder="Source · 지역 · 게시판"
+                placeholder="정보 소스 · 지역 · 세부 게시판"
               />
             </label>
             <div className="flex flex-wrap gap-2">
@@ -271,9 +332,15 @@ export function AdminExternalBoardImportPage() {
                               <div className="sam-text-body">{sec.sectionName}</div>
                               <div className="sam-text-caption text-sam-muted">
                                 {catalogCapabilityLabel(sec.status)}
+                                {" · "}
+                                {authModeLabel(sec.authMode)}
+                                {" · "}
+                                {languageDisplayLabel(sec.defaultLanguage)}
+                                {" · "}
+                                {importKindLabel(sec.importKind)}
                               </div>
                             </div>
-                            {sec.status === "available" && sec.sectionUrl ? (
+                            {sec.status === "available" && sec.canonicalUrl ? (
                               <button
                                 type="button"
                                 className={btnGhost}
@@ -299,10 +366,10 @@ export function AdminExternalBoardImportPage() {
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
             <h2 className="font-medium">등록 · DIBAY 주제</h2>
             <div className="sam-text-caption text-sam-muted">
-              선택 Source:{" "}
+              선택 정보 소스:{" "}
               {selectedCatalog
                 ? `${selectedCatalog.source.sourceName} · ${selectedCatalog.section.sectionName}`
-                : "Catalog에서 「사용 가능」 항목을 선택하세요."}
+                : "「사용 가능」 항목을 선택하세요. (현재 사용 가능 0이면 선택이 없습니다)"}
             </div>
             <label className="block text-sm">
               표시 이름
@@ -319,6 +386,21 @@ export function AdminExternalBoardImportPage() {
                 ))}
               </select>
             </label>
+            {topicProposal?.status === "propose" ? (
+              <div className="sam-text-caption rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sam-muted">
+                {topicProposal.proposalLabel}. 자동 생성되지 않습니다. 커뮤니티 주제 관리에서 확인 후
+                추가하세요.
+              </div>
+            ) : null}
+            {topicProposal?.status === "matched" && topicProposal.matchedTopicName ? (
+              <div className="sam-text-caption text-sam-muted">
+                추천 주제 일치: {topicProposal.matchedTopicName}
+              </div>
+            ) : null}
+            <p className="sam-text-caption text-sam-muted">
+              DIBAY에서 글을 삭제하면 같은 원문은 다시 게시되지 않습니다. 필요 시 「다시 게시 허용」만
+              예외입니다.
+            </p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
               등록 후 사용
@@ -330,15 +412,15 @@ export function AdminExternalBoardImportPage() {
               onClick={() =>
                 void run("등록", async () => {
                   const picked = selectedSectionId ? findCatalogSection(selectedSectionId) : null;
-                  if (!picked || picked.section.status !== "available" || !picked.section.sectionUrl) {
-                    throw new Error("불러올 Source 항목을 선택하세요.");
+                  if (!picked || picked.section.status !== "available" || !picked.section.canonicalUrl) {
+                    throw new Error("불러올 정보 소스 항목을 선택하세요.");
                   }
                   if (!topicId) throw new Error("게시할 DIBAY 주제를 선택하세요.");
                   const res = await fetch("/api/admin/community/external-board/boards", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      sourceUrl: picked.section.sectionUrl,
+                      sourceUrl: picked.section.canonicalUrl,
                       sourceBoardName:
                         boardName || `${picked.source.sourceName} · ${picked.section.sectionName}`,
                       siteName: siteName || picked.source.sourceName,
@@ -378,8 +460,8 @@ export function AdminExternalBoardImportPage() {
                       DIBAY 주제: {topicName(s.target_topic_id)} · {s.enabled === false ? "중지" : "사용"}
                     </div>
                     <div className="sam-text-caption mt-1">
-                      마지막 수집 {s.last_fetched_at ?? "—"} · 미게시 {s.unpublished_count ?? 0} · 게시 완료{" "}
-                      {s.published_count ?? 0}
+                      최근 연결 {connectionResultLabel(s)} · 마지막 수집 {s.last_fetched_at ?? "—"} · 미게시{" "}
+                      {s.unpublished_count ?? 0} · 게시 완료 {s.published_count ?? 0}
                     </div>
                   </div>
                   <button
@@ -396,7 +478,10 @@ export function AdminExternalBoardImportPage() {
                 </div>
                 {selectedSourceId === s.id ? (
                   <div className="mt-2 space-y-3 border-t border-sam-border pt-3">
-                    <div className="font-medium">수집 범위</div>
+                    <div className="font-medium">2. 수집 범위 설정</div>
+                    <p className="sam-text-caption text-sam-muted">
+                      이 정보 소스가 지원하지 않는 범위는 사용할 수 없습니다. 가짜 페이지 범위는 지원하지 않습니다.
+                    </p>
                     <div className="flex flex-wrap gap-3 text-sm">
                       {(
                         [
@@ -506,8 +591,8 @@ export function AdminExternalBoardImportPage() {
                     <div className="space-y-2 border-t border-sam-border pt-3">
                       <div className="font-medium text-sm">치환 규칙</div>
                       <div className="flex flex-wrap gap-2">
-                        <input className={field} style={{ maxWidth: 160 }} value={replaceFrom} onChange={(e) => setReplaceFrom(e.target.value)} placeholder="원본 단어" />
-                        <input className={field} style={{ maxWidth: 160 }} value={replaceTo} onChange={(e) => setReplaceTo(e.target.value)} placeholder="변경 단어" />
+                        <input className={field} style={{ maxWidth: 160 }} value={replaceFrom} onChange={(e) => setReplaceFrom(e.target.value)} placeholder="찾을 단어" />
+                        <input className={field} style={{ maxWidth: 160 }} value={replaceTo} onChange={(e) => setReplaceTo(e.target.value)} placeholder="바꿀 단어" />
                         <button
                           type="button"
                           className={btnGhost}
@@ -546,12 +631,35 @@ export function AdminExternalBoardImportPage() {
 
       {surface === "articles" ? (
         <section className="space-y-3">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-caption text-sam-muted">
+            <strong className="text-sam-fg">3. 게시물 선택 및 변환</strong>
+            {" · "}선택 · 정렬 · 미리보기
+            {" · "}
+            <strong className="text-sam-fg">4. DIBAY 게시</strong>
+            {" · "}변환 적용 → 저장 → 선택 게시
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className={btnGhost} disabled={busy} onClick={() => toggleAll(true)}>
               전체 선택
             </button>
             <button type="button" className={btnGhost} disabled={busy} onClick={() => toggleAll(false)}>
               전체 해제
+            </button>
+            <button
+              type="button"
+              className={articleSort === "latest" ? btnPrimary : btnGhost}
+              disabled={busy}
+              onClick={() => setArticleSort("latest")}
+            >
+              최신순
+            </button>
+            <button
+              type="button"
+              className={articleSort === "oldest" ? btnPrimary : btnGhost}
+              disabled={busy}
+              onClick={() => setArticleSort("oldest")}
+            >
+              오래된순
             </button>
             <button
               type="button"
@@ -616,23 +724,31 @@ export function AdminExternalBoardImportPage() {
                   <th className="p-2">제목</th>
                   <th className="p-2">원문 작성자</th>
                   <th className="p-2">원문 작성일</th>
+                  <th className="p-2">언어</th>
                   <th className="p-2">DIBAY 주제</th>
-                  <th className="p-2">상태</th>
+                  <th className="p-2">변환 상태</th>
+                  <th className="p-2">게시 상태</th>
                   <th className="p-2">작업</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleArticles.map((a) => {
-                  const published = Boolean(a.published_post_id);
+                  const blocked =
+                    a.publication_state === "deleted" ||
+                    a.publication_state === "suppressed" ||
+                    a.publication_state === "hidden";
+                  const published =
+                    Boolean(a.published_post_id) && a.publication_state !== "republish_allowed";
+                  const canSelect = selectable.some((s) => s.id === a.id);
                   const src = sources.find((s) => s.id === a.source_id);
                   return (
                     <tr key={a.id} className="border-t border-sam-border align-top">
                       <td className="p-2">
                         <input
                           type="checkbox"
-                          disabled={published}
-                          checked={!published && selectedIds.has(a.id)}
-                          onChange={() => toggleOne(a.id, published)}
+                          disabled={!canSelect}
+                          checked={canSelect && selectedIds.has(a.id)}
+                          onChange={() => toggleOne(a.id, !canSelect)}
                         />
                       </td>
                       <td className="p-2">
@@ -640,7 +756,7 @@ export function AdminExternalBoardImportPage() {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={a.thumbnail_url} alt="" className="h-12 w-16 rounded-ui-rect object-cover" />
                         ) : (
-                          <span className="sam-text-caption text-sam-muted">없음</span>
+                          <span className="sam-text-caption text-sam-muted">이미지 없음</span>
                         )}
                       </td>
                       <td className="p-2 max-w-[14rem]">
@@ -648,8 +764,12 @@ export function AdminExternalBoardImportPage() {
                       </td>
                       <td className="p-2">{a.source_author ?? "—"}</td>
                       <td className="p-2 whitespace-nowrap">{a.source_published_at?.slice(0, 10) ?? "—"}</td>
+                      <td className="p-2">
+                        {languageDisplayLabel(a.display_language || a.source_language)}
+                      </td>
                       <td className="p-2">{topicName(src?.target_topic_id)}</td>
-                      <td className="p-2">{operatorStatus(a)}</td>
+                      <td className="p-2">{transformStatus(a)}</td>
+                      <td className="p-2">{publishStatus(a)}</td>
                       <td className="p-2">
                         <div className="flex flex-col gap-1">
                           <a className="text-sam-primary underline" href={a.canonical_source_url} target="_blank" rel="noreferrer">
@@ -666,7 +786,33 @@ export function AdminExternalBoardImportPage() {
                           >
                             미리보기
                           </button>
-                          {!published ? (
+                          {blocked ? (
+                            <button
+                              type="button"
+                              className="text-left underline"
+                              disabled={busy}
+                              onClick={async () => {
+                                setBusy(true);
+                                setError(null);
+                                try {
+                                  const res = await fetch(
+                                    `/api/admin/community/external-board/articles/${a.id}/allow-republish`,
+                                    { method: "POST" }
+                                  );
+                                  const j = await res.json();
+                                  if (!res.ok || !j.ok) throw new Error(j.error || "다시 게시 허용 실패");
+                                  await load();
+                                } catch (e) {
+                                  setError(e instanceof Error ? e.message : String(e));
+                                } finally {
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              다시 게시 허용
+                            </button>
+                          ) : null}
+                          {!published && !blocked ? (
                             <button
                               type="button"
                               className="text-left underline"
@@ -675,11 +821,11 @@ export function AdminExternalBoardImportPage() {
                                 setEditTitle(a.draft_title || a.source_title || "");
                               }}
                             >
-                              편집
+                              변환
                             </button>
                           ) : a.published_post_id ? (
                             <a className="underline" href={`/philife/${a.published_post_id}`} target="_blank" rel="noreferrer">
-                              DIBAY 글
+                              DIBAY에서 보기
                             </a>
                           ) : null}
                         </div>
@@ -693,31 +839,15 @@ export function AdminExternalBoardImportPage() {
 
           {editArticleId ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
-              <h3 className="font-medium">글 편집</h3>
+              <h3 className="font-medium">4. DIBAY 게시</h3>
+              <p className="sam-text-caption text-sam-muted">
+                원문 | DIBAY 변환본 · 상태: 미변환 / 변환됨 / 저장됨 / 게시 완료 (번역 자동 기능 없음)
+              </p>
               <label className="block text-sm">
                 변환 후 제목
                 <input className={field} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
               </label>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={btnGhost}
-                  disabled={busy}
-                  onClick={() =>
-                    void run("변환 미리보기", async () => {
-                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "preview_transform" }),
-                      });
-                      const j = await res.json();
-                      if (!j.ok) throw new Error(j.error || "preview_failed");
-                      setPreviewText(`변환 미리보기 (DB 게시 없음)\n${j.preview?.title ?? ""}`);
-                    })
-                  }
-                >
-                  변환 미리보기
-                </button>
                 <button
                   type="button"
                   className={btnGhost}
@@ -737,6 +867,45 @@ export function AdminExternalBoardImportPage() {
                   }
                 >
                   변환 적용
+                </button>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("되돌리기", async () => {
+                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "revert" }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok) throw new Error(j.error || "revert_failed");
+                      setEditTitle(String(j.article?.source_title ?? editTitle));
+                      await load();
+                    })
+                  }
+                >
+                  되돌리기
+                </button>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("미리보기", async () => {
+                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "preview_transform" }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok) throw new Error(j.error || "preview_failed");
+                      setPreviewText(`미리보기 (DB 게시 없음)\n${j.preview?.title ?? ""}`);
+                    })
+                  }
+                >
+                  미리보기
                 </button>
                 <button
                   type="button"
@@ -765,7 +934,7 @@ export function AdminExternalBoardImportPage() {
                   className={btnPrimary}
                   disabled={busy}
                   onClick={() =>
-                    void run("게시", async () => {
+                    void run("선택 게시", async () => {
                       const res = await fetch("/api/admin/community/external-board/articles/publish-selected", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -778,7 +947,7 @@ export function AdminExternalBoardImportPage() {
                     })
                   }
                 >
-                  게시
+                  선택 게시
                 </button>
               </div>
             </div>

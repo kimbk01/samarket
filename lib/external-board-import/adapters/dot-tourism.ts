@@ -1,9 +1,11 @@
 /**
  * DOT (tourism.gov.ph) destination CPT — Central Visayas section first.
  * List = child destinations of Central Visayas via WP REST.
- * Detail = destination content HTML (title, date, body).
- * Featured media = Feed thumbnail candidate only (never forced into body nodes).
+ * Detail text = destination content.rendered (paragraphs).
+ * Featured media = Feed thumbnail only (never auto-copied into body).
+ * Body/gallery images = HTML `.content-gallery-main__gallery` (proven on Mandaue).
  */
+import * as cheerio from "cheerio";
 import type { ExternalBoardAdapter, ExternalBoardAdapterContext } from "@/lib/external-board-import/adapters/types";
 import {
   normalizeDiscoverOpts,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/external-board-import/extraction/discover-opts";
 import { buildDocumentFromHtml } from "@/lib/external-board-import/extraction/ordered-from-html";
 import { parseExternalBoardSourceDate } from "@/lib/external-board-import/extraction/parse-source-date";
-import type { ExternalBoardDiscoverItem, ExternalBoardDocument } from "@/lib/external-board-import/types";
+import type { ExternalBoardDiscoverItem, ExternalBoardDocument, ExternalBoardNode } from "@/lib/external-board-import/types";
 
 const DOT_HOST = "tourism.gov.ph";
 const CENTRAL_VISAYAS_PARENT_ID = 1950;
@@ -71,6 +73,55 @@ async function fetchJson<T>(url: string): Promise<T | null> {
   }
 }
 
+async function fetchHtml(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        accept: "text/html",
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+function normalizeMediaKey(src: string): string {
+  return String(src)
+    .trim()
+    .toLowerCase()
+    .replace(/-\d+x\d+(\.[a-z0-9]+)$/i, "$1")
+    .replace(/-scaled(\.[a-z0-9]+)$/i, "$1");
+}
+
+/**
+ * Proven gallery authority on tourism.gov.ph destination pages:
+ * `.content-gallery-main__gallery` / lightbox href + img.
+ */
+export function extractDotContentGalleryImages(html: string): Array<{ src: string; alt: string }> {
+  const $ = cheerio.load(html);
+  const out: Array<{ src: string; alt: string }> = [];
+  const seen = new Set<string>();
+  $(".content-gallery-main__gallery-item").each((_, item) => {
+    const $item = $(item);
+    const $a = $item.find("a[href], a[data-pswp-src]").first();
+    const $img = $item.find("img[src]").first();
+    const src = String($a.attr("href") || $a.attr("data-pswp-src") || $img.attr("src") || "").trim();
+    if (!src || !/^https?:\/\//i.test(src)) return;
+    if (/logo|icon|partner|fluentcom|button/i.test(src)) return;
+    const key = normalizeMediaKey(src);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ src, alt: String($img.attr("alt") || "").trim() });
+  });
+  return out;
+}
+
 async function resolveFeaturedMediaUrl(featuredMediaId: number | undefined): Promise<string | null> {
   const id = Number(featuredMediaId ?? 0);
   if (!Number.isFinite(id) || id <= 0) return null;
@@ -100,7 +151,31 @@ async function documentFromDestination(post: WpDestination): Promise<ExternalBoa
     if (!text) return null;
     doc.nodes.push({ type: "paragraph", text });
   }
+
   const feedThumbnailSrc = await resolveFeaturedMediaUrl(post.featured_media);
+
+  // Gallery from live HTML — separate from feedThumbnailSrc (LOCK 5).
+  const pageHtml = await fetchHtml(link);
+  if (pageHtml) {
+    const gallery = extractDotContentGalleryImages(pageHtml);
+    const galleryNodes: ExternalBoardNode[] =
+      gallery.length === 1
+        ? [{ type: "image", src: gallery[0]!.src, alt: gallery[0]!.alt || undefined, role: "gallery" }]
+        : gallery.length > 1
+          ? [
+              {
+                type: "gallery",
+                images: gallery.map((g) => ({
+                  src: g.src,
+                  alt: g.alt || undefined,
+                  role: "gallery" as const,
+                })),
+              },
+            ]
+          : [];
+    doc.nodes.push(...galleryNodes);
+  }
+
   return { ...doc, feedThumbnailSrc };
 }
 

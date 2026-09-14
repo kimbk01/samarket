@@ -7,9 +7,31 @@ export function isExternalBoardNode(value: unknown): value is ExternalBoardNode 
   switch (type) {
     case "paragraph":
     case "quote":
+    case "caption":
       return typeof n.text === "string";
-    case "image":
-      return typeof n.src === "string" && String(n.src).trim().length > 0;
+    case "heading": {
+      const level = Number(n.level);
+      return typeof n.text === "string" && level >= 1 && level <= 4;
+    }
+    case "image": {
+      if (typeof n.src !== "string" || !String(n.src).trim()) return false;
+      // LOCK 5: thumbnail role forbidden on body nodes
+      if (n.role != null && n.role !== "body" && n.role !== "gallery" && n.role !== "decorative") {
+        return false;
+      }
+      return true;
+    }
+    case "gallery":
+      return (
+        Array.isArray(n.images) &&
+        n.images.every(
+          (img) =>
+            img &&
+            typeof img === "object" &&
+            typeof (img as { src?: unknown }).src === "string" &&
+            String((img as { src: string }).src).trim().length > 0
+        )
+      );
     case "list":
       return typeof n.ordered === "boolean" && Array.isArray(n.items);
     case "link":
@@ -52,10 +74,12 @@ export function validateExternalBoardDocument(raw: unknown): {
     nodes.push(node);
   }
   const hasBody = nodes.some((n) => {
-    if (n.type === "paragraph" || n.type === "quote") return n.text.trim().length > 0;
+    if (n.type === "paragraph" || n.type === "quote" || n.type === "caption" || n.type === "heading") {
+      return n.text.trim().length > 0;
+    }
     if (n.type === "list") return n.items.some((it) => String(it).trim().length > 0);
     if (n.type === "link") return n.text.trim().length > 0 || n.href.trim().length > 0;
-    if (n.type === "image") return true;
+    if (n.type === "image" || n.type === "gallery") return true;
     return false;
   });
   if (!title && !hasBody) {

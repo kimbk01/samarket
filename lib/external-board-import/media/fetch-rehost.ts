@@ -27,7 +27,7 @@ export async function rehostDocumentImages(input: {
   fetchImpl?: typeof fetch;
 }): Promise<RehostResult> {
   const fetchFn = input.fetchImpl ?? fetch;
-  const nodes = [];
+  const nodes: ExternalBoardDocument["nodes"] = [];
   const images: string[] = [];
 
   async function rehostOne(srcRaw: string): Promise<string> {
@@ -132,13 +132,38 @@ export async function rehostDocumentImages(input: {
   }
 
   for (const node of input.document.nodes) {
-    if (node.type !== "image") {
-      nodes.push(node);
+    if (node.type === "image") {
+      if (node.role === "decorative") {
+        // Audit-only decorative: do not rehost into publish content list.
+        nodes.push(node);
+        continue;
+      }
+      const publicUrl = await rehostOne(String(node.src ?? ""));
+      images.push(publicUrl);
+      nodes.push({ ...node, src: publicUrl, mediaId: mediaIdentityFromUrl(String(node.src ?? "")) });
       continue;
     }
-    const publicUrl = await rehostOne(String(node.src ?? ""));
-    images.push(publicUrl);
-    nodes.push({ ...node, src: publicUrl, mediaId: mediaIdentityFromUrl(String(node.src ?? "")) });
+    if (node.type === "gallery") {
+      const galleryImages: Array<{
+        src: string;
+        alt?: string;
+        mediaId?: string;
+        role?: "body" | "gallery";
+      }> = [];
+      for (const img of node.images ?? []) {
+        const publicUrl = await rehostOne(String(img.src ?? ""));
+        images.push(publicUrl);
+        galleryImages.push({
+          ...img,
+          src: publicUrl,
+          mediaId: mediaIdentityFromUrl(String(img.src ?? "")),
+          role: img.role === "body" ? "body" : "gallery",
+        });
+      }
+      nodes.push({ type: "gallery", images: galleryImages });
+      continue;
+    }
+    nodes.push(node);
   }
 
   return {

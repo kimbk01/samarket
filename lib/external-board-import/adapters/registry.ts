@@ -1,6 +1,10 @@
+import { biAdvisoryAdapter } from "@/lib/external-board-import/adapters/bi-advisory";
+import { bspMediaReleasesAdapter } from "@/lib/external-board-import/adapters/bsp-media-releases";
 import { dotTourismDestinationAdapter } from "@/lib/external-board-import/adapters/dot-tourism";
 import { helloCebuExternalBoardAdapter } from "@/lib/external-board-import/adapters/hello-cebu";
+import { kwfLanguageResourceAdapter } from "@/lib/external-board-import/adapters/kwf-language-resource";
 import { manilaSeoulExternalBoardAdapter } from "@/lib/external-board-import/adapters/manilaseoul";
+import { nccaTalapamanaArticlesAdapter } from "@/lib/external-board-import/adapters/ncca-talapamana";
 import { philsamoExternalBoardAdapter } from "@/lib/external-board-import/adapters/philsamo";
 import { pinoyForumExternalBoardAdapter } from "@/lib/external-board-import/adapters/pinoy-forum";
 import {
@@ -21,6 +25,10 @@ const ADAPTERS: ExternalBoardAdapter[] = [
   philsamoExternalBoardAdapter,
   helloCebuExternalBoardAdapter,
   dotTourismDestinationAdapter,
+  nccaTalapamanaArticlesAdapter,
+  biAdvisoryAdapter,
+  bspMediaReleasesAdapter,
+  kwfLanguageResourceAdapter,
   fixtureExternalBoardAdapter,
 ];
 export function listExternalBoardAdapters(): readonly ExternalBoardAdapter[] {

@@ -46,6 +46,10 @@ export type ExternalBoardArticleAdminDto = {
   source_published_at: string | null;
   source_page: number | null;
   source_sequence: number | null;
+  source_language: string | null;
+  detected_language: string | null;
+  display_language: string | null;
+  translation_status: string | null;
   ops_status: string;
   article_signal: string | null;
   published_post_id: string | null;
@@ -106,11 +110,9 @@ export function toExternalBoardSourceAdminDto(
 
 export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): ExternalBoardArticleAdminDto {
   const doc = row.draft_document ?? row.source_document;
+  // Feed thumb authority only — do not invent body image as thumb when feedThumb absent for "이미지 없음".
   const feedThumb = String(doc.feedThumbnailSrc ?? "").trim();
-  const firstImg = doc.nodes.find((n) => n.type === "image" && n.src?.trim());
-  const thumbnail_url =
-    feedThumb ||
-    (firstImg && firstImg.type === "image" ? String(firstImg.src).trim() || null : null);
+  const thumbnail_url = feedThumb || null;
   const has_image = Boolean(thumbnail_url);
   return {
     id: row.id,
@@ -122,6 +124,10 @@ export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): Ex
     source_published_at: row.source_published_at,
     source_page: row.source_page ?? null,
     source_sequence: row.source_sequence ?? null,
+    source_language: row.source_language,
+    detected_language: row.detected_language,
+    display_language: row.display_language,
+    translation_status: row.translation_status,
     ops_status: row.ops_status,
     article_signal: row.article_signal,
     published_post_id: row.published_post_id,

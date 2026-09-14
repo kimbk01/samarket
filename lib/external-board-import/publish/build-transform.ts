@@ -96,7 +96,11 @@ export async function buildExternalBoardTransform(
     rules
   );
   const community = externalBoardDocumentToCommunityContent(replaced);
-  const author = await pickAuthorAliasForPublish(sb, source.author_pool_id);
+  // ORIGINAL AUTHOR: prefer source_author. Pool / Editorial only when source has no author.
+  const sourceAuthor = String(article.source_author ?? "").trim();
+  const author = sourceAuthor
+    ? { displayName: sourceAuthor, avatarUrl: null as string | null }
+    : await pickAuthorAliasForPublish(sb, source.author_pool_id);
 
   return {
     ok: true,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeAuthMode } from "@/lib/external-board-import/auth/source-session";
 import type { ExternalBoardMode, ExternalBoardRightsStatus } from "@/lib/external-board-import/product-lock";
 import type { ExternalBoardSourceRow } from "@/lib/external-board-import/types";
 import { deriveSourceBoardIdentity } from "@/lib/external-board-import/identity/source-board-identity";
@@ -26,6 +27,7 @@ function mapSource(row: Record<string, unknown>): ExternalBoardSourceRow {
       row.attribution_display_name != null ? String(row.attribution_display_name) : null,
     board_sequence_verified: Boolean(row.board_sequence_verified),
     enabled: row.enabled === undefined || row.enabled === null ? true : Boolean(row.enabled),
+    auth_mode: normalizeAuthMode(row.auth_mode),
     author_pool_id: row.author_pool_id != null ? String(row.author_pool_id) : null,
     date_recent_min_days: Number(row.date_recent_min_days ?? 3),
     date_recent_max_days: Number(row.date_recent_max_days ?? 10),

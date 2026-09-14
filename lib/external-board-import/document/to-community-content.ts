@@ -9,6 +9,12 @@ function nodeToMarkdown(node: ExternalBoardNode): string {
   switch (node.type) {
     case "paragraph":
       return node.text.trim();
+    case "heading": {
+      const hashes = "#".repeat(Math.min(4, Math.max(1, node.level)));
+      return `${hashes} ${node.text.trim()}`;
+    }
+    case "caption":
+      return `_${node.text.trim()}_`;
     case "quote":
       return node.text
         .split(/\r?\n/)
@@ -22,8 +28,18 @@ function nodeToMarkdown(node: ExternalBoardNode): string {
     case "link":
       return `[${escapeMdLinkText(node.text || node.href)}](${node.href})`;
     case "image": {
+      // decorative images are omitted from Detail body markdown
+      if (node.role === "decorative") return "";
       const alt = escapeMdLinkText(node.alt || "");
       return `![${alt}](${node.src})`;
+    }
+    case "gallery": {
+      return node.images
+        .map((img) => {
+          const alt = escapeMdLinkText(img.alt || "");
+          return `![${alt}](${img.src})`;
+        })
+        .join("\n\n");
     }
     default:
       return "";
@@ -47,8 +63,14 @@ export function externalBoardDocumentToCommunityContent(doc: ExternalBoardDocume
   const blocks: string[] = [];
   for (const node of doc.nodes) {
     if (node.type === "image") {
+      if (node.role === "decorative") continue;
       const src = String(node.src ?? "").trim();
       if (src) images.push(src);
+    } else if (node.type === "gallery") {
+      for (const img of node.images) {
+        const src = String(img.src ?? "").trim();
+        if (src) images.push(src);
+      }
     }
     const md = nodeToMarkdown(node);
     if (md) blocks.push(md);

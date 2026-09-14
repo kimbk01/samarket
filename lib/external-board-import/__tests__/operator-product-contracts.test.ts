@@ -42,6 +42,7 @@ describe("external-board operator product contracts", () => {
       attribution_display_name: null,
       board_sequence_verified: false,
       enabled: true,
+      auth_mode: "public",
       author_pool_id: null,
       date_recent_min_days: 3,
       date_recent_max_days: 10,
@@ -66,7 +67,7 @@ describe("external-board operator product contracts", () => {
     );
     expect(ui).toContain("publish-selected");
     expect(ui).toContain("게시할 글을 선택하세요");
-    expect(ui).toContain("필리핀 정보 Source Catalog");
+    expect(ui).toContain("필리핀 정보 소스");
     expect(ui).toContain("사용 가능한 항목 보기");
     for (const bad of [
       "MANUAL Publish",
@@ -80,6 +81,7 @@ describe("external-board operator product contracts", () => {
       "adapter missing",
       "UNSUPPORTED",
       "VERIFY",
+      "Source Catalog",
     ]) {
       expect(ui).not.toContain(bad);
     }
@@ -111,8 +113,9 @@ describe("external-board operator product contracts", () => {
       "utf8"
     );
     expect(route).toMatch(/draft_title|draft_document/);
-    expect(route).not.toMatch(/\.update\([\s\S]*source_title/);
-    expect(route).not.toMatch(/\.update\([\s\S]*source_document/);
+    // Object keys must not write raw columns (values may read article.source_* for revert).
+    expect(route).not.toMatch(/^\s*source_title\s*:/m);
+    expect(route).not.toMatch(/^\s*source_document\s*:/m);
   });
 
   it("build-transform prefers draft and does not mutate raw source fields in writer", () => {

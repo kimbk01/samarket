@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
 /**
- * Draft save / transform-apply — never writes community_posts.
- * RAW source_document / source_title are preserved.
+ * Draft save / transform-apply / revert — never writes community_posts.
+ * RAW source_document / source_title are preserved (operator-immutable).
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const admin = await requireAdminApiUser();
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   try {
     const body = (await req.json()) as {
-      action?: "save" | "apply_transform" | "preview_transform";
+      action?: "save" | "apply_transform" | "preview_transform" | "revert";
       draftTitle?: string | null;
       draftDocument?: unknown;
     };
@@ -47,6 +47,21 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       });
     }
 
+    if (action === "revert") {
+      const { error } = await sb
+        .from("external_board_articles")
+        .update({
+          draft_title: article.source_title,
+          draft_document: article.source_document,
+          edit_status: "collected",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) throw new Error(error.message);
+      const fresh = await getExternalBoardArticle(sb, id);
+      return NextResponse.json({ ok: true, article: fresh });
+    }
+
     if (action === "apply_transform") {
       const rules = await listReplacementRules(sb, source.id);
       const base = article.draft_document ?? article.source_document;
@@ -57,7 +72,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         .update({
           draft_title: applied.title,
           draft_document: applied,
-          edit_status: "editing",
+          edit_status: "transformed",
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
