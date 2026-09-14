@@ -362,6 +362,16 @@ export function AdminExternalImportOperatorPage() {
     setSourceId(sid);
     setBoardKey(bid);
     setPage(1);
+    // Clear selection before list reload so detail effect does not fetch
+    // the previous board's articleKey against the new source (rss_item_not_found toast).
+    setActiveKey(null);
+    setArticle(null);
+    setDraft(null);
+    setPending(null);
+    setDraftMeta(null);
+    setSelected(new Set());
+    setPublishResult(null);
+    setListError(null);
     setMobilePane("list");
   };
 
@@ -395,15 +405,19 @@ export function AdminExternalImportOperatorPage() {
     `${mobilePane === pane ? "flex" : "hidden"} xl:flex flex-col min-h-0 min-w-0 h-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface`;
 
   return (
-    <div className="flex flex-col gap-3 max-w-[100vw] overflow-x-hidden min-h-0 h-[calc(100dvh-6.5rem)] pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-      <div className="shrink-0">
+    <div className="flex flex-col gap-3 landscape:max-xl:gap-1 max-w-[100vw] overflow-x-hidden min-h-0 h-[calc(100dvh-6.5rem)] landscape:max-xl:h-[calc(100dvh-2.5rem)] pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+      {/* Portrait / desktop: full page header. Phone landscape: compact title only — shell chrome already consumes most of ~300px height. */}
+      <div className="shrink-0 landscape:max-xl:hidden">
         <AdminPageHeader
           title="외부 글 가져오기"
           description="검증된 실제 출처·게시판에서 글을 선택·수정한 뒤 DIBAY Community에 게시합니다. (OLD 워커/8단계 없음)"
         />
       </div>
+      <div className="hidden landscape:max-xl:block shrink-0 text-sm font-semibold text-sam-fg leading-tight px-0.5">
+        외부 글 가져오기
+      </div>
 
-      <div className="xl:hidden flex items-center gap-2 sticky top-0 z-20 shrink-0 bg-sam-app/95 backdrop-blur px-1 py-2 border-b border-sam-border">
+      <div className="xl:hidden flex items-center gap-2 sticky top-0 z-20 shrink-0 bg-sam-app/95 backdrop-blur px-1 py-2 landscape:py-1 border-b border-sam-border">
         {mobilePane !== "sources" ? (
           <button
             type="button"
