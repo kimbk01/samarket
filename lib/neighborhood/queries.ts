@@ -29,7 +29,7 @@ import {
   isSameCommunityImportPrincipal,
   loadCommunityImportPrincipalUserId,
 } from "@/lib/community/community-import-principal";
-import { loadPublicSourceAttributionFromPost } from "@/lib/external-board-import/attribution/public-attribution";
+import { loadPublicSourceAttributionFromPost } from "@/lib/community/public-source-attribution";
 import {
   communityFeedKeysetOrFilter,
   communityPostPublicPublishedAt,
@@ -260,7 +260,7 @@ export async function listNeighborhoodFeed(options: {
     topics
   );
 
-  const ORIGIN_TAIL = ", origin_kind, display_author_name, display_author_avatar_url";
+  const ORIGIN_TAIL = ", origin_kind, display_author_name, display_author_avatar_url, display_date";
   const FEED_SELECT_FULL =
     "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     ORIGIN_TAIL;
@@ -369,6 +369,11 @@ export async function listNeighborhoodFeed(options: {
       chronologyCol === "published_at" ? FEED_SELECT_FULL_NO_ORIGIN : FEED_SELECT_FULL_LEGACY;
     ({ data, error } = await runMainSelect(noOrigin, true, rangeForPage));
     effectiveSelectCols = noOrigin;
+  }
+  if (error && isMissingDbColumnError(error, "display_date")) {
+    const noDisplay = String(effectiveSelectCols).replace(/,\s*display_date/g, "");
+    ({ data, error } = await runMainSelect(noDisplay, useTopicSlug, rangeForPage));
+    effectiveSelectCols = noDisplay;
   }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlug = false;
@@ -634,6 +639,7 @@ export async function listNeighborhoodFeed(options: {
         published_at: r.published_at != null ? String(r.published_at) : null,
         created_at: r.created_at != null ? String(r.created_at) : null,
       }),
+      display_date: r.display_date != null ? String(r.display_date) : null,
       author_name: author.display_name,
       author_avatar_url: author.avatar_url,
       author_id: uid,
@@ -804,7 +810,7 @@ export async function getNeighborhoodPostDetail(
   }
 
   const v = options?.viewerUserId?.trim() ?? "";
-  const DETAIL_ORIGIN = ", origin_kind, display_author_name, display_author_avatar_url";
+  const DETAIL_ORIGIN = ", origin_kind, display_author_name, display_author_avatar_url, display_date";
   const DETAIL_SELECT_FULL =
     "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, published_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status" +
     DETAIL_ORIGIN;
@@ -854,6 +860,19 @@ export async function getNeighborhoodPostDetail(
   if (error && isMissingDbColumnError(error, "origin_kind")) {
     ({ data, error } = await fetchDetailRow(
       detailHasPublishedAt ? DETAIL_SELECT_FULL_NO_ORIGIN : DETAIL_SELECT_FULL_LEGACY
+    ));
+  }
+  if (error && isMissingDbColumnError(error, "display_date")) {
+    ({ data, error } = await fetchDetailRow(
+      String(
+        detailHasPublishedAt
+          ? useTopicSlugDetail
+            ? DETAIL_SELECT_FULL
+            : DETAIL_SELECT_FULL_NO_TOPIC_SLUG
+          : useTopicSlugDetail
+            ? DETAIL_SELECT_FULL_LEGACY
+            : DETAIL_SELECT_FULL_NO_TOPIC_SLUG_LEGACY
+      ).replace(/,\s*display_date/g, "")
     ));
   }
   if (error && isMissingDbColumnError(error, "topic_slug")) {
@@ -985,6 +1004,7 @@ export async function getNeighborhoodPostDetail(
       published_at: row.published_at != null ? String(row.published_at) : null,
       created_at: row.created_at != null ? String(row.created_at) : null,
     }),
+    display_date: row.display_date != null ? String(row.display_date) : null,
     author_name: author.display_name,
     author_avatar_url: author.avatar_url,
     author_id: uid,
@@ -994,9 +1014,17 @@ export async function getNeighborhoodPostDetail(
       ? {
           sourceName: sourceAttribution.sourceName,
           canonicalUrl: sourceAttribution.canonicalUrl,
-          sourcePublishedAt: sourceAttribution.sourcePublishedAt,
+          sourcePublishedAt:
+            sourceAttribution.sourcePublishedAt ??
+            (row.display_date != null ? String(row.display_date) : null),
         }
-      : null,
+      : row.display_date != null
+        ? {
+            sourceName: "",
+            canonicalUrl: null,
+            sourcePublishedAt: String(row.display_date),
+          }
+        : null,
     meeting_id: meetLink?.id ?? null,
     community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
     meeting_date:

@@ -103,13 +103,8 @@ describe("STEP1 reward/notify call-graph evidence (static)", () => {
     const neigh = fs.readFileSync(path.join(root, "app/api/community/neighborhood-posts/route.ts"), "utf8");
     expect(posts).toContain("applyCommunityPointRewardOnPostWrite");
     expect(neigh).toContain("applyCommunityPointRewardOnPostWrite");
-    // STEP2 registry/Admin may exist; still no crawler→community_posts insert writer.
-    const crawlStore = fs.readFileSync(
-      path.join(root, "lib/community-crawler/admin-crawl-store.ts"),
-      "utf8"
-    );
-    expect(crawlStore).not.toContain("applyCommunityPointRewardOnPostWrite");
-    expect(crawlStore).not.toContain('from("community_posts")');
+    // Old community-crawler package removed — no crawler→community_posts reward writer path.
+    expect(fs.existsSync(path.join(root, "lib/community-crawler"))).toBe(false);
   });
 
   it("T8 like/comment skip author notify when recipient is not a real member", async () => {

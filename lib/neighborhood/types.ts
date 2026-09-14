@@ -24,12 +24,18 @@ export type NeighborhoodFeedPostDTO = {
   like_count: number;
   comment_count: number;
   /**
-   * Public display clock (= published_at). Kept as `created_at` for card/timeago compat.
+   * Public display clock (= published_at / DIBAY_PUBLISHED_AT). Kept as `created_at` for card/timeago compat.
    * DB audit `created_at` is not exposed on this public DTO.
    */
   created_at: string;
   /** Community-wide Public publication chronology (same as public display clock) */
   published_at?: string;
+  /**
+   * SOURCE_PUBLISHED_AT snapshot for imported posts (`community_posts.display_date`).
+   * Loaded in the same Feed/Detail batch select — never N+1.
+   * When set, cards/detail may show this as the visible source date; sort still uses published_at.
+   */
+  display_date?: string | null;
   author_name: string;
   /** profiles.avatar_url — 상세·카드 아바타; imported → display_author_avatar_url */
   author_avatar_url?: string | null;

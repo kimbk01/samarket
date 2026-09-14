@@ -35,14 +35,15 @@ describe("community final dead cleanup contracts", () => {
     expect(existsSync(join(root, "tests/e2e/community-ia-runtime-cases.spec.ts"))).toBe(true);
   });
 
-  it("no app route imports deleted community-board package", () => {
-    // Match deleted package only — NOT `@/lib/community-board-import` (deferred COMPLETE REMOVE).
+  it("no app route imports deleted community-board or old import packages", () => {
     const deletedLib = /@\/lib\/community-board(?![-/a-zA-Z0-9_])/;
     const deletedComponents = /@\/components\/community-board(?![-/a-zA-Z0-9_])/;
+    const deletedImport = /@\/lib\/(community-board-import|community-crawler|external-board-import)\b/;
     for (const file of walkTs(join(root, "app"))) {
       const src = readFileSync(file, "utf8");
       expect(src, file).not.toMatch(deletedLib);
       expect(src, file).not.toMatch(deletedComponents);
+      expect(src, file).not.toMatch(deletedImport);
     }
   });
 

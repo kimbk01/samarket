@@ -418,7 +418,11 @@ export function CommunityDetail({
             authorName={post.author_name}
             authorAvatarUrl={post.author_avatar_url}
             locationLabel={post.location_label}
-            createdAt={post.created_at}
+            createdAt={
+              post.origin_kind === "imported" && post.display_date
+                ? post.display_date
+                : post.created_at
+            }
             subline={authorSubline}
             showMoreMenu
             postId={post.id}

@@ -52,26 +52,6 @@ export type PostImagesWriterInventoryRow = {
  */
 export const POST_IMAGES_ACTIVE_WRITERS: readonly PostImagesWriterInventoryRow[] = [
   {
-    writer: "external-board-import media rehost",
-    domain: "community",
-    entity: "external_board_media_assets",
-    pathShape: "{principalUserId}/community/external-board/{articleId}/{hash}.{ext}",
-    dbColumn: "external_board_media_assets.dibay_storage_path · dibay_storage_url",
-    deleteOwner: "external_board_articles CASCADE + Data Reset community",
-    runtimeActive: true,
-    ownershipFromPath: "OWNERSHIP_EXPLICIT",
-  },
-  {
-    writer: "community-crawler media rehost (PHASE C)",
-    domain: "community",
-    entity: "community_crawl_item_media (pre-publish)",
-    pathShape: "community-crawler/{sourceId}/{crawlItemId}/{hash}.{ext}",
-    dbColumn: "community_crawl_item_media.storage_path · public_url",
-    deleteOwner: "crawl item CASCADE + Data Reset community (path-derived)",
-    runtimeActive: true,
-    ownershipFromPath: "OWNERSHIP_EXPLICIT",
-  },
-  {
     writer: "POST /api/community/upload-image",
     domain: "community",
     entity: "community_post (pre-bind upload)",

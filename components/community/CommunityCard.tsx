@@ -26,10 +26,12 @@ function buildNeighborhoodFeedListViewModel(
   untitledLabel: string,
   language: AppLanguageCode
 ): FeedListCardViewModel {
+  const clockIso =
+    post.origin_kind === "imported" && post.display_date && !Number.isNaN(Date.parse(post.display_date))
+      ? post.display_date
+      : post.created_at;
   const time =
-    post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at, language)
-      : "";
+    clockIso && !Number.isNaN(Date.parse(clockIso)) ? formatTimeAgo(clockIso, language) : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
@@ -82,6 +84,8 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.id === next.id &&
     prev.feed_list_skin === next.feed_list_skin &&
     prev.created_at === next.created_at &&
+    prev.display_date === next.display_date &&
+    prev.origin_kind === next.origin_kind &&
     prev.title === next.title &&
     prev.summary === next.summary &&
     prev.content === next.content &&
