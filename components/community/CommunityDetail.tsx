@@ -418,11 +418,7 @@ export function CommunityDetail({
             authorName={post.author_name}
             authorAvatarUrl={post.author_avatar_url}
             locationLabel={post.location_label}
-            createdAt={
-              post.origin_kind === "imported" && post.display_date
-                ? post.display_date
-                : post.created_at
-            }
+            createdAt={post.created_at}
             subline={authorSubline}
             showMoreMenu
             postId={post.id}
@@ -440,8 +436,7 @@ export function CommunityDetail({
             meetingHostDisplay={meetingHostDisplay}
             viewerJoinedMeeting={viewerJoinedMeeting}
           />
-          {/* PUBLIC: imported posts never show source attribution. Admin keeps 원문 URL. */}
-          {post.origin_kind !== "imported" && post.source_attribution?.sourceName ? (
+          {post.source_attribution?.sourceName ? (
             <div className="mt-4 rounded-ui-rect border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-3 py-3 sam-text-helper text-[var(--cm-muted)]">
               <div className="font-medium text-[var(--cm-fg)]">{t("community_source_attribution_label")}</div>
               <div className="mt-1">{post.source_attribution.sourceName}</div>

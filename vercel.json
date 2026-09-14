@@ -18,14 +18,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/board-import-auto-dispatcher",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/external-board-auto-dispatcher",
-      "schedule": "*/15 * * * *"
-    },
-    {
       "path": "/api/community-messenger/calls/sessions/stale-cleanup",
       "schedule": "*/2 * * * *"
     }

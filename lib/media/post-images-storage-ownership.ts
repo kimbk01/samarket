@@ -183,9 +183,6 @@ export function classifyPostImagesPath(storagePath: string): ClassifiedPostImage
   };
   if (!path || path.includes("..")) return base;
 
-  if (/^community-crawler\//.test(path)) {
-    return { ...base, domain: "community", ownership: "OWNERSHIP_EXPLICIT" };
-  }
   if (/(^|\/)profile\//.test(path)) {
     return { ...base, domain: "profile", ownership: "OWNERSHIP_EXPLICIT" };
   }

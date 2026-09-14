@@ -122,16 +122,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
 
   if (body.status === "hidden" || body.status === "deleted") {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId: id });
-    try {
-      const { markExternalPublishDeletedByCommunityPost } = await import(
-        "@/lib/external-import/publish/publish-selected"
-      );
-      if (body.status === "deleted") {
-        await markExternalPublishDeletedByCommunityPost(sb, id);
-      }
-    } catch (e) {
-      console.error("[admin/community/posts] external_import publish link update failed", e);
-    }
   }
 
   const meta = getAuditRequestMeta(req);

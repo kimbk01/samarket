@@ -82,14 +82,6 @@ export async function POST(req: NextRequest) {
 
   for (const postId of deleted) {
     await applyCommunityPointReclaimOnPostAdminRemove({ postId });
-    try {
-      const { markExternalPublishDeletedByCommunityPost } = await import(
-        "@/lib/external-import/publish/publish-selected"
-      );
-      await markExternalPublishDeletedByCommunityPost(sb, postId);
-    } catch (e) {
-      console.error("[admin/community/posts/bulk-delete] external_import link update failed", e);
-    }
   }
 
   if (deleted.length > 0 && imageUrlsToRemove.length > 0) {

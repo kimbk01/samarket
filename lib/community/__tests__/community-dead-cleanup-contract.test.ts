@@ -38,13 +38,22 @@ describe("community final dead cleanup contracts", () => {
   it("no app route imports deleted community-board or old import packages", () => {
     const deletedLib = /@\/lib\/community-board(?![-/a-zA-Z0-9_])/;
     const deletedComponents = /@\/components\/community-board(?![-/a-zA-Z0-9_])/;
-    const deletedImport = /@\/lib\/(community-board-import|community-crawler|external-board-import)\b/;
+    const deletedImport =
+      /@\/lib\/(community-board-import|community-crawler|external-board-import|external-import)\b/;
     for (const file of walkTs(join(root, "app"))) {
       const src = readFileSync(file, "utf8");
       expect(src, file).not.toMatch(deletedLib);
       expect(src, file).not.toMatch(deletedComponents);
       expect(src, file).not.toMatch(deletedImport);
     }
+  });
+
+  it("external-import Admin product paths are gone", () => {
+    expect(existsSync(join(root, "app/admin/community/external-import"))).toBe(false);
+    expect(existsSync(join(root, "app/api/admin/community/external-import"))).toBe(false);
+    expect(existsSync(join(root, "components/admin/community/AdminExternalImportPage.tsx"))).toBe(false);
+    expect(existsSync(join(root, "lib/external-import"))).toBe(false);
+    expect(existsSync(join(root, "services/crawl-worker"))).toBe(false);
   });
 
   it("community_topics_legacy has no runtime readers after helper removal", () => {
