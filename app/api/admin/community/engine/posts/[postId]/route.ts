@@ -77,7 +77,15 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
 
 /**
  * PATCH /api/admin/community/engine/posts/:postId
- * body: { status?: 'active'|'hidden'|'deleted', isReported?: boolean }
+ * body: {
+ *   status?: 'active'|'hidden'|'deleted',
+ *   isReported?: boolean,
+ *   title?: string,
+ *   content?: string,
+ *   topicId?: string,
+ *   topicSlug?: string,
+ * }
+ * Content/topic edits reuse normal community_posts authority (post-publish correction).
  */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const admin = await requireAdminApiUser();
@@ -87,7 +95,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
   const id = postId?.trim();
   if (!id) return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
 
-  let body: { status?: string; isReported?: boolean };
+  let body: {
+    status?: string;
+    isReported?: boolean;
+    title?: string;
+    content?: string;
+    topicId?: string;
+    topicSlug?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -99,9 +114,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
     patch.status = body.status;
   }
   if (typeof body.isReported === "boolean") patch.is_reported = body.isReported;
-
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ ok: false, error: "no_updates" }, { status: 400 });
+  if (typeof body.title === "string") {
+    const title = body.title.trim();
+    if (!title) return NextResponse.json({ ok: false, error: "title_required" }, { status: 400 });
+    patch.title = title;
+  }
+  if (typeof body.content === "string") {
+    const content = body.content;
+    if (!content.trim()) return NextResponse.json({ ok: false, error: "content_required" }, { status: 400 });
+    patch.content = content;
   }
 
   let sb: ReturnType<typeof getSupabaseServer>;
@@ -111,9 +132,44 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
+  const topicId = typeof body.topicId === "string" ? body.topicId.trim() : "";
+  const topicSlug = typeof body.topicSlug === "string" ? body.topicSlug.trim().toLowerCase() : "";
+  if (topicId || topicSlug) {
+    if (!topicId || !topicSlug) {
+      return NextResponse.json({ ok: false, error: "topic_incomplete" }, { status: 400 });
+    }
+    const { getPhilifeNeighborhoodSectionSlugServer } = await import(
+      "@/lib/community-feed/philife-neighborhood-section"
+    );
+    const { resolveTopicMeta } = await import("@/lib/community-feed/queries");
+    const { deriveCommunityPostCategoryBucket } = await import(
+      "@/lib/neighborhood/derive-community-post-category-bucket"
+    );
+    const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
+    const meta = await resolveTopicMeta(sectionSlug, topicSlug);
+    if (!meta || meta.is_feed_sort || meta.id !== topicId) {
+      return NextResponse.json({ ok: false, error: "invalid_topic" }, { status: 400 });
+    }
+    patch.topic_id = meta.id;
+    patch.topic_slug = topicSlug;
+    patch.category = deriveCommunityPostCategoryBucket({
+      topicOrCategoryRaw: topicSlug,
+      isMeetup: Boolean(meta.allow_meetup),
+    });
+  }
+
+  if (typeof patch.content === "string") {
+    const { summarizeCommunityPostContent } = await import("@/lib/philife/interleaved-body-markdown");
+    patch.summary = summarizeCommunityPostContent(String(patch.content));
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ ok: false, error: "no_updates" }, { status: 400 });
+  }
+
   const { data: before } = await sb
     .from("community_posts")
-    .select("id, status, is_reported, title, user_id")
+    .select("id, status, is_reported, title, content, topic_id, topic_slug, user_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -125,6 +181,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
   }
 
   const meta = getAuditRequestMeta(req);
+  const contentEdited = typeof body.title === "string" || typeof body.content === "string" || Boolean(topicId);
   void appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: admin.userId,
@@ -133,12 +190,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ postId: s
     action:
       typeof body.status === "string"
         ? `community_post.status_${body.status}`
-        : "community_post.update",
+        : contentEdited
+          ? "community_post.content_update"
+          : "community_post.update",
     before_json: before
       ? {
           status: (before as { status?: string | null }).status ?? null,
           is_reported: (before as { is_reported?: boolean | null }).is_reported ?? null,
           title: (before as { title?: string | null }).title ?? null,
+          topic_slug: (before as { topic_slug?: string | null }).topic_slug ?? null,
           user_id: (before as { user_id?: string | null }).user_id ?? null,
         }
       : null,

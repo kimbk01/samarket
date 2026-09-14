@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     article?: OperatorNormalizedArticle;
     edit?: OperatorDraftEdit;
     selectedArticleKeys?: string[];
+    forceRepublish?: boolean;
   }>(req, "JSON 본문이 필요합니다.");
   if (!parsed.ok) return parsed.response;
 
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   const selectedArticleKeys = Array.isArray(parsed.value.selectedArticleKeys)
     ? parsed.value.selectedArticleKeys.map((k) => String(k))
     : [];
+  const forceRepublish = parsed.value.forceRepublish === true;
 
   if (!article?.sourceArticleKey) {
     return jsonError("원문 article이 필요합니다.", 400, { code: "article_required" });
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
       edit,
       selectedArticleKeys,
       adminUserId: auth.userId,
+      forceRepublish,
     });
     if (!result.ok) {
       return jsonError(result.message, 400, { code: result.code });

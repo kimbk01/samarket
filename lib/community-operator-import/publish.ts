@@ -12,7 +12,11 @@ import {
   collectOrderedImageUrlsForFeed,
   remapBlockImageUrls,
 } from "./draft-apply";
-import { markOperatorImportDraftPublished, upsertOperatorImportDraft } from "./draft-store";
+import {
+  loadOperatorImportDraft,
+  markOperatorImportDraftPublished,
+  upsertOperatorImportDraft,
+} from "./draft-store";
 import { ingestOperatorImageUrlList } from "./ingest-operator-images.server";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "./types";
 
@@ -21,6 +25,8 @@ export type PublishOperatorArticleInput = {
   edit: OperatorDraftEdit;
   selectedArticleKeys: string[];
   adminUserId: string;
+  /** Required to intentionally publish again after a prior success for the same source identity. */
+  forceRepublish?: boolean;
 };
 
 export type PublishOperatorArticleResult =
@@ -56,6 +62,23 @@ export async function publishOperatorSelectedArticle(
       code: "multi_publish_requires_explicit_loop",
       message: `선택한 ${keys.length}개 글을 게시하려면 각 선택 글에 대해 명시적으로 게시하세요. 일괄 숨은 게시는 없습니다.`,
     };
+  }
+
+  try {
+    const existing = await loadOperatorImportDraft(sb, {
+      sourceSite: input.article.sourceSite,
+      sourceBoard: input.article.sourceBoard,
+      sourceArticleKey: input.article.sourceArticleKey,
+    });
+    if (existing?.status === "published" && existing.publishedPostId && !input.forceRepublish) {
+      return {
+        ok: false,
+        code: "already_published",
+        message: `이미 게시된 외부 글입니다 (post ${existing.publishedPostId}). 재게시하려면 명시적으로 forceRepublish를 확인하세요.`,
+      };
+    }
+  } catch {
+    /* draft table optional — continue */
   }
 
   const topicSlug = String(input.edit.topicSlug || "").trim().toLowerCase();

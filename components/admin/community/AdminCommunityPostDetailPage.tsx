@@ -11,6 +11,7 @@ import { formatTimeAgo } from "@/lib/utils/format";
 type PostDetail = {
   id: string;
   user_id?: string | null;
+  topic_id?: string | null;
   topic_slug?: string | null;
   category?: string | null;
   title?: string | null;
@@ -46,6 +47,11 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editTopicId, setEditTopicId] = useState("");
+  const [topics, setTopics] = useState<Array<{ id: string; slug: string; name: string }>>([]);
+  const [saveMsg, setSaveMsg] = useState("");
 
   const load = useCallback(async () => {
     if (!id) {
@@ -68,6 +74,9 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         return;
       }
       setPost(j.post);
+      setEditTitle(String(j.post.title ?? ""));
+      setEditContent(String(j.post.content ?? ""));
+      setEditTopicId(String(j.post.topic_id ?? ""));
     } catch (e) {
       setErr((e as Error).message);
       setPost(null);
@@ -79,6 +88,24 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/community/external-import/topics", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          topics?: Array<{ id: string; slug: string; name: string }>;
+        };
+        if (res.ok && j.ok) setTopics(j.topics || []);
+      } catch {
+        /* topics optional for status-only ops */
+      }
+    })();
+  }, []);
 
   const patchStatus = useCallback(
     async (status: string) => {
@@ -103,6 +130,38 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
     },
     [id, load, tr]
   );
+
+  const saveContent = useCallback(async () => {
+    setBusy(true);
+    setErr("");
+    setSaveMsg("");
+    try {
+      const topic = topics.find((t) => t.id === editTopicId);
+      const body: Record<string, string> = {
+        title: editTitle,
+        content: editContent,
+      };
+      if (topic) {
+        body.topicId = topic.id;
+        body.topicSlug = topic.slug;
+      }
+      const res = await fetch(`/api/admin/community/engine/posts/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setErr(j.error ?? tr("admin_posts_err_community_patch"));
+        return;
+      }
+      setSaveMsg("저장됨");
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }, [editContent, editTitle, editTopicId, id, load, topics, tr]);
 
   if (loading) {
     return (
@@ -297,6 +356,53 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
       </AdminCard>
 
       <AdminCard titleKey="admin_community_comments_col_body">
+        <div className="space-y-3 mb-4 pb-4 border-b border-sam-border">
+          <p className="sam-text-helper text-sam-muted">
+            게시 후 제목·본문·주제 수정 (일반 Community Admin 경로)
+          </p>
+          <label className="block sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_title")}</label>
+          <input
+            className="sam-input w-full"
+            value={editTitle}
+            disabled={busy}
+            onChange={(e) => setEditTitle(e.target.value)}
+          />
+          <label className="block sam-text-helper text-sam-muted">{tr("admin_posts_col_topic")}</label>
+          <select
+            className="sam-input w-full"
+            value={editTopicId}
+            disabled={busy || topics.length === 0}
+            onChange={(e) => setEditTopicId(e.target.value)}
+          >
+            {topics.length === 0 ? (
+              <option value={editTopicId}>{topic || dash}</option>
+            ) : (
+              topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.slug})
+                </option>
+              ))
+            )}
+          </select>
+          <label className="block sam-text-helper text-sam-muted">{tr("admin_community_comments_col_body")}</label>
+          <textarea
+            className="sam-input w-full min-h-[220px] font-mono text-xs"
+            value={editContent}
+            disabled={busy}
+            onChange={(e) => setEditContent(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void saveContent()}
+              className="sam-btn sam-btn-primary text-xs"
+            >
+              {tr("common_save")}
+            </button>
+            {saveMsg ? <span className="sam-text-helper text-emerald-700">{saveMsg}</span> : null}
+          </div>
+        </div>
         <div className="whitespace-pre-wrap sam-text-body text-sam-fg">
           {String(post.content ?? "").trim() || dash}
         </div>

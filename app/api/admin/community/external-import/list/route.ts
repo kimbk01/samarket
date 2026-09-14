@@ -1,14 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
-  isSupportedPhilsamoBoard,
-  listPhilsamoBoards,
-  PHILSAMO_SITE,
-  philsamoBoardUrl,
-  resolvePhilsamoBoard,
-} from "@/lib/community-operator-import/boards";
-import { fetchPhilsamoTravelList } from "@/lib/community-operator-import/philsamo-travel";
-import { PHILSAMO_SOURCE_SITE, PHILSAMO_TRAVEL_BOARD } from "@/lib/community-operator-import/types";
+  buildRegistryPayloadFromRuntime,
+  collectOperatorList,
+  loadOperationalRegistry,
+} from "@/lib/community-operator-import/collect";
+import { resolveRuntimeSourceBoard } from "@/lib/community-operator-import/source-store";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -19,31 +16,79 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const page = Number(req.nextUrl.searchParams.get("page") || "1") || 1;
-  const source = (req.nextUrl.searchParams.get("source") || PHILSAMO_SOURCE_SITE).trim();
-  const board = (req.nextUrl.searchParams.get("board") || PHILSAMO_TRAVEL_BOARD).trim();
+  const maxPages = Number(req.nextUrl.searchParams.get("maxPages") || "1") || 1;
+  const maxItems = Number(req.nextUrl.searchParams.get("maxItems") || "40") || 40;
+  const source = (req.nextUrl.searchParams.get("source") || "").trim();
+  const board = (req.nextUrl.searchParams.get("board") || "").trim();
+  const runtime = await loadOperationalRegistry();
+  const registry = buildRegistryPayloadFromRuntime(runtime);
 
-  if (source !== PHILSAMO_SOURCE_SITE || !isSupportedPhilsamoBoard(board)) {
-    return jsonError("지원하지 않는 출처/게시판입니다.", 400, { code: "source_board_unsupported" });
+  if (!source || !board) {
+    return jsonOk({
+      ...registry,
+      source: null,
+      page,
+      maxPages,
+      maxItems,
+      rows: [],
+      hint: "source와 board를 선택하세요.",
+    });
   }
 
-  const boardDef = resolvePhilsamoBoard(board)!;
+  if (!resolveRuntimeSourceBoard(runtime.sources, runtime.boards, source, board)) {
+    return jsonError("지원하지 않는 출처/게시판입니다.", 400, {
+      code: "source_board_unsupported",
+      source,
+      board,
+    });
+  }
+
   try {
-    const rows = await fetchPhilsamoTravelList(Math.max(1, Math.min(20, page)), boardDef.board);
-    return jsonOk({
-      source: {
-        site: PHILSAMO_SITE.site,
-        siteLabel: PHILSAMO_SITE.siteLabel,
-        board: boardDef.board,
-        boardLabel: boardDef.labelKo,
-        boardUrl: philsamoBoardUrl(boardDef.board),
-      },
-      boards: listPhilsamoBoards(),
+    const { meta, rows, page: usedPage, maxPages: usedMaxPages } = await collectOperatorList(source, board, {
       page,
-      rows,
+      maxPages,
+      maxItems,
+    });
+
+    let rowsWithState = rows.map((r) => ({
+      ...r,
+      inboxStatus: "new" as string,
+      publishedPostId: null as string | null,
+    }));
+    try {
+      const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+      const { upsertInboxRowsFromList } = await import("@/lib/community-operator-import/inbox-store");
+      const sb = getSupabaseServer();
+      const map = await upsertInboxRowsFromList(sb, {
+        sourceSite: meta.site,
+        sourceBoard: meta.board,
+        rows,
+      });
+      rowsWithState = rows.map((r) => {
+        const st = map.get(r.articleKey);
+        return {
+          ...r,
+          inboxStatus: st?.status || "new",
+          publishedPostId: st?.publishedPostId || null,
+        };
+      });
+    } catch {
+      /* inbox optional until migration */
+    }
+
+    return jsonOk({
+      ...registry,
+      source: meta,
+      page: usedPage,
+      maxPages: usedMaxPages,
+      maxItems,
+      rows: rowsWithState,
     });
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "목록 수집에 실패했습니다.", 502, {
       code: "list_fetch_failed",
+      source,
+      board,
     });
   }
 }
