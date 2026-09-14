@@ -166,6 +166,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "community-meeting-events": "admin_menu_meeting_logs",
   "community-meetings": "admin_menu_meetings",
   "community-posts": "admin_menu_community_posts",
+  "community-external-import": "admin_menu_community_external_import",
   "community-comments": "admin_menu_community_comments",
   "community-feed-reports": "admin_menu_community_reports",
   "community-point-policies": "admin_menu_community_point_policies",
@@ -689,6 +690,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
         children: [
           { key: "community-posts", title: "", path: "/admin/community/posts", status: "done" },
+          {
+            key: "community-external-import",
+            title: "",
+            path: "/admin/community/external-import",
+            status: "done",
+          },
           {
             key: "community-comments",
             title: "",

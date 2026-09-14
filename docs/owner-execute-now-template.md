@@ -12,6 +12,24 @@
 >  
 > “이전으로 복구 후 일부 재사용” 금지. 텍스트 wireframe/설계 승인만으로 전체 Admin 구현 금지.
 
+## Current phase board (2026-09-14)
+
+| Phase | Status |
+|---|---|
+| A Full remove + Community recovery | **PASS / LOCKED** |
+| B Real-site technical proof | **PASS / LOCKED** |
+| C Owner sample (`.tmp/phase-c-owner-sample/`) | **PASS / LOCKED** (Owner approved) |
+| D Product design lock | **OWNER APPROVED / LOCKED** — `docs/dibay-community-external-import-phase-d-product-design-lock.md` |
+| E Real Admin implementation | **OPEN** (implement D lock; not Production E2E) |
+| F Production E2E | **NOT STARTED** (Owner opens after E report) |
+
+```text
+PHASE C sample approval ≠ Admin already shipped
+PHASE D locks the approved sample as product contract
+PHASE E implements that contract in real DIBAY Admin
+PHASE F = final Production E2E authority — do not claim F during E
+```
+
 ---
 
 ```text

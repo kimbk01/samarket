@@ -48,12 +48,16 @@ describe("community final dead cleanup contracts", () => {
     }
   });
 
-  it("external-import Admin product paths are gone", () => {
-    expect(existsSync(join(root, "app/admin/community/external-import"))).toBe(false);
-    expect(existsSync(join(root, "app/api/admin/community/external-import"))).toBe(false);
-    expect(existsSync(join(root, "components/admin/community/AdminExternalImportPage.tsx"))).toBe(false);
+  it("OLD external-import packages stay gone; Fresh PHASE E operator-import is allowed", () => {
+    // OLD product package / worker must not return
     expect(existsSync(join(root, "lib/external-import"))).toBe(false);
     expect(existsSync(join(root, "services/crawl-worker"))).toBe(false);
+    expect(existsSync(join(root, "components/admin/community/AdminExternalImportPage.tsx"))).toBe(false);
+    // Fresh PHASE E Admin route + operator-import lib
+    expect(existsSync(join(root, "app/admin/community/external-import"))).toBe(true);
+    expect(existsSync(join(root, "app/api/admin/community/external-import"))).toBe(true);
+    expect(existsSync(join(root, "components/admin/community/AdminExternalImportOperatorPage.tsx"))).toBe(true);
+    expect(existsSync(join(root, "lib/community-operator-import"))).toBe(true);
   });
 
   it("community_topics_legacy has no runtime readers after helper removal", () => {
