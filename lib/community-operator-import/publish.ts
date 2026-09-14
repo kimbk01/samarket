@@ -9,9 +9,11 @@ import {
   assertPublishGuards,
   blocksToCommunityMarkdown,
   buildAppliedContentBlocks,
-  collectIncludedImageUrls,
+  collectOrderedImageUrlsForFeed,
+  remapBlockImageUrls,
 } from "./draft-apply";
 import { markOperatorImportDraftPublished, upsertOperatorImportDraft } from "./draft-store";
+import { ingestOperatorImageUrlList } from "./ingest-operator-images.server";
 import type { OperatorDraftEdit, OperatorNormalizedArticle } from "./types";
 
 export type PublishOperatorArticleInput = {
@@ -22,12 +24,12 @@ export type PublishOperatorArticleInput = {
 };
 
 export type PublishOperatorArticleResult =
-  | { ok: true; postId: string; selectedOnly: true; topicSlug: string }
+  | { ok: true; postId: string; selectedOnly: true; topicSlug: string; dibayImageCount: number }
   | { ok: false; code: string; message: string };
 
 /**
  * Publish ONE explicitly selected article into normal community_posts.
- * No public source attribution block. Provenance stays on operator draft row.
+ * Images are ingested into existing post-images ownership (no external hotlink as success path).
  */
 export async function publishOperatorSelectedArticle(
   sb: SupabaseClient,
@@ -58,8 +60,6 @@ export async function publishOperatorSelectedArticle(
 
   const topicSlug = String(input.edit.topicSlug || "").trim().toLowerCase();
   const topicId = String(input.edit.topicId || "").trim();
-  // Must match listOperatorImportTopicOptions section SSOT (philife neighborhood → often `dongnae`).
-  // Hardcoded "philife" is not a live community_sections.slug and rejects valid topics.
   const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort || meta.id !== topicId) {
@@ -78,7 +78,45 @@ export async function publishOperatorSelectedArticle(
     };
   }
 
-  const appliedBlocks = buildAppliedContentBlocks(input.article, input.edit);
+  let appliedBlocks = buildAppliedContentBlocks(input.article, input.edit);
+  const sourceImageUrls = collectOrderedImageUrlsForFeed(input.article, input.edit, appliedBlocks);
+
+  const ingested = await ingestOperatorImageUrlList({
+    sb,
+    ownerUserId: principalId,
+    urls: sourceImageUrls,
+    pageReferer: input.article.canonicalUrl,
+  });
+  if (sourceImageUrls.length > 0 && ingested.publicUrls.length === 0) {
+    return {
+      ok: false,
+      code: "image_ingest_failed",
+      message: "콘텐츠 이미지를 DIBAY 저장소로 가져오지 못했습니다.",
+    };
+  }
+
+  const urlMap = new Map<string, string>();
+  for (const row of ingested.mapped) urlMap.set(row.sourceUrl, row.publicUrl);
+  appliedBlocks = remapBlockImageUrls(appliedBlocks, urlMap);
+  const feedImages = collectOrderedImageUrlsForFeed(input.article, input.edit, appliedBlocks).map(
+    (u) => urlMap.get(u) || u,
+  );
+  // Prefer ingested public URLs in feed order
+  const imagesForPost =
+    ingested.publicUrls.length > 0
+      ? (() => {
+          const thumbSource = input.edit.thumbnailImageIndex;
+          if (thumbSource != null && input.article.orderedContentBlocks[thumbSource]?.type === "image") {
+            const srcUrl = (input.article.orderedContentBlocks[thumbSource] as { url: string }).url;
+            const thumbPub = urlMap.get(srcUrl);
+            if (thumbPub) {
+              return [thumbPub, ...ingested.publicUrls.filter((u) => u !== thumbPub)];
+            }
+          }
+          return ingested.publicUrls;
+        })()
+      : feedImages;
+
   const content = blocksToCommunityMarkdown(appliedBlocks);
   const title = String(input.edit.displayTitle || input.article.title || "").trim();
   if (!title || !content) {
@@ -122,8 +160,6 @@ export async function publishOperatorSelectedArticle(
     }
   }
 
-  const imageUrls = collectIncludedImageUrls(appliedBlocks);
-
   const { data: inserted, error: insErr } = await sb
     .from("community_posts")
     .insert({
@@ -137,7 +173,7 @@ export async function publishOperatorSelectedArticle(
       summary: summarizeCommunityPostContent(content),
       region_label,
       category: categoryForDb,
-      images: [],
+      images: imagesForPost,
       is_question: false,
       is_meetup: false,
       meetup_place: null,
@@ -148,7 +184,6 @@ export async function publishOperatorSelectedArticle(
       display_author_name: displayAuthor,
       display_author_avatar_url: null,
       display_date,
-      // Public attribution intentionally absent (PHASE D lock).
       public_attribution_name: null,
       public_attribution_url: null,
     })
@@ -164,11 +199,11 @@ export async function publishOperatorSelectedArticle(
   }
 
   const postId = (inserted as { id: string }).id;
-  if (imageUrls.length > 0) {
-    const rows = imageUrls.slice(0, 40).map((url, i) => ({
+  if (imagesForPost.length > 0) {
+    const rows = imagesForPost.slice(0, 40).map((url, i) => ({
       post_id: postId,
       image_url: url,
-      storage_path: "",
+      storage_path: ingested.storagePaths[i] || "",
       sort_order: i,
     }));
     const { error: imgErr } = await sb.from("community_post_images").insert(rows);
@@ -196,8 +231,14 @@ export async function publishOperatorSelectedArticle(
       edit: input.edit,
     });
   } catch {
-    // Post already created; draft link is best-effort for audit.
+    /* best-effort */
   }
 
-  return { ok: true, postId, selectedOnly: true, topicSlug };
+  return {
+    ok: true,
+    postId,
+    selectedOnly: true,
+    topicSlug,
+    dibayImageCount: imagesForPost.length,
+  };
 }

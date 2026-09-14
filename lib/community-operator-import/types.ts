@@ -38,6 +38,17 @@ export type OperatorDraftEdit = {
   replaceTo: string;
   /** block index → included (images only; missing means included) */
   imageIncludes: Record<string, boolean>;
+  /** non-image source block index → excluded when true */
+  blockExcludes?: Record<string, boolean>;
+  /** optional freeform text override for paragraph/heading/quote/list by source index */
+  textOverrides?: Record<string, string>;
+  /**
+   * Ordered source image block indices for AFTER image sequence.
+   * Empty/missing = preserve source image order among included images.
+   */
+  imageOrder?: number[];
+  /** source image block index used as Feed thumbnail (must be included) */
+  thumbnailImageIndex?: number | null;
   topicId: string | null;
   topicSlug: string | null;
 };

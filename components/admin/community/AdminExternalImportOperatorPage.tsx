@@ -17,6 +17,7 @@ import {
   PHILSAMO_TRAVEL_BOARD,
   PHILSAMO_TRAVEL_LABEL,
 } from "@/lib/community-operator-import/types";
+import { listPhilsamoBoards } from "@/lib/community-operator-import/boards";
 
 type TopicOption = { id: string; slug: string; name: string };
 type Tab = "before" | "edit" | "after" | "publish";
@@ -70,6 +71,8 @@ function renderBlocksHtml(article: OperatorNormalizedArticle, edit: OperatorDraf
 }
 
 export function AdminExternalImportOperatorPage() {
+  const [boardKey, setBoardKey] = useState(PHILSAMO_TRAVEL_BOARD);
+  const [boards] = useState(() => listPhilsamoBoards());
   const [source, setSource] = useState<SourceMeta | null>(null);
   const [rows, setRows] = useState<OperatorListRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -91,18 +94,23 @@ export function AdminExternalImportOperatorPage() {
     window.setTimeout(() => setToast(null), 3200);
   };
 
-  const loadList = useCallback(async () => {
+  const loadList = useCallback(async (board: string) => {
     setLoadingList(true);
     try {
       const res = await fetch(
-        `/api/admin/community/external-import/list?source=${PHILSAMO_SOURCE_SITE}&board=${PHILSAMO_TRAVEL_BOARD}`,
+        `/api/admin/community/external-import/list?source=${PHILSAMO_SOURCE_SITE}&board=${encodeURIComponent(board)}`,
         { cache: "no-store" },
       );
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.error || "목록 실패");
       setSource(json.source);
       setRows(json.rows || []);
-      if (!activeKey && (json.rows || []).length) {
+      setSelected(new Set());
+      setActiveKey(null);
+      setArticle(null);
+      setDraft(null);
+      setPending(null);
+      if ((json.rows || []).length) {
         const first = json.rows[0].articleKey as string;
         setActiveKey(first);
         setSelected(new Set([first]));
@@ -112,7 +120,7 @@ export function AdminExternalImportOperatorPage() {
     } finally {
       setLoadingList(false);
     }
-  }, [activeKey]);
+  }, []);
 
   const loadTopics = useCallback(async () => {
     const res = await fetch("/api/admin/community/external-import/topics", { cache: "no-store" });
@@ -120,38 +128,41 @@ export function AdminExternalImportOperatorPage() {
     if (res.ok && json?.ok) setTopics(json.topics || []);
   }, []);
 
-  const loadDetail = useCallback(async (key: string) => {
-    setLoadingDetail(true);
-    setPublishResult(null);
-    try {
-      const res = await fetch(
-        `/api/admin/community/external-import/detail?source=${PHILSAMO_SOURCE_SITE}&board=${PHILSAMO_TRAVEL_BOARD}&articleKey=${encodeURIComponent(key)}`,
-        { cache: "no-store" },
-      );
-      const json = await res.json();
-      if (!res.ok || !json?.ok) throw new Error(json?.error || "본문 실패");
-      setArticle(json.article);
-      const edit = json.edit as OperatorDraftEdit;
-      setDraft(edit);
-      setPending(structuredClone(edit));
-      setSaved(Boolean(json.draft?.id) && json.draft?.status === "draft");
-      setTab("before");
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "본문을 불러오지 못했습니다.");
-      setArticle(null);
-    } finally {
-      setLoadingDetail(false);
-    }
-  }, []);
+  const loadDetail = useCallback(
+    async (key: string, board: string) => {
+      setLoadingDetail(true);
+      setPublishResult(null);
+      try {
+        const res = await fetch(
+          `/api/admin/community/external-import/detail?source=${PHILSAMO_SOURCE_SITE}&board=${encodeURIComponent(board)}&articleKey=${encodeURIComponent(key)}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (!res.ok || !json?.ok) throw new Error(json?.error || "본문 실패");
+        setArticle(json.article);
+        const edit = json.edit as OperatorDraftEdit;
+        setDraft(edit);
+        setPending(structuredClone(edit));
+        setSaved(Boolean(json.draft?.id) && json.draft?.status === "draft");
+        setTab("before");
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : "본문을 불러오지 못했습니다.");
+        setArticle(null);
+      } finally {
+        setLoadingDetail(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    void loadList();
+    void loadList(boardKey);
     void loadTopics();
-  }, [loadList, loadTopics]);
+  }, [boardKey, loadList, loadTopics]);
 
   useEffect(() => {
-    if (activeKey) void loadDetail(activeKey);
-  }, [activeKey, loadDetail]);
+    if (activeKey) void loadDetail(activeKey, boardKey);
+  }, [activeKey, boardKey, loadDetail]);
 
   const pendingDirty = useMemo(() => {
     if (!draft || !pending) return false;
@@ -270,12 +281,24 @@ export function AdminExternalImportOperatorPage() {
           <div className="px-4 py-3 border-b border-sam-border text-sm font-semibold">출처</div>
           <div className="p-4 space-y-2">
             <div className="text-base font-bold">{source?.siteLabel || "필사모"}</div>
+            <label className="block text-xs text-sam-muted">게시판 (실제 지원 보드만)</label>
+            <select
+              className="sam-input w-full"
+              value={boardKey}
+              onChange={(e) => setBoardKey(e.target.value)}
+            >
+              {boards.map((b) => (
+                <option key={b.board} value={b.board}>
+                  {b.labelKo} ({b.board})
+                </option>
+              ))}
+            </select>
             <div className="text-sm">{source?.boardLabel || PHILSAMO_TRAVEL_LABEL}</div>
             <div className="text-xs text-sam-muted break-all">
-              {source?.boardUrl || `philsamo.com · ${PHILSAMO_TRAVEL_BOARD}`}
+              {source?.boardUrl || `philsamo.com · ${boardKey}`}
             </div>
             <p className="text-xs text-sam-muted leading-relaxed pt-2">
-              실제 검증된 게시판입니다. 수집 엔진·작업 큐 같은 개발자 개념은 표시하지 않습니다.
+              보드를 바꾸면 가운데 목록이 다시 수집됩니다. OLD 8단계/자유 URL 크롤러 없음.
             </p>
           </div>
         </section>
@@ -422,14 +445,71 @@ export function AdminExternalImportOperatorPage() {
                   onChange={(e) => setPending({ ...pending, replaceTo: e.target.value })}
                   placeholder="예: 오카다 마닐라 리조트"
                 />
+
+                <div className="text-sm font-semibold pt-2">본문 블록 편집/제외</div>
+                <div className="space-y-2 max-h-64 overflow-auto border border-sam-border rounded p-2">
+                  {article.orderedContentBlocks.map((b, i) => {
+                    if (b.type === "image") return null;
+                    const excluded = pending.blockExcludes?.[String(i)] === true;
+                    const textVal =
+                      pending.textOverrides?.[String(i)] ??
+                      (b.type === "list" ? b.items.join("\n") : "text" in b ? String(b.text || "") : "");
+                    return (
+                      <div key={i} className={`rounded border border-sam-border p-2 ${excluded ? "opacity-40" : ""}`}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-[11px] text-sam-muted">
+                            #{i} {b.type}
+                          </span>
+                          <label className="text-[11px]">
+                            <input
+                              type="checkbox"
+                              checked={!excluded}
+                              onChange={(e) =>
+                                setPending({
+                                  ...pending,
+                                  blockExcludes: {
+                                    ...(pending.blockExcludes || {}),
+                                    [String(i)]: !e.target.checked,
+                                  },
+                                })
+                              }
+                            />{" "}
+                            포함
+                          </label>
+                        </div>
+                        {(b.type === "paragraph" ||
+                          b.type === "heading" ||
+                          b.type === "quote" ||
+                          b.type === "list") && (
+                          <textarea
+                            className="sam-input w-full text-xs min-h-[56px]"
+                            value={textVal}
+                            disabled={excluded}
+                            onChange={(e) =>
+                              setPending({
+                                ...pending,
+                                textOverrides: {
+                                  ...(pending.textOverrides || {}),
+                                  [String(i)]: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <div className="text-sm font-semibold pt-2">
-                  이미지 포함 ({includedCount}/{imageBlocks.length})
+                  이미지 포함 ({includedCount}/{imageBlocks.length}) · 피드 썸네일 선택 · 순서
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {imageBlocks.map((im, ord) => {
                     const on = pending.imageIncludes[String(im.index)] !== false;
+                    const isThumb = pending.thumbnailImageIndex === im.index;
                     return (
-                      <label
+                      <div
                         key={im.index}
                         className={`border border-sam-border rounded p-1.5 text-[11px] ${on ? "" : "opacity-40"}`}
                       >
@@ -439,18 +519,72 @@ export function AdminExternalImportOperatorPage() {
                           alt=""
                           className="w-full h-20 object-cover rounded mb-1"
                         />
-                        <input
-                          type="checkbox"
-                          checked={on}
-                          onChange={(e) =>
-                            setPending({
-                              ...pending,
-                              imageIncludes: { ...pending.imageIncludes, [String(im.index)]: e.target.checked },
-                            })
-                          }
-                        />{" "}
-                        #{ord + 1} 포함
-                      </label>
+                        <label className="block">
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={(e) => {
+                              const nextIncludes = {
+                                ...pending.imageIncludes,
+                                [String(im.index)]: e.target.checked,
+                              };
+                              let nextOrder = [...(pending.imageOrder || imageBlocks.map((x) => x.index))];
+                              if (e.target.checked && !nextOrder.includes(im.index)) nextOrder.push(im.index);
+                              if (!e.target.checked) nextOrder = nextOrder.filter((x) => x !== im.index);
+                              setPending({
+                                ...pending,
+                                imageIncludes: nextIncludes,
+                                imageOrder: nextOrder,
+                                thumbnailImageIndex:
+                                  !e.target.checked && pending.thumbnailImageIndex === im.index
+                                    ? nextOrder[0] ?? null
+                                    : pending.thumbnailImageIndex,
+                              });
+                            }}
+                          />{" "}
+                          #{ord + 1} 포함
+                        </label>
+                        <label className="block mt-1">
+                          <input
+                            type="radio"
+                            name="thumb"
+                            checked={isThumb}
+                            disabled={!on}
+                            onChange={() => setPending({ ...pending, thumbnailImageIndex: im.index })}
+                          />{" "}
+                          피드 썸네일
+                        </label>
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            type="button"
+                            className="sam-btn sam-btn-ghost text-[10px] px-1"
+                            disabled={!on}
+                            onClick={() => {
+                              const order = [...(pending.imageOrder || imageBlocks.map((x) => x.index))];
+                              const at = order.indexOf(im.index);
+                              if (at <= 0) return;
+                              [order[at - 1], order[at]] = [order[at], order[at - 1]];
+                              setPending({ ...pending, imageOrder: order });
+                            }}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="sam-btn sam-btn-ghost text-[10px] px-1"
+                            disabled={!on}
+                            onClick={() => {
+                              const order = [...(pending.imageOrder || imageBlocks.map((x) => x.index))];
+                              const at = order.indexOf(im.index);
+                              if (at < 0 || at >= order.length - 1) return;
+                              [order[at], order[at + 1]] = [order[at + 1], order[at]];
+                              setPending({ ...pending, imageOrder: order });
+                            }}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

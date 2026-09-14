@@ -8,6 +8,7 @@ import {
 import {
   assertPublishGuards,
   buildAppliedContentBlocks,
+  collectOrderedImageUrlsForFeed,
   defaultOperatorDraftEdit,
 } from "@/lib/community-operator-import/draft-apply";
 
@@ -68,6 +69,34 @@ describe("community-operator-import philsamo travel", () => {
     expect(assertPublishGuards({ selectedArticleKeys: [], topicId: "t", topicSlug: "travel" }).ok).toBe(false);
     expect(assertPublishGuards({ selectedArticleKeys: ["71"], topicId: null, topicSlug: null }).ok).toBe(false);
     expect(assertPublishGuards({ selectedArticleKeys: ["71"], topicId: "t", topicSlug: "travel" }).ok).toBe(true);
+  });
+
+  it("supports block exclude, text override, and thumbnail-first image list", () => {
+    const detailPath = join(proofDir, "detail-71.html");
+    if (!existsSync(detailPath)) return;
+    const article = parsePhilsamoTravelDetailHtml(readFileSync(detailPath, "utf8"), "71");
+    const edit = defaultOperatorDraftEdit(article);
+    const firstPara = article.orderedContentBlocks.findIndex((b) => b.type === "paragraph");
+    if (firstPara >= 0) {
+      edit.blockExcludes = { [String(firstPara)]: true };
+    }
+    const imgs = article.orderedContentBlocks
+      .map((b, i) => ({ b, i }))
+      .filter((x) => x.b.type === "image");
+    if (imgs.length >= 2) {
+      edit.thumbnailImageIndex = imgs[1]!.i;
+      edit.imageOrder = [imgs[1]!.i, imgs[0]!.i, ...imgs.slice(2).map((x) => x.i)];
+    }
+    const applied = buildAppliedContentBlocks(article, edit);
+    if (firstPara >= 0) {
+      expect(applied.some((b) => b.type === "paragraph" && b.text === (article.orderedContentBlocks[firstPara] as { text: string }).text)).toBe(
+        false,
+      );
+    }
+    const urls = collectOrderedImageUrlsForFeed(article, edit, applied);
+    if (imgs.length >= 2) {
+      expect(urls[0]).toBe((imgs[1]!.b as { url: string }).url);
+    }
   });
 });
 

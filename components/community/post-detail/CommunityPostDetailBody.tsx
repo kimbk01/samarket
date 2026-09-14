@@ -31,7 +31,10 @@ export function CommunityPostDetailBody({
         <div className={CM_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
       ) : isInterleavedBody ? (
         <div className="mt-3">
-          <NeighborhoodInterleavedContent content={post.content} />
+          <NeighborhoodInterleavedContent
+            content={post.content}
+            plainMedia={post.origin_kind === "imported"}
+          />
         </div>
       ) : (
         <div className={CM_BODY_CLASS}>{post.content}</div>

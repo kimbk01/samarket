@@ -115,10 +115,16 @@ export function ensureDraftEdit(
   article: OperatorNormalizedArticle,
   edit: OperatorDraftEdit | null | undefined,
 ): OperatorDraftEdit {
-  if (!edit) return defaultOperatorDraftEdit(article);
+  const base = defaultOperatorDraftEdit(article);
+  if (!edit) return base;
   return {
-    ...defaultOperatorDraftEdit(article),
+    ...base,
     ...edit,
-    imageIncludes: { ...defaultOperatorDraftEdit(article).imageIncludes, ...(edit.imageIncludes || {}) },
+    imageIncludes: { ...base.imageIncludes, ...(edit.imageIncludes || {}) },
+    blockExcludes: { ...(base.blockExcludes || {}), ...(edit.blockExcludes || {}) },
+    textOverrides: { ...(base.textOverrides || {}), ...(edit.textOverrides || {}) },
+    imageOrder: Array.isArray(edit.imageOrder) && edit.imageOrder.length ? edit.imageOrder : base.imageOrder,
+    thumbnailImageIndex:
+      edit.thumbnailImageIndex !== undefined ? edit.thumbnailImageIndex : base.thumbnailImageIndex,
   };
 }

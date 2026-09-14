@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { isSupportedPhilsamoBoard } from "@/lib/community-operator-import/boards";
 import { defaultOperatorDraftEdit } from "@/lib/community-operator-import/draft-apply";
-import { loadOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
+import { ensureDraftEdit, loadOperatorImportDraft } from "@/lib/community-operator-import/draft-store";
 import { fetchPhilsamoTravelDetail } from "@/lib/community-operator-import/philsamo-travel";
 import { PHILSAMO_SOURCE_SITE, PHILSAMO_TRAVEL_BOARD } from "@/lib/community-operator-import/types";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -18,15 +19,15 @@ export async function GET(req: NextRequest) {
   const board = (req.nextUrl.searchParams.get("board") || PHILSAMO_TRAVEL_BOARD).trim();
   const articleKey = (req.nextUrl.searchParams.get("articleKey") || "").trim();
 
-  if (source !== PHILSAMO_SOURCE_SITE || board !== PHILSAMO_TRAVEL_BOARD) {
-    return jsonError("현재는 필사모 · 필리핀 여행 게시판만 지원합니다.", 400, { code: "source_board_unsupported" });
+  if (source !== PHILSAMO_SOURCE_SITE || !isSupportedPhilsamoBoard(board)) {
+    return jsonError("지원하지 않는 출처/게시판입니다.", 400, { code: "source_board_unsupported" });
   }
   if (!/^\d+$/.test(articleKey)) {
     return jsonError("articleKey가 필요합니다.", 400, { code: "article_key_required" });
   }
 
   try {
-    const article = await fetchPhilsamoTravelDetail(articleKey);
+    const article = await fetchPhilsamoTravelDetail(articleKey, board);
     let savedEdit = null as ReturnType<typeof defaultOperatorDraftEdit> | null;
     let draftMeta: { id: string; status: string; publishedPostId: string | null } | null = null;
     try {
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
         sourceArticleKey: article.sourceArticleKey,
       });
       if (draft) {
-        savedEdit = draft.edit;
+        savedEdit = ensureDraftEdit(article, draft.edit);
         draftMeta = { id: draft.id, status: draft.status, publishedPostId: draft.publishedPostId };
       }
     } catch {

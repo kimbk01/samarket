@@ -1,15 +1,11 @@
 /**
- * PHILSAMO / travel — Fresh PHASE E collector (Gnuboard HTML).
- * Not OLD adapter/worker architecture. Source-specific by design for first board.
+ * PHILSAMO Gnuboard HTML collector — Fresh operator import.
+ * Board is selected from bounded registry (boards.ts), not a free crawler.
  */
 import * as cheerio from "cheerio";
+import { isSupportedPhilsamoBoard, resolvePhilsamoBoard } from "./boards";
 import type { OperatorContentBlock, OperatorListRow, OperatorNormalizedArticle } from "./types";
-import {
-  PHILSAMO_BASE,
-  PHILSAMO_SOURCE_SITE,
-  PHILSAMO_TRAVEL_BOARD,
-  PHILSAMO_TRAVEL_LABEL,
-} from "./types";
+import { PHILSAMO_BASE, PHILSAMO_SOURCE_SITE, PHILSAMO_TRAVEL_BOARD } from "./types";
 
 type CheerioAPI = typeof cheerio.load extends (...args: any[]) => infer R ? R : never;
 type CheerioSel = ReturnType<CheerioAPI>;
@@ -37,12 +33,13 @@ function isNonContentImage(url: string): boolean {
   return false;
 }
 
-export function parsePhilsamoTravelListHtml(html: string): OperatorListRow[] {
+export function parsePhilsamoTravelListHtml(html: string, board: string = PHILSAMO_TRAVEL_BOARD): OperatorListRow[] {
+  const boardKey = String(board || PHILSAMO_TRAVEL_BOARD).trim();
   const $ = cheerio.load(html);
   const rows: OperatorListRow[] = [];
   const seen = new Set<string>();
 
-  $("a[href*='bo_table=travel'][href*='wr_id=']").each((_, el) => {
+  $(`a[href*='bo_table=${boardKey}'][href*='wr_id=']`).each((_, el) => {
     const href = $(el).attr("href") || "";
     const m = href.match(/wr_id=(\d+)/);
     if (!m) return;
@@ -70,7 +67,7 @@ export function parsePhilsamoTravelListHtml(html: string): OperatorListRow[] {
     rows.push({
       articleKey: id,
       title: title.replace(/\s+/g, " ").trim(),
-      detailUrl: `${PHILSAMO_BASE}/bbs/board.php?bo_table=${PHILSAMO_TRAVEL_BOARD}&wr_id=${id}`,
+      detailUrl: `${PHILSAMO_BASE}/bbs/board.php?bo_table=${boardKey}&wr_id=${id}`,
       author: authorRaw || null,
       sourcePublishedDate: date || null,
       thumbnailUrl: thumb,
@@ -219,7 +216,13 @@ function walkContent($: CheerioAPI, root: CheerioSel): OperatorContentBlock[] {
   return blocks;
 }
 
-export function parsePhilsamoTravelDetailHtml(html: string, articleKey: string): OperatorNormalizedArticle {
+export function parsePhilsamoTravelDetailHtml(
+  html: string,
+  articleKey: string,
+  board: string = PHILSAMO_TRAVEL_BOARD,
+): OperatorNormalizedArticle {
+  const boardDef = resolvePhilsamoBoard(board);
+  if (!boardDef) throw new Error("philsamo_board_unsupported");
   const $ = cheerio.load(html);
   const title =
     $('meta[property="og:title"]').attr("content") ||
@@ -235,16 +238,16 @@ export function parsePhilsamoTravelDetailHtml(html: string, articleKey: string):
 
   const $content = $("div.view-content").first();
   if (!$content.length) {
-    throw new Error("philsamo_travel_view_content_missing");
+    throw new Error("philsamo_view_content_missing");
   }
 
   const orderedContentBlocks = walkContent($, $content as CheerioSel);
 
   return {
     sourceSite: PHILSAMO_SOURCE_SITE,
-    sourceBoard: PHILSAMO_TRAVEL_BOARD,
-    sourceBoardLabel: PHILSAMO_TRAVEL_LABEL,
-    canonicalUrl: `${PHILSAMO_BASE}/bbs/board.php?bo_table=${PHILSAMO_TRAVEL_BOARD}&wr_id=${articleKey}`,
+    sourceBoard: boardDef.board,
+    sourceBoardLabel: boardDef.labelKo,
+    canonicalUrl: `${PHILSAMO_BASE}/bbs/board.php?bo_table=${boardDef.board}&wr_id=${articleKey}`,
     sourceArticleKey: articleKey,
     title: title.trim(),
     author,
@@ -253,11 +256,16 @@ export function parsePhilsamoTravelDetailHtml(html: string, articleKey: string):
   };
 }
 
-export async function fetchPhilsamoTravelList(page = 1): Promise<OperatorListRow[]> {
+export async function fetchPhilsamoTravelList(
+  page = 1,
+  board: string = PHILSAMO_TRAVEL_BOARD,
+): Promise<OperatorListRow[]> {
+  if (!isSupportedPhilsamoBoard(board)) throw new Error("philsamo_board_unsupported");
+  const boardKey = String(board).trim();
   const url =
     page <= 1
-      ? `${PHILSAMO_BASE}/bbs/board.php?bo_table=${PHILSAMO_TRAVEL_BOARD}`
-      : `${PHILSAMO_BASE}/bbs/board.php?bo_table=${PHILSAMO_TRAVEL_BOARD}&page=${page}`;
+      ? `${PHILSAMO_BASE}/bbs/board.php?bo_table=${boardKey}`
+      : `${PHILSAMO_BASE}/bbs/board.php?bo_table=${boardKey}&page=${page}`;
   const res = await fetch(url, {
     headers: {
       "user-agent": "DIBAY-Community-OperatorImport/1.0 (+admin)",
@@ -267,13 +275,18 @@ export async function fetchPhilsamoTravelList(page = 1): Promise<OperatorListRow
   });
   if (!res.ok) throw new Error(`philsamo_list_http_${res.status}`);
   const html = await res.text();
-  return parsePhilsamoTravelListHtml(html);
+  return parsePhilsamoTravelListHtml(html, boardKey);
 }
 
-export async function fetchPhilsamoTravelDetail(articleKey: string): Promise<OperatorNormalizedArticle> {
+export async function fetchPhilsamoTravelDetail(
+  articleKey: string,
+  board: string = PHILSAMO_TRAVEL_BOARD,
+): Promise<OperatorNormalizedArticle> {
+  if (!isSupportedPhilsamoBoard(board)) throw new Error("philsamo_board_unsupported");
+  const boardKey = String(board).trim();
   const key = String(articleKey || "").trim();
   if (!/^\d+$/.test(key)) throw new Error("philsamo_invalid_article_key");
-  const url = `${PHILSAMO_BASE}/bbs/board.php?bo_table=${PHILSAMO_TRAVEL_BOARD}&wr_id=${key}`;
+  const url = `${PHILSAMO_BASE}/bbs/board.php?bo_table=${boardKey}&wr_id=${key}`;
   const res = await fetch(url, {
     headers: {
       "user-agent": "DIBAY-Community-OperatorImport/1.0 (+admin)",
@@ -283,5 +296,5 @@ export async function fetchPhilsamoTravelDetail(articleKey: string): Promise<Ope
   });
   if (!res.ok) throw new Error(`philsamo_detail_http_${res.status}`);
   const html = await res.text();
-  return parsePhilsamoTravelDetailHtml(html, key);
+  return parsePhilsamoTravelDetailHtml(html, key, boardKey);
 }
