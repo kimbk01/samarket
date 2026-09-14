@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveCommunityPublicRegionLabelForUser } from "@/lib/addresses/community-public-region-label";
 import { loadCommunityImportPrincipalUserId } from "@/lib/community/community-import-principal";
-import { normalizeSectionSlug } from "@/lib/community-feed/constants";
+import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { resolveTopicMeta } from "@/lib/community-feed/queries";
 import { deriveCommunityPostCategoryBucket } from "@/lib/neighborhood/derive-community-post-category-bucket";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
@@ -58,7 +58,9 @@ export async function publishOperatorSelectedArticle(
 
   const topicSlug = String(input.edit.topicSlug || "").trim().toLowerCase();
   const topicId = String(input.edit.topicId || "").trim();
-  const sectionSlug = normalizeSectionSlug("philife");
+  // Must match listOperatorImportTopicOptions section SSOT (philife neighborhood → often `dongnae`).
+  // Hardcoded "philife" is not a live community_sections.slug and rejects valid topics.
+  const sectionSlug = await getPhilifeNeighborhoodSectionSlugServer(sb);
   const meta = await resolveTopicMeta(sectionSlug, topicSlug);
   if (!meta || meta.is_feed_sort || meta.id !== topicId) {
     return { ok: false, code: "invalid_topic", message: "유효한 DIBAY 주제가 아닙니다." };
