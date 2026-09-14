@@ -20,6 +20,9 @@
 /* 단일 VF 파일 — dynamic-subset 은 다수 @font-face 로 Firefox "name records are not sorted"·preload 노이즈 유발 */
 @import "../node_modules/pretendard/dist/web/variable/pretendardvariable.css";
 @import "../node_modules/tailwindcss";
+/* Tailwind v4 auto-scans the repo except .gitignore. .recovery is forensic-only and
+ * must not enter the class scanner — proven `/` cold peak 21GB → ~5.6GB when excluded. */
+@source not "../.recovery";
 @import "./samarket-components.css";
 
 /*

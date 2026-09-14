@@ -41,6 +41,12 @@ AuthKey_*.p8
 # Accidental nested absolute-path dumps (e.g. Users/bkkim/projects/...)
 /Users/
 
+# Local forensic/recovery dumps (APK/logs/worktrees). Not product source.
+# Tailwind v4 auto-scans non-gitignored trees; leaving this unignored made
+# `/` cold compile next-server peak ≈21GB (isolation: gitignore → ≈5.6GB).
+.recovery/
+.recovery-manifest/
+
 # Alternate Next.js distDirs from local QA harnesses (not /.next/)
 .next-*/
 
