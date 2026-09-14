@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertWriteEligibleTopicId } from "@/lib/external-board-import/mapping/assert-write-eligible-topic";
 import {
   SOURCE_BOARD_ALREADY_REGISTERED,
   createExternalBoardSource,
   ExternalBoardSourceDuplicateError,
   listExternalBoardSources,
 } from "@/lib/external-board-import/registry/source-board-store";
-import type { ExternalBoardMode } from "@/lib/external-board-import/product-lock";
-
+import { normalizeRightsStatus } from "@/lib/external-board-import/rights/rights-gate";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -33,26 +33,32 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as Record<string, unknown>;
     const sourceUrl = String(body.sourceUrl ?? "").trim();
     if (!sourceUrl) {
-      return NextResponse.json({ ok: false, error: "sourceUrl_required" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "게시판 URL이 필요합니다." }, { status: 400 });
+    }
+    const targetTopicId = body.targetTopicId != null ? String(body.targetTopicId).trim() : "";
+    if (!targetTopicId) {
+      return NextResponse.json({ ok: false, error: "게시할 DIBAY 주제를 선택하세요." }, { status: 400 });
     }
     const sb = getSupabaseServer();
+    const topic = await assertWriteEligibleTopicId(sb, targetTopicId);
+    if (!topic.ok) {
+      return NextResponse.json({ ok: false, error: topic.failureMessage }, { status: 400 });
+    }
+    const rightsBasis =
+      body.rightsBasis != null ? String(body.rightsBasis).trim() : "";
     const source = await createExternalBoardSource(sb, {
       sourceUrl,
       sourceBoardName: body.sourceBoardName != null ? String(body.sourceBoardName) : undefined,
       siteName: body.siteName != null ? String(body.siteName) : undefined,
-      mode: (String(body.mode ?? "MANUAL") === "AUTO" ? "AUTO" : "MANUAL") as ExternalBoardMode,
-      rightsBasis: body.rightsBasis != null ? String(body.rightsBasis) : null,
-      rightsStatus: body.rightsStatus as "missing" | "declared" | "rejected" | undefined,
-      targetTopicId: body.targetTopicId != null ? String(body.targetTopicId) : null,
-      targetTopicSlug: body.targetTopicSlug != null ? String(body.targetTopicSlug) : null,
-      targetLocationId: body.targetLocationId != null ? String(body.targetLocationId) : null,
-      targetRegionLabel: body.targetRegionLabel != null ? String(body.targetRegionLabel) : null,
+      mode: "MANUAL",
+      targetTopicId: topic.topic.id,
+      targetTopicSlug: topic.topic.slug,
       authorPoolId: body.authorPoolId != null ? String(body.authorPoolId) : null,
-      attributionRequired: body.attributionRequired != null ? Boolean(body.attributionRequired) : false,
-      attributionDisplayName:
-        body.attributionDisplayName != null ? String(body.attributionDisplayName) : null,
-      boardSequenceVerified:
-        body.boardSequenceVerified != null ? Boolean(body.boardSequenceVerified) : false,
+      attributionRequired: false,
+      enabled: body.enabled != null ? Boolean(body.enabled) : true,
+      // Official catalog sources may declare public-republish rights without operator tech jargon.
+      rightsBasis: rightsBasis || null,
+      rightsStatus: rightsBasis ? "declared" : normalizeRightsStatus(body.rightsStatus),
     });
     return NextResponse.json({ ok: true, source });
   } catch (e) {

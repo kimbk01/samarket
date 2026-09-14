@@ -18,11 +18,13 @@ describe("external-board real adapter registry", () => {
     expect(ids).toContain("hellocebuph-wordpress");
   });
 
-  it("resolves manilaseoul free board", () => {
-    const { adapter } = resolveExternalBoardAdapter(
-      "http://manilaseoul.co.kr/bbs_list.php?tb=board_free"
+  it("resolves manilaseoul list board only when tb is explicit", () => {
+    const withTb = resolveExternalBoardAdapter(
+      "http://manilaseoul.co.kr/bbs_list.php?tb=board_reader"
     );
-    expect(adapter?.id).toBe("manilaseoul-static-bbs");
+    expect(withTb.adapter?.id).toBe("manilaseoul-static-bbs");
+    const noTb = resolveExternalBoardAdapter("http://manilaseoul.co.kr/");
+    expect(noTb.adapter).toBeNull();
   });
 
   it("resolves pinoy.forum", () => {

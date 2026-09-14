@@ -1,3 +1,4 @@
+import { dotTourismDestinationAdapter } from "@/lib/external-board-import/adapters/dot-tourism";
 import { helloCebuExternalBoardAdapter } from "@/lib/external-board-import/adapters/hello-cebu";
 import { manilaSeoulExternalBoardAdapter } from "@/lib/external-board-import/adapters/manilaseoul";
 import { philsamoExternalBoardAdapter } from "@/lib/external-board-import/adapters/philsamo";
@@ -19,9 +20,9 @@ const ADAPTERS: ExternalBoardAdapter[] = [
   pinoyForumExternalBoardAdapter,
   philsamoExternalBoardAdapter,
   helloCebuExternalBoardAdapter,
+  dotTourismDestinationAdapter,
   fixtureExternalBoardAdapter,
 ];
-
 export function listExternalBoardAdapters(): readonly ExternalBoardAdapter[] {
   return ADAPTERS;
 }

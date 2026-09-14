@@ -1,51 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  EXTERNAL_BOARD_OWNER_E2E_GATE,
-} from "@/lib/external-board-import/owner-e2e-gate";
-import { EXTERNAL_BOARD_PRODUCT_NAME } from "@/lib/external-board-import/product-lock";
-import { RIGHTS_PUBLIC_IS_NOT_REPUBLISH } from "@/lib/external-board-import/rights/rights-gate";
+  TOPIC_GROUP_LABELS,
+  TOPIC_GROUP_ORDER,
+  catalogCapabilityLabel,
+  filterCatalogByTopicGroup,
+  findCatalogSection,
+  sourceTypeLabel,
+  type TopicGroupId,
+} from "@/lib/external-board-import/catalog/source-catalog";
 
+type Topic = { id: string; name: string; slug: string; name_en: string | null };
 type Source = {
   id: string;
   site_name: string;
   source_board_name: string;
   source_url: string;
-  check_status: string | null;
-  rights_status: string;
-  rights_basis: string | null;
-  mode: string;
+  enabled?: boolean;
+  target_topic_id: string | null;
   target_topic_slug: string | null;
-  author_pool_id: string | null;
-  last_checked_at?: string | null;
   last_fetched_at?: string | null;
   collected_count?: number;
   unpublished_count?: number;
   published_count?: number;
   failed_count?: number;
-  last_error?: string | null;
 };
-
 type Article = {
   id: string;
   source_id: string;
   source_title: string;
+  draft_title?: string | null;
   canonical_source_url: string;
   source_author?: string | null;
   source_published_at?: string | null;
-  source_page?: number | null;
-  source_sequence?: number | null;
   ops_status: string;
-  article_signal: string | null;
+  edit_status?: string | null;
   published_post_id: string | null;
-  failure_code: string | null;
   failure_message: string | null;
   has_image?: boolean;
-  source_document?: { nodes?: unknown[] };
+  thumbnail_url?: string | null;
 };
-
-type Pool = { id: string; name: string };
 
 const field =
   "mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg";
@@ -54,7 +49,16 @@ const btnPrimary =
 const btnGhost =
   "rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg disabled:opacity-50";
 
-type Surface = "boards" | "articles" | "authors";
+type Surface = "boards" | "articles";
+type CollectMode = "recent" | "pages" | "dates";
+
+function operatorStatus(a: Article): string {
+  if (a.published_post_id || a.ops_status === "published") return "게시 완료";
+  if (a.ops_status === "failed") return "게시 실패";
+  if (a.edit_status === "saved") return "저장됨";
+  if (a.edit_status === "editing") return "수정 중";
+  return "수집됨";
+}
 
 export function AdminExternalBoardImportPage() {
   const [surface, setSurface] = useState<Surface>("boards");
@@ -63,47 +67,64 @@ export function AdminExternalBoardImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
-  const [pools, setPools] = useState<Pool[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
-  const [previewJson, setPreviewJson] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editArticleId, setEditArticleId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [previewText, setPreviewText] = useState<string | null>(null);
 
-  const [sourceUrl, setSourceUrl] = useState("");
   const [boardName, setBoardName] = useState("");
-  const [rightsBasis, setRightsBasis] = useState("");
-  const [targetTopicSlug, setTargetTopicSlug] = useState("");
-  const [attributionRequired, setAttributionRequired] = useState(false);
-  const [attributionName, setAttributionName] = useState("");
-  const [boardSequenceVerified, setBoardSequenceVerified] = useState(false);
-  const [mode, setMode] = useState<"MANUAL" | "AUTO">("MANUAL");
-  const [operatorPublishedAt, setOperatorPublishedAt] = useState("");
-  const [poolName, setPoolName] = useState("");
-  const [aliasName, setAliasName] = useState("");
-  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
-  const [replaceFrom, setReplaceFrom] = useState("");
-  const [replaceTo, setReplaceTo] = useState("");
-  const [collectLimit, setCollectLimit] = useState("10");
+  const [siteName, setSiteName] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [topicId, setTopicId] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [topicGroup, setTopicGroup] = useState<TopicGroupId | "all">("all");
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [expandedSourceId, setExpandedSourceId] = useState<string | null>("dot");
+
+  const [collectMode, setCollectMode] = useState<CollectMode>("pages");
+  const [collectLimit, setCollectLimit] = useState("30");
   const [collectPageFrom, setCollectPageFrom] = useState("1");
-  const [collectPageTo, setCollectPageTo] = useState("1");
+  const [collectPageTo, setCollectPageTo] = useState("3");
   const [collectDateFrom, setCollectDateFrom] = useState("");
   const [collectDateTo, setCollectDateTo] = useState("");
-  const [collectSummary, setCollectSummary] = useState<string | null>(null);
+
+  const [replaceFrom, setReplaceFrom] = useState("");
+  const [replaceTo, setReplaceTo] = useState("");
+
+  const catalogSources = useMemo(
+    () => filterCatalogByTopicGroup(topicGroup, catalogQuery),
+    [topicGroup, catalogQuery]
+  );
+  const selectedCatalog = selectedSectionId ? findCatalogSection(selectedSectionId) : null;
+  const topicName = useCallback(
+    (id: string | null | undefined) => topics.find((t) => t.id === id)?.name ?? "—",
+    [topics]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/community/external-board/overview");
-      const j = await res.json();
+      const [ov, tp] = await Promise.all([
+        fetch("/api/admin/community/external-board/overview"),
+        fetch("/api/admin/community/external-board/topics"),
+      ]);
+      const j = await ov.json();
+      const tj = await tp.json();
       if (!j.ok) throw new Error(j.error || "overview_failed");
+      if (!tj.ok) throw new Error(tj.error || "topics_failed");
       setSources(j.sources ?? []);
       setArticles(j.articles ?? []);
-      setPools(j.pools ?? []);
+      setTopics(tj.topics ?? []);
+      if (!topicId && (tj.topics ?? [])[0]?.id) setTopicId(String(tj.topics[0].id));
     } catch (e) {
       setError(String((e as Error).message));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [topicId]);
 
   useEffect(() => {
     void load();
@@ -121,28 +142,62 @@ export function AdminExternalBoardImportPage() {
     }
   }
 
+  const visibleArticles = useMemo(
+    () => articles.filter((a) => !selectedSourceId || a.source_id === selectedSourceId),
+    [articles, selectedSourceId]
+  );
+  const selectable = useMemo(
+    () => visibleArticles.filter((a) => !a.published_post_id && a.ops_status !== "published"),
+    [visibleArticles]
+  );
+  const selectedCount = selectedIds.size;
+  const publishLabel =
+    selectedCount === 0
+      ? "게시할 글을 선택하세요."
+      : selectedCount === 1
+        ? "선택한 글 1개 게시"
+        : `선택한 글 ${selectedCount}개 게시`;
+
+  function toggleAll(on: boolean) {
+    if (!on) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(selectable.map((a) => a.id)));
+  }
+
+  function toggleOne(id: string, published: boolean) {
+    if (published) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedSource = sources.find((s) => s.id === selectedSourceId) ?? null;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4 text-sam-fg">
+    <div className="mx-auto max-w-6xl space-y-4 p-4 text-sam-fg">
       <header className="space-y-1">
-        <h1 className="sam-text-title font-semibold">{EXTERNAL_BOARD_PRODUCT_NAME}</h1>
+        <h1 className="sam-text-title font-semibold">외부 정보 가져오기</h1>
         <p className="sam-text-caption text-sam-muted">
-          NEW clean-room · API `/api/admin/community/external-board/*` · Real-source E2E:{" "}
-          {EXTERNAL_BOARD_OWNER_E2E_GATE.status} ({EXTERNAL_BOARD_OWNER_E2E_GATE.reason})
+          외부 게시판에서 글을 불러와 DIBAY 주제로 선택 게시합니다.
         </p>
-        <p className="sam-text-caption text-sam-muted">{RIGHTS_PUBLIC_IS_NOT_REPUBLISH}</p>
       </header>
 
       <nav className="flex flex-wrap gap-2">
-        {(["boards", "articles", "authors"] as Surface[]).map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={surface === s ? btnPrimary : btnGhost}
-            onClick={() => setSurface(s)}
-          >
-            {s === "boards" ? "외부 게시판" : s === "articles" ? "가져온 글" : "작성자 풀"}
-          </button>
-        ))}
+        <button type="button" className={surface === "boards" ? btnPrimary : btnGhost} onClick={() => setSurface("boards")}>
+          Source 목록
+        </button>
+        <button
+          type="button"
+          className={surface === "articles" ? btnPrimary : btnGhost}
+          onClick={() => setSurface("articles")}
+        >
+          수집한 게시물
+        </button>
         <button type="button" className={btnGhost} disabled={busy || loading} onClick={() => void load()}>
           새로고침
         </button>
@@ -154,78 +209,151 @@ export function AdminExternalBoardImportPage() {
       {surface === "boards" ? (
         <section className="space-y-4">
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
-            <h2 className="font-medium">게시판 등록</h2>
+            <h2 className="font-medium">필리핀 정보 Source Catalog</h2>
+            <p className="sam-text-caption text-sam-muted">
+              Catalog에 보이는 것과 실제 불러오기 가능은 다릅니다. 상태가 「사용 가능」인 항목만 등록·수집할 수 있습니다.
+            </p>
             <label className="block text-sm">
-              Source URL
-              <input className={field} value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://…" />
+              검색
+              <input
+                className={field}
+                value={catalogQuery}
+                onChange={(e) => setCatalogQuery(e.target.value)}
+                placeholder="Source · 지역 · 게시판"
+              />
             </label>
+            <div className="flex flex-wrap gap-2">
+              {TOPIC_GROUP_ORDER.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={topicGroup === g ? btnPrimary : btnGhost}
+                  onClick={() => setTopicGroup(g)}
+                >
+                  {TOPIC_GROUP_LABELS[g]}
+                </button>
+              ))}
+            </div>
+            <ul className="space-y-3">
+              {catalogSources.map((src) => {
+                const availableCount = src.sections.filter((s) => s.status === "available").length;
+                const open = expandedSourceId === src.sourceId;
+                return (
+                  <li key={src.sourceId} className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <div className="font-medium">{src.sourceName}</div>
+                        <div className="sam-text-caption text-sam-muted">
+                          {sourceTypeLabel(src.sourceType)} ·{" "}
+                          {src.topicGroups.map((g) => TOPIC_GROUP_LABELS[g]).join(" · ")}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className={btnGhost}
+                        onClick={() => setExpandedSourceId(open ? null : src.sourceId)}
+                      >
+                        {open
+                          ? "닫기"
+                          : availableCount > 0
+                            ? `사용 가능한 항목 보기 (${availableCount})`
+                            : "항목 보기"}
+                      </button>
+                    </div>
+                    {open ? (
+                      <ul className="mt-3 space-y-2 border-t border-sam-border pt-3">
+                        {src.sections.map((sec) => (
+                          <li
+                            key={sec.sectionId}
+                            className="flex flex-wrap items-center justify-between gap-2"
+                          >
+                            <div>
+                              <div className="sam-text-body">{sec.sectionName}</div>
+                              <div className="sam-text-caption text-sam-muted">
+                                {catalogCapabilityLabel(sec.status)}
+                              </div>
+                            </div>
+                            {sec.status === "available" && sec.sectionUrl ? (
+                              <button
+                                type="button"
+                                className={btnGhost}
+                                onClick={() => {
+                                  setSelectedSectionId(sec.sectionId);
+                                  setSiteName(src.sourceName);
+                                  setBoardName(`${src.sourceName} · ${sec.sectionName}`);
+                                }}
+                              >
+                                선택
+                              </button>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
+            <h2 className="font-medium">등록 · DIBAY 주제</h2>
+            <div className="sam-text-caption text-sam-muted">
+              선택 Source:{" "}
+              {selectedCatalog
+                ? `${selectedCatalog.source.sourceName} · ${selectedCatalog.section.sectionName}`
+                : "Catalog에서 「사용 가능」 항목을 선택하세요."}
+            </div>
             <label className="block text-sm">
-              Board name
+              표시 이름
               <input className={field} value={boardName} onChange={(e) => setBoardName(e.target.value)} />
             </label>
             <label className="block text-sm">
-              Rights basis (required for verify/discover/publish)
-              <textarea className={field} rows={2} value={rightsBasis} onChange={(e) => setRightsBasis(e.target.value)} />
-            </label>
-            <label className="block text-sm">
-              DIBAY target topic slug
-              <input className={field} value={targetTopicSlug} onChange={(e) => setTargetTopicSlug(e.target.value)} />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={attributionRequired}
-                onChange={(e) => setAttributionRequired(e.target.checked)}
-              />
-              Rights policy requires Public attribution (출처 / 원문 보기)
-            </label>
-            {attributionRequired ? (
-              <label className="block text-sm">
-                Attribution display name
-                <input className={field} value={attributionName} onChange={(e) => setAttributionName(e.target.value)} />
-              </label>
-            ) : null}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={boardSequenceVerified}
-                onChange={(e) => setBoardSequenceVerified(e.target.checked)}
-              />
-              Board sequence verified (CASE B chronology)
-            </label>
-            <label className="block text-sm">
-              Mode
-              <select className={field} value={mode} onChange={(e) => setMode(e.target.value as "MANUAL" | "AUTO")}>
-                <option value="MANUAL">MANUAL</option>
-                <option value="AUTO">AUTO</option>
+              게시할 DIBAY 주제
+              <select className={field} value={topicId} onChange={(e) => setTopicId(e.target.value)}>
+                <option value="">선택하세요</option>
+                {topics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+              등록 후 사용
             </label>
             <button
               type="button"
               className={btnPrimary}
               disabled={busy}
               onClick={() =>
-                void run("register", async () => {
+                void run("등록", async () => {
+                  const picked = selectedSectionId ? findCatalogSection(selectedSectionId) : null;
+                  if (!picked || picked.section.status !== "available" || !picked.section.sectionUrl) {
+                    throw new Error("불러올 Source 항목을 선택하세요.");
+                  }
+                  if (!topicId) throw new Error("게시할 DIBAY 주제를 선택하세요.");
                   const res = await fetch("/api/admin/community/external-board/boards", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      sourceUrl,
-                      sourceBoardName: boardName || undefined,
-                      rightsBasis: rightsBasis || null,
-                      rightsStatus: rightsBasis.trim() ? "declared" : "missing",
-                      targetTopicSlug: targetTopicSlug || null,
-                      mode,
-                      authorPoolId: selectedPoolId,
-                      attributionRequired,
-                      attributionDisplayName: attributionName || null,
-                      boardSequenceVerified,
+                      sourceUrl: picked.section.sectionUrl,
+                      sourceBoardName:
+                        boardName || `${picked.source.sourceName} · ${picked.section.sectionName}`,
+                      siteName: siteName || picked.source.sourceName,
+                      targetTopicId: topicId,
+                      enabled,
+                      ...(picked.source.sourceType === "OFFICIAL"
+                        ? {
+                            rightsBasis: `Official public destination content — ${picked.source.sourceName}`,
+                          }
+                        : {}),
                     }),
                   });
                   const j = await res.json();
-                  if (res.status === 409 || j.code === "SOURCE_BOARD_ALREADY_REGISTERED") {
-                    const existingId = j.existingSourceId || j.source?.id;
-                    if (existingId) setSelectedSourceId(String(existingId));
+                  if (res.status === 409) {
+                    if (j.existingSourceId) setSelectedSourceId(String(j.existingSourceId));
                     await load();
                     throw new Error(j.error || "이미 등록된 외부 게시판입니다.");
                   }
@@ -247,141 +375,166 @@ export function AdminExternalBoardImportPage() {
                     <div className="font-medium">{s.source_board_name || s.site_name}</div>
                     <div className="sam-text-caption text-sam-muted break-all">{s.source_url}</div>
                     <div className="sam-text-caption mt-1">
-                      check={s.check_status ?? "—"} · rights={s.rights_status} · mode={s.mode} · topic=
-                      {s.target_topic_slug ?? "—"}
+                      DIBAY 주제: {topicName(s.target_topic_id)} · {s.enabled === false ? "중지" : "사용"}
                     </div>
                     <div className="sam-text-caption mt-1">
-                      수집 {s.collected_count ?? 0} · 미게시 {s.unpublished_count ?? 0} · 게시{" "}
-                      {s.published_count ?? 0} · 실패 {s.failed_count ?? 0}
-                    </div>
-                    <div className="sam-text-caption text-sam-muted">
-                      last check={s.last_checked_at ?? "—"} · last collect={s.last_fetched_at ?? "—"}
-                      {s.last_error ? ` · error=${s.last_error}` : ""}
+                      마지막 수집 {s.last_fetched_at ?? "—"} · 미게시 {s.unpublished_count ?? 0} · 게시 완료{" "}
+                      {s.published_count ?? 0}
                     </div>
                   </div>
-                  <button type="button" className={btnGhost} onClick={() => setSelectedSourceId(s.id)}>
-                    선택
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={btnPrimary}
-                    disabled={busy}
-                    onClick={() =>
-                      void run("verify", async () => {
-                        const res = await fetch(`/api/admin/community/external-board/boards/${s.id}/verify`, {
-                          method: "POST",
-                        });
-                        const j = await res.json();
-                        if (!j.ok) throw new Error(j.error || JSON.stringify(j));
-                        await load();
-                      })
-                    }
-                  >
-                    게시판 확인
-                  </button>
                   <button
                     type="button"
                     className={btnGhost}
-                    disabled={busy}
-                    onClick={() =>
-                      void run("discover", async () => {
-                        const res = await fetch(`/api/admin/community/external-board/boards/${s.id}/discover`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            limit: Number(collectLimit) || 10,
-                            pageFrom: Number(collectPageFrom) || 1,
-                            pageTo: Number(collectPageTo) || 1,
-                            dateFrom: collectDateFrom || null,
-                            dateTo: collectDateTo || null,
-                          }),
-                        });
-                        const j = await res.json();
-                        if (!j.ok) throw new Error(j.error || j.failureCode || "discover_failed");
-                        if (j.summary) {
-                          setCollectSummary(
-                            `pages ${j.summary.requestedPages} · discovered ${j.summary.discovered} · NEW ${j.summary.newCount} · UNCHANGED ${j.summary.unchanged} · SOURCE_UPDATED ${j.summary.sourceUpdated} · FAILED ${j.summary.failed}`
-                          );
-                        }
-                        setSurface("articles");
-                        setSelectedSourceId(s.id);
-                        await load();
-                      })
-                    }
+                    onClick={() => {
+                      setSelectedSourceId(s.id);
+                      setSurface("articles");
+                      setSelectedIds(new Set());
+                    }}
                   >
-                    게시물 불러오기
+                    관리
                   </button>
                 </div>
                 {selectedSourceId === s.id ? (
-                  <div className="mt-2 grid gap-2 border-t border-sam-border pt-3 sm:grid-cols-2">
-                    <label className="block text-sm">
-                      최근 N건
-                      <input className={field} value={collectLimit} onChange={(e) => setCollectLimit(e.target.value)} />
-                    </label>
-                    <label className="block text-sm">
-                      페이지 From~To
-                      <div className="mt-1 flex gap-2">
-                        <input className={field} value={collectPageFrom} onChange={(e) => setCollectPageFrom(e.target.value)} />
-                        <input className={field} value={collectPageTo} onChange={(e) => setCollectPageTo(e.target.value)} />
+                  <div className="mt-2 space-y-3 border-t border-sam-border pt-3">
+                    <div className="font-medium">수집 범위</div>
+                    <div className="flex flex-wrap gap-3 text-sm">
+                      {(
+                        [
+                          ["recent", "최근 글"],
+                          ["pages", "페이지 범위"],
+                          ["dates", "날짜 범위"],
+                        ] as const
+                      ).map(([v, label]) => (
+                        <label key={v} className="flex items-center gap-1">
+                          <input
+                            type="radio"
+                            name="collectMode"
+                            checked={collectMode === v}
+                            onChange={() => setCollectMode(v)}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    {collectMode === "pages" || collectMode === "recent" ? (
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <label className="block text-sm">
+                          시작 페이지
+                          <input className={field} value={collectPageFrom} onChange={(e) => setCollectPageFrom(e.target.value)} />
+                        </label>
+                        <label className="block text-sm">
+                          종료 페이지
+                          <input className={field} value={collectPageTo} onChange={(e) => setCollectPageTo(e.target.value)} />
+                        </label>
+                        <label className="block text-sm">
+                          최대 게시물 수
+                          <input className={field} value={collectLimit} onChange={(e) => setCollectLimit(e.target.value)} />
+                        </label>
                       </div>
-                    </label>
-                    <label className="block text-sm">
-                      작성일 FROM (ISO optional)
-                      <input className={field} value={collectDateFrom} onChange={(e) => setCollectDateFrom(e.target.value)} placeholder="2026-01-01" />
-                    </label>
-                    <label className="block text-sm">
-                      작성일 TO (ISO optional)
-                      <input className={field} value={collectDateTo} onChange={(e) => setCollectDateTo(e.target.value)} placeholder="2026-12-31" />
-                    </label>
-                    {collectSummary ? <p className="sam-text-caption text-sam-muted sm:col-span-2">{collectSummary}</p> : null}
-                  </div>
-                ) : null}
-                {selectedSourceId === s.id ? (
-                  <div className="mt-2 space-y-2 border-t border-sam-border pt-3">
-                    <div className="sam-text-caption text-sam-muted">Replacement rules (exact string)</div>
+                    ) : null}
+                    {collectMode === "dates" ? (
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <label className="block text-sm">
+                          시작 날짜
+                          <input className={field} value={collectDateFrom} onChange={(e) => setCollectDateFrom(e.target.value)} placeholder="YYYY-MM-DD" />
+                        </label>
+                        <label className="block text-sm">
+                          종료 날짜
+                          <input className={field} value={collectDateTo} onChange={(e) => setCollectDateTo(e.target.value)} placeholder="YYYY-MM-DD" />
+                        </label>
+                        <label className="block text-sm">
+                          최대 게시물 수
+                          <input className={field} value={collectLimit} onChange={(e) => setCollectLimit(e.target.value)} />
+                        </label>
+                      </div>
+                    ) : null}
                     <div className="flex flex-wrap gap-2">
-                      <input
-                        className={field}
-                        style={{ maxWidth: 160 }}
-                        value={replaceFrom}
-                        onChange={(e) => setReplaceFrom(e.target.value)}
-                        placeholder="from"
-                      />
-                      <input
-                        className={field}
-                        style={{ maxWidth: 160 }}
-                        value={replaceTo}
-                        onChange={(e) => setReplaceTo(e.target.value)}
-                        placeholder="to"
-                      />
                       <button
                         type="button"
-                        className={btnGhost}
-                        disabled={busy || !replaceFrom.trim()}
+                        className={btnPrimary}
+                        disabled={busy || s.enabled === false}
                         onClick={() =>
-                          void run("add_rule", async () => {
-                            const res = await fetch("/api/admin/community/external-board/replacement-rules", {
+                          void run("게시물 불러오기", async () => {
+                            const payload: Record<string, unknown> = {
+                              limit: Number(collectLimit) || 30,
+                            };
+                            if (collectMode === "pages" || collectMode === "recent") {
+                              payload.pageFrom = Number(collectPageFrom) || 1;
+                              payload.pageTo =
+                                collectMode === "recent" ? Number(collectPageFrom) || 1 : Number(collectPageTo) || 1;
+                            } else {
+                              payload.pageFrom = 1;
+                              payload.pageTo = 20;
+                              payload.dateFrom = collectDateFrom || null;
+                              payload.dateTo = collectDateTo || null;
+                            }
+                            const res = await fetch(`/api/admin/community/external-board/boards/${s.id}/discover`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                sourceId: s.id,
-                                fromText: replaceFrom,
-                                toText: replaceTo,
-                                applyTitle: true,
-                                applyBody: true,
-                              }),
+                              body: JSON.stringify(payload),
                             });
                             const j = await res.json();
-                            if (!j.ok) throw new Error(j.error || "rule_failed");
-                            setReplaceFrom("");
-                            setReplaceTo("");
+                            if (!j.ok) throw new Error(j.error || "불러오기 실패");
+                            setSurface("articles");
+                            setSelectedSourceId(s.id);
+                            await load();
                           })
                         }
                       >
-                        Add rule
+                        게시물 불러오기
                       </button>
+                      <button
+                        type="button"
+                        className={btnGhost}
+                        disabled={busy}
+                        onClick={() =>
+                          void run("상태 변경", async () => {
+                            const res = await fetch(`/api/admin/community/external-board/boards/${s.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ enabled: s.enabled === false }),
+                            });
+                            const j = await res.json();
+                            if (!j.ok) throw new Error(j.error || "patch_failed");
+                            await load();
+                          })
+                        }
+                      >
+                        {s.enabled === false ? "사용으로 전환" : "중지로 전환"}
+                      </button>
+                    </div>
+                    <div className="space-y-2 border-t border-sam-border pt-3">
+                      <div className="font-medium text-sm">치환 규칙</div>
+                      <div className="flex flex-wrap gap-2">
+                        <input className={field} style={{ maxWidth: 160 }} value={replaceFrom} onChange={(e) => setReplaceFrom(e.target.value)} placeholder="원본 단어" />
+                        <input className={field} style={{ maxWidth: 160 }} value={replaceTo} onChange={(e) => setReplaceTo(e.target.value)} placeholder="변경 단어" />
+                        <button
+                          type="button"
+                          className={btnGhost}
+                          disabled={busy || !replaceFrom.trim()}
+                          onClick={() =>
+                            void run("치환 규칙", async () => {
+                              const res = await fetch("/api/admin/community/external-board/replacement-rules", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  sourceId: s.id,
+                                  fromText: replaceFrom,
+                                  toText: replaceTo,
+                                  applyTitle: true,
+                                  applyBody: true,
+                                }),
+                              });
+                              const j = await res.json();
+                              if (!j.ok) throw new Error(j.error || "rule_failed");
+                              setReplaceFrom("");
+                              setReplaceTo("");
+                            })
+                          }
+                        >
+                          + 치환 규칙 추가
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : null}
@@ -393,215 +546,243 @@ export function AdminExternalBoardImportPage() {
 
       {surface === "articles" ? (
         <section className="space-y-3">
-          <p className="sam-text-caption text-sam-muted">
-            selected source: {selectedSourceId ?? "all"} · Preview writeDelta must be 0 · Publish uses NEW canonical publisher
-          </p>
-          {previewJson ? (
-            <pre className="max-h-64 overflow-auto rounded-ui-rect border border-sam-border bg-sam-app p-3 text-xs">
-              {previewJson}
-            </pre>
-          ) : null}
-          <ul className="space-y-3">
-            {articles
-              .filter((a) => !selectedSourceId || a.source_id === selectedSourceId)
-              .map((a) => (
-                <li key={a.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-2">
-                  <div className="font-medium">{a.source_title || "(no title)"}</div>
-                  <div className="sam-text-caption text-sam-muted break-all">{a.canonical_source_url}</div>
-                  <div className="sam-text-caption">
-                    원문 작성자={a.source_author ?? "—"} · 원문 날짜={a.source_published_at ?? "—"} · 페이지=
-                    {a.source_page ?? "—"} · seq={a.source_sequence ?? "—"} · 이미지=
-                    {a.has_image ? "Y" : "N"}
-                  </div>
-                  <div className="sam-text-caption">
-                    ops={a.ops_status} · signal={a.article_signal ?? "—"} · nodes=
-                    {Array.isArray(a.source_document?.nodes) ? a.source_document!.nodes!.length : 0} · post=
-                    {a.published_post_id ?? "—"}
-                  </div>
-                  {a.failure_code ? (
-                    <div className="sam-text-caption text-red-700">
-                      {a.failure_code}: {a.failure_message}
-                    </div>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      className={field}
-                      style={{ maxWidth: 280 }}
-                      type="datetime-local"
-                      value={operatorPublishedAt}
-                      onChange={(e) => setOperatorPublishedAt(e.target.value)}
-                      title="CASE C MANUAL: explicit operator published_at"
-                    />
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      disabled={busy || !operatorPublishedAt}
-                      onClick={() =>
-                        void run("set_operator_time", async () => {
-                          const iso = new Date(operatorPublishedAt).toISOString();
-                          const res = await fetch(
-                            `/api/admin/community/external-board/articles/${a.id}/chronology`,
-                            {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ operatorPublishedAt: iso }),
-                            }
-                          );
-                          const j = await res.json();
-                          if (!j.ok) throw new Error(j.error || "chronology_failed");
-                          await load();
-                        })
-                      }
-                    >
-                      Set operator published_at
-                    </button>
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      disabled={busy}
-                      onClick={() =>
-                        void run("fetch", async () => {
-                          const res = await fetch(`/api/admin/community/external-board/articles/${a.id}`, {
-                            method: "POST",
-                          });
-                          const j = await res.json();
-                          if (!j.ok) throw new Error(j.error || j.failureCode || "fetch_failed");
-                          await load();
-                        })
-                      }
-                    >
-                      Fetch snapshot
-                    </button>
-                    <button
-                      type="button"
-                      className={btnGhost}
-                      disabled={busy}
-                      onClick={() =>
-                        void run("preview", async () => {
-                          const res = await fetch(`/api/admin/community/external-board/articles/${a.id}/preview`, {
-                            method: "POST",
-                          });
-                          const j = await res.json();
-                          setPreviewJson(JSON.stringify(j, null, 2));
-                          if (!j.ok) throw new Error(j.failureMessage || j.error || "preview_failed");
-                          if (j.writeDelta !== 0) throw new Error("preview_write_delta_nonzero");
-                        })
-                      }
-                    >
-                      Preview
-                    </button>
-                    <button
-                      type="button"
-                      className={btnPrimary}
-                      disabled={busy || Boolean(a.published_post_id)}
-                      onClick={() =>
-                        void run("publish", async () => {
-                          const res = await fetch(`/api/admin/community/external-board/articles/${a.id}/publish`, {
-                            method: "POST",
-                          });
-                          const j = await res.json();
-                          if (!j.ok && j.failureCode !== "already_published") {
-                            throw new Error(j.failureMessage || j.error || "publish_failed");
-                          }
-                          await load();
-                        })
-                      }
-                    >
-                      MANUAL Publish
-                    </button>
-                    {a.published_post_id ? (
-                      <a
-                        className={btnGhost}
-                        href={`/philife/${a.published_post_id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        DIBAY 글 보기
-                      </a>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {surface === "authors" ? (
-        <section className="space-y-4">
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
-            <h2 className="font-medium">Import-only author pool</h2>
-            <p className="sam-text-caption text-sam-muted">Member impersonation forbidden.</p>
-            <label className="block text-sm">
-              Pool name
-              <input className={field} value={poolName} onChange={(e) => setPoolName(e.target.value)} />
-            </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={btnGhost} disabled={busy} onClick={() => toggleAll(true)}>
+              전체 선택
+            </button>
+            <button type="button" className={btnGhost} disabled={busy} onClick={() => toggleAll(false)}>
+              전체 해제
+            </button>
+            <button
+              type="button"
+              className={btnGhost}
+              disabled={busy || selectedCount === 0}
+              onClick={() => {
+                const first = visibleArticles.find((a) => selectedIds.has(a.id));
+                if (!first) return;
+                setPreviewText(
+                  `미리보기 (DB 게시 없음)\n제목: ${first.draft_title || first.source_title}\n원문: ${first.canonical_source_url}`
+                );
+              }}
+            >
+              선택 미리보기
+            </button>
             <button
               type="button"
               className={btnPrimary}
-              disabled={busy}
+              disabled={busy || selectedCount === 0}
               onClick={() =>
-                void run("create_pool", async () => {
-                  const res = await fetch("/api/admin/community/external-board/author-pools", {
+                void run("선택 게시", async () => {
+                  const ids = [...selectedIds];
+                  if (ids.length === 0) throw new Error("게시할 글을 선택하세요.");
+                  const res = await fetch("/api/admin/community/external-board/articles/publish-selected", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ name: poolName }),
+                    body: JSON.stringify({ articleIds: ids }),
                   });
                   const j = await res.json();
-                  if (!j.ok) throw new Error(j.error || "pool_failed");
-                  setSelectedPoolId(j.pool.id);
-                  setPoolName("");
+                  if (!j.ok && j.published === 0) throw new Error(j.error || "게시 실패");
+                  setSelectedIds(new Set());
                   await load();
                 })
               }
             >
-              Create pool
+              {publishLabel}
             </button>
           </div>
-          <ul className="space-y-2">
-            {pools.map((p) => (
-              <li key={p.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{p.name}</span>
-                  <button type="button" className={btnGhost} onClick={() => setSelectedPoolId(p.id)}>
-                    Select
-                  </button>
-                </div>
-                {selectedPoolId === p.id ? (
-                  <div className="flex flex-wrap gap-2">
+          {selectedSource ? (
+            <p className="sam-text-caption text-sam-muted">
+              {selectedSource.source_board_name} · DIBAY {topicName(selectedSource.target_topic_id)}
+            </p>
+          ) : null}
+          {previewText ? (
+            <pre className="max-h-40 overflow-auto rounded-ui-rect border border-sam-border bg-sam-app p-3 text-xs whitespace-pre-wrap">
+              {previewText}
+            </pre>
+          ) : null}
+
+          <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
+            <table className="min-w-full text-sm">
+              <thead className="bg-sam-surface">
+                <tr className="text-left">
+                  <th className="p-2">
                     <input
-                      className={field}
-                      style={{ maxWidth: 240 }}
-                      value={aliasName}
-                      onChange={(e) => setAliasName(e.target.value)}
-                      placeholder="Alias display name"
+                      type="checkbox"
+                      checked={selectable.length > 0 && selectable.every((a) => selectedIds.has(a.id))}
+                      onChange={(e) => toggleAll(e.target.checked)}
                     />
-                    <button
-                      type="button"
-                      className={btnPrimary}
-                      disabled={busy}
-                      onClick={() =>
-                        void run("add_alias", async () => {
-                          const res = await fetch(
-                            `/api/admin/community/external-board/author-pools/${p.id}/aliases`,
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ displayName: aliasName }),
-                            }
-                          );
-                          const j = await res.json();
-                          if (!j.ok) throw new Error(j.error || "alias_failed");
-                          setAliasName("");
-                        })
-                      }
-                    >
-                      Add alias
-                    </button>
-                  </div>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  </th>
+                  <th className="p-2">썸네일</th>
+                  <th className="p-2">제목</th>
+                  <th className="p-2">원문 작성자</th>
+                  <th className="p-2">원문 작성일</th>
+                  <th className="p-2">DIBAY 주제</th>
+                  <th className="p-2">상태</th>
+                  <th className="p-2">작업</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleArticles.map((a) => {
+                  const published = Boolean(a.published_post_id);
+                  const src = sources.find((s) => s.id === a.source_id);
+                  return (
+                    <tr key={a.id} className="border-t border-sam-border align-top">
+                      <td className="p-2">
+                        <input
+                          type="checkbox"
+                          disabled={published}
+                          checked={!published && selectedIds.has(a.id)}
+                          onChange={() => toggleOne(a.id, published)}
+                        />
+                      </td>
+                      <td className="p-2">
+                        {a.thumbnail_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={a.thumbnail_url} alt="" className="h-12 w-16 rounded-ui-rect object-cover" />
+                        ) : (
+                          <span className="sam-text-caption text-sam-muted">없음</span>
+                        )}
+                      </td>
+                      <td className="p-2 max-w-[14rem]">
+                        <div className="font-medium line-clamp-2">{a.draft_title || a.source_title}</div>
+                      </td>
+                      <td className="p-2">{a.source_author ?? "—"}</td>
+                      <td className="p-2 whitespace-nowrap">{a.source_published_at?.slice(0, 10) ?? "—"}</td>
+                      <td className="p-2">{topicName(src?.target_topic_id)}</td>
+                      <td className="p-2">{operatorStatus(a)}</td>
+                      <td className="p-2">
+                        <div className="flex flex-col gap-1">
+                          <a className="text-sam-primary underline" href={a.canonical_source_url} target="_blank" rel="noreferrer">
+                            원문 보기
+                          </a>
+                          <button
+                            type="button"
+                            className="text-left underline"
+                            onClick={() => {
+                              setPreviewText(
+                                `미리보기 (DB 게시 없음)\n제목: ${a.draft_title || a.source_title}\n원문: ${a.canonical_source_url}`
+                              );
+                            }}
+                          >
+                            미리보기
+                          </button>
+                          {!published ? (
+                            <button
+                              type="button"
+                              className="text-left underline"
+                              onClick={() => {
+                                setEditArticleId(a.id);
+                                setEditTitle(a.draft_title || a.source_title || "");
+                              }}
+                            >
+                              편집
+                            </button>
+                          ) : a.published_post_id ? (
+                            <a className="underline" href={`/philife/${a.published_post_id}`} target="_blank" rel="noreferrer">
+                              DIBAY 글
+                            </a>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {editArticleId ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 space-y-3">
+              <h3 className="font-medium">글 편집</h3>
+              <label className="block text-sm">
+                변환 후 제목
+                <input className={field} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("변환 미리보기", async () => {
+                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "preview_transform" }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok) throw new Error(j.error || "preview_failed");
+                      setPreviewText(`변환 미리보기 (DB 게시 없음)\n${j.preview?.title ?? ""}`);
+                    })
+                  }
+                >
+                  변환 미리보기
+                </button>
+                <button
+                  type="button"
+                  className={btnGhost}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("변환 적용", async () => {
+                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "apply_transform" }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok) throw new Error(j.error || "apply_failed");
+                      setEditTitle(String(j.draftTitle ?? editTitle));
+                      await load();
+                    })
+                  }
+                >
+                  변환 적용
+                </button>
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("저장", async () => {
+                      const res = await fetch(`/api/admin/community/external-board/articles/${editArticleId}/draft`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "save", draftTitle: editTitle }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok) throw new Error(j.error || "save_failed");
+                      await load();
+                    })
+                  }
+                >
+                  저장
+                </button>
+                <button type="button" className={btnGhost} onClick={() => setEditArticleId(null)}>
+                  취소
+                </button>
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  disabled={busy}
+                  onClick={() =>
+                    void run("게시", async () => {
+                      const res = await fetch("/api/admin/community/external-board/articles/publish-selected", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ articleIds: [editArticleId] }),
+                      });
+                      const j = await res.json();
+                      if (!j.ok && j.published === 0) throw new Error(j.error || "게시 실패");
+                      setEditArticleId(null);
+                      await load();
+                    })
+                  }
+                >
+                  게시
+                </button>
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

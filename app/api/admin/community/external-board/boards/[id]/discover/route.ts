@@ -24,6 +24,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const sb = getSupabaseServer();
     const source = await getExternalBoardSource(sb, id);
     if (!source) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    if (source.enabled === false) {
+      return NextResponse.json({ ok: false, error: "중지된 게시판입니다." }, { status: 400 });
+    }
+    if (!source.target_topic_id) {
+      return NextResponse.json({ ok: false, error: "게시할 DIBAY 주제를 먼저 선택하세요." }, { status: 400 });
+    }
     const result = await discoverExternalBoardArticles(sb, source, {
       limit: body.limit,
       pageFrom: body.pageFrom,

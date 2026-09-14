@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolvePublishAttribution } from "@/lib/external-board-import/attribution/public-attribution";
 import { pickAuthorAliasForPublish } from "@/lib/external-board-import/author/author-pool";
 import { externalBoardDocumentToCommunityContent } from "@/lib/external-board-import/document/to-community-content";
+import { assertWriteEligibleTopicId } from "@/lib/external-board-import/mapping/assert-write-eligible-topic";
 import { resolveTargetMapping } from "@/lib/external-board-import/mapping/target-mapping";
 import { applyReplacementPolicy, listReplacementRules } from "@/lib/external-board-import/policy/replacement";
 import {
@@ -50,14 +50,26 @@ export async function buildExternalBoardTransform(
     };
   }
 
+  const topicAssert = await assertWriteEligibleTopicId(sb, mapping.mapping.topicId);
+  if (!topicAssert.ok) {
+    return {
+      ok: false,
+      failureStage: "mapping",
+      failureCode: topicAssert.failureCode,
+      failureMessage: topicAssert.failureMessage,
+    };
+  }
+
   const rules = await listReplacementRules(sb, source.id);
-  const baseDoc = opts?.documentOverride ?? article.source_document;
-  if (!baseDoc.nodes.length && !baseDoc.title) {
+  // Draft wins when saved; raw source_document is never overwritten by transform.
+  const baseDoc = opts?.documentOverride ?? article.draft_document ?? article.source_document;
+  const draftTitle = article.draft_title;
+  if (!baseDoc.nodes.length && !baseDoc.title && !draftTitle) {
     return {
       ok: false,
       failureStage: "document",
       failureCode: "empty_snapshot",
-      failureMessage: "Article snapshot is empty. Fetch document first.",
+      failureMessage: "수집된 본문이 없습니다. 먼저 게시물을 불러오세요.",
     };
   }
 
@@ -79,15 +91,12 @@ export async function buildExternalBoardTransform(
     };
   }
 
-  const replaced = applyReplacementPolicy(baseDoc, rules);
+  const replaced = applyReplacementPolicy(
+    draftTitle?.trim() ? { ...baseDoc, title: draftTitle.trim() } : baseDoc,
+    rules
+  );
   const community = externalBoardDocumentToCommunityContent(replaced);
   const author = await pickAuthorAliasForPublish(sb, source.author_pool_id);
-  const attribution = resolvePublishAttribution({
-    attributionRequired: source.attribution_required,
-    attributionDisplayName: source.attribution_display_name,
-    siteName: source.site_name,
-    canonicalSourceUrl: article.canonical_source_url,
-  });
 
   return {
     ok: true,
@@ -101,13 +110,14 @@ export async function buildExternalBoardTransform(
       publishedAtIso: chronology.publishedAtIso,
       chronologyCase: chronology.case,
       viewSeed: computeViewSeed(source),
-      topicId: mapping.mapping.topicId,
-      topicSlug: mapping.mapping.topicSlug,
+      topicId: topicAssert.topic.id,
+      topicSlug: topicAssert.topic.slug,
       locationId: mapping.mapping.locationId,
       regionLabel: mapping.mapping.regionLabel,
       document: replaced,
-      publicAttributionName: attribution.publicAttributionName,
-      publicAttributionUrl: attribution.publicAttributionUrl,
+      // PUBLIC: never write source attribution. Admin keeps canonical_source_url.
+      publicAttributionName: null,
+      publicAttributionUrl: null,
     },
   };
 }

@@ -67,7 +67,15 @@ export function validateExternalBoardDocument(raw: unknown): {
   }
   return {
     ok: true,
-    document: { title, canonicalUrl, nodes },
+    document: {
+      title,
+      canonicalUrl,
+      nodes,
+      feedThumbnailSrc:
+        d.feedThumbnailSrc != null && String(d.feedThumbnailSrc).trim()
+          ? String(d.feedThumbnailSrc).trim()
+          : null,
+    },
   };
 }
 

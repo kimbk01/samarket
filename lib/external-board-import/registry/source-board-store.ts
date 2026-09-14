@@ -25,6 +25,7 @@ function mapSource(row: Record<string, unknown>): ExternalBoardSourceRow {
     attribution_display_name:
       row.attribution_display_name != null ? String(row.attribution_display_name) : null,
     board_sequence_verified: Boolean(row.board_sequence_verified),
+    enabled: row.enabled === undefined || row.enabled === null ? true : Boolean(row.enabled),
     author_pool_id: row.author_pool_id != null ? String(row.author_pool_id) : null,
     date_recent_min_days: Number(row.date_recent_min_days ?? 3),
     date_recent_max_days: Number(row.date_recent_max_days ?? 10),
@@ -70,6 +71,7 @@ export type CreateExternalBoardSourceInput = {
   attributionRequired?: boolean;
   attributionDisplayName?: string | null;
   boardSequenceVerified?: boolean;
+  enabled?: boolean;
   dateRecentMinDays?: number;
   dateRecentMaxDays?: number;
   viewSeedMin?: number;
@@ -133,7 +135,7 @@ export async function createExternalBoardSource(
     source_url: identity.canonicalUrl,
     site_key: identity.siteKey,
     board_key: identity.boardKey,
-    mode: input.mode === "AUTO" ? "AUTO" : "MANUAL",
+    mode: "MANUAL",
     rights_basis: input.rightsBasis != null ? String(input.rightsBasis).trim() || null : null,
     rights_status: rightsStatus,
     target_topic_id: input.targetTopicId ?? null,
@@ -144,6 +146,8 @@ export async function createExternalBoardSource(
     attribution_required: Boolean(input.attributionRequired),
     attribution_display_name: input.attributionDisplayName ?? null,
     board_sequence_verified: Boolean(input.boardSequenceVerified),
+    enabled: input.enabled !== false,
+    // Owner product is MANUAL selection — never create AUTO from Admin register.
     date_recent_min_days: input.dateRecentMinDays ?? 3,
     date_recent_max_days: input.dateRecentMaxDays ?? 10,
     view_seed_min: input.viewSeedMin ?? 100,
@@ -202,6 +206,8 @@ export async function patchExternalBoardSource(
     updates.board_sequence_verified = Boolean(patch.boardSequenceVerified);
   }
   if (patch.sourceBoardName !== undefined) updates.source_board_name = patch.sourceBoardName;
+  if (patch.enabled !== undefined) updates.enabled = Boolean(patch.enabled);
+  if (patch.siteName !== undefined) updates.site_name = patch.siteName;
   if (patch.dateRecentMinDays !== undefined) updates.date_recent_min_days = patch.dateRecentMinDays;
   if (patch.dateRecentMaxDays !== undefined) updates.date_recent_max_days = patch.dateRecentMaxDays;
   if (patch.viewSeedMin !== undefined) updates.view_seed_min = patch.viewSeedMin;

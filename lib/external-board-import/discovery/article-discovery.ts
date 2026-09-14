@@ -22,6 +22,20 @@ function mapArticle(row: Record<string, unknown>): ExternalBoardArticleRow {
     canonical_source_url: String(row.canonical_source_url ?? ""),
     source_title: String(row.source_title ?? ""),
     source_document,
+    draft_title: row.draft_title != null ? String(row.draft_title) : null,
+    draft_document: (() => {
+      if (row.draft_document == null) return null;
+      const d = validateExternalBoardDocument(row.draft_document);
+      return d.ok ? d.document : null;
+    })(),
+    edit_status:
+      row.edit_status === "collected" ||
+      row.edit_status === "editing" ||
+      row.edit_status === "saved" ||
+      row.edit_status === "published" ||
+      row.edit_status === "failed"
+        ? row.edit_status
+        : null,
     source_author: row.source_author != null ? String(row.source_author) : null,
     source_published_at: row.source_published_at != null ? String(row.source_published_at) : null,
     source_page:

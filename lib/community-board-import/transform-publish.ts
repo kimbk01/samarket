@@ -13,6 +13,11 @@ import { articleDocumentToCommunityMarkdown } from "@/lib/community-board-import
 import { pickDisplayDateOnce } from "@/lib/community-board-import/date-seed";
 import { makeFailureAudit, type BoardImportFailureStage } from "@/lib/community-board-import/failure-audit";
 import {
+  BOARD_IMPORT_SOURCE_BLOCKED_CODE,
+  BOARD_IMPORT_SOURCE_BLOCKED_MESSAGE,
+  isBoardImportSourceBlocked,
+} from "@/lib/community-board-import/blocked-sources";
+import {
   applyBoardImportReplacement,
   type BoardImportReplacementRule,
 } from "@/lib/community-board-import/replacement";
@@ -488,6 +493,22 @@ export async function publishBoardImportArticle(input: {
     return recordArticleFailure(sb, articleId, "TARGET", "source_not_found", "SOURCE 게시판을 찾을 수 없습니다.");
   }
   const sourceRow = source as BoardImportSourceRow;
+
+  if (
+    isBoardImportSourceBlocked({
+      id: sourceRow.id,
+      siteKey: sourceRow.site_key,
+      sourceUrl: sourceRow.source_url,
+    })
+  ) {
+    return recordArticleFailure(
+      sb,
+      articleId,
+      "TARGET",
+      BOARD_IMPORT_SOURCE_BLOCKED_CODE,
+      BOARD_IMPORT_SOURCE_BLOCKED_MESSAGE
+    );
+  }
 
   if (!sourceRow.target_topic_id) {
     return recordArticleFailure(sb, articleId, "TARGET", "target_missing", "DIBAY TARGET이 지정되지 않았습니다.");

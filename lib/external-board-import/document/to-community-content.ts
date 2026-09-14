@@ -32,7 +32,8 @@ function nodeToMarkdown(node: ExternalBoardNode): string {
 
 /**
  * Preserve node order into Community interleaved markdown.
- * images[] = ordered inline image URLs only (first = Feed thumb). No cover detach.
+ * Body images stay in content. Optional feedThumbnailSrc prepends Feed thumb
+ * without being written into Detail body markdown (no cover→body duplication).
  */
 export function externalBoardDocumentToCommunityContent(doc: ExternalBoardDocument): {
   title: string;
@@ -41,6 +42,8 @@ export function externalBoardDocumentToCommunityContent(doc: ExternalBoardDocume
   images: string[];
 } {
   const images: string[] = [];
+  const feedThumb = String(doc.feedThumbnailSrc ?? "").trim();
+  if (feedThumb) images.push(feedThumb);
   const blocks: string[] = [];
   for (const node of doc.nodes) {
     if (node.type === "image") {

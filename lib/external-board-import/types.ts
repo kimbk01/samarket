@@ -18,6 +18,11 @@ export type ExternalBoardDocument = {
   title: string;
   canonicalUrl: string;
   nodes: ExternalBoardNode[];
+  /**
+   * Feed thumbnail candidate only (e.g. WP featured_media).
+   * Never serialized into Detail body markdown.
+   */
+  feedThumbnailSrc?: string | null;
 };
 
 export type ExternalBoardIdentityKind = "stable_id" | "canonical_url" | "normalized_url";
@@ -43,6 +48,8 @@ export type ExternalBoardSourceRow = {
   attribution_display_name: string | null;
   /** CASE B board sequence verified. */
   board_sequence_verified: boolean;
+  /** Operator 사용/중지 */
+  enabled: boolean;
   author_pool_id: string | null;
   date_recent_min_days: number;
   date_recent_max_days: number;
@@ -63,6 +70,11 @@ export type ExternalBoardArticleRow = {
   canonical_source_url: string;
   source_title: string;
   source_document: ExternalBoardDocument;
+  /** DIBAY editable title — raw source_title preserved */
+  draft_title: string | null;
+  /** DIBAY editable document — raw source_document preserved */
+  draft_document: ExternalBoardDocument | null;
+  edit_status: "collected" | "editing" | "saved" | "published" | "failed" | null;
   source_author: string | null;
   source_published_at: string | null;
   /** 1-based discovery page when known. */

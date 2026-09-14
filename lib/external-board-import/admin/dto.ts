@@ -21,7 +21,9 @@ export type ExternalBoardSourceAdminDto = {
   attribution_required: boolean;
   attribution_display_name: string | null;
   board_sequence_verified: boolean;
+  enabled: boolean;
   mode: string;
+  target_topic_id: string | null;
   target_topic_slug: string | null;
   target_region_label: string | null;
   author_pool_id: string | null;
@@ -55,7 +57,11 @@ export type ExternalBoardArticleAdminDto = {
   failure_message: string | null;
   snapshot_version: number;
   has_image: boolean;
+  thumbnail_url: string | null;
+  draft_title: string | null;
+  edit_status: string | null;
   source_document: ExternalBoardArticleRow["source_document"];
+  draft_document: ExternalBoardArticleRow["draft_document"];
 };
 
 export function toExternalBoardSourceAdminDto(
@@ -82,7 +88,9 @@ export function toExternalBoardSourceAdminDto(
     attribution_required: row.attribution_required,
     attribution_display_name: row.attribution_display_name,
     board_sequence_verified: row.board_sequence_verified,
+    enabled: row.enabled !== false,
     mode: row.mode,
+    target_topic_id: row.target_topic_id,
     target_topic_slug: row.target_topic_slug,
     target_region_label: row.target_region_label,
     author_pool_id: row.author_pool_id,
@@ -97,7 +105,13 @@ export function toExternalBoardSourceAdminDto(
 }
 
 export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): ExternalBoardArticleAdminDto {
-  const has_image = row.source_document.nodes.some((n) => n.type === "image");
+  const doc = row.draft_document ?? row.source_document;
+  const feedThumb = String(doc.feedThumbnailSrc ?? "").trim();
+  const firstImg = doc.nodes.find((n) => n.type === "image" && n.src?.trim());
+  const thumbnail_url =
+    feedThumb ||
+    (firstImg && firstImg.type === "image" ? String(firstImg.src).trim() || null : null);
+  const has_image = Boolean(thumbnail_url);
   return {
     id: row.id,
     source_id: row.source_id,
@@ -119,7 +133,11 @@ export function toExternalBoardArticleAdminDto(row: ExternalBoardArticleRow): Ex
     failure_message: row.failure_message,
     snapshot_version: row.snapshot_version,
     has_image,
+    thumbnail_url,
+    draft_title: row.draft_title,
+    edit_status: row.edit_status,
     source_document: row.source_document,
+    draft_document: row.draft_document,
   };
 }
 

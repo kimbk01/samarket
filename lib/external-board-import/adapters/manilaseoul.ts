@@ -13,15 +13,10 @@ import {
 } from "@/lib/external-board-import/extraction/ordered-from-html";
 import { parseExternalBoardSourceDate } from "@/lib/external-board-import/extraction/parse-source-date";
 import type { ExternalBoardDiscoverItem } from "@/lib/external-board-import/types";
-
-function withTb(url: string, tb: string): boolean {
-  try {
-    const u = new URL(url);
-    return u.searchParams.get("tb") === tb;
-  } catch {
-    return false;
-  }
-}
+import {
+  getManilaSeoulSection,
+  resolveManilaSeoulTb,
+} from "@/lib/external-board-import/adapters/manilaseoul-sections";
 
 function listUrlForPage(sourceUrl: string, page: number): string {
   const u = new URL(sourceUrl);
@@ -111,9 +106,32 @@ export const manilaSeoulExternalBoardAdapter: ExternalBoardAdapter = {
   id: "manilaseoul-static-bbs",
   matches: (ctx: ExternalBoardAdapterContext) => {
     const host = ctx.siteKey === "manilaseoul.co.kr" || ctx.sourceUrl.includes("manilaseoul.co.kr");
-    return host && (withTb(ctx.sourceUrl, "board_free") || ctx.sourceUrl.includes("bbs_list.php"));
+    if (!host) return false;
+    const tb = resolveManilaSeoulTb(ctx.sourceUrl);
+    if (!tb) return false;
+    const section = getManilaSeoulSection(tb);
+    // Adapter may still attempt needs_check sections. Disabled = never.
+    // PRODUCT CATALOG eligibility is separate (source-catalog.ts).
+    if (section) {
+      if (section.capability === "disabled") return false;
+      return Boolean(section.listUrl);
+    }
+    // Unknown tb on bbs_list — allow adapter attempt (needs_check), still requires explicit tb.
+    return ctx.sourceUrl.includes("bbs_list.php");
   },
   async verifyBoard(ctx) {
+    const tb = resolveManilaSeoulTb(ctx.sourceUrl);
+    if (!tb) {
+      return {
+        status: "UNSUPPORTED",
+        reasons: ["불러올 게시판을 선택하세요. (tb 미지정 — board_free 기본값 없음)"],
+        samples: [],
+      };
+    }
+    const section = getManilaSeoulSection(tb);
+    if (section?.capability === "disabled") {
+      return { status: "UNSUPPORTED", reasons: [`${section.label}은 수집 대상 게시판이 아닙니다.`], samples: [] };
+    }
     const samples = await this.discoverArticles(ctx, { limit: 3, pageFrom: 1, pageTo: 1 });
     const withDocs = samples.filter((s) => s.sampleDocument && s.sampleDocument.nodes.length > 0);
     if (withDocs.length >= 3) return { status: "READY", reasons: ["manilaseoul_ready"], samples: withDocs };
@@ -122,13 +140,20 @@ export const manilaSeoulExternalBoardAdapter: ExternalBoardAdapter = {
   },
   async discoverArticles(ctx, opts?: ExternalBoardDiscoverOpts) {
     const n = normalizeDiscoverOpts(opts);
-    const tb = (() => {
-      try {
-        return new URL(ctx.sourceUrl).searchParams.get("tb") || "board_free";
-      } catch {
-        return "board_free";
-      }
-    })();
+    const tb = resolveManilaSeoulTb(ctx.sourceUrl);
+    if (!tb) {
+      throw Object.assign(new Error("불러올 게시판을 선택하세요."), {
+        failureStage: "discover",
+        failureCode: "source_section_required",
+      });
+    }
+    const section = getManilaSeoulSection(tb);
+    if (section?.capability === "disabled") {
+      throw Object.assign(new Error(`${section.label}은 수집할 수 없습니다.`), {
+        failureStage: "discover",
+        failureCode: "source_section_disabled",
+      });
+    }
     const collected: ExternalBoardDiscoverItem[] = [];
     const seen = new Set<string>();
     for (let page = n.pageFrom; page <= n.pageTo && collected.length < n.limit; page += 1) {

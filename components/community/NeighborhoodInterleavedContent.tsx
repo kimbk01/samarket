@@ -32,11 +32,25 @@ function safeImgSrcForRender(raw: string): string | null {
   return null;
 }
 
-export function NeighborhoodInterleavedContent({ content }: { content: string }) {
+export function NeighborhoodInterleavedContent({
+  content,
+  /** imported Detail only — strip ivory/muted image wrappers; normal Community unchanged */
+  plainMedia = false,
+}: {
+  content: string;
+  plainMedia?: boolean;
+}) {
   const segs = useMemo(() => {
     if (!content) return [];
     return parseInterleavedMarkdownToSegments(content);
   }, [content]);
+
+  const wrapClass = plainMedia
+    ? "my-0.5 block overflow-hidden"
+    : "my-0.5 block overflow-hidden rounded-ui-rect bg-sam-surface-muted";
+  const imgClass = plainMedia
+    ? "h-auto w-full max-h-[min(40vh,320px)] object-contain"
+    : "h-auto w-full max-h-[min(40vh,320px)] object-contain bg-black/[0.02]";
 
   return (
     <div className="mt-4 min-w-0">
@@ -60,12 +74,12 @@ export function NeighborhoodInterleavedContent({ content }: { content: string })
                 href={u}
                 target="_blank"
                 rel="noreferrer"
-                className="my-0.5 block overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+                className={wrapClass}
               >
                 <img
                   src={u}
                   alt=""
-                  className="h-auto w-full max-h-[min(40vh,320px)] object-contain bg-black/[0.02]"
+                  className={imgClass}
                   loading="lazy"
                   decoding="async"
                 />

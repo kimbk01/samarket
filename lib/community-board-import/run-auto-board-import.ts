@@ -8,6 +8,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchBoardArticles } from "@/lib/community-board-import/fetch-board-articles";
 import {
+  isBoardImportSourceBlocked,
+  BOARD_IMPORT_SOURCE_BLOCKED_CODE,
+} from "@/lib/community-board-import/blocked-sources";
+import {
   listBoardImportSources,
   type BoardImportSourceRow,
 } from "@/lib/community-board-import/store";
@@ -73,6 +77,13 @@ export async function runAutoBoardImport(input: {
   source: BoardImportSourceRow;
   maxArticles?: number;
 }): Promise<AutoBoardImportRunResult> {
+  if (isBoardImportSourceBlocked({
+    id: input.source.id,
+    siteKey: input.source.site_key,
+    sourceUrl: input.source.source_url,
+  })) {
+    throw new Error(BOARD_IMPORT_SOURCE_BLOCKED_CODE);
+  }
   if (input.source.mode !== "AUTO") {
     throw new Error("source_mode_not_auto");
   }
@@ -164,7 +175,16 @@ export async function runAutoBoardImportDispatcher(input: {
   results: AutoBoardImportRunResult[];
   errors: Array<{ sourceBoardId: string; error: string }>;
 }> {
-  const sources = (await listBoardImportSources(input.sb)).filter((s) => s.mode === "AUTO");
+  const sources = (await listBoardImportSources(input.sb))
+    .filter((s) => s.mode === "AUTO")
+    .filter(
+      (s) =>
+        !isBoardImportSourceBlocked({
+          id: s.id,
+          siteKey: s.site_key,
+          sourceUrl: s.source_url,
+        })
+    );
   const batch = sources.slice(0, Math.max(1, input.maxBoards ?? 5));
   const results: AutoBoardImportRunResult[] = [];
   const errors: Array<{ sourceBoardId: string; error: string }> = [];

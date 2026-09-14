@@ -22,6 +22,12 @@ export function CommunityPostDetailBody({
   viewerJoinedMeeting,
 }: Props) {
   const isInterleavedBody = !meeting && hasInterleavedMarkdownImageSyntax(post.content);
+  // Imported: Feed may use featured/feedThumbnail via post.images without body markdown images.
+  // Do not render those as Detail gallery (no cover→body duplication).
+  const showImageGallery =
+    !isInterleavedBody &&
+    post.images.length > 0 &&
+    !(post.origin_kind === "imported" && !hasInterleavedMarkdownImageSyntax(post.content));
 
   return (
     <div className="mt-4">
@@ -30,13 +36,16 @@ export function CommunityPostDetailBody({
         <div className={CM_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
       ) : isInterleavedBody ? (
         <div className="mt-3">
-          <NeighborhoodInterleavedContent content={post.content} />
+          <NeighborhoodInterleavedContent
+            content={post.content}
+            plainMedia={post.origin_kind === "imported"}
+          />
         </div>
       ) : (
         <div className={CM_BODY_CLASS}>{post.content}</div>
       )}
 
-      {!isInterleavedBody && post.images.length > 0 ? (
+      {showImageGallery ? (
         <div className="mt-4 space-y-2">
           {post.images.map((url, i) =>
             url ? (
@@ -45,13 +54,17 @@ export function CommunityPostDetailBody({
                 href={url}
                 target="_blank"
                 rel="noreferrer"
-                className="relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full overflow-hidden rounded-2xl bg-[var(--cm-page-bg)] ring-1 ring-[var(--cm-border)]"
+                className={
+                  post.origin_kind === "imported"
+                    ? "relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full overflow-hidden"
+                    : "relative block min-h-[12rem] max-h-[min(70vh,420px)] w-full overflow-hidden rounded-2xl bg-[var(--cm-page-bg)] ring-1 ring-[var(--cm-border)]"
+                }
               >
                 <SamarketThumbnail
                   src={url}
                   fill
-                  roundedClassName="rounded-2xl"
-                  className="bg-[var(--cm-page-bg)]"
+                  roundedClassName={post.origin_kind === "imported" ? "rounded-none" : "rounded-2xl"}
+                  className={post.origin_kind === "imported" ? "bg-transparent" : "bg-[var(--cm-page-bg)]"}
                   imageClassName="object-contain"
                   priority={i === 0}
                 />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { assertWriteEligibleTopicId } from "@/lib/external-board-import/mapping/assert-write-eligible-topic";
 import {
   getExternalBoardSource,
   patchExternalBoardSource,
@@ -32,26 +33,26 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const sb = getSupabaseServer();
+
+    let targetTopicId = body.targetTopicId != null ? String(body.targetTopicId) : undefined;
+    let targetTopicSlug = body.targetTopicSlug != null ? String(body.targetTopicSlug) : undefined;
+    if (targetTopicId !== undefined) {
+      const topic = await assertWriteEligibleTopicId(sb, targetTopicId);
+      if (!topic.ok) {
+        return NextResponse.json({ ok: false, error: topic.failureMessage }, { status: 400 });
+      }
+      targetTopicId = topic.topic.id;
+      targetTopicSlug = topic.topic.slug;
+    }
+
     const source = await patchExternalBoardSource(sb, id, {
-      mode: body.mode === "AUTO" ? "AUTO" : body.mode === "MANUAL" ? "MANUAL" : undefined,
-      rightsBasis: body.rightsBasis != null ? String(body.rightsBasis) : undefined,
-      rightsStatus: body.rightsStatus as "missing" | "declared" | "rejected" | undefined,
-      targetTopicId: body.targetTopicId != null ? String(body.targetTopicId) : undefined,
-      targetTopicSlug: body.targetTopicSlug != null ? String(body.targetTopicSlug) : undefined,
-      targetLocationId: body.targetLocationId != null ? String(body.targetLocationId) : undefined,
-      targetRegionLabel: body.targetRegionLabel != null ? String(body.targetRegionLabel) : undefined,
+      targetTopicId,
+      targetTopicSlug,
       authorPoolId: body.authorPoolId != null ? String(body.authorPoolId) : undefined,
-      attributionRequired:
-        body.attributionRequired != null ? Boolean(body.attributionRequired) : undefined,
-      attributionDisplayName:
-        body.attributionDisplayName != null ? String(body.attributionDisplayName) : undefined,
-      boardSequenceVerified:
-        body.boardSequenceVerified != null ? Boolean(body.boardSequenceVerified) : undefined,
       sourceBoardName: body.sourceBoardName != null ? String(body.sourceBoardName) : undefined,
-      dateRecentMinDays: body.dateRecentMinDays != null ? Number(body.dateRecentMinDays) : undefined,
-      dateRecentMaxDays: body.dateRecentMaxDays != null ? Number(body.dateRecentMaxDays) : undefined,
-      viewSeedMin: body.viewSeedMin != null ? Number(body.viewSeedMin) : undefined,
-      viewSeedMax: body.viewSeedMax != null ? Number(body.viewSeedMax) : undefined,
+      siteName: body.siteName != null ? String(body.siteName) : undefined,
+      enabled: body.enabled != null ? Boolean(body.enabled) : undefined,
+      attributionRequired: false,
     });
     return NextResponse.json({ ok: true, source });
   } catch (e) {

@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mediaIdentityFromUrl } from "@/lib/external-board-import/adapters/types";
 import type { ExternalBoardDocument } from "@/lib/external-board-import/types";
+import {
+  removeCanonicalImageAsset,
+  uploadPostImageWithDerivatives,
+} from "@/lib/media/canonical-image-upload.server";
 import { POST_IMAGES_BUCKET } from "@/lib/media/post-images-storage-ownership";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]);
@@ -11,7 +15,8 @@ export type RehostResult = {
 };
 
 /**
- * Fetch + rehost every image node. Broken image ⇒ FAIL (never hide and PASS).
+ * Fetch + rehost every image node and optional feedThumbnailSrc.
+ * Broken image ⇒ FAIL (never hide and PASS).
  * Writes ledger rows to external_board_media_assets.
  */
 export async function rehostDocumentImages(input: {
@@ -25,12 +30,8 @@ export async function rehostDocumentImages(input: {
   const nodes = [];
   const images: string[] = [];
 
-  for (const node of input.document.nodes) {
-    if (node.type !== "image") {
-      nodes.push(node);
-      continue;
-    }
-    const src = String(node.src ?? "").trim();
+  async function rehostOne(srcRaw: string): Promise<string> {
+    const src = String(srcRaw ?? "").trim();
     if (!src) {
       throw Object.assign(new Error("Empty image src"), {
         failureStage: "media",
@@ -71,47 +72,81 @@ export async function rehostDocumentImages(input: {
         failureCode: "image_too_small",
       });
     }
-    const ext = contentType.includes("png")
-      ? "png"
-      : contentType.includes("webp")
-        ? "webp"
-        : contentType.includes("gif")
-          ? "gif"
-          : "jpg";
-    const path = `${input.principalUserId}/community/external-board/${input.articleId}/${identity}.${ext}`;
-    const { error: upErr } = await input.sb.storage.from(POST_IMAGES_BUCKET).upload(path, buf, {
-      contentType,
-      upsert: true,
-    });
-    if (upErr) {
-      await markMediaFailed(input.sb, input.articleId, identity, src, upErr.message);
-      throw Object.assign(new Error(`Upload failed: ${upErr.message}`), {
+    // Seed path; uploadPostImageWithDerivatives may rewrite to .webp after optimize.
+    // Must create thumb/feed/detail derivatives — Feed list resolves .feed.webp / .thumb.webp.
+    const originalPath = `${input.principalUserId}/community/external-board/${input.articleId}/${identity}.jpg`;
+    try {
+      for (const p of [
+        originalPath,
+        originalPath.replace(/\.jpg$/i, ".png"),
+        originalPath.replace(/\.jpg$/i, ".webp"),
+      ]) {
+        try {
+          await removeCanonicalImageAsset({
+            sb: input.sb,
+            bucket: POST_IMAGES_BUCKET,
+            originalPath: p,
+          });
+        } catch {
+          /* idempotent cleanup */
+        }
+      }
+      const uploaded = await uploadPostImageWithDerivatives({
+        sb: input.sb,
+        originalPath,
+        rawBuf: buf,
+        mimeType: contentType,
+      });
+      const publicUrl = uploaded.publicUrl;
+      await input.sb.from("external_board_media_assets").upsert(
+        {
+          article_id: input.articleId,
+          source_media_identity: identity,
+          source_url: src,
+          dibay_storage_path: uploaded.originalPath,
+          dibay_storage_url: publicUrl,
+          content_type: contentType,
+          byte_size: buf.byteLength,
+          fetch_status: "ok",
+          failure_message: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "article_id,source_media_identity" }
+      );
+      return publicUrl;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await markMediaFailed(input.sb, input.articleId, identity, src, msg);
+      throw Object.assign(new Error(`Upload failed: ${msg}`), {
         failureStage: "media",
         failureCode: "image_upload_failed",
       });
     }
-    const publicUrl = input.sb.storage.from(POST_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl;
-    await input.sb.from("external_board_media_assets").upsert(
-      {
-        article_id: input.articleId,
-        source_media_identity: identity,
-        source_url: src,
-        dibay_storage_path: path,
-        dibay_storage_url: publicUrl,
-        content_type: contentType,
-        byte_size: buf.byteLength,
-        fetch_status: "ok",
-        failure_message: null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "article_id,source_media_identity" }
-    );
+  }
+
+  const feedRaw = String(input.document.feedThumbnailSrc ?? "").trim();
+  let feedThumbnailSrc: string | null = null;
+  if (feedRaw) {
+    feedThumbnailSrc = await rehostOne(feedRaw);
+    images.push(feedThumbnailSrc);
+  }
+
+  for (const node of input.document.nodes) {
+    if (node.type !== "image") {
+      nodes.push(node);
+      continue;
+    }
+    const publicUrl = await rehostOne(String(node.src ?? ""));
     images.push(publicUrl);
-    nodes.push({ ...node, src: publicUrl, mediaId: identity });
+    nodes.push({ ...node, src: publicUrl, mediaId: mediaIdentityFromUrl(String(node.src ?? "")) });
   }
 
   return {
-    document: { ...input.document, nodes },
+    document: {
+      ...input.document,
+      nodes,
+      feedThumbnailSrc,
+    },
     images,
   };
 }
