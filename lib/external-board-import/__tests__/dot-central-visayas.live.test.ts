@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { resolveExternalBoardAdapter } from "@/lib/external-board-import/adapters/registry";
 
-describe("DOT Central Visayas adapter live smoke", () => {
+/** Network/live host proof — run explicitly: EXTERNAL_BOARD_LIVE_VERIFY=1 */
+const LIVE = process.env.EXTERNAL_BOARD_LIVE_VERIFY === "1";
+
+describe.skipIf(!LIVE)("DOT Central Visayas adapter live smoke", () => {
   it("discovers child destinations with title/body/date", async () => {
     const { adapter, ctx } = resolveExternalBoardAdapter(
       "https://www.tourism.gov.ph/destination/central-visayas/"

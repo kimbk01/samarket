@@ -40,6 +40,12 @@ export default defineConfig({
       "**/.qa-logs/**",
       "**/.worktrees/**",
       "**/.recovery/**",
+      /**
+       * External-host live proofs (DOT / ManilaSeoul / …).
+       * Opt-in: EXTERNAL_BOARD_LIVE_VERIFY=1 vitest run <path> (and temporarily drop this exclude),
+       * or keep describe.skipIf gate inside the file when included.
+       */
+      "**/*.live.test.ts",
     ],
   },
 });

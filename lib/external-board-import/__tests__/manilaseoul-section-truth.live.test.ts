@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { resolveExternalBoardAdapter } from "@/lib/external-board-import/adapters/registry";
 import { findCatalogSection } from "@/lib/external-board-import/catalog/source-catalog";
 
-describe("manilaseoul section truth live", () => {
+/** Network/live host proof — run explicitly: EXTERNAL_BOARD_LIVE_VERIFY=1 */
+const LIVE = process.env.EXTERNAL_BOARD_LIVE_VERIFY === "1";
+
+describe.skipIf(!LIVE)("manilaseoul section truth live", () => {
   it("PDF월간 discovers zero board_monthly articles; catalog stays 확인 필요", async () => {
     const monthly = resolveExternalBoardAdapter(
       "http://manilaseoul.co.kr/bbs_list.php?tb=board_monthly"

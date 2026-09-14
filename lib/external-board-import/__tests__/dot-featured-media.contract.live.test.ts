@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { resolveExternalBoardAdapter } from "@/lib/external-board-import/adapters/registry";
 import { externalBoardDocumentToCommunityContent } from "@/lib/external-board-import/document/to-community-content";
 
-describe("DOT featured_media feed thumbnail contract", () => {
+/** Network/live host proof — run explicitly: EXTERNAL_BOARD_LIVE_VERIFY=1 */
+const LIVE = process.env.EXTERNAL_BOARD_LIVE_VERIFY === "1";
+
+describe.skipIf(!LIVE)("DOT featured_media feed thumbnail contract", () => {
   it("Bohol: content img=0, featured feedThumbnail set, body markdown has no image", async () => {
     const { adapter, ctx } = resolveExternalBoardAdapter(
       "https://www.tourism.gov.ph/destination/central-visayas/"
