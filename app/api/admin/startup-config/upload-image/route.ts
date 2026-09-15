@@ -5,6 +5,7 @@ import {
   extForCampaignImageMime,
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
+import { PRODUCT_INTRO_MAX_FILE_BYTES } from "@/lib/startup/product-intro-geometry";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
-  const validated = validateCampaignImageFile(file);
+  const validated = validateCampaignImageFile(file, { maxBytes: PRODUCT_INTRO_MAX_FILE_BYTES });
   if (!validated.ok) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
   }

@@ -120,13 +120,19 @@ export function prefetchProductIntroMedia(
   });
 }
 
-let refreshStarted = false;
+let refreshInFlight = false;
+/** Last applied public `updatedAt` — allows re-refresh when Admin publishes a new image. */
+let lastAppliedUpdatedAt: string | null = null;
 
-/** Background refresh after shellReady — never blocks entry. */
+/**
+ * Background refresh — never blocks entry.
+ * Must be re-runnable: a one-shot flag left LKG stuck on the previous URL for the
+ * whole WebView process after Admin replaced media.
+ */
 export function scheduleProductIntroCacheRefresh(): void {
   if (typeof window === "undefined") return;
-  if (refreshStarted) return;
-  refreshStarted = true;
+  if (refreshInFlight) return;
+  refreshInFlight = true;
 
   const run = () => {
     void (async () => {
@@ -140,35 +146,49 @@ export function scheduleProductIntroCacheRefresh(): void {
         const json = (await res.json()) as { ok?: boolean; config?: unknown };
         if (!json?.ok) return;
         const next = normalizeProductIntroConfig(json.config);
+        if (
+          lastAppliedUpdatedAt &&
+          next.updatedAt === lastAppliedUpdatedAt &&
+          readProductIntroCache().media.mobileUrl === next.media.mobileUrl &&
+          readProductIntroMediaReadyUrl() === (next.media.mobileUrl ?? null)
+        ) {
+          return;
+        }
+
+        const prevReady = readProductIntroMediaReadyUrl();
         writeProductIntroCache(next);
         syncProductIntroToNative(next);
         if (!isProductIntroDisplayEligible(next)) {
           writeProductIntroMediaReadyUrl(null);
+          lastAppliedUpdatedAt = next.updatedAt;
           return;
         }
         const url = next.media.mobileUrl;
+        // URL identity: old media-ready must not keep a replaced creative "ready".
+        if (url && prevReady && prevReady !== url) {
+          writeProductIntroMediaReadyUrl(null);
+        }
         if (url) {
           const ok = await prefetchProductIntroMedia(url, { markReady: true });
           if (!ok) writeProductIntroMediaReadyUrl(null);
-          // Re-sync after media ready so Native can download same asset for next cold.
           if (ok) syncProductIntroToNative(next);
           const tablet = next.media.tabletUrl;
-          // Warm tablet decode only — never replace mobile ready marker.
           if (tablet && tablet !== url) {
             void prefetchProductIntroMedia(tablet, { markReady: false });
           }
         } else {
           writeProductIntroMediaReadyUrl(null);
         }
+        lastAppliedUpdatedAt = next.updatedAt;
       } catch {
         /* keep LKG */
+      } finally {
+        refreshInFlight = false;
       }
     })();
   };
 
-  if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(() => run(), { timeout: 5000 });
-  } else {
-    window.setTimeout(run, 1500);
-  }
+  // Prefer soon materialization so Admin replacements land before the next cold.
+  // Still async / non-blocking (no await on critical path).
+  window.setTimeout(run, 0);
 }

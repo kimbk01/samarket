@@ -94,6 +94,15 @@ export function ProductIntroHost(): ReactElement | null {
     return whenAppShellReady(() => setShellReady(true));
   }, []);
 
+  /** Re-materialize Admin media while the WebView process stays warm. */
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") scheduleProductIntroCacheRefresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   useEffect(() => {
     const active = phase === "enter" || phase === "hold" || phase === "exit";
     setProductIntroOverlayActive(active);

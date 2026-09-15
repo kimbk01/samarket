@@ -398,6 +398,11 @@ export const adminSettingsMessages = {
     admin_first_entry_ends: "노출 종료",
     admin_first_entry_preview: "미리보기",
     admin_first_entry_saved: "저장되었습니다.",
+    admin_first_entry_upload_need_save:
+      "이미지가 선택되었습니다. 저장을 눌러야 앱 첫 진입 화면에 반영됩니다.",
+    admin_first_entry_file_too_large:
+      "파일이 너무 큽니다. 최대 2MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.",
+    admin_first_entry_invalid_type: "지원 형식: JPG, PNG, WEBP. 기존 이미지는 유지됩니다.",
     admin_first_entry_save_tab: "시작 탭 저장",
     admin_startup_config_initial_surface: "시작 화면",
     admin_startup_config_initial_surface_hint:
@@ -869,6 +874,11 @@ export const adminSettingsMessages = {
     admin_first_entry_ends: "Ends",
     admin_first_entry_preview: "Preview",
     admin_first_entry_saved: "Saved.",
+    admin_first_entry_upload_need_save:
+      "Image selected. Press Save to apply it to the app first-entry screen.",
+    admin_first_entry_file_too_large:
+      "File is too large. Max 2MB. The previous image was kept.",
+    admin_first_entry_invalid_type: "Allowed: JPG, PNG, WEBP. The previous image was kept.",
     admin_first_entry_save_tab: "Save launch tab",
     admin_startup_config_initial_surface: "Initial screen",
     admin_startup_config_initial_surface_hint:

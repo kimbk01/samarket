@@ -31,10 +31,12 @@ import {
   PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX,
   PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX,
   PRODUCT_INTRO_SAFE_ZONE_INSET_PCT,
+  PRODUCT_INTRO_SUPPORTED_FORMATS,
   PRODUCT_INTRO_VIEWPORT_PRESETS,
   computeProductIntroLayoutBox,
   type ProductIntroViewportKind,
 } from "@/lib/startup/product-intro-geometry";
+import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { INITIAL_APP_SURFACES, type InitialAppSurface } from "@/lib/startup/initial-app-surface";
 
 type OperatorAnim = "none" | "fade" | "fade_scale" | "slide_up";
@@ -329,7 +331,37 @@ export function ProductIntroAdminSection() {
     async (kind: "mobile" | "tablet", file: File) => {
       setUploading(true);
       setMessage(null);
+      const priorMobile = draft.media.mobileUrl;
+      const priorTablet = draft.media.tabletUrl;
       try {
+        const validated = validateCampaignImageFile(file, {
+          maxBytes: PRODUCT_INTRO_MAX_FILE_BYTES,
+        });
+        if (!validated.ok) {
+          if (validated.error === "file_too_large") {
+            setMessage(
+              safeT("admin_first_entry_file_too_large", {
+                fallbackKo: `파일이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.`,
+                fallbackEn: `File is too large. Max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB. The previous image was kept.`,
+              })
+            );
+          } else if (validated.error === "invalid_type") {
+            setMessage(
+              safeT("admin_first_entry_invalid_type", {
+                fallbackKo: `지원 형식: ${PRODUCT_INTRO_SUPPORTED_FORMATS.map((m) => m.replace("image/", "").toUpperCase()).join(", ")}. 기존 이미지는 유지됩니다.`,
+                fallbackEn: `Allowed: JPG, PNG, WEBP. The previous image was kept.`,
+              })
+            );
+          } else {
+            setMessage(
+              safeT("admin_startup_config_upload_failed", {
+                fallbackKo: "업로드에 실패했습니다. 기존 이미지는 유지됩니다.",
+                fallbackEn: "Upload failed. The previous image was kept.",
+              })
+            );
+          }
+          return;
+        }
         const fd = new FormData();
         fd.set("kind", kind === "mobile" ? "product" : "product_tablet");
         fd.set("file", file);
@@ -340,12 +372,28 @@ export function ProductIntroAdminSection() {
         });
         const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
         if (!res.ok || !json.ok || !json.url) {
-          setMessage(
-            safeT("admin_startup_config_upload_failed", {
-              fallbackKo: "업로드에 실패했습니다.",
-              fallbackEn: "Upload failed.",
-            })
-          );
+          if (json.error === "file_too_large") {
+            setMessage(
+              safeT("admin_first_entry_file_too_large", {
+                fallbackKo: `파일이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.`,
+                fallbackEn: `File is too large. Max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB. The previous image was kept.`,
+              })
+            );
+          } else {
+            setMessage(
+              safeT("admin_startup_config_upload_failed", {
+                fallbackKo: "업로드에 실패했습니다. 기존 이미지는 유지됩니다.",
+                fallbackEn: "Upload failed. The previous image was kept.",
+              })
+            );
+          }
+          // Preserve prior draft media on failed replacement.
+          patch({
+            media: {
+              mobileUrl: priorMobile,
+              tabletUrl: priorTablet,
+            },
+          });
           return;
         }
         setDraft((prev) =>
@@ -357,18 +405,24 @@ export function ProductIntroAdminSection() {
             },
           })
         );
+        setMessage(
+          safeT("admin_first_entry_upload_need_save", {
+            fallbackKo: "이미지가 선택되었습니다. 저장을 눌러야 앱 첫 진입 화면에 반영됩니다.",
+            fallbackEn: "Image selected. Press Save to apply it to the app first-entry screen.",
+          })
+        );
       } catch {
         setMessage(
           safeT("admin_startup_config_upload_failed", {
-            fallbackKo: "업로드에 실패했습니다.",
-            fallbackEn: "Upload failed.",
+            fallbackKo: "업로드에 실패했습니다. 기존 이미지는 유지됩니다.",
+            fallbackEn: "Upload failed. The previous image was kept.",
           })
         );
       } finally {
         setUploading(false);
       }
     },
-    [safeT]
+    [draft.media.mobileUrl, draft.media.tabletUrl, patch, safeT]
   );
 
   const save = useCallback(async () => {
