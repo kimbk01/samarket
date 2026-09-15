@@ -187,9 +187,12 @@ export async function POST(
       skipBadgeTargetBump: true as const,
     };
     /**
-     * Same contract as rooms/[roomId]/messages: sync target bump + notify/FCM
-     * before ACK; realtime publish only in after() with skipBadgeTargetBump.
+     * Same contract as rooms/[roomId]/messages:
+     * sync target bump + durable notification_events before ACK;
+     * FCM/mirror + realtime publish in after() with skipBadgeTargetBump.
      */
+    let deferredPostAck: import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendDeferredPostAckWork | null =
+      null;
     try {
       const { bumpMessengerRoomTargetsForRecipients } = await import(
         "@/lib/notifications/notification-target-messenger-bridge"
@@ -204,10 +207,10 @@ export async function POST(
           fromUserId: auth.userId,
         });
         if (postAckEffects) {
-          const { runCommunityMessengerSendPostAckEffects } = await import(
+          const { runCommunityMessengerSendDurablePreAckEffects } = await import(
             "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
           );
-          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
+          deferredPostAck = await runCommunityMessengerSendDurablePreAckEffects(sb, postAckEffects);
         }
       }
     } catch {
@@ -215,6 +218,16 @@ export async function POST(
     }
     after(async () => {
       try {
+        const { resolveServiceSupabaseForApi } = await import(
+          "@/lib/supabase/resolve-service-supabase-for-api"
+        );
+        const sb = resolveServiceSupabaseForApi();
+        if (sb && deferredPostAck) {
+          const { runCommunityMessengerSendDeferredPostAckEffects } = await import(
+            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
+          );
+          await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck);
+        }
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"
         );

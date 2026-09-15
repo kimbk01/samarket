@@ -17,15 +17,17 @@ describe("CM message send Domain target bump before ACK", () => {
     expect(syncBump).toBeLessThan(afterCall);
   });
 
-  it("awaits runCommunityMessengerSendPostAckEffects (notify/FCM) before after()", () => {
-    const notify = src.indexOf("await runCommunityMessengerSendPostAckEffects");
+  it("awaits durable notification accept before after(); defers FCM+mirror to after()", () => {
+    const durable = src.indexOf("await runCommunityMessengerSendDurablePreAckEffects");
     const afterCall = src.indexOf("after(async () => {");
-    expect(notify).toBeGreaterThan(-1);
+    expect(durable).toBeGreaterThan(-1);
     expect(afterCall).toBeGreaterThan(-1);
-    expect(notify).toBeLessThan(afterCall);
-    // Must not keep notify only inside after() — Production after() stalled events.
+    expect(durable).toBeLessThan(afterCall);
     const afterBlock = src.slice(afterCall);
-    expect(afterBlock).not.toContain("runCommunityMessengerSendPostAckEffects");
+    expect(afterBlock).toContain("runCommunityMessengerSendDeferredPostAckEffects");
+    expect(afterBlock).not.toContain("runCommunityMessengerSendDurablePreAckEffects");
+    // Full sync bundle must not be the only path before ACK anymore.
+    expect(src.indexOf("await runCommunityMessengerSendPostAckEffects")).toBe(-1);
   });
 
   it("keeps realtime publishMessengerRoomBumpAfterMutation in after() with skipBadgeTargetBump", () => {
@@ -42,15 +44,15 @@ const groupSrc = readFileSync(
 );
 
 describe("CM group-rooms message send notify before ACK", () => {
-  it("awaits notify + target bump before after() and skips notify in after()", () => {
-    const notify = groupSrc.indexOf("await runCommunityMessengerSendPostAckEffects");
+  it("awaits durable notify + target bump before after(); defers FCM/mirror", () => {
+    const durable = groupSrc.indexOf("await runCommunityMessengerSendDurablePreAckEffects");
     const syncBump = groupSrc.indexOf("await bumpMessengerRoomTargetsForRecipients");
     const afterCall = groupSrc.indexOf("after(async () => {");
-    expect(notify).toBeGreaterThan(-1);
+    expect(durable).toBeGreaterThan(-1);
     expect(syncBump).toBeGreaterThan(-1);
     expect(afterCall).toBeGreaterThan(-1);
-    expect(Math.max(notify, syncBump)).toBeLessThan(afterCall);
-    expect(groupSrc.slice(afterCall)).not.toContain("runCommunityMessengerSendPostAckEffects");
+    expect(Math.max(durable, syncBump)).toBeLessThan(afterCall);
+    expect(groupSrc.slice(afterCall)).toContain("runCommunityMessengerSendDeferredPostAckEffects");
     expect(groupSrc).toContain("skipBadgeTargetBump: true");
   });
 });
@@ -89,17 +91,19 @@ describe("Trade item_trade ledger mirror single authority (post-ack)", () => {
     expect(sendFn).toContain("itemTradeLedgerId");
     expect(sendFn).toContain("postAckEffects:");
     expect(sendFn).toContain("itemTradeChatRoomIdFromMessengerDirectKey");
-    // Exactly one mirror call site lives in post-ack effects (not service).
+    // Exactly one mirror call site lives in deferred post-ack effects (not service).
     const mirrorCallsInPostAck = postAckSrc.split("mirrorCommunityMessengerTextToItemTradeLedger(").length - 1;
     expect(mirrorCallsInPostAck).toBe(1);
     expect(postAckSrc).toContain("if (effects.itemTradeLedgerId)");
+    expect(postAckSrc).toContain("runCommunityMessengerSendDeferredPostAckEffects");
+    expect(postAckSrc).toContain("deferPush: true");
   });
 
-  it("message POST awaits post-ack once so Trade mirror cannot double-fire from route", () => {
-    const awaitPostAck = src.split("await runCommunityMessengerSendPostAckEffects").length - 1;
-    expect(awaitPostAck).toBe(1);
+  it("message POST awaits durable pre-ack once; mirror only in after()", () => {
+    const awaitDurable = src.split("await runCommunityMessengerSendDurablePreAckEffects").length - 1;
+    expect(awaitDurable).toBe(1);
     const afterCall = src.indexOf("after(async () => {");
-    expect(src.slice(afterCall)).not.toContain("runCommunityMessengerSendPostAckEffects");
-    expect(src.slice(afterCall)).not.toContain("mirrorCommunityMessengerTextToItemTradeLedger");
+    expect(src.slice(afterCall)).toContain("runCommunityMessengerSendDeferredPostAckEffects");
+    expect(src.slice(0, afterCall)).not.toContain("mirrorCommunityMessengerTextToItemTradeLedger");
   });
 });

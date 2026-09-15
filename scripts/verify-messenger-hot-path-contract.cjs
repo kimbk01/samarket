@@ -104,9 +104,24 @@ if (!atomicBody) {
   );
 }
 
-// 2b) POST — postAckEffects 는 after() 에서만 실행
-if (postBody && !postBody.includes("runCommunityMessengerSendPostAckEffects")) {
-  fail("POST .../messages must defer postAckEffects via runCommunityMessengerSendPostAckEffects in after()");
+// 2b) POST — durable notify accept before ACK; FCM/mirror deferred to after()
+if (postBody && !postBody.includes("runCommunityMessengerSendDurablePreAckEffects")) {
+  fail(
+    "POST .../messages must await runCommunityMessengerSendDurablePreAckEffects before ACK (notification_events durable accept)"
+  );
+}
+if (postBody && !postBody.includes("runCommunityMessengerSendDeferredPostAckEffects")) {
+  fail(
+    "POST .../messages must run runCommunityMessengerSendDeferredPostAckEffects in after() (FCM + ledger mirror)"
+  );
+}
+const afterIdx = postBody ? postBody.indexOf("after(async () => {") : -1;
+if (afterIdx < 0) {
+  fail("POST .../messages must use after() for deferred post-ack work");
+} else if (postBody.slice(0, afterIdx).includes("runCommunityMessengerSendDeferredPostAckEffects")) {
+  fail("runCommunityMessengerSendDeferredPostAckEffects must not run before after()");
+} else if (postBody.slice(afterIdx).includes("runCommunityMessengerSendDurablePreAckEffects")) {
+  fail("runCommunityMessengerSendDurablePreAckEffects must not run only inside after()");
 }
 
 // 3) 홈 bootstrap 클라 fetch — AbortSignal 이 있어도 single-flight 합류

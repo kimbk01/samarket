@@ -37,6 +37,7 @@ export default defineConfig({
       /** Node `node:test` only — run via `node --test scripts/__tests__/…` (see verify-ci-stability.mjs) */
       "**/scripts/__tests__/**",
       /** Local QA copies / nested worktrees must not be collected as duplicate suites. */
+      "**/.tmp/**",
       "**/.qa-logs/**",
       "**/.worktrees/**",
       "**/.recovery/**",

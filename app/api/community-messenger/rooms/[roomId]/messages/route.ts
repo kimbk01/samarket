@@ -266,11 +266,13 @@ export async function POST(
      * Await target bump BEFORE ACK so a fast room-open mark_read cannot clear before
      * the unread write lands (measured group/SO race: after() bump after mark_read).
      *
-     * Await notify/FCM pipeline BEFORE ACK as well — Production measured that
-     * `after()` post-ack notify often never persisted notification_events (last
-     * events stalled ~2026-07-22) so OS FCM tray never fired. Realtime room bump
-     * stays in `after()`; skipBadgeTargetBump prevents a second target write.
+     * Durable notification_events accept BEFORE ACK (44e7073fe — after() historically
+     * stalled event inserts ~2026-07-22). FCM/OS push + item_trade mirror run in after()
+     * so slow external delivery does not block sender ACK (T5). Realtime room bump stays
+     * in after(); skipBadgeTargetBump prevents a second target write.
      */
+    let deferredPostAck: import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendDeferredPostAckWork | null =
+      null;
     try {
       const { bumpMessengerRoomTargetsForRecipients } = await import(
         "@/lib/notifications/notification-target-messenger-bridge"
@@ -292,11 +294,15 @@ export async function POST(
         }
         if (postAckEffects) {
           if (t5) markT5(t5, "S11");
-          const { runCommunityMessengerSendPostAckEffects } = await import(
+          const { runCommunityMessengerSendDurablePreAckEffects } = await import(
             "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
           );
           const effectsT0 = performance.now();
-          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects, t5 ?? undefined);
+          deferredPostAck = await runCommunityMessengerSendDurablePreAckEffects(
+            sb,
+            postAckEffects,
+            t5 ?? undefined
+          );
           if (t5) {
             spanT5(t5, "S12_pre_ack_effects_ms", effectsT0);
             markT5(t5, "S12");
@@ -313,6 +319,16 @@ export async function POST(
     after(async () => {
       try {
         if (t5) markT5(t5, "S14");
+        const { resolveServiceSupabaseForApi } = await import(
+          "@/lib/supabase/resolve-service-supabase-for-api"
+        );
+        const sb = resolveServiceSupabaseForApi();
+        if (sb && deferredPostAck) {
+          const { runCommunityMessengerSendDeferredPostAckEffects } = await import(
+            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
+          );
+          await runCommunityMessengerSendDeferredPostAckEffects(sb, deferredPostAck, t5 ?? undefined);
+        }
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"
         );

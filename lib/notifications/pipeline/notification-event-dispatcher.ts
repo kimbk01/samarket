@@ -19,10 +19,21 @@ export type CreateAndDispatchNotificationEventInput = CreateNotificationEventInp
 
 export async function createAndDispatchNotificationEvent(
   sb: SupabaseClient<any>,
-  input: CreateAndDispatchNotificationEventInput
-): Promise<{ ok: true; row: NotificationEventRow } | { ok: false; error: string; duplicate?: boolean }> {
+  input: CreateAndDispatchNotificationEventInput,
+  opts?: {
+    /**
+     * When true: persist `notification_events` only and return.
+     * Caller must schedule `dispatchNotificationEvent` (typically route `after()`).
+     * Preserves 44e7073fe durable-accept guarantee without blocking ACK on FCM.
+     */
+    deferPush?: boolean;
+  }
+): Promise<{ ok: true; row: NotificationEventRow; pushDeferred?: boolean } | { ok: false; error: string; duplicate?: boolean }> {
   const created = await createNotificationEvent(sb, input);
   if (!created.ok) return created;
+  if (opts?.deferPush) {
+    return { ok: true, row: created.row, pushDeferred: true };
+  }
   await dispatchNotificationEvent(sb, created.row, { appState: input.appState });
   return created;
 }

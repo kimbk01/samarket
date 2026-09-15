@@ -25,7 +25,9 @@ import {
   resolvePresenceSuppressDecision,
 } from "@/lib/notifications/policy/notification-presence-policy";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
+import type { NotificationEventRow } from "@/lib/notifications/core/notification-event-schema";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import type { NotificationRuntimeAppState } from "@/lib/notifications/policy/notification-policy-profiles";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { generalDirectRoomIdentity, groupRoomIdentity } from "@/lib/chat-domain/room-identity";
@@ -45,6 +47,8 @@ export type NotifyMessagePipelineInput = {
 /** T0 Legacy write Decision Snapshot — recipientId → frozen decision. */
 export type NotifyMessagePipelineResult = {
   decisionSnapshotsByRecipientId: Record<string, NotificationDecision>;
+  /** Rows that need `dispatchNotificationEvent` when `deferPush` was set. */
+  deferredPushes: Array<{ row: NotificationEventRow; appState: NotificationRuntimeAppState }>;
 };
 
 type StoreOrderReceiverRole = "owner" | "user";
@@ -131,15 +135,23 @@ async function loadStoreOrderReceiverRoleByUserId(
 
 export async function notifyMessagePipeline(
   sb: SupabaseClient<any>,
-  input: NotifyMessagePipelineInput
+  input: NotifyMessagePipelineInput,
+  opts?: {
+    /**
+     * Persist notification_events before return; defer FCM/OS push to caller `after()`.
+     * Default false preserves prior await-push behavior for non-CM-send callers.
+     */
+    deferPush?: boolean;
+  }
 ): Promise<NotifyMessagePipelineResult> {
   const decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
+  const deferredPushes: Array<{ row: NotificationEventRow; appState: NotificationRuntimeAppState }> = [];
   const roomId = input.roomId.trim();
   const messageId = input.messageId.trim();
   const senderUserId = input.senderUserId.trim();
   const recipients = input.recipientUserIds.map((id) => id.trim()).filter(Boolean);
   if (!roomId || !messageId || !senderUserId || !recipients.length) {
-    return { decisionSnapshotsByRecipientId };
+    return { decisionSnapshotsByRecipientId, deferredPushes };
   }
 
   const baseEventType = resolveEventType(input);
@@ -254,30 +266,39 @@ export async function notifyMessagePipeline(
       continue;
     }
 
-    const created = await createAndDispatchNotificationEvent(sb, {
-      userId: recipientUserId,
-      type: eventType,
-      category,
-      roomId,
-      messageId,
-      actorUserId: senderUserId,
-      title: display.title,
-      body: display.body,
-      displayPayload,
-      dedupeKey,
-      mutedSnapshot: muted,
-      pushSuppressedReason,
-      soundSuppressedReason,
-      unread: decisionSnapshot.showBottomBadge,
-      appState: resolveOsPushAppStateFromPresence(presence),
-      chatDomain: domainPair.chatDomain,
-      domainIdentityKey: domainPair.domainIdentityKey,
-    });
+    const appState = resolveOsPushAppStateFromPresence(presence);
+    const created = await createAndDispatchNotificationEvent(
+      sb,
+      {
+        userId: recipientUserId,
+        type: eventType,
+        category,
+        roomId,
+        messageId,
+        actorUserId: senderUserId,
+        title: display.title,
+        body: display.body,
+        displayPayload,
+        dedupeKey,
+        mutedSnapshot: muted,
+        pushSuppressedReason,
+        soundSuppressedReason,
+        unread: decisionSnapshot.showBottomBadge,
+        appState,
+        chatDomain: domainPair.chatDomain,
+        domainIdentityKey: domainPair.domainIdentityKey,
+      },
+      { deferPush: opts?.deferPush === true }
+    );
 
     if (!created.ok) {
       if (created.duplicate) continue;
       logNotifyMessage("create_done", { roomId, recipientUserId, error: created.error });
       continue;
+    }
+
+    if (created.pushDeferred) {
+      deferredPushes.push({ row: created.row, appState });
     }
 
     logNotifyMessage("create_done", { roomId, recipientUserId, eventId: created.row.id });
@@ -292,5 +313,5 @@ export async function notifyMessagePipeline(
     }
   }
 
-  return { decisionSnapshotsByRecipientId };
+  return { decisionSnapshotsByRecipientId, deferredPushes };
 }
