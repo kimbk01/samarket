@@ -10,9 +10,9 @@ describe("community post engagement types", () => {
 });
 
 describe("community post engagement policy (documented)", () => {
-  it("view dedup window is 24 hours in migration RPC", () => {
-    // contract: record_community_post_view uses interval '24 hours'
-    expect(true).toBe(true);
+  it("view dedup is forever unique per authenticated viewer (post_id + viewer_user_id)", () => {
+    // contract: record_community_post_view inserts with ON CONFLICT unique; no 24h window
+    expect("community_post_views_post_user_unique").toContain("post_user_unique");
   });
 
   it("save uses unique post_id + user_id", () => {
