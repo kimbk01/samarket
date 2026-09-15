@@ -120,8 +120,8 @@ describe("SEARCH-LOCATION-FRESH-1", () => {
     });
   });
 
-  describe("L2 radius soft", () => {
-    it("5km preference keeps outside eligible tail", () => {
+  describe("L2 radius hard membership", () => {
+    it("5km hard-excludes outside eligible tail", () => {
       const intent = intentFor("중고차");
       const constraint = pasayConstraint(5);
       const rootExpanded = { [USED_CAR_ROOT]: [USED_CAR_CHILD] };
@@ -150,11 +150,10 @@ describe("SEARCH-LOCATION-FRESH-1", () => {
         feedConstraint: constraint,
       });
 
-      expect(ranked[0]?.id).toBe("in");
-      expect(ranked.some((r) => r.id === "out")).toBe(true);
+      expect(ranked.map((r) => r.id)).toEqual(["in"]);
     });
 
-    it.each([10, 30, 64] as const)("radius=%skm keeps nationwide outside in ranked output", (radiusKm) => {
+    it.each([10, 30, 64] as const)("radius=%skm hard-excludes nationwide outside", (radiusKm) => {
       const intent = intentFor("중고차");
       const constraint = pasayConstraint(radiusKm);
       const pasayId = constraint.canonicalId;
@@ -167,7 +166,7 @@ describe("SEARCH-LOCATION-FRESH-1", () => {
         rootExpandedIdsByParent: { [USED_CAR_ROOT]: [USED_CAR_CHILD] },
         feedConstraint: constraint,
       });
-      expect(ranked.map((r) => r.id)).toEqual(["near", "far"]);
+      expect(ranked.map((r) => r.id)).toEqual(["near"]);
     });
   });
 

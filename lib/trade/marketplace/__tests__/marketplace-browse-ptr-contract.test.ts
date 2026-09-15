@@ -52,11 +52,22 @@ describe("trade feed location SQL extras", () => {
     expect(shouldUseRegionAllBrowsePriority("pasig", null, true)).toBe(true);
   });
 
-  it("region+N km uses browse priority without SQL location filter", () => {
+  it("region+N km hard-excludes via SQL membership (no L-SOFT outside concat)", () => {
     const c = resolveTradeFeedLocationConstraint("pasig", 5);
     expect(c.kind).toBe("lgu");
-    expect(tradeFeedLocationSqlExtras(c)).toBeUndefined();
-    expect(shouldUseRegionAllBrowsePriority("pasig", 5, true)).toBe(true);
+    expect(shouldUseRegionAllBrowsePriority("pasig", 5, true)).toBe(false);
+    const extras = tradeFeedLocationSqlExtras(c);
+    expect(extras).toBeDefined();
+    expect(extras).not.toEqual(undefined);
+    if (c.kind === "lgu") {
+      expect(c.matchingCanonicalIds.length).toBeGreaterThanOrEqual(1);
+      expect(c.matchingCanonicalIds).toContain(c.canonicalId);
+    }
+  });
+
+  it("region+전체 keeps L-SOFT browse priority", () => {
+    expect(shouldUseRegionAllBrowsePriority("pasig", null, true)).toBe(true);
+    expect(tradeFeedLocationSqlExtras(resolveTradeFeedLocationConstraint("pasig", null))).toBeUndefined();
   });
 });
 

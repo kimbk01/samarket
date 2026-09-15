@@ -1,7 +1,9 @@
 /**
  * SEARCH-LOCATION-FRESH-1 — discovery rank (intent + location preference + sort).
  *
- * LOCK-1: search intent = boost only. LOCK-2: location/radius = preference only.
+ * LOCK-1: search intent = boost only.
+ * LOCK-2: location — L-SOFT preference when radiusKm==null (within→outside);
+ *         explicit radiusKm → hard EXCLUDE outside matchingCanonicalIds (browse-single-contract).
  * LOCK-3: unresolved intent → band D (eligible tail), not empty.
  */
 import {
@@ -83,7 +85,8 @@ function partitionAndSortBlock<T extends DiscoveryRankListing>(
 
 /**
  * Rank one eligible pool batch: intent bands × within/outside anchor × user sort.
- * Does not remove rows — every input row appears in output unless deduped by caller.
+ * Soft (radius null): every input row appears (within then outside).
+ * Hard radius: outside matchingCanonicalIds dropped.
  */
 export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(input: {
   rows: T[];
@@ -121,7 +124,10 @@ export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(in
 
   const lguConstraint =
     input.feedConstraint.kind === "lgu" ? input.feedConstraint : null;
-  const anchorId = lguConstraint?.canonicalId ?? null;
+  const hardRadius =
+    lguConstraint != null &&
+    lguConstraint.radiusKm != null &&
+    Number.isFinite(Number(lguConstraint.radiusKm));
 
   const order: MarketplaceDiscoveryBand[] = [0, 1, 2, 3, 4, 5];
   const out: T[] = [];
@@ -136,6 +142,10 @@ export function rankMarketplaceDiscoveryBatch<T extends DiscoveryRankListing>(in
     }
 
     const within = filterPostsWithinBrowseAnchor(bandRows, lguConstraint);
+    if (hardRadius) {
+      out.push(...partitionAndSortBlock(within, browseSort, lguConstraint.canonicalId));
+      continue;
+    }
     const outside = filterPostsOutsideBrowseAnchor(bandRows, lguConstraint);
     out.push(
       ...assembleMarketplaceBrowseOrder(within, outside, browseSort, lguConstraint.canonicalId)

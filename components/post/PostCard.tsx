@@ -5,7 +5,7 @@ import { dibayAlert } from "@/components/ui/dibay-overlay";
 import { MapPin } from "lucide-react";
 import { Fragment, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -36,6 +36,8 @@ import {
   TRADE_FEED_THUMB_BOX_CLASS,
 } from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { handleTradeMarketCardDetailClick } from "@/lib/trade/location/trade-market-card-detail-nav";
+import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-market-list-scroll-restore";
 import {
   bumpTradeListProductCardRenderCount,
   recordTradeListImageRequestRangeFromResources,
@@ -129,6 +131,9 @@ export const PostCard = memo(function PostCard({
 }: PostCardProps) {
   const { t, safeT } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() || "/market";
+  const searchParams = useSearchParams();
+  const cardRootRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -209,7 +214,12 @@ export const PostCard = memo(function PostCard({
   }, [isFirstCard, thumbnailFetchUrl]);
 
   return (
-    <div className="relative flex min-w-0 flex-col">
+    <div
+      ref={cardRootRef}
+      data-market-listing-id={post.id}
+      data-market-listing-card="1"
+      className="relative flex min-w-0 flex-col market-listing-card"
+    >
       <Link
         href={detailHref}
         prefetch
@@ -224,7 +234,21 @@ export const PostCard = memo(function PostCard({
         onFocus={() => {
           void router.prefetch(detailHref);
         }}
-        onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+        onClick={(e) => {
+          beginRouteEntryPerf("product_detail", detailHref);
+          const routeKey = buildTradeMarketListScrollRouteKey(
+            pathname,
+            searchParams?.toString() ?? ""
+          );
+          handleTradeMarketCardDetailClick({
+            event: e,
+            postId: post.id,
+            detailHref,
+            routeKey,
+            cardEl: cardRootRef.current,
+            router,
+          });
+        }}
         className="flex min-w-0 flex-col"
       >
         <div data-ui4-slot="photos" className={TRADE_FEED_THUMB_BOX_CLASS}>

@@ -53,6 +53,8 @@ import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-cont
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { TRADE_BROWSE_LOCATION_PATH } from "@/lib/trade/location/trade-browse-location-paths";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-market-list-scroll-restore";
+import { useTradeMarketListScrollRestore } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { MARKETPLACE_LIST_CLIENT_PAGE_SIZE } from "@/lib/trade/marketplace/marketplace-list-pagination";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
@@ -478,6 +480,15 @@ export function HomeProductList({
     const q = searchParams.toString();
     rememberTradeListReturnHref(q ? `${pathname}?${q}` : pathname);
   }, [pathname, searchParams]);
+
+  const marketScrollRouteKey = useMemo(
+    () => buildTradeMarketListScrollRouteKey(pathname || "/market", searchParams.toString()),
+    [pathname, searchParams]
+  );
+  useTradeMarketListScrollRestore(
+    marketScrollRouteKey,
+    posts.length > 0 && listState === "idle"
+  );
 
   /** 글쓰기 완료 등으로 캐시만 비울 때 — 동일 URL에 머물러도 즉시 재요청 */
   useEffect(() => {

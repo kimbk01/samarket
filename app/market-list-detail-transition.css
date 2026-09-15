@@ -1,0 +1,57 @@
+/**
+ * Marketplace list ↔ detail — light continuity (no animation framework).
+ * Selected card anchors; surrounding feed fades when VT is supported.
+ */
+
+.market-listing-card[data-market-selected-return="1"] {
+  outline: 2px solid color-mix(in srgb, var(--sam-brand, #16a34a) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--sam-radius-sm, 8px);
+}
+
+@supports (view-transition-name: none) {
+  .market-listing-card[data-market-vt-active="1"] {
+    view-transition-name: market-listing-card;
+  }
+
+  html[data-market-list-vt="forward"]::view-transition-old(root) {
+    animation: market-list-vt-fade-out 180ms ease-out both;
+  }
+
+  html[data-market-list-vt="forward"]::view-transition-new(root) {
+    animation: market-list-vt-fade-in 200ms ease-out both;
+  }
+
+  html[data-market-list-vt="forward"]::view-transition-old(market-listing-card),
+  html[data-market-list-vt="forward"]::view-transition-new(market-listing-card) {
+    animation-duration: 200ms;
+    animation-timing-function: ease-out;
+  }
+}
+
+@keyframes market-list-vt-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+@keyframes market-list-vt-fade-in {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-market-list-vt]::view-transition-old(root),
+  html[data-market-list-vt]::view-transition-new(root),
+  html[data-market-list-vt]::view-transition-old(market-listing-card),
+  html[data-market-list-vt]::view-transition-new(market-listing-card) {
+    animation: none !important;
+  }
+}

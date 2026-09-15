@@ -34,6 +34,8 @@ import { marketplaceFeedLocationExtras } from "@/lib/trade/marketplace/client-lo
 import { sanitizeMarketplaceQueryText } from "@/lib/trade/marketplace/query-contract";
 import { parseMarketplacePublicTradeState } from "@/lib/trade/marketplace/public-listing-status";
 import { rememberTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import { buildTradeMarketListScrollRouteKey } from "@/lib/trade/location/trade-market-list-scroll-restore";
+import { useTradeMarketListScrollRestore } from "@/lib/trade/location/use-trade-market-list-scroll-restore";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   parseCompositionFilterSearchParams,
@@ -451,6 +453,12 @@ export function PostListByCategory({
     const q = searchParams.toString();
     rememberTradeListReturnHref(q ? `${pathname}?${q}` : pathname);
   }, [pathname, searchParams]);
+
+  const marketScrollRouteKey = useMemo(
+    () => buildTradeMarketListScrollRouteKey(pathname || "/market", searchParams.toString()),
+    [pathname, searchParams]
+  );
+  useTradeMarketListScrollRestore(marketScrollRouteKey, !loading && posts.length > 0);
 
   const onPullRefresh = useCallback(async () => {
     invalidateHomePostsCache({ notifyListReload: false });

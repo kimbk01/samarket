@@ -71,7 +71,8 @@ async function fetchNationalLguCityScope(
   return cityScopeFromProductLguId(canonicalId, displayName) ?? buildTradeCityScopeFromCanonical(canonicalId, null);
 }
 
-async function resolveNationalLguCityScopeFromMaster(
+/** Master row → Marketplace CITY scope (table map, then national LGU resolve). */
+export async function resolveTradeMarketplaceCityScopeFromMasterRow(
   master: UserAddressDTO
 ): Promise<Extract<TradeLocationScope, { mode: "city" }> | null> {
   const fromTable = tradeMarketplaceCityScopeFromMasterAddress(master);
@@ -112,7 +113,7 @@ export async function resolveTradeMarketplaceMasterHydrateScope(): Promise<Trade
     const master = pickUserAddressMasterRow(snapshot.defaults);
     if (!master) return { mode: "all" };
 
-    const city = await resolveNationalLguCityScopeFromMaster(master);
+    const city = await resolveTradeMarketplaceCityScopeFromMasterRow(master);
     return city ?? { mode: "all" };
   } catch {
     return { mode: "unset" };
@@ -130,7 +131,7 @@ export async function resolveTradeMarketplaceDefaultCityFromMaster(): Promise<
     if (!snapshot?.ok) return null;
     const master = pickUserAddressMasterRow(snapshot.defaults);
     if (!master) return null;
-    return await resolveNationalLguCityScopeFromMaster(master);
+    return await resolveTradeMarketplaceCityScopeFromMasterRow(master);
   } catch {
     return null;
   }

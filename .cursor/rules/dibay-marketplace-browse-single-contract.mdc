@@ -1,7 +1,7 @@
 # DIBAY Marketplace Browse — SINGLE CONTRACT (Implementation Gate)
 
-**STATUS: DESIGN CLOSED — READY TO IMPLEMENT (REGION/RANGE/SEARCH gates + PTR additive).**
-**PRODUCT CODE MODIFIED FOR THIS GATE: 0 until explicit implementation cut.**
+**STATUS: REGION/RANGE radius hard path REPAIRED (code). PTR additive gaps may remain.**
+**L-SOFT (radiusKm==null nationwide + anchor priority) PRESERVED.**
 
 Full design thread: marketplace REGION / RANGE / SEARCH / FILTER / RESET audit (2026-08-20).
 
