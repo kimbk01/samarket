@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 
 vi.mock("@/lib/addresses/fetch-address-defaults-client", () => ({
@@ -27,6 +27,29 @@ import {
 } from "@/lib/trade/location/trade-marketplace-master-address-reset";
 
 const MASTER_KEY = "samarket:trade-browse-master-address-id:v1";
+
+/** Vitest `environment: "node"` — stub sessionStorage (CI has no browser Storage). */
+function installSessionStorageStub() {
+  const map = new Map<string, string>();
+  const storage = {
+    getItem: (k: string) => (map.has(k) ? map.get(k)! : null),
+    setItem: (k: string, v: string) => {
+      map.set(k, String(v));
+    },
+    removeItem: (k: string) => {
+      map.delete(k);
+    },
+    clear: () => {
+      map.clear();
+    },
+    key: (i: number) => Array.from(map.keys())[i] ?? null,
+    get length() {
+      return map.size;
+    },
+  };
+  vi.stubGlobal("sessionStorage", storage);
+  return storage;
+}
 
 function masterDto(id: string): UserAddressDTO {
   return {
@@ -75,10 +98,14 @@ function masterDto(id: string): UserAddressDTO {
 
 describe("master address origin fingerprint reset", () => {
   beforeEach(() => {
-    sessionStorage.clear();
+    installSessionStorageStub();
     vi.mocked(fetchAddressDefaultsSnapshot).mockReset();
     vi.mocked(resolveTradeMarketplaceCityScopeFromMasterRow).mockReset();
     vi.mocked(resolveTradeMarketplaceDefaultCityFromMaster).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("buildTradeMarketplaceMasterOriginFingerprint uses id|lgu", () => {
