@@ -222,7 +222,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     let iv = UIImageView()
     if let logo = DibayStartupConfigCache.loadLogoImage() {
       iv.image = logo
-    } else if let bundled = UIImage(named: "Splash") ?? UIImage(named: "AppIcon") {
+    } else if let bundled = UIImage(named: "DibayStartupLogo") ?? UIImage(named: "Splash") ?? UIImage(named: "AppIcon") {
       iv.image = bundled
     }
     iv.contentMode = .scaleAspectFit
@@ -231,8 +231,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     NSLayoutConstraint.activate([
       iv.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
       iv.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
-      iv.widthAnchor.constraint(equalToConstant: 96),
-      iv.heightAnchor.constraint(equalToConstant: 96),
+      iv.widthAnchor.constraint(equalToConstant: 160),
+      iv.heightAnchor.constraint(equalToConstant: 160),
     ])
     return wrap
   }

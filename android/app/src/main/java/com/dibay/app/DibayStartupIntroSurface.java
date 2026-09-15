@@ -311,7 +311,7 @@ public final class DibayStartupIntroSurface {
     int size =
         (int)
             TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_DIP, 96f, activity.getResources().getDisplayMetrics());
+                TypedValue.COMPLEX_UNIT_DIP, 128f, activity.getResources().getDisplayMetrics());
     FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
     lp.gravity = Gravity.CENTER;
     wrap.addView(logo, lp);
