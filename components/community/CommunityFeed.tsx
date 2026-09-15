@@ -44,6 +44,7 @@ import {
   readCommunityHubState,
   writeCommunityHubState,
 } from "@/lib/community/community-hub-state";
+import { tryRestoreCommunityFeedScroll } from "@/lib/community/community-post-entry-nav";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
@@ -534,6 +535,16 @@ export function CommunityFeed({
     }
     writeCommunityHubState(navSelection);
   }, [pathname, navSelection.kind, navSelection.topicSlug, navSelection.allSort, searchParams]);
+
+  /** Detail → feed back: restore prior scroll after feed has rows to scroll. */
+  useEffect(() => {
+    if (!isCommunityHubPath(pathname)) return;
+    if (!posts.length) return;
+    tryRestoreCommunityFeedScroll({
+      pathname,
+      search: searchParams.toString(),
+    });
+  }, [pathname, searchParams, posts.length]);
 
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";

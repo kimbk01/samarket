@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode, type MouseEvent } from "react";
 import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
 import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
+import { beginCommunityPostEntryFromCard } from "@/lib/community/community-post-entry-nav";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type FeedListCardViewModel = {
@@ -263,6 +264,7 @@ function ListTextStack({
 
 function CardShell({ href, children }: { href: string; children: ReactNode }) {
   const router = useRouter();
+  const articleRef = useRef<HTMLElement | null>(null);
   const prefetchOnIntent = () => {
     const key = href.trim();
     if (!key) return;
@@ -273,11 +275,27 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
     router.prefetch(key);
   };
 
+  const onCardClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    beginRouteEntryPerf("community_detail", href);
+    prefetchOnIntent();
+    const handled = beginCommunityPostEntryFromCard({
+      href,
+      event: e,
+      cardEl: articleRef.current,
+      navigate: (to) => {
+        void router.push(to, { scroll: false });
+      },
+    });
+    if (handled) e.preventDefault();
+  };
+
   return (
     <article
+      ref={articleRef}
       className={`min-h-0 ${CM_FEED_CARD_CLASS}`}
       data-community-renderer="canonical-v1"
       data-community-card="post"
+      data-community-nav="card-shell"
     >
       <Link
         href={href}
@@ -285,10 +303,7 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
         onMouseEnter={prefetchOnIntent}
         onTouchStart={prefetchOnIntent}
         onPointerDown={prefetchOnIntent}
-        onClick={() => {
-          beginRouteEntryPerf("community_detail", href);
-          prefetchOnIntent();
-        }}
+        onClick={onCardClick}
         className="block transition-colors hover:bg-[var(--cm-primary-soft)]/40 active:bg-[var(--cm-primary-soft)]/60"
       >
         {children}

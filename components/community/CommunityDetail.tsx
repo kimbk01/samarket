@@ -21,6 +21,7 @@ import {
   philifePostViewUrl,
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { resolveCommunityDetailBackHref } from "@/lib/community/community-post-entry-nav";
 import { MemberPostPromoteSheet } from "@/components/post/MemberPostPromoteSheet";
 import { usePhilifePostComments } from "@/hooks/use-philife-post-comments";
 import {
@@ -162,10 +163,14 @@ export function CommunityDetail({
   const tier1Title = meeting
     ? t("community_meeting_label")
     : postCategoryLabel.trim() || t("community_community_label");
-  const backToFeedHref =
-    !meeting && !post.is_meetup && post.category?.trim()
-      ? `${philifeAppPaths.home}?category=${encodeURIComponent(post.category.trim())}`
-      : philifeAppPaths.home;
+  const [backToFeedHref, setBackToFeedHref] = useState<string>(philifeAppPaths.home);
+  useLayoutEffect(() => {
+    if (meeting || post.is_meetup) {
+      setBackToFeedHref(philifeAppPaths.home);
+      return;
+    }
+    setBackToFeedHref(resolveCommunityDetailBackHref({ postId: post.id }));
+  }, [meeting, post.is_meetup, post.id]);
   const hashtags = useMemo(
     () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
     [post.title, post.content, meeting, post.is_meetup]
