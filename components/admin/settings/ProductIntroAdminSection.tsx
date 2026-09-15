@@ -11,10 +11,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUNDLED_PRODUCT_INTRO_CONFIG,
+  PRODUCT_INTRO_ANIM_IN,
+  PRODUCT_INTRO_ANIM_OUT,
+  PRODUCT_INTRO_SIZE_PRESETS,
+  cssClassForProductIntroEnter,
   isProductIntroDisplayEligible,
   normalizeProductIntroConfig,
+  productIntroEnterMotionMs,
+  productIntroExitMotionMs,
   productIntroConfigEquals,
+  type ProductIntroAnimIn,
+  type ProductIntroAnimOut,
   type ProductIntroConfig,
+  type ProductIntroSizePreset,
 } from "@/lib/startup/product-intro";
 import {
   prefetchProductIntroMedia,
@@ -29,7 +38,7 @@ import {
   PRODUCT_INTRO_SAFE_ZONE_INSET_PCT,
   PRODUCT_INTRO_SUPPORTED_FORMATS,
   PRODUCT_INTRO_VIEWPORT_PRESETS,
-  computeProductIntroLayoutBox,
+  computeContainedCreativeRect,
   type ProductIntroViewportKind,
 } from "@/lib/startup/product-intro-geometry";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
@@ -177,12 +186,19 @@ function FirstEntryPreview({
   const scale = Math.min(220 / preset.width, 420 / preset.height);
   const frameW = Math.round(preset.width * scale);
   const frameH = Math.round(preset.height * scale);
-  const box = computeProductIntroLayoutBox({
+  const box = computeContainedCreativeRect({
     viewportWidth: preset.width,
     viewportHeight: preset.height,
+    imageWidth: PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX,
+    imageHeight: PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX,
+    sizePreset: config.sizePreset,
   });
-  const surfaceMaxH = Math.round(box.surfaceMaxHeightPx * scale);
+  const imgW = Math.round(box.width * scale);
+  const imgH = Math.round(box.height * scale);
   const safeInset = `${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}%`;
+  const enterClass = cssClassForProductIntroEnter(config.animationIn);
+  const enterMs = productIntroEnterMotionMs(config.animationIn);
+  const exitMs = productIntroExitMotionMs(config.animationOut);
 
   return (
     <div className="space-y-2">
@@ -201,12 +217,13 @@ function FirstEntryPreview({
             <img
               src={media}
               alt=""
+              className={enterClass}
               style={{
-                width: "100%",
-                height: "100%",
-                maxHeight: surfaceMaxH,
+                width: imgW,
+                height: imgH,
                 objectFit: "contain",
                 display: "block",
+                animationDuration: `${enterMs}ms`,
               }}
             />
             <div
@@ -225,6 +242,9 @@ function FirstEntryPreview({
           : config.status === "active"
             ? "사용 중 · 일정/이미지 확인"
             : "사용 안 함"}
+      </p>
+      <p className="text-center sam-text-caption text-sam-muted">
+        {`진입 ${enterMs}ms · 종료 ${exitMs}ms`}
       </p>
     </div>
   );
@@ -671,7 +691,107 @@ export function ProductIntroAdminSection() {
             </div>
           </div>
 
-          {/* V2: fit/cover/duration/animation product knobs removed — architectural CONTAIN + min=0 */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <FieldLabel>
+                {safeT("admin_first_entry_size", {
+                  fallbackKo: "배너 크기",
+                  fallbackEn: "Banner size",
+                })}
+              </FieldLabel>
+              <SelectField
+                value={draft.sizePreset}
+                onChange={(v) => patch({ sizePreset: v as ProductIntroSizePreset })}
+                options={(PRODUCT_INTRO_SIZE_PRESETS as readonly ProductIntroSizePreset[]).map(
+                  (value) => ({
+                    value,
+                    label:
+                      value === "small"
+                        ? safeT("admin_first_entry_size_small", {
+                            fallbackKo: "작게",
+                            fallbackEn: "Small",
+                          })
+                        : value === "medium"
+                          ? safeT("admin_first_entry_size_medium", {
+                              fallbackKo: "보통",
+                              fallbackEn: "Medium",
+                            })
+                          : value === "large"
+                            ? safeT("admin_first_entry_size_large", {
+                                fallbackKo: "크게",
+                                fallbackEn: "Large",
+                              })
+                            : safeT("admin_first_entry_size_max", {
+                                fallbackKo: "화면 최대",
+                                fallbackEn: "Maximum",
+                              }),
+                  })
+                )}
+              />
+            </div>
+            <div>
+              <FieldLabel>
+                {safeT("admin_first_entry_enter_motion", {
+                  fallbackKo: "진입 효과",
+                  fallbackEn: "Entrance effect",
+                })}
+              </FieldLabel>
+              <SelectField
+                value={draft.animationIn}
+                onChange={(v) => patch({ animationIn: v as ProductIntroAnimIn })}
+                options={(PRODUCT_INTRO_ANIM_IN as readonly ProductIntroAnimIn[]).map((value) => ({
+                  value,
+                  label:
+                    value === "none"
+                      ? safeT("admin_first_entry_motion_none", {
+                          fallbackKo: "효과 없음",
+                          fallbackEn: "None",
+                        })
+                      : value === "fade_in"
+                        ? safeT("admin_first_entry_enter_fade", {
+                            fallbackKo: "부드럽게 나타남",
+                            fallbackEn: "Soft fade in",
+                          })
+                        : safeT("admin_first_entry_enter_fade_expand", {
+                            fallbackKo: "살짝 펼쳐지며 나타남",
+                            fallbackEn: "Soft expand in",
+                          }),
+                }))}
+              />
+            </div>
+            <div>
+              <FieldLabel>
+                {safeT("admin_first_entry_exit_motion", {
+                  fallbackKo: "종료 효과",
+                  fallbackEn: "Exit effect",
+                })}
+              </FieldLabel>
+              <SelectField
+                value={draft.animationOut}
+                onChange={(v) => patch({ animationOut: v as ProductIntroAnimOut })}
+                options={(PRODUCT_INTRO_ANIM_OUT as readonly ProductIntroAnimOut[]).map((value) => ({
+                  value,
+                  label:
+                    value === "none"
+                      ? safeT("admin_first_entry_motion_none", {
+                          fallbackKo: "효과 없음",
+                          fallbackEn: "None",
+                        })
+                      : value === "fade_out"
+                        ? safeT("admin_first_entry_exit_fade", {
+                            fallbackKo: "부드럽게 사라짐",
+                            fallbackEn: "Soft fade out",
+                          })
+                        : safeT("admin_first_entry_exit_expand_fade", {
+                            fallbackKo: "펼쳐지며 사라짐",
+                            fallbackEn: "Expand and fade out",
+                          }),
+                }))}
+              />
+            </div>
+          </div>
+
+          {/* V2: raw fit/cover/duration knobs remain removed — CONTAIN + no post-ready hold. */}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

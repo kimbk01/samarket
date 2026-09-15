@@ -170,7 +170,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       overlay.backgroundColor = bg
       content = buildProductIntroContent(config: productIntro, image: productImage)
       activeConfig = productIntro
-      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff enter=none fit=contain")
+      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff size=\(resolveSizePreset(productIntro)) enter=\(resolveEnterMotion(productIntro)) exit=\(resolveExitMotion(productIntro)) fit=contain")
     } else {
       // V2 logo canvas — same bundled cream + centered logo (no Technical FE product).
       overlay.backgroundColor = canvasBg
@@ -195,25 +195,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     // LaunchScreen → Native = ONE continuous canvas (no enter re-fade).
     if !usingProductIntro {
       holdTechnicalHandoffAtRest(on: content)
+    } else {
+      applyProductIntroEnterMotion(on: content, config: activeConfig)
     }
   }
 
   private func buildProductIntroContent(config: [String: Any], image: UIImage) -> UIView {
-    let wrap = UIView()
-    wrap.backgroundColor = .clear
-    let iv = UIImageView(image: image)
-    // V2: CONTAIN — COVER / scaleAspectFill permanently rejected.
-    iv.contentMode = .scaleAspectFit
-    iv.clipsToBounds = true
-    iv.translatesAutoresizingMaskIntoConstraints = false
-    wrap.addSubview(iv)
-    NSLayoutConstraint.activate([
-      iv.leadingAnchor.constraint(equalTo: wrap.leadingAnchor),
-      iv.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
-      iv.topAnchor.constraint(equalTo: wrap.topAnchor),
-      iv.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
-    ])
-    return wrap
+    ProductIntroContentView(image: image, sizePreset: resolveSizePreset(config))
   }
 
   private func buildLogoCanvasContent() -> UIView {
@@ -259,18 +247,15 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
     introDismissing = true
     introLifecycle = .dismissing
-    // Admin First Entry: no exit stage after shellReady.
-    if usingProductIntroCover {
-      if let overlay = introOverlay {
-        finalizeIntroRemoved(overlay: overlay, source: "product_intro_ready")
-      }
-      hideCapacitorSplash()
-      return
-    }
-    let exit = (activeConfig["exitAnimation"] as? String) ?? "fade_out"
-    let durMs = DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
+    let exit = usingProductIntroCover
+      ? resolveExitMotion(activeConfig)
+      : ((activeConfig["exitAnimation"] as? String) ?? "fade_out")
+    let durMs = usingProductIntroCover
+      ? exitDurationMs(exit)
+      : DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
     let seconds = TimeInterval(durMs) / 1000.0
-    let target = introContent ?? introOverlay
+    let target = usingProductIntroCover ? introOverlay : (introContent ?? introOverlay)
+    let scaleTarget = usingProductIntroCover ? introContent : target
     guard let target = target, let overlay = introOverlay else {
       // No overlay (warm / race) — still terminal so viewDidAppear cannot create one.
       introDismissing = false
@@ -284,8 +269,10 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       hideCapacitorSplash()
       return
     }
-    UIView.animate(withDuration: seconds, animations: {
-      self.applyExitTransform(exit, on: target)
+    UIView.animate(withDuration: seconds, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+      if let scaleTarget = scaleTarget {
+        self.applyExitTransform(exit, on: scaleTarget)
+      }
       target.alpha = 0
     }, completion: { _ in
       self.finalizeIntroRemoved(overlay: overlay, source: "dismiss_animated")
@@ -295,6 +282,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   private func applyExitTransform(_ exit: String, on view: UIView) {
     switch exit {
+    case "expand_fade_out":
+      let scale: CGFloat = UIAccessibility.isReduceMotionEnabled ? 1.0 : 1.04
+      view.transform = CGAffineTransform(scaleX: scale, y: scale)
+    case "fade_out":
+      view.transform = .identity
     case "scale_out", "fade_scale_out":
       view.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
     case "slide_up":
@@ -302,6 +294,58 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     default:
       break
     }
+  }
+
+  private func applyProductIntroEnterMotion(on view: UIView, config: [String: Any]) {
+    let enter = resolveEnterMotion(config)
+    let durMs = enterDurationMs(enter)
+    if enter == "none" || durMs <= 0 {
+      view.alpha = 1
+      view.transform = .identity
+      return
+    }
+    let startScale: CGFloat = enter == "fade_in_expand" && !UIAccessibility.isReduceMotionEnabled ? 0.96 : 1
+    view.alpha = 0
+    view.transform = CGAffineTransform(scaleX: startScale, y: startScale)
+    UIView.animate(withDuration: TimeInterval(durMs) / 1000.0, delay: 0, options: [.curveEaseOut, .beginFromCurrentState], animations: {
+      view.alpha = 1
+      view.transform = .identity
+    })
+  }
+
+  private func resolveSizePreset(_ config: [String: Any]) -> String {
+    let raw = (config["presentationSizePreset"] as? String) ?? (config["sizePreset"] as? String) ?? "max"
+    if raw == "full" { return "max" }
+    if ["small", "medium", "large", "max"].contains(raw) { return raw }
+    return "max"
+  }
+
+  private func resolveEnterMotion(_ config: [String: Any]) -> String {
+    let raw = (config["enterMotion"] as? String) ?? (config["animationIn"] as? String) ?? "fade_in"
+    if raw == "fade" { return "fade_in" }
+    if raw == "fade_scale" || raw == "scale" { return "fade_in_expand" }
+    if ["none", "fade_in", "fade_in_expand"].contains(raw) { return raw }
+    return "fade_in"
+  }
+
+  private func resolveExitMotion(_ config: [String: Any]) -> String {
+    let raw = (config["exitMotion"] as? String) ?? (config["animationOut"] as? String) ?? "expand_fade_out"
+    if raw == "fade" { return "fade_out" }
+    if raw == "fade_scale" { return "expand_fade_out" }
+    if ["none", "fade_out", "expand_fade_out"].contains(raw) { return raw }
+    return "expand_fade_out"
+  }
+
+  private func enterDurationMs(_ enter: String) -> Int {
+    if enter == "fade_in_expand" { return 260 }
+    if enter == "fade_in" { return 220 }
+    return 0
+  }
+
+  private func exitDurationMs(_ exit: String) -> Int {
+    if exit == "expand_fade_out" { return 260 }
+    if exit == "fade_out" { return 180 }
+    return 0
   }
 
   /// Technical Boot after LaunchScreen — logo/bg at rest. Enter anim must not replay.
@@ -458,6 +502,53 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     handoffCoverRemoved = true
     handoffPendingURL = nil
     NSLog("[DIBAY_Startup] handoff_cover_hide count=1 source=%@", source)
+  }
+}
+
+final class ProductIntroContentView: UIView {
+  private let imageView: UIImageView
+  private let imageSize: CGSize
+  private let sizePreset: String
+
+  init(image: UIImage, sizePreset: String) {
+    self.imageView = UIImageView(image: image)
+    self.imageSize = image.size.width > 0 && image.size.height > 0
+      ? image.size
+      : CGSize(width: 1080, height: 1350)
+    self.sizePreset = sizePreset
+    super.init(frame: .zero)
+    backgroundColor = .clear
+    imageView.contentMode = .scaleAspectFit
+    imageView.clipsToBounds = true
+    addSubview(imageView)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    let w = max(bounds.width, 1)
+    let h = max(bounds.height, 1)
+    let scale = min(w / imageSize.width, h / imageSize.height) * Self.scale(for: sizePreset)
+    let iw = max(imageSize.width * scale, 1)
+    let ih = max(imageSize.height * scale, 1)
+    imageView.frame = CGRect(
+      x: (w - iw) / 2,
+      y: (h - ih) / 2,
+      width: iw,
+      height: ih
+    )
+  }
+
+  private static func scale(for preset: String) -> CGFloat {
+    switch preset {
+    case "small": return 0.56
+    case "medium": return 0.72
+    case "large": return 0.88
+    default: return 1.0
+    }
   }
 }
 

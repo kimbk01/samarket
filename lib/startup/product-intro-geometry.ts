@@ -64,6 +64,23 @@ export type ProductIntroContainedRect = {
   objectFit: "contain";
 };
 
+export type ProductIntroPresentationSizePreset = "small" | "medium" | "large" | "max";
+
+export function productIntroPresentationScale(
+  preset: ProductIntroPresentationSizePreset
+): number {
+  switch (preset) {
+    case "small":
+      return 0.56;
+    case "medium":
+      return 0.72;
+    case "large":
+      return 0.88;
+    default:
+      return 1;
+  }
+}
+
 /**
  * Maximum CONTAIN rect for a creative inside the safe viewport.
  * CROP=0 DISTORTION=0 — remaining area is intentional background.
@@ -74,16 +91,18 @@ export function computeContainedCreativeRect(input: {
   imageWidth: number;
   imageHeight: number;
   safeInsetPct?: number;
+  sizePreset?: ProductIntroPresentationSizePreset;
 }): ProductIntroContainedRect {
   const vw = Math.max(0, input.viewportWidth);
   const vh = Math.max(0, input.viewportHeight);
   const iw = Math.max(1, input.imageWidth);
   const ih = Math.max(1, input.imageHeight);
-  const insetPct = Math.max(0, Math.min(40, input.safeInsetPct ?? PRODUCT_INTRO_SAFE_ZONE_INSET_PCT));
+  const preset = input.sizePreset ?? "max";
+  const insetPct = Math.max(0, Math.min(40, input.safeInsetPct ?? 0));
   const inset = Math.round((Math.min(vw, vh) * insetPct) / 100);
   const availW = Math.max(1, vw - inset * 2);
   const availH = Math.max(1, vh - inset * 2);
-  const scale = Math.min(availW / iw, availH / ih);
+  const scale = Math.min(availW / iw, availH / ih) * productIntroPresentationScale(preset);
   const width = Math.max(1, Math.round(iw * scale));
   const height = Math.max(1, Math.round(ih * scale));
   const left = Math.round((vw - width) / 2);

@@ -4,6 +4,10 @@
  */
 
 import type { ProductIntroConfig } from "@/lib/startup/product-intro";
+import {
+  productIntroEnterMotionMs,
+  productIntroExitMotionMs,
+} from "@/lib/startup/product-intro";
 
 /** Stable generation identity for atomic Native materialization. */
 export function productIntroGenerationId(config: ProductIntroConfig): string {
@@ -21,9 +25,14 @@ export function toNativeProductIntroPayload(config: ProductIntroConfig): Record<
     // V2 fixed contract — legacy cover/card fields ignored by Native.
     displayMode: "fullscreen",
     objectFit: "contain",
-    sizePreset: "full",
+    presentationSizePreset: config.sizePreset,
+    sizePreset: config.sizePreset,
     customSizePercent: null,
     cornerRadiusPx: 0,
+    enterMotion: config.animationIn,
+    exitMotion: config.animationOut,
+    enterDurationMs: productIntroEnterMotionMs(config.animationIn),
+    exitDurationMs: productIntroExitMotionMs(config.animationOut),
     backgroundColor: config.backgroundColor,
     startsAt: config.startsAt,
     endsAt: config.endsAt,

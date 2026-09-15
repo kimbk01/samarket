@@ -19,13 +19,13 @@ export type ProductIntroDisplayMode = (typeof PRODUCT_INTRO_DISPLAY_MODES)[numbe
 export const PRODUCT_INTRO_OBJECT_FITS = ["contain", "cover"] as const;
 export type ProductIntroObjectFit = (typeof PRODUCT_INTRO_OBJECT_FITS)[number];
 
-export const PRODUCT_INTRO_SIZE_PRESETS = ["small", "medium", "large", "full"] as const;
+export const PRODUCT_INTRO_SIZE_PRESETS = ["small", "medium", "large", "max"] as const;
 export type ProductIntroSizePreset = (typeof PRODUCT_INTRO_SIZE_PRESETS)[number];
 
-export const PRODUCT_INTRO_ANIM_IN = ["none", "fade", "fade_scale", "scale", "slide_up"] as const;
+export const PRODUCT_INTRO_ANIM_IN = ["none", "fade_in", "fade_in_expand"] as const;
 export type ProductIntroAnimIn = (typeof PRODUCT_INTRO_ANIM_IN)[number];
 
-export const PRODUCT_INTRO_ANIM_OUT = ["none", "fade", "fade_scale"] as const;
+export const PRODUCT_INTRO_ANIM_OUT = ["none", "fade_out", "expand_fade_out"] as const;
 export type ProductIntroAnimOut = (typeof PRODUCT_INTRO_ANIM_OUT)[number];
 
 export const PRODUCT_INTRO_ACTION_TYPES = [
@@ -43,6 +43,10 @@ export type ProductIntroActionType = (typeof PRODUCT_INTRO_ACTION_TYPES)[number]
 
 export const PRODUCT_INTRO_ANIM_MS_MIN = 150;
 export const PRODUCT_INTRO_ANIM_MS_MAX = 1200;
+export const PRODUCT_INTRO_ENTER_FADE_MS = 220;
+export const PRODUCT_INTRO_ENTER_EXPAND_MS = 260;
+export const PRODUCT_INTRO_EXIT_FADE_MS = 180;
+export const PRODUCT_INTRO_EXIT_EXPAND_MS = 260;
 /** 0 = no intentional hold after app ready (cover-only during boot). */
 export const PRODUCT_INTRO_DISPLAY_MS_MIN = 0;
 export const PRODUCT_INTRO_DISPLAY_MS_MAX = 8000;
@@ -90,15 +94,15 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   media: { mobileUrl: null, tabletUrl: null },
   displayMode: "fullscreen",
   objectFit: "contain",
-  sizePreset: "full",
+  sizePreset: "max",
   customSizePercent: null,
   cornerRadiusPx: 0,
   backgroundColor: "#FFFCFC",
-  animationIn: "none",
-  animationOut: "none",
-  enterDurationMs: 150,
+  animationIn: "fade_in",
+  animationOut: "expand_fade_out",
+  enterDurationMs: PRODUCT_INTRO_ENTER_FADE_MS,
   displayDurationMs: 0,
-  exitDurationMs: 150,
+  exitDurationMs: PRODUCT_INTRO_EXIT_EXPAND_MS,
   action: { type: "none", target: "" },
   startsAt: null,
   endsAt: null,
@@ -150,6 +154,35 @@ function unwrapPayload(raw: unknown): unknown {
   return raw;
 }
 
+function normalizeSizePreset(value: unknown): ProductIntroSizePreset {
+  if (value === "full") return "max";
+  return pickEnum(value, PRODUCT_INTRO_SIZE_PRESETS, "max");
+}
+
+function normalizeEnterMotion(value: unknown): ProductIntroAnimIn {
+  if (value === "fade") return "fade_in";
+  if (value === "fade_scale" || value === "scale") return "fade_in_expand";
+  return pickEnum(value, PRODUCT_INTRO_ANIM_IN, "fade_in");
+}
+
+function normalizeExitMotion(value: unknown): ProductIntroAnimOut {
+  if (value === "fade") return "fade_out";
+  if (value === "fade_scale") return "expand_fade_out";
+  return pickEnum(value, PRODUCT_INTRO_ANIM_OUT, "expand_fade_out");
+}
+
+export function productIntroEnterMotionMs(animationIn: ProductIntroAnimIn): number {
+  if (animationIn === "fade_in_expand") return PRODUCT_INTRO_ENTER_EXPAND_MS;
+  if (animationIn === "fade_in") return PRODUCT_INTRO_ENTER_FADE_MS;
+  return 0;
+}
+
+export function productIntroExitMotionMs(animationOut: ProductIntroAnimOut): number {
+  if (animationOut === "expand_fade_out") return PRODUCT_INTRO_EXIT_EXPAND_MS;
+  if (animationOut === "fade_out") return PRODUCT_INTRO_EXIT_FADE_MS;
+  return 0;
+}
+
 export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
   const base = BUNDLED_PRODUCT_INTRO_CONFIG;
   const src = unwrapPayload(raw);
@@ -176,16 +209,16 @@ export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
     displayMode: "fullscreen",
     // V2: CONTAIN only — COVER permanently rejected.
     objectFit: "contain",
-    sizePreset: "full",
+    sizePreset: normalizeSizePreset(o.presentationSizePreset ?? o.sizePreset),
     customSizePercent: null,
     cornerRadiusPx: 0,
     backgroundColor: asHexColor(o.backgroundColor, base.backgroundColor),
-    animationIn: "none",
-    animationOut: "none",
-    enterDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
+    animationIn: normalizeEnterMotion(o.enterMotion ?? o.animationIn),
+    animationOut: normalizeExitMotion(o.exitMotion ?? o.animationOut),
+    enterDurationMs: productIntroEnterMotionMs(normalizeEnterMotion(o.enterMotion ?? o.animationIn)),
     // Architectural min display = 0 (no post-ready wait).
     displayDurationMs: 0,
-    exitDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
+    exitDurationMs: productIntroExitMotionMs(normalizeExitMotion(o.exitMotion ?? o.animationOut)),
     action: { type: actionType, target: actionType === "none" ? "" : actionTarget.slice(0, 256) },
     startsAt: asNullableIso(o.startsAt),
     endsAt: asNullableIso(o.endsAt),
@@ -311,14 +344,13 @@ export function resolveProductIntroAction(action: ProductIntroAction): ProductIn
 }
 
 export function productIntroImageWidthPercent(config: ProductIntroConfig): number {
-  if (config.displayMode === "fullscreen" && config.sizePreset === "full") return 100;
   if (config.customSizePercent != null) return config.customSizePercent;
   switch (config.sizePreset) {
     case "small":
       return 56;
     case "large":
       return 88;
-    case "full":
+    case "max":
       return 100;
     default:
       return 72;
@@ -327,14 +359,10 @@ export function productIntroImageWidthPercent(config: ProductIntroConfig): numbe
 
 export function cssClassForProductIntroEnter(anim: ProductIntroAnimIn): string {
   switch (anim) {
-    case "fade":
+    case "fade_in":
       return "dibay-pi-enter-fade";
-    case "fade_scale":
+    case "fade_in_expand":
       return "dibay-pi-enter-fade-scale";
-    case "scale":
-      return "dibay-pi-enter-scale";
-    case "slide_up":
-      return "dibay-pi-enter-slide-up";
     default:
       return "";
   }
@@ -342,9 +370,9 @@ export function cssClassForProductIntroEnter(anim: ProductIntroAnimIn): string {
 
 export function cssClassForProductIntroExit(anim: ProductIntroAnimOut): string {
   switch (anim) {
-    case "fade":
+    case "fade_out":
       return "dibay-pi-exit-fade";
-    case "fade_scale":
+    case "expand_fade_out":
       return "dibay-pi-exit-fade-scale";
     default:
       return "";

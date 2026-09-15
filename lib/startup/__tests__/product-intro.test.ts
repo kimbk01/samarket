@@ -3,6 +3,8 @@ import {
   BUNDLED_PRODUCT_INTRO_CONFIG,
   isProductIntroDisplayEligible,
   normalizeProductIntroConfig,
+  productIntroEnterMotionMs,
+  productIntroExitMotionMs,
   resolveProductIntroAction,
 } from "@/lib/startup/product-intro";
 
@@ -64,6 +66,24 @@ describe("product-intro SSOT", () => {
     const high = normalizeProductIntroConfig({ displayDurationMs: 99999 });
     expect(high.displayDurationMs).toBe(0);
     expect(normalizeProductIntroConfig({ objectFit: "cover" }).objectFit).toBe("contain");
+  });
+
+  it("defaults and legacy fields normalize to Native V2 presentation controls", () => {
+    const defaults = normalizeProductIntroConfig({});
+    expect(defaults.sizePreset).toBe("max");
+    expect(defaults.animationIn).toBe("fade_in");
+    expect(defaults.animationOut).toBe("expand_fade_out");
+    expect(productIntroEnterMotionMs(defaults.animationIn)).toBe(220);
+    expect(productIntroExitMotionMs(defaults.animationOut)).toBe(260);
+
+    const legacy = normalizeProductIntroConfig({
+      sizePreset: "full",
+      animationIn: "fade_scale",
+      animationOut: "fade",
+    });
+    expect(legacy.sizePreset).toBe("max");
+    expect(legacy.animationIn).toBe("fade_in_expand");
+    expect(legacy.animationOut).toBe("fade_out");
   });
 });
 

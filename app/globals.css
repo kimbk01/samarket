@@ -1100,16 +1100,11 @@ a,
   cursor: pointer;
 }
 
-/*
- * First-entry handoff continuity (OS/Native → Product Intro):
- * Enter anims must NOT start at opacity 0. Native Technical Cover dismisses on
- * shellReady; a transparent Product surface would flash empty cream (or content)
- * between brand logo and Admin media. Keep media opaque; motion is scale/offset only.
- */
+/* First-entry Admin preview motion: subtle compositor-only opacity/scale. */
 @keyframes dibay-pi-fade-in {
   from {
-    opacity: 1;
-    transform: scale(0.98);
+    opacity: 0;
+    transform: scale(1);
   }
   to {
     opacity: 1;
@@ -1136,8 +1131,8 @@ a,
 }
 @keyframes dibay-pi-fade-scale-in {
   from {
-    opacity: 1;
-    transform: scale(0.92);
+    opacity: 0;
+    transform: scale(0.96);
   }
   to {
     opacity: 1;
@@ -1151,7 +1146,7 @@ a,
   }
   to {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(1.04);
   }
 }
 @keyframes dibay-pi-slide-up {

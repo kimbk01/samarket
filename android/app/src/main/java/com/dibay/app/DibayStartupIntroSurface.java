@@ -4,12 +4,14 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -22,6 +24,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.view.animation.PathInterpolator;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -57,6 +60,11 @@ public final class DibayStartupIntroSurface {
   private static final String PI_GENERATION_STAGING = "product-intro.generation.staging";
   /** Bundled launch canvas + Admin FE default background. */
   private static final int CANVAS_BG = 0xFFFFFCFC;
+  private static final int ENTER_FADE_MS = 220;
+  private static final int ENTER_EXPAND_MS = 260;
+  private static final int EXIT_FADE_MS = 180;
+  private static final int EXIT_EXPAND_MS = 260;
+  private static final PathInterpolator FE_EASE = new PathInterpolator(0.25f, 0.9f, 0.35f, 1f);
 
   private final Activity activity;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -100,6 +108,7 @@ public final class DibayStartupIntroSurface {
           content,
           new FrameLayout.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+      applyProductIntroEnterMotion(content, productIntro);
     } else {
       // V2 logo canvas: same bundled cream + centered logo (no Technical FE product).
       root.setBackgroundColor(CANVAS_BG);
@@ -111,15 +120,23 @@ public final class DibayStartupIntroSurface {
     }
     contentParent.addView(root);
     attached = true;
-    // OS Splash → Native continuation = ONE continuous canvas (no enter anim).
-    holdTechnicalHandoffAtRest();
+    // OS logo fallback holds at rest; Admin creative may run configured entrance motion.
+    if (!usingProductIntro) {
+      holdTechnicalHandoffAtRest();
+    }
     Log.i(
         TAG,
         "intro_attach version="
             + activeConfig.optInt("version", 0)
             + " product_intro="
             + usingProductIntro
-            + " continuity=os_native_handoff enter=none fit=contain");
+            + " size="
+            + (usingProductIntro ? productIntro.optString("presentationSizePreset", productIntro.optString("sizePreset", "max")) : "logo")
+            + " enter="
+            + (usingProductIntro ? productIntro.optString("enterMotion", "fade_in") : "none")
+            + " exit="
+            + (usingProductIntro ? productIntro.optString("exitMotion", "expand_fade_out") : "none")
+            + " continuity=os_native_handoff fit=contain");
   }
 
   public boolean isAttached() {
@@ -276,14 +293,14 @@ public final class DibayStartupIntroSurface {
    * V2 Admin First Entry — full-device canvas + CONTAIN creative. No crop/card/shadow/radius.
    */
   private View buildProductIntroContent(JSONObject pi, Bitmap bmp) {
-    FrameLayout wrap = new FrameLayout(activity);
+    ProductIntroContentView wrap = new ProductIntroContentView(activity, bmp.getWidth(), bmp.getHeight(), resolveSizePreset(pi));
     ImageView image = new ImageView(activity);
     image.setImageBitmap(bmp);
     image.setScaleType(ImageView.ScaleType.FIT_CENTER);
     image.setAdjustViewBounds(true);
     FrameLayout.LayoutParams imgLp =
         new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     imgLp.gravity = Gravity.CENTER;
     wrap.addView(image, imgLp);
     return wrap;
@@ -440,7 +457,7 @@ public final class DibayStartupIntroSurface {
     }
   }
 
-  /** shellReady path — exit animation then remove. Safety cleanup if animator never ends. */
+  /** Destination visual-ready path — owner-requested exit animation then remove. */
   public void dismissWithExit(Runnable after) {
     if (!attached || root == null) {
       if (after != null) after.run();
@@ -448,10 +465,11 @@ public final class DibayStartupIntroSurface {
     }
     if (dismissing) return;
     dismissing = true;
-    // Admin First Entry: no second exit stage — drop immediately on app ready.
-    String exit = usingProductIntro ? "none" : activeConfig.optString("exitAnimation", "fade_out");
-    int dur = usingProductIntro ? 0 : clampDur(activeConfig.optInt("exitDurationMs", 220));
-    Animator anim = buildExitAnimator(content != null ? content : root, exit, dur);
+    String exit = usingProductIntro
+        ? resolveExitMotion(activeConfig)
+        : activeConfig.optString("exitAnimation", "fade_out");
+    int dur = usingProductIntro ? exitDurationMs(exit) : clampDur(activeConfig.optInt("exitDurationMs", 220));
+    Animator anim = buildExitAnimator(usingProductIntro ? root : (content != null ? content : root), exit, dur);
     final boolean[] done = {false};
     Runnable finish =
         () -> {
@@ -474,6 +492,7 @@ public final class DibayStartupIntroSurface {
       finish.run();
       return;
     }
+    anim.setInterpolator(FE_EASE);
     anim.addListener(
         new AnimatorListenerAdapter() {
           @Override
@@ -757,6 +776,79 @@ public final class DibayStartupIntroSurface {
     return ms;
   }
 
+  private static String resolveSizePreset(JSONObject cfg) {
+    String raw = cfg.optString("presentationSizePreset", cfg.optString("sizePreset", "max"));
+    if ("full".equals(raw)) return "max";
+    if ("small".equals(raw) || "medium".equals(raw) || "large".equals(raw) || "max".equals(raw)) {
+      return raw;
+    }
+    return "max";
+  }
+
+  private static String resolveEnterMotion(JSONObject cfg) {
+    String raw = cfg.optString("enterMotion", cfg.optString("animationIn", "fade_in"));
+    if ("fade".equals(raw)) return "fade_in";
+    if ("fade_scale".equals(raw) || "scale".equals(raw)) return "fade_in_expand";
+    if ("none".equals(raw) || "fade_in".equals(raw) || "fade_in_expand".equals(raw)) return raw;
+    return "fade_in";
+  }
+
+  private static String resolveExitMotion(JSONObject cfg) {
+    String raw = cfg.optString("exitMotion", cfg.optString("animationOut", "expand_fade_out"));
+    if ("fade".equals(raw)) return "fade_out";
+    if ("fade_scale".equals(raw)) return "expand_fade_out";
+    if ("none".equals(raw) || "fade_out".equals(raw) || "expand_fade_out".equals(raw)) return raw;
+    return "expand_fade_out";
+  }
+
+  private static float sizeScale(String preset) {
+    if ("small".equals(preset)) return 0.56f;
+    if ("medium".equals(preset)) return 0.72f;
+    if ("large".equals(preset)) return 0.88f;
+    return 1f;
+  }
+
+  private static int enterDurationMs(String enter) {
+    if ("fade_in_expand".equals(enter)) return ENTER_EXPAND_MS;
+    if ("fade_in".equals(enter)) return ENTER_FADE_MS;
+    return 0;
+  }
+
+  private static int exitDurationMs(String exit) {
+    if ("expand_fade_out".equals(exit)) return EXIT_EXPAND_MS;
+    if ("fade_out".equals(exit)) return EXIT_FADE_MS;
+    return 0;
+  }
+
+  private static boolean reduceMotion() {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled();
+  }
+
+  private static void applyProductIntroEnterMotion(View v, JSONObject cfg) {
+    String enter = resolveEnterMotion(cfg);
+    int dur = enterDurationMs(enter);
+    if ("none".equals(enter) || dur <= 0) {
+      v.setAlpha(1f);
+      v.setScaleX(1f);
+      v.setScaleY(1f);
+      return;
+    }
+    boolean reduce = reduceMotion();
+    float startScale = "fade_in_expand".equals(enter) && !reduce ? 0.96f : 1f;
+    v.setAlpha(0f);
+    v.setScaleX(startScale);
+    v.setScaleY(startScale);
+    Animator anim =
+        ObjectAnimator.ofPropertyValuesHolder(
+                v,
+                PropertyValuesHolder.ofFloat(View.ALPHA, 0f, 1f),
+                PropertyValuesHolder.ofFloat(View.SCALE_X, startScale, 1f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, startScale, 1f))
+            .setDuration(dur);
+    anim.setInterpolator(FE_EASE);
+    anim.start();
+  }
+
   private static int logoWidthDp(JSONObject cfg) {
     String preset = cfg.optString("logoWidthPreset", "medium");
     if ("small".equals(preset)) return 56;
@@ -823,6 +915,18 @@ public final class DibayStartupIntroSurface {
   }
 
   private static Animator buildExitAnimator(View v, String exit, int dur) {
+    if ("expand_fade_out".equals(exit)) {
+      float targetScale = reduceMotion() ? 1f : 1.04f;
+      return ObjectAnimator.ofPropertyValuesHolder(
+              v,
+              PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, targetScale),
+              PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, targetScale),
+              PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f))
+          .setDuration(dur);
+    }
+    if ("fade_out".equals(exit)) {
+      return ObjectAnimator.ofFloat(v, View.ALPHA, 1f, 0f).setDuration(dur);
+    }
     switch (exit) {
       case "scale_out":
         return ObjectAnimator.ofPropertyValuesHolder(
@@ -853,5 +957,51 @@ public final class DibayStartupIntroSurface {
   private static float dpStatic(View v, int dp) {
     return TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_DIP, dp, v.getResources().getDisplayMetrics());
+  }
+
+  private static final class ProductIntroContentView extends FrameLayout {
+    private final int imageWidth;
+    private final int imageHeight;
+    private final String sizePreset;
+
+    ProductIntroContentView(Context context, int imageWidth, int imageHeight, String sizePreset) {
+      super(context);
+      this.imageWidth = Math.max(1, imageWidth);
+      this.imageHeight = Math.max(1, imageHeight);
+      this.sizePreset = sizePreset;
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+      int width = MeasureSpec.getSize(widthMeasureSpec);
+      int height = MeasureSpec.getSize(heightMeasureSpec);
+      int childW = width;
+      int childH = height;
+      if (width > 0 && height > 0) {
+        float scale = Math.min(width / (float) imageWidth, height / (float) imageHeight) * sizeScale(sizePreset);
+        childW = Math.max(1, Math.round(imageWidth * scale));
+        childH = Math.max(1, Math.round(imageHeight * scale));
+      }
+      int childWidthSpec = MeasureSpec.makeMeasureSpec(childW, MeasureSpec.EXACTLY);
+      int childHeightSpec = MeasureSpec.makeMeasureSpec(childH, MeasureSpec.EXACTLY);
+      for (int i = 0; i < getChildCount(); i++) {
+        getChildAt(i).measure(childWidthSpec, childHeightSpec);
+      }
+      setMeasuredDimension(width, height);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+      int parentW = right - left;
+      int parentH = bottom - top;
+      for (int i = 0; i < getChildCount(); i++) {
+        View child = getChildAt(i);
+        int childW = child.getMeasuredWidth();
+        int childH = child.getMeasuredHeight();
+        int childLeft = Math.round((parentW - childW) / 2f);
+        int childTop = Math.round((parentH - childH) / 2f);
+        child.layout(childLeft, childTop, childLeft + childW, childTop + childH);
+      }
+    }
   }
 }

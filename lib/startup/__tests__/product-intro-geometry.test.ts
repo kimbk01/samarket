@@ -39,6 +39,7 @@ describe("product-intro-geometry V2", () => {
       imageWidth: 1080,
       imageHeight: 1350,
       safeInsetPct: 8,
+      sizePreset: "max",
     });
     expect(rect.objectFit).toBe("contain");
     expect(rect.width / rect.height).toBeCloseTo(1080 / 1350, 2);
@@ -48,6 +49,29 @@ describe("product-intro-geometry V2", () => {
     expect(rect.top + rect.height).toBeLessThanOrEqual(844);
     // Not edge-to-edge crop fill on tall phone
     expect(rect.width).toBeLessThan(390);
+  });
+
+  it("size presets scale the same centered CONTAIN rect", () => {
+    const max = computeContainedCreativeRect({
+      viewportWidth: 390,
+      viewportHeight: 844,
+      imageWidth: 1080,
+      imageHeight: 1350,
+      sizePreset: "max",
+    });
+    const small = computeContainedCreativeRect({
+      viewportWidth: 390,
+      viewportHeight: 844,
+      imageWidth: 1080,
+      imageHeight: 1350,
+      sizePreset: "small",
+    });
+
+    expect(max.objectFit).toBe("contain");
+    expect(small.objectFit).toBe("contain");
+    expect(small.width).toBeLessThan(max.width);
+    expect(Math.abs(small.left + small.width / 2 - (max.left + max.width / 2))).toBeLessThanOrEqual(1);
+    expect(Math.abs(small.top + small.height / 2 - (max.top + max.height / 2))).toBeLessThanOrEqual(1);
   });
 
   it("landscape keeps full creative without width-fill zoom", () => {
