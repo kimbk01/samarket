@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   confirmedSaleRevenuePhp,
   saleCoinIdempotencyKeyForOrder,
+  sumConfirmedSaleRevenuePhp,
   CONFIRMED_SALE_REVENUE_CONTRACT,
 } from "@/lib/stores/confirmed-sale-revenue";
 
@@ -68,6 +69,25 @@ describe("confirmedSaleRevenuePhp", () => {
         gift_redemption_amount: 0,
       })
     ).toBe(0);
+  });
+
+  it("sumConfirmedSaleRevenuePhp aggregates helper (gift not dropped)", () => {
+    expect(
+      sumConfirmedSaleRevenuePhp([
+        {
+          payment_amount: 900,
+          gift_redemption_amount: 1000,
+          platform_funded_amount: 0,
+          order_status: "completed",
+        },
+        {
+          payment_amount: 1900,
+          gift_redemption_amount: 0,
+          platform_funded_amount: 0,
+          order_status: "completed",
+        },
+      ])
+    ).toBe(3800);
   });
 
   it("sale_coin idempotency is order-scoped", () => {

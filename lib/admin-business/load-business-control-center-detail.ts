@@ -23,6 +23,11 @@ import {
 } from "@/lib/admin-business/business-ops-presentation";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveEffectiveStoreFeePolicy } from "@/lib/stores/store-fee-policy-resolve";
+import {
+  CONFIRMED_SALE_REVENUE_ORDER_SELECT,
+  confirmedSaleRevenuePhp,
+  type ConfirmedSaleRevenueOrderSnapshot,
+} from "@/lib/stores/confirmed-sale-revenue";
 
 export type { BusinessCcKpiSummary };
 
@@ -251,7 +256,7 @@ export async function loadBusinessControlCenterDetail(
         .limit(50),
       sb
         .from("store_orders")
-        .select("id, payment_amount, created_at")
+        .select(`id, created_at, ${CONFIRMED_SALE_REVENUE_ORDER_SELECT}`)
         .eq("store_id", id)
         .gte("created_at", dayStart),
       sb
@@ -284,7 +289,7 @@ export async function loadBusinessControlCenterDetail(
         .limit(20),
       sb
         .from("store_orders")
-        .select("payment_amount, created_at")
+        .select(`created_at, ${CONFIRMED_SALE_REVENUE_ORDER_SELECT}`)
         .eq("store_id", id)
         .gte(
           "created_at",
@@ -460,7 +465,7 @@ export async function loadBusinessControlCenterDetail(
   const todayOrderCount = todayOrderRows.length;
   let todaySalesAmount = 0;
   for (const r of todayOrderRows) {
-    todaySalesAmount += Math.max(0, Math.round(Number((r as { payment_amount?: unknown }).payment_amount) || 0));
+    todaySalesAmount += confirmedSaleRevenuePhp(r as ConfirmedSaleRevenueOrderSnapshot);
   }
 
   const trendMap = new Map<string, { orderCount: number; salesAmount: number }>();
@@ -478,10 +483,7 @@ export async function loadBusinessControlCenterDetail(
     const bucket = trendMap.get(key);
     if (!bucket) continue;
     bucket.orderCount += 1;
-    bucket.salesAmount += Math.max(
-      0,
-      Math.round(Number((r as { payment_amount?: unknown }).payment_amount) || 0)
-    );
+    bucket.salesAmount += confirmedSaleRevenuePhp(r as ConfirmedSaleRevenueOrderSnapshot);
   }
   const trend7d = [...trendMap.entries()].map(([day, v]) => ({
     day,

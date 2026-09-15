@@ -16,6 +16,11 @@ import {
   type BusinessOpsOpenKind,
   type BusinessOpsSettlementKind,
 } from "@/lib/admin-business/business-ops-presentation";
+import {
+  CONFIRMED_SALE_REVENUE_ORDER_SELECT,
+  confirmedSaleRevenuePhp,
+  type ConfirmedSaleRevenueOrderSnapshot,
+} from "@/lib/stores/confirmed-sale-revenue";
 
 export type AdminBusinessListOpsFilters = {
   q?: string;
@@ -495,7 +500,7 @@ export async function loadAdminBusinessListOps(
       .in("order_status", [...BUSINESS_OPS_DELIVERING_ORDER_STATUSES]),
     sb
       .from("store_orders")
-      .select("store_id, payment_amount")
+      .select(`store_id, ${CONFIRMED_SALE_REVENUE_ORDER_SELECT}`)
       .in("store_id", pageIds)
       .gte("created_at", dayStart),
     sb
@@ -535,8 +540,8 @@ export async function loadAdminBusinessListOps(
   for (const r of todayRes.data ?? []) {
     const sid = String((r as { store_id?: unknown }).store_id ?? "");
     if (!sid) continue;
-    const amt = Math.round(Number((r as { payment_amount?: unknown }).payment_amount) || 0);
-    todaySalesBy.set(sid, (todaySalesBy.get(sid) ?? 0) + Math.max(0, amt));
+    const amt = confirmedSaleRevenuePhp(r as ConfirmedSaleRevenueOrderSnapshot);
+    todaySalesBy.set(sid, (todaySalesBy.get(sid) ?? 0) + amt);
   }
 
   const lastOrderBy = new Map<string, string>();

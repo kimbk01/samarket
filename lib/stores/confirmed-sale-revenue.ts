@@ -45,6 +45,24 @@ export function confirmedSaleRevenuePhp(order: ConfirmedSaleRevenueOrderSnapshot
   return Math.max(0, payment + gift + platform - refund);
 }
 
+/**
+ * Store-order columns required to evaluate {@link confirmedSaleRevenuePhp}.
+ * `store_orders.refund_amount` does not exist — refunded/cancelled status zeroes revenue.
+ */
+export const CONFIRMED_SALE_REVENUE_ORDER_SELECT =
+  "payment_amount, gift_redemption_amount, platform_funded_amount, order_status" as const;
+
+/** Aggregate KPI / completed-sales consumers — never sum payment_amount alone. */
+export function sumConfirmedSaleRevenuePhp(
+  orders: readonly ConfirmedSaleRevenueOrderSnapshot[]
+): number {
+  let sum = 0;
+  for (const order of orders) {
+    sum += confirmedSaleRevenuePhp(order);
+  }
+  return Math.max(0, sum);
+}
+
 /** Canonical Coin mint idempotency — one credit per completed order. */
 export function saleCoinIdempotencyKeyForOrder(orderId: string): string {
   const oid = orderId.trim();

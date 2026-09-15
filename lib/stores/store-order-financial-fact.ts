@@ -188,6 +188,7 @@ export type OrderJoinLike = {
   order_status?: string | null;
   payment_status?: string | null;
   payment_amount?: number | null;
+  gift_redemption_amount?: number | null;
   discount_amount?: number | null;
   store_funded_amount?: number | null;
   platform_funded_amount?: number | null;
@@ -276,7 +277,7 @@ export function projectStoreOrderFinancialFact(opts: {
     confirmed_sale_revenue_php: o
       ? confirmedSaleRevenuePhp({
           payment_amount: o.payment_amount,
-          gift_redemption_amount: (o as { gift_redemption_amount?: unknown }).gift_redemption_amount,
+          gift_redemption_amount: o.gift_redemption_amount,
           platform_funded_amount: o.platform_funded_amount,
           store_funded_amount: o.store_funded_amount,
           discount_amount: o.discount_amount,

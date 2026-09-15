@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  CONFIRMED_SALE_REVENUE_ORDER_SELECT,
+  sumConfirmedSaleRevenuePhp,
+  type ConfirmedSaleRevenueOrderSnapshot,
+} from "@/lib/stores/confirmed-sale-revenue";
 import { buildStoreOpsMetaFromRow } from "@/lib/stores/owner-store-ops-snapshot";
 
 const FLOW_COOKING = ["accepted", "preparing"] as const;
@@ -255,7 +260,7 @@ export async function sumYesterdayCompletedSalesForStore(
   if (!sid) return 0;
   const { data, error } = await sb
     .from("store_orders")
-    .select("payment_amount")
+    .select(CONFIRMED_SALE_REVENUE_ORDER_SELECT)
     .eq("store_id", sid)
     .eq("order_status", "completed")
     .gte("updated_at", startOfLocalDayIso(-1))
@@ -264,11 +269,7 @@ export async function sumYesterdayCompletedSalesForStore(
     console.error("[sumYesterdayCompletedSalesForStore]", error);
     return 0;
   }
-  let sum = 0;
-  for (const row of data ?? []) {
-    sum += Math.round(Number((row as { payment_amount?: unknown }).payment_amount) || 0);
-  }
-  return Math.max(0, sum);
+  return sumConfirmedSaleRevenuePhp((data ?? []) as ConfirmedSaleRevenueOrderSnapshot[]);
 }
 
 export async function countReviewsNeedReplyForStore(

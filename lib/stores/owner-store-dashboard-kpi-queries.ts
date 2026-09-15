@@ -1,4 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  CONFIRMED_SALE_REVENUE_ORDER_SELECT,
+  sumConfirmedSaleRevenuePhp,
+  type ConfirmedSaleRevenueOrderSnapshot,
+} from "@/lib/stores/confirmed-sale-revenue";
 
 /** `BusinessAdminDashboard` 「진행 중」— `refund_requested`·`pending` 제외, 주문 관리 진행 탭과 동일 계열 */
 const DASHBOARD_IN_PROGRESS_STATUSES = [
@@ -42,7 +47,7 @@ export async function sumTodayCompletedSalesForStore(
   if (!sid) return 0;
   const { data, error } = await sb
     .from("store_orders")
-    .select("payment_amount")
+    .select(CONFIRMED_SALE_REVENUE_ORDER_SELECT)
     .eq("store_id", sid)
     .eq("order_status", "completed")
     .gte("updated_at", startOfLocalDayIso());
@@ -50,11 +55,7 @@ export async function sumTodayCompletedSalesForStore(
     console.error("[sumTodayCompletedSalesForStore]", error);
     return 0;
   }
-  let sum = 0;
-  for (const row of data ?? []) {
-    sum += Math.round(Number((row as { payment_amount?: unknown }).payment_amount) || 0);
-  }
-  return Math.max(0, sum);
+  return sumConfirmedSaleRevenuePhp((data ?? []) as ConfirmedSaleRevenueOrderSnapshot[]);
 }
 
 export async function countSoldOutProductsForStore(
