@@ -294,6 +294,7 @@ export async function POST(
         await bumpMessengerRoomTargetsForRecipients(sb, {
           roomId: canonicalRoomId,
           fromUserId: userId,
+          _t5: t5 ?? undefined,
         });
         if (t5) {
           spanT5(t5, "S10_target_bump_ms", bumpT0);

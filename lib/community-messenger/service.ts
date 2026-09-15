@@ -16179,15 +16179,20 @@ export async function sendCommunityMessengerMessage(input: {
   const replyToMessageIdOpt = trimText(input.replyToMessageId ?? "");
   const membershipPreflightDone = input.membershipPreflightDone === true;
   const t5 = input._t5;
+  let spanT5:
+    | ((trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace, name: string, startedAtWall: number) => number)
+    | null = null;
   if (t5) {
     t5.roomId = roomId;
     const t5ModT0 = performance.now();
-    const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    const mod = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    spanT5 = mod.spanT5;
     spanT5(t5, "S2_t5_mod_ms", t5ModT0);
-    markT5(t5, "S3");
+    mod.markT5(t5, "S3");
   }
   const sb = getSupabaseOrNull();
   if (sb) {
+    const groupT0 = performance.now();
     const { assertActiveGroupMembershipIfGroup } = await import(
       "@/lib/community-messenger/group/group-active-membership-gate"
     );
@@ -16196,16 +16201,19 @@ export async function sendCommunityMessengerMessage(input: {
       roomId,
       supabase: sb,
     });
+    if (t5 && spanT5) spanT5(t5, "S3_group_gate_ms", groupT0);
     if (!groupGate.ok) {
       return { ok: false, error: groupGate.error === "user_banned" ? "forbidden" : groupGate.error };
     }
   }
   if (sb) {
+    const blockT0 = performance.now();
     const blockGate = await assertDirectRoomCommunicationNotBlocked({
       viewerUserId: input.userId,
       roomId,
       supabase: sb,
     });
+    if (t5 && spanT5) spanT5(t5, "S3_block_gate_ms", blockT0);
     if (!blockGate.ok) {
       return { ok: false, error: "blocked_target" };
     }

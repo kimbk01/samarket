@@ -142,6 +142,8 @@ export async function notifyMessagePipeline(
      * Default false preserves prior await-push behavior for non-CM-send callers.
      */
     deferPush?: boolean;
+    /** Opt-in T5 durable-path substages (`x-samarket-t5-trace`). */
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
   }
 ): Promise<NotifyMessagePipelineResult> {
   const decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
@@ -153,6 +155,32 @@ export async function notifyMessagePipeline(
   if (!roomId || !messageId || !senderUserId || !recipients.length) {
     return { decisionSnapshotsByRecipientId, deferredPushes };
   }
+  const t5 = opts?._t5;
+  let spanT5Fn:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  let addSpanT5Fn:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  if (t5) {
+    const mod = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    spanT5Fn = mod.spanT5;
+    addSpanT5Fn = mod.addSpanT5;
+  }
+  const setSpan = (name: string, startedAtWall: number) => {
+    if (t5 && spanT5Fn) spanT5Fn(t5, name, startedAtWall);
+  };
+  const addSpan = (name: string, startedAtWall: number) => {
+    if (t5 && addSpanT5Fn) addSpanT5Fn(t5, name, startedAtWall);
+  };
 
   const baseEventType = resolveEventType(input);
 
@@ -163,6 +191,7 @@ export async function notifyMessagePipeline(
       ? await loadStoreOrderReceiverRoleByUserId(sb, roomId, recipients)
       : new Map<string, StoreOrderReceiverRole>();
 
+  const displaySharedT0 = performance.now();
   const displayShared = await loadMessageNotificationDisplaySharedContext(sb, {
     roomId,
     messageId,
@@ -172,11 +201,15 @@ export async function notifyMessagePipeline(
     roomKind: input.roomKind,
     directKey: input.directKey,
   });
+  setSpan("ND_display_shared_ms", displaySharedT0);
 
   for (const recipientUserId of recipients) {
     if (!recipientUserId || recipientUserId === senderUserId) continue;
 
-    if (await isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId)) {
+    const blockT0 = performance.now();
+    const blocked = await isNotificationBlockedForRecipient(sb, recipientUserId, senderUserId);
+    addSpan("ND_block_check_ms", blockT0);
+    if (blocked) {
       logNotifyMessage("blocked_suppressed", { roomId, recipientUserId, senderUserId });
       continue;
     }
@@ -192,8 +225,12 @@ export async function notifyMessagePipeline(
       ? buildMentionDedupeKey(roomId, messageId, recipientUserId)
       : buildMessageDedupeKey(roomId, messageId);
 
+    const mutedT0 = performance.now();
     const muted = isMentioned ? false : await isRoomMutedForUser(sb, recipientUserId, roomId);
+    addSpan("ND_muted_ms", mutedT0);
+    const presenceT0 = performance.now();
     const presence = await loadRecipientPresenceSnapshot(sb, recipientUserId);
+    addSpan("ND_presence_ms", presenceT0);
     const presenceDecision = resolvePresenceSuppressDecision(presence, roomId);
 
     const suppressReasons: string[] = [];
@@ -218,6 +255,7 @@ export async function notifyMessagePipeline(
       logNotifyMessage("suppressed_same_room", { roomId, recipientUserId });
     }
 
+    const displayT0 = performance.now();
     const display = await buildRecipientMessageNotificationDisplay(
       sb,
       {
@@ -231,6 +269,7 @@ export async function notifyMessagePipeline(
       },
       displayShared
     );
+    addSpan("ND_display_build_ms", displayT0);
     const receiverRole = receiverRoleByUserId.get(recipientUserId);
     const displayPayload =
       receiverRole && eventType === "store_order_message"
@@ -267,6 +306,7 @@ export async function notifyMessagePipeline(
     }
 
     const appState = resolveOsPushAppStateFromPresence(presence);
+    const insertT0 = performance.now();
     const created = await createAndDispatchNotificationEvent(
       sb,
       {
@@ -290,6 +330,7 @@ export async function notifyMessagePipeline(
       },
       { deferPush: opts?.deferPush === true }
     );
+    addSpan("ND_event_insert_ms", insertT0);
 
     if (!created.ok) {
       if (created.duplicate) continue;

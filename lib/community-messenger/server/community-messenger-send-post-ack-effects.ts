@@ -132,7 +132,12 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
   const messageId = effects.messageId.trim();
   const content = effects.content;
   const recipientUserIds = effects.recipientUserIds;
+  const roomFieldsT0 = performance.now();
   const { chatDomain, roomType, directKey } = await resolveRoomNotifyFields(sb, effects);
+  if (t5) {
+    const { spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    spanT5(t5, "ND_room_fields_ms", roomFieldsT0);
+  }
   // Notify classification authority = stored `chat_domain`
   const roomKind = resolveNotificationMessageRoomKind({
     chatDomain,
@@ -164,7 +169,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
         roomKind,
         mentionUserIds,
       },
-      { deferPush: true }
+      { deferPush: true, _t5: t5 }
     ).catch(() => null);
     if (t5) {
       const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");

@@ -57,6 +57,13 @@ export function spanT5(trace: T5SendTrace, name: string, startedAtWall: number):
   return dur;
 }
 
+/** Accumulate duration into an existing span (multi-recipient loops). */
+export function addSpanT5(trace: T5SendTrace, name: string, startedAtWall: number): number {
+  const dur = Math.round(performance.now() - startedAtWall);
+  trace.spans[name] = (typeof trace.spans[name] === "number" ? trace.spans[name] : 0) + dur;
+  return dur;
+}
+
 export function t5TraceToHeader(trace: T5SendTrace): string {
   const parts = Object.entries(trace.ms)
     .sort(([a], [b]) => a.localeCompare(b))

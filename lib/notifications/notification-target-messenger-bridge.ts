@@ -168,18 +168,36 @@ async function clearTradeTargetForMessengerRoomUser(
 
 export async function bumpMessengerRoomTargetsForRecipients(
   sb: SupabaseClient<any>,
-  opts: { roomId: string; fromUserId: string }
+  opts: {
+    roomId: string;
+    fromUserId: string;
+    /** Opt-in T5 spans (`x-samarket-t5-trace`). */
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
+  }
 ): Promise<void> {
   const roomId = opts.roomId.trim();
   const fromUserId = opts.fromUserId.trim();
   if (!roomId || !fromUserId) return;
+  const t5 = opts._t5;
+  let spanT5:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  if (t5) {
+    spanT5 = (await import("@/lib/community-messenger/monitoring/t5-send-stage-trace")).spanT5;
+  }
 
+  const parallelT0 = performance.now();
   const [{ data: roomRow }, { data: participants }, orderCtx, directKey] = await Promise.all([
     sb.from("community_messenger_rooms").select("room_type, chat_domain").eq("id", roomId).maybeSingle(),
     sb.from("community_messenger_participants").select("user_id, left_at").eq("room_id", roomId),
     loadStoreOrderRoomContext(sb, roomId),
     loadMessengerRoomDirectKey(sb, roomId),
   ]);
+  if (t5 && spanT5) spanT5(t5, "TB_parallel_load_ms", parallelT0);
 
   const roomType =
     roomRow && typeof roomRow === "object" && typeof (roomRow as { room_type?: unknown }).room_type === "string"
@@ -190,6 +208,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
 
   let recipientIds: string[];
   if (isGroupRoom) {
+    const recipT0 = performance.now();
     const { listActiveGroupRecipientUserIds } = await import(
       "@/lib/community-messenger/group/group-active-membership-gate"
     );
@@ -200,6 +219,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
         roomType,
         supabase: sb,
       })) ?? [];
+    if (t5 && spanT5) spanT5(t5, "TB_group_recipients_ms", recipT0);
   } else {
     recipientIds = [];
     for (const row of (participants ?? []) as Array<{ user_id?: unknown }>) {
@@ -209,6 +229,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
     }
   }
 
+  const writesT0 = performance.now();
   for (const uid of recipientIds) {
     if (kind === "trade") {
       await bumpTradeTargetForMessengerRoomRecipients(sb, {
@@ -229,6 +250,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
       storeId: null,
     });
   }
+  if (t5 && spanT5) spanT5(t5, "TB_bump_writes_ms", writesT0);
 }
 
 export async function clearMessengerRoomNotificationTargetAfterRead(
