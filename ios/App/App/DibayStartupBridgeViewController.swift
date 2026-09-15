@@ -210,9 +210,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     let wrap = UIView()
     wrap.backgroundColor = .clear
     let iv = UIImageView(image: image)
-    let fit = (config["objectFit"] as? String) ?? "cover"
-    // Full-surface only — never reconstruct card chrome.
-    iv.contentMode = fit == "contain" ? .scaleAspectFit : .scaleAspectFill
+    iv.contentMode = .scaleAspectFill
     iv.clipsToBounds = true
     iv.translatesAutoresizingMaskIntoConstraints = false
     wrap.addSubview(iv)

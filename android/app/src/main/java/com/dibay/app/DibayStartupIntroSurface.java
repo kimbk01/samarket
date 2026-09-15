@@ -235,15 +235,10 @@ public final class DibayStartupIntroSurface {
    */
   private View buildProductIntroContent(JSONObject pi, Bitmap bmp) {
     FrameLayout wrap = new FrameLayout(activity);
-    String fit = pi.optString("objectFit", "cover");
-    // Legacy "card" configs must not resurrect popup chrome.
-    if (!"contain".equals(fit)) {
-      fit = "cover";
-    }
     ImageView image = new ImageView(activity);
     image.setImageBitmap(bmp);
-    image.setScaleType(
-        "contain".equals(fit) ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER_CROP);
+    // Operational FE default: COVER only (legacy contain configs coerced).
+    image.setScaleType(ImageView.ScaleType.CENTER_CROP);
     FrameLayout.LayoutParams imgLp =
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
