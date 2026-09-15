@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 const BUCKET = "admin-notification-campaign-images";
 
 /**
- * POST multipart: kind=logo|background, file
- * Returns public HTTPS URL for StartupConfig storage (not a local path).
+ * POST multipart: kind=logo|background|product|product_tablet, file
+ * Returns public HTTPS URL for Startup / Product Intro storage (not a local path).
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -34,7 +34,13 @@ export async function POST(req: NextRequest) {
   }
 
   const kindRaw = form.get("kind");
-  const kind = kindRaw === "logo" || kindRaw === "background" ? kindRaw : null;
+  const kind =
+    kindRaw === "logo" ||
+    kindRaw === "background" ||
+    kindRaw === "product" ||
+    kindRaw === "product_tablet"
+      ? kindRaw
+      : null;
   const file = form.get("file");
   if (!kind || !file || !(file instanceof File)) {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
@@ -46,7 +52,11 @@ export async function POST(req: NextRequest) {
   }
 
   const ext = extForCampaignImageMime(validated.mime);
-  const path = `_admin/startup/${kind}/${randomUUID()}.${ext}`;
+  const folder =
+    kind === "product" || kind === "product_tablet"
+      ? `_admin/startup/product/${kind === "product_tablet" ? "tablet" : "mobile"}`
+      : `_admin/startup/${kind}`;
+  const path = `${folder}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
   const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { StartupIntroPreview } from "@/components/admin/settings/StartupIntroPreview";
+import { ProductIntroAdminSection } from "@/components/admin/settings/ProductIntroAdminSection";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUNDLED_STARTUP_CONFIG,
@@ -258,11 +259,27 @@ export function StartupConfigAdminPage() {
         })}
         description={safeT("admin_startup_config_desc", {
           fallbackKo:
-            "Native 시작 Intro(로고·배경·액션)와 초기 탭을 관리합니다. 웹 Intro는 사용하지 않으며, 원격 설정은 다음 실행부터 적용됩니다.",
+            "SECTION A: 앱 준비까지 보이는 DIBAY 기본 기술 화면. SECTION B: Technical Boot 이후 운영 Intro. 둘은 별도 SSOT입니다.",
           fallbackEn:
-            "Manage Native startup Intro (logo, background, motion) and the initial tab. Web Intro stays off; remote config applies on the next launch.",
+            "SECTION A: Technical Boot branding until the app is ready. SECTION B: Product Intro after Technical Boot. Separate SSOTs.",
         })}
       />
+
+      <AdminCard>
+        <h2 className="mb-2 sam-text-title font-semibold text-sam-fg">
+          {safeT("admin_startup_config_section_a_title", {
+            fallbackKo: "SECTION A · 기본 시작 화면 (Technical Boot)",
+            fallbackEn: "SECTION A · Technical Boot",
+          })}
+        </h2>
+        <p className="mb-4 sam-text-body text-sam-muted">
+          {safeT("admin_startup_config_section_a_help", {
+            fallbackKo: "앱/WebView가 준비될 때까지 표시되는 DIBAY 기본 기술 화면입니다. 광고·CTA·노출 시간과 무관합니다.",
+            fallbackEn:
+              "Default technical surface while the app becomes ready. Not a campaign, CTA, or timed ad.",
+          })}
+        </p>
+      </AdminCard>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="space-y-4">
@@ -1099,6 +1116,13 @@ export function StartupConfigAdminPage() {
           animation: dibay-su-spin 0.9s linear infinite;
         }
       `}</style>
+
+      <AdminCard>
+        <p className="mb-4 sam-text-caption font-semibold uppercase tracking-wide text-sam-muted">
+          SECTION B · Product Intro
+        </p>
+        <ProductIntroAdminSection />
+      </AdminCard>
     </div>
   );
 }

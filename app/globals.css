@@ -1041,6 +1041,163 @@ a,
 }
 
 /**
+ * Admin Product Intro — post-shellReady application overlay (CUT 2).
+ * Below native splash z-index; above main chrome. Not a route.
+ */
+.dibay-product-intro-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  padding-bottom: max(16px, var(--safe-bottom, 0px));
+}
+
+.dibay-product-intro-surface {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.dibay-product-intro-surface:not(:disabled) {
+  cursor: pointer;
+}
+
+.dibay-product-intro-surface--card {
+  overflow: hidden;
+  box-shadow: 0 8px 28px color-mix(in srgb, #0b421a 14%, transparent);
+  background: #fff;
+}
+
+.dibay-product-intro-image {
+  display: block;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dibay-product-intro-skip {
+  appearance: none;
+  border: 0;
+  background: color-mix(in srgb, #0b421a 8%, transparent);
+  color: var(--dibay-green, #0b421a);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
+@keyframes dibay-pi-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dibay-pi-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes dibay-pi-scale-in {
+  from {
+    opacity: 1;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes dibay-pi-fade-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes dibay-pi-fade-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes dibay-pi-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dibay-pi-enter-fade {
+  animation-name: dibay-pi-fade-in;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.dibay-pi-enter-scale {
+  animation-name: dibay-pi-scale-in;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.dibay-pi-enter-fade-scale {
+  animation-name: dibay-pi-fade-scale-in;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.dibay-pi-enter-slide-up {
+  animation-name: dibay-pi-slide-up;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+.dibay-pi-exit-fade {
+  animation-name: dibay-pi-fade-out;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+.dibay-pi-exit-fade-scale {
+  animation-name: dibay-pi-fade-scale-out;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dibay-pi-enter-fade,
+  .dibay-pi-enter-scale,
+  .dibay-pi-enter-fade-scale,
+  .dibay-pi-enter-slide-up,
+  .dibay-pi-exit-fade,
+  .dibay-pi-exit-fade-scale {
+    animation: none !important;
+  }
+}
+
+/**
  * iOS Safari / Capacitor WKWebView: focusing a field with computed font-size < 16px
  * zooms the whole page ("전체 커짐"). Enforce min 16px on editable controls only.
  * Android adjustResize / desktop unchanged. Does not touch CM room vv-band.

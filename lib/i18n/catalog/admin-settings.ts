@@ -426,6 +426,13 @@ export const adminSettingsMessages = {
     admin_startup_config_replay: "인트로 다시 보기",
     admin_startup_config_replay_exit: "종료 액션 미리보기",
     admin_startup_config_preview: "기기 미리보기",
+    admin_startup_config_section_a_title: "SECTION A · 기본 시작 화면 (Technical Boot)",
+    admin_startup_config_section_a_help:
+      "앱이 준비되는 동안 보이는 기본 기술 화면입니다. 캠페인·CTA·시간제 광고가 아닙니다.",
+    admin_product_intro_section_title: "첫 진입 인트로",
+    admin_product_intro_section_help:
+      "앱 준비(Technical Boot) 이후 사용자에게 보여 줄 운영/홍보 Intro입니다. 캐시된 Intro만 즉시 표시되며, 네트워크 대기로 진입을 막지 않습니다.",
+    product_intro_skip: "건너뛰기",
   },
   en: {
     admin_settings_notifications_domain_title: "Alerts & sounds (by domain)",
@@ -852,5 +859,12 @@ export const adminSettingsMessages = {
     admin_startup_config_replay: "Replay intro",
     admin_startup_config_replay_exit: "Preview exit",
     admin_startup_config_preview: "Device preview",
+    admin_startup_config_section_a_title: "SECTION A · Technical Boot",
+    admin_startup_config_section_a_help:
+      "Default technical surface while the app becomes ready. Not a campaign, CTA, or timed ad.",
+    admin_product_intro_section_title: "First-entry Product Intro",
+    admin_product_intro_section_help:
+      "Shown after Technical Boot. Only cached eligible Intro appears immediately; network never blocks entry.",
+    product_intro_skip: "Skip",
   },
 } as const;

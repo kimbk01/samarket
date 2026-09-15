@@ -18,6 +18,15 @@ export {
   type StartupConfig,
 } from "@/lib/startup/startup-config";
 export {
+  STARTUP_PRODUCT_INTRO_SETTINGS_KEY,
+  STARTUP_PRODUCT_INTRO_LOCAL_STORAGE_KEY,
+  BUNDLED_PRODUCT_INTRO_CONFIG,
+  normalizeProductIntroConfig,
+  isProductIntroDisplayEligible,
+  resolveProductIntroAction,
+  type ProductIntroConfig,
+} from "@/lib/startup/product-intro";
+export {
   BUNDLED_STARTUP_NAV,
   BUNDLED_STARTUP_ROUTE,
   readStartupConfigCache,
