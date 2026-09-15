@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
 
 type Row = Record<string, unknown>;
 
@@ -73,7 +74,12 @@ export function AdminCommunityEnginePostsClient() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) setErr(j.error ?? tr("admin_feed_posts_err_patch"));
-      else await load();
+      else {
+        if (status === "hidden" || status === "deleted") {
+          invalidateCommunityFeedCachesAfterPostModeration(id);
+        }
+        await load();
+      }
     } finally {
       setBusyId(null);
     }

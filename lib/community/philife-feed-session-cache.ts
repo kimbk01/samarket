@@ -127,6 +127,42 @@ export function invalidatePhilifeFeedCachesForMemberIdentityChange(): void {
   }
 }
 
+/**
+ * After member/admin post delete or hide — remove that post from every persistent feed snapshot.
+ * Does not wipe unrelated app caches.
+ */
+export function evictCommunityPostFromPhilifeFeedPersistentCaches(postId: string): void {
+  const pid = postId?.trim();
+  if (!pid || typeof window === "undefined") return;
+  try {
+    const raw = readStorageRaw();
+    if (!raw) return;
+    const root = parseStoredRoot(raw);
+    if (!root) return;
+    const now = Date.now();
+    let changed = false;
+    const next: StoredShape = {};
+    for (const [key, snap] of Object.entries(root.entries)) {
+      if (!snap || !Array.isArray(snap.posts)) continue;
+      const filtered = snap.posts.filter((p) => String(p?.id ?? "").trim() !== pid);
+      if (filtered.length === snap.posts.length) {
+        next[key] = snap;
+        continue;
+      }
+      changed = true;
+      if (filtered.length === 0) continue;
+      next[key] = { ...snap, posts: filtered };
+    }
+    if (!changed) return;
+    writeStorageRoot({
+      schemaVersion: COMMUNITY_FEED_CACHE_SCHEMA_VERSION,
+      entries: pruneStoredShape(next, now),
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 function cacheId(
   locationKey: string,
   category: string,

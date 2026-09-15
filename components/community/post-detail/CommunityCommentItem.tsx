@@ -31,7 +31,8 @@ type Props = {
   focusCommentId?: string | null;
   onLike: (commentId: string) => void | Promise<void>;
   onEdit: (commentId: string, content: string) => void | Promise<void>;
-  onDelete: (commentId: string) => void | Promise<void>;
+  onDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
+  onReportComment?: (commentId: string) => void | Promise<void>;
   replyOpenCommentId: string | null;
   onReplyOpenChange: (id: string | null) => void;
   onSubmitReply: (parentId: string, content: string) => void | Promise<void>;
@@ -57,6 +58,7 @@ export function CommunityCommentItem({
   onLike,
   onEdit,
   onDelete,
+  onReportComment,
   replyOpenCommentId,
   onReplyOpenChange,
   onSubmitReply,
@@ -82,6 +84,7 @@ export function CommunityCommentItem({
     normalized === "댓글이 삭제 되엇습니다." ||
     normalized === "댓글이 삭제 되었습니다" ||
     normalized === "댓글이 삭제 되엇습니다";
+  const canReportComment = me.length > 0 && !isOwner && !isDeleted && Boolean(onReportComment);
   const isReplyOpen = replyOpenCommentId === node.id;
   const authorLabel = communityAuthorDisplayName(node.author_name, node.author_name);
   const timeRel = useMemo(() => {
@@ -209,6 +212,21 @@ export function CommunityCommentItem({
                         </button>
                       </li>
                     ) : null}
+                    {canReportComment ? (
+                      <li role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={itemClass}
+                          onClick={() => {
+                            setMenuOpen(false);
+                            void onReportComment?.(node.id);
+                          }}
+                        >
+                          {t("community_report")}
+                        </button>
+                      </li>
+                    ) : null}
                     {isDeleteAllowed && !isDeleted ? (
                       <li role="none">
                         <button
@@ -217,7 +235,9 @@ export function CommunityCommentItem({
                           className={`${itemClass} text-[var(--cm-danger)]`}
                           onClick={() => {
                             setMenuOpen(false);
-                            void onDelete(node.id);
+                            void onDelete(node.id, {
+                              asAdmin: viewerIsAdmin && !isOwner,
+                            });
                           }}
                         >
                           {t("community_delete")}
@@ -366,6 +386,7 @@ export function CommunityCommentItem({
                       onLike={onLike}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      onReportComment={onReportComment}
                       replyOpenCommentId={replyOpenCommentId}
                       onReplyOpenChange={onReplyOpenChange}
                       onSubmitReply={onSubmitReply}

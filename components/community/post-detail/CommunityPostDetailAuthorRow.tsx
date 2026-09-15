@@ -18,6 +18,7 @@ type Props = {
   isOwnPost?: boolean;
   onOwnShare?: () => void;
   onOwnDelete?: () => void;
+  onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
 };
 
@@ -35,6 +36,7 @@ export function CommunityPostDetailAuthorRow({
   isOwnPost,
   onOwnShare,
   onOwnDelete,
+  onOwnEdit,
   ownDeleteBusy,
 }: Props) {
   const { t, language } = useI18n();
@@ -56,6 +58,7 @@ export function CommunityPostDetailAuthorRow({
       isOwnPost={isOwnPost}
       onOwnShare={onOwnShare}
       onOwnDelete={onOwnDelete}
+      onOwnEdit={onOwnEdit}
       ownDeleteBusy={ownDeleteBusy}
     />
   );

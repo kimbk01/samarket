@@ -275,11 +275,24 @@ export function usePhilifePostComments(postId: string) {
   );
 
   const deleteComment = useCallback(
-    async (commentId: string) => {
+    async (commentId: string, opts?: { asAdmin?: boolean }) => {
       if (!(await dibayConfirm({ title: t("community_confirm_delete_comment"), confirmTone: "destructive" }))) return;
       setActionBusy(true);
       try {
-        const res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE" });
+        let res: Response;
+        if (opts?.asAdmin) {
+          res = await fetch(
+            `/api/admin/community/engine/comments/${encodeURIComponent(commentId)}`,
+            {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "deleted" }),
+            }
+          );
+        } else {
+          res = await fetch(philifePostCommentUrl(postId, commentId), { method: "DELETE" });
+        }
         const data = (await res.json()) as { ok?: boolean };
         if (res.ok && data.ok) {
           setComments((cur) =>

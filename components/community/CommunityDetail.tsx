@@ -10,6 +10,10 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
+import { createCommunityFeedCommentReport } from "@/lib/reports/createCommunityFeedCommentReport";
+import { isCommunityImportedOrigin } from "@/lib/community/community-post-origin";
+import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
+import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
 import { NeighborFollowButton } from "./NeighborFollowButton";
 import {
   philifeNeighborhoodPostUrl,
@@ -120,6 +124,9 @@ export function CommunityDetail({
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
+  const [reportTarget, setReportTarget] = useState<
+    { kind: "post" } | { kind: "comment"; commentId: string } | null
+  >(null);
   const [deleteErr, setDeleteErr] = useState("");
   const [actionToast, setActionToast] = useState<string | null>(null);
   const [promoteOpen, setPromoteOpen] = useState(false);
@@ -340,36 +347,73 @@ export function CommunityDetail({
   );
 
   const onCommentDelete = useCallback(
-    (commentId: string) => {
+    (commentId: string, opts?: { asAdmin?: boolean }) => {
       if (!me?.id) return;
-      void deleteComment(commentId);
+      void deleteComment(commentId, opts);
     },
     [deleteComment, me?.id]
   );
 
+  const onCommentReport = useCallback(
+    (commentId: string) => {
+      if (!me?.id) return;
+      setReportTarget({ kind: "comment", commentId });
+      setReportText("");
+      setReportErr("");
+      setReportOpen(true);
+    },
+    [me?.id]
+  );
+
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
+    if (isCommunityImportedOrigin(post.origin_kind)) return;
     if (!(await dibayConfirm({ title: t("community_confirm_delete_post"), cancelLabel: t("common_cancel"), confirmLabel: t("common_delete"), confirmTone: "destructive" }))) return;
     setBusy((prev) => (prev ? prev : true));
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (res.ok && j.ok) router.replace(philifeAppPaths.home);
-      else setDeleteErr(j.error ?? t("community_delete_failed"));
+      if (res.ok && j.ok) {
+        invalidateCommunityFeedCachesAfterPostModeration(post.id);
+        router.replace(philifeAppPaths.home);
+      } else setDeleteErr(j.error ?? t("community_delete_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
   };
 
+  const canOwnEdit =
+    !!me?.id &&
+    me.id === post.author_id &&
+    !isCommunityImportedOrigin(post.origin_kind) &&
+    !post.is_meetup;
+
+  const onEditPost = useCallback(() => {
+    if (!canOwnEdit) return;
+    router.push(`${philifeAppPaths.write}?edit=${encodeURIComponent(post.id)}`);
+  }, [canOwnEdit, post.id, router]);
+
+  const authorDisplayClock = communityPostPublicDisplayClock({
+    origin_kind: post.origin_kind,
+    display_date: post.display_date,
+    published_at: post.published_at,
+    created_at: post.created_at,
+  });
+
   const onReport = async () => {
+    if (!reportTarget) return;
     setReportErr("");
     setBusy(true);
     try {
-      const res = await createCommunityFeedPostReport(post.id, reportText);
+      const res =
+        reportTarget.kind === "post"
+          ? await createCommunityFeedPostReport(post.id, reportText)
+          : await createCommunityFeedCommentReport(reportTarget.commentId, reportText);
       if (res.ok) {
         setReportOpen(false);
         setReportText("");
+        setReportTarget(null);
         setActionToast(t("community_report_submitted"));
         window.setTimeout(() => setActionToast(null), 3200);
       } else setReportErr(res.error);
@@ -392,6 +436,8 @@ export function CommunityDetail({
 
   const openReport = useCallback(() => {
     if (me?.id && me.id === post.author_id) return;
+    setReportTarget({ kind: "post" });
+    setReportText("");
     setReportErr("");
     setReportOpen(true);
   }, [me, post.author_id]);
@@ -404,7 +450,7 @@ export function CommunityDetail({
     : undefined;
 
   return (
-    <div className="pb-[max(1rem,var(--safe-bottom))]">
+    <div className="community-post-detail-fade-in pb-[max(1rem,var(--safe-bottom))]">
       <CommunityPostDetailHeader titleText={tier1Title} backHref={backToFeedHref} />
 
       <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
@@ -418,16 +464,17 @@ export function CommunityDetail({
             authorName={post.author_name}
             authorAvatarUrl={post.author_avatar_url}
             locationLabel={post.location_label}
-            createdAt={post.created_at}
+            createdAt={authorDisplayClock}
             subline={authorSubline}
             showMoreMenu
             postId={post.id}
             targetUserId={memberPeerUserId}
             canReport={!me?.id || me.id !== post.author_id}
             onReport={openReport}
-            isOwnPost={!!me?.id && me.id === post.author_id}
+            isOwnPost={!!me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind)}
             onOwnShare={() => communityShare.openSheet()}
             onOwnDelete={() => void onDeletePost()}
+            onOwnEdit={canOwnEdit ? onEditPost : undefined}
             ownDeleteBusy={busy}
           />
           <CommunityPostDetailBody
@@ -520,10 +567,7 @@ export function CommunityDetail({
               {me?.id && me.id !== post.author_id ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setReportErr("");
-                    setReportOpen(true);
-                  }}
+                  onClick={() => openReport()}
                   className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[var(--cm-danger)]`}
                 >
                   {t("community_report")}
@@ -549,7 +593,7 @@ export function CommunityDetail({
             </div>
           ) : null}
 
-          {me?.id && me.id === post.author_id && (
+          {me?.id && me.id === post.author_id && !isCommunityImportedOrigin(post.origin_kind) && (
             <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
               <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">
                 {safeT("community_my_post_ads", {
@@ -596,6 +640,7 @@ export function CommunityDetail({
             onCommentLike={onCommentLike}
             onCommentEdit={onCommentEdit}
             onCommentDelete={onCommentDelete}
+            onCommentReport={onCommentReport}
             onSubmitReply={submitReply}
             commentBusy={commentActionBusy}
             composerError={commentSubmitErr}
@@ -627,8 +672,13 @@ export function CommunityDetail({
 
       <DibayDialog
         open={reportOpen}
-        onClose={() => setReportOpen(false)}
-        title={t("community_report_post")}
+        onClose={() => {
+          setReportOpen(false);
+          setReportTarget(null);
+        }}
+        title={
+          reportTarget?.kind === "comment" ? t("community_report") : t("community_report_post")
+        }
       >
         <textarea
           value={reportText}
@@ -640,7 +690,14 @@ export function CommunityDetail({
           <p className={`mt-1 ${OverlayUi.caption} text-[color:var(--overlay-danger)]`}>{reportErr}</p>
         ) : null}
         <div className={`${OverlayUi.actionsRow} mt-3`}>
-          <DibayOverlayButton roleTone="secondary" type="button" onClick={() => setReportOpen(false)}>
+          <DibayOverlayButton
+            roleTone="secondary"
+            type="button"
+            onClick={() => {
+              setReportOpen(false);
+              setReportTarget(null);
+            }}
+          >
             {t("common_cancel")}
           </DibayOverlayButton>
           <DibayOverlayButton

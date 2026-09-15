@@ -46,7 +46,8 @@ type Props = {
   viewerIsAdmin?: boolean;
   onCommentLike: (commentId: string) => void | Promise<void>;
   onCommentEdit: (commentId: string, content: string) => void | Promise<void>;
-  onCommentDelete: (commentId: string) => void | Promise<void>;
+  onCommentDelete: (commentId: string, opts?: { asAdmin?: boolean }) => void | Promise<void>;
+  onCommentReport?: (commentId: string) => void | Promise<void>;
   onSubmitReply: (parentId: string, content: string) => void | Promise<void>;
   commentBusy: boolean;
   composerError?: string;
@@ -75,6 +76,7 @@ export function CommunityCommentSection({
   onCommentLike,
   onCommentEdit,
   onCommentDelete,
+  onCommentReport,
   onSubmitReply,
   commentBusy,
   composerError = "",
@@ -205,6 +207,7 @@ export function CommunityCommentSection({
                 onLike={onCommentLike}
                 onEdit={onCommentEdit}
                 onDelete={onCommentDelete}
+                onReportComment={onCommentReport}
                 replyOpenCommentId={replyOpenCommentId}
                 onReplyOpenChange={setReplyOpenCommentId}
                 onSubmitReply={onSubmitReply}

@@ -13,6 +13,8 @@ type PhilifeWriteActionFooterProps = {
   submitDisabled: boolean;
   onCancel: () => void;
   error?: string | null;
+  /** Idle submit label — edit mode uses common_save */
+  submitIdleLabel?: string;
 };
 
 /**
@@ -24,6 +26,7 @@ export function PhilifeWriteActionFooter({
   submitDisabled,
   onCancel,
   error,
+  submitIdleLabel,
 }: PhilifeWriteActionFooterProps) {
   const { t } = useI18n();
   const { effectiveBottomInset, keyboardOpen } = useFormKeyboardViewport();
@@ -68,7 +71,7 @@ export function PhilifeWriteActionFooter({
           }}
           className={`min-h-[44px] flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${FORM_INTERACTIVE_PRESS_CLASS}`}
         >
-          {busy ? t("philife_write_submitting") : t("philife_write_submit")}
+          {busy ? t("philife_write_submitting") : submitIdleLabel || t("philife_write_submit")}
         </button>
       </div>
     </div>

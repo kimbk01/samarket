@@ -10,6 +10,7 @@ import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
   philifeArticleOgImageUrl,
+  philifeNeighborhoodPostUrl,
   philifeNeighborhoodPostsUrl,
   philifeUploadImageFromUrl,
   philifeUploadImageUrl,
@@ -102,6 +103,11 @@ function buildMeetupPostContent(
 
 interface PhilifeNeighborhoodWriteFormProps {
   initialCategory?: string;
+  /** Native owner edit — PATCH neighborhood-posts/[postId]; sheet entry must not set this. */
+  editPostId?: string;
+  initialTitle?: string;
+  initialContent?: string;
+  initialImages?: string[];
   /**
    * true이면 `WriteScreenTier1Sync`를 쓰지 않음 — 필라이프 피드 **시트**에서 전역 1단(RegionBar·주제 탭)을 유지할 때.
    */
@@ -126,6 +132,10 @@ type PhilifeMeetAccessMode = "free_public" | "password_public" | "free_hidden" |
 /** 동네(필라이프) 일반 글·모임 생성 — `/philife/write` 등에서 사용 */
 export function PhilifeNeighborhoodWriteForm({
   initialCategory,
+  editPostId,
+  initialTitle,
+  initialContent,
+  initialImages,
   suppressWriteScreenTier1 = false,
   onWillNavigateAfterSuccess,
   onSheetExitBeforeNavigate,
@@ -137,6 +147,7 @@ export function PhilifeNeighborhoodWriteForm({
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
   const { currentRegion } = useRegion();
+  const isEditMode = Boolean(editPostId?.trim());
   const meetAccessOptions = useMemo(
     () =>
       [
@@ -175,12 +186,16 @@ export function PhilifeNeighborhoodWriteForm({
   const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
   /** `ok: false` 또는 catch 시 서버/네트워크 힌트(설정·데이터 0이 아닐 수 있음) */
   const [writeTopicOptionsFetchErr, setWriteTopicOptionsFetchErr] = useState<string | null>(null);
-  const [category, setCategory] = useState<string>(() => (initialCategory === "meetup" ? "meetup" : ""));
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [category, setCategory] = useState<string>(() =>
+    initialCategory === "meetup" ? "meetup" : (initialCategory?.trim().toLowerCase() || "")
+  );
+  const [title, setTitle] = useState(() => initialTitle ?? "");
+  const [content, setContent] = useState(() => initialContent ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>(() =>
+    Array.isArray(initialImages) ? initialImages.filter((u) => (u ?? "").trim()) : []
+  );
   const imageUrlsCountRef = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
@@ -700,6 +715,81 @@ export function PhilifeNeighborhoodWriteForm({
     submitLockRef.current = true;
     try {
       setErr("");
+      const editId = editPostId?.trim() ?? "";
+
+      if (editId) {
+        if (category === "meetup") {
+          setErr(t("philife_write_err_meetup_name"));
+          return;
+        }
+        if (writeTopicOptions.length === 0) {
+          setErr(t("philife_write_err_no_topics"));
+          return;
+        }
+        const composedContent = content.trim();
+        if (!title.trim()) {
+          setErr(t("philife_write_err_title"));
+          return;
+        }
+        if (!composedContent) {
+          setErr(t("philife_write_err_content"));
+          return;
+        }
+        const writeNext =
+          typeof window !== "undefined" ? `${pathname}${window.location.search}` : pathname;
+        if (!(await requireAuthAction("community_write", async () => {}, { next: writeNext }))) {
+          return;
+        }
+        setBusy(true);
+        try {
+          const images = (() => {
+            const bodyText = content.trim();
+            if (hasInterleavedMarkdownImageSyntax(bodyText)) {
+              const u = extractImageUrlsFromInterleavedContent(bodyText);
+              return u.length > 0 ? u : imageUrls;
+            }
+            return imageUrls;
+          })();
+          const res = await fetch(philifeNeighborhoodPostUrl(editId), {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              category,
+              title: title.trim(),
+              content: composedContent,
+              images,
+            }),
+          });
+          let j: { ok?: boolean; error?: string };
+          try {
+            j = (await res.json()) as { ok?: boolean; error?: string };
+          } catch {
+            setErr(t("philife_write_err_server_response"));
+            return;
+          }
+          if (!res.ok || !j.ok) {
+            const msg = j.error ?? t("philife_write_err_register_failed");
+            if (redirectForBlockedAction(router, msg, pathname)) return;
+            setErr(msg);
+            return;
+          }
+          const authorId = getCurrentUser()?.id?.trim();
+          if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
+          if (onSheetExitBeforeNavigate) {
+            await onSheetExitBeforeNavigate();
+          } else {
+            onWillNavigateAfterSuccess?.();
+          }
+          router.replace(philifeAppPaths.post(editId));
+        } catch {
+          setErr(t("philife_write_err_network_occurred"));
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+
       const locationKey = neighborhoodLocationKeyFromRegion(currentRegion);
     const locationMeta = neighborhoodLocationMetaFromRegion(currentRegion);
     const locationName = neighborhoodLocationLabelFromRegion(currentRegion);
@@ -1506,6 +1596,7 @@ export function PhilifeNeighborhoodWriteForm({
         busy={busy}
         submitDisabled={submitDisabled}
         error={err}
+        submitIdleLabel={isEditMode ? t("common_save") : undefined}
         onCancel={() => void handleWriteCancel()}
       />
     </div>

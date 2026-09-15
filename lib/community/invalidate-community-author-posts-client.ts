@@ -1,4 +1,5 @@
 import { invalidateCommunityMyHubPostsCache } from "@/lib/community/fetch-community-my-hub-posts-deduped";
+import { evictCommunityPostFromPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
 import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { forgetSingleFlightsWhere } from "@/lib/http/run-single-flight";
 
@@ -15,4 +16,16 @@ export function invalidateCommunityAuthorPostsClientCaches(userId: string): void
     (key) =>
       key.startsWith(`community:my-hub:posts:${uid}:`) || key.startsWith("me:community-posts:")
   );
+}
+
+/**
+ * Member/admin soft-delete or hide — drop the post from persistent feed paint + short TTL.
+ * Prefer this over clearAllPhilifeFeedPersistentCaches.
+ */
+export function invalidateCommunityFeedCachesAfterPostModeration(postId: string): void {
+  const id = postId.trim();
+  if (!id) return;
+  evictCommunityPostFromPhilifeFeedPersistentCaches(id);
+  invalidateNeighborhoodFeedClientShortTtl();
+  forgetSingleFlightsWhere((key) => key.includes("neighborhood-feed") || key.includes("community-feed"));
 }

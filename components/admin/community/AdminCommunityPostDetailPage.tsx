@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { invalidateCommunityFeedCachesAfterPostModeration } from "@/lib/community/invalidate-community-author-posts-client";
 import { formatTimeAgo } from "@/lib/utils/format";
 
 type PostDetail = {
@@ -122,6 +123,9 @@ export function AdminCommunityPostDetailPage({ postId }: { postId: string }) {
         if (!res.ok || !j.ok) {
           setErr(j.error ?? tr("admin_posts_err_community_patch"));
           return;
+        }
+        if (status === "hidden" || status === "deleted") {
+          invalidateCommunityFeedCachesAfterPostModeration(id);
         }
         await load();
       } finally {

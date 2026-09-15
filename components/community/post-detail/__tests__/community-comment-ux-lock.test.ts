@@ -16,6 +16,8 @@ describe("community comment UX lock", () => {
     expect(item).not.toContain("createCommunityCommentReport");
     expect(section).not.toContain("createCommunityCommentReport");
     expect(detail).not.toMatch(/createCommunityCommentReport/);
+    expect(detail).toContain("createCommunityFeedCommentReport");
+    expect(item).toContain("onReportComment");
     expect(item).not.toContain("community_comment_actions_ellipsis");
     expect(item).toContain("community_comment_copy");
     expect(item).toContain("community_comment_more_aria");

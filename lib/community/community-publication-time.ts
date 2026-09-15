@@ -19,6 +19,27 @@ export function communityPostPublicPublishedAt(row: {
 }
 
 /**
+ * User-visible time on cards/detail.
+ * - imported: prefer trustworthy display_date (source clock); else Community published_at
+ * - native/admin: Community published_at / created_at (sort authority unchanged)
+ */
+export function communityPostPublicDisplayClock(row: {
+  origin_kind?: string | null;
+  display_date?: string | null;
+  published_at?: string | null;
+  created_at?: string | null;
+}): string {
+  const origin = String(row.origin_kind ?? "")
+    .trim()
+    .toLowerCase();
+  if (origin === "imported") {
+    const d = row.display_date != null ? String(row.display_date).trim() : "";
+    if (d && !Number.isNaN(Date.parse(d))) return d;
+  }
+  return communityPostPublicPublishedAt(row);
+}
+
+/**
  * PostgREST filter: (published_at, id) < (cursor) for DESC keyset pages.
  */
 export function communityFeedKeysetOrFilter(cursor: CommunityFeedKeysetCursor): string {

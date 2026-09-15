@@ -22,6 +22,7 @@ type Props = {
   isOwnPost?: boolean;
   onOwnShare?: () => void;
   onOwnDelete?: () => void;
+  onOwnEdit?: () => void;
   ownDeleteBusy?: boolean;
 };
 
@@ -63,6 +64,7 @@ export function CommunityAuthorRow({
   isOwnPost = false,
   onOwnShare,
   onOwnDelete,
+  onOwnEdit,
   ownDeleteBusy = false,
 }: Props) {
   const displayName = communityAuthorDisplayName(authorName, authorName.trim());
@@ -89,7 +91,12 @@ export function CommunityAuthorRow({
         {subline ? <p className={`mt-1 ${CM_META_CLASS}`}>{subline}</p> : null}
       </div>
       {showMoreMenu && isOwnPost && onOwnShare && onOwnDelete ? (
-        <CommunityOwnPostMoreMenu onShare={onOwnShare} onDelete={onOwnDelete} deleteBusy={ownDeleteBusy} />
+        <CommunityOwnPostMoreMenu
+          onShare={onOwnShare}
+          onDelete={onOwnDelete}
+          onEdit={onOwnEdit}
+          deleteBusy={ownDeleteBusy}
+        />
       ) : null}
       {showMoreMenu && postId && !isOwnPost ? (
         <CommunityMoreMenu

@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Share2, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Share2, Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CM_BTN_TEXT_CLASS } from "@/lib/community/community-ui-classes";
 
 type Props = {
   onShare: () => void;
   onDelete: () => void;
+  onEdit?: () => void;
   deleteBusy?: boolean;
 };
 
-export function CommunityOwnPostMoreMenu({ onShare, onDelete, deleteBusy = false }: Props) {
+export function CommunityOwnPostMoreMenu({
+  onShare,
+  onDelete,
+  onEdit,
+  deleteBusy = false,
+}: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const itemClass = `flex w-full items-center gap-2 px-4 py-3 text-left ${CM_BTN_TEXT_CLASS} text-[var(--cm-text)] hover:bg-[var(--cm-page-bg)]`;
@@ -39,6 +45,22 @@ export function CommunityOwnPostMoreMenu({ onShare, onDelete, deleteBusy = false
             className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] overflow-hidden rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-card-bg)] py-1 shadow-lg"
             role="menu"
           >
+            {onEdit ? (
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={itemClass}
+                  onClick={() => {
+                    setOpen(false);
+                    onEdit();
+                  }}
+                >
+                  <Pencil className="h-4 w-4 shrink-0" />
+                  {t("common_edit")}
+                </button>
+              </li>
+            ) : null}
             <li role="none">
               <button
                 type="button"

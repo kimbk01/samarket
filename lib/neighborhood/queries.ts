@@ -48,6 +48,7 @@ import {
   fetchNeighborFollowTargetIds,
 } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
+import { resolvePopularPagingOffsetAdvance } from "@/lib/neighborhood/popular-paging-offset";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
@@ -734,10 +735,18 @@ export async function listNeighborhoodFeed(options: {
       }
     : undefined;
 
+  /**
+   * popular: fetch window = pageSize+1 (hasMore probe). Advance must exclude the probe
+   * row or page2 skips the boundary item (FIRST DIVERGENCE).
+   * latest keyset / recommended: advance by returned page length.
+   * latest first-page offset (no cursor yet): keep scanned count (unchanged).
+   */
   const pagingOffsetAdvance =
     effSort === "recommended" || (effSort === "latest" && useKeyset)
       ? finalPosts.length
-      : dbScannedCount;
+      : effSort === "popular"
+        ? resolvePopularPagingOffsetAdvance({ hasMore, pageSize, dbScannedCount })
+        : dbScannedCount;
   const last = finalPosts[finalPosts.length - 1];
   const nextCursor =
     hasMore && effSort === "latest" && last

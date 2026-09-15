@@ -8,6 +8,7 @@ import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
+import { communityPostPublicDisplayClock } from "@/lib/community/community-publication-time";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
@@ -26,7 +27,12 @@ function buildNeighborhoodFeedListViewModel(
   untitledLabel: string,
   language: AppLanguageCode
 ): FeedListCardViewModel {
-  const clockIso = post.created_at;
+  const clockIso = communityPostPublicDisplayClock({
+    origin_kind: post.origin_kind,
+    display_date: post.display_date,
+    published_at: post.published_at,
+    created_at: post.created_at,
+  });
   const time =
     clockIso && !Number.isNaN(Date.parse(clockIso)) ? formatTimeAgo(clockIso, language) : "";
   const skin = post.feed_list_skin;
@@ -81,6 +87,8 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.id === next.id &&
     prev.feed_list_skin === next.feed_list_skin &&
     prev.created_at === next.created_at &&
+    prev.display_date === next.display_date &&
+    prev.origin_kind === next.origin_kind &&
     prev.title === next.title &&
     prev.summary === next.summary &&
     prev.content === next.content &&
