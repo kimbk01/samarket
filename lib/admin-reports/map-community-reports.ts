@@ -37,8 +37,13 @@ export function mapCommunityReportsToReports(
       targetType: "community",
       targetId: r.target_id,
       targetUserId: authorId,
-      targetTitle: r.target_type === "post" ? title : `${r.target_type} ${r.target_id.slice(0, 8)}…`,
-      productTitle: r.target_type === "post" ? r.post_title ?? undefined : undefined,
+      targetTitle:
+        r.display_target === "reply"
+          ? `reply ${r.target_id.slice(0, 8)}…`
+          : r.display_target === "comment" || r.target_type === "comment"
+            ? `comment ${r.target_id.slice(0, 8)}…`
+            : title,
+      productTitle: r.target_type === "post" ? r.post_title ?? undefined : r.post_title ?? undefined,
       reasonCode: code,
       reasonLabel: label,
       detail: r.reason_text ?? "",

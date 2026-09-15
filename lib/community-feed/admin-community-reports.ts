@@ -1,6 +1,7 @@
 /**
- * Admin Community post reports list — filters + identity enrich (batch).
- * Authority: community_reports (post targets). No sanctions writer.
+ * Admin Community reports list — filters + identity enrich (batch).
+ * Authority: community_reports (post + comment/reply targets). No sanctions writer.
+ * Resolve ≠ content hide.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -10,6 +11,12 @@ import {
   loadAdminMemberIdentityMap,
   type AdminMemberIdentity,
 } from "@/lib/admin-community/member-identity";
+import {
+  adminCommunityCommentModerationHref,
+  adminCommunityPostModerationHref,
+  resolveCommunityReportDisplayTarget,
+  type CommunityReportDisplayTarget,
+} from "@/lib/community-feed/community-report-display-target";
 
 export type CommunityReportAdminRow = {
   id: string;
@@ -24,11 +31,19 @@ export type CommunityReportAdminRow = {
   created_at: string;
   post_title: string | null;
   post_topic_slug?: string | null;
+  /** Target author (post author OR comment/reply author) — not reporter. */
   post_author_id?: string | null;
   reporter_label?: string | null;
   author_label?: string | null;
   reporter_identity?: AdminMemberIdentity | null;
   author_identity?: AdminMemberIdentity | null;
+  /** Derived: post | comment | reply (reply = comment + parent_id). */
+  display_target?: CommunityReportDisplayTarget;
+  parent_id?: string | null;
+  /** Parent post id for comment/reply targets; same as target_id for posts. */
+  context_post_id?: string | null;
+  target_content_preview?: string | null;
+  moderation_href?: string | null;
 };
 
 export type ListCommunityReportsForAdminOpts = {
@@ -130,20 +145,30 @@ async function enrichCommunityReportRows(
     }
   }
 
-  const commentMeta = new Map<string, { post_id: string; user_id: string; content: string }>();
+  const commentMeta = new Map<
+    string,
+    { post_id: string; user_id: string; content: string; parent_id: string | null }
+  >();
   if (commentIds.length) {
     const { data: comments } = await sb
       .from("community_comments")
-      .select("id, post_id, user_id, content")
+      .select("id, post_id, user_id, content, parent_id")
       .in("id", commentIds);
     for (const c of comments ?? []) {
-      const row = c as { id?: string; post_id?: string; user_id?: string; content?: string | null };
+      const row = c as {
+        id?: string;
+        post_id?: string;
+        user_id?: string;
+        content?: string | null;
+        parent_id?: string | null;
+      };
       const cid = String(row.id ?? "");
       if (!cid) continue;
       commentMeta.set(cid, {
         post_id: String(row.post_id ?? ""),
         user_id: String(row.user_id ?? ""),
         content: String(row.content ?? "").slice(0, 200),
+        parent_id: row.parent_id != null && String(row.parent_id).trim() ? String(row.parent_id) : null,
       });
     }
     const parentPostIds = [...new Set([...commentMeta.values()].map((c) => c.post_id).filter(Boolean))];
@@ -193,19 +218,28 @@ async function enrichCommunityReportRows(
       const authorId = cmeta?.user_id ?? "";
       const reporterIdentity = identityMap.get(r.reporter_id) ?? null;
       const authorIdentity = authorId ? identityMap.get(authorId) ?? null : null;
+      const display_target = resolveCommunityReportDisplayTarget({
+        targetType: "comment",
+        parentId: cmeta?.parent_id ?? null,
+      });
+      const contextPostId = cmeta?.post_id || null;
       return {
         ...r,
-        post_title: pmeta?.title
-          ? `[comment] ${cmeta?.content || "(empty)"} · ${pmeta.title}`
-          : cmeta?.content
-            ? `[comment] ${cmeta.content}`
-            : "[comment]",
+        post_title: pmeta?.title ?? null,
         post_topic_slug: pmeta?.topic_slug ?? null,
         post_author_id: authorId || null,
         reporter_identity: reporterIdentity,
         author_identity: authorIdentity,
         reporter_label: formatAdminMemberLabel(reporterIdentity),
         author_label: authorId ? formatAdminMemberLabel(authorIdentity) : null,
+        display_target,
+        parent_id: cmeta?.parent_id ?? null,
+        context_post_id: contextPostId,
+        target_content_preview: cmeta?.content || null,
+        moderation_href: adminCommunityCommentModerationHref({
+          commentId: r.target_id,
+          postId: contextPostId,
+        }),
       };
     }
     const meta = postMeta.get(r.target_id);
@@ -221,6 +255,11 @@ async function enrichCommunityReportRows(
       author_identity: authorIdentity,
       reporter_label: formatAdminMemberLabel(reporterIdentity),
       author_label: authorId ? formatAdminMemberLabel(authorIdentity) : null,
+      display_target: "post" as const,
+      parent_id: null,
+      context_post_id: r.target_id,
+      target_content_preview: meta?.content != null ? String(meta.content).slice(0, 200) : null,
+      moderation_href: adminCommunityPostModerationHref(r.target_id),
     };
   });
 }
@@ -242,13 +281,16 @@ export async function listCommunityReportsForAdmin(
       targetIdsFilter = ids;
     }
     if (opts.authorId?.trim()) {
-      const { data: authored } = await sb
-        .from("community_posts")
-        .select("id")
-        .eq("user_id", opts.authorId.trim());
-      const authoredIds = (authored ?? [])
-        .map((p) => String((p as { id?: string }).id ?? ""))
-        .filter(Boolean);
+      // TARGET AUTHOR semantics: post author OR comment/reply author (not reporter).
+      const author = opts.authorId.trim();
+      const [{ data: authoredPosts }, { data: authoredComments }] = await Promise.all([
+        sb.from("community_posts").select("id").eq("user_id", author),
+        sb.from("community_comments").select("id").eq("user_id", author),
+      ]);
+      const authoredIds = [
+        ...(authoredPosts ?? []).map((p) => String((p as { id?: string }).id ?? "")),
+        ...(authoredComments ?? []).map((c) => String((c as { id?: string }).id ?? "")),
+      ].filter(Boolean);
       if (!authoredIds.length) return [];
       targetIdsFilter = targetIdsFilter
         ? targetIdsFilter.filter((id) => authoredIds.includes(id))

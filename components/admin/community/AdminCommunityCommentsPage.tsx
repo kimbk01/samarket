@@ -25,6 +25,7 @@ import {
 type CommunityCommentRow = {
   id: string;
   post_id?: string | null;
+  parent_id?: string | null;
   user_id?: string | null;
   content?: string | null;
   status?: string | null;
@@ -34,14 +35,20 @@ type CommunityCommentRow = {
   post_title?: string | null;
   topic_slug?: string | null;
   author_label?: string | null;
+  kind?: "comment" | "reply" | null;
+  parent_content_preview?: string | null;
+  report_count?: number | null;
+  reported?: boolean | null;
 };
 
 const COLUMN_KINDS: ManagementColumnKind[] = [
   "SELECTION",
+  "METADATA",
   "TITLE",
   "METADATA",
   "TITLE",
   "IDENTITY",
+  "NUMERIC",
   "NUMERIC",
   "STATUS",
   "DATE",
@@ -77,12 +84,19 @@ export function AdminCommunityCommentsPage() {
   const [userFilter, setUserFilter] = useState(() => searchParams.get("userId") ?? "");
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get("status") ?? "");
   const [period, setPeriod] = useState(() => searchParams.get("period") ?? "");
+  const [typeFilter, setTypeFilter] = useState(() => searchParams.get("type") ?? "");
+  const [reportedFilter, setReportedFilter] = useState(() => searchParams.get("reported") ?? "");
+  const [commentIdFilter, setCommentIdFilter] = useState(() => searchParams.get("commentId") ?? "");
   const [topicFilterTruncated, setTopicFilterTruncated] = useState(false);
   const skipUrlWriteRef = useRef(true);
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
   const queryScopeKey = useMemo(
-    () => [postFilter, topicFilter, userFilter, statusFilter, period].join("|"),
-    [postFilter, topicFilter, userFilter, statusFilter, period]
+    () =>
+      [postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter].join(
+        "|"
+      ),
+    [postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter]
   );
   const selectableIds = useMemo(
     () => rows.map((r) => String(r.id ?? "")).filter(Boolean),
@@ -96,6 +110,7 @@ export function AdminCommunityCommentsPage() {
       return;
     }
     const q = new URLSearchParams();
+    if (commentIdFilter.trim()) q.set("commentId", commentIdFilter.trim());
     if (postFilter.trim()) q.set("postId", postFilter.trim());
     if (topicFilter.trim()) q.set("topicSlug", topicFilter.trim().toLowerCase());
     if (userFilter.trim()) q.set("userId", userFilter.trim());
@@ -103,15 +118,29 @@ export function AdminCommunityCommentsPage() {
       q.set("status", statusFilter);
     }
     if (period.trim()) q.set("period", period.trim());
+    if (typeFilter === "comment" || typeFilter === "reply") q.set("type", typeFilter);
+    if (reportedFilter === "only") q.set("reported", "only");
     const next = q.toString() ? `${pathname}?${q.toString()}` : pathname;
     router.replace(next);
-  }, [pathname, router, postFilter, topicFilter, userFilter, statusFilter, period]);
+  }, [
+    pathname,
+    router,
+    postFilter,
+    topicFilter,
+    userFilter,
+    statusFilter,
+    period,
+    typeFilter,
+    reportedFilter,
+    commentIdFilter,
+  ]);
 
   const load = useCallback(async () => {
     setErr("");
     setLoading(true);
     try {
       const q = new URLSearchParams({ limit: "100" });
+      if (commentIdFilter.trim()) q.set("commentId", commentIdFilter.trim());
       if (postFilter.trim()) q.set("postId", postFilter.trim());
       if (topicFilter.trim()) q.set("topicSlug", topicFilter.trim().toLowerCase());
       if (userFilter.trim()) q.set("userId", userFilter.trim());
@@ -119,6 +148,8 @@ export function AdminCommunityCommentsPage() {
         q.set("status", statusFilter);
       }
       if (period.trim()) q.set("period", period.trim());
+      if (typeFilter === "comment" || typeFilter === "reply") q.set("type", typeFilter);
+      if (reportedFilter === "only") q.set("reported", "only");
       const res = await fetch(`/api/admin/community/engine/comments?${q.toString()}`, {
         credentials: "include",
         cache: "no-store",
@@ -144,11 +175,22 @@ export function AdminCommunityCommentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [tr, postFilter, topicFilter, userFilter, statusFilter, period]);
+  }, [tr, postFilter, topicFilter, userFilter, statusFilter, period, typeFilter, reportedFilter, commentIdFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const id = commentIdFilter.trim();
+    if (!id || loading) return;
+    const el = rowRefs.current[id];
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("bg-amber-50");
+    const timeoutId = window.setTimeout(() => el.classList.remove("bg-amber-50"), 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [commentIdFilter, loading, rows]);
 
   async function patchStatus(id: string, status: string): Promise<boolean> {
     setBusyId(id);
@@ -238,6 +280,14 @@ export function AdminCommunityCommentsPage() {
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_comment_id")}</span>
+          <input
+            value={commentIdFilter}
+            onChange={(e) => setCommentIdFilter(e.target.value)}
+            className="min-w-[12rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          />
+        </label>
+        <label className="flex flex-col gap-0.5">
           <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_post")}</span>
           <input
             value={postFilter}
@@ -260,6 +310,29 @@ export function AdminCommunityCommentsPage() {
             onChange={(e) => setUserFilter(e.target.value)}
             className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
           />
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_type")}</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          >
+            <option value="">{tr("admin_community_comments_filter_type_all")}</option>
+            <option value="comment">{tr("admin_community_comments_filter_type_comment")}</option>
+            <option value="reply">{tr("admin_community_comments_filter_type_reply")}</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-0.5">
+          <span className="sam-text-helper text-sam-muted">{tr("admin_community_comments_filter_reported")}</span>
+          <select
+            value={reportedFilter}
+            onChange={(e) => setReportedFilter(e.target.value)}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
+          >
+            <option value="">{tr("admin_community_comments_filter_reported_all")}</option>
+            <option value="only">{tr("admin_community_comments_filter_reported_only")}</option>
+          </select>
         </label>
         <label className="flex flex-col gap-0.5">
           <span className="sam-text-helper text-sam-muted">{tr("admin_feed_posts_col_status")}</span>
@@ -362,6 +435,9 @@ export function AdminCommunityCommentsPage() {
                     aria-label={selectAllLabel}
                   />
                 </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("METADATA")}>
+                  {tr("admin_community_comments_col_type")}
+                </th>
                 <th className="p-3 font-medium" style={managementColumnStyle("TITLE")}>
                   {tr("admin_community_comments_col_post")}
                 </th>
@@ -376,6 +452,9 @@ export function AdminCommunityCommentsPage() {
                 </th>
                 <th className="p-3 font-medium" style={managementColumnStyle("NUMERIC")}>
                   {tr("admin_posts_col_likes")}
+                </th>
+                <th className="p-3 font-medium" style={managementColumnStyle("NUMERIC")}>
+                  {tr("admin_community_comments_col_reports")}
                 </th>
                 <th className="p-3 font-medium" style={managementColumnStyle("STATUS")}>
                   {tr("admin_feed_posts_col_status")}
@@ -398,8 +477,19 @@ export function AdminCommunityCommentsPage() {
                 const busy = busyId === id;
                 const content = String(r.content ?? "");
                 const status = String(r.status ?? "active");
+                const kind =
+                  r.kind === "reply" || Boolean(String(r.parent_id ?? "").trim()) ? "reply" : "comment";
+                const reportCount = Number(r.report_count ?? 0);
                 return (
-                  <tr key={id} className="border-b border-sam-border-soft align-top">
+                  <tr
+                    key={id}
+                    ref={(el) => {
+                      rowRefs.current[id] = el;
+                    }}
+                    className="border-b border-sam-border-soft align-top transition-colors duration-500"
+                    data-comment-id={id}
+                    data-comment-kind={kind}
+                  >
                     <td className="p-3" style={managementColumnStyle("SELECTION")}>
                       <AdminManagementSelectionCheckbox
                         role="row"
@@ -408,6 +498,22 @@ export function AdminCommunityCommentsPage() {
                         disabled={bulkBusy}
                         aria-label={selectAllLabel}
                       />
+                    </td>
+                    <td className="p-3" style={managementColumnStyle("METADATA")}>
+                      <span
+                        className={`rounded px-1.5 py-0.5 sam-text-xxs ${
+                          kind === "reply" ? "bg-sky-50 text-sky-800" : "bg-sam-surface-muted text-sam-muted"
+                        }`}
+                      >
+                        {kind === "reply"
+                          ? tr("admin_community_target_type_reply")
+                          : tr("admin_community_target_type_comment")}
+                      </span>
+                      {kind === "reply" && r.parent_id ? (
+                        <div className="mt-1 sam-text-xxs text-sam-meta" title={String(r.parent_content_preview ?? "")}>
+                          ← {String(r.parent_content_preview ?? r.parent_id).slice(0, 40)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="p-3" style={managementColumnStyle("TITLE")}>
                       {postId ? (
@@ -456,6 +562,18 @@ export function AdminCommunityCommentsPage() {
                     </td>
                     <td className="p-3 text-sam-muted" style={managementColumnStyle("NUMERIC")}>
                       {Number(r.like_count ?? 0)}
+                    </td>
+                    <td className="p-3" style={managementColumnStyle("NUMERIC")}>
+                      {reportCount > 0 ? (
+                        <Link
+                          href={`/admin/community/reports?targetId=${encodeURIComponent(id)}`}
+                          className="font-medium text-amber-700 hover:underline"
+                        >
+                          {reportCount}
+                        </Link>
+                      ) : (
+                        <span className="text-sam-muted">0</span>
+                      )}
                     </td>
                     <td className="p-3" style={managementColumnStyle("STATUS")}>
                       <select

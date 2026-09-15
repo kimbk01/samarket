@@ -71,7 +71,25 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
   const authorLabel = String(row.author_label ?? "").trim() || dash;
   const authorId = String(row.post_author_id ?? "").trim();
   const reporterId = String(row.reporter_id ?? "").trim();
-  const postId = row.target_type === "post" ? String(row.target_id ?? "").trim() : "";
+  const displayTarget =
+    row.display_target ?? (row.target_type === "comment" ? "comment" : "post");
+  const contextPostId = String(row.context_post_id ?? "").trim();
+  const postId = displayTarget === "post" ? String(row.target_id ?? "").trim() : contextPostId;
+  const moderateHref =
+    row.moderation_href ||
+    (displayTarget === "post" && postId
+      ? `/admin/community/posts/${encodeURIComponent(postId)}`
+      : row.target_id
+        ? `/admin/community/comments?commentId=${encodeURIComponent(row.target_id)}${
+            postId ? `&postId=${encodeURIComponent(postId)}` : ""
+          }`
+        : "");
+  const targetTypeLabel =
+    displayTarget === "reply"
+      ? tr("admin_community_target_type_reply")
+      : displayTarget === "comment"
+        ? tr("admin_community_target_type_comment")
+        : tr("admin_community_target_type_post");
 
   return (
     <div className="space-y-4">
@@ -85,13 +103,16 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
         <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_target")}</dt>
-            <dd>{tr("admin_community_target_type_post")}</dd>
+            <dd>{targetTypeLabel}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{tr("admin_feed_report_detail_post")}</dt>
-            <dd className="flex flex-wrap gap-3">
+            <dd className="flex flex-col gap-1">
+              {displayTarget !== "post" && row.target_content_preview?.trim() ? (
+                <span className="whitespace-pre-wrap text-sam-fg">{row.target_content_preview.trim()}</span>
+              ) : null}
               {postId ? (
-                <>
+                <div className="flex flex-wrap gap-3">
                   <Link
                     href={`/admin/community/posts/${encodeURIComponent(postId)}`}
                     className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
@@ -106,10 +127,13 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
                   >
                     {tr("admin_community_view_on_site")}
                   </Link>
-                </>
+                </div>
               ) : (
                 <span className="text-sam-meta">{dash}</span>
               )}
+              {displayTarget === "reply" && row.parent_id ? (
+                <span className="sam-text-helper text-sam-muted">parent: {row.parent_id}</span>
+              ) : null}
             </dd>
           </div>
           <div>
@@ -229,7 +253,12 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           })}
         </p>
         <div className="flex flex-wrap gap-3 sam-text-body-secondary">
-          {postId ? (
+          {moderateHref ? (
+            <Link href={moderateHref} className="font-medium text-signature hover:underline">
+              {tr("admin_community_report_moderate_target")}
+            </Link>
+          ) : null}
+          {displayTarget === "post" && postId ? (
             <Link
               href={`/admin/community/posts/${encodeURIComponent(postId)}`}
               className="font-medium text-signature hover:underline"
@@ -257,8 +286,10 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
       <AdminCard titleKey="admin_feed_report_memo_card_title">
         <p className="mb-3 sam-text-helper text-sam-muted">
           {safeT("admin_community_report_resolve_only_hint", {
-            fallbackKo: "이 카드는 신고 상태·메모만 변경합니다. 게시글 숨김은 위 별도 조치로 이동하세요.",
-            fallbackEn: "This card only changes report status/memo. Use the separate action above to hide a post.",
+            fallbackKo:
+              "이 카드는 신고 상태·메모만 변경합니다. 콘텐츠 숨김/삭제는 위 「대상 운영·조치」에서 하세요.",
+            fallbackEn:
+              "This card only changes report status/memo. Use View/moderate target above for content hide/delete.",
           })}
         </p>
         <label className="mb-3 flex flex-col gap-1 sam-text-body-secondary">

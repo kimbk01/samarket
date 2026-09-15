@@ -257,19 +257,57 @@ export function AdminCommunityReportsPage({
                       className="border-b border-sam-border-soft align-top transition-colors duration-500"
                     >
                       <td className="py-2 pr-2" style={managementColumnStyle("METADATA")}>
-                        {tr("admin_community_target_type_post")}
+                        {(() => {
+                          const displayTarget =
+                            r.display_target ??
+                            (r.target_type === "comment" ? "comment" : "post");
+                          return displayTarget === "reply"
+                            ? tr("admin_community_target_type_reply")
+                            : displayTarget === "comment"
+                              ? tr("admin_community_target_type_comment")
+                              : tr("admin_community_target_type_post");
+                        })()}
                       </td>
                       <td className="truncate py-2 pr-2" style={managementColumnStyle("TITLE")}>
-                        {r.target_type === "post" && r.target_id ? (
-                          <Link
-                            href={`/admin/community/posts/${encodeURIComponent(r.target_id)}`}
-                            className="text-sam-primary hover:text-sam-primary-hover hover:underline"
-                          >
-                            {r.post_title?.trim() || tr("admin_posts_no_title")}
-                          </Link>
-                        ) : (
-                          <span className="text-sam-meta">{dash}</span>
-                        )}
+                        {(() => {
+                          const displayTarget =
+                            r.display_target ??
+                            (r.target_type === "comment" ? "comment" : "post");
+                          const titleText =
+                            displayTarget === "post"
+                              ? r.post_title?.trim() || tr("admin_posts_no_title")
+                              : r.target_content_preview?.trim() ||
+                                r.post_title?.trim() ||
+                                dash;
+                          const moderateHref =
+                            r.moderation_href ||
+                            (displayTarget === "post" && r.target_id
+                              ? `/admin/community/posts/${encodeURIComponent(r.target_id)}`
+                              : r.target_id
+                                ? `/admin/community/comments?commentId=${encodeURIComponent(r.target_id)}${
+                                    r.context_post_id
+                                      ? `&postId=${encodeURIComponent(r.context_post_id)}`
+                                      : ""
+                                  }`
+                                : "");
+                          return moderateHref ? (
+                            <>
+                              <Link
+                                href={moderateHref}
+                                className="text-sam-primary hover:text-sam-primary-hover hover:underline"
+                              >
+                                {titleText}
+                              </Link>
+                              {displayTarget !== "post" && r.post_title?.trim() ? (
+                                <p className="mt-0.5 truncate sam-text-xxs text-sam-muted">
+                                  {r.post_title.trim()}
+                                </p>
+                              ) : null}
+                            </>
+                          ) : (
+                            <span className="text-sam-meta">{titleText}</span>
+                          );
+                        })()}
                       </td>
                       <td className="truncate py-2 pr-2" style={managementColumnStyle("IDENTITY")}>
                         {r.reporter_id ? (

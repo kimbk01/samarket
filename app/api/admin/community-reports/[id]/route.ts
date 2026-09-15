@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getCommunityReportByIdForAdmin } from "@/lib/community-feed/admin-community-reports";
 import { applyCommunityPointReclaimFromReportTarget } from "@/lib/points/community-point-bridge";
@@ -33,12 +34,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
 }
 
-/** 관리자: 동네생활 피드 신고(community_reports) 상태·메모 */
+/** 관리자: 동네생활 피드 신고(community_reports) 상태·메모 — resolve ≠ hide. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const admin = await isRouteAdmin();
-  if (!admin) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
 
   const { id } = await ctx.params;
   const rid = id?.trim();
@@ -107,7 +106,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const meta = getAuditRequestMeta(req);
   void appendAuditLog(sb, {
     actor_type: "admin",
-    actor_id: null,
+    actor_id: admin.userId,
     target_type: "community_report",
     target_id: rid,
     action: `community_report.status_${status}`,
