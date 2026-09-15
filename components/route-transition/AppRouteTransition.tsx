@@ -24,6 +24,7 @@ import {
 } from "@/lib/notifications/notification-destination-enter-session";
 import { consumeMainShellPushAxisIntent, peekMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
+import { shouldUseMainShellHubFallbackEnter } from "@/components/route-transition/main-shell-hub-fallback-enter";
 import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 import { isTradeMarketHubPathname } from "@/lib/trade/tabs/trade-market-feed-href";
 import {
@@ -556,12 +557,17 @@ export function AppRouteTransition({
       }
 
       /**
-       * MAIN hub chrome (Header+Body ONE surface): dual-panel push 는 body 만 슬라이드해
-       * 헤더 없이 본문만 들어오는 2단계 체감을 만든다 — hub fallback enter 로 전체 surface 이동.
+       * Full push-surface fallback enter (Header+Body ONE surface, or cart/checkout
+       * child-scroll lock without hub chrome). DO NOT couple eligibility to
+       * `hubChromeHeader` alone — cart forward drops chrome but must keep
+       * RIGHT→LEFT via beginHubFallbackEnter (not dual-panel remount).
        */
       if (
         pushAxis &&
-        hubChromeHeader &&
+        shouldUseMainShellHubFallbackEnter({
+          hubChromeHeaderPresent: Boolean(hubChromeHeader),
+          mainShellChildScrollLocked,
+        }) &&
         !prefersReducedMotion() &&
         !pendingMenuIntent?.mainShellCrossGroupPush
       ) {
