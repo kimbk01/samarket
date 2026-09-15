@@ -9,7 +9,9 @@ export type DomainListMutationType =
   | "MESSAGE_RECEIVED"
   | "MESSAGE_SENT"
   | "METADATA_HYDRATE"
-  | "SERVER_FETCH_MERGE";
+  | "SERVER_FETCH_MERGE"
+  | "ARCHIVE_HIDE"
+  | "LEAVE_REMOVE";
 
 export type DomainListSurface = "hub_gd_group" | "trade" | "store_order";
 
@@ -40,6 +42,9 @@ export function allowedFieldsForListMutation(type: DomainListMutationType): Read
       return META_FIELDS;
     case "SERVER_FETCH_MERGE":
       return new Set([...MESSAGE_FIELDS, ...META_FIELDS, "unreadCount"]);
+    case "ARCHIVE_HIDE":
+    case "LEAVE_REMOVE":
+      return new Set(["rows"]);
     default:
       return new Set();
   }

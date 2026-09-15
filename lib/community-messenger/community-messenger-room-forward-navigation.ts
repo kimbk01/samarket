@@ -96,7 +96,19 @@ export async function runCommunityMessengerRoomForwardNavigation(
   abortPendingMainBottomNavRouteCommits();
   clearPendingMenuNavigationBridge();
   beginRoomDeepRouteNavigationLock(id, dest);
-  markRoomEntryIntent(id, room ? { title: room.title, avatarUrl: room.avatarUrl } : undefined);
+  markRoomEntryIntent(
+    id,
+    room
+      ? {
+          title: room.title,
+          avatarUrl: room.avatarUrl,
+          ...(room.chatDomain ? { expectedDomain: room.chatDomain } : null),
+          ...((room.domainIdentityKey ?? room.domainIdentity)?.trim()
+            ? { expectedIdentityKey: (room.domainIdentityKey ?? room.domainIdentity)!.trim() }
+            : null),
+        }
+      : undefined
+  );
   runMessengerViewTransition(() => {
     guardedClientNavigate(args.router.push.bind(args.router), dest, "room_forward");
   }, "room-forward");

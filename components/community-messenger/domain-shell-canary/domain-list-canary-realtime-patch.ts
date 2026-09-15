@@ -265,6 +265,34 @@ export function applyDomainStoreOrderListUnreadOnlyPatch(input: {
   return true;
 }
 
+/**
+ * Archive / leave — remove CM room from Domain trade list authority cache.
+ * Does not invent a second list authority; only mutates Domain canary cache.
+ */
+export function applyDomainTradeListRemoveRow(input: {
+  viewerUserId: string;
+  roomId: string;
+  reason: "archive" | "leave";
+}): boolean {
+  const cached = peekDomainTradeListCanaryCache(input.viewerUserId);
+  if (!cached) return false;
+  const idx = cached.rows.findIndex((r) => r.roomId === input.roomId);
+  if (idx === -1) return false;
+  const rows = cached.rows.filter((r) => r.roomId !== input.roomId);
+  const stabilized = stabilizeTradeListDto({ ...cached, rows });
+  primeDomainTradeListCanaryCache(stabilized.dto);
+  notifyDomainListCanaryPatch("trade");
+  logListAuthorityMutation({
+    surface: "trade",
+    roomId: input.roomId,
+    mutationType: input.reason === "archive" ? "ARCHIVE_HIDE" : "LEAVE_REMOVE",
+    changedFields: ["rows"],
+    listOrderChanged: true,
+    writerName: "applyDomainTradeListRemoveRow",
+  });
+  return true;
+}
+
 /** roomId만 알 때 MARK_READ — 두 캐시에 순서대로 시도. */
 export function applyDomainListCanaryReadPatchByRoomId(input: {
   viewerUserId: string;
