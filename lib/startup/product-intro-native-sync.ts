@@ -12,7 +12,16 @@ import {
 /** Stable generation identity for atomic Native materialization. */
 export function productIntroGenerationId(config: ProductIntroConfig): string {
   const url = config.media.mobileUrl ?? "";
-  return `${config.updatedAt}|${url}`;
+  return [
+    config.updatedAt,
+    url,
+    config.backgroundColor,
+    config.sizePreset,
+    config.animationIn,
+    config.animationOut,
+    config.startsAt ?? "",
+    config.endsAt ?? "",
+  ].join("|");
 }
 
 /** Compact payload Native needs to materialize the same Admin first-entry image. */
