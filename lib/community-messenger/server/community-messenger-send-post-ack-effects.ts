@@ -69,7 +69,8 @@ function invalidateOwnerHubBadgeForCommunityMessengerPeers(
 
 export async function runCommunityMessengerSendPostAckEffects(
   sb: SupabaseLike,
-  effects: CommunityMessengerSendPostAckEffects
+  effects: CommunityMessengerSendPostAckEffects,
+  t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
 ): Promise<void> {
   const roomId = effects.roomId.trim();
   const senderUserId = effects.senderUserId.trim();
@@ -77,12 +78,21 @@ export async function runCommunityMessengerSendPostAckEffects(
   const content = effects.content;
   const recipientUserIds = effects.recipientUserIds;
   if (effects.itemTradeLedgerId) {
+    const mirrorT0 = performance.now();
     await mirrorCommunityMessengerTextToItemTradeLedger(sb, {
       itemTradeChatRoomId: effects.itemTradeLedgerId,
       senderUserId,
       textContent: content,
       createdAt: effects.createdAt,
     }).catch(() => {});
+    if (t5) {
+      const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+      spanT5(t5, "S15_mirror_ms", mirrorT0);
+      markT5(t5, "S15");
+    }
+  } else if (t5) {
+    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    markT5(t5, "S15");
   }
   /**
    * Notify classification authority = stored `chat_domain`.
@@ -125,6 +135,7 @@ export async function runCommunityMessengerSendPostAckEffects(
   }
   let decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
   if (messageId) {
+    const notifyT0 = performance.now();
     const pipelineResult = await notifyMessagePipeline(sb, {
       roomId,
       messageId,
@@ -136,7 +147,15 @@ export async function runCommunityMessengerSendPostAckEffects(
       roomKind,
       mentionUserIds,
     }).catch(() => null);
+    if (t5) {
+      const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+      spanT5(t5, "S16_notify_ms", notifyT0);
+      markT5(t5, "S16");
+    }
     decisionSnapshotsByRecipientId = pipelineResult?.decisionSnapshotsByRecipientId ?? {};
+  } else if (t5) {
+    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    markT5(t5, "S16");
   }
   void import("@/lib/notifications/engine/adapters/legacy-message-created-adapter").then((mod) =>
     mod

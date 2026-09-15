@@ -157,12 +157,17 @@ export async function POST(
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const wall0 = performance.now();
+  const { createT5SendTrace, markT5, requestWantsT5Trace, t5TraceToHeader, t5TraceToJson, spanT5 } = await import(
+    "@/lib/community-messenger/monitoring/t5-send-stage-trace"
+  );
+  const t5 = requestWantsT5Trace(req) ? createT5SendTrace(req.headers.get("x-samarket-t5-cid") ?? undefined) : null;
   const sendServiceImport = import("@/lib/community-messenger/service");
   const [authGate, parsed, routeParams] = await Promise.all([
     ensureApiRouteAuthGate(),
     parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
     params,
   ]);
+  if (t5) markT5(t5, "S1");
   if (!authGate.ok) return authGate.response;
   const userId = authGate.userId;
   const rawRoomId = String(routeParams.roomId ?? "").trim();
@@ -179,6 +184,7 @@ export async function POST(
       ({ messengerRoomCanonicalOrJsonError }) => messengerRoomCanonicalOrJsonError(userId, rawRoomId)
     ),
   ]);
+  if (t5) markT5(t5, "S2");
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
   if (!canon.ok) return canon.response;
@@ -198,6 +204,7 @@ export async function POST(
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;
   const canonicalRoomId = canon.canonicalRoomId;
+  if (t5) t5.roomId = canonicalRoomId;
   const gateMs = Math.round(performance.now() - wall0);
   const t0 = performance.now();
   const content = String(body.content ?? "");
@@ -234,8 +241,8 @@ export async function POST(
       clientMessageId: clientMessageId || undefined,
       replyToMessageId: replyToMessageId || undefined,
       membershipPreflightDone: true,
+      _t5: t5 ?? undefined,
     });
-    // store short TTL response to dedupe rapid retries/double-clicks
     const tStore = Date.now();
     sendDedupe.set(key, { at: tStore, res: r as any });
     pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
@@ -244,6 +251,7 @@ export async function POST(
   const postAckEffects = result.ok ? result.postAckEffects : undefined;
   if (result.ok) {
     const msg = result.message as { id?: string; createdAt?: string } | undefined;
+    if (t5 && typeof msg?.id === "string") t5.messageId = msg.id;
     const bumpArgs = {
       rawRouteRoomId: canon.rawRouteRoomId,
       canonicalRoomId,
@@ -272,33 +280,55 @@ export async function POST(
       );
       const sb = resolveServiceSupabaseForApi();
       if (sb) {
+        if (t5) markT5(t5, "S9");
+        const bumpT0 = performance.now();
         await bumpMessengerRoomTargetsForRecipients(sb, {
           roomId: canonicalRoomId,
           fromUserId: userId,
         });
+        if (t5) {
+          spanT5(t5, "S10_target_bump_ms", bumpT0);
+          markT5(t5, "S10");
+        }
         if (postAckEffects) {
+          if (t5) markT5(t5, "S11");
           const { runCommunityMessengerSendPostAckEffects } = await import(
             "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
           );
-          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
+          const effectsT0 = performance.now();
+          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects, t5 ?? undefined);
+          if (t5) {
+            spanT5(t5, "S12_pre_ack_effects_ms", effectsT0);
+            markT5(t5, "S12");
+          }
+        } else if (t5) {
+          markT5(t5, "S11");
+          markT5(t5, "S12");
         }
       }
     } catch {
       /* best-effort — do not fail the send ACK */
     }
+    if (t5) markT5(t5, "S13");
     after(async () => {
       try {
+        if (t5) markT5(t5, "S14");
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"
         );
+        const bumpPubT0 = performance.now();
         await publishMessengerRoomBumpAfterMutation(bumpArgs);
+        if (t5) {
+          spanT5(t5, "S17_room_bump_ms", bumpPubT0);
+          markT5(t5, "S17");
+        }
       } catch {
         /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
       }
     });
   }
-  let responsePayload = result;
-  if (responsePayload.ok && (!responsePayload.message || !trimText((responsePayload.message as { id?: string })?.id)) && clientMessageId) {
+  let responsePayload: Record<string, unknown> = result as unknown as Record<string, unknown>;
+  if (result.ok && (!result.message || !trimText((result.message as { id?: string })?.id)) && clientMessageId) {
     const cm = await sendServiceImport;
     const reread = await cm.findCommunityMessengerMessageByClientId({
       userId,
@@ -311,6 +341,9 @@ export async function POST(
       responsePayload = { ok: false, error: "message_send_failed" };
     }
   }
+  if (t5 && responsePayload.ok) {
+    responsePayload = { ...responsePayload, t5: t5TraceToJson(t5) };
+  }
   const handlerMs = Math.round(performance.now() - t0);
   const routeMs = Math.round(performance.now() - wall0);
   recordMessengerApiTiming(
@@ -318,12 +351,16 @@ export async function POST(
     handlerMs,
     responsePayload.ok ? 200 : responsePayload.error === "blocked_target" ? 403 : 400
   );
-  const ackHeaders = {
+  const ackHeaders: Record<string, string> = {
     "x-samarket-send-route-ms": String(routeMs),
     "x-samarket-send-gate-ms": String(gateMs),
     "x-samarket-send-handler-ms": String(handlerMs),
     "x-samarket-membership-cache-hit": String(canon.membership_cache_hit),
   };
+  if (t5) {
+    ackHeaders["x-samarket-t5"] = t5TraceToHeader(t5);
+    ackHeaders["x-samarket-t5-cid"] = t5.correlationId;
+  }
   return responsePayload.ok
     ? jsonOk(responsePayload, { headers: ackHeaders })
     : responsePayload.error === "blocked_target"
@@ -332,10 +369,15 @@ export async function POST(
           { status: 403, headers: ackHeaders },
           { ...responsePayload, code: "blocked_target", error: "blocked_target" }
         )
-      : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", { status: 400, headers: ackHeaders }, {
-          ...responsePayload,
-        });
+      : jsonError(
+          typeof responsePayload.error === "string" && responsePayload.error
+            ? responsePayload.error
+            : "메시지 전송에 실패했습니다.",
+          { status: 400, headers: ackHeaders },
+          { ...responsePayload }
+        );
 }
+
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";

@@ -16022,7 +16022,8 @@ async function trySendCommunityMessengerTextAtomic(
   roomId: string,
   content: string,
   clientMessageId: string,
-  replyToMessageId?: string | null
+  replyToMessageId?: string | null,
+  t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace
 ): Promise<
   | {
       ok: true;
@@ -16038,6 +16039,10 @@ async function trySendCommunityMessengerTextAtomic(
    */
   const createdAt = nowIso();
   const replyRpc = trimText(replyToMessageId ?? "");
+  if (t5) {
+    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    markT5(t5, "S4");
+  }
   const { data: rpcRaw, error: rpcErr } = await sb.rpc("community_messenger_send_text_message", {
     p_room_id: roomId,
     p_sender_id: input.userId,
@@ -16046,6 +16051,14 @@ async function trySendCommunityMessengerTextAtomic(
     p_created_at: createdAt,
     p_reply_to_message_id: replyRpc.length > 0 ? replyRpc : null,
   });
+  if (t5) {
+    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    markT5(t5, "S5");
+    // Atomic RPC owns room tip + unread in one TX — no separate S6/S7 awaits.
+    markT5(t5, "S6");
+    markT5(t5, "S7");
+    t5.spans.rpc_includes_room_unread = 1;
+  }
   if (rpcErr) {
     if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
     return { ok: false, error: String(rpcErr.message ?? "message_send_failed") };
@@ -16151,6 +16164,8 @@ export async function sendCommunityMessengerMessage(input: {
    * 동일 RTT 내 `community_messenger_participants` 존재 조회를 한 번 줄인다.
    */
   membershipPreflightDone?: boolean;
+  /** Opt-in T5 stage trace (route header `x-samarket-t5-trace: 1`). */
+  _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
 }): Promise<{
   ok: boolean;
   message?: CommunityMessengerMessage;
@@ -16163,6 +16178,12 @@ export async function sendCommunityMessengerMessage(input: {
   const clientMessageId = trimText(input.clientMessageId ?? "");
   const replyToMessageIdOpt = trimText(input.replyToMessageId ?? "");
   const membershipPreflightDone = input.membershipPreflightDone === true;
+  const t5 = input._t5;
+  if (t5) {
+    t5.roomId = roomId;
+    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    markT5(t5, "S3");
+  }
   const sb = getSupabaseOrNull();
   if (sb) {
     const { assertActiveGroupMembershipIfGroup } = await import(
@@ -16194,10 +16215,16 @@ export async function sendCommunityMessengerMessage(input: {
       roomId,
       content,
       clientMessageId,
-      replyToMessageIdOpt || null
+      replyToMessageIdOpt || null,
+      t5
     );
     if (atomic !== null) {
       if (atomic.ok) {
+        if (t5) {
+          t5.messageId = atomic.message.id;
+          const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+          markT5(t5, "S8");
+        }
         return { ok: true, message: atomic.message, postAckEffects: atomic.postAckEffects };
       }
       return { ok: false, error: atomic.error };
@@ -16378,6 +16405,11 @@ export async function sendCommunityMessengerMessage(input: {
       });
       if (clientMessageId && !trimText(mapped.clientMessageId)) {
         mapped.clientMessageId = clientMessageId;
+      }
+      if (t5) {
+        t5.messageId = insertedMessageId;
+        const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+        markT5(t5, "S8");
       }
       return {
         ok: true,
