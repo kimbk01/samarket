@@ -140,7 +140,14 @@ function MarkAppShellReadyOnce({
 function MarkInitialDestinationVisualReadyOnce({ pathname }: { pathname: string | null }) {
   useEffect(() => {
     if (!pathname) return;
-    markInitialDestinationVisualReady();
+    if (typeof requestAnimationFrame !== "function") {
+      markInitialDestinationVisualReady();
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      markInitialDestinationVisualReady();
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname]);
   return null;
 }

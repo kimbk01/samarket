@@ -52,10 +52,13 @@ describe("startup metrics App Ready", () => {
 
   it("does not use shellReady as the native FE dismiss authority", () => {
     const src = readFileSync(resolve(process.cwd(), "lib/startup/startup-metrics.ts"), "utf8");
+    const shell = readFileSync(resolve(process.cwd(), "components/layout/ConditionalAppShell.tsx"), "utf8");
     const shellReadyBody = src.match(/export function markBootMetricsShellReady\(\): void \{[\s\S]*?\n\}/)?.[0] ?? "";
     expect(shellReadyBody).not.toContain("tryDismissNativeSplash");
     expect(src).toContain("export function markInitialDestinationVisualReady");
     expect(src).not.toMatch(/setTimeout\([^)]*initialDestinationVisualReady/);
+    expect(shell).toContain("requestAnimationFrame(() =>");
+    expect(shell).not.toMatch(/setTimeout\([^)]*markInitialDestinationVisualReady/);
   });
 
   it("keeps community initial loading as destination UI, not blank document background", () => {
