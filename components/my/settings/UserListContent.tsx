@@ -1,10 +1,12 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-type ListType = "favorite" | "hidden" | "blocked";
+type ListType = "favorite" | "hidden" | "blocked" | "neighbor";
 
 interface UserListContentProps {
   type: ListType;
@@ -116,9 +118,13 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
 
   return (
     <ul className="divide-y divide-sam-border-soft">
-      {items.map((item) => (
-        <li key={item.id} className="flex items-center justify-between py-3">
-          <div className="min-w-0 pr-3">
+      {items.map((item) => {
+        const profileHref =
+          item.username && item.username.trim()
+            ? `/u/${encodeURIComponent(item.username.trim())}`
+            : null;
+        const identity = (
+          <>
             <p className="truncate sam-text-body font-medium text-sam-fg">
               {item.nickname?.trim() || item.targetId}
             </p>
@@ -130,17 +136,45 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
             <p className="mt-1 sam-text-helper text-sam-muted">
               {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
             </p>
-          </div>
-          <button
-            type="button"
-            disabled={busyId === item.id}
-            className="sam-text-body-secondary text-red-600"
-            onClick={() => void handleDelete(item.id)}
-          >
-            {busyId === item.id ? t("settings_user_list_deleting") : t("common_delete")}
-          </button>
-        </li>
-      ))}
+          </>
+        );
+        return (
+          <li key={item.id} className="flex items-center justify-between gap-2 py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3 pr-2">
+              {item.avatarUrl ? (
+                <img
+                  src={item.avatarUrl}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full object-cover bg-sam-app"
+                />
+              ) : (
+                <div className="h-10 w-10 shrink-0 rounded-full bg-sam-app border border-sam-border" aria-hidden />
+              )}
+              <div className="min-w-0">
+                {profileHref ? (
+                  <Link href={profileHref} className="block hover:opacity-80">
+                    {identity}
+                  </Link>
+                ) : (
+                  identity
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={busyId === item.id}
+              className="shrink-0 sam-text-body-secondary text-red-600"
+              onClick={() => void handleDelete(item.id)}
+            >
+              {busyId === item.id
+                ? t("settings_user_list_deleting")
+                : type === "neighbor"
+                  ? t("community_neighbor_follow_remove")
+                  : t("common_delete")}
+            </button>
+          </li>
+        );
+      })}
     </ul>
   );
 }

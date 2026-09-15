@@ -16,14 +16,14 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type RelationType = "favorite" | "hidden" | "blocked";
+type RelationType = "favorite" | "hidden" | "blocked" | "neighbor";
 
 const LEGACY_RELATION_CONFIG: Record<"favorite", { table: string; column: string }> = {
   favorite: { table: "user_favorites", column: "favorite_user_id" },
 };
 
 function getRelationType(raw: string): RelationType | null {
-  if (raw === "favorite" || raw === "hidden" || raw === "blocked") return raw;
+  if (raw === "favorite" || raw === "hidden" || raw === "blocked" || raw === "neighbor") return raw;
   return null;
 }
 
@@ -152,6 +152,31 @@ export async function GET(
     return NextResponse.json({ ok: true, items, source: "user_relationships" });
   }
 
+  if (type === "neighbor") {
+    const { data, error } = await (sb.from("user_relationships") as any)
+      .select("id, target_user_id, created_at")
+      .eq("user_id", auth.userId)
+      .or("relation_type.eq.neighbor_follow,type.eq.neighbor_follow")
+      .order("created_at", { ascending: false });
+    if (error) {
+      if (isMissingTableError(error.message ?? "", "user_relationships")) {
+        return NextResponse.json({ ok: true, items: [], source: "missing_table" });
+      }
+      return NextResponse.json({ ok: false, error: error.message ?? "neighbor_fetch_failed" }, { status: 500 });
+    }
+    const relationRows = (Array.isArray(data) ? (data as Record<string, unknown>[]) : [])
+      .map((row) => ({
+        id: String(row.id ?? "").trim(),
+        targetId: String(row.target_user_id ?? "").trim(),
+        createdAt: String(row.created_at ?? ""),
+      }))
+      .filter((row) => row.id && row.targetId);
+    const targetIds = relationRows.map((row) => row.targetId);
+    const profileMap = await fetchProfileMap(sb, targetIds);
+    const items = mapProfilesToRelationItems(relationRows, profileMap);
+    return NextResponse.json({ ok: true, items, source: "user_relationships.neighbor_follow" });
+  }
+
   const { table, column } = LEGACY_RELATION_CONFIG.favorite;
   const { data, error } = await (sb.from(table) as any)
     .select(`id, ${column}, created_at`)
@@ -214,6 +239,33 @@ export async function DELETE(
     const result = await removeHiddenUserRelationshipById(auth.userId, relationId);
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "hidden_remove_failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (type === "neighbor") {
+    if (!relationId) {
+      return NextResponse.json({ ok: false, error: "missing_relation_id" }, { status: 400 });
+    }
+    const sbNeighbor = tryCreateSupabaseServiceClient();
+    if (!sbNeighbor) {
+      return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+    }
+    const { data: row } = await (sbNeighbor.from("user_relationships") as any)
+      .select("id, user_id, type, relation_type")
+      .eq("id", relationId)
+      .eq("user_id", auth.userId)
+      .maybeSingle();
+    const rel = row as { id?: string; type?: string; relation_type?: string } | null;
+    const isNeighbor =
+      rel &&
+      (String(rel.relation_type ?? "") === "neighbor_follow" || String(rel.type ?? "") === "neighbor_follow");
+    if (!isNeighbor) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    const { error } = await sbNeighbor.from("user_relationships").delete().eq("id", relationId).eq("user_id", auth.userId);
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message ?? "neighbor_remove_failed" }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

@@ -27,7 +27,7 @@ function ActivityTabs({
   onChange: (tab: CommunityActivityHubTabId) => void;
   labels: Record<CommunityActivityHubTabId, string>;
 }) {
-  const tabs: CommunityActivityHubTabId[] = ["comments", "reactions", "reports"];
+  const tabs: CommunityActivityHubTabId[] = ["comments", "reactions", "saved", "reports"];
   return (
     <div className="flex gap-2 px-4 pb-2" role="tablist">
       {tabs.map((tab) => {
@@ -54,7 +54,7 @@ function ActivityTabs({
 }
 
 function CommentRow({ row }: { row: CommunityActivityCommentItem }) {
-  const href = row.postId ? `/community/${row.postId}` : undefined;
+  const href = row.postId ? `/philife/${row.postId}` : undefined;
   const body = (
     <div className={`${Sam.card.base} flex min-h-[4.5rem] flex-col gap-1 px-4 py-3`}>
       {row.postTitle ? (
@@ -73,7 +73,7 @@ function CommentRow({ row }: { row: CommunityActivityCommentItem }) {
 }
 
 function ReactionRow({ row }: { row: CommunityActivityReactionItem }) {
-  const href = row.postId ? `/community/${row.postId}` : undefined;
+  const href = row.postId ? `/philife/${row.postId}` : undefined;
   const body = (
     <div className={`${Sam.card.base} flex min-h-[4.5rem] flex-col gap-1 px-4 py-3`}>
       <p className="line-clamp-2 text-sm font-medium text-sam-fg">{row.title || "—"}</p>
@@ -119,12 +119,13 @@ export function CommunityActivityHubView({
     () => ({
       comments: t("mypage_comp_activity_hub_tab_comments"),
       reactions: t("mypage_comp_activity_hub_tab_reactions"),
+      saved: t("mypage_comp_activity_hub_tab_saved"),
       reports: t("mypage_comp_activity_hub_tab_reports"),
     }),
     [t],
   );
 
-  const { comments, reactions, reports } = initialData;
+  const { comments, reactions, savedPosts, reports } = initialData;
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -149,6 +150,19 @@ export function CommunityActivityHubView({
           <ul className="flex flex-col gap-2 px-4">
             {reactions.map((row) => (
               <li key={`${row.id}-${row.createdAt}`}>
+                <ReactionRow row={row} />
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
+      {tab === "saved" ? (
+        (savedPosts?.length ?? 0) === 0 ? (
+          <EmptyBlock message={t("mypage_comp_activity_hub_saved_empty")} />
+        ) : (
+          <ul className="flex flex-col gap-2 px-4">
+            {(savedPosts ?? []).map((row) => (
+              <li key={`saved-${row.id}-${row.createdAt}`}>
                 <ReactionRow row={row} />
               </li>
             ))}

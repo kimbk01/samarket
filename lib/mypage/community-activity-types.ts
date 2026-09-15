@@ -30,9 +30,17 @@ export type CommunityActivityReportItem = {
 
 export type CommunityActivityHubData = {
   comments: CommunityActivityCommentItem[];
+  /** 공감한 글 — community_post_likes only */
+  likedPosts: CommunityActivityReactionItem[];
+  /** 저장한 글 — community_post_saves only */
+  savedPosts: CommunityActivityReactionItem[];
+  /**
+   * Compatibility alias for hub tab: likes only (never saves-or-likes).
+   * Prefer `likedPosts` for new consumers.
+   */
   reactions: CommunityActivityReactionItem[];
   reports: CommunityActivityReportItem[];
   source: "db" | "fallback";
 };
 
-export type CommunityActivityHubTabId = "comments" | "reactions" | "reports";
+export type CommunityActivityHubTabId = "comments" | "reactions" | "saved" | "reports";

@@ -77,6 +77,16 @@ export function CommunityTab({ section }: { section: string }) {
     );
   }
 
+  if (section === "liked") {
+    return (
+      <MyCommunityActivityPanel
+        title={safeT("mypage_comp_nav_sec_community_liked_label")}
+        description={t("mypage_comp_nav_sec_community_liked_desc")}
+        mode="liked"
+      />
+    );
+  }
+
   if (section === "users") {
     return (
       <SectionShell
@@ -84,7 +94,7 @@ export function CommunityTab({ section }: { section: string }) {
         description={t("mypage_comp_nav_sec_community_users_desc")}
       >
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <UserListContent type="favorite" emptyMessage={t("mypage_comp_community_users_empty")} />
+          <UserListContent type="neighbor" emptyMessage={t("mypage_comp_community_users_empty")} />
         </div>
       </SectionShell>
     );
@@ -199,14 +209,16 @@ function MyCommunityActivityPanel({
 }: {
   title: string;
   description: string;
-  mode: "comments" | "favorites" | "reports";
+  mode: "comments" | "favorites" | "liked" | "reports";
 }) {
   const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<CommunityCommentItem[]>([]);
-  const [favoritePosts, setFavoritePosts] = useState<CommunityFavoriteItem[]>([]);
+  const [likedPosts, setLikedPosts] = useState<CommunityFavoriteItem[]>([]);
+  const [savedPosts, setSavedPosts] = useState<CommunityFavoriteItem[]>([]);
   const [reports, setReports] = useState<CommunityReportItem[]>([]);
+  const [busyPostId, setBusyPostId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,6 +233,8 @@ function MyCommunityActivityPanel({
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           comments?: CommunityCommentItem[];
+          likedPosts?: CommunityFavoriteItem[];
+          savedPosts?: CommunityFavoriteItem[];
           favoritePosts?: CommunityFavoriteItem[];
           reports?: CommunityReportItem[];
           error?: string;
@@ -231,7 +245,13 @@ function MyCommunityActivityPanel({
           return;
         }
         setComments(Array.isArray(json.comments) ? json.comments : []);
-        setFavoritePosts(Array.isArray(json.favoritePosts) ? json.favoritePosts : []);
+        setLikedPosts(Array.isArray(json.likedPosts) ? json.likedPosts : []);
+        const saves = Array.isArray(json.savedPosts)
+          ? json.savedPosts
+          : Array.isArray(json.favoritePosts)
+            ? json.favoritePosts
+            : [];
+        setSavedPosts(saves);
         setReports(Array.isArray(json.reports) ? json.reports : []);
       } catch {
         if (!cancelled) setError(t("mypage_comp_community_activity_load_failed"));
@@ -242,7 +262,40 @@ function MyCommunityActivityPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
+
+  const unsavePost = async (postId: string) => {
+    setBusyPostId(postId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/community/posts/${encodeURIComponent(postId)}/save`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; saved?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unsave_failed"));
+        return;
+      }
+      if (json.saved === true) {
+        // Toggle flipped to saved — re-toggle to force unsave (should be rare)
+        const res2 = await fetch(`/api/community/posts/${encodeURIComponent(postId)}/save`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const json2 = (await res2.json().catch(() => ({}))) as { ok?: boolean; saved?: boolean };
+        if (!res2.ok || !json2.ok || json2.saved === true) {
+          setError(t("mypage_comp_community_unsave_failed"));
+          return;
+        }
+      }
+      setSavedPosts((prev) => prev.filter((row) => row.postId !== postId));
+    } catch {
+      setError(t("mypage_comp_community_unsave_failed"));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
 
   const content =
     mode === "comments" ? (
@@ -260,18 +313,42 @@ function MyCommunityActivityPanel({
           </Link>
         ))}
       />
-    ) : mode === "favorites" ? (
+    ) : mode === "liked" ? (
       <ActivityList
         loading={loading}
         error={error}
-        emptyMessage={t("mypage_comp_community_favorites_empty")}
-        items={favoritePosts.map((item) => (
+        emptyMessage={t("mypage_comp_community_liked_empty")}
+        items={likedPosts.map((item) => (
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
             <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
             <p className="mt-1 sam-text-helper text-sam-meta">
               {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
             </p>
           </Link>
+        ))}
+      />
+    ) : mode === "favorites" ? (
+      <ActivityList
+        loading={loading}
+        error={error}
+        emptyMessage={t("mypage_comp_community_favorites_empty")}
+        items={savedPosts.map((item) => (
+          <div key={item.id} className="flex items-center gap-2 px-4 py-3">
+            <Link href={`/philife/${encodeURIComponent(item.postId)}`} className="min-w-0 flex-1 hover:opacity-80">
+              <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
+              <p className="mt-1 sam-text-helper text-sam-meta">
+                {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
+              </p>
+            </Link>
+            <button
+              type="button"
+              disabled={busyPostId === item.postId}
+              className="shrink-0 sam-text-body-secondary text-red-600 disabled:opacity-50"
+              onClick={() => void unsavePost(item.postId)}
+            >
+              {busyPostId === item.postId ? t("mypage_comp_community_unsaving") : t("mypage_comp_community_unsave")}
+            </button>
+          </div>
         ))}
       />
     ) : (

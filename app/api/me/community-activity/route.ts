@@ -14,8 +14,12 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       comments: data.comments,
-      favoritePosts: data.reactions,
-      reactions: data.reactions,
+      likedPosts: data.likedPosts,
+      savedPosts: data.savedPosts,
+      /** Saves only — My 저장한 글 / legacy favoritePosts consumer */
+      favoritePosts: data.savedPosts,
+      /** Likes only — hub "공감한 글" / reactions consumer */
+      reactions: data.likedPosts,
       reports: data.reports,
       source: data.source,
     });

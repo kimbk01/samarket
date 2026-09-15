@@ -81,11 +81,13 @@ export function MyPageItemScreen(
     const communitySection =
       item === "favorite-posts"
         ? "favorites"
-        : item === "community-friends"
-          ? "users"
-          : item === "posts" || item === "comments" || item === "reports"
-            ? item
-            : "posts";
+        : item === "liked-posts"
+          ? "liked"
+          : item === "community-friends"
+            ? "users"
+            : item === "posts" || item === "comments" || item === "reports"
+              ? item
+              : "posts";
     return <CommunityTab section={communitySection} />;
   }
 

@@ -9,12 +9,35 @@ function isMissingTableError(message: string, table: string): boolean {
 
 const EMPTY: CommunityActivityHubData = {
   comments: [],
+  likedPosts: [],
+  savedPosts: [],
   reactions: [],
   reports: [],
   source: "fallback",
 };
 
-/** RSC · API 공통 — 사용자 커뮤니티 댓글·반응·신고 활동 */
+function mapPostEngagementRows(
+  rows: Record<string, unknown>[],
+  postMap: Map<string, Record<string, unknown>>,
+  deletedTitle: string
+) {
+  return rows.map((row) => {
+    const postId = String(row.post_id ?? "").trim();
+    const post = postMap.get(postId);
+    return {
+      id: postId,
+      postId,
+      title: typeof post?.title === "string" ? post.title : deletedTitle,
+      regionLabel:
+        typeof post?.region_label === "string"
+          ? formatCommunityPublicRegionLabel({ regionLabel: post.region_label })
+          : null,
+      createdAt: String(row.created_at ?? ""),
+    };
+  });
+}
+
+/** RSC · API 공통 — 사용자 커뮤니티 댓글·공감·저장·신고 활동 (likes/saves 분리) */
 export async function loadCommunityActivityHubServer(
   userId: string
 ): Promise<CommunityActivityHubData> {
@@ -111,6 +134,8 @@ export async function loadCommunityActivityHubServer(
   }
 
   const deletedTitle = "삭제되었거나 숨김 처리된 글";
+  const likedPosts = mapPostEngagementRows(likeRows, postMap, deletedTitle);
+  const savedPosts = mapPostEngagementRows(saveRows, postMap, deletedTitle);
 
   return {
     comments: commentRows.map((row) => {
@@ -128,20 +153,10 @@ export async function loadCommunityActivityHubServer(
         createdAt: String(row.created_at ?? ""),
       };
     }),
-    reactions: (saveRows.length > 0 ? saveRows : likeRows).map((row) => {
-      const postId = String(row.post_id ?? "").trim();
-      const post = postMap.get(postId);
-      return {
-        id: postId,
-        postId,
-        title: typeof post?.title === "string" ? post.title : deletedTitle,
-        regionLabel:
-          typeof post?.region_label === "string"
-            ? formatCommunityPublicRegionLabel({ regionLabel: post.region_label })
-            : null,
-        createdAt: String(row.created_at ?? ""),
-      };
-    }),
+    likedPosts,
+    savedPosts,
+    /** likes only — never saves-or-likes replacement */
+    reactions: likedPosts,
     reports: [
       ...reportRows.map((row) => {
         const targetType = String(row.target_type ?? "").trim() || "post";

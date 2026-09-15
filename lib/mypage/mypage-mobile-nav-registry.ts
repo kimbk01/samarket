@@ -100,6 +100,7 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     items: [
       navItem("community", "posts"),
       navItem("community", "comments"),
+      navItem("community", "liked-posts"),
       navItem("community", "favorite-posts"),
       navItem("community", "community-friends"),
       navItem("community", "reports"),
@@ -183,6 +184,8 @@ export function mapLegacyMyPageItemSlug(tab: string, section: string): string {
     "account:basic": "account-info",
     "community:favorites": "favorite-posts",
     "community:users": "community-friends",
+    "community:liked": "liked-posts",
+    "community:saved": "favorite-posts",
     "trade:chat": "trade-chat",
     "messenger:alerts": "chat-alerts",
     /** 예전 설정 탭(그룹) → 신규 항목 id */

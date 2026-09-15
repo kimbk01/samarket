@@ -8,7 +8,7 @@ import { loadCommunityActivityHubServer } from "@/lib/mypage/community-activity-
 import type { CommunityActivityHubTabId } from "@/lib/mypage/community-activity-types";
 
 function parseTab(raw: string | undefined): CommunityActivityHubTabId {
-  if (raw === "reactions" || raw === "reports") return raw;
+  if (raw === "reactions" || raw === "saved" || raw === "reports") return raw;
   return "comments";
 }
 
