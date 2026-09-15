@@ -236,6 +236,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
         roomId,
         recipientUserIds: [uid],
         senderUserId: fromUserId,
+        _t5: t5,
       });
       continue;
     }
@@ -248,6 +249,7 @@ export async function bumpMessengerRoomTargetsForRecipients(
       roomId,
       isOwnerOrderChat: false,
       storeId: null,
+      _t5: t5,
     });
   }
   if (t5 && spanT5) spanT5(t5, "TB_bump_writes_ms", writesT0);
@@ -293,16 +295,34 @@ export async function clearMessengerRoomNotificationTargetAfterRead(
 
 export async function bumpTradeTargetForMessengerRoomRecipients(
   sb: SupabaseClient<any>,
-  opts: { roomId: string; recipientUserIds: string[]; senderUserId?: string | null }
+  opts: {
+    roomId: string;
+    recipientUserIds: string[];
+    senderUserId?: string | null;
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
+  }
 ): Promise<void> {
   const roomId = opts.roomId.trim();
   if (!roomId || !opts.recipientUserIds.length) return;
 
+  let addSpanT5:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  if (opts._t5) {
+    addSpanT5 = (await import("@/lib/community-messenger/monitoring/t5-send-stage-trace")).addSpanT5;
+  }
+
+  const pcT0 = performance.now();
   const { data: pc } = await sb
     .from("product_chats")
     .select("post_id, seller_id, buyer_id")
     .eq("community_messenger_room_id", roomId)
     .maybeSingle();
+  if (opts._t5 && addSpanT5) addSpanT5(opts._t5, "TB_write_pc_select_ms", pcT0);
   if (!pc || typeof pc !== "object") return;
 
   const postId = typeof pc.post_id === "string" ? pc.post_id.trim() : "";
@@ -321,6 +341,7 @@ export async function bumpTradeTargetForMessengerRoomRecipients(
       scope: "consumer",
       actorUserId: opts.senderUserId ?? null,
       roomId,
+      _t5: opts._t5,
     });
   }
 }

@@ -70,20 +70,36 @@ export async function bumpNotificationTarget(
      * DO NOT pass invented domains — RPC never trusts client domain strings.
      */
     roomId?: string | null;
+    /** Opt-in T5 spans (`x-samarket-t5-trace`). */
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
   }
 ): Promise<void> {
   const uid = opts.userId.trim();
   const tid = opts.targetId.trim();
   if (!uid || !tid) return;
 
+  let addSpanT5:
+    | ((
+        trace: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace,
+        name: string,
+        startedAtWall: number
+      ) => number)
+    | null = null;
+  if (opts._t5) {
+    addSpanT5 = (await import("@/lib/community-messenger/monitoring/t5-send-stage-trace")).addSpanT5;
+  }
+
   const actor = opts.actorUserId?.trim() ?? "";
   if (actor && actor !== uid) {
+    const blockT0 = performance.now();
     const relation = await getBlockedRelation(uid, actor);
+    if (opts._t5 && addSpanT5) addSpanT5(opts._t5, "TB_write_actor_block_ms", blockT0);
     if (isNotificationSuppressedForActor(relation)) return;
   }
 
   const roomId = opts.roomId?.trim() || null;
 
+  const rpcT0 = performance.now();
   const { data, error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_RPC, {
     p_user_id: uid,
     p_target_type: opts.targetType,
@@ -93,6 +109,7 @@ export async function bumpNotificationTarget(
     p_meta: opts.meta ?? null,
     p_room_id: roomId,
   });
+  if (opts._t5 && addSpanT5) addSpanT5(opts._t5, "TB_write_upsert_rpc_ms", rpcT0);
 
   if (error && !isTargetRpcMissing(error)) {
     console.warn("[bumpNotificationTarget]", error.message);
@@ -212,6 +229,7 @@ export async function bumpChatRoomTargetFromMessengerParticipant(
     roomId: string;
     isOwnerOrderChat?: boolean;
     storeId?: string | null;
+    _t5?: import("@/lib/community-messenger/monitoring/t5-send-stage-trace").T5SendTrace;
   }
 ): Promise<void> {
   const roomId = opts.roomId.trim();
@@ -222,6 +240,7 @@ export async function bumpChatRoomTargetFromMessengerParticipant(
     scope: opts.isOwnerOrderChat ? "owner_store" : "consumer",
     storeId: opts.storeId,
     roomId,
+    _t5: opts._t5,
   });
 }
 

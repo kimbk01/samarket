@@ -94,18 +94,30 @@ export async function fetchBlockedAuthorIdsForViewerSb(
   return out;
 }
 
+/** Opt-in wall split for T5 block-gate isolation (query vs CPU merge). */
+export type FetchBlockedPairTiming = {
+  queryMs: number;
+  transformMs: number;
+};
+
 /** pairwise 차단 (SSOT 우선 + legacy fallback) */
 export async function fetchBlockedPairFromSb(
   sb: SupabaseClient<any> | null,
   userId: string,
-  targetUserId: string
+  targetUserId: string,
+  outTiming?: FetchBlockedPairTiming
 ): Promise<BlockedRelation> {
   const a = trimId(userId);
   const b = trimId(targetUserId);
   if (!sb || !a || !b || a === b) {
+    if (outTiming) {
+      outTiming.queryMs = 0;
+      outTiming.transformMs = 0;
+    }
     return { blockedByMe: false, blockedByPeer: false, blockedEitherWay: false };
   }
 
+  const queryT0 = performance.now();
   const [
     { data: socialRows },
     { data: relRows },
@@ -140,7 +152,9 @@ export async function fetchBlockedPairFromSb(
       .is("released_at", null)
       .maybeSingle(),
   ]);
+  if (outTiming) outTiming.queryMs = Math.round(performance.now() - queryT0);
 
+  const transformT0 = performance.now();
   let blockedByMe = false;
   let blockedByPeer = false;
 
@@ -159,6 +173,7 @@ export async function fetchBlockedPairFromSb(
     if (!blockedByMe) blockedByMe = Boolean(blockOut?.id);
     if (!blockedByPeer) blockedByPeer = Boolean(blockIn?.id);
   }
+  if (outTiming) outTiming.transformMs = Math.round(performance.now() - transformT0);
 
   return {
     blockedByMe,

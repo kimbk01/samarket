@@ -16212,6 +16212,7 @@ export async function sendCommunityMessengerMessage(input: {
       viewerUserId: input.userId,
       roomId,
       supabase: sb,
+      _t5: t5,
     });
     if (t5 && spanT5) spanT5(t5, "S3_block_gate_ms", blockT0);
     if (!blockGate.ok) {

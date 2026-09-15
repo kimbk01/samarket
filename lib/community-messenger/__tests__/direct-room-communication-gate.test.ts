@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/community-messenger/social-relations", () => ({
-  isBlockedEitherWayActive: vi.fn(async () => false),
+vi.mock("@/lib/social/user-block-ssot", () => ({
+  fetchBlockedPairFromSb: vi.fn(async () => ({
+    blockedByMe: false,
+    blockedByPeer: false,
+    blockedEitherWay: false,
+  })),
 }));
 
 vi.mock("@/lib/chat/supabase-server", () => ({
@@ -18,7 +22,7 @@ vi.mock("@/lib/chat/supabase-server", () => ({
   })),
 }));
 
-import { isBlockedEitherWayActive } from "@/lib/community-messenger/social-relations";
+import { fetchBlockedPairFromSb } from "@/lib/social/user-block-ssot";
 import {
   assertDirectRoomCommunicationNotBlocked,
   resolveDirectRoomPeerUserId,
@@ -26,8 +30,12 @@ import {
 
 describe("direct-room-communication-gate", () => {
   beforeEach(() => {
-    vi.mocked(isBlockedEitherWayActive).mockReset();
-    vi.mocked(isBlockedEitherWayActive).mockResolvedValue(false);
+    vi.mocked(fetchBlockedPairFromSb).mockReset();
+    vi.mocked(fetchBlockedPairFromSb).mockResolvedValue({
+      blockedByMe: false,
+      blockedByPeer: false,
+      blockedEitherWay: false,
+    });
   });
 
   it("resolveDirectRoomPeerUserId returns peer from direct_key", async () => {
@@ -36,7 +44,11 @@ describe("direct-room-communication-gate", () => {
   });
 
   it("denies when active block exists", async () => {
-    vi.mocked(isBlockedEitherWayActive).mockResolvedValue(true);
+    vi.mocked(fetchBlockedPairFromSb).mockResolvedValue({
+      blockedByMe: true,
+      blockedByPeer: false,
+      blockedEitherWay: true,
+    });
     const result = await assertDirectRoomCommunicationNotBlocked({
       viewerUserId: "peer-a",
       roomId: "room-1",
