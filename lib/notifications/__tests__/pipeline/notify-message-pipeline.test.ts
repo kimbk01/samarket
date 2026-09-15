@@ -159,7 +159,8 @@ describe("notify-message-pipeline", () => {
       expect.objectContaining({
         chatDomain: "general_direct",
         domainIdentityKey: "general_direct:user-a:user-b",
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
   });
 
@@ -181,7 +182,8 @@ describe("notify-message-pipeline", () => {
         messageId: "msg-g1",
         chatDomain: "group",
         domainIdentityKey: "group:room-g1",
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
   });
 
@@ -211,7 +213,8 @@ describe("notify-message-pipeline", () => {
       expect.objectContaining({
         pushSuppressedReason: "muted_room",
         soundSuppressedReason: "muted_room",
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
   });
 
@@ -234,7 +237,8 @@ describe("notify-message-pipeline", () => {
     });
     expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
-      expect.objectContaining({ unread: false, pushSuppressedReason: "same_room_foreground" })
+      expect.objectContaining({ unread: false, pushSuppressedReason: "same_room_foreground" }),
+      expect.objectContaining({ deferPush: false })
     );
     expect(markRoomRead).toHaveBeenCalledWith(sb, "user-b", "room-1");
   });
@@ -288,7 +292,8 @@ describe("notify-message-pipeline", () => {
           receiverRole: "owner",
           legacyMeta: { kind: "store_order_message", receiverRole: "owner" },
         }),
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
     expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       roleDb.client,
@@ -299,7 +304,8 @@ describe("notify-message-pipeline", () => {
           receiverRole: "user",
           legacyMeta: { kind: "store_order_message", receiverRole: "user" },
         }),
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
   });
 
@@ -323,7 +329,8 @@ describe("notify-message-pipeline", () => {
         displayPayload: expect.not.objectContaining({
           receiverRole: expect.any(String),
         }),
-      })
+      }),
+      expect.objectContaining({ deferPush: false })
     );
   });
 });

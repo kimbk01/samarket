@@ -133,6 +133,7 @@ export async function runCommunityMessengerSendDurablePreAckEffects(
   const content = effects.content;
   const recipientUserIds = effects.recipientUserIds;
   const { chatDomain, roomType, directKey } = await resolveRoomNotifyFields(sb, effects);
+  // Notify classification authority = stored `chat_domain`
   const roomKind = resolveNotificationMessageRoomKind({
     chatDomain,
     roomType,

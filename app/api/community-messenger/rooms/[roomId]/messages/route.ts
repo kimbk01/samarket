@@ -195,13 +195,18 @@ export async function POST(
   } catch {
     return jsonError("server_config", 503);
   }
+  /** S2→S3 opt-in substages (x-samarket-t5-trace). Do not change notify/after ordering. */
+  const profileT0 = performance.now();
   const profileGate = await requireProfileFieldsForAction(
     sbSend as import("@supabase/supabase-js").SupabaseClient,
     userId,
     "messenger_send_message"
   );
+  if (t5) spanT5(t5, "S2_profile_ms", profileT0);
   if (!profileGate.ok) return profileGate.response;
+  const timingModT0 = performance.now();
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
+  if (t5) spanT5(t5, "S2_timing_mod_ms", timingModT0);
   const body = parsed.value;
   const canonicalRoomId = canon.canonicalRoomId;
   if (t5) t5.roomId = canonicalRoomId;
@@ -233,7 +238,9 @@ export async function POST(
     return jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
   }
   const result = await runSingleFlight(key, async () => {
+    const serviceModT0 = performance.now();
     const cm = await sendServiceImport;
+    if (t5) spanT5(t5, "S2_service_mod_ms", serviceModT0);
     const r = await cm.sendCommunityMessengerMessage({
       userId,
       roomId: canonicalRoomId,

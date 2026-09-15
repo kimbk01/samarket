@@ -16181,7 +16181,9 @@ export async function sendCommunityMessengerMessage(input: {
   const t5 = input._t5;
   if (t5) {
     t5.roomId = roomId;
-    const { markT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    const t5ModT0 = performance.now();
+    const { markT5, spanT5 } = await import("@/lib/community-messenger/monitoring/t5-send-stage-trace");
+    spanT5(t5, "S2_t5_mod_ms", t5ModT0);
     markT5(t5, "S3");
   }
   const sb = getSupabaseOrNull();
