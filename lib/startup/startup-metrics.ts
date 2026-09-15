@@ -9,7 +9,8 @@ export { DIBAY_STARTUP_INTRO_DOM_ID };
  * Native Android may inject nativeStart/webviewReady/firstHtml via evaluateJavascript.
  *
  * Splash hide contract (Local First Startup):
- * dismiss on **shellReady** (ConditionalAppShell mounted) — NOT feed/RSC/apiDone.
+ * shellReady is only the ConditionalAppShell-mounted metric. Native First Entry dismisses on
+ * initialDestinationVisualReady, after the initial route has a nonblank browser presentation.
  * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary (intro must not cover Error UI).
@@ -26,6 +27,7 @@ export type DibayBootMetrics = {
   /** @deprecated alias kept for metrics readers — same as shellReady */
   homeVisible: number | null;
   shellReady: number | null;
+  initialDestinationVisualReady: number | null;
   apiDone: number | null;
   thumbnailVisible: number | null;
   thumbnailRequested: number | null;
@@ -90,6 +92,7 @@ function emptyMetrics(): DibayBootMetrics {
     reactMounted: null,
     homeVisible: null,
     shellReady: null,
+    initialDestinationVisualReady: null,
     apiDone: null,
     thumbnailVisible: null,
     thumbnailRequested: null,
@@ -140,6 +143,9 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
   if (partial.firstPaint != null && m.firstPaint == null) m.firstPaint = partial.firstPaint;
   if (partial.reactMounted != null && m.reactMounted == null) m.reactMounted = partial.reactMounted;
   if (partial.shellReady != null && m.shellReady == null) m.shellReady = partial.shellReady;
+  if (partial.initialDestinationVisualReady != null && m.initialDestinationVisualReady == null) {
+    m.initialDestinationVisualReady = partial.initialDestinationVisualReady;
+  }
   if (partial.homeVisible != null && m.homeVisible == null) m.homeVisible = partial.homeVisible;
   if (partial.apiDone != null && m.apiDone == null) m.apiDone = partial.apiDone;
   if (partial.thumbnailVisible != null && m.thumbnailVisible == null) {
@@ -319,6 +325,7 @@ export function markBootMetricsReactMounted(): void {
 }
 
 let shellReadyMarked = false;
+let initialDestinationVisualReadyMarked = false;
 const shellReadyWaiters: Array<() => void> = [];
 
 function flushShellReadyWaiters(): void {
@@ -333,8 +340,8 @@ function flushShellReadyWaiters(): void {
 }
 
 /**
- * Main App Shell mounted — splash hide (Local First Startup).
- * Feed/RSC/api 완료를 기다리지 않는다.
+ * Main App Shell mounted — metric/cache gate only.
+ * Does not dismiss Native First Entry; destination visual readiness owns that.
  */
 export function markBootMetricsShellReady(): void {
   if (shellReadyMarked) return;
@@ -342,8 +349,22 @@ export function markBootMetricsShellReady(): void {
   const t = nowMs();
   setMetric("shellReady", t);
   setMetric("homeVisible", t);
-  tryDismissNativeSplash("shellReady");
   flushShellReadyWaiters();
+}
+
+/**
+ * Initial destination has a legitimate nonblank browser frame ready to replace Native FE.
+ * This is not API completion, image completion, interactivity, or network idle.
+ */
+export function markInitialDestinationVisualReady(): void {
+  if (initialDestinationVisualReadyMarked) return;
+  initialDestinationVisualReadyMarked = true;
+  setMetric("initialDestinationVisualReady", nowMs());
+  tryDismissNativeSplash("initialDestinationVisualReady");
+}
+
+export function isInitialDestinationVisualReady(): boolean {
+  return initialDestinationVisualReadyMarked;
 }
 
 /** True after ConditionalAppShell (or auth splash fallback) marked ready. */

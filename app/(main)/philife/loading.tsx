@@ -1,7 +1,6 @@
-/**
- * `/philife` · `/` root tab — Next segment loader is null (Cold Boot: no skeleton).
- * Feed paints from persistent cache in CommunityFeed; no Suspense fallback here.
- */
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+
+/** `/philife` · `/` root tab — destination-owned skeleton, not a First Entry stage. */
 export default function PhilifeSegmentLoading() {
-  return null;
+  return <MainFeedRouteLoading rows={5} />;
 }

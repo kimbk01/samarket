@@ -1,11 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
-import { markBootMetricsShellReady } from "@/lib/startup/startup-metrics";
+import {
+  markBootMetricsShellReady,
+  markInitialDestinationVisualReady,
+} from "@/lib/startup/startup-metrics";
 import {
   BUNDLED_STARTUP_NAV,
   scheduleStartupShellCachePersist,
@@ -131,6 +134,14 @@ function MarkAppShellReadyOnce({
       route: { path, tabId: tab },
     });
   }, [pathname, routeSearch]);
+  return null;
+}
+
+function MarkInitialDestinationVisualReadyOnce({ pathname }: { pathname: string | null }) {
+  useEffect(() => {
+    if (!pathname) return;
+    markInitialDestinationVisualReady();
+  }, [pathname]);
   return null;
 }
 
@@ -386,6 +397,7 @@ export function ConditionalAppShell({
       >
         {mainBodyTransition}
       </main>
+      <MarkInitialDestinationVisualReadyOnce pathname={pathname} />
       {showBottomNavMounted ? (
         <BottomNav
           initialTabs={initialMainBottomNavItems}

@@ -46,6 +46,7 @@ import {
 } from "@/lib/community/community-hub-state";
 import { tryRestoreCommunityFeedScroll } from "@/lib/community/community-post-entry-nav";
 import { CommunityCard } from "./CommunityCard";
+import { CommunityFeedSkeleton } from "./CommunityFeedSkeleton";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import { FeedAdBannerCarousel } from "@/components/ads/FeedAdBannerCarousel";
 import {
@@ -1979,7 +1980,9 @@ export function CommunityFeed({
             </div>
           </div>
         ) : null}
-        {loading && postsForList.length === 0 && !err ? null : !err && postsForList.length === 0 ? (
+        {loading && postsForList.length === 0 && !err ? (
+          <CommunityFeedSkeleton rows={5} />
+        ) : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {tagFilter ? t("community_feed_hashtag_empty", { tag: tagFilter }) : t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
