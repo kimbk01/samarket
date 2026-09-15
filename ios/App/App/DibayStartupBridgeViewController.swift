@@ -512,21 +512,24 @@ enum DibayStartupConfigCache {
     }
   }
 
-  /// Cache Product Intro JSON + media for future iOS first-entry materialization (device close NOT_PROVEN).
+  /// Cache Product Intro JSON + media for next cold Native First Entry paint.
+  /// Promote media only after JSON is durable — never leave media.bin without product-intro.json.
   static func persistProductIntro(json: String) {
     DispatchQueue.global(qos: .utility).async {
       guard let data = json.data(using: .utf8),
             let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
       let dir = directory()
       try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-      let staging = dir.appendingPathComponent("product-intro.staging.json")
       let active = dir.appendingPathComponent("product-intro.json")
-      try? data.write(to: staging, options: .atomic)
-      let status = (obj["status"] as? String) ?? "inactive"
       let mediaActive = dir.appendingPathComponent("product-intro-media.bin")
+      let status = (obj["status"] as? String) ?? "inactive"
       if status != "active" || httpURL(obj["mediaUrl"] as? String) == nil {
-        try? FileManager.default.removeItem(at: active)
-        try? FileManager.default.moveItem(at: staging, to: active)
+        do {
+          try data.write(to: active, options: .atomic)
+        } catch {
+          NSLog("[DIBAY_Startup] pi_persist_clear_json_failed")
+          return
+        }
         try? FileManager.default.removeItem(at: mediaActive)
         NSLog("[DIBAY_Startup] pi_persist_cleared status=%@", status)
         return
@@ -537,10 +540,25 @@ enum DibayStartupConfigCache {
         NSLog("[DIBAY_Startup] pi_persist_media_incomplete")
         return
       }
-      try? FileManager.default.removeItem(at: active)
-      try? FileManager.default.moveItem(at: staging, to: active)
-      try? FileManager.default.removeItem(at: mediaActive)
-      try? FileManager.default.moveItem(at: mediaStaging, to: mediaActive)
+      // JSON first (eligibility gate), then media — reject orphan media.bin states.
+      do {
+        try data.write(to: active, options: .atomic)
+      } catch {
+        try? FileManager.default.removeItem(at: mediaStaging)
+        NSLog("[DIBAY_Startup] pi_persist_json_failed")
+        return
+      }
+      do {
+        if FileManager.default.fileExists(atPath: mediaActive.path) {
+          try FileManager.default.removeItem(at: mediaActive)
+        }
+        try FileManager.default.moveItem(at: mediaStaging, to: mediaActive)
+      } catch {
+        try? FileManager.default.removeItem(at: active)
+        try? FileManager.default.removeItem(at: mediaStaging)
+        NSLog("[DIBAY_Startup] pi_persist_media_promote_failed")
+        return
+      }
       NSLog("[DIBAY_Startup] pi_persist_ok")
     }
   }
