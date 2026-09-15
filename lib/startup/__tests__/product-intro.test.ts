@@ -60,8 +60,10 @@ describe("product-intro SSOT", () => {
     expect(zero.displayDurationMs).toBe(0);
     const low = normalizeProductIntroConfig({ displayDurationMs: -5 });
     expect(low.displayDurationMs).toBe(0);
+    // V2: architectural min display = 0 — Admin cannot raise post-ready wait.
     const high = normalizeProductIntroConfig({ displayDurationMs: 99999 });
-    expect(high.displayDurationMs).toBe(8000);
+    expect(high.displayDurationMs).toBe(0);
+    expect(normalizeProductIntroConfig({ objectFit: "cover" }).objectFit).toBe("contain");
   });
 });
 

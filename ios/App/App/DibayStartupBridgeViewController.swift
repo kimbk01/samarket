@@ -152,39 +152,31 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       return
     }
 
-    let productIntro = DibayStartupConfigCache.loadActiveProductIntro()
-    let productImage = DibayStartupConfigCache.loadProductIntroImage()
-    let usingProductIntro =
-      DibayStartupConfigCache.isProductIntroEligible(productIntro) && productImage != nil
+    let productIntro = DibayStartupConfigCache.loadActiveProductIntroGeneration()
+    let productImage = productIntro != nil ? DibayStartupConfigCache.loadProductIntroImage() : nil
+    let usingProductIntro = productIntro != nil && productImage != nil
 
     let overlay = UIView(frame: view.bounds)
     overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     overlay.isUserInteractionEnabled = true
 
+    let canvasBg = UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1) // #FFFCFC
     let content: UIView
     if usingProductIntro, let productImage = productImage, let productIntro = productIntro {
       let bg = DibayStartupConfigCache.color(
         from: (productIntro["backgroundColor"] as? String),
-        fallback: UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1)
+        fallback: canvasBg
       )
       overlay.backgroundColor = bg
       content = buildProductIntroContent(config: productIntro, image: productImage)
       activeConfig = productIntro
-      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff enter=none")
+      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff enter=none fit=contain")
     } else {
-      activeConfig = DibayStartupConfigCache.loadActive()
-      // Match LaunchScreen (logo-only on cream): suppress wordmark/spinner pop-in on handoff.
-      var muted = activeConfig
-      muted["showWordmark"] = false
-      muted["showSpinner"] = false
-      muted["captionEnabled"] = false
-      muted["ambientAnimation"] = "none"
-      activeConfig = muted
-      applyBackground(to: overlay, config: activeConfig)
-      content = buildContent(config: activeConfig)
-      startupInfo(
-        "intro_attach source=\(source) product_intro=false version=\(String(describing: activeConfig["version"] ?? 0)) continuity=os_native_handoff enter=none"
-      )
+      // V2 logo canvas — same bundled cream + centered logo (no Technical FE product).
+      overlay.backgroundColor = canvasBg
+      content = buildLogoCanvasContent()
+      activeConfig = ["backgroundColor": "#FFFCFC"]
+      startupInfo("intro_attach source=\(source) product_intro=false continuity=os_native_handoff enter=none fit=contain")
     }
 
     content.translatesAutoresizingMaskIntoConstraints = false
@@ -200,7 +192,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introContent = content
     introLifecycle = .attached
     usingProductIntroCover = usingProductIntro
-    // CUT 1: LaunchScreen → Native continuation = ONE continuous surface (no enter re-fade).
+    // LaunchScreen → Native = ONE continuous canvas (no enter re-fade).
     if !usingProductIntro {
       holdTechnicalHandoffAtRest(on: content)
     }
@@ -210,7 +202,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     let wrap = UIView()
     wrap.backgroundColor = .clear
     let iv = UIImageView(image: image)
-    iv.contentMode = .scaleAspectFill
+    // V2: CONTAIN — COVER / scaleAspectFill permanently rejected.
+    iv.contentMode = .scaleAspectFit
     iv.clipsToBounds = true
     iv.translatesAutoresizingMaskIntoConstraints = false
     wrap.addSubview(iv)
@@ -219,6 +212,27 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       iv.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
       iv.topAnchor.constraint(equalTo: wrap.topAnchor),
       iv.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
+    ])
+    return wrap
+  }
+
+  private func buildLogoCanvasContent() -> UIView {
+    let wrap = UIView()
+    wrap.backgroundColor = .clear
+    let iv = UIImageView()
+    if let logo = DibayStartupConfigCache.loadLogoImage() {
+      iv.image = logo
+    } else if let bundled = UIImage(named: "Splash") ?? UIImage(named: "AppIcon") {
+      iv.image = bundled
+    }
+    iv.contentMode = .scaleAspectFit
+    iv.translatesAutoresizingMaskIntoConstraints = false
+    wrap.addSubview(iv)
+    NSLayoutConstraint.activate([
+      iv.centerXAnchor.constraint(equalTo: wrap.centerXAnchor),
+      iv.centerYAnchor.constraint(equalTo: wrap.centerYAnchor),
+      iv.widthAnchor.constraint(equalToConstant: 96),
+      iv.heightAnchor.constraint(equalToConstant: 96),
     ])
     return wrap
   }
@@ -324,8 +338,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       let iv = UIImageView(image: img)
       iv.frame = UIScreen.main.bounds
       iv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-      let fit = (config["backgroundImageFit"] as? String) ?? "cover"
-      iv.contentMode = fit == "contain" ? .scaleAspectFit : .scaleAspectFill
+      // Technical boot bg — CONTAIN (COVER/scaleAspectFill rejected for all startup surfaces).
+      iv.contentMode = .scaleAspectFit
       view.addSubview(iv)
       view.sendSubviewToBack(iv)
       view.backgroundColor = solid
@@ -512,25 +526,48 @@ enum DibayStartupConfigCache {
     }
   }
 
-  /// Cache Product Intro JSON + media for next cold Native First Entry paint.
-  /// Promote media only after JSON is durable — never leave media.bin without product-intro.json.
+  /// Persist Admin Product Intro as one ACTIVE generation for next cold.
+  /// Never blocks App Ready. Incomplete download keeps prior generation.
+  /// Forbidden: orphan media, JSON-only, mixed generations.
   static func persistProductIntro(json: String) {
     DispatchQueue.global(qos: .utility).async {
-      guard let data = json.data(using: .utf8),
-            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+      guard var data = json.data(using: .utf8),
+            var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
       let dir = directory()
       try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
       let active = dir.appendingPathComponent("product-intro.json")
       let mediaActive = dir.appendingPathComponent("product-intro-media.bin")
+      let genActive = dir.appendingPathComponent("product-intro.generation")
       let status = (obj["status"] as? String) ?? "inactive"
+      var generationId = (obj["generationId"] as? String) ?? ""
+      if generationId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let updated = (obj["updatedAt"] as? String) ?? ""
+        let media = (obj["mediaUrl"] as? String) ?? ""
+        generationId = "\(updated)|\(media)"
+        obj["generationId"] = generationId
+        data = (try? JSONSerialization.data(withJSONObject: obj)) ?? data
+      }
+
+      if let existing = try? Data(contentsOf: genActive),
+         let prev = try? JSONSerialization.jsonObject(with: existing) as? [String: Any],
+         (prev["generationId"] as? String) == generationId,
+         status == "active",
+         httpURL(obj["mediaUrl"] as? String) != nil,
+         FileManager.default.fileExists(atPath: mediaActive.path),
+         FileManager.default.fileExists(atPath: active.path) {
+        NSLog("[DIBAY_Startup] pi_persist_skip identity_unchanged")
+        return
+      }
+
       if status != "active" || httpURL(obj["mediaUrl"] as? String) == nil {
+        try? FileManager.default.removeItem(at: genActive)
+        try? FileManager.default.removeItem(at: mediaActive)
         do {
           try data.write(to: active, options: .atomic)
         } catch {
           NSLog("[DIBAY_Startup] pi_persist_clear_json_failed")
           return
         }
-        try? FileManager.default.removeItem(at: mediaActive)
         NSLog("[DIBAY_Startup] pi_persist_cleared status=%@", status)
         return
       }
@@ -540,26 +577,50 @@ enum DibayStartupConfigCache {
         NSLog("[DIBAY_Startup] pi_persist_media_incomplete")
         return
       }
-      // JSON first (eligibility gate), then media — reject orphan media.bin states.
-      do {
-        try data.write(to: active, options: .atomic)
-      } catch {
+      guard let mediaData = try? Data(contentsOf: mediaStaging),
+            UIImage(data: mediaData) != nil else {
         try? FileManager.default.removeItem(at: mediaStaging)
-        NSLog("[DIBAY_Startup] pi_persist_json_failed")
+        NSLog("[DIBAY_Startup] pi_persist_media_undecodable")
         return
       }
+
+      obj["objectFit"] = "contain"
+      guard let configData = try? JSONSerialization.data(withJSONObject: obj) else {
+        try? FileManager.default.removeItem(at: mediaStaging)
+        return
+      }
+      let genObj: [String: Any] = [
+        "generationId": generationId,
+        "mediaUrl": mediaUrl.absoluteString,
+        "mediaBytes": mediaData.count,
+        "committedAt": Date().timeIntervalSince1970,
+      ]
+      guard let genData = try? JSONSerialization.data(withJSONObject: genObj) else {
+        try? FileManager.default.removeItem(at: mediaStaging)
+        return
+      }
+      let configStaging = dir.appendingPathComponent("product-intro.staging.json")
+      let genStaging = dir.appendingPathComponent("product-intro.generation.staging")
       do {
+        try configData.write(to: configStaging, options: .atomic)
+        try genData.write(to: genStaging, options: .atomic)
+        // Commit: media → config → generation marker.
         if FileManager.default.fileExists(atPath: mediaActive.path) {
           try FileManager.default.removeItem(at: mediaActive)
         }
         try FileManager.default.moveItem(at: mediaStaging, to: mediaActive)
+        try configData.write(to: active, options: .atomic)
+        try genData.write(to: genActive, options: .atomic)
+        try? FileManager.default.removeItem(at: configStaging)
+        try? FileManager.default.removeItem(at: genStaging)
       } catch {
-        try? FileManager.default.removeItem(at: active)
         try? FileManager.default.removeItem(at: mediaStaging)
-        NSLog("[DIBAY_Startup] pi_persist_media_promote_failed")
+        try? FileManager.default.removeItem(at: configStaging)
+        try? FileManager.default.removeItem(at: genStaging)
+        NSLog("[DIBAY_Startup] pi_persist_commit_failed")
         return
       }
-      NSLog("[DIBAY_Startup] pi_persist_ok")
+      NSLog("[DIBAY_Startup] pi_persist_ok generation=%@", generationId)
     }
   }
 
@@ -575,11 +636,56 @@ enum DibayStartupConfigCache {
     return UIImage(data: data)
   }
 
+  /// Cold FE reads only a complete ACTIVE generation.
+  /// One-time repair: pre-V2 json+media without marker → write generation if eligible.
+  static func loadActiveProductIntroGeneration() -> [String: Any]? {
+    let dir = directory()
+    let genUrl = dir.appendingPathComponent("product-intro.generation")
+    let cfgUrl = dir.appendingPathComponent("product-intro.json")
+    let mediaUrl = dir.appendingPathComponent("product-intro-media.bin")
+    guard FileManager.default.fileExists(atPath: cfgUrl.path),
+          FileManager.default.fileExists(atPath: mediaUrl.path) else {
+      return nil
+    }
+    guard let cfgData = try? Data(contentsOf: cfgUrl),
+          var pi = try? JSONSerialization.jsonObject(with: cfgData) as? [String: Any],
+          isProductIntroEligible(pi) else {
+      return nil
+    }
+    var piId = (pi["generationId"] as? String) ?? ""
+    if piId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      let updated = (pi["updatedAt"] as? String) ?? ""
+      let media = (pi["mediaUrl"] as? String) ?? ""
+      piId = "\(updated)|\(media)"
+      pi["generationId"] = piId
+    }
+    if !FileManager.default.fileExists(atPath: genUrl.path) {
+      let mediaBytes = (try? FileManager.default.attributesOfItem(atPath: mediaUrl.path)[.size] as? NSNumber)?.intValue ?? 0
+      let genObj: [String: Any] = [
+        "generationId": piId,
+        "mediaUrl": (pi["mediaUrl"] as? String) ?? "",
+        "mediaBytes": mediaBytes,
+        "committedAt": Date().timeIntervalSince1970,
+        "repaired": true,
+      ]
+      if let genData = try? JSONSerialization.data(withJSONObject: genObj),
+         let piData = try? JSONSerialization.data(withJSONObject: pi) {
+        try? genData.write(to: genUrl, options: .atomic)
+        try? piData.write(to: cfgUrl, options: .atomic)
+      }
+      return pi
+    }
+    guard let genData = try? Data(contentsOf: genUrl),
+          let gen = try? JSONSerialization.jsonObject(with: genData) as? [String: Any] else {
+      return nil
+    }
+    let genId = (gen["generationId"] as? String) ?? ""
+    guard !genId.isEmpty, genId == piId else { return nil }
+    return pi
+  }
+
   static func loadActiveProductIntro() -> [String: Any]? {
-    let url = directory().appendingPathComponent("product-intro.json")
-    guard let data = try? Data(contentsOf: url),
-          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-    return obj
+    loadActiveProductIntroGeneration()
   }
 
   static func loadProductIntroImage() -> UIImage? {

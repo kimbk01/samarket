@@ -52,6 +52,11 @@ public final class DibayStartupIntroSurface {
   private static final String PI_CONFIG_STAGING = "product-intro.staging.json";
   private static final String PI_MEDIA_ACTIVE = "product-intro-media.bin";
   private static final String PI_MEDIA_STAGING = "product-intro-media.staging.bin";
+  /** Commit marker — cold FE reads only when this exists with matching generationId. */
+  private static final String PI_GENERATION_ACTIVE = "product-intro.generation";
+  private static final String PI_GENERATION_STAGING = "product-intro.generation.staging";
+  /** Bundled launch canvas + Admin FE default background. */
+  private static final int CANVAS_BG = 0xFFFFFCFC;
 
   private final Activity activity;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -76,9 +81,9 @@ public final class DibayStartupIntroSurface {
     if (contentParent == null) return;
 
     activeConfig = readActiveConfig(activity);
-    JSONObject productIntro = readActiveProductIntro(activity);
-    Bitmap productBmp = loadLocalProductIntroMedia();
-    usingProductIntro = isProductIntroEligible(productIntro) && productBmp != null;
+    JSONObject productIntro = readActiveProductIntroGeneration(activity);
+    Bitmap productBmp = productIntro != null ? loadLocalProductIntroMedia() : null;
+    usingProductIntro = productIntro != null && productBmp != null;
 
     root = new FrameLayout(activity);
     root.setLayoutParams(
@@ -88,26 +93,17 @@ public final class DibayStartupIntroSurface {
     root.setFocusable(true);
 
     if (usingProductIntro) {
-      String bg =
-          productIntro.optString("backgroundColor", activeConfig.optString("backgroundColor", "#FFFCFC"));
-      root.setBackgroundColor(parseColor(bg, 0xFFFFFCFC));
+      String bg = productIntro.optString("backgroundColor", "#FFFCFC");
+      root.setBackgroundColor(parseColor(bg, CANVAS_BG));
       content = buildProductIntroContent(productIntro, productBmp);
       root.addView(
           content,
           new FrameLayout.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     } else {
-      // Match OS SplashScreen (icon-only on cream): no wordmark/spinner pop-in on handoff.
-      try {
-        activeConfig.put("showWordmark", false);
-        activeConfig.put("showSpinner", false);
-        activeConfig.put("captionEnabled", false);
-        activeConfig.put("ambientAnimation", "none");
-      } catch (Exception ignored) {
-        /* ignore */
-      }
-      applyBackground(root, activeConfig);
-      content = buildContent(activeConfig);
+      // V2 logo canvas: same bundled cream + centered logo (no Technical FE product).
+      root.setBackgroundColor(CANVAS_BG);
+      content = buildLogoCanvasContent();
       root.addView(
           content,
           new FrameLayout.LayoutParams(
@@ -115,7 +111,7 @@ public final class DibayStartupIntroSurface {
     }
     contentParent.addView(root);
     attached = true;
-    // CUT 1: OS Splash → Native continuation must be ONE continuous surface.
+    // OS Splash → Native continuation = ONE continuous canvas (no enter anim).
     holdTechnicalHandoffAtRest();
     Log.i(
         TAG,
@@ -123,7 +119,7 @@ public final class DibayStartupIntroSurface {
             + activeConfig.optInt("version", 0)
             + " product_intro="
             + usingProductIntro
-            + " continuity=os_native_handoff enter=none");
+            + " continuity=os_native_handoff enter=none fit=contain");
   }
 
   public boolean isAttached() {
@@ -191,8 +187,9 @@ public final class DibayStartupIntroSurface {
   }
 
   /**
-   * Persist Admin Product Intro JSON + media for next cold first-entry visual.
-   * Never blocks App Ready / current paint. Fail-open: incomplete download keeps prior LKG.
+   * Persist Admin Product Intro as one ACTIVE generation for next cold.
+   * Never blocks App Ready. Incomplete download keeps prior generation.
+   * Forbidden: orphan media, JSON-only, mixed generations.
    */
   public void persistProductIntroFromBridgeJson(String json) {
     if (json == null || json.trim().isEmpty()) return;
@@ -207,22 +204,68 @@ public final class DibayStartupIntroSurface {
             }
             String status = next.optString("status", "inactive");
             String mediaUrl = optHttpUrl(next.optString("mediaUrl", null));
+            String generationId = next.optString("generationId", "");
+            if (generationId == null || generationId.trim().isEmpty()) {
+              generationId =
+                  next.optString("updatedAt", "") + "|" + next.optString("mediaUrl", "");
+              next.put("generationId", generationId);
+            }
+
+            File genActive = new File(dir, PI_GENERATION_ACTIVE);
+            if (genActive.exists()) {
+              try {
+                String prev = readTextLimited(genActive, 4096);
+                JSONObject prevGen = new JSONObject(prev);
+                if (generationId.equals(prevGen.optString("generationId", ""))
+                    && "active".equals(status)
+                    && mediaUrl != null
+                    && new File(dir, PI_MEDIA_ACTIVE).exists()
+                    && new File(dir, PI_CONFIG_ACTIVE).exists()) {
+                  Log.i(TAG, "pi_persist_skip identity_unchanged");
+                  return;
+                }
+              } catch (Exception ignored) {
+                /* continue materialize */
+              }
+            }
+
             if (!"active".equals(status) || mediaUrl == null) {
+              clearActiveProductIntroGeneration(dir);
               writeText(new File(dir, PI_CONFIG_STAGING), next.toString());
               swapFile(new File(dir, PI_CONFIG_STAGING), new File(dir, PI_CONFIG_ACTIVE));
-              new File(dir, PI_MEDIA_ACTIVE).delete();
               Log.i(TAG, "pi_persist_cleared status=" + status);
               return;
             }
-            writeText(new File(dir, PI_CONFIG_STAGING), next.toString());
-            boolean mediaOk = downloadTo(mediaUrl, new File(dir, PI_MEDIA_STAGING));
+
+            File mediaStaging = new File(dir, PI_MEDIA_STAGING);
+            boolean mediaOk = downloadTo(mediaUrl, mediaStaging);
             if (!mediaOk) {
               Log.w(TAG, "pi_persist_media_incomplete");
               return;
             }
+            Bitmap probe =
+                BitmapFactory.decodeStream(new FileInputStream(mediaStaging));
+            if (probe == null || probe.getWidth() <= 0 || probe.getHeight() <= 0) {
+              mediaStaging.delete();
+              Log.w(TAG, "pi_persist_media_undecodable");
+              return;
+            }
+            probe.recycle();
+
+            next.put("objectFit", "contain");
+            writeText(new File(dir, PI_CONFIG_STAGING), next.toString());
+            JSONObject gen = new JSONObject();
+            gen.put("generationId", generationId);
+            gen.put("mediaUrl", mediaUrl);
+            gen.put("mediaBytes", mediaStaging.length());
+            gen.put("committedAt", System.currentTimeMillis());
+            writeText(new File(dir, PI_GENERATION_STAGING), gen.toString());
+
+            // Commit order: media → config → generation marker (ACTIVE only when complete).
+            swapFile(mediaStaging, new File(dir, PI_MEDIA_ACTIVE));
             swapFile(new File(dir, PI_CONFIG_STAGING), new File(dir, PI_CONFIG_ACTIVE));
-            swapFile(new File(dir, PI_MEDIA_STAGING), new File(dir, PI_MEDIA_ACTIVE));
-            Log.i(TAG, "pi_persist_ok");
+            swapFile(new File(dir, PI_GENERATION_STAGING), genActive);
+            Log.i(TAG, "pi_persist_ok generation=" + generationId);
           } catch (Exception e) {
             Log.w(TAG, "pi_persist_failed: " + e.getMessage());
           }
@@ -230,20 +273,48 @@ public final class DibayStartupIntroSurface {
   }
 
   /**
-   * Full-surface responsive Admin First Entry — no card chrome, shadow, radius, or % width cap.
-   * Default fit: COVER (4:5 asset fills viewport; creative safe-zone contract).
+   * V2 Admin First Entry — full-device canvas + CONTAIN creative. No crop/card/shadow/radius.
    */
   private View buildProductIntroContent(JSONObject pi, Bitmap bmp) {
     FrameLayout wrap = new FrameLayout(activity);
     ImageView image = new ImageView(activity);
     image.setImageBitmap(bmp);
-    // Operational FE default: COVER only (legacy contain configs coerced).
-    image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    image.setAdjustViewBounds(true);
     FrameLayout.LayoutParams imgLp =
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
     imgLp.gravity = Gravity.CENTER;
     wrap.addView(image, imgLp);
+    return wrap;
+  }
+
+  /** Same-canvas logo placeholder when no ACTIVE Admin generation (fail-open). */
+  private View buildLogoCanvasContent() {
+    FrameLayout wrap = new FrameLayout(activity);
+    ImageView logo = new ImageView(activity);
+    Bitmap bmp = loadLocalLogo();
+    if (bmp != null) {
+      logo.setImageBitmap(bmp);
+    } else {
+      try {
+        logo.setImageResource(R.drawable.ic_dibay_splash_logo);
+      } catch (Exception e) {
+        try {
+          logo.setImageResource(activity.getApplicationInfo().icon);
+        } catch (Exception ignored) {
+          /* empty canvas still OK */
+        }
+      }
+    }
+    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    int size =
+        (int)
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 96f, activity.getResources().getDisplayMetrics());
+    FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(size, size);
+    lp.gravity = Gravity.CENTER;
+    wrap.addView(logo, lp);
     return wrap;
   }
 
@@ -289,16 +360,71 @@ public final class DibayStartupIntroSurface {
     }
   }
 
+  /**
+   * Cold FE reads only a complete ACTIVE generation (config + media + generation marker).
+   * Orphan / partial states → null (logo canvas fail-open).
+   * One-time repair: pre-V2 json+media without marker → write generation if eligible.
+   */
+  private static JSONObject readActiveProductIntroGeneration(Context ctx) {
+    File dir = dir(ctx);
+    File genFile = new File(dir, PI_GENERATION_ACTIVE);
+    File cfgFile = new File(dir, PI_CONFIG_ACTIVE);
+    File mediaFile = new File(dir, PI_MEDIA_ACTIVE);
+    if (!cfgFile.exists() || !mediaFile.exists() || mediaFile.length() <= 0) {
+      return null;
+    }
+    try {
+      JSONObject pi = new JSONObject(readTextLimited(cfgFile, 256_000));
+      if (!isProductIntroEligible(pi)) return null;
+      String piId = pi.optString("generationId", "");
+      if (piId == null || piId.trim().isEmpty()) {
+        piId = pi.optString("updatedAt", "") + "|" + pi.optString("mediaUrl", "");
+        pi.put("generationId", piId);
+      }
+      if (!genFile.exists()) {
+        JSONObject gen = new JSONObject();
+        gen.put("generationId", piId);
+        gen.put("mediaUrl", pi.optString("mediaUrl", ""));
+        gen.put("mediaBytes", mediaFile.length());
+        gen.put("committedAt", System.currentTimeMillis());
+        gen.put("repaired", true);
+        writeText(genFile, gen.toString());
+        writeText(cfgFile, pi.toString());
+      } else {
+        JSONObject gen = new JSONObject(readTextLimited(genFile, 8192));
+        String genId = gen.optString("generationId", "");
+        if (genId.isEmpty() || !genId.equals(piId)) {
+          return null;
+        }
+      }
+      return pi;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  private static void clearActiveProductIntroGeneration(File dir) {
+    new File(dir, PI_GENERATION_ACTIVE).delete();
+    new File(dir, PI_MEDIA_ACTIVE).delete();
+    new File(dir, PI_CONFIG_STAGING).delete();
+    new File(dir, PI_MEDIA_STAGING).delete();
+    new File(dir, PI_GENERATION_STAGING).delete();
+  }
+
+  private static String readTextLimited(File f, int maxBytes) throws Exception {
+    byte[] buf = new byte[(int) Math.min(f.length(), maxBytes)];
+    try (FileInputStream in = new FileInputStream(f)) {
+      int n = in.read(buf);
+      if (n <= 0) return "";
+      return new String(buf, 0, n, StandardCharsets.UTF_8);
+    }
+  }
+
   private static JSONObject readActiveProductIntro(Context ctx) {
     File f = new File(dir(ctx), PI_CONFIG_ACTIVE);
     if (!f.exists()) return new JSONObject();
     try {
-      byte[] buf = new byte[(int) Math.min(f.length(), 256_000)];
-      try (FileInputStream in = new FileInputStream(f)) {
-        int n = in.read(buf);
-        if (n <= 0) return new JSONObject();
-        return new JSONObject(new String(buf, 0, n, StandardCharsets.UTF_8));
-      }
+      return new JSONObject(readTextLimited(f, 256_000));
     } catch (Exception e) {
       return new JSONObject();
     }
@@ -468,11 +594,8 @@ public final class DibayStartupIntroSurface {
       if (bg != null) {
         ImageView iv = new ImageView(activity);
         iv.setImageBitmap(bg);
-        String fit = cfg.optString("backgroundImageFit", "cover");
-        iv.setScaleType(
-            "contain".equals(fit)
-                ? ImageView.ScaleType.FIT_CENTER
-                : ImageView.ScaleType.CENTER_CROP);
+        // Technical boot bg — CONTAIN (COVER/CENTER_CROP rejected for all startup surfaces).
+        iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
         if (root != null) {
           root.setBackgroundColor(solid);
           root.addView(

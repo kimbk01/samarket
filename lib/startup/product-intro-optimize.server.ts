@@ -1,6 +1,8 @@
 /**
  * Admin-upload-time First Entry creative optimize (server-only, sharp).
  * Cold runtime must never import or run this — only `/api/admin/startup-config/upload-image`.
+ *
+ * V2: preserve aspect. Fit inside max 1080×1350 box. No center-crop. No stretch-to-fill.
  */
 
 import sharp from "sharp";
@@ -11,11 +13,6 @@ import {
   PRODUCT_INTRO_MAX_SOURCE_EDGE_PX,
   PRODUCT_INTRO_OUTPUT_QUALITY,
 } from "@/lib/startup/product-intro-geometry";
-
-const TARGET_RATIO =
-  PRODUCT_INTRO_CANONICAL_WIDTH_PX / PRODUCT_INTRO_CANONICAL_HEIGHT_PX;
-/** Allow near-4:5 sources without interactive crop (Owner fixture 1122×1402 ≈ 0.8003). */
-const ASPECT_EPS = 0.025;
 
 export type ProductIntroOptimizeOk = {
   ok: true;
@@ -43,25 +40,9 @@ export type ProductIntroOptimizeFail = {
 
 export type ProductIntroOptimizeResult = ProductIntroOptimizeOk | ProductIntroOptimizeFail;
 
-function centerCropTo45(width: number, height: number): {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-} {
-  const current = width / height;
-  if (current > TARGET_RATIO) {
-    const cropW = Math.max(1, Math.round(height * TARGET_RATIO));
-    const left = Math.max(0, Math.floor((width - cropW) / 2));
-    return { left, top: 0, width: cropW, height };
-  }
-  const cropH = Math.max(1, Math.round(width / TARGET_RATIO));
-  const top = Math.max(0, Math.floor((height - cropH) / 2));
-  return { left: 0, top, width, height: cropH };
-}
-
 /**
- * Decode source → optional center-crop to 4:5 → 1080×1350 WebP @ PRODUCT_INTRO_OUTPUT_QUALITY.
+ * Decode source → resize to fit inside 1080×1350 preserving aspect → WebP.
+ * Does not crop or distort.
  */
 export async function optimizeProductIntroCreativeBuffer(input: {
   buffer: Buffer;
@@ -93,35 +74,36 @@ export async function optimizeProductIntroCreativeBuffer(input: {
   }
 
   try {
-    let pipeline = sharp(input.buffer, { failOn: "none", limitInputPixels: false }).rotate();
-    const ratio = sourceWidth / sourceHeight;
-    if (Math.abs(ratio - TARGET_RATIO) > ASPECT_EPS) {
-      const crop = centerCropTo45(sourceWidth, sourceHeight);
-      pipeline = pipeline.extract(crop);
-    }
-
-    const buffer = await pipeline
+    const fitted = await sharp(input.buffer, { failOn: "none", limitInputPixels: false })
+      .rotate()
       .resize(PRODUCT_INTRO_CANONICAL_WIDTH_PX, PRODUCT_INTRO_CANONICAL_HEIGHT_PX, {
-        fit: "fill",
+        fit: "inside",
+        withoutEnlargement: false,
       })
       .webp({ quality: PRODUCT_INTRO_OUTPUT_QUALITY, effort: 4 })
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
 
-    if (buffer.length > PRODUCT_INTRO_MAX_OUTPUT_BYTES) {
+    if (fitted.data.length > PRODUCT_INTRO_MAX_OUTPUT_BYTES) {
       return { ok: false, error: "output_too_large" };
+    }
+
+    const width = fitted.info.width ?? 0;
+    const height = fitted.info.height ?? 0;
+    if (!(width > 0) || !(height > 0)) {
+      return { ok: false, error: "optimize_failed" };
     }
 
     return {
       ok: true,
-      buffer,
-      width: PRODUCT_INTRO_CANONICAL_WIDTH_PX,
-      height: PRODUCT_INTRO_CANONICAL_HEIGHT_PX,
+      buffer: fitted.data,
+      width,
+      height,
       contentType: "image/webp",
       ext: "webp",
       sourceWidth,
       sourceHeight,
       sourceBytes: input.sourceBytes,
-      outputBytes: buffer.length,
+      outputBytes: fitted.data.length,
       hasAlpha,
     };
   } catch {

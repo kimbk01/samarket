@@ -89,7 +89,7 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   name: "",
   media: { mobileUrl: null, tabletUrl: null },
   displayMode: "fullscreen",
-  objectFit: "cover",
+  objectFit: "contain",
   sizePreset: "full",
   customSizePercent: null,
   cornerRadiusPx: 0,
@@ -98,7 +98,7 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   animationOut: "none",
   enterDurationMs: 150,
   displayDurationMs: 0,
-  exitDurationMs: 220,
+  exitDurationMs: 150,
   action: { type: "none", target: "" },
   startsAt: null,
   endsAt: null,
@@ -174,7 +174,8 @@ export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
       tabletUrl: asNullableHttpOrPathUrl(mediaRaw.tabletUrl ?? o.tabletUrl),
     },
     displayMode: "fullscreen",
-    objectFit: pickEnum(o.objectFit, PRODUCT_INTRO_OBJECT_FITS, "cover"),
+    // V2: CONTAIN only — COVER permanently rejected.
+    objectFit: "contain",
     sizePreset: "full",
     customSizePercent: null,
     cornerRadiusPx: 0,
@@ -182,12 +183,8 @@ export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
     animationIn: "none",
     animationOut: "none",
     enterDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
-    displayDurationMs: clampInt(
-      o.displayDurationMs,
-      PRODUCT_INTRO_DISPLAY_MS_MIN,
-      PRODUCT_INTRO_DISPLAY_MS_MAX,
-      0
-    ),
+    // Architectural min display = 0 (no post-ready wait).
+    displayDurationMs: 0,
     exitDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
     action: { type: actionType, target: actionType === "none" ? "" : actionTarget.slice(0, 256) },
     startsAt: asNullableIso(o.startsAt),

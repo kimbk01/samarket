@@ -2,7 +2,7 @@
 
 /**
  * Admin FIRST ENTRY operational editor — single operator surface.
- * Runtime SSOT remains startup_product_intro_v1 (LKG / ProductIntroHost).
+ * Config SSOT: startup_product_intro_v1. Application visual owner: Native V2 only.
  * Does not expose Technical Boot / shellReady / LKG terminology.
  */
 
@@ -11,13 +11,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUNDLED_PRODUCT_INTRO_CONFIG,
-  PRODUCT_INTRO_ANIM_IN,
-  cssClassForProductIntroEnter,
   isProductIntroDisplayEligible,
   normalizeProductIntroConfig,
   productIntroConfigEquals,
-  productIntroImageWidthPercent,
-  type ProductIntroAnimIn,
   type ProductIntroConfig,
 } from "@/lib/startup/product-intro";
 import {
@@ -49,7 +45,6 @@ function formatBytesShort(bytes: number): string {
   return `${bytes} B`;
 }
 
-type OperatorAnim = "none" | "fade" | "fade_scale" | "slide_up";
 type ClickMode = "none" | "navigate";
 type DestKind =
   | "community"
@@ -63,8 +58,6 @@ type DestKind =
   | "market_listing"
   | "delivery_category"
   | "chat_room";
-
-const OPERATOR_ANIMS: OperatorAnim[] = ["none", "fade", "fade_scale", "slide_up"];
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return <label className="mb-1 block sam-text-body font-medium text-sam-fg">{children}</label>;
@@ -118,12 +111,6 @@ function localInputToIso(local: string): string | null {
   const ms = Date.parse(t);
   if (!Number.isFinite(ms)) return null;
   return new Date(ms).toISOString();
-}
-
-function animOutFor(animIn: ProductIntroAnimIn): ProductIntroConfig["animationOut"] {
-  if (animIn === "none") return "none";
-  if (animIn === "fade_scale" || animIn === "scale") return "fade_scale";
-  return "fade";
 }
 
 function clickModeFrom(config: ProductIntroConfig): ClickMode {
@@ -186,10 +173,6 @@ function FirstEntryPreview({
   viewport: ProductIntroViewportKind;
 }) {
   const media = config.media.mobileUrl;
-  const enterClass = cssClassForProductIntroEnter(config.animationIn);
-  const widthPct = productIntroImageWidthPercent(config);
-  // Preview always uses full-surface contract (CASE B).
-  const isPopup = false;
   const preset = PRODUCT_INTRO_VIEWPORT_PRESETS[viewport];
   const scale = Math.min(220 / preset.width, 420 / preset.height);
   const frameW = Math.round(preset.width * scale);
@@ -197,11 +180,7 @@ function FirstEntryPreview({
   const box = computeProductIntroLayoutBox({
     viewportWidth: preset.width,
     viewportHeight: preset.height,
-    displayMode: config.displayMode,
-    widthPercent: widthPct,
-    objectFit: config.objectFit,
   });
-  const surfaceW = Math.round(box.surfaceWidthPx * scale);
   const surfaceMaxH = Math.round(box.surfaceMaxHeightPx * scale);
   const safeInset = `${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}%`;
 
@@ -217,23 +196,16 @@ function FirstEntryPreview({
         }}
       >
         {media ? (
-          <div
-            className={`${enterClass} relative ${isPopup ? "overflow-hidden bg-white shadow-sm" : "flex items-center justify-center"}`}
-            style={{
-              width: isPopup ? surfaceW : `${Math.min(widthPct, 100)}%`,
-              maxHeight: surfaceMaxH,
-              borderRadius: isPopup ? Math.max(4, config.cornerRadiusPx * scale) : 0,
-              animationDuration: `${config.enterDurationMs}ms`,
-            }}
-          >
+          <div className="relative flex h-full w-full items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={media}
               alt=""
               style={{
                 width: "100%",
+                height: "100%",
                 maxHeight: surfaceMaxH,
-                objectFit: box.objectFit,
+                objectFit: "contain",
                 display: "block",
               }}
             />
@@ -279,7 +251,6 @@ export function ProductIntroAdminSection() {
 
   const clickMode = clickModeFrom(draft);
   const destKind = destKindFrom(draft);
-  const displaySeconds = Math.round(draft.displayDurationMs / 1000);
 
   useEffect(() => {
     let cancelled = false;
@@ -314,19 +285,6 @@ export function ProductIntroAdminSection() {
   const setEnabled = useCallback(
     (on: boolean) => {
       patch({ status: on ? "active" : "inactive" });
-    },
-    [patch]
-  );
-
-  const setAnim = useCallback(
-    (anim: OperatorAnim) => {
-      const animationIn = (PRODUCT_INTRO_ANIM_IN.includes(anim) ? anim : "fade") as ProductIntroAnimIn;
-      patch({
-        animationIn,
-        animationOut: animOutFor(animationIn),
-        enterDurationMs: animationIn === "none" ? 150 : 280,
-        exitDurationMs: animationIn === "none" ? 150 : 220,
-      });
     },
     [patch]
   );
@@ -523,13 +481,6 @@ export function ProductIntroAdminSection() {
     return <p className="sam-text-body text-sam-muted">{safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>;
   }
 
-  const isPopup = false;
-  const operatorAnim = (OPERATOR_ANIMS.includes(draft.animationIn as OperatorAnim)
-    ? draft.animationIn
-    : draft.animationIn === "scale"
-      ? "fade_scale"
-      : "fade") as OperatorAnim;
-
   return (
     <div className="space-y-6">
       <div className="grid gap-8 lg:grid-cols-[1fr_240px]">
@@ -685,125 +636,6 @@ export function ProductIntroAdminSection() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <FieldLabel>
-                {safeT("admin_first_entry_display_mode", {
-                  fallbackKo: "표시 형태",
-                  fallbackEn: "Display",
-                })}
-              </FieldLabel>
-              <p className="sam-text-caption text-sam-muted">
-                {safeT("admin_first_entry_fullscreen_only", {
-                  fallbackKo: "전체 화면 이미지(카드/팝업 프레임 없음)",
-                  fallbackEn: "Full-surface image (no card/popup frame)",
-                })}
-              </p>
-            </div>
-            <div>
-              <FieldLabel>
-                {safeT("admin_first_entry_fit", {
-                  fallbackKo: "이미지 맞춤",
-                  fallbackEn: "Image fit",
-                })}
-              </FieldLabel>
-              <SelectField
-                value={draft.objectFit === "contain" ? "contain" : "cover"}
-                onChange={(v) =>
-                  patch({
-                    displayMode: "fullscreen",
-                    objectFit: v as ProductIntroConfig["objectFit"],
-                    sizePreset: "full",
-                    customSizePercent: null,
-                    cornerRadiusPx: 0,
-                  })
-                }
-                options={[
-                  {
-                    value: "cover",
-                    label: safeT("admin_first_entry_fit_cover", {
-                      fallbackKo: "화면 채우기",
-                      fallbackEn: "Fill",
-                    }),
-                  },
-                  {
-                    value: "contain",
-                    label: safeT("admin_first_entry_fit_contain", {
-                      fallbackKo: "비율 유지",
-                      fallbackEn: "Fit",
-                    }),
-                  },
-                ]}
-              />
-            </div>
-            <div>
-              <FieldLabel>
-                {safeT("admin_first_entry_min_display", {
-                  fallbackKo: "최소 노출 시간 (초)",
-                  fallbackEn: "Minimum display (sec)",
-                })}
-              </FieldLabel>
-              <TextInput
-                type="number"
-                min={0}
-                max={8}
-                step={1}
-                value={displaySeconds}
-                onChange={(e) => {
-                  const sec = Math.min(8, Math.max(0, Number(e.target.value) || 0));
-                  patch({ displayDurationMs: sec * 1000 });
-                }}
-              />
-              <p className="mt-1 sam-text-caption text-sam-muted">
-                {safeT("admin_first_entry_min_display_help", {
-                  fallbackKo:
-                    "기본 0초: 앱이 준비되면 바로 닫힙니다. 부팅을 일부러 늘리지 않습니다. 캠페인용으로만 초를 올리세요.",
-                  fallbackEn:
-                    "Default 0: closes as soon as the app is ready. Does not extend boot. Raise only for intentional campaign hold.",
-                })}
-              </p>
-            </div>
-            <div>
-              <FieldLabel>
-                {safeT("admin_first_entry_animation", {
-                  fallbackKo: "화면 전환",
-                  fallbackEn: "Transition",
-                })}
-              </FieldLabel>
-              <SelectField
-                value={operatorAnim}
-                onChange={(v) => setAnim(v as OperatorAnim)}
-                options={[
-                  {
-                    value: "none",
-                    label: safeT("admin_first_entry_anim_none", {
-                      fallbackKo: "없음",
-                      fallbackEn: "None",
-                    }),
-                  },
-                  {
-                    value: "fade",
-                    label: safeT("admin_first_entry_anim_fade", {
-                      fallbackKo: "페이드",
-                      fallbackEn: "Fade",
-                    }),
-                  },
-                  {
-                    value: "fade_scale",
-                    label: safeT("admin_first_entry_anim_fade_scale", {
-                      fallbackKo: "확대 페이드",
-                      fallbackEn: "Fade + scale",
-                    }),
-                  },
-                  {
-                    value: "slide_up",
-                    label: safeT("admin_first_entry_anim_slide", {
-                      fallbackKo: "아래에서 등장",
-                      fallbackEn: "Slide up",
-                    }),
-                  },
-                ]}
-              />
-            </div>
-            <div>
-              <FieldLabel>
                 {safeT("admin_first_entry_bg", {
                   fallbackKo: "배경색",
                   fallbackEn: "Background",
@@ -814,8 +646,32 @@ export function ProductIntroAdminSection() {
                 value={/^#[0-9A-Fa-f]{6}$/.test(draft.backgroundColor) ? draft.backgroundColor : "#FFFCFC"}
                 onChange={(e) => patch({ backgroundColor: e.target.value })}
               />
+              <p className="mt-1 sam-text-caption text-sam-muted">
+                {safeT("admin_first_entry_bg_help", {
+                  fallbackKo: "전체 기기 캔버스 배경. 기본값은 앱 런치 화면과 같습니다.",
+                  fallbackEn: "Full-device canvas background. Default matches the launch canvas.",
+                })}
+              </p>
+            </div>
+            <div>
+              <FieldLabel>
+                {safeT("admin_first_entry_display_mode", {
+                  fallbackKo: "표시 방식",
+                  fallbackEn: "Display",
+                })}
+              </FieldLabel>
+              <p className="sam-text-caption text-sam-muted">
+                {safeT("admin_first_entry_contain_locked", {
+                  fallbackKo:
+                    "전체 캔버스 + 이미지 비율 유지(잘림 없음). 카드/채우기/그림자 없음.",
+                  fallbackEn:
+                    "Full canvas + preserve image aspect (no crop). No card, fill, or shadow.",
+                })}
+              </p>
             </div>
           </div>
+
+          {/* V2: fit/cover/duration/animation product knobs removed — architectural CONTAIN + min=0 */}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

@@ -3,21 +3,23 @@ import {
   PRODUCT_INTRO_CANONICAL_ASPECT,
   PRODUCT_INTRO_MAX_OUTPUT_BYTES,
   PRODUCT_INTRO_MAX_SOURCE_BYTES,
+  PRODUCT_INTRO_V2_FIT,
+  computeContainedCreativeRect,
   computeProductIntroLayoutBox,
 } from "@/lib/startup/product-intro-geometry";
 
-describe("product-intro-geometry", () => {
-  it("locks canonical 4:5 creative", () => {
+describe("product-intro-geometry V2", () => {
+  it("locks canonical 4:5 creative recommendation", () => {
     expect(PRODUCT_INTRO_CANONICAL_ASPECT).toBe("4:5");
+    expect(PRODUCT_INTRO_V2_FIT).toBe("contain");
   });
 
   it("separates source ceiling from optimized output ceiling", () => {
     expect(PRODUCT_INTRO_MAX_SOURCE_BYTES).toBe(8 * 1024 * 1024);
     expect(PRODUCT_INTRO_MAX_OUTPUT_BYTES).toBe(1024 * 1024);
-    expect(PRODUCT_INTRO_MAX_SOURCE_BYTES).toBeGreaterThan(PRODUCT_INTRO_MAX_OUTPUT_BYTES);
   });
 
-  it("full-surface cover fills viewport without card caps", () => {
+  it("layout box always CONTAIN with no card caps", () => {
     const phone = computeProductIntroLayoutBox({
       viewportWidth: 390,
       viewportHeight: 844,
@@ -27,18 +29,35 @@ describe("product-intro-geometry", () => {
     });
     expect(phone.surfaceWidthPx).toBe(390);
     expect(phone.surfaceMaxHeightPx).toBe(844);
-    expect(phone.objectFit).toBe("cover");
+    expect(phone.objectFit).toBe("contain");
   });
 
-  it("contain remains available without card framing", () => {
-    const box = computeProductIntroLayoutBox({
+  it("contained rect preserves aspect and stays inside safe insets", () => {
+    const rect = computeContainedCreativeRect({
       viewportWidth: 390,
       viewportHeight: 844,
-      displayMode: "fullscreen",
-      widthPercent: 100,
-      objectFit: "contain",
+      imageWidth: 1080,
+      imageHeight: 1350,
+      safeInsetPct: 8,
     });
-    expect(box.objectFit).toBe("contain");
-    expect(box.surfaceWidthPx).toBe(390);
+    expect(rect.objectFit).toBe("contain");
+    expect(rect.width / rect.height).toBeCloseTo(1080 / 1350, 2);
+    expect(rect.left).toBeGreaterThanOrEqual(0);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.left + rect.width).toBeLessThanOrEqual(390);
+    expect(rect.top + rect.height).toBeLessThanOrEqual(844);
+    // Not edge-to-edge crop fill on tall phone
+    expect(rect.width).toBeLessThan(390);
+  });
+
+  it("landscape keeps full creative without width-fill zoom", () => {
+    const rect = computeContainedCreativeRect({
+      viewportWidth: 844,
+      viewportHeight: 390,
+      imageWidth: 1080,
+      imageHeight: 1350,
+    });
+    expect(rect.height).toBeLessThanOrEqual(390);
+    expect(rect.width / rect.height).toBeCloseTo(1080 / 1350, 2);
   });
 });

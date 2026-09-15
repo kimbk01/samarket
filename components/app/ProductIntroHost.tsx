@@ -1,7 +1,6 @@
 /**
- * @deprecated CASE B — Web no longer paints First Entry.
- * Native owns the single application-owned FE surface.
- * Kept as a null stub so stray imports fail closed without a second visual stage.
+ * @deprecated V2 — Web First Entry visual owner = 0.
+ * Do not mount. Native owns the sole application First Entry canvas.
  */
 "use client";
 

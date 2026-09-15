@@ -52,14 +52,16 @@ describe("product-intro-optimize.server", () => {
     if (!result.ok) return;
 
     expect(result.contentType).toBe("image/webp");
-    expect(result.width).toBe(1080);
-    expect(result.height).toBe(1350);
+    // V2: aspect preserved inside 1080×1350 box (no force-fill crop).
+    expect(result.width).toBeLessThanOrEqual(PRODUCT_INTRO_CANONICAL_WIDTH_PX);
+    expect(result.height).toBeLessThanOrEqual(PRODUCT_INTRO_CANONICAL_HEIGHT_PX);
+    expect(result.width / result.height).toBeCloseTo(result.sourceWidth / result.sourceHeight, 2);
     expect(result.outputBytes).toBeLessThanOrEqual(PRODUCT_INTRO_MAX_OUTPUT_BYTES);
     expect(result.outputBytes).toBeLessThan(source.length);
 
     const meta = await sharp(result.buffer).metadata();
     expect(meta.format).toBe("webp");
-    expect(meta.width).toBe(1080);
-    expect(meta.height).toBe(1350);
+    expect(meta.width).toBe(result.width);
+    expect(meta.height).toBe(result.height);
   });
 });

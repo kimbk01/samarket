@@ -390,6 +390,9 @@ export const adminSettingsMessages = {
     admin_first_entry_anim_fade_scale: "확대 페이드",
     admin_first_entry_anim_slide: "아래에서 등장",
     admin_first_entry_bg: "배경색",
+    admin_first_entry_bg_help: "전체 기기 캔버스 배경. 기본값은 앱 런치 화면과 같습니다.",
+    admin_first_entry_contain_locked:
+      "전체 캔버스 + 이미지 비율 유지(잘림 없음). 카드/채우기/그림자 없음.",
     admin_first_entry_click: "클릭 시",
     admin_first_entry_click_none: "동작 없음",
     admin_first_entry_click_navigate: "페이지 이동",
@@ -871,6 +874,9 @@ export const adminSettingsMessages = {
     admin_first_entry_anim_fade_scale: "Fade + scale",
     admin_first_entry_anim_slide: "Slide up",
     admin_first_entry_bg: "Background",
+    admin_first_entry_bg_help: "Full-device canvas background. Default matches the launch canvas.",
+    admin_first_entry_contain_locked:
+      "Full canvas + preserve image aspect (no crop). No card, fill, or shadow.",
     admin_first_entry_click: "On tap",
     admin_first_entry_click_none: "No action",
     admin_first_entry_click_navigate: "Go to page",
