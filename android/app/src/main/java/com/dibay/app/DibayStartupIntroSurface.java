@@ -229,64 +229,27 @@ public final class DibayStartupIntroSurface {
         });
   }
 
+  /**
+   * Full-surface responsive Admin First Entry — no card chrome, shadow, radius, or % width cap.
+   * Default fit: COVER (4:5 asset fills viewport; creative safe-zone contract).
+   */
   private View buildProductIntroContent(JSONObject pi, Bitmap bmp) {
     FrameLayout wrap = new FrameLayout(activity);
-    String mode = pi.optString("displayMode", "fullscreen");
-    String fit = pi.optString("objectFit", "contain");
+    String fit = pi.optString("objectFit", "cover");
+    // Legacy "card" configs must not resurrect popup chrome.
+    if (!"contain".equals(fit)) {
+      fit = "cover";
+    }
     ImageView image = new ImageView(activity);
     image.setImageBitmap(bmp);
     image.setScaleType(
-        "cover".equals(fit) ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
-    int pad = dp(16);
-    if ("card".equals(mode)) {
-      int radius = Math.max(0, Math.min(48, pi.optInt("cornerRadiusPx", 16)));
-      GradientDrawable cardBg = new GradientDrawable();
-      cardBg.setColor(Color.WHITE);
-      cardBg.setCornerRadius(dp(radius));
-      FrameLayout card = new FrameLayout(activity);
-      card.setBackground(cardBg);
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        card.setClipToOutline(true);
-        card.setElevation(dp(8));
-      }
-      int screenW = activity.getResources().getDisplayMetrics().widthPixels;
-      int screenH = activity.getResources().getDisplayMetrics().heightPixels;
-      int widthPct = productIntroWidthPercent(pi);
-      int maxW = Math.min(dp(420), (int) (screenW * Math.min(92, widthPct) / 100f));
-      int maxH = (int) (screenH * 0.70f);
-      FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(maxW, ViewGroup.LayoutParams.WRAP_CONTENT);
-      cardLp.gravity = Gravity.CENTER;
-      cardLp.setMargins(pad, pad, pad, pad);
-      FrameLayout.LayoutParams imgLp =
-          new FrameLayout.LayoutParams(
-              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-      image.setAdjustViewBounds(true);
-      image.setMaxHeight(maxH);
-      card.addView(image, imgLp);
-      wrap.addView(card, cardLp);
-    } else {
-      FrameLayout.LayoutParams imgLp =
-          new FrameLayout.LayoutParams(
-              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-      imgLp.gravity = Gravity.CENTER;
-      imgLp.setMargins(pad, pad, pad, pad);
-      image.setAdjustViewBounds(true);
-      image.setMaxHeight((int) (activity.getResources().getDisplayMetrics().heightPixels * 0.78f));
-      wrap.addView(image, imgLp);
-    }
+        "contain".equals(fit) ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER_CROP);
+    FrameLayout.LayoutParams imgLp =
+        new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    imgLp.gravity = Gravity.CENTER;
+    wrap.addView(image, imgLp);
     return wrap;
-  }
-
-  private static int productIntroWidthPercent(JSONObject pi) {
-    if (pi.has("customSizePercent") && !pi.isNull("customSizePercent")) {
-      int c = pi.optInt("customSizePercent", 72);
-      return Math.max(40, Math.min(100, c));
-    }
-    String preset = pi.optString("sizePreset", "medium");
-    if ("small".equals(preset)) return 56;
-    if ("large".equals(preset)) return 88;
-    if ("full".equals(preset)) return 100;
-    return 72;
   }
 
   private static boolean isProductIntroEligible(JSONObject pi) {
@@ -364,8 +327,9 @@ public final class DibayStartupIntroSurface {
     }
     if (dismissing) return;
     dismissing = true;
-    String exit = activeConfig.optString("exitAnimation", "fade_out");
-    int dur = clampDur(activeConfig.optInt("exitDurationMs", 220));
+    // Admin First Entry: no second exit stage — drop immediately on app ready.
+    String exit = usingProductIntro ? "none" : activeConfig.optString("exitAnimation", "fade_out");
+    int dur = usingProductIntro ? 0 : clampDur(activeConfig.optInt("exitDurationMs", 220));
     Animator anim = buildExitAnimator(content != null ? content : root, exit, dur);
     final boolean[] done = {false};
     Runnable finish =

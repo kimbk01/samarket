@@ -36,6 +36,8 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   }
   private var introLifecycle: IntroLifecycle = .pending
   private var activeConfig: [String: Any] = [:]
+  /// CASE B: Admin First Entry painted by Native (not a second Web Intro).
+  private var usingProductIntroCover = false
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -149,35 +151,78 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       startupInfo("intro_attach_skipped source=\(source) reason=overlay_present")
       return
     }
-    activeConfig = DibayStartupConfigCache.loadActive()
-    // Match LaunchScreen (logo-only on cream): suppress wordmark/spinner pop-in on handoff.
-    var muted = activeConfig
-    muted["showWordmark"] = false
-    muted["showSpinner"] = false
-    muted["captionEnabled"] = false
-    muted["ambientAnimation"] = "none"
-    activeConfig = muted
+
+    let productIntro = DibayStartupConfigCache.loadActiveProductIntro()
+    let productImage = DibayStartupConfigCache.loadProductIntroImage()
+    let usingProductIntro =
+      DibayStartupConfigCache.isProductIntroEligible(productIntro) && productImage != nil
+
     let overlay = UIView(frame: view.bounds)
     overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     overlay.isUserInteractionEnabled = true
-    applyBackground(to: overlay, config: activeConfig)
 
-    let content = buildContent(config: activeConfig)
+    let content: UIView
+    if usingProductIntro, let productImage = productImage, let productIntro = productIntro {
+      let bg = DibayStartupConfigCache.color(
+        from: (productIntro["backgroundColor"] as? String),
+        fallback: UIColor(red: 1, green: 0.988, blue: 0.988, alpha: 1)
+      )
+      overlay.backgroundColor = bg
+      content = buildProductIntroContent(config: productIntro, image: productImage)
+      activeConfig = productIntro
+      startupInfo("intro_attach source=\(source) product_intro=true continuity=os_native_handoff enter=none")
+    } else {
+      activeConfig = DibayStartupConfigCache.loadActive()
+      // Match LaunchScreen (logo-only on cream): suppress wordmark/spinner pop-in on handoff.
+      var muted = activeConfig
+      muted["showWordmark"] = false
+      muted["showSpinner"] = false
+      muted["captionEnabled"] = false
+      muted["ambientAnimation"] = "none"
+      activeConfig = muted
+      applyBackground(to: overlay, config: activeConfig)
+      content = buildContent(config: activeConfig)
+      startupInfo(
+        "intro_attach source=\(source) product_intro=false version=\(String(describing: activeConfig["version"] ?? 0)) continuity=os_native_handoff enter=none"
+      )
+    }
+
     content.translatesAutoresizingMaskIntoConstraints = false
     overlay.addSubview(content)
     NSLayoutConstraint.activate([
       content.leadingAnchor.constraint(equalTo: overlay.leadingAnchor),
       content.trailingAnchor.constraint(equalTo: overlay.trailingAnchor),
-      content.topAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.topAnchor),
-      content.bottomAnchor.constraint(equalTo: overlay.safeAreaLayoutGuide.bottomAnchor),
+      content.topAnchor.constraint(equalTo: overlay.topAnchor),
+      content.bottomAnchor.constraint(equalTo: overlay.bottomAnchor),
     ])
     view.addSubview(overlay)
     introOverlay = overlay
     introContent = content
     introLifecycle = .attached
+    usingProductIntroCover = usingProductIntro
     // CUT 1: LaunchScreen → Native continuation = ONE continuous surface (no enter re-fade).
-    holdTechnicalHandoffAtRest(on: content)
-    startupInfo("intro_attach source=\(source) version=\(String(describing: activeConfig["version"] ?? 0)) continuity=os_native_handoff enter=none")
+    if !usingProductIntro {
+      holdTechnicalHandoffAtRest(on: content)
+    }
+  }
+
+  private func buildProductIntroContent(config: [String: Any], image: UIImage) -> UIView {
+    let wrap = UIView()
+    wrap.backgroundColor = .clear
+    let iv = UIImageView(image: image)
+    let fit = (config["objectFit"] as? String) ?? "cover"
+    // Full-surface only — never reconstruct card chrome.
+    iv.contentMode = fit == "contain" ? .scaleAspectFit : .scaleAspectFill
+    iv.clipsToBounds = true
+    iv.translatesAutoresizingMaskIntoConstraints = false
+    wrap.addSubview(iv)
+    NSLayoutConstraint.activate([
+      iv.leadingAnchor.constraint(equalTo: wrap.leadingAnchor),
+      iv.trailingAnchor.constraint(equalTo: wrap.trailingAnchor),
+      iv.topAnchor.constraint(equalTo: wrap.topAnchor),
+      iv.bottomAnchor.constraint(equalTo: wrap.bottomAnchor),
+    ])
+    return wrap
   }
 
   private func finalizeIntroRemoved(overlay: UIView, source: String) {
@@ -202,6 +247,14 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
     introDismissing = true
     introLifecycle = .dismissing
+    // Admin First Entry: no exit stage after shellReady.
+    if usingProductIntroCover {
+      if let overlay = introOverlay {
+        finalizeIntroRemoved(overlay: overlay, source: "product_intro_ready")
+      }
+      hideCapacitorSplash()
+      return
+    }
     let exit = (activeConfig["exitAnimation"] as? String) ?? "fade_out"
     let durMs = DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
     let seconds = TimeInterval(durMs) / 1000.0
@@ -504,6 +557,42 @@ enum DibayStartupConfigCache {
     let url = directory().appendingPathComponent(bgActive)
     guard let data = try? Data(contentsOf: url) else { return nil }
     return UIImage(data: data)
+  }
+
+  static func loadActiveProductIntro() -> [String: Any]? {
+    let url = directory().appendingPathComponent("product-intro.json")
+    guard let data = try? Data(contentsOf: url),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+    return obj
+  }
+
+  static func loadProductIntroImage() -> UIImage? {
+    let url = directory().appendingPathComponent("product-intro-media.bin")
+    guard let data = try? Data(contentsOf: url) else { return nil }
+    return UIImage(data: data)
+  }
+
+  static func isProductIntroEligible(_ raw: [String: Any]?) -> Bool {
+    guard let pi = raw else { return false }
+    guard (pi["status"] as? String) == "active" else { return false }
+    guard let media = pi["mediaUrl"] as? String, !media.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      return false
+    }
+    let now = Date().timeIntervalSince1970
+    if let starts = parseIsoSeconds(pi["startsAt"] as? String), now < starts { return false }
+    if let ends = parseIsoSeconds(pi["endsAt"] as? String), now >= ends { return false }
+    return true
+  }
+
+  private static func parseIsoSeconds(_ raw: String?) -> TimeInterval? {
+    guard var t = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty else { return nil }
+    let f1 = ISO8601DateFormatter()
+    f1.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let d = f1.date(from: t) { return d.timeIntervalSince1970 }
+    let f2 = ISO8601DateFormatter()
+    f2.formatOptions = [.withInternetDateTime]
+    if let d = f2.date(from: t) { return d.timeIntervalSince1970 }
+    return nil
   }
 
   static func logoWidth(config: [String: Any]) -> CGFloat {

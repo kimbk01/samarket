@@ -3,7 +3,6 @@ import {
   PRODUCT_INTRO_CANONICAL_ASPECT,
   PRODUCT_INTRO_MAX_OUTPUT_BYTES,
   PRODUCT_INTRO_MAX_SOURCE_BYTES,
-  PRODUCT_INTRO_POPUP_MAX_WIDTH_PX,
   computeProductIntroLayoutBox,
 } from "@/lib/startup/product-intro-geometry";
 
@@ -18,29 +17,20 @@ describe("product-intro-geometry", () => {
     expect(PRODUCT_INTRO_MAX_SOURCE_BYTES).toBeGreaterThan(PRODUCT_INTRO_MAX_OUTPUT_BYTES);
   });
 
-  it("popup stays bounded on phone and tablet", () => {
+  it("full-surface cover fills viewport without card caps", () => {
     const phone = computeProductIntroLayoutBox({
       viewportWidth: 390,
       viewportHeight: 844,
       displayMode: "card",
       widthPercent: 72,
-      objectFit: "contain",
+      objectFit: "cover",
     });
-    expect(phone.surfaceWidthPx).toBeLessThanOrEqual(PRODUCT_INTRO_POPUP_MAX_WIDTH_PX);
-    expect(phone.objectFit).toBe("contain");
-
-    const tablet = computeProductIntroLayoutBox({
-      viewportWidth: 1024,
-      viewportHeight: 768,
-      displayMode: "card",
-      widthPercent: 72,
-      objectFit: "contain",
-    });
-    expect(tablet.surfaceWidthPx).toBe(PRODUCT_INTRO_POPUP_MAX_WIDTH_PX);
-    expect(tablet.surfaceMaxHeightPx).toBeLessThanOrEqual(768);
+    expect(phone.surfaceWidthPx).toBe(390);
+    expect(phone.surfaceMaxHeightPx).toBe(844);
+    expect(phone.objectFit).toBe("cover");
   });
 
-  it("fullscreen uses contain/cover from Admin without stretch override", () => {
+  it("contain remains available without card framing", () => {
     const box = computeProductIntroLayoutBox({
       viewportWidth: 390,
       viewportHeight: 844,
@@ -49,6 +39,6 @@ describe("product-intro-geometry", () => {
       objectFit: "contain",
     });
     expect(box.objectFit).toBe("contain");
-    expect(box.surfaceWidthPx).toBeLessThanOrEqual(390);
+    expect(box.surfaceWidthPx).toBe(390);
   });
 });

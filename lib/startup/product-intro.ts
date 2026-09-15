@@ -89,14 +89,14 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   name: "",
   media: { mobileUrl: null, tabletUrl: null },
   displayMode: "fullscreen",
-  objectFit: "contain",
-  sizePreset: "medium",
+  objectFit: "cover",
+  sizePreset: "full",
   customSizePercent: null,
-  cornerRadiusPx: 16,
+  cornerRadiusPx: 0,
   backgroundColor: "#FFFCFC",
-  animationIn: "fade",
-  animationOut: "fade",
-  enterDurationMs: 280,
+  animationIn: "none",
+  animationOut: "none",
+  enterDurationMs: 150,
   displayDurationMs: 0,
   exitDurationMs: 220,
   action: { type: "none", target: "" },
@@ -173,45 +173,22 @@ export function normalizeProductIntroConfig(raw: unknown): ProductIntroConfig {
       mobileUrl: asNullableHttpOrPathUrl(mediaRaw.mobileUrl ?? o.mobileUrl ?? o.mediaUrl),
       tabletUrl: asNullableHttpOrPathUrl(mediaRaw.tabletUrl ?? o.tabletUrl),
     },
-    displayMode: pickEnum(o.displayMode, PRODUCT_INTRO_DISPLAY_MODES, "fullscreen"),
-    objectFit: pickEnum(o.objectFit, PRODUCT_INTRO_OBJECT_FITS, "contain"),
-    sizePreset: pickEnum(o.sizePreset, PRODUCT_INTRO_SIZE_PRESETS, "medium"),
-    customSizePercent:
-      o.customSizePercent == null || o.customSizePercent === ""
-        ? null
-        : clampInt(
-            o.customSizePercent,
-            PRODUCT_INTRO_CUSTOM_SIZE_MIN,
-            PRODUCT_INTRO_CUSTOM_SIZE_MAX,
-            72
-          ),
-    cornerRadiusPx: clampInt(
-      o.cornerRadiusPx,
-      PRODUCT_INTRO_RADIUS_MIN,
-      PRODUCT_INTRO_RADIUS_MAX,
-      16
-    ),
+    displayMode: "fullscreen",
+    objectFit: pickEnum(o.objectFit, PRODUCT_INTRO_OBJECT_FITS, "cover"),
+    sizePreset: "full",
+    customSizePercent: null,
+    cornerRadiusPx: 0,
     backgroundColor: asHexColor(o.backgroundColor, base.backgroundColor),
-    animationIn: pickEnum(o.animationIn, PRODUCT_INTRO_ANIM_IN, "fade"),
-    animationOut: pickEnum(o.animationOut, PRODUCT_INTRO_ANIM_OUT, "fade"),
-    enterDurationMs: clampInt(
-      o.enterDurationMs,
-      PRODUCT_INTRO_ANIM_MS_MIN,
-      PRODUCT_INTRO_ANIM_MS_MAX,
-      280
-    ),
+    animationIn: "none",
+    animationOut: "none",
+    enterDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
     displayDurationMs: clampInt(
       o.displayDurationMs,
       PRODUCT_INTRO_DISPLAY_MS_MIN,
       PRODUCT_INTRO_DISPLAY_MS_MAX,
-      2500
+      0
     ),
-    exitDurationMs: clampInt(
-      o.exitDurationMs,
-      PRODUCT_INTRO_ANIM_MS_MIN,
-      PRODUCT_INTRO_ANIM_MS_MAX,
-      220
-    ),
+    exitDurationMs: PRODUCT_INTRO_ANIM_MS_MIN,
     action: { type: actionType, target: actionType === "none" ? "" : actionTarget.slice(0, 256) },
     startsAt: asNullableIso(o.startsAt),
     endsAt: asNullableIso(o.endsAt),

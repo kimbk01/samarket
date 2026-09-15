@@ -188,7 +188,8 @@ function FirstEntryPreview({
   const media = config.media.mobileUrl;
   const enterClass = cssClassForProductIntroEnter(config.animationIn);
   const widthPct = productIntroImageWidthPercent(config);
-  const isPopup = config.displayMode === "card";
+  // Preview always uses full-surface contract (CASE B).
+  const isPopup = false;
   const preset = PRODUCT_INTRO_VIEWPORT_PRESETS[viewport];
   const scale = Math.min(220 / preset.width, 420 / preset.height);
   const frameW = Math.round(preset.width * scale);
@@ -522,7 +523,7 @@ export function ProductIntroAdminSection() {
     return <p className="sam-text-body text-sam-muted">{safeT("common_loading", { fallbackKo: "불러오는 중…", fallbackEn: "Loading…" })}</p>;
   }
 
-  const isPopup = draft.displayMode === "card";
+  const isPopup = false;
   const operatorAnim = (OPERATOR_ANIMS.includes(draft.animationIn as OperatorAnim)
     ? draft.animationIn
     : draft.animationIn === "scale"
@@ -689,31 +690,12 @@ export function ProductIntroAdminSection() {
                   fallbackEn: "Display",
                 })}
               </FieldLabel>
-              <SelectField
-                value={draft.displayMode}
-                onChange={(v) =>
-                  patch({
-                    displayMode: v as ProductIntroConfig["displayMode"],
-                    sizePreset: v === "fullscreen" ? "full" : draft.sizePreset === "full" ? "medium" : draft.sizePreset,
-                  })
-                }
-                options={[
-                  {
-                    value: "fullscreen",
-                    label: safeT("admin_first_entry_fullscreen", {
-                      fallbackKo: "전체 화면",
-                      fallbackEn: "Fullscreen",
-                    }),
-                  },
-                  {
-                    value: "card",
-                    label: safeT("admin_first_entry_popup", {
-                      fallbackKo: "팝업",
-                      fallbackEn: "Popup",
-                    }),
-                  },
-                ]}
-              />
+              <p className="sam-text-caption text-sam-muted">
+                {safeT("admin_first_entry_fullscreen_only", {
+                  fallbackKo: "전체 화면 이미지(카드/팝업 프레임 없음)",
+                  fallbackEn: "Full-surface image (no card/popup frame)",
+                })}
+              </p>
             </div>
             <div>
               <FieldLabel>
@@ -723,16 +705,17 @@ export function ProductIntroAdminSection() {
                 })}
               </FieldLabel>
               <SelectField
-                value={draft.objectFit}
-                onChange={(v) => patch({ objectFit: v as ProductIntroConfig["objectFit"] })}
+                value={draft.objectFit === "contain" ? "contain" : "cover"}
+                onChange={(v) =>
+                  patch({
+                    displayMode: "fullscreen",
+                    objectFit: v as ProductIntroConfig["objectFit"],
+                    sizePreset: "full",
+                    customSizePercent: null,
+                    cornerRadiusPx: 0,
+                  })
+                }
                 options={[
-                  {
-                    value: "contain",
-                    label: safeT("admin_first_entry_fit_contain", {
-                      fallbackKo: "화면에 맞춤",
-                      fallbackEn: "Fit",
-                    }),
-                  },
                   {
                     value: "cover",
                     label: safeT("admin_first_entry_fit_cover", {
@@ -740,61 +723,16 @@ export function ProductIntroAdminSection() {
                       fallbackEn: "Fill",
                     }),
                   },
+                  {
+                    value: "contain",
+                    label: safeT("admin_first_entry_fit_contain", {
+                      fallbackKo: "비율 유지",
+                      fallbackEn: "Fit",
+                    }),
+                  },
                 ]}
               />
             </div>
-            {isPopup ? (
-              <>
-                <div>
-                  <FieldLabel>
-                    {safeT("admin_first_entry_popup_size", {
-                      fallbackKo: "팝업 크기",
-                      fallbackEn: "Popup size",
-                    })}
-                  </FieldLabel>
-                  <SelectField
-                    value={draft.sizePreset === "full" ? "large" : draft.sizePreset}
-                    onChange={(v) =>
-                      patch({
-                        sizePreset: v as ProductIntroConfig["sizePreset"],
-                        customSizePercent: null,
-                      })
-                    }
-                    options={[
-                      { value: "small", label: "Small" },
-                      { value: "medium", label: "Medium" },
-                      { value: "large", label: "Large" },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <FieldLabel>
-                    {safeT("admin_first_entry_radius", {
-                      fallbackKo: "모서리",
-                      fallbackEn: "Corner radius",
-                    })}
-                  </FieldLabel>
-                  <SelectField
-                    value={String(
-                      draft.cornerRadiusPx <= 8
-                        ? 8
-                        : draft.cornerRadiusPx <= 16
-                          ? 16
-                          : draft.cornerRadiusPx <= 24
-                            ? 24
-                            : 32
-                    )}
-                    onChange={(v) => patch({ cornerRadiusPx: Number(v) })}
-                    options={[
-                      { value: "8", label: "8px" },
-                      { value: "16", label: "16px" },
-                      { value: "24", label: "24px" },
-                      { value: "32", label: "32px" },
-                    ]}
-                  />
-                </div>
-              </>
-            ) : null}
             <div>
               <FieldLabel>
                 {safeT("admin_first_entry_min_display", {

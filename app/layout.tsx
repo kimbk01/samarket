@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
-import { ProductIntroHost } from "@/components/app/ProductIntroHost";
+import { ProductIntroMaterializeController } from "@/components/app/ProductIntroMaterializeController";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
@@ -99,8 +99,8 @@ export default async function RootLayout({
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
             <DibayStartupIntroController />
-            {/* First-entry cover: mounts before shellReady so it can occupy boot, not add a stage after. */}
-            <ProductIntroHost />
+            {/* CASE B: Native owns First Entry pixels; Web only materializes LKG → persistProductIntro. */}
+            <ProductIntroMaterializeController />
             <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />
