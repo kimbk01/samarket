@@ -32,7 +32,7 @@ const LEGACY_HUB_REDIRECTS: Record<string, string> = {
   "account:profile": MYPAGE_HOME_ACCOUNT_HREF,
   "community:comments": MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
   "community:posts": "/mypage/community-posts",
-  "community:favorite-posts": MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF,
+  /** CUT1: 저장한 글 is a dedicated management surface (unsave) — do not absorb into activity hub */
   "messenger:dm": MYPAGE_HOME_MESSENGER_HREF,
   "messenger:groups": "/community-messenger?section=groups",
   "messenger:friends": "/mypage/section/messenger/friends",

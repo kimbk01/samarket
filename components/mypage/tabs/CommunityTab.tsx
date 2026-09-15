@@ -231,7 +231,8 @@ function MyCommunityActivityPanel({
             cache: "no-store",
           })
         );
-        const json = (await res.json().catch(() => ({}))) as {
+        // Clone: single-flight may share one Response across remounts (i18n `t` churn).
+        const json = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
           comments?: CommunityCommentItem[];
           likedPosts?: CommunityFavoriteItem[];
@@ -245,6 +246,7 @@ function MyCommunityActivityPanel({
           setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_activity_load_failed"));
           return;
         }
+        setError(null);
         setComments(Array.isArray(json.comments) ? json.comments : []);
         setLikedPosts(Array.isArray(json.likedPosts) ? json.likedPosts : []);
         const saves = Array.isArray(json.savedPosts)
