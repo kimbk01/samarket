@@ -238,9 +238,9 @@ export function ProductIntroAdminSection() {
         <p className="mt-1 sam-text-body text-sam-muted">
           {safeT("admin_product_intro_section_help", {
             fallbackKo:
-              "앱 준비(Technical Boot) 이후 사용자에게 보여 줄 운영/홍보 Intro입니다. 캐시된 Intro만 즉시 표시되며, 네트워크 대기로 진입을 막지 않습니다.",
+              "Technical Boot와 같은 첫 진입 표면 위에서, shellReady 이후 Admin 운영 이미지를 이어서 보여 줍니다. 별도 스플래시가 아닙니다. 캐시(LKG)된 미디어만 즉시 표시하며 네트워크로 진입을 막지 않습니다. 배경을 SECTION A와 맞추면 전환이 자연스럽습니다.",
             fallbackEn:
-              "Shown after Technical Boot. Only cached eligible Intro appears immediately; network never blocks entry.",
+              "Continues the same first-entry surface after shellReady with Admin presentation media. Not a third splash. Only LKG-cached media shows immediately; network never blocks entry. Match SECTION A background for a clean handoff.",
           })}
         </p>
       </div>

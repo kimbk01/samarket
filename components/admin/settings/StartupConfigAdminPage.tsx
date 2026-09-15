@@ -259,9 +259,9 @@ export function StartupConfigAdminPage() {
         })}
         description={safeT("admin_startup_config_desc", {
           fallbackKo:
-            "SECTION A: 앱 준비까지 보이는 DIBAY 기본 기술 화면. SECTION B: Technical Boot 이후 운영 Intro. 둘은 별도 SSOT입니다.",
+            "하나의 연속된 첫 진입 화면입니다. SECTION A는 앱 준비까지 로컬 DIBAY 기술 브랜드, SECTION B는 준비 이후 Admin 운영 이미지(LKG)입니다. OS Splash는 네트워크를 쓰지 않으며, B는 캐시된 이미지만 즉시 표시합니다.",
           fallbackEn:
-            "SECTION A: Technical Boot branding until the app is ready. SECTION B: Product Intro after Technical Boot. Separate SSOTs.",
+            "One continuous first-entry surface. SECTION A is local DIBAY technical branding until ready; SECTION B is the Admin presentation (LKG) after ready. OS Splash never uses network; B only shows cached media immediately.",
         })}
       />
 
@@ -274,9 +274,10 @@ export function StartupConfigAdminPage() {
         </h2>
         <p className="mb-4 sam-text-body text-sam-muted">
           {safeT("admin_startup_config_section_a_help", {
-            fallbackKo: "앱/WebView가 준비될 때까지 표시되는 DIBAY 기본 기술 화면입니다. 광고·CTA·노출 시간과 무관합니다.",
+            fallbackKo:
+              "앱 준비까지 보이는 로컬 기술 브랜드(번들/네이티브 LKG). 배경은 #FFFCFC 크림을 유지해 SECTION B와 한 장의 첫 진입으로 이어집니다. 캠페인·CTA가 아닙니다.",
             fallbackEn:
-              "Default technical surface while the app becomes ready. Not a campaign, CTA, or timed ad.",
+              "Local technical brand (bundled / native LKG) until the app is ready. Keep cream #FFFCFC so SECTION B continues as one first-entry surface. Not a campaign or CTA.",
           })}
         </p>
       </AdminCard>

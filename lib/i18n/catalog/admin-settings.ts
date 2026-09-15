@@ -360,7 +360,7 @@ export const adminSettingsMessages = {
     admin_push_test_no_deliveries: "발송 로그가 생성되지 않았습니다. 서버 설정을 확인하세요.",
     admin_startup_config_title: "앱 시작 설정",
     admin_startup_config_desc:
-      "Native 시작 Intro(로고·배경·액션)와 초기 탭을 관리합니다. 웹 Intro는 사용하지 않으며, 원격 설정은 다음 실행부터 적용됩니다.",
+      "하나의 연속된 첫 진입 화면입니다. SECTION A는 앱 준비까지 로컬 DIBAY 기술 브랜드, SECTION B는 준비 이후 Admin 운영 이미지(LKG)입니다. OS Splash는 네트워크를 쓰지 않으며, B는 캐시된 이미지만 즉시 표시합니다.",
     admin_startup_config_initial_surface: "시작 화면",
     admin_startup_config_initial_surface_hint:
       "기본값은 커뮤니티입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
@@ -428,10 +428,10 @@ export const adminSettingsMessages = {
     admin_startup_config_preview: "기기 미리보기",
     admin_startup_config_section_a_title: "SECTION A · 기본 시작 화면 (Technical Boot)",
     admin_startup_config_section_a_help:
-      "앱이 준비되는 동안 보이는 기본 기술 화면입니다. 캠페인·CTA·시간제 광고가 아닙니다.",
+      "앱 준비까지 보이는 로컬 기술 브랜드(번들/네이티브 LKG). 배경은 #FFFCFC 크림을 유지해 SECTION B와 한 장의 첫 진입으로 이어집니다. 캠페인·CTA가 아닙니다.",
     admin_product_intro_section_title: "첫 진입 인트로",
     admin_product_intro_section_help:
-      "앱 준비(Technical Boot) 이후 사용자에게 보여 줄 운영/홍보 Intro입니다. 캐시된 Intro만 즉시 표시되며, 네트워크 대기로 진입을 막지 않습니다.",
+      "Technical Boot와 같은 첫 진입 표면 위에서, shellReady 이후 Admin 운영 이미지를 이어서 보여 줍니다. 별도 스플래시가 아닙니다. 캐시(LKG)된 미디어만 즉시 표시하며 네트워크로 진입을 막지 않습니다. 배경을 SECTION A와 맞추면 전환이 자연스럽습니다.",
     product_intro_skip: "건너뛰기",
   },
   en: {
@@ -793,7 +793,7 @@ export const adminSettingsMessages = {
     admin_push_test_no_deliveries: "No delivery log was created. Check server configuration.",
     admin_startup_config_title: "Startup config",
     admin_startup_config_desc:
-      "Manage Native startup Intro (logo, background, motion) and the initial tab. Web Intro stays off; remote config applies on the next launch.",
+      "One continuous first-entry surface. SECTION A is local DIBAY technical branding until ready; SECTION B is the Admin presentation (LKG) after ready. OS Splash never uses network; B only shows cached media immediately.",
     admin_startup_config_initial_surface: "Initial screen",
     admin_startup_config_initial_surface_hint:
       "Default is Community. Applies on the next app launch after save.",
@@ -861,10 +861,10 @@ export const adminSettingsMessages = {
     admin_startup_config_preview: "Device preview",
     admin_startup_config_section_a_title: "SECTION A · Technical Boot",
     admin_startup_config_section_a_help:
-      "Default technical surface while the app becomes ready. Not a campaign, CTA, or timed ad.",
+      "Local technical brand (bundled / native LKG) until the app is ready. Keep cream #FFFCFC so SECTION B continues as one first-entry surface. Not a campaign or CTA.",
     admin_product_intro_section_title: "First-entry Product Intro",
     admin_product_intro_section_help:
-      "Shown after Technical Boot. Only cached eligible Intro appears immediately; network never blocks entry.",
+      "Continues the same first-entry surface after shellReady with Admin presentation media. Not a third splash. Only LKG-cached media shows immediately; network never blocks entry. Match SECTION A background for a clean handoff.",
     product_intro_skip: "Skip",
   },
 } as const;

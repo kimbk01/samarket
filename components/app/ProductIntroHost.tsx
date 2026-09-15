@@ -4,6 +4,10 @@
  * Admin Product Intro host — post-shellReady overlay only.
  * FAIL-OPEN: no cache / invalid / media miss → never mounts.
  * Intro is entry state, not a route; CTA uses router.replace.
+ *
+ * Visual SSOT: continues the same first-entry cream surface after Native Technical
+ * Cover. Enter CSS must keep media opaque so shellReady dismiss does not flash
+ * empty cream between brand logo and Admin presentation.
  */
 
 import { useRouter } from "next/navigation";
