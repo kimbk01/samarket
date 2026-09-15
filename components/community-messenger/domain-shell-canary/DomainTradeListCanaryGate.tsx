@@ -32,6 +32,7 @@ import {
   applyDomainTradeListUnreadOnlyPatch,
   subscribeDomainListCanaryPatch,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import { useDomainListCanaryHomeRealtime } from "@/lib/community-messenger/home/use-domain-list-canary-home-realtime";
 import {
   filterTradeListRowsByRole,
   type TradeListRoleFilter,
@@ -309,6 +310,16 @@ export function DomainTradeListCanaryGate({
     () => visibleRows.map((row) => domainTradeListRowToUnifiedItem(row)),
     [visibleRows]
   );
+
+  const homeRealtimeRoomIds = useMemo(
+    () => (dto?.rows ?? []).map((r) => r.roomId).filter(Boolean),
+    [dto]
+  );
+  useDomainListCanaryHomeRealtime({
+    viewerUserId: dto?.viewerUserId ?? null,
+    roomIds: homeRealtimeRoomIds,
+    enabled: mode === "ready" && Boolean(dto?.viewerUserId),
+  });
 
   const filterLabel = (id: TradeListRoleFilter) => {
     if (id === "all") {

@@ -14,6 +14,8 @@ import {
   applyDomainStoreOrderListRealtimeMessagePatch,
   applyDomainTradeListRealtimeMessagePatch,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import { peekDomainStoreOrderCustomerListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
+import { peekDomainTradeListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-trade-list-canary-cache";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { isRememberedDeletedGroupRoomId } from "@/lib/community-messenger/home/group-delete-list-tombstone";
 import {
@@ -285,6 +287,27 @@ function routeDomainCanary(
 }
 
 /**
+ * Hub bootstrap omits commerce domains. When tip arrives for a room that only lives
+ * in Domain canary caches, still resolve trade / store_order so list RT can patch.
+ */
+function resolveCommerceDomainForCanary(
+  activity: RoomActivityProjection,
+  roomId: string,
+  hinted: ChatDomain | null | undefined
+): ChatDomain | null {
+  if (hinted === "trade" || hinted === "store_order") return hinted;
+  const fromActivity = activity.chatDomain;
+  if (fromActivity === "trade" || fromActivity === "store_order") return fromActivity;
+  const viewer = trim(activity.viewerUserId);
+  if (!viewer || !roomId) return null;
+  const trade = peekDomainTradeListCanaryCache(viewer);
+  if (trade?.rows.some((r) => r.roomId === roomId)) return "trade";
+  const storeOrder = peekDomainStoreOrderCustomerListCanaryCache(viewer);
+  if (storeOrder?.rows.some((r) => r.roomId === roomId)) return "store_order";
+  return null;
+}
+
+/**
  * Product body: project one canonical room activity onto hub list (+ domain canary when applicable).
  */
 export function projectRoomActivityToHomeList(
@@ -368,6 +391,10 @@ export function projectRoomActivityToHomeList(
 
   const cache = peekBootstrapCache();
   if (!cache) {
+    const domainOnly = resolveCommerceDomainForCanary(activity, roomId, null);
+    if (domainOnly === "trade" || domainOnly === "store_order") {
+      routeDomainCanary(activity, domainOnly, true);
+    }
     return finish({
       ...baseEmpty,
       accepted: false,
@@ -380,6 +407,12 @@ export function projectRoomActivityToHomeList(
 
   const { chatDomain, row } = resolveIdentity(roomId, cache, activity);
   if (!row) {
+    // Hub bootstrap intentionally omits commerce domains; Domain list caches are separate.
+    // Still patch Domain trade/store_order canary when activity carries (or implies) that domain.
+    const domainOnly = resolveCommerceDomainForCanary(activity, roomId, chatDomain);
+    if (domainOnly === "trade" || domainOnly === "store_order") {
+      routeDomainCanary(activity, domainOnly, true);
+    }
     return finish({
       ...baseEmpty,
       accepted: false,

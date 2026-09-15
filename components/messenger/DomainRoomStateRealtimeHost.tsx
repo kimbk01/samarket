@@ -30,6 +30,8 @@ import {
   applyDomainListCanaryReadPatchByRoomId,
   applyDomainListCanaryUnreadOnlyPatchByRoomId,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import { peekDomainStoreOrderCustomerListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
+import { peekDomainTradeListCanaryCache } from "@/components/community-messenger/domain-shell-canary/domain-trade-list-canary-cache";
 import {
   projectRoomActivityToHomeList,
   roomActivityFromMessageRow,
@@ -40,6 +42,35 @@ const LEGACY_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
   "cm.room.call_stub_preview",
   "cm.home.merge_room_summary",
 ]);
+
+function resolveIncomingDomainIdentity(
+  me: string,
+  roomId: string,
+  ev: Extract<MessengerBusEvent, { type: "cm.room.incoming_message" }>
+): { chatDomain: "trade" | "store_order" | NonNullable<typeof ev.chatDomain>; domainIdentityKey: string | null } | null {
+  const cached = findHomeListRoomRow(peekBootstrapCache(), roomId);
+  const fromEvDomain = ev.chatDomain ?? (cached?.chatDomain as typeof ev.chatDomain) ?? null;
+  const fromEvKey = (ev.domainIdentityKey ?? cached?.domainIdentityKey ?? null)?.trim() || null;
+
+  const tradeRow = peekDomainTradeListCanaryCache(me)?.rows.find((r) => r.roomId === roomId);
+  if (tradeRow) {
+    return {
+      chatDomain: "trade",
+      domainIdentityKey: fromEvKey || tradeRow.domainIdentityKey || null,
+    };
+  }
+  const soRow = peekDomainStoreOrderCustomerListCanaryCache(me)?.rows.find((r) => r.roomId === roomId);
+  if (soRow) {
+    return {
+      chatDomain: "store_order",
+      domainIdentityKey: fromEvKey || soRow.domainIdentityKey || null,
+    };
+  }
+  if (fromEvDomain) {
+    return { chatDomain: fromEvDomain, domainIdentityKey: fromEvKey };
+  }
+  return null;
+}
 
 /**
  * MessagingGlobalChrome / messenger layout 공통 — DomainRoomStateStore spine owner.
@@ -89,9 +120,9 @@ export function DomainRoomStateRealtimeHost() {
 
       if (ev.type === "cm.room.incoming_message") {
         if (String(ev.viewerUserId) !== me) return;
-        const cached = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
-        const chatDomain = ev.chatDomain ?? (cached?.chatDomain as typeof ev.chatDomain) ?? null;
-        const domainIdentityKey = ev.domainIdentityKey ?? cached?.domainIdentityKey ?? null;
+        const identity = resolveIncomingDomainIdentity(me, ev.roomId, ev);
+        const chatDomain = identity?.chatDomain ?? null;
+        const domainIdentityKey = identity?.domainIdentityKey ?? null;
         const tip = roomActivityFromMessageRow({
           roomId: ev.roomId,
           messageRow: ev.messageRow,

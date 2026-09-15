@@ -23,6 +23,7 @@ describe("Domain List canary realtime patch — wiring contract (2026-07-23)", (
       "components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate.tsx"
     );
     expect(src).toContain("subscribeDomainListCanaryPatch(\"trade\"");
+    expect(src).toContain("useDomainListCanaryHomeRealtime");
   });
 
   it("DomainStoreOrderCustomerListCanaryGate subscribes to live patches instead of staying fetch-once", () => {
