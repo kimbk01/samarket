@@ -143,6 +143,13 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       return
     }
     activeConfig = DibayStartupConfigCache.loadActive()
+    // Match LaunchScreen (logo-only on cream): suppress wordmark/spinner pop-in on handoff.
+    var muted = activeConfig
+    muted["showWordmark"] = false
+    muted["showSpinner"] = false
+    muted["captionEnabled"] = false
+    muted["ambientAnimation"] = "none"
+    activeConfig = muted
     let overlay = UIView(frame: view.bounds)
     overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     overlay.isUserInteractionEnabled = true
@@ -161,8 +168,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     introOverlay = overlay
     introContent = content
     introLifecycle = .attached
-    playEnter(on: content, config: activeConfig)
-    startupInfo("intro_attach source=\(source) version=\(String(describing: activeConfig["version"] ?? 0))")
+    // CUT 1: LaunchScreen → Native continuation = ONE continuous surface (no enter re-fade).
+    holdTechnicalHandoffAtRest(on: content)
+    startupInfo("intro_attach source=\(source) version=\(String(describing: activeConfig["version"] ?? 0)) continuity=os_native_handoff enter=none")
   }
 
   private func finalizeIntroRemoved(overlay: UIView, source: String) {
@@ -224,28 +232,11 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
   }
 
-  private func playEnter(on view: UIView, config: [String: Any]) {
-    let enter = (config["enterAnimation"] as? String) ?? "fade_in"
-    let durMs = DibayStartupConfigCache.clampDuration(config["enterDurationMs"] as? Int ?? 280)
-    let seconds = TimeInterval(durMs) / 1000.0
-    if enter == "none" || durMs <= 0 { return }
-    view.alpha = 0
-    switch enter {
-    case "scale_in":
-      view.transform = CGAffineTransform(scaleX: 0.86, y: 0.86)
-    case "fade_scale_in":
-      view.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
-    case "slide_up":
-      view.transform = CGAffineTransform(translationX: 0, y: 36)
-    case "slide_down":
-      view.transform = CGAffineTransform(translationX: 0, y: -36)
-    default:
-      break
-    }
-    UIView.animate(withDuration: seconds) {
-      view.alpha = 1
-      view.transform = .identity
-    }
+  /// Technical Boot after LaunchScreen — logo/bg at rest. Enter anim must not replay.
+  private func holdTechnicalHandoffAtRest(on view: UIView) {
+    view.layer.removeAllAnimations()
+    view.alpha = 1
+    view.transform = .identity
   }
 
   private func applyBackground(to view: UIView, config: [String: Any]) {
@@ -551,7 +542,7 @@ enum DibayStartupConfigCache {
       "wordmark": "DIBAY",
       "showWordmark": true,
       "showSpinner": true,
-      "enterAnimation": "fade_in",
+      "enterAnimation": "none",
       "exitAnimation": "fade_out",
       "ambientAnimation": "none",
       "enterDurationMs": 280,

@@ -1092,6 +1092,15 @@ public class MainActivity extends BridgeActivity {
     super.onCreate(savedInstanceState);
     // Theme splash until Native Intro overlay is attached (same cream/logo continuity).
     splashScreen.setKeepOnScreenCondition(() -> !startupIntroAttached && !webSplashDismissRequested);
+    // CUT 1: skip Android 12+ splash icon exit zoom — reveal Native cover instantly (no logo blink).
+    splashScreen.setOnExitAnimationListener(
+        splashScreenViewProvider -> {
+          try {
+            splashScreenViewProvider.remove();
+          } catch (Exception ignored) {
+            /* ignore */
+          }
+        });
     startupIntroSurface = new DibayStartupIntroSurface(this);
     startupIntroSurface.attachIfNeeded();
     startupIntroSurfaceStatic = startupIntroSurface;

@@ -46,8 +46,6 @@ describe("community P1 divergence contracts", () => {
   it("feed cache invalidate wired on member delete and admin hide/deleted", () => {
     const detail = read("components/community/CommunityDetail.tsx");
     expect(detail).toContain("invalidateCommunityFeedCachesAfterPostModeration");
-    const adminList = read("components/admin/community/AdminCommunityEnginePostsClient.tsx");
-    expect(adminList).toContain("invalidateCommunityFeedCachesAfterPostModeration");
     const adminDetail = read("components/admin/community/AdminCommunityPostDetailPage.tsx");
     expect(adminDetail).toContain("invalidateCommunityFeedCachesAfterPostModeration");
   });

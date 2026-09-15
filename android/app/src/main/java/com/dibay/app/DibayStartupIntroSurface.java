@@ -17,7 +17,6 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -72,6 +71,15 @@ public final class DibayStartupIntroSurface {
     if (contentParent == null) return;
 
     activeConfig = readActiveConfig(activity);
+    // Match OS SplashScreen (icon-only on cream): no wordmark/spinner pop-in on handoff.
+    try {
+      activeConfig.put("showWordmark", false);
+      activeConfig.put("showSpinner", false);
+      activeConfig.put("captionEnabled", false);
+      activeConfig.put("ambientAnimation", "none");
+    } catch (Exception ignored) {
+      /* ignore */
+    }
     root = new FrameLayout(activity);
     root.setLayoutParams(
         new FrameLayout.LayoutParams(
@@ -86,8 +94,14 @@ public final class DibayStartupIntroSurface {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     contentParent.addView(root);
     attached = true;
-    playEnter(activeConfig);
-    Log.i(TAG, "intro_attach version=" + activeConfig.optInt("version", 0));
+    // CUT 1: OS Splash → Native continuation must be ONE continuous surface.
+    // Do not re-run enter fade/scale (second-logo perception). Exit anim still on shellReady.
+    holdTechnicalHandoffAtRest();
+    Log.i(
+        TAG,
+        "intro_attach version="
+            + activeConfig.optInt("version", 0)
+            + " continuity=os_native_handoff enter=none");
   }
 
   public boolean isAttached() {
@@ -198,26 +212,18 @@ public final class DibayStartupIntroSurface {
     mainHandler.postDelayed(finish, dur + 80L);
   }
 
-  private void playEnter(JSONObject cfg) {
+  /**
+   * Technical Boot handoff after OS Splash — keep logo/bg at rest.
+   * Enter/ambient animators must not replay on OS→Native attach (CUT 1).
+   * Exit animators remain for shellReady dismiss.
+   */
+  private void holdTechnicalHandoffAtRest() {
     if (content == null) return;
-    String enter = cfg.optString("enterAnimation", "fade_in");
-    int dur = clampDur(cfg.optInt("enterDurationMs", 280));
-    if ("none".equals(enter) || dur <= 0) return;
-    content.setAlpha(0f);
-    Animator anim = buildEnterAnimator(content, enter, dur);
-    if (anim != null) anim.start();
-    String ambient = cfg.optString("ambientAnimation", "none");
-    if ("soft_pulse".equals(ambient) || "breathing".equals(ambient)) {
-      ObjectAnimator pulse =
-          ObjectAnimator.ofPropertyValuesHolder(
-              content,
-              PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.04f, 1f),
-              PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.04f, 1f));
-      pulse.setDuration("breathing".equals(ambient) ? 1600 : 1100);
-      pulse.setRepeatCount(ObjectAnimator.INFINITE);
-      pulse.setInterpolator(new AccelerateDecelerateInterpolator());
-      pulse.start();
-    }
+    content.setAlpha(1f);
+    content.setScaleX(1f);
+    content.setScaleY(1f);
+    content.setTranslationX(0f);
+    content.setTranslationY(0f);
   }
 
   private View buildContent(JSONObject cfg) {
@@ -382,7 +388,7 @@ public final class DibayStartupIntroSurface {
       o.put("wordmark", "DIBAY");
       o.put("showWordmark", true);
       o.put("showSpinner", true);
-      o.put("enterAnimation", "fade_in");
+      o.put("enterAnimation", "none");
       o.put("exitAnimation", "fade_out");
       o.put("ambientAnimation", "none");
       o.put("enterDurationMs", 280);
