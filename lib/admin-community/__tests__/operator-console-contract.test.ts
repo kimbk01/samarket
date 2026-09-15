@@ -32,11 +32,17 @@ describe("admin community operator console contract", () => {
     expect(list).toMatch(/author_label/);
     expect(list).toMatch(/topicFilterTruncated/);
     expect(list).not.toMatch(/createReport/i);
-    expect(list).not.toMatch(/community_reports/);
+    // Admin Ops SSOT: READ community_reports for reported filter + report_count (batch).
+    // Must not write/create reports from this comments list route.
+    expect(list).toMatch(/community_reports/);
+    expect(list).toMatch(/report_count/);
+    expect(list).not.toMatch(/\.insert\(/);
+    expect(list).not.toMatch(/\.update\(/);
+    expect(list).not.toMatch(/\.delete\(/);
 
     const ui = read("components/admin/community/AdminCommunityCommentsPage.tsx");
-    expect(ui).not.toMatch(/admin\/community\/reports/);
-    expect(ui).not.toMatch(/report_count/);
+    expect(ui).toMatch(/report_count/);
+    expect(ui).toMatch(/admin\/community\/reports/);
     expect(ui).toMatch(/admin_community_topic_filter_truncated/);
   });
 
