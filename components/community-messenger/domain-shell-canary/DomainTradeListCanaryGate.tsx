@@ -228,7 +228,10 @@ export function DomainTradeListCanaryGate({
         }
         const syncUid = getSyncViewerUserIdForClient() ?? null;
         const cached = peekDomainTradeListCanaryCache(syncUid);
-        if (cached && !needsBackgroundRefetchRef.current) {
+        // Paint-first from cache, then always merge a network refresh.
+        // Skipping fetch after a warm cache left swipe mark_read disabled while
+        // domain-read API already had unreadCount > 0 (stale React row).
+        if (cached) {
           const stabilized = stabilizeTradeListDto(cached);
           if (!cancelled) {
             primeDomainTradeListCanaryCache(stabilized.dto);
@@ -236,7 +239,6 @@ export function DomainTradeListCanaryGate({
             setMode("ready");
             setReason(null);
           }
-          return;
         }
         const sb = getSupabaseClient();
         if (!sb) {
