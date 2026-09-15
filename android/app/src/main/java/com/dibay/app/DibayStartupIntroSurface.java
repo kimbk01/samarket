@@ -48,6 +48,10 @@ public final class DibayStartupIntroSurface {
   private static final String LOGO_STAGING = "startup-logo.staging.bin";
   private static final String BG_ACTIVE = "startup-background.bin";
   private static final String BG_STAGING = "startup-background.staging.bin";
+  private static final String PI_CONFIG_ACTIVE = "product-intro.json";
+  private static final String PI_CONFIG_STAGING = "product-intro.staging.json";
+  private static final String PI_MEDIA_ACTIVE = "product-intro-media.bin";
+  private static final String PI_MEDIA_STAGING = "product-intro-media.staging.bin";
 
   private final Activity activity;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -57,6 +61,7 @@ public final class DibayStartupIntroSurface {
   private boolean attached;
   private boolean dismissing;
   private JSONObject activeConfig = new JSONObject();
+  private boolean usingProductIntro;
 
   public DibayStartupIntroSurface(Activity activity) {
     this.activity = activity;
@@ -71,36 +76,53 @@ public final class DibayStartupIntroSurface {
     if (contentParent == null) return;
 
     activeConfig = readActiveConfig(activity);
-    // Match OS SplashScreen (icon-only on cream): no wordmark/spinner pop-in on handoff.
-    try {
-      activeConfig.put("showWordmark", false);
-      activeConfig.put("showSpinner", false);
-      activeConfig.put("captionEnabled", false);
-      activeConfig.put("ambientAnimation", "none");
-    } catch (Exception ignored) {
-      /* ignore */
-    }
+    JSONObject productIntro = readActiveProductIntro(activity);
+    Bitmap productBmp = loadLocalProductIntroMedia();
+    usingProductIntro = isProductIntroEligible(productIntro) && productBmp != null;
+
     root = new FrameLayout(activity);
     root.setLayoutParams(
         new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     root.setClickable(true);
     root.setFocusable(true);
-    applyBackground(root, activeConfig);
-    content = buildContent(activeConfig);
-    root.addView(
-        content,
-        new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+    if (usingProductIntro) {
+      String bg =
+          productIntro.optString("backgroundColor", activeConfig.optString("backgroundColor", "#FFFCFC"));
+      root.setBackgroundColor(parseColor(bg, 0xFFFFFCFC));
+      content = buildProductIntroContent(productIntro, productBmp);
+      root.addView(
+          content,
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    } else {
+      // Match OS SplashScreen (icon-only on cream): no wordmark/spinner pop-in on handoff.
+      try {
+        activeConfig.put("showWordmark", false);
+        activeConfig.put("showSpinner", false);
+        activeConfig.put("captionEnabled", false);
+        activeConfig.put("ambientAnimation", "none");
+      } catch (Exception ignored) {
+        /* ignore */
+      }
+      applyBackground(root, activeConfig);
+      content = buildContent(activeConfig);
+      root.addView(
+          content,
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
     contentParent.addView(root);
     attached = true;
     // CUT 1: OS Splash → Native continuation must be ONE continuous surface.
-    // Do not re-run enter fade/scale (second-logo perception). Exit anim still on shellReady.
     holdTechnicalHandoffAtRest();
     Log.i(
         TAG,
         "intro_attach version="
             + activeConfig.optInt("version", 0)
+            + " product_intro="
+            + usingProductIntro
             + " continuity=os_native_handoff enter=none");
   }
 
@@ -166,6 +188,172 @@ public final class DibayStartupIntroSurface {
             Log.w(TAG, "persist_failed: " + e.getMessage());
           }
         });
+  }
+
+  /**
+   * Persist Admin Product Intro JSON + media for next cold first-entry visual.
+   * Never blocks App Ready / current paint. Fail-open: incomplete download keeps prior LKG.
+   */
+  public void persistProductIntroFromBridgeJson(String json) {
+    if (json == null || json.trim().isEmpty()) return;
+    io.execute(
+        () -> {
+          try {
+            JSONObject next = new JSONObject(json);
+            File dir = dir(activity);
+            if (!dir.exists() && !dir.mkdirs()) {
+              Log.w(TAG, "pi_persist_mkdir_failed");
+              return;
+            }
+            String status = next.optString("status", "inactive");
+            String mediaUrl = optHttpUrl(next.optString("mediaUrl", null));
+            if (!"active".equals(status) || mediaUrl == null) {
+              writeText(new File(dir, PI_CONFIG_STAGING), next.toString());
+              swapFile(new File(dir, PI_CONFIG_STAGING), new File(dir, PI_CONFIG_ACTIVE));
+              new File(dir, PI_MEDIA_ACTIVE).delete();
+              Log.i(TAG, "pi_persist_cleared status=" + status);
+              return;
+            }
+            writeText(new File(dir, PI_CONFIG_STAGING), next.toString());
+            boolean mediaOk = downloadTo(mediaUrl, new File(dir, PI_MEDIA_STAGING));
+            if (!mediaOk) {
+              Log.w(TAG, "pi_persist_media_incomplete");
+              return;
+            }
+            swapFile(new File(dir, PI_CONFIG_STAGING), new File(dir, PI_CONFIG_ACTIVE));
+            swapFile(new File(dir, PI_MEDIA_STAGING), new File(dir, PI_MEDIA_ACTIVE));
+            Log.i(TAG, "pi_persist_ok");
+          } catch (Exception e) {
+            Log.w(TAG, "pi_persist_failed: " + e.getMessage());
+          }
+        });
+  }
+
+  private View buildProductIntroContent(JSONObject pi, Bitmap bmp) {
+    FrameLayout wrap = new FrameLayout(activity);
+    String mode = pi.optString("displayMode", "fullscreen");
+    String fit = pi.optString("objectFit", "contain");
+    ImageView image = new ImageView(activity);
+    image.setImageBitmap(bmp);
+    image.setScaleType(
+        "cover".equals(fit) ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
+    int pad = dp(16);
+    if ("card".equals(mode)) {
+      int radius = Math.max(0, Math.min(48, pi.optInt("cornerRadiusPx", 16)));
+      GradientDrawable cardBg = new GradientDrawable();
+      cardBg.setColor(Color.WHITE);
+      cardBg.setCornerRadius(dp(radius));
+      FrameLayout card = new FrameLayout(activity);
+      card.setBackground(cardBg);
+      if (android.os.Build.VERSION.SDK_INT >= 21) {
+        card.setClipToOutline(true);
+        card.setElevation(dp(8));
+      }
+      int screenW = activity.getResources().getDisplayMetrics().widthPixels;
+      int screenH = activity.getResources().getDisplayMetrics().heightPixels;
+      int widthPct = productIntroWidthPercent(pi);
+      int maxW = Math.min(dp(420), (int) (screenW * Math.min(92, widthPct) / 100f));
+      int maxH = (int) (screenH * 0.70f);
+      FrameLayout.LayoutParams cardLp = new FrameLayout.LayoutParams(maxW, ViewGroup.LayoutParams.WRAP_CONTENT);
+      cardLp.gravity = Gravity.CENTER;
+      cardLp.setMargins(pad, pad, pad, pad);
+      FrameLayout.LayoutParams imgLp =
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+      image.setAdjustViewBounds(true);
+      image.setMaxHeight(maxH);
+      card.addView(image, imgLp);
+      wrap.addView(card, cardLp);
+    } else {
+      FrameLayout.LayoutParams imgLp =
+          new FrameLayout.LayoutParams(
+              ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+      imgLp.gravity = Gravity.CENTER;
+      imgLp.setMargins(pad, pad, pad, pad);
+      image.setAdjustViewBounds(true);
+      image.setMaxHeight((int) (activity.getResources().getDisplayMetrics().heightPixels * 0.78f));
+      wrap.addView(image, imgLp);
+    }
+    return wrap;
+  }
+
+  private static int productIntroWidthPercent(JSONObject pi) {
+    if (pi.has("customSizePercent") && !pi.isNull("customSizePercent")) {
+      int c = pi.optInt("customSizePercent", 72);
+      return Math.max(40, Math.min(100, c));
+    }
+    String preset = pi.optString("sizePreset", "medium");
+    if ("small".equals(preset)) return 56;
+    if ("large".equals(preset)) return 88;
+    if ("full".equals(preset)) return 100;
+    return 72;
+  }
+
+  private static boolean isProductIntroEligible(JSONObject pi) {
+    if (pi == null || pi.length() == 0) return false;
+    if (!"active".equals(pi.optString("status", "inactive"))) return false;
+    String url = pi.optString("mediaUrl", "");
+    if (url == null || url.trim().isEmpty()) return false;
+    long now = System.currentTimeMillis();
+    Long startMs = parseIsoMillis(pi.optString("startsAt", null));
+    Long endMs = parseIsoMillis(pi.optString("endsAt", null));
+    if (startMs != null && now < startMs) return false;
+    if (endMs != null && now >= endMs) return false;
+    return true;
+  }
+
+  /** Best-effort ISO-8601 parse for API 24+ without requiring java.time. */
+  private static Long parseIsoMillis(String raw) {
+    if (raw == null || raw.trim().isEmpty()) return null;
+    try {
+      String t = raw.trim();
+      if (t.endsWith("Z")) t = t.substring(0, t.length() - 1) + "+0000";
+      // Support both +00:00 and +0000
+      if (t.length() > 5 && (t.charAt(t.length() - 3) == ':') && (t.charAt(t.length() - 6) == '+' || t.charAt(t.length() - 6) == '-')) {
+        t = t.substring(0, t.length() - 3) + t.substring(t.length() - 2);
+      }
+      java.text.SimpleDateFormat fmt =
+          new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", java.util.Locale.US);
+      fmt.setLenient(true);
+      java.util.Date d = fmt.parse(t);
+      return d != null ? d.getTime() : null;
+    } catch (Exception e) {
+      try {
+        java.text.SimpleDateFormat fmt2 =
+            new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", java.util.Locale.US);
+        String t = raw.trim();
+        if (t.endsWith("Z")) t = t.substring(0, t.length() - 1) + "+0000";
+        java.util.Date d = fmt2.parse(t);
+        return d != null ? d.getTime() : null;
+      } catch (Exception ignored) {
+        return null;
+      }
+    }
+  }
+
+  private static JSONObject readActiveProductIntro(Context ctx) {
+    File f = new File(dir(ctx), PI_CONFIG_ACTIVE);
+    if (!f.exists()) return new JSONObject();
+    try {
+      byte[] buf = new byte[(int) Math.min(f.length(), 256_000)];
+      try (FileInputStream in = new FileInputStream(f)) {
+        int n = in.read(buf);
+        if (n <= 0) return new JSONObject();
+        return new JSONObject(new String(buf, 0, n, StandardCharsets.UTF_8));
+      }
+    } catch (Exception e) {
+      return new JSONObject();
+    }
+  }
+
+  private Bitmap loadLocalProductIntroMedia() {
+    File f = new File(dir(activity), PI_MEDIA_ACTIVE);
+    if (!f.exists() || f.length() <= 0) return null;
+    try {
+      return BitmapFactory.decodeStream(new FileInputStream(f));
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   /** shellReady path — exit animation then remove. Safety cleanup if animator never ends. */

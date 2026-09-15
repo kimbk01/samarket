@@ -378,6 +378,11 @@ export const adminSettingsMessages = {
     admin_first_entry_popup_size: "팝업 크기",
     admin_first_entry_radius: "모서리",
     admin_first_entry_duration: "표시 시간 (초)",
+    admin_first_entry_min_display: "최소 노출 시간 (초)",
+    admin_first_entry_min_display_help:
+      "기본 0초: 앱이 준비되면 바로 닫힙니다. 부팅을 일부러 늘리지 않습니다. 캠페인용으로만 초를 올리세요.",
+    admin_first_entry_image_guide:
+      "권장 이미지 1080×1350px · 비율 4:5 · 최대 2MB · JPG/PNG/WEBP. 중요한 글자·로고는 가장자리에서 8% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.",
     admin_first_entry_animation: "화면 전환",
     admin_first_entry_anim_none: "없음",
     admin_first_entry_anim_fade: "페이드",
@@ -844,6 +849,11 @@ export const adminSettingsMessages = {
     admin_first_entry_popup_size: "Popup size",
     admin_first_entry_radius: "Corner radius",
     admin_first_entry_duration: "Display time (sec)",
+    admin_first_entry_min_display: "Minimum display (sec)",
+    admin_first_entry_min_display_help:
+      "Default 0: closes as soon as the app is ready. Does not extend boot. Raise only for intentional campaign hold.",
+    admin_first_entry_image_guide:
+      "Recommended 1080×1350px · 4:5 · max 2MB · JPG/PNG/WEBP. Keep text/logo inside the 8% safe inset. One source image renders responsively on all devices.",
     admin_first_entry_animation: "Transition",
     admin_first_entry_anim_none: "None",
     admin_first_entry_anim_fade: "Fade",

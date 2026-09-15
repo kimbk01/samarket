@@ -55,10 +55,13 @@ describe("product-intro SSOT", () => {
     ).toBe(false);
   });
 
-  it("clamps display duration bounds", () => {
-    const low = normalizeProductIntroConfig({ displayDurationMs: 10 });
-    expect(low.displayDurationMs).toBe(800);
+  it("clamps display duration bounds (0 = no intentional hold after ready)", () => {
+    const zero = normalizeProductIntroConfig({ displayDurationMs: 0 });
+    expect(zero.displayDurationMs).toBe(0);
+    const low = normalizeProductIntroConfig({ displayDurationMs: -5 });
+    expect(low.displayDurationMs).toBe(0);
     const high = normalizeProductIntroConfig({ displayDurationMs: 99999 });
     expect(high.displayDurationMs).toBe(8000);
   });
 });
+

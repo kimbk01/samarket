@@ -14,6 +14,7 @@ declare global {
       endHandoffCover?: () => void;
       setInitialSurface?: (surface: string) => void;
       persistStartupConfig?: (json: string) => void;
+      persistProductIntro?: (json: string) => void;
     };
   }
 }

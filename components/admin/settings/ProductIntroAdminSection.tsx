@@ -20,6 +20,21 @@ import {
   type ProductIntroAnimIn,
   type ProductIntroConfig,
 } from "@/lib/startup/product-intro";
+import {
+  prefetchProductIntroMedia,
+  writeProductIntroCache,
+} from "@/lib/startup/product-intro-cache";
+import { syncProductIntroToNative } from "@/lib/startup/product-intro-native-sync";
+import {
+  PRODUCT_INTRO_CANONICAL_ASPECT,
+  PRODUCT_INTRO_MAX_FILE_BYTES,
+  PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX,
+  PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX,
+  PRODUCT_INTRO_SAFE_ZONE_INSET_PCT,
+  PRODUCT_INTRO_VIEWPORT_PRESETS,
+  computeProductIntroLayoutBox,
+  type ProductIntroViewportKind,
+} from "@/lib/startup/product-intro-geometry";
 import { INITIAL_APP_SURFACES, type InitialAppSurface } from "@/lib/startup/initial-app-surface";
 
 type OperatorAnim = "none" | "fade" | "fade_scale" | "slide_up";
@@ -152,46 +167,74 @@ function needsTargetId(kind: DestKind): boolean {
 function FirstEntryPreview({
   config,
   replayKey,
+  viewport,
 }: {
   config: ProductIntroConfig;
   replayKey: number;
+  viewport: ProductIntroViewportKind;
 }) {
   const media = config.media.mobileUrl;
   const enterClass = cssClassForProductIntroEnter(config.animationIn);
   const widthPct = productIntroImageWidthPercent(config);
   const isPopup = config.displayMode === "card";
+  const preset = PRODUCT_INTRO_VIEWPORT_PRESETS[viewport];
+  const scale = Math.min(220 / preset.width, 420 / preset.height);
+  const frameW = Math.round(preset.width * scale);
+  const frameH = Math.round(preset.height * scale);
+  const box = computeProductIntroLayoutBox({
+    viewportWidth: preset.width,
+    viewportHeight: preset.height,
+    displayMode: config.displayMode,
+    widthPercent: widthPct,
+    objectFit: config.objectFit,
+  });
+  const surfaceW = Math.round(box.surfaceWidthPx * scale);
+  const surfaceMaxH = Math.round(box.surfaceMaxHeightPx * scale);
+  const safeInset = `${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}%`;
 
   return (
-    <div
-      key={replayKey}
-      className="relative mx-auto flex h-[420px] w-[220px] flex-col items-center justify-center overflow-hidden rounded-[24px] border border-sam-border"
-      style={{ background: config.backgroundColor || "#FFFCFC" }}
-    >
-      {media ? (
-        <div
-          className={`${enterClass} ${isPopup ? "overflow-hidden bg-white shadow-sm" : "flex items-center justify-center"}`}
-          style={{
-            width: `${Math.min(isPopup ? 86 : widthPct, 92)}%`,
-            borderRadius: isPopup ? config.cornerRadiusPx : 0,
-            animationDuration: `${config.enterDurationMs}ms`,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={media}
-            alt=""
+    <div className="space-y-2">
+      <div
+        key={`${replayKey}-${viewport}`}
+        className="relative mx-auto flex flex-col items-center justify-center overflow-hidden rounded-[24px] border border-sam-border"
+        style={{
+          width: frameW,
+          height: frameH,
+          background: config.backgroundColor || "#FFFCFC",
+        }}
+      >
+        {media ? (
+          <div
+            className={`${enterClass} relative ${isPopup ? "overflow-hidden bg-white shadow-sm" : "flex items-center justify-center"}`}
             style={{
-              width: "100%",
-              maxHeight: 280,
-              objectFit: config.objectFit,
-              display: "block",
+              width: isPopup ? surfaceW : `${Math.min(widthPct, 100)}%`,
+              maxHeight: surfaceMaxH,
+              borderRadius: isPopup ? Math.max(4, config.cornerRadiusPx * scale) : 0,
+              animationDuration: `${config.enterDurationMs}ms`,
             }}
-          />
-        </div>
-      ) : (
-        <p className="px-4 text-center sam-text-caption text-sam-muted">이미지를 선택하세요</p>
-      )}
-      <p className="absolute bottom-3 sam-text-caption text-sam-muted">
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={media}
+              alt=""
+              style={{
+                width: "100%",
+                maxHeight: surfaceMaxH,
+                objectFit: box.objectFit,
+                display: "block",
+              }}
+            />
+            <div
+              className="pointer-events-none absolute inset-0 border border-dashed border-sam-brand/40"
+              style={{ margin: safeInset }}
+              aria-hidden
+            />
+          </div>
+        ) : (
+          <p className="px-4 text-center sam-text-caption text-sam-muted">이미지를 선택하세요</p>
+        )}
+      </div>
+      <p className="text-center sam-text-caption text-sam-muted">
         {config.status === "active" && isProductIntroDisplayEligible(config)
           ? "사용 중 · 표시 가능"
           : config.status === "active"
@@ -216,6 +259,8 @@ export function ProductIntroAdminSection() {
   const [message, setMessage] = useState<string | null>(null);
   const [replayKey, setReplayKey] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [previewViewport, setPreviewViewport] =
+    useState<ProductIntroViewportKind>("phone_portrait");
   const mobileRef = useRef<HTMLInputElement>(null);
   const tabletRef = useRef<HTMLInputElement>(null);
 
@@ -344,6 +389,11 @@ export function ProductIntroAdminSection() {
       const next = normalizeProductIntroConfig(json.config);
       setDraft(next);
       setBaseline(next);
+      writeProductIntroCache(next);
+      syncProductIntroToNative(next);
+      if (next.media.mobileUrl && isProductIntroDisplayEligible(next)) {
+        void prefetchProductIntroMedia(next.media.mobileUrl, { markReady: true });
+      }
       setMessage(
         safeT("admin_first_entry_saved", {
           fallbackKo: "저장되었습니다.",
@@ -466,6 +516,12 @@ export function ProductIntroAdminSection() {
                 />
               </div>
             ) : null}
+            <p className="mt-2 sam-text-caption text-sam-muted">
+              {safeT("admin_first_entry_image_guide", {
+                fallbackKo: `권장 이미지 ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX}px · 비율 ${PRODUCT_INTRO_CANONICAL_ASPECT} · 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP. 중요한 글자·로고는 가장자리에서 ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.`,
+                fallbackEn: `Recommended ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX}px · ${PRODUCT_INTRO_CANONICAL_ASPECT} · max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP. Keep text/logo inside the ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% safe inset. One source image renders responsively on all devices.`,
+              })}
+            </p>
           </div>
 
           <details
@@ -630,22 +686,30 @@ export function ProductIntroAdminSection() {
             ) : null}
             <div>
               <FieldLabel>
-                {safeT("admin_first_entry_duration", {
-                  fallbackKo: "표시 시간 (초)",
-                  fallbackEn: "Display time (sec)",
+                {safeT("admin_first_entry_min_display", {
+                  fallbackKo: "최소 노출 시간 (초)",
+                  fallbackEn: "Minimum display (sec)",
                 })}
               </FieldLabel>
               <TextInput
                 type="number"
-                min={1}
+                min={0}
                 max={8}
                 step={1}
                 value={displaySeconds}
                 onChange={(e) => {
-                  const sec = Math.min(8, Math.max(1, Number(e.target.value) || 3));
+                  const sec = Math.min(8, Math.max(0, Number(e.target.value) || 0));
                   patch({ displayDurationMs: sec * 1000 });
                 }}
               />
+              <p className="mt-1 sam-text-caption text-sam-muted">
+                {safeT("admin_first_entry_min_display_help", {
+                  fallbackKo:
+                    "기본 0초: 앱이 준비되면 바로 닫힙니다. 부팅을 일부러 늘리지 않습니다. 캠페인용으로만 초를 올리세요.",
+                  fallbackEn:
+                    "Default 0: closes as soon as the app is ready. Does not extend boot. Raise only for intentional campaign hold.",
+                })}
+              </p>
             </div>
             <div>
               <FieldLabel>
@@ -837,7 +901,34 @@ export function ProductIntroAdminSection() {
           </div>
         </div>
 
-        <FirstEntryPreview config={draft} replayKey={replayKey} />
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-1">
+            {(Object.keys(PRODUCT_INTRO_VIEWPORT_PRESETS) as ProductIntroViewportKind[]).map(
+              (key) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`rounded-ui-rect px-2 py-1 sam-text-caption ${
+                    previewViewport === key
+                      ? "bg-sam-brand text-white"
+                      : "border border-sam-border bg-sam-surface text-sam-fg"
+                  }`}
+                  onClick={() => {
+                    setPreviewViewport(key);
+                    setReplayKey((k) => k + 1);
+                  }}
+                >
+                  {PRODUCT_INTRO_VIEWPORT_PRESETS[key].labelKo}
+                </button>
+              )
+            )}
+          </div>
+          <FirstEntryPreview
+            config={draft}
+            replayKey={replayKey}
+            viewport={previewViewport}
+          />
+        </div>
       </div>
     </div>
   );

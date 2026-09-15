@@ -5,7 +5,6 @@ import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from
 import { usePathname } from "next/navigation";
 import { useOwnerAdminUrlSearchParams } from "@/lib/business/use-owner-admin-url-search-params";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
-import { ProductIntroHost } from "@/components/app/ProductIntroHost";
 import { markBootMetricsShellReady } from "@/lib/startup/startup-metrics";
 import {
   BUNDLED_STARTUP_NAV,
@@ -420,7 +419,6 @@ export function ConditionalAppShell({
       ) : null}
       <SupportModalHost />
       <SupportFabHostLazy />
-      <ProductIntroHost />
       <GlobalPopupHostLazy />
       <BootThumbnailObserver />
     </div>

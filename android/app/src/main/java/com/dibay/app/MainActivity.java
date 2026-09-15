@@ -1635,6 +1635,22 @@ public class MainActivity extends BridgeActivity {
           });
     }
 
+    /**
+     * Persist Product Intro LKG media for next-cold first-entry visual (same Admin image).
+     * Never blocks App Ready.
+     */
+    @JavascriptInterface
+    public void persistProductIntro(String json) {
+      Log.i(WEBVIEW_LOG_TAG, "persistProductIntro bridge bytes=" + (json != null ? json.length() : 0));
+      mainHandler.post(
+          () -> {
+            if (startupIntroSurface == null) {
+              startupIntroSurface = new DibayStartupIntroSurface(MainActivity.this);
+            }
+            startupIntroSurface.persistProductIntroFromBridgeJson(json);
+          });
+    }
+
     /** Remove Native Handoff Cover — Remote App Ready / shellReady only. */
     @JavascriptInterface
     public void endHandoffCover() {

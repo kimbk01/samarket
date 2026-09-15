@@ -43,7 +43,8 @@ export type ProductIntroActionType = (typeof PRODUCT_INTRO_ACTION_TYPES)[number]
 
 export const PRODUCT_INTRO_ANIM_MS_MIN = 150;
 export const PRODUCT_INTRO_ANIM_MS_MAX = 1200;
-export const PRODUCT_INTRO_DISPLAY_MS_MIN = 800;
+/** 0 = no intentional hold after app ready (cover-only during boot). */
+export const PRODUCT_INTRO_DISPLAY_MS_MIN = 0;
 export const PRODUCT_INTRO_DISPLAY_MS_MAX = 8000;
 export const PRODUCT_INTRO_RADIUS_MIN = 0;
 export const PRODUCT_INTRO_RADIUS_MAX = 48;
@@ -96,7 +97,7 @@ export const BUNDLED_PRODUCT_INTRO_CONFIG: ProductIntroConfig = {
   animationIn: "fade",
   animationOut: "fade",
   enterDurationMs: 280,
-  displayDurationMs: 2500,
+  displayDurationMs: 0,
   exitDurationMs: 220,
   action: { type: "none", target: "" },
   startsAt: null,

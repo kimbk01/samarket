@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * Admin Product Intro host — post-shellReady overlay only.
- * FAIL-OPEN: no cache / invalid / media miss → never mounts.
- * Intro is entry state, not a route; CTA uses router.replace.
+ * Admin First Entry cover — occupies unavoidable boot; must NOT add serial wait after app ready.
  *
- * Visual SSOT: continues the same first-entry cream surface after Native Technical
- * Cover. Enter CSS must keep media opaque so shellReady dismiss does not flash
- * empty cream between brand logo and Admin presentation.
+ * CONTRACT:
+ * - Start from LKG as soon as host mounts (under Native cover when present).
+ * - displayDurationMs = intentional minimum presentation (default 0).
+ * - On shellReady: exit immediately if min already satisfied; else hold remaining only.
+ * - FAIL-OPEN: no cache / invalid / media miss → never mounts.
+ * - CTA: router.replace after exit; no Intro history entry.
  */
 
 import { useRouter } from "next/navigation";
@@ -32,6 +33,10 @@ import {
   resolveProductIntroAction,
   type ProductIntroConfig,
 } from "@/lib/startup/product-intro";
+import {
+  computeProductIntroLayoutBox,
+  PRODUCT_INTRO_POPUP_MAX_WIDTH_PX,
+} from "@/lib/startup/product-intro-geometry";
 import {
   isAppShellReady,
   whenAppShellReady,
@@ -59,31 +64,34 @@ function markShownThisEntry(): void {
 }
 
 function pickMediaUrl(config: ProductIntroConfig): string {
-  if (typeof window === "undefined") return config.media.mobileUrl ?? "";
-  const w = window.innerWidth || 0;
-  if (w >= 768 && config.media.tabletUrl) return config.media.tabletUrl;
-  return config.media.mobileUrl ?? "";
+  // ONE primary image — tablet override only if present; same asset preferred.
+  return config.media.mobileUrl ?? config.media.tabletUrl ?? "";
 }
 
 export function ProductIntroHost(): ReactElement | null {
   const router = useRouter();
   const { safeT } = useI18n();
-  const [shellReadyTick, setShellReadyTick] = useState(0);
+  const [shellReady, setShellReady] = useState(() =>
+    typeof window !== "undefined" ? isAppShellReady() : false
+  );
   const [phase, setPhase] = useState<Phase>("idle");
   const [config, setConfig] = useState<ProductIntroConfig | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [layoutTick, setLayoutTick] = useState(0);
   const holdTimerRef = useRef<number | null>(null);
   const exitTimerRef = useRef<number | null>(null);
   const dismissedRef = useRef(false);
   const configRef = useRef<ProductIntroConfig | null>(null);
+  const presentedAtRef = useRef<number | null>(null);
+  const pendingHrefRef = useRef<string | null>(null);
   configRef.current = config;
 
   useEffect(() => {
     if (isAppShellReady()) {
-      setShellReadyTick((n) => n + 1);
+      setShellReady(true);
       return;
     }
-    return whenAppShellReady(() => setShellReadyTick((n) => n + 1));
+    return whenAppShellReady(() => setShellReady(true));
   }, []);
 
   useEffect(() => {
@@ -91,6 +99,16 @@ export function ProductIntroHost(): ReactElement | null {
     setProductIntroOverlayActive(active);
     return () => setProductIntroOverlayActive(false);
   }, [phase]);
+
+  useEffect(() => {
+    const onResize = () => setLayoutTick((n) => n + 1);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
 
   const clearTimers = useCallback(() => {
     if (holdTimerRef.current != null) {
@@ -104,31 +122,44 @@ export function ProductIntroHost(): ReactElement | null {
   }, []);
 
   const beginExit = useCallback(
-    (after?: () => void) => {
+    (opts?: { skipAnim?: boolean; after?: () => void }) => {
       if (dismissedRef.current) return;
       dismissedRef.current = true;
       clearTimers();
       const cfg = configRef.current;
-      if (!cfg || cfg.animationOut === "none" || cfg.exitDurationMs <= 0) {
+      const finish = () => {
         setPhase("done");
         setConfig(null);
-        after?.();
+        const href = pendingHrefRef.current;
+        pendingHrefRef.current = null;
+        opts?.after?.();
+        if (href) {
+          try {
+            router.replace(href);
+          } catch {
+            /* fail-open */
+          }
+        }
+      };
+      if (
+        opts?.skipAnim ||
+        !cfg ||
+        cfg.animationOut === "none" ||
+        cfg.exitDurationMs <= 0
+      ) {
+        finish();
         return;
       }
       setPhase("exit");
-      exitTimerRef.current = window.setTimeout(() => {
-        setPhase("done");
-        setConfig(null);
-        after?.();
-      }, cfg.exitDurationMs);
+      exitTimerRef.current = window.setTimeout(finish, cfg.exitDurationMs);
     },
-    [clearTimers]
+    [clearTimers, router]
   );
 
+  /** Start cover ASAP from LKG — do not wait for shellReady. */
   useLayoutEffect(() => {
-    if (shellReadyTick < 1) return;
-    scheduleProductIntroCacheRefresh();
     if (phase !== "idle") return;
+    scheduleProductIntroCacheRefresh();
     if (alreadyShownThisEntry()) {
       setPhase("done");
       return;
@@ -140,28 +171,47 @@ export function ProductIntroHost(): ReactElement | null {
     }
     markShownThisEntry();
     setConfig(gate.config);
-    // Proven-ready media first (mobile LKG). Tablet only if already decoded in cache.
     const preferred = pickMediaUrl(gate.config);
-    setMediaUrl(preferred === gate.mediaUrl ? preferred : gate.mediaUrl);
+    setMediaUrl(preferred || gate.mediaUrl);
+    presentedAtRef.current = performance.now();
     setPhase("enter");
-  }, [shellReadyTick, phase]);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "enter" || !config) return;
+    // Skip enter anim delay when app already ready and min display is 0 — avoid serial flash.
+    if (shellReady && config.displayDurationMs <= 0) {
+      setPhase("hold");
+      return;
+    }
     const enterMs = config.animationIn === "none" ? 0 : config.enterDurationMs;
     const t = window.setTimeout(() => setPhase("hold"), Math.max(0, enterMs));
     return () => window.clearTimeout(t);
-  }, [phase, config]);
+  }, [phase, config, shellReady]);
 
-  useEffect(() => {
-    if (phase !== "hold" || !config) return;
-    holdTimerRef.current = window.setTimeout(() => {
-      beginExit();
-    }, config.displayDurationMs);
+  /**
+   * Exit authority: shellReady + intentional minimum.
+   * remaining = max(0, displayDurationMs - elapsedSinceFirstPaint)
+   * Default displayDurationMs=0 → exit as soon as app ready (no added stage).
+   */
+  useLayoutEffect(() => {
+    if (!shellReady) return;
+    if (phase !== "enter" && phase !== "hold") return;
+    if (!config) return;
+    clearTimers();
+    const started = presentedAtRef.current ?? performance.now();
+    const elapsed = Math.max(0, performance.now() - started);
+    const remaining = Math.max(0, config.displayDurationMs - elapsed);
+    if (remaining <= 0) {
+      // App ready + min satisfied: do not add exit-anim serial wait.
+      beginExit({ skipAnim: true });
+      return;
+    }
+    holdTimerRef.current = window.setTimeout(() => beginExit(), remaining);
     return () => {
       if (holdTimerRef.current != null) window.clearTimeout(holdTimerRef.current);
     };
-  }, [phase, config, beginExit]);
+  }, [shellReady, phase, config, beginExit, clearTimers]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
 
@@ -177,20 +227,16 @@ export function ProductIntroHost(): ReactElement | null {
   function onCta() {
     if (!config || dismissedRef.current) return;
     const resolved = resolveProductIntroAction(config.action);
-    beginExit(() => {
-      if (!resolved.ok) return;
-      try {
-        router.replace(resolved.href);
-      } catch {
-        /* fail-open */
-      }
-    });
+    if (resolved.ok) pendingHrefRef.current = resolved.href;
+    beginExit();
   }
 
   if (phase === "idle" || phase === "done" || !config || !mediaUrl) return null;
 
   const enterClass =
-    phase === "enter" ? cssClassForProductIntroEnter(config.animationIn) : "";
+    phase === "enter" && !(shellReady && config.displayDurationMs <= 0)
+      ? cssClassForProductIntroEnter(config.animationIn)
+      : "";
   const exitClass = phase === "exit" ? cssClassForProductIntroExit(config.animationOut) : "";
   const widthPct = productIntroImageWidthPercent(config);
   const clickable = config.action.type !== "none";
@@ -201,11 +247,23 @@ export function ProductIntroHost(): ReactElement | null {
         ? config.enterDurationMs
         : 0;
 
+  void layoutTick;
+  const vw = typeof window !== "undefined" ? window.innerWidth || 390 : 390;
+  const vh = typeof window !== "undefined" ? window.innerHeight || 844 : 844;
+  const box = computeProductIntroLayoutBox({
+    viewportWidth: vw,
+    viewportHeight: vh,
+    displayMode: config.displayMode,
+    widthPercent: widthPct,
+    objectFit: config.objectFit,
+  });
+
   return (
     <div
       className="dibay-product-intro-root"
       data-dibay-product-intro="1"
       data-phase={phase}
+      data-min-display-ms={config.displayDurationMs}
       role="dialog"
       aria-modal="true"
       aria-label={config.name || "Intro"}
@@ -218,8 +276,10 @@ export function ProductIntroHost(): ReactElement | null {
           animationDuration: durationMs > 0 ? `${durationMs}ms` : undefined,
           borderRadius:
             config.displayMode === "card" ? `${config.cornerRadiusPx}px` : undefined,
-          width: config.displayMode === "card" ? `${Math.min(92, widthPct)}%` : "100%",
-          maxWidth: config.displayMode === "card" ? 420 : undefined,
+          width: config.displayMode === "card" ? box.surfaceWidthPx : `${widthPct}%`,
+          maxWidth:
+            config.displayMode === "card" ? PRODUCT_INTRO_POPUP_MAX_WIDTH_PX : undefined,
+          maxHeight: box.surfaceMaxHeightPx,
         }}
         onClick={clickable ? onCta : undefined}
         disabled={!clickable}
@@ -231,9 +291,10 @@ export function ProductIntroHost(): ReactElement | null {
           alt=""
           className="dibay-product-intro-image"
           style={{
-            objectFit: config.objectFit,
-            width: config.displayMode === "fullscreen" ? `${widthPct}%` : "100%",
-            maxHeight: config.displayMode === "fullscreen" ? "78vh" : "70vh",
+            objectFit: box.objectFit,
+            width: "100%",
+            maxHeight: box.surfaceMaxHeightPx,
+            height: "auto",
           }}
           draggable={false}
         />

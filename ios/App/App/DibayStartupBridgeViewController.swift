@@ -88,6 +88,9 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         persistStartupConfig:function(json){
           try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'persistStartupConfig',json:String(json||'')});}catch(e){}
         },
+        persistProductIntro:function(json){
+          try{window.webkit.messageHandlers.DibayBootBridge.postMessage({action:'persistProductIntro',json:String(json||'')});}catch(e){}
+        },
         getPendingRoute:function(){ return ''; }
       };
     })();
@@ -117,6 +120,10 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       case "persistStartupConfig":
         let json = (body["json"] as? String) ?? ""
         DibayStartupConfigCache.persist(json: json)
+      case "persistProductIntro":
+        // iOS materialization follow-up — accept bridge without blocking; NOT_PROVEN device close.
+        let piJson = (body["json"] as? String) ?? ""
+        DibayStartupConfigCache.persistProductIntro(json: piJson)
       default:
         break
       }
@@ -451,6 +458,39 @@ enum DibayStartupConfigCache {
       let surface = (obj["initialSurface"] as? String) ?? "community"
       UserDefaults.standard.set(surface, forKey: "dibay_initial_surface")
       NSLog("[DIBAY_Startup] persist_ok surface=%@", surface)
+    }
+  }
+
+  /// Cache Product Intro JSON + media for future iOS first-entry materialization (device close NOT_PROVEN).
+  static func persistProductIntro(json: String) {
+    DispatchQueue.global(qos: .utility).async {
+      guard let data = json.data(using: .utf8),
+            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+      let dir = directory()
+      try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+      let staging = dir.appendingPathComponent("product-intro.staging.json")
+      let active = dir.appendingPathComponent("product-intro.json")
+      try? data.write(to: staging, options: .atomic)
+      let status = (obj["status"] as? String) ?? "inactive"
+      let mediaActive = dir.appendingPathComponent("product-intro-media.bin")
+      if status != "active" || httpURL(obj["mediaUrl"] as? String) == nil {
+        try? FileManager.default.removeItem(at: active)
+        try? FileManager.default.moveItem(at: staging, to: active)
+        try? FileManager.default.removeItem(at: mediaActive)
+        NSLog("[DIBAY_Startup] pi_persist_cleared status=%@", status)
+        return
+      }
+      guard let mediaUrl = httpURL(obj["mediaUrl"] as? String) else { return }
+      let mediaStaging = dir.appendingPathComponent("product-intro-media.staging.bin")
+      guard download(mediaUrl, to: mediaStaging) else {
+        NSLog("[DIBAY_Startup] pi_persist_media_incomplete")
+        return
+      }
+      try? FileManager.default.removeItem(at: active)
+      try? FileManager.default.moveItem(at: staging, to: active)
+      try? FileManager.default.removeItem(at: mediaActive)
+      try? FileManager.default.moveItem(at: mediaStaging, to: mediaActive)
+      NSLog("[DIBAY_Startup] pi_persist_ok")
     }
   }
 

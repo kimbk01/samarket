@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
+import { ProductIntroHost } from "@/components/app/ProductIntroHost";
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
@@ -98,6 +99,8 @@ export default async function RootLayout({
             <DibayAppDialogImperativeBridge />
             <AppBootProvider>
             <DibayStartupIntroController />
+            {/* First-entry cover: mounts before shellReady so it can occupy boot, not add a stage after. */}
+            <ProductIntroHost />
             <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />

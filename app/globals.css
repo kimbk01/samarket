@@ -1077,6 +1077,7 @@ a,
   overflow: hidden;
   box-shadow: 0 8px 28px color-mix(in srgb, #0b421a 14%, transparent);
   background: #fff;
+  /* Responsive: width/maxHeight set inline from product-intro-geometry SSOT */
 }
 
 .dibay-product-intro-image {

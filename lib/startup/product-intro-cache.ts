@@ -10,6 +10,7 @@ import {
   normalizeProductIntroConfig,
   type ProductIntroConfig,
 } from "@/lib/startup/product-intro";
+import { syncProductIntroToNative } from "@/lib/startup/product-intro-native-sync";
 
 function storageGet(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -140,6 +141,7 @@ export function scheduleProductIntroCacheRefresh(): void {
         if (!json?.ok) return;
         const next = normalizeProductIntroConfig(json.config);
         writeProductIntroCache(next);
+        syncProductIntroToNative(next);
         if (!isProductIntroDisplayEligible(next)) {
           writeProductIntroMediaReadyUrl(null);
           return;
@@ -148,6 +150,8 @@ export function scheduleProductIntroCacheRefresh(): void {
         if (url) {
           const ok = await prefetchProductIntroMedia(url, { markReady: true });
           if (!ok) writeProductIntroMediaReadyUrl(null);
+          // Re-sync after media ready so Native can download same asset for next cold.
+          if (ok) syncProductIntroToNative(next);
           const tablet = next.media.tabletUrl;
           // Warm tablet decode only — never replace mobile ready marker.
           if (tablet && tablet !== url) {
