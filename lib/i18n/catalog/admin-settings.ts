@@ -382,7 +382,7 @@ export const adminSettingsMessages = {
     admin_first_entry_min_display_help:
       "기본 0초: 앱이 준비되면 바로 닫힙니다. 부팅을 일부러 늘리지 않습니다. 캠페인용으로만 초를 올리세요.",
     admin_first_entry_image_guide:
-      "권장 이미지 1080×1350px · 비율 4:5 · 최대 2MB · JPG/PNG/WEBP. 중요한 글자·로고는 가장자리에서 8% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.",
+      "권장 1080×1350 · 4:5. 업로드 시 서버가 자동 최적화합니다(원본 최대 8MB · JPG/PNG/WEBP). 중요한 글자·로고는 가장자리에서 8% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.",
     admin_first_entry_animation: "화면 전환",
     admin_first_entry_anim_none: "없음",
     admin_first_entry_anim_fade: "페이드",
@@ -399,9 +399,13 @@ export const adminSettingsMessages = {
     admin_first_entry_preview: "미리보기",
     admin_first_entry_saved: "저장되었습니다.",
     admin_first_entry_upload_need_save:
-      "이미지가 선택되었습니다. 저장을 눌러야 앱 첫 진입 화면에 반영됩니다.",
+      "새 이미지가 업로드되었습니다. 적용하려면 저장하세요.",
+    admin_first_entry_upload_ready: "업로드 준비 완료",
+    admin_first_entry_optimize_summary: "원본 {original} → 최적화 {optimized} · {resolution}",
+    admin_first_entry_optimize_failed:
+      "이미지를 처리할 수 없습니다. 기존 이미지는 유지됩니다.",
     admin_first_entry_file_too_large:
-      "파일이 너무 큽니다. 최대 2MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.",
+      "원본이 너무 큽니다. 최대 8MB까지 올릴 수 있습니다(업로드 시 자동 최적화). 기존 이미지는 유지됩니다.",
     admin_first_entry_invalid_type: "지원 형식: JPG, PNG, WEBP. 기존 이미지는 유지됩니다.",
     admin_first_entry_save_tab: "시작 탭 저장",
     admin_startup_config_initial_surface: "시작 화면",
@@ -858,7 +862,7 @@ export const adminSettingsMessages = {
     admin_first_entry_min_display_help:
       "Default 0: closes as soon as the app is ready. Does not extend boot. Raise only for intentional campaign hold.",
     admin_first_entry_image_guide:
-      "Recommended 1080×1350px · 4:5 · max 2MB · JPG/PNG/WEBP. Keep text/logo inside the 8% safe inset. One source image renders responsively on all devices.",
+      "Recommended 1080×1350 · 4:5. Auto-optimized on upload (source max 8MB · JPG/PNG/WEBP). Keep text/logo inside the 8% safe inset. One source image renders responsively on all devices.",
     admin_first_entry_animation: "Transition",
     admin_first_entry_anim_none: "None",
     admin_first_entry_anim_fade: "Fade",
@@ -874,10 +878,13 @@ export const adminSettingsMessages = {
     admin_first_entry_ends: "Ends",
     admin_first_entry_preview: "Preview",
     admin_first_entry_saved: "Saved.",
-    admin_first_entry_upload_need_save:
-      "Image selected. Press Save to apply it to the app first-entry screen.",
+    admin_first_entry_upload_need_save: "New image uploaded. Press Save to apply.",
+    admin_first_entry_upload_ready: "Upload ready",
+    admin_first_entry_optimize_summary: "Original {original} → optimized {optimized} · {resolution}",
+    admin_first_entry_optimize_failed:
+      "Could not process image. The previous image was kept.",
     admin_first_entry_file_too_large:
-      "File is too large. Max 2MB. The previous image was kept.",
+      "Source file is too large. Max 8MB (auto-optimized on upload). The previous image was kept.",
     admin_first_entry_invalid_type: "Allowed: JPG, PNG, WEBP. The previous image was kept.",
     admin_first_entry_save_tab: "Save launch tab",
     admin_startup_config_initial_surface: "Initial screen",

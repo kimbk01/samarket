@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   PRODUCT_INTRO_CANONICAL_ASPECT,
+  PRODUCT_INTRO_MAX_OUTPUT_BYTES,
+  PRODUCT_INTRO_MAX_SOURCE_BYTES,
   PRODUCT_INTRO_POPUP_MAX_WIDTH_PX,
   computeProductIntroLayoutBox,
 } from "@/lib/startup/product-intro-geometry";
@@ -8,6 +10,12 @@ import {
 describe("product-intro-geometry", () => {
   it("locks canonical 4:5 creative", () => {
     expect(PRODUCT_INTRO_CANONICAL_ASPECT).toBe("4:5");
+  });
+
+  it("separates source ceiling from optimized output ceiling", () => {
+    expect(PRODUCT_INTRO_MAX_SOURCE_BYTES).toBe(8 * 1024 * 1024);
+    expect(PRODUCT_INTRO_MAX_OUTPUT_BYTES).toBe(1024 * 1024);
+    expect(PRODUCT_INTRO_MAX_SOURCE_BYTES).toBeGreaterThan(PRODUCT_INTRO_MAX_OUTPUT_BYTES);
   });
 
   it("popup stays bounded on phone and tablet", () => {

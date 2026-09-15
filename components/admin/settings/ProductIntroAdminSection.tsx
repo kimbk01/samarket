@@ -27,7 +27,7 @@ import {
 import { syncProductIntroToNative } from "@/lib/startup/product-intro-native-sync";
 import {
   PRODUCT_INTRO_CANONICAL_ASPECT,
-  PRODUCT_INTRO_MAX_FILE_BYTES,
+  PRODUCT_INTRO_MAX_SOURCE_BYTES,
   PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX,
   PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX,
   PRODUCT_INTRO_SAFE_ZONE_INSET_PCT,
@@ -38,6 +38,16 @@ import {
 } from "@/lib/startup/product-intro-geometry";
 import { validateCampaignImageFile } from "@/lib/admin/notification-campaigns/validate-campaign-image";
 import { INITIAL_APP_SURFACES, type InitialAppSurface } from "@/lib/startup/initial-app-surface";
+
+function formatBytesShort(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${bytes} B`;
+}
 
 type OperatorAnim = "none" | "fade" | "fade_scale" | "slide_up";
 type ClickMode = "none" | "navigate";
@@ -335,14 +345,14 @@ export function ProductIntroAdminSection() {
       const priorTablet = draft.media.tabletUrl;
       try {
         const validated = validateCampaignImageFile(file, {
-          maxBytes: PRODUCT_INTRO_MAX_FILE_BYTES,
+          maxBytes: PRODUCT_INTRO_MAX_SOURCE_BYTES,
         });
         if (!validated.ok) {
           if (validated.error === "file_too_large") {
             setMessage(
               safeT("admin_first_entry_file_too_large", {
-                fallbackKo: `파일이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.`,
-                fallbackEn: `File is too large. Max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB. The previous image was kept.`,
+                fallbackKo: `원본이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다(업로드 시 자동 최적화). 기존 이미지는 유지됩니다.`,
+                fallbackEn: `Source file is too large. Max ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB (auto-optimized on upload). The previous image was kept.`,
               })
             );
           } else if (validated.error === "invalid_type") {
@@ -370,13 +380,35 @@ export function ProductIntroAdminSection() {
           credentials: "same-origin",
           body: fd,
         });
-        const json = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+        const json = (await res.json()) as {
+          ok?: boolean;
+          url?: string;
+          error?: string;
+          optimized?: boolean;
+          originalBytes?: number;
+          outputBytes?: number;
+          width?: number;
+          height?: number;
+        };
         if (!res.ok || !json.ok || !json.url) {
           if (json.error === "file_too_large") {
             setMessage(
               safeT("admin_first_entry_file_too_large", {
-                fallbackKo: `파일이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다. 기존 이미지는 유지됩니다.`,
-                fallbackEn: `File is too large. Max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB. The previous image was kept.`,
+                fallbackKo: `원본이 너무 큽니다. 최대 ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB까지 올릴 수 있습니다(업로드 시 자동 최적화). 기존 이미지는 유지됩니다.`,
+                fallbackEn: `Source file is too large. Max ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB (auto-optimized on upload). The previous image was kept.`,
+              })
+            );
+          } else if (
+            json.error === "image_decode_failed" ||
+            json.error === "invalid_dimensions" ||
+            json.error === "source_dimensions_too_large" ||
+            json.error === "optimize_failed" ||
+            json.error === "output_too_large"
+          ) {
+            setMessage(
+              safeT("admin_first_entry_optimize_failed", {
+                fallbackKo: `이미지를 처리할 수 없습니다(${json.error}). 기존 이미지는 유지됩니다.`,
+                fallbackEn: `Could not process image (${json.error}). The previous image was kept.`,
               })
             );
           } else {
@@ -405,11 +437,36 @@ export function ProductIntroAdminSection() {
             },
           })
         );
+        const orig =
+          typeof json.originalBytes === "number" ? formatBytesShort(json.originalBytes) : null;
+        const out =
+          typeof json.outputBytes === "number" ? formatBytesShort(json.outputBytes) : null;
+        const resLabel =
+          typeof json.width === "number" && typeof json.height === "number"
+            ? `${json.width}×${json.height}`
+            : `${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX}`;
+        const sizeLine =
+          orig && out
+            ? safeT("admin_first_entry_optimize_summary", {
+                fallbackKo: `원본 ${orig} → 최적화 ${out} · ${resLabel}`,
+                fallbackEn: `Original ${orig} → optimized ${out} · ${resLabel}`,
+                vars: { original: orig, optimized: out, resolution: resLabel },
+              })
+            : null;
         setMessage(
-          safeT("admin_first_entry_upload_need_save", {
-            fallbackKo: "이미지가 선택되었습니다. 저장을 눌러야 앱 첫 진입 화면에 반영됩니다.",
-            fallbackEn: "Image selected. Press Save to apply it to the app first-entry screen.",
-          })
+          [
+            sizeLine,
+            safeT("admin_first_entry_upload_ready", {
+              fallbackKo: "업로드 준비 완료",
+              fallbackEn: "Upload ready",
+            }),
+            safeT("admin_first_entry_upload_need_save", {
+              fallbackKo: "새 이미지가 업로드되었습니다. 적용하려면 저장하세요.",
+              fallbackEn: "New image uploaded. Press Save to apply.",
+            }),
+          ]
+            .filter(Boolean)
+            .join(" · ")
         );
       } catch {
         setMessage(
@@ -572,8 +629,8 @@ export function ProductIntroAdminSection() {
             ) : null}
             <p className="mt-2 sam-text-caption text-sam-muted">
               {safeT("admin_first_entry_image_guide", {
-                fallbackKo: `권장 이미지 ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX}px · 비율 ${PRODUCT_INTRO_CANONICAL_ASPECT} · 최대 ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP. 중요한 글자·로고는 가장자리에서 ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.`,
-                fallbackEn: `Recommended ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX}px · ${PRODUCT_INTRO_CANONICAL_ASPECT} · max ${Math.round(PRODUCT_INTRO_MAX_FILE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP. Keep text/logo inside the ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% safe inset. One source image renders responsively on all devices.`,
+                fallbackKo: `권장 ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX} · ${PRODUCT_INTRO_CANONICAL_ASPECT}. 업로드 시 서버가 자동 최적화합니다(원본 최대 ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP). 중요한 글자·로고는 가장자리에서 ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% 안쪽(안전 영역)에 두세요. 원본 1장으로 모든 기기에 맞춰 표시됩니다.`,
+                fallbackEn: `Recommended ${PRODUCT_INTRO_RECOMMENDED_EXPORT_WIDTH_PX}×${PRODUCT_INTRO_RECOMMENDED_EXPORT_HEIGHT_PX} · ${PRODUCT_INTRO_CANONICAL_ASPECT}. Auto-optimized on upload (source max ${Math.round(PRODUCT_INTRO_MAX_SOURCE_BYTES / (1024 * 1024))}MB · JPG/PNG/WEBP). Keep text/logo inside the ${PRODUCT_INTRO_SAFE_ZONE_INSET_PCT}% safe inset. One source image renders responsively on all devices.`,
               })}
             </p>
           </div>

@@ -5,7 +5,11 @@ import {
   extForCampaignImageMime,
   validateCampaignImageFile,
 } from "@/lib/admin/notification-campaigns/validate-campaign-image";
-import { PRODUCT_INTRO_MAX_FILE_BYTES } from "@/lib/startup/product-intro-geometry";
+import {
+  PRODUCT_INTRO_MAX_FILE_BYTES,
+  PRODUCT_INTRO_MAX_SOURCE_BYTES,
+} from "@/lib/startup/product-intro-geometry";
+import { optimizeProductIntroCreativeBuffer } from "@/lib/startup/product-intro-optimize.server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -17,6 +21,9 @@ const BUCKET = "admin-notification-campaign-images";
 /**
  * POST multipart: kind=logo|background|product|product_tablet, file
  * Returns public HTTPS URL for Startup / Product Intro storage (not a local path).
+ *
+ * product / product_tablet: Admin-time sharp → canonical 1080×1350 WebP (immutable UUID URL).
+ * logo / background: passthrough with legacy 2MB ceiling (no First Entry optimize).
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -47,21 +54,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
-  const validated = validateCampaignImageFile(file, { maxBytes: PRODUCT_INTRO_MAX_FILE_BYTES });
+  const isProductKind = kind === "product" || kind === "product_tablet";
+  const maxBytes = isProductKind ? PRODUCT_INTRO_MAX_SOURCE_BYTES : PRODUCT_INTRO_MAX_FILE_BYTES;
+  const validated = validateCampaignImageFile(file, { maxBytes });
   if (!validated.ok) {
     return NextResponse.json({ ok: false, error: validated.error }, { status: 400 });
   }
 
-  const ext = extForCampaignImageMime(validated.mime);
   const folder =
     kind === "product" || kind === "product_tablet"
       ? `_admin/startup/product/${kind === "product_tablet" ? "tablet" : "mobile"}`
       : `_admin/startup/${kind}`;
-  const path = `${folder}/${randomUUID()}.${ext}`;
-  const buf = Buffer.from(await file.arrayBuffer());
 
-  const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
-    contentType: validated.mime === "image/jpg" ? "image/jpeg" : validated.mime,
+  const sourceBuf = Buffer.from(await file.arrayBuffer());
+  let uploadBuf: Buffer = sourceBuf;
+  let contentType: string =
+    validated.mime === "image/jpg" ? "image/jpeg" : validated.mime;
+  let ext = extForCampaignImageMime(validated.mime);
+  let optimizeMeta:
+    | {
+        originalBytes: number;
+        outputBytes: number;
+        width: number;
+        height: number;
+        sourceWidth: number;
+        sourceHeight: number;
+      }
+    | undefined;
+
+  if (isProductKind) {
+    const optimized = await optimizeProductIntroCreativeBuffer({
+      buffer: sourceBuf,
+      sourceBytes: sourceBuf.length,
+    });
+    if (!optimized.ok) {
+      return NextResponse.json({ ok: false, error: optimized.error }, { status: 400 });
+    }
+    uploadBuf = optimized.buffer;
+    contentType = optimized.contentType;
+    ext = optimized.ext;
+    optimizeMeta = {
+      originalBytes: optimized.sourceBytes,
+      outputBytes: optimized.outputBytes,
+      width: optimized.width,
+      height: optimized.height,
+      sourceWidth: optimized.sourceWidth,
+      sourceHeight: optimized.sourceHeight,
+    };
+  }
+
+  const path = `${folder}/${randomUUID()}.${ext}`;
+  const { error: upErr } = await svc.storage.from(BUCKET).upload(path, uploadBuf, {
+    contentType,
     upsert: false,
   });
 
@@ -77,5 +121,21 @@ export async function POST(req: NextRequest) {
     data: { publicUrl },
   } = svc.storage.from(BUCKET).getPublicUrl(path);
 
-  return NextResponse.json({ ok: true as const, kind, url: publicUrl });
+  return NextResponse.json({
+    ok: true as const,
+    kind,
+    url: publicUrl,
+    ...(optimizeMeta
+      ? {
+          optimized: true as const,
+          originalBytes: optimizeMeta.originalBytes,
+          outputBytes: optimizeMeta.outputBytes,
+          width: optimizeMeta.width,
+          height: optimizeMeta.height,
+          sourceWidth: optimizeMeta.sourceWidth,
+          sourceHeight: optimizeMeta.sourceHeight,
+          contentType,
+        }
+      : { optimized: false as const }),
+  });
 }
