@@ -85,5 +85,7 @@ describe("MainActivity timed splash removal", () => {
     );
     expect(src).not.toMatch(/SPLASH_MAX_KEEP_MS/);
     expect(src).toMatch(/webSplashDismissRequested/);
+    expect(src).toContain("postVisualStateCallback");
+    expect(src).toContain("dismissSplash visual_state_ready");
   });
 });

@@ -1368,7 +1368,7 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
 
-  /** Web 또는 native fallback — exit Native Intro then release theme splash. Does NOT remove handoff cover. */
+  /** Web 또는 native fallback — exit Native Intro after WebView visual-state commit. */
   public static void requestWebSplashDismiss(String source) {
     if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
@@ -1378,7 +1378,33 @@ public class MainActivity extends BridgeActivity {
     final MainActivity act = activeInstance;
     final Handler handler = act != null ? act.mainHandler : new Handler(Looper.getMainLooper());
     if (intro != null) {
-      handler.post(() -> intro.dismissWithExit(null));
+      handler.post(
+          () -> {
+            WebView webView = null;
+            try {
+              Bridge bridge = act != null ? act.getBridge() : null;
+              webView = bridge != null ? bridge.getWebView() : null;
+            } catch (Exception ignored) {
+              webView = null;
+            }
+            if (webView == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+              intro.dismissWithExit(null);
+              return;
+            }
+            final long requestId = SystemClock.uptimeMillis();
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash visual_state_wait requestId=" + requestId);
+            webView.postVisualStateCallback(
+                requestId,
+                new WebView.VisualStateCallback() {
+                  @Override
+                  public void onComplete(long callbackRequestId) {
+                    Log.i(
+                        WEBVIEW_LOG_TAG,
+                        "dismissSplash visual_state_ready requestId=" + callbackRequestId);
+                    intro.dismissWithExit(null);
+                  }
+                });
+          });
     }
   }
 
