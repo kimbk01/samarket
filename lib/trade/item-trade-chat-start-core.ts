@@ -165,10 +165,22 @@ async function buildJsonForExistingItemTradeRoom(
 
   if (quickMessengerId && pcId && onPc === quickMessengerId) {
     perf?.mark("messenger_room_existing_fast_path_aligned");
+    /**
+     * Aligned FK fast path must still restore CM membership after leave
+     * (`community_messenger_participants` deleted; room id retained).
+     */
+    await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existingRoomId, {
+      knownMessengerRoomId: quickMessengerId,
+      perf,
+    }).catch(() => undefined);
   } else if (quickMessengerId && pcId && !onPc) {
     perf?.mark("messenger_existing_fast_path_pc_backfill");
     await persistProductChatMessengerRoomId(sbAny, pcId, quickMessengerId);
     perf?.noteDbRoundTrip(1);
+    await ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existingRoomId, {
+      knownMessengerRoomId: quickMessengerId,
+      perf,
+    }).catch(() => undefined);
   } else if (quickMessengerId && !pcId) {
     perf?.mark("messenger_room_existing_fast_path_pc_ensure");
     const messengerRoomIdResolved = await ensureMessengerRoomIdForItemTrade(

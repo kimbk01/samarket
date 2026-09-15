@@ -107,11 +107,26 @@ export async function ensureMessengerRoomIdForItemTrade(
         } else {
           const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
           if (storedPc === onCr) {
+            /**
+             * Leave deletes `community_messenger_participants` for the leaver while keeping
+             * the CM room id on chat_rooms/product_chats. Returning the FK alone leaves
+             * resolve→send as room_not_found. Re-run ensure so the pair is restored.
+             */
+            await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id, {
+              itemTradeChatRoomId: crId || null,
+              prefetchedProductChat: pc,
+              deferSummaryHydration: true,
+            }).catch(() => null);
             return onCr;
           }
           /** `chat_rooms` 만 연결된 레거시 — `product_chats` 쪽 FK 가 비면 목록 enrich 가 실패한다 */
           await persistProductChatMessengerRoomIdIfNull(sb, pc.id, onCr);
           perf?.noteDbRoundTrip(2);
+          await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id, {
+            itemTradeChatRoomId: crId || null,
+            prefetchedProductChat: pc,
+            deferSummaryHydration: true,
+          }).catch(() => null);
           return onCr;
         }
       }
@@ -129,7 +144,13 @@ export async function ensureMessengerRoomIdForItemTrade(
     if (storedPc && !crId) {
       const capable = await isTradeCapableCommunityMessengerRoom(sb, storedPc);
       perf?.noteDbRoundTrip(1);
-      if (capable) return storedPc;
+      if (capable) {
+        await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id, {
+          prefetchedProductChat: pc,
+          deferSummaryHydration: true,
+        }).catch(() => null);
+        return storedPc;
+      }
       traceDomainSeparation({
         correlationId,
         phase: "ensure_messenger_for_trade",
