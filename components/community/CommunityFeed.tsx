@@ -108,6 +108,7 @@ import {
   philifeFeedSessionKeyForLocation,
 } from "@/lib/philife/neighborhood-feed-client-url";
 import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+import { normalizeCommunityHashtagQuery } from "@/lib/community-feed/hashtag-discovery";
 import { isSamarketPhilifeFeedPerfDiagEnabled } from "@/lib/debug/samarket-client-console-flags";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
@@ -345,6 +346,13 @@ export function CommunityFeed({
     initialBootSelection.authorityReady
   );
   const [neighborOnly, setNeighborOnly] = useState(false);
+  const tagFilter = normalizeCommunityHashtagQuery(searchParams.get("tag"));
+  const clearTagFilter = useCallback(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.delete("tag");
+    const q = p.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);
   const [hasMore, setHasMore] = useState(bootHasMore);
   /** cache/RSC 없으면 true — UI는 skeleton/blank 없이 셸만 유지, network 는 background */
@@ -691,6 +699,7 @@ export function CommunityFeed({
               globalFeed: true,
               category: category || undefined,
               neighborOnly,
+              tag: tagFilter || undefined,
               offset: keysetCursor ? 0 : nextOffset,
               cursor: keysetCursor,
               limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -701,12 +710,13 @@ export function CommunityFeed({
               /** `plan.requiresRegion` 가드가 위에서 이미 통과했으므로 non-null */
               meta: locationMeta!,
               neighborOnly,
+              tag: tagFilter || undefined,
               offset: keysetCursor ? 0 : nextOffset,
               cursor: keysetCursor,
               limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
               sort: feedSort,
             });
-        const personalized = neighborOnly || viewerSig !== "_anon";
+        const personalized = neighborOnly || viewerSig !== "_anon" || Boolean(tagFilter);
         const tFetchStart = performance.now();
         const res = await fetchNeighborhoodFeedShortTtl(url, {
           credentials: "include",
@@ -889,6 +899,7 @@ export function CommunityFeed({
     [
       category,
       neighborOnly,
+      tagFilter,
       viewerSig,
       feedSort,
       locationKey,
@@ -1073,7 +1084,7 @@ export function CommunityFeed({
         /* topic chips refresh optional */
       });
     await Promise.all([fetchPage(0, false, session, false), topicRefresh]);
-  }, [category, neighborOnly, viewerSig, feedSort, feedSessionKey, fetchPage]);
+  }, [category, neighborOnly, tagFilter, viewerSig, feedSort, feedSessionKey, fetchPage]);
 
   /** Member Identity mutation — drop contaminated author_name snapshots; SWR refetch */
   useEffect(() => {
@@ -1187,7 +1198,7 @@ export function CommunityFeed({
     if (promotedIds.size === 0) return posts;
     return posts.filter((p) => !promotedIds.has(String(p.id)));
   }, [posts, topAds]);
-  const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}`;
+  const feedPaintQueryKey = `${category.trim().toLowerCase()}\u001f${neighborOnly ? "1" : "0"}\u001f${feedSort}\u001f${tagFilter || ""}`;
   const searchKeyForNav = searchParams.toString();
   const philifeComposeHref = buildPhilifeComposeHref(category);
 
@@ -1886,6 +1897,22 @@ export function CommunityFeed({
                   document.body
                 )
               : null}
+            {tagFilter ? (
+              <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
+                <div className={`flex min-w-0 items-center justify-between gap-3 ${APP_MAIN_HEADER_INNER_CLASS}`}>
+                  <p className="min-w-0 truncate text-[14px] font-medium text-sam-fg">
+                    {t("community_feed_hashtag_active", { tag: tagFilter })}
+                  </p>
+                  <button
+                    type="button"
+                    className="shrink-0 text-[13px] font-semibold text-sam-primary"
+                    onClick={clearTagFilter}
+                  >
+                    {t("community_feed_hashtag_clear")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {showNeighborOnlyStrip ? (
               <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
                 <div className={`min-w-0 space-y-1 ${APP_MAIN_HEADER_INNER_CLASS}`}>
@@ -1954,7 +1981,7 @@ export function CommunityFeed({
         ) : null}
         {loading && postsForList.length === 0 && !err ? null : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
-            {t("community_feed_empty")}
+            {tagFilter ? t("community_feed_hashtag_empty", { tag: tagFilter }) : t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               {category === "meetup" ? (
                 <Link

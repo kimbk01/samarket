@@ -878,6 +878,9 @@ export const mypageComponentsMessages = {
     mypage_comp_community_unsave: "저장 해제",
     mypage_comp_community_unsaving: "해제 중…",
     mypage_comp_community_unsave_failed: "저장을 해제하지 못했습니다.",
+    mypage_comp_community_unlike: "공감 취소",
+    mypage_comp_community_unliking: "취소 중…",
+    mypage_comp_community_unlike_failed: "공감을 취소하지 못했습니다.",
 
     mypage_comp_trade_hub_side_nav_aria: "거래 관리 사이드 메뉴",
     mypage_comp_trade_hub_chat_nav: "거래채팅",
@@ -1733,6 +1736,9 @@ export const mypageComponentsMessages = {
     mypage_comp_community_unsave: "Unsave",
     mypage_comp_community_unsaving: "Removing…",
     mypage_comp_community_unsave_failed: "Could not remove the save.",
+    mypage_comp_community_unlike: "Unlike",
+    mypage_comp_community_unliking: "Removing…",
+    mypage_comp_community_unlike_failed: "Could not remove the like.",
 
     mypage_comp_trade_hub_side_nav_aria: "Trade hub side menu",
     mypage_comp_trade_hub_chat_nav: "Trade chat",

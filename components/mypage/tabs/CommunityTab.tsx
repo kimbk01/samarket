@@ -11,6 +11,7 @@ import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
+import { philifePostLikeUrl } from "@/lib/philife/api";
 
 type CommunityPostPreview = {
   id: string;
@@ -297,6 +298,38 @@ function MyCommunityActivityPanel({
     }
   };
 
+  const unlikePost = async (postId: string) => {
+    setBusyPostId(postId);
+    setError(null);
+    try {
+      const res = await fetch(philifePostLikeUrl(postId), {
+        method: "POST",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_unlike_failed"));
+        return;
+      }
+      if (json.liked === true) {
+        const res2 = await fetch(philifePostLikeUrl(postId), {
+          method: "POST",
+          credentials: "include",
+        });
+        const json2 = (await res2.json().catch(() => ({}))) as { ok?: boolean; liked?: boolean };
+        if (!res2.ok || !json2.ok || json2.liked === true) {
+          setError(t("mypage_comp_community_unlike_failed"));
+          return;
+        }
+      }
+      setLikedPosts((prev) => prev.filter((row) => row.postId !== postId));
+    } catch {
+      setError(t("mypage_comp_community_unlike_failed"));
+    } finally {
+      setBusyPostId(null);
+    }
+  };
+
   const content =
     mode === "comments" ? (
       <ActivityList
@@ -319,12 +352,22 @@ function MyCommunityActivityPanel({
         error={error}
         emptyMessage={t("mypage_comp_community_liked_empty")}
         items={likedPosts.map((item) => (
-          <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
-            <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
-            <p className="mt-1 sam-text-helper text-sam-meta">
-              {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
-            </p>
-          </Link>
+          <div key={item.id} className="flex items-center gap-2 px-4 py-3">
+            <Link href={`/philife/${encodeURIComponent(item.postId)}`} className="min-w-0 flex-1 hover:opacity-80">
+              <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
+              <p className="mt-1 sam-text-helper text-sam-meta">
+                {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
+              </p>
+            </Link>
+            <button
+              type="button"
+              disabled={busyPostId === item.postId}
+              className="shrink-0 sam-text-body-secondary text-red-600 disabled:opacity-50"
+              onClick={() => void unlikePost(item.postId)}
+            >
+              {busyPostId === item.postId ? t("mypage_comp_community_unliking") : t("mypage_comp_community_unlike")}
+            </button>
+          </div>
         ))}
       />
     ) : mode === "favorites" ? (

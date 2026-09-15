@@ -41,6 +41,8 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   cursor?: string | null;
   /** neighborhood-feed `sort` — local→latest, popular→popular */
   sort?: "latest" | "popular" | "recommended";
+  /** Exact hashtag discovery — maps to `?tag=` */
+  tag?: string | null;
 }): string {
   const p = new URLSearchParams();
   if (input.globalFeed) {
@@ -65,5 +67,7 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   if (input.neighborOnly) p.set("neighborOnly", "1");
   const aid = input.authorUserId?.trim();
   if (aid) p.set("authorId", aid);
+  const tag = (input.tag ?? "").trim().replace(/^#+/, "");
+  if (tag) p.set("tag", tag);
   return philifeNeighborhoodFeedUrl(p.toString());
 }

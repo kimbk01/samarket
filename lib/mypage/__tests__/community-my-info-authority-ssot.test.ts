@@ -63,6 +63,8 @@ describe("CUT1 Community My Info authority SSOT", () => {
     expect(tab).toContain("setSavedPosts");
     expect(tab).toContain("/api/community/posts/");
     expect(tab).toContain("/save");
+    expect(tab).toContain("philifePostLikeUrl");
+    expect(tab).toContain("unlikePost");
   });
 
   it("neighbor remove uses the same user_relationships authority as detail CTA", () => {

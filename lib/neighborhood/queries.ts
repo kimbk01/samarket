@@ -50,6 +50,11 @@ import {
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolvePopularPagingOffsetAdvance } from "@/lib/neighborhood/popular-paging-offset";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
+import {
+  communityHashtagIlikeOrFilter,
+  communityPostTextMatchesHashtag,
+  normalizeCommunityHashtagQuery,
+} from "@/lib/community-feed/hashtag-discovery";
 import { summarizeCommunityPostContent } from "@/lib/philife/interleaved-body-markdown";
 
 function countCsvSelectColumns(selectList: string): number {
@@ -162,6 +167,11 @@ export async function listNeighborhoodFeed(options: {
   feedSort?: CommunityFeedSortMode;
   /** 동네 섹션 주제 행 — 스킨·색·라벨 일치. 없으면 서버에서 로드 */
   topics?: CommunityTopicDTO[];
+  /**
+   * Body/title/summary exact hashtag discovery (`#tag` token).
+   * Coarse ilike prefilter + exact tokenizer match (no structured tag table).
+   */
+  hashtag?: string | null;
 }): Promise<NeighborhoodFeedPageResult> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -172,6 +182,7 @@ export async function listNeighborhoodFeed(options: {
 
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
+  const hashtag = normalizeCommunityHashtagQuery(options.hashtag);
   const allLocations = options.allLocations === true;
   const lid = options.locationId?.trim() ?? "";
   if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
@@ -252,7 +263,9 @@ export async function listNeighborhoodFeed(options: {
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
 
-  const fetchCount = pageSize + 1;
+  const fetchCount = hashtag
+    ? Math.min(Math.max(pageSize * 5 + 1, pageSize + 1), 101)
+    : pageSize + 1;
   const authorUserId = options.authorUserId?.trim();
   const sortIn: CommunityFeedSortMode = options.feedSort ?? "latest";
   const { filterCategory: filterCat, feedSort: effSort } = resolveNeighborhoodListSort(
@@ -294,7 +307,10 @@ export async function listNeighborhoodFeed(options: {
     "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
   const keysetCursor =
-    effSort === "latest" && options.cursor?.publishedAt?.trim() && options.cursor?.id?.trim()
+    !hashtag &&
+    effSort === "latest" &&
+    options.cursor?.publishedAt?.trim() &&
+    options.cursor?.id?.trim()
       ? { publishedAt: options.cursor.publishedAt.trim(), id: options.cursor.id.trim() }
       : null;
   const useKeyset = Boolean(keysetCursor);
@@ -306,7 +322,11 @@ export async function listNeighborhoodFeed(options: {
     rangeToInclusive: number,
     chronologyCol: "published_at" | "created_at" = "published_at"
   ) => {
-    let qq = sb.from("community_posts").select(selectCols).eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
+    const cols =
+      hashtag && !selectCols.includes("content")
+        ? selectCols.replace(/\btitle\b/, "title, content")
+        : selectCols;
+    let qq = sb.from("community_posts").select(cols).eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
     if (effSort === "popular") {
       qq = qq
         .order("view_count", { ascending: false })
@@ -320,7 +340,7 @@ export async function listNeighborhoodFeed(options: {
       qq = qq.eq("location_id", lid).not("location_id", "is", null);
     }
     if (filterCat) {
-      if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
+      if (useTopicSlugFilter && cols.includes("topic_slug")) {
         if (filterCat === "meetup") {
           qq = qq.eq("category", "meetup");
         } else {
@@ -331,6 +351,9 @@ export async function listNeighborhoodFeed(options: {
       }
     }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
+    if (hashtag) {
+      qq = qq.or(communityHashtagIlikeOrFilter(hashtag));
+    }
     if (useKeyset && keysetCursor && chronologyCol === "published_at") {
       qq = qq.or(communityFeedKeysetOrFilter(keysetCursor)).limit(fetchCount);
       return qq;
@@ -467,6 +490,19 @@ export async function listNeighborhoodFeed(options: {
     const uid = String(r.user_id ?? "");
     if (blockExclude.has(uid)) return false;
     if (neighborOnlySet && !neighborOnlySet.has(uid)) return false;
+    if (
+      hashtag &&
+      !communityPostTextMatchesHashtag(
+        {
+          title: typeof r.title === "string" ? r.title : "",
+          content: typeof r.content === "string" ? r.content : "",
+          summary: typeof r.summary === "string" ? r.summary : "",
+        },
+        hashtag
+      )
+    ) {
+      return false;
+    }
     return true;
   });
   let rows: Record<string, unknown>[];
