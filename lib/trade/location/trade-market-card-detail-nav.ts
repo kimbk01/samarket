@@ -3,15 +3,14 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { prepareTradeMarketListToDetailNavigation } from "@/lib/trade/location/trade-market-list-scroll-restore";
 
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
-
+/**
+ * List→detail click prep only.
+ *
+ * Navigation owner: native `<Link href=/post/:id>` + canonical `AppRouteTransition`
+ * (marketplaceDetailStackDepth → rtl-forward). Card-level document View Transitions API
+ * plus preventDefault plus manual router push is forbidden — it aborted the detail RSC and
+ * left the URL on `/market` (Production Android CDP diagnostic CURRENT_VT FAIL / VT_BYPASS PASS).
+ */
 export function clearTradeMarketCardDetailNavigationMarkers(): void {
   if (typeof document === "undefined") return;
   delete document.documentElement.dataset.marketListVt;
@@ -21,8 +20,8 @@ export function clearTradeMarketCardDetailNavigationMarkers(): void {
 }
 
 /**
- * Save scroll + selected listing; optionally run a light View Transition into detail.
- * Returns true when the click was handled (caller should preventDefault).
+ * Save scroll + selected listing for back-restore.
+ * Always returns false — caller must NOT preventDefault; `<Link>` owns navigation.
  */
 export function handleTradeMarketCardDetailClick(input: {
   event: { preventDefault: () => void };
@@ -32,34 +31,8 @@ export function handleTradeMarketCardDetailClick(input: {
   cardEl: HTMLElement | null;
   router: AppRouterInstance;
 }): boolean {
-  const { event, postId, detailHref, routeKey, cardEl, router } = input;
+  const { postId, routeKey } = input;
   prepareTradeMarketListToDetailNavigation({ routeKey, postId });
-
-  if (prefersReducedMotion()) return false;
-  const doc = typeof document !== "undefined" ? document : null;
-  const startVt =
-    doc &&
-    "startViewTransition" in doc &&
-    typeof (doc as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } })
-      .startViewTransition === "function"
-      ? (
-          doc as Document & {
-            startViewTransition: (cb: () => void) => { finished: Promise<void> };
-          }
-        ).startViewTransition
-      : null;
-
-  if (!startVt) return false;
-
-  event.preventDefault();
-  if (cardEl) cardEl.dataset.marketVtActive = "1";
-  doc!.documentElement.dataset.marketListVt = "forward";
-
-  const transition = startVt(() => {
-    router.push(detailHref);
-  });
-  void transition.finished.finally(() => {
-    clearTradeMarketCardDetailNavigationMarkers();
-  });
-  return true;
+  clearTradeMarketCardDetailNavigationMarkers();
+  return false;
 }
