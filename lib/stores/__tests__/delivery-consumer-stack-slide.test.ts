@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
+  isDeliveryStoreDetailRootPath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
 
 describe("deliveryConsumerStackDepth", () => {
@@ -22,5 +23,15 @@ describe("deliveryConsumerStackDepth", () => {
     expect(deliveryConsumerStackDepth("/market")).toBe(-1);
     expect(isDeliveryConsumerStackPath("/stores")).toBe(true);
     expect(isDeliveryConsumerStackPath("/stores/owner")).toBe(false);
+  });
+
+  it("isDeliveryStoreDetailRootPath — slug menu only", () => {
+    expect(isDeliveryStoreDetailRootPath("/stores/aa11")).toBe(true);
+    expect(isDeliveryStoreDetailRootPath("/stores/aa11/")).toBe(true);
+    expect(isDeliveryStoreDetailRootPath("/stores")).toBe(false);
+    expect(isDeliveryStoreDetailRootPath("/stores/cart")).toBe(false);
+    expect(isDeliveryStoreDetailRootPath("/stores/browse/restaurant")).toBe(false);
+    expect(isDeliveryStoreDetailRootPath("/stores/aa11/cart")).toBe(false);
+    expect(isDeliveryStoreDetailRootPath("/stores/aa11/p/prod-1")).toBe(false);
   });
 });

@@ -30,6 +30,21 @@ const STORES_RESERVED_ROOT = new Set([
 ]);
 
 /**
+ * True for `/stores/:slug` menu root only (not hub cart/orders, not /p/, not cart child).
+ * Used so AppRouteTransition suppression targets StoreDetailSlideShell hosts only.
+ */
+export function isDeliveryStoreDetailRootPath(path: string | null | undefined): boolean {
+  const p = normalize(path);
+  if (!p.startsWith("/stores/")) return false;
+  if (isStoresOwnerStackPath(p) || isStoreOwnerApplyPath(p)) return false;
+  const rest = p.slice("/stores/".length);
+  const parts = rest.split("/").filter(Boolean);
+  if (parts.length !== 1) return false;
+  const head = parts[0] ?? "";
+  return Boolean(head) && !STORES_RESERVED_ROOT.has(head);
+}
+
+/**
  * -1 = outside delivery consumer stack
  *  0 = `/stores` hub
  *  1 = browse / search

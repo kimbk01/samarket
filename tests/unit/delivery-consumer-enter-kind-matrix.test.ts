@@ -5,14 +5,18 @@ import {
   routeTransitionPushAxisForKind,
 } from "@/components/route-transition/route-transition-config";
 
-/** CUT-C — delivery consumer drill-down must use full-page RTL forward / LTR back. */
+/**
+ * CUT-C / SINGLE-ACTION — delivery consumer drill-down.
+ * Hub/browse ↔ store detail root: AppRouteTransition = subtle (shell owns slide).
+ * Hub ↔ cart/orders and other depth moves keep rtl-forward / ltr-back.
+ */
 describe("delivery consumer enter-kind matrix", () => {
   const cases = [
     ["/stores", "/stores/browse/restaurant", "rtl-forward"],
     ["/stores", "/stores/browse/cafe", "rtl-forward"],
     ["/stores/browse/restaurant", "/stores/aa11", "subtle"],
-    ["/stores", "/stores/aa11", "rtl-forward"],
-    ["/stores/aa11", "/stores", "ltr-back"],
+    ["/stores", "/stores/aa11", "subtle"],
+    ["/stores/aa11", "/stores", "subtle"],
     ["/stores/browse/restaurant", "/stores", "ltr-back"],
     ["/stores", "/stores/cart", "rtl-forward"],
     ["/stores/browse/restaurant", "/stores/browse/cafe", "subtle"],
@@ -38,13 +42,13 @@ describe("delivery consumer enter-kind matrix", () => {
     });
   }
 
-  it("popstate back from store to hub uses ltr-back", () => {
+  it("popstate back from store to hub uses subtle (StoreDetailSlideShell owns)", () => {
     const ref = { current: "rtl" as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/stores/aa11", "/stores", {
       popstateBack: true,
       lastForwardAxisRef: ref,
     });
-    expect(k).toBe("ltr-back");
+    expect(k).toBe("subtle");
   });
 
   it("ARCH B2 popstate browse←store uses subtle", () => {

@@ -96,6 +96,22 @@ describe("computeRouteTransitionEnterKind", () => {
     ).toBe("subtle");
   });
 
+  it("hub ↔ hub cart keeps rtl/ltr (not store-detail shell pair)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    expect(
+      computeRouteTransitionEnterKind("/stores", "/stores/cart", {
+        popstateBack: false,
+        lastForwardAxisRef,
+      })
+    ).toBe("rtl-forward");
+    expect(
+      computeRouteTransitionEnterKind("/stores/cart", "/stores", {
+        popstateBack: true,
+        lastForwardAxisRef,
+      })
+    ).toBe("ltr-back");
+  });
+
   it("market list to trade post detail uses rtl-forward without card origin", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {

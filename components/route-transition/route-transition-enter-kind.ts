@@ -33,6 +33,7 @@ import {
 import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
+  isDeliveryStoreDetailRootPath,
 } from "@/lib/stores/delivery-consumer-stack-slide";
 import {
   commerceConsumerStackDepth,
@@ -259,14 +260,17 @@ export function computeRouteTransitionEnterKind(
     const dPrev = deliveryConsumerStackDepth(prevPath);
     const dNext = deliveryConsumerStackDepth(nextPath);
     /**
-     * ARCH B2 — browse (1) ↔ store (2): DeliveryPresentationShell owns transform.
-     * SINGLE-ACTION CLOSE — hub (0) ↔ store (2): StoreDetailSlideShell owns transform.
+     * ARCH B2 — browse (1) ↔ store detail root (2): DeliveryPresentationShell owns transform.
+     * SINGLE-ACTION CLOSE — hub (0) ↔ store detail root (2): StoreDetailSlideShell owns transform.
      * AppRouteTransition must not also rtl/ltr (dual slide = confirmed divergence).
+     * Do NOT treat hub cart/orders (also depth 2) as store detail — those keep rtl/ltr.
      */
     const browseStorePair =
-      (dPrev === 1 && dNext === 2) || (dPrev === 2 && dNext === 1);
+      (dPrev === 1 && dNext === 2 && isDeliveryStoreDetailRootPath(nextPath)) ||
+      (dPrev === 2 && dNext === 1 && isDeliveryStoreDetailRootPath(prevPath));
     const hubStorePair =
-      (dPrev === 0 && dNext === 2) || (dPrev === 2 && dNext === 0);
+      (dPrev === 0 && dNext === 2 && isDeliveryStoreDetailRootPath(nextPath)) ||
+      (dPrev === 2 && dNext === 0 && isDeliveryStoreDetailRootPath(prevPath));
     if (browseStorePair || hubStorePair) {
       kind = "subtle";
     } else if (opts.popstateBack) {
