@@ -2,14 +2,14 @@
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { prepareTradeMarketListToDetailNavigation } from "@/lib/trade/location/trade-market-list-scroll-restore";
-import { captureTradeMarketCardOriginExpand } from "@/lib/trade/marketplace/trade-market-card-origin-expand";
+import { armTradeMarketCardMorphForward } from "@/lib/trade/marketplace/trade-market-card-morph";
 
 /**
- * List→detail click prep only (scroll restore + card-origin geometry).
+ * List→detail click prep only (scroll DATA + morph arm).
  *
  * Navigation owner: native `<Link href=/post/:id>` + App Router.
- * Visual owner: card-origin expand continuity (separate from navigation).
- * FORBIDDEN: preventDefault, document View Transitions as nav owner, manual router.push.
+ * Visual owner: MarketCardMorphHost (single coordinator).
+ * FORBIDDEN: preventDefault, View Transitions as nav owner, manual router.push.
  */
 export function clearTradeMarketCardDetailNavigationMarkers(): void {
   if (typeof document === "undefined") return;
@@ -20,7 +20,7 @@ export function clearTradeMarketCardDetailNavigationMarkers(): void {
 }
 
 /**
- * Save scroll + selected listing + optional card geometry for expand continuity.
+ * Save scroll + selected listing + arm morph coordinator.
  * Always returns false — caller must NOT preventDefault; `<Link>` owns navigation.
  */
 export function handleTradeMarketCardDetailClick(input: {
@@ -31,13 +31,20 @@ export function handleTradeMarketCardDetailClick(input: {
   cardEl: HTMLElement | null;
   router: AppRouterInstance;
   imageUrl?: string | null;
+  priceText?: string | null;
+  titleText?: string | null;
+  locationText?: string | null;
 }): boolean {
-  const { postId, routeKey, cardEl, imageUrl } = input;
+  const { postId, routeKey, cardEl, imageUrl, priceText, titleText, locationText } = input;
   prepareTradeMarketListToDetailNavigation({ routeKey, postId });
-  captureTradeMarketCardOriginExpand({
+  armTradeMarketCardMorphForward({
     listingId: postId,
     cardEl,
     imageUrl: imageUrl ?? null,
+    priceText: priceText ?? null,
+    titleText: titleText ?? null,
+    locationText: locationText ?? null,
+    listRouteKey: routeKey,
   });
   clearTradeMarketCardDetailNavigationMarkers();
   return false;

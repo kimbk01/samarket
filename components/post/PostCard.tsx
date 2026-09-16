@@ -249,6 +249,9 @@ export const PostCard = memo(function PostCard({
             cardEl: cardRootRef.current,
             router,
             imageUrl: hasUsableThumbnail ? thumbnailFetchUrl || thumbnailUrl || null : null,
+            priceText: listPreview?.feedPrice?.trim() || null,
+            titleText: listPreview?.feedTitle?.trim() || null,
+            locationText: locationLine || null,
           });
         }}
         className="flex min-w-0 flex-col"

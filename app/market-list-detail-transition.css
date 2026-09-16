@@ -1,7 +1,6 @@
 /**
  * Marketplace list↔detail visual hooks.
- * Card→detail morph is owned by `MarketCardOriginExpandOverlayHost`
- * (image FLIP + plain surface veil — never whole-card text scale).
+ * Card→detail morph is owned by `MarketCardMorphHost` (single coordinator).
  */
 
 .market-listing-card[data-market-selected-return="1"] {
@@ -10,10 +9,16 @@
   border-radius: var(--sam-radius-sm, 8px);
 }
 
+/* Real detail stays invisible while morph cover owns perception. */
+[data-market-morph-detail-cover="1"] {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  [data-market-card-origin-surface="1"],
-  [data-market-card-origin-image="1"],
-  [data-market-card-origin-scrim="1"] {
+  [data-market-card-morph-image="1"],
+  [data-market-card-morph-source-text="1"],
+  [data-market-card-morph-target-text="1"] {
     transition: none !important;
   }
 }

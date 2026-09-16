@@ -119,9 +119,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
     });
   }, [id]);
 
-  // Card-origin expand cleanup is owned by MarketCardOriginExpandOverlayHost
-  // (CARD_ORIGIN_EXPAND_DURATION_MS). Do not clear here — early consume tore down
-  // warm-nav overlays mid-animation and made subsequent entries non-repeatable.
+  // Morph coordinator owns cover release — do not clear morph session here.
 
   useEffect(() => {
     setPost(initialBundle.item);

@@ -37,7 +37,7 @@ describe("trade-market-card-detail-nav", () => {
     expect(src).not.toMatch(/document\.startViewTransition/);
     expect(src).not.toMatch(/router\.push\s*\(/);
     expect(src).not.toMatch(/event\.preventDefault\s*\(/);
-    expect(src).toContain("captureTradeMarketCardOriginExpand");
+    expect(src).toContain("armTradeMarketCardMorphForward");
   });
 
   it("PostCard still wires the helper without owning a second navigator", () => {

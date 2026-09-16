@@ -27,9 +27,8 @@ import {
   marketplaceDetailStackDepth,
 } from "@/lib/trade/marketplace/marketplace-detail-stack-slide";
 import {
-  hasActiveTradeMarketCardOriginForPostId,
-  tradePostIdFromPath,
-} from "@/lib/trade/marketplace/trade-market-card-origin-expand";
+  isTradeMarketCardMorphSuppressingRouteEnter,
+} from "@/lib/trade/marketplace/trade-market-card-morph";
 import {
   deliveryConsumerStackDepth,
   isDeliveryConsumerStackPath,
@@ -210,19 +209,14 @@ export function computeRouteTransitionEnterKind(
     if (isTradePostDetailPath(prevPath) && isTradePostDetailPath(nextPath) && prevPath !== nextPath) {
       kind = opts.popstateBack ? "ltr-back" : "rtl-forward";
       if (!opts.popstateBack) opts.lastForwardAxisRef.current = "rtl";
+    } else if (isTradeMarketCardMorphSuppressingRouteEnter()) {
+      // Single morph coordinator owns list↔detail presentation (forward + back).
+      kind = "none";
     } else if (opts.popstateBack) {
       kind = dNext < dPrev ? "ltr-back" : "rtl-back";
     } else if (dNext > dPrev) {
-      // Marketplace card-origin expand owns the visual when geometry was captured on tap.
-      // Navigation remains <Link>; suppress generic rtl-forward so it cannot fight expand.
-      const postId = tradePostIdFromPath(nextPath);
-      const cardOriginExpand = Boolean(postId && hasActiveTradeMarketCardOriginForPostId(postId));
-      if (cardOriginExpand) {
-        kind = "none";
-      } else {
-        kind = "rtl-forward";
-        opts.lastForwardAxisRef.current = "rtl";
-      }
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
     } else {
       kind = "ltr-back";
     }
@@ -260,10 +254,9 @@ export function computeRouteTransitionEnterKind(
     const dPrev = deliveryConsumerStackDepth(prevPath);
     const dNext = deliveryConsumerStackDepth(nextPath);
     /**
-     * ARCH B2 — browse (1) ↔ store detail root (2): DeliveryPresentationShell owns transform.
-     * SINGLE-ACTION CLOSE — hub (0) ↔ store detail root (2): StoreDetailSlideShell owns transform.
+     * ARCH B2 — browse (1) ↔ store (2): DeliveryPresentationShell owns transform.
+     * SINGLE-ACTION CLOSE — hub (0) ↔ store (2): StoreDetailSlideShell owns transform.
      * AppRouteTransition must not also rtl/ltr (dual slide = confirmed divergence).
-     * Do NOT treat hub cart/orders (also depth 2) as store detail — those keep rtl/ltr.
      */
     const browseStorePair =
       (dPrev === 1 && dNext === 2 && isDeliveryStoreDetailRootPath(nextPath)) ||

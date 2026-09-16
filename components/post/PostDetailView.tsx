@@ -9,6 +9,15 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { peekTradeListReturnHref } from "@/lib/trade/location/trade-list-return-href";
+import {
+  armTradeMarketCardMorphBack,
+  isTradeMarketCardMorphCoveringDetail,
+  measureTradeMarketDetailMorphTargets,
+  publishTradeMarketDetailStandingSnapshot,
+  publishTradeMarketMorphTargetGeometry,
+  subscribeTradeMarketCardMorph,
+} from "@/lib/trade/marketplace/trade-market-card-morph";
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getUserProfile } from "@/lib/users/getUserProfile";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
@@ -64,7 +73,6 @@ import {
   ownerEditLockHintKey,
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
-import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
@@ -461,6 +469,15 @@ export function PostDetailView({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const tradeDetailHeaderTitle = category?.name?.trim() || t("trade_detail_header_fallback");
+  const [morphCover, setMorphCover] = useState(() => isTradeMarketCardMorphCoveringDetail(post.id));
+  const armMorphBackRef = useRef<() => boolean>(() => false);
+
+  useEffect(() => {
+    setMorphCover(isTradeMarketCardMorphCoveringDetail(post.id));
+    return subscribeTradeMarketCardMorph(() => {
+      setMorphCover(isTradeMarketCardMorphCoveringDetail(post.id));
+    });
+  }, [post.id]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -473,7 +490,10 @@ export function PostDetailView({
           showHubQuickActions: false,
           leftSlot: (
             <AppBackButton
-              onBack={tradePostDetailSlideHost.closeSlide}
+              onBack={() => {
+                armMorphBackRef.current();
+                tradePostDetailSlideHost.closeSlide();
+              }}
               ariaLabelKey="tier1_back"
               className="text-[#111]"
             />
@@ -495,6 +515,7 @@ export function PostDetailView({
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
+            interceptBack={() => armMorphBackRef.current()}
             ariaLabel={t("trade_detail_back_to_list")}
             className="text-[#111]"
           />
@@ -1180,6 +1201,84 @@ export function PostDetailView({
       ? reHeroTitle
       : post.title ?? "";
 
+  const morphPriceText = post.is_free_share
+    ? t("trade_detail_free_share")
+    : post.price != null
+      ? formatPrice(post.price, defaultCurrency)
+      : "";
+  const morphLocationText =
+    resolveTradePostListingLocationLine(
+      (post.meta as Record<string, unknown>) ?? null,
+      post.region,
+      post.city,
+      post.trade_lgu_id
+    ) || "";
+
+  useLayoutEffect(() => {
+    if (!morphCover) return;
+    const measured = measureTradeMarketDetailMorphTargets(rootRef.current);
+    publishTradeMarketMorphTargetGeometry({
+      listingId: post.id,
+      heroRect: measured.heroRect,
+      contentRect: measured.contentRect,
+    });
+  }, [morphCover, post.id, detailImageUrls.length]);
+
+  useEffect(() => {
+    armMorphBackRef.current = () => {
+      armTradeMarketCardMorphBack({
+        listingId: post.id,
+        rootEl: rootRef.current,
+        imageUrl: detailImageUrls[0] ?? null,
+        priceText: morphPriceText,
+        titleText: detailHeroTitle || post.title || "",
+        locationText: morphLocationText,
+        listRouteKey: backHref || "/market",
+      });
+      return false;
+    };
+  }, [
+    post.id,
+    post.title,
+    detailImageUrls,
+    morphPriceText,
+    morphLocationText,
+    detailHeroTitle,
+    backHref,
+  ]);
+
+  useEffect(() => {
+    if (morphCover) return;
+    const publish = () => {
+      publishTradeMarketDetailStandingSnapshot({
+        listingId: post.id,
+        rootEl: rootRef.current,
+        imageUrl: detailImageUrls[0] ?? null,
+        priceText: morphPriceText,
+        titleText: detailHeroTitle || post.title || "",
+        locationText: morphLocationText,
+        listRouteKey: backHref || "/market",
+      });
+    };
+    publish();
+    const onScroll = () => publish();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    const iv = window.setInterval(publish, 900);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.clearInterval(iv);
+    };
+  }, [
+    morphCover,
+    post.id,
+    post.title,
+    detailImageUrls,
+    morphPriceText,
+    morphLocationText,
+    detailHeroTitle,
+    backHref,
+  ]);
+
   const specTitle =
     isJobsSpec
       ? jobDetailDirection === "hiring"
@@ -1204,7 +1303,12 @@ export function PostDetailView({
     "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft text-[13px] font-semibold text-sam-fg last:border-r-0";
 
   return (
-    <div ref={rootRef} className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]">
+    <div
+      ref={rootRef}
+      data-market-morph-detail-root="1"
+      data-market-morph-detail-cover={morphCover ? "1" : undefined}
+      className="w-full min-w-0 bg-sam-app pb-[max(10px,var(--safe-bottom))]"
+    >
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
         {detailImageUrls.length > 0 ? (
           <section data-ui5-slot="photos" className={TRADE_FB_DETAIL_IMAGE_SECTION}>

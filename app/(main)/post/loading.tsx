@@ -1,10 +1,10 @@
-import { MarketCardOriginExpandLoading } from "./MarketCardOriginExpandLoading";
+import { MarketCardMorphSegmentLoading } from "./MarketCardMorphSegmentLoading";
 
 /**
  * `/post/[id]` segment loading.
- * Marketplace card→detail: geometry continuity surface (no CommunityFeedSkeleton flash).
+ * Marketplace card→detail: morph coordinator owns the frame (no skeleton flash).
  * Direct/deep-link/refresh: falls back inside client to MainFeedRouteLoading.
  */
 export default function PostSegmentLoading() {
-  return <MarketCardOriginExpandLoading />;
+  return <MarketCardMorphSegmentLoading />;
 }

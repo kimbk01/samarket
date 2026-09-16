@@ -124,11 +124,11 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(routeTransitionPushAxisForKind(k)).toBe("rtl");
   });
 
-  it("market list to trade post detail uses none when card-origin geometry is active", async () => {
-    const { captureTradeMarketCardOriginExpand, clearTradeMarketCardOriginExpand } = await import(
-      "@/lib/trade/marketplace/trade-market-card-origin-expand"
+  it("market list to trade post detail uses none when card morph is active", async () => {
+    const { armTradeMarketCardMorphForward, clearTradeMarketCardMorph } = await import(
+      "@/lib/trade/marketplace/trade-market-card-morph"
     );
-    clearTradeMarketCardOriginExpand();
+    clearTradeMarketCardMorph();
     vi.stubGlobal(
       "matchMedia",
       vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
@@ -137,8 +137,9 @@ describe("computeRouteTransitionEnterKind", () => {
     vi.stubGlobal("innerHeight", 844);
     const el = {
       getBoundingClientRect: () => ({ left: 40, top: 300, width: 150, height: 180, right: 190, bottom: 480 }),
+      querySelector: () => null,
     } as unknown as HTMLElement;
-    captureTradeMarketCardOriginExpand({ listingId: "abc-1", cardEl: el });
+    armTradeMarketCardMorphForward({ listingId: "abc-1", cardEl: el });
 
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/post/abc-1", {
@@ -148,7 +149,7 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("none");
     expect(routeTransitionClassForKind(k)).toBeNull();
     expect(routeTransitionPushAxisForKind(k)).toBeNull();
-    clearTradeMarketCardOriginExpand();
+    clearTradeMarketCardMorph();
   });
 
   it("trade post detail back to market list uses ltr-back", () => {
